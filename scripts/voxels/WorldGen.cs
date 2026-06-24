@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 6;
+    public const int WORLDGEN_VERSION = 7;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -448,13 +448,16 @@ public static class WorldGen
         }
         GenerateAllProps(ws, genData, noise.Grass, noise.Forest, heightMap, skipFlags, worldSeed);
 
-        // One-off near-spawn test fixtures (villager, knowledge stones, stash,
-        // boat). Temporary scaffolding — replaced by the editor's placement pass.
-        PlaceNearSpawnFixtures(ws, genData, heightMap, worldSeed);
+        // One-off per-zone fixture clusters (hub zone = near-spawn villager /
+        // companion / lit campfire / boat; other zones = their landmark
+        // cluster), each authored as a ZoneGenData.Fixtures SpawnGroupData.
+        PlaceZoneFixtures(ws, genData, heightMap, worldSeed);
 
         if ((skipFlags & SKIP_INTERACTIVES) == 0)
         {
-            GenerateSignposts(ws, genData, heightMap, worldSeed);
+            // Per-region landmark fixtures (signpost, knowledge stone), authored
+            // as each RegionGenData.Fixtures list.
+            PlaceRegionFixtures(ws, genData, heightMap, worldSeed);
         }
 
         // Stamp authored subscenes (voxels + entities). Loads each
@@ -588,11 +591,11 @@ public static class WorldGen
     // PickZoneIndex) decides which entry each chunk belongs to.
     private static void BuildRegionStates(WorldState ws, WorldGenData genData)
     {
-        RegionData[] regionPalette = genData.Regions ?? [];
+        RegionGenData[] regionPalette = genData.Regions ?? [];
         ws.Regions = new RegionState[regionPalette.Length];
         for (int i = 0; i < regionPalette.Length; i++)
         {
-            ws.Regions[i] = new RegionState { Data = regionPalette[i] };
+            ws.Regions[i] = new RegionState { Data = regionPalette[i]?.Region };
         }
     }
 
@@ -639,247 +642,111 @@ public static class WorldGen
         }
     }
 
-    // One-off near-spawn test fixtures: a friendly villager, KnowledgeStones,
-    // a stash chest, and a rideable boat. All temporary scaffolding for systems
-    // that lack an authored placement pass — fold each into a real population /
-    // editor placement once those exist. Placement coordinates are authored on
-    // WorldGenData (Placement Tuning group).
-    private static void PlaceNearSpawnFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    // Voxel-space XZ bounds of one of the 4 legacy quadrants (matching the
+    // PickZoneIndex / PickRegionIndex order: 0=NE, 1=NW, 2=SE, 3=SW), clipped
+    // to the world extent. Returns false if the world doesn't span the quadrant
+    // (so the caller skips that zone/region).
+    private static bool QuadrantBounds(int quadrant, int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ,
+        out int xLo, out int xHi, out int zLo, out int zHi)
     {
-        // Voxel-space extent of the world. ws.Min/Max are in *chunks*; the
-        // fixture coordinates below are voxels, so compare against the chunk
-        // extent expressed in voxels to avoid the unit mismatch (a voxel X of
-        // 32 is well outside the raw chunk range of -4..4).
-        int stoneWorldMinX = ws.Min.X * ChunkState.SIZE;
-        int stoneWorldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int stoneWorldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int stoneWorldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+        bool east = quadrant == 0 || quadrant == 2;    // X >= 0
+        bool north = quadrant == 0 || quadrant == 1;   // Z >= 0
+        xLo = east ? Math.Max(0, worldMinX) : worldMinX;
+        xHi = east ? worldMaxX : Math.Min(-1, worldMaxX);
+        zLo = north ? Math.Max(0, worldMinZ) : worldMinZ;
+        zHi = north ? worldMaxZ : Math.Min(-1, worldMaxZ);
+        return xHi >= xLo && zHi >= zLo;
+    }
 
-        // Pick a flat, dry land column in the same quadrant as (cx, cz) so a
-        // one-off fixture doesn't land on a ramp face or in water. Rolls random
-        // columns in the quadrant until one is flat-and-dry, capped at
-        // FixturePlacementMaxTries, then falls back to the target. The quadrant
-        // bounds (split at X=0 / Z=0, matching PickZoneIndex) keep the fixture
-        // in its zone.
-        var fixtureRng = new Random(DeriveSeed(worldSeed, SEED_SALT_FIXTURE));
-        Vector3I FindFlatDryInZone(int cx, int cz)
+    // Rejection-sample a column inside [xLo,xHi]x[zLo,zHi] until `valid` passes,
+    // capped at genData.FixturePlacementMaxTries. Lets the one-off fixture
+    // passes land a landmark on a flat / grassy column without scanning the
+    // whole footprint. Returns false if no column qualified.
+    private static bool TryRollColumn(Random rng, WorldGenData genData,
+        int xLo, int xHi, int zLo, int zHi, Func<int, int, bool> valid, out int rx, out int rz)
+    {
+        int maxTries = genData.FixturePlacementMaxTries;
+        for (int i = 0; i < maxTries; i++)
         {
-            int xLo = cx >= 0 ? 0 : stoneWorldMinX;
-            int xHi = cx >= 0 ? stoneWorldMaxX : -1;
-            int zLo = cz >= 0 ? 0 : stoneWorldMinZ;
-            int zHi = cz >= 0 ? stoneWorldMaxZ : -1;
-            int maxTries = genData.FixturePlacementMaxTries;
-            for (int i = 0; i < maxTries; i++)
-            {
-                int x = fixtureRng.Next(xLo, xHi + 1);
-                int z = fixtureRng.Next(zLo, zHi + 1);
-                if (IsFlatTerrainAt(x, z, heightMap))
-                {
-                    return new Vector3I(x, 0, z);
-                }
-            }
-            return new Vector3I(cx, 0, cz);
+            int x = rng.Next(xLo, xHi + 1);
+            int z = rng.Next(zLo, zHi + 1);
+            if (valid(x, z)) { rx = x; rz = z; return true; }
         }
+        rx = xLo;
+        rz = zLo;
+        return false;
+    }
 
-        // One-off friendly villager placed in the mountain zone (the NE
-        // quadrant — chunk X >= 0, Z >= 0; see PickZoneIndex) so the new
-        // IInteractive/Talk plumbing has a concrete target without requiring an
-        // editor placement. The spawn XZ only selects the quadrant —
-        // FindFlatDryInZone then rolls a flat, dry column within it. Temporary
-        // test fixture — fold into a proper NPC population pass once authored
-        // villager spawn rules exist.
-        int villagerSpawnX = genData.NearSpawnVillagerSpawn.X;
-        int villagerSpawnZ = genData.NearSpawnVillagerSpawn.Y;
-        if (genData.NearSpawnVillagerData?.mob?.MobScene != null
-            && villagerSpawnX >= stoneWorldMinX && villagerSpawnX <= stoneWorldMaxX
-            && villagerSpawnZ >= stoneWorldMinZ && villagerSpawnZ <= stoneWorldMaxZ)
-        {
-            Vector3I spot = FindFlatDryInZone(villagerSpawnX, villagerSpawnZ);
-            int sy = heightMap.GetHeight(spot.X, spot.Z);
-            var pos = new Vector3(spot.X + 0.5f, sy + 1.5f, spot.Z + 0.5f);
-            MobSimState villagerSim = genData.NearSpawnVillagerData.CreateState(pos, 0f);
-            // The villager test fixture speaks the same language the
-            // KnowledgeStone fixtures teach, so reading the stones
-            // progressively un-scrambles the dialogue too. Set per-
-            // instance via SimState rather than on MobData so the shared
-            // friendly_villager.tres stays language-agnostic.
-            villagerSim.Language = genData.KnowledgeStoneLanguage;
-            // Branching conversation attached per-instance so the shared
-            // friendly_villager.tres stays conversation-agnostic — a
-            // future quest-specific villager can pin its own conversation
-            // without forking the MobData.
-            villagerSim.Conversation = genData.NearSpawnVillagerConversation;
-            // Loyalty rewards and merchant inventory live on the placement
-            // entry, not the species template — see WorldGenData for the
-            // rationale.
-            if (genData.NearSpawnVillagerLoyaltyGifts != null)
-            {
-                foreach (LoyaltyGift gift in genData.NearSpawnVillagerLoyaltyGifts)
-                {
-                    if (gift != null) { villagerSim.LoyaltyGifts.Add(gift); }
-                }
-            }
-            if (genData.NearSpawnVillagerInventory != null)
-            {
-                foreach (MobInventoryData entry in genData.NearSpawnVillagerInventory)
-                {
-                    if (entry == null || entry.item == null) { continue; }
-                    ItemState state = entry.item.CreateState();
-                    state.stackCount = Mathf.Max(1, entry.count);
-                    villagerSim.Inventory.Add(new MobInventoryItem
-                    {
-                        item = state,
-                        loyaltyCost = entry.loyaltyCost,
-                        secret = entry.secret,
-                    });
-                }
-            }
-            ws.AddEntity(villagerSim);
-        }
+    // True iff (wx, wz) is a flat-dry-grass column with a real (non-air,
+    // non-water) ground voxel and air directly above — the shared surface
+    // validity used by the one-off fixture passes' SpawnContext.
+    private static bool IsGrassySurfaceAt(WorldState ws, int wx, int wz, HeightMap heightMap)
+    {
+        if (!IsFlatDryGrassAt(wx, wz, heightMap)) { return false; }
+        int sy = heightMap.GetHeight(wx, wz);
+        VoxelType ground = ws.GetVoxelWorld(wx, sy, wz);
+        if (ground == VoxelType.Air || ground == VoxelType.Water) { return false; }
+        return ws.GetVoxelWorld(wx, sy + 1, wz) == VoxelType.Air;
+    }
 
-        // Starter companion (pet) placed right next to the default player
-        // spawn, already tamed. Reuses the bunny-rat (kun_kun) model via the
-        // companion MobData; her brain follows the player and toggles to stay
-        // on the player's command input. Test fixture — replaced by a taming
-        // flow once that exists. Dropped directly on the configured column
-        // (the spawn area is flat) if it's inside the world extent.
-        int companionSpawnX = genData.CompanionSpawn.X;
-        int companionSpawnZ = genData.CompanionSpawn.Y;
-        if (genData.CompanionData?.mob?.MobScene != null
-            && companionSpawnX >= stoneWorldMinX && companionSpawnX <= stoneWorldMaxX
-            && companionSpawnZ >= stoneWorldMinZ && companionSpawnZ <= stoneWorldMaxZ)
-        {
-            int sy = heightMap.GetHeight(companionSpawnX, companionSpawnZ);
-            var pos = new Vector3(companionSpawnX + 0.5f, sy + 1.5f, companionSpawnZ + 0.5f);
-            // Already tamed — joins the player's side (effective team Friendly)
-            // so the player can't friendly-fire her. The wild authored team
-            // (Prey) is what a future taming flow would start from.
-            MobSimState companionSim = genData.CompanionData.CreateState(pos, 0f);
-            companionSim.Tamed = true;
-            // Persistent (non-chunked): the companion is player-attached state,
-            // spawned once and never destroyed by chunk eviction. See
-            // World.SpawnPersistentEntities / WorldState.PersistentEntities.
-            ws.AddPersistentEntity(companionSim);
-        }
+    // One-off per-zone fixture clusters. Each ZoneGenData.Fixtures group fires
+    // ONCE at an anchor column (vs the SurfaceEntities density scan): the hub
+    // zone (genData.HubZoneIndex) anchors on the player spawn column
+    // (genData.SpawnColumn) — the near-spawn villager / companion / lit campfire
+    // / boat — while every other zone rolls a flat-dry column within its
+    // quadrant footprint. The group's ScatterRadius spreads the members. The
+    // cluster contents are authored SpawnEntry data, replacing the former
+    // hardcoded near-spawn placement.
+    private static void PlaceZoneFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        ZoneGenData[] zones = genData.Zones ?? System.Array.Empty<ZoneGenData>();
+        if (zones.Length == 0) { return; }
 
-        // KnowledgeStone test fixtures, one per language component, scattered
-        // across three zones so exercising the partial-learning flow means
-        // travelling between biomes rather than walking down a row at spawn:
-        // swamp (SE), desert (NW) and forest (SW). See PickZoneIndex for the
-        // quadrant -> zone mapping. The (position, component) layout is a fixed
-        // test-fixture table (like StaircasePattern), not an authoring knob.
-        // Skipped if the worldgen data doesn't carry a stone scene/language.
-        var stoneComponents = new (int x, int z, ELanguageComponents component)[]
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_FIXTURE));
+        var context = new SpawnContext
         {
-            (32, -32, ELanguageComponents.Vocabulary1),   // swamp  (SE quadrant)
-            (-32, 32, ELanguageComponents.Vocabulary2),   // desert (NW quadrant)
-            (-32, -32, ELanguageComponents.Vocabulary3),  // forest (SW quadrant)
+            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
+            IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
         };
-        if (genData.KnowledgeStoneScene != null && genData.KnowledgeStoneLanguage != null)
+
+        for (int zi = 0; zi < zones.Length; zi++)
         {
-            foreach (var (sx, sz, component) in stoneComponents)
+            ZoneGenData zone = zones[zi];
+            if (zone?.Fixtures == null) { continue; }
+
+            Vector3I anchorCol;
+            if (zi == genData.HubZoneIndex)
             {
-                if (sx < stoneWorldMinX || sx > stoneWorldMaxX
-                    || sz < stoneWorldMinZ || sz > stoneWorldMaxZ) { continue; }
-                Vector3I spot = FindFlatDryInZone(sx, sz);
-                int sy = heightMap.GetHeight(spot.X, spot.Z);
-                var pos = new Vector3(spot.X + 0.5f, sy + 1f, spot.Z + 0.5f);
-                // Wrap the per-fixture (language, component) pair in a
-                // LanguageTeachable so the stone runs through the unified
-                // TeachableConcept path. Resource is constructed transient
-                // — never gets serialized as its own .tres; saves/loads
-                // round-trip through EntitySerializer's Tag.KnowledgeStone
-                // wire format which re-synthesizes a LanguageTeachable on
-                // read.
-                var concepts = new Godot.Collections.Array<TeachableConcept>
+                // Hub: anchor on the spawn column directly (the spawn area is
+                // flat by design — no roll needed).
+                anchorCol = new Vector3I(genData.SpawnColumn.X, 0, genData.SpawnColumn.Y);
+            }
+            else
+            {
+                // Non-hub: roll a flat-dry column inside the zone's quadrant.
+                int quadrant = Math.Min(zi, 3);
+                if (!QuadrantBounds(quadrant, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
+                        out int xLo, out int xHi, out int zLo, out int zHi))
                 {
-                    new LanguageTeachable { language = genData.KnowledgeStoneLanguage, components = component },
-                };
-                ws.AddEntity(new KnowledgeStoneSimState(pos, genData.KnowledgeStoneScene, genData.KnowledgeStoneText, genData.KnowledgeStoneLanguage, concepts));
-            }
-        }
-
-        // Campfire fixtures: a home campfire on the spawn column (NE / mountain
-        // zone) plus one per remaining zone, each on a flat column rolled within
-        // its quadrant (NW desert, SE swamp, SW forest — same per-quadrant layout
-        // as the knowledge stones). Spawned lit so the player can immediately
-        // Camp; detail sprites are cleared from the footprint so logs/embers
-        // don't share it. Skipped if no campfire scene is authored.
-        if (genData.NearSpawnCampfireScene != null)
-        {
-            const float campfireDetailClearRadius = 2f;
-            void PlaceCampfire(Vector3I col)
-            {
-                int sy = heightMap.GetHeight(col.X, col.Z);
-                var pos = new Vector3(col.X + 0.5f, sy + 1f, col.Z + 0.5f);
-                var fire = new ForgeSimState(pos, genData.NearSpawnCampfireScene)
-                {
-                    Active = true,
-                    AutoLightAtNight = false,
-                    HazardRadius = ForgeSimState.DefaultHazardRadius,
-                };
-                ws.AddEntity(fire);
-                ws.ClearDetailVoxelsWithin(pos, campfireDetailClearRadius);
-            }
-
-            // Home campfire — placed directly on the spawn column (the spawn area
-            // is flat) so it sits right next to the player.
-            int campX = genData.NearSpawnCampfireSpawn.X;
-            int campZ = genData.NearSpawnCampfireSpawn.Y;
-            if (campX >= stoneWorldMinX && campX <= stoneWorldMaxX
-                && campZ >= stoneWorldMinZ && campZ <= stoneWorldMaxZ)
-            {
-                PlaceCampfire(new Vector3I(campX, 0, campZ));
-            }
-
-            // One campfire per remaining zone, on a flat column within each quadrant.
-            var zoneCampfires = new (int x, int z)[] { (-32, 32), (32, -32), (-32, -32) };
-            foreach (var (zx, zz) in zoneCampfires)
-            {
-                if (zx < stoneWorldMinX || zx > stoneWorldMaxX
-                    || zz < stoneWorldMinZ || zz > stoneWorldMaxZ) { continue; }
-                PlaceCampfire(FindFlatDryInZone(zx, zz));
-            }
-        }
-
-        // Near-spawn test boat. Unlike the land fixtures above it must sit on
-        // water, and procedural terrain doesn't guarantee a pond at a fixed
-        // offset — so ring-scan outward from spawn for the nearest water-topped
-        // column and float the boat there (origin riding the water surface,
-        // WATER_LEVEL + 1). Skipped if no water is found within range.
-        Vector3? FindNearestWaterSurface()
-        {
-            int searchRadius = genData.NearSpawnBoatSearchRadius;
-            for (int r = 1; r <= searchRadius; r++)
-            {
-                for (int dx = -r; dx <= r; dx++)
-                {
-                    for (int dz = -r; dz <= r; dz++)
-                    {
-                        // Boundary of the ring only — inner cells were covered
-                        // by a smaller radius.
-                        if (Mathf.Abs(dx) != r && Mathf.Abs(dz) != r) { continue; }
-                        int bx = dx;
-                        int bz = dz;
-                        if (bx < stoneWorldMinX || bx > stoneWorldMaxX
-                            || bz < stoneWorldMinZ || bz > stoneWorldMaxZ) { continue; }
-                        // Water-surfaced column: water at sea level, air above.
-                        if (ws.GetVoxelWorld(bx, WATER_LEVEL, bz) != VoxelType.Water
-                            || ws.GetVoxelWorld(bx, WATER_LEVEL + 1, bz) != VoxelType.Air) { continue; }
-                        return new Vector3(bx + 0.5f, WATER_LEVEL + 1f, bz + 0.5f);
-                    }
+                    continue;
                 }
+                if (!TryRollColumn(rng, genData, xLo, xHi, zLo, zHi,
+                        (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap), out int rx, out int rz))
+                {
+                    continue;
+                }
+                anchorCol = new Vector3I(rx, 0, rz);
             }
-            return null;
-        }
 
-        if (genData.NearSpawnBoatScene != null)
-        {
-            Vector3? boatPos = FindNearestWaterSurface();
-            if (boatPos.HasValue)
-            {
-                ws.AddEntity(new BoatSimState(boatPos.Value, 0f, genData.NearSpawnBoatScene));
-            }
+            int sy = heightMap.GetHeight(anchorCol.X, anchorCol.Z);
+            var anchor = new Vector3(anchorCol.X + 0.5f, sy + 1f, anchorCol.Z + 0.5f);
+            zone.Fixtures.Spawn(ws, anchor, rng, context);
         }
     }
 
@@ -1919,80 +1786,58 @@ public static class WorldGen
         }
     }
 
-    // Place one signpost per quadrant (NE, NW, SE, SW) at a random grassy
-    // column inside that quadrant. Each quadrant pulls its text from its
-    // SignpostText* field on WorldGenData; empty strings, missing scene, or
-    // empty quadrants are skipped. Per-quadrant rng is keyed off the world
-    // seed + a stable salt + the quadrant index so placement is reproducible.
-    private static void GenerateSignposts(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    // One-off per-region landmark fixtures. For each RegionGenData.Fixtures
+    // entry, roll a single valid column inside that region's quadrant footprint
+    // and place the entry once (signpost, knowledge stone, ...). Replaces the
+    // former per-quadrant signpost pass; the per-region text / language /
+    // language-component now live on the authored entries.
+    private static void PlaceRegionFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
-        if (genData.SignpostScene == null)
-        {
-            return;
-        }
+        RegionGenData[] regions = genData.Regions ?? System.Array.Empty<RegionGenData>();
+        if (regions.Length == 0) { return; }
 
         int worldMinX = ws.Min.X * ChunkState.SIZE;
         int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        // Quadrant order matches PickZoneIndex: 0=NE, 1=NW, 2=SE, 3=SW.
-        var ranges = new (int xMin, int xMax, int zMin, int zMax)[]
+        var context = new SpawnContext
         {
-            (Math.Max(0, worldMinX), worldMaxX, Math.Max(0, worldMinZ), worldMaxZ),
-            (worldMinX, Math.Min(-1, worldMaxX), Math.Max(0, worldMinZ), worldMaxZ),
-            (Math.Max(0, worldMinX), worldMaxX, worldMinZ, Math.Min(-1, worldMaxZ)),
-            (worldMinX, Math.Min(-1, worldMaxX), worldMinZ, Math.Min(-1, worldMaxZ)),
-        };
-        var texts = new string[]
-        {
-            genData.SignpostTextNE,
-            genData.SignpostTextNW,
-            genData.SignpostTextSE,
-            genData.SignpostTextSW,
+            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
+            IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
         };
 
-        bool IsGrassyAt(int wx, int wz)
+        for (int ri = 0; ri < regions.Length; ri++)
         {
-            if (!IsFlatDryGrassAt(wx, wz, heightMap))
-            {
-                return false;
-            }
-            int sy = heightMap.GetHeight(wx, wz);
-            VoxelType ground = ws.GetVoxelWorld(wx, sy, wz);
-            if (ground == VoxelType.Air || ground == VoxelType.Water)
-            {
-                return false;
-            }
-            return ws.GetVoxelWorld(wx, sy + 1, wz) == VoxelType.Air;
-        }
-
-        int MAX_ATTEMPTS = genData.FixturePlacementMaxTries;
-        for (int q = 0; q < 4; q++)
-        {
-            string text = texts[q];
-            if (string.IsNullOrEmpty(text))
+            SpawnListData fixtures = regions[ri]?.Fixtures;
+            if (fixtures?.Entries == null) { continue; }
+            int quadrant = Math.Min(ri, 3);
+            if (!QuadrantBounds(quadrant, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
+                    out int xLo, out int xHi, out int zLo, out int zHi))
             {
                 continue;
             }
-            var (xMin, xMax, zMin, zMax) = ranges[q];
-            if (xMax < xMin || zMax < zMin)
+            // Per-region rng so each region's placement is independent and
+            // deterministic across runs.
+            var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), ri, 0));
+            foreach (SpawnEntryData entry in fixtures.Entries)
             {
-                continue;
-            }
-            var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), q, 0));
-            for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
-            {
-                int wx = rng.Next(xMin, xMax + 1);
-                int wz = rng.Next(zMin, zMax + 1);
-                if (!IsGrassyAt(wx, wz))
+                if (entry == null) { continue; }
+                // Roll a column that already satisfies the entry's flat-terrain
+                // requirement so TrySpawn's gate doesn't then reject it.
+                bool Valid(int wx, int wz)
+                {
+                    if (!IsGrassySurfaceAt(ws, wx, wz, heightMap)) { return false; }
+                    return !entry.RequireFlatTerrain || IsFlatTerrainAt(wx, wz, heightMap);
+                }
+                if (!TryRollColumn(rng, genData, xLo, xHi, zLo, zHi, Valid, out int rx, out int rz))
                 {
                     continue;
                 }
-                int sy = heightMap.GetHeight(wx, wz);
-                var pos = new Vector3(wx + 0.5f, sy + 1f, wz + 0.5f);
-                ws.AddEntity(new SignpostSimState(pos, genData.SignpostScene, text, genData.SignpostLanguage));
-                break;
+                int sy = heightMap.GetHeight(rx, rz);
+                var pos = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
+                entry.TrySpawn(ws, pos, rng, context);
             }
         }
     }

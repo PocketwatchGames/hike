@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cp3rcb0wq7mxn2"]
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cw61wtmhdekq0"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
@@ -6,6 +6,7 @@
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
 projectilePierceCount = 3
+onHitBuildups = []
 affix = &"of Piercing"
 affixPosition = 1
 
@@ -14,8 +15,7 @@ script = ExtResource("1_data")
 displayName = &"Piercing"
 description = "The charged shot punches through up to three foes before it drops."
 category = 2
-modifiers = []
-duration = 0.0
 maxStack = 1
-weaponMod = SubResource("weaponMod")
 removesOnApply = []
+modifiers = []
+weaponMod = SubResource("weaponMod")

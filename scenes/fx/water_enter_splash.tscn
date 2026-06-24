@@ -14,7 +14,15 @@
 [ext_resource type="AudioStream" uid="uid://wjel723spbrp" path="res://assets/audio/source/movement/un_shr_move_water_unit_enter_11.wav" id="2_we11"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
+[sub_resource type="Gradient" id="Gradient_pixfade"]
+offsets = PackedFloat32Array(0, 0.15, 0.85, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_pixfade"]
+gradient = SubResource("Gradient_pixfade")
+
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_splash"]
+color_ramp = SubResource("GradientTexture1D_pixfade")
 emission_shape = 1
 emission_sphere_radius = 0.2
 direction = Vector3(0, 1, 0)
@@ -34,7 +42,7 @@ shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_splash"]
 material = SubResource("ShaderMaterial_ee7h7")
-size = Vector2(0.12, 0.12)
+size = Vector2(0.06, 0.06)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_waterenter"]
 playback_mode = 1
@@ -58,7 +66,7 @@ script = ExtResource("1_oneshot")
 
 [node name="Splash" type="GPUParticles3D" parent="." unique_id=1858488125]
 emitting = false
-amount = 18
+amount = 36
 lifetime = 0.6
 one_shot = true
 explosiveness = 1.0

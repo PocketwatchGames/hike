@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="RegionGenData" format=3 uid="uid://bbelkvnbtjkl6"]
+
+[ext_resource type="Script" uid="uid://qm48pd0cotgy" path="res://scripts/data/world/RegionGenData.cs" id="1_rgd"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="3_base"]
+[ext_resource type="Script" uid="uid://db5ulwxm6oe8v" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="4_sign"]
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="5_stone"]
+[ext_resource type="Resource" path="res://resources/data/regions/swamp.tres" id="6_region"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="7_lang"]
+[ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="8_signscene"]
+[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="9_stonescene"]
+
+[sub_resource type="Resource" id="Signpost_swamp"]
+script = ExtResource("4_sign")
+Scene = ExtResource("8_signscene")
+Text = "Swampland. Stay on the high ground after dusk."
+Language = ExtResource("7_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="Stone_swamp"]
+script = ExtResource("5_stone")
+Scene = ExtResource("9_stonescene")
+Language = ExtResource("7_lang")
+Text = "Vyeshal is difficult to read. But study, my friend, and you will learn it.."
+Components = 4
+metadata/_custom_type_script = "uid://d3c3iycy3trkp"
+
+[sub_resource type="Resource" id="Fixtures_swamp"]
+script = ExtResource("2_list")
+Entries = Array[ExtResource("3_base")]([SubResource("Signpost_swamp"), SubResource("Stone_swamp")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[resource]
+script = ExtResource("1_rgd")
+Region = ExtResource("6_region")
+Fixtures = SubResource("Fixtures_swamp")

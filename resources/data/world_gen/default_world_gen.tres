@@ -1,59 +1,20 @@
 [gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://carn5t06puf34"]
 
 [ext_resource type="Script" uid="uid://bk2smsd8gwalq" path="res://scripts/data/worldgen/WorldGenData.cs" id="1_script"]
-[ext_resource type="Resource" uid="uid://wwpw4gcdk0vs" path="res://resources/data/world_gen/zone_gen/desert_gen.tres" id="2_region_desert"]
-[ext_resource type="Resource" uid="uid://wwpw4geql0vs" path="res://resources/data/world_gen/zone_gen/forest_gen.tres" id="2_region_forest"]
-[ext_resource type="Resource" uid="uid://wwpw4glsf0vs" path="res://resources/data/world_gen/zone_gen/mountain_gen.tres" id="2_region_mountain"]
-[ext_resource type="Resource" uid="uid://wwpw4grvh0vs" path="res://resources/data/world_gen/zone_gen/swamp_gen.tres" id="2_region_swamp"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="2_sim"]
-[ext_resource type="Resource" path="res://resources/data/regions/desert.tres" id="3_named_desert"]
-[ext_resource type="Resource" path="res://resources/data/regions/forest.tres" id="3_named_forest"]
-[ext_resource type="Resource" path="res://resources/data/regions/mountain.tres" id="3_named_mountain"]
-[ext_resource type="Resource" path="res://resources/data/regions/swamp.tres" id="3_named_swamp"]
+[ext_resource type="Resource" uid="uid://wwpw4gcdk0vs" path="res://resources/data/world_gen/zone_gen/desert_gen.tres" id="2_zone_desert"]
+[ext_resource type="Resource" uid="uid://wwpw4geql0vs" path="res://resources/data/world_gen/zone_gen/forest_gen.tres" id="2_zone_forest"]
+[ext_resource type="Resource" uid="uid://wwpw4glsf0vs" path="res://resources/data/world_gen/zone_gen/mountain_gen.tres" id="2_zone_mountain"]
+[ext_resource type="Resource" uid="uid://wwpw4grvh0vs" path="res://resources/data/world_gen/zone_gen/swamp_gen.tres" id="2_zone_swamp"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/region_gen/region_gen_desert.tres" id="3_region_desert"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/region_gen/region_gen_forest.tres" id="3_region_forest"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/region_gen/region_gen_mountain.tres" id="3_region_mountain"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="3_region_swamp"]
 [ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="4_door"]
-[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="6_gcffr"]
-[ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="7_signpost"]
-[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="8_stone"]
-[ext_resource type="PackedScene" uid="uid://b8npx1masl5o6" path="res://scenes/vehicles/boat.tscn" id="12_boat"]
-[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="12_campfire"]
-[ext_resource type="Resource" uid="uid://csrlvygmra001" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="12_xi7uo"]
-[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="13_villager"]
-[ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/characters/human/friendly_villager_conversation.tres" id="14_v_conv"]
-[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="15_loyaltygift"]
-[ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="16_leather"]
-[ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/characters/MobInventoryData.cs" id="17_stock"]
-[ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_gen/mob_descriptors/dog.tres" id="19_companion"]
-
-[sub_resource type="Resource" id="Resource_villager_stock_leather"]
-script = ExtResource("17_stock")
-item = ExtResource("16_leather")
-metadata/_custom_type_script = "uid://dkowx1ny0eu5e"
-
-[sub_resource type="Resource" id="Resource_villager_loyalty_grammar"]
-script = ExtResource("15_loyaltygift")
-item = ExtResource("12_xi7uo")
-requiredLoyalty = 5.0
-metadata/_custom_type_script = "uid://mopl8c3ntye1i"
 
 [resource]
 script = ExtResource("1_script")
 SimData = ExtResource("2_sim")
-Zones = [ExtResource("2_region_mountain"), ExtResource("2_region_desert"), ExtResource("2_region_swamp"), ExtResource("2_region_forest")]
-Regions = [ExtResource("3_named_mountain"), ExtResource("3_named_desert"), ExtResource("3_named_swamp"), ExtResource("3_named_forest")]
+Zones = [ExtResource("2_zone_mountain"), ExtResource("2_zone_desert"), ExtResource("2_zone_swamp"), ExtResource("2_zone_forest")]
+Regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), ExtResource("3_region_swamp"), ExtResource("3_region_forest")]
 DoorScene = ExtResource("4_door")
-SignpostScene = ExtResource("7_signpost")
-SignpostTextNE = "The mountains rise sharp and cold ahead. Bring rope."
-SignpostTextNW = "Desert. Water is scarce — fill skins before crossing."
-SignpostTextSE = "Swampland. Stay on the high ground after dusk."
-SignpostTextSW = "Forest path. Mind the roots, mind the wolves."
-SignpostLanguage = ExtResource("6_gcffr")
-KnowledgeStoneScene = ExtResource("8_stone")
-KnowledgeStoneLanguage = ExtResource("6_gcffr")
-KnowledgeStoneText = "Vyeshal is difficult to read. But study, my friend, and you will learn it.."
-NearSpawnCampfireScene = ExtResource("12_campfire")
-NearSpawnBoatScene = ExtResource("12_boat")
-NearSpawnVillagerData = ExtResource("13_villager")
-NearSpawnVillagerConversation = ExtResource("14_v_conv")
-NearSpawnVillagerLoyaltyGifts = Array[ExtResource("15_loyaltygift")]([SubResource("Resource_villager_loyalty_grammar")])
-NearSpawnVillagerInventory = [SubResource("Resource_villager_stock_leather")]
-CompanionData = ExtResource("19_companion")

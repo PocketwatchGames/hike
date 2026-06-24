@@ -2,7 +2,15 @@
 
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="1_rsf1q"]
 
+[sub_resource type="Gradient" id="Gradient_pixfade"]
+offsets = PackedFloat32Array(0, 0.15, 0.85, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_pixfade"]
+gradient = SubResource("Gradient_pixfade")
+
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rkves"]
+color_ramp = SubResource("GradientTexture1D_pixfade")
 emission_shape = 1
 emission_sphere_radius = 0.2
 direction = Vector3(0, 1, 0)
@@ -22,11 +30,11 @@ shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_u4lrp"]
 material = SubResource("ShaderMaterial_splash")
-size = Vector2(0.12, 0.12)
+size = Vector2(0.06, 0.06)
 
 [node name="Yell" type="GPUParticles3D" unique_id=939476039]
 emitting = false
-amount = 18
+amount = 36
 lifetime = 0.6
 one_shot = true
 explosiveness = 1.0

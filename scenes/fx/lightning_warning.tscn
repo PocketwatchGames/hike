@@ -9,7 +9,15 @@
 [ext_resource type="AudioStream" uid="uid://lnyausnqodey" path="res://assets/audio/source/ambience/thunder/amb_base_thunder_med_05.wav" id="med_05"]
 [ext_resource type="AudioStream" uid="uid://cl3cn5ipalgui" path="res://assets/audio/source/ambience/thunder/amb_base_thunder_med_06.wav" id="med_06"]
 
+[sub_resource type="Gradient" id="Gradient_pixfade"]
+offsets = PackedFloat32Array(0, 0.15, 0.85, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_pixfade"]
+gradient = SubResource("Gradient_pixfade")
+
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_warningSparks"]
+color_ramp = SubResource("GradientTexture1D_pixfade")
 emission_shape = 1
 emission_sphere_radius = 0.4
 direction = Vector3(0, 1, 0)
@@ -31,7 +39,7 @@ shader_parameter/emission = Color(0.9, 0.95, 1.0, 1)
 
 [sub_resource type="QuadMesh" id="QuadMesh_warningSparks"]
 material = SubResource("ShaderMaterial_warningSparks")
-size = Vector2(0.18, 0.18)
+size = Vector2(0.06, 0.06)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_warningRumble"]
 playback_mode = 1
@@ -51,7 +59,7 @@ _loop = true
 
 [node name="Sparks" type="GPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
-amount = 40
+amount = 80
 lifetime = 0.7
 randomness = 0.5
 process_material = SubResource("ParticleProcessMaterial_warningSparks")

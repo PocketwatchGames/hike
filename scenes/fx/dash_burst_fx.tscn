@@ -2,7 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_plit"]
-[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_puff"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
 [ext_resource type="AudioStream" uid="uid://c51b8l85ypv5" path="res://assets/audio/source/impact/sfx_bomb_explosion_01.wav" id="4_boom1"]
 [ext_resource type="AudioStream" uid="uid://j7gewm1b72a7" path="res://assets/audio/source/impact/sfx_bomb_explosion_02.wav" id="5_boom2"]
 
@@ -25,6 +26,7 @@ color_ramp = ExtResource("3_fade")
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_wave"]
 render_priority = 0
 shader = ExtResource("2_plit")
+shader_parameter/albedo_texture = ExtResource("tex_puff")
 shader_parameter/albedo = Color(0, 0, 0, 0)
 shader_parameter/emission = Color(1, 0.85, 0.45, 1)
 shader_parameter/use_vertex_color = true
@@ -42,10 +44,8 @@ flatness = 0.5
 initial_velocity_min = 4.0
 initial_velocity_max = 10.0
 gravity = Vector3(0, -4, 0)
-damping_min = 0.0
 damping_max = 1.0
 scale_min = 0.5
-scale_max = 1.0
 color = Color(1, 1, 0.8, 1)
 color_ramp = ExtResource("3_fade")
 
@@ -68,10 +68,10 @@ streams_count = 2
 stream_0/stream = ExtResource("4_boom1")
 stream_1/stream = ExtResource("5_boom2")
 
-[node name="DashBurstFx" type="Node3D"]
+[node name="DashBurstFx" type="Node3D" unique_id=317139861]
 script = ExtResource("1_fx")
 
-[node name="Shockwave" type="GPUParticles3D" parent="."]
+[node name="Shockwave" type="GPUParticles3D" parent="." unique_id=827491688]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
 emitting = false
 amount = 44
@@ -82,7 +82,7 @@ randomness = 0.4
 process_material = SubResource("ParticleProcessMaterial_wave")
 draw_pass_1 = SubResource("QuadMesh_wave")
 
-[node name="Sparks" type="GPUParticles3D" parent="."]
+[node name="Sparks" type="GPUParticles3D" parent="." unique_id=211514880]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
 emitting = false
 amount = 24
@@ -93,7 +93,7 @@ randomness = 0.6
 process_material = SubResource("ParticleProcessMaterial_spark")
 draw_pass_1 = SubResource("QuadMesh_spark")
 
-[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1252140004]
 stream = SubResource("AudioStreamRandomizer_boom")
 volume_db = 1.0
 unit_size = 8.0

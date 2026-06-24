@@ -1,10 +1,10 @@
-[gd_resource type="Resource" script_class="RecipeData" format=3]
+[gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://dvbiyi48b0l0p"]
 
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="1_input"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/goblin_swamp_meat.tres" id="2_meat"]
 [ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="3_mushroom"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="4_recipe"]
-[ext_resource type="Resource" path="res://resources/data/items/consumables/succulent_grilled_swamp_goblin.tres" id="5_output"]
+[ext_resource type="Resource" uid="uid://dj1o30kmssaer" path="res://resources/data/items/consumables/succulent_grilled_swamp_goblin.tres" id="5_output"]
 
 [sub_resource type="Resource" id="Resource_input_meat"]
 script = ExtResource("1_input")

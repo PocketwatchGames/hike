@@ -8,6 +8,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="9_25es0"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="28_8kxn4"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="30_cave"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/zone_campfire_fixtures.tres" id="31_fixtures"]
 
 [resource]
 script = ExtResource("28_8kxn4")
@@ -24,3 +25,4 @@ CaveNoiseFrequency = 0.04
 GrassThreshold = 0.67
 SurfaceEntities = ExtResource("5_stsr1")
 CaveEntities = ExtResource("30_cave")
+Fixtures = ExtResource("31_fixtures")

@@ -4,8 +4,9 @@
 [ext_resource type="PackedScene" uid="uid://cn3tkwyerft7v" path="res://scenes/characters/player.tscn" id="2_tgk1t"]
 [ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="3_worldgen"]
 [ext_resource type="Resource" uid="uid://gmsa32q5mypy" path="res://resources/data/world_gen/player_spawn.tres" id="4_pspawn"]
+[ext_resource type="Resource" uid="uid://bhodwg1042kim" path="res://resources/data/world_gen/world_gen_swamp.tres" id="5_swampgen"]
 
-[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel")]
+[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel", "worldList")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,6 +18,9 @@ playerScene = ExtResource("2_tgk1t")
 playerSpawnData = ExtResource("4_pspawn")
 worldGenData = ExtResource("3_worldgen")
 versionLabel = NodePath("VersionContainer/Panel/MarginContainer/Label")
+worldList = NodePath("HBoxContainer/PanelContainer2/ItemList")
+worldOptions = [ExtResource("3_worldgen"), ExtResource("5_swampgen")]
+worldOptionLabels = PackedStringArray("Default", "Swamp")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=496607952]
 layout_mode = 1
@@ -32,42 +36,52 @@ theme_override_font_sizes/font_size = 72
 text = "HIKE"
 horizontal_alignment = 1
 
-[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1148292927]
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1181478491]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -46.5
-offset_top = -33.0
-offset_right = 46.5
-offset_bottom = 33.0
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=1018716819]
+[node name="PanelContainer" type="PanelContainer" parent="HBoxContainer" unique_id=1148292927]
 layout_mode = 2
 
-[node name="NewGameButton" type="Button" parent="PanelContainer/VBoxContainer" unique_id=210051487]
+[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/PanelContainer" unique_id=1018716819]
+layout_mode = 2
+
+[node name="NewGameButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=210051487]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "New Game"
 
-[node name="LoadGameButton" type="Button" parent="PanelContainer/VBoxContainer" unique_id=66426326]
+[node name="LoadGameButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=66426326]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Load Game"
 
-[node name="WorldEditorButton" type="Button" parent="PanelContainer/VBoxContainer"]
+[node name="WorldEditorButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=386196368]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "World Editor"
 
-[node name="WorldMapPainterButton" type="Button" parent="PanelContainer/VBoxContainer"]
+[node name="WorldMapPainterButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=583950794]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "World Map Painter"
+
+[node name="PanelContainer2" type="PanelContainer" parent="HBoxContainer" unique_id=907387346]
+layout_mode = 2
+
+[node name="ItemList" type="ItemList" parent="HBoxContainer/PanelContainer2" unique_id=678183150]
+custom_minimum_size = Vector2(200, 100)
+layout_mode = 2
 
 [node name="VersionContainer" type="MarginContainer" parent="." unique_id=31600513]
 layout_mode = 1
@@ -97,7 +111,7 @@ theme_override_constants/margin_bottom = 5
 layout_mode = 2
 text = "v0.00.001"
 
-[connection signal="pressed" from="PanelContainer/VBoxContainer/NewGameButton" to="." method="NewGameStandard"]
-[connection signal="pressed" from="PanelContainer/VBoxContainer/LoadGameButton" to="." method="LoadGame"]
-[connection signal="pressed" from="PanelContainer/VBoxContainer/WorldEditorButton" to="." method="StartEditor"]
-[connection signal="pressed" from="PanelContainer/VBoxContainer/WorldMapPainterButton" to="." method="StartPainter"]
+[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/NewGameButton" to="." method="NewGameStandard"]
+[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/LoadGameButton" to="." method="LoadGame"]
+[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldEditorButton" to="." method="StartEditor"]
+[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldMapPainterButton" to="." method="StartPainter"]

@@ -139,11 +139,11 @@ public class WorldMapState
                 Elevation = 0f,
             };
         }
-        RegionData[] regions = Data.GenData.Regions ?? [];
+        RegionGenData[] regions = Data.GenData.Regions ?? [];
         ws.Regions = new RegionState[regions.Length];
         for (int i = 0; i < regions.Length; i++)
         {
-            ws.Regions[i] = new RegionState { Data = regions[i] };
+            ws.Regions[i] = new RegionState { Data = regions[i]?.Region };
         }
 
         for (int cx = Data.MinChunk.X; cx <= Data.MaxChunk.X; cx++)

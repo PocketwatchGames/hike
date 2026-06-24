@@ -13,7 +13,6 @@
 [ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="11_eh5vr"]
 [ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="11_tpi02"]
 [ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="12_vum8l"]
-[ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="13_c0fex"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("6_weighted")
@@ -57,11 +56,6 @@ Scene = ExtResource("12_vum8l")
 Weight = 2.0
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
-[sub_resource type="Resource" id="ws_13_c0fex"]
-script = ExtResource("6_weighted")
-Scene = ExtResource("13_c0fex")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
 [sub_resource type="Resource" id="ws_11_eh5vr"]
 script = ExtResource("6_weighted")
 Scene = ExtResource("11_eh5vr")
@@ -71,5 +65,6 @@ metadata/_custom_type_script = "uid://taus171g3fozd"
 script = ExtResource("1_script")
 Terrain = ExtResource("2_kit")
 DefaultDetail = ExtResource("1_c0fex")
-TreeScenes = [SubResource("ws_9_veml7"), SubResource("ws_10_c0fex"), SubResource("ws_11_tpi02"), SubResource("ws_12_vum8l"), SubResource("ws_13_c0fex"), SubResource("ws_11_eh5vr")]
+ForestDensity = 0.4
+TreeScenes = [SubResource("ws_9_veml7"), SubResource("ws_10_c0fex"), SubResource("ws_11_tpi02"), SubResource("ws_12_vum8l"), SubResource("ws_11_eh5vr")]
 TallGrassScenes = [SubResource("ws_4_g01"), SubResource("ws_4_g02"), SubResource("ws_4_g03"), SubResource("ws_4_g04")]

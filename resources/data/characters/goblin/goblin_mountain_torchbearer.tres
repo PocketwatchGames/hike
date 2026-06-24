@@ -4,11 +4,14 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="2_mob"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_qj4m5"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="3_yikcu"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="4_ed2xh"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="6_4hnjn"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="6_lootcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="7_desc"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/goblin_mountain_meat.tres" id="8_meat"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="9_wd"]
 [ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="10_cry"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="10_lcbpp"]
 [ext_resource type="Resource" uid="uid://c0tanvr887mia" path="res://resources/data/characters/goblin/goblin_torch.tres" id="11_torch"]
 
 [sub_resource type="Resource" id="Desc_loot_meat"]
@@ -37,6 +40,6 @@ script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Mountain Torchbearer"
 palette = SubResource("Resource_18has")
-loot = Array[ExtResource("6_lootcount")]([SubResource("Resource_loot_meat")])
 weapons = Array[ExtResource("9_wd")]([ExtResource("10_cry"), ExtResource("11_torch")])
+loot = Array[ExtResource("6_lootcount")]([SubResource("Resource_loot_meat")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

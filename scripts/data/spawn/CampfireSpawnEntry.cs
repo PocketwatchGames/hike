@@ -33,6 +33,11 @@ public partial class CampfireSpawnEntry : SpawnEntryData
     // (the bowl tilts, surrounding fuel/rocks intersect the step face).
     public override bool RequireFlatTerrain => true;
 
+    // Spawn already lit and Active rather than dark + AutoLightAtNight. Used by
+    // the hub / per-zone "home" campfires the player can Camp at immediately;
+    // wild scattered campfires leave this false so they only kindle after dark.
+    [Export] public bool StartLit = false;
+
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (Scene == null)
@@ -40,8 +45,8 @@ public partial class CampfireSpawnEntry : SpawnEntryData
             return;
         }
         var campfire = new ForgeSimState(position, Scene);
-        campfire.AutoLightAtNight = true;
-        campfire.Active = false;
+        campfire.AutoLightAtNight = !StartLit;
+        campfire.Active = StartLit;
         campfire.HazardRadius = HazardRadius;
         ws.AddEntity(campfire);
         ws.ClearDetailVoxelsWithin(position, DetailSuppressionRadius);

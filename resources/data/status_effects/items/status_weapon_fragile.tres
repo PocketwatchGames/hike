@@ -6,14 +6,14 @@
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
 projectilesDetonateOnContact = true
+onHitBuildups = []
 
 [resource]
 script = ExtResource("1_data")
 displayName = &"Fragile"
 description = "Lobbed projectiles shatter on contact, triggering their effect where they land instead of bouncing."
 category = 2
-modifiers = []
-duration = 0.0
 maxStack = 1
-weaponMod = SubResource("weaponMod")
 removesOnApply = []
+modifiers = []
+weaponMod = SubResource("weaponMod")

@@ -38,10 +38,10 @@ impactLethalEffect = ExtResource("9_hitfx")
 
 [sub_resource type="Resource" id="Resource_action_torch"]
 script = ExtResource("3_action")
-speedMultiplierActive = 0.0
 displayName = &"Torch Swing"
 activeDurationSeconds = 1.0
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup_anim"), SubResource("Resource_event_dart"), SubResource("Resource_event_strike")])
+speedMultiplierActive = 0.0
 releaseEffect = ExtResource("8_atkfx")
 
 [sub_resource type="Resource" id="Resource_profile"]

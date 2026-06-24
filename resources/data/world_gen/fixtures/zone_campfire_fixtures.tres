@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://ok7jp66gk0al"]
+
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
+[ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
+[ext_resource type="Script" uid="uid://c0bcoj5vlqohu" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="3_camp"]
+[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="4_campscene"]
+
+[sub_resource type="Resource" id="Campfire_zone"]
+script = ExtResource("3_camp")
+Scene = ExtResource("4_campscene")
+StartLit = true
+metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
+
+[resource]
+script = ExtResource("2_group")
+ScatterRadius = 0.0
+Entries = Array[ExtResource("1_base")]([SubResource("Campfire_zone")])

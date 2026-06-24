@@ -4,7 +4,15 @@
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_particle_lit"]
 [ext_resource type="Script" uid="uid://bscrflashemit01" path="res://scripts/client/ScreenFlashEmitter.cs" id="3_flash"]
 
+[sub_resource type="Gradient" id="Gradient_pixfade"]
+offsets = PackedFloat32Array(0, 0.15, 0.85, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_pixfade"]
+gradient = SubResource("Gradient_pixfade")
+
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_fairy"]
+color_ramp = SubResource("GradientTexture1D_pixfade")
 emission_shape = 1
 emission_sphere_radius = 0.25
 direction = Vector3(0, 1, 0)
@@ -25,7 +33,7 @@ shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_fairy"]
 material = SubResource("ShaderMaterial_fairy")
-size = Vector2(0.12, 0.12)
+size = Vector2(0.06, 0.06)
 
 [node name="FairyDeath" type="Node3D"]
 script = ExtResource("1_fx")
@@ -33,7 +41,7 @@ script = ExtResource("1_fx")
 [node name="Sparkle" type="GPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 emitting = false
-amount = 24
+amount = 48
 lifetime = 0.7
 one_shot = true
 explosiveness = 0.9

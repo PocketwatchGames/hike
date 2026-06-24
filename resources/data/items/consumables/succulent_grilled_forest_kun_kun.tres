@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="ConsumableData" format=3]
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://doi37qqb4ks14"]
 
 [ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_mbe2w"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
@@ -8,6 +9,7 @@
 [ext_resource type="Resource" uid="uid://dwfsk5p3n2qr7" path="res://resources/data/status_effects/status_well_fed_superior.tres" id="6_status"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_effect"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="8_inv"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_x0qw3"]
 [ext_resource type="PackedScene" uid="uid://bh184fyx24l6c" path="res://scenes/fx/eat_loop.tscn" id="10_eatfx"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
@@ -26,9 +28,9 @@ effects = Array[ExtResource("7_effect")]([SubResource("Resource_apply_wellfed")]
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_charged")
-speedMultiplierCharging = 0.0
 chargeTime = 1.5
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_apply_decrement")])
+speedMultiplierCharging = 0.0
 chargeLoopEffect = ExtResource("10_eatfx")
 
 [sub_resource type="Resource" id="Resource_profile"]

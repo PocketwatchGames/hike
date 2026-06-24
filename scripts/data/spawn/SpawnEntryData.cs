@@ -71,6 +71,13 @@ public partial class SpawnEntryData : Resource
     // overrides.
     public virtual bool IsMobEntry => false;
 
+    // True iff this entry resolves its own final position from the anchor it's
+    // handed, ignoring the calling pass's column-validity sampler. A
+    // SpawnGroupData calls Spawn directly on the anchor for these (no scatter,
+    // no grassy-column gate) — e.g. a boat that must ring-scan for water, which
+    // the grassy surface sampler would otherwise reject. Default false.
+    public virtual bool SelfPlaces => false;
+
     // Radius (meters) of the damaging danger zone this entry's entity projects
     // — set by hazard entries (fire trap, campfire, spike trap). 0 = harmless.
     // Drives both the spawn keep-out (mobs won't spawn within it, and the

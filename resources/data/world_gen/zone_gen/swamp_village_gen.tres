@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://c3262urh41m8s"]
+
+[ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="1_5w857"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="2_gyyab"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_swamp_kit.tres" id="3_kyxs2"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_65ay8"]
+[ext_resource type="Resource" uid="uid://d4ltgo1wkf3qg" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp_village.tres" id="5_5w857"]
+[ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_gen/terrain_gen/marsh_kit.tres" id="6_3b6tb"]
+[ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/zones/swamp.tres" id="7_48tre"]
+[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_m0lsp"]
+
+[resource]
+script = ExtResource("8_m0lsp")
+Zone = ExtResource("7_48tre")
+SurfaceKit = ExtResource("6_3b6tb")
+CaveKit = ExtResource("2_gyyab")
+SubmergedKit = ExtResource("4_65ay8")
+ShoreKit = ExtResource("3_kyxs2")
+Elevation = 1.0
+PathThreshold = 0.1
+PathBlendBand = 0.05
+TunnelThreshold = 0.0
+CaveNoiseFrequency = 0.04
+GrassThreshold = 0.5
+SurfaceEntities = ExtResource("5_5w857")
+CaveEntities = ExtResource("1_5w857")

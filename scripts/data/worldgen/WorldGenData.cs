@@ -15,16 +15,18 @@ public partial class WorldGenData : Resource
     [Export] public ZoneGenData[] Zones = System.Array.Empty<ZoneGenData>();
 
     // Named-region palette. Index in this array becomes the
-    // ChunkState.RegionIndex stamped on each generated chunk; the entry
-    // becomes WorldState.Regions[i].Data. Regions are an independent
+    // ChunkState.RegionIndex stamped on each generated chunk; the entry's
+    // `.Region` becomes WorldState.Regions[i].Data. Regions are an independent
     // top-level subdivision from zones (a single named region can span
     // multiple biomes, and a single biome can host multiple regions).
     // WorldGen assigns chunks to regions (currently by quadrant, mirroring
     // the zone assignment; the long-term design is arbitrary region
-    // polygons authored in the editor). Empty entries are border chunks —
-    // ChunkState.RegionIndex still points at them but the GameClient's
-    // sticky-region rules treat null Data as "no named region here".
-    [Export] public RegionData[] Regions = System.Array.Empty<RegionData>();
+    // polygons authored in the editor). Empty entries (or entries with a null
+    // Region) are border chunks — ChunkState.RegionIndex still points at them
+    // but the GameClient's sticky-region rules treat null Data as "no named
+    // region here". Each RegionGenData also carries the region's one-off
+    // Fixtures (signpost, knowledge stone) placed once within its footprint.
+    [Export] public RegionGenData[] Regions = System.Array.Empty<RegionGenData>();
 
     // World extent (in chunks) and seed are passed as arguments to
     // WorldGen.Generate rather than authored on the data resource — they're
@@ -53,79 +55,25 @@ public partial class WorldGenData : Resource
     [Export] public int CaveMinHeight = 3;
     [Export] public int DirtDepth = 3;
 
-    // Door / signpost / spike-trap scenes live world-wide because they
-    // aren't placed via the per-zone SpawnListData scan. Doors are placed by
-    // the room-shell pass; signposts are one-per-quadrant; spike traps are
-    // editor-placed.
+    // Editor brush-palette scenes. These are NOT placed by worldgen — the
+    // custom WorldEditor instantiates them when the author paints a door /
+    // climbable tree / spike trap (see WorldEditor.cs). They live here because
+    // there's no other shared home for the editor's prop palette yet; a
+    // dedicated editor-palette resource is the eventual home.
     [Export] public PackedScene DoorScene;
     [Export] public PackedScene SpikeTrapScene;
-    [Export] public PackedScene SignpostScene;
-
-    // One signpost is placed per quadrant on a random grassy column. Index
-    // matches PickZoneIndex's quadrant order: 0=NE (X>=0, Z>=0),
-    // 1=NW (X<0, Z>=0), 2=SE (X>=0, Z<0), 3=SW (X<0, Z<0). Empty entries
-    // (or quadrants with no grassy candidate) skip placement for that
-    // quadrant. SignpostScene must be set; otherwise the whole pass is a
-    // no-op.
-    [Export(PropertyHint.MultilineText)] public string SignpostTextNE = "";
-    [Export(PropertyHint.MultilineText)] public string SignpostTextNW = "";
-    [Export(PropertyHint.MultilineText)] public string SignpostTextSE = "";
-    [Export(PropertyHint.MultilineText)] public string SignpostTextSW = "";
-    [Export] public LanguageData SignpostLanguage;
-
-    // Single test-fixture KnowledgeStone placed near the default player spawn
-    // by WorldGen — the player walks east to the villager and west to the
-    // stone. Temporary scaffolding for the language-learning system; folded
-    // into a real placement pass once authored stone spawn rules exist.
-    [Export] public PackedScene KnowledgeStoneScene;
-    [Export] public LanguageData KnowledgeStoneLanguage;
-    [Export(PropertyHint.MultilineText)] public string KnowledgeStoneText = "";
-
-    // Single test-fixture climbable tree placed near the default player spawn
-    // by WorldGen. Climbing it lifts the player into the bird's-eye overlook
-    // and conceals them from mobs (see ClimbableTree / Player.
-    // EnterClimbableTree). Skipped if null. Temporary scaffolding — the
-    // editor's placement pass replaces it.
+    // Climbing one lifts the player into the bird's-eye overlook and conceals
+    // them from mobs (see ClimbableTree / Player.EnterClimbableTree).
     [Export] public PackedScene ClimbableTreeScene;
 
-    // Campfire fixtures placed by WorldGen: a "home" campfire on the spawn
-    // column (NearSpawnCampfireSpawn) plus one per remaining zone, each on a
-    // flat column rolled within that quadrant. Spawned lit so the player can
-    // immediately Camp at them (see Forge / CampScreen). Skipped if null.
-    // Temporary scaffolding — the editor's placement pass replaces it.
-    [Export] public PackedScene NearSpawnCampfireScene;
-    [Export] public Vector2I NearSpawnCampfireSpawn = new(0, 3);
-
-    // Single test-fixture rideable boat. WorldGen drops it on the nearest water
-    // surface it can find around spawn (see the near-spawn placement block);
-    // skipped if null or if no water is within search range. Temporary
-    // scaffolding — the editor's placement pass replaces it.
-    [Export] public PackedScene NearSpawnBoatScene;
-
-    // Single test-fixture friendly villager placed a few voxels east of the
-    // default player spawn. NearSpawnVillagerData is the species template;
-    // the rest are per-instance overrides stamped onto the spawned
-    // MobSimState so the shared friendly_villager.tres stays generic.
-    // LoyaltyGifts and Inventory are inherently per-instance (a single
-    // shared MobData would force every villager to hand out identical
-    // rewards and stock identical merchandise), so they live here on the
-    // worldgen-level placement entry rather than on MobData. Skipped if
-    // NearSpawnVillagerData is null. A descriptor (not a bare MobData) so
-    // every direct-spawn mob shares the one composition channel.
-    [Export] public MobDescriptor NearSpawnVillagerData;
-    [Export] public ConversationData NearSpawnVillagerConversation;
-    [Export] public Godot.Collections.Array<LoyaltyGift> NearSpawnVillagerLoyaltyGifts = new();
-    [Export] public MobInventoryData[] NearSpawnVillagerInventory = [];
-
-    // Starter companion (pet) spawned next to the player at world start —
-    // already tamed, follows the player by default. Test-fixture placement
-    // like the villager above; folds into a proper taming flow later. Skipped
-    // if CompanionData is null. CompanionSpawn is the voxel XZ column to drop
-    // her on (near the default player spawn of 0,0). A descriptor (not a bare
-    // MobData) so the companion carries a weapon loadout — weapons live on
-    // MobDescriptor, not the species.
-    [Export] public MobDescriptor CompanionData;
-    [Export] public Vector2I CompanionSpawn = new(2, 0);
+    // Which Zones[] entry is the hub — the zone containing the player spawn.
+    // Its ZoneGenData.Fixtures cluster is anchored at SpawnColumn (the
+    // near-spawn villager / companion / lit campfire / boat) rather than on a
+    // rolled column like other zones' fixtures. -1 disables the hub (every
+    // zone anchors its fixtures on a rolled column).
+    [Export] public int HubZoneIndex = 0;
+    // Voxel XZ column the player spawns on / the hub zone's fixtures anchor on.
+    [Export] public Vector2I SpawnColumn = new(0, 0);
 
     // Hand-authored subscene stamps (cottages, dungeons, landmarks). Each
     // entry is a `.hikescene` file plus a world XZ anchor; WorldGen loads
@@ -227,12 +175,7 @@ public partial class WorldGenData : Resource
 
     [ExportGroup("Placement Tuning")]
     // Max rejection-sampling attempts when rolling a random column for a
-    // one-off fixture / signpost before giving up (or falling back).
+    // one-off fixture (region landmark / per-zone cluster anchor) before
+    // giving up (or falling back to the target column).
     [Export] public int FixturePlacementMaxTries = 256;
-    // Near-spawn test-fixture placement (voxel XZ). Temporary scaffolding —
-    // see the matching scene fields above.
-    [Export] public Vector2I NearSpawnVillagerSpawn = new(32, 32);
-    // Ring-scan radius (in voxels) for the nearest water-topped column the
-    // near-spawn boat is floated on.
-    [Export] public int NearSpawnBoatSearchRadius = 48;
 }

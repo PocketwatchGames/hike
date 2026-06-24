@@ -106,13 +106,11 @@ public partial class AimingReticle : Node3D
 	[Export(PropertyHint.Range, "4,64,1")] private int _undulationMaxScanVoxels = 24;
 
 	// Positional cursor sweep speed — GAMEPAD only — as a fraction of the active
-	// tier's range per second, scaled directly by the analog stick deflection
-	// (so a half-pushed stick sweeps at half speed — velocity, not a ramped
-	// speed). At full deflection the cursor covers
-	// range * _gamepadPositionalSpeedFraction meters per second. Mouse aim ignores
-	// this — it integrates a world-unit motion delta (mousePositionalMetersPerPixel) so
-	// holding the mouse still holds the cursor, range-independent.
-	[Export(PropertyHint.Range, "0.1,8,0.1")] private float _gamepadPositionalSpeedFraction = 3.5f;
+	// tier's range per second, scaled by the analog stick deflection (half-pushed
+	// stick = half speed; velocity, not a ramp). At full deflection the cursor covers
+	// range * _gamepadPositionalSpeedFraction m/s. Mouse aim ignores this — it adds a
+	// world-unit motion delta straight to the cursor (range-independent).
+	[Export(PropertyHint.Range, "0.1,8,0.1")] private float _gamepadPositionalSpeedFraction = 2f;
 	// How long a gamepad positional cursor lingers after aim stops before it
 	// resets. The cursor stays visible and fades to zero across this window;
 	// moving the aim stick or firing the ranged weapon refills it. A follow-up
@@ -124,6 +122,46 @@ public partial class AimingReticle : Node3D
 	// tracking input so the player can pre-aim the next shot; it just reads as
 	// "not ready" rather than vanishing.
 	[Export(PropertyHint.Range, "0,1,0.05")] private float _cooldownAlphaScale = 0.35f;
+
+	// GAMEPAD positional / arced target-snap. When the throw's landing point enters a
+	// targetable mob's lock-on range (clearanceRadius + _positionalSnapReachMeters) a
+	// red ring marks the mob; ease the stick to lock. A locked aim eases onto the mob's
+	// feet, follows it (even out of sight, as a memory silhouette), and breaks on a firm
+	// stick deflection. Mouse positional aim is unaffected (no snapping).
+	// Stick deflection at/below which the cursor counts as "stopped" so a hovered
+	// target locks. This is the lock-ON gate: ease the stick below this while the
+	// reticle is over a target (or hold it neutral while walking the cursor on) and
+	// it locks. Higher = lock while the stick is still partly deflected (forgiving);
+	// 0 = must be fully neutral.
+	[Export(PropertyHint.Range, "0,0.5,0.01")] private float _positionalLockStopDeadzone = 0.3f;
+	// Stick deflection at/above which a HELD lock breaks and free aiming resumes — a
+	// firm push or spin in ANY direction. Sits above the lock deadzone with a gap so
+	// the lock doesn't flicker: ease below the deadzone to lock, push past this to break.
+	[Export(PropertyHint.Range, "0.1,1,0.05")] private float _positionalLockBreakDeflection = 0.7f;
+	// Ease-out speed for the locked aim cursor settling onto the target (and springing
+	// back after a stick nudge / release). ~18 settles in ~0.25s; higher = snappier.
+	[Export(PropertyHint.Range, "0,40,1")] private float _positionalLockEaseSpeed = 18f;
+	// MOUSE equivalent of the lock-on deadzone: world-meters-per-second cursor speed
+	// at/below which a hovered target locks (the mouse "settled" on it). The mouse has
+	// no stick deflection, so it gates on how fast the cursor is moving instead.
+	[Export(PropertyHint.Range, "0,30,0.5")] private float _mouseLockSettleSpeed = 6f;
+	// Lock-on / break-out REACH in world meters, measured outward from the mob's body
+	// (clearanceRadius). The reticle snaps onto / holds a target while it's within
+	// clearanceRadius + this of the mob's feet — independent of the drawn ring size.
+	[Export(PropertyHint.Range, "0,8,0.25")] private float _positionalSnapReachMeters = 2f;
+	// Extra meters BEYOND the weapon's range at which a held lock finally releases.
+	// Walking a locked target out of normal range keeps the lock (so you can close
+	// back in or reposition); only past range + this distance, or on losing line of
+	// sight to the target, does the lock break.
+	[Export(PropertyHint.Range, "0,30,0.5")] private float _positionalLockReleaseExtraRange = 8f;
+	// If true, a held lock also breaks when line of sight to the target is lost (it
+	// ducks behind cover). Default OFF: ARCED weapons (the thrown bomb) lob OVER
+	// cover, so requiring LOS would wrongly drop locks on targets you can still hit.
+	// Enable for direct-fire positional weapons that need a clear line.
+	[Export] private bool _positionalLockBreaksOnLineOfSightLoss = false;
+	// World-meter radius searched around the cursor for snap targets. Must exceed the
+	// largest mob snap radius (clearanceRadius + _positionalSnapReachMeters).
+	[Export(PropertyHint.Range, "0.5,12,0.5")] private float _positionalSnapSearchRadius = 5f;
 
 	// Arced aim: world-space width of the previewed arc ribbon, in meters.
 	[Export(PropertyHint.Range, "0.02,0.5,0.01")] private float _arcRibbonWidth = 0.12f;
@@ -147,7 +185,7 @@ public partial class AimingReticle : Node3D
 	const float FadeDurationSeconds = 0.15f;
 
 	// Fraction of the active tier's range the gamepad cursor jumps to on the
-	// first stick deflection after a reset (see UpdatePositional's seed). 0.5 =
+	// first stick deflection after a reset (see AdvanceGroundCursorXZ's seed). 0.5 =
 	// halfway out toward the disk edge in the pressed direction.
 	const float GamepadPositionalSeedFraction = 0.5f;
 
@@ -209,6 +247,30 @@ public partial class AimingReticle : Node3D
 	// space (character-relative persistence).
 	Vector2 _persistOffset;
 
+	// GAMEPAD positional target-snap state.
+	// Free stick-driven reticle in world XZ — the raw cursor the snap logic tests for a
+	// target. Distinct from _cursorWorldPos, which the snap moves to the engaged mob's
+	// feet; this keeps integrating underneath so a hover has somewhere to resume from.
+	Vector2 _freeCursorXZ;
+	bool _freeCursorValid;
+	// Mob currently under the reticle (hover) or locked. Null when free.
+	Mob _positionalTargetMob;
+	// True once a hovered target has been locked (stick came to rest on it). On lock
+	// the aim eases onto the feet; a firm stick deflection breaks it.
+	bool _positionalLocked;
+	// Active positional/arced tier range, cached so the post-aim persistence window
+	// can range-check a surviving lock against the player's current position.
+	float _lastPositionalRange;
+	// REAL (not visual) aim cursor while locked, world XZ: on lock it eases to the
+	// target over ~0.25s, the stick still pushes it, and releasing springs it back.
+	// _cursorWorldPos is taken from this so the throw fires along the eased line.
+	Vector2 _lockCursorXZ;
+	// While engaged, the red ground ring is pinned to the target's feet (_ringWorldPos)
+	// independent of the aim cursor, so the ring marks the target while the arc eases.
+	bool _ringPinned;
+	Vector3 _ringWorldPos;
+	List<Mob> _snapScratch;
+
 	// Reused per-frame buffer of voxel-surface heights pushed to the ground
 	// ring's shader for terrain draping. Allocated once; refilled in
 	// UpdateGroundUndulation.
@@ -236,7 +298,7 @@ public partial class AimingReticle : Node3D
 	float _smoothedEndY;
 	bool _endYValid;
 
-	// Arced-aim solve outputs, recomputed each aiming frame (UpdateArced /
+	// Arced-aim solve outputs, recomputed each aiming frame (UpdateGroundAim /
 	// SolveArcToTarget). The thrown projectile reads _arcLaunchVelocity/Gravity so
 	// it flies the exact previewed hump; _arcPoints is the sampled trajectory the
 	// dotted preview draws. _arcLaunchValid gates all of them — false outside Arced
@@ -365,6 +427,8 @@ public partial class AimingReticle : Node3D
 		}
 		else if (_cursorValid && _positionalPersist)
 		{
+			// Aim stopped — the held cursor persists. A surviving target lock keeps
+			// tracking the mob's feet; otherwise it reverts to the player-relative offset.
 			// Gamepad positional persistence window: aim stopped, but the cursor
 			// sticks around so a quick follow-up ranged attack still fires at it
 			// (it stays valid → HasAimWorldPosition true). It remains visible and
@@ -373,45 +437,48 @@ public partial class AimingReticle : Node3D
 			// reticle); a ranged attack re-enters the `active` branch, which also
 			// refills it. Only after the full window with neither does the cursor
 			// reset, so the next aim re-seeds (first deflection → 50% range).
-			bool stickMoved = aim.Device == InputDevice.EDevice.Gamepad
-				&& aim.Value.LengthSquared() > 0f;
-			_persistTimer = stickMoved ? 0f : _persistTimer + dt;
+			// Run the SAME snap resolver as active aiming so walking the held cursor
+			// onto a target (left-stick movement) locks on exactly like resting the aim
+			// stick on it. When not locked the held cursor is player-relative (moves with
+			// you); the resolver then follows / breaks the lock itself.
+			Vector3 pp = _player.GlobalPosition;
+			if (!_positionalLocked)
+			{
+				_freeCursorXZ = new Vector2(pp.X + _persistOffset.X, pp.Z + _persistOffset.Y);
+				_freeCursorValid = true;
+			}
+			bool lockedOnMob = ResolvePositionalSnap(aim, pp, _lastPositionalRange, dt, out float ringOuter);
+
+			// A held lock or stick activity keeps the window from expiring.
+			bool activity = lockedOnMob
+				|| (aim.Device == InputDevice.EDevice.Gamepad && aim.Value.LengthSquared() > 0f);
+			_persistTimer = activity ? 0f : _persistTimer + dt;
 
 			if (_persistTimer >= _gamepadPositionalPersistSeconds)
 			{
 				_cursorValid = false;
 				_positionalPersist = false;
+				ResetPositionalSnap();
 				_currentAlpha = Mathf.Max(_currentAlpha - step, 0f);
 			}
 			else
 			{
+				// Held lock stays full bright (timer held at 0); otherwise fade over the window.
 				_currentAlpha = _gamepadPositionalPersistSeconds > 0f
 					? Mathf.Max(0f, 1f - _persistTimer / _gamepadPositionalPersistSeconds)
 					: 0f;
-				// Character-relative: re-anchor the held cursor to the current
-				// player position using the offset captured while aiming, so it
-				// follows the player around instead of staying pinned in world
-				// space. Re-drop Y so it tracks the ground under the new spot.
-				Vector3 pp = _player.GlobalPosition;
-				_cursorWorldPos.X = pp.X + _persistOffset.X;
-				_cursorWorldPos.Z = pp.Z + _persistOffset.Y;
+				Vector3 chestWorld = pp + Vector3.Up * _aimHeight;
+				// Resolve arc / ground-Y the same way the active update does (a lock has
+				// already pinned + dropped the cursor onto the feet), then publish.
 				if (_lastAimType == EAimType.Arced)
 				{
-					// Re-anchor + re-solve so a delayed throw fired during the
-					// persistence window still flies a correct, up-to-date arc.
-					SolveArcToTarget(pp + Vector3.Up * _aimHeight, _cursorWorldPos);
+					SolveArcToTarget(chestWorld, _cursorWorldPos);
 				}
-				else
+				else if (!lockedOnMob)
 				{
-					Vector3 dropFrom = new(_cursorWorldPos.X, pp.Y + _aimHeight, _cursorWorldPos.Z);
-					if (TryRaycastDown(dropFrom, _maxGroundDropDistance, out Vector3 groundHit))
-					{
-						_cursorWorldPos.Y = groundHit.Y;
-					}
+					DropCursorToGround(chestWorld);
 				}
-				// `_lastAimType` stays Positional / Arced so the ground ring (and the
-				// dotted arc for Arced) keep their styling through the window.
-				RenderReticle(_lastAimType, _lastLineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, positionalRadius: _lastPositionalRadius, dt: dt);
+				PublishPositionalFrame(_lastAimType, lockedOnMob, ringOuter, _lastPositionalRadius, pp, dt);
 			}
 		}
 		else
@@ -423,6 +490,7 @@ public partial class AimingReticle : Node3D
 			// last-active value so the fade-out renders with the same ring
 			// radius / alpha scale the player was just seeing.
 			_cursorValid = false;
+			ResetPositionalSnap();
 			if (_currentAlpha > 0f)
 			{
 				// Fade-out path: keep rendering at the cached range so we
@@ -462,6 +530,7 @@ public partial class AimingReticle : Node3D
 		// Next aim session re-seeds the smoothed beam Y from its first endpoint
 		// instead of gliding up from wherever the last session left it.
 		_endYValid = false;
+		ResetPositionalSnap();
 	}
 
 	// Mirrors the gate Player uses in TryStartWeaponAction, minus cooldown AND
@@ -523,13 +592,9 @@ public partial class AimingReticle : Node3D
 		{
 			UpdateDirectional(maxRange, dt);
 		}
-		else if (aimType == EAimType.Arced)
-		{
-			UpdateArced(aim, maxRange, dt);
-		}
 		else
 		{
-			UpdatePositional(aim, maxRange, dt);
+			UpdateGroundAim(aim, aimType, maxRange, dt);
 		}
 		_lastAimType = aimType;
 	}
@@ -539,6 +604,7 @@ public partial class AimingReticle : Node3D
 		// Directional aim doesn't use the gamepad positional persistence window,
 		// and has no throw arc to publish.
 		_positionalPersist = false;
+		_ringPinned = false;
 		_arcLaunchValid = false;
 		Vector3 chestWorld = _player.GlobalPosition + Vector3.Up * _aimHeight;
 		// Use the player's pitched forward so the main beam, spread, and
@@ -614,86 +680,395 @@ public partial class AimingReticle : Node3D
 		RenderReticle(EAimType.Directional, lineLength, clippedAtSurface, mobTargeted, mobTargetOuter, positionalRadius: 0f, dt: dt);
 	}
 
-	void UpdatePositional(AimInput aim, float maxRange, float dt)
+	// Ground-target aim. Positional = an AoE drop point; Arced = a thrown-bomb target
+	// (the cursor XZ drives a fixed-shape ballistic hump). They share everything but
+	// arc-solve vs AoE-radius, so they run through one path. Gamepad gets target snap
+	// (hover ring + ease-to-lock, following the mob); mouse keeps the free cursor.
+	void UpdateGroundAim(AimInput aim, EAimType aimType, float maxRange, float dt)
 	{
-		// Positional placement has no throw arc to publish.
-		_arcLaunchValid = false;
+		bool arced = aimType == EAimType.Arced;
+		_lastPositionalRange = maxRange;
+		if (!arced)
+		{
+			// Positional placement has no throw arc to publish.
+			_arcLaunchValid = false;
+		}
 		Vector3 playerPos = _player.GlobalPosition;
 		Vector3 chestWorld = playerPos + Vector3.Up * _aimHeight;
 
-		AdvanceGroundCursorXZ(aim, playerPos, chestWorld, maxRange, dt);
+		// Both devices snap / lock identically; only the cursor advance differs (the
+		// stick's rate vs the mouse's world-unit delta), handled inside. Mouse locking
+		// is gated by the mouse_target_lock cvar; off → the mouse is a plain free cursor.
+		bool engaged;
+		float engagedRing = _groundRingOuterRadius;
+		if (aim.Device == InputDevice.EDevice.Gamepad || CVars.mouseTargetLock.Value)
+		{
+			engaged = UpdateCursorWithSnap(aim, playerPos, chestWorld, maxRange, dt, out engagedRing);
+		}
+		else
+		{
+			ResetPositionalSnap();
+			AdvanceGroundCursorXZ(aim, playerPos, chestWorld, maxRange, dt);
+			if (!arced)
+			{
+				DropCursorToGround(chestWorld);
+			}
+			engaged = false;
+		}
 
-		// Drop Y to the ground at the (possibly clamped) cursor X/Z. Start
-		// the drop from chest height so we don't miss surfaces that are
-		// slightly above the player's feet. Misses leave Y at the last
-		// valid value rather than snapping to the player's feet, so a
-		// cursor swept briefly off a cliff edge doesn't jitter.
+		// Face the body toward the cursor so the sprite / ActorForward point at the
+		// throw / drop target.
+		_player.SnapAimYawToward(_cursorWorldPos);
+
+		float positionalRadius = 0f;
+		if (arced)
+		{
+			// Origin matches DoProjectile's launch (ActorWorldPosition + 1m) so the
+			// previewed hump and the real throw share a starting point.
+			SolveArcToTarget(chestWorld, _cursorWorldPos);
+		}
+		else
+		{
+			// AoE footprint radius for the active tier — fed to the ring-radius lerp.
+			ItemAction tier = ResolveActiveTier(out _);
+			positionalRadius = Mathf.Max(0f, tier?.positionalAreaRadius ?? _groundRingOuterRadius);
+		}
+
+		PublishPositionalFrame(aimType, engaged, engagedRing, positionalRadius, playerPos, dt);
+	}
+
+	// Shared tail for ground-target frames (active update AND the persistence window):
+	// caches the state the fade-out path reuses, captures the player-relative persist
+	// offset, and renders. Cursor resolution (snap / arc / ground drop) is the caller's.
+	void PublishPositionalFrame(EAimType aimType, bool engaged, float engagedRing, float positionalRadius, Vector3 playerPos, float dt)
+	{
+		float dx = _cursorWorldPos.X - playerPos.X;
+		float dz = _cursorWorldPos.Z - playerPos.Z;
+		_lastLineLength = Mathf.Sqrt(dx * dx + dz * dz);
+		_lastMobTargeted = engaged;
+		_lastMobTargetOuter = engaged ? engagedRing : _groundRingOuterRadius;
+		_lastPositionalRadius = positionalRadius;
+		// Character-relative offset the persistence window re-anchors the held cursor by.
+		_persistOffset = new Vector2(dx, dz);
+		RenderReticle(aimType, _lastLineLength, clippedAtSurface: false, mobTargeted: engaged, mobTargetOuter: _lastMobTargetOuter, positionalRadius: positionalRadius, dt: dt);
+	}
+
+	// Advances the free reticle from input (stick rate / mouse delta), then runs the
+	// shared snap resolver. Returns true (engaged) with the visible lock-ring radius
+	// in `ringOuter` when pinned to a target.
+	bool UpdateCursorWithSnap(AimInput aim, Vector3 playerPos, Vector3 chestWorld, float maxRange, float dt, out float ringOuter)
+	{
+		// Advance the FREE cursor only while NOT locked. A held lock advances per-device
+		// inside the resolver (gamepad nudges the lock cursor, mouse moves the free
+		// probe), keeping the range disk out of it so the clamp can't false-break an
+		// out-of-range lock.
+		if (!_positionalLocked)
+		{
+			if (_freeCursorValid)
+			{
+				_cursorWorldPos.X = _freeCursorXZ.X;
+				_cursorWorldPos.Z = _freeCursorXZ.Y;
+			}
+			AdvanceGroundCursorXZ(aim, playerPos, chestWorld, maxRange, dt);
+			_freeCursorXZ = new Vector2(_cursorWorldPos.X, _cursorWorldPos.Z);
+			_freeCursorValid = true;
+		}
+
+		bool engaged = ResolvePositionalSnap(aim, playerPos, maxRange, dt, out ringOuter);
+		if (!engaged)
+		{
+			DropCursorToGround(chestWorld);
+		}
+		return engaged;
+	}
+
+	// THE single snapping path. Given _freeCursorXZ (already advanced however the
+	// cursor moved this frame — the right stick while aiming, or player movement
+	// during the persistence window), it maintains / acquires / breaks a target lock
+	// and pins _cursorWorldPos. Returns true when engaged, with the VISIBLE lock-ring
+	// radius in `ringOuter`. Does not advance the free cursor or resolve Y (callers
+	// own those), so aiming and movement reach exactly the same lock behaviour.
+	bool ResolvePositionalSnap(AimInput aim, Vector3 playerPos, float maxRange, float dt, out float ringOuter)
+	{
+		ringOuter = _groundRingOuterRadius;
+		_ringPinned = false;
+		bool gamepad = aim.Device == InputDevice.EDevice.Gamepad;
+		WeaponData weapon = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+
+		// Drop a lock that died, left release range, or is no longer targetable.
+		if (_positionalLocked && !IsPositionalLockValid(_positionalTargetMob, weapon, playerPos, maxRange))
+		{
+			_positionalTargetMob = null;
+			_positionalLocked = false;
+		}
+
+		if (_positionalLocked)
+		{
+			// Track the player's REMEMBERED position of the mob (the frozen memory
+			// silhouette while out of sight), not the still-simulating live body.
+			Vector3 foot = _positionalTargetMob.RememberedPosition;
+			Vector2 footXZ = new(foot.X, foot.Z);
+			// Re-target: if the locked mob sits beyond the throw's reach (the arc caps
+			// short of it) and that capped landing point falls on a different, reachable
+			// mob, switch the lock to the nearer target the throw can actually hit.
+			float fdx = footXZ.X - playerPos.X;
+			float fdz = footXZ.Y - playerPos.Z;
+			if (maxRange > 0f && fdx * fdx + fdz * fdz > maxRange * maxRange)
+			{
+				Vector2 landing = ClampAimToRange(footXZ, playerPos, maxRange);
+				Mob nearer = FindPositionalSnapTarget(landing, playerPos, maxRange, weapon, out float _, out Vector3 nearerFoot);
+				if (nearer != null && nearer != _positionalTargetMob)
+				{
+					_positionalTargetMob = nearer;
+					foot = nearerFoot;
+					footXZ = new Vector2(foot.X, foot.Z);
+				}
+			}
+			float snapR = PositionalSnapRadius(_positionalTargetMob);
+			bool brokeOut;
+			if (gamepad)
+			{
+				// A firm push / spin (deflection) breaks; otherwise the stick velocity nudges
+				// the lock cursor and the ease (scaled down by deflection so a push moves it)
+				// settles it back onto the feet over ~0.25s. Firing mid-ease throws this line.
+				float deflection = aim.Value.Length();
+				brokeOut = deflection >= _positionalLockBreakDeflection;
+				if (!brokeOut)
+				{
+					if (deflection > 0f && maxRange > 0f)
+					{
+						float scale = maxRange * _gamepadPositionalSpeedFraction * dt;
+						_lockCursorXZ += new Vector2(aim.Value.X * scale, aim.Value.Y * scale);
+					}
+					float easeK = (1f - Mathf.Exp(-dt * _positionalLockEaseSpeed)) * (1f - Mathf.Min(1f, deflection));
+					_lockCursorXZ = _lockCursorXZ.Lerp(footXZ, easeK);
+				}
+			}
+			else
+			{
+				// Mouse: the cursor follows the mouse directly (the free cursor is the break
+				// probe, no range clamp so an out-of-range lock holds); break when it leaves
+				// the snap radius. The aim (lock cursor) eases onto the feet meanwhile.
+				_freeCursorXZ += aim.Value;
+				float ox = _freeCursorXZ.X - footXZ.X;
+				float oz = _freeCursorXZ.Y - footXZ.Y;
+				brokeOut = ox * ox + oz * oz > snapR * snapR;
+				if (!brokeOut)
+				{
+					float easeK = 1f - Mathf.Exp(-dt * _positionalLockEaseSpeed);
+					_lockCursorXZ = _lockCursorXZ.Lerp(footXZ, easeK);
+				}
+			}
+
+			if (brokeOut)
+			{
+				// Resume free aiming. Gamepad continues from the lock cursor (the firm stick
+				// carries it out); the mouse free cursor is already at the raw cursor position.
+				if (gamepad) { _freeCursorXZ = _lockCursorXZ; }
+				_freeCursorValid = true;
+				_positionalTargetMob = null;
+				_positionalLocked = false;
+			}
+			else
+			{
+				_cursorWorldPos.X = _lockCursorXZ.X;
+				_cursorWorldPos.Z = _lockCursorXZ.Y;
+				DropCursorToGround(playerPos + Vector3.Up * _aimHeight);
+				if (gamepad) { _freeCursorXZ = _lockCursorXZ; }
+				_freeCursorValid = true;
+				_ringPinned = true;
+				_ringWorldPos = foot;
+				ringOuter = PositionalCatchRadius(_positionalTargetMob);
+				return true;
+			}
+		}
+
+		// Hover: is the throw's LANDING point (the cursor clamped to reach) inside a
+		// targetable mob's lock-on range? Keying off the reachable point means an out-of-
+		// range cursor relocks once the arc falls back onto a target.
+		Vector2 aimXZ = ClampAimToRange(_freeCursorXZ, playerPos, maxRange);
+		Mob hover = FindPositionalSnapTarget(aimXZ, playerPos, maxRange, weapon, out float hoverRing, out Vector3 hoverFoot);
+		if (hover != null)
+		{
+			_positionalTargetMob = hover;
+			// Cursor at rest on the target (right stick eased, or pure movement while
+			// walking it on) locks — the aim then eases onto the feet from here. Still
+			// moving → just a hover highlight (ring at the feet, aim stays on the reticle)
+			// so sweeping through doesn't snag and the lock has somewhere to ease FROM.
+			bool settled = gamepad
+				? aim.Value.LengthSquared() <= _positionalLockStopDeadzone * _positionalLockStopDeadzone
+				: dt > 0f && aim.Value.Length() <= _mouseLockSettleSpeed * dt;
+			if (settled)
+			{
+				_positionalLocked = true;
+				_lockCursorXZ = _freeCursorXZ;
+			}
+			_cursorWorldPos.X = _freeCursorXZ.X;
+			_cursorWorldPos.Z = _freeCursorXZ.Y;
+			DropCursorToGround(playerPos + Vector3.Up * _aimHeight);
+			_ringPinned = true;
+			_ringWorldPos = hoverFoot;
+			ringOuter = hoverRing;
+			return true;
+		}
+
+		// Free: no target under the reticle. Y is the caller's to resolve.
+		_positionalTargetMob = null;
+		_cursorWorldPos.X = _freeCursorXZ.X;
+		_cursorWorldPos.Z = _freeCursorXZ.Y;
+		return false;
+	}
+
+	// Visible red lock-ring radius for a snap target — the same footprint directional
+	// lock draws (clearanceRadius scaled by the locked-ring multiplier).
+	float PositionalCatchRadius(Mob mob)
+	{
+		float clearance = mob?.mobData?.clearanceRadius ?? 0.4f;
+		return clearance * _groundRingLockedRadiusMultiplier;
+	}
+
+	// Lock-on / break-out distance in WORLD METERS: the mob's body half-width
+	// (clearanceRadius) plus a flat reach, independent of the drawn ring size.
+	float PositionalSnapRadius(Mob mob)
+	{
+		float clearance = mob?.mobData?.clearanceRadius ?? 0.4f;
+		return clearance + _positionalSnapReachMeters;
+	}
+
+	// A locked target stays valid while it exists, is still targetable by the
+	// weapon, and hasn't been walked past the release distance (the weapon range
+	// PLUS _positionalLockReleaseExtraRange — leaving normal range alone keeps the
+	// lock so the player can close back in). Optionally also requires line of sight.
+	bool IsPositionalLockValid(Mob mob, WeaponData weapon, Vector3 playerPos, float maxRange)
+	{
+		if (mob == null || !GodotObject.IsInstanceValid(mob) || !mob.CanTarget(weapon))
+		{
+			return false;
+		}
+		// Range-check against the REMEMBERED position (where the player thinks the mob
+		// is), matching the silhouette the lock tracks.
+		Vector3 foot = mob.RememberedPosition;
+		float dx = foot.X - playerPos.X;
+		float dz = foot.Z - playerPos.Z;
+		float release = maxRange + _positionalLockReleaseExtraRange;
+		if (release > 0f && dx * dx + dz * dz > release * release)
+		{
+			return false;
+		}
+		if (_positionalLockBreaksOnLineOfSightLoss && !HasLineOfSightToMob(mob, playerPos))
+		{
+			return false;
+		}
+		return true;
+	}
+
+	// Clear line of sight from the player's chest pivot to the mob's body center,
+	// against solid environment only. Used to drop a lock when the target ducks
+	// behind cover. Returns true when the world isn't queryable so a missing space
+	// state never spuriously breaks the lock.
+	bool HasLineOfSightToMob(Mob mob, Vector3 playerPos)
+	{
+		World3D world3D = GetWorld3D();
+		if (world3D == null)
+		{
+			return true;
+		}
+		Vector3 origin = playerPos + Vector3.Up * _aimHeight;
+		using var query = PhysicsRayQueryParameters3D.Create(origin, mob.AimCenter, (uint)ECollisionLayer.Solid);
+		query.CollideWithBodies = true;
+		query.CollideWithAreas = false;
+		if (_player != null)
+		{
+			query.Exclude = new Godot.Collections.Array<Rid> { _player.GetRid() };
+		}
+		return world3D.DirectSpaceState.IntersectRay(query).Count == 0;
+	}
+
+	// Clamp a world XZ point to within `range` of the player (XZ). For an out-of-reach
+	// aim this returns where the throw actually LANDS in that direction, so snapping
+	// keys off the arc's landing point rather than the unreachable raw cursor.
+	Vector2 ClampAimToRange(Vector2 xz, Vector3 playerPos, float range)
+	{
+		float dx = xz.X - playerPos.X;
+		float dz = xz.Y - playerPos.Z;
+		float d2 = dx * dx + dz * dz;
+		if (range > 0f && d2 > range * range)
+		{
+			float k = range / Mathf.Sqrt(d2);
+			return new Vector2(playerPos.X + dx * k, playerPos.Z + dz * k);
+		}
+		return xz;
+	}
+
+	// Nearest targetable mob whose feet are within range and within its own catch
+	// radius of `cursorXZ`. Null when none. Shares Mob.CanTarget with the
+	// directional lock so the snap and the actual shot agree on what's targetable.
+	Mob FindPositionalSnapTarget(Vector2 cursorXZ, Vector3 playerPos, float maxRange, WeaponData weapon, out float catchR, out Vector3 foot)
+	{
+		catchR = 0f;
+		foot = default;
+		MobSpatialHash hash = World.Current?.MobSpatialHash;
+		if (hash == null)
+		{
+			return null;
+		}
+		_snapScratch ??= new List<Mob>(16);
+		_snapScratch.Clear();
+		Vector3 cursorWorld = new(cursorXZ.X, playerPos.Y, cursorXZ.Y);
+		hash.QueryRadius(cursorWorld, _positionalSnapSearchRadius, _snapScratch);
+
+		Mob best = null;
+		float bestDistSq = float.PositiveInfinity;
+		float maxRangeSq = maxRange * maxRange;
+		for (int i = 0; i < _snapScratch.Count; i++)
+		{
+			Mob mob = _snapScratch[i];
+			if (mob == null || !mob.CanTarget(weapon))
+			{
+				continue;
+			}
+			Vector3 mf = mob.GlobalPosition;
+			float rdx = mf.X - playerPos.X;
+			float rdz = mf.Z - playerPos.Z;
+			if (maxRange > 0f && rdx * rdx + rdz * rdz > maxRangeSq)
+			{
+				continue;
+			}
+			float cdx = mf.X - cursorXZ.X;
+			float cdz = mf.Z - cursorXZ.Y;
+			float distSq = cdx * cdx + cdz * cdz;
+			float snapR = PositionalSnapRadius(mob);
+			if (distSq > snapR * snapR || distSq >= bestDistSq)
+			{
+				continue;
+			}
+			bestDistSq = distSq;
+			best = mob;
+			catchR = PositionalCatchRadius(mob);
+			foot = mf;
+		}
+		return best;
+	}
+
+	// Drop _cursorWorldPos.Y to the ground beneath its current XZ. Starts from
+	// chest height so it doesn't miss surfaces slightly above the player's feet.
+	void DropCursorToGround(Vector3 chestWorld)
+	{
 		Vector3 dropFrom = new(_cursorWorldPos.X, chestWorld.Y, _cursorWorldPos.Z);
 		if (TryRaycastDown(dropFrom, _maxGroundDropDistance, out Vector3 groundHit))
 		{
 			_cursorWorldPos.Y = groundHit.Y;
 		}
-
-		// Face the player body toward the cursor so the sprite and
-		// ActorForward both point at where the throw / drop will land.
-		_player.SnapAimYawToward(_cursorWorldPos);
-
-		// Resolve the AoE/footprint ring radius for the active tier — fed
-		// to RenderReticle's existing ring-radius lerp so the change from
-		// the default outer radius eases in over RingTransitionSeconds.
-		// Cached so the fade-out path holds it through the alpha drop.
-		ItemAction tier = ResolveActiveTier(out _);
-		float positionalRadius = Mathf.Max(0f, tier?.positionalAreaRadius ?? _groundRingOuterRadius);
-		_lastPositionalRadius = positionalRadius;
-
-		// Positional has no concept of mob lock or aim distance line —
-		// the cursor is a free ground point. Cached state still kept up
-		// to date so the fade-out path renders without surprises if the
-		// player switches back to a directional tier later.
-		float dx = _cursorWorldPos.X - playerPos.X;
-		float dz = _cursorWorldPos.Z - playerPos.Z;
-		float lineLength = Mathf.Sqrt(dx * dx + dz * dz);
-		_lastLineLength = lineLength;
-		_lastMobTargeted = false;
-		_lastMobTargetOuter = _groundRingOuterRadius;
-
-		// Capture the cursor's character-relative XZ offset so the post-aim
-		// persistence window can re-anchor it to the player each frame (so the
-		// held cursor follows the player rather than staying pinned in world space).
-		_persistOffset = new Vector2(_cursorWorldPos.X - playerPos.X, _cursorWorldPos.Z - playerPos.Z);
-
-		RenderReticle(EAimType.Positional, lineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, positionalRadius: positionalRadius, dt: dt);
 	}
 
-	// Arced aim — same range-clamped ground cursor input as Positional, but the
-	// cursor XZ is a THROW TARGET: build a fixed-shape hump (constant rise +
-	// lifetime) whose horizontal speed covers the aim distance, drive the dotted
-	// arc preview, and publish the launch velocity (ArcLaunchVelocity) so
-	// DoProjectile fires the exact previewed hump. Only the cursor XZ matters —
-	// the throw's vertical is fixed, and the real projectile bounces / detonates
-	// at the fuse, so there's no surface-Y resolution here.
-	void UpdateArced(AimInput aim, float maxRange, float dt)
+	// Clear gamepad positional snap state. Called when aim ends or the device
+	// switches off gamepad so the next session re-hovers from a fresh free cursor.
+	void ResetPositionalSnap()
 	{
-		Vector3 playerPos = _player.GlobalPosition;
-		Vector3 chestWorld = playerPos + Vector3.Up * _aimHeight;
-
-		AdvanceGroundCursorXZ(aim, playerPos, chestWorld, maxRange, dt);
-
-		_player.SnapAimYawToward(_cursorWorldPos);
-
-		// Origin matches DoProjectile's launch origin (ActorWorldPosition + 1m) so
-		// the previewed hump and the real throw share a starting point.
-		SolveArcToTarget(chestWorld, _cursorWorldPos);
-
-		float dx = _cursorWorldPos.X - playerPos.X;
-		float dz = _cursorWorldPos.Z - playerPos.Z;
-		_lastLineLength = Mathf.Sqrt(dx * dx + dz * dz);
-		_lastMobTargeted = false;
-		_lastMobTargetOuter = _groundRingOuterRadius;
-
-		_persistOffset = new Vector2(_cursorWorldPos.X - playerPos.X, _cursorWorldPos.Z - playerPos.Z);
-
-		RenderReticle(EAimType.Arced, _lastLineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, positionalRadius: 0f, dt: dt);
+		_positionalTargetMob = null;
+		_positionalLocked = false;
+		_freeCursorValid = false;
+		_ringPinned = false;
 	}
 
 	// Shared Positional/Arced cursor input: seed the cursor on the first aiming
@@ -857,6 +1232,15 @@ public partial class AimingReticle : Node3D
 		float dx = target.X - origin.X;
 		float dz = target.Z - origin.Z;
 		float horizDist = Mathf.Sqrt(dx * dx + dz * dz);
+		// Cap the horizontal reach at the weapon's range. A lock that's allowed to
+		// persist past normal range (out to the release distance) still throws only
+		// to the natural range, in the locked enemy's direction (bearing) — the arc
+		// falls short rather than stretching beyond reach. The red ring stays on the
+		// enemy; only the arc/throw is clamped.
+		if (arc.projectileMaxRange > 0f)
+		{
+			horizDist = Mathf.Min(horizDist, arc.projectileMaxRange);
+		}
 		Vector3 launchVel = bearing * (horizDist / fuse) + Vector3.Up * launchVy;
 
 		_arcLaunchVelocity = launchVel;
@@ -958,7 +1342,7 @@ public partial class AimingReticle : Node3D
 	// tint; `mobTargetOuter` is the outer radius to ease into. Positional
 	// aim hides the forward beam / spread markers / knob entirely — the
 	// ground circle alone communicates the throw / drop target. `_cursorWorldPos`
-	// (written by UpdateDirectional / UpdatePositional) is the ground-circle
+	// (written by UpdateDirectional / UpdateGroundAim) is the ground-circle
 	// world position regardless of mode.
 	void RenderReticle(EAimType aimType, float lineLength, bool clippedAtSurface, bool mobTargeted, float mobTargetOuter, float positionalRadius, float dt)
 	{
@@ -967,17 +1351,17 @@ public partial class AimingReticle : Node3D
 		// Ground ring lerp. New target whenever the active-tier footprint
 		// or lock state changes — capture the current value as the source
 		// and reset the elapsed clock so the next 0.15s plays out linearly
-		// from here. Positional aim drives the ring to the tier's authored
-		// AoE radius; Directional uses the locked-mob silhouette or the
-		// default outer radius.
+		// from here. A mob lock (directional, or a snapped gamepad positional
+		// target) drives the ring to the mob silhouette; an unlocked Positional
+		// cursor uses the tier's authored AoE radius; everything else the default.
 		float targetOuter;
-		if (aimType == EAimType.Positional || aimType == EAimType.Arced)
-		{
-			targetOuter = positionalRadius;
-		}
-		else if (mobTargeted)
+		if (mobTargeted)
 		{
 			targetOuter = mobTargetOuter;
+		}
+		else if (aimType == EAimType.Positional || aimType == EAimType.Arced)
+		{
+			targetOuter = positionalRadius;
 		}
 		else
 		{
@@ -1000,9 +1384,10 @@ public partial class AimingReticle : Node3D
 
 		if (_groundCircle != null)
 		{
-			if (aimType == EAimType.Arced)
+			if (aimType == EAimType.Arced && !mobTargeted)
 			{
-				// Arced aim is visualized by the dotted hump alone — no ground ring.
+				// Free Arced aim is visualized by the dotted hump alone — no ground
+				// ring. A locked target still draws the red ring under the mob.
 				_groundCircle.Visible = false;
 			}
 			else
@@ -1014,8 +1399,9 @@ public partial class AimingReticle : Node3D
 				_groundCircle.SetInstanceShaderParameter("ring_outer_radius", _currentOuterRadius);
 				_groundCircle.SetInstanceShaderParameter("ring_inner_radius", currentInner);
 				_groundCircle.SetInstanceShaderParameter("instance_color", tint);
-				_groundCircle.Position = ToLocal(_cursorWorldPos);
-				UpdateGroundUndulation(_cursorWorldPos);
+				Vector3 ringWorld = _ringPinned ? _ringWorldPos : _cursorWorldPos;
+				_groundCircle.Position = ToLocal(ringWorld);
+				UpdateGroundUndulation(ringWorld);
 			}
 		}
 
@@ -1310,13 +1696,15 @@ public partial class AimingReticle : Node3D
 		// held across fade-out so the styling stays consistent as alpha
 		// drops to zero.
 		float groundScale;
-		if (_lastAimType == EAimType.Positional || _lastAimType == EAimType.Arced)
+		if (_lastMobTargeted)
+		{
+			// A mob lock (directional or a snapped positional/arced target) reads at
+			// full alpha — it's the strongest UI state.
+			groundScale = 1f;
+		}
+		else if (_lastAimType == EAimType.Positional || _lastAimType == EAimType.Arced)
 		{
 			groundScale = _groundRingPositionalAlphaScale;
-		}
-		else if (_lastMobTargeted)
-		{
-			groundScale = 1f;
 		}
 		else
 		{

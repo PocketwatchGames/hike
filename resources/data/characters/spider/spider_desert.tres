@@ -1,12 +1,15 @@
 [gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://dp601slikqhh"]
 
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="1_rqujo"]
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
 [ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="2_mob"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="3_entry"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_yxwh0"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="4_palette"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="5_wd"]
 [ext_resource type="Resource" uid="uid://dqv1rat42bvem" path="res://resources/data/characters/spider/spider_bite.tres" id="6_bite"]
 [ext_resource type="Resource" uid="uid://b4qht5mjwfjne" path="res://resources/data/characters/spider/spider_venom.tres" id="7_venom"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="7_w5xr3"]
 
 [sub_resource type="Resource" id="entry_body"]
 script = ExtResource("3_entry")

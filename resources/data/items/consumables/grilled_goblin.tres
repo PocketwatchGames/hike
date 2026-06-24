@@ -28,9 +28,9 @@ effects = Array[ExtResource("7_effect")]([SubResource("Resource_apply_poison")])
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_charged")
-speedMultiplierCharging = 0.0
 chargeTime = 1.5
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_apply_decrement")])
+speedMultiplierCharging = 0.0
 chargeLoopEffect = ExtResource("10_eatfx")
 
 [sub_resource type="Resource" id="Resource_profile"]

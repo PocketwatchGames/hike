@@ -7,6 +7,8 @@
 [ext_resource type="AudioStream" uid="uid://ljy2i2v3ekwy" path="res://assets/audio/source/movement/un_shr_move_water_unit_enter_04.wav" id="2_we04"]
 [ext_resource type="AudioStream" uid="uid://c78o7f1bguile" path="res://assets/audio/source/movement/un_shr_move_water_unit_enter_05.wav" id="2_we05"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_puff"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_hydburst"]
 emission_shape = 1
@@ -45,10 +47,12 @@ damping_max = 1.2
 scale_min = 0.9
 scale_max = 1.6
 color = Color(0.65, 0.88, 1, 1)
+color_ramp = ExtResource("fade_grad")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hydglow"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo_texture = ExtResource("tex_puff")
 shader_parameter/albedo = Color(0.65, 0.88, 1, 0.4)
 shader_parameter/emission = Color(0, 0, 0, 0)
 

@@ -1,9 +1,10 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://dfs3p6y8yc688"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://e7bxlncfc8qj" path="res://assets/audio/source/weapons/sfx_player_lantern_head.wav" id="2_lh"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
-[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_puff"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_campignite"]
 emission_shape = 1
@@ -12,7 +13,7 @@ direction = Vector3(0, 1, 0)
 spread = 35.0
 initial_velocity_min = 1.4
 initial_velocity_max = 3.2
-gravity = Vector3(0, 1.0, 0)
+gravity = Vector3(0, 1, 0)
 damping_min = 0.3
 damping_max = 0.9
 scale_min = 0.8
@@ -22,6 +23,7 @@ color_ramp = ExtResource("fade_grad")
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_campignite"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo_texture = ExtResource("tex_puff")
 shader_parameter/albedo = Color(0, 0, 0, 0)
 shader_parameter/emission = Color(1, 0.7, 0.25, 0.9)
 shader_parameter/use_vertex_color = true
@@ -38,7 +40,6 @@ spread = 60.0
 initial_velocity_min = 1.8
 initial_velocity_max = 4.0
 gravity = Vector3(0, -1.5, 0)
-damping_min = 0.0
 damping_max = 0.3
 scale_min = 0.4
 scale_max = 0.9
@@ -55,10 +56,10 @@ shader_parameter/use_vertex_color = true
 material = SubResource("ShaderMaterial_campspark")
 size = Vector2(0.04, 0.04)
 
-[node name="CampfireLight" type="Node3D"]
+[node name="CampfireLight" type="Node3D" unique_id=1552943183]
 script = ExtResource("1_oneshot")
 
-[node name="Flash" type="GPUParticles3D" parent="."]
+[node name="Flash" type="GPUParticles3D" parent="." unique_id=1686250503]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
 emitting = false
 amount = 24
@@ -69,7 +70,7 @@ randomness = 0.5
 process_material = SubResource("ParticleProcessMaterial_campignite")
 draw_pass_1 = SubResource("QuadMesh_campignite")
 
-[node name="Sparks" type="GPUParticles3D" parent="."]
+[node name="Sparks" type="GPUParticles3D" parent="." unique_id=820779955]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
 emitting = false
 amount = 18
@@ -80,9 +81,9 @@ randomness = 0.6
 process_material = SubResource("ParticleProcessMaterial_campspark")
 draw_pass_1 = SubResource("QuadMesh_campspark")
 
-[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1961285794]
 stream = ExtResource("2_lh")
+volume_db = 1.0
 unit_size = 5.0
 max_distance = 24.0
-volume_db = 1.0
 bus = &"World3D"

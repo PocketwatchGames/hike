@@ -7,7 +7,15 @@
 [ext_resource type="AudioStream" uid="uid://drkeywqjx72bd" path="res://assets/audio/source/movement/sfx_player_land_plunge_04.wav" id="2_pl04"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
+[sub_resource type="Gradient" id="Gradient_pixfade"]
+offsets = PackedFloat32Array(0, 0.15, 0.85, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_pixfade"]
+gradient = SubResource("Gradient_pixfade")
+
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_splash"]
+color_ramp = SubResource("GradientTexture1D_pixfade")
 emission_shape = 1
 emission_sphere_radius = 0.3
 direction = Vector3(0, 1, 0)
@@ -28,7 +36,7 @@ shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_splash"]
 material = SubResource("ShaderMaterial_splash")
-size = Vector2(0.16, 0.16)
+size = Vector2(0.06, 0.06)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_plunge"]
 playback_mode = 1
@@ -49,7 +57,7 @@ script = ExtResource("1_oneshot")
 
 [node name="Splash" type="GPUParticles3D" parent="."]
 emitting = false
-amount = 32
+amount = 64
 lifetime = 0.9
 one_shot = true
 explosiveness = 1.0

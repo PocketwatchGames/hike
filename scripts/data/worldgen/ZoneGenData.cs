@@ -125,4 +125,13 @@ public partial class ZoneGenData : Resource
     [Export] public SpawnListData CaveEntities;
     [Export] public SpawnListData ShoreEntities;
     [Export] public SpawnListData WaterEntities;
+
+    // One-off landmark cluster placed ONCE per zone at the zone's anchor
+    // (vs the SurfaceEntities density scan), e.g. a "home" campfire. For the
+    // hub zone (WorldGenData.HubZoneIndex) the anchor is the player spawn
+    // column and this is the near-spawn cluster (villager, companion, lit
+    // campfire, boat); other zones anchor on a flat-dry column rolled within
+    // their footprint. The group's ScatterRadius spreads the members around
+    // that anchor. Null = no per-zone cluster.
+    [Export] public SpawnGroupData Fixtures;
 }

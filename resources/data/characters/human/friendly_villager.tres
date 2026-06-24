@@ -4,7 +4,6 @@
 [ext_resource type="Resource" uid="uid://jrricbbgivll" path="res://resources/data/characters/human/friendly_villager_brain.tres" id="2_brain"]
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="4_ec6cf"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="6_itempref"]
 
 [sub_resource type="Resource" id="Resource_anim_idle"]

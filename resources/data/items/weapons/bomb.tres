@@ -59,6 +59,7 @@ events = Array[ExtResource("3_event")]([SubResource("Resource_proj_small")])
 requirements = Array[ExtResource("8_7xwph")]([SubResource("Resource_req_no_swim")])
 aimType = 2
 positionalAreaRadius = 1.0
+speedMultiplierCharging = 0.0
 speedMultiplierActive = 0.5
 releaseEffect = ExtResource("9_throw")
 
@@ -93,7 +94,7 @@ events = Array[ExtResource("3_event")]([SubResource("Resource_proj_large")])
 requirements = Array[ExtResource("8_7xwph")]([SubResource("Resource_req_no_swim")])
 aimType = 2
 positionalAreaRadius = 2.5
-speedMultiplierCharging = 0.4
+speedMultiplierCharging = 0.0
 speedMultiplierActive = 0.0
 releaseEffect = ExtResource("9_throw")
 

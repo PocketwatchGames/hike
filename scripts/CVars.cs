@@ -112,6 +112,11 @@ public static class CVars
     // more responsive. 1.0 ≈ raw pixels.
     public static CVarFloat mouseSensitivity = new CVarFloat("mouse_sensitivity", 1.0f);
 
+    // Mouse/keyboard target locking for positional & arced (thrown) weapons. When
+    // false, the mouse keeps a plain free aim cursor — no hover ring, no snap-to-mob
+    // lock — exactly as before the assist existed. Gamepad locking is unaffected.
+    public static CVarBool mouseTargetLock = new CVarBool("mouse_target_lock", true);
+
     // Hold duration (seconds) shared by the context-button hold gestures:
     // holding Interact past this opens a multi-action interactive's options
     // menu (a shorter tap runs the default action), and holding

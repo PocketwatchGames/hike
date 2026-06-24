@@ -3,12 +3,16 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_ah0t7"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_cikss"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
 [ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/fx/fists_hit_creature.tscn" id="6_hitfx"]
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_solidfx"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="8_buildup"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_tuy7q"]
 [ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="9_poison"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_alupl"]
 [ext_resource type="PackedScene" uid="uid://c4qddyfo0jyu5" path="res://scenes/fx/spider_attack.tscn" id="10_attack"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
@@ -33,10 +37,10 @@ impactLethalEffect = ExtResource("6_hitfx")
 
 [sub_resource type="Resource" id="Resource_action_bite"]
 script = ExtResource("3_action")
-speedMultiplierActive = 0.0
 displayName = &"Bite"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_lunge"), SubResource("Resource_event_bite")])
+speedMultiplierActive = 0.0
 releaseEffect = ExtResource("10_attack")
 
 [sub_resource type="Resource" id="Resource_profile"]

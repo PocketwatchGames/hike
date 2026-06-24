@@ -948,6 +948,27 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
     CollisionShape3D _hurtBoxShape;
+
+    // World position the player currently ASSOCIATES with this mob. While the mob
+    // is a frozen memory silhouette (pinned out of sight) that's the remembered
+    // last-seen pose, not the still-simulating live body. The aiming lock tracks
+    // this so the reticle stays on the silhouette the player can see rather than
+    // chasing the invisible body. Falls back to the live position when not pinned.
+    public Vector3 RememberedPosition
+    {
+        get
+        {
+            if (_meshPinned)
+            {
+                Node3D pin = _visuals != null ? _visuals : _mesh;
+                if (pin != null)
+                {
+                    return pin.GlobalPosition;
+                }
+            }
+            return GlobalPosition;
+        }
+    }
     public Node3D AttackerNode => this;
     public void PlayAnim(EAnimation anim)
     {

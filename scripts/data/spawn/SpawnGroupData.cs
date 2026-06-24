@@ -51,7 +51,14 @@ public partial class SpawnGroupData : SpawnEntryData
             int count = entry.RollCount(rng);
             for (int i = 0; i < count; i++)
             {
-                if (context != null && ScatterRadius > 0f)
+                if (entry.SelfPlaces)
+                {
+                    // The entry derives its own position from the anchor (e.g.
+                    // a boat ring-scanning for water) — the grassy scatter
+                    // sampler would wrongly reject it, so bypass it.
+                    entry.Spawn(ws, position, rng, context);
+                }
+                else if (context != null && ScatterRadius > 0f)
                 {
                     // TryPickInRadius runs the entry's flat-terrain + overlap
                     // checks inside its rejection loop, so the surviving pick

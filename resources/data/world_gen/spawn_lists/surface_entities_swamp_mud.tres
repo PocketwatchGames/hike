@@ -1,0 +1,55 @@
+[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://3lnulrnyn5ro"]
+
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_elc6n"]
+[ext_resource type="Resource" uid="uid://cmdgobswamp01" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp.tres" id="2_7kgfv"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="3_jhwan"]
+[ext_resource type="Resource" uid="uid://cmdgobswelt1" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp_elite.tres" id="4_7wvud"]
+[ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="5_568h3"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="6_hc81n"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="7_ydkd8"]
+[ext_resource type="Script" uid="uid://drxhdnq6x2ttv" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="8_ooid8"]
+[ext_resource type="Resource" uid="uid://cyrniev8emry" path="res://resources/data/world_gen/spawn_groups/goblin_group_swamp.tres" id="9_lbolm"]
+[ext_resource type="PackedScene" uid="uid://clba532cprsy" path="res://scenes/interactives/fire_trap.tscn" id="10_gxvo6"]
+[ext_resource type="Script" uid="uid://dy4evm7tom40j" path="res://scripts/data/spawn/FireTrapSpawnEntry.cs" id="11_jtvy7"]
+[ext_resource type="Resource" uid="uid://067l7ldr00xa" path="res://resources/data/world_gen/mob_descriptors/spider_swamp.tres" id="12_uexog"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="13_s5msw"]
+
+[sub_resource type="Resource" id="Resource_goblin_night"]
+script = ExtResource("3_jhwan")
+Descriptor = ExtResource("2_7kgfv")
+InitialBehavior = &"Wander"
+InitialBehaviorChance = 0.25
+SquareMetersPerSpawn = 500.0
+
+[sub_resource type="Resource" id="Resource_goblin_elite"]
+script = ExtResource("3_jhwan")
+Descriptor = ExtResource("4_7wvud")
+InitialBehavior = &"Wander"
+InitialBehaviorChance = 0.25
+SquareMetersPerSpawn = 1429.0
+
+[sub_resource type="Resource" id="Desc_loot"]
+script = ExtResource("6_hc81n")
+item = ExtResource("5_568h3")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_loot"]
+script = ExtResource("8_ooid8")
+Item = SubResource("Desc_loot")
+SquareMetersPerSpawn = 200.0
+
+[sub_resource type="Resource" id="Resource_firetrap"]
+script = ExtResource("11_jtvy7")
+Scene = ExtResource("10_gxvo6")
+SquareMetersPerSpawn = 250.0
+
+[sub_resource type="Resource" id="Resource_spider"]
+script = ExtResource("3_jhwan")
+Descriptor = ExtResource("12_uexog")
+InitialBehavior = &"Wander"
+InitialBehaviorChance = 0.25
+SquareMetersPerSpawn = 800.0
+
+[resource]
+script = ExtResource("13_s5msw")
+Entries = Array[ExtResource("1_elc6n")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_loot"), ExtResource("9_lbolm"), SubResource("Resource_firetrap"), SubResource("Resource_spider")])

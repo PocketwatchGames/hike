@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_puff"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_learnsparkle"]
 emission_shape = 1
@@ -40,10 +42,12 @@ damping_max = 1.2
 scale_min = 1.0
 scale_max = 1.8
 color = Color(0.55, 0.95, 1, 1)
+color_ramp = ExtResource("fade_grad")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_learnring"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo_texture = ExtResource("tex_puff")
 shader_parameter/albedo = Color(0.5, 0.95, 1, 0.55)
 shader_parameter/emission = Color(0, 0, 0, 0)
 

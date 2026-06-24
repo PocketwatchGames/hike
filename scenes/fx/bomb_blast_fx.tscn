@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_plit"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_puff"]
 [ext_resource type="AudioStream" uid="uid://c51b8l85ypv5" path="res://assets/audio/source/impact/sfx_bomb_explosion_01.wav" id="3_boom1"]
 [ext_resource type="AudioStream" uid="uid://j7gewm1b72a7" path="res://assets/audio/source/impact/sfx_bomb_explosion_02.wav" id="4_boom2"]
 
@@ -31,6 +32,7 @@ color_ramp = SubResource("GradientTexture1D_fade")
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_fire"]
 render_priority = 0
 shader = ExtResource("2_plit")
+shader_parameter/albedo_texture = ExtResource("tex_puff")
 shader_parameter/albedo = Color(0, 0, 0, 0)
 shader_parameter/emission = Color(1, 0.55, 0.18, 1)
 shader_parameter/use_vertex_color = true
@@ -57,6 +59,7 @@ color_ramp = SubResource("GradientTexture1D_fade")
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_smoke"]
 render_priority = 0
 shader = ExtResource("2_plit")
+shader_parameter/albedo_texture = ExtResource("tex_puff")
 shader_parameter/albedo = Color(0.16, 0.14, 0.13, 0.85)
 shader_parameter/emission = Color(0, 0, 0, 1)
 shader_parameter/use_vertex_color = true

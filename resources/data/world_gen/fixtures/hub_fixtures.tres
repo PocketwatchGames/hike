@@ -1,0 +1,62 @@
+[gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://c4lym14iaoht2"]
+
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
+[ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
+[ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="3_npc"]
+[ext_resource type="Script" uid="uid://c0bcoj5vlqohu" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="4_camp"]
+[ext_resource type="Script" uid="uid://kfffp8mrtgin" path="res://scripts/data/spawn/BoatSpawnEntry.cs" id="5_boat"]
+[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="6_loyaltygift"]
+[ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/characters/MobInventoryData.cs" id="7_stock"]
+[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="8_villager"]
+[ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_gen/mob_descriptors/dog.tres" id="9_companion"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="10_lang"]
+[ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/characters/human/friendly_villager_conversation.tres" id="11_conv"]
+[ext_resource type="Resource" uid="uid://csrlvygmra001" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="12_scroll"]
+[ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="13_leather"]
+[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="14_campscene"]
+[ext_resource type="PackedScene" uid="uid://b8npx1masl5o6" path="res://scenes/vehicles/boat.tscn" id="15_boatscene"]
+
+[sub_resource type="Resource" id="Stock_leather"]
+script = ExtResource("7_stock")
+item = ExtResource("13_leather")
+metadata/_custom_type_script = "uid://dkowx1ny0eu5e"
+
+[sub_resource type="Resource" id="Loyalty_grammar"]
+script = ExtResource("6_loyaltygift")
+item = ExtResource("12_scroll")
+requiredLoyalty = 5.0
+metadata/_custom_type_script = "uid://3h0g6cv5drq7"
+
+[sub_resource type="Resource" id="Npc_villager"]
+script = ExtResource("3_npc")
+Language = ExtResource("10_lang")
+Conversation = ExtResource("11_conv")
+LoyaltyGifts = Array[ExtResource("6_loyaltygift")]([SubResource("Loyalty_grammar")])
+Inventory = [SubResource("Stock_leather")]
+Descriptor = ExtResource("8_villager")
+InitialBehavior = null
+metadata/_custom_type_script = "uid://hp1b1xye8rsv"
+
+[sub_resource type="Resource" id="Npc_companion"]
+script = ExtResource("3_npc")
+Tamed = true
+Persistent = true
+Descriptor = ExtResource("9_companion")
+InitialBehavior = null
+metadata/_custom_type_script = "uid://hp1b1xye8rsv"
+
+[sub_resource type="Resource" id="Campfire_home"]
+script = ExtResource("4_camp")
+Scene = ExtResource("14_campscene")
+StartLit = true
+metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
+
+[sub_resource type="Resource" id="Boat_home"]
+script = ExtResource("5_boat")
+Scene = ExtResource("15_boatscene")
+metadata/_custom_type_script = "uid://kfffp8mrtgin"
+
+[resource]
+script = ExtResource("2_group")
+ScatterRadius = 5.0
+Entries = Array[ExtResource("1_base")]([SubResource("Npc_villager"), SubResource("Npc_companion"), SubResource("Campfire_home"), SubResource("Boat_home")])

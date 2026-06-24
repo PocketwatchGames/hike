@@ -26,10 +26,10 @@ languageComponents = 15
 
 [sub_resource type="Resource" id="Resource_action"]
 script = ExtResource("2_action")
-speedMultiplierActive = 0.0
 activeDurationSeconds = 0.2
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_motion")])
 canAbort = true
+speedMultiplierActive = 0.0
 chargeStartEffect = ExtResource("7_dashfx")
 
 [resource]
