@@ -21,10 +21,13 @@ public partial class AttackBehaviorData : BehaviorData
     // converge from whichever side they're on).
     [Export] public int encircleSlotCount = 8;
 
-    // Distance from the target the mob holds while on cooldown / encircling.
-    // <= 0 falls back to the closest desiredAttackRange among the mob's weapons
-    // so the ring sits at attack range; bump it out for skirmishers that prefer
-    // to disengage between swings.
+    // Distance from the target the mob holds *between* swings (while every weapon
+    // is on cooldown). When a weapon comes off cooldown the mob closes to that
+    // weapon's desiredAttackRange to attack, then falls back here — so this may
+    // sit at or beyond MaxAttackRange to make a skirmisher disengage between
+    // swings without ever stalling the attack. <= 0 falls back to the closest
+    // desiredAttackRange among the mob's weapons, collapsing the ring onto attack
+    // range (no disengage).
     [Export] public float encircleDistance = -1f;
 
     public override BehaviorBase CreateRuntime() => new BehaviorAttack(this);

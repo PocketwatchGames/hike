@@ -81,25 +81,24 @@ public partial class BehaviorAttack : BehaviorBase
             output.yaw = Mathf.Atan2(dir2d.X, dir2d.Y);
         }
 
-        // In range — pick which weapon to fire. The mob's weapons (Mob.Weapons)
-        // are tried in author order: the first that's off its own cooldown, within
-        // its own range, currently seen, and whose ally-count gate passes wins. So
-        // a gated special (a battle cry: long cooldown, minAllies > 0) listed first
-        // is preferred when its conditions hold and otherwise falls through to the
-        // always-available basic attack. Each weapon's vertical gate is checked
-        // here (not on the tier's requirements) so we never commit the profile when
-        // out of vertical reach — that way the cooldown isn't bumped and
-        // ActionRunner's rejectEffect doesn't fire on every tick of a target
-        // standing one plateau above.
-        WeaponData chosen = ChooseWeapon(me, time, dist2d, diff.Y, canSee);
-        if (chosen != null)
+        // Bring a weapon to bear. `ready` is the highest-priority weapon that's
+        // off its own cooldown, currently seen, ally-gated, and within vertical
+        // reach — picked IGNORING 2D distance so that out of range we CLOSE to it
+        // (standoff below) instead of stalling on the encircle ring. A gated
+        // special (a battle cry: long cooldown, minAllies > 0, higher priority)
+        // wins when its conditions hold and otherwise falls through to the
+        // always-available basic attack. The vertical gate lives in
+        // ChooseReadyWeapon (not on the tier's requirements) so we never commit
+        // the profile out of vertical reach — the cooldown isn't bumped and
+        // ActionRunner's rejectEffect doesn't fire every tick against a target one
+        // plateau up. Fire it the instant we're inside its MaxAttackRange.
+        WeaponData ready = ChooseReadyWeapon(me, time, diff.Y, canSee);
+        if (ready != null && dist2d < ready.MaxAttackRange)
         {
             // Mob's _PhysicsProcess will TryStart the profile this same tick.
-            output.attackProfile = chosen.actionProfile;
-            output.attackContext = new ActionContext { target = target, primaryItem = me.GetWeapon(chosen) };
-            _weaponCooldownUntilMs[chosen] = time + (ulong)(chosen.cooldownSeconds * 1000f);
-            // Hold position at the slot for a tick after the swing — fall
-            // through to the standoff path below.
+            output.attackProfile = ready.actionProfile;
+            output.attackContext = new ActionContext { target = target, primaryItem = me.GetWeapon(ready) };
+            _weaponCooldownUntilMs[ready] = time + (ulong)(ready.cooldownSeconds * 1000f);
         }
 
         // A locks-movement action owns the body for its full duration —
@@ -147,8 +146,16 @@ public partial class BehaviorAttack : BehaviorBase
         // wrong spot and never closing for an attack, which is canSee-gated).
         // Keyed off targetPos, the ring sits on the last-known spot until the
         // mob reacquires line of sight, matching where it's facing.
+        // Standoff distance splits by intent. When a weapon is ready we close to
+        // its desiredAttackRange (which sits inside MaxAttackRange) so the swing
+        // actually lands; with everything on cooldown we fall back to the
+        // encircle ring to spread out and wait between swings. This split is why
+        // encircleDistance may sit at — or beyond — MaxAttackRange without
+        // freezing the mob: the attack approach never holds at the ring.
         Vector3 standoff;
-        float standoffDistance = (_data.encircleDistance > 0f) ? _data.encircleDistance : ClosestDesiredRange(me);
+        float standoffDistance = (ready != null)
+            ? ready.desiredAttackRange
+            : ((_data.encircleDistance > 0f) ? _data.encircleDistance : ClosestDesiredRange(me));
         if (slotIdx < 0)
         {
             float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
@@ -196,13 +203,17 @@ public partial class BehaviorAttack : BehaviorBase
         return player;
     }
 
-    // The highest-priority of the mob's weapons (WeaponData.priority) that can
-    // fire this tick: a runnable profile, within its own 2D + vertical range,
-    // currently seen, off its per-weapon cooldown, and with enough same-team
-    // allies nearby. Ties break toward the earlier weapon in the list. Returns
-    // null when nothing qualifies (out of range, on cooldown, or the mob has no
-    // weapons), in which case the mob just repositions.
-    private WeaponData ChooseWeapon(Mob me, ulong time, float dist2d, float diffY, bool canSee)
+    // The highest-priority of the mob's weapons (WeaponData.priority) the mob is
+    // ready to commit this tick: a runnable profile, currently seen, off its
+    // per-weapon cooldown, within vertical reach, and with enough same-team
+    // allies nearby. 2D distance is deliberately NOT gated here — the caller
+    // closes to the weapon's desiredAttackRange and fires once inside its
+    // MaxAttackRange — so a mob whose encircle ring sits outside attack range
+    // still approaches and swings. Ties break toward the earlier weapon in the
+    // list. Returns null when nothing qualifies (all on cooldown, out of
+    // vertical reach, can't see, or the mob has no weapons), in which case the
+    // mob holds at the encircle ring.
+    private WeaponData ChooseReadyWeapon(Mob me, ulong time, float diffY, bool canSee)
     {
         if (!canSee)
         {
@@ -225,7 +236,7 @@ public partial class BehaviorAttack : BehaviorBase
             {
                 continue;
             }
-            if (dist2d >= w.MaxAttackRange || Mathf.Abs(diffY) > w.MaxVerticalAttackRange)
+            if (Mathf.Abs(diffY) > w.MaxVerticalAttackRange)
             {
                 continue;
             }

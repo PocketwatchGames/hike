@@ -440,6 +440,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // run from the simpler voxel-at-feet check.
     bool _swimming;
     float _waterSurfaceY;
+    // Set by TryWaterExit on a tick the mob is hauling out onto a bank; tells
+    // ApplyWaterPhysics to yield the vertical axis so buoyancy doesn't damp the
+    // climb back down. Reset every tick alongside UpdateWaterState.
+    bool _exitingWater;
     // The perch this flying mob is resting on (or inbound to and has claimed),
     // or null when grounded / free-flying. Set by the flight behaviors via
     // SettleOnPerch / LeavePerch.
@@ -1784,18 +1788,26 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         Vector3 vel = LinearVelocity;
         Vector3 deltaVel = Vector3.Zero;
 
-        float targetY = _waterSurfaceY - md.waterSurfaceOffset;
-        float depthBelowSurface = targetY - pos.Y;
-        if (depthBelowSurface > 0f)
+        // While hauling out onto a bank (TryWaterExit set the climb velocity
+        // this tick) buoyancy yields the vertical axis — otherwise the
+        // above-surface down-push and the vertical drag would cancel the climb
+        // and the mob would bob against the bank forever. Horizontal current
+        // drag still applies so the exit reads as moving through water.
+        if (!_exitingWater)
         {
-            deltaVel.Y += Mathf.Min(depthBelowSurface, 1f) * md.buoyancyAcceleration * dt;
-        }
-        else
-        {
-            deltaVel.Y -= md.buoyancyAcceleration * 0.5f * dt;
-        }
+            float targetY = _waterSurfaceY - md.waterSurfaceOffset;
+            float depthBelowSurface = targetY - pos.Y;
+            if (depthBelowSurface > 0f)
+            {
+                deltaVel.Y += Mathf.Min(depthBelowSurface, 1f) * md.buoyancyAcceleration * dt;
+            }
+            else
+            {
+                deltaVel.Y -= md.buoyancyAcceleration * 0.5f * dt;
+            }
 
-        deltaVel.Y -= vel.Y * md.waterDrag * dt;
+            deltaVel.Y -= vel.Y * md.waterDrag * dt;
+        }
 
         Vector3 current = _world.WorldState.SampleWaterCurrent(pos);
         deltaVel.X += (current.X - vel.X) * md.waterCurrentDrag * dt;
@@ -1803,7 +1815,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
         ApplyImpulse(deltaVel * Mass);
 
-        if (LinearVelocity.Y < -md.waterSinkSpeed)
+        if (!_exitingWater && LinearVelocity.Y < -md.waterSinkSpeed)
         {
             Vector3 v = LinearVelocity;
             LinearVelocity = new Vector3(v.X, -md.waterSinkSpeed, v.Z);
@@ -2371,6 +2383,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 SpawnVoice(_voice?.hurt);
             }
             UpdateWaterState();
+            _exitingWater = false;
             // Engine gravity is owned by ApplyWaterPhysics while swimming —
             // disable Godot's default gravity application on this body so
             // buoyancy + drag can settle to their own equilibrium without
@@ -2544,13 +2557,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
                     // The impulse above is horizontal only, so a voxel riser in
                     // the path would wedge the capsule against its face and stall
-                    // the mob. Lift the body over climbable steps. Skipped while
-                    // swimming (buoyancy owns vertical) and during knockback /
-                    // motion darts (those force velocity later this tick and must
-                    // win — a step shouldn't redirect a lunge or knockback arc).
-                    if (!_swimming && _simState.KnockbackTime <= 0f && _simState.MotionTime <= 0f)
+                    // the mob. Lift the body over climbable steps. Skipped during
+                    // knockback / motion darts (those force velocity later this
+                    // tick and must win — a step shouldn't redirect a lunge or
+                    // knockback arc). While swimming the deep-water analogue
+                    // TryWaterExit handles hauling out onto a bank instead; a
+                    // buoyancy-pinned mob can't use the dry step-up.
+                    if (_simState.KnockbackTime <= 0f && _simState.MotionTime <= 0f)
                     {
-                        TryStepUp(dir);
+                        if (_swimming)
+                        {
+                            TryWaterExit(dir);
+                        }
+                        else
+                        {
+                            TryStepUp(dir);
+                        }
                     }
 
                     if (!targetYaw.HasValue)
@@ -2789,6 +2811,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private const float StepLookahead = 0.25f;         // probe reach beyond the capsule radius
     private const float StepClearanceMargin = 0.2f;    // headroom above the step top that must be open
     private const float StepFallGate = -1.0f;          // don't climb while descending faster than this (m/s)
+    private const float WaterExitProbeDepth = 0.3f;    // how far below the surface to sample the bank wall
 
     // Step-up assist for the RigidBody locomotion path (see the call site in
     // _PhysicsProcess). A grounded mob is shoved purely horizontally toward its
@@ -2840,6 +2863,61 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // already applied carries the body forward onto the ledge as it clears.
         Vector3 v = LinearVelocity;
         LinearVelocity = new Vector3(v.X, data.stepClimbSpeed, v.Z);
+    }
+
+    // Deep-water analogue of TryStepUp: hauls a swimming mob out onto a bank.
+    // A buoyancy-pinned mob can't use TryStepUp — step-up is suppressed while
+    // swimming and buoyancy fights any rise above the surface — so a mob whose
+    // path runs out of the water would otherwise wedge against the bank forever.
+    //
+    // The crucial difference from TryStepUp is the reference frame: probes are
+    // measured from the WATER SURFACE, not the mob's floating feet (which sit
+    // waterSurfaceOffset below it). That matches exactly how the pathfinder
+    // priced the exit — WalkabilityGrid stores a water cell's surface at the top
+    // water voxel and lets A* route onto any dry cell within maxStepHeight of
+    // it — so every bank A* steered the mob toward clears here too, and the
+    // climbable height stays consistent regardless of how deep the mob floats.
+    // Sets _exitingWater so ApplyWaterPhysics yields the vertical axis this tick.
+    private void TryWaterExit(Vector3 dir)
+    {
+        MobData data = _simState.MobData;
+        if (data == null || data.maxStepHeight <= 0 || data.stepClimbSpeed <= 0f)
+        {
+            return;
+        }
+        // dir arrives horizontal (Y stripped) and normalized; bail if degenerate.
+        if (dir.LengthSquared() < 0.0001f)
+        {
+            return;
+        }
+
+        float radius = _collisionShape?.Shape is CapsuleShape3D cap ? cap.Radius : 0.4f;
+        float reach = radius + StepLookahead;
+        Vector3 atSurface = new Vector3(GlobalPosition.X, _waterSurfaceY, GlobalPosition.Z);
+
+        // Bank wall just under the surface directly ahead?
+        Vector3 footFrom = atSurface - Vector3.Up * WaterExitProbeDepth;
+        if (!RaycastSolid(footFrom, footFrom + dir * reach))
+        {
+            return;
+        }
+
+        // Is the space above the bank top (surface + maxStepHeight) clear? If
+        // this also hits, the bank is taller than a step — a wall the pathfinder
+        // wouldn't have routed an exit through — so refuse the lift.
+        float clearHeight = data.maxStepHeight + StepClearanceMargin;
+        Vector3 headFrom = atSurface + Vector3.Up * clearHeight;
+        if (RaycastSolid(headFrom, headFrom + dir * reach))
+        {
+            return;
+        }
+
+        // Climbable bank: drive up at stepClimbSpeed (the horizontal swim
+        // impulse already applied carries the body forward onto the ledge as it
+        // crests) and flag the exit so buoyancy doesn't damp the rise.
+        Vector3 v = LinearVelocity;
+        LinearVelocity = new Vector3(v.X, data.stepClimbSpeed, v.Z);
+        _exitingWater = true;
     }
 
     // Diagnostic probe (companion_debug): reports what's directly ahead in
@@ -4084,6 +4162,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         Vector3 pos = GlobalPosition;
+        // Ripples are a live water-surface effect — a mob the player can't see
+        // (undiscovered / faded out) shouldn't betray its position by disturbing
+        // the water. Suppress emission and reset the stride latch while not drawn;
+        // player-side allies keep _visibility at 1, so companions still ripple.
+        if (_visibility <= 0f)
+        {
+            _rippleEmitter.Update(pos, false, 0f, 1f);
+            return;
+        }
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
