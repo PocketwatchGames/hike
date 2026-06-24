@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://skjv6ciciwfo"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_idle_loop.wav" id="2_idle"]
+[ext_resource type="AudioStream" uid="uid://dnl228ygfxda1" path="res://assets/audio/source/mobs/spider/spider_idle_loop.wav" id="2_idle"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_spideridle"]
 playback_mode = 1

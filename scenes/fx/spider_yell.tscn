@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://gr60u2aj50a3"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_yell_05.wav" id="2_y05"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_yell_06.wav" id="3_y06"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_yell_07.wav" id="4_y07"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_yell_08.wav" id="5_y08"]
+[ext_resource type="AudioStream" uid="uid://qyjbkdxs53jn" path="res://assets/audio/source/mobs/spider/spider_yell_05.wav" id="2_y05"]
+[ext_resource type="AudioStream" uid="uid://b4y3k2coilbyv" path="res://assets/audio/source/mobs/spider/spider_yell_06.wav" id="3_y06"]
+[ext_resource type="AudioStream" uid="uid://du857u8he41u6" path="res://assets/audio/source/mobs/spider/spider_yell_07.wav" id="4_y07"]
+[ext_resource type="AudioStream" uid="uid://dlkkmh4yam8p2" path="res://assets/audio/source/mobs/spider/spider_yell_08.wav" id="5_y08"]
 [ext_resource type="PackedScene" uid="uid://cllgx17yuurot" path="res://scenes/fx/yell_particle.tscn" id="6_yellpart"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_spideryell"]

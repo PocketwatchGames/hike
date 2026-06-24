@@ -112,7 +112,7 @@ public partial class AimingReticle : Node3D
 	// range * _gamepadPositionalSpeedFraction meters per second. Mouse aim ignores
 	// this — it integrates a world-unit motion delta (mousePositionalMetersPerPixel) so
 	// holding the mouse still holds the cursor, range-independent.
-	[Export(PropertyHint.Range, "0.1,8,0.1")] private float _gamepadPositionalSpeedFraction = 4f;
+	[Export(PropertyHint.Range, "0.1,8,0.1")] private float _gamepadPositionalSpeedFraction = 3.5f;
 	// How long a gamepad positional cursor lingers after aim stops before it
 	// resets. The cursor stays visible and fades to zero across this window;
 	// moving the aim stick or firing the ranged weapon refills it. A follow-up

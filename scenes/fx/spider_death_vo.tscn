@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://gdvwkx7mgip1"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_death_01.wav" id="2_d01"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_death_02.wav" id="3_d02"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_death_03.wav" id="4_d03"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_death_04.wav" id="5_d04"]
+[ext_resource type="AudioStream" uid="uid://wutaiyqn6tx6" path="res://assets/audio/source/mobs/spider/spider_death_01.wav" id="2_d01"]
+[ext_resource type="AudioStream" uid="uid://4rfvpd3vxti8" path="res://assets/audio/source/mobs/spider/spider_death_02.wav" id="3_d02"]
+[ext_resource type="AudioStream" uid="uid://de5ad6s7r65dk" path="res://assets/audio/source/mobs/spider/spider_death_03.wav" id="4_d03"]
+[ext_resource type="AudioStream" uid="uid://igu602x12gsb" path="res://assets/audio/source/mobs/spider/spider_death_04.wav" id="5_d04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_spiderdth"]
 playback_mode = 1

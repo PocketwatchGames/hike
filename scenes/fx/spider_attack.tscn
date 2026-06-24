@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://c4qddyfo0jyu5"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_attack_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_attack_02.wav" id="3_a02"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_attack_03.wav" id="4_a03"]
-[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_attack_04.wav" id="5_a04"]
+[ext_resource type="AudioStream" uid="uid://d1fl0kncvln7" path="res://assets/audio/source/mobs/spider/spider_attack_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://dkvg21rx22htb" path="res://assets/audio/source/mobs/spider/spider_attack_02.wav" id="3_a02"]
+[ext_resource type="AudioStream" uid="uid://cnvvb45t4khse" path="res://assets/audio/source/mobs/spider/spider_attack_03.wav" id="4_a03"]
+[ext_resource type="AudioStream" uid="uid://6sk34yvp8kdg" path="res://assets/audio/source/mobs/spider/spider_attack_04.wav" id="5_a04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_spideratk"]
 playback_mode = 1

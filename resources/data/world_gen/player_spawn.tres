@@ -21,7 +21,7 @@
 [ext_resource type="Resource" uid="uid://cp3rcb0wq7mxn2" path="res://resources/data/status_effects/items/status_weapon_charged_pierce.tres" id="23_pierce"]
 [ext_resource type="Resource" uid="uid://dq4mw8k2vx7nb" path="res://resources/data/status_effects/items/status_weapon_flaming.tres" id="24_flaming"]
 [ext_resource type="Resource" uid="uid://cwqfrv0c27v5x" path="res://resources/data/items/weapons/summoner.tres" id="30_summoner"]
-[ext_resource type="Resource" uid="uid://visf3yhm233za" path="res://resources/data/items/weapons/knife.tres" id="31_knife"]
+[ext_resource type="Resource" uid="uid://d3xp3psvbwcie" path="res://resources/data/items/weapons/knife.tres" id="31_knife"]
 
 [sub_resource type="Resource" id="Desc_club"]
 script = ExtResource("20_desc")
