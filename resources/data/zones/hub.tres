@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="ZoneData" format=3]
+
+[ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="1_region"]
+[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="2_weather"]
+[ext_resource type="Resource" path="res://resources/audio/forest_ambience.tres" id="3_ambience"]
+
+[sub_resource type="Resource" id="Resource_weather"]
+script = ExtResource("2_weather")
+cloudCover = 0.3
+windSpeed = 6.0
+airTemperature = 65.0
+sunTemperature = 20.0
+humidity = 0.4
+rainAmount = 0.1
+metadata/_custom_type_script = "uid://d25sc6n2mi728"
+
+[resource]
+script = ExtResource("1_region")
+SunColor = Color(1, 0.98, 0.92, 1)
+MoonColor = Color(0.5, 0.6, 0.8, 1)
+SkyColor = Color(0.35, 0.6, 0.85, 1)
+DustColor = Color(0.6, 0.65, 0.55, 1)
+WaterColor = Color(0.3, 0.45, 0.55, 1)
+WaterOpacity = 0.5019608
+DustAmount = 0.0
+weather = SubResource("Resource_weather")
+ambience = ExtResource("3_ambience")

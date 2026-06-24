@@ -66,12 +66,18 @@ public partial class WorldGenData : Resource
     // them from mobs (see ClimbableTree / Player.EnterClimbableTree).
     [Export] public PackedScene ClimbableTreeScene;
 
-    // Which Zones[] entry is the hub — the zone containing the player spawn.
-    // Its ZoneGenData.Fixtures cluster is anchored at SpawnColumn (the
-    // near-spawn villager / companion / lit campfire / boat) rather than on a
-    // rolled column like other zones' fixtures. -1 disables the hub (every
-    // zone anchors its fixtures on a rolled column).
-    [Export] public int HubZoneIndex = 0;
+    // The hub is a true zone (its own Zones[] entry, theme, and kit) carved as
+    // a chunk-radius square around the spawn column, independent of the
+    // quadrant split that assigns the other zones — see WorldGen.PickZoneIndex.
+    // HubZoneIndex selects which Zones[] entry it is; -1 disables the hub
+    // entirely (no carve, every zone anchors its fixtures on a rolled column).
+    // The hub zone's ZoneGenData.Fixtures cluster anchors at SpawnColumn (the
+    // near-spawn villager / companion / lit campfire / boat) rather than a
+    // rolled column.
+    [Export] public int HubZoneIndex = -1;
+    // Chebyshev radius (in chunks) of the hub carve around the spawn chunk. 0
+    // is a single chunk; 1 a 3×3 block. Only consulted when HubZoneIndex >= 0.
+    [Export] public int HubRadiusChunks = 1;
     // Voxel XZ column the player spawns on / the hub zone's fixtures anchor on.
     [Export] public Vector2I SpawnColumn = new(0, 0);
 

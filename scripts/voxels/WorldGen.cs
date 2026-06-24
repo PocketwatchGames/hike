@@ -874,18 +874,36 @@ public static class WorldGen
         }
     }
 
-    // Stamp a chunk into one of the world's zones. Legacy 4-quadrant
-    // split (NE/NW/SE/SW around the world origin), mapping into a 4-entry
-    // Zones[] in [NE, NW, SE, SW] order — matches the array order in
-    // default_world_gen.tres. East (X >= 0) is the coastal half (mountain
-    // north / swamp south); west (X < 0) is the inland half (desert north /
-    // forest south). The eastern strip of the coastal zones transitions
-    // to ocean via the BuildHeightMap east-edge falloff. With fewer zones,
-    // indices are clamped to the available range so worlds with 1 or 2
-    // zone templates still generate.
+    // Stamp a chunk into one of the world's zones. The hub (if authored) is a
+    // chunk-radius square carved around the spawn chunk, returned ahead of the
+    // quadrant split so it overrides whatever quadrant it straddles. Outside it,
+    // the legacy 4-quadrant split (NE/NW/SE/SW around the world origin) maps
+    // into Zones[] in [NE, NW, SE, SW] order — matches default_world_gen.tres.
+    // East (X >= 0) is the coastal half (mountain north / swamp south); west
+    // (X < 0) is the inland half (desert north / forest south). The eastern
+    // strip of the coastal zones transitions to ocean via the BuildHeightMap
+    // east-edge falloff. With fewer zones, indices are clamped to the available
+    // range so worlds with 1 or 2 zone templates still generate.
     private static byte PickZoneIndex(Vector3I chunkCoord, int zoneCount)
     {
         if (zoneCount <= 0) { return 0; }
+
+        // Hub carve. _activeGenData is set at the top of Generate before any
+        // zone pick, so it's always available here. The hub straddles the
+        // origin (its square can cross quadrant borders) — that's the point: it
+        // is one contiguous starting zone regardless of the quadrant lines.
+        WorldGenData g = _activeGenData;
+        if (g != null && g.HubZoneIndex >= 0 && g.HubZoneIndex < zoneCount && g.HubRadiusChunks >= 0)
+        {
+            int hubChunkX = (int)Math.Floor((double)g.SpawnColumn.X / ChunkState.SIZE);
+            int hubChunkZ = (int)Math.Floor((double)g.SpawnColumn.Y / ChunkState.SIZE);
+            if (Math.Abs(chunkCoord.X - hubChunkX) <= g.HubRadiusChunks
+                && Math.Abs(chunkCoord.Z - hubChunkZ) <= g.HubRadiusChunks)
+            {
+                return (byte)g.HubZoneIndex;
+            }
+        }
+
         int quadrant;
         if (chunkCoord.X >= 0 && chunkCoord.Z >= 0) { quadrant = 0; }       // NE
         else if (chunkCoord.X < 0 && chunkCoord.Z >= 0) { quadrant = 1; }   // NW
