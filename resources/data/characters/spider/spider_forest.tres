@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="5_wd"]
 [ext_resource type="Resource" uid="uid://dqv1rat42bvem" path="res://resources/data/characters/spider/spider_bite.tres" id="6_bite"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="7_0fm6j"]
-[ext_resource type="Resource" uid="uid://b4qht5mjwfjne" path="res://resources/data/characters/spider/spider_venom.tres" id="7_venom"]
+[ext_resource type="Resource" path="res://resources/data/characters/spider/spider_web_spitter.tres" id="7_web"]
 
 [sub_resource type="Resource" id="entry_body"]
 script = ExtResource("3_entry")
@@ -28,5 +28,5 @@ script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Forest Spider"
 palette = SubResource("palette")
-weapons = Array[ExtResource("5_wd")]([ExtResource("6_bite"), ExtResource("7_venom")])
+weapons = Array[ExtResource("5_wd")]([ExtResource("6_bite"), ExtResource("7_web")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

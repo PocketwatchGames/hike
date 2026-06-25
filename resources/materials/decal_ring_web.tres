@@ -1,0 +1,11 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://resources/textures/decal_ring.tres" id="1_ring"]
+
+[resource]
+resource_name = "decal_ring_web"
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.92, 0.96, 1, 0.8)
+albedo_texture = ExtResource("1_ring")
+cull_mode = 2

@@ -162,9 +162,10 @@ public partial class MobHUD : Node2D
 			_statusEffectContainer.Visible = statusVisible;
 			if (statusVisible)
 			{
-				// Match the original parent-relative offset (centered, 28px below
-				// the mob anchor) now that we're positioning manually.
-				_statusEffectContainer.Position = screenPos + new Vector2(-40f, 28f);
+				// Centered above the mob anchor, clearing the health bar (whose
+				// top sits ~23px * hudScale above the anchor). Screen +Y is down,
+				// so the strip rides a negative Y offset to sit above the bar.
+				_statusEffectContainer.Position = screenPos + new Vector2(-40f, -48f);
 				UpdateStatusEffects();
 			}
 		}

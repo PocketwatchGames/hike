@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Godot;
 
 [GlobalClass]
-public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
+public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive, IAimTarget
 {
     [Export] private CollisionShape3D _collisionShape;
     // The mob's 3D skinned-model animator. Wired in every mob .tscn; _Ready

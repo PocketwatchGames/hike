@@ -6,7 +6,7 @@ using Godot;
 // generalization to consumable Use, channeled actions, and (phase 5)
 // interactives all reuse the same runner, so adding a new input is just
 // another entry that constructs a context and calls TryStart.
-public partial class Player : CharacterBody3D, IActionActor
+public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 {
 
 	// Effective reach of the weapon equipped in `slot`, accounting for live
@@ -359,6 +359,13 @@ public partial class Player : CharacterBody3D, IActionActor
 		}
 	}
 	public float AimPitchRadians => _aimPitchRadians;
+
+	// IAimTarget — world-space body center ranged attackers aim at. Mirrors
+	// Mob.AimCenter: the hurtbox collision shape sits chest-height in player.tscn,
+	// so its global position is a true center, well above the feet. Cached in
+	// _Ready; falls back to the body origin until then.
+	public Vector3 AimCenter => _hurtBoxShape != null ? _hurtBoxShape.GlobalPosition : GlobalPosition;
+	CollisionShape3D _hurtBoxShape;
 	// Updated each physics tick by UpdateAimAssist. Zero when not aiming with
 	// a ranged weapon that authored a pitch range; otherwise the smoothed
 	// elevation angle (radians, positive = up) toward the assist target.

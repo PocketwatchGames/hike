@@ -109,7 +109,7 @@ public partial class LightningData : Resource
     // Low-intensity rumble that runs for the entire warning window —
     // anchored at (and tracking) the wandering strike position so the
     // shake distance to the player updates as the strike hunts across
-    // the ground. Linear distance falloff against `cameraShakeFalloffMeters`.
+    // the ground. Linear distance falloff against `warmupShakeFalloffMeters`.
     // 0 disables the warmup rumble.
     [Export(PropertyHint.Range, "0,1,0.005")] public float warmupShakeMagnitude = 0.05f;
 
@@ -120,10 +120,33 @@ public partial class LightningData : Resource
 
     [Export(PropertyHint.Range, "0.05,3,0.01")] public float strikeShakeDuration = 0.6f;
 
-    // Distance (m) at which both the warmup rumble and the strike impulse
-    // decay to zero. Set independently from `screenFlashFalloffMeters` so
-    // shake reach can be tuned without affecting the white overlay.
+    // Distance (m) at which the STRIKE shake + rumble impulse decay to zero.
+    // Set independently from `screenFlashFalloffMeters` so shake reach can be
+    // tuned without affecting the white overlay.
     [Export(PropertyHint.Range, "1,200,0.5")] public float cameraShakeFalloffMeters = 35f;
+
+    // Distance (m) at which the WARNING-phase shake + rumble decay to zero.
+    // Tighter than the strike reach by default — the telegraph should only
+    // rattle you when the strike is wandering right on top of you, while the
+    // crack itself carries much farther.
+    [Export(PropertyHint.Range, "1,200,0.5")] public float warmupShakeFalloffMeters = 10f;
+
+    // ------- Controller rumble (haptic parallel to the camera shake) --------
+    // The warning rumble uses `warmupShakeFalloffMeters` and the strike rumble
+    // uses `cameraShakeFalloffMeters`, so the pad rises as the warning nears
+    // and the crack hits hardest up close.
+    // weak = high-frequency (buzzy) motor; strong = low-frequency (heavy) motor.
+
+    // Mild rumble sustained through the warning window, scaled by distance so
+    // it rises as the strike homes in. 0 on both disables the warmup rumble.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float warmupRumbleWeak = 0.18f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float warmupRumbleStrong = 0.06f;
+
+    // Medium one-shot rumble impulse at the moment of strike, decaying to 0
+    // over `strikeRumbleDuration`. 0 on both disables the strike rumble.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float strikeRumbleWeak = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float strikeRumbleStrong = 0.7f;
+    [Export(PropertyHint.Range, "0.05,3,0.01")] public float strikeRumbleDuration = 0.4f;
 
     // ------- Weather-driven spawn cadence (ignored by weapon callers) --------
 

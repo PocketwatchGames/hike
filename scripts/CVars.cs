@@ -426,6 +426,13 @@ public static class CVars
     // When false, Trigger() is a no-op so the game never slows / zooms on death.
     public static CVarBool slowMotion = new CVarBool("slow_motion", true);
 
+    // Master enable + scale for controller rumble (ControllerRumble, the haptic
+    // sibling of camera shake; owned by GameClient). `rumble` false stops every
+    // motor and skips the driver; `rumble_scale` multiplies all impulse
+    // magnitudes (0 = silent, 1 = authored, >1 exaggerates for testing).
+    public static CVarBool rumble = new CVarBool("rumble", true);
+    public static CVarFloat rumbleScale = new CVarFloat("rumble_scale", 1f);
+
     // Gates the bird's-eye volumetric cloud quad. When false, the cloud
     // mesh stays hidden during the overlook regardless of bird's-eye
     // state — useful on low-spec machines, for screenshotting without

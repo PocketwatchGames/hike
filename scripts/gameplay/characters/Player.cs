@@ -983,6 +983,16 @@ public partial class Player : CharacterBody3D
 			// (a tamed companion, a friendly NPC) can't land unless friendly-fire.
 			_hurtBox.CanHit = (hit) =>
 				hit.friendlyFire || !Teams.AreAllied(hit.attackerTeam, ETeam.Player);
+			// Cache the hurtbox shape so AimCenter (IAimTarget) reports the
+			// chest-height body center, not the feet — mirrors Mob's lookup.
+			foreach (Node child in _hurtBox.GetChildren())
+			{
+				if (child is CollisionShape3D shape)
+				{
+					_hurtBoxShape = shape;
+					break;
+				}
+			}
 		}
 
 		_aimingReticle?.Initialize(this);

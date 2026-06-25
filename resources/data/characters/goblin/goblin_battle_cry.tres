@@ -48,5 +48,5 @@ priority = 1
 MaxAttackRange = 5.0
 desiredAttackRange = 3.0
 cooldownSeconds = 12.0
-minAllies = 2
+minAllies = 1
 displayName = &"Goblin Battle Cry"

@@ -1225,8 +1225,7 @@ public partial class AimingReticle : Node3D
 		// the only detonate mod in play (Fragile) is weapon-global. -1 matches
 		// AllAttacks-scoped mods and skips charge-specific ones.
 		WeaponState rightWeapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
-		bool detonateOnContact = arc.impactEvent != null
-			&& rightWeapon?.statusEffects.ProjectilesDetonateOnContact(-1) == true;
+		bool detonateOnContact = ItemEventHandlers.ArcDetonatesOnContact(arc, rightWeapon, -1);
 
 		Vector3 bearing = HorizontalBearing(origin, target);
 		float dx = target.X - origin.X;

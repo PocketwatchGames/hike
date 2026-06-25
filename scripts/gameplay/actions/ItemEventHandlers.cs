@@ -235,7 +235,7 @@ public static class ItemEventHandlers
 		float spreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
 
 		Vector3 origin = actor.ActorWorldPosition + Vector3.Up;
-		Vector3 direction = ApplySpread(actor.ActorForward, spreadScale);
+		Vector3 direction = ApplySpread(AimForward(actor, action.context, origin), spreadScale);
 		Vector3 rayEnd = origin + direction * ev.hitScanRange * rangeScale;
 
 		var spaceState = world3D.DirectSpaceState;
@@ -641,50 +641,28 @@ public static class ItemEventHandlers
 		float friction = 0f;
 		if (ev.projectileArcing)
 		{
-			// Arcing is a player throw — it needs the aiming reticle (mob attacks
-			// / weapons with no reticle have nowhere to lob, so the event no-ops).
-			if (actor is not Player player || player.AimingReticle == null)
-			{
-				return;
-			}
-			AimingReticle reticle = player.AimingReticle;
 			// lifetime is the FUSE; the hump's shape/feel is the (shorter) arc
-			// duration, so the lob keeps falling/bouncing past its landing.
+			// duration, so the lob keeps falling/bouncing past its landing. The
+			// launch velocity is solved from the player's reticle or, for a mob,
+			// toward its aim target — see TrySolveArcLaunch.
 			lifetime = ev.projectileLifetimeSeconds;
-			if (lifetime <= 0f || ev.projectileArcRise <= 0f || ev.projectileGravity <= 0f)
-			{
-				return;
-			}
-			if (reticle.HasArcLaunch)
-			{
-				// Fire the EXACT hump the reticle previewed.
-				velocity = reticle.ArcLaunchVelocity;
-				gravity = reticle.ArcLaunchGravity;
-			}
-			else if (reticle.HasAimWorldPosition)
-			{
-				// Fallback when no Arced solve is published (e.g. fired the instant
-				// aim began): rebuild the same hump toward the aim cursor. Vertical is
-				// rise + gravity; horizontal covers the aim distance over the fuse.
-				gravity = ev.projectileGravity;
-				float launchVy = AimingReticle.ArcLaunchVerticalSpeed(ev.projectileArcRise, gravity);
-				Vector3 delta = reticle.AimWorldPosition - origin;
-				Vector3 horiz = new Vector3(delta.X, 0f, delta.Z);
-				float horizDist = horiz.Length();
-				Vector3 horizDir = horizDist > 1e-4f ? horiz / horizDist : Vector3.Zero;
-				velocity = horizDir * (horizDist / lifetime) + Vector3.Up * launchVy;
-			}
-			else
+			if (!TrySolveArcLaunch(actor, ev, action.context, origin, out velocity, out gravity, out Vector3 landing))
 			{
 				return;
 			}
 			// Bounces off solids it meets before the fuse, then detonates at
 			// `lifetime` — so it can't pass through walls, and emergent hits (a
-			// grenade rebounding off a wall around a corner) just work.
+			// grenade rebounding off a wall around a corner) just work. Fragile
+			// lobs drop out of bounce mode below.
 			noCollide = false;
 			bounce = true;
 			bounciness = ev.projectileBounciness;
 			friction = ev.projectileFriction;
+			// Telegraph the landing point so the target can read and dodge the lob.
+			if (ev.projectileTargetPreview != null)
+			{
+				SpawnArcTelegraph(ev.projectileTargetPreview, landing, parent, lifetime);
+			}
 		}
 		else
 		{
@@ -694,19 +672,20 @@ public static class ItemEventHandlers
 			float chargeT = action.chargeT;
 			float spreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
 			float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
-			Vector3 direction = ApplySpread(actor.ActorForward, spreadScale);
+			Vector3 direction = ApplySpread(AimForward(actor, action.context, origin), spreadScale);
 			velocity = direction * ev.projectileSpeed;
 			lifetime = ev.projectileLifetimeSeconds * rangeScale;
 		}
 
 		// Compose this shot's weapon mods (loot / ItemDescriptor onto
 		// WeaponState.statusEffects): the event's authored pierce base maxed
-		// against every active mod that reaches this charge tier, and whether any
-		// such mod makes the shot detonate on contact. A mod reaches the shot when
-		// it's AllAttacks-scoped or its SpecificCharge index matches the firing
-		// tier (resolved by position in the weapon's action profile).
+		// against every active mod that reaches this charge tier. A mod reaches
+		// the shot when it's AllAttacks-scoped or its SpecificCharge index matches
+		// the firing tier (resolved by position in the weapon's action profile).
 		int pierceCount = Mathf.Max(0, ev.pierceCount);
-		bool detonateOnContact = false;
+		// Charge-tier id used to scope this shot's weapon mods; -1 (no weapon /
+		// not found) matches only AllAttacks-scoped mods.
+		int firingChargeIndex = firingWeapon != null ? FindChargeIndex(firingWeapon, tier) : -1;
 		// Vampiric (lifesteal) fraction this shot carries — applied in-flight when
 		// it deals health damage, healing the firer back.
 		float lifestealFraction = 0f;
@@ -727,9 +706,7 @@ public static class ItemEventHandlers
 		Godot.Collections.Array<PackedScene> projectileFx = null;
 		if (firingWeapon != null)
 		{
-			int firingChargeIndex = FindChargeIndex(firingWeapon, tier);
 			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingChargeIndex));
-			detonateOnContact = firingWeapon.statusEffects.ProjectilesDetonateOnContact(firingChargeIndex);
 			lifestealFraction = firingWeapon.statusEffects.Vampiric(firingChargeIndex);
 			onHitBuildups = firingWeapon.statusEffects.WeaponModOnHitBuildups(firingChargeIndex);
 			chainLightning = firingWeapon.statusEffects.WeaponModChainLightning(firingChargeIndex);
@@ -738,15 +715,14 @@ public static class ItemEventHandlers
 			projectileFx = firingWeapon.statusEffects.WeaponModProjectileFx(firingChargeIndex);
 		}
 
-		// "Fragile" weapon mod: a projectile that would normally bounce and wait
-		// out its fuse instead shatters on the first surface / creature it
-		// touches. Only meaningful when the projectile carries an impactEvent
-		// (the payload fired on completion, e.g. the explosion) — otherwise the
-		// bounce-and-fuse flight is left intact. Disabling bounce drops the
-		// projectile into its default collision-detonation path (the first solid
-		// OR hurtbox ends it and fires impactEvent there); the gravity arc is
-		// untouched. See StatusEffectData.projectilesDetonateOnContact.
-		if (bounce && ev.impactEvent != null && detonateOnContact)
+		// Fragile: a lob that would normally bounce and wait out its fuse instead
+		// shatters on the first surface / creature it touches. Sourced from either
+		// the event's intrinsic projectileFragile flag (mob attacks, born-fragile
+		// weapons) or a Fragile weapon mod (ArcDetonatesOnContact unifies both).
+		// Disabling bounce drops the projectile into its default
+		// collision-detonation path (the first solid OR hurtbox ends it and fires
+		// impactEvent there); the gravity arc is untouched.
+		if (bounce && ArcDetonatesOnContact(ev, firingWeapon, firingChargeIndex))
 		{
 			bounce = false;
 		}
@@ -778,6 +754,112 @@ public static class ItemEventHandlers
 			knockbackTimeBonus,
 			projectileFx,
 			onHitBuildups);
+	}
+
+	// Single source of truth for "does this arced lob shatter on first contact?":
+	// true when it carries an impactEvent (the shatter payload) AND is fragile
+	// from either source — the event's intrinsic projectileFragile flag (works
+	// for mobs, which have no WeaponState) or a Fragile weapon mod on the firing
+	// weapon at the given charge tier. Shared by the throw (DoProjectile), the
+	// reticle's dotted preview (AimingReticle.SolveArcToTarget), and the mob arc
+	// path so all three agree. chargeIndex -1 matches only AllAttacks-scoped mods.
+	public static bool ArcDetonatesOnContact(ItemEvent ev, WeaponState weapon, int chargeIndex)
+	{
+		if (ev == null || ev.impactEvent == null)
+		{
+			return false;
+		}
+		return ev.projectileFragile
+			|| (weapon != null && weapon.statusEffects.ProjectilesDetonateOnContact(chargeIndex));
+	}
+
+	// Solve an arced lob's launch velocity (and report the predicted landing
+	// point for telegraphs). Player throws fire the exact arc the reticle
+	// previewed (or rebuild it toward the aim cursor as a fallback); mob (and any
+	// non-player) attacks solve toward the action's aim target's body center
+	// using the same rise/gravity/fuse math the reticle uses — so a lobbed mob
+	// attack arcs onto the player without needing a reticle. Returns false when
+	// the arc can't be built (bad tuning, or no aim source for this actor).
+	private static bool TrySolveArcLaunch(IActionActor actor, ItemEvent ev, in ActionContext context,
+		Vector3 origin, out Vector3 velocity, out float gravity, out Vector3 landing)
+	{
+		velocity = Vector3.Zero;
+		gravity = 0f;
+		landing = origin;
+		float fuse = ev.projectileLifetimeSeconds;
+		if (fuse <= 0f || ev.projectileArcRise <= 0f || ev.projectileGravity <= 0f)
+		{
+			return false;
+		}
+		if (actor is Player player && player.AimingReticle != null)
+		{
+			AimingReticle reticle = player.AimingReticle;
+			if (reticle.HasArcLaunch)
+			{
+				// Fire the EXACT hump the reticle previewed.
+				velocity = reticle.ArcLaunchVelocity;
+				gravity = reticle.ArcLaunchGravity;
+			}
+			else if (reticle.HasAimWorldPosition)
+			{
+				// Fallback when no Arced solve is published (e.g. fired the instant
+				// aim began): rebuild the same hump toward the aim cursor.
+				gravity = ev.projectileGravity;
+				float launchVy = AimingReticle.ArcLaunchVerticalSpeed(ev.projectileArcRise, gravity);
+				Vector3 d = reticle.AimWorldPosition - origin;
+				Vector3 horiz = new Vector3(d.X, 0f, d.Z);
+				float horizDist = horiz.Length();
+				Vector3 horizDir = horizDist > 1e-4f ? horiz / horizDist : Vector3.Zero;
+				velocity = horizDir * (horizDist / fuse) + Vector3.Up * launchVy;
+			}
+			else
+			{
+				return false;
+			}
+			landing = new Vector3(origin.X + velocity.X * fuse, origin.Y, origin.Z + velocity.Z * fuse);
+			return true;
+		}
+		// Mob / non-player arc: lob toward the aim target's body center. Vertical
+		// is rise + gravity; horizontal covers the (range-clamped) distance to the
+		// target over the fuse, in the target's bearing.
+		if (context.target is IAimTarget aim && GodotObject.IsInstanceValid(context.target))
+		{
+			gravity = ev.projectileGravity;
+			float launchVy = AimingReticle.ArcLaunchVerticalSpeed(ev.projectileArcRise, gravity);
+			Vector3 target = aim.AimCenter;
+			float dx = target.X - origin.X;
+			float dz = target.Z - origin.Z;
+			float rawDist = Mathf.Sqrt(dx * dx + dz * dz);
+			Vector3 bearing = rawDist > 1e-4f ? new Vector3(dx, 0f, dz) / rawDist : Vector3.Forward;
+			float horizDist = ev.projectileMaxRange > 0f ? Mathf.Min(rawDist, ev.projectileMaxRange) : rawDist;
+			velocity = bearing * (horizDist / fuse) + Vector3.Up * launchVy;
+			// Anchor the telegraph at the target's foot height under the throw's
+			// XZ endpoint (the target stands on the ground the lob falls toward).
+			float groundY = context.target.GlobalPosition.Y;
+			landing = new Vector3(origin.X + bearing.X * horizDist, groundY, origin.Z + bearing.Z * horizDist);
+			return true;
+		}
+		return false;
+	}
+
+	// Drop an arced shot's landing telegraph: instantiate the preview decal at
+	// the landing point, parented to the World so it outlives the firing actor,
+	// and arm its self-fade to roughly the lob's flight time. No-op if the scene
+	// isn't a GroundDecalPreview.
+	private static void SpawnArcTelegraph(PackedScene scene, Vector3 position, Node parent, float lifetimeSeconds)
+	{
+		Node host = (Node)World.Current ?? parent;
+		if (scene == null || host == null)
+		{
+			return;
+		}
+		if (scene.Instantiate() is not GroundDecalPreview preview)
+		{
+			return;
+		}
+		preview.Initialize(lifetimeSeconds);
+		host.AddChild(preview);
+		preview.GlobalPosition = position;
 	}
 
 	// Lifesteal: heal the attacker by the firing weapon's vampiric fraction of
@@ -1030,6 +1112,18 @@ public static class ItemEventHandlers
 		if (cam == null) { return; }
 		Vector3 playerPos = GameClient.Current?.Player?.GlobalPosition ?? actor.ActorWorldPosition;
 		cam.Shake.AddImpulse(ev.cameraShakeMagnitude, ev.cameraShakeDuration, actor.ActorWorldPosition, ev.cameraShakeRange, playerPos);
+	}
+
+	// Fires a one-shot controller-rumble impulse anchored at the actor's
+	// position. Same distance-falloff semantics as DoCameraShake (range == 0 =
+	// full magnitude, the right default for player-sourced actions since the
+	// player holds the pad). No-op when no GameClient (e.g. headless).
+	public static void DoControllerRumble(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		GameClient client = GameClient.Current;
+		if (client == null) { return; }
+		Vector3 playerPos = client.Player?.GlobalPosition ?? actor.ActorWorldPosition;
+		client.Rumble.AddImpulse(ev.controllerRumbleWeak, ev.controllerRumbleStrong, ev.controllerRumbleDuration, actor.ActorWorldPosition, ev.controllerRumbleRange, playerPos);
 	}
 
 	// Digs at the player's aim cursor (positional-aim tiers) or a short reach
@@ -1454,6 +1548,25 @@ public static class ItemEventHandlers
 			return null;
 		}
 		return Fx.Create(scene, actor.AttackerNode, Vector3.Zero);
+	}
+
+	// Un-spread firing direction for a directional shot. With an explicit aim
+	// target (mob attacks set ActionContext.target) the shot heads at the
+	// target's body center — a real 3D heading, so a spit from a low spider or a
+	// perched archer leads in pitch rather than firing flat along the body's yaw.
+	// The player leaves target null and keeps firing along ActorForward (auto-aim
+	// pitch already folded in), so this never touches the player aim path.
+	private static Vector3 AimForward(IActionActor actor, in ActionContext context, Vector3 origin)
+	{
+		if (context.target is IAimTarget aimTarget)
+		{
+			Vector3 toCenter = aimTarget.AimCenter - origin;
+			if (toCenter.LengthSquared() > 1e-4f)
+			{
+				return toCenter.Normalized();
+			}
+		}
+		return actor.ActorForward;
 	}
 
 	private static Vector3 ApplySpread(Vector3 forward, float spread01)

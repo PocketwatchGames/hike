@@ -1,20 +1,20 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b4qht5mjwfjne"]
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://cjaq6ua6gwvlq"]
 
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_area"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_g2p2r"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_n2olu"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
-[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="7_poison"]
-[ext_resource type="PackedScene" uid="uid://1p5y5en8utg4" path="res://scenes/projectiles/venom_glob.tscn" id="8_proj"]
-[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_28nm0"]
-[ext_resource type="PackedScene" path="res://scenes/fx/venom_splat.tscn" id="9_splat"]
-[ext_resource type="PackedScene" path="res://scenes/fx/venom_burst.tscn" id="10_burst"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_opuky"]
-[ext_resource type="PackedScene" path="res://scenes/fx/venom_target_preview.tscn" id="11_preview"]
+[ext_resource type="Resource" uid="uid://c2h2ti4r8qe07" path="res://resources/data/status_effects/status_slowed.tres" id="7_slowed"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/web_glob.tscn" id="8_proj"]
+[ext_resource type="PackedScene" path="res://scenes/fx/web_splat.tscn" id="9_splat"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="10_4wxxt"]
+[ext_resource type="PackedScene" path="res://scenes/fx/web_burst.tscn" id="10_burst"]
+[ext_resource type="PackedScene" path="res://scenes/fx/web_target_preview.tscn" id="11_preview"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_mdbnn"]
 [ext_resource type="PackedScene" uid="uid://dsgde212y3j3m" path="res://scenes/fx/spider_spit.tscn" id="12_spit"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
@@ -57,7 +57,7 @@ projectileTargetPreview = ExtResource("11_preview")
 
 [sub_resource type="Resource" id="Resource_action_spit"]
 script = ExtResource("3_action")
-displayName = &"Venom Spit"
+displayName = &"Web Spit"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_spit")])
 speedMultiplierActive = 0.0
@@ -75,9 +75,9 @@ hitstun = 0.1
 buildups = []
 modifiers = []
 
-[sub_resource type="Resource" id="Resource_poison_buildup"]
+[sub_resource type="Resource" id="Resource_slowed_buildup"]
 script = ExtResource("6_buildup")
-effect = ExtResource("7_poison")
+effect = ExtResource("7_slowed")
 amount = 0.5
 
 [sub_resource type="Resource" id="Resource_damage_aoe"]
@@ -87,7 +87,7 @@ healthDamage = 3.0
 hitstun = 0.2
 knockbackDistance = 0.3
 knockbackTime = 0.1
-buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_poison_buildup")])
+buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_slowed_buildup")])
 modifiers = []
 
 [resource]
@@ -101,4 +101,4 @@ priority = 1
 MaxAttackRange = 10.0
 desiredAttackRange = 7.0
 cooldownSeconds = 2.5
-displayName = &"Spider Venom"
+displayName = &"Web Spitter"

@@ -30,6 +30,12 @@ public partial class LightningStrike : Node3D
     private const float GROUND_RAY_HEIGHT_OFFSET = 40f;
     private const float GROUND_RAY_DEPTH_OFFSET = 40f;
 
+    // Lifetime of each per-frame warmup-rumble impulse. The driver combines
+    // impulses via max() and decays them, so re-adding one every warning frame
+    // sustains a continuous rumble; a few frames of slack keeps it smooth if a
+    // frame is dropped. Magnitudes are authored on LightningData.
+    private const float WARMUP_RUMBLE_REFRESH_SECONDS = 0.15f;
+
     // Bolt visibility uses MeshInstance3D.Transparency (0 = opaque,
     // 1 = invisible) — built-in per-instance fade that doesn't
     // require touching the shared material.
@@ -115,12 +121,12 @@ public partial class LightningStrike : Node3D
         {
             _warningFx = Fx.Create(_data.warningFx, this, Vector3.Zero);
         }
-        if (_data.warmupShakeMagnitude > 0f && _data.cameraShakeFalloffMeters > 0f)
+        if (_data.warmupShakeMagnitude > 0f && _data.warmupShakeFalloffMeters > 0f)
         {
             _warmupShake = new ContinuousCameraShake
             {
                 magnitude = _data.warmupShakeMagnitude,
-                range = _data.cameraShakeFalloffMeters,
+                range = _data.warmupShakeFalloffMeters,
             };
             AddChild(_warmupShake);
         }
@@ -147,6 +153,7 @@ public partial class LightningStrike : Node3D
                 // Telegraph timing on the sim clock; the wander keeps the strike
                 // homing each frame until the deadline.
                 UpdateWander((float)delta);
+                ApplyWarmupRumble();
                 if ((_world?.GameTimeMs ?? 0) >= _strikeTimeMs)
                 {
                     FireStrike();
@@ -175,6 +182,33 @@ public partial class LightningStrike : Node3D
                 }
                 break;
         }
+    }
+
+    // Mild controller rumble sustained through the warning window. Re-added
+    // each frame at the current distance-scaled magnitude (the driver's max()
+    // combine + decay turns the per-frame feed into a continuous rumble), so
+    // it rises as the strike homes in on the player. Mirrors the warmup camera
+    // shake, which gets the same effect from a tracking ContinuousCameraShake.
+    private void ApplyWarmupRumble()
+    {
+        if ((_data.warmupRumbleWeak <= 0f && _data.warmupRumbleStrong <= 0f)
+            || _data.warmupShakeFalloffMeters <= 0f)
+        {
+            return;
+        }
+        GameClient client = GameClient.Current;
+        Player player = _world?.player;
+        if (client == null || player == null)
+        {
+            return;
+        }
+        client.Rumble.AddImpulse(
+            _data.warmupRumbleWeak,
+            _data.warmupRumbleStrong,
+            WARMUP_RUMBLE_REFRESH_SECONDS,
+            GlobalPosition,
+            _data.warmupShakeFalloffMeters,
+            player.GlobalPosition);
     }
 
     private void FireStrike()
@@ -212,6 +246,26 @@ public partial class LightningStrike : Node3D
                 cam.Shake.AddImpulse(
                     _data.strikeShakeMagnitude,
                     _data.strikeShakeDuration,
+                    GlobalPosition,
+                    _data.cameraShakeFalloffMeters,
+                    player.GlobalPosition);
+            }
+        }
+
+        // Medium controller-rumble impulse at the crack — same distance
+        // falloff as the camera shake, so a far strike kicks the pad feebly.
+        if ((_data.strikeRumbleWeak > 0f || _data.strikeRumbleStrong > 0f)
+            && _data.strikeRumbleDuration > 0f
+            && _data.cameraShakeFalloffMeters > 0f)
+        {
+            GameClient client = GameClient.Current;
+            Player player = _world?.player;
+            if (client != null && player != null)
+            {
+                client.Rumble.AddImpulse(
+                    _data.strikeRumbleWeak,
+                    _data.strikeRumbleStrong,
+                    _data.strikeRumbleDuration,
                     GlobalPosition,
                     _data.cameraShakeFalloffMeters,
                     player.GlobalPosition);

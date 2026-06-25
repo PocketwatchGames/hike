@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://b5t33j2cqwfih" path="res://assets/textures/status_effects/strength.png" id="2_icon"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_battle_cry_start.tscn" id="3_startfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_battle_cry_loop.tscn" id="4_loopfx"]
 
 [sub_resource type="Resource" id="m_movespeed"]
 script = ExtResource("m_script")
@@ -28,5 +30,7 @@ icon = ExtResource("2_icon")
 displayName = &"Battle Cry"
 duration = 8.0
 maxStack = 1
+startFx = ExtResource("3_startfx")
+loopFx = ExtResource("4_loopfx")
 removesOnApply = []
 modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed"), SubResource("m_outgoing")])

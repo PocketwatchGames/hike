@@ -704,6 +704,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoCameraShake(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.ControllerRumble) != 0)
+		{
+			ItemEventHandlers.DoControllerRumble(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.Dig) != 0)
 		{
 			ItemEventHandlers.DoDig(_actor, ev, ref _action);

@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://xewjw2klmrwj9" path="res://scripts/gameplay/effects/GroundDecalPreview.cs" id="1_script"]
+[ext_resource type="Material" path="res://resources/materials/decal_ring_venom.tres" id="2_mat"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_preview"]
+size = Vector2(4, 4)
+
+[node name="VenomTargetPreview" type="Node3D" node_paths=PackedStringArray("_quad")]
+script = ExtResource("1_script")
+lifetimeSeconds = 0.9
+_quad = NodePath("Quad")
+
+[node name="Quad" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+layers = 16
+material_override = ExtResource("2_mat")
+mesh = SubResource("PlaneMesh_preview")

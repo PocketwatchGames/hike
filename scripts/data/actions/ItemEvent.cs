@@ -149,6 +149,16 @@ public partial class ItemEvent : Resource
 	[Export] public float cameraShakeDuration = 0.15f;
 	[Export] public float cameraShakeRange = 0f;
 
+	// ControllerRumble fields. Weak = high-frequency (buzzy) motor, strong =
+	// low-frequency (heavy) motor — both in [0,1]. Duration is the linear-decay
+	// window in seconds. Range > 0 applies the same distance falloff against the
+	// player as cameraShakeRange; range == 0 fires full magnitude regardless of
+	// where the event lives. See EItemEventType.ControllerRumble.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float controllerRumbleWeak = 0.3f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float controllerRumbleStrong = 0.5f;
+	[Export] public float controllerRumbleDuration = 0.2f;
+	[Export] public float controllerRumbleRange = 0f;
+
 	// ScreenFlash fields. Color + peak intensity of a one-shot full-screen
 	// flash; fadeSeconds <= 0 uses the ScreenEffectsController default. See
 	// EItemEventType.ScreenFlash.
@@ -299,6 +309,19 @@ public partial class ItemEvent : Resource
 	// flagged and areaEffectScene set>. Fires regardless of how the projectile
 	// ended (lifetime, env hit, hurtbox hit).
 	[Export] public ItemEvent impactEvent;
+	// Intrinsic "Fragile": the arced lob detonates on the FIRST surface/creature
+	// it meets instead of bouncing out its fuse — the authored form of the
+	// Fragile weapon mod (StatusEffectData.projectilesDetonateOnContact), so a
+	// mob attack or a born-fragile weapon needs no enchant. ORed with the mod at
+	// fire time (ItemEventHandlers.ArcDetonatesOnContact); only meaningful with an
+	// impactEvent (the payload fired where it shatters). Ignored for flat flight.
+	[Export] public bool projectileFragile;
+	// Ground telegraph for an arced shot: a flat decal scene (a GroundDecalPreview
+	// on the stain layer) dropped at the predicted landing point when the lob
+	// launches, marking where it will come down so the target can read and dodge
+	// it. Lives ~the fuse then fades itself. Null = no telegraph. The classic use
+	// is a mob's lobbed attack; ignored for flat flight.
+	[Export] public PackedScene projectileTargetPreview;
 
 	public override void _ValidateProperty(Dictionary property)
 	{
@@ -313,7 +336,8 @@ public partial class ItemEvent : Resource
 		{
 			bool arcOnly = name == nameof(projectileArcRise) || name == nameof(projectileBounciness)
 				|| name == nameof(projectileGravity) || name == nameof(projectileFriction)
-				|| name == nameof(projectileMaxRange);
+				|| name == nameof(projectileMaxRange) || name == nameof(projectileFragile)
+				|| name == nameof(projectileTargetPreview);
 			bool flatOnly = name == nameof(projectileSpeed) || name == nameof(pierceCount);
 			if ((flatOnly && _projectileArcing)
 				|| (arcOnly && !_projectileArcing))
@@ -368,7 +392,9 @@ public partial class ItemEvent : Resource
 				or nameof(projectileMaxRange)
 				or nameof(projectileBounciness)
 				or nameof(projectileFriction)
-				or nameof(impactEvent) => EItemEventType.Projectile,
+				or nameof(impactEvent)
+				or nameof(projectileFragile)
+				or nameof(projectileTargetPreview) => EItemEventType.Projectile,
 			nameof(areaEffectScene)
 				or nameof(areaDurationSeconds)
 				or nameof(areaContinuousKey)
@@ -377,6 +403,10 @@ public partial class ItemEvent : Resource
 			nameof(cameraShakeMagnitude)
 				or nameof(cameraShakeDuration)
 				or nameof(cameraShakeRange) => EItemEventType.CameraShake,
+			nameof(controllerRumbleWeak)
+				or nameof(controllerRumbleStrong)
+				or nameof(controllerRumbleDuration)
+				or nameof(controllerRumbleRange) => EItemEventType.ControllerRumble,
 			nameof(screenFlashColor)
 				or nameof(screenFlashIntensity)
 				or nameof(screenFlashFadeSeconds) => EItemEventType.ScreenFlash,

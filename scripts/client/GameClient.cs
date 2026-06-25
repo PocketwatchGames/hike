@@ -323,6 +323,12 @@ public partial class GameClient : Node3D
 	public CombatTracker Combat { get; private set; }
 	public Action onCombatBegin;
 	public Action onCombatEnd;
+
+	// Controller rumble driver — haptic sibling of the camera's Shake. Trigger
+	// via Rumble.AddImpulse(...) or a ControllerRumble ItemEvent. Ticked in
+	// _Process below.
+	private readonly ControllerRumble _rumble = new();
+	public ControllerRumble Rumble => _rumble;
 	// Fires alongside onCombatEnd when combat ends by killing the last threat
 	// (not by running away). Drives the victory music sting + finisher slow-mo.
 	public Action onCombatVictory;
@@ -871,6 +877,13 @@ public partial class GameClient : Node3D
 		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_edge_softness", cameraClipGrowthEdgeSoftness);
 	}
 
+	public override void _ExitTree()
+	{
+		// Silence any in-flight rumble when the game scene tears down (quit to
+		// menu, scene swap) — the OS motor keeps running otherwise.
+		_rumble.StopAll();
+	}
+
 	public override void _Process(double deltaTime)
 	{
 		// Push the foliage player-occlusion fade globals before the pause /
@@ -878,6 +891,18 @@ public partial class GameClient : Node3D
 		// can still drift (mid-pause shake, debug-cam fly), and a stale fade
 		// volume would visibly punch the wrong hole in the canopy.
 		PushFoliageOcclusionGlobals(deltaTime);
+
+		// Drive rumble before the pause/console gate: an indefinite vibration
+		// would otherwise stick on while paused. On a blocked frame StopAll
+		// kills the motors immediately rather than letting impulses decay.
+		if (_player == null || ConsoleUI.IsOpen || paused)
+		{
+			_rumble.StopAll();
+		}
+		else
+		{
+			_rumble.Tick((float)deltaTime);
+		}
 
 		if (_player == null || ConsoleUI.IsOpen || paused)
 		{

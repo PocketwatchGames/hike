@@ -8,13 +8,14 @@
 [ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="11_x8n20"]
 [ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="12_statushud"]
 
-[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorBar", "_perceptionBar", "_discoveryBar", "_debugLabel", "_eliteStatusIcon")]
+[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorBar", "_perceptionBar", "_discoveryBar", "_debugLabel", "_statusEffectContainer", "_eliteStatusIcon")]
 script = ExtResource("1_1douw")
 _healthBar = NodePath("Health")
 _armorBar = NodePath("Armor")
 _perceptionBar = NodePath("Perception")
 _discoveryBar = NodePath("Discovery")
 _debugLabel = NodePath("DebugLabel")
+_statusEffectContainer = NodePath("StatusEffects")
 _eliteStatusIcon = NodePath("Health/EliteStatusIcon")
 _statusEffectIconScene = ExtResource("12_statushud")
 

@@ -91,4 +91,10 @@ public enum EItemEventType
 	// on the summoner's (zero-duration) Active timeline so the full-charge
 	// auto-activate fires it. See ItemEventHandlers.DoSummonMinion.
 	SummonMinion = 1 << 19,
+	// One-shot controller rumble — weak/strong motor magnitudes decaying
+	// linearly to 0 over a duration. Optional distance falloff against the
+	// player when range > 0; range == 0 fires full magnitude regardless of
+	// where the event lives. Haptic parallel to CameraShake — author both on
+	// the same impact event for a hit that shakes the screen and the pad.
+	ControllerRumble = 1 << 20,
 }
