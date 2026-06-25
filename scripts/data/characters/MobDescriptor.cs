@@ -36,14 +36,20 @@ public partial class MobDescriptor : Resource
     // Build the runtime sim state for this composed mob at the given transform,
     // with the overrides stamped on. Returns null when the descriptor has no
     // usable species (mirrors ItemDescriptor.CreateState's null-on-unset guard).
-    public MobSimState CreateState(Vector3 worldPosition, float rotationY)
+    // sceneOverride lets a placement swap the rig per individual (e.g. a male vs
+    // female villager) without forking the species — see NpcSpawnEntry.Scene.
+    // Null falls back to the species' base MobData.MobScene. The scene is fixed
+    // at construction (EntitySimState.Scene is readonly) and serializes with the
+    // mob, so an overridden rig survives chunk eviction and save/load.
+    public MobSimState CreateState(Vector3 worldPosition, float rotationY, PackedScene sceneOverride = null)
     {
         MobData mobData = species?.mob;
-        if (mobData == null || mobData.MobScene == null)
+        PackedScene scene = sceneOverride ?? mobData?.MobScene;
+        if (mobData == null || scene == null)
         {
             return null;
         }
-        var state = new MobSimState(worldPosition, rotationY, mobData.MobScene, mobData);
+        var state = new MobSimState(worldPosition, rotationY, scene, mobData);
         // The species is the mob's bestiary identity (discovery / kill-leveling
         // key) as well as the source of its recolor / loot / stat modifiers.
         state.Species = species;

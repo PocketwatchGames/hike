@@ -488,7 +488,7 @@ public partial class GameClient : Node3D
 
 	}
 
-	public async void Init(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldState worldState, LoadingScreen loadingScreen = null)
+	public async void Init(Vector3 playerPosition, PackedScene playerScene, CharacterCreationState characterCreation, WorldGenData worldGenData, WorldState worldState, LoadingScreen loadingScreen = null)
 	{
 		_spawnPosition = playerPosition;
 		onHudText += OnHudTextRequested;
@@ -558,12 +558,12 @@ public partial class GameClient : Node3D
 		// Suppress announcements during spawn-time knowledge application so
 		// the starting health potion, known recipes, etc. don't pop banners
 		// on the first frame. Player.Initialize walks
-		// PlayerSpawnData.initialKnowledge under this gate; everything else
+		// WorldGenData.initialKnowledge under this gate; everything else
 		// it does (inventory seeding, ability setup) doesn't touch the bus.
 		SuppressAnnouncements = true;
 		try
 		{
-			_player.Initialize(_world, playerSpawnData, playerPosition, Vector3.Zero);
+			_player.Initialize(_world, worldGenData, characterCreation, playerPosition, Vector3.Zero);
 		}
 		finally
 		{

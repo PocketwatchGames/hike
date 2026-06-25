@@ -104,7 +104,7 @@ public static class ScatterFactory
 {
     public static EntitySimState Create(EScatterKind kind, WorldMapData data, int zoneIdx, Vector3 pos, uint hash)
     {
-        ZoneGenData[] zones = data.GenData?.Zones;
+        ZoneGenData[] zones = data.GenData?.ZoneGens;
         ZoneGenData zone = (zones != null && zoneIdx >= 0 && zoneIdx < zones.Length) ? zones[zoneIdx] : null;
         TerrainKitData kit = zone?.SurfaceKit;
 

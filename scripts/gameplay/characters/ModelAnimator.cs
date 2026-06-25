@@ -76,7 +76,7 @@ public partial class ModelAnimator : Node
     [Export] public string[] bareBodyMeshNames = Array.Empty<string>();
     // Skin meshes recolored by the chosen skin tone (face shell + bare body).
     [Export] public string[] skinMeshNames = Array.Empty<string>();
-    // Hair-style menu: a creation-choice index (PlayerSpawnData.hairStyle) maps
+    // Hair-style menu: a creation-choice index (CharacterCreationState.hairStyle) maps
     // to the hair MeshInstance3D name shown when no head armor is worn. Authored
     // in the SAME order across genders so a creation pick is gender-agnostic; an
     // empty / out-of-range pick resolves to bald (no hair mesh).
@@ -262,6 +262,22 @@ public partial class ModelAnimator : Node
         {
             ApplyMeshVisibility(visual);
         }
+    }
+
+    // Compose the always-on base parts (baseMeshNames: head + face) with an
+    // authored outfit (clothing / hair / hat mesh names) and push the union as
+    // the visible set — the NPC analog of the player's armor compositor, for
+    // hand-dressing a modular humanoid per individual. Empty/null outfit leaves
+    // the scene's authored visibleMeshNames untouched.
+    public void ApplyOutfit(string[] outfitMeshNames)
+    {
+        if (outfitMeshNames == null || outfitMeshNames.Length == 0)
+        {
+            return;
+        }
+        var set = new List<string>(baseMeshNames);
+        set.AddRange(outfitMeshNames);
+        SetVisibleMeshes(set.ToArray());
     }
 
     // Resolve the hair-style mesh name for a creation-menu index, or null (bald)

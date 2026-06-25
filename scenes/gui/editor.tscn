@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://oeqqyiduw8hc" path="res://scripts/editor/WorldEditor.cs" id="1_editor"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="2_camera"]
 [ext_resource type="Script" uid="uid://bnjoxay8whatf" path="res://scripts/editor/EditorHud.cs" id="3_hud"]
-[ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="4_worldgen"]
+[ext_resource type="Resource" path="res://resources/data/editor/editor_brush_palette.tres" id="4_palette"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_editor"]
 
@@ -36,7 +36,7 @@ volumetric_fog_sky_affect = 0.0
 script = ExtResource("1_editor")
 camera = NodePath("MainCamera")
 editorHud = NodePath("EditorHud")
-worldGenData = ExtResource("4_worldgen")
+brushPalette = ExtResource("4_palette")
 
 [node name="MainCamera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)

@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="EditorBrushPalette" format=3]
+
+[ext_resource type="Script" uid="uid://rdgentfkzrj0n" path="res://scripts/editor/EditorBrushPalette.cs" id="1_palette"]
+[ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="2_door"]
+[ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="3_spiketrap"]
+[ext_resource type="PackedScene" uid="uid://c8mxl2yqr3vkt" path="res://scenes/interactives/climbable_tree.tscn" id="4_climbtree"]
+[ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="5_torch"]
+[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="6_chest"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="7_itemcountrange"]
+[ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="8_potion"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="9_desc"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="10_mushroom"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="11_goblin"]
+[ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun/kun_kun.tres" id="12_kunkun"]
+
+[sub_resource type="Resource" id="ChestLoot_potion"]
+script = ExtResource("7_itemcountrange")
+item = ExtResource("8_potion")
+count = 1
+countRange = 0
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="LootItem_mushroom"]
+script = ExtResource("9_desc")
+item = ExtResource("10_mushroom")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[resource]
+script = ExtResource("1_palette")
+DoorScene = ExtResource("2_door")
+SpikeTrapScene = ExtResource("3_spiketrap")
+ClimbableTreeScene = ExtResource("4_climbtree")
+TorchScene = ExtResource("5_torch")
+ChestScene = ExtResource("6_chest")
+ChestLoot = [SubResource("ChestLoot_potion")]
+LootItem = SubResource("LootItem_mushroom")
+GoblinMob = ExtResource("11_goblin")
+KunKunMob = ExtResource("12_kunkun")
+metadata/_custom_type_script = "uid://rdgentfkzrj0n"

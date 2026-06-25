@@ -27,21 +27,21 @@ public partial class Player : CharacterBody3D
 	// Apply the spawned modular appearance to the live model: a flat skin tone
 	// on the face / bare-body skin meshes and the hair color on the chosen
 	// hair-style mesh. Resolved from PlayerData's palettes by the indices on
-	// PlayerSpawnData and applied once at spawn — the `recolor` instance uniforms
-	// persist across animation and visibility changes, so hair keeps its color
-	// even while hidden under a helmet. Must run before UpdateArmorVisual so the
-	// hair-style mesh is known when the visible set is composited.
-	private void ApplyAppearance(PlayerSpawnData spawnData)
+	// CharacterCreationState and applied once at spawn — the `recolor` instance
+	// uniforms persist across animation and visibility changes, so hair keeps its
+	// color even while hidden under a helmet. Must run before UpdateArmorVisual so
+	// the hair-style mesh is known when the visible set is composited.
+	private void ApplyAppearance(CharacterCreationState characterCreation)
 	{
 		if (_animator == null || data == null)
 		{
 			return;
 		}
-		string hairMesh = _animator.GetHairStyleMesh(spawnData?.hairStyle ?? 0);
+		string hairMesh = _animator.GetHairStyleMesh(characterCreation?.hairStyle ?? 0);
 		_hairStyleMeshes = hairMesh != null ? new[] { hairMesh } : System.Array.Empty<string>();
 
-		_animator.SetMeshRecolor(_animator.skinMeshNames, data.GetSkinTone(spawnData?.skinTone ?? 0));
-		_animator.SetMeshRecolor(_hairStyleMeshes, data.GetHairColor(spawnData?.hairColor ?? 0));
+		_animator.SetMeshRecolor(_animator.skinMeshNames, data.GetSkinTone(characterCreation?.skinTone ?? 0));
+		_animator.SetMeshRecolor(_hairStyleMeshes, data.GetHairColor(characterCreation?.hairColor ?? 0));
 	}
 
 	// Recompose the visible mesh set from equipped armor and push it to the

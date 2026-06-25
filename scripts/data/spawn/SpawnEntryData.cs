@@ -50,6 +50,12 @@ public partial class SpawnEntryData : Resource
     // so overlap at the group level is meaningless).
     [Export] public float MinSpacing = 0.5f;
 
+    // When this entry is a sub-entry of a SpawnGroupData, place it directly on
+    // the group's anchor (the cluster center) instead of scattering it within
+    // ScatterRadius — the cluster's centerpiece (a home campfire, a well). The
+    // entry's placement gates still run via TrySpawn. Ignored outside a group.
+    [Export] public bool PlaceAtAnchor;
+
     // True iff this entry requires a flat patch — the column and all 8
     // surrounding columns must share the same surface height. Subclasses
     // override to opt in; defaults to false so existing entry types

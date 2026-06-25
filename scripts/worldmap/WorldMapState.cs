@@ -128,7 +128,7 @@ public class WorldMapState
     {
         var ws = new WorldState(Data.MinChunk, Data.MaxChunk, Data.GenData.SimData);
 
-        ZoneGenData[] zones = Data.GenData.Zones ?? [];
+        ZoneGenData[] zones = Data.GenData.ZoneGens ?? [];
         ws.Zones = new ZoneState[zones.Length];
         for (int i = 0; i < zones.Length; i++)
         {

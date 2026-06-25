@@ -33,4 +33,26 @@ public partial class ItemTagPreference : Resource
         bool hasAny = (itemTags & tags) != EItemType.None;
         return whenMissing ? !hasAny : hasAny;
     }
+
+    // Folds a rule list over a base value, multiplying by every rule whose tag
+    // condition the item satisfies. Returns baseValue unchanged for a null/empty
+    // list. Rules compose multiplicatively in order, so a per-instance override
+    // list folded after a species' base list stacks onto it (a merchant adds
+    // Potion x2 over the villager defaults) rather than replacing it.
+    public static float Fold(float baseValue, EItemType itemTags, System.Collections.Generic.IEnumerable<ItemTagPreference> rules)
+    {
+        if (rules == null)
+        {
+            return baseValue;
+        }
+        float v = baseValue;
+        foreach (ItemTagPreference pref in rules)
+        {
+            if (pref != null && pref.Matches(itemTags))
+            {
+                v *= pref.multiplier;
+            }
+        }
+        return v;
+    }
 }

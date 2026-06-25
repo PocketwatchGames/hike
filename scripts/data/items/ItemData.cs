@@ -10,9 +10,9 @@ public partial class ItemData : Resource
 	// uses the item (ItemEventHandlers.DoDecrementStack); the discovered set
 	// lives in WorldSimState.IdentifiedItems and is keyed by this resource,
 	// so every recipe and inventory stack of the same ItemData reveals at
-	// once. Items the player starts the run already knowing are listed on
-	// PlayerSpawnData.initiallyIdentifiedItems and seeded into the set on
-	// spawn. See WorldSimState.GetItemDisplayName for the read-side.
+	// once. Items the player starts the run already knowing are seeded on
+	// spawn via WorldGenData.initialKnowledge (ItemTeachable entries). See
+	// WorldSimState.GetItemDisplayName for the read-side.
 	[Export] public StringName unidentifiedDisplayName = "";
 	// Inspector multiline flavor text. Shown on the inventory screen's
 	// ItemInfoPanel when an item is highlighted. Plain string (not localized)

@@ -8,7 +8,7 @@ public partial class WorldEditor : Node3D
 {
     [Export] public GameCamera camera;
     [Export] public EditorHud editorHud;
-    [Export] public WorldGenData worldGenData;
+    [Export] public EditorBrushPalette brushPalette;
 
     // Live editor instance, exposed for console-driven subscene commands
     // (subscene_corner / subscene_save / subscene_stamp). Mirrors the
@@ -447,16 +447,12 @@ public partial class WorldEditor : Node3D
     private EntitySimState CreateEntitySimState(string entityName, Vector3 position)
     {
         // Tree/TallGrass scene palettes live on the terrain kit at the cursor's
-        // surface column, so the editor's spawn dropdown reads from whichever
-        // kit was stamped at that voxel (matches what WorldGen would pick at
-        // run time). Loot/Chest/Torch palettes are pulled out of the first
-        // zone's SpawnListData entries — the editor picks the first matching
-        // subclass entry as its representative scene. Door/SpikeTrap stay on
-        // WorldGenData (they aren't placed by the per-zone scan). Goblin /
-        // KunKun load their MobData directly so the editor doesn't depend on
-        // them being authored into a spawn list.
+        // surface column, so the editor reads from whichever kit was stamped at
+        // that voxel (matches what WorldGen would pick at run time). Every other
+        // brush stamps a fixed prefab from the EditorBrushPalette — the editor's
+        // standalone library of authorable interactives / mobs, independent of
+        // worldgen's per-zone spawn lists.
         TerrainKitData cursorKit = ResolveKitAtCursor(position);
-        ZoneGenData firstZone = worldGenData.Zones != null && worldGenData.Zones.Length > 0 ? worldGenData.Zones[0] : null;
         switch (entityName)
         {
             case "Tree":
@@ -475,70 +471,48 @@ public partial class WorldEditor : Node3D
             }
             case "Loot":
             {
-                LootSpawnEntry loot = FindFirstSurfaceEntry<LootSpawnEntry>(firstZone);
-                if (loot?.Item?.item == null) { return null; }
-                var lootSim = new LootSimState(position, loot.Item.item);
-                if (loot.Item.HasStatusEffects)
+                ItemDescriptor lootItem = brushPalette?.LootItem;
+                if (lootItem?.item == null) { return null; }
+                var lootSim = new LootSimState(position, lootItem.item);
+                if (lootItem.HasStatusEffects)
                 {
-                    lootSim.Item = loot.Item.CreateState();
+                    lootSim.Item = lootItem.CreateState();
                 }
                 return lootSim;
             }
             case "Chest":
-            {
-                ChestSpawnEntry chest = FindFirstCaveEntry<ChestSpawnEntry>(firstZone);
-                return chest?.Scene != null
-                    ? new ChestSimState(position, chest.Scene) { LootItems = ChestSpawnEntry.Resolve(chest.LootItems, new Random()) }
+                return brushPalette?.ChestScene != null
+                    ? new ChestSimState(position, brushPalette.ChestScene) { LootItems = ChestSpawnEntry.Resolve(brushPalette.ChestLoot, new Random()) }
                     : null;
-            }
             case "Torch":
-            {
-                TorchSpawnEntry torch = FindFirstCaveEntry<TorchSpawnEntry>(firstZone);
-                return torch?.Scene != null ? new TorchSimState(position, torch.Scene) : null;
-            }
+                return brushPalette?.TorchScene != null
+                    ? new TorchSimState(position, brushPalette.TorchScene)
+                    : null;
             case "Door":
-                return new DoorSimState(position, 0f, worldGenData.DoorScene);
+                return brushPalette?.DoorScene != null
+                    ? new DoorSimState(position, 0f, brushPalette.DoorScene)
+                    : null;
             case "ClimbableTree":
-                return worldGenData.ClimbableTreeScene != null
-                    ? new ClimbableTreeSimState(position, worldGenData.ClimbableTreeScene)
+                return brushPalette?.ClimbableTreeScene != null
+                    ? new ClimbableTreeSimState(position, brushPalette.ClimbableTreeScene)
                     : null;
             case "SpikeTrap":
-                return worldGenData.SpikeTrapScene != null
-                    ? new TrapSimState(position, worldGenData.SpikeTrapScene)
+                return brushPalette?.SpikeTrapScene != null
+                    ? new TrapSimState(position, brushPalette.SpikeTrapScene)
                     : null;
             case "Goblin":
             {
-                MobData data = GD.Load<MobData>("res://resources/data/characters/goblin.tres");
+                MobData data = brushPalette?.GoblinMob;
                 return data?.MobScene != null ? new MobSimState(position, 0f, data.MobScene, data) : null;
             }
             case "KunKun":
             {
-                MobData data = GD.Load<MobData>("res://resources/data/characters/kun_kun.tres");
+                MobData data = brushPalette?.KunKunMob;
                 return data?.MobScene != null ? new MobSimState(position, 0f, data.MobScene, data) : null;
             }
             default:
                 return null;
         }
-    }
-
-    private static T FindFirstSurfaceEntry<T>(ZoneGenData zone) where T : SpawnEntryData
-    {
-        return FindFirstEntryIn<T>(zone?.SurfaceEntities);
-    }
-
-    private static T FindFirstCaveEntry<T>(ZoneGenData zone) where T : SpawnEntryData
-    {
-        return FindFirstEntryIn<T>(zone?.CaveEntities);
-    }
-
-    private static T FindFirstEntryIn<T>(SpawnListData list) where T : SpawnEntryData
-    {
-        if (list?.Entries == null) { return null; }
-        foreach (SpawnEntryData entry in list.Entries)
-        {
-            if (entry is T match) { return match; }
-        }
-        return null;
     }
 
     private void RegisterEditorEntity(Node3D node, Vector3I coord)
@@ -1046,12 +1020,12 @@ public partial class WorldEditor : Node3D
         // to blend in the editor. ZoneIndex stays 0 across all chunks
         // here (the editor's empty stub is a single uniform area); the
         // full editor will paint indices when authoring.
-        ws.Zones = new ZoneState[genData.Zones.Length];
-        for (int i = 0; i < genData.Zones.Length; i++)
+        ws.Zones = new ZoneState[genData.ZoneGens.Length];
+        for (int i = 0; i < genData.ZoneGens.Length; i++)
         {
             ws.Zones[i] = new ZoneState
             {
-                Data = genData.Zones[i]?.Zone,
+                Data = genData.ZoneGens[i]?.Zone,
                 WindDirection = new Vector3(0.7f, 0f, 0.7f),
                 Elevation = 0f,
             };

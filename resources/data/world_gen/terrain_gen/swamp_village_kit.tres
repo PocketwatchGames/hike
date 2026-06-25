@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://ds1ldsisnfc4e"]
+
+[ext_resource type="Resource" uid="uid://ckhiesfv77y2b" path="res://resources/data/details/detail_grass_swamp.tres" id="1_jex71"]
+[ext_resource type="Resource" uid="uid://pyv6u3yyr1dc" path="res://resources/data/terrain/marsh.tres" id="7_7tly5"]
+[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="13_uep7x"]
+
+[resource]
+script = ExtResource("13_uep7x")
+Terrain = ExtResource("7_7tly5")
+DefaultDetail = ExtResource("1_jex71")
+ForestDensity = 0.4

@@ -602,6 +602,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Biome-variant recolor: one model, many palettes (null = untouched).
             // The descriptor's per-instance override wins; else the species default.
             _modelAnimator.ApplyPalette(_simState.Palette ?? mobData?.palette);
+            // Per-individual outfit (NpcSpawnEntry.Outfit) composed onto the rig's
+            // base meshes. No-op when unset — the scene's authored outfit stands.
+            _modelAnimator.ApplyOutfit(_simState.Outfit);
             // Footfalls fire from a Call Method Track authored on the model's
             // movement clips (OnFootstep) at the exact foot-contact frame.
             _modelAnimator.OnFootstep += EmitFootstep;
@@ -1299,7 +1302,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return 0f;
         }
         MobData md = mobData;
-        return md != null ? md.ApplyItemPreferences(item.value, item.typeTags) : item.value;
+        float value = md != null ? md.ApplyItemPreferences(item.value, item.typeTags) : item.value;
+        // Layer this mob's per-instance taste overrides (NpcSpawnEntry) on top of
+        // the species base — composes multiplicatively, so a specific merchant
+        // values wares differently without forking MobData.
+        return ItemTagPreference.Fold(value, item.typeTags, _simState?.ItemPreferences);
     }
 
     // How many units of `offered` worth of `item` the mob will value right

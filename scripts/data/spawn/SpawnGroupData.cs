@@ -51,7 +51,13 @@ public partial class SpawnGroupData : SpawnEntryData
             int count = entry.RollCount(rng);
             for (int i = 0; i < count; i++)
             {
-                if (entry.SelfPlaces)
+                if (entry.PlaceAtAnchor)
+                {
+                    // Centerpiece: pin to the cluster anchor (no scatter), but
+                    // still run the entry's gates.
+                    entry.TrySpawn(ws, position, rng, context);
+                }
+                else if (entry.SelfPlaces)
                 {
                     // The entry derives its own position from the anchor (e.g.
                     // a boat ring-scanning for water) — the grassy scatter

@@ -66,6 +66,11 @@ public static class WorldGen
     // ever called outside a Generate run (e.g. a debug dump before first gen).
     private static WorldGenData _activeGenData;
 
+    // Per-run zone-placement context (world chunk bounds, spawn chunk, edge
+    // noise), set at the top of Generate alongside _activeGenData. PickZoneIndex
+    // reads it to evaluate each PlacedZone's ZoneBounds.
+    private static ZoneBoundsContext _zoneBoundsContext;
+
     // Public read-only views of the active palettes. The terrain array is
     // what ChunkMesh uploads to the shader; the kit palette is for authoring
     // tools (e.g. the editor's spawn dropdown reads TreeScenes from here).
@@ -293,6 +298,7 @@ public static class WorldGen
     private const int SEED_SALT_PROPS   = 0x0B;
     private const int SEED_SALT_SIGNPOST = 0x0C;
     private const int SEED_SALT_FIXTURE = 0x0D;
+    private const int SEED_SALT_ZONEBOUNDS = 0x0E;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -329,7 +335,7 @@ public static class WorldGen
     // Generate() run.
     public static void BindActivePalettes(WorldGenData genData)
     {
-        _activeKitPalette = BuildKitPalette(genData?.Zones);
+        _activeKitPalette = BuildKitPalette(genData?.ZoneGens);
         _activeTerrainPalette = ExtractTerrainPalette(_activeKitPalette);
         _kitIndex = new System.Collections.Generic.Dictionary<TerrainKitData, byte>();
         for (int i = 0; i < _activeKitPalette.Length; i++)
@@ -351,9 +357,9 @@ public static class WorldGen
         // the rule is deterministic in case it ever does).
         _kitPurposes = new byte[_activeKitPalette.Length];
         for (int i = 0; i < _kitPurposes.Length; i++) { _kitPurposes[i] = KIT_PURPOSE_NONE; }
-        if (genData?.Zones != null)
+        if (genData?.ZoneGens != null)
         {
-            foreach (ZoneGenData z in genData.Zones)
+            foreach (ZoneGenData z in genData.ZoneGens)
             {
                 if (z == null) { continue; }
                 ClassifyKit(z.SurfaceKit, EKitPurpose.Surface);
@@ -373,6 +379,17 @@ public static class WorldGen
         var max = new Vector3I(min.X + worldSize.X - 1, min.Y + worldSize.Y - 1, min.Z + worldSize.Z - 1);
         var ws = new WorldState(min, max, genData.SimData);
 
+        // Zone-placement context. The edge-noise channel wobbles box/circle zone
+        // borders; sampled at chunk coords so the border resolves per chunk and
+        // the existing blend kernel softens it further. Low frequency → broad,
+        // gentle waves rather than a jagged fringe.
+        var boundsNoise = MakePerlin(DeriveSeed(worldSeed, SEED_SALT_ZONEBOUNDS), 0.15f, 2);
+        var spawnChunk = new Vector2I(
+            (int)Math.Floor((double)genData.playerSpawnPosition.X / ChunkState.SIZE),
+            (int)Math.Floor((double)genData.playerSpawnPosition.Z / ChunkState.SIZE));
+        _zoneBoundsContext = new ZoneBoundsContext(min, max, spawnChunk,
+            (cx, cz) => boundsNoise.GetNoise2D(cx, cz));
+
         BuildZoneStates(ws, genData, worldSeed);
         BuildRegionStates(ws, genData);
 
@@ -383,6 +400,11 @@ public static class WorldGen
         // voxel — the shape is authored here (plateau / ramp / river) so
         // geometry is noise-free by construction.
         var heightMap = BuildHeightMap(ws, genData, noise.Terrain, noise.RampGate, noise.Elevation);
+
+        // Player spawn point. With spawnAtSurface the authored Y is replaced by
+        // the ground surface at (X, Z) so the player lands on terrain wherever
+        // the start area ended up; otherwise the explicit Y is used verbatim.
+        ws.Spawn = ResolveSpawn(genData, heightMap);
 
         GenerateChunks(ws, genData, noise.Tunnel, heightMap);
 
@@ -572,13 +594,13 @@ public static class WorldGen
     {
         var zoneRng = new RandomNumberGenerator();
         zoneRng.Seed = (ulong)DeriveSeed(worldSeed, SEED_SALT_ZONE);
-        ws.Zones = new ZoneState[genData.Zones.Length];
-        for (int i = 0; i < genData.Zones.Length; i++)
+        ws.Zones = new ZoneState[genData.ZoneGens.Length];
+        for (int i = 0; i < genData.ZoneGens.Length; i++)
         {
             float angle = zoneRng.RandfRange(0f, Mathf.Tau);
             ws.Zones[i] = new ZoneState
             {
-                Data = genData.Zones[i]?.Zone,
+                Data = genData.ZoneGens[i]?.Zone,
                 WindDirection = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)),
                 Elevation = 0f,
             };
@@ -642,11 +664,12 @@ public static class WorldGen
         }
     }
 
-    // Voxel-space XZ bounds of one of the 4 legacy quadrants (matching the
-    // PickZoneIndex / PickRegionIndex order: 0=NE, 1=NW, 2=SE, 3=SW), clipped
-    // to the world extent. Returns false if the world doesn't span the quadrant
-    // (so the caller skips that zone/region).
-    private static bool QuadrantBounds(int quadrant, int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ,
+    // Voxel-space XZ column range of one of the 4 legacy quadrants (matching the
+    // PickRegionIndex order: 0=NE, 1=NW, 2=SE, 3=SW), clipped to the world
+    // extent. Returns false if the world doesn't span the quadrant (so the
+    // caller skips that region). Still used by the quadrant-based region
+    // fixtures; zone placement now goes through ZoneBounds.
+    private static bool QuadrantColumnRange(int quadrant, int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ,
         out int xLo, out int xHi, out int zLo, out int zHi)
     {
         bool east = quadrant == 0 || quadrant == 2;    // X >= 0
@@ -689,17 +712,15 @@ public static class WorldGen
         return ws.GetVoxelWorld(wx, sy + 1, wz) == VoxelType.Air;
     }
 
-    // One-off per-zone fixture clusters. Each ZoneGenData.Fixtures group fires
-    // ONCE at an anchor column (vs the SurfaceEntities density scan): the hub
-    // zone (genData.HubZoneIndex) anchors on the player spawn column
-    // (genData.SpawnColumn) — the near-spawn villager / companion / lit campfire
-    // / boat — while every other zone rolls a flat-dry column within its
-    // quadrant footprint. The group's ScatterRadius spreads the members. The
-    // cluster contents are authored SpawnEntry data, replacing the former
-    // hardcoded near-spawn placement.
+    // One-off per-zone fixture clusters. Each zone's ZoneGenData.Fixtures group
+    // fires ONCE at an anchor column (vs the SurfaceEntities density scan). The
+    // anchor comes from the zone's ZoneBounds: box/circle bounds anchor at their
+    // center (the start area's near-spawn villager / campfire / dog), while
+    // bounds with no fixed center (quadrant/everywhere) roll a random flat-dry
+    // column inside their footprint. The group's ScatterRadius spreads members.
     private static void PlaceZoneFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
-        ZoneGenData[] zones = genData.Zones ?? System.Array.Empty<ZoneGenData>();
+        PlacedZone[] zones = genData.Zones ?? System.Array.Empty<PlacedZone>();
         if (zones.Length == 0) { return; }
 
         int worldMinX = ws.Min.X * ChunkState.SIZE;
@@ -717,27 +738,33 @@ public static class WorldGen
 
         for (int zi = 0; zi < zones.Length; zi++)
         {
-            ZoneGenData zone = zones[zi];
-            if (zone?.Fixtures == null) { continue; }
+            PlacedZone placed = zones[zi];
+            SpawnGroupData fixtures = placed?.ZoneGen?.Fixtures;
+            if (fixtures == null) { continue; }
 
             Vector3I anchorCol;
-            if (zi == genData.HubZoneIndex)
+            if (placed.Bounds != null
+                && placed.Bounds.TryGetAnchorChunk(_zoneBoundsContext, out Vector2I anchorChunk))
             {
-                // Hub: anchor on the spawn column directly (the spawn area is
-                // flat by design — no roll needed).
-                anchorCol = new Vector3I(genData.SpawnColumn.X, 0, genData.SpawnColumn.Y);
+                // Fixed-center bounds (box/circle): anchor at the bounds center,
+                // converting chunk → the column at the chunk's center voxel.
+                anchorCol = new Vector3I(
+                    anchorChunk.X * ChunkState.SIZE + ChunkState.SIZE / 2,
+                    0,
+                    anchorChunk.Y * ChunkState.SIZE + ChunkState.SIZE / 2);
             }
             else
             {
-                // Non-hub: roll a flat-dry column inside the zone's quadrant.
-                int quadrant = Math.Min(zi, 3);
-                if (!QuadrantBounds(quadrant, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
-                        out int xLo, out int xHi, out int zLo, out int zHi))
-                {
-                    continue;
-                }
-                if (!TryRollColumn(rng, genData, xLo, xHi, zLo, zHi,
-                        (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap), out int rx, out int rz))
+                // No fixed center: roll a flat-dry column anywhere inside the
+                // zone's bounds (rejection-sampled across the whole world).
+                ZoneBounds bounds = placed.Bounds;
+                if (!TryRollColumn(rng, genData, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
+                        (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap)
+                            && (bounds == null || bounds.Contains(
+                                (int)Math.Floor((double)wx / ChunkState.SIZE),
+                                (int)Math.Floor((double)wz / ChunkState.SIZE),
+                                _zoneBoundsContext)),
+                        out int rx, out int rz))
                 {
                     continue;
                 }
@@ -746,7 +773,7 @@ public static class WorldGen
 
             int sy = heightMap.GetHeight(anchorCol.X, anchorCol.Z);
             var anchor = new Vector3(anchorCol.X + 0.5f, sy + 1f, anchorCol.Z + 0.5f);
-            zone.Fixtures.Spawn(ws, anchor, rng, context);
+            fixtures.Spawn(ws, anchor, rng, context);
         }
     }
 
@@ -874,43 +901,37 @@ public static class WorldGen
         }
     }
 
-    // Stamp a chunk into one of the world's zones. The hub (if authored) is a
-    // chunk-radius square carved around the spawn chunk, returned ahead of the
-    // quadrant split so it overrides whatever quadrant it straddles. Outside it,
-    // the legacy 4-quadrant split (NE/NW/SE/SW around the world origin) maps
-    // into Zones[] in [NE, NW, SE, SW] order — matches default_world_gen.tres.
-    // East (X >= 0) is the coastal half (mountain north / swamp south); west
-    // (X < 0) is the inland half (desert north / forest south). The eastern
-    // strip of the coastal zones transitions to ocean via the BuildHeightMap
-    // east-edge falloff. With fewer zones, indices are clamped to the available
-    // range so worlds with 1 or 2 zone templates still generate.
+    // Stamp a chunk into one of the world's zones. Each PlacedZone carries a
+    // ZoneBounds saying where it applies; the chunk goes to the highest-Priority
+    // bounds whose Contains() is true (ties broken by first in the list).
+    // Borders soften through the GetZoneGenWeights blend kernel, and box/circle
+    // bounds can wobble their own edge via the context's noise — so a small
+    // inset (the swamp village) melts organically into its background zone.
+    // Falls back to index 0 when nothing claims the chunk (e.g. an all-quadrant
+    // layout with a gap), so every chunk always gets a zone.
     private static byte PickZoneIndex(Vector3I chunkCoord, int zoneCount)
     {
         if (zoneCount <= 0) { return 0; }
 
-        // Hub carve. _activeGenData is set at the top of Generate before any
-        // zone pick, so it's always available here. The hub straddles the
-        // origin (its square can cross quadrant borders) — that's the point: it
-        // is one contiguous starting zone regardless of the quadrant lines.
-        WorldGenData g = _activeGenData;
-        if (g != null && g.HubZoneIndex >= 0 && g.HubZoneIndex < zoneCount && g.HubRadiusChunks >= 0)
+        // _activeGenData is set at the top of Generate before any zone pick.
+        PlacedZone[] zones = _activeGenData?.Zones;
+        if (zones == null) { return 0; }
+
+        int best = -1;
+        int bestPriority = int.MinValue;
+        int n = Math.Min(zoneCount, zones.Length);
+        for (int i = 0; i < n; i++)
         {
-            int hubChunkX = (int)Math.Floor((double)g.SpawnColumn.X / ChunkState.SIZE);
-            int hubChunkZ = (int)Math.Floor((double)g.SpawnColumn.Y / ChunkState.SIZE);
-            if (Math.Abs(chunkCoord.X - hubChunkX) <= g.HubRadiusChunks
-                && Math.Abs(chunkCoord.Z - hubChunkZ) <= g.HubRadiusChunks)
+            ZoneBounds bounds = zones[i]?.Bounds;
+            if (bounds == null) { continue; }
+            if (bounds.Priority <= bestPriority) { continue; }
+            if (bounds.Contains(chunkCoord.X, chunkCoord.Z, _zoneBoundsContext))
             {
-                return (byte)g.HubZoneIndex;
+                best = i;
+                bestPriority = bounds.Priority;
             }
         }
-
-        int quadrant;
-        if (chunkCoord.X >= 0 && chunkCoord.Z >= 0) { quadrant = 0; }       // NE
-        else if (chunkCoord.X < 0 && chunkCoord.Z >= 0) { quadrant = 1; }   // NW
-        else if (chunkCoord.X >= 0 && chunkCoord.Z < 0) { quadrant = 2; }   // SE
-        else { quadrant = 3; }                                              // SW
-        if (quadrant >= zoneCount) { quadrant = zoneCount - 1; }
-        return (byte)quadrant;
+        return best >= 0 ? (byte)best : (byte)0;
     }
 
     // Stamp a chunk into one of the world's named regions. Same legacy
@@ -933,10 +954,10 @@ public static class WorldGen
 
     private static ZoneGenData FirstZoneGen(WorldGenData genData)
     {
-        if (genData.Zones == null) { return null; }
-        for (int i = 0; i < genData.Zones.Length; i++)
+        if (genData.ZoneGens == null) { return null; }
+        for (int i = 0; i < genData.ZoneGens.Length; i++)
         {
-            if (genData.Zones[i] != null) { return genData.Zones[i]; }
+            if (genData.ZoneGens[i] != null) { return genData.ZoneGens[i]; }
         }
         return null;
     }
@@ -1011,6 +1032,15 @@ public static class WorldGen
         public float TunnelThreshold;
         public float CaveThreshold;
         public float GrassThreshold;
+
+        // Flatten override (FlattenSurface zones). FlattenWeight is the summed
+        // weight of flattening zones at this column (0..1); FlattenLevel is the
+        // weight-scaled sum of their FlattenPlateau targets. BuildHeightMap pulls
+        // the noisy plateau toward FlattenLevel by FlattenWeight, so the village
+        // core sits at a fixed plateau (e.g. 0 = beach) while the edge blends
+        // back into the surrounding noisy terrain.
+        public float FlattenWeight;
+        public float FlattenLevel;
     }
 
     private static BlendedZoneGen SampleBlendedZoneGen(int wx, int wz, ZoneGenData[] zones)
@@ -1021,6 +1051,31 @@ public static class WorldGen
 
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
         GetZoneGenWeights(wx, wz, n, weights);
+
+        // Per-zone terrain blend reach, keyed off the DOMINANT zone: a zone that
+        // authors a tighter TerrainBlendChunks holds its own terrain across its
+        // whole footprint instead of letting a neighbour bleed ~ZoneGenBlendRadius
+        // chunks in. Asymmetric on purpose — the village stays a flat, dry beach
+        // up to its edge while the swamp around it keeps blending softly with the
+        // mud/highlands. Only recompute when the dominant zone overrides the
+        // global radius, so ordinary columns pay nothing.
+        PlacedZone[] placed = _activeGenData?.Zones;
+        if (placed != null)
+        {
+            int dom = -1;
+            float bestW = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                if (weights[i] > bestW) { bestW = weights[i]; dom = i; }
+            }
+            float reach = dom >= 0 && dom < placed.Length
+                ? (placed[dom]?.Bounds?.TerrainBlendChunks ?? 0f)
+                : 0f;
+            if (reach > 0f)
+            {
+                GetZoneGenWeights(wx, wz, n, weights, reach);
+            }
+        }
 
         for (int i = 0; i < n; i++)
         {
@@ -1033,6 +1088,11 @@ public static class WorldGen
             result.TunnelThreshold += rg.TunnelThreshold * w;
             result.CaveThreshold += rg.CaveThreshold * w;
             result.GrassThreshold += rg.GrassThreshold * w;
+            if (rg.FlattenSurface)
+            {
+                result.FlattenWeight += w;
+                result.FlattenLevel += rg.FlattenPlateau * w;
+            }
         }
         return result;
     }
@@ -1046,11 +1106,20 @@ public static class WorldGen
     // if no zone has positive weight (caller skips the spawn).
     private static int PickWeightedZone(int wx, int wz, ZoneGenData[] zones, Random rng)
     {
+        return PickWeightedZone(wx, wz, zones, rng, _activeGenData?.ZoneGenBlendRadius ?? 2.0f);
+    }
+
+    // As above but with an explicit kernel reach — the spawn pass passes the
+    // dominant zone's SpawnBlendReachChunks so each zone controls how far its
+    // content blends across its own border (a wider reach = a wider, softer
+    // mixing band; the caller uses the crisp dominant zone when reach is 0).
+    private static int PickWeightedZone(int wx, int wz, ZoneGenData[] zones, Random rng, float blendRadius)
+    {
         int n = zones != null ? zones.Length : 0;
         if (n == 0) { return -1; }
 
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetZoneGenWeights(wx, wz, n, weights);
+        GetZoneGenWeights(wx, wz, n, weights, blendRadius);
 
         float total = 0f;
         for (int i = 0; i < n; i++) { total += weights[i]; }
@@ -1076,6 +1145,31 @@ public static class WorldGen
         int idx = PickWeightedZone(wx, wz, zones, rng);
         if (idx < 0) { return null; }
         return zones[idx];
+    }
+
+    // Index of the single highest-weight zone at (wx, wz) — the biome a column
+    // actually sits in, not a weighted roll. The default for content placement
+    // (so nothing bleeds across a border) and the base the per-zone
+    // SpawnBlendReachChunks softens. Same blend kernel as the weighted pick, so
+    // the boundary follows the same organic seam. Returns -1 if no zone has
+    // positive weight.
+    private static int DominantZoneIndex(int wx, int wz, ZoneGenData[] zones)
+    {
+        int n = zones != null ? zones.Length : 0;
+        if (n == 0) { return -1; }
+        Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
+        GetZoneGenWeights(wx, wz, n, weights);
+        int best = -1;
+        float bestW = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            if (weights[i] > bestW)
+            {
+                bestW = weights[i];
+                best = i;
+            }
+        }
+        return best;
     }
 
     // Deterministic per-(wx, wz, salt) hash → [0, 1). Used to pick a
@@ -1407,6 +1501,23 @@ public static class WorldGen
     // Lift formula: `targetPlateau - ceil(dist / slope)`. The ceiling matters
     // — with integer floor, dist=1 produces zero lift loss, so cells directly
     // adjacent to a higher plateau would stamp a bulge at plateau height.
+    // World-space player spawn from the authored playerSpawnPosition. X/Z are
+    // voxel coords (clamped into the world); when spawnAtSurface the Y rides 2
+    // voxels above the surface top so the player drops cleanly onto terrain once
+    // the spawn chunk's collision is ready, matching the WorldMapState bake.
+    private static Vector3 ResolveSpawn(WorldGenData genData, HeightMap heightMap)
+    {
+        Vector3 p = genData.playerSpawnPosition;
+        if (!genData.spawnAtSurface)
+        {
+            return p;
+        }
+        int wx = Math.Clamp(Mathf.FloorToInt(p.X), heightMap.WorldMinX, heightMap.WorldMaxX);
+        int wz = Math.Clamp(Mathf.FloorToInt(p.Z), heightMap.WorldMinZ, heightMap.WorldMaxZ);
+        int sy = heightMap.GetHeight(wx, wz);
+        return new Vector3(wx + 0.5f, sy + 2f, wz + 0.5f);
+    }
+
     private static HeightMap BuildHeightMap(WorldState ws, WorldGenData genData,
         FastNoiseLite terrainNoise, FastNoiseLite rampGateNoise, FastNoiseLite elevationNoise)
     {
@@ -1441,7 +1552,7 @@ public static class WorldGen
                 // across zones. Eventually `Elevation` will be sampled from
                 // an authored coarse heightmap; the blended ElevationRange
                 // term still rides on top.
-                BlendedZoneGen blend = SampleBlendedZoneGen(wx, wz, genData.Zones);
+                BlendedZoneGen blend = SampleBlendedZoneGen(wx, wz, genData.ZoneGens);
 
                 // Step 2: weighted noise in plateau-step units.
                 float terrainN = terrainNoise.GetNoise2D(wx, wz);
@@ -1449,6 +1560,16 @@ public static class WorldGen
                 float plateaus = blend.Elevation
                                + blend.ElevationRange * terrainN
                                + macroN * macroElevationRangePlateaus;
+
+                // Step 2.5: flatten override. Where a FlattenSurface zone has
+                // weight, pull the (noisy + macro) plateau toward its fixed
+                // FlattenLevel — guaranteeing e.g. the village core lands exactly
+                // on the beach plateau regardless of the world-wide macro wave,
+                // while the partial-weight edge blends back into the terrain.
+                if (blend.FlattenWeight > 0f)
+                {
+                    plateaus = plateaus * (1f - blend.FlattenWeight) + blend.FlattenLevel;
+                }
 
                 // Step 3: plateau-step quantization (round to integer
                 // plateau count). Done BEFORE the ocean falloff so cliffs
@@ -1458,6 +1579,17 @@ public static class WorldGen
                 // ZoneGenData.Elevation reads naturally — +1 means one
                 // plateau step above sea level, -1 means one below.
                 int plateauSteps = (int)Mathf.Round(plateaus);
+
+                // Hard floor inside a flatten zone: where it clearly dominates,
+                // never let the surface drop below its FlattenPlateau, so the
+                // surrounding zone's deep (underwater) columns can't bleed a pond
+                // into the village core. The blend already pulls heights toward
+                // the target; this just removes residual below-water spikes.
+                if (blend.FlattenWeight > 0.5f)
+                {
+                    int floorLevel = Mathf.RoundToInt(blend.FlattenLevel / blend.FlattenWeight);
+                    if (plateauSteps < floorLevel) { plateauSteps = floorLevel; }
+                }
 
                 // Step 4: east-edge ocean falloff in plateau-step units.
                 // Inland (coastT = 1) → unchanged plateauSteps. Coastal
@@ -1667,7 +1799,7 @@ public static class WorldGen
         // and never leaves sub-3-tall openings. Math.Floor (not C# integer
         // division) so negative wy snaps down, not toward zero.
         int bandBase = (int)Math.Floor((double)wy / step) * step;
-        float threshold = SampleBlendedZoneGen(wx, wz, genData.Zones).TunnelThreshold;
+        float threshold = SampleBlendedZoneGen(wx, wz, genData.ZoneGens).TunnelThreshold;
         return Mathf.Abs(tunnelNoise.GetNoise3D(wx, bandBase, wz)) < threshold;
     }
 
@@ -1717,8 +1849,8 @@ public static class WorldGen
                 // level — keeps the shoreline jagged instead of a flat
                 // isobar. Columns whose zone has no ShoreKit get an empty
                 // band (shoreUpperY = WATER_LEVEL → no voxel falls in it).
-                int kitZone = PickKitZone(wx, wz, genData.Zones, data.ZoneIndex);
-                ZoneGenData kitZoneData = kitZone >= 0 ? genData.Zones[kitZone] : null;
+                int kitZone = PickKitZone(wx, wz, genData.ZoneGens, data.ZoneIndex);
+                ZoneGenData kitZoneData = kitZone >= 0 ? genData.ZoneGens[kitZone] : null;
                 byte surfaceTerrainId = TerrainIdOf(kitZoneData?.SurfaceKit);
                 byte shoreTerrainId = surfaceTerrainId;
                 int shoreUpperY = WATER_LEVEL;
@@ -1831,7 +1963,7 @@ public static class WorldGen
             SpawnListData fixtures = regions[ri]?.Fixtures;
             if (fixtures?.Entries == null) { continue; }
             int quadrant = Math.Min(ri, 3);
-            if (!QuadrantBounds(quadrant, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
+            if (!QuadrantColumnRange(quadrant, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
                     out int xLo, out int xHi, out int zLo, out int zHi))
             {
                 continue;
@@ -1868,7 +2000,7 @@ public static class WorldGen
     // get seeded — caves / tunnels stay fog-free.
     private static void GenerateFog(WorldState ws, WorldGenData genData, HeightMap heightMap)
     {
-        int zoneCount = genData.Zones != null ? genData.Zones.Length : 0;
+        int zoneCount = genData.ZoneGens != null ? genData.ZoneGens.Length : 0;
         if (zoneCount == 0)
         {
             return;
@@ -1916,7 +2048,7 @@ public static class WorldGen
             }
             floors.Sort();
             float humidity = 0f;
-            ZoneGenData rg = genData.Zones[i];
+            ZoneGenData rg = genData.ZoneGens[i];
             if (rg?.Zone?.weather != null)
             {
                 humidity = rg.Zone.weather.humidity;
@@ -2066,7 +2198,7 @@ public static class WorldGen
                 // Threshold blends per-column so cave density transitions
                 // smoothly across zone borders. Sampled once per column
                 // since the kernel is XZ-only.
-                float caveThreshold = SampleBlendedZoneGen(wx, wz, genData.Zones).CaveThreshold;
+                float caveThreshold = SampleBlendedZoneGen(wx, wz, genData.ZoneGens).CaveThreshold;
 
                 // Walk the column bottom-up finding runs of natural carve.
                 // worldMinY is preserved as bedrock, so start one above.
@@ -2262,8 +2394,8 @@ public static class WorldGen
                         // can paint it distinctly from the surface above.
                         // Overrides SubmergedKit for submerged caves — the
                         // cave palette wins there.
-                        int zoneIdx = PickKitZone(wx, wz, genData.Zones, ZoneIndexAtWorld(ws, wx, wy, wz));
-                        ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.Zones[zoneIdx]?.CaveKit));
+                        int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
+                        ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.CaveKit));
                     }
                 }
             }
@@ -2301,8 +2433,8 @@ public static class WorldGen
                 // here; the per-voxel ZoneIndexAtWorld fallback inside the y
                 // loop only kicks in when the kernel produces no positive
                 // weight, which is rare.
-                int columnZone = PickKitZone(wx, wz, genData.Zones, 0);
-                ZoneGenData columnZoneData = columnZone >= 0 ? genData.Zones[columnZone] : null;
+                int columnZone = PickKitZone(wx, wz, genData.ZoneGens, 0);
+                ZoneGenData columnZoneData = columnZone >= 0 ? genData.ZoneGens[columnZone] : null;
                 byte shoreTerrainId = 0;
                 int shoreLowerY = WATER_LEVEL;
                 bool hasShore = columnZoneData != null && columnZoneData.ShoreKit != null;
@@ -2348,8 +2480,8 @@ public static class WorldGen
                         }
                         else
                         {
-                            int zoneIdx = PickKitZone(wx, wz, genData.Zones, ZoneIndexAtWorld(ws, wx, wy, wz));
-                            ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.Zones[zoneIdx]?.SubmergedKit));
+                            int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
+                            ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.SubmergedKit));
                         }
                     }
                 }
@@ -2507,7 +2639,7 @@ public static class WorldGen
                     int voxelTerrainId = ws.GetTerrainIdWorld(wx, wy, wz);
                     bool isSurface = IsSurfaceKit(voxelTerrainId);
                     TerrainKitData kit = isSurface
-                        ? (DominantZoneSurfaceKit(wx, wz, genData.Zones) ?? ResolveKit(voxelTerrainId))
+                        ? (DominantZoneSurfaceKit(wx, wz, genData.ZoneGens) ?? ResolveKit(voxelTerrainId))
                         : ResolveKit(voxelTerrainId);
                     if (kit == null || kit.DefaultDetail == null)
                     {
@@ -2693,7 +2825,7 @@ public static class WorldGen
         // its center sits on. This is fine in practice — chunk centers aren't
         // visually privileged and trees are sparse enough that small count
         // jumps at chunk boundaries don't read.
-        ZoneGenData[] zonesArr = genData.Zones ?? System.Array.Empty<ZoneGenData>();
+        ZoneGenData[] zonesArr = genData.ZoneGens ?? System.Array.Empty<ZoneGenData>();
         int chunkCenterWx = chunkCoord.X * ChunkState.SIZE + ChunkState.SIZE / 2;
         int chunkCenterWz = chunkCoord.Z * ChunkState.SIZE + ChunkState.SIZE / 2;
         int chunkCenterSy = SurfaceYAt(chunkCenterWx, chunkCenterWz);
@@ -2796,7 +2928,7 @@ public static class WorldGen
                     int wx = chunkCoord.X * ChunkState.SIZE + localX;
                     int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
 
-                    float grassThreshold = SampleBlendedZoneGen(wx, wz, genData.Zones).GrassThreshold;
+                    float grassThreshold = SampleBlendedZoneGen(wx, wz, genData.ZoneGens).GrassThreshold;
                     if (grassNoise.GetNoise2D(wx, wz) < grassThreshold)
                     {
                         continue;
@@ -2856,18 +2988,33 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
-                    if (rg?.SurfaceEntities?.Entries == null)
-                    {
-                        continue;
-                    }
                     int sy = SurfaceYAt(wx, wz);
                     // Anchor at the ground top (top face of the surface voxel),
                     // matching the cave pass below. Every SpawnEntryData sits
                     // with its scene root on this anchor; any per-entity Y
                     // offset is authored inside the scene itself.
                     var pos = new Vector3(wx + 0.5f, sy + 1f, wz + 0.5f);
-                    foreach (SpawnEntryData entry in rg.SurfaceEntities.Entries)
+
+                    // One spawn list per column, for ALL entity types (no
+                    // mob/non-mob distinction). The column's DOMINANT zone owns
+                    // it; a zone only softens that hard edge by authoring a
+                    // positive SpawnBlendReachChunks on its bounds, which widens
+                    // a kernel-weighted roll so its content bleeds that many
+                    // chunks across the seam (the old "few desert trees among
+                    // forest pines" mixing). Reach 0 (the default) = dominant
+                    // only, so a settlement like the village never inherits a
+                    // neighbour's wild mobs.
+                    int domIdx = DominantZoneIndex(wx, wz, zonesArr);
+                    if (domIdx < 0) { continue; }
+                    float reach = genData.Zones[domIdx]?.Bounds?.SpawnBlendReachChunks ?? 0f;
+                    ZoneGenData spawnZone = zonesArr[domIdx];
+                    if (reach > 0f)
+                    {
+                        int idx = PickWeightedZone(wx, wz, zonesArr, rng, reach);
+                        if (idx >= 0) { spawnZone = zonesArr[idx]; }
+                    }
+                    if (spawnZone?.SurfaceEntities?.Entries == null) { continue; }
+                    foreach (SpawnEntryData entry in spawnZone.SurfaceEntities.Entries)
                     {
                         if (entry == null) { continue; }
                         bool isMob = entry is MobSpawnEntry;

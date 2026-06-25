@@ -1,20 +1,106 @@
 [gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://bhodwg1042kim"]
 
-[ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="2_37agf"]
-[ext_resource type="Resource" uid="uid://dhg7c42lgnit2" path="res://resources/data/world_gen/zone_gen/hub_gen.tres" id="8_ekrki"]
+[ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="2_consumable_script"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="3_itemcount"]
+[ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]
+[ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/club.tres" id="4_melee"]
+[ext_resource type="Resource" uid="uid://b1m3fjtd0cwee" path="res://resources/data/items/consumables/ruby_slippers.tres" id="13_h1t84"]
 [ext_resource type="Resource" uid="uid://bbelkvnbtjkl6" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="15_7nyke"]
 [ext_resource type="Resource" uid="uid://c2slw3bih2n7x" path="res://resources/data/world_gen/zone_gen/swamp_highlands_gen.tres" id="17_hnhxf"]
 [ext_resource type="Resource" uid="uid://c3262urh41m8s" path="res://resources/data/world_gen/zone_gen/swamp_village_gen.tres" id="17_se4m7"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="18_8e3k4"]
 [ext_resource type="Resource" uid="uid://chlk1f4ns5cwh" path="res://resources/data/world_gen/zone_gen/swamp_mud_gen.tres" id="18_se4m7"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="20_desc"]
 [ext_resource type="Resource" uid="uid://wwpw4grvh0vs" path="res://resources/data/world_gen/zone_gen/swamp_gen.tres" id="21_1tdd7"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="22_sedesc"]
 [ext_resource type="Script" uid="uid://bk2smsd8gwalq" path="res://scripts/data/worldgen/WorldGenData.cs" id="23_7umo2"]
+[ext_resource type="Resource" uid="uid://bxwk3pkwmbaws" path="res://resources/data/status_effects/items/status_weapon_seeking.tres" id="25_seeking"]
+[ext_resource type="Script" uid="uid://c247odltr1n2o" path="res://scripts/data/worldgen/PlacedZone.cs" id="30_placed"]
+[ext_resource type="Script" uid="uid://cfywh1bfbi04v" path="res://scripts/data/worldgen/EverywhereBounds.cs" id="31_everywhere"]
+[ext_resource type="Script" uid="uid://dri0vgugdo5e0" path="res://scripts/data/worldgen/CircleBounds.cs" id="32_circle"]
+[ext_resource type="Script" uid="uid://bfgfv0y5b388o" path="res://scripts/data/worldgen/QuadrantBounds.cs" id="33_quadrant"]
+
+[sub_resource type="Resource" id="Bounds_swamp"]
+script = ExtResource("31_everywhere")
+metadata/_custom_type_script = "uid://4ht0mfp58w5f8"
+
+[sub_resource type="Resource" id="Placed_swamp"]
+script = ExtResource("30_placed")
+ZoneGen = ExtResource("21_1tdd7")
+Bounds = SubResource("Bounds_swamp")
+metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
+
+[sub_resource type="Resource" id="Bounds_village"]
+script = ExtResource("32_circle")
+CenterChunk = Vector2i(4, 4)
+RadiusChunks = 3.0
+EdgeNoiseChunks = 0.5
+TerrainBlendChunks = 1.0
+Priority = 2
+metadata/_custom_type_script = "uid://pdqmnml62brob"
+
+[sub_resource type="Resource" id="Placed_village"]
+script = ExtResource("30_placed")
+ZoneGen = ExtResource("17_se4m7")
+Bounds = SubResource("Bounds_village")
+metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
+
+[sub_resource type="Resource" id="Bounds_mud"]
+script = ExtResource("33_quadrant")
+Quadrant = 1
+Priority = 1
+metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
+
+[sub_resource type="Resource" id="Placed_mud"]
+script = ExtResource("30_placed")
+ZoneGen = ExtResource("18_se4m7")
+Bounds = SubResource("Bounds_mud")
+metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
+
+[sub_resource type="Resource" id="Bounds_highlands"]
+script = ExtResource("33_quadrant")
+Quadrant = 3
+Priority = 1
+metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
+
+[sub_resource type="Resource" id="Placed_highlands"]
+script = ExtResource("30_placed")
+ZoneGen = ExtResource("17_hnhxf")
+Bounds = SubResource("Bounds_highlands")
+metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
+
+[sub_resource type="Resource" id="SEDesc_seeking"]
+script = ExtResource("22_sedesc")
+effect = ExtResource("25_seeking")
+metadata/_custom_type_script = "uid://bf8kas4isp4rx"
+
+[sub_resource type="Resource" id="Desc_club"]
+script = ExtResource("20_desc")
+item = ExtResource("4_melee")
+statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_seeking")])
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_club"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Desc_club")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="Desc_jl16k"]
+script = ExtResource("20_desc")
+item = ExtResource("13_h1t84")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_jl16k"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Desc_jl16k")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [resource]
 script = ExtResource("23_7umo2")
 SimData = ExtResource("18_8e3k4")
-Zones = [ExtResource("21_1tdd7"), ExtResource("17_se4m7"), ExtResource("18_se4m7"), ExtResource("17_hnhxf"), ExtResource("8_ekrki")]
+Zones = [SubResource("Placed_swamp"), SubResource("Placed_village"), SubResource("Placed_mud"), SubResource("Placed_highlands")]
 Regions = [ExtResource("15_7nyke")]
-DoorScene = ExtResource("2_37agf")
-HubZoneIndex = 4
-HubRadiusChunks = 2
+playerSpawnPosition = Vector3(72, 0, 80)
+equippedInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_club")])
+startingConsumables = Array[ExtResource("2_consumable_script")]([])
+startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_jl16k")])

@@ -1,18 +1,42 @@
 using Godot;
+using Godot.Collections;
 
 [GlobalClass]
 public partial class WorldGenData : Resource
 {
     [Export] public SimData SimData;
 
-    // Per-zone world-gen + theme bundle. Index in this array becomes the
-    // ChunkState.ZoneIndex stamped on each generated chunk; the embedded
-    // ZoneData becomes WorldState.Zones[i].Data. WorldGen blends the
-    // per-position scalars on each entry (ElevationMultiplier, thresholds,
-    // densities) across a chunk-kernel for smooth transitions between
-    // adjacent zones. WorldGen assigns chunks to zones (currently by
-    // quadrant; the long-term design is arbitrary zone polygons / atlas).
-    [Export] public ZoneGenData[] Zones = System.Array.Empty<ZoneGenData>();
+    // Per-zone placement list. Each PlacedZone pairs a reusable ZoneGenData
+    // template with the ZoneBounds describing where it goes in THIS world; the
+    // index in this array becomes the ChunkState.ZoneIndex stamped on each
+    // generated chunk (and the slot in WorldState.Zones[]). WorldGen assigns
+    // every chunk to the highest-Priority bounds that contains it (see
+    // WorldGen.PickZoneIndex) and kernel-blends the per-position scalars across
+    // chunk borders for smooth transitions.
+    [Export] public PlacedZone[] Zones = System.Array.Empty<PlacedZone>();
+
+    // The ZoneGenData templates of `Zones`, index-aligned, cached. The per-zone
+    // worldgen passes (elevation/threshold blending, kit borders, prop palettes)
+    // consume this — placement lives on the PlacedZone wrapper, the worldgen
+    // scalars on the template. Rebuilt whenever the count changes (a reload
+    // replaces the array, so identity check on length suffices for gen-time use).
+    private ZoneGenData[] _zoneGens;
+    public ZoneGenData[] ZoneGens
+    {
+        get
+        {
+            if (_zoneGens == null || _zoneGens.Length != (Zones?.Length ?? 0))
+            {
+                int n = Zones?.Length ?? 0;
+                _zoneGens = new ZoneGenData[n];
+                for (int i = 0; i < n; i++)
+                {
+                    _zoneGens[i] = Zones[i]?.ZoneGen;
+                }
+            }
+            return _zoneGens;
+        }
+    }
 
     // Named-region palette. Index in this array becomes the
     // ChunkState.RegionIndex stamped on each generated chunk; the entry's
@@ -55,31 +79,15 @@ public partial class WorldGenData : Resource
     [Export] public int CaveMinHeight = 3;
     [Export] public int DirtDepth = 3;
 
-    // Editor brush-palette scenes. These are NOT placed by worldgen — the
-    // custom WorldEditor instantiates them when the author paints a door /
-    // climbable tree / spike trap (see WorldEditor.cs). They live here because
-    // there's no other shared home for the editor's prop palette yet; a
-    // dedicated editor-palette resource is the eventual home.
-    [Export] public PackedScene DoorScene;
-    [Export] public PackedScene SpikeTrapScene;
-    // Climbing one lifts the player into the bird's-eye overlook and conceals
-    // them from mobs (see ClimbableTree / Player.EnterClimbableTree).
-    [Export] public PackedScene ClimbableTreeScene;
-
-    // The hub is a true zone (its own Zones[] entry, theme, and kit) carved as
-    // a chunk-radius square around the spawn column, independent of the
-    // quadrant split that assigns the other zones — see WorldGen.PickZoneIndex.
-    // HubZoneIndex selects which Zones[] entry it is; -1 disables the hub
-    // entirely (no carve, every zone anchors its fixtures on a rolled column).
-    // The hub zone's ZoneGenData.Fixtures cluster anchors at SpawnColumn (the
-    // near-spawn villager / companion / lit campfire / boat) rather than a
-    // rolled column.
-    [Export] public int HubZoneIndex = -1;
-    // Chebyshev radius (in chunks) of the hub carve around the spawn chunk. 0
-    // is a single chunk; 1 a 3×3 block. Only consulted when HubZoneIndex >= 0.
-    [Export] public int HubRadiusChunks = 1;
-    // Voxel XZ column the player spawns on / the hub zone's fixtures anchor on.
-    [Export] public Vector2I SpawnColumn = new(0, 0);
+    // Where the player spawns. X/Z are world voxel coordinates; a zone placed
+    // around this point (a BoxBounds/CircleBounds whose center is the spawn
+    // chunk) becomes the start area. Set this to match the start zone's bounds
+    // center so the player spawns inside its fixtures.
+    [Export] public Vector3 playerSpawnPosition = Vector3.Zero;
+    // When true, playerSpawnPosition.Y is ignored and the spawn drops to the
+    // ground surface at (X, Z) — the usual case. When false the explicit Y is
+    // used as-is (e.g. to spawn on top of an authored structure / platform).
+    [Export] public bool spawnAtSurface = true;
 
     // Hand-authored subscene stamps (cottages, dungeons, landmarks). Each
     // entry is a `.hikescene` file plus a world XZ anchor; WorldGen loads
@@ -87,6 +95,40 @@ public partial class WorldGenData : Resource
     // sunlight bake. Y is picked from average surface elevation over the
     // footprint — see SubsceneStamper.ComputeSurfaceAnchor.
     [Export] public SubscenePlacement[] Subscenes = System.Array.Empty<SubscenePlacement>();
+
+    [ExportGroup("Player Loadout")]
+    // The starting loadout/knowledge the player spawns with for this world.
+    // These describe the run's scenario (a different world template can hand
+    // the player different gear), so they live here rather than on the
+    // character-creation picks. Player.Initialize seeds them at spawn; the
+    // character's name/appearance ride in separately via CharacterCreationState.
+
+    // Items the player tries to spawn already equipped. Each entry is added to
+    // the inventory and then we attempt to move it into the matching slot:
+    // armor → its armorSlot, weapons → their CanonicalSlot (melee → WeaponLeft,
+    // ranged → WeaponRight). If the target slot is already taken (or the item
+    // isn't equippable), the item stays in the backpack.
+    [Export] public ItemCount[] equippedInventory;
+
+    // Items added to the player's inventory and pushed into consumable hotbar
+    // slots in order. Each is created at maxStack.
+    [Export] public ConsumableData[] startingConsumables;
+
+    // Items added to the player's backpack at spawn. Each entry's count is
+    // split into maxStack-sized stacks. No equip / hotbar placement.
+    [Export] public ItemCount[] startingInventory;
+
+    // Things the player already knows about when the run begins. Each
+    // entry is a TeachableConcept subclass — ItemTeachable identifies an
+    // item by name, RecipeTeachable seeds a recipe into the cookbook,
+    // LanguageTeachable grants language components, RegionTeachable
+    // reveals a map region, MobTeachable seeds a bestiary entry. Applied
+    // via the same Teach() path that scrolls / NPC rewards use, so a
+    // "starter pack" of knowledge composes the same way mid-run rewards
+    // do. Announcements are suppressed during initial application (see
+    // GameClient.SuppressAnnouncements) — the player shouldn't see a
+    // stack of banners on the first frame.
+    [Export] public Array<TeachableConcept> initialKnowledge = new();
 
     // ─────────────────────────────────────────────────────────────────────
     // WorldGen tuning. These were `const`s inside WorldGen.cs — the feel /

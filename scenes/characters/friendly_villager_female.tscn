@@ -1,0 +1,90 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="4_mobhud"]
+[ext_resource type="PackedScene" uid="uid://ckibma4hpcyu7" path="res://assets/models/characters/polysplit/BasicHero_F.fbx" id="5_herofbx"]
+[ext_resource type="AnimationLibrary" path="res://assets/models/characters/polysplit/human_anims.res" id="6_heroanims"]
+[ext_resource type="Material" uid="uid://bxk7m2n4qwp3d" path="res://resources/materials/model_lit_character_body.tres" id="7_heromat"]
+[ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="8_modelanim"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="9_pixelsnap"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
+[ext_resource type="Resource" uid="uid://cx7ub2sgi3fui" path="res://resources/data/characters/human/friendly_villager_voice.tres" id="11_voice"]
+[ext_resource type="Material" uid="uid://nsghx0dy6spm" path="res://resources/materials/model_lit_face_cutout.tres" id="12_facemat"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_villager"]
+radius = 0.35
+height = 1.5
+
+[node name="FriendlyVillagerFemale" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
+axis_lock_angular_x = true
+axis_lock_angular_z = true
+script = ExtResource("1_mob")
+_collisionShape = NodePath("MovementCollision")
+_modelAnimator = NodePath("ModelAnimator")
+_mesh = NodePath("Visuals/MeshContainer")
+_visuals = NodePath("Visuals")
+_hurtBox = NodePath("HurtBox")
+HudAnchor = NodePath("Visuals/HudAnchor")
+HudScene = ExtResource("4_mobhud")
+_voice = ExtResource("11_voice")
+metadata/_custom_type_script = "uid://b71b1ywgyuwp"
+
+[node name="Visuals" type="Node3D" parent="."]
+
+[node name="MeshContainer" type="Node3D" parent="Visuals"]
+
+[node name="VillagerModel" type="Node3D" parent="Visuals/MeshContainer"]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 0, 0, 0)
+
+[node name="BasicHero_F" parent="Visuals/MeshContainer/VillagerModel" instance=ExtResource("5_herofbx")]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Visuals/MeshContainer/VillagerModel/BasicHero_F"]
+libraries/ = ExtResource("6_heroanims")
+
+[node name="MovementCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_villager")
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_villager")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_interactivebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_villager")
+
+[node name="HudAnchor" type="Node3D" parent="Visuals"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.907801, 0)
+
+[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+script = ExtResource("9_pixelsnap")
+_target = NodePath("../Visuals/MeshContainer/VillagerModel")
+
+[node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
+script = ExtResource("8_modelanim")
+player = NodePath("../Visuals/MeshContainer/VillagerModel/BasicHero_F/AnimationPlayer")
+visual = NodePath("../Visuals/MeshContainer/VillagerModel")
+modelMaterial = ExtResource("7_heromat")
+secondaryMaterial = ExtResource("12_facemat")
+secondaryMeshNames = PackedStringArray("F_eyes0", "F_eyebrows0", "F_mouth0")
+visibleMeshNames = PackedStringArray("F_Head", "F_eyes0", "F_eyebrows0", "F_mouth0", "F_hair_1", "F_TopBody", "F_BottomBody")
+baseMeshNames = PackedStringArray("F_Head", "F_eyes0", "F_eyebrows0", "F_mouth0")
+metadata/_custom_type_script = "uid://y5ti8jcvqdvm"
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("10_meshhl")
+_collectFrom = NodePath("../Visuals/MeshContainer/VillagerModel")

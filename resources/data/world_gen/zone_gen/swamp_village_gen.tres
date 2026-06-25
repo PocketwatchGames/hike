@@ -5,18 +5,20 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_swamp_kit.tres" id="3_kyxs2"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_65ay8"]
 [ext_resource type="Resource" uid="uid://d4ltgo1wkf3qg" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp_village.tres" id="5_5w857"]
-[ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_gen/terrain_gen/marsh_kit.tres" id="6_3b6tb"]
 [ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/zones/swamp.tres" id="7_48tre"]
+[ext_resource type="Resource" uid="uid://ds1ldsisnfc4e" path="res://resources/data/world_gen/terrain_gen/swamp_village_kit.tres" id="7_gyyab"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_m0lsp"]
+[ext_resource type="Resource" uid="uid://cyjva4b6lpasi" path="res://resources/data/world_gen/fixtures/swamp_village_fixtures.tres" id="9_village"]
 
 [resource]
 script = ExtResource("8_m0lsp")
 Zone = ExtResource("7_48tre")
-SurfaceKit = ExtResource("6_3b6tb")
+SurfaceKit = ExtResource("7_gyyab")
 CaveKit = ExtResource("2_gyyab")
 SubmergedKit = ExtResource("4_65ay8")
 ShoreKit = ExtResource("3_kyxs2")
-Elevation = 1.0
+ElevationRange = 0.2
+FlattenSurface = true
 PathThreshold = 0.1
 PathBlendBand = 0.05
 TunnelThreshold = 0.0
@@ -24,3 +26,4 @@ CaveNoiseFrequency = 0.04
 GrassThreshold = 0.5
 SurfaceEntities = ExtResource("5_5w857")
 CaveEntities = ExtResource("1_5w857")
+Fixtures = ExtResource("9_village")

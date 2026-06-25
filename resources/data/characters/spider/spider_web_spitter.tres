@@ -69,14 +69,6 @@ releaseEffect = ExtResource("12_spit")
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_spit")])
 
-[sub_resource type="Resource" id="Resource_damage_primary"]
-script = ExtResource("5_damage")
-tags = 65
-healthDamage = 1.0
-hitstun = 0.1
-buildups = []
-modifiers = []
-
 [sub_resource type="Resource" id="Resource_slowed_buildup"]
 script = ExtResource("6_buildup")
 effect = ExtResource("7_slowed")
@@ -90,6 +82,14 @@ hitstun = 0.2
 knockbackDistance = 0.3
 knockbackTime = 0.1
 buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_slowed_buildup")])
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("5_damage")
+tags = 65
+healthDamage = 1.0
+hitstun = 0.1
+buildups = []
 modifiers = []
 
 [resource]

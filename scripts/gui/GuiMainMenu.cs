@@ -4,7 +4,7 @@ using System;
 public partial class GuiMainMenu : Node
 {
 	[Export] public PackedScene playerScene;
-	[Export] public PlayerSpawnData playerSpawnData;
+	[Export] public CharacterCreationState characterCreation;
 	[Export] public WorldGenData worldGenData;
 	[Export] public Label versionLabel;
 	[Export] public ItemList worldList;
@@ -12,7 +12,7 @@ public partial class GuiMainMenu : Node
 	// display text (same length as worldOptions).
 	[Export] public WorldGenData[] worldOptions = System.Array.Empty<WorldGenData>();
 	[Export] public string[] worldOptionLabels = System.Array.Empty<string>();
-	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData);
+	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, PackedScene playerScene, CharacterCreationState characterCreation, WorldGenData worldGenData);
 	[Signal] public delegate void OnLoadGameEventHandler(string savePath);
 	[Signal] public delegate void OnStartEditorEventHandler(WorldGenData worldGenData);
 	[Signal] public delegate void OnStartPainterEventHandler(WorldGenData worldGenData);
@@ -69,7 +69,7 @@ public partial class GuiMainMenu : Node
 
 	public void NewGameStandard()
 	{
-		EmitSignal(SignalName.OnNewGame, new Vector3(0,24,0), playerScene, playerSpawnData, SelectedWorldGen());
+		EmitSignal(SignalName.OnNewGame, new Vector3(0,24,0), playerScene, characterCreation, SelectedWorldGen());
 	}
 
 	public void LoadGame()

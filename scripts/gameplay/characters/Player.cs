@@ -14,8 +14,8 @@ public partial class Player : CharacterBody3D
 {
 	[Export] public PlayerData data;
 	// The character's display name (stats panel, etc.), set from
-	// PlayerSpawnData.playerName at Initialize. Defaults to a placeholder so the
-	// UI always has something to show even before / without spawn data.
+	// CharacterCreationState.playerName at Initialize. Defaults to a placeholder
+	// so the UI always has something to show even before / without spawn data.
 	public string PlayerName { get; private set; } = "Wyatt Anderson";
 	[Export] public Area3D interactArea;
 	// World-space anchor (head height) used to project a screen-space point
@@ -1071,7 +1071,7 @@ public partial class Player : CharacterBody3D
 
 	// Show the instanced model and wire its drivers. Deferred to Initialize (not
 	// _Ready) because the gender that selects the base model only arrives with
-	// PlayerSpawnData. GameClient calls Initialize synchronously right after
+	// CharacterCreationState. GameClient calls Initialize synchronously right after
 	// instantiating the scene, before any frame is processed, so there's no
 	// window where the player renders unselected.
 	private void ActivateVisual()
@@ -2733,7 +2733,7 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	public void Initialize(World world, PlayerSpawnData spawnData, Vector3 position, Vector3 rotation)
+	public void Initialize(World world, WorldGenData worldGenData, CharacterCreationState characterCreation, Vector3 position, Vector3 rotation)
 	{
 		_world = world;
 		GlobalPosition = position;
@@ -2759,28 +2759,30 @@ public partial class Player : CharacterBody3D
 		_health = MaxHealth;
 
 		// Adopt the spawned character's name (blank keeps the default).
-		if (!string.IsNullOrEmpty(spawnData?.playerName))
+		if (!string.IsNullOrEmpty(characterCreation?.playerName))
 		{
-			PlayerName = spawnData.playerName;
+			PlayerName = characterCreation.playerName;
 		}
 
 		// Instance the base model package for the spawned gender, then activate
 		// the live visual. Must run before UpdateArmorVisual below, which drives
 		// the active model's mesh set.
-		EGender spawnGender = spawnData?.gender ?? EGender.Female;
+		EGender spawnGender = characterCreation?.gender ?? EGender.Female;
 		_voice = ResolveGenderVoice(spawnGender);
 		SpawnModelPackage(spawnGender);
 		ActivateVisual();
 		// Resolve + apply the modular appearance (skin tone, hair color, hair
 		// style) before inventory seeding so the styled hair mesh is known the
 		// first time the armor compositor runs.
-		ApplyAppearance(spawnData);
+		ApplyAppearance(characterCreation);
 
-		if (spawnData != null)
+		// Starting loadout / knowledge is a property of the world scenario, not
+		// the character, so it rides on WorldGenData.
+		if (worldGenData != null)
 		{
-			if (spawnData.equippedInventory != null)
+			if (worldGenData.equippedInventory != null)
 			{
-				foreach (ItemCount ic in spawnData.equippedInventory)
+				foreach (ItemCount ic in worldGenData.equippedInventory)
 				{
 					if (ic?.descriptor?.item == null || ic.count <= 0) { continue; }
 					int stackSize = ic.descriptor.item.maxStack > 0 ? ic.descriptor.item.maxStack : 1;
@@ -2796,9 +2798,9 @@ public partial class Player : CharacterBody3D
 					}
 				}
 			}
-			if (spawnData.startingConsumables != null)
+			if (worldGenData.startingConsumables != null)
 			{
-				foreach (ConsumableData cd in spawnData.startingConsumables)
+				foreach (ConsumableData cd in worldGenData.startingConsumables)
 				{
 					if (cd == null) { continue; }
 					ItemState item = cd.CreateState();
@@ -2807,9 +2809,9 @@ public partial class Player : CharacterBody3D
 					_inventory.TryMoveToConsumableSlot(item);
 				}
 			}
-			if (spawnData.startingInventory != null)
+			if (worldGenData.startingInventory != null)
 			{
-				foreach (ItemCount ic in spawnData.startingInventory)
+				foreach (ItemCount ic in worldGenData.startingInventory)
 				{
 					if (ic?.descriptor?.item == null || ic.count <= 0) { continue; }
 					int stackSize = ic.descriptor.item.maxStack > 0 ? ic.descriptor.item.maxStack : 1;
@@ -2831,11 +2833,11 @@ public partial class Player : CharacterBody3D
 			// are gated by GameClient.SuppressAnnouncements (set around
 			// this whole Init call) so the player doesn't see a wall of
 			// banners on the first frame for things they already know.
-			if (spawnData.initialKnowledge != null)
+			if (worldGenData.initialKnowledge != null)
 			{
-				for (int i = 0; i < spawnData.initialKnowledge.Count; i++)
+				for (int i = 0; i < worldGenData.initialKnowledge.Count; i++)
 				{
-					spawnData.initialKnowledge[i]?.Teach(this);
+					worldGenData.initialKnowledge[i]?.Teach(this);
 				}
 			}
 		}

@@ -8,7 +8,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_swamp_kit.tres" id="10_nd86w"]
 [ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="11_surface"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="12_cave"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/zone_campfire_fixtures.tres" id="13_fixtures"]
+[ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/fixtures/zone_campfire_fixtures.tres" id="13_fixtures"]
 
 [resource]
 script = ExtResource("1_script")

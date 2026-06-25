@@ -307,10 +307,9 @@ public partial class MobData : Resource
     // so their callout doesn't dwarf them; bosses go >1. The pre-discovery
     // perception meter always renders at a fixed small scale regardless.
     [Export] public float hudScale = 1f;
-    // Scene instantiated for this mob type. Single source of truth — every
-    // place that previously paired a (PackedScene, MobData) reference
-    // (ZoneGenData goblin/kun_kun, MobSpawnEntry) now references MobData
-    // alone and reads MobScene from it.
+    // Scene instantiated for this mob type. The shared base model; an
+    // NpcSpawnEntry may override it per individual (e.g. male/female villagers)
+    // via NpcSpawnEntry.Scene, stamped onto MobSimState.MobScene at spawn.
     [Export] public PackedScene MobScene;
     // Per-instance recolor applied at spawn so one MobScene/FBX can serve many
     // biome variants (e.g. swamp vs desert goblin) without a unique model each.
@@ -520,23 +519,11 @@ public partial class MobData : Resource
         return timeOfDay01 >= IdleLoopStartTimeOfDay || timeOfDay01 < IdleLoopEndTimeOfDay;
     }
 
-    // Folds itemPreferences over an item's base value, multiplying by every
-    // rule whose tag condition the item satisfies. Returns baseValue unchanged
-    // when the list is empty (the species has no opinions).
+    // Folds this species' base itemPreferences over an item's base value.
+    // Returns baseValue unchanged when the list is empty (no opinions). A mob's
+    // per-instance override list is folded separately on top (see Mob.PerUnitValue).
     public float ApplyItemPreferences(float baseValue, EItemType itemTags)
     {
-        if (itemPreferences == null)
-        {
-            return baseValue;
-        }
-        float v = baseValue;
-        foreach (ItemTagPreference pref in itemPreferences)
-        {
-            if (pref != null && pref.Matches(itemTags))
-            {
-                v *= pref.multiplier;
-            }
-        }
-        return v;
+        return ItemTagPreference.Fold(baseValue, itemTags, itemPreferences);
     }
 }

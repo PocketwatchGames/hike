@@ -90,6 +90,12 @@ public class MobSimState : EntitySimState
     // without changing the shape of the inventory list. Empty list =
     // nothing to sell.
     public List<MobInventoryItem> Inventory = new();
+    // Per-instance item-preference overrides, folded after the species' base
+    // MobData.itemPreferences (multiplicative — see ItemTagPreference.Fold /
+    // Mob.PerUnitValue). Seeded from NpcSpawnEntry so a specific merchant can
+    // value wares differently without forking MobData. Persisted by path
+    // (standalone ItemTagPreference .tres). Empty = species defaults.
+    public List<ItemTagPreference> ItemPreferences = new();
     // Running count of items the player has gifted to this mob, keyed by
     // ItemData. Enforces the per-type cap (MaxGiftsPerItemType) so a player
     // can't spam apples for unlimited loyalty. Persists across screen opens
@@ -131,6 +137,12 @@ public class MobSimState : EntitySimState
     // loadout (a torch-bearing goblin vs a claw goblin — each its own species).
     // Read by Mob.Weapons.
     public MobPalette Palette;
+    // Per-individual outfit override (NpcSpawnEntry.Outfit): the modular rig's
+    // visible clothing/hair/hat mesh names, composed with the rig's always-on
+    // base meshes at spawn (Mob → ModelAnimator.ApplyOutfit). Null/empty = the
+    // scene's authored default outfit. Persisted via EntitySerializer so a
+    // hand-dressed NPC keeps its look across chunk eviction and save/load.
+    public string[] Outfit;
     public Godot.Collections.Array<WeaponData> Weapons;
     // Per-instance status effects authored on the descriptor, applied to every
     // mob it spawns regardless of Elite — the home for an elite's signature

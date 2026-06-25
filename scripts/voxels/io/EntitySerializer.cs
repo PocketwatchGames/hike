@@ -185,6 +185,24 @@ public static class EntitySerializer
                     WriteResource(w, entry?.descriptor?.item);
                     w.Write(entry?.count ?? 0);
                 }
+                // Per-instance item-preference overrides (NpcSpawnEntry):
+                // resource-ref list of standalone ItemTagPreference .tres, may
+                // be empty. Appended last so older world files still parse.
+                int prefCount = mob.ItemPreferences?.Count ?? 0;
+                w.Write(prefCount);
+                for (int i = 0; i < prefCount; i++)
+                {
+                    WriteResource(w, mob.ItemPreferences[i]);
+                }
+                // Per-individual outfit override (NpcSpawnEntry.Outfit): visible-
+                // mesh names for a modular humanoid. String array, may be empty.
+                // Appended last so older world files still parse.
+                int outfitCount = mob.Outfit?.Length ?? 0;
+                w.Write(outfitCount);
+                for (int i = 0; i < outfitCount; i++)
+                {
+                    w.Write(mob.Outfit[i] ?? string.Empty);
+                }
                 break;
 
             case DoorSimState door:
@@ -447,6 +465,18 @@ public static class EntitySerializer
                     int count = r.ReadInt32();
                     loot.Add(new ItemCount { descriptor = new ItemDescriptor { item = item }, count = count });
                 }
+                int prefCount = r.ReadInt32();
+                var itemPreferences = new List<ItemTagPreference>(prefCount);
+                for (int i = 0; i < prefCount; i++)
+                {
+                    itemPreferences.Add(ReadResource<ItemTagPreference>(r));
+                }
+                int outfitCount = r.ReadInt32();
+                var outfit = new string[outfitCount];
+                for (int i = 0; i < outfitCount; i++)
+                {
+                    outfit[i] = r.ReadString();
+                }
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.Species = species;
@@ -484,6 +514,8 @@ public static class EntitySerializer
                 mob.Badge = badge;
                 mob.EliteCrownScene = eliteCrownScene;
                 mob.Loot = loot;
+                mob.ItemPreferences = itemPreferences;
+                mob.Outfit = outfit;
                 return mob;
             }
             case Tag.Door:

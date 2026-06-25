@@ -13,7 +13,7 @@ public enum EWeaponModScope
 
 // Pairs a weapon-modifier StatusEffectData with the scope that decides which of
 // the weapon's attacks it modifies. Authored inside an ItemDescriptor's
-// `statusEffects` list so a spawn source (PlayerSpawnData, loot table) can bolt
+// `statusEffects` list so a spawn source (WorldGenData loadout, loot table) can bolt
 // a mod onto an item without baking it into the shared WeaponData — e.g. a
 // "Fragile" bomb (all attacks) or a "Piercing" bow whose charged shot punches
 // through several foes. Composed onto the item's `statusEffects` controller at

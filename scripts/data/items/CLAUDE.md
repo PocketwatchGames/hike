@@ -2,7 +2,7 @@
 
 Covers `scripts/data/items/` (authored item data + the descriptor wrappers), `scripts/gameplay/items/` (runtime `ItemState`/`WeaponState`, `WeaponNameGenerator`), and the weapon-mod payload under `scripts/data/effects/payloads/WeaponModData.cs`.
 
-Items are customized by **composition, not new `ItemData`**. A spawn source (`PlayerSpawnData`, a loot table, a chest) holds an `ItemDescriptor` — an `ItemData` paired with a list of permanent **status-effect mods** — instead of a bare `ItemData`. `ItemCount` / `LootSpawnEntry` HAS-A descriptor (neither IS one); `ItemDescriptor.CreateState()` builds the runtime `ItemState` and composes the mods onto its item-side `statusEffects` controller. This is how one "Fragile" bomb and one "Piercing" bow exist without authoring a unique `WeaponData` per permutation. **Expect to add many of these — prefer a new mod over a new item variant.**
+Items are customized by **composition, not new `ItemData`**. A spawn source (a `WorldGenData` loadout, a loot table, a chest) holds an `ItemDescriptor` — an `ItemData` paired with a list of permanent **status-effect mods** — instead of a bare `ItemData`. `ItemCount` / `LootSpawnEntry` HAS-A descriptor (neither IS one); `ItemDescriptor.CreateState()` builds the runtime `ItemState` and composes the mods onto its item-side `statusEffects` controller. This is how one "Fragile" bomb and one "Piercing" bow exist without authoring a unique `WeaponData` per permutation. **Expect to add many of these — prefer a new mod over a new item variant.**
 
 ## The mod is a `duration = 0` `StatusEffectData` with a `weaponMod` payload
 

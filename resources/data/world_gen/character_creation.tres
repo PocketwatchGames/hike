@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="CharacterCreationState" format=3 uid="uid://gmsa32q5mypy"]
+
+[ext_resource type="Script" uid="uid://bskj88ibul6vk" path="res://scripts/data/characters/CharacterCreationState.cs" id="1_ccstate"]
+
+[resource]
+script = ExtResource("1_ccstate")
+playerName = "Mischa"
+metadata/_custom_type_script = "uid://bskj88ibul6vk"

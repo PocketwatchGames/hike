@@ -11,6 +11,7 @@
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="9_pixelsnap"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
 [ext_resource type="Resource" uid="uid://cx7ub2sgi3fui" path="res://resources/data/characters/human/friendly_villager_voice.tres" id="11_voice"]
+[ext_resource type="Material" uid="uid://nsghx0dy6spm" path="res://resources/materials/model_lit_face_cutout.tres" id="12_facemat"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_villager"]
 radius = 0.35
@@ -78,7 +79,10 @@ script = ExtResource("8_modelanim")
 player = NodePath("../Visuals/MeshContainer/VillagerModel/BasicHero_M/AnimationPlayer")
 visual = NodePath("../Visuals/MeshContainer/VillagerModel")
 modelMaterial = ExtResource("7_heromat")
+secondaryMaterial = ExtResource("12_facemat")
+secondaryMeshNames = PackedStringArray("M_eyes0", "M_eyebrows0", "M_mouth0")
 visibleMeshNames = PackedStringArray("M_Head", "M_eyes0", "M_eyebrows0", "M_mouth0", "M_hair_2b", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
+baseMeshNames = PackedStringArray("M_Head", "M_eyes0", "M_eyebrows0", "M_mouth0")
 metadata/_custom_type_script = "uid://y5ti8jcvqdvm"
 
 [node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]

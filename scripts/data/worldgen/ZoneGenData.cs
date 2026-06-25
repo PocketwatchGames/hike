@@ -82,6 +82,17 @@ public partial class ZoneGenData : Resource
     // it lower.
     [Export] public float ElevationRange = 2;
 
+    // Force this zone's surface to a fixed flat plateau, overriding the noisy
+    // Elevation/Range/macro height. WorldGen blends the column height toward
+    // FlattenPlateau by the zone's kernel weight, so the zone core is dead flat
+    // while its edge melts back into the surrounding terrain. Used for a
+    // hand-placed clearing (e.g. the starting village pinned to the beach line).
+    [Export] public bool FlattenSurface = false;
+    // Target plateau level when FlattenSurface is set, in PlateauStep units
+    // anchored at sea level: 0 = the beach/water line (dry shoreline, no water),
+    // +1 = one step above, -1 = submerged. Ignored unless FlattenSurface.
+    [Export] public int FlattenPlateau = 0;
+
     // Per-column random elevation range (in meters) used to pick where
     // ShoreKit is stamped. Shore band above water level is a random value
     // in [ShoreElevationMin, ShoreElevationMax]; shore band below water is
@@ -127,11 +138,12 @@ public partial class ZoneGenData : Resource
     [Export] public SpawnListData WaterEntities;
 
     // One-off landmark cluster placed ONCE per zone at the zone's anchor
-    // (vs the SurfaceEntities density scan), e.g. a "home" campfire. For the
-    // hub zone (WorldGenData.HubZoneIndex) the anchor is the player spawn
-    // column and this is the near-spawn cluster (villager, companion, lit
-    // campfire, boat); other zones anchor on a flat-dry column rolled within
-    // their footprint. The group's ScatterRadius spreads the members around
-    // that anchor. Null = no per-zone cluster.
+    // (vs the SurfaceEntities density scan), e.g. a "home" campfire. The anchor
+    // comes from this zone's ZoneBounds (see PlacedZone): box/circle bounds
+    // anchor at their center — used by a start zone placed around the spawn
+    // column for the near-spawn cluster (villager, dog, lit campfire) — while
+    // quadrant/everywhere bounds roll a flat-dry column within their footprint.
+    // The group's ScatterRadius spreads the members around that anchor. Null =
+    // no per-zone cluster.
     [Export] public SpawnGroupData Fixtures;
 }

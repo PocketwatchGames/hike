@@ -52,7 +52,7 @@ public partial class Main : Node
 		StartMainMenu();
 	}
 
-	async void NewGame(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData)
+	async void NewGame(Vector3 playerPosition, PackedScene playerScene, CharacterCreationState characterCreation, WorldGenData worldGenData)
 	{
 		LoadingScreen loadingScreen = ShowLoadingScreen();
 		MusicManager.Instance?.SetLoading(true);
@@ -65,7 +65,7 @@ public partial class Main : Node
 		_currentScreen.QueueFree();
 		_currentScreen = null;
 
-		await StartGame(loadingScreen, playerPosition, playerScene, playerSpawnData, worldGenData);
+		await StartGame(loadingScreen, playerPosition, playerScene, characterCreation, worldGenData);
 	}
 
 	void LoadGame(string savePath)
@@ -83,7 +83,7 @@ public partial class Main : Node
 		return loadingScreen;
 	}
 
-	async Task StartGame(LoadingScreen loadingScreen, Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData)
+	async Task StartGame(LoadingScreen loadingScreen, Vector3 playerPosition, PackedScene playerScene, CharacterCreationState characterCreation, WorldGenData worldGenData)
 	{
 		// Upload the active world's terrain + detail palettes to the terrain
 		// shader / scatter system before any chunk mesh is built. Disk-loaded
@@ -177,7 +177,10 @@ public partial class Main : Node
 			{
 				WorldGenData genData = worldGenData;
 				worldState = await RunOffThread(() => WorldGen.Generate(genData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE));
-				worldState.Spawn = playerPosition;
+				// WorldGen sets ws.Spawn from genData.playerSpawnPosition (surface-
+				// resolved); read it back so the player lands at the authored start
+				// area, mirroring the file/cache paths above.
+				playerPosition = worldState.Spawn;
 
 				// Foliage occluder stamping uses PackedScene.Instantiate to
 				// snapshot each tree scene's FoliageCluster transforms — a
@@ -276,7 +279,7 @@ public partial class Main : Node
 		AddChild(_currentScreen);
 		GD.Print($"[Load] Scene loaded: {phaseSw.ElapsedMilliseconds}ms");
 		loadingScreen.SetProgress(0.6f, "Building world...");
-		(_currentScreen as GameClient).Init(playerPosition, playerScene, playerSpawnData, worldState, loadingScreen);
+		(_currentScreen as GameClient).Init(playerPosition, playerScene, characterCreation, worldGenData, worldState, loadingScreen);
 		// Hand the persistent music director the fresh session so it can
 		// subscribe to combat/world events; it auto-detaches on quit.
 		MusicManager.Instance?.BindGame(_currentScreen as GameClient);
