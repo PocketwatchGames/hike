@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://dsy06e2okf2x1"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://b1gy10upfhucp" path="res://assets/audio/source/weapons/sfx_magic_missile_loop.wav" id="2_loop"]
+
+[sub_resource type="Gradient" id="Gradient_trail"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.55, 0.8, 1, 0.55, 0.3, 0.6, 1, 0.5, 0.2, 0.45, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_trail"]
+gradient = SubResource("Gradient_trail")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_trail"]
+emission_shape = 1
+emission_sphere_radius = 0.02
+direction = Vector3(0, 0, -0.25)
+spread = 0.0
+initial_velocity_min = 8.0
+initial_velocity_max = 12.0
+gravity = Vector3(0, 0, 0)
+damping_min = 4.0
+damping_max = 8.0
+scale_min = 0.9
+color_ramp = SubResource("GradientTexture1D_trail")
+
+[sub_resource type="Curve" id="Curve_taper"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_trail"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.4, 0.7, 1, 0.85)
+use_particle_trails = true
+
+[sub_resource type="RibbonTrailMesh" id="RibbonTrailMesh_trail"]
+material = SubResource("StandardMaterial3D_trail")
+size = 0.06
+sections = 8
+section_length = 0.12
+curve = SubResource("Curve_taper")
+
+[node name="HomingMissileTrail" type="Node3D" unique_id=1526956508]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Tracer" type="GPUParticles3D" parent="." unique_id=978192982]
+lifetime = 0.3
+trail_enabled = true
+trail_lifetime = 0.12
+process_material = SubResource("ParticleProcessMaterial_trail")
+draw_pass_1 = SubResource("RibbonTrailMesh_trail")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1976657659]
+stream = ExtResource("2_loop")
+volume_db = -80.0
+unit_size = 3.0
+max_distance = 20.0
+bus = &"World3D"

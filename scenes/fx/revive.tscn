@@ -1,0 +1,71 @@
+[gd_scene format=3 uid="uid://by6a0b7qfx2j5"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://assets/audio/source/player/sfx_heartbeat_01.wav" id="2_beat"]
+[ext_resource type="AudioStream" uid="uid://25mecdyjt0wb" path="res://assets/audio/source/weapons/sfx_player_heal_01.wav" id="3_h01"]
+[ext_resource type="AudioStream" uid="uid://uigefii6vvys" path="res://assets/audio/source/weapons/sfx_player_heal_02.wav" id="3_h02"]
+[ext_resource type="AudioStream" uid="uid://cdc6n2n2s1fis" path="res://assets/audio/source/weapons/sfx_player_heal_03.wav" id="3_h03"]
+[ext_resource type="AudioStream" uid="uid://cofb57wh8hw2f" path="res://assets/audio/source/weapons/sfx_player_heal_04.wav" id="3_h04"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_revive"]
+emission_shape = 1
+emission_sphere_radius = 0.4
+direction = Vector3(0, 1, 0)
+spread = 30.0
+initial_velocity_min = 1.6
+initial_velocity_max = 3.4
+gravity = Vector3(0, -1.2, 0)
+damping_min = 0.4
+damping_max = 1.2
+scale_min = 0.6
+scale_max = 1.6
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_revive"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.75, 1, 0.55, 0.9)
+shader_parameter/emission = Color(0.35, 0.55, 0.2, 1)
+
+[sub_resource type="QuadMesh" id="QuadMesh_revive"]
+material = SubResource("ShaderMaterial_revive")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_revive"]
+playback_mode = 1
+random_pitch = 1.05
+random_volume_offset_db = 1.5
+streams_count = 4
+stream_0/stream = ExtResource("3_h01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("3_h02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("3_h03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("3_h04")
+stream_3/weight = 1.0
+
+[node name="Revive" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Sparkle" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 36
+lifetime = 1.2
+one_shot = true
+explosiveness = 0.8
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_revive")
+draw_pass_1 = SubResource("QuadMesh_revive")
+
+[node name="Heartbeat" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_beat")
+unit_size = 5.0
+max_distance = 25.0
+bus = &"World3D"
+
+[node name="Restore" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_revive")
+unit_size = 5.0
+max_distance = 25.0
+bus = &"World3D"

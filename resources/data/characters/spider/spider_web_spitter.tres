@@ -61,6 +61,8 @@ displayName = &"Web Spit"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_spit")])
 speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+turnLockDelaySeconds = 0.15
 releaseEffect = ExtResource("12_spit")
 
 [sub_resource type="Resource" id="Resource_profile"]

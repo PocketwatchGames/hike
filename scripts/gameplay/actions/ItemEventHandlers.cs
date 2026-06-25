@@ -133,6 +133,10 @@ public static class ItemEventHandlers
 		// Item-side weapon-mod discharges (a Shocking weapon's chain lightning)
 		// fire from the same impact point.
 		TriggerWeaponModChains(actor, action, impactPos);
+		// On-attack weapon-mod projectiles (a Seeking sword's homing missiles):
+		// OnSwing-scoped mods fire on every swing; OnHit-scoped only when a
+		// creature was struck.
+		FireWeaponModAttackProjectiles(actor, ref action, bestResult != EHitResult.None);
 	}
 
 	// Spawn the Melee event's authored smear scene, sized to the live attack
@@ -352,6 +356,9 @@ public static class ItemEventHandlers
 		// hurtbox, environment clip, or the ray's air end. See DoMelee.
 		actor.TriggerAttackImpact(hitPos);
 		TriggerWeaponModChains(actor, action, hitPos);
+		// On-attack weapon-mod projectiles (see DoMelee). OnHit fires when the
+		// shot connected with a creature.
+		FireWeaponModAttackProjectiles(actor, ref action, hitResult != EHitResult.None);
 
 		DebugDraw.Line(origin, hitPos, new Color(1f, 0f, 0f, 0.3f), 0.15f);
 	}
@@ -455,6 +462,10 @@ public static class ItemEventHandlers
 		var struck = new System.Collections.Generic.HashSet<ulong>();
 		var sphere = new SphereShape3D { Radius = data.chainRange };
 		Vector3 current = origin;
+
+		// Bolt from the attacker (weapon) to the impact point — the "zap the thing
+		// you hit" arc. Drawn even if no chain link is found.
+		SpawnChainArc(fxHost, data.boltFx, attacker.ActorWorldPosition, origin);
 		for (int hop = 0; hop < data.maxChains; hop++)
 		{
 			var query = new PhysicsShapeQueryParameters3D
@@ -500,6 +511,9 @@ public static class ItemEventHandlers
 			struck.Add(pick.GetRid().Id);
 			Vector3 targetPos = pick.GlobalPosition;
 			pick.Hit(new HitInfo(data.damage, attacker.AttackerNode, Vector3.Zero, attacker.ActorTeam));
+			// Bolt from the previous link (or the impact point on the first hop) to
+			// this one — the arc forking between chained targets.
+			SpawnChainArc(fxHost, data.boltFx, current, targetPos);
 			if (data.fx != null && fxHost != null)
 			{
 				Fx.Create(data.fx, fxHost, targetPos);
@@ -510,6 +524,22 @@ public static class ItemEventHandlers
 			}
 			current = targetPos;
 		}
+	}
+
+	// Shortest arc we bother drawing — below this the two points are effectively
+	// coincident (e.g. a chain link landing on the impact point) and a bolt would
+	// just be a degenerate speck.
+	private const float MinChainArcLength = 0.4f;
+
+	// Spawn one chain-lightning bolt arc between two world points, skipping
+	// degenerate near-zero arcs. No-op if the data has no boltFx wired.
+	private static void SpawnChainArc(Node host, PackedScene boltFx, Vector3 from, Vector3 to)
+	{
+		if (boltFx == null || host == null || from.DistanceTo(to) <= MinChainArcLength)
+		{
+			return;
+		}
+		LightningBolt.CreateArc(host, boltFx, from, to);
 	}
 
 	// Fire the firing weapon's item-side chain-lightning mods at `position` (a
@@ -632,7 +662,11 @@ public static class ItemEventHandlers
 			arrowLootData = arrowLootData,
 		};
 
-		Vector3 velocity;
+		// Flat shots recompute their spread per shot inside the launch loop below;
+		// arced lobs solve one launch velocity here and reuse it. flatSpreadScale
+		// is captured here so the loop can re-sample ApplySpread for a volley.
+		Vector3 velocity = Vector3.Zero;
+		float flatSpreadScale = 0f;
 		float lifetime;
 		float gravity = 0f;
 		bool noCollide = false;
@@ -669,11 +703,10 @@ public static class ItemEventHandlers
 			// Flat flight: per-tier spread + range scalars (same convention as
 			// DoHitscan). rangeScale shortens lifetime so reach drops
 			// proportionally; speed stays constant so flight feel doesn't change.
+			// The actual launch velocity is sampled per shot in the loop below.
 			float chargeT = action.chargeT;
-			float spreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
+			flatSpreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
 			float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
-			Vector3 direction = ApplySpread(AimForward(actor, action.context, origin), spreadScale);
-			velocity = direction * ev.projectileSpeed;
 			lifetime = ev.projectileLifetimeSeconds * rangeScale;
 		}
 
@@ -727,33 +760,56 @@ public static class ItemEventHandlers
 			bounce = false;
 		}
 
-		Projectile.Launch(
-			parent,
-			ev.projectileScene,
-			lifetime,
-			origin,
-			velocity,
-			damageData,
-			attacker,
-			actor.AttackHurtboxMask,
-			actor.SelfHurtBoxRid,
-			excludeBody,
-			impact,
-			gravity,
-			noCollide,
-			ev.impactEvent,
-			actor.ActorTeam,
-			hit.friendlyFire,
-			bounce,
-			bounciness,
-			friction,
-			pierceCount,
-			lifestealFraction,
-			chainLightning,
-			knockbackBonus,
-			knockbackTimeBonus,
-			projectileFx,
-			onHitBuildups);
+		// Launch ("muzzle") cue, fired once at the origin regardless of shot count —
+		// the per-event fx field (a fire hiss, a magic whoosh). Distinct from the
+		// per-result impact fx the projectile spawns where it lands.
+		if (ev.fx != null)
+		{
+			Fx.Create(ev.fx, parent, origin);
+		}
+
+		// Fire one shot, or a fanned volley when projectileCount > 1. A flat volley
+		// re-samples the accuracy spread per shot so the shots spread out; an arced
+		// lob reuses the single solved launch velocity.
+		int projectileCount = Mathf.Max(1, ev.projectileCount);
+		for (int shot = 0; shot < projectileCount; shot++)
+		{
+			Vector3 shotVelocity = velocity;
+			if (!ev.projectileArcing)
+			{
+				Vector3 direction = ApplySpread(AimForward(actor, action.context, origin), flatSpreadScale);
+				shotVelocity = direction * ev.projectileSpeed;
+			}
+			Projectile.Launch(
+				parent,
+				ev.projectileScene,
+				lifetime,
+				origin,
+				shotVelocity,
+				damageData,
+				attacker,
+				actor.AttackHurtboxMask,
+				actor.SelfHurtBoxRid,
+				excludeBody,
+				impact,
+				gravity,
+				noCollide,
+				ev.impactEvent,
+				actor.ActorTeam,
+				hit.friendlyFire,
+				bounce,
+				bounciness,
+				friction,
+				pierceCount,
+				lifestealFraction,
+				chainLightning,
+				knockbackBonus,
+				knockbackTimeBonus,
+				projectileFx,
+				onHitBuildups,
+				ev.directHitEvent,
+				ev.expirationEvent);
+		}
 	}
 
 	// Single source of truth for "does this arced lob shatter on first contact?":
@@ -903,6 +959,41 @@ public static class ItemEventHandlers
 			}
 		}
 		return -1;
+	}
+
+	// Launch any attack-triggered weapon-mod projectiles for this attack (a
+	// "Seeking" sword's homing missiles). `connected` is true when the attack
+	// landed on a creature — it adds the OnHit trigger to the query; OnSwing-
+	// scoped mods fire either way. Each event is dispatched through DoProjectile,
+	// so it reuses the full projectile path (spread, aim, damage-profile
+	// resolution, and this weapon's other composed mods). Only weapons carry
+	// mods, so mob/non-weapon attacks no-op. No recursion: DoProjectile doesn't
+	// re-enter this path.
+	private static void FireWeaponModAttackProjectiles(IActionActor actor, ref PlayerAction action, bool connected)
+	{
+		if (action.context.primaryItem is not WeaponState weapon)
+		{
+			return;
+		}
+		EWeaponModAttackTrigger trigger = EWeaponModAttackTrigger.OnSwing;
+		if (connected)
+		{
+			trigger |= EWeaponModAttackTrigger.OnHit;
+		}
+		int chargeIndex = FindChargeIndex(weapon, action.selectedTier);
+		Godot.Collections.Array<ItemEvent> events = weapon.statusEffects.WeaponModOnAttackEvents(chargeIndex, trigger);
+		if (events == null)
+		{
+			return;
+		}
+		for (int i = 0; i < events.Count; i++)
+		{
+			ItemEvent ev = events[i];
+			if (ev != null)
+			{
+				DoProjectile(actor, ev, ref action);
+			}
+		}
 	}
 
 	// Position-aware sub-dispatcher for projectile impactEvents (and any

@@ -3871,7 +3871,16 @@ public partial class Player : CharacterBody3D
 		// input direction so the model reads as committed to its existing
 		// trajectory — the feet are visibly sliding because the body
 		// hasn't caught up to the input yet.
-		if (_skating || _skidding)
+		// A committed action (a weapon tier with turnSpeedMultiplierActive = 0)
+		// owns the player's facing for its duration — skip stick/look-driven
+		// rotation so the swing commits to its starting heading. Default 1 on
+		// every tier leaves this false, so normal weapons turn freely.
+		bool facingLocked = _runner != null && _runner.LocksFacing;
+		if (facingLocked)
+		{
+			// Facing held by the action — no rotation this tick.
+		}
+		else if (_skating || _skidding)
 		{
 			Vector3 lockHoriz = new(Velocity.X, 0f, Velocity.Z);
 			if (lockHoriz.LengthSquared() > 0.001f)

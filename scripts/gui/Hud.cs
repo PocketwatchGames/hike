@@ -63,6 +63,16 @@ public partial class Hud : Control
 	[Export] TextureRect _weatherDay;
 	[Export] TextureRect _weatherNight;
 	[Export] Control _weatherContainer;
+	// Height above the player's feet to sample sunlight for the cave-fade.
+	// The feet voxel straddles the solid ground, so a sub-voxel bob while
+	// moving flips it between lit air and dark ground and flickers the icon;
+	// sampling a voxel up reads stable open-air sunlight.
+	[Export] float _weatherSunSampleHeight = 1f;
+	// Seconds for the cave-fade to traverse its full 0..1 range. Fading out
+	// (descending underground) is slow so brief shadow dips don't blink the
+	// icon away; fading back in is quick so it reappears promptly in the open.
+	[Export] float _weatherCaveFadeOutSeconds = 10f;
+	[Export] float _weatherCaveFadeInSeconds = 1f;
 	[Export] Control _itemWheel;
 	[Export] Godot.Collections.Array<ItemSlotPanel> _itemSlots;
 	// Full-screen white overlay flashed by TriggerLightningFlash. Sits
@@ -167,6 +177,9 @@ public partial class Hud : Control
 	Texture2D[,] _weatherNightTextures;
 	Texture2D _boundWeatherDayTexture;
 	Texture2D _boundWeatherNightTexture;
+	// Temporally smoothed cave-fade; eased toward the sampled target each
+	// frame at asymmetric rates so the icon doesn't pop. Seeded to 1 (open).
+	float _weatherCaveFade = 1f;
 	// Working WeatherData / ZoneData reused each frame for the day/night
 	// plateau forecast. Allocated lazily on first valid frame so HUD
 	// construction order stays cheap.
@@ -645,7 +658,7 @@ public partial class Hud : Control
 		}
 
 		UpdateMinimap();
-		UpdateWeatherWidget();
+		UpdateWeatherWidget(delta);
 	}
 
 	// Drive the clock-face weather widget: container rotation, the
@@ -664,7 +677,7 @@ public partial class Hud : Control
 	// Night icon alpha wraps midnight (mirror of day, opposite phase).
 	// dayFadeInStart = halfway midnight → sunrise window start.
 	// nightFadeInStart = halfway noon → sunset window start.
-	void UpdateWeatherWidget()
+	void UpdateWeatherWidget(double delta)
 	{
 		if (_weatherContainer == null || _weatherDay == null || _weatherNight == null)
 		{
@@ -694,12 +707,16 @@ public partial class Hud : Control
 
 		Vector3 pos = _player?.GlobalPosition ?? Vector3.Zero;
 		int sunBfs = ws.GetSunlightWorld(
-			Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z));
+			Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y + _weatherSunSampleHeight), Mathf.FloorToInt(pos.Z));
 		float sunMask = Mathf.Clamp((float)sunBfs / LightEngine.MAX_LIGHT, 0f, 1f);
-		float caveFade = Mathf.SmoothStep(CaveFadeSunlightFloor, CaveFadeSunlightFull, sunMask);
+		float caveFadeTarget = Mathf.SmoothStep(CaveFadeSunlightFloor, CaveFadeSunlightFull, sunMask);
+		float fadeSeconds = caveFadeTarget < _weatherCaveFade
+			? _weatherCaveFadeOutSeconds : _weatherCaveFadeInSeconds;
+		float caveFadeStep = fadeSeconds > 0f ? (float)delta / fadeSeconds : 1f;
+		_weatherCaveFade = Mathf.MoveToward(_weatherCaveFade, caveFadeTarget, caveFadeStep);
 
-		_weatherDay.Modulate = new Color(1f, 1f, 1f, dayAlpha * caveFade);
-		_weatherNight.Modulate = new Color(1f, 1f, 1f, nightAlpha * caveFade);
+		_weatherDay.Modulate = new Color(1f, 1f, 1f, dayAlpha * _weatherCaveFade);
+		_weatherNight.Modulate = new Color(1f, 1f, 1f, nightAlpha * _weatherCaveFade);
 
 		// Plateau-based forecast. Day icon shows the day plateau's weather,
 		// night icon shows the night plateau's. Computed by re-blending

@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3 uid="uid://36x3mntrleh1"]
+[gd_scene load_steps=29 format=3 uid="uid://36x3mntrleh1"]
 
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
@@ -15,6 +15,12 @@
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/fx/water_enter_splash.tscn" id="14_watenter"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
+[ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/fx/dog_growl.tscn" id="50_growl"]
+[ext_resource type="PackedScene" uid="uid://bjxtc2ycqn5mj" path="res://scenes/fx/dog_snarl.tscn" id="51_snarl"]
+[ext_resource type="PackedScene" uid="uid://bdbl036107hwh" path="res://scenes/fx/dog_bark.tscn" id="52_bark"]
+[ext_resource type="PackedScene" uid="uid://rpo02c84xxji" path="res://scenes/fx/dog_whimper.tscn" id="53_whimper"]
+[ext_resource type="PackedScene" uid="uid://bg28hplqg8bq3" path="res://scenes/fx/dog_curious.tscn" id="54_curious"]
+[ext_resource type="Resource" uid="uid://cjnkr1uvgp4k2" path="res://resources/data/characters/dog/dog_voice.tres" id="55_voice"]
 [ext_resource type="PackedScene" uid="uid://ddoqtp8ky0mvg" path="res://assets/models/characters/dog/dog.fbx" id="28_dogfbx"]
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/dog/dog_anims.res" id="29_doganims"]
 [ext_resource type="Material" path="res://resources/materials/dog_lit.tres" id="30_dogmat"]
@@ -45,6 +51,14 @@ _deathFx = ExtResource("13_deathsml")
 _waterEnterSplashFx = ExtResource("14_watenter")
 _waterMovementLoopFx = ExtResource("15_watloop")
 _foliageMovementLoopFx = ExtResource("16_grassloop")
+_voice = ExtResource("55_voice")
+_vocalizationEffects = Dictionary[int, PackedScene]({
+0: ExtResource("50_growl"),
+1: ExtResource("51_snarl"),
+2: ExtResource("52_bark"),
+3: ExtResource("53_whimper"),
+4: ExtResource("54_curious")
+})
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("11_fstgrass"),
 1: ExtResource("11_fststone"),

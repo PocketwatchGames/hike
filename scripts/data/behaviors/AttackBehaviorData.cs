@@ -30,5 +30,14 @@ public partial class AttackBehaviorData : BehaviorData
     // range (no disengage).
     [Export] public float encircleDistance = -1f;
 
+    // Max angle (degrees) between the mob's facing and the direction to the
+    // target for it to commit a swing — it won't initiate an attack while turned
+    // further off-axis than this, so swings don't fire sideways. Pairs with the
+    // weapon's turn-lock grace window (ItemAction.turnLockDelaySeconds), which
+    // finishes the aim during the swing's opening. 180 (default) = no facing
+    // requirement. Bypassed when the mob's facing is frozen off-screen (it can't
+    // turn to satisfy the gate), so it never deadlocks an unseen attacker.
+    [Export] public float attackFacingToleranceDegrees = 180f;
+
     public override BehaviorBase CreateRuntime() => new BehaviorAttack(this);
 }

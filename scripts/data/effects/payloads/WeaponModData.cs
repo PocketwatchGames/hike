@@ -11,6 +11,17 @@ public enum EAffixPosition
 	Suffix = 1,
 }
 
+// Which attack contexts fire a weapon mod's onAttackEvent. A bitmask so a mod
+// can do both. OnSwing fires once per attack (even a whiff); OnHit fires once
+// per attack that lands on a creature. Wire values are stable: append new bits.
+[System.Flags]
+public enum EWeaponModAttackTrigger
+{
+	None = 0,
+	OnSwing = 1 << 0,
+	OnHit = 1 << 1,
+}
+
 // Weapon-modifier payload — the on-attack effects/modifiers a weapon mod adds, meaningful
 // only on a WeaponState (see ItemDescriptor / LootSpawnEntry). The player's modded weapons
 // and elite mobs carry these the same way: a mob wields real WeaponData weapons
@@ -89,6 +100,22 @@ public partial class WeaponModData : Resource
 	// projectile and fades at impact, exactly like the event's own
 	// projectileLoopEffect (layered on top of it). Null = no projectile fx.
 	[Export] public PackedScene projectileFx;
+
+	// An extra projectile this mod launches off the wielding actor on an attack,
+	// independent of the weapon's own delivery — e.g. a "Seeking" sword that
+	// flings homing missiles on each swing. Authored as an ItemEvent with the
+	// Projectile flag set (so projectileScene etc. are editable); the Melee /
+	// Hitscan handlers dispatch it through the normal DoProjectile path, so it
+	// reuses spread / aim / damage-profile resolution and inherits this weapon's
+	// other mods (the missiles fly with the sword's Flaming/Vampiric enchant).
+	// Its damage resolves against the wielding weapon's damageProfiles via the
+	// event's damageProfileKey. Null = no on-attack projectile.
+	[ExportGroup("On-Attack Projectile")]
+	[Export] public ItemEvent onAttackEvent;
+	// Which attack contexts fire onAttackEvent (see EWeaponModAttackTrigger).
+	// OnSwing fires on every attack; OnHit only when the attack connects with a
+	// creature; combine for both. Ignored when onAttackEvent is null.
+	[Export, CompactFlags] public EWeaponModAttackTrigger onAttackTrigger = EWeaponModAttackTrigger.OnSwing;
 
 	// ============================ Naming ============================
 	// How this mod names the weapons it's attached to (see WeaponNameGenerator).

@@ -4,11 +4,11 @@
 [ext_resource type="PackedScene" uid="uid://d4nf6t08w1rye" path="res://scenes/characters/elite_crown.tscn" id="2_ik6nm"]
 [ext_resource type="Script" uid="uid://blohdqlbvypqy" path="res://scripts/data/characters/EliteMobDescriptor.cs" id="3_uxkbt"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_w6bf3"]
-[ext_resource type="Resource" uid="uid://c1o5r0xwb6wdo" path="res://resources/data/status_effects/status_elite_lightning.tres" id="5_g5853"]
+[ext_resource type="Resource" uid="uid://cpvymvxtv6f4r" path="res://resources/data/status_effects/status_elite_weapon_fire.tres" id="5_kqn6m"]
 
 [resource]
 script = ExtResource("3_uxkbt")
-statusEffects = Array[ExtResource("4_w6bf3")]([ExtResource("5_g5853")])
+statusEffects = Array[ExtResource("4_w6bf3")]([ExtResource("5_kqn6m")])
 badge = ExtResource("1_kqn6m")
 crownScene = ExtResource("2_ik6nm")
 metadata/_custom_type_script = "uid://b3lk8emobdesc01"

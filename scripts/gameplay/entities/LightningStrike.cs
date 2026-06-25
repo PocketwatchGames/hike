@@ -16,8 +16,8 @@ using Godot;
 public partial class LightningStrike : Node3D
 {
     // Path to the strike scene. The scene root has this script
-    // attached and a child "Bolt" MeshInstance3D (the y-billboarded
-    // bolt visual). Warning/strike fx are NOT children of the scene
+    // attached and a child "Bolt" LightningBolt (the jagged, branching,
+    // camera-facing bolt visual). Warning/strike fx are NOT children of the scene
     // — they're per-strike PackedScenes on LightningData spawned via
     // Fx.Create at runtime so a different LightningData can swap
     // them without re-authoring the strike scene.
@@ -39,7 +39,12 @@ public partial class LightningStrike : Node3D
     // Bolt visibility uses MeshInstance3D.Transparency (0 = opaque,
     // 1 = invisible) — built-in per-instance fade that doesn't
     // require touching the shared material.
-    [Export] private MeshInstance3D _bolt;
+    [Export] private LightningBolt _bolt;
+
+    // Height (m) the bolt zigzags up into the sky from the ground strike
+    // point. The bolt's top end fades out (see LightningBolt.mainEndAlpha),
+    // so this is the visual reach, not a hard line.
+    [Export(PropertyHint.Range, "5,120,1")] private float _boltHeight = 40f;
 
     private LightningData _data;
     private World _world;
@@ -292,8 +297,15 @@ public partial class LightningStrike : Node3D
 
         if (_bolt != null)
         {
+            // Roll a fresh jagged bolt from the ground point straight up. Local
+            // space: the bolt node sits at the strike origin, so Zero → up.
+            _bolt.Generate(Vector3.Zero, Vector3.Up * _boltHeight);
             _bolt.Visible = true;
             _bolt.Transparency = 0f;
+        }
+        else
+        {
+            GD.PushWarning("LightningStrike: _bolt is null — bolt visual won't draw (check scene wiring).");
         }
 
         ApplyRadialDamage();

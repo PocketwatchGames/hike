@@ -166,6 +166,11 @@ public partial class WeaponData : ItemData
 	// available basic attack between cries. (Distinct from the per-tier
 	// ItemAction.cooldownSeconds, which mob attack tiers leave at 0.)
 	[Export] public float cooldownSeconds = 1.5f;
+	// Extra random pause (0..this seconds) added on top of cooldownSeconds each
+	// time the weapon fires, so a mob's swings aren't metronomic. The effective
+	// gap between attacks is cooldownSeconds .. cooldownSeconds + this. 0 = fixed
+	// cadence (the old behavior).
+	[Export] public float cooldownRandomSeconds = 0f;
 	// Minimum count of same-team mobs (including the wielder) within allyRange
 	// required to fire this weapon. 0 = no gate (always available); 2+ keeps a
 	// buff / battle cry from firing into an empty field. See BehaviorAttack.

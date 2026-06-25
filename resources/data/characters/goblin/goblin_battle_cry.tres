@@ -36,6 +36,8 @@ displayName = &"Battle Cry"
 activeDurationSeconds = 1.2
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_anim"), SubResource("Resource_event_cry")])
 speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+turnLockDelaySeconds = 0.15
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")

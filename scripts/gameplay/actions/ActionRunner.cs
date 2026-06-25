@@ -97,6 +97,48 @@ public class ActionRunner
 	// mob path-skip, footstep suppression, and the consumable charge-anim pose.
 	public bool LocksMovement => MovementSpeedMultiplier <= 0f;
 
+	// Turn-speed multiplier the in-flight action imposes this phase, parallel to
+	// MovementSpeedMultiplier: the selected tier's turnSpeedMultiplierCharging
+	// while Charging, turnSpeedMultiplierActive while Active (1 = free turning,
+	// 0 = facing locked). Interactives only root position, not facing, so they
+	// return 1.
+	public float TurnSpeedMultiplier
+	{
+		get
+		{
+			if (!_action.IsBusy || _action.interactiveAction != null)
+			{
+				return 1f;
+			}
+			ItemAction tier = _action.selectedTier;
+			if (tier == null)
+			{
+				return 1f;
+			}
+			if (_action.phase == EActionPhase.Charging)
+			{
+				return tier.turnSpeedMultiplierCharging;
+			}
+			if (_action.phase == EActionPhase.Active)
+			{
+				// Grace window: facing stays free for the first turnLockDelaySeconds
+				// of the swing so the actor can finish aiming before the lock engages.
+				ulong graceMs = (ulong)(tier.turnLockDelaySeconds * 1000f);
+				if (_actor.GameTimeMs - _action.activateMs < graceMs)
+				{
+					return 1f;
+				}
+				return tier.turnSpeedMultiplierActive;
+			}
+			return 1f;
+		}
+	}
+
+	// True when the current action fully locks the actor's facing this phase.
+	// Derived from TurnSpeedMultiplier (<= 0), mirroring LocksMovement. Consumed
+	// by the mob yaw step and the player's look-rotation gate.
+	public bool LocksFacing => TurnSpeedMultiplier <= 0f;
+
 	// Begin a new action. Returns true if started OR queued. Returns false
 	// if the runner is busy in a state where queueing isn't possible (mid-
 	// Charging, or Active outside the queue window) or the profile is empty.

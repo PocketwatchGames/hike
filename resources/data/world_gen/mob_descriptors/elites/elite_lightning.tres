@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://blohdqlbvypqy" path="res://scripts/data/characters/EliteMobDescriptor.cs" id="1_elite"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_se"]
-[ext_resource type="Resource" uid="uid://c1o5r0xwb6wdo" path="res://resources/data/status_effects/status_elite_lightning.tres" id="3_lightning"]
+[ext_resource type="Resource" uid="uid://c1o5r0xwb6wdo" path="res://resources/data/status_effects/status_elite_weapon_lightning.tres" id="3_lightning"]
 [ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="4_badge"]
 [ext_resource type="PackedScene" uid="uid://d4nf6t08w1rye" path="res://scenes/characters/elite_crown.tscn" id="5_crown"]
 

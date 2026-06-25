@@ -31,10 +31,22 @@ public partial class BehaviorWanderFollow : BehaviorBase
     private bool _catchingUp;
     private ulong _sniffUntilMs;
 
+    // The harmless creature noticed at the current sniff stop, scanned once when
+    // the pause begins. The dog turns toward it for the duration of the sniff and
+    // woofs once (_curioWoofPending). Null = nothing nearby to be curious about.
+    private Mob _curioTarget;
+    private bool _curioWoofPending;
+
     // Player-stillness tracking. The player is "moving" until they've stayed
     // within playerStillRadius of _playerAnchor for stopGraceSeconds.
     private Vector3 _playerAnchor;
     private ulong _playerAnchorMs;
+
+    // Earliest game-time (ms) the injured-return whimper may fire again.
+    private ulong _nextWhimperMs;
+    // Set on entry when the dog comes back hurt; consumed on the first Run tick
+    // so the whimper rides out on AIOutput as intent only.
+    private bool _whimperPending;
 
     // Throttle for companion_debug logging (~once per second). Diagnostic only.
     private ulong _nextDebugMs;
@@ -56,9 +68,19 @@ public partial class BehaviorWanderFollow : BehaviorBase
         _destIsRest = false;
         _catchingUp = false;
         _sniffUntilMs = 0;
+        _curioTarget = null;
+        _curioWoofPending = false;
         Player master = me.World?.player;
         _playerAnchor = master?.GlobalPosition ?? me.GlobalPosition;
         _playerAnchorMs = time;
+
+        // Arm a whimper when the dog comes back to follow/wander while hurt — it
+        // limps home after a fight. Gated by health so a full-health spawn or a
+        // plain follow command stays quiet, and throttled so rapid Wary<->Follow
+        // bouncing on a flickering threat doesn't spam the cry.
+        float maxHp = me.maxHealth;
+        _whimperPending = time >= _nextWhimperMs
+            && maxHp > 0f && me.health <= maxHp * _data.whimperHealthFraction;
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
@@ -66,6 +88,15 @@ public partial class BehaviorWanderFollow : BehaviorBase
         if (TryTransitions(me, time, ref targetPerception, out StringName destination))
         {
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
+        }
+
+        // Emit the armed injured-return whimper now that we're committed to
+        // following (intent only; the Mob scene turns it into sound/anim).
+        if (_whimperPending)
+        {
+            _whimperPending = false;
+            output.vocalization = EVocalization.Whimper;
+            _nextWhimperMs = time + (ulong)(Mathf.Max(0f, _data.whimperCooldownSeconds) * 1000f);
         }
 
         Player master = me.World?.player;
@@ -206,6 +237,12 @@ public partial class BehaviorWanderFollow : BehaviorBase
                 double sniff = GD.RandRange((double)_data.sniffTimeRange.X, (double)_data.sniffTimeRange.Y);
                 _sniffUntilMs = time + (ulong)(sniff * 1000.0);
                 _phase = Phase.Sniffing;
+                // Notice the nearest harmless creature to be curious about during
+                // this pause (scanned once, here, rather than every sniff tick).
+                _curioTarget = _data.curiosityRange > 0f
+                    ? ThreatScan.FindNearest(me, _data.curiosityRange, requireTriggered: false, danger: EThreatDanger.HarmlessOnly)
+                    : null;
+                _curioWoofPending = _curioTarget != null;
             }
         }
     }
@@ -226,6 +263,24 @@ public partial class BehaviorWanderFollow : BehaviorBase
     private void RunSniffing(Mob me, ulong time, Vector3 playerPos, bool playerStopped, ref AIOutput output)
     {
         output.speed = 0f;
+
+        // Curious glance: turn toward the harmless creature noticed at this stop
+        // and give it a single woof. Held as long as it stays alive and in sight.
+        if (_curioTarget != null && GodotObject.IsInstanceValid(_curioTarget) && _curioTarget.alive)
+        {
+            Vector3 toCurio = _curioTarget.GlobalPosition - me.GlobalPosition;
+            Vector2 curioXz = new Vector2(toCurio.X, toCurio.Z);
+            if (curioXz.LengthSquared() > 0.0001f)
+            {
+                output.yaw = Mathf.Atan2(curioXz.X, curioXz.Y);
+            }
+            if (_curioWoofPending)
+            {
+                _curioWoofPending = false;
+                output.vocalization = EVocalization.Curious;
+            }
+        }
+
         // Cut the sniff short if the player has pulled far enough that we need
         // to catch up — don't finish sniffing while they run off. RunMoving
         // takes over the chase next tick.

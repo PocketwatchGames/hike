@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://e72d3diinp2rh" path="res://scripts/gameplay/entities/LightningBolt.cs" id="1_bolt"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_arc"]
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 1, 1, 1)
+emission_enabled = true
+emission = Color(0.7, 0.82, 1, 1)
+emission_energy_multiplier = 6.0
+cull_mode = 2
+
+[node name="LightningArc" type="MeshInstance3D"]
+script = ExtResource("1_bolt")
+material = SubResource("StandardMaterial3D_arc")
+coreWidth = 0.32
+jagAmplitude = 0.75
+segmentLength = 0.45
+mainEndAlpha = 1.0
+branchCount = 5
+holdSeconds = 0.05
+fadeSeconds = 0.18

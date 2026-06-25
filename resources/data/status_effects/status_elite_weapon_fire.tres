@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cpvymvxtv6f4r"]
+
+[ext_resource type="Texture2D" uid="uid://gwbjofqi4jx6" path="res://assets/textures/status_effects/fire.png" id="1_w4qmy"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_rhips"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="3_h1u71"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="4_buildup"]
+[ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="5_burning"]
+
+[sub_resource type="Resource" id="buildup_burning"]
+script = ExtResource("4_buildup")
+effect = ExtResource("5_burning")
+amount = 0.5
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("3_h1u71")
+onHitBuildups = Array[ExtResource("4_buildup")]([SubResource("buildup_burning")])
+
+[resource]
+script = ExtResource("2_rhips")
+icon = ExtResource("1_w4qmy")
+displayName = &"Fire"
+description = "Elite ember aura. Each strike feeds the target's burning buildup."
+category = 4
+tags = 32
+maxStack = 1
+removesOnApply = []
+modifiers = []
+weaponMod = SubResource("weaponMod")
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

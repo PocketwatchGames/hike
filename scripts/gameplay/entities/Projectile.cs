@@ -60,18 +60,22 @@ public partial class Projectile : Node3D
 
 	private DamageData _damageData;
 	// Who fired this projectile. Goes into HitInfo.source so the receiver
-	// (mob, player) sees the attacker for retaliation / aggro / etc.
-	private Node _source;
-	private Vector3 _velocity;
-	private float _ageSeconds;
-	private float _maxLifetimeSeconds;
+	// (mob, player) sees the attacker for retaliation / aggro / etc. Protected
+	// so a homing subclass can read the firer when picking targets.
+	protected Node _source;
+	// Protected so movement-override subclasses (HomingMissile) can steer it.
+	protected Vector3 _velocity;
+	// Protected so subclasses can ramp/arm behavior off the projectile's age
+	// and lifetime (homing impulse ramp, environment-collision arming).
+	protected float _ageSeconds;
+	protected float _maxLifetimeSeconds;
 	private uint _hurtboxMask;
 	// Downward acceleration applied to velocity each physics tick. 0 = flat
 	// flight (default for hitscan-replacement arrows). Positive values curve
 	// the trajectory downward; the arcing-projectile path solves for the
 	// launch velocity that lands at the aim cursor after maxLifetimeSeconds
-	// given this gravity.
-	private float _gravity;
+	// given this gravity. Protected so a subclass's UpdateVelocity can read it.
+	protected float _gravity;
 	// Skip both sweep queries; the projectile only ends via lifetime expiry.
 	// Used by arcing delivery projectiles whose impact is the landing point,
 	// not a collision.
@@ -90,12 +94,22 @@ public partial class Projectile : Node3D
 	private float _friction;
 	// Optional follow-up event fired at the despawn position. Currently
 	// supports SpawnAreaEffect (drops areaEffectScene where the projectile
-	// landed). See ItemEventHandlers.DispatchAtPosition.
+	// landed). See ItemEventHandlers.DispatchAtPosition. This is the catch-all:
+	// it fires on every despawn cause, and is the fallback when no cause-specific
+	// event below is authored.
 	private ItemEvent _impactEvent;
+	// Cause-specific follow-up events, each falling back to _impactEvent when
+	// null (so a projectile authored with only _impactEvent behaves exactly as
+	// before). _directHitEvent fires when the shot ends on a creature
+	// (Health/Armor/Lethal); _expirationEvent fires when it ends on lifetime
+	// expiry (None). Environment clips (Object) always use _impactEvent.
+	private ItemEvent _directHitEvent;
+	private ItemEvent _expirationEvent;
 	// Team of the firing actor. With _friendlyFire false, a hurtbox hit that
 	// resolves to a mob on this team is added to _hurtBoxExclude and the
-	// projectile passes through instead of detonating.
-	private ETeam _attackerTeam;
+	// projectile passes through instead of detonating. Protected so a homing
+	// subclass can filter target candidates to enemies of this team.
+	protected ETeam _attackerTeam;
 	private bool _friendlyFire;
 	// Creatures this shot may still pass THROUGH. Starts at the composed pierce
 	// count (event base maxed against weapon mods). A hit while this is > 0 passes
@@ -154,7 +168,9 @@ public partial class Projectile : Node3D
 		float knockbackBonus = 0f,
 		float knockbackTimeBonus = 0f,
 		Godot.Collections.Array<PackedScene> projectileFx = null,
-		Godot.Collections.Array<StatusEffectBuildup> onHitBuildups = null)
+		Godot.Collections.Array<StatusEffectBuildup> onHitBuildups = null,
+		ItemEvent directHitEvent = null,
+		ItemEvent expirationEvent = null)
 	{
 		if (scene == null || parent == null)
 		{
@@ -179,6 +195,8 @@ public partial class Projectile : Node3D
 		inst._restitution = bounciness;
 		inst._friction = friction;
 		inst._impactEvent = impactEvent;
+		inst._directHitEvent = directHitEvent;
+		inst._expirationEvent = expirationEvent;
 		inst._attackerTeam = attackerTeam;
 		inst._friendlyFire = friendlyFire;
 		if (excludeHurtBox.HasValue)
@@ -235,17 +253,38 @@ public partial class Projectile : Node3D
 		return inst;
 	}
 
-	public override void _PhysicsProcess(double delta)
+	// Per-tick velocity integration, the one seam a movement-override subclass
+	// replaces. Base = gravity accumulation (Y-), a no-op at gravity 0 so flat
+	// flight is preserved. HomingMissile overrides this with drag + ramped
+	// homing impulse + corkscrew (and chains to base for optional gravity).
+	protected virtual void UpdateVelocity(float dt)
 	{
-		float dt = (float)delta;
-		_ageSeconds += dt;
-		// Gravity accumulates BEFORE the position step so the per-tick
-		// trajectory uses the current (post-acceleration) velocity. With
-		// gravity=0 this is a no-op and flat flight is preserved.
 		if (_gravity != 0f)
 		{
 			_velocity.Y -= _gravity * dt;
 		}
+	}
+
+	// Whether environment (solid) collisions end the projectile this tick. Base
+	// = always armed. A homing missile leaves this false for an initial grace
+	// window so it can clip terrain while it settles onto its target, then arms.
+	// The hurtbox sweep is unaffected — a valid target is always hit.
+	protected virtual bool EnvironmentCollisionArmed => true;
+
+	// Whether the visual is re-aimed along the current velocity each tick. Base
+	// = only when gravity is bending the arc (flat shots keep their launch
+	// orientation). A homing missile returns true so it tracks its curve.
+	protected virtual bool ReorientToVelocity => _gravity != 0f;
+
+	public override void _PhysicsProcess(double delta)
+	{
+		float dt = (float)delta;
+		_ageSeconds += dt;
+		// Per-tick velocity update runs BEFORE the position step so the
+		// trajectory uses the current (post-acceleration) velocity. The base
+		// applies gravity; a movement-override subclass (HomingMissile) adds
+		// drag / homing impulse / corkscrew here.
+		UpdateVelocity(dt);
 		Vector3 prev = GlobalPosition;
 		Vector3 step = _velocity * dt;
 		Vector3 next = prev + step;
@@ -303,10 +342,14 @@ public partial class Projectile : Node3D
 
 				// Environment clip first — gives us the wall position the
 				// projectile would have impacted if no hurtbox were in the way.
+				// Skipped while environment collision is unarmed (a homing
+				// missile's grace window) so the shot passes through terrain; the
+				// hurtbox sweep below still runs, so valid targets are always hit.
 				Vector3 endPoint = next;
 				Vector3? envHit = null;
-				using (var envQuery = PhysicsRayQueryParameters3D.Create(prev, next))
+				if (EnvironmentCollisionArmed)
 				{
+					using var envQuery = PhysicsRayQueryParameters3D.Create(prev, next);
 					envQuery.CollisionMask = (uint)ECollisionLayer.Solid;
 					envQuery.CollideWithBodies = true;
 					envQuery.CollideWithAreas = false;
@@ -395,7 +438,7 @@ public partial class Projectile : Node3D
 						// continues the sweep (catching a wall or a further creature).
 						_pierceRemaining--;
 						SpawnImpactVisuals(hitResult, hitTriggers, hitPos);
-						if (_gravity != 0f && _velocity.LengthSquared() > 1e-6f)
+						if (ReorientToVelocity && _velocity.LengthSquared() > 1e-6f)
 						{
 							Vector3 fwd = _velocity.Normalized();
 							Vector3 up = Mathf.Abs(fwd.Dot(Vector3.Up)) > 0.99f ? Vector3.Right : Vector3.Up;
@@ -416,10 +459,10 @@ public partial class Projectile : Node3D
 		}
 
 		GlobalPosition = next;
-		// Re-aim the visual along the current velocity as gravity tilts the
-		// arc downward. Flat flight (gravity=0) skips this — orientation was
-		// fixed at Launch.
-		if (_gravity != 0f && _velocity.LengthSquared() > 1e-6f)
+		// Re-aim the visual along the current velocity (gravity tilting the arc
+		// down, or a homing missile curving). Flat flight skips this —
+		// orientation was fixed at Launch.
+		if (ReorientToVelocity && _velocity.LengthSquared() > 1e-6f)
 		{
 			Vector3 fwd = _velocity.Normalized();
 			Vector3 up = Mathf.Abs(fwd.Dot(Vector3.Up)) > 0.99f ? Vector3.Right : Vector3.Up;
@@ -461,7 +504,18 @@ public partial class Projectile : Node3D
 	private void Despawn(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
 	{
 		ResolveImpact(result, triggers, hurtBox, position);
-		ItemEventHandlers.DispatchAtPosition(_impactEvent, position, GetParent(), _impact.sourceWeapon?.data, _attackerTeam);
+		// Cause-specific follow-up: a direct creature hit fires _directHitEvent,
+		// lifetime expiry fires _expirationEvent, an environment clip fires
+		// _impactEvent. Each cause-specific event falls back to _impactEvent, so
+		// a projectile authored with only _impactEvent fires it on every cause
+		// exactly as before.
+		ItemEvent followUp = result switch
+		{
+			EHitResult.Health or EHitResult.Armor or EHitResult.Lethal => _directHitEvent ?? _impactEvent,
+			EHitResult.None => _expirationEvent ?? _impactEvent,
+			_ => _impactEvent,
+		};
+		ItemEventHandlers.DispatchAtPosition(followUp, position, GetParent(), _impact.sourceWeapon?.data, _attackerTeam);
 		StopLoopFx();
 		QueueFree();
 	}

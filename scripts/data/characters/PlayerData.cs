@@ -277,9 +277,9 @@ public partial class PlayerData : Resource
 
 	// Maximum angle (radians) between the mob's facing direction and the
 	// player→mob vector at hit time for the attack to count as a backstab.
-	// A backstab requires the mob to be untriggered (still unaware of the
-	// player); when both conditions hold, Mob.Hit folds OnBackstab modifiers
-	// onto the live hit. ~45° (Pi/4) is the default.
+	// Backstab is purely positional — it fires regardless of whether the mob is
+	// aware of the player; Mob.Hit folds OnBackstab modifiers onto the live hit
+	// whenever the angle check passes. ~45° (Pi/4) is the default.
 	[Export] public float backstabAngle = 0.785f;
 
 	[ExportGroup("Armor")]

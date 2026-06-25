@@ -41,6 +41,8 @@ displayName = &"Bite"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_lunge"), SubResource("Resource_event_bite")])
 speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+turnLockDelaySeconds = 0.15
 releaseEffect = ExtResource("10_attack")
 
 [sub_resource type="Resource" id="Resource_profile"]

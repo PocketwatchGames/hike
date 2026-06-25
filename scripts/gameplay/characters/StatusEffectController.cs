@@ -305,6 +305,29 @@ public class StatusEffectController
 		return result;
 	}
 
+	// On-attack projectile events from active weapon mods reaching charge tier
+	// `chargeIndex` whose onAttackTrigger overlaps `trigger` (a "Seeking" sword's
+	// homing missiles). The Melee / Hitscan handlers pass OnSwing for every
+	// attack and add OnHit when it connects, then dispatch each event through
+	// DoProjectile. Returns null when none reach, so the common no-mod hot path
+	// allocates nothing.
+	public Godot.Collections.Array<ItemEvent> WeaponModOnAttackEvents(int chargeIndex, EWeaponModAttackTrigger trigger)
+	{
+		Godot.Collections.Array<ItemEvent> result = null;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod?.onAttackEvent == null || (mod.onAttackTrigger & trigger) == 0 || !ModReachesCharge(s, chargeIndex))
+			{
+				continue;
+			}
+			result ??= new Godot.Collections.Array<ItemEvent>();
+			result.Add(mod.onAttackEvent);
+		}
+		return result;
+	}
+
 	// A composed weapon mod reaches a given firing charge tier when it's scoped
 	// to every attack, or scoped to the specific tier being fired. A negative
 	// chargeIndex (the weapon has no resolvable firing tier) only matches

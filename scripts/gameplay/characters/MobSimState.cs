@@ -219,11 +219,12 @@ public class MobSimState : EntitySimState
     // the array shape is kept so multiplayer can add slots without reshuffling.
     public PerceptionState[] PerceptionTargets = new PerceptionState[1];
 
-    // Companion threat awareness — the accumulating perception toward the
-    // nearest enemy (MobData.threatTeam) mob, built with the same vision model
-    // as the player slot above. Only updated when MobData.threatTeam is set
-    // (not None); drives the Wary / Attack tiers in the companion brain. `target`
-    // holds the enemy Mob currently being tracked (null when none in range).
+    // Cross-faction threat awareness — the accumulating perception toward the
+    // nearest mob on the opposite side of the player divide, built with the same
+    // vision model as the player slot above. Only updated for mobs that scan
+    // (dangerous hostiles / companions — see MobAI.AccumulateThreatPerception);
+    // drives the Wary / Attack tiers in the companion brain. `target` holds the
+    // Mob currently being tracked (null when none in range).
     public PerceptionState ThreatPerception;
 
     // Damage-driven threat priority, one decaying aggro value per tracked enemy.

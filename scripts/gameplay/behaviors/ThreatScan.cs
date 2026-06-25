@@ -1,17 +1,29 @@
 using System.Collections.Generic;
 using Godot;
 
-// Shared companion target acquisition: among the alive, triggered mobs on
-// `enemyTeam` within `range` of `me` that `me` has a clear line of sight to,
-// the one holding the most aggro (see AggroTracker) — i.e. the enemy that has
-// dealt the most damage to `me` or, for a companion, to `me`'s master. Ties
-// (notably the no-damage-dealt-yet case, where every candidate sits at 0 aggro)
-// break toward the nearest, preserving the original proximity behavior until
-// someone draws blood. "Perception" here is deliberately lightweight — sight
-// range plus an unobstructed ray — rather than the full accumulating MobAI
-// perception model, which only ever tracks the player. Both the brain
-// transition (ThreatPerceivedCondition) and the attack behavior
-// (BehaviorDogAttack) call this so acquisition and pursuit always agree.
+// Which candidates a scan considers by their `dangerous` flag. Threats (a
+// companion's Wary/attack channel) want DangerousOnly; a companion's idle
+// curiosity wants HarmlessOnly; a hostile hunting the player's (non-dangerous)
+// companions wants Any.
+public enum EThreatDanger
+{
+    Any,
+    DangerousOnly,
+    HarmlessOnly,
+}
+
+// Shared cross-faction target acquisition for the threat-perception channel:
+// among the alive mobs within `range` of `me` on the OPPOSITE side of the
+// player divide (Teams.IsPlayerSide) that `me` has a clear line of sight to, the
+// one holding the most aggro (see AggroTracker) — i.e. the enemy that has dealt
+// the most damage to `me` or, for a companion, to `me`'s master. Ties (notably
+// the no-damage-dealt-yet case, where every candidate sits at 0 aggro) break
+// toward the nearest, preserving proximity behavior until someone draws blood.
+// So a player-side companion scans the hostile/wild side, and a hostile scans
+// the player's companions — keyed off ActorTeam, with no per-mob faction to
+// author. "Perception" here is deliberately lightweight — sight range plus an
+// unobstructed ray — rather than the full accumulating MobAI perception model,
+// which only ever tracks the player.
 public static class ThreatScan
 {
     // Eye / nose height the line-of-sight ray is cast from and to, matching the
@@ -22,7 +34,12 @@ public static class ThreatScan
     // single shared scratch list is safe and keeps the scan allocation-free.
     private static readonly List<Mob> _scratch = new();
 
-    public static Mob FindNearest(Mob me, ETeam enemyTeam, float range)
+    // requireTriggered (default) limits candidates to enemies already in combat
+    // (IsTriggered) — so a hostile only engages a companion once it's fighting,
+    // not while it idles harmlessly. Pass false for a guard companion that should
+    // also become aware of (and bark at) an enemy it merely sees; the brain still
+    // gates whether that awareness escalates to an attack.
+    public static Mob FindNearest(Mob me, float range, bool requireTriggered = true, EThreatDanger danger = EThreatDanger.Any)
     {
         if (me == null || range <= 0f)
         {
@@ -37,6 +54,7 @@ public static class ThreatScan
         _scratch.Clear();
         hash.QueryRadius(me.GlobalPosition, range, _scratch, exclude: me);
 
+        bool mePlayerSide = Teams.IsPlayerSide(me.ActorTeam);
         Vector3 origin = me.GlobalPosition + Vector3.Up * EyeHeight;
         PhysicsDirectSpaceState3D space = me.GetWorld3D().DirectSpaceState;
         Mob best = null;
@@ -49,7 +67,15 @@ public static class ThreatScan
             {
                 continue;
             }
-            if (candidate.ActorTeam != enemyTeam || !candidate.IsTriggered)
+            if (Teams.IsPlayerSide(candidate.ActorTeam) == mePlayerSide || (requireTriggered && !candidate.IsTriggered))
+            {
+                continue;
+            }
+            if (danger == EThreatDanger.DangerousOnly && !candidate.mobData.dangerous)
+            {
+                continue;
+            }
+            if (danger == EThreatDanger.HarmlessOnly && candidate.mobData.dangerous)
             {
                 continue;
             }

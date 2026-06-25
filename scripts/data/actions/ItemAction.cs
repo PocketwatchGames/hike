@@ -158,6 +158,23 @@ public partial class ItemAction : Resource
 	[Export(PropertyHint.Range, "0,1,0.01")] public float speedMultiplierCharging = 1f;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float speedMultiplierActive = 1f;
 
+	// Turn-speed multipliers the actor retains while this is the selected tier,
+	// split by phase like the speed pair above (1 = free turning, 0 = facing
+	// fully locked). A committed melee swing sets `turnSpeedMultiplierActive` = 0
+	// so the attacker can't course-correct its aim mid-swing — it commits to the
+	// facing it had when the swing began, and any dart/lunge fires along that
+	// locked heading. The "is facing locked" boolean (ActionRunner.LocksFacing)
+	// is derived as multiplier <= 0, so a partial value just slows the turn.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float turnSpeedMultiplierCharging = 1f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float turnSpeedMultiplierActive = 1f;
+
+	// Grace window (seconds into the Active phase) during which facing stays free
+	// before `turnSpeedMultiplierActive` engages — lets a mob finish turning onto
+	// its target in the opening of a committed swing, then lock for the strike.
+	// 0 (default) locks immediately. Only meaningful when turnSpeedMultiplierActive
+	// is below 1; ignored otherwise.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float turnLockDelaySeconds = 0f;
+
 	// Per-tier charge audio/effect lifecycle, managed by ActionRunner. Each is
 	// a PackedScene wrapping an Fx.
 	//

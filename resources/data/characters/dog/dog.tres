@@ -77,7 +77,6 @@ metadata/_custom_type_script = "uid://bxtvjnrohraru"
 script = ExtResource("1_mobdata")
 displayName = &"Dog"
 team = 4
-threatTeam = 0
 PerceptionThresholdAlert = 0.85
 PerceptionThresholdWary = 0.3
 canTriggerMobs = false

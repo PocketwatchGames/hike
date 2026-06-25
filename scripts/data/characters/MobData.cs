@@ -16,13 +16,12 @@ public partial class MobData : Resource
     // shared across teams — the brain decides what to do, the team decides
     // who counts as a target.
     [Export] public ETeam team = ETeam.Hostile;
-    // Faction this mob scans as enemies for the second "threat perception"
-    // channel (a companion watches the Hostile faction; a goblin watches the
-    // Friendly faction to notice the player's pet). ETeam.None (the default)
-    // means this mob does NOT scan for threats at all — ordinary mobs only
-    // perceive the player and pay nothing. Set a real team to enable the
-    // channel; it drives the companion brain's Wary / Attack tiers.
-    [Export] public ETeam threatTeam = ETeam.None;
+    // NOTE: the second "threat perception" channel (a companion tracking enemies,
+    // a hostile tracking the player's companions) is NOT authored per-mob — it's
+    // derived. A `dangerous` mob automatically scans the player's side, and a
+    // tamed companion scans the hostile/wild side; both off ActorTeam via the
+    // player-side divide (Teams.IsPlayerSide). See MobAI.AccumulateThreatPerception
+    // and ThreatScan.
 
     [ExportGroup("Perception")]
     // How this mob's AI sees the player — sight cone reach and shape, the
@@ -93,15 +92,14 @@ public partial class MobData : Resource
     [Export] public float smellRangePower = 0.5f;
     // Whether THIS mob, when perceived by another threat-scanning mob, is
     // threatening enough to flip that mob's threat slot `triggered` from sight
-    // alone. true (default) = a normal threat: a mob whose threatTeam matches
-    // this one and which fully perceives it engages on sight. false = this mob
-    // can still be perceived (the scanner becomes aware, can go Wary, tracks it)
-    // but is never auto-attacked from perception alone — the scanner fights it
-    // only after being struck (Mob.Hit latches the threat slot directly,
-    // bypassing this gate). Set false on a tamed companion so wandering hostiles
-    // notice the pet without picking a fight unless provoked. Read off the
-    // *target* mob, so "harmlessness" travels with the creature. Only relevant
-    // for mobs that some other species scans via threatTeam.
+    // alone. true (default) = a normal threat: a scanner on the opposite side
+    // that fully perceives it engages on sight. false = this mob can still be
+    // perceived (the scanner becomes aware, can go Wary, tracks it) but is never
+    // auto-attacked from perception alone — the scanner fights it only after being
+    // struck (Mob.Hit latches the threat slot directly, bypassing this gate). Set
+    // false on a tamed companion so wandering hostiles notice the pet without
+    // picking a fight unless provoked. Read off the *target* mob, so
+    // "harmlessness" travels with the creature.
     [Export] public bool canTriggerMobs = true;
     // Aggro bleed-off rate (aggro points per second) for this mob's per-enemy
     // threat-priority meter (see AggroTracker / MobSimState.Aggro). Damage this

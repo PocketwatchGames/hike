@@ -68,6 +68,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // always include a hurt VO for every species, and not every species yells.
     // pitchShift on the bank re-voices shared clips per species / villager.
     [Export] private VoiceData _voice;
+    // Per-vocalization one-shot effect, played when a behavior emits an
+    // AIOutput.vocalization intent (growl / snarl / bark / whimper). Authored in
+    // each mob .tscn; missing keys silently emit nothing. This is the seam that
+    // keeps the behavior layer free of client content — behaviors name the
+    // vocalization, this map turns it into sound/anim.
+    [Export] private Godot.Collections.Dictionary<EVocalization, PackedScene> _vocalizationEffects;
     // Armor lifecycle one-shots. See Player for the lifecycle: depleted on
     // the hit that drains the bar to zero; rechargeStart when the post-hit
     // delay elapses; recoverStart when the recharge follows a full depletion.
@@ -281,7 +287,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // ---- Companion threat awareness (MobData.threatTeam) ----
+    // ---- Cross-faction threat awareness (see ThreatScan) ----
     // Accumulated by MobAI.AccumulateThreatPerception against the nearest enemy
     // mob; read by the companion brain's tier conditions and BehaviorWary /
     // BehaviorDogAttack so the wary/attack response and the target agree.
@@ -2435,6 +2441,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 PlayOneShot(aiOutput.oneShotAnim.Value);
             }
+            if (aiOutput.vocalization.HasValue)
+            {
+                Vocalize(aiOutput.vocalization.Value);
+            }
             _runner?.Tick();
 
             // Draw the mob's active movement target when the debug CVar is on.
@@ -2664,7 +2674,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 Vector3 currentRot = Rotation;
                 float yawDelta = Mathf.Wrap(targetYaw.Value - currentRot.Y, -Mathf.Pi, Mathf.Pi);
-                float maxStep = _simState.MobData.turnSpeed * (float)delta;
+                // A committed action (e.g. a melee swing with turnSpeedMultiplierActive = 0)
+                // scales the turn step — 0 freezes facing so the mob can't track the
+                // target mid-swing and commits to its heading at the swing's start.
+                float turnMul = _runner != null ? _runner.TurnSpeedMultiplier : 1f;
+                float maxStep = _simState.MobData.turnSpeed * (float)delta * turnMul;
                 float step = Mathf.Clamp(yawDelta, -maxStep, maxStep);
                 // Skip the Rotation write when step is exactly zero — the
                 // mob is already at the target yaw and writing the same
@@ -3023,9 +3037,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Crit: a dizzy or untriggered (unaware) mob takes the attacker's
         // crit payload, not the regular one. Swap before everything so armor,
         // health, status, and the in-Damage wake-up all read the crit values
-        // consistently. Backstab folds on top — it's a subset of !triggered
-        // that adds a positional gate, so OnCrit and OnBackstab can both
-        // fire on the same hit.
+        // consistently. Backstab folds on top independently — a purely positional
+        // gate (no awareness requirement), so OnCrit and OnBackstab fire together
+        // on an unaware backstab and OnBackstab alone on an alerted one.
         hit = ApplyCrit(hit);
         hit = ApplyBackstab(hit);
 
@@ -3052,15 +3066,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             slot.triggered = true;
             slot.lastKnownPosition = attacker.GlobalPosition;
         }
-        // Struck by an enemy mob (e.g. the player's companion) — latch immediate
-        // threat awareness toward it so a threat-scanning mob retaliates without
-        // waiting for perception to accumulate, mirroring the player-slot edge
-        // above. Gated to the team this mob actually scans for, so the latch
-        // agrees with what AccumulateThreatPerception will track next tick;
-        // no-op for mobs that don't scan threats. Aggro is credited in Damage.
+        // Struck by a mob on the opposite side of the player divide (e.g. a
+        // hostile hit by the player's companion) — latch immediate threat
+        // awareness toward it so a threat-scanning mob retaliates without waiting
+        // for perception to accumulate, mirroring the player-slot edge above.
+        // Gated to mobs that actually scan (dangerous hostiles / companions) and
+        // to a cross-side attacker, so the latch agrees with what
+        // AccumulateThreatPerception tracks next tick. Aggro is credited in Damage.
         else if (hit.source is Mob mobAttacker
             && _simState.MobData != null
-            && mobAttacker.ActorTeam == _simState.MobData.threatTeam)
+            && (_simState.MobData.dangerous || IsCompanion)
+            && Teams.IsPlayerSide(mobAttacker.ActorTeam) != Teams.IsPlayerSide(ActorTeam))
         {
             ref PerceptionState slot = ref _simState.ThreatPerception;
             slot.target = mobAttacker;
@@ -3142,13 +3158,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return hit.critRoll < v;
     }
 
-    // Backstab geometry — the attacker is the player, this mob is still
-    // untriggered, and the player attacked from within PlayerData.backstabAngle
-    // of the mob's facing direction (mob facing away from the player). XZ
-    // only; vertical offset doesn't change the directional intent.
+    // Backstab geometry — the attacker is the player and attacked from within
+    // PlayerData.backstabAngle of the mob's facing direction (mob facing away
+    // from the player). Purely positional: awareness no longer matters, so a
+    // backstab lands even on a triggered mob that's turned its back. XZ only;
+    // vertical offset doesn't change the directional intent.
     private bool IsBackstab(HitInfo hit)
     {
-        if (triggered) { return false; }
         if (hit.source is not Player attacker) { return false; }
         PlayerData pd = attacker.data;
         if (pd == null) { return false; }
@@ -3187,10 +3203,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return hit;
     }
 
-    // Fold the hit's OnBackstab modifiers when the geometry + awareness check
-    // passes. Stacks with ApplyCrit — a backstab is by construction also a
-    // crit, so authors can put generic unawareness bonuses on OnCrit and
-    // backstab-specific bonuses on OnBackstab and both fire.
+    // Fold the hit's OnBackstab modifiers when the positional check passes.
+    // Independent of ApplyCrit now that backstab is awareness-agnostic: an
+    // unaware mob's backstab also crits (via IsCritEligible's !triggered), but a
+    // backstab on an alerted, non-dizzy mob folds OnBackstab only.
     private HitInfo ApplyBackstab(HitInfo hit)
     {
         if (IsBackstab(hit))
@@ -3766,6 +3782,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Release the Die one-shot so UpdateAnimation resumes the live
         // idle/locomotion loop instead of holding the death pose.
         _oneShotAnim = null;
+        // Per-species "back to life" vocalization (a happy bark), layered over
+        // the action's shared revive cue. Fired here so every revive path —
+        // player interactive and dead-companion recall — voices it.
+        SpawnVoice(_voice?.revive);
     }
 
     // Recall the companion to the player's side: revived if it died, healed to
@@ -4076,12 +4096,23 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         Fx.Create(scene, _world, GlobalPosition);
     }
 
-    // Public hook for behaviors that need to emit a one-shot audio-visual cue at
-    // the mob (e.g. BehaviorWary's periodic growl). World-parented so it stays
+    // Turn a behavior's vocalization intent into the authored cue. The behavior
+    // layer only names the vocalization (AIOutput.vocalization); this maps it to
+    // the per-species Fx scene wired in the mob .tscn. World-parented so it stays
     // put as the mob keeps moving, matching the footstep / voice convention.
-    public void PlayWorldEffect(PackedScene scene)
+    // Missing keys (a species with nothing to say for that intent) no-op.
+    private void Vocalize(EVocalization vocalization)
     {
-        SpawnWorldEffect(scene);
+        PackedScene scene = null;
+        bool found = _vocalizationEffects != null && _vocalizationEffects.TryGetValue(vocalization, out scene);
+        if (CVars.companionDebug.Value)
+        {
+            GD.Print($"[companion] {mobData?.displayName} Vocalize {vocalization} found={found} dictCount={_vocalizationEffects?.Count ?? -1}");
+        }
+        if (found)
+        {
+            SpawnWorldEffect(scene);
+        }
     }
 
     // Spawn a clip from this species' voice bank, applying its pitch shift.

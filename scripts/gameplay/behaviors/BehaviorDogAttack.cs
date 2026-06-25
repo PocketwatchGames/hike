@@ -10,13 +10,37 @@ using Godot;
 public partial class BehaviorDogAttack : BehaviorAttack
 {
     private readonly DogAttackBehaviorData _data;
+    // Set on entry, consumed on the first Run tick that commits to the fight so
+    // the combat snarl rides out on AIOutput as intent only.
+    private bool _snarlPending;
 
     public BehaviorDogAttack(DogAttackBehaviorData data) : base(data)
     {
         _data = data;
     }
 
+    // Entering the attack state means threat perception has latched and the dog
+    // is closing in; arm a snarl. A re-entry from Wary (after the fight briefly
+    // lulls) re-arms it, which reads as re-engaging.
+    public override void OnEnter(Mob me, ulong time)
+    {
+        base.OnEnter(me, time);
+        _snarlPending = true;
+    }
+
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
+    {
+        BehaviorOutput result = RunAttack(me, time, ref targetPerception, ref output);
+        // Snarl the first tick we actually commit to the fight (entering combat).
+        if (_snarlPending && result.result == EBehaviorResult.Running)
+        {
+            _snarlPending = false;
+            output.vocalization = EVocalization.Snarl;
+        }
+        return result;
+    }
+
+    private BehaviorOutput RunAttack(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
     {
         // Master leash: while the player is beyond masterBreakoffDistance, abandon
         // the chase and run straight back rather than committing to a fight across

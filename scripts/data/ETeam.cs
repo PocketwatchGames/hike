@@ -15,10 +15,6 @@ public enum ETeam
 	// tactics, and its alarm calls draw a look (not an investigation) from
 	// other factions while rallying only fellow prey.
 	Prey = 4,
-	// Sentinel for "no team" — used ONLY as the default of MobData.threatTeam to
-	// mean "this mob does not scan for threats." Never assign it to a mob's own
-	// `team`; it allies with nothing (Teams.AreAllied) and isn't a combatant.
-	None = 5,
 }
 
 public static class Teams
@@ -39,7 +35,11 @@ public static class Teams
 		return IsPlayerSide(a) && IsPlayerSide(b);
 	}
 
-	private static bool IsPlayerSide(ETeam team)
+	// The player's side of the one combat divide that matters for threat
+	// tracking: the Player and Friendly NPCs / tamed companions. Everything else
+	// (Hostile, Neutral, Prey) is the other side. A mob scans the OPPOSITE side
+	// to this — see ThreatScan.
+	public static bool IsPlayerSide(ETeam team)
 	{
 		return team == ETeam.Player || team == ETeam.Friendly;
 	}

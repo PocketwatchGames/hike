@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://bg28hplqg8bq3"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://co8vj5a8xhf80" path="res://assets/audio/source/mobs/dog/sfx_dog_bark_01.wav" id="2_b01"]
+[ext_resource type="AudioStream" uid="uid://nsm51qkbbqvv" path="res://assets/audio/source/mobs/dog/sfx_dog_bark_02.wav" id="2_b02"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_dogcurious"]
+playback_mode = 1
+random_pitch = 1.2
+random_volume_offset_db = 2.0
+streams_count = 2
+stream_0/stream = ExtResource("2_b01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_b02")
+stream_1/weight = 1.0
+
+[node name="DogCurious" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_dogcurious")
+pitch_scale = 1.25
+unit_size = 4.0
+max_distance = 22.0
+volume_db = -4.0
+bus = &"World3D"

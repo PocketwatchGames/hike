@@ -59,7 +59,8 @@ transitions = [SubResource("Resource_idle_to_attack"), SubResource("Resource_idl
 
 [sub_resource type="Resource" id="Resource_attack"]
 script = ExtResource("5_attack")
-encircleDistance = 5.0
+encircleDistance = 6.0
+attackFacingToleranceDegrees = 45.0
 
 [sub_resource type="Resource" id="Resource_cond_aggro_lost"]
 script = ExtResource("7_aggro_lost")

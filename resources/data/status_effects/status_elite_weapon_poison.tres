@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cxepedheenls1"]
+
+[ext_resource type="Texture2D" uid="uid://c0bxf8os6dn5x" path="res://assets/textures/status_effects/skull.png" id="1_oyx1g"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_cwquf"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="3_7k3ti"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="4_buildup"]
+[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="5_poison"]
+
+[sub_resource type="Resource" id="buildup_poison"]
+script = ExtResource("4_buildup")
+effect = ExtResource("5_poison")
+amount = 0.5
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("3_7k3ti")
+onHitBuildups = Array[ExtResource("4_buildup")]([SubResource("buildup_poison")])
+
+[resource]
+script = ExtResource("2_cwquf")
+icon = ExtResource("1_oyx1g")
+displayName = &"Poison"
+description = "Elite venom aura. Each strike feeds the target's poison buildup."
+category = 4
+tags = 32
+maxStack = 1
+removesOnApply = []
+modifiers = []
+weaponMod = SubResource("weaponMod")
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

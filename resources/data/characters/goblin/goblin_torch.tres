@@ -42,6 +42,8 @@ displayName = &"Torch Swing"
 activeDurationSeconds = 1.0
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup_anim"), SubResource("Resource_event_dart"), SubResource("Resource_event_strike")])
 speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+turnLockDelaySeconds = 0.15
 releaseEffect = ExtResource("8_atkfx")
 
 [sub_resource type="Resource" id="Resource_profile"]

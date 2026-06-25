@@ -67,7 +67,6 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 [resource]
 script = ExtResource("1_vvowg")
 displayName = &"Goblin"
-threatTeam = 1
 VisionRange = 20.0
 MinPerceptionDelta = 0.05
 SmellStrength = 0.15

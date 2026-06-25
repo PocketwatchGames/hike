@@ -73,5 +73,18 @@ public partial class WanderFollowBehaviorData : BehaviorData
     // Path-success radius handed to the navigator for wander / rest goals.
     [Export] public float arrivalDistance = 0.6f;
 
+    // Range (meters) within which a pausing dog notices a harmless creature
+    // (kun-kun, sparrow) to turn toward and give a single curious woof during its
+    // sniff. 0 disables the curiosity glance. Kept short so it only reacts to
+    // wildlife close by, not everything in sight.
+    [Export] public float curiosityRange = 8f;
+
+    // Health fraction (current / max) at or below which re-entering this behavior
+    // emits the injured whimper. At full health (a fresh spawn) it never fires.
+    [Export(PropertyHint.Range, "0,1,0.05")] public float whimperHealthFraction = 0.5f;
+    // Minimum seconds between whimpers, so bouncing between follow and a
+    // flickering threat doesn't spam the cry.
+    [Export] public float whimperCooldownSeconds = 8f;
+
     public override BehaviorBase CreateRuntime() => new BehaviorWanderFollow(this);
 }

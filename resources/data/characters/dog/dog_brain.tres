@@ -11,7 +11,6 @@
 [ext_resource type="Script" uid="uid://bugs6hed1gail" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="9_threat"]
 [ext_resource type="Script" uid="uid://cgbwte5du7wer" path="res://scripts/data/behaviors/DogWaryBehaviorData.cs" id="11_wary"]
 [ext_resource type="Script" uid="uid://c4elpp1elpel0" path="res://scripts/data/behaviors/conditions/MasterTooFarCondition.cs" id="12_master"]
-[ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/fx/dog_growl.tscn" id="13_growl"]
 
 [sub_resource type="Resource" id="Resource_wanderfollow"]
 script = ExtResource("4_wanderfollow")
@@ -37,9 +36,13 @@ destination = &"DogAttack"
 [sub_resource type="Resource" id="Resource_cond_wary"]
 script = ExtResource("9_threat")
 
+[sub_resource type="Resource" id="Resource_cond_wary_near"]
+script = ExtResource("9_threat")
+maxPlayerDistance = 8.0
+
 [sub_resource type="Resource" id="Resource_follow_to_wary"]
 script = ExtResource("3_transition")
-condition = SubResource("Resource_cond_wary")
+condition = SubResource("Resource_cond_wary_near")
 destination = &"Wary"
 
 [sub_resource type="Resource" id="Resource_cond_stay"]
@@ -85,7 +88,6 @@ transitions = [SubResource("Resource_stay_to_attack"), SubResource("Resource_sta
 
 [sub_resource type="Resource" id="Resource_wary"]
 script = ExtResource("11_wary")
-growlEffect = ExtResource("13_growl")
 
 [sub_resource type="Resource" id="Resource_wary_to_attack"]
 script = ExtResource("3_transition")
@@ -94,6 +96,7 @@ destination = &"DogAttack"
 
 [sub_resource type="Resource" id="Resource_cond_master_far"]
 script = ExtResource("12_master")
+maxDistance = 12.0
 
 [sub_resource type="Resource" id="Resource_wary_to_follow_far"]
 script = ExtResource("3_transition")

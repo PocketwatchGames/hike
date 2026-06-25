@@ -30,6 +30,7 @@ motionFreezeGravity = false
 script = ExtResource("4_event")
 time = 450
 type = 1
+range = 3.5
 farWidth = 3.0
 impactEnvironmentEffect = ExtResource("8_solidfx")
 impactHealthEffect = ExtResource("7_hitfx")
@@ -39,9 +40,11 @@ impactLethalEffect = ExtResource("7_hitfx")
 [sub_resource type="Resource" id="Resource_action_claw"]
 script = ExtResource("3_action")
 displayName = &"Claw"
-activeDurationSeconds = 1.0
+activeDurationSeconds = 2.0
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup_anim"), SubResource("Resource_event_dart"), SubResource("Resource_event_strike")])
 speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+turnLockDelaySeconds = 0.15
 releaseEffect = ExtResource("6_atkfx")
 
 [sub_resource type="Resource" id="Resource_profile"]
@@ -65,7 +68,9 @@ damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
 actionProfile = SubResource("Resource_profile")
-MaxAttackRange = 5.0
-desiredAttackRange = 3.0
+MaxAttackRange = 6.0
+desiredAttackRange = 2.5
+cooldownSeconds = 1.0
+cooldownRandomSeconds = 1.0
 displayName = &"Goblin Claw"
 heldModel = ExtResource("9_held")

@@ -83,6 +83,8 @@ public partial class ItemEvent : Resource
 	// "the chest creaks open" cue lives on the OpenInteractive event in the
 	// chest's action, not on the chest's C# class, so each interactive's
 	// authored action carries its own completion effect.
+	// Projectile: spawned once at the firing origin as the launch ("muzzle")
+	// cue (a fire hiss, a bowstring twang) — see ItemEventHandlers.DoProjectile.
 	[Export] public PackedScene fx;
 
 	// ConsumeFromInventory: identifies which supporting item to consume.
@@ -255,6 +257,11 @@ public partial class ItemEvent : Resource
 	// Only meaningful for flat (non-arcing) flight — arced lobs detonate at their
 	// fuse and don't pierce.
 	[Export] public int pierceCount = 0;
+	// How many projectiles this event launches per fire. >1 fans a flat volley
+	// out by re-sampling the tier's accuracy spread per shot (a twin-missile
+	// swing, a shotgun blast). Ignored for arced lobs (they reuse the single
+	// solved launch velocity). 1 (default) = a single shot.
+	[Export] public int projectileCount = 1;
 	// Arcing projectile: a fixed-shape, COLLISION-RESPECTING lob. The firing tier
 	// uses Arced aim, whose reticle builds the trajectory (see
 	// AimingReticle.UpdateArced) and publishes the launch velocity DoProjectile
@@ -307,8 +314,16 @@ public partial class ItemEvent : Resource
 	// is "arcing arrow lands → spawn AoE": author the projectile event with
 	// projectileArcing=true and impactEvent=<sub-event with SpawnAreaEffect
 	// flagged and areaEffectScene set>. Fires regardless of how the projectile
-	// ended (lifetime, env hit, hurtbox hit).
+	// ended (lifetime, env hit, hurtbox hit) UNLESS a cause-specific event below
+	// is authored for that cause.
 	[Export] public ItemEvent impactEvent;
+	// Cause-specific follow-up events, each overriding impactEvent for one
+	// despawn cause and falling back to it when null. directHitEvent fires when
+	// the shot ends on a creature (e.g. a homing missile that detonates an AoE
+	// only on a direct hit); expirationEvent fires when it ends on lifetime
+	// expiry (e.g. a fizzle puff). Environment clips always use impactEvent.
+	[Export] public ItemEvent directHitEvent;
+	[Export] public ItemEvent expirationEvent;
 	// Intrinsic "Fragile": the arced lob detonates on the FIRST surface/creature
 	// it meets instead of bouncing out its fuse — the authored form of the
 	// Fragile weapon mod (StatusEffectData.projectilesDetonateOnContact), so a
@@ -338,7 +353,8 @@ public partial class ItemEvent : Resource
 				|| name == nameof(projectileGravity) || name == nameof(projectileFriction)
 				|| name == nameof(projectileMaxRange) || name == nameof(projectileFragile)
 				|| name == nameof(projectileTargetPreview);
-			bool flatOnly = name == nameof(projectileSpeed) || name == nameof(pierceCount);
+			bool flatOnly = name == nameof(projectileSpeed) || name == nameof(pierceCount)
+				|| name == nameof(projectileCount);
 			if ((flatOnly && _projectileArcing)
 				|| (arcOnly && !_projectileArcing))
 			{
@@ -370,7 +386,7 @@ public partial class ItemEvent : Resource
 			nameof(hitScanRange) => EItemEventType.Hitscan,
 			nameof(effects) => EItemEventType.ApplyStatusEffect | EItemEventType.ApplyAreaStatusEffect,
 			nameof(animName) => EItemEventType.PlayAnim,
-			nameof(fx) => EItemEventType.OpenInteractive | EItemEventType.ApplyAreaStatusEffect,
+			nameof(fx) => EItemEventType.OpenInteractive | EItemEventType.ApplyAreaStatusEffect | EItemEventType.Projectile,
 			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
 			nameof(motionForwardSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) or nameof(motionDirection) => EItemEventType.ApplyMotion,
 			nameof(language) or nameof(languageComponents) => EItemEventType.LearnLanguage,
@@ -386,6 +402,7 @@ public partial class ItemEvent : Resource
 				or nameof(projectileSpeed)
 				or nameof(projectileLifetimeSeconds)
 				or nameof(pierceCount)
+				or nameof(projectileCount)
 				or nameof(projectileArcing)
 				or nameof(projectileArcRise)
 				or nameof(projectileGravity)
@@ -393,6 +410,8 @@ public partial class ItemEvent : Resource
 				or nameof(projectileBounciness)
 				or nameof(projectileFriction)
 				or nameof(impactEvent)
+				or nameof(directHitEvent)
+				or nameof(expirationEvent)
 				or nameof(projectileFragile)
 				or nameof(projectileTargetPreview) => EItemEventType.Projectile,
 			nameof(areaEffectScene)

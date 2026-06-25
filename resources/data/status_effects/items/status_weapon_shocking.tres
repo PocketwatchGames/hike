@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="4_fx"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="5_mod"]
 [ext_resource type="PackedScene" uid="uid://csh0ckcr2klz8" path="res://scenes/fx/weapon_shock_crackle_loop.tscn" id="6_idle"]
+[ext_resource type="PackedScene" path="res://scenes/fx/lightning_arc.tscn" id="7_arc"]
 
 [sub_resource type="Resource" id="chainDamage"]
 script = ExtResource("2_damage")
@@ -19,6 +20,7 @@ damage = SubResource("chainDamage")
 maxChains = 3
 chainRange = 4.0
 fx = ExtResource("4_fx")
+boltFx = ExtResource("7_arc")
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("5_mod")

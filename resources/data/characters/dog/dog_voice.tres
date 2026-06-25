@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="VoiceData" format=3 uid="uid://cjnkr1uvgp4k2"]
+
+[ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="1_voice"]
+[ext_resource type="PackedScene" uid="uid://b7733pcvr31iq" path="res://scenes/fx/dog_hurt.tscn" id="2_hurt"]
+[ext_resource type="PackedScene" uid="uid://bpqc6bitq47l4" path="res://scenes/fx/dog_death_vo.tscn" id="3_death"]
+[ext_resource type="PackedScene" uid="uid://phla35lm1ooih" path="res://scenes/fx/dog_revive.tscn" id="4_revive"]
+
+[resource]
+script = ExtResource("1_voice")
+hurt = ExtResource("2_hurt")
+death = ExtResource("3_death")
+revive = ExtResource("4_revive")
+pitchShift = 1.0

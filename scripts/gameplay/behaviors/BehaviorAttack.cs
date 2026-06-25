@@ -93,12 +93,25 @@ public partial class BehaviorAttack : BehaviorBase
         // ActionRunner's rejectEffect doesn't fire every tick against a target one
         // plateau up. Fire it the instant we're inside its MaxAttackRange.
         WeaponData ready = ChooseReadyWeapon(me, time, diff.Y, canSee);
-        if (ready != null && dist2d < ready.MaxAttackRange)
+        // Don't commit a swing until roughly facing the target, so attacks don't
+        // fire off-axis. The mob keeps turning toward the target (output.yaw) while
+        // it waits. Bypassed when its facing is frozen off-screen (it can't turn to
+        // satisfy the gate, and an off-axis swing the player can't see is harmless)
+        // so an unseen attacker never deadlocks. dist2d ~ 0 (target on top) passes.
+        bool facingShown = me.playerCanSee || Teams.AreAllied(me.ActorTeam, ETeam.Player);
+        float facingTolerance = Mathf.DegToRad(_data.attackFacingToleranceDegrees);
+        bool facingTarget = !facingShown
+            || dist2d <= 0.0001f
+            || Mathf.Abs(Mathf.Wrap((output.yaw ?? me.Rotation.Y) - me.Rotation.Y, -Mathf.Pi, Mathf.Pi)) <= facingTolerance;
+        if (ready != null && dist2d < ready.MaxAttackRange && facingTarget)
         {
             // Mob's _PhysicsProcess will TryStart the profile this same tick.
             output.attackProfile = ready.actionProfile;
             output.attackContext = new ActionContext { target = target, primaryItem = me.GetWeapon(ready) };
-            _weaponCooldownUntilMs[ready] = time + (ulong)(ready.cooldownSeconds * 1000f);
+            // Randomized pause between swings so the attack cadence isn't
+            // metronomic — a fresh roll each fire (see WeaponData.cooldownRandomSeconds).
+            float cooldownSeconds = ready.cooldownSeconds + (float)GD.RandRange(0.0, ready.cooldownRandomSeconds);
+            _weaponCooldownUntilMs[ready] = time + (ulong)(cooldownSeconds * 1000f);
         }
 
         // A locks-movement action owns the body for its full duration —

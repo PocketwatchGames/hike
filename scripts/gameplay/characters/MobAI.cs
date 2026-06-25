@@ -47,6 +47,11 @@ public struct AIOutput
     // emit one-shots (attack swing, yell, burrow stab) here. Nullable so
     // a behavior can leave it unset most ticks.
     public EAnimation? oneShotAnim;
+    // A vocalization the behavior wants the body to perform this tick (growl,
+    // snarl, bark, whimper). The behavior layer only names the intent; the Mob
+    // scene maps it to an Fx scene / animation via _vocalizationEffects. Nullable
+    // so a behavior leaves it unset on ticks with nothing to say.
+    public EVocalization? vocalization;
 }
 public struct BehaviorOutput
 {
@@ -777,11 +782,15 @@ public partial class Mob
             _simState.Aggro.Decay(mobData.aggroReductionSpeed, delta);
         }
 
-        // Companion threat awareness — a second perception accumulation, toward
-        // the nearest enemy mob, using the same vision model as the player slot
-        // above. A threatTeam of None means "don't scan" so ordinary mobs pay
-        // nothing.
-        if (alive && mobData.threatTeam != ETeam.None)
+        // Cross-faction threat awareness — a second perception accumulation
+        // toward the nearest mob on the opposite side of the player divide, using
+        // the same vision model as the player slot above. Only two kinds of mob
+        // care: a dangerous hostile (tracks the player's companions to attack
+        // them) and a companion (a guard dog, aware of enemies AND harmless
+        // wildlife so its brain can bark / be curious). Everyone else pays
+        // nothing. No per-mob faction to author — it falls out of `dangerous` /
+        // being tamed.
+        if (alive && (mobData.dangerous || IsCompanion))
         {
             AccumulateThreatPerception(mobData, delta);
         }
@@ -836,8 +845,8 @@ public partial class Mob
         }
     }
 
-    // Build perception toward the nearest triggered enemy (MobData.threatTeam)
-    // mob exactly as the mob→player block does — closeness^VisionRangePower over
+    // Build perception toward the nearest opposite-side mob (ThreatScan) exactly
+    // as the mob→player block does — closeness^VisionRangePower over
     // VisionRange, gated by line of sight, accumulated at PerceptionIncreaseSpeed
     // and relaxed at PerceptionRelaxationSpeed, latching `triggered` at
     // PerceptionThresholdAlert. The one deliberate difference from the player
@@ -849,7 +858,15 @@ public partial class Mob
     private void AccumulateThreatPerception(MobData mobData, float delta)
     {
         ref PerceptionState slot = ref _simState.ThreatPerception;
-        Mob enemy = ThreatScan.FindNearest(this, mobData.threatTeam, mobData.VisionRange);
+        // A companion is a vigilant guard — its threat channel tracks dangerous
+        // enemies it merely sees (harmless critters are handled by idle curiosity
+        // in BehaviorWanderFollow, not here). A hostile tracks the player's
+        // companions (which aren't dangerous-flagged) and only latches onto one
+        // once it's in combat, so it ignores a harmlessly idling pet and keeps
+        // focus on the player until the pet engages.
+        Mob enemy = ThreatScan.FindNearest(this, mobData.VisionRange,
+            requireTriggered: !IsCompanion,
+            danger: IsCompanion ? EThreatDanger.DangerousOnly : EThreatDanger.Any);
 
         // Target died (or was despawned) with no live replacement in range — drop
         // the engagement immediately instead of letting perception relax toward a

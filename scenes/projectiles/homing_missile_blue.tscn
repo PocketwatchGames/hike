@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dqitly247p839" path="res://scripts/gameplay/entities/HomingMissile.cs" id="1_homing"]
+[ext_resource type="PackedScene" path="res://scenes/fx/homing_missile_trail.tscn" id="2_trail"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glow"]
+shading_mode = 0
+albedo_color = Color(0.5, 0.75, 1, 1)
+emission_enabled = true
+emission = Color(0.3, 0.6, 1, 1)
+emission_energy_multiplier = 4.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_orb"]
+material = SubResource("StandardMaterial3D_glow")
+radius = 0.12
+height = 0.24
+radial_segments = 12
+rings = 6
+
+[node name="HomingMissileBlue" type="Node3D"]
+script = ExtResource("1_homing")
+
+[node name="Glow" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_orb")
+
+[node name="Trail" parent="." instance=ExtResource("2_trail")]

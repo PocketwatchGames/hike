@@ -10,6 +10,12 @@ public partial class MobHUD : Node2D
 	const float HideThreshold = 0.01f;
 	const float AnimSpeed = 12f;
 
+	// The fade/scale subtree: the perception/health bars + frame. Only this node
+	// is scaled and modulated by the perception animation (and hidden when no bar
+	// is on screen) — the root stays full-size and visible so the debug label and
+	// status strip, ordinary children riding their authored offsets, follow their
+	// own visibility rules.
+	[Export] private Node2D _bars;
 	[Export] private TextureProgressBar _healthBar;
 	[Export] private TextureProgressBar _armorBar;
 	[Export] private TextureProgressBar _perceptionBar;
@@ -51,25 +57,6 @@ public partial class MobHUD : Node2D
 		{
 			parent.AddChild(this);
 		}
-		// The debug label has to render independent of the perception-bar
-		// fade animation (scale + modulate cascade from this node to its
-		// children). Reparent it to MobHUD's parent so it becomes a sibling;
-		// position is driven manually in _Process from the projected mob
-		// position, and lifetime piggybacks on _ExitTree below.
-		if (_debugLabel != null && parent != null)
-		{
-			_debugLabel.Reparent(parent);
-		}
-		// Status effects sit below the bars and need to stay visible whenever
-		// the mob itself is visible — independent of the bar fade and the
-		// behind-camera/no-bar early returns that hide MobHUD. Reparent it
-		// out of MobHUD's subtree (same trick as _debugLabel) so the
-		// perception-bar Scale/Modulate cascade can't reach it; position is
-		// driven manually from the projected mob position each tick.
-		if (_statusEffectContainer != null && parent != null)
-		{
-			_statusEffectContainer.Reparent(parent);
-		}
 		// Badge the health bar with the mob's marker icon, authored on its
 		// MobDescriptor (MobDescriptor.badge). Fixed at spawn, so resolve the
 		// texture + visibility once here rather than per frame; the icon then
@@ -87,18 +74,9 @@ public partial class MobHUD : Node2D
 		_mob.TreeExiting += QueueFree;
 		_curScale = 0f;
 		_curAlpha = 0f;
-		Visible = false;
-		Scale = Vector2.Zero;
-		Modulate = new Color(1f, 1f, 1f, 0f);
-	}
-
-	public override void _ExitTree()
-	{
-		// _debugLabel and _statusEffectContainer were reparented out of this
-		// node's subtree in Init, so they won't auto-free when MobHUD does —
-		// free them explicitly here.
-		_debugLabel?.QueueFree();
-		_statusEffectContainer?.QueueFree();
+		_bars.Visible = false;
+		_bars.Scale = Vector2.Zero;
+		_bars.Modulate = new Color(1f, 1f, 1f, 0f);
 	}
 
 	public override void _Process(double delta)
@@ -107,6 +85,12 @@ public partial class MobHUD : Node2D
 		Vector3 worldPosition = _mob.HudAnchor != null ? _mob.HudAnchor.GlobalPosition : _mob.GlobalPosition;
 		bool behindCamera = _camera.IsPositionBehind(worldPosition);
 		Vector2 screenPos = behindCamera ? Vector2.Zero : GameClient.Current.ProjectToScreen(worldPosition);
+
+		// The root tracks the mob every frame and is never scaled, modulated, or
+		// hidden — only the _bars subtree is. The debug label and status strip are
+		// ordinary children riding their authored offsets relative to this
+		// position, so they stay full-size and follow their own visibility rules.
+		Position = screenPos;
 
 		// Debug label runs on its own — independent of the perception-bar fade
 		// so it never gets scaled or modulated by the bar animation. Hidden
@@ -145,34 +129,27 @@ public partial class MobHUD : Node2D
 					text = text.Length > 0 ? text + "\n" + posLine : posLine;
 				}
 				_debugLabel.Text = text;
-				// Center the 160-wide label horizontally on the mob and hover
-				// it 64px above so it sits clear of the perception icon.
-				_debugLabel.Position = screenPos + new Vector2(-80f, -64f);
 			}
 		}
 
 		// Status effects render independently of the perception-bar fade —
 		// they're tied to the mob being visible to the player, not to whether
-		// the perception/health bar happens to be on screen this tick. The
-		// container was reparented out of MobHUD in Init so it's not affected
-		// by the Scale/Modulate cascade or the early returns below.
+		// the perception/health bar happens to be on screen this tick. As a
+		// direct child of the (unscaled, unmodulated) root they ride their
+		// authored offset and are untouched by the _bars fade below.
 		if (_statusEffectContainer != null)
 		{
 			bool statusVisible = !behindCamera && _mob.alive && _mob.playerPerceptionState != EPlayerPerceptionState.Hidden;
 			_statusEffectContainer.Visible = statusVisible;
 			if (statusVisible)
 			{
-				// Centered above the mob anchor, clearing the health bar (whose
-				// top sits ~23px * hudScale above the anchor). Screen +Y is down,
-				// so the strip rides a negative Y offset to sit above the bar.
-				_statusEffectContainer.Position = screenPos + new Vector2(-40f, -48f);
 				UpdateStatusEffects();
 			}
 		}
 
 		if (behindCamera)
 		{
-			Visible = false;
+			_bars.Visible = false;
 			return;
 		}
 
@@ -260,14 +237,13 @@ public partial class MobHUD : Node2D
 		{
 			_curScale = 0f;
 			_curAlpha = 0f;
-			Visible = false;
+			_bars.Visible = false;
 			return;
 		}
 
-		Visible = true;
-		Scale = new Vector2(_curScale, _curScale);
-		Modulate = new Color(1f, 1f, 1f, _curAlpha);
-		Position = screenPos;
+		_bars.Visible = true;
+		_bars.Scale = new Vector2(_curScale, _curScale);
+		_bars.Modulate = new Color(1f, 1f, 1f, _curAlpha);
 		if (_healthBar != null)
 		{
 			_healthBar.MinValue = 0;

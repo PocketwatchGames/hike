@@ -28,6 +28,12 @@ public partial class ThreatPerceivedCondition : BehaviorTransitionData
     // escalate-to-attack edge so a guard companion holds at a wary growl until the
     // player chooses to fight. Ignored when requireNone is set (a "cleared" edge).
     [Export] public bool requirePlayerCombat = false;
+    // Also require the player to be within this distance (meters) of the mob. 0 =
+    // no gate. Pair it with a LARGER MasterTooFarCondition on the destination
+    // state's break-off edge to make a hysteresis band (enter close, leave far) so
+    // a companion doesn't flicker in and out of a reaction as the player hovers at
+    // the boundary. Ignored when requireNone is set (a "cleared" edge).
+    [Export] public float maxPlayerDistance = 0f;
 
     public override bool Evaluate(Mob me, ref PerceptionState targetPerception)
     {
@@ -39,6 +45,15 @@ public partial class ThreatPerceivedCondition : BehaviorTransitionData
         if (requirePlayerCombat && !(me.World?.player?.CombatEngaged ?? false))
         {
             return false;
+        }
+        if (maxPlayerDistance > 0f)
+        {
+            Player master = me.World?.player;
+            if (master == null
+                || me.GlobalPosition.DistanceSquaredTo(master.GlobalPosition) > maxPlayerDistance * maxPlayerDistance)
+            {
+                return false;
+            }
         }
         return met;
     }

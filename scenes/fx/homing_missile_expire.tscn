@@ -1,0 +1,63 @@
+[gd_scene format=3 uid="uid://betguwy5h6abj"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_shader"]
+[ext_resource type="AudioStream" uid="uid://b6t1iy564nagh" path="res://assets/audio/source/weapons/sfx_magic_missile_expire.wav" id="3_fizzle"]
+
+[sub_resource type="Gradient" id="Gradient_fade"]
+offsets = PackedFloat32Array(0, 0.3, 1)
+colors = PackedColorArray(0.45, 0.7, 1, 0, 0.4, 0.65, 1, 0.6, 0.3, 0.5, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_fade"]
+gradient = SubResource("Gradient_fade")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_expire"]
+emission_shape = 1
+emission_sphere_radius = 0.1
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_min = 0.4
+initial_velocity_max = 1.0
+gravity = Vector3(0, -1.5, 0)
+damping_min = 0.5
+damping_max = 1.0
+scale_min = 0.5
+scale_max = 0.9
+color_ramp = SubResource("GradientTexture1D_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_expire"]
+render_priority = 0
+shader = ExtResource("2_shader")
+shader_parameter/albedo = Color(0.4, 0.65, 1, 0.7)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_expire"]
+material = SubResource("ShaderMaterial_expire")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_expire"]
+playback_mode = 1
+random_pitch = 1.2
+random_volume_offset_db = 1.0
+streams_count = 1
+stream_0/stream = ExtResource("3_fizzle")
+
+[node name="HomingMissileExpire" type="Node3D" unique_id=1791137570]
+script = ExtResource("1_oneshot")
+
+[node name="Fizzle" type="GPUParticles3D" parent="." unique_id=1095474543]
+emitting = false
+lifetime = 0.7
+one_shot = true
+explosiveness = 0.4
+randomness = 0.6
+process_material = SubResource("ParticleProcessMaterial_expire")
+draw_pass_1 = SubResource("QuadMesh_expire")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1050865790]
+stream = SubResource("AudioStreamRandomizer_expire")
+volume_db = -15.0
+unit_size = 4.0
+max_distance = 22.0
+bus = &"World3D"

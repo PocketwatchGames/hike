@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://bxwk3pkwmbaws"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_16n0f"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_otfcl"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/homing_missile_blue.tscn" id="4_missile"]
+[ext_resource type="PackedScene" path="res://scenes/fx/homing_missile_impact.tscn" id="5_impact"]
+[ext_resource type="PackedScene" path="res://scenes/fx/homing_missile_expire.tscn" id="6_expire"]
+[ext_resource type="PackedScene" path="res://scenes/fx/homing_missile_fire.tscn" id="7_fire"]
+
+[sub_resource type="Resource" id="onAttackEvent"]
+script = ExtResource("3_event")
+type = 8192
+fx = ExtResource("7_fire")
+damageProfileKey = &"homing_missile"
+impactMissEffect = ExtResource("6_expire")
+impactEnvironmentEffect = ExtResource("5_impact")
+impactHealthEffect = ExtResource("5_impact")
+impactArmorEffect = ExtResource("5_impact")
+impactLethalEffect = ExtResource("5_impact")
+projectileScene = ExtResource("4_missile")
+projectileSpeed = 12.0
+projectileLifetimeSeconds = 1.5
+projectileCount = 2
+metadata/_custom_type_script = "uid://cmw4pa3roleml"
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("2_mod")
+onHitBuildups = []
+onAttackEvent = SubResource("onAttackEvent")
+metadata/_custom_type_script = "uid://fwmd5k3q8x2n"
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Seeking"
+description = "Each attack looses two homing missiles that chase down nearby foes."
+category = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+weaponMod = SubResource("weaponMod")

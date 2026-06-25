@@ -1,28 +1,36 @@
 using Godot;
 
-// Companion guard reaction below the attack threshold: stand ground, face the
-// perceived threat, and growl on an interval. Transitions (evaluated first) take
-// the mob to BehaviorDogAttack once perception latches `triggered`, and back to
-// Follow when the threat clears or the player wanders out of leash range. The
-// target and its last-known position come from the mob's accumulated
-// threat-perception (MobSimState.ThreatPerception), so the dog keeps facing a
-// threat it briefly loses sight of rather than snapping back to idle.
+// Companion guard reaction to a perceived DANGEROUS enemy below the attack
+// threshold: stand ground, face it, and bark on an interval. (Harmless creatures
+// never reach this state — the companion's threat channel is dangerous-only; a
+// curious glance at wildlife lives in BehaviorWanderFollow's sniff.) Transitions
+// (evaluated first) take the mob to BehaviorDogAttack once perception latches
+// `triggered`, and back to Follow when it clears or the player wanders out of
+// leash range. The target and its last-known position come from the mob's
+// accumulated threat-perception (MobSimState.ThreatPerception), so the dog keeps
+// facing an enemy it briefly loses sight of rather than snapping back to idle.
 public partial class BehaviorWary : BehaviorBase
 {
     private readonly DogWaryBehaviorData _data;
-    private ulong _nextGrowlMs;
+    // Next game-time (ms) to emit a wary vocalization. The first one fires on
+    // entry, then it repeats on the interval for as long as the dog stays wary.
+    private ulong _nextVocalizeMs;
 
     public BehaviorWary(DogWaryBehaviorData data)
     {
         _data = data;
     }
 
-    // Halt any in-progress follow goal and growl immediately on entering the
-    // wary state (re-entry from a re-perceived threat re-arms the first growl).
+    // Halt any in-progress follow goal and vocalize immediately on entering the
+    // wary state (re-entry from a re-perceived threat re-arms the first cry).
     public override void OnEnter(Mob me, ulong time)
     {
         me.Navigator?.Stop();
-        _nextGrowlMs = time;
+        _nextVocalizeMs = time;
+        if (CVars.companionDebug.Value)
+        {
+            GD.Print($"[companion] Wary.OnEnter threat={me.ThreatTarget?.mobData?.displayName.ToString() ?? "null"}");
+        }
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
@@ -47,11 +55,12 @@ public partial class BehaviorWary : BehaviorBase
             }
         }
 
-        // Periodic warning growl.
-        if (_data.growlEffect != null && time >= _nextGrowlMs)
+        // Periodic warning bark at the dangerous enemy it's facing. Intent only —
+        // the Mob scene turns it into sound/anim.
+        if (time >= _nextVocalizeMs)
         {
-            me.PlayWorldEffect(_data.growlEffect);
-            _nextGrowlMs = time + (ulong)(Mathf.Max(0.1f, _data.growlIntervalSeconds) * 1000f);
+            output.vocalization = EVocalization.Bark;
+            _nextVocalizeMs = time + (ulong)(Mathf.Max(0.1f, _data.growlIntervalSeconds) * 1000f);
         }
 
         return new BehaviorOutput(EBehaviorResult.Running);

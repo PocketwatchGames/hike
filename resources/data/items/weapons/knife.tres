@@ -87,7 +87,7 @@ addBuildups = []
 script = ExtResource("1_modifier")
 trigger = 2
 overrides = 65
-healthDamage = 18.0
+healthDamage = 8.0
 armorPenetration = 1.0
 addBuildups = []
 
@@ -95,7 +95,7 @@ addBuildups = []
 script = ExtResource("1_damage")
 tags = 129
 healthDamage = 3.0
-armorPenetration = 0.85
+armorPenetration = 0.5
 hitstun = 0.15
 knockbackDistance = 0.2
 knockbackTime = 0.15

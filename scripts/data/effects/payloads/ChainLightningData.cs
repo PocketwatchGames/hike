@@ -25,4 +25,9 @@ public partial class ChainLightningData : Resource
 
 	// One-shot visual + sound spawned at each struck target. Null = no fx.
 	[Export] public PackedScene fx;
+
+	// Bolt arc drawn between consecutive links — and from the attacker to the
+	// impact point — when this fires. Its scene root is a LightningBolt (see
+	// scenes/fx/lightning_arc.tscn). Null = no bolt visual.
+	[Export] public PackedScene boltFx;
 }
