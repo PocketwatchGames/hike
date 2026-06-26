@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://bn24251j6okt0"]
+
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_jifrt"]
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="6_05oaj"]
+
+[sub_resource type="Resource" id="Entry_greeting"]
+script = ExtResource("3_jifrt")
+branch = &"greeting"
+actions = null
+
+[resource]
+script = ExtResource("6_05oaj")
+entryBranches = [SubResource("Entry_greeting")]
+branches = []
+responseGroups = []

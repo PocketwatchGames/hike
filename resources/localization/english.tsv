@@ -8,6 +8,14 @@ villager_resp_trade	Do you want to trade?
 villager_nothing_more	I have nothing more to say.
 villager_thanks	Thanks!
 villager_lets_do_it	Let's do it.
+hermit_greeting	Hmph. A face I don't know.
+hermit_intro	Most folk keep to the village — wiser, maybe. The mud out here keeps its own counsel.
+hermit_resp_who	Who are you?
+hermit_who	No one worth a name anymore. I came to the marsh to be forgotten, and it obliged.
+hermit_resp_marsh	What's out here?
+hermit_marsh	Old things. Sunken things. Tread careful where the water goes still.
+hermit_resp_leave	I'll leave you be.
+hermit_farewell	Aye. Mind the deep water.
 weapon_name_prefix	%0 %1
 weapon_name_suffix	%0 %1
 status_duration_until	Until %0

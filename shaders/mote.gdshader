@@ -136,17 +136,15 @@ float hash13(vec3 p)
     return fract((p.x + p.y) * p.z);
 }
 
-// Voxel sun-visibility (light_map.r) at a world position; 1.0 (fully lit)
-// outside the loaded light map. Used by the shaft occlusion gate to measure
-// local shadow contrast around a mote.
+// Voxel sun-visibility (light_map.r) at a world position. Used by the shaft
+// occlusion gate to measure local shadow contrast around a mote. The light map
+// is a toroidal window — sample directly and let the repeat sampler wrap. The
+// old [0,1] guard returned 1.0 (full sun) everywhere more than one window from
+// the world origin, breaking the contrast gate away from spawn.
 float sample_sun_r(vec3 p)
 {
     vec3 uvw = (p - light_map_origin) * light_map_inv_size;
-    if (all(greaterThanEqual(uvw, vec3(0.0))) && all(lessThanEqual(uvw, vec3(1.0))))
-    {
-        return texture(light_map, uvw).r;
-    }
-    return 1.0;
+    return texture(light_map, uvw).r;
 }
 
 void vertex()
@@ -205,13 +203,11 @@ void fragment()
         {
             discard;
         }
+        // Toroidal light map: sample directly (repeat sampler wraps). The old
+        // [0,1] guard defaulted to full-sun / no-block-light away from the world
+        // origin (same windowed-volume-map refactor bug as fog_volumetric).
         vec3 luvw = (world_pos - light_map_origin) * light_map_inv_size;
-        // Out of bounds (beyond loaded chunks): full sun, no block light.
-        vec4 lm = vec4(1.0, 0.0, 0.0, 0.0);
-        if (all(greaterThanEqual(luvw, vec3(0.0))) && all(lessThanEqual(luvw, vec3(1.0))))
-        {
-            lm = texture(light_map, luvw);
-        }
+        vec4 lm = texture(light_map, luvw);
         float cloud = cloud_shadow_shafts(world_pos, mote_time, cloud_sharpness);
         float sun_lit = lm.r * (1.0 - cloud);
         // Block light (GBA) counts toward "lit" and is added into the light

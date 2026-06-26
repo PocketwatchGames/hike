@@ -18,12 +18,20 @@ public struct PerceivedByPlayerState
 // of how that reach is shaped against this specific percept.
 public struct PerceptionInputs
 {
-    // Free positive scalar on the visibility distance. Bumps `pd.visionRange`
-    // for large or conspicuous targets (chests, big secret doors, bosses)
-    // so they cross the perception threshold from farther away. Default 1
-    // leaves the curve as-authored. Doubles as the outer perf gate — the
-    // helper short-circuits beyond `pd.visionRange * prominence`.
+    // How conspicuous this target is — a free positive scalar on perception
+    // CLARITY (not range). Higher clears the perception floor sooner, so the
+    // target resolves faster and (via the floor) from farther; lower means the
+    // player must get closer or stare longer. The mob caller folds its
+    // transient visibility (movement / camouflage / airborne / perched) into
+    // this. 1 = neutral.
     public float prominence;
+    // Multiplier on the player's hard sightline cap (`pd.visionRange`). Almost
+    // always 1; only a genuinely huge target that must register beyond normal
+    // vision range passes >1. Doubles as the cheap outer perf gate — the helper
+    // short-circuits beyond `pd.visionRange * rangeScale` (closeness is 0 there,
+    // so nothing registers anyway). MUST be set by every caller (struct default
+    // 0 would make the target invisible).
+    public float rangeScale;
     // Per-target threshold for entering the Detected state from Hidden.
     // Set equal to discoveredThreshold to skip the Detected phase entirely
     // (chests pop straight from Hidden to Discovered with no suspicious
@@ -116,21 +124,30 @@ public static class PlayerPerception
         float distSq = toTarget.LengthSquared();
         float visionDelta = 0f;
 
-        // Maximum distance at which this target can ever register: the
-        // player's own vision range scaled by the target's prominence.
-        // Doubles as the outer perf gate — beyond this the curve already
-        // returns 0 anyway.
-        float maxVisibilityDistance = pd.visionRange * inputs.prominence;
+        // Hard geometric sightline cap: the player's vision range, extended only
+        // for the rare huge target via rangeScale. This is the ONLY thing the
+        // target's size moves about range; everything else (light/fog/prominence)
+        // shapes clarity, and the perception floor turns low clarity into a short
+        // PRACTICAL range. The squared-distance compare is the cheap outer perf
+        // gate — beyond the cap nothing registers, so we skip the light sample +
+        // raycast.
+        float maxRange = pd.visionRange * inputs.rangeScale;
+        bool inRange = maxRange > 0f && distSq < maxRange * maxRange;
 
         // Player has no facing-based gating on perception (the camera frames
         // the player's view independent of body orientation), so facing is
         // always 1 for the debug breakdown.
         debug.facing = 1f;
-        debug.distance = maxVisibilityDistance > 0f
-            ? Mathf.Clamp(1f - Mathf.Sqrt(distSq) / maxVisibilityDistance, 0f, 1f)
+        // Closeness ramps to 1 at the player, but its zero-crossing sits PAST the
+        // cap (visionRangeCurveExtension), so at the edge of range closeness is
+        // still (1 − 1/extension) rather than 0 — a target can cross instant the
+        // moment it enters range in good light instead of fading in at the border.
+        float closeness = inRange
+            ? Mathf.Clamp(1f - Mathf.Sqrt(distSq) / (maxRange * pd.visionRangeCurveExtension), 0f, 1f)
             : 0f;
+        debug.distance = closeness;
 
-        if (maxVisibilityDistance > 0f && distSq < maxVisibilityDistance * maxVisibilityDistance)
+        if (inRange)
         {
             float lightAtTarget = world.GetPerceivedLight(targetPos + new Vector3(0f, inputs.lightSampleHeight, 0f));
             float lightFactor = targetLightMax > 0f ? Mathf.Clamp(lightAtTarget / targetLightMax, 0f, 1f) : 0f;
@@ -154,34 +171,72 @@ public static class PlayerPerception
                 lightFactor = Mathf.Lerp(lightFactor, 1f, dilationRelief);
             }
             debug.lighting = lightFactor;
-            // Fog/rain shorten sight; sampled at the player (the perceiver here).
-            float visibilityDistance = maxVisibilityDistance * lightFactor * VisionRangeMultiplier(world, player.GlobalPosition);
-            if (visibilityDistance > 0f)
+            // Clarity: how clearly the target reads right now. Darkness, fog, and
+            // rain each obscure independently and multiply; the result times the
+            // target's conspicuousness (movement / camouflage folded in by the
+            // caller) is the signal. Compounding is intentional — in poor
+            // conditions it sinks the build RATE and shortens practical range via
+            // the floor below, without crushing the hard range, so distant targets
+            // still register and grow slowly (uncertainty) rather than vanishing.
+            //
+            // clarityPower shapes how SOON each condition bites as it ramps in,
+            // applied to the condition's own strength (darkness / fog / rain
+            // density) — NOT to the final multiplier. That leaves each authored
+            // SimData reduction meaning exactly what it says at full strength
+            // (FogVisionReduction = 0.5 → a 0.5 multiplier in full fog), instead of
+            // the old product-power that squared 0.5 into an effective 0.75
+            // reduction. >1 = murkier sooner (a little fog/dusk already bites);
+            // 1 = linear. Full darkness still drives clarity to 0 (lightFactor 0 →
+            // mLight 0), preserving the zero-light invariant.
+            SimData sim = world.SimData;
+            // Fog obscures the whole sightline, so average its density at both ends
+            // rather than only at the player — a mob standing in a low-lying fog
+            // bank then reads as obscured even when the player is in clear air (and
+            // vice-versa). Cheap (two single-voxel lookups) and symmetric, so a
+            // sightline reads the same fog whichever way it's perceived.
+            float fog = 0.5f * (FogFraction(world, player.GlobalPosition) + FogFraction(world, targetPos));
+            float rain = world.CurrentRainAmount();
+            float bite = 1f / Mathf.Max(0.01f, pd.clarityPower);
+            float mLight = 1f - Mathf.Pow(1f - lightFactor, bite);
+            float mFog = sim != null ? 1f - sim.FogVisionReduction * Mathf.Pow(fog, bite) : 1f;
+            float mRain = sim != null ? 1f - sim.RainVisionReduction * Mathf.Pow(rain, bite) : 1f;
+            float clarity = Mathf.Max(0f, mLight * mFog * mRain) * inputs.prominence;
+            // Signal = closeness curve × clarity. perceptionMinimum is the floor:
+            // below it the target can't register even with a perfectly clear line,
+            // so we skip the raycast entirely (the big perf win) and leave LOS
+            // Unchecked — we never looked. The floor also gates perception build
+            // and the conspicuousness/range emergent behavior.
+            visionDelta = Mathf.Pow(closeness, pd.VisionRangePower) * clarity;
+            if (visionDelta > pd.perceptionMinimum)
             {
-                visionDelta = Mathf.Pow(
-                    Mathf.Clamp(1f - (distSq / (visibilityDistance * visibilityDistance)), 0f, 1f),
-                    pd.VisionRangePower);
-                if (visionDelta > pd.perceptionMinimum)
+                bool blocked = false;
+                if (!inputs.skipLineOfSight)
                 {
-                    if (!inputs.skipLineOfSight)
-                    {
-                        Vector3 rayStart = targetPos + new Vector3(0f, inputs.losRayHeight, 0f);
-                        Vector3 rayEnd = player.GlobalPosition + new Vector3(0f, PlayerEyeHeight, 0f);
-                        uint losMask = inputs.seeThroughPorous ? (uint)ECollisionLayer.Environment : (uint)ECollisionLayer.Solid;
-                        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, losMask);
-                        query.CollideWithAreas = false;
-                        query.CollideWithBodies = true;
-                        Godot.Collections.Dictionary rayResult = player.GetWorld3D().DirectSpaceState.IntersectRay(query);
-                        if (rayResult.Count > 0)
-                        {
-                            visionDelta = 0f;
-                        }
-                    }
+                    Vector3 rayStart = targetPos + new Vector3(0f, inputs.losRayHeight, 0f);
+                    Vector3 rayEnd = player.GlobalPosition + new Vector3(0f, PlayerEyeHeight, 0f);
+                    uint losMask = inputs.seeThroughPorous ? (uint)ECollisionLayer.Environment : (uint)ECollisionLayer.Solid;
+                    using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, losMask);
+                    query.CollideWithAreas = false;
+                    query.CollideWithBodies = true;
+                    Godot.Collections.Dictionary rayResult = player.GetWorld3D().DirectSpaceState.IntersectRay(query);
+                    blocked = rayResult.Count > 0;
+                }
+                if (blocked)
+                {
+                    visionDelta = 0f;
+                    debug.los = EPerceptionLos.Blocked;
                 }
                 else
                 {
-                    visionDelta = 0f;
+                    debug.los = EPerceptionLos.Clear;
                 }
+            }
+            else
+            {
+                // Below the floor — never looked. visionDelta stays the sub-floor
+                // value; the accumulation block treats it as no contact. Leave
+                // debug.los Unchecked (the default).
+                visionDelta = 0f;
             }
         }
 
@@ -205,30 +260,40 @@ public static class PlayerPerception
         debug.vision = visionDelta;
         debug.hearing = hearingDelta;
         // Player doesn't smell — leave debug.smell at 0.
-        // visionDelta is non-zero only when range, light, and LOS (or skip)
-        // all passed — equivalent to "the player can see the target right now".
-        debug.los = visionDelta > 0f;
+        // debug.los was set in the in-range block above (Clear/Blocked when the
+        // raycast ran, left Unchecked when below the floor or out of range).
 
         float visionContribution = visionDelta * pd.VisionStrength;
         float hearingContribution = hearingDelta * pd.HearingStrength;
-        float totalContribution = visionContribution + hearingContribution;
+        // Combined sensory signal. It sets how FAST the meter fills, but the fill
+        // time is fit to it (see the remap) — perceivability is never bent to hit
+        // a target time.
+        float perceivability = visionContribution + hearingContribution;
 
+        // activelyPerceived drives mob memory refresh (VisibleTimeMs) — it must
+        // mean "the mob is in active visual contact right now", not "I can also
+        // hear footsteps from around the corner". Keep it tied to vision only.
         bool visuallyPerceived = visionContribution > 0f;
-        if (totalContribution > 0f)
+        if (visionContribution >= pd.perceptionInstant)
         {
-            // activelyPerceived drives mob memory refresh (VisibleTimeMs) —
-            // it must mean "the mob is in active visual contact right now",
-            // not "I can also hear footsteps from around the corner". Keep
-            // it tied to vision only.
+            // Just below instant fills in minPerceptionFillSeconds; at/above it
+            // there's nothing left to resolve, so it pops immediately.
             result.activelyPerceived = visuallyPerceived;
-            if (visionContribution >= pd.perceptionInstant)
-            {
-                state.perception = 1f;
-            }
-            else
-            {
-                state.perception = Mathf.Min(1f, state.perception + totalContribution * delta * pd.PerceptionIncreaseSpeed);
-            }
+            state.perception = 1f;
+        }
+        else if (perceivability > pd.perceptionMinimum)
+        {
+            result.activelyPerceived = visuallyPerceived;
+            // Map perceivability's position in (perceptionMinimum, perceptionInstant)
+            // to a fill time: just above the floor → maxPerceptionFillSeconds (slowest
+            // the meter ever moves), just under instant → minPerceptionFillSeconds.
+            // Anything slower than the max is, by construction, below the floor and
+            // falls to the decay branch — so the meter never crawls slower than max.
+            float t = Mathf.Clamp(
+                (perceivability - pd.perceptionMinimum) / Mathf.Max(0.0001f, pd.perceptionInstant - pd.perceptionMinimum),
+                0f, 1f);
+            float fillSeconds = Mathf.Lerp(pd.maxPerceptionFillSeconds, pd.minPerceptionFillSeconds, t);
+            state.perception = Mathf.Min(1f, state.perception + delta / Mathf.Max(0.0001f, fillSeconds));
         }
         else
         {
@@ -314,19 +379,21 @@ public static class PlayerPerception
         return ws.GetFogWorld(Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z)) / 255f;
     }
 
-    // Vision-range multiplier at `samplePos`: fog (dominant) and rain both add
-    // haze that shortens sight. Both perception paths sample the fog at the
-    // PLAYER's position — fog around the player is what reads on screen, and
-    // the player is the perceiver (player→mob) or the target (mob→player) in
-    // each case. Rain is the global blended amount.
-    public static float VisionRangeMultiplier(World world, Vector3 samplePos)
+    // Vision-range multiplier along the sightline between `perceiverPos` and
+    // `targetPos`: fog (dominant) and rain both add haze that shortens sight. Fog
+    // is averaged at both ends so a target standing in a fog bank reads as
+    // obscured even from clear air (and the value is symmetric — a sightline reads
+    // the same fog whichever direction it's perceived). Rain is the global blended
+    // amount. (player→mob applies its own clarityPower-shaped fog inline; this is
+    // the linear mob→player / mob→mob path.)
+    public static float VisionRangeMultiplier(World world, Vector3 perceiverPos, Vector3 targetPos)
     {
         SimData sim = world?.SimData;
         if (sim == null)
         {
             return 1f;
         }
-        float fog = FogFraction(world, samplePos);
+        float fog = 0.5f * (FogFraction(world, perceiverPos) + FogFraction(world, targetPos));
         float rain = world.CurrentRainAmount();
         return Mathf.Max(0f, (1f - sim.FogVisionReduction * fog) * (1f - sim.RainVisionReduction * rain));
     }

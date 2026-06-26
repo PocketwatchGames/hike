@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 7;
+    public const int WORLDGEN_VERSION = 9;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -2191,6 +2191,17 @@ public static class WorldGen
             {
                 int surfaceY = FindSurface(wx, wz);
                 if (surfaceY <= worldMinY)
+                {
+                    continue;
+                }
+
+                // No caves under an authored flat clearing (a FlattenSurface
+                // zone, e.g. the village). Caves snap their ceiling up to the
+                // next plateau step and can breach the surface as an open pit;
+                // on a clearing pinned to the water line that pit fills with
+                // water, punching ponds into what should be solid dry ground.
+                int domZone = DominantZoneIndex(wx, wz, genData.ZoneGens);
+                if (domZone >= 0 && genData.ZoneGens[domZone]?.FlattenSurface == true)
                 {
                     continue;
                 }

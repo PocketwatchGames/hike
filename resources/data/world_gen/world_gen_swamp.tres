@@ -35,8 +35,8 @@ script = ExtResource("32_circle")
 CenterChunk = Vector2i(4, 4)
 RadiusChunks = 3.0
 EdgeNoiseChunks = 0.5
-TerrainBlendChunks = 1.0
 Priority = 2
+TerrainBlendChunks = 1.0
 metadata/_custom_type_script = "uid://pdqmnml62brob"
 
 [sub_resource type="Resource" id="Placed_village"]

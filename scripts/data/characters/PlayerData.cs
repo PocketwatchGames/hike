@@ -160,14 +160,51 @@ public partial class PlayerData : Resource
 	[Export] public float wallJumpAirControlTime = 0.5f;
 
 	[ExportGroup("Perception")]
+	// Hard sightline cap (metres). Practical range is usually shorter — it
+	// emerges from clarity vs perceptionMinimum, not from this.
 	[Export] public float visionRange = 25f;
-	[Export] public float VisionRangePower = 2f;
+	// Exponent on the linear closeness term before it's multiplied by clarity.
+	// <1 is CONCAVE: signal stays high across most of the range, so in clear
+	// conditions targets cross perceptionInstant near max range and only the
+	// outer band becomes a slow build. >1 would pull recognition in close.
+	[Export] public float VisionRangePower = 0.5f;
+	// Pushes the closeness ramp's zero-crossing PAST visionRange: closeness =
+	// 1 − d/(visionRange·this), still hard-culled at visionRange. So at the very
+	// edge of range closeness is (1 − 1/this) instead of 0, letting a target hit
+	// instant the moment it enters range in good light, instead of fading in at
+	// the boundary. 1 = ramp reaches 0 right at the cap (old behaviour); 2 = edge
+	// closeness 0.5. Higher flattens the curve (more of the range reads instant in
+	// good light, but the floor discriminates range less in poor light).
+	[Export(PropertyHint.Range, "1,4,0.05")] public float visionRangeCurveExtension = 2f;
 	[Export] public float visibilityMovementMin = 0.5f;
 	[Export] public float visibilityMovementPower = 2f;
-	[Export] public float perceptionMinimum = 0.01f;
-	[Export] public float perceptionInstant = 0.75f;
+	// Shapes how SOON darkness / fog / rain bite as each ramps in. Applied to the
+	// condition's own strength (not the final multiplier), so each authored SimData
+	// reduction still means exactly what it says at full strength — clarityPower
+	// only bends the curve between clear and full. >1 = murkier sooner (a little
+	// fog/dusk already cuts visibility); 1 = linear; clear lit air is unaffected
+	// either way. Player→mob only; conspicuousness is excluded.
+	[Export(PropertyHint.Range, "0.25,4,0.05")] public float clarityPower = 2f;
+	// The perception floor: signal (closeness^power · clarity) must beat this to
+	// register at all. Doubles as the practical range gate, the raycast perf
+	// cull, and the cap on how slowly perception builds. Raise it to make poor
+	// conditions cut range harder and bound stare time; lower it for a longer,
+	// fainter tail. Set near 0 and every in-range target raycasts every tick.
+	[Export] public float perceptionMinimum = 0.05f;
+	// Signal at or above this snaps perception straight to Discovered (instant
+	// recognition). In clear air clarity≈1, so this is roughly the closeness^power
+	// needed to "instantly" spot a mob; lower = recognised from farther.
+	[Export] public float perceptionInstant = 0.5f;
 	[Export] public float PerceptionRelaxationSpeed = 0.1f;
-	[Export] public float PerceptionIncreaseSpeed = 0.25f;
+	// Seconds for the perception meter to fill (0→Discovered) at the two ends of
+	// the partial-visibility band, with fill time fit to perceivability — NOT the
+	// reverse. A target whose perceivability sits just above perceptionMinimum
+	// fills in maxPerceptionFillSeconds (the slowest the meter ever moves); one
+	// just below perceptionInstant fills in minPerceptionFillSeconds. Above
+	// perceptionInstant is instant (0s); below perceptionMinimum never fills.
+	// Keep min < max.
+	[Export(PropertyHint.Range, "0.1,20,0.1")] public float minPerceptionFillSeconds = 2f;
+	[Export(PropertyHint.Range, "0.1,20,0.1")] public float maxPerceptionFillSeconds = 6f;
 	// Per-sense multipliers applied to the vision / hearing perception delta
 	// before they're summed and accumulated. Mirrors MobData; the player's
 	// perception of mobs (PlayerPerception.Tick) uses these.
@@ -199,6 +236,13 @@ public partial class PlayerData : Resource
 	[Export(PropertyHint.Range, "0,1,0.01")] public float eyeDilationVisionRelief = 0.35f;
 
 	[ExportGroup("Perceivability")]
+	// Base conspicuousness of the player to a mob's VISION — the player-side
+	// mirror of MobData.prominence. Multiplies the mob→player clarity alongside
+	// the situational stealth terms (light / movement / camouflage), so it scales
+	// how easily mobs pick the player up everywhere at once. 1 = neutral; lower
+	// for an inherently sneakier build (small, crouched, dark gear). Does not
+	// affect hearing or smell.
+	[Export] public float prominence = 1f;
 	// Continuous movement noise the player emits. Mapped piecewise: 0 at
 	// rest, sneakDecibels at sneakSpeed, runDecibels at moveSpeed. Mobs
 	// sample this in their mob-perceives-player tick.

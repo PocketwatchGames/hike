@@ -28,6 +28,16 @@ public partial class MobData : Resource
     // accumulation curve that turns "in sight" into the triggered/alert
     // state in MobAI.UpdatePerception's mob-to-player block.
     [Export] public float VisionRange = 15f;
+    // Total field-of-view angle (degrees). A HARD limit: beyond ±FOV/2 off the
+    // mob's forward axis the player is peripherally invisible (clarity 0), no
+    // matter how close/lit. Narrow for ambush hunters that must be faced
+    // (goblin ~90), wide for skittish prey / many-eyed mobs (sparrow/spider near
+    // 360). 180 = front hemisphere, which reproduces the old sqrt(dot) cone.
+    [Export(PropertyHint.Range, "30,360,5")] public float VisionFovDegrees = 180f;
+    // Clarity curve INSIDE the FOV: the forward-dot is remapped 0 (cone edge) → 1
+    // (dead ahead) and raised to this power. <1 (sqrt) keeps the player clearly
+    // seen across most of the cone, fading only near the edge; >1 concentrates
+    // clear vision toward dead-ahead.
     [Export] public float VisionDotPower = 0.5f;
     [Export] public float VisionRangePower = 0.5f;
     // Lookout bonus while perched (flying mobs): VisionRange is scaled by this,
@@ -38,6 +48,19 @@ public partial class MobData : Resource
     [Export] public float perchedVisionRangeMultiplier = 1.5f;
     [Export] public float PerceptionIncreaseSpeed = 0.5f;
     [Export] public float PerceptionRelaxationSpeed = 0.1f;
+    // Shapes how the mob→player perception meter fills with the per-tick contact
+    // strength: growth = delta·(1 + (perceptionAccel−1)·delta). 1 = linear; >1
+    // makes strong contact (player close & centered in the cone) fill very fast
+    // while faint contact stays slow — so a player crossing the mob's face is
+    // caught near-instantly, yet a distant/edge contact builds visibly enough to
+    // react to. Continuous, no snap.
+    [Export(PropertyHint.Range, "1,12,0.5")] public float perceptionAccel = 4f;
+    // Floor on the per-tick contact (shared across vision/hearing/smell): below it
+    // perception decays and the vision raycast is skipped. The telegraph window is
+    // the climb from here to alert, and stealth (slow/shadowed/camouflaged/off-cone)
+    // pulls contact under it to go unseen. Don't set it so low that faint, distant
+    // hearing/smell quietly accumulates the meter — keep per-sense reach (hearingRange
+    // / smellRange) short instead.
     [Export] public float MinPerceptionDelta = 0.05f;
     [Export] public float PerceptionThresholdAlert = 1f;
     // Lower awareness tier (below PerceptionThresholdAlert) at which the mob is
@@ -117,12 +140,25 @@ public partial class MobData : Resource
     // is folded into prominence at the call site along with tall-grass
     // camouflage. The thresholds and prominence are the per-target tuning
     // the player-side helper consumes directly.
-    [Export] public float visibilityMovementMin = 0.5f;
+    // Floor on the movement-visibility factor: a perfectly still mob keeps this
+    // fraction of its conspicuousness (0.75 = a mild penalty for holding still,
+    // not a stealth mechanic). Motion ramps it to 1 by maxVisibilitySpeed.
+    [Export] public float visibilityMovementMin = 0.75f;
     [Export] public float visibilityMovementPower = 2;
     [Export] public float maxVisibilitySpeed = 5f;
-    // Free scalar on the player's perception distance — large mobs pass
-    // >1 to be spotted from farther; small / sneaky mobs <1.
+    // How conspicuous this mob is — a free scalar on the player's perception
+    // CLARITY (not range). Higher = resolves faster / from farther as clarity
+    // clears the perception floor sooner; lower = the player must get closer or
+    // stare longer (a small / sneaky mob). Movement and camouflage fold into
+    // this at the call site. Does NOT extend the hard sightline cap — use
+    // visionRangeScale for that rare case.
     [Export] public float prominence = 1f;
+    // Rare per-mob multiplier on the player's hard vision-range cap (visionRange).
+    // Default 1 for ~everything; clarity already shapes practical range. Only a
+    // genuinely huge target that must register BEYOND normal vision range sets
+    // this >1 (a giant seen across the valley). Small mobs leave it at 1 — their
+    // short practical range comes from low clarity, not a shrunken cap.
+    [Export] public float visionRangeScale = 1f;
     // Extra prominence multipliers while airborne / perched (flying mobs only).
     // A bird in flight reads against open sky and catches the eye, so it's the
     // most conspicuous; a perched bird up on a branch is still easier to spot

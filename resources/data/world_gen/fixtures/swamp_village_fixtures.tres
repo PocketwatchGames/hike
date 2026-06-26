@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://jwmjuqoukebq" path="res://scripts/data/spawn/StoneRingSpawnEntry.cs" id="5_ring"]
 [ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="6_villager"]
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="7_lang"]
+[ext_resource type="Resource" uid="uid://bn24251j6okt0" path="res://resources/data/characters/npcs/swamp_villager01_conversation.tres" id="8_6mc61"]
 [ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/characters/npcs/friendly_villager_conversation.tres" id="8_conv"]
 [ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="9_campscene"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="10_ewmta"]
@@ -57,7 +58,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 [sub_resource type="Resource" id="Villager_1"]
 script = ExtResource("3_npc")
 Language = ExtResource("7_lang")
-Conversation = ExtResource("8_conv")
+Conversation = ExtResource("8_6mc61")
 Scene = ExtResource("16_villager_m")
 Outfit = PackedStringArray("M_hair_2b", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
 Palette = SubResource("V1_palette")
@@ -94,7 +95,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 [sub_resource type="Resource" id="Villager_2"]
 script = ExtResource("3_npc")
 Language = ExtResource("7_lang")
-Conversation = ExtResource("8_conv")
+Conversation = ExtResource("8_6mc61")
 Scene = ExtResource("17_villager_f")
 Outfit = PackedStringArray("F_hair_3", "F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")
 Palette = SubResource("V2_palette")
@@ -124,7 +125,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 [sub_resource type="Resource" id="Villager_3"]
 script = ExtResource("3_npc")
 Language = ExtResource("7_lang")
-Conversation = ExtResource("8_conv")
+Conversation = ExtResource("8_6mc61")
 Scene = ExtResource("16_villager_m")
 Outfit = PackedStringArray("M_hair_5", "M_TopBody", "M_BottomBody")
 Palette = SubResource("V3_palette")
@@ -154,7 +155,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 [sub_resource type="Resource" id="Villager_4"]
 script = ExtResource("3_npc")
 Language = ExtResource("7_lang")
-Conversation = ExtResource("8_conv")
+Conversation = ExtResource("8_6mc61")
 Scene = ExtResource("17_villager_f")
 Outfit = PackedStringArray("F_hair_1", "F_Fighter_Top", "F_Fighter_Bottom")
 Palette = SubResource("V4_palette")

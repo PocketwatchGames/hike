@@ -221,6 +221,7 @@ public partial class FootprintScatter : Node3D
                 var inputs = new PerceptionInputs
                 {
                     prominence = sim?.FootprintDiscoveryProminence ?? 0.3f,
+                    rangeScale = 1f,
                     // No Detected phase / HUD for prints — the visual keys on
                     // Discovered, so collapse Detected onto the same threshold.
                     detectedThreshold = threshold,

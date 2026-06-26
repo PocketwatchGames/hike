@@ -1,0 +1,70 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://w5olwf3iq444"]
+
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="1_conv"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="2_branch"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_entry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="4_response"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="6_respgroup"]
+
+[sub_resource type="Resource" id="Branch_greeting"]
+script = ExtResource("2_branch")
+name = &"greeting"
+lineLocKeys = Array[StringName]([&"hermit_greeting", &"hermit_intro"])
+endActions = null
+exitGroup = &"topics"
+isPrimaryGroupEntry = true
+
+[sub_resource type="Resource" id="Branch_who"]
+script = ExtResource("2_branch")
+name = &"who"
+lineLocKeys = Array[StringName]([&"hermit_who"])
+endActions = null
+exitGroup = &"topics"
+
+[sub_resource type="Resource" id="Branch_marsh"]
+script = ExtResource("2_branch")
+name = &"marsh"
+lineLocKeys = Array[StringName]([&"hermit_marsh"])
+endActions = null
+exitGroup = &"topics"
+
+[sub_resource type="Resource" id="Branch_farewell"]
+script = ExtResource("2_branch")
+name = &"farewell"
+lineLocKeys = Array[StringName]([&"hermit_farewell"])
+endActions = null
+exitGroup = null
+
+[sub_resource type="Resource" id="Entry_greeting"]
+script = ExtResource("3_entry")
+branch = &"greeting"
+actions = null
+
+[sub_resource type="Resource" id="Resp_who"]
+script = ExtResource("4_response")
+textLocKey = &"hermit_resp_who"
+destination = &"who"
+actions = null
+
+[sub_resource type="Resource" id="Resp_marsh"]
+script = ExtResource("4_response")
+textLocKey = &"hermit_resp_marsh"
+destination = &"marsh"
+actions = null
+
+[sub_resource type="Resource" id="Resp_leave"]
+script = ExtResource("4_response")
+textLocKey = &"hermit_resp_leave"
+destination = &"farewell"
+actions = null
+
+[sub_resource type="Resource" id="Group_Topics"]
+script = ExtResource("6_respgroup")
+name = &"topics"
+responses = [SubResource("Resp_who"), SubResource("Resp_marsh"), SubResource("Resp_leave")]
+
+[resource]
+script = ExtResource("1_conv")
+entryBranches = [SubResource("Entry_greeting")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_who"), SubResource("Branch_marsh"), SubResource("Branch_farewell")]
+responseGroups = [SubResource("Group_Topics")]

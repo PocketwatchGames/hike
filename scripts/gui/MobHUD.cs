@@ -93,21 +93,16 @@ public partial class MobHUD : Node2D
 		Position = screenPos;
 
 		// Debug label runs on its own — independent of the perception-bar fade
-		// so it never gets scaled or modulated by the bar animation. Hidden
-		// when the mob is dead, behind the camera, both cvars off, or the
-		// breakdown is fully inert (V/H/S all 0 AND no LOS — e.g. burrowed or
-		// far-underground mobs that aren't participating in perception this
-		// tick). Hiding inert labels stops the world from being cluttered
-		// with rows of zeros over mobs the player has no chance of detecting.
+		// so it never gets scaled or modulated by the bar animation. When a debug
+		// cvar is on, the label shows for EVERY live, on-screen mob regardless of
+		// activity — a mob you can't perceive (V/H/S all 0, LOS ?) is exactly the
+		// one you want to inspect to see WHY (lighting, distance, floor). The mob
+		// being non-visible no longer hides its readout.
 		bool perceptionCvar = CVars.debugPlayerPerception.Value || CVars.debugMobPerception.Value;
 		bool positionCvar = CVars.debugMobPosition.Value;
 		bool cvarEnabled = perceptionCvar || positionCvar;
 		PerceptionDebug d = CVars.debugMobPerception.Value ? _mob.mobToPlayerDebug : _mob.playerToMobDebug;
-		bool anyActivity = d.vision > 0f || d.hearing > 0f || d.smell > 0f || d.los;
-		// Position rows render unconditionally when the position cvar is on
-		// so a stationary, fully-occluded mob (no V/H/S activity) still
-		// shows up — that's exactly the case we want to inspect.
-		bool showDebug = _mob.alive && !behindCamera && cvarEnabled && (positionCvar || anyActivity);
+		bool showDebug = _mob.alive && !behindCamera && cvarEnabled;
 		if (_debugLabel != null)
 		{
 			_debugLabel.Visible = showDebug;
@@ -120,7 +115,7 @@ public partial class MobHUD : Node2D
 						"V{0:F2} H{1:F2} S{2:F2}\nL{3:F2} D{4:F2} F{5:F2} S{6:F2} C{7:F2} LOS{8}",
 						d.vision, d.hearing, d.smell,
 						d.lighting, d.distance, d.facing, d.speed, d.camouflage,
-						d.los ? "+" : "-");
+						d.los switch { EPerceptionLos.Clear => "+", EPerceptionLos.Blocked => "-", _ => "?" });
 				}
 				if (positionCvar)
 				{

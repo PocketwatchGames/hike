@@ -115,6 +115,17 @@ public struct InvestigateState
 // closeness, facing alignment, speed-based visibility, and (1 - camouflage).
 // Filled twice per mob per perception tick: once for player-perceives-mob,
 // once for mob-perceives-player.
+// Tri-state for the debug LOS readout. Unchecked means the raycast was skipped
+// entirely (out of range, or the signal was below the perception floor so it
+// couldn't register even with a clear line) — distinct from a raycast that ran
+// and came back Blocked. Rendered as ? / - / + respectively.
+public enum EPerceptionLos
+{
+    Unchecked,
+    Blocked,
+    Clear,
+}
+
 public struct PerceptionDebug
 {
     public float vision;
@@ -125,10 +136,10 @@ public struct PerceptionDebug
     public float facing;
     public float speed;
     public float camouflage;
-    // True when the perceiving entity has unobstructed visual contact with
-    // the target this tick (within range AND raycast unblocked). False if
-    // out of range or the LOS check failed.
-    public bool los;
+    // Sightline state THIS tick. Clear = raycast ran and was unobstructed;
+    // Blocked = raycast ran and hit; Unchecked = no raycast (out of range or
+    // below the perception floor — we never looked).
+    public EPerceptionLos los;
 }
 
 
@@ -431,6 +442,7 @@ public partial class Mob
             var inputs = new PerceptionInputs
             {
                 prominence = effectiveProminence,
+                rangeScale = mobData.visionRangeScale,
                 detectedThreshold = mobData.detectedThreshold,
                 discoveredThreshold = mobData.discoveredThreshold,
                 lightSampleHeight = 1f,
@@ -541,55 +553,89 @@ public partial class Mob
             // Perched fliers are an elevated lookout: vision goes omnidirectional
             // (drop the facing cone) and reaches farther (perchedVisionRangeMultiplier).
             bool perched = _perched;
-            float facingFactor = perched
-                ? 1f
-                : Mathf.Pow(Mathf.Max(0, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z)), mobData.VisionDotPower);
-            float visionRange = perched ? mobData.VisionRange * mobData.perchedVisionRangeMultiplier : mobData.VisionRange;
-            // Fog/rain shorten the mob's sight of the player; sampled at the
-            // player (the target here).
-            float visibilityDistance = visionRange * facingFactor
-                * PlayerPerception.VisionRangeMultiplier(_world, _world.player.GlobalPosition);
-            if (!target.triggered)
+            // Geometric range gate: the mob's vision REACH, deliberately NOT shrunk
+            // by the player's stealth or light (those shape clarity below) so the
+            // range is stable and the player can reason about it. Mob VisionRange
+            // (15) is shorter than the player's (25), so at distance / off-cone the
+            // player spots the mob first; the cone + clarity decide the rest.
+            float maxRange = perched ? mobData.VisionRange * mobData.perchedVisionRangeMultiplier : mobData.VisionRange;
+            bool inVisionRange = distanceSqToPlayer < maxRange * maxRange;
+            float closeness = inVisionRange
+                ? Mathf.Clamp(1f - Mathf.Sqrt(distanceSqToPlayer) / maxRange, 0f, 1f)
+                : 0f;
+            // Facing cone — the mob's view angle, the player's main positional
+            // stealth lever (flank it). A HARD FOV limit (peripherally blind beyond
+            // ±FOV/2), then inside the cone the forward-dot is remapped 0 (edge) → 1
+            // (dead ahead) and raised to VisionDotPower (sqrt) for clarity.
+            // Omnidirectional when perched.
+            float facingFactor;
+            if (perched)
             {
-                // Eye dilation relieves the darkness penalty on seeing the player,
-                // mirroring PlayerPerception: a dark-adapted mob spots a dimly-lit
-                // player a little better. Lift only the LIGHT factor of the
-                // player's visibility (keep speed / camouflage), then recompose so
-                // it matches player.visibility exactly when relief is 0.
-                float dilationRelief = _simState.EyeDilation * mobData.eyeDilationVisionRelief;
-                float lightFactor = Mathf.Lerp(_world.player.visibilityLight, 1f, dilationRelief);
-                float relievedVisibility = Mathf.Clamp(
-                    lightFactor * _world.player.visibilitySpeed * _world.player.visibilityCamouflage, 0f, 1f);
-                visibilityDistance *= relievedVisibility;
+                facingFactor = 1f;
+            }
+            else
+            {
+                float forwardDot = toPlayer.Normalized().Dot(GlobalTransform.Basis.Z);
+                float cosHalfFov = Mathf.Cos(Mathf.DegToRad(mobData.VisionFovDegrees * 0.5f));
+                facingFactor = forwardDot <= cosHalfFov
+                    ? 0f
+                    : Mathf.Pow((forwardDot - cosHalfFov) / Mathf.Max(0.0001f, 1f - cosHalfFov), mobData.VisionDotPower);
             }
             bool canSee = false;
-            float visionDelta = 0;
-            if (distanceSqToPlayer < visibilityDistance * visibilityDistance)
+            float visionDelta = 0f;
+            if (inVisionRange)
             {
-                visionDelta = Mathf.Pow(Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1), mobData.VisionRangePower);
-                float eyeHeight = 1.5f;
-                Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                // Grounded vision is blocked by props (Solid); perched vision
-                // sees over/through foliage (Environment only) — the elevated
-                // lookout vantage, and what keeps the bird's own perch tree from
-                // blinding it without any per-prop exclusion.
-                uint visionMask = perched ? (uint)ECollisionLayer.Environment : (uint)ECollisionLayer.Solid;
-                Godot.Collections.Dictionary result;
-                using (Profiler.Sample("Mob.PerceptionRays"))
+                // Clarity: how clearly the mob reads the player right now — the
+                // facing cone, the player's stealth (light w/ the mob's
+                // dark-adaptation relief, movement, camouflage, base prominence),
+                // and fog over the sightline. A triggered mob has LOCKED ON: it
+                // ignores the player's stealth (but must still face them and hold a
+                // clear line). Eye dilation lifts only the light term, matching the
+                // player→mob relief.
+                float dilationRelief = _simState.EyeDilation * mobData.eyeDilationVisionRelief;
+                float playerLight = Mathf.Lerp(_world.player.visibilityLight, 1f, dilationRelief);
+                float playerStealth = target.triggered
+                    ? 1f
+                    : Mathf.Clamp(playerLight * _world.player.visibilitySpeed * _world.player.visibilityCamouflage, 0f, 1f)
+                        * _world.player.data.prominence;
+                float env = PlayerPerception.VisionRangeMultiplier(_world, GlobalPosition, _world.player.GlobalPosition);
+                float clarity = facingFactor * env * playerStealth;
+                // Signal = closeness curve × clarity. MinPerceptionDelta is the
+                // floor: kept low so perception starts rising EARLY and visibly (the
+                // player sees the meter climb and can duck / slow before it commits),
+                // and the raycast perf cull. Stealth can pull clarity under it — a
+                // slow, shadowed, camouflaged player off the cone simply isn't seen.
+                visionDelta = Mathf.Pow(closeness, mobData.VisionRangePower) * clarity;
+                if (visionDelta > mobData.MinPerceptionDelta)
                 {
-                    using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, visionMask);
-                    query.CollideWithAreas = false;
-                    query.CollideWithBodies = true;
-                    result = GetWorld3D().DirectSpaceState.IntersectRay(query);
-                }
-                if (result.Count > 0)
-                {
-                    visionDelta = 0f;
+                    float eyeHeight = 1.5f;
+                    Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
+                    Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
+                    // Grounded vision is blocked by props (Solid); perched vision
+                    // sees over/through foliage (Environment only) — the elevated
+                    // lookout vantage, and what keeps the bird's own perch tree from
+                    // blinding it without any per-prop exclusion.
+                    uint visionMask = perched ? (uint)ECollisionLayer.Environment : (uint)ECollisionLayer.Solid;
+                    Godot.Collections.Dictionary result;
+                    using (Profiler.Sample("Mob.PerceptionRays"))
+                    {
+                        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, visionMask);
+                        query.CollideWithAreas = false;
+                        query.CollideWithBodies = true;
+                        result = GetWorld3D().DirectSpaceState.IntersectRay(query);
+                    }
+                    if (result.Count > 0)
+                    {
+                        visionDelta = 0f;
+                    }
+                    else
+                    {
+                        canSee = true;
+                    }
                 }
                 else
                 {
-                    canSee = true;
+                    visionDelta = 0f;
                 }
             }
             target.canSee = canSee;
@@ -725,15 +771,25 @@ public partial class Mob
             mobToPlayerDebug.distance = mobData.VisionRange > 0f
                 ? Mathf.Clamp(1f - Mathf.Sqrt(distanceSqToPlayer) / mobData.VisionRange, 0f, 1f)
                 : 0f;
-            mobToPlayerDebug.facing = Mathf.Pow(Mathf.Max(0f, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z)), mobData.VisionDotPower);
+            mobToPlayerDebug.facing = facingFactor;
             mobToPlayerDebug.speed = _world.player.visibilitySpeed;
             mobToPlayerDebug.camouflage = _world.player.visibilityCamouflage;
-            mobToPlayerDebug.los = canSee;
+            // Unchecked when out of range (no raycast ran); otherwise Clear/Blocked
+            // by the raycast result. Mirrors the player→mob tri-state.
+            mobToPlayerDebug.los = inVisionRange
+                ? (canSee ? EPerceptionLos.Clear : EPerceptionLos.Blocked)
+                : EPerceptionLos.Unchecked;
 
             if (perceptionDelta > mobData.MinPerceptionDelta)
             {
+                // Accelerating accumulation: linear when the per-tick contact is
+                // faint, very fast when it's strong, and continuous (no snap). A
+                // player crossing close through the cone produces a high delta and
+                // is caught near-instantly; a distant / edge-of-cone / stealthed
+                // contact builds slowly and visibly, giving time to react.
+                float accel = perceptionDelta * (1f + (mobData.perceptionAccel - 1f) * Mathf.Clamp(perceptionDelta, 0f, 1f));
                 target.perception = Mathf.Clamp(
-                    target.perception + perceptionDelta / (1.0f - mobData.MinPerceptionDelta) * mobData.PerceptionIncreaseSpeed * delta,
+                    target.perception + accel * mobData.PerceptionIncreaseSpeed * delta,
                     0f, 1f);
                 // Triggered (combat alert) requires active visual contact —
                 // a hearing-only spike raises perception but can't latch the
@@ -888,9 +944,10 @@ public partial class Mob
         float perceptionDelta = 0f;
         if (canSee)
         {
-            // Fog/rain shorten the sightline, sampled at the enemy (the target).
+            // Fog/rain shorten the sightline; fog averaged over both ends of the
+            // mob→enemy line.
             float visionRange = mobData.VisionRange
-                * PlayerPerception.VisionRangeMultiplier(_world, enemy.GlobalPosition);
+                * PlayerPerception.VisionRangeMultiplier(_world, GlobalPosition, enemy.GlobalPosition);
             if (visionRange > 0f)
             {
                 float distSq = (enemy.GlobalPosition - GlobalPosition).LengthSquared();

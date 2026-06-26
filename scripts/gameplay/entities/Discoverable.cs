@@ -145,6 +145,7 @@ public partial class Discoverable : Node3D
         var inputs = new PerceptionInputs
         {
             prominence = prominence,
+            rangeScale = 1f,
             detectedThreshold = detectedThreshold,
             discoveredThreshold = discoveredThreshold,
             lightSampleHeight = lightSampleHeight,

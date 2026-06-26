@@ -621,11 +621,14 @@ void fragment()
             // band exits at the terminating surface.
             float t = t_band_enter + (float(i) + 0.5) * step_size;
             vec3 p = near_world + ray_dir * t;
+            // Windowed fog map is addressed TOROIDALLY: sample directly and let
+            // the repeat sampler do the mod. No [0,1] guard — fog_map_origin is 0
+            // and fog_map_inv_size spans only the player-centric window, so a
+            // guard would reject every sample more than one window from the world
+            // origin, skipping the whole march and hiding all authored fog away
+            // from spawn. (The bug from the windowed-volume-map refactor.)
+            // model_lit samples light_map the same way. See WindowedVolumeMap.
             vec3 uvw = (p - fog_map_origin) * fog_map_inv_size;
-            if (any(lessThan(uvw, vec3(0.0))) || any(greaterThan(uvw, vec3(1.0))))
-            {
-                continue;
-            }
             // Separate extinction (sigma_t) from scattering (sigma_s):
             //   sigma_t = only the authored voxel fog extinguishes the
             //             scene behind it — this is what produces the
@@ -690,15 +693,18 @@ void fragment()
             // shafts appear: the inscatter integrates bright only along ray
             // segments that are simultaneously in dust AND in sun.
             vec3 L_block = vec3(0.0);
-            // Voxel-sun gate for haze accumulation below. Default 1.0
-            // for out-of-lightmap samples (distant sky rays beyond
-            // loaded chunks) so far-distance outdoor haze still
-            // renders. In-bounds samples set haze_gate to lm_r_soft
-            // (linear-filtered BFS sun mask) so unlit voxels produce
-            // zero haze.
+            // Voxel-sun gate for haze accumulation below: haze_gate = lm_r_soft
+            // (linear-filtered BFS sun mask) so unlit voxels produce zero haze.
+            // Windowed light map is toroidal — always sample (the repeat sampler
+            // wraps). The old [0,1] guard defaulted haze_gate to 1.0 for "out of
+            // window" rays so distant haze still rendered; that's obsolete under
+            // windowing (every coordinate wraps into the resident window, and the
+            // march is bounded to fog_max_distance anyway). The same guard also
+            // suppressed ALL shaft/halo inscatter away from the world origin
+            // (same refactor bug as the fog_map guard above). Bare scope kept so
+            // the diff stays minimal.
             float haze_gate = 1.0;
             vec3 luvw = (p - light_map_origin) * light_map_inv_size;
-            if (all(greaterThanEqual(luvw, vec3(0.0))) && all(lessThanEqual(luvw, vec3(1.0))))
             {
                 // Single linear-filtered sample. The previously-snapped
                 // (nearest-neighbor) sampling collapsed the BFS sun
@@ -861,15 +867,10 @@ void fragment()
     }
     else if (debug_mode == 2)
     {
+        // Toroidal fog map: sample directly (repeat sampler wraps); there is no
+        // out-of-bounds case under windowing.
         vec3 uvw = (surface_world - fog_map_origin) * fog_map_inv_size;
-        if (any(lessThan(uvw, vec3(0.0))) || any(greaterThan(uvw, vec3(1.0))))
-        {
-            ALBEDO = vec3(0.0, 0.0, 0.5);
-        }
-        else
-        {
-            ALBEDO = vec3(texture(fog_map, uvw).r);
-        }
+        ALBEDO = vec3(texture(fog_map, uvw).r);
         ALPHA = 1.0;
     }
     else if (debug_mode == 3)
@@ -1056,13 +1057,13 @@ void fragment()
         if (camera_clip < 1e9)
         {
             vec3 clip_probe = vec3(surface_world.x, camera_clip + 0.5, surface_world.z);
+            // Toroidal sky-exposure map: sample directly (repeat sampler wraps).
+            // The probe sits over the visible (resident) backdrop column, and a
+            // [0,1] guard would leave sky_gate at 1.0 (no fade) away from origin.
             vec3 se_uvw = (clip_probe - sky_exposure_map_origin) * sky_exposure_map_inv_size;
-            if (all(greaterThanEqual(se_uvw, vec3(0.0))) && all(lessThanEqual(se_uvw, vec3(1.0))))
-            {
-                float sky_exposure = texture(sky_exposure_map, se_uvw).r;
-                float cover_hi = max(shaft_sky_cover_max, shaft_sky_cover_min + 1e-3);
-                sky_gate = smoothstep(shaft_sky_cover_min, cover_hi, sky_exposure);
-            }
+            float sky_exposure = texture(sky_exposure_map, se_uvw).r;
+            float cover_hi = max(shaft_sky_cover_max, shaft_sky_cover_min + 1e-3);
+            sky_gate = smoothstep(shaft_sky_cover_min, cover_hi, sky_exposure);
         }
         float shaft_clip = clip_fade * clip_atten * sky_gate;
         // TEST: fade the darkening out where the column has near-zero light, so

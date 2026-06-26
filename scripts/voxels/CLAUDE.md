@@ -20,6 +20,12 @@ The game can load its world from a packed `.hike` file instead of running `World
 
 **Producing a world file** (`CVars.worldExport`): with a game running, `world_export <path>` writes the active `WorldState` through `WorldFile.Write`. Used for testing the disk loader against real data before the custom editor exists.
 
+## WorldGen output cache — bump `WORLDGEN_VERSION` on logic changes
+
+`WorldGenCache` (`scripts/voxels/io/`) memoizes `WorldGen.Generate` output to a `.hike` under `user://` keyed by `seed + size + fingerprint`. **The fingerprint is `WorldGen.WORLDGEN_VERSION` + `WorldFile.VERSION` + the content-hash of every `.tres`/`.tscn`/`.hikescene` reachable from the `WorldGenData` — it does NOT hash the worldgen C# itself.**
+
+So editing `.tres` data invalidates the cache automatically, but **changing worldgen *logic* (any `.cs` under generation — height, caves, kits, spawns, …) does NOT.** A code-only fix silently loads a stale pre-fix world on the next run; the symptom is "my change had no effect" (and `Generate` never runs, so debug prints inside it never fire). **Bump `WORLDGEN_VERSION` (one int, top of `WorldGen.cs`) whenever you change generation behavior** — it invalidates every cached world. To force a one-off regen without a bump, set `world_cache_enabled false` in the console (or delete the `worldgen_cache` dir). When a worldgen fix "won't take," suspect this first.
+
 ## Streaming a Large World (future)
 
 The target is a hand-authored world of roughly **500×500×100 chunks (~8km × 8km × 1.6km of voxels)**, of which only ~1 in 20 chunks contains meaningful data. Procedural generation will not produce this; it will come from a custom editor that writes `.hike` files directly.
