@@ -599,6 +599,10 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// the swing/ray impact point. Shares the controller path with Mob so an
 	// enchant authored as a StatusEffectData works identically on the player.
 	public void TriggerAttackImpact(Vector3 position) => _statusEffects?.TriggerAttackImpact(this, position);
+	// IActionActor — body-carried on-attack projectile mods (a Fairy boon's
+	// homing missiles), fired by the Melee / Hitscan handlers regardless of the
+	// wielded weapon. Shares the controller path with Mob.
+	public Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger) => _statusEffects?.BodyOnAttackMods(trigger);
 	// Positional-aim handlers (DoSpawnAreaEffect) read the live aim cursor
 	// off the reticle. Nullable in case Initialize hasn't run; callers check
 	// HasAimWorldPosition before reading AimWorldPosition.

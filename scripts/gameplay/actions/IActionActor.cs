@@ -74,4 +74,11 @@ public interface IActionActor
 	// active status effect reshape the swing without the handler knowing which
 	// effect (if any) is responsible.
 	void TriggerAttackImpact(Vector3 position);
+
+	// On-attack projectile mods this actor carries as BODY status effects (a
+	// Fairy boon's homing missiles), independent of the wielded weapon. Player
+	// and Mob forward to their shared StatusEffectController; the Melee / Hitscan
+	// handlers dispatch each mod's onAttackEvent through DoProjectile with the
+	// mod's intrinsic damage. `trigger` selects OnSwing vs OnHit. Null when none.
+	Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger);
 }

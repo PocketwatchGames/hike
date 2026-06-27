@@ -1042,6 +1042,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the shared controller so mobs and the player run identical logic.
     public void TriggerAttackImpact(Vector3 position) => _statusEffects?.TriggerAttackImpact(this, position);
 
+    // IActionActor — body-carried on-attack projectile mods (a boon's homing
+    // missiles), forwarded to the shared controller so player and mob run
+    // identical logic.
+    public Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger) => _statusEffects?.BodyOnAttackMods(trigger);
+
     // Compose a single stat across inherent MobData modifiers, the species
     // variant's own modifiers, and active status-effect modifiers. Mobs don't
     // currently equip armor, so the shape is two source lists (the base MobData

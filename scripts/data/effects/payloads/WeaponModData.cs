@@ -112,6 +112,12 @@ public partial class WeaponModData : Resource
 	// event's damageProfileKey. Null = no on-attack projectile.
 	[ExportGroup("On-Attack Projectile")]
 	[Export] public ItemEvent onAttackEvent;
+	// Intrinsic damage for onAttackEvent's projectiles, used when this mod rides
+	// a BODY status effect (a Fairy boon) instead of a weapon — there's no
+	// wielding-weapon damageProfiles dict to resolve the event's damageProfileKey
+	// against, so the missiles carry their own damage. Null = resolve from the
+	// firing weapon as usual (the weapon-composed Seeking mod path).
+	[Export] public DamageData projectileDamage;
 	// Which attack contexts fire onAttackEvent (see EWeaponModAttackTrigger).
 	// OnSwing fires on every attack; OnHit only when the attack connects with a
 	// creature; combine for both. Ignored when onAttackEvent is null.

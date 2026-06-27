@@ -38,6 +38,7 @@
 [ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow/sparrow.tres" id="25_mob_sparrow"]
 [ext_resource type="Resource" uid="uid://cspmuy1rwr522" path="res://resources/data/characters/dog/dog.tres" id="26_mob_dog"]
 [ext_resource type="Resource" uid="uid://cl34ccsehfsfi" path="res://resources/data/boons/boon_stoneskin.tres" id="27_boon_stoneskin"]
+[ext_resource type="Resource" uid="uid://d37lup9iwzbcx" path="res://resources/data/boons/boon_seeking.tres" id="28_boon_seeking"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -49,7 +50,7 @@ EliteStatusEffect = ExtResource("15_elite_std")
 EliteCrownScene = ExtResource("16_elite_crown")
 EliteLoot = ExtResource("17_elite_loot")
 FairyLoot = ExtResource("18_fairy_loot")
-FairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin")])
+FairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking")])
 FairyBoonGold = ExtResource("22_boon_gold")
 TalkAction = ExtResource("13_talk_action")
 GiveItemAction = ExtResource("14_give_action")

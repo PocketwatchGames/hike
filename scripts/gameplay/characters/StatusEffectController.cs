@@ -328,6 +328,29 @@ public class StatusEffectController
 		return result;
 	}
 
+	// On-attack projectile mods carried as BODY status effects (a Fairy boon's
+	// homing missiles) whose trigger overlaps `trigger`. Distinct from
+	// WeaponModOnAttackEvents: body mods aren't charge-scoped (they fire on every
+	// attack regardless of weapon), and the caller needs the mod itself to read
+	// its intrinsic projectileDamage — there's no wielding weapon to resolve the
+	// event's damageProfileKey against. Returns null when none, so the common
+	// no-boon hot path allocates nothing.
+	public Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger)
+	{
+		Godot.Collections.Array<WeaponModData> result = null;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			WeaponModData mod = _statusEffects[i]?.data?.weaponMod;
+			if (mod?.onAttackEvent == null || (mod.onAttackTrigger & trigger) == 0)
+			{
+				continue;
+			}
+			result ??= new Godot.Collections.Array<WeaponModData>();
+			result.Add(mod);
+		}
+		return result;
+	}
+
 	// A composed weapon mod reaches a given firing charge tier when it's scoped
 	// to every attack, or scoped to the specific tier being fired. A negative
 	// chargeIndex (the weapon has no resolvable firing tier) only matches

@@ -616,13 +616,13 @@ public static class ItemEventHandlers
 	// fuse, whichever is first, so it can't pass through walls or bury itself.
 	// Used for delivery-style attacks (thrown explosive); pairs with an authored
 	// `impactEvent` that fires at the landing point.
-	public static void DoProjectile(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	public static void DoProjectile(IActionActor actor, ItemEvent ev, ref PlayerAction action, DamageData damageOverride = null)
 	{
 		if (ev.projectileScene == null)
 		{
 			return;
 		}
-		HitInfo hit = ResolveHit(ev, action, actor);
+		HitInfo hit = ResolveHit(ev, action, actor, damageOverride);
 		if (hit.healthDamage <= 0f && hit.buildups == null)
 		{
 			return;
@@ -641,7 +641,7 @@ public static class ItemEventHandlers
 		Vector3 origin = actor.ActorWorldPosition + Vector3.Up * ArcLaunchHeight;
 
 		WeaponState firingWeapon = action.context.primaryItem as WeaponState;
-		DamageData damageData = firingWeapon?.data?.GetDamage(ev.damageProfileKey);
+		DamageData damageData = damageOverride ?? firingWeapon?.data?.GetDamage(ev.damageProfileKey);
 		Rid? excludeBody = (attacker is CollisionObject3D body) ? body.GetRid() : null;
 		// Arrow-recovery binding is decided here at fire time: only populate
 		// arrowLootData if the firing tier flags useAmmo. A non-ammo tier on
@@ -961,37 +961,53 @@ public static class ItemEventHandlers
 		return -1;
 	}
 
-	// Launch any attack-triggered weapon-mod projectiles for this attack (a
-	// "Seeking" sword's homing missiles). `connected` is true when the attack
-	// landed on a creature — it adds the OnHit trigger to the query; OnSwing-
-	// scoped mods fire either way. Each event is dispatched through DoProjectile,
-	// so it reuses the full projectile path (spread, aim, damage-profile
-	// resolution, and this weapon's other composed mods). Only weapons carry
-	// mods, so mob/non-weapon attacks no-op. No recursion: DoProjectile doesn't
+	// Launch any attack-triggered on-attack-projectile mods for this attack: a
+	// "Seeking" sword's missiles (composed onto the wielding weapon) and a Fairy
+	// boon's missiles (carried on the actor's body, fired regardless of weapon).
+	// `connected` is true when the attack landed on a creature — it adds the OnHit
+	// trigger to the query; OnSwing-scoped mods fire either way. Each event is
+	// dispatched through DoProjectile, reusing the full projectile path (spread,
+	// aim, damage resolution, and the wielding weapon's other composed mods); the
+	// body mods pass their own intrinsic damage since they may fire with no
+	// weapon profile to resolve against. No recursion: DoProjectile doesn't
 	// re-enter this path.
 	private static void FireWeaponModAttackProjectiles(IActionActor actor, ref PlayerAction action, bool connected)
 	{
-		if (action.context.primaryItem is not WeaponState weapon)
-		{
-			return;
-		}
 		EWeaponModAttackTrigger trigger = EWeaponModAttackTrigger.OnSwing;
 		if (connected)
 		{
 			trigger |= EWeaponModAttackTrigger.OnHit;
 		}
-		int chargeIndex = FindChargeIndex(weapon, action.selectedTier);
-		Godot.Collections.Array<ItemEvent> events = weapon.statusEffects.WeaponModOnAttackEvents(chargeIndex, trigger);
-		if (events == null)
+		// Weapon-composed mods (a Seeking sword): the missiles resolve their damage
+		// off the wielding weapon's own damageProfiles via the event's damageProfileKey.
+		if (action.context.primaryItem is WeaponState weapon)
 		{
-			return;
-		}
-		for (int i = 0; i < events.Count; i++)
-		{
-			ItemEvent ev = events[i];
-			if (ev != null)
+			int chargeIndex = FindChargeIndex(weapon, action.selectedTier);
+			Godot.Collections.Array<ItemEvent> events = weapon.statusEffects.WeaponModOnAttackEvents(chargeIndex, trigger);
+			if (events != null)
 			{
-				DoProjectile(actor, ev, ref action);
+				for (int i = 0; i < events.Count; i++)
+				{
+					ItemEvent ev = events[i];
+					if (ev != null)
+					{
+						DoProjectile(actor, ev, ref action);
+					}
+				}
+			}
+		}
+		// Body-carried mods (a Fairy boon's homing missiles): fire on every attack
+		// regardless of the wielded weapon, each carrying its own intrinsic damage.
+		Godot.Collections.Array<WeaponModData> bodyMods = actor.BodyOnAttackMods(trigger);
+		if (bodyMods != null)
+		{
+			for (int i = 0; i < bodyMods.Count; i++)
+			{
+				WeaponModData mod = bodyMods[i];
+				if (mod?.onAttackEvent != null)
+				{
+					DoProjectile(actor, mod.onAttackEvent, ref action, mod.projectileDamage);
+				}
 			}
 		}
 	}
@@ -1517,10 +1533,13 @@ public static class ItemEventHandlers
 	// HitInfo (no damage) if the lookup fails or there's no source — caller
 	// should early-out. Conditional crit / dizzy behavior rides on
 	// `template.modifiers`, no separate parameter needed here.
-	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor)
+	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor, DamageData damageOverride = null)
 	{
-		DamageData template = null;
-		if (action.context.primaryItem is WeaponState weapon)
+		// damageOverride wins when set (a body boon's on-attack projectile carries
+		// its own damage, since there's no wielding-weapon profile to resolve
+		// against); otherwise resolve the event's key off the driving weapon.
+		DamageData template = damageOverride;
+		if (template == null && action.context.primaryItem is WeaponState weapon)
 		{
 			template = weapon.data?.GetDamage(ev.damageProfileKey);
 		}
