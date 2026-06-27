@@ -616,7 +616,7 @@ public static class ItemEventHandlers
 	// fuse, whichever is first, so it can't pass through walls or bury itself.
 	// Used for delivery-style attacks (thrown explosive); pairs with an authored
 	// `impactEvent` that fires at the landing point.
-	public static void DoProjectile(IActionActor actor, ItemEvent ev, ref PlayerAction action, DamageData damageOverride = null)
+	public static void DoProjectile(IActionActor actor, ItemEvent ev, ref PlayerAction action, DamageData damageOverride = null, bool fireOnAttackMods = false)
 	{
 		if (ev.projectileScene == null)
 		{
@@ -810,6 +810,17 @@ public static class ItemEventHandlers
 				ev.directHitEvent,
 				ev.expirationEvent);
 		}
+
+		// On-attack mods for a ranged-slot Fairy boon: a bow shot is a Projectile
+		// attack, so DoProjectile is where its body-mod missiles get a chance to
+		// fire. Gated by fireOnAttackMods, set only for the PRIMARY weapon attack
+		// (ActionRunner's timeline dispatch) — the mod-spawned missiles re-enter
+		// DoProjectile with the flag false, so they never spawn more missiles.
+		// connected is unknown at launch, so only OnSwing-triggered mods fire here.
+		if (fireOnAttackMods)
+		{
+			FireWeaponModAttackProjectiles(actor, ref action, false);
+		}
 	}
 
 	// Single source of truth for "does this arced lob shatter on first contact?":
@@ -969,8 +980,9 @@ public static class ItemEventHandlers
 	// dispatched through DoProjectile, reusing the full projectile path (spread,
 	// aim, damage resolution, and the wielding weapon's other composed mods); the
 	// body mods pass their own intrinsic damage since they may fire with no
-	// weapon profile to resolve against. No recursion: DoProjectile doesn't
-	// re-enter this path.
+	// weapon profile to resolve against. Called at the tail of DoMelee / DoHitscan
+	// and (for the primary attack only) DoProjectile; the missiles it spawns
+	// re-enter DoProjectile with fireOnAttackMods=false, so there's no recursion.
 	private static void FireWeaponModAttackProjectiles(IActionActor actor, ref PlayerAction action, bool connected)
 	{
 		EWeaponModAttackTrigger trigger = EWeaponModAttackTrigger.OnSwing;
@@ -996,9 +1008,13 @@ public static class ItemEventHandlers
 				}
 			}
 		}
-		// Body-carried mods (a Fairy boon's homing missiles): fire on every attack
-		// regardless of the wielded weapon, each carrying its own intrinsic damage.
-		Godot.Collections.Array<WeaponModData> bodyMods = actor.BodyOnAttackMods(trigger);
+		// Body-carried mods (a Fairy boon's homing missiles): fire regardless of
+		// which weapon is wielded, but scoped to the slot this attack came from
+		// (a melee-slot boon vs a ranged-slot boon), each carrying its own
+		// intrinsic damage. sourceSlot is null for non-slot attacks (mobs) — those
+		// only match a None-slot (any) body mod.
+		EInventorySlot slot = action.context.sourceSlot ?? EInventorySlot.None;
+		Godot.Collections.Array<WeaponModData> bodyMods = actor.BodyOnAttackMods(trigger, slot);
 		if (bodyMods != null)
 		{
 			for (int i = 0; i < bodyMods.Count; i++)

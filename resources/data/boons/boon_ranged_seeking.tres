@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BoonData" format=3 uid="uid://d37lup9iwzbcx"]
+[gd_resource type="Resource" script_class="BoonData" format=3 uid="uid://a3jjnm78vuj6c"]
 
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_boon"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_data"]
@@ -39,14 +39,14 @@ script = ExtResource("3_mod")
 onHitBuildups = []
 onAttackEvent = SubResource("onAttackEvent")
 projectileDamage = SubResource("projectileDamage")
-onAttackSlot = 3
+onAttackSlot = 4
 metadata/_custom_type_script = "uid://fwmd5k3q8x2n"
 
 [sub_resource type="Resource" id="statusEffect"]
 script = ExtResource("2_data")
 icon = ExtResource("10_icon")
-displayName = &"Seeking"
-description = "Every melee attack looses two homing missiles that chase down nearby foes."
+displayName = &"Seeking Volley"
+description = "Every ranged attack looses two extra homing missiles that chase down nearby foes."
 category = 2
 durationType = 1
 maxStack = 1

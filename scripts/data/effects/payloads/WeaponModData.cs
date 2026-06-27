@@ -123,6 +123,16 @@ public partial class WeaponModData : Resource
 	// creature; combine for both. Ignored when onAttackEvent is null.
 	[Export, CompactFlags] public EWeaponModAttackTrigger onAttackTrigger = EWeaponModAttackTrigger.OnSwing;
 
+	// Which equipped weapon slot's attacks fire onAttackEvent — WeaponLeft (the
+	// melee slot) or WeaponRight (the ranged slot) — so a Fairy boon can augment
+	// only melee-slot weapons or only ranged-slot weapons, regardless of which
+	// weapon occupies the slot. Only consulted when this mod rides a BODY status
+	// effect (a boon), where it must distinguish slots across every weapon; a
+	// weapon-composed mod (the Seeking sword) ignores it, scoped already by living
+	// on one weapon. None = any slot. Default WeaponLeft. Ignored when
+	// onAttackEvent is null.
+	[Export] public EInventorySlot onAttackSlot = EInventorySlot.WeaponLeft;
+
 	// ============================ Naming ============================
 	// How this mod names the weapons it's attached to (see WeaponNameGenerator).
 

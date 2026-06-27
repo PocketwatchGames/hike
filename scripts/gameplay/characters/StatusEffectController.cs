@@ -329,19 +329,25 @@ public class StatusEffectController
 	}
 
 	// On-attack projectile mods carried as BODY status effects (a Fairy boon's
-	// homing missiles) whose trigger overlaps `trigger`. Distinct from
-	// WeaponModOnAttackEvents: body mods aren't charge-scoped (they fire on every
-	// attack regardless of weapon), and the caller needs the mod itself to read
-	// its intrinsic projectileDamage — there's no wielding weapon to resolve the
-	// event's damageProfileKey against. Returns null when none, so the common
-	// no-boon hot path allocates nothing.
-	public Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger)
+	// homing missiles) whose trigger overlaps `trigger` and whose onAttackSlot
+	// matches `slot` (the equipped weapon slot the firing attack came from), so a
+	// melee-slot boon and a ranged-slot boon stay distinct. A mod with onAttackSlot
+	// == None matches any slot. Distinct from WeaponModOnAttackEvents: body mods
+	// aren't charge-scoped (they fire on every attack regardless of weapon), and
+	// the caller needs the mod itself to read its intrinsic projectileDamage —
+	// there's no wielding weapon to resolve the event's damageProfileKey against.
+	// Returns null when none, so the common no-boon hot path allocates nothing.
+	public Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger, EInventorySlot slot)
 	{
 		Godot.Collections.Array<WeaponModData> result = null;
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			WeaponModData mod = _statusEffects[i]?.data?.weaponMod;
 			if (mod?.onAttackEvent == null || (mod.onAttackTrigger & trigger) == 0)
+			{
+				continue;
+			}
+			if (mod.onAttackSlot != EInventorySlot.None && mod.onAttackSlot != slot)
 			{
 				continue;
 			}

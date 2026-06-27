@@ -602,7 +602,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// IActionActor — body-carried on-attack projectile mods (a Fairy boon's
 	// homing missiles), fired by the Melee / Hitscan handlers regardless of the
 	// wielded weapon. Shares the controller path with Mob.
-	public Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger) => _statusEffects?.BodyOnAttackMods(trigger);
+	public Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger, EInventorySlot slot) => _statusEffects?.BodyOnAttackMods(trigger, slot);
 	// Positional-aim handlers (DoSpawnAreaEffect) read the live aim cursor
 	// off the reticle. Nullable in case Initialize hasn't run; callers check
 	// HasAimWorldPosition before reading AimWorldPosition.

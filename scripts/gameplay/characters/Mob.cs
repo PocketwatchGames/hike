@@ -1045,7 +1045,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // IActionActor — body-carried on-attack projectile mods (a boon's homing
     // missiles), forwarded to the shared controller so player and mob run
     // identical logic.
-    public Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger) => _statusEffects?.BodyOnAttackMods(trigger);
+    public Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger, EInventorySlot slot) => _statusEffects?.BodyOnAttackMods(trigger, slot);
 
     // Compose a single stat across inherent MobData modifiers, the species
     // variant's own modifiers, and active status-effect modifiers. Mobs don't

@@ -77,8 +77,10 @@ public interface IActionActor
 
 	// On-attack projectile mods this actor carries as BODY status effects (a
 	// Fairy boon's homing missiles), independent of the wielded weapon. Player
-	// and Mob forward to their shared StatusEffectController; the Melee / Hitscan
-	// handlers dispatch each mod's onAttackEvent through DoProjectile with the
-	// mod's intrinsic damage. `trigger` selects OnSwing vs OnHit. Null when none.
-	Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger);
+	// and Mob forward to their shared StatusEffectController; the Melee / Hitscan /
+	// Projectile handlers dispatch each mod's onAttackEvent through DoProjectile
+	// with the mod's intrinsic damage. `trigger` selects OnSwing vs OnHit; `slot`
+	// is the equipped weapon slot the firing attack came from, so a melee-slot
+	// boon and a ranged-slot boon can be told apart. Null when none.
+	Godot.Collections.Array<WeaponModData> BodyOnAttackMods(EWeaponModAttackTrigger trigger, EInventorySlot slot);
 }
