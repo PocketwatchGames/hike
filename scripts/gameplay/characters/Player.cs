@@ -678,6 +678,11 @@ public partial class Player : CharacterBody3D
 	// IActionActor — surfaces the swim state through a flat bool so action
 	// requirements don't take a hard dependency on EWaterState.
 	public bool IsSwimming => _waterState == EWaterState.Swimming;
+	// True whenever the player is in water at all (wading in the shallows or
+	// swimming) — distinct from IsSwimming, which is deep water only. Read by
+	// aquatic mobs whose hearing toward the player sharpens once prey shares
+	// their water.
+	public bool IsInWater => _waterState != EWaterState.None;
 	public bool HasDamagingStatusEffect => _statusEffects?.HasDamagingEffect ?? false;
 	public World World => _world;
 	public Inventory Inventory => _inventory;

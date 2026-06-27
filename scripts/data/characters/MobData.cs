@@ -95,6 +95,13 @@ public partial class MobData : Resource
     // perception but won't cross the threshold without sight.
     [Export] public float hearingRange = 5f;
     [Export] public float hearingRangePower = 0.5f;
+    // Hearing-reach multiplier toward the player applied ONLY while the player
+    // is in water (wading or swimming). An aquatic predator shares the water
+    // medium with its prey and picks up its splashing from much farther — set
+    // >1 for "great hearing toward a player in the water". 1 = no bonus
+    // (default); the audible distance is multiplied by this on top of
+    // hearingRange and the wind/fog modifier.
+    [Export] public float waterHearingMultiplier = 1f;
     // Eye dilation ("night eyes") — mirrors the player's (PlayerData). A 0..1
     // runtime state on MobSimState.EyeDilation, driven by the cached AmbientLight
     // where the mob stands and smoothed asymmetrically (dilate slow, constrict
@@ -165,6 +172,13 @@ public partial class MobData : Resource
     // than the same critter hidden at ground level. 1 = no bonus.
     [Export] public float flyingProminenceMultiplier = 2f;
     [Export] public float perchedProminenceMultiplier = 1.5f;
+    // How much murky water hides this mob from the player while it is in
+    // water. The local zone's water muddiness (ZoneData.WaterOpacity, 0 = glassy,
+    // 1 = opaque) is scaled by this and folded into the mob's prominence the
+    // same way tall-grass camouflage is — so a creature in an opaque swamp pool
+    // is far harder to spot than the same creature in clear water. 0 = water
+    // never camouflages (default); 1 = fully hidden in maximally muddy water.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float waterClarityCamouflage = 0f;
     // Per-mob thresholds for player-perceives-mob state transitions. Same
     // semantics as Discoverable: set detectedThreshold == discoveredThreshold
     // for a mob that should pop straight from Hidden to Discovered with no
@@ -486,6 +500,22 @@ public partial class MobData : Resource
     // costs `waterCost` per cell. Amphibious mobs set canSwim=true,
     // waterCost=1; mobs that hate water set canSwim=true, waterCost=5.
     [Export] public bool canSwim = true;
+    // True if the mob is bound to water — it CANNOT walk on dry land. The
+    // pathfinder treats dry surfaces as impassable for this mob (only water
+    // cells are walkable) and ground locomotion is suppressed whenever it
+    // isn't swimming, so a fully aquatic creature (fish, eel) never crawls
+    // ashore. Implies canSwim. Leave false for amphibious / land mobs.
+    [Export] public bool aquatic = false;
+    // True if the mob lives submerged rather than bobbing at the surface.
+    // ApplyWaterPhysics holds it at submergedDepth below the surface (and
+    // pushes it back DOWN if it breaches) instead of floating it up, and it
+    // never tries to haul out onto a bank (TryWaterExit is skipped). Pairs
+    // naturally with `aquatic` for an underwater ambusher.
+    [Export] public bool underwaterPhysics = false;
+    // Target depth (voxels) below the water surface an underwaterPhysics mob
+    // holds. Larger = lurks deeper. Only consulted when underwaterPhysics is
+    // true; surface swimmers use waterSurfaceOffset instead.
+    [Export] public float submergedDepth = 1.5f;
     // Pathfinder cost multiplier for water cells. 1 = neutral. Higher values
     // mean the mob will detour around water if there's a dry path within
     // cost*distance — so 5 means "swim only if dry path is 5x longer".

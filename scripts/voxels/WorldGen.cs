@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 9;
+    public const int WORLDGEN_VERSION = 10;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -3032,6 +3032,77 @@ public static class WorldGen
                         if (isMob ? skipMobs : skipInteractives) { continue; }
                         if (!entry.RollAreaChance(rng)) { continue; }
                         entry.TrySpawn(ws, pos, rng, surfaceContext);
+                    }
+                }
+            }
+        }
+
+        // Water pass: per water-surface column, roll the matching zone's
+        // WaterEntities — aquatic mobs that live submerged. Mirrors the surface
+        // pass but anchors at the water surface instead of dry ground. Gated on
+        // the zone actually authoring a WaterEntities list (most don't), so the
+        // full-column water-surface scan stays off the hot path everywhere but
+        // the zones that want underwater life.
+        if (!skipMobs || !skipInteractives)
+        {
+            int waterMinY = ws.Min.Y * ChunkState.SIZE;
+            int waterMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+            // Topmost water-surface voxel Y in this column (Water with non-Water
+            // directly above), or int.MinValue when the column holds no water.
+            int WaterSurfaceYAt(int wx, int wz)
+            {
+                for (int wy = waterMaxY; wy > waterMinY; wy--)
+                {
+                    if (ws.GetVoxelWorld(wx, wy, wz) == VoxelType.Water
+                        && ws.GetVoxelWorld(wx, wy + 1, wz) != VoxelType.Water)
+                    {
+                        return wy;
+                    }
+                }
+                return int.MinValue;
+            }
+            // Minimum water-column depth (voxels) a spawned swimmer needs to fit.
+            const int MIN_WATER_DEPTH = 2;
+            var waterContext = new SpawnContext
+            {
+                SurfaceYAt = SurfaceYAt,
+                IsValidColumn = (wx, wz) => WaterSurfaceYAt(wx, wz) != int.MinValue,
+            };
+            for (int localX = 0; localX < ChunkState.SIZE; localX++)
+            {
+                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
+                {
+                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+
+                    // Same dominant-zone-with-optional-blend pick as the surface
+                    // pass, so water content respects zone borders identically.
+                    int domIdx = DominantZoneIndex(wx, wz, zonesArr);
+                    if (domIdx < 0) { continue; }
+                    float reach = genData.Zones[domIdx]?.Bounds?.SpawnBlendReachChunks ?? 0f;
+                    ZoneGenData spawnZone = zonesArr[domIdx];
+                    if (reach > 0f)
+                    {
+                        int idx = PickWeightedZone(wx, wz, zonesArr, rng, reach);
+                        if (idx >= 0) { spawnZone = zonesArr[idx]; }
+                    }
+                    if (spawnZone?.WaterEntities?.Entries == null) { continue; }
+
+                    int surfaceY = WaterSurfaceYAt(wx, wz);
+                    if (surfaceY == int.MinValue) { continue; }
+                    // Reject puddles too shallow for a swimmer to occupy.
+                    if (ws.GetVoxelWorld(wx, surfaceY - (MIN_WATER_DEPTH - 1), wz) != VoxelType.Water) { continue; }
+
+                    // Anchor at the water surface (top face of the top water
+                    // voxel); the mob's own buoyancy then settles it to depth.
+                    var pos = new Vector3(wx + 0.5f, surfaceY + 1f, wz + 0.5f);
+                    foreach (SpawnEntryData entry in spawnZone.WaterEntities.Entries)
+                    {
+                        if (entry == null) { continue; }
+                        bool isMob = entry is MobSpawnEntry;
+                        if (isMob ? skipMobs : skipInteractives) { continue; }
+                        if (!entry.RollAreaChance(rng)) { continue; }
+                        entry.TrySpawn(ws, pos, rng, waterContext);
                     }
                 }
             }

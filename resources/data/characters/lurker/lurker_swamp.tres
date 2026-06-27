@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://bwjra0l991slu"]
+
+[ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_species"]
+[ext_resource type="Resource" uid="uid://ndnvye3ey58mq" path="res://resources/data/characters/lurker/lurker.tres" id="2_mob"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_weapon"]
+[ext_resource type="Resource" uid="uid://b4p8s201wnfjt" path="res://resources/data/characters/lurker/lurker_bite.tres" id="4_bite"]
+
+[resource]
+script = ExtResource("1_species")
+mob = ExtResource("2_mob")
+displayName = &"Swamp Lurker"
+weapons = Array[ExtResource("3_weapon")]([ExtResource("4_bite")])
+metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

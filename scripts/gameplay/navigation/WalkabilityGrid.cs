@@ -48,6 +48,11 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     public readonly int maxFallHeight;
     public readonly bool canClimb;
     public readonly bool canSwim;
+    // True if the mob can ONLY traverse water — dry land is impassable. Water
+    // cells stay walkable (priced via waterCost / swimCost); dry surfaces are
+    // never stored, so A* confines the mob to the water body. Mirrors
+    // MobData.aquatic.
+    public readonly bool aquatic;
     public readonly float waterCost;
     // Higher pathfinder cost charged when the water column is at least
     // swimDepthThreshold voxels deep (the mob would be swimming there
@@ -71,6 +76,7 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
         maxFallHeight = data?.maxFallHeight ?? 4;
         canClimb = data?.canClimb ?? false;
         canSwim = data?.canSwim ?? true;
+        aquatic = data?.aquatic ?? false;
         waterCost = data?.waterCost ?? 5f;
         swimCost = data?.swimCost ?? 15f;
         swimDepthThreshold = data?.swimDepthThreshold ?? 2f;
@@ -89,6 +95,7 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
             && maxFallHeight == o.maxFallHeight
             && canClimb == o.canClimb
             && canSwim == o.canSwim
+            && aquatic == o.aquatic
             && waterCost == o.waterCost
             && swimCost == o.swimCost
             && swimDepthThreshold == o.swimDepthThreshold
@@ -100,7 +107,7 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     public override int GetHashCode()
     {
         return System.HashCode.Combine(
-            System.HashCode.Combine(maxStepHeight, maxFallHeight, canClimb, canSwim),
+            System.HashCode.Combine(maxStepHeight, maxFallHeight, canClimb, canSwim, aquatic),
             waterCost, swimCost, swimDepthThreshold,
             canFly, clearanceRadius, verticalClearance);
     }
@@ -362,6 +369,15 @@ public class WalkabilityGrid
 
             // Dry surface: air over solid.
             if (!VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy - 1, wz)))
+            {
+                wy--;
+                continue;
+            }
+
+            // Aquatic mobs can't stand on dry land — skip dry surfaces entirely
+            // so A* confines them to the water body. (Water cells above were
+            // already stored by the water branch and gated on canSwim.)
+            if (profile.aquatic)
             {
                 wy--;
                 continue;
