@@ -1,0 +1,70 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b4p8s201wnfjt"]
+
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
+[ext_resource type="PackedScene" uid="uid://c8a6r5gxqwv3p" path="res://scenes/fx/goblin_attack.tscn" id="6_atkfx"]
+[ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/fx/goblin_claw_hit.tscn" id="7_hitfx"]
+[ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="8_solidfx"]
+
+[sub_resource type="Resource" id="Resource_event_windup_anim"]
+script = ExtResource("4_event")
+type = 64
+
+[sub_resource type="Resource" id="Resource_event_dart"]
+script = ExtResource("4_event")
+time = 150
+type = 1024
+motionForwardSpeed = 12.0
+motionDuration = 0.2
+motionFreezeGravity = false
+
+[sub_resource type="Resource" id="Resource_event_strike"]
+script = ExtResource("4_event")
+time = 350
+type = 1
+range = 3.0
+farWidth = 2.0
+impactEnvironmentEffect = ExtResource("8_solidfx")
+impactHealthEffect = ExtResource("7_hitfx")
+impactArmorEffect = ExtResource("8_solidfx")
+impactLethalEffect = ExtResource("7_hitfx")
+
+[sub_resource type="Resource" id="Resource_action_bite"]
+script = ExtResource("3_action")
+displayName = &"Bite"
+activeDurationSeconds = 1.5
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup_anim"), SubResource("Resource_event_dart"), SubResource("Resource_event_strike")])
+speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+turnLockDelaySeconds = 0.1
+releaseEffect = ExtResource("6_atkfx")
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_bite")])
+
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("5_damage")
+tags = 1157
+healthDamage = 10.0
+blunt = 0.3
+hitstun = 0.3
+knockbackDistance = 0.8
+knockbackTime = 0.2
+buildups = []
+modifiers = []
+
+[resource]
+script = ExtResource("1_weapon")
+damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
+&"primary": SubResource("Resource_damage_primary")
+})
+actionProfile = SubResource("Resource_profile")
+MaxAttackRange = 3.5
+desiredAttackRange = 1.5
+cooldownSeconds = 1.5
+cooldownRandomSeconds = 1.0
+displayName = &"Lurker Bite"

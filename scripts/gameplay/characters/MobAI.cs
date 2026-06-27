@@ -403,6 +403,13 @@ public partial class Mob
             {
                 camouflage = Mathf.Max(camouflage, foliage.camouflage);
             }
+            // Murky water conceals an aquatic mob: fold the local water
+            // muddiness (scaled by waterClarityCamouflage) in alongside foliage,
+            // taking the max so the strongest concealment wins.
+            if (mobData.waterClarityCamouflage > 0f && IsInWater())
+            {
+                camouflage = Mathf.Max(camouflage, LocalWaterMuddiness() * mobData.waterClarityCamouflage);
+            }
             // Fold the transient mob-side visibility (movement / camouflage)
             // into prominence at the call site. Discoverables don't have a
             // transient term, so PerceptionInputs only carries one scalar
@@ -651,8 +658,12 @@ public partial class Mob
             float playerDecibels = _world.player.CurrentDecibels;
             if (playerDecibels > 0f && mobData.hearingRange > 0f)
             {
-                // Wind masks sound, fog carries it — sampled at the mob (listener).
-                float maxAudibleDistance = playerDecibels * mobData.hearingRange
+                // An aquatic predator shares the water with its prey: while the
+                // player is wading/swimming its splashing carries much farther
+                // to this mob. waterHearingMultiplier is 1 (no effect) for land
+                // mobs. Wind masks sound, fog carries it — sampled at the mob.
+                float waterHearing = _world.player.IsInWater ? mobData.waterHearingMultiplier : 1f;
+                float maxAudibleDistance = playerDecibels * mobData.hearingRange * waterHearing
                     * PlayerPerception.HearingRangeMultiplier(_world, GlobalPosition);
                 if (distanceSqToPlayer < maxAudibleDistance * maxAudibleDistance)
                 {

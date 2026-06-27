@@ -9,6 +9,7 @@
 [ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="11_surface"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="12_cave"]
 [ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/fixtures/zone_campfire_fixtures.tres" id="13_fixtures"]
+[ext_resource type="Resource" uid="uid://seiq0glne5orn" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="14_water"]
 
 [resource]
 script = ExtResource("1_script")
@@ -26,4 +27,5 @@ CaveThreshold = 1.0
 GrassThreshold = 0.5
 SurfaceEntities = ExtResource("11_surface")
 CaveEntities = ExtResource("12_cave")
+WaterEntities = ExtResource("14_water")
 Fixtures = ExtResource("13_fixtures")

@@ -1747,6 +1747,35 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             Mathf.FloorToInt(pos.Z)) == VoxelType.Water;
     }
 
+    // Local water "muddiness" (ZoneData.WaterOpacity, 0 = glassy → 1 = opaque)
+    // for the chunk this mob stands in — the signal behind water-clarity
+    // camouflage. Reads the chunk's dominant zone directly (no kernel blend;
+    // the per-chunk zone is plenty for a perception scalar). 0 when no zone
+    // data is loaded.
+    private float LocalWaterMuddiness()
+    {
+        WorldState ws = _world?.WorldState;
+        if (ws?.Zones == null || ws.Zones.Length == 0)
+        {
+            return 0f;
+        }
+        Vector3 pos = GlobalPosition;
+        ChunkState chunk = ws.GetChunk(new Vector3I(
+            Mathf.FloorToInt(pos.X / ChunkState.SIZE),
+            Mathf.FloorToInt(pos.Y / ChunkState.SIZE),
+            Mathf.FloorToInt(pos.Z / ChunkState.SIZE)));
+        if (chunk == null)
+        {
+            return 0f;
+        }
+        int zi = chunk.ZoneIndex;
+        if (zi < 0 || zi >= ws.Zones.Length)
+        {
+            return 0f;
+        }
+        return ws.Zones[zi].Data?.WaterOpacity ?? 0f;
+    }
+
     // Set _swimming when the contiguous water column at this mob's XZ is
     // at least swimDepthThreshold voxels deep. Walks the column up and
     // down from the feet voxel so the decision is independent of where the
@@ -1813,7 +1842,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // drag still applies so the exit reads as moving through water.
         if (!_exitingWater)
         {
-            float targetY = _waterSurfaceY - md.waterSurfaceOffset;
+            // Underwater mobs hold at submergedDepth below the surface (a
+            // lurking ambusher), surface swimmers float to waterSurfaceOffset.
+            // Either way it's a symmetric spring toward targetY: below it the
+            // mob is pushed up, above it pushed back down, so an underwater mob
+            // never breaches.
+            float surfaceOffset = md.underwaterPhysics ? md.submergedDepth : md.waterSurfaceOffset;
+            float targetY = _waterSurfaceY - surfaceOffset;
             float depthBelowSurface = targetY - pos.Y;
             if (depthBelowSurface > 0f)
             {
@@ -2560,7 +2595,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 linearDampTarget = 0f;
                 ApplyFlightPhysics((float)delta, in aiOutput, statusMoveMul, ref targetYaw);
             }
-            else if (!inBurrow && !actionLocksMovement && aiOutput.pathTarget.HasValue)
+            // An aquatic mob can't walk: it locomotes only while in water
+            // (wading or swimming). Out of water it has no ground drive, so a
+            // fish flung onto a bank just flops where it landed.
+            else if (!inBurrow && !actionLocksMovement && aiOutput.pathTarget.HasValue
+                && (!_simState.MobData.aquatic || _swimming || IsInWater()))
             {
                 Vector3 toTarget = aiOutput.pathTarget.Value - GlobalPosition;
                 toTarget.Y = 0f;
@@ -2589,7 +2628,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     {
                         if (_swimming)
                         {
-                            TryWaterExit(dir);
+                            // Underwater mobs are bound to the water and never
+                            // haul out onto a bank.
+                            if (!_simState.MobData.underwaterPhysics)
+                            {
+                                TryWaterExit(dir);
+                            }
                         }
                         else
                         {
@@ -4205,11 +4249,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         Vector3 pos = GlobalPosition;
-        // Ripples are a live water-surface effect — a mob the player can't see
-        // (undiscovered / faded out) shouldn't betray its position by disturbing
-        // the water. Suppress emission and reset the stride latch while not drawn;
-        // player-side allies keep _visibility at 1, so companions still ripple.
-        if (_visibility <= 0f)
+        // Ripples betray a mob the moment the player has at least PARTIAL
+        // perception of it (Detected or beyond) — not only once it's fully
+        // drawn. A camouflaged underwater mob the player can't yet resolve
+        // still disturbs the surface once noticed, and that surface tell is
+        // what gives it away. Below Detected it stays a secret. Player-side
+        // allies and reveal-mobs always ripple.
+        bool partiallyPerceived = Teams.AreAllied(ActorTeam, ETeam.Player)
+            || CVars.revealMobs.Value
+            || _simState.DiscoveryState >= EPlayerPerceptionState.Detected;
+        if (!partiallyPerceived)
         {
             _rippleEmitter.Update(pos, false, 0f, 1f);
             return;
