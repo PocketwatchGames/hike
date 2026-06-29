@@ -96,6 +96,18 @@ public partial class WorldGenData : Resource
     // footprint — see SubsceneStamper.ComputeSurfaceAnchor.
     [Export] public SubscenePlacement[] Subscenes = System.Array.Empty<SubscenePlacement>();
 
+    // POI-anchored spawn placements. Each binds authored spawn content to a
+    // named point of interest (resolved from ZoneData.PointsOfInterest into
+    // WorldState.PointsOfInterest); WorldGen places the content at that
+    // position. This is how signposts are placed now (replacing the per-region
+    // random-column fixtures) and how bosses / loot / villages will be placed
+    // later.
+    [Export] public PoiPlacement[] PointsOfInterestPlacements = System.Array.Empty<PoiPlacement>();
+
+    // Roads connecting named points of interest. WorldGen pathfinds and grades
+    // a route per connection (see RoadConnection / WorldGen.CarveRoads).
+    [Export] public RoadConnection[] Roads = System.Array.Empty<RoadConnection>();
+
     [ExportGroup("Player Loadout")]
     // The starting loadout/knowledge the player spawns with for this world.
     // These describe the run's scenario (a different world template can hand
@@ -226,4 +238,37 @@ public partial class WorldGenData : Resource
     // one-off fixture (region landmark / per-zone cluster anchor) before
     // giving up (or falling back to the target column).
     [Export] public int FixturePlacementMaxTries = 256;
+
+    [ExportGroup("Roads")]
+    // Max voxel rise per horizontal cell-step a road tolerates before the move
+    // counts as climbing a cliff. Also the slope cap the ramp-grading uses: a
+    // graded road never rises faster than this per cell, so it stays walkable.
+    [Export(PropertyHint.Range, "1,8,1")] public int RoadMaxWalkableStep = 1;
+    // Pathfinding penalty multiplier applied (scaled by the excess rise) to a
+    // move that climbs faster than RoadMaxWalkableStep. High so roads detour
+    // around cliffs when a gentler route exists, but still finite so a road can
+    // scale one when it must (then the climb gets graded into a ramp).
+    [Export] public float RoadCliffCostMultiplier = 25f;
+    // Cost multiplier (<= 1) for stepping onto a column an earlier road already
+    // laid. Below 1 so later roads prefer to merge onto and branch off the
+    // existing network rather than run a parallel track beside it.
+    [Export(PropertyHint.Range, "0.01,1,0.01")] public float RoadReuseCostMultiplier = 0.25f;
+    // Per-prop pathfinding cost added for each scatter prop (tree / tall grass)
+    // in the R×R window (R = road width) around a step, so roads thread through
+    // naturally open ground instead of plowing through dense props. Props the
+    // road does cross are removed. 0 disables prop-aware routing.
+    [Export] public float RoadPropCostMultiplier = 4f;
+    // Overlay block used when a RoadConnection leaves its Texture null.
+    [Export] public BlockData RoadDefaultTexture;
+    // How far (meters ≈ voxels) a road holds one rolled width before re-rolling
+    // a new one in [MinWidth, MaxWidth]. Each stride is a random length in this
+    // range, so the tread swells and pinches organically along its length.
+    [Export] public float RoadStrideMinMeters = 4f;
+    [Export] public float RoadStrideMaxMeters = 20f;
+    // Solid voxels guaranteed under each road tread column after all carving.
+    // Tunnels (GenerateChunk) and caves (GenerateCaves) run after the road pass
+    // grades the heightmap and can hollow out a road's surface, leaving the road
+    // over a void; the road-overlay pass re-solidifies this many voxels down
+    // from the tread so a road always bridges caves/tunnels on solid rock. >= 1.
+    [Export(PropertyHint.Range, "1,8,1")] public int RoadBedDepth = 2;
 }

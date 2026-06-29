@@ -461,6 +461,24 @@ public static class CVars
     // log identify the culprit.
     public static CVarBool audioLog = new CVarBool("audio_log", false);
 
+    // Player audio volumes (linear 0..1, 1 = unity gain), applied as bus
+    // volume_db via AudioVolume. master scales everything; music scales the
+    // Music bus; sfx scales both the 3D positional (World3D) and 2D ambience
+    // (Ambience2D) buses — everything that isn't music. AudioVolume.ApplyAll()
+    // pushes these at startup since cvar callbacks don't fire on construction.
+    public static CVarFloat volumeMaster = new CVarFloat("volume_master", 1f, (cvar) =>
+    {
+        AudioVolume.ApplyMaster(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat volumeMusic = new CVarFloat("volume_music", 1f, (cvar) =>
+    {
+        AudioVolume.ApplyMusic(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat volumeSfx = new CVarFloat("volume_sfx", 1f, (cvar) =>
+    {
+        AudioVolume.ApplySfx(((CVarFloat)cvar).Value);
+    });
+
     // When true, prints a line each time WeatherLightningSpawner picks
     // a strike interval, skips a strike (no ground, no data), or fires
     // one. Use to verify the spawner is awake and observe its cadence

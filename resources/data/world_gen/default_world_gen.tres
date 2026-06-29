@@ -36,6 +36,140 @@
 [ext_resource type="Script" uid="uid://c247odltr1n2o" path="res://scripts/data/worldgen/PlacedZone.cs" id="40_placed"]
 [ext_resource type="Script" uid="uid://bfgfv0y5b388o" path="res://scripts/data/worldgen/QuadrantBounds.cs" id="41_quadrant"]
 [ext_resource type="Script" uid="uid://4fakyxlqthf4" path="res://scripts/data/worldgen/BoxBounds.cs" id="42_box"]
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="50_spawnbase"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="51_spawnlist"]
+[ext_resource type="Script" uid="uid://db5ulwxm6oe8v" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="52_sign"]
+[ext_resource type="Script" uid="uid://finpjl8sxswp" path="res://scripts/data/worldgen/PoiPlacement.cs" id="53_poiplace"]
+[ext_resource type="Script" uid="uid://b267bryh6h5wt" path="res://scripts/data/worldgen/RoadConnection.cs" id="54_road"]
+[ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="55_signscene"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="56_lang"]
+[ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/blocks/block_dirt_overlay.tres" id="57_dirt"]
+[ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/blocks/block_cobblestone.tres" id="58_cobble"]
+
+[sub_resource type="Resource" id="Sign_crossroads"]
+script = ExtResource("52_sign")
+Scene = ExtResource("55_signscene")
+Text = "Crossroads. North to the peaks, west to the wood, east to the dunes, south to the mire."
+Language = ExtResource("56_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="SignList_crossroads"]
+script = ExtResource("51_spawnlist")
+Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_crossroads")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[sub_resource type="Resource" id="Poi_crossroads"]
+script = ExtResource("53_poiplace")
+PoiName = "crossroads"
+Content = SubResource("SignList_crossroads")
+metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
+
+[sub_resource type="Resource" id="Sign_mountain"]
+script = ExtResource("52_sign")
+Scene = ExtResource("55_signscene")
+Text = "The mountains rise sharp and cold ahead. Bring rope."
+Language = ExtResource("56_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="SignList_mountain"]
+script = ExtResource("51_spawnlist")
+Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_mountain")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[sub_resource type="Resource" id="Poi_mountain"]
+script = ExtResource("53_poiplace")
+PoiName = "mountain_pass"
+Content = SubResource("SignList_mountain")
+metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
+
+[sub_resource type="Resource" id="Sign_desert"]
+script = ExtResource("52_sign")
+Scene = ExtResource("55_signscene")
+Text = "Desert. Water is scarce — fill skins before crossing."
+Language = ExtResource("56_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="SignList_desert"]
+script = ExtResource("51_spawnlist")
+Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_desert")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[sub_resource type="Resource" id="Poi_desert"]
+script = ExtResource("53_poiplace")
+PoiName = "desert_well"
+Content = SubResource("SignList_desert")
+metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
+
+[sub_resource type="Resource" id="Sign_swamp"]
+script = ExtResource("52_sign")
+Scene = ExtResource("55_signscene")
+Text = "Swampland. Stay on the high ground after dusk."
+Language = ExtResource("56_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="SignList_swamp"]
+script = ExtResource("51_spawnlist")
+Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_swamp")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[sub_resource type="Resource" id="Poi_swamp"]
+script = ExtResource("53_poiplace")
+PoiName = "swamp_hollow"
+Content = SubResource("SignList_swamp")
+metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
+
+[sub_resource type="Resource" id="Sign_forest"]
+script = ExtResource("52_sign")
+Scene = ExtResource("55_signscene")
+Text = "Forest path. Mind the roots, mind the wolves."
+Language = ExtResource("56_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="SignList_forest"]
+script = ExtResource("51_spawnlist")
+Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_forest")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[sub_resource type="Resource" id="Poi_forest"]
+script = ExtResource("53_poiplace")
+PoiName = "forest_glade"
+Content = SubResource("SignList_forest")
+metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
+
+[sub_resource type="Resource" id="Road_mountain"]
+script = ExtResource("54_road")
+FromPoi = "crossroads"
+ToPoi = "mountain_pass"
+Texture = ExtResource("58_cobble")
+metadata/_custom_type_script = "uid://zanft4hzkpfhf"
+
+[sub_resource type="Resource" id="Road_forest"]
+script = ExtResource("54_road")
+FromPoi = "crossroads"
+ToPoi = "forest_glade"
+Texture = ExtResource("58_cobble")
+metadata/_custom_type_script = "uid://zanft4hzkpfhf"
+
+[sub_resource type="Resource" id="Road_desert"]
+script = ExtResource("54_road")
+FromPoi = "crossroads"
+ToPoi = "desert_well"
+Texture = ExtResource("57_dirt")
+metadata/_custom_type_script = "uid://zanft4hzkpfhf"
+
+[sub_resource type="Resource" id="Road_swamp"]
+script = ExtResource("54_road")
+FromPoi = "crossroads"
+ToPoi = "swamp_hollow"
+Texture = ExtResource("57_dirt")
+metadata/_custom_type_script = "uid://zanft4hzkpfhf"
+
+[sub_resource type="Resource" id="Road_forest_desert"]
+script = ExtResource("54_road")
+FromPoi = "forest_glade"
+ToPoi = "desert_well"
+Texture = ExtResource("57_dirt")
+metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
 [sub_resource type="Resource" id="Bounds_mountain"]
 script = ExtResource("41_quadrant")
@@ -231,6 +365,8 @@ script = ExtResource("1_script")
 SimData = ExtResource("2_sim")
 Zones = [SubResource("Placed_mountain"), SubResource("Placed_desert"), SubResource("Placed_swamp"), SubResource("Placed_forest"), SubResource("Placed_hub")]
 Regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), ExtResource("3_region_swamp"), ExtResource("3_region_forest")]
+PointsOfInterestPlacements = [SubResource("Poi_crossroads"), SubResource("Poi_mountain"), SubResource("Poi_desert"), SubResource("Poi_swamp"), SubResource("Poi_forest")]
+Roads = [SubResource("Road_mountain"), SubResource("Road_forest"), SubResource("Road_desert"), SubResource("Road_swamp"), SubResource("Road_forest_desert")]
 equippedInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_club"), SubResource("Resource_bomb"), SubResource("Resource_furcoat"), SubResource("Resource_afcr5")])
 startingConsumables = Array[ExtResource("2_consumable_script")]([ExtResource("6_torch"), ExtResource("7_potion"), ExtResource("17_shovel")])
 startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_knife"), SubResource("Resource_jl16k"), SubResource("Resource_ntk62"), SubResource("Resource_helmgosbark"), SubResource("Resource_helmglimp"), SubResource("Resource_summoner")])

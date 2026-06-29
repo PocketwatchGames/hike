@@ -41,6 +41,15 @@ public class MobSimState : EntitySimState
     // Optional per-mob override for the behavior the mob starts in (and returns to
     // when a behavior returns Complete). Null means use the brain's idleBehavior.
     public StringName InitialBehavior;
+    // Optional per-individual idle-loop clip override (NpcSpawnEntry.IdleAnimation):
+    // a concrete clip name (e.g. "idle_happy", "idle_nervous") that replaces the
+    // species' shared Idle binding when the mob is standing still, so NPCs built
+    // from one MobData each have a distinct resting pose. Must name a clip baked
+    // into the rig's animation library (polysplit/anims → human_anims.res); Mob
+    // .UpdateAnimation falls back to the species idle if it's missing. default =
+    // species default idle. Persisted via EntitySerializer so a hand-authored
+    // idle survives chunk eviction and save/load.
+    public StringName IdleAnimation;
     // Optional per-instance override for the mob's spoken language. When
     // non-null, Mob.SpeakDialogue uses this in place of MobData.language —
     // lets WorldGen / world files assign a language to a mob whose

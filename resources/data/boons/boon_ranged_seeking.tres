@@ -1,23 +1,17 @@
-[gd_resource type="Resource" script_class="BoonData" format=3 uid="uid://a3jjnm78vuj6c"]
+[gd_resource type="Resource" script_class="BoonData" format=3 uid="uid://3jjnm78vuj6c"]
 
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_boon"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_data"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="3_mod"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_gchui"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_wmw5y"]
 [ext_resource type="PackedScene" path="res://scenes/projectiles/homing_missile_blue.tscn" id="6_missile"]
 [ext_resource type="PackedScene" uid="uid://35k2amn0cgis" path="res://scenes/fx/homing_missile_fire.tscn" id="7_fire"]
 [ext_resource type="PackedScene" uid="uid://c1gf8agnm62bs" path="res://scenes/fx/homing_missile_impact.tscn" id="8_impact"]
 [ext_resource type="PackedScene" uid="uid://betguwy5h6abj" path="res://scenes/fx/homing_missile_expire.tscn" id="9_expire"]
 [ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="10_icon"]
-
-[sub_resource type="Resource" id="projectileDamage"]
-script = ExtResource("5_damage")
-tags = 577
-healthDamage = 3.0
-buildups = []
-modifiers = []
-metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 
 [sub_resource type="Resource" id="onAttackEvent"]
 script = ExtResource("4_event")
@@ -33,6 +27,14 @@ projectileSpeed = 12.0
 projectileLifetimeSeconds = 1.5
 projectileCount = 2
 metadata/_custom_type_script = "uid://cmw4pa3roleml"
+
+[sub_resource type="Resource" id="projectileDamage"]
+script = ExtResource("5_damage")
+tags = 577
+healthDamage = 3.0
+buildups = []
+modifiers = []
+metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("3_mod")

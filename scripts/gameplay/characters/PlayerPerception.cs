@@ -194,7 +194,14 @@ public static class PlayerPerception
             // bank then reads as obscured even when the player is in clear air (and
             // vice-versa). Cheap (two single-voxel lookups) and symmetric, so a
             // sightline reads the same fog whichever way it's perceived.
-            float fog = 0.5f * (FogFraction(world, player.GlobalPosition) + FogFraction(world, targetPos));
+            //
+            // FogFraction is the STATIC per-voxel field (where fog pools); scale it
+            // by the live diurnal CurrentFogAmount so obscuration tracks the VISIBLE
+            // fog the renderer shows (fog_map × fog_density). Without this the dense
+            // authored fog_map would blind perception at midday even though the fog
+            // has visibly burned off.
+            float fog = 0.5f * (FogFraction(world, player.GlobalPosition) + FogFraction(world, targetPos))
+                * world.CurrentFogAmount();
             float rain = world.CurrentRainAmount();
             float bite = 1f / Mathf.Max(0.01f, pd.clarityPower);
             float mLight = 1f - Mathf.Pow(1f - lightFactor, bite);
@@ -393,7 +400,11 @@ public static class PlayerPerception
         {
             return 1f;
         }
-        float fog = 0.5f * (FogFraction(world, perceiverPos) + FogFraction(world, targetPos));
+        // Static per-voxel fog field (where fog pools), scaled by the live diurnal
+        // CurrentFogAmount so the obscurant tracks the VISIBLE fog the renderer
+        // shows (fog burns off at midday) rather than the always-dense fog_map.
+        float fog = 0.5f * (FogFraction(world, perceiverPos) + FogFraction(world, targetPos))
+            * world.CurrentFogAmount();
         float rain = world.CurrentRainAmount();
         return Mathf.Max(0f, (1f - sim.FogVisionReduction * fog) * (1f - sim.RainVisionReduction * rain));
     }

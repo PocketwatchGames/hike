@@ -3,11 +3,15 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_euikn"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_io21e"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
 [ext_resource type="PackedScene" uid="uid://c8a6r5gxqwv3p" path="res://scenes/fx/goblin_attack.tscn" id="6_atkfx"]
 [ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/fx/goblin_claw_hit.tscn" id="7_hitfx"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_m3w5h"]
 [ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="8_solidfx"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_ftnlk"]
 
 [sub_resource type="Resource" id="Resource_event_windup_anim"]
 script = ExtResource("4_event")
@@ -18,7 +22,6 @@ script = ExtResource("4_event")
 time = 150
 type = 1024
 motionForwardSpeed = 12.0
-motionDuration = 0.2
 motionFreezeGravity = false
 
 [sub_resource type="Resource" id="Resource_event_strike"]
@@ -26,7 +29,6 @@ script = ExtResource("4_event")
 time = 350
 type = 1
 range = 3.0
-farWidth = 2.0
 impactEnvironmentEffect = ExtResource("8_solidfx")
 impactHealthEffect = ExtResource("7_hitfx")
 impactArmorEffect = ExtResource("8_solidfx")
@@ -65,6 +67,5 @@ damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 actionProfile = SubResource("Resource_profile")
 MaxAttackRange = 3.5
 desiredAttackRange = 1.5
-cooldownSeconds = 1.5
 cooldownRandomSeconds = 1.0
 displayName = &"Lurker Bite"

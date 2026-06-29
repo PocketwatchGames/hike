@@ -27,3 +27,4 @@ GrassThreshold = 0.3
 SurfaceEntities = ExtResource("11_surface")
 CaveEntities = ExtResource("12_cave")
 Fixtures = ExtResource("13_fixtures")
+PointsOfInterest = PackedStringArray("forest_glade")

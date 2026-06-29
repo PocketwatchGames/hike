@@ -53,6 +53,10 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     // never stored, so A* confines the mob to the water body. Mirrors
     // MobData.aquatic.
     public readonly bool aquatic;
+    // True for a land mob that wades shallow water but treats a swim-depth
+    // column as a wall (MobData.avoidsDeepWater). SampleColumn drops deep
+    // water cells for it so A* never routes through deep water.
+    public readonly bool avoidsDeepWater;
     public readonly float waterCost;
     // Higher pathfinder cost charged when the water column is at least
     // swimDepthThreshold voxels deep (the mob would be swimming there
@@ -77,6 +81,7 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
         canClimb = data?.canClimb ?? false;
         canSwim = data?.canSwim ?? true;
         aquatic = data?.aquatic ?? false;
+        avoidsDeepWater = data?.AvoidsDeepWater ?? true;
         waterCost = data?.waterCost ?? 5f;
         swimCost = data?.swimCost ?? 15f;
         swimDepthThreshold = data?.swimDepthThreshold ?? 2f;
@@ -96,6 +101,7 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
             && canClimb == o.canClimb
             && canSwim == o.canSwim
             && aquatic == o.aquatic
+            && avoidsDeepWater == o.avoidsDeepWater
             && waterCost == o.waterCost
             && swimCost == o.swimCost
             && swimDepthThreshold == o.swimDepthThreshold
@@ -107,7 +113,7 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     public override int GetHashCode()
     {
         return System.HashCode.Combine(
-            System.HashCode.Combine(maxStepHeight, maxFallHeight, canClimb, canSwim, aquatic),
+            System.HashCode.Combine(maxStepHeight, maxFallHeight, canClimb, canSwim, aquatic, avoidsDeepWater),
             waterCost, swimCost, swimDepthThreshold,
             canFly, clearanceRadius, verticalClearance);
     }
@@ -344,12 +350,17 @@ public class WalkabilityGrid
                 {
                     waterBottom--;
                 }
-                if (profile.canSwim && (found == 0 || lastSurfaceY - wy >= MinLayerSeparation)
+                // Wade vs swim by column depth (mirrors Mob.UpdateWaterState).
+                int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold));
+                int probeY = wy - (thresholdVoxels - 1);
+                bool swimming = ws.IsInBounds(wx, probeY, wz) && ws.GetVoxelWorld(wx, probeY, wz) == VoxelType.Water;
+                // A land mob (avoidsDeepWater) wades shallow water but treats a
+                // swim-depth column as a wall — it only ends up swimming when
+                // knocked in, so we never route it there.
+                bool deepBlocked = swimming && profile.avoidsDeepWater;
+                if (profile.canSwim && !deepBlocked && (found == 0 || lastSurfaceY - wy >= MinLayerSeparation)
                     && ColumnFits(ws, profile, wx, wy, wz, out float waterWallCost))
                 {
-                    int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold));
-                    int probeY = wy - (thresholdVoxels - 1);
-                    bool swimming = ws.IsInBounds(wx, probeY, wz) && ws.GetVoxelWorld(wx, probeY, wz) == VoxelType.Water;
                     WalkabilityCell wc = default;
                     wc.surfaceY = (short)wy;
                     wc.flags = CellFlags.Walkable | CellFlags.Water;

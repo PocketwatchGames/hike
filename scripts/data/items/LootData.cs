@@ -26,4 +26,10 @@ public partial class LootData : ItemData
     // Loot scene hides its sprite and lets the model render itself. The
     // inventorySprite is still used for the backpack icon.
     [Export] public PackedScene worldModel;
+
+    // Optional timed behavior: hidden/non-interactive outside an authored
+    // time-of-day window, emerging from the ground during it and retracting
+    // when it ends. Null = ordinary loot that is always present. See Loot's
+    // emergence section for the runtime.
+    [Export] public TimedEmergenceData timedEmergence;
 }

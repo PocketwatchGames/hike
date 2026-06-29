@@ -316,6 +316,13 @@ public partial class MobData : Resource
     // delta when they do.
     [Export] public float sneakDecibels = 1f;
     [Export] public float runDecibels = 4f;
+    // Loudness of a discrete vocalization (bark / growl / snarl) as heard BY THE
+    // PLAYER — audible distance = vocalizationDecibels * player.hearingRange. A
+    // vocalizing mob raises the player's awareness of ITSELF (Mob.Vocalize), the
+    // player-side mirror of movement noise. It deliberately does NOT alert other
+    // mobs (that's World.CreateNoiseEvent), so a bark draws the player's eye
+    // without tipping off enemies. 0 = vocalizations are silent to perception.
+    [Export] public float vocalizationDecibels = 2f;
 
     [ExportGroup("AI")]
     [Export] public StringName defaultBehavior = "Idle";
@@ -500,12 +507,28 @@ public partial class MobData : Resource
     // costs `waterCost` per cell. Amphibious mobs set canSwim=true,
     // waterCost=1; mobs that hate water set canSwim=true, waterCost=5.
     [Export] public bool canSwim = true;
+    // True for a land creature that wades shallow water but treats a swim-depth
+    // column (>= swimDepthThreshold) as a wall: the pathfinder won't route it
+    // into deep water (including when picking an attack / encircle slot) and
+    // BehaviorAttack won't let it attack while swimming. It only ends up
+    // swimming when knocked in, where it makes for the shallows instead of
+    // fighting. Defaults true — most mobs are land creatures; set it false for
+    // an intentional swimmer that should chase prey into deep water. Aquatic
+    // mobs ignore the flag entirely (see AvoidsDeepWater). Read everywhere via
+    // the AvoidsDeepWater property, never the raw field.
+    [Export] public bool avoidsDeepWater = true;
     // True if the mob is bound to water — it CANNOT walk on dry land. The
     // pathfinder treats dry surfaces as impassable for this mob (only water
     // cells are walkable) and ground locomotion is suppressed whenever it
     // isn't swimming, so a fully aquatic creature (fish, eel) never crawls
-    // ashore. Implies canSwim. Leave false for amphibious / land mobs.
+    // ashore. Implies canSwim and forces AvoidsDeepWater false (deep water is
+    // its home). Leave false for amphibious / land mobs.
     [Export] public bool aquatic = false;
+    // Effective "treats deep water as a wall" flag. Aquatic mobs never avoid
+    // deep water regardless of the authored avoidsDeepWater value, so a future
+    // aquatic mob can't silently wall itself out of its own habitat by leaving
+    // the now-default-true flag set.
+    public bool AvoidsDeepWater => avoidsDeepWater && !aquatic;
     // True if the mob lives submerged rather than bobbing at the surface.
     // ApplyWaterPhysics holds it at submergedDepth below the surface (and
     // pushes it back DOWN if it breaches) instead of floating it up, and it

@@ -68,7 +68,6 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 script = ExtResource("1_vvowg")
 displayName = &"Goblin"
 VisionRange = 20.0
-VisionFovDegrees = 180.0
 VisionDotPower = 2.0
 SmellStrength = 0.15
 smellRange = 5.0

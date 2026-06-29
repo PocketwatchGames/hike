@@ -5351,35 +5351,33 @@ public partial class Player : CharacterBody3D
 		int fz = Mathf.FloorToInt(GlobalPosition.Z);
 
 		VoxelType voxelAtFeet = _world.WorldState.GetVoxelWorld(fx, fy, fz);
-		if (voxelAtFeet != VoxelType.Water)
+		if (voxelAtFeet != VoxelType.Water || data == null)
 		{
 			_waterState = EWaterState.None;
 			return;
 		}
 
-		VoxelType voxelAtBody = _world.WorldState.GetVoxelWorld(fx, fy + 1, fz);
-		VoxelType voxelBelow = _world.WorldState.GetVoxelWorld(fx, fy - 1, fz);
+		// Measure the contiguous water column at this XZ, scanning up and down
+		// from the feet voxel so the swim/wade decision is independent of where
+		// the player currently sits within the column (e.g. just splashed in and
+		// not yet risen to the surface). Identical to Mob.UpdateWaterState and
+		// the pathfinder's wade/swim split, so the player and mobs agree on what
+		// counts as a swim cell at the same swimDepthThreshold.
+		int topY = fy;
+		while (_world.WorldState.GetVoxelWorld(fx, topY + 1, fz) == VoxelType.Water)
+		{
+			topY++;
+		}
+		int bottomY = fy;
+		while (_world.WorldState.GetVoxelWorld(fx, bottomY - 1, fz) == VoxelType.Water)
+		{
+			bottomY--;
+		}
+		int columnDepth = topY - bottomY + 1;
+		int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(data.swimDepthThreshold));
+		_waterState = columnDepth >= thresholdVoxels ? EWaterState.Swimming : EWaterState.Shallow;
 
-		if (voxelAtBody == VoxelType.Water)
-		{
-			_waterState = EWaterState.Swimming;
-		}
-		else if (VoxelTypeInfo.IsSolid(voxelBelow))
-		{
-			_waterState = EWaterState.Shallow;
-		}
-		else
-		{
-			_waterState = EWaterState.Swimming;
-		}
-
-		// Compute water surface Y by scanning upward
-		int scanY = fy;
-		while (_world.WorldState.GetVoxelWorld(fx, scanY, fz) == VoxelType.Water)
-		{
-			scanY++;
-		}
-		_waterSurfaceY = scanY;
+		_waterSurfaceY = topY + 1;
 
 		// Going over your head breaks sneak — splashing in is plainly audible.
 		// Only the swim-edge counts; wading through shallows is fine.

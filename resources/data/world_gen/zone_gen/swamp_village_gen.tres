@@ -27,3 +27,4 @@ GrassThreshold = 0.5
 SurfaceEntities = ExtResource("5_5w857")
 CaveEntities = ExtResource("1_5w857")
 Fixtures = ExtResource("9_village")
+PointsOfInterest = PackedStringArray("swamp_village")

@@ -203,6 +203,10 @@ public static class EntitySerializer
                 {
                     w.Write(mob.Outfit[i] ?? string.Empty);
                 }
+                // Per-individual idle-pose override (NpcSpawnEntry.IdleAnimation):
+                // a clip name, may be empty. Appended last so older world files
+                // still parse.
+                w.Write(mob.IdleAnimation != null ? mob.IdleAnimation.ToString() : "");
                 break;
 
             case DoorSimState door:
@@ -477,6 +481,7 @@ public static class EntitySerializer
                 {
                     outfit[i] = r.ReadString();
                 }
+                string idleAnimation = r.ReadString();
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.Species = species;
@@ -516,6 +521,10 @@ public static class EntitySerializer
                 mob.Loot = loot;
                 mob.ItemPreferences = itemPreferences;
                 mob.Outfit = outfit;
+                if (!string.IsNullOrEmpty(idleAnimation))
+                {
+                    mob.IdleAnimation = idleAnimation;
+                }
                 return mob;
             }
             case Tag.Door:

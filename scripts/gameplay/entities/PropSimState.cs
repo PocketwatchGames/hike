@@ -16,6 +16,9 @@ public class PropSimState : EntitySimState
         Type = type;
     }
 
+    // Trees and tall grass are surface scenery roads route around and clear.
+    public override bool IsRoadObstacle => true;
+
     public override Node3D CreateEntity(World world)
     {
         return Type switch

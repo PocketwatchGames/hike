@@ -1623,6 +1623,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
         }
         StringName loopName = mobData.GetAnimationName(loopAnim);
+        // Per-individual idle override: NPCs sharing one MobData each rest in a
+        // distinct pose (neutral / happy / nervous / …). Falls back to the
+        // species idle binding if this rig's library lacks the override clip.
+        if (loopAnim == EAnimation.Idle && _simState.IdleAnimation != default
+            && _animator.HasAnimation(_simState.IdleAnimation))
+        {
+            loopName = _simState.IdleAnimation;
+        }
         if (loopName != default && _animator.HasAnimation(loopName))
         {
             _animator.Play(loopName);
@@ -2859,8 +2867,34 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // velocity drops below threshold. Weapon hits unfreeze it again
         // by routing through ApplyImpulse → !_impulseApplied is false
         // that tick → re-pin happens once the body re-settles.
+        // A mob only freezes when it's actually at rest ON the ground. A
+        // zero-velocity body is otherwise pinned before gravity has integrated
+        // (e.g. the tick it's spawned/placed, when LinearVelocity is still 0)
+        // and strands it mid-air. So gate the freeze on being grounded, and
+        // unfreeze any body that's lost its footing so gravity carries it down.
+        // Water mobs are exempt: they drift on the current and swim
+        // continuously, so being in water never counts as "settled" — they
+        // stay simulated rather than freeze in place (a frozen swimmer wouldn't
+        // drift). The feet sit at the origin; probe just below them for solid
+        // ground (a small margin absorbs the resting collision gap).
+        const float GroundProbeDepth = 0.1f;
+        WorldState freezeWs = _world.WorldState;
+        Vector3 freezePos = GlobalPosition;
+        bool inWater = _swimming || IsInWater();
+        // No world to sample (transient load states) → fall back to the old
+        // location-agnostic behavior: allow the settle-freeze, never unfreeze.
+        bool grounded = freezeWs == null
+            || (!inWater && VoxelTypeInfo.IsSolid(freezeWs.GetVoxelWorld(
+                Mathf.FloorToInt(freezePos.X),
+                Mathf.FloorToInt(freezePos.Y - GroundProbeDepth),
+                Mathf.FloorToInt(freezePos.Z))));
+        if (!grounded && Freeze)
+        {
+            Freeze = false;
+        }
         bool wantsFreeze = !Freeze
             && !_impulseApplied
+            && grounded
             && LinearVelocity.LengthSquared() < 0.01f
             && (!alive || _simState.SuspendAITimeMs > _world.GameTimeMs);
         if (wantsFreeze)
@@ -4168,6 +4202,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (found)
         {
             SpawnWorldEffect(scene);
+        }
+        // A vocalization is an audible sound: the player grows more aware of this
+        // mob by ear, but it doesn't alert other mobs (enemies don't investigate
+        // a bark). Fired on the intent, not gated on a wired Fx.
+        if (mobData != null && mobData.vocalizationDecibels > 0f)
+        {
+            _world?.CreateNoiseEvent(GlobalPosition, mobData.vocalizationDecibels, this, ENoiseAudience.Player);
         }
     }
 

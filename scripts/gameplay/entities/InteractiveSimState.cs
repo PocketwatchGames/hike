@@ -191,6 +191,8 @@ public class BerryTreeSimState : EntitySimState
         BerryCount = berryCount;
     }
 
+    public override bool IsRoadObstacle => true;
+
     public override Node3D CreateEntity(World world)
     {
         return BerryTree.Create(world, this);

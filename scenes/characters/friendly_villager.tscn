@@ -22,7 +22,7 @@ axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")
 _collisionShape = NodePath("MovementCollision")
-_modelAnimator = NodePath("ModelAnimator")
+_modelAnimator = NodePath("Visuals/MeshContainer/ModelAnimator")
 _mesh = NodePath("Visuals/MeshContainer")
 _visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
@@ -74,10 +74,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.907801, 0)
 script = ExtResource("9_pixelsnap")
 _target = NodePath("../Visuals/MeshContainer/VillagerModel")
 
-[node name="ModelAnimator" type="Node" parent="." unique_id=1365668840 node_paths=PackedStringArray("player", "visual")]
+[node name="ModelAnimator" type="Node" parent="Visuals/MeshContainer" unique_id=1365668840 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("8_modelanim")
-player = NodePath("../Visuals/MeshContainer/VillagerModel/BasicHero_M/AnimationPlayer")
-visual = NodePath("../Visuals/MeshContainer/VillagerModel")
+player = NodePath("../VillagerModel/BasicHero_M/AnimationPlayer")
+visual = NodePath("../VillagerModel")
 modelMaterial = ExtResource("7_heromat")
 secondaryMaterial = ExtResource("12_facemat")
 secondaryMeshNames = PackedStringArray("M_eyes0", "M_eyebrows0", "M_mouth0")

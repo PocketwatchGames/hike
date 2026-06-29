@@ -146,4 +146,16 @@ public partial class ZoneGenData : Resource
     // The group's ScatterRadius spreads the members around that anchor. Null =
     // no per-zone cluster.
     [Export] public SpawnGroupData Fixtures;
+
+    // Names of points of interest located in this zone placement. WorldGen
+    // resolves each to a random flat column inside this zone's bounds and
+    // registers it in WorldState.PointsOfInterest, where road connections
+    // (WorldGenData.Roads) and POI-anchored spawns
+    // (WorldGenData.PointsOfInterestPlacements) reference it by name. Lives here
+    // rather than on ZoneData because POIs are per-placement: a world can reuse
+    // one ZoneData theme across several ZoneGenData placements (e.g. the swamp
+    // world's village / mud / highlands all share swamp.tres) yet wants a
+    // distinct POI per placement. Names are world-unique — the first placement
+    // listing a given name resolves it.
+    [Export] public string[] PointsOfInterest = System.Array.Empty<string>();
 }

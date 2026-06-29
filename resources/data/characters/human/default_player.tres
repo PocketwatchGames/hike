@@ -30,6 +30,7 @@ hearingRange = 15.0
 eyeDilationDilateSeconds = 10.0
 eyeDilationConstrictSeconds = 3.0
 swimJumpSpeed = 16.0
+swimDepthThreshold = 2.0
 unarmedWeapon = ExtResource("8_fists")
 modifiers = Array[Object]([])
 armorRechargeDelay = 5.0

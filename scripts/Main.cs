@@ -32,6 +32,7 @@ public partial class Main : Node
 	{
 		CVarRegistry.Init();
 		CVarRegistry.ExecFile(ProjectSettings.GlobalizePath("res://cvars.txt"));
+		AudioVolume.ApplyAll();
 		Loc.Init(CVars.language.Value);
 		AddChild(new ConsoleUI());
 		AddChild(new DiagnosticsOverlay());
@@ -412,6 +413,13 @@ public partial class Main : Node
 		(_currentScreen as GuiMainMenu).OnStartEditor += StartEditor;
 		(_currentScreen as GuiMainMenu).OnStartPainter += StartPainter;
 		AddChild(_currentScreen);
+
+		// TEMP DEBUG: auto-start a new game when HIKE_AUTOSTART is set, to
+		// reproduce in-game rendering errors headlessly. Remove before commit.
+		if (System.Environment.GetEnvironmentVariable("HIKE_AUTOSTART") == "1")
+		{
+			(_currentScreen as GuiMainMenu).CallDeferred(nameof(GuiMainMenu.NewGameStandard));
+		}
 	}
 
 }

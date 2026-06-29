@@ -656,25 +656,50 @@ public partial class World
         return false;
     }
 
-    // Emit a discrete noise impulse at `position` and immediately raise nearby
-    // mobs' perception of `source` — the actor that made the noise. Distinct
-    // from the continuous movement-noise hearing each mob samples per
-    // perception tick: this is the one-shot "loud event" channel for weapon
-    // impacts, breaking objects, and the like. `decibels` scales each
-    // listener's audible radius exactly as movement decibels do (audible
-    // distance = decibels * hearingRange, wind/fog adjusted); the bump falls
-    // off with distance via the mob's authored hearing curve. A null `source`
-    // is a no-op for perception — no actor to attribute the noise to — so the
-    // caller must pass the responsible actor (e.g. the attacker) to alert mobs.
-    public void CreateNoiseEvent(Vector3 position, float decibels, Node3D source = null)
+    // Emit a discrete noise impulse at `position`, attributed to `source` — the
+    // actor that made the noise. Distinct from the continuous movement-noise
+    // hearing each mob samples per perception tick: this is the one-shot "loud
+    // event" channel for weapon impacts, breaking objects, barks, and the like.
+    // `decibels` scales each listener's audible radius exactly as movement
+    // decibels do (audible distance = decibels * hearingRange, wind/fog
+    // adjusted); the bump falls off with distance via the listener's authored
+    // hearing curve. `audience` selects who reacts: Mobs raise their perception
+    // of the source (alert enemies), Player raises its awareness of the source
+    // mob (a barking dog draws the eye without tipping off enemies). A null
+    // `source` is a no-op — no actor to attribute the noise to.
+    public void CreateNoiseEvent(Vector3 position, float decibels, Node3D source = null,
+        ENoiseAudience audience = ENoiseAudience.Mobs)
     {
         if (decibels <= 0f || source == null)
         {
             return;
         }
-        foreach (Mob mob in GetEntities<Mob>())
+        if ((audience & ENoiseAudience.Mobs) != 0)
         {
-            mob.HearNoise(position, decibels, source);
+            foreach (Mob mob in GetEntities<Mob>())
+            {
+                mob.HearNoise(position, decibels, source);
+            }
+        }
+        // Player branch: raise the player's awareness of the SOURCE mob itself —
+        // the player-side mirror of Mob.HearNoise. Like all hearing it primes the
+        // perception meter but never latches Detected/Discovered on its own (that
+        // needs line of sight — see PlayerPerception.Tick).
+        if ((audience & ENoiseAudience.Player) != 0 && source is Mob sourceMob && player != null)
+        {
+            PlayerData pd = player.data;
+            if (pd != null && pd.hearingRange > 0f && sourceMob.SimState != null)
+            {
+                float maxAudibleDistance = decibels * pd.hearingRange
+                    * PlayerPerception.HearingRangeMultiplier(this, player.GlobalPosition);
+                float distSq = (player.GlobalPosition - position).LengthSquared();
+                if (maxAudibleDistance > 0f && distSq < maxAudibleDistance * maxAudibleDistance)
+                {
+                    float falloff = Mathf.Pow(1f - Mathf.Sqrt(distSq) / maxAudibleDistance, pd.hearingRangePower);
+                    sourceMob.SimState.PlayerPerception = Mathf.Clamp(
+                        sourceMob.SimState.PlayerPerception + falloff * pd.HearingStrength, 0f, 1f);
+                }
+            }
         }
     }
 

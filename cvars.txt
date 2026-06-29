@@ -1,3 +1,4 @@
 // CVar configuration file
 // Commands are executed on startup
 // Lines starting with // are comments
+volume_music 0.1

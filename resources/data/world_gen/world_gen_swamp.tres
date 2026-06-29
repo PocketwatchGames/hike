@@ -19,6 +19,108 @@
 [ext_resource type="Script" uid="uid://cfywh1bfbi04v" path="res://scripts/data/worldgen/EverywhereBounds.cs" id="31_everywhere"]
 [ext_resource type="Script" uid="uid://dri0vgugdo5e0" path="res://scripts/data/worldgen/CircleBounds.cs" id="32_circle"]
 [ext_resource type="Script" uid="uid://bfgfv0y5b388o" path="res://scripts/data/worldgen/QuadrantBounds.cs" id="33_quadrant"]
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="50_spawnbase"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="51_spawnlist"]
+[ext_resource type="Script" uid="uid://db5ulwxm6oe8v" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="52_sign"]
+[ext_resource type="Script" uid="uid://finpjl8sxswp" path="res://scripts/data/worldgen/PoiPlacement.cs" id="53_poiplace"]
+[ext_resource type="Script" uid="uid://b267bryh6h5wt" path="res://scripts/data/worldgen/RoadConnection.cs" id="54_road"]
+[ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="55_signscene"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="56_lang"]
+[ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/blocks/block_dirt_overlay.tres" id="57_dirt"]
+[ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/blocks/block_cobblestone.tres" id="58_cobble"]
+
+[sub_resource type="Resource" id="Sign_swamp"]
+script = ExtResource("52_sign")
+Scene = ExtResource("55_signscene")
+Text = "Swampland. Stay on the high ground after dusk."
+Language = ExtResource("56_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="SignList_swamp"]
+script = ExtResource("51_spawnlist")
+Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_swamp")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[sub_resource type="Resource" id="Poi_swamp"]
+script = ExtResource("53_poiplace")
+PoiName = "swamp_hollow"
+Content = SubResource("SignList_swamp")
+metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
+
+[sub_resource type="Resource" id="Sign_village"]
+script = ExtResource("52_sign")
+Scene = ExtResource("55_signscene")
+Text = "Village ahead. Trade, rest, and ask after the road."
+Language = ExtResource("56_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="SignList_village"]
+script = ExtResource("51_spawnlist")
+Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_village")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[sub_resource type="Resource" id="Poi_village"]
+script = ExtResource("53_poiplace")
+PoiName = "swamp_village"
+Content = SubResource("SignList_village")
+metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
+
+[sub_resource type="Resource" id="Sign_mud"]
+script = ExtResource("52_sign")
+Scene = ExtResource("55_signscene")
+Text = "Mudflats. Test each step — the mire swallows the careless."
+Language = ExtResource("56_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="SignList_mud"]
+script = ExtResource("51_spawnlist")
+Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_mud")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[sub_resource type="Resource" id="Poi_mud"]
+script = ExtResource("53_poiplace")
+PoiName = "swamp_mud"
+Content = SubResource("SignList_mud")
+metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
+
+[sub_resource type="Resource" id="Sign_highlands"]
+script = ExtResource("52_sign")
+Scene = ExtResource("55_signscene")
+Text = "The highlands. Drier ground and a long view."
+Language = ExtResource("56_lang")
+metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
+
+[sub_resource type="Resource" id="SignList_highlands"]
+script = ExtResource("51_spawnlist")
+Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_highlands")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"
+
+[sub_resource type="Resource" id="Poi_highlands"]
+script = ExtResource("53_poiplace")
+PoiName = "swamp_highlands"
+Content = SubResource("SignList_highlands")
+metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
+
+[sub_resource type="Resource" id="Road_village_hollow"]
+script = ExtResource("54_road")
+FromPoi = "swamp_village"
+ToPoi = "swamp_hollow"
+Texture = ExtResource("57_dirt")
+metadata/_custom_type_script = "uid://zanft4hzkpfhf"
+
+[sub_resource type="Resource" id="Road_village_mud"]
+script = ExtResource("54_road")
+FromPoi = "swamp_village"
+ToPoi = "swamp_mud"
+Texture = ExtResource("57_dirt")
+metadata/_custom_type_script = "uid://zanft4hzkpfhf"
+
+[sub_resource type="Resource" id="Road_village_highlands"]
+script = ExtResource("54_road")
+FromPoi = "swamp_village"
+ToPoi = "swamp_highlands"
+Texture = ExtResource("58_cobble")
+metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
 [sub_resource type="Resource" id="Bounds_swamp"]
 script = ExtResource("31_everywhere")
@@ -101,6 +203,8 @@ SimData = ExtResource("18_8e3k4")
 Zones = [SubResource("Placed_swamp"), SubResource("Placed_village"), SubResource("Placed_mud"), SubResource("Placed_highlands")]
 Regions = [ExtResource("15_7nyke")]
 playerSpawnPosition = Vector3(72, 0, 80)
+PointsOfInterestPlacements = [SubResource("Poi_swamp"), SubResource("Poi_village"), SubResource("Poi_mud"), SubResource("Poi_highlands")]
+Roads = [SubResource("Road_village_hollow"), SubResource("Road_village_mud"), SubResource("Road_village_highlands")]
 equippedInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_club")])
 startingConsumables = Array[ExtResource("2_consumable_script")]([])
 startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_jl16k")])

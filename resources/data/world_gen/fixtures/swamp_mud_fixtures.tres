@@ -45,6 +45,7 @@ Conversation = ExtResource("5_conv")
 Scene = ExtResource("6_villager_m")
 Outfit = PackedStringArray("M_hair_8", "M_TopBody", "M_BottomBody")
 Palette = SubResource("Hermit_palette")
+IdleAnimation = &"idle_old_man"
 Descriptor = ExtResource("4_hermit")
 InitialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"

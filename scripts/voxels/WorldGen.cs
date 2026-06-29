@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 10;
+    public const int WORLDGEN_VERSION = 19;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -70,6 +70,11 @@ public static class WorldGen
     // noise), set at the top of Generate alongside _activeGenData. PickZoneIndex
     // reads it to evaluate each PlacedZone's ZoneBounds.
     private static ZoneBoundsContext _zoneBoundsContext;
+
+    // Road tread columns laid so far by CarveRoads for the current run. Read by
+    // the pathfinder so later roads prefer to merge onto earlier ones. Same
+    // static-lifetime rationale as _activeGenData. Reset at the top of CarveRoads.
+    private static HashSet<(int, int)> _roadColumns = new();
 
     // Public read-only views of the active palettes. The terrain array is
     // what ChunkMesh uploads to the shader; the kit palette is for authoring
@@ -299,6 +304,7 @@ public static class WorldGen
     private const int SEED_SALT_SIGNPOST = 0x0C;
     private const int SEED_SALT_FIXTURE = 0x0D;
     private const int SEED_SALT_ZONEBOUNDS = 0x0E;
+    private const int SEED_SALT_POI = 0x0F;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -401,10 +407,11 @@ public static class WorldGen
         // geometry is noise-free by construction.
         var heightMap = BuildHeightMap(ws, genData, noise.Terrain, noise.RampGate, noise.Elevation);
 
-        // Player spawn point. With spawnAtSurface the authored Y is replaced by
-        // the ground surface at (X, Z) so the player lands on terrain wherever
-        // the start area ended up; otherwise the explicit Y is used verbatim.
-        ws.Spawn = ResolveSpawn(genData, heightMap);
+        // Resolve each authored POI name (ZoneData.PointsOfInterest) to a flat
+        // column inside its zone and register it on WorldState. Runs on the bare
+        // heightmap (terrain is "constructed" once BuildHeightMap is done); the
+        // road pass and the POI-anchored spawn pass both read this registry.
+        ResolvePointsOfInterest(ws, genData, heightMap, worldSeed);
 
         GenerateChunks(ws, genData, noise.Tunnel, heightMap);
 
@@ -470,10 +477,20 @@ public static class WorldGen
         }
         GenerateAllProps(ws, genData, noise.Grass, noise.Forest, heightMap, skipFlags, worldSeed);
 
+        // Authored fixtures (zone clusters, POI placements, region landmarks).
+        // Tag everything spawned here as PlacedAsFixture so the road pass routes
+        // around it and never clears or regrades under it.
+        ws.TaggingFixtures = true;
+
         // One-off per-zone fixture clusters (hub zone = near-spawn villager /
         // companion / lit campfire / boat; other zones = their landmark
         // cluster), each authored as a ZoneGenData.Fixtures SpawnGroupData.
         PlaceZoneFixtures(ws, genData, heightMap, worldSeed);
+
+        // Spawn authored content anchored to named POIs (signposts now; bosses /
+        // loot / villages later). Replaces the per-region random-column signpost
+        // fixtures.
+        PlacePoiPlacements(ws, genData, heightMap, worldSeed);
 
         if ((skipFlags & SKIP_INTERACTIVES) == 0)
         {
@@ -481,6 +498,22 @@ public static class WorldGen
             // as each RegionGenData.Fixtures list.
             PlaceRegionFixtures(ws, genData, heightMap, worldSeed);
         }
+
+        ws.TaggingFixtures = false;
+
+        // Pathfind and carve roads between connected POIs. Runs AFTER props so
+        // the route can prefer naturally open ground (props add pathfinding
+        // cost) and clear the props it does cross. Grades cliff climbs into
+        // walkable ramps by rewriting voxels in place (chunks already exist),
+        // then paints the tread overlay. Before ComputeSunlight so the bake sees
+        // the regraded geometry.
+        CarveRoads(ws, genData, heightMap, worldSeed);
+
+        // Player spawn point, resolved after road grading so a road crossing the
+        // spawn column lands the player on the regraded surface. With
+        // spawnAtSurface the authored Y is replaced by the ground surface at
+        // (X, Z); otherwise the explicit Y is used verbatim.
+        ws.Spawn = ResolveSpawn(genData, heightMap);
 
         // Stamp authored subscenes (voxels + entities). Loads each
         // `.hikescene` referenced from genData.Subscenes, computes a
@@ -774,6 +807,518 @@ public static class WorldGen
             int sy = heightMap.GetHeight(anchorCol.X, anchorCol.Z);
             var anchor = new Vector3(anchorCol.X + 0.5f, sy + 1f, anchorCol.Z + 0.5f);
             fixtures.Spawn(ws, anchor, rng, context);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Points of interest & roads
+    // ─────────────────────────────────────────────────────────────────────
+
+    // Minimum spacing (voxels) kept between two distinct POIs rolled in the
+    // same zone, so multiple named places don't land on top of each other.
+    private const float POI_MIN_SPACING = 8f;
+
+    // Resolve every authored POI name to a concrete world position and register
+    // it on WorldState.PointsOfInterest. Each zone (PlacedZone) contributes the
+    // names on its ZoneData.PointsOfInterest; a name is resolved by the FIRST
+    // zone that lists it (names are world-unique — a ZoneData reused across
+    // several placements doesn't multiply its POIs). Position is a random flat,
+    // dry column inside the zone's bounds, mirroring the random-column branch of
+    // PlaceZoneFixtures.
+    private static void ResolvePointsOfInterest(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        ws.PointsOfInterest.Clear();
+        PlacedZone[] zones = genData.Zones ?? System.Array.Empty<PlacedZone>();
+        if (zones.Length == 0) { return; }
+
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_POI));
+
+        foreach (PlacedZone placed in zones)
+        {
+            string[] names = placed?.ZoneGen?.PointsOfInterest;
+            if (names == null) { continue; }
+            ZoneBounds bounds = placed.Bounds;
+            foreach (string name in names)
+            {
+                if (string.IsNullOrEmpty(name) || ws.PointsOfInterest.ContainsKey(name))
+                {
+                    continue;
+                }
+                bool Valid(int wx, int wz)
+                {
+                    if (!IsFlatTerrainAt(wx, wz, heightMap)) { return false; }
+                    if (bounds != null && !bounds.Contains(
+                            (int)Math.Floor((double)wx / ChunkState.SIZE),
+                            (int)Math.Floor((double)wz / ChunkState.SIZE),
+                            _zoneBoundsContext))
+                    {
+                        return false;
+                    }
+                    foreach (Vector3 existing in ws.PointsOfInterest.Values)
+                    {
+                        float dx = existing.X - (wx + 0.5f);
+                        float dz = existing.Z - (wz + 0.5f);
+                        if (dx * dx + dz * dz < POI_MIN_SPACING * POI_MIN_SPACING)
+                        {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+                if (TryRollColumn(rng, genData, worldMinX, worldMaxX, worldMinZ, worldMaxZ, Valid, out int rx, out int rz))
+                {
+                    int sy = heightMap.GetHeight(rx, rz);
+                    ws.PointsOfInterest[name] = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
+                }
+                else
+                {
+                    GD.PushWarning($"WorldGen: could not place point of interest '{name}' inside its zone.");
+                }
+            }
+        }
+    }
+
+    // Spawn authored content at each POI named by a WorldGenData PoiPlacement.
+    // Position is the POI's registered ground-top anchor; entries run through
+    // the same TrySpawn path the region fixtures use (so a SignpostSpawnEntry
+    // behaves exactly as before, just anchored to a named place instead of a
+    // rolled column).
+    private static void PlacePoiPlacements(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        PoiPlacement[] placements = genData.PointsOfInterestPlacements ?? System.Array.Empty<PoiPlacement>();
+        if (placements.Length == 0) { return; }
+
+        var context = new SpawnContext
+        {
+            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
+            IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
+        };
+
+        for (int pi = 0; pi < placements.Length; pi++)
+        {
+            PoiPlacement placement = placements[pi];
+            if (placement == null || string.IsNullOrEmpty(placement.PoiName) || placement.Content?.Entries == null)
+            {
+                continue;
+            }
+            if (!ws.PointsOfInterest.TryGetValue(placement.PoiName, out Vector3 pos))
+            {
+                GD.PushWarning($"WorldGen: POI placement references unresolved point of interest '{placement.PoiName}'.");
+                continue;
+            }
+            var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), pi, 1));
+            foreach (SpawnEntryData entry in placement.Content.Entries)
+            {
+                entry?.TrySpawn(ws, pos, rng, context);
+            }
+        }
+    }
+
+    // Pathfind and carve a road tread per authored connection. Runs AFTER props
+    // (and fixtures) exist so the route can avoid them and clear the ones it
+    // crosses. Roads are processed in order; each sees the columns laid by
+    // earlier roads as low-cost (RoadReuseCostMultiplier) so the network branches
+    // off existing roads instead of running parallel tracks. Because chunks are
+    // already built, grading rewrites voxels in place (cut/fill) rather than
+    // feeding GenerateChunk.
+    private static void CarveRoads(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        _roadColumns = new HashSet<(int, int)>();
+
+        RoadConnection[] roads = genData.Roads ?? System.Array.Empty<RoadConnection>();
+        if (roads.Length == 0) { return; }
+
+        // Index entities the road should route around, by column. Two kinds:
+        //   - scatter scenery (IsRoadObstacle: trees, tall grass, climbable /
+        //     berry trees) — avoided AND cleared where the tread crosses them.
+        //   - authored fixtures (PlacedAsFixture: campfires, wells, signposts,
+        //     villages, ...) — avoided but NEVER cleared, and their columns are
+        //     skipped when stamping the tread so the road can't regrade under
+        //     them. Mobs / loot are neither — roads ignore them.
+        // protectedColumns marks the fixture columns the tread must leave intact.
+        var obstacleColumns = new Dictionary<(int, int), List<EntitySimState>>();
+        var protectedColumns = new HashSet<(int, int)>();
+        foreach (List<EntitySimState> bucket in ws._entities.Values)
+        {
+            foreach (EntitySimState e in bucket)
+            {
+                if (!e.IsRoadObstacle && !e.PlacedAsFixture) { continue; }
+                var key = (Mathf.FloorToInt(e.WorldPosition.X), Mathf.FloorToInt(e.WorldPosition.Z));
+                if (!obstacleColumns.TryGetValue(key, out List<EntitySimState> list))
+                {
+                    list = new List<EntitySimState>();
+                    obstacleColumns[key] = list;
+                }
+                list.Add(e);
+                if (e.PlacedAsFixture) { protectedColumns.Add(key); }
+            }
+        }
+
+        int ci = 0;
+        foreach (RoadConnection conn in roads)
+        {
+            int connIndex = ci++;
+            if (conn == null) { continue; }
+            if (!ws.PointsOfInterest.TryGetValue(conn.FromPoi ?? "", out Vector3 a)
+                || !ws.PointsOfInterest.TryGetValue(conn.ToPoi ?? "", out Vector3 b))
+            {
+                GD.PushWarning($"WorldGen: road '{conn.FromPoi}' → '{conn.ToPoi}' references an unresolved point of interest; skipped.");
+                continue;
+            }
+
+            int minWidth = Math.Max(1, Math.Min(conn.MinWidth, conn.MaxWidth));
+            int maxWidth = Math.Max(minWidth, conn.MaxWidth);
+            var start = (Mathf.FloorToInt(a.X), Mathf.FloorToInt(a.Z));
+            var goal = (Mathf.FloorToInt(b.X), Mathf.FloorToInt(b.Z));
+            // Route with the widest case so the corridor it picks stays clear
+            // even where the tread later swells to MaxWidth.
+            List<(int, int)> path = FindRoadPath(heightMap, genData, start, goal, obstacleColumns, maxWidth);
+            if (path == null || path.Count == 0)
+            {
+                GD.PushWarning($"WorldGen: no road route found '{conn.FromPoi}' → '{conn.ToPoi}'.");
+                continue;
+            }
+
+            BlockData tex = conn.Texture ?? genData.RoadDefaultTexture;
+            byte overlay = tex != null ? (byte)tex.AtlasBaseIndex : OVERLAY_DIRT;
+            var widthRng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_ROAD), connIndex, 0));
+            GradeCarvePaintRoad(ws, genData, heightMap, path, minWidth, maxWidth, overlay, widthRng, obstacleColumns, protectedColumns);
+        }
+    }
+
+    // 8-connected A* over world columns between two POI columns. Cost favours
+    // flat / gently sloped ground, penalizes climbing faster than
+    // RoadMaxWalkableStep (× RoadCliffCostMultiplier, scaled by the excess),
+    // adds cost for obstacle columns (scatter scenery AND authored fixtures) in
+    // the R×R window around each step (R = road width) so roads thread through
+    // open ground and around fixtures, and discounts columns already laid by
+    // earlier roads (× RoadReuseCostMultiplier) so roads merge. Wet columns
+    // (surface at or below water) are impassable. World is small (a few hundred
+    // columns per side) so a plain A* is ample.
+    private static List<(int, int)> FindRoadPath(HeightMap hm, WorldGenData genData,
+        (int x, int z) start, (int x, int z) goal,
+        Dictionary<(int, int), List<EntitySimState>> obstacleColumns, int width)
+    {
+        int minX = hm.WorldMinX, maxX = hm.WorldMaxX, minZ = hm.WorldMinZ, maxZ = hm.WorldMaxZ;
+        int sizeX = maxX - minX + 1;
+        int sizeZ = maxZ - minZ + 1;
+        int Idx(int x, int z) => (x - minX) * sizeZ + (z - minZ);
+
+        int maxStep = Math.Max(1, genData.RoadMaxWalkableStep);
+        float cliffMult = genData.RoadCliffCostMultiplier;
+        float reuseMult = genData.RoadReuseCostMultiplier;
+        float propMult = genData.RoadPropCostMultiplier;
+        int propScan = width / 2; // R×R window radius
+
+        // Number of obstacle columns (scenery + fixtures) in the R×R window.
+        int ObstacleCount(int x, int z)
+        {
+            int c = 0;
+            for (int dx = -propScan; dx <= propScan; dx++)
+            {
+                for (int dz = -propScan; dz <= propScan; dz++)
+                {
+                    if (obstacleColumns.ContainsKey((x + dx, z + dz))) { c++; }
+                }
+            }
+            return c;
+        }
+
+        // Dry land is passable; only genuinely-submerged columns (top solid voxel
+        // below the water plane) are blocked. The threshold is >= WATER_LEVEL, NOT
+        // > : a column whose top solid voxel sits exactly at WATER_LEVEL is dry
+        // SHORELINE — its walkable top face is at h+1, above the water — matching
+        // IsFlatDryGrassAt. Using > was an off-by-one that made shoreline
+        // impassable, which is fatal in a swamp sitting at elevation 0 where the
+        // POIs themselves land on shoreline and every route then failed.
+        bool Passable(int x, int z)
+        {
+            if (x < minX || x > maxX || z < minZ || z > maxZ) { return false; }
+            return hm.GetHeight(x, z) >= WATER_LEVEL;
+        }
+        if (!Passable(start.x, start.z) || !Passable(goal.x, goal.z)) { return null; }
+
+        var gScore = new float[sizeX * sizeZ];
+        Array.Fill(gScore, float.PositiveInfinity);
+        var cameFrom = new int[sizeX * sizeZ];
+        Array.Fill(cameFrom, -1);
+        var closed = new bool[sizeX * sizeZ];
+        var open = new PriorityQueue<int, float>();
+
+        int startIdx = Idx(start.x, start.z);
+        int goalIdx = Idx(goal.x, goal.z);
+        gScore[startIdx] = 0f;
+
+        // Scale the octile-distance heuristic by the cheapest possible per-step
+        // cost so it never overestimates. The reuse discount makes an on-road
+        // step cost reuseMult (< 1); an octile heuristic weighted at 1.0 would
+        // overestimate the remaining cost of any road-following route, making A*
+        // non-optimal and returning a near-straight path that runs PARALLEL to an
+        // existing road instead of merging onto it. Weighting by reuseMult keeps
+        // it admissible so merges win.
+        float hWeight = Math.Min(1f, reuseMult);
+        float Heuristic(int x, int z)
+        {
+            int dx = Math.Abs(x - goal.x);
+            int dz = Math.Abs(z - goal.z);
+            int diag = Math.Min(dx, dz);
+            return ((dx + dz) - (2f - 1.41421356f) * diag) * hWeight;
+        }
+
+        open.Enqueue(startIdx, Heuristic(start.x, start.z));
+
+        Span<int> dirsX = stackalloc int[] { 1, -1, 0, 0, 1, 1, -1, -1 };
+        Span<int> dirsZ = stackalloc int[] { 0, 0, 1, -1, 1, -1, 1, -1 };
+
+        bool found = false;
+        while (open.TryDequeue(out int current, out float _))
+        {
+            if (closed[current]) { continue; }
+            closed[current] = true;
+            if (current == goalIdx) { found = true; break; }
+
+            int cx = current / sizeZ + minX;
+            int cz = current % sizeZ + minZ;
+            int curH = hm.GetHeight(cx, cz);
+
+            for (int d = 0; d < 8; d++)
+            {
+                int nx = cx + dirsX[d];
+                int nz = cz + dirsZ[d];
+                if (!Passable(nx, nz)) { continue; }
+                int nIdx = Idx(nx, nz);
+                if (closed[nIdx]) { continue; }
+
+                float dist = d < 4 ? 1f : 1.41421356f;
+                int rise = Math.Abs(hm.GetHeight(nx, nz) - curH);
+                float move = dist + rise; // gentle slope adds a mild cost
+                if (rise > maxStep)
+                {
+                    move += (rise - maxStep) * cliffMult * dist;
+                }
+                if (propMult > 0f)
+                {
+                    move += ObstacleCount(nx, nz) * propMult * dist;
+                }
+                if (_roadColumns.Contains((nx, nz)))
+                {
+                    move *= reuseMult;
+                }
+
+                float tentative = gScore[current] + move;
+                if (tentative < gScore[nIdx])
+                {
+                    gScore[nIdx] = tentative;
+                    cameFrom[nIdx] = current;
+                    open.Enqueue(nIdx, tentative + Heuristic(nx, nz));
+                }
+            }
+        }
+
+        if (!found) { return null; }
+
+        var path = new List<(int, int)>();
+        for (int idx = goalIdx; idx != -1; idx = cameFrom[idx])
+        {
+            path.Add((idx / sizeZ + minX, idx % sizeZ + minZ));
+        }
+        path.Reverse();
+        return path;
+    }
+
+    // Grade the route into a walkable profile, then stamp the tread (a disc whose
+    // radius follows the road's varying width around each path column) into the
+    // voxel grid: cut/fill the column to the graded height, guarantee a solid
+    // RoadBedDepth bed (so the road bridges caves/tunnels rather than opening
+    // into them), clear detail scatter, paint the overlay, and delete any scatter
+    // scenery on the tread. The width is rolled in [minWidth, maxWidth] and held
+    // for a random stride (RoadStride*Meters) before re-rolling, so the road
+    // swells and pinches. Columns already laid by an EARLIER road (in
+    // _roadColumns) are left as-is so the existing road's texture and grade win
+    // where roads overlap. Columns with an authored fixture (protectedColumns)
+    // are skipped — the road leaves a gap rather than regrading under a landmark.
+    // Endpoints (the POIs) are held fixed; the interior is slope-limited to
+    // RoadMaxWalkableStep per cell, cutting cliff tops and filling dips.
+    private static void GradeCarvePaintRoad(WorldState ws, WorldGenData genData, HeightMap hm,
+        List<(int, int)> path, int minWidth, int maxWidth, byte overlay, Random widthRng,
+        Dictionary<(int, int), List<EntitySimState>> obstacleColumns,
+        HashSet<(int, int)> protectedColumns)
+    {
+        int n = path.Count;
+        int maxStep = Math.Max(1, genData.RoadMaxWalkableStep);
+        int bedDepth = Math.Max(1, genData.RoadBedDepth);
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        var t = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            t[i] = hm.GetHeight(path[i].Item1, path[i].Item2);
+        }
+
+        // Gauss-Seidel slope limit on interior columns (endpoints fixed). Each
+        // interior column is clamped to within maxStep of both neighbours;
+        // iterate to convergence (bounded by n passes).
+        for (int pass = 0; pass < n; pass++)
+        {
+            bool changed = false;
+            for (int i = 1; i < n - 1; i++)
+            {
+                int upper = Math.Min(t[i - 1], t[i + 1]) + maxStep;
+                int lower = Math.Max(t[i - 1], t[i + 1]) - maxStep;
+                int v = t[i];
+                if (lower > upper)
+                {
+                    v = (t[i - 1] + t[i + 1]) / 2; // locally infeasible: split the difference
+                }
+                else
+                {
+                    v = Math.Clamp(v, lower, upper);
+                }
+                if (v != t[i]) { t[i] = v; changed = true; }
+            }
+            if (!changed) { break; }
+        }
+
+        // Per-point tread radius: hold a rolled width for a random stride, then
+        // re-roll. Stride is consumed in along-path distance (diagonal = √2).
+        float strideMin = Math.Max(0f, genData.RoadStrideMinMeters);
+        float strideMax = Math.Max(strideMin, genData.RoadStrideMaxMeters);
+        int RollWidth() => widthRng.Next(minWidth, maxWidth + 1);
+        float RollStride() => strideMin + (float)widthRng.NextDouble() * (strideMax - strideMin);
+        int curWidth = RollWidth();
+        float strideLeft = RollStride();
+
+        for (int i = 0; i < n; i++)
+        {
+            int px = path[i].Item1;
+            int pz = path[i].Item2;
+            int hNew = t[i];
+
+            // Where this road rides exactly on an earlier road (its centerline
+            // is already a road column), don't stamp anything — not even the
+            // wider tread. The existing road wins entirely, so a wider second
+            // road can't paint a different-texture fringe alongside it. (Still
+            // advance the stride below.)
+            if (!_roadColumns.Contains((px, pz)))
+            {
+                int radius = Math.Max(0, (curWidth - 1) / 2);
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    for (int dz = -radius; dz <= radius; dz++)
+                    {
+                        if (dx * dx + dz * dz > radius * radius + radius) { continue; } // disc-ish
+                        int wx = px + dx;
+                        int wz = pz + dz;
+                        if (wx < hm.WorldMinX || wx > hm.WorldMaxX || wz < hm.WorldMinZ || wz > hm.WorldMaxZ)
+                        {
+                            continue;
+                        }
+                        // Leave existing road columns alone so the earlier road's
+                        // texture and grade win where roads overlap; skip authored
+                        // fixtures so the road never regrades under a landmark.
+                        if (_roadColumns.Contains((wx, wz)) || protectedColumns.Contains((wx, wz)))
+                        {
+                            continue;
+                        }
+                        StampRoadColumn(ws, hm, wx, wz, hNew, overlay, bedDepth, worldMinY, worldMaxY);
+                        RemoveScatterInColumn(ws, obstacleColumns, wx, wz);
+                        _roadColumns.Add((wx, wz));
+                    }
+                }
+            }
+
+            // Advance the stride by the step length to the next path point.
+            if (i + 1 < n)
+            {
+                bool diag = path[i + 1].Item1 != px && path[i + 1].Item2 != pz;
+                strideLeft -= diag ? 1.41421356f : 1f;
+                if (strideLeft <= 0f)
+                {
+                    curWidth = RollWidth();
+                    strideLeft = RollStride();
+                }
+            }
+        }
+    }
+
+    // Rewrite one tread column to the graded height: cut solid above / fill solid
+    // below, guarantee a solid bed, clear detail, paint the overlay. Re-filled
+    // voxels copy the column's existing surface-kit TerrainId so cuts and
+    // embankments read as the surrounding terrain (the overlay paints the road on
+    // top). Updates the heightmap so later passes (light bake) see the new surface.
+    private static void StampRoadColumn(WorldState ws, HeightMap hm, int wx, int wz, int hNew,
+        byte overlay, int bedDepth, int worldMinY, int worldMaxY)
+    {
+        int hOld = hm.Height[wx - hm.WorldMinX, wz - hm.WorldMinZ];
+
+        // Reference kit from a voxel solid in both old and new profiles.
+        int refY = Math.Clamp(Math.Min(hOld, hNew), worldMinY, worldMaxY);
+        int kitId = ws.GetTerrainIdWorld(wx, refY, wz);
+
+        // Cut: clear everything above the new surface up to the old surface.
+        for (int by = hNew + 1; by <= hOld && by <= worldMaxY; by++)
+        {
+            if (by < worldMinY) { continue; }
+            ws.SetVoxelWorld(wx, by, wz, VoxelType.Air);
+            ws.SetOverlayIdWorld(wx, by, wz, 0);
+            ws.SetDetailGroupWorld(wx, by, wz, 0);
+            ws.SetDetailStrengthWorld(wx, by, wz, 0);
+        }
+        // Fill: add solid up to the new surface where we raised the column.
+        for (int by = hOld + 1; by <= hNew && by <= worldMaxY; by++)
+        {
+            if (by < worldMinY) { continue; }
+            ws.SetVoxelWorld(wx, by, wz, VoxelType.Terrain, VoxelTypeInfo.SharpAxes.Y);
+            ws.SetTerrainIdWorld(wx, by, wz, kitId);
+        }
+        // Bed: guarantee solid rock under the deck (refill cave/tunnel hollows).
+        for (int by = hNew; by > hNew - bedDepth && by >= worldMinY; by--)
+        {
+            if (by > worldMaxY) { continue; }
+            VoxelType v = ws.GetVoxelWorld(wx, by, wz);
+            if (v == VoxelType.Air || v == VoxelType.Water)
+            {
+                ws.SetVoxelWorld(wx, by, wz, VoxelType.Terrain, VoxelTypeInfo.SharpAxes.Y);
+                ws.SetTerrainIdWorld(wx, by, wz, kitId);
+            }
+        }
+        // Surface: flat deck, no detail scatter, road overlay on top.
+        if (hNew >= worldMinY && hNew <= worldMaxY)
+        {
+            ws.SetVoxelWorld(wx, hNew, wz, VoxelType.Terrain, VoxelTypeInfo.SharpAxes.Y);
+            ws.SetTerrainIdWorld(wx, hNew, wz, kitId);
+            ws.SetDetailGroupWorld(wx, hNew, wz, 0);
+            ws.SetDetailStrengthWorld(wx, hNew, wz, 0);
+            ws.SetOverlayIdWorld(wx, hNew, wz, overlay);
+        }
+
+        hm.Height[wx - hm.WorldMinX, wz - hm.WorldMinZ] = hNew;
+    }
+
+    // Delete scatter scenery (trees / grass / climbable / berry trees) standing
+    // on this tread column. Authored fixtures are never here — their columns are
+    // skipped before this is called — but the !PlacedAsFixture guard keeps the
+    // rule explicit. Drops the column from the index so later roads don't
+    // re-process removed entities.
+    private static void RemoveScatterInColumn(WorldState ws, Dictionary<(int, int), List<EntitySimState>> obstacleColumns, int wx, int wz)
+    {
+        if (obstacleColumns.TryGetValue((wx, wz), out List<EntitySimState> list))
+        {
+            foreach (EntitySimState e in list)
+            {
+                if (e.IsRoadObstacle && !e.PlacedAsFixture)
+                {
+                    ws.RemoveEntity(e);
+                }
+            }
+            obstacleColumns.Remove((wx, wz));
         }
     }
 
@@ -3093,9 +3638,17 @@ public static class WorldGen
                     // Reject puddles too shallow for a swimmer to occupy.
                     if (ws.GetVoxelWorld(wx, surfaceY - (MIN_WATER_DEPTH - 1), wz) != VoxelType.Water) { continue; }
 
-                    // Anchor at the water surface (top face of the top water
-                    // voxel); the mob's own buoyancy then settles it to depth.
-                    var pos = new Vector3(wx + 0.5f, surfaceY + 1f, wz + 0.5f);
+                    // Anchor inside the top water voxel, NOT on its top face
+                    // (surfaceY + 1f) — that boundary floors into the air voxel
+                    // above, so the mob's feet sample air and it never reads as
+                    // in-water. The feet must sit in water on the first tick so
+                    // the mob detects swimming, at which point buoyancy fires and
+                    // settles it to its submerged depth. Spawning on the surface
+                    // left aquatic mobs out of water: never swimming, never
+                    // drifting on the current, and frozen in mid-air (the aquatic
+                    // locomotion gate needs water, and the auto-freeze pins a
+                    // zero-velocity body before gravity can drop it in).
+                    var pos = new Vector3(wx + 0.5f, surfaceY + 0.5f, wz + 0.5f);
                     foreach (SpawnEntryData entry in spawnZone.WaterEntities.Entries)
                     {
                         if (entry == null) { continue; }

@@ -64,6 +64,7 @@ Conversation = ExtResource("11_conv")
 Scene = ExtResource("16_villager_m")
 Outfit = PackedStringArray("M_hair_4", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
 Palette = SubResource("Merch_palette")
+IdleAnimation = null
 LoyaltyGifts = Array[ExtResource("6_loyaltygift")]([SubResource("Loyalty_grammar")])
 Inventory = [SubResource("Stock_leather")]
 Descriptor = ExtResource("8_villager")
@@ -72,6 +73,7 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="Npc_companion"]
 script = ExtResource("3_npc")
+IdleAnimation = null
 Tamed = true
 Persistent = true
 Descriptor = ExtResource("9_companion")

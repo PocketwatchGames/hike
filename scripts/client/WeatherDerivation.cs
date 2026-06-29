@@ -43,24 +43,60 @@ public static class WeatherDerivation
         float dustAmount = weather?.dustAmount ?? 0.1f;
         float windSpeed = weather?.windSpeed ?? 0f;
 
-        // Fog — derived directly from simulated humidity AND cool-half-
-        // of-day diurnal. No authored input; this is the single
-        // canonical fog signal that SkyController's disk / water reads
-        // pick up via p.Fog below. MULTIPLICATIVE: both axes must be
-        // present (cold dry air doesn't fog; warm humid air doesn't
-        // fog) — the previous additive formula leaked fog into desert
-        // / mountain zones purely from the cool-diurnal term.
-        // FogFromHumidity / FogFromCoolDiurnal act as exponents
-        // shaping the curve of each axis: > 1 narrows (only extreme
-        // values produce fog), < 1 widens (modest values still
-        // produce some fog). Default 1.5 / 1.0 gives desert pre-dawn
-        // ~0.01 fog, swamp pre-dawn ~0.85, mountain pre-dawn ~0.05.
+        // Fog — emergent from simulated weather, no authored input; the single
+        // canonical fog signal SkyController's disk / water reads pick up via
+        // p.Fog below. Physically fog is air reaching SATURATION (relative
+        // humidity → 100%, i.e. cooled OR moistened to its dew point):
+        //   - the air mass's moisture is the vapor that must already be present —
+        //     the multiplicative necessity (no moisture, no fog, ever), which also
+        //     keeps fog out of dry desert / mountain zones whatever the trigger
+        //     (the reason this stays a product, not a plain additive sum). Taken as
+        //     the WETTER of the zone's authored climate humidity and the live
+        //     (advected) humidity: the climate value is the time-invariant "is this
+        //     a humid PLACE" floor — keyed to climate, not the live value alone,
+        //     because the live humidity is diurnally suppressed (warm midday air
+        //     holds more before saturating) and gating on it double-counted the
+        //     day/night curve coolGate already carries — while the max lets a moist
+        //     air mass blown in from elsewhere lift fog potential above the local
+        //     baseline (humidity advection is its own fog source, not just local).
+        //   - THREE independent routes then push that vapor to saturation, so fog
+        //     forms at any temperature for different reasons:
+        //       radiation fog     — nocturnal / clear-sky cooling drops the air to
+        //                           its dew point (coolGate); burns off by day.
+        //       precipitation fog — rain evaporating into the sub-cloud air
+        //                           saturates it (rainAmount); any temperature.
+        //       evaporative fog   — standing water / saturated ground (the fog_map's
+        //                           domain) re-saturates the air from below, so a
+        //                           humid place fogs with NEITHER cooling nor rain —
+        //                           a swamp misty on a calm clear afternoon; wind
+        //                           disperses it.
+        //     Combined as a probabilistic union (1-(1-a)(1-b)(1-c)) so the routes
+        //     reinforce — a cool rainy night is foggiest — without any being
+        //     required. fog_map then localizes the result per-voxel downstream.
+        // FogFromHumidity shapes the climate-moisture gate; RadiationFogSharpness
+        // shapes the cooling route; EvaporativeFogStrength caps the evaporative
+        // route below full so radiation/precipitation stay the HEAVIEST fog (most
+        // fog stays diurnal). Rain has no exponent.
         float fogFromHumidity = sim?.FogFromHumidity ?? 1.5f;
-        float fogFromCoolDiurnal = sim?.FogFromCoolDiurnal ?? 1.0f;
+        float radiationFogSharpness = sim?.RadiationFogSharpness ?? 1.0f;
+        float evaporativeStrength = sim?.EvaporativeFogStrength ?? 0.35f;
         float coolDiurnal = 1f - WeatherSimulation.DiurnalCurve(timeOfDay01, sim);
-        float humidGate = humidity > 0f ? Mathf.Pow(humidity, fogFromHumidity) : 0f;
-        float coolGate = coolDiurnal > 0f ? Mathf.Pow(coolDiurnal, fogFromCoolDiurnal) : 0f;
-        float fog = Mathf.Clamp(humidGate * coolGate, 0f, 1f);
+        // Air-mass moisture: the wetter of this place's climate humidity (the value
+        // worldgen bakes the fog_map from) and the live advected humidity. Editor
+        // preview has no zone, so it falls back to the live value alone.
+        float climateHumidity = zone?.weather?.humidity ?? humidity;
+        float airMassMoisture = Mathf.Max(climateHumidity, humidity);
+        float humidGate = airMassMoisture > 0f ? Mathf.Pow(airMassMoisture, fogFromHumidity) : 0f;
+        float coolGate = coolDiurnal > 0f ? Mathf.Pow(coolDiurnal, radiationFogSharpness) : 0f;
+        // Evaporative route: a persistent ground-moisture saturation source, dialed
+        // down by wind (normalized against the zone's own typical wind so a calm
+        // basin clears at a gentler breeze than a gusty one).
+        float windMax = zone?.weather?.windSpeed ?? 0f;
+        float windFraction = windMax > 0.01f ? Mathf.Clamp(windSpeed / windMax, 0f, 1f) : 0f;
+        float evaporative = evaporativeStrength * (1f - windFraction);
+        // Any route alone can saturate the air; together they reinforce.
+        float saturation = 1f - (1f - coolGate) * (1f - rainAmount) * (1f - evaporative);
+        float fog = Mathf.Clamp(humidGate * saturation, 0f, 1f);
         // Low-end dead-zone: trace fog (below FogFloor) collapses to 0, the
         // remainder rescaled to [0,1]. Keeps the concave AmbientFog curve from
         // turning a nearly-dry desert's residual humidity into visible haze;

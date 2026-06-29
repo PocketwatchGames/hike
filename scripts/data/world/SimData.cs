@@ -294,7 +294,7 @@ public partial class SimData : Resource
     [ExportSubgroup("Fog")]
     // Fog is fully derived: WeatherDerivation computes a [0, 1] fog
     // signal from simulated humidity and the cool-half-of-day diurnal
-    // (FogFromHumidity / FogFromCoolDiurnal weights live in the
+    // (FogFromHumidity / RadiationFogSharpness weights live in the
     // Weather Simulation > Simulated Derived subgroup) and exposes it
     // as DerivedPalette.Fog. The constants below shape how that signal
     // turns into voxel density / ambient haze / disk dimming.
@@ -632,19 +632,32 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,2,0.01")] public float TempVarianceDeltaK = 0.4f;
 
     [ExportSubgroup("Simulated Derived")]
-    // Fog forms ONLY when humid air cools — both axes are required
-    // (cold dry air doesn't fog; warm humid air doesn't fog), so
-    // WeatherDerivation multiplies them. The values below are the
-    // EXPONENTS shaping each axis: > 1 narrows the curve so only
-    // extreme humidity / cold produces fog, < 1 widens it so even
-    // moderate values lift some fog. Default 1.5 on humidity gives
-    // dry zones (desert humidity ~0.04) almost no fog while keeping
-    // swampy zones (humidity ~0.95) nearly fully fogged at the
-    // diurnal trough. There is no per-zone fog ceiling — a swamp
-    // gets foggy because of its high baseline humidity, not a
-    // separate authored fog field.
+    // Fog is air reaching saturation (RH → 100%). Humidity is the moisture that
+    // must be present — the necessity gate; no vapor, no fog, ever. It's then
+    // saturated by either of two independent routes (see WeatherDerivation):
+    // radiation fog (nocturnal cooling) or precipitation fog (rain, any
+    // temperature). The two exponents below shape a curve: > 1 narrows it so
+    // only extreme values fog, < 1 widens it so moderate values lift some fog.
+    //   FogFromHumidity      — sharpness of the moisture gate. Default 1.5 gives
+    //                          dry zones (desert humidity ~0.04) almost no fog
+    //                          while keeping swampy zones (~0.95) nearly fully
+    //                          fogged. There's no per-zone fog ceiling — a swamp
+    //                          fogs from its high baseline humidity, not an
+    //                          authored fog field.
+    //   RadiationFogSharpness — sharpness of the COOLING route only (rain, the
+    //                          other route, has no exponent). > 1 confines
+    //                          radiation fog to the deepest pre-dawn cold; < 1
+    //                          lets it linger into dusk / morning.
     [Export(PropertyHint.Range, "0.1,4,0.05")] public float FogFromHumidity = 1.5f;
-    [Export(PropertyHint.Range, "0.1,4,0.05")] public float FogFromCoolDiurnal = 1.0f;
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float RadiationFogSharpness = 1.0f;
+    // Strength of the evaporative-fog route: standing water / saturated ground
+    // (the fog_map's domain) self-saturating the near-surface air with NEITHER
+    // cooling nor rain — what keeps a humid swamp misty on a calm clear
+    // afternoon. Capped below 1 so this persistent component stays LIGHTER than
+    // full radiation / precipitation fog (most fog is still diurnal); the swamp
+    // gets an afternoon mist, not pea soup. Wind disperses it (normalized
+    // against the zone's own typical wind). 0 = no evaporative fog at all.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float EvaporativeFogStrength = 0.35f;
     // Low-end dead-zone on the fog signal: fog below this collapses to 0, then
     // the remainder is rescaled to [0,1]. Stops the concave AmbientFog curve
     // from amplifying a trace humidity wisp into visible haze, so a nearly-dry

@@ -25,3 +25,4 @@ CaveNoiseFrequency = 0.04
 GrassThreshold = 0.3
 CaveEntities = ExtResource("7_cave")
 Fixtures = ExtResource("8_fixtures")
+PointsOfInterest = PackedStringArray("crossroads")

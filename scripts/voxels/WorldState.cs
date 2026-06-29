@@ -25,6 +25,15 @@ public class WorldState
     // off in that world.
     public RegionState[] Regions = [];
 
+    // Named points of interest resolved during worldgen: name -> world
+    // position (XZ centered, Y at the ground top). The reusable anchor map for
+    // POI-driven placement — roads and signposts today; bosses, important loot,
+    // villages later. Authored names live on ZoneData.PointsOfInterest;
+    // WorldGen.ResolvePointsOfInterest fills this. In-memory for now (not
+    // serialized into the .hike); add persistence when a runtime system needs
+    // POIs after a disk load.
+    public readonly Dictionary<string, Vector3> PointsOfInterest = new();
+
     // Default spawn point baked into the world. Set by the loader (from the
     // world file header) or by Main when starting a procedurally-generated
     // game. The packed world file persists this so a save can recreate the
@@ -923,8 +932,18 @@ public class WorldState
         return entities;
     }
 
+    // When true, AddEntity flags added entities as PlacedAsFixture so WorldGen's
+    // road pass routes around them and never clears/regrades under them. Set
+    // only around WorldGen's authored fixture passes; false (the default)
+    // everywhere else, including all runtime spawning.
+    public bool TaggingFixtures;
+
     public void AddEntity(EntitySimState entity)
     {
+        if (TaggingFixtures)
+        {
+            entity.PlacedAsFixture = true;
+        }
         Vector3I coord = World.WorldToChunkCoord(entity.WorldPosition);
         if (!_entities.TryGetValue(coord, out List<EntitySimState> entities))
         {

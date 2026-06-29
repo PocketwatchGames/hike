@@ -82,6 +82,26 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private bool _gravityScaleCaptured;
 	private bool _gravityScaleSwimActive;
 
+	// Timed-emergence state (LootData.timedEmergence). Drives a buried->risen
+	// animation of the visual only — the rigidbody stays settled on the ground.
+	// All timing runs on the sim clock (GameTimeMs) so interactivity unlocks
+	// deterministically once the rise completes. Inert unless IsTimedEmergent.
+	private enum EmergeState { Uninitialized, Hidden, Emerging, Visible, Retracting }
+	private EmergeState _emergeState = EmergeState.Uninitialized;
+	private ulong _emergeStartMs;   // GameTimeMs the current emerge/retract began.
+	private bool _emergePending;    // A staggered transition is scheduled.
+	private bool _emergePendingInWindow; // Target window-membership of the pending transition.
+	private bool _emergeRawInWindow; // Last-seen window membership, to spot transitions.
+	private ulong _emergeDeadlineMs; // GameTimeMs the staggered transition fires.
+	private Node3D _emergeVisual;   // Cached sprite (or model anchor) being animated.
+	private Vector3 _emergeRestPos; // Authored rest local position/scale, captured once.
+	private Vector3 _emergeRestScale;
+	private float _emergeFraction;  // 0 = buried/hidden, 1 = fully risen.
+
+	private TimedEmergenceData TimedEmergence =>
+		(_simState?.Item?.data ?? _simState?.Data) is LootData ld ? ld.timedEmergence : null;
+	private bool IsTimedEmergent => TimedEmergence != null;
+
 	public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
 	public override void _Ready()
@@ -108,6 +128,15 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			Settle();
 		}
+
+		if (IsTimedEmergent)
+		{
+			// Start buried so there's no one-frame flash of the full sprite
+			// before the first _Process tick snaps to the correct phase.
+			CacheEmergeVisual();
+			ApplyEmergeFraction(0f);
+			SetEmergeInteractable(false);
+		}
 	}
 
 	public override void _Process(double delta)
@@ -123,11 +152,18 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			_spawnStamped = true;
 		}
 		ulong ageMs = now - _spawnTimeMs;
+		if (IsTimedEmergent)
+		{
+			// Timed-emergent loot owns its own interact-area gating (only while
+			// fully risen), so the standard "enable once the spawn arc clears"
+			// path below is skipped for it.
+			UpdateEmergence(now);
+		}
 		// Enable the interact area once the firing arc has cleared without
 		// freezing the body — pickup remains available even if the loot is
 		// still tumbling. Settle() (called from _IntegrateForces on rest)
 		// also sets Monitoring=true, so whichever path fires first wins.
-		if (_interactArea != null && !_interactArea.Monitoring
+		else if (_interactArea != null && !_interactArea.Monitoring
 			&& _pickupReadyDelaySeconds > 0f && ageMs >= (ulong)(_pickupReadyDelaySeconds * 1000f))
 		{
 			_interactArea.Monitoring = true;
@@ -319,6 +355,14 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private void Settle()
 	{
 		Freeze = true;
+		// Timed-emergent loot stays frozen on the ground here, but its
+		// monitoring and idle animation are driven by the emergence state
+		// machine (only once fully risen) — don't unlock pickup or start the
+		// bob while it's still buried outside its window.
+		if (IsTimedEmergent)
+		{
+			return;
+		}
 		// Enable monitoring after settle so the area only starts probing once
 		// the loot is at rest — avoids spurious BodyEntered events from
 		// graze-collisions during the post-spawn flight arc.
@@ -330,6 +374,176 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		// freshly arrived; loot that was already in the world at spawn (world
 		// gen, LootSpawnEntry) sits idle so the chunk doesn't pulse.
 		_animationPlayer?.Play(_initialImpulse != Vector3.Zero ? "Bob" : "Idle");
+	}
+
+	// --- Timed emergence (LootData.timedEmergence) -------------------------
+	// The visual rises out of the ground while the current time-of-day is inside
+	// the authored window and sinks back when it leaves. Only the visual (sprite
+	// or model anchor) moves — the rigidbody stays settled — and the pickup is
+	// interactive only while fully risen. Driven on the sim clock so the
+	// interactivity gate is frame-rate independent and slow-mo aware.
+	private void UpdateEmergence(ulong now)
+	{
+		TimedEmergenceData te = TimedEmergence;
+		if (te == null)
+		{
+			return;
+		}
+		bool inWindow = te.Contains(_world.WorldState.TimeOfDay01);
+
+		if (_emergeState == EmergeState.Uninitialized)
+		{
+			// Snap to the current phase on first tick (or after a chunk
+			// re-stream) so loot loaded inside its window is already risen and
+			// loot loaded outside it is already buried — no spurious animation.
+			CacheEmergeVisual();
+			_emergeRawInWindow = inWindow;
+			if (inWindow)
+			{
+				_emergeState = EmergeState.Visible;
+				ApplyEmergeFraction(1f);
+				SetEmergeInteractable(true);
+				_animationPlayer?.Play("Idle");
+			}
+			else
+			{
+				_emergeState = EmergeState.Hidden;
+				ApplyEmergeFraction(0f);
+				SetEmergeInteractable(false);
+				_animationPlayer?.Stop();
+			}
+			return;
+		}
+
+		// Schedule a staggered transition when the window opens or closes, so a
+		// patch of mushrooms doesn't emerge/retract in unison.
+		if (inWindow != _emergeRawInWindow)
+		{
+			_emergeRawInWindow = inWindow;
+			_emergePending = true;
+			_emergePendingInWindow = inWindow;
+			float delaySeconds = te.StaggerSeconds > 0f ? te.StaggerSeconds * GD.Randf() : 0f;
+			_emergeDeadlineMs = now + (ulong)(delaySeconds * 1000f);
+		}
+		if (_emergePending && now >= _emergeDeadlineMs)
+		{
+			_emergePending = false;
+			if (_emergePendingInWindow)
+			{
+				BeginEmerge(now);
+			}
+			else
+			{
+				BeginRetract(now);
+			}
+		}
+
+		// Advance the active rise/retract on the sim clock.
+		float durMs = Mathf.Max(1f, te.EmergeSeconds * 1000f);
+		if (_emergeState == EmergeState.Emerging)
+		{
+			float f = Mathf.Min(1f, (now - _emergeStartMs) / durMs);
+			ApplyEmergeFraction(f);
+			if (f >= 1f)
+			{
+				_emergeState = EmergeState.Visible;
+				SetEmergeInteractable(true);
+				_animationPlayer?.Play("Idle");
+			}
+		}
+		else if (_emergeState == EmergeState.Retracting)
+		{
+			float f = Mathf.Max(0f, 1f - (now - _emergeStartMs) / durMs);
+			ApplyEmergeFraction(f);
+			if (f <= 0f)
+			{
+				_emergeState = EmergeState.Hidden;
+				_animationPlayer?.Stop();
+			}
+		}
+	}
+
+	private void BeginEmerge(ulong now)
+	{
+		if (_emergeState == EmergeState.Visible || _emergeState == EmergeState.Emerging)
+		{
+			return;
+		}
+		_emergeState = EmergeState.Emerging;
+		// Stay non-interactive until the rise completes, and take the transform
+		// back from the idle bob animation for the duration of the rise.
+		SetEmergeInteractable(false);
+		_animationPlayer?.Stop();
+		// Back-date the start by the already-shown fraction so reversing a
+		// partial retract continues smoothly instead of snapping.
+		_emergeStartMs = BackdatedStart(now, _emergeFraction);
+	}
+
+	private void BeginRetract(ulong now)
+	{
+		if (_emergeState == EmergeState.Hidden || _emergeState == EmergeState.Retracting)
+		{
+			return;
+		}
+		_emergeState = EmergeState.Retracting;
+		// No longer grabbable the instant it starts sinking.
+		SetEmergeInteractable(false);
+		_animationPlayer?.Stop();
+		_emergeStartMs = BackdatedStart(now, 1f - _emergeFraction);
+	}
+
+	// Start time placed `elapsedFraction` of an emerge duration into the past so
+	// the animation resumes from the current shown fraction. Clamped so an early
+	// transition (small GameTimeMs) can't underflow the unsigned clock.
+	private ulong BackdatedStart(ulong now, float elapsedFraction)
+	{
+		float durMs = Mathf.Max(1f, (TimedEmergence?.EmergeSeconds ?? 0f) * 1000f);
+		ulong back = (ulong)(Mathf.Clamp(elapsedFraction, 0f, 1f) * durMs);
+		return now > back ? now - back : 0;
+	}
+
+	private void CacheEmergeVisual()
+	{
+		if (_emergeVisual != null)
+		{
+			return;
+		}
+		// Animate the active visual: the 3D model anchor when this loot renders a
+		// mesh, otherwise the flat sprite.
+		bool hasModel = (_simState?.Item?.data ?? _simState?.Data) is LootData ld && ld.worldModel != null;
+		_emergeVisual = hasModel ? _modelAnchor : _sprite;
+		if (_emergeVisual != null)
+		{
+			_emergeRestPos = _emergeVisual.Position;
+			_emergeRestScale = _emergeVisual.Scale;
+		}
+	}
+
+	// Pose the visual at `f` along buried(0)->risen(1): scaled from zero and
+	// lifted from RiseDistance below the rest pose up to it.
+	private void ApplyEmergeFraction(float f)
+	{
+		_emergeFraction = f;
+		if (_emergeVisual == null)
+		{
+			return;
+		}
+		float rise = TimedEmergence?.RiseDistance ?? 0f;
+		_emergeVisual.Visible = f > 0f;
+		_emergeVisual.Scale = _emergeRestScale * f;
+		_emergeVisual.Position = _emergeRestPos + new Vector3(0f, -rise * (1f - f), 0f);
+	}
+
+	private void SetEmergeInteractable(bool on)
+	{
+		if (_interactArea != null)
+		{
+			// Gate both the auto-pickup probe (Monitoring) and the
+			// interact-highlight detection (Monitorable) so buried loot is
+			// neither grabbed nor highlighted.
+			_interactArea.Monitoring = on;
+			_interactArea.Monitorable = on;
+		}
 	}
 
 	private void OnHurtBoxHit(HitInfo hit)
@@ -408,10 +622,15 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		return false;
 	}
 
-	public bool CanInteract() => !_pickedUp;
+	public bool CanInteract() => !_pickedUp && (!IsTimedEmergent || _emergeState == EmergeState.Visible);
 	public bool CanActorInteract(Player player)
 	{
 		if (_pickedUp || player?.Inventory == null)
+		{
+			return false;
+		}
+		// Timed-emergent loot is only grabbable once fully risen.
+		if (IsTimedEmergent && _emergeState != EmergeState.Visible)
 		{
 			return false;
 		}

@@ -108,6 +108,10 @@ public class MobNavigator
     public bool HasArrived => _arrived;
     public bool IsBlocked => _blocked;
     public Vector3 Goal => _goal;
+    // The mob's traversal profile, so behaviors can resolve goal points
+    // (e.g. NavigationGoals.PickStandoffPoint) under the same water / step
+    // rules the navigator itself paths by.
+    public TraversalProfile Profile => _profile;
 
     // Read-only access for debug visualisation. The list is mutated each
     // repath so the debug drawer must walk it within a single frame and

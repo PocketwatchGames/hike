@@ -35,6 +35,12 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     // Recolor applied to this individual's meshes (clothing/hair tints) so two
     // villagers in the same outfit still read as distinct. Null = no recolor.
     [Export] public MobPalette Palette;
+    // Idle-pose override: a clip name (e.g. "idle_happy", "idle_nervous") that
+    // replaces the species' shared Idle animation for THIS individual, so
+    // villagers built from one MobData each rest differently. Must name a clip
+    // baked into the rig's animation library (polysplit/anims → human_anims.res).
+    // Empty = the species default idle.
+    [Export] public StringName IdleAnimation;
 
     // Loyalty rewards this NPC hands back as the player gifts items.
     [Export] public Array<LoyaltyGift> LoyaltyGifts = new();
@@ -68,6 +74,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
         state.SpawnConditions = spawnConditions;
         if (Palette != null) { state.Palette = Palette; }
         if (Outfit != null && Outfit.Length > 0) { state.Outfit = Outfit; }
+        if (IdleAnimation != null && (string)IdleAnimation != "") { state.IdleAnimation = IdleAnimation; }
         if (InitialBehavior != null && (string)InitialBehavior != ""
             && rng.NextDouble() < InitialBehaviorChance)
         {

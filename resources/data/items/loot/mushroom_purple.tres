@@ -1,11 +1,16 @@
-[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://chpmfha5lvycx"]
+[gd_resource type="Resource" script_class="LootData" format=3 uid="uid://chpmfha5lvycx"]
 
-[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="2_ythwi"]
+[ext_resource type="Script" uid="uid://bmf1oavb2wilx" path="res://scripts/data/items/LootData.cs" id="2_ythwi"]
 [ext_resource type="Texture2D" uid="uid://bnhpbdnlt5ur0" path="res://assets/textures/items/MushroomPurple.png" id="3_ythwi"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/mushroom.tres" id="4_parent"]
+[ext_resource type="Script" uid="uid://d1q7i43a6fajs" path="res://scripts/data/items/TimedEmergenceData.cs" id="5_emerge"]
+
+[sub_resource type="Resource" id="Resource_emerge"]
+script = ExtResource("5_emerge")
 
 [resource]
 script = ExtResource("2_ythwi")
+timedEmergence = SubResource("Resource_emerge")
 displayName = &"Purple Mushroom"
 maxStack = 99
 value = 1

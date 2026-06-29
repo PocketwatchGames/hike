@@ -30,6 +30,22 @@ public partial class World
         return SkyController.Current?.Weather?.rainAmount ?? 0f;
     }
 
+    // Current ambient fog amount [0,1] from the live blended weather + time of
+    // day (DerivedPalette.Fog), or 0 with no SkyController (editor / headless).
+    // This is the SAME diurnal signal the renderer scales the volumetric
+    // fog_map by, so perception's fog obscurant tracks the VISIBLE fog: ~0
+    // across the warm midday plateau (fog burns off as the day warms), high at
+    // cool dawn / night. The static per-voxel field (WorldState.GetFogWorld /
+    // PlayerPerception.FogFraction) only says WHERE fog pools; multiplying it
+    // by this says HOW MUCH is actually present right now. Deliberately the
+    // pre-light-dimming Fog, not the render's FogDensity — night fog reads
+    // thick on screen via contrast even though its density is dialed down by
+    // fogPhaseScale, and perception should match what the player sees.
+    public float CurrentFogAmount()
+    {
+        return SkyController.Current?.Palette.Fog ?? 0f;
+    }
+
     // True iff every circumstance required by `conditions` currently holds, so
     // a gated mob/chest may materialize. None always passes. See ESpawnConditions.
     public bool SpawnConditionsMet(ESpawnConditions conditions)

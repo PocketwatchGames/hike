@@ -56,4 +56,19 @@ public abstract class EntitySimState
     // impassable to everyone. World refcounts the disc of cells this radius
     // covers into its hazard grid on spawn (see World.RegisterEntity).
     public float HazardRadius;
+
+    // True if this is natural surface scenery a road should avoid and clear:
+    // WorldGen's road pass adds pathfinding cost for these in its R×R window (so
+    // roads thread through open ground) and deletes any that sit on the tread it
+    // carves. Set on trees, tall grass, climbable / berry trees. Gameplay
+    // entities and intentional landmarks (mobs, loot, chests, signposts, wells,
+    // campfires, knowledge stones) leave it false so roads never delete them.
+    public virtual bool IsRoadObstacle => false;
+
+    // True if this entity was placed by an authored fixture pass (zone / region
+    // / POI fixtures), as opposed to procedural scatter. WorldGen's road pass
+    // routes AROUND these and never clears or regrades under them, so a road
+    // can't bulldoze a campfire, well, signpost, or any authored landmark.
+    // Stamped by WorldState.AddEntity while WorldState.TaggingFixtures is set.
+    public bool PlacedAsFixture;
 }

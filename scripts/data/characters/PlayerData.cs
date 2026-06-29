@@ -260,6 +260,14 @@ public partial class PlayerData : Resource
 	[Export] public int scentMaxCrumbs = 20;
 
 	[ExportGroup("Swimming")]
+	// Minimum contiguous water-column depth (in voxels) at the player's feet
+	// that triggers swimming — buoyancy, current drag, and the swimSpeed cap
+	// kick in once the column reaches this depth; otherwise the player wades on
+	// the bottom with ground physics. Mirrors MobData.swimDepthThreshold (and is
+	// measured the same way), so a mob with the matching value swims and wades
+	// at the exact same depths as the player. 2 = swim in 2+ deep water, wade
+	// through 1-voxel puddles.
+	[Export] public float swimDepthThreshold = 2f;
 	[Export] public float shallowWaterSpeed = 0.5f;
 	[Export] public float swimSpeed = 3.5f;
 	[Export] public float swimVerticalSpeed = 4f;

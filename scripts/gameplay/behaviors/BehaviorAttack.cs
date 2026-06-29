@@ -172,12 +172,12 @@ public partial class BehaviorAttack : BehaviorBase
         if (slotIdx < 0)
         {
             float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
-            standoff = NavigationGoals.PickStandoffPoint(world, me.mobData.verticalClearance, targetPos, standoffDistance, angleToTarget);
+            standoff = NavigationGoals.PickStandoffPoint(world, me.Navigator.Profile, targetPos, standoffDistance, angleToTarget);
         }
         else
         {
             float slotAngle = EncircleSlotAllocator.SlotAngle(slotIdx, _data.encircleSlotCount);
-            standoff = NavigationGoals.PickStandoffPoint(world, me.mobData.verticalClearance, targetPos, standoffDistance, slotAngle);
+            standoff = NavigationGoals.PickStandoffPoint(world, me.Navigator.Profile, targetPos, standoffDistance, slotAngle);
         }
         me.Navigator.Goto(standoff, allowFalling: true, avoidHazards: false);
         return new BehaviorOutput(EBehaviorResult.Running);
@@ -229,6 +229,15 @@ public partial class BehaviorAttack : BehaviorBase
     private WeaponData ChooseReadyWeapon(Mob me, ulong time, float diffY, bool canSee)
     {
         if (!canSee)
+        {
+            return null;
+        }
+        // A land mob knocked into deep water can't fight with no footing.
+        // Suppressing the swing here (rather than letting ActionRunner reject
+        // it every cooldown) keeps it from flailing — combined with the nav
+        // grid refusing deep water, it just makes for the shallows. Intentional
+        // swimmers (AvoidsDeepWater false) attack normally while swimming.
+        if (me.IsSwimming && me.mobData != null && me.mobData.AvoidsDeepWater)
         {
             return null;
         }
