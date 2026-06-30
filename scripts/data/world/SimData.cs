@@ -831,13 +831,18 @@ public partial class SimData : Resource
     // neighbor columns refills the player's voxel with near-full sun.
     [Export(PropertyHint.Range, "0,32,1")] public int canopyShadowDepthVoxels = 6;
 
-    // Sun-channel falloff per propagation step when a voxel's canopy
-    // density is saturated (255). With LightEngine.MAX_LIGHT=60, 18 means a
-    // saturated voxel removes ~30% of max sun per step; combined with the
-    // built-in 4-per-step distance falloff, that's enough to drop the
-    // under-tree reading below the rain shader's 0.7-of-MAX_LIGHT threshold
-    // and trigger rain shelter. Scales linearly with density at the voxel.
-    [Export(PropertyHint.Range, "0,60,1")] public int canopySunFalloffPeak = 18;
+    // Sun-channel canopy extinction: the Beer-Lambert optical depth added per
+    // voxel of fully-dense (255) canopy the sky light passes through. Sun is
+    // MULTIPLIED by exp(-density * this) at each such voxel rather than having a
+    // flat amount subtracted, so shadow compounds smoothly with depth and
+    // approaches — but never snaps to — black. A lone tree's shadow column
+    // stays dim-but-readable while a deep, dense forest interior (many canopy
+    // voxels with no lateral sun to leak back in) drives toward very dark.
+    // Mirrors BlockLightCanopyExtinction for the block-light flood. 0 = canopy
+    // casts no sun shadow. Tune alongside CanopyDensity / CanopyShadowDepthVoxels;
+    // ~0.6 keeps a typical tree under the rain shader's 0.7-of-MAX_LIGHT shelter
+    // threshold while staying far from black.
+    [Export(PropertyHint.Range, "0,3,0.01")] public float canopySunExtinction = 0.6f;
 
     // (Block light's canopy attenuation is the per-light flood term
     // BlockLightCanopyExtinction in the Block Light group, not here.)

@@ -759,7 +759,7 @@ void fragment() {
 	// Ground stains (scorch / footprints / blood) composite into base BEFORE
 	// the ALBEDO/EMISSION split so they survive the always-on EMISSION term —
 	// a no-op when the stain projector is off or this fragment is unstained.
-	base = apply_ground_stain(base, world_vertex);
+	base = apply_ground_stain(base, world_vertex, shaded_normal.y);
 
 	// Baked AO: multiplicative shelter/contact darkening on the diffuse
 	// lighting only. ao=0 (open) leaves lighting untouched; ao=1 (buried)

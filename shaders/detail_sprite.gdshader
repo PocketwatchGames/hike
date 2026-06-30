@@ -157,6 +157,23 @@ global uniform bool debug_wet_spec;
 // to authored 2D sprites in the same scene.
 global uniform float sprite_stretch;
 
+// --- Ground stain projector (shared with voxel_clip) ---
+// Grass samples the SAME top-down stain RT the terrain does so a mark (the
+// player's grounding-shadow blob, scorch, footprints) darkens the blade in
+// lockstep with the ground it stands on — no bright-grass-over-dark-ground
+// seam. Sampled once at the blade ROOT (see fragment()), not per-fragment, so a
+// swaying blade doesn't slide the mark across itself; mirrors the single-anchor
+// light_map sample. Globals already declared/seeded for voxel_clip + the
+// GroundStainProjector — redeclared here only because each shader owns its set.
+global uniform sampler2D ground_stain_tex : filter_linear;
+global uniform vec3 ground_stain_origin;
+global uniform vec3 ground_stain_right;
+global uniform vec3 ground_stain_up;
+global uniform float ground_stain_size;
+global uniform float ground_stain_strength;
+global uniform bool ground_stain_enabled;
+#include "res://shaders/ground_stain.gdshaderinc"
+
 // --- Wind / interaction globals ---
 // wind_dir.xz = horizontal direction; .y unused (kept vec3 for cheap mix with
 // world up if we ever want vertical sway). amplitude scales the displacement
@@ -462,6 +479,15 @@ void fragment() {
 	// SkyController's wet_albedo_floor.
 	tex.rgb *= mix(1.0, wet_albedo_floor, wet_factor);
 	vec3 tinted = tex.rgb * fill_a_tint * fill_b_tint;
+
+	// Ground stain composited into the albedo BEFORE the ALBEDO/EMISSION split,
+	// exactly as voxel_clip does for terrain, so the mark survives the always-on
+	// EMISSION term. Sampled at the blade ROOT (world_origin) — the whole sprite
+	// darkens by the stain at its base, matching the ground it's rooted in.
+	// world_normal.y (the terrain normal under the sprite) feeds the same
+	// verticality gate the terrain uses, so a mark doesn't climb a cliff the
+	// grass clings to.
+	tinted = apply_ground_stain(tinted, world_origin, world_normal.y);
 
 	NORMAL = world_normal;
 	// Baked AO: multiplicative shelter/contact darkening on the lit blade, the

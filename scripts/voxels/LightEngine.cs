@@ -31,6 +31,22 @@ public static class LightEngine
     [ThreadStatic] private static bool[] _floodVisited;
     [ThreadStatic] private static Queue<(int lx, int ly, int lz, float depth)> _floodQueue;
 
+    // Multiplicative (Beer-Lambert) sun transmittance through one voxel of
+    // canopy: exp(-density * extinction). canopyByte is 0..255 (the saturating
+    // sum of overlapping foliage clusters); extinction is the optical depth a
+    // fully-dense voxel adds. Unlike a flat subtraction this compounds with
+    // depth and asymptotes toward — never snaps to — zero, so a lone tree's
+    // shadow stays dim-but-readable while only deep, dense canopy drives it very
+    // dark. Mirrors the block-light flood's canopy term.
+    private static float CanopyTransmittance(int canopyByte, float extinction)
+    {
+        if (canopyByte <= 0)
+        {
+            return 1f;
+        }
+        return Mathf.Exp(-(canopyByte / 255f) * extinction);
+    }
+
     public static void ComputeSunlight(WorldState world)
     {
         // Reset first — the column scan breaks when sunLevel reaches zero,
@@ -51,13 +67,13 @@ public static class LightEngine
         int maxWz = (world.Max.Z + 1) * ChunkState.SIZE;
 
         var queue = new Queue<(int x, int y, int z)>();
-        int canopySunFalloffPeak = world.SimData.canopySunFalloffPeak;
+        float canopySunExtinction = world.SimData.canopySunExtinction;
 
         for (int wx = minWx; wx < maxWx; wx++)
         {
             for (int wz = minWz; wz < maxWz; wz++)
             {
-                int sunLevel = MAX_LIGHT;
+                float sunLevel = MAX_LIGHT;
                 for (int wy = topWy; wy >= minWy; wy--)
                 {
                     VoxelType v = world.GetVoxelWorld(wx, wy, wz);
@@ -66,16 +82,17 @@ public static class LightEngine
                         break;
                     }
                     sunLevel -= VoxelTypeInfo.LightAttenuation(v);
-                    sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255;
-                    sunLevel -= (world.GetCanopyAttenuationWorld(wx, wy, wz) * canopySunFalloffPeak) / 255;
-                    if (sunLevel <= 0)
+                    sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255f;
+                    sunLevel *= CanopyTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
+                    int level = (int)(sunLevel + 0.5f);
+                    if (level <= 0)
                     {
                         break;
                     }
-                    world.SetSunlightWorld(wx, wy, wz, sunLevel);
+                    world.SetSunlightWorld(wx, wy, wz, level);
                     // Capture the vertical column value BEFORE the BFS spread
                     // can raise it — this is the non-leaky sky-exposure field.
-                    world.SetSkyExposureWorld(wx, wy, wz, sunLevel);
+                    world.SetSkyExposureWorld(wx, wy, wz, level);
                     queue.Enqueue((wx, wy, wz));
                 }
             }
@@ -484,7 +501,7 @@ public static class LightEngine
 
     private static void SpreadSunlight(WorldState world, Queue<(int x, int y, int z)> queue)
     {
-        int canopySunFalloffPeak = world.SimData.canopySunFalloffPeak;
+        float canopySunExtinction = world.SimData.canopySunExtinction;
         while (queue.Count > 0)
         {
             var (x, y, z) = queue.Dequeue();
@@ -502,8 +519,9 @@ public static class LightEngine
                 if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v)) { continue; }
 
                 int fogFalloff = (world.GetFogWorld(nx, ny, nz) * FOG_SUN_FALLOFF_255) / 255;
-                int canopyFalloff = (world.GetCanopyAttenuationWorld(nx, ny, nz) * canopySunFalloffPeak) / 255;
-                int newLevel = currentLevel - FALLOFF_PER_VOXEL - VoxelTypeInfo.LightAttenuation(v) - fogFalloff - canopyFalloff;
+                float stepped = currentLevel - FALLOFF_PER_VOXEL - VoxelTypeInfo.LightAttenuation(v) - fogFalloff;
+                stepped *= CanopyTransmittance(world.GetCanopyAttenuationWorld(nx, ny, nz), canopySunExtinction);
+                int newLevel = (int)(stepped + 0.5f);
                 if (newLevel <= 0) { continue; }
 
                 if (newLevel > world.GetSunlightWorld(nx, ny, nz))
@@ -523,7 +541,7 @@ public static class LightEngine
     // ComputeSunlight and MUST stay in sync with it (same attenuation terms).
     private static void RecomputeSkyExposureColumns(WorldState world, List<Vector3I> changedPositions)
     {
-        int canopySunFalloffPeak = world.SimData.canopySunFalloffPeak;
+        float canopySunExtinction = world.SimData.canopySunExtinction;
         int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
         int minWy = world.Min.Y * ChunkState.SIZE;
 
@@ -535,7 +553,7 @@ public static class LightEngine
 
         foreach (var (wx, wz) in columns)
         {
-            int sunLevel = MAX_LIGHT;
+            float sunLevel = MAX_LIGHT;
             bool blocked = false;
             for (int wy = topWy; wy >= minWy; wy--)
             {
@@ -554,15 +572,16 @@ public static class LightEngine
                     continue;
                 }
                 sunLevel -= VoxelTypeInfo.LightAttenuation(v);
-                sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255;
-                sunLevel -= (world.GetCanopyAttenuationWorld(wx, wy, wz) * canopySunFalloffPeak) / 255;
-                if (sunLevel <= 0)
+                sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255f;
+                sunLevel *= CanopyTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
+                int level = (int)(sunLevel + 0.5f);
+                if (level <= 0)
                 {
                     blocked = true;
                     world.SetSkyExposureWorld(wx, wy, wz, 0);
                     continue;
                 }
-                world.SetSkyExposureWorld(wx, wy, wz, sunLevel);
+                world.SetSkyExposureWorld(wx, wy, wz, level);
             }
         }
     }

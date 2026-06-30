@@ -41,7 +41,15 @@
 // is on a uniform bool so the GPU can hoist it out of per-fragment work.
 // Out-of-frustum fragments (the projector covers a finite radius around the
 // player) have no stain data and are likewise returned unchanged.
-vec3 apply_ground_stain(vec3 base, vec3 world_pos)
+//
+// `surface_up` is the world-space surface normal's Y at the fragment (1 = flat
+// ground facing up, 0 = vertical face). The projector is a straight-down
+// render, so a flat mark shares the XZ of any wall rising from its footprint
+// and would otherwise smear up that wall; the vert_gate fades coverage out on
+// near-vertical surfaces so marks stay on the ground and on walkable slopes and
+// off cliff faces. Callers that only ever stain known-flat ground can use the
+// 2-arg overload (surface_up = 1, gate fully open).
+vec3 apply_ground_stain(vec3 base, vec3 world_pos, float surface_up)
 {
 	if (!ground_stain_enabled) {
 		return base;
@@ -55,6 +63,14 @@ vec3 apply_ground_stain(vec3 base, vec3 world_pos)
 	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
 		return base;
 	}
+	// Full on ground and walkable (<~45deg) slopes; fades to ~0 by ~70deg.
+	float vert_gate = smoothstep(0.35, 0.7, surface_up);
 	vec4 stain = texture(ground_stain_tex, uv);
-	return base * (1.0 - stain.a * ground_stain_strength) + stain.rgb * ground_stain_strength;
+	float weight = ground_stain_strength * vert_gate;
+	return base * (1.0 - stain.a * weight) + stain.rgb * weight;
+}
+
+vec3 apply_ground_stain(vec3 base, vec3 world_pos)
+{
+	return apply_ground_stain(base, world_pos, 1.0);
 }
