@@ -380,7 +380,7 @@ public partial class MobData : Resource
     // upright. See Mob.UpdateGroundNormal / UpdateGroundPitch.
     [Export(PropertyHint.Range, "0,1,0.05")] public float alignPitchToGroundNormal = 0f;
     // Radius (world units) of the soft grounding-shadow blob projected straight
-    // down under this mob through the GroundStainProjector (see MobShadowScatter)
+    // down under this mob through the GroundStainProjector (see GroundShadowScatter)
     // — the same flat shade the player casts, picked up by both terrain and grass.
     // Scale it to the body's footprint (a bird ~0.4, a goblin ~0.7, a boss larger).
     // 0 = no blob: the right choice for ethereal mobs (a fairy orb) and high

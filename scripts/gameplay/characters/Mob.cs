@@ -239,7 +239,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // cleaned up on this account.
     public ESpawnConditions spawnConditions => _simState.SpawnConditions;
     public MobData mobData => _simState.MobData;
-    // Grounding-shadow blob strength for MobShadowScatter, on the same gate as
+    // Grounding-shadow blob strength for GroundShadowScatter, on the same gate as
     // the real cast shadow: the mobShadows CVar AND the discovery-visibility
     // fade (_visibility). So a remembered-silhouette / undiscovered mob projects
     // no grounding blob that would betray its hidden position, and the blob
