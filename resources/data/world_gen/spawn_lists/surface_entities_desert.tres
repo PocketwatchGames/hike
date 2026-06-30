@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://byfibd54g5x4" path="res://scripts/data/spawn/TrapSpawnEntry.cs" id="11_trap_entry"]
 [ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="12_trap_scene"]
 [ext_resource type="Resource" uid="uid://odyn6nbdj05j" path="res://resources/data/world_gen/mob_descriptors/spider_desert.tres" id="20_spider"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/drake_desert.tres" id="21_drake_desert"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("3_3y2ux")
@@ -52,6 +53,12 @@ initialBehavior = &"Wander"
 initialBehaviorChance = 0.25
 squareMetersPerSpawn = 800.0
 
+[sub_resource type="Resource" id="Resource_drake"]
+script = ExtResource("3_3y2ux")
+descriptor = ExtResource("21_drake_desert")
+initialBehavior = null
+squareMetersPerSpawn = 800.0
+
 [resource]
 script = ExtResource("8_88i6m")
-entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap"), SubResource("Resource_spider")])
+entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap"), SubResource("Resource_spider"), SubResource("Resource_drake")])

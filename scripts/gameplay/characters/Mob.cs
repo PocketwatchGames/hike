@@ -74,6 +74,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // keeps the behavior layer free of client content — behaviors name the
     // vocalization, this map turns it into sound/anim.
     [Export] private Godot.Collections.Dictionary<EVocalization, PackedScene> _vocalizationEffects;
+    // One-shot dust/scuff spawned at the mob's feet when it dodge-dashes (see
+    // BehaviorDodge / AIOutput.dash). World-parented so it stays put as the mob
+    // slides away. Null on species that never dodge.
+    [Export] private PackedScene _dashFx;
     // Armor lifecycle one-shots. See Player for the lifecycle: depleted on
     // the hit that drains the bar to zero; rechargeStart when the post-hit
     // delay elapses; recoverStart when the recharge follows a full depletion.
@@ -235,6 +239,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // cleaned up on this account.
     public ESpawnConditions spawnConditions => _simState.SpawnConditions;
     public MobData mobData => _simState.MobData;
+    // Grounding-shadow blob strength for MobShadowScatter, on the same gate as
+    // the real cast shadow: the mobShadows CVar AND the discovery-visibility
+    // fade (_visibility). So a remembered-silhouette / undiscovered mob projects
+    // no grounding blob that would betray its hidden position, and the blob
+    // fades in with the body. Zero when MobData.groundShadowRadius is 0.
+    public float GroundShadowAlpha => CVars.mobShadows.Value ? _visibility : 0f;
     // The persistent sim state backing this mob. Exposed so World's companion
     // chunk-unload rescue can re-file the state under a new chunk (see
     // World.RescueCompanion / WorldState.MoveEntityToChunk).
@@ -1032,6 +1042,30 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.MotionVelocity = forward.Normalized() * forwardSpeed;
         _simState.MotionTime = duration;
         _simState.MotionFreezeGravity = freezeGravity;
+    }
+
+    // Earliest game-time (ms) the mob may begin another projectile reaction
+    // (dodge / perch-flee). Set by the reacting behavior, read by
+    // IncomingProjectileCondition so a mob doesn't chain reactions every tick
+    // while shots keep arriving. Transient combat state — not serialized.
+    public ulong ReactionReadyMs;
+
+    // Drive a dodge dash along an arbitrary horizontal world direction WITHOUT
+    // touching facing — unlike ApplyMotion, which always lunges along the body's
+    // forward axis. Used by BehaviorDodge to slip sideways / backward out of a
+    // shot's path while the mob keeps facing the player. Reuses the same
+    // MotionVelocity channel (gravity left ON so it's a grounded dash that
+    // follows terrain). Zero direction / duration is a no-op.
+    public void ApplyDodge(Vector3 worldDir, float speed, float duration)
+    {
+        worldDir.Y = 0f;
+        if (duration <= 0f || speed <= 0f || worldDir.LengthSquared() < 0.0001f)
+        {
+            return;
+        }
+        _simState.MotionVelocity = worldDir.Normalized() * speed;
+        _simState.MotionTime = duration;
+        _simState.MotionFreezeGravity = false;
     }
 
     // Mobs don't have a stamina pool yet; attack tiers always pass the gate
@@ -1958,9 +1992,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // windDragXZ/windFlySpeedCap govern its along-heading propulsion.
         desiredHoriz += windXZ * md.windInfluence;
 
-        // Vertical: spring toward the look-ahead/ceiling-aware target altitude.
-        float hoverH = aiOutput.flyAltitude ?? md.hoverHeight;
-        float targetY = ComputeFlightAltitude(pos, currentVel, hoverH);
+        // Vertical: spring toward the target altitude. An absolute target Y
+        // (aiOutput.flyTargetY — aerial combat anchoring hover to the player's
+        // own elevation) takes precedence and is merely clamped just above the
+        // local surface and below any ceiling; otherwise we use the terrain-
+        // relative look-ahead/ceiling-aware altitude (flyAltitude / hoverHeight).
+        float targetY;
+        if (aiOutput.flyTargetY.HasValue)
+        {
+            targetY = ClampAbsoluteFlightAltitude(pos, aiOutput.flyTargetY.Value);
+        }
+        else
+        {
+            float hoverH = aiOutput.flyAltitude ?? md.hoverHeight;
+            targetY = ComputeFlightAltitude(pos, currentVel, hoverH);
+        }
         float desiredVy = Mathf.Clamp((targetY - pos.Y) * md.hoverStiffness, -md.verticalSpeed, md.verticalSpeed);
 
         Vector3 desiredVel = new Vector3(desiredHoriz.X, desiredVy, desiredHoriz.Z);
@@ -2014,6 +2060,34 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             target = Mathf.Min(target, ceiling - 1f);
         }
         return Mathf.Max(target, surfHere + 1f);
+    }
+
+    // Clamp a behavior-requested absolute world Y into the column's flyable
+    // band: no lower than just above the local surface (so anchoring to a
+    // ground-level target still leaves ~1 voxel of clearance — this is what
+    // turns "hover at the player's height" into "...or at least 1m up") and no
+    // higher than just below any ceiling. No terrain look-ahead here: an
+    // aerial combatant circling a fixed target shouldn't have its anchored
+    // height lifted by a nearby rise the way a cruising traveller does.
+    private float ClampAbsoluteFlightAltitude(Vector3 pos, float requestedY)
+    {
+        WorldState ws = _world?.WorldState;
+        if (ws == null)
+        {
+            return requestedY;
+        }
+        int wx = Mathf.FloorToInt(pos.X);
+        int wy = Mathf.FloorToInt(pos.Y);
+        int wz = Mathf.FloorToInt(pos.Z);
+        bool waterIsSurface = _simState.MobData.CanSwim;
+        int surfHere = SurfaceTopAt(ws, wx, wz, wy, waterIsSurface);
+        float target = Mathf.Max(requestedY, surfHere + 1f);
+        int ceiling = CeilingYAbove(ws, wx, wy + 1, wz);
+        if (ceiling != int.MaxValue)
+        {
+            target = Mathf.Min(target, ceiling - 1f);
+        }
+        return target;
     }
 
     // Number of look-ahead columns sampled along the flight heading (in
@@ -2525,6 +2599,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 // threat the behavior is reacting to); ignored by other types.
                 Vocalize(aiOutput.vocalization.Value, aiOutput.targetPos);
             }
+            if (aiOutput.dash)
+            {
+                SpawnWorldEffect(_dashFx);
+            }
             _runner?.Tick();
 
             // Draw the mob's active movement target when the debug CVar is on.
@@ -2598,10 +2676,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             bool actionLocksMovement = _runner != null && _runner.LocksMovement;
             // Flying mobs run a dedicated 3-axis steering+hover+wind pass while
             // the behavior layer wants them airborne; ground locomotion below is
-            // skipped for them. Drive the sim-state flag so animation and the
-            // gravity/damp decisions agree we're aloft.
-            bool flying = _simState.MobData.CanFly && aiOutput.airborne && !inBurrow && !actionLocksMovement;
-            _simState.Airborne = flying;
+            // skipped for them. `airborneIntent` is the behavior's "stay aloft"
+            // wish — true even through a locks-movement combat action, because an
+            // aerial attacker mustn't fall out of the sky during a melee dart's
+            // windup / recovery. `flying` is the narrower "run full hover
+            // steering this tick", which yields the body to ApplyMotion during a
+            // locked dart. Gravity and the collision mask key off the broader
+            // intent (stay weightless and pass-through for the whole engagement);
+            // only the steering pass below yields. For a non-combatant flier
+            // (sparrow, which never attacks while airborne) the two are identical.
+            bool airborneIntent = _simState.MobData.CanFly && aiOutput.airborne && !inBurrow;
+            bool flying = airborneIntent && !actionLocksMovement;
+            _simState.Airborne = airborneIntent;
             // Fliers pass through world geometry while airborne — hover physics
             // owns altitude, so colliding only snags them on cliffs/props and
             // blocks perch approaches. Drop the movement body's mask to nothing
@@ -2610,12 +2696,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // mask in their own states.
             if (_simState.MobData.CanFly && alive)
             {
-                if (flying && !_flightCollisionDisabled)
+                if (airborneIntent && !_flightCollisionDisabled)
                 {
                     CollisionMask = 0;
                     _flightCollisionDisabled = true;
                 }
-                else if (!flying && _flightCollisionDisabled)
+                else if (!airborneIntent && _flightCollisionDisabled)
                 {
                     CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
                     _flightCollisionDisabled = false;
@@ -2733,7 +2819,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // GravityScale, then restoring 1 on exit. A motionFreezeGravity
             // dart also gets gravity disabled so the lunge hangs level.
             bool motionHang = _simState.MotionTime > 0f && _simState.MotionFreezeGravity;
-            float gravityScaleTarget = (motionHang || flying || (_swimming && !inBurrow)) ? 0f : 1f;
+            float gravityScaleTarget = (motionHang || airborneIntent || (_swimming && !inBurrow)) ? 0f : 1f;
             if (gravityScaleTarget != _lastGravityScale)
             {
                 GravityScale = gravityScaleTarget;

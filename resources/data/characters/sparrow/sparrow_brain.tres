@@ -8,9 +8,19 @@
 [ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/characters/BrainData.cs" id="6_brain"]
 [ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="7_lookat"]
 [ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="8_hasinv"]
+[ext_resource type="Script" uid="uid://6hv6e7g1pnbe" path="res://scripts/data/behaviors/conditions/IncomingProjectileCondition.cs" id="9_incoming"]
 
 [sub_resource type="Resource" id="Resource_perch"]
 script = ExtResource("1_perch")
+
+[sub_resource type="Resource" id="Resource_cond_incoming"]
+script = ExtResource("9_incoming")
+requireTriggered = false
+
+[sub_resource type="Resource" id="Resource_perch_to_flee_shot"]
+script = ExtResource("4_trans")
+condition = SubResource("Resource_cond_incoming")
+destination = &"FlyFlee"
 
 [sub_resource type="Resource" id="Resource_cond_threat"]
 script = ExtResource("3_threat")
@@ -32,7 +42,7 @@ destination = &"LookAt"
 script = ExtResource("2_node")
 name = &"Perch"
 data = SubResource("Resource_perch")
-transitions = [SubResource("Resource_perch_to_flee"), SubResource("Resource_perch_to_lookat")]
+transitions = [SubResource("Resource_perch_to_flee_shot"), SubResource("Resource_perch_to_flee"), SubResource("Resource_perch_to_lookat")]
 
 [sub_resource type="Resource" id="Resource_flyflee"]
 script = ExtResource("5_flyflee")
@@ -55,7 +65,7 @@ destination = &"FlyFlee"
 script = ExtResource("2_node")
 name = &"LookAt"
 data = SubResource("Resource_lookat")
-transitions = [SubResource("Resource_lookat_to_flee")]
+transitions = [SubResource("Resource_perch_to_flee_shot"), SubResource("Resource_lookat_to_flee")]
 
 [resource]
 script = ExtResource("6_brain")

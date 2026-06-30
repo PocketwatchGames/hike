@@ -1,0 +1,71 @@
+[gd_scene format=3 uid="uid://d7io852kxo0f"]
+
+[ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="2_hud"]
+[ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/fx/blood_damage.tscn" id="3_blood"]
+[ext_resource type="PackedScene" uid="uid://dj7kicjpkco3y" path="res://scenes/fx/blood_death_small.tscn" id="4_death"]
+[ext_resource type="PackedScene" uid="uid://bge0a3ixatdrt" path="res://assets/models/characters/birdy/birdy.fbx" id="5_birdyfbx"]
+[ext_resource type="AnimationLibrary" path="res://assets/models/characters/birdy/birdy_anims.res" id="6_birdyanims"]
+[ext_resource type="Material" uid="uid://cr8w5qp148pnb" path="res://resources/materials/birdy_lit.tres" id="7_birdymat"]
+[ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="8_modelanim"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="9_pixelsnap"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="10_hurtbox"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
+height = 1.0
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
+radius = 0.6
+height = 1.2
+
+[node name="Mob" type="RigidBody3D" unique_id=613651625 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "hudAnchor")]
+axis_lock_angular_x = true
+axis_lock_angular_z = true
+script = ExtResource("1_mob")
+_collisionShape = NodePath("MovementCollision")
+_modelAnimator = NodePath("ModelAnimator")
+_mesh = NodePath("Visuals/MeshContainer")
+_visuals = NodePath("Visuals")
+_hurtBox = NodePath("HurtBox")
+hudAnchor = NodePath("Visuals/HudAnchor")
+hudScene = ExtResource("2_hud")
+_bloodDamageFx = ExtResource("3_blood")
+_deathFx = ExtResource("4_death")
+
+[node name="Visuals" type="Node3D" parent="." unique_id=744431305]
+
+[node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=1888429174]
+transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
+
+[node name="DrakeModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=189906191]
+
+[node name="birdy" parent="Visuals/MeshContainer/DrakeModel" unique_id=72724128 instance=ExtResource("5_birdyfbx")]
+
+[node name="AnimationPlayer2" type="AnimationPlayer" parent="Visuals/MeshContainer/DrakeModel/birdy" unique_id=839995771]
+libraries/ = ExtResource("6_birdyanims")
+
+[node name="HudAnchor" type="Node3D" parent="Visuals" unique_id=1264858682]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
+
+[node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=972731225]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("CapsuleShape3D_move")
+
+[node name="HurtBox" type="Area3D" parent="." unique_id=88774065]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("10_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=2042834988]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("CapsuleShape3D_hurt")
+
+[node name="PixelSnap" type="Node" parent="." unique_id=748718050 node_paths=PackedStringArray("_target")]
+script = ExtResource("9_pixelsnap")
+_target = NodePath("../Visuals/MeshContainer/DrakeModel")
+
+[node name="ModelAnimator" type="Node" parent="." unique_id=1128986087 node_paths=PackedStringArray("player", "visual")]
+script = ExtResource("8_modelanim")
+player = NodePath("../Visuals/MeshContainer/DrakeModel/birdy/AnimationPlayer2")
+visual = NodePath("../Visuals/MeshContainer/DrakeModel")
+modelMaterial = ExtResource("7_birdymat")

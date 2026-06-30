@@ -1,0 +1,82 @@
+[gd_resource type="Resource" script_class="MobData" format=3 uid="uid://ttygw8dsckh3"]
+
+[ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mob"]
+[ext_resource type="Resource" uid="uid://dt8tvbslw0bv3" path="res://resources/data/characters/drake/drake_brain.tres" id="2_brain"]
+[ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="3_jslau"]
+[ext_resource type="PackedScene" uid="uid://d7io852kxo0f" path="res://scenes/characters/drake.tscn" id="3_scene"]
+[ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
+
+[sub_resource type="Resource" id="Resource_anim_attack"]
+script = ExtResource("4_animdata")
+name = &"attack"
+
+[sub_resource type="Resource" id="Resource_anim_dead"]
+script = ExtResource("4_animdata")
+name = &"dead"
+
+[sub_resource type="Resource" id="Resource_anim_die"]
+script = ExtResource("4_animdata")
+name = &"die"
+
+[sub_resource type="Resource" id="Resource_anim_fall"]
+script = ExtResource("4_animdata")
+name = &"fall"
+
+[sub_resource type="Resource" id="Resource_anim_idle"]
+script = ExtResource("4_animdata")
+name = &"idle"
+
+[sub_resource type="Resource" id="Resource_anim_run"]
+script = ExtResource("4_animdata")
+name = &"run"
+affectedBySpeedMultiplier = true
+
+[sub_resource type="Resource" id="Resource_anim_dizzy"]
+script = ExtResource("4_animdata")
+name = &"dizzy"
+
+[sub_resource type="Resource" id="Resource_anim_hitstun"]
+script = ExtResource("4_animdata")
+name = &"hitstun"
+
+[sub_resource type="Resource" id="Resource_anim_fly"]
+script = ExtResource("4_animdata")
+name = &"run"
+affectedBySpeedMultiplier = true
+
+[resource]
+script = ExtResource("1_mob")
+displayName = &"Drake"
+visionRange = 22.0
+visionDotPower = 2.0
+dangerous = true
+maxHealth = 28.0
+modifiers = null
+dizzyResistance = 1.5
+brain = ExtResource("2_brain")
+killsPerLevel = Array[int]([3, 10, 20, 35, 60])
+exp = 18
+animations = Dictionary[int, ExtResource("4_animdata")]({
+0: SubResource("Resource_anim_attack"),
+1: SubResource("Resource_anim_dead"),
+2: SubResource("Resource_anim_die"),
+3: SubResource("Resource_anim_fall"),
+4: SubResource("Resource_anim_idle"),
+6: SubResource("Resource_anim_run"),
+10: SubResource("Resource_anim_dizzy"),
+18: SubResource("Resource_anim_hitstun"),
+26: SubResource("Resource_anim_fly")
+})
+hudScale = 0.6
+mobScene = ExtResource("3_scene")
+movement = 23
+triggersTraps = false
+clearanceRadius = 0.5
+maxSpeed = 8.0
+foliageSpeedModifier = 0.0
+turnSpeed = 5.0
+hoverHeight = 5.0
+flySpeed = 10.0
+verticalSpeed = 6.0
+hoverStiffness = 4.0
+windInfluence = 0.3

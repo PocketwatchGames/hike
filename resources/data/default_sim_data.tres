@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/world/SimData.cs" id="1_1meao"]
 [ext_resource type="Material" uid="uid://dhl426xulqxbf" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
+[ext_resource type="Material" uid="uid://vyod0jnbvh8p" path="res://resources/materials/ground_shadow_blob.tres" id="1_mobshadow"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="3_recipe_script"]
 [ext_resource type="Resource" uid="uid://cjvf30nl7ddfv" path="res://resources/data/recipes/recipe_health_potion.tres" id="4_recipe_hp"]
 [ext_resource type="Resource" uid="uid://c5j2h8n4q3pwt" path="res://resources/data/recipes/recipe_health_potion_superior.tres" id="4_recipe_hp_hi"]
@@ -38,8 +39,8 @@
 [ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow/sparrow.tres" id="25_mob_sparrow"]
 [ext_resource type="Resource" uid="uid://cspmuy1rwr522" path="res://resources/data/characters/dog/dog.tres" id="26_mob_dog"]
 [ext_resource type="Resource" uid="uid://cl34ccsehfsfi" path="res://resources/data/boons/boon_stoneskin.tres" id="27_boon_stoneskin"]
-[ext_resource type="Resource" uid="uid://d37lup9iwzbcx" path="res://resources/data/boons/boon_seeking.tres" id="28_boon_seeking"]
-[ext_resource type="Resource" uid="uid://a3jjnm78vuj6c" path="res://resources/data/boons/boon_ranged_seeking.tres" id="29_boon_ranged_seeking"]
+[ext_resource type="Resource" uid="uid://d37luqaiw0bcx" path="res://resources/data/boons/boon_seeking.tres" id="28_boon_seeking"]
+[ext_resource type="Resource" uid="uid://3jjnm78vuj6c" path="res://resources/data/boons/boon_ranged_seeking.tres" id="29_boon_ranged_seeking"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -74,6 +75,10 @@ nightAmbientHumidityLift = 0.25
 rippleWindRef = 30.0
 canopyDensity = 0.35
 footprintMaterial = ExtResource("1_atie7")
+groundShadowMaterial = ExtResource("1_mobshadow")
+playerShadowRadius = 0.65
+mobShadowAlpha = 0.7
+groundShadowDaylightFade = 1.0
 thunderScheduler = ExtResource("11_thunder_distant")
 weatherLightning = ExtResource("12_lightning")
 fogVisionReduction = 0.7

@@ -379,6 +379,14 @@ public partial class MobData : Resource
     // fully laid onto the slope. Visual only: the physics body and HUD stay
     // upright. See Mob.UpdateGroundNormal / UpdateGroundPitch.
     [Export(PropertyHint.Range, "0,1,0.05")] public float alignPitchToGroundNormal = 0f;
+    // Radius (world units) of the soft grounding-shadow blob projected straight
+    // down under this mob through the GroundStainProjector (see MobShadowScatter)
+    // — the same flat shade the player casts, picked up by both terrain and grass.
+    // Scale it to the body's footprint (a bird ~0.4, a goblin ~0.7, a boss larger).
+    // 0 = no blob: the right choice for ethereal mobs (a fairy orb) and high
+    // fliers, whose straight-down blob would otherwise sit at full size on the
+    // ground far below them. Master darkness/material are shared on SimData.
+    [Export(PropertyHint.Range, "0,4,0.05")] public float groundShadowRadius = 0.5f;
 
     [ExportGroup("Loot & Death")]
     // NOTE: the loot drop list is NOT a base-species trait — it's a per-variant

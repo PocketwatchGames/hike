@@ -161,16 +161,13 @@ public partial class WeaponData : ItemData
 	// Standoff distance the wielding mob holds from the target — it stops closing
 	// here so it can attack instead of slamming into the target.
 	[Export] public float desiredAttackRange = 1.75f;
-	// Cooldown (seconds) after the mob fires this weapon before it may fire it
-	// again. Tracked per-weapon so a long-cooldown cry doesn't stall the always-
+	// Fixed cooldown (seconds) after the mob fires this weapon before it may fire
+	// it again. Tracked per-weapon so a long-cooldown cry doesn't stall the always-
 	// available basic attack between cries. (Distinct from the per-tier
-	// ItemAction.cooldownSeconds, which mob attack tiers leave at 0.)
+	// ItemAction.cooldownSeconds, which mob attack tiers leave at 0.) Cadence
+	// variety is not added here — it's an additional, behavior-level pause AFTER
+	// this cooldown elapses; see AttackBehaviorData.attackPauseSeconds.
 	[Export] public float cooldownSeconds = 1.5f;
-	// Extra random pause (0..this seconds) added on top of cooldownSeconds each
-	// time the weapon fires, so a mob's swings aren't metronomic. The effective
-	// gap between attacks is cooldownSeconds .. cooldownSeconds + this. 0 = fixed
-	// cadence (the old behavior).
-	[Export] public float cooldownRandomSeconds = 0f;
 	// Minimum count of same-team mobs (including the wielder) within allyRange
 	// required to fire this weapon. 0 = no gate (always available); 2+ keeps a
 	// buff / battle cry from firing into an empty field. See BehaviorAttack.

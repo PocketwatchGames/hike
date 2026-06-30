@@ -1,0 +1,24 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_proj"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bolt"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.72, 0.85, 1, 1)
+emission_enabled = true
+emission = Color(0.55, 0.78, 1, 1)
+emission_energy_multiplier = 6.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_bolt"]
+material = SubResource("StandardMaterial3D_bolt")
+radius = 0.24
+height = 0.66
+radial_segments = 8
+rings = 5
+
+[node name="DrakeLightningBolt" type="Node3D"]
+script = ExtResource("1_proj")
+
+[node name="Model" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_bolt")

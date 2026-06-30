@@ -1,0 +1,40 @@
+[gd_scene format=3 uid="uid://bpmmnrn71c6iv"]
+
+[ext_resource type="Script" uid="uid://bhnfbnxh0euct" path="res://scripts/gui/ObjectivePanel.cs" id="1_1785b"]
+
+[node name="ObjectivePanel" type="PanelContainer" unique_id=1096711928 node_paths=PackedStringArray("_progressBar", "_titleLabel", "_countLabel", "_countContainer")]
+clip_contents = true
+custom_minimum_size = Vector2(300, 0)
+size_flags_horizontal = 0
+script = ExtResource("1_1785b")
+_progressBar = NodePath("MarginContainer/VBoxContainer/MarginContainer/ProgressBar")
+_titleLabel = NodePath("MarginContainer/VBoxContainer/Label")
+_countLabel = NodePath("MarginContainer/VBoxContainer/MarginContainer/Label")
+_countContainer = NodePath("MarginContainer/VBoxContainer/MarginContainer")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1777824261]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=335445342]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1862312640]
+layout_mode = 2
+text = "Desert Kun Kun"
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer" unique_id=2057120395]
+layout_mode = 2
+
+[node name="ProgressBar" type="ProgressBar" parent="MarginContainer/VBoxContainer/MarginContainer" unique_id=237141313]
+layout_mode = 2
+size_flags_vertical = 1
+show_percentage = false
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/MarginContainer" unique_id=365330820]
+layout_mode = 2
+text = "30/50"
+horizontal_alignment = 1

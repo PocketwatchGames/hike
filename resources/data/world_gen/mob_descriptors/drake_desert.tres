@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="MobDescriptor" format=3]
+
+[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
+[ext_resource type="Resource" path="res://resources/data/characters/drake/drake_desert.tres" id="2_sub"]
+
+[resource]
+script = ExtResource("1_desc")
+species = ExtResource("2_sub")

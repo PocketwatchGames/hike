@@ -851,6 +851,17 @@ public partial class SkyController : Node3D
     // dusk/night.
     public float CurrentPrimaryIntensity { get; private set; } = 2f;
 
+    // How strongly a crisp directional (sun or moon) shadow is being cast right
+    // now, 0..1. 1 = a high, bright key light in clear air throwing a hard-edged
+    // shadow; 0 = no directional shadow worth speaking of (body at the horizon,
+    // heavy overcast, or deep twilight). Combines the active body's energy fade,
+    // the penumbra sharpness (effShadowAngular widens at low sun → softer →
+    // lower), and cloud cover (overcast diffuses the key light into a shadowless
+    // wash). Read by GroundShadowScatter: the grounding-shadow blobs fade IN as
+    // this fades out, substituting a fake contact shadow only when there isn't a
+    // real one. Computed in Apply().
+    public float DirectionalShadowStrength { get; private set; }
+
     public override void _Ready()
     {
         Current = this;
@@ -1352,6 +1363,13 @@ public partial class SkyController : Node3D
             + shadowAngularAtmosphericBoost * atmBlurFactor;
         if (sunLight != null) { sunLight.LightAngularDistance = effShadowAngular; }
         if (moonLight != null) { moonLight.LightAngularDistance = effShadowAngular; }
+
+        // Directional-shadow strength for the grounding-shadow blobs (see the
+        // property doc). Active body's energy × penumbra sharpness × sky clarity.
+        float shadowBodyEnergy = _sunIsPrimary ? sunEnergyFactor : moonEnergyFactor * _palette.NightPrimaryIntensity;
+        float shadowSharpness = shadowAngularBase / Mathf.Max(effShadowAngular, 0.01f);
+        float shadowClarity = 1f - Mathf.Clamp(Weather?.cloudCover ?? 0f, 0f, 1f);
+        DirectionalShadowStrength = Mathf.Clamp(shadowBodyEnergy * shadowSharpness * shadowClarity, 0f, 1f);
 
         // _nightT for disk glow fade. Same formula as WeatherDerivation.PhaseWeights.
         float colorRange = Mathf.Max(sim?.sunsetColorRangeDegrees ?? 10f, 0.01f);

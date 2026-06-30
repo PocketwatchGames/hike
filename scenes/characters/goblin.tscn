@@ -26,6 +26,7 @@
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="41_helditemvis"]
 [ext_resource type="Resource" uid="uid://bnwa62mo5grh6" path="res://resources/data/characters/goblin/goblin_voice.tres" id="50_voice"]
+[ext_resource type="PackedScene" uid="uid://bvq7x2mn4k8rp" path="res://scenes/fx/mob_dash.tscn" id="51_dashfx"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gby2u"]
 height = 2.5
@@ -55,6 +56,7 @@ _idleLoopFx = ExtResource("18_idle")
 _runLoopFx = ExtResource("19_run")
 _swimIdleLoopFx = ExtResource("20_swimidle")
 _voice = ExtResource("50_voice")
+_dashFx = ExtResource("51_dashfx")
 _armorDepletedFx = ExtResource("22_armorbrk")
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("11_fstgrass"),

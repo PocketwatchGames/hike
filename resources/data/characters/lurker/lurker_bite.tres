@@ -67,5 +67,4 @@ damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 actionProfile = SubResource("Resource_profile")
 maxAttackRange = 3.5
 desiredAttackRange = 1.5
-cooldownRandomSeconds = 1.0
 displayName = &"Lurker Bite"

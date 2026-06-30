@@ -71,6 +71,5 @@ actionProfile = SubResource("Resource_profile")
 maxAttackRange = 6.0
 desiredAttackRange = 2.5
 cooldownSeconds = 1.0
-cooldownRandomSeconds = 1.0
 displayName = &"Goblin Claw"
 heldModel = ExtResource("9_held")

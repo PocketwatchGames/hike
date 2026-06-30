@@ -18,6 +18,8 @@
 [ext_resource type="Script" uid="uid://cruw4anaypwt" path="res://scripts/data/spawn/BuriedSpotSpawnEntry.cs" id="14_buried_entry"]
 [ext_resource type="PackedScene" uid="uid://b8rq2dnk7vxce" path="res://scenes/interactives/buried_spot.tscn" id="15_buried_scene"]
 [ext_resource type="Resource" uid="uid://daxn4tq8wpv2r" path="res://resources/data/buried/buried_carrot.tres" id="16_carrot_data"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/drake_mountain.tres" id="20_drake_data"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/drake_mountain_elite.tres" id="21_drake_elite"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
@@ -42,6 +44,18 @@ descriptor = ExtResource("6_kunkun_data")
 initialBehavior = &"Wander"
 initialBehaviorChance = 0.33
 squareMetersPerSpawn = 200.0
+
+[sub_resource type="Resource" id="Resource_drake"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("20_drake_data")
+initialBehavior = null
+squareMetersPerSpawn = 600.0
+
+[sub_resource type="Resource" id="Resource_drake_elite"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("21_drake_elite")
+initialBehavior = null
+squareMetersPerSpawn = 2500.0
 
 [sub_resource type="Resource" id="Desc_loot"]
 script = ExtResource("99_desc")
@@ -79,4 +93,4 @@ squareMetersPerSpawn = 200.0
 
 [resource]
 script = ExtResource("1_list")
-entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("8_campfire_group"), SubResource("Resource_well"), SubResource("Resource_prf3q"), SubResource("Resource_climbtree"), SubResource("Resource_carrot")])
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_drake"), SubResource("Resource_drake_elite"), SubResource("Resource_loot"), ExtResource("8_campfire_group"), SubResource("Resource_well"), SubResource("Resource_prf3q"), SubResource("Resource_climbtree"), SubResource("Resource_carrot")])

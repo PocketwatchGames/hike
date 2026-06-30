@@ -42,6 +42,12 @@ public partial class World : Node3D
     private readonly PerchRegistry _perches = new();
     public PerchRegistry Perches => _perches;
 
+    // Registry of in-flight projectiles. Projectiles self-register on tree-enter
+    // and unregister on tree-exit. Mobs query it to react to incoming shots
+    // (the dodge / perch-flee reaction).
+    private readonly ProjectileRegistry _projectiles = new();
+    public ProjectileRegistry Projectiles => _projectiles;
+
     // Coordinator for "where should each mob stand around the player /
     // other targets" — hands out angular standoff slots so a swarm fans
     // out instead of stacking. Slots are leased per-mob and survive
@@ -60,6 +66,7 @@ public partial class World : Node3D
     private WorldDetailScatter _detailScatter;
     private WorldPropScatter _propScatter;
     private FootprintScatter _footprintScatter;
+    private GroundShadowScatter _groundShadowScatter;
     private AmbienceController _ambienceController;
     private ThunderScheduler _thunderScheduler;
     private LightningFlasher _lightningFlasher;
@@ -135,6 +142,10 @@ public partial class World : Node3D
         _footprintScatter = new FootprintScatter();
         _footprintScatter.Name = "FootprintScatter";
         AddChild(_footprintScatter);
+
+        _groundShadowScatter = new GroundShadowScatter();
+        _groundShadowScatter.Name = "GroundShadowScatter";
+        AddChild(_groundShadowScatter);
 
         _chunkManager = new ChunkManager();
         AddChild(_chunkManager);

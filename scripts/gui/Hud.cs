@@ -63,6 +63,8 @@ public partial class Hud : Control
 	[Export] TextureRect _weatherDay;
 	[Export] TextureRect _weatherNight;
 	[Export] Control _weatherContainer;
+	[Export] Control _objectivesContainer;
+	[Export] PackedScene _objectivePanelScene;
 	// Height above the player's feet to sample sunlight for the cave-fade.
 	// The feet voxel straddles the solid ground, so a sub-voxel bob while
 	// moving flips it between lit air and dark ground and flickers the icon;

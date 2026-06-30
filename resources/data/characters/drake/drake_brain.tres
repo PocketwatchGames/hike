@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://dt8tvbslw0bv3"]
+
+[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/characters/BrainData.cs" id="1_brain"]
+[ext_resource type="Script" uid="uid://d3xbi1dqweahm" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
+[ext_resource type="Script" uid="uid://bwn2kkju73s55" path="res://scripts/data/behaviors/BehaviorNodeTransition.cs" id="3_transition"]
+[ext_resource type="Script" uid="uid://cem370w0ihhsw" path="res://scripts/data/behaviors/FlyWanderBehaviorData.cs" id="4_patrol"]
+[ext_resource type="Script" uid="uid://dxwttp02tkri5" path="res://scripts/data/behaviors/FlyAttackBehaviorData.cs" id="5_attack"]
+[ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="6_aggro_acquired"]
+[ext_resource type="Script" uid="uid://bj36ge53ur48e" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="7_aggro_lost"]
+
+[sub_resource type="Resource" id="Resource_patrol"]
+script = ExtResource("4_patrol")
+
+[sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
+script = ExtResource("6_aggro_acquired")
+
+[sub_resource type="Resource" id="Resource_patrol_to_attack"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_patrol_node"]
+script = ExtResource("2_node")
+name = &"Patrol"
+data = SubResource("Resource_patrol")
+transitions = [SubResource("Resource_patrol_to_attack")]
+
+[sub_resource type="Resource" id="Resource_attack"]
+script = ExtResource("5_attack")
+engageHeightOffset = 0.5
+approachRange = 35.0
+encircleSlotCount = 6
+encircleDistance = 7.0
+attackFacingToleranceDegrees = 60.0
+
+[sub_resource type="Resource" id="Resource_cond_aggro_lost"]
+script = ExtResource("7_aggro_lost")
+
+[sub_resource type="Resource" id="Resource_attack_to_patrol"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_aggro_lost")
+destination = &"Patrol"
+
+[sub_resource type="Resource" id="Resource_attack_node"]
+script = ExtResource("2_node")
+name = &"Attack"
+data = SubResource("Resource_attack")
+transitions = [SubResource("Resource_attack_to_patrol")]
+
+[resource]
+script = ExtResource("1_brain")
+idleBehavior = &"Patrol"
+behaviors = [SubResource("Resource_patrol_node"), SubResource("Resource_attack_node")]

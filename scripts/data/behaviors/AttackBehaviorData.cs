@@ -39,5 +39,16 @@ public partial class AttackBehaviorData : BehaviorData
     // turn to satisfy the gate), so it never deadlocks an unseen attacker.
     [Export] public float attackFacingToleranceDegrees = 180f;
 
+    // Additional pause (seconds) AFTER a weapon's fixed cooldown elapses before
+    // the mob commits its next swing. The weapon's cooldownSeconds is the hard
+    // floor between attacks; this pause is layered on top as a behavior beat
+    // during which the mob keeps circling the encircle ring — so the cadence
+    // isn't a tight cooldown loop and there's a clear, readable window between
+    // swings (the window mobs dodge in). attackPauseRandomSeconds adds 0..N on
+    // top of attackPauseSeconds each cycle so the cadence isn't metronomic; 0/0
+    // = swing the instant the cooldown clears (the old fixed cadence).
+    [Export] public float attackPauseSeconds = 0f;
+    [Export] public float attackPauseRandomSeconds = 0f;
+
     public override BehaviorBase CreateRuntime() => new BehaviorAttack(this);
 }

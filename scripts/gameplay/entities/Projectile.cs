@@ -141,6 +141,25 @@ public partial class Projectile : Node3D
 
 	public DamageData DamageData => _damageData;
 	public Node Source => _source;
+	// Current world velocity (m/s) and firing team, read by ProjectileRegistry
+	// so mobs can decide whether an in-flight shot is an incoming threat and
+	// which way it's travelling. Velocity changes each tick (gravity / homing);
+	// the registry samples it live at query time.
+	public Vector3 Velocity => _velocity;
+	public ETeam AttackerTeam => _attackerTeam;
+
+	// Self-register with the world's projectile registry for the mob dodge /
+	// perch-flee reaction. Symmetric add/remove on tree enter/exit so a despawn
+	// (QueueFree) or chunk evict drops it cleanly — mirrors Perch.
+	public override void _Ready()
+	{
+		World.Current?.Projectiles?.Add(this);
+	}
+
+	public override void _ExitTree()
+	{
+		World.Current?.Projectiles?.Remove(this);
+	}
 
 	public static Projectile Launch(
 		Node parent,

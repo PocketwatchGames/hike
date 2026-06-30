@@ -955,6 +955,32 @@ public partial class SimData : Resource
     // outlast a deep one anyway.
     [Export] public float footprintDurationSeconds = 15f;
 
+    [ExportGroup("Grounding Shadows")]
+    // Shared material for the batched grounding-shadow blobs (GroundShadowScatter
+    // uploads one MultiMesh instance per shadow-caster — the player plus every
+    // qualifying mob). Must be unshaded, alpha-blended, and have
+    // vertex_color_use_as_albedo enabled so each blob's per-instance alpha rides
+    // INSTANCE_COLOR.a (ground_shadow_blob.tres). The blob's radial shape +
+    // baseline darkness come from the material's gradient texture.
+    [Export] public Material groundShadowMaterial;
+    // Radius (world units) of the player's grounding-shadow blob. Mobs carry
+    // their own MobData.groundShadowRadius; this is the player's. 0 = no player
+    // blob.
+    [Export(PropertyHint.Range, "0,4,0.05")] public float playerShadowRadius = 0.65f;
+    // Master multiplier on every MOB blob's alpha (the player blob is always at
+    // full base alpha). The shared "how dark are mob grounding shadows" knob;
+    // lower it if clustered mobs pool too dark (overlap composites alpha-over in
+    // the projector RT, so it self-limits but still deepens). 0 = mob blobs off
+    // without touching the player's.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float mobShadowAlpha = 0.7f;
+    // How strongly daylight suppresses the blobs. Each blob's alpha is scaled by
+    // 1 - groundShadowDaylightFade * (DirectionalShadowStrength * skyExposure):
+    // a blob fades out only where the sun/moon already throws a crisp shadow AND
+    // the caster stands under open sky, so it substitutes for a real contact
+    // shadow rather than doubling it. 1 = full suppression (default); 0 = blobs
+    // ignore daylight and always render at full strength.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float groundShadowDaylightFade = 1f;
+
     [ExportGroup("Audio")]
     // Distant rolling-thunder scheduler asset + tuning. Sim-wide, since
     // the rolling-thunder bed sounds the same across zones (the per-zone

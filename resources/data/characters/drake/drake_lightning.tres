@@ -1,0 +1,63 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://kauvrkh62nsl"]
+
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_06lit"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_v5yt4"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/drake_lightning_bolt.tscn" id="6_proj"]
+[ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="7_impact"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_mu4ee"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="9_ghxws"]
+
+[sub_resource type="Resource" id="Resource_event_windup"]
+script = ExtResource("4_event")
+type = 64
+
+[sub_resource type="Resource" id="Resource_event_shoot"]
+script = ExtResource("4_event")
+time = 300
+type = 8192
+impactEnvironmentEffect = ExtResource("7_impact")
+impactHealthEffect = ExtResource("7_impact")
+impactArmorEffect = ExtResource("7_impact")
+impactLethalEffect = ExtResource("7_impact")
+projectileScene = ExtResource("6_proj")
+projectileSpeed = 22.0
+projectileLifetimeSeconds = 1.6
+
+[sub_resource type="Resource" id="Resource_action_breath"]
+script = ExtResource("3_action")
+displayName = &"Lightning Breath"
+activeDurationSeconds = 0.8
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_shoot")])
+speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+turnLockDelaySeconds = 0.15
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_breath")])
+
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("5_damage")
+tags = 609
+healthDamage = 12.0
+hitstun = 0.25
+buildups = []
+modifiers = []
+
+[resource]
+script = ExtResource("1_weapon")
+damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
+&"primary": SubResource("Resource_damage_primary")
+})
+actionProfile = SubResource("Resource_profile")
+priority = 2
+maxAttackRange = 18.0
+maxVerticalAttackRange = 8.0
+desiredAttackRange = 10.0
+cooldownSeconds = 3.5
+displayName = &"Drake Lightning Breath"

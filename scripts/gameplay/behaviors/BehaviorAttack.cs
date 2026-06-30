@@ -18,6 +18,21 @@ public partial class BehaviorAttack : BehaviorBase
     // Reused per-tick to count same-team allies in range for the secondary
     // attack's ally-count gate. Cleared before each query.
     private readonly List<Mob> _allyScratch = new();
+    // Game-time (ms) the post-cooldown behavior pause ends. Rolled once on the
+    // edge where a weapon first comes off its fixed cooldown (no-weapon-ready →
+    // ready); until it elapses the mob holds at the encircle ring rather than
+    // swinging, so the cadence isn't a tight cooldown loop. 0 = no pause armed
+    // (nothing currently ready). See AttackBehaviorData.attackPauseSeconds.
+    private ulong _attackPauseUntilMs;
+
+    // The weapon being brought to bear this tick (the highest-priority ready
+    // one, or null when all are on cooldown / out of reach and the mob holds at
+    // the encircle ring). Exposed so a subclass can react to which weapon is
+    // engaging — BehaviorFlyAttack reads it to pick its hover altitude tier
+    // (rise for a long-range weapon, descend to the target for a melee one).
+    // Valid only on ticks that reach weapon selection (Run past the no-target /
+    // transition early-outs).
+    protected WeaponData ChosenWeapon { get; private set; }
 
     public BehaviorAttack(AttackBehaviorData data)
     {
@@ -26,9 +41,12 @@ public partial class BehaviorAttack : BehaviorBase
 
     // Cooldown is intentionally NOT reset here: behaviors that swap out (e.g.
     // to Investigate and back) shouldn't grant a free attack on re-entry. The
-    // encircle slot is released on exit/target-change, not on enter.
+    // encircle slot is released on exit/target-change, not on enter. The pause
+    // IS cleared so re-entry re-rolls a fresh post-cooldown beat (still no free
+    // swing — a ready weapon arms a new pause before it can fire).
     public override void OnEnter(Mob me, ulong time)
     {
+        _attackPauseUntilMs = 0;
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
@@ -92,7 +110,31 @@ public partial class BehaviorAttack : BehaviorBase
         // the profile out of vertical reach — the cooldown isn't bumped and
         // ActionRunner's rejectEffect doesn't fire every tick against a target one
         // plateau up. Fire it the instant we're inside its maxAttackRange.
-        WeaponData ready = ChooseReadyWeapon(me, time, diff.Y, canSee);
+        WeaponData readyWeapon = ChooseReadyWeapon(me, time, diff.Y, canSee);
+        // Post-cooldown behavior pause. Once a weapon clears its fixed cooldown
+        // we hold one extra (authored) beat — circling the ring — before the
+        // swing commits, so attacks aren't a tight cooldown loop and there's a
+        // readable gap between them (the window dodging happens in). The pause is
+        // armed on the no-ready → ready edge and cleared the moment nothing is
+        // ready again (i.e. right after a swing puts the weapon back on cooldown),
+        // so each cycle rolls a fresh beat.
+        if (readyWeapon == null)
+        {
+            _attackPauseUntilMs = 0;
+        }
+        else if (_attackPauseUntilMs == 0)
+        {
+            float pause = _data.attackPauseSeconds + (float)GD.RandRange(0.0, _data.attackPauseRandomSeconds);
+            _attackPauseUntilMs = time + (ulong)(pause * 1000f);
+        }
+        // During the pause the mob is treated as having no ready weapon for the
+        // swing + standoff, so it falls back to the encircle ring and waits.
+        WeaponData ready = (readyWeapon != null && time >= _attackPauseUntilMs) ? readyWeapon : null;
+        // ChosenWeapon reflects the weapon being ENGAGED with (pause-independent),
+        // not just the one swinging this tick — a flying attacker reads it to hold
+        // its cruise altitude through the pause instead of bobbing down between
+        // volleys.
+        ChosenWeapon = readyWeapon;
         // Don't commit a swing until roughly facing the target, so attacks don't
         // fire off-axis. The mob keeps turning toward the target (output.yaw) while
         // it waits. Bypassed when its facing is frozen off-screen (it can't turn to
@@ -108,10 +150,9 @@ public partial class BehaviorAttack : BehaviorBase
             // Mob's _PhysicsProcess will TryStart the profile this same tick.
             output.attackProfile = ready.actionProfile;
             output.attackContext = new ActionContext { target = target, primaryItem = me.GetWeapon(ready) };
-            // Randomized pause between swings so the attack cadence isn't
-            // metronomic — a fresh roll each fire (see WeaponData.cooldownRandomSeconds).
-            float cooldownSeconds = ready.cooldownSeconds + (float)GD.RandRange(0.0, ready.cooldownRandomSeconds);
-            _weaponCooldownUntilMs[ready] = time + (ulong)(cooldownSeconds * 1000f);
+            // Fixed per-weapon cooldown. Cadence variety lives in the separate
+            // post-cooldown behavior pause above (AttackBehaviorData), not here.
+            _weaponCooldownUntilMs[ready] = time + (ulong)(ready.cooldownSeconds * 1000f);
         }
 
         // A locks-movement action owns the body for its full duration —

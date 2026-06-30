@@ -1,0 +1,71 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://cv47ms5ub1g4b"]
+
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_h4p7p"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_hk70c"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
+[ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/fx/goblin_claw_hit.tscn" id="6_hitfx"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_4md3s"]
+[ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="7_solidfx"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="9_epulf"]
+
+[sub_resource type="Resource" id="Resource_event_windup"]
+script = ExtResource("4_event")
+type = 64
+
+[sub_resource type="Resource" id="Resource_event_dive"]
+script = ExtResource("4_event")
+time = 200
+type = 1024
+motionForwardSpeed = 16.0
+motionDuration = 0.22
+
+[sub_resource type="Resource" id="Resource_event_strike"]
+script = ExtResource("4_event")
+time = 420
+type = 1
+range = 3.0
+farWidth = 2.5
+impactEnvironmentEffect = ExtResource("7_solidfx")
+impactHealthEffect = ExtResource("6_hitfx")
+impactArmorEffect = ExtResource("7_solidfx")
+impactLethalEffect = ExtResource("6_hitfx")
+
+[sub_resource type="Resource" id="Resource_action_dive"]
+script = ExtResource("3_action")
+displayName = &"Dive"
+activeDurationSeconds = 1.5
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_dive"), SubResource("Resource_event_strike")])
+speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+turnLockDelaySeconds = 0.15
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_dive")])
+
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("5_damage")
+tags = 1153
+healthDamage = 9.0
+hitstun = 0.3
+knockbackDistance = 1.0
+knockbackTime = 0.2
+buildups = []
+modifiers = []
+
+[resource]
+script = ExtResource("1_weapon")
+damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
+&"primary": SubResource("Resource_damage_primary")
+})
+actionProfile = SubResource("Resource_profile")
+priority = 1
+maxAttackRange = 4.5
+maxVerticalAttackRange = 3.0
+desiredAttackRange = 2.0
+cooldownSeconds = 1.6
+displayName = &"Drake Bite"

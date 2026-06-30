@@ -24,13 +24,20 @@ public struct AIOutput
     public bool burrow;
     // Flying mobs (MobData.CanFly) only: when true, the mob is airborne this
     // tick — physics disables gravity and runs ApplyFlightPhysics (hover +
-    // wind + steering) instead of ground locomotion. Flight is travel-only:
-    // behaviors set this while moving between points and clear it to land, so
-    // a bird is never left hovering in place by the behavior layer. flyAltitude
+    // wind + steering) instead of ground locomotion. Behaviors set this while
+    // moving between points and clear it to land; a flying combatant
+    // (BehaviorFlyAttack) holds it true for the whole engagement. flyAltitude
     // (when set) overrides MobData.hoverHeight as the target height above
-    // terrain, so future low/medium/high cruise tiers just vary this value.
+    // terrain (low/medium/high cruise tiers just vary this value).
     public bool airborne;
     public float? flyAltitude;
+    // Absolute target world-Y for a flier, overriding the terrain-relative
+    // flyAltitude when set. Used by aerial combat to anchor hover height to the
+    // target (e.g. the player's own elevation) rather than to the ground; the
+    // physics layer still floors it just above the local surface and caps it
+    // below any ceiling, so "player height or min 1m up" falls out for free.
+    // flyAltitude is ignored on ticks where this is set.
+    public float? flyTargetY;
     // True when TickAI early-returned because the mob is AI-suspended
     // (BehaviorIdle latches a 100ms suspend window once it's standing at
     // spawn so idle mobs can be physics-frozen). Downstream consumers of
@@ -51,6 +58,11 @@ public struct AIOutput
     // scene maps it to an Fx scene / animation via _vocalizationEffects. Nullable
     // so a behavior leaves it unset on ticks with nothing to say.
     public EVocalization? vocalization;
+    // One-shot: the mob started a dodge dash this tick. Mob spawns the authored
+    // _dashFx at its feet. The dash motion itself is driven directly through
+    // Mob.ApplyDodge (MotionVelocity), not this flag — this is purely the
+    // presentational cue, kept off the behavior layer like vocalization.
+    public bool dash;
 }
 public struct BehaviorOutput
 {

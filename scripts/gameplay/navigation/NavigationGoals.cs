@@ -77,6 +77,22 @@ public static class NavigationGoals
         return targetPos + new Vector3(Mathf.Sin(slotAngle), 0f, Mathf.Cos(slotAngle)) * distance;
     }
 
+    // Public wrapper: true if `worldPos` sits over a standable surface for a mob
+    // with `profile`, snapping `surfacePoint` to that surface. Used by the dodge
+    // to confirm a sideways/back dash lands on valid ground (not a cliff edge or
+    // wall) before committing. Fetches WorldState off `world`; false when either
+    // is missing.
+    public static bool IsGroundStandable(World world, in TraversalProfile profile, Vector3 worldPos, out Vector3 surfacePoint)
+    {
+        surfacePoint = worldPos;
+        WorldState ws = world?.WorldState;
+        if (ws == null)
+        {
+            return false;
+        }
+        return IsStandable(ws, world, profile, worldPos, out surfacePoint);
+    }
+
     // True if `worldPos` sits over a column with a standable surface
     // within a couple voxels of the requested Y. Snaps the returned
     // `surfacePoint` to that surface so callers can hand the navigator a

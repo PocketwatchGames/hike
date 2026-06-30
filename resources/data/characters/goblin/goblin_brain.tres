@@ -14,6 +14,8 @@
 [ext_resource type="Script" uid="uid://b8actinv3wq5n" path="res://scripts/data/behaviors/conditions/HasActionableInvestigationCondition.cs" id="14_actionable"]
 [ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="15_lookat"]
 [ext_resource type="Script" uid="uid://bugs6hed1gail" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="16_threat"]
+[ext_resource type="Script" uid="uid://j3ks8lpiy8np" path="res://scripts/data/behaviors/DodgeBehaviorData.cs" id="17_dodge"]
+[ext_resource type="Script" uid="uid://6hv6e7g1pnbe" path="res://scripts/data/behaviors/conditions/IncomingProjectileCondition.cs" id="18_incoming"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")
@@ -61,6 +63,16 @@ transitions = [SubResource("Resource_idle_to_attack"), SubResource("Resource_idl
 script = ExtResource("5_attack")
 encircleDistance = 6.0
 attackFacingToleranceDegrees = 45.0
+attackPauseRandomSeconds = 1.0
+
+[sub_resource type="Resource" id="Resource_cond_incoming"]
+script = ExtResource("18_incoming")
+requireFacingTarget = true
+
+[sub_resource type="Resource" id="Resource_attack_to_dodge"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_incoming")
+destination = &"Dodge"
 
 [sub_resource type="Resource" id="Resource_cond_aggro_lost"]
 script = ExtResource("7_aggro_lost")
@@ -74,7 +86,16 @@ destination = &"Idle"
 script = ExtResource("2_node")
 name = &"Attack"
 data = SubResource("Resource_attack")
-transitions = [SubResource("Resource_attack_to_idle")]
+transitions = [SubResource("Resource_attack_to_dodge"), SubResource("Resource_attack_to_idle")]
+
+[sub_resource type="Resource" id="Resource_dodge"]
+script = ExtResource("17_dodge")
+
+[sub_resource type="Resource" id="Resource_dodge_node"]
+script = ExtResource("2_node")
+name = &"Dodge"
+data = SubResource("Resource_dodge")
+transitions = []
 
 [sub_resource type="Resource" id="Resource_wander"]
 script = ExtResource("8_wander")
@@ -144,5 +165,5 @@ transitions = [SubResource("Resource_lookat_to_attack")]
 [resource]
 script = ExtResource("1_brain")
 idleBehavior = &"Idle"
-behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_attack_node"), SubResource("Resource_wander_node"), SubResource("Resource_investigate_node"), SubResource("Resource_lookat_node")]
+behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_attack_node"), SubResource("Resource_dodge_node"), SubResource("Resource_wander_node"), SubResource("Resource_investigate_node"), SubResource("Resource_lookat_node")]
 metadata/_custom_type_script = "uid://ctcx3rsnl61pe"
