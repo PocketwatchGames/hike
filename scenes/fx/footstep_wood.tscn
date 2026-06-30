@@ -37,7 +37,7 @@ script = ExtResource("1_wood")
 
 [node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1804591047]
 stream = SubResource("AudioStreamRandomizer_wood")
-volume_db = -16.0
+volume_db = -20.0
 unit_size = 4.0
 max_distance = 20.0
 bus = &"World3D"

@@ -8,3 +8,4 @@ blockName = &"Cobblestone"
 atlasBaseIndex = 3
 minimapColor = Color(0.48, 0.45688, 0.39839998, 1)
 porosity = 0.2
+groundType = 1

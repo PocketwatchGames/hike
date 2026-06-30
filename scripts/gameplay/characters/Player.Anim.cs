@@ -4,6 +4,14 @@ using System.Collections.Generic;
 
 public partial class Player : CharacterBody3D
 {
+	// Bounds on move-cycle playback when terrain retimes the stride (foliage drag
+	// + the ground block's speed multiplier). The floor keeps a heavily slowed
+	// step animating — and firing footsteps — fast enough to read as a slow
+	// trudge rather than a freeze; the ceiling stops a hastened surface from
+	// spinning the legs into a silly blur.
+	private const float MinMoveAnimSpeed = 0.5f;
+	private const float MaxMoveAnimSpeed = 1.5f;
+
 	// One-shots (attack, die, jump) latch the resolved clip and let the animator
 	// drive itself to completion — Finished flips because these anims are authored
 	// with loop=false. While a one-shot is latched, UpdateAnimation defers; once
@@ -282,7 +290,12 @@ public partial class Player : CharacterBody3D
 		// Charge slots aren't mapped with that flag, so they're naturally excluded.
 		if (data.IsAnimationSpeedAffected(loopAnim))
 		{
-			_animator.effectSpeedMultiplier = _statusEffects?.FoldStat(EStat.AnimSpeed, 1f) ?? 1f;
+			// Retime the move cycle to the terrain speed scalar (foliage + ground
+			// block) so a mud-slowed / road-hastened stride doesn't foot-slide and
+			// its footstep events slow down or speed up with it. Floored so a very
+			// slow surface still reads as walking, not a freeze.
+			float moveAnimSpeed = Mathf.Clamp(_terrainSpeed, MinMoveAnimSpeed, MaxMoveAnimSpeed);
+			_animator.effectSpeedMultiplier = (_statusEffects?.FoldStat(EStat.AnimSpeed, 1f) ?? 1f) * moveAnimSpeed;
 		}
 
 		// Drive the anim-audio loop off the same loopAnim. Only idle / run /

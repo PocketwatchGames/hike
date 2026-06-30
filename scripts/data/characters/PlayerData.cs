@@ -40,6 +40,20 @@ public partial class PlayerData : Resource
 	// own speed multiplier applies at full strength at 1, is ignored at 0, and
 	// partially at intermediate values. Mirrors MobData.foliageSpeedModifier.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float foliageSpeedModifier = 1f;
+	// Slope-based locomotion bonus/penalty AT the steepest walkable slope
+	// (FloorMaxAngle). Running straight downhill speeds up by up to
+	// downhillSpeedBonus, straight uphill slows by up to uphillSpeedPenalty;
+	// gentler slopes and off-axis headings scale linearly toward 1 (flat / level
+	// traverse). Folded into the terrain speed scalar, so footstep cadence
+	// retimes with it too.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float downhillSpeedBonus = 0.15f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float uphillSpeedPenalty = 0.25f;
+	// Shapes how the bonus/penalty ramp from flat to the max slope. The grade
+	// fraction (0 flat → 1 at max slope) is raised to this power before scaling
+	// the cap. <1 eases OUT — shallow slopes already feel most of the effect and
+	// it flattens toward the top; 1 = linear. Lower = the change reads sooner on
+	// gentle ground.
+	[Export(PropertyHint.Range, "0.2,1,0.05")] public float slopeSpeedEaseExponent = 0.5f;
 	// Linear horizontal acceleration (m/s²) toward the input target. Ground is
 	// sharp — most games snap; we ramp just enough to smooth the transition
 	// between speeds without making input feel floaty. Air is drifty so jumps

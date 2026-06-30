@@ -1,11 +1,4 @@
-[gd_resource type="StandardMaterial3D" format=3]
-
-; Player grounding-shadow blob proxy for the GroundStainProjector. Pure-black
-; albedo with a soft radial alpha falloff (opaque-ish center -> transparent
-; edge). The projector's transparent SubViewport stores premultiplied color, so
-; rgb=black, a=falloff darkens the ground (and grass, via detail_sprite) by
-; a*ground_stain_strength with no color tint. Tune center darkness via the
-; Gradient's first color alpha; tune softness via the gradient offsets.
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://vyod0jnbvh8p"]
 
 [sub_resource type="Gradient" id="Gradient_blob"]
 interpolation_mode = 1
@@ -23,6 +16,6 @@ fill_to = Vector2(0.5, 0)
 [resource]
 resource_name = "ground_shadow_blob"
 transparency = 1
+cull_mode = 2
 shading_mode = 0
 albedo_texture = SubResource("GradientTexture2D_blob")
-cull_mode = 2

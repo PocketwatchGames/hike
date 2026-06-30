@@ -1,5 +1,8 @@
 [gd_resource type="Resource" script_class="VoxelAtlasManifest" format=3 uid="uid://dfo7mt0ouqh3c"]
 
+[ext_resource type="Texture2D" uid="uid://dkphrjtqhhj2x" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_basecolor.png" id="9_7bd13"]
+[ext_resource type="Texture2D" uid="uid://cul72l2nbmsvv" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_height.png" id="10_2suoy"]
+[ext_resource type="Texture2D" uid="uid://dypx1q55emfe2" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_normal.png" id="11_okjbu"]
 [ext_resource type="Texture2D" uid="uid://bc1od0np46rpi" path="res://assets/textures/terrain/Stylized_Stone_Floor_002_4K/Stylized_Stone_Floor_002_basecolor.png" id="27_7bd13"]
 [ext_resource type="Script" uid="uid://bqq7rbtrsn0xx" path="res://scripts/data/world/VoxelAtlasManifest.cs" id="29_04t8j"]
 [ext_resource type="Texture2D" uid="uid://dcqwhfn1c7cp2" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_basecolor.png" id="col_cliff006"]
@@ -46,9 +49,9 @@ color = ExtResource("col_water")
 
 [sub_resource type="Resource" id="layer_3"]
 script = ExtResource("s_layer")
-color = ExtResource("27_7bd13")
-normal = ExtResource("nrm_stonefloor")
-height = ExtResource("hgt_stonefloor")
+color = ExtResource("9_7bd13")
+normal = ExtResource("11_okjbu")
+height = ExtResource("10_2suoy")
 
 [sub_resource type="Resource" id="layer_4"]
 script = ExtResource("s_layer")

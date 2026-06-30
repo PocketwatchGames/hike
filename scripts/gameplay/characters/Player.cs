@@ -1167,7 +1167,7 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
-		UpdateTerrainSpeed();
+		UpdateTerrainSpeed(dt);
 		UpdateWaterState();
 		UpdateSprintState();
 		TickArmor(dt);

@@ -9,9 +9,9 @@
 [ext_resource type="AudioStream" uid="uid://v0emtglew0c0" path="res://assets/audio/source/footsteps/un_shr_foot_mud_06.wav" id="2_m06"]
 [ext_resource type="AudioStream" uid="uid://fqgvfr4swcyt" path="res://assets/audio/source/footsteps/un_shr_foot_mud_07.wav" id="2_m07"]
 [ext_resource type="AudioStream" uid="uid://brsnamf8lc6hh" path="res://assets/audio/source/footsteps/un_shr_foot_mud_08.wav" id="2_m08"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
-[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
 emission_shape = 1
@@ -68,7 +68,7 @@ draw_pass_1 = SubResource("QuadMesh_dust")
 
 [node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=6738026]
 stream = SubResource("AudioStreamRandomizer_mud")
-volume_db = -16.0
+volume_db = -20.0
 unit_size = 4.0
 max_distance = 20.0
 bus = &"World3D"

@@ -29,6 +29,22 @@
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/blocks/block_dirt_overlay.tres" id="57_dirt"]
 [ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/blocks/block_cobblestone.tres" id="58_cobble"]
 
+[sub_resource type="Resource" id="SEDesc_seeking"]
+script = ExtResource("22_sedesc")
+effect = ExtResource("25_seeking")
+metadata/_custom_type_script = "uid://bf8kas4isp4rx"
+
+[sub_resource type="Resource" id="Desc_club"]
+script = ExtResource("20_desc")
+item = ExtResource("4_melee")
+statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_seeking")])
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_club"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Desc_club")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
 [sub_resource type="Resource" id="Sign_swamp"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
@@ -122,6 +138,16 @@ toPoi = "swamp_highlands"
 texture = ExtResource("58_cobble")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
+[sub_resource type="Resource" id="Desc_jl16k"]
+script = ExtResource("20_desc")
+item = ExtResource("13_h1t84")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_jl16k"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Desc_jl16k")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
 [sub_resource type="Resource" id="Bounds_swamp"]
 script = ExtResource("31_everywhere")
 metadata/_custom_type_script = "uid://4ht0mfp58w5f8"
@@ -170,32 +196,6 @@ script = ExtResource("30_placed")
 zoneGen = ExtResource("17_hnhxf")
 bounds = SubResource("Bounds_highlands")
 metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
-
-[sub_resource type="Resource" id="SEDesc_seeking"]
-script = ExtResource("22_sedesc")
-effect = ExtResource("25_seeking")
-metadata/_custom_type_script = "uid://bf8kas4isp4rx"
-
-[sub_resource type="Resource" id="Desc_club"]
-script = ExtResource("20_desc")
-item = ExtResource("4_melee")
-statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_seeking")])
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_club"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_club")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Desc_jl16k"]
-script = ExtResource("20_desc")
-item = ExtResource("13_h1t84")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_jl16k"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_jl16k")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [resource]
 script = ExtResource("23_7umo2")

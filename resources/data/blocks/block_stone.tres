@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_block")
 blockName = &"Stone"
-atlasBaseIndex = 0
 minimapColor = Color(0.4608, 0.4608, 0.48, 1)
 isCliff = true
 porosity = 0.1
+groundType = 1

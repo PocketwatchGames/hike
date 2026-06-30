@@ -104,6 +104,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the dither pattern a chance to resolve rather than popping.
     private const float VisibilityFadeTime = 0.3f;
 
+    // Bounds on move-cycle playback when terrain retimes the stride (foliage drag
+    // + the ground block's speed multiplier). The floor keeps a heavily slowed
+    // step animating — and firing footsteps — fast enough to read as a slow
+    // trudge rather than a freeze; the ceiling stops a hastened surface from
+    // spinning the legs into a silly blur.
+    private const float MinMoveAnimSpeed = 0.5f;
+    private const float MaxMoveAnimSpeed = 1.5f;
+
     // Height (base/mesh-local units) of the elite crown above the mob's HUD
     // anchor (≈ head top). Parented under the elite-scaled mesh, so this rides
     // the 25% bump into world space and the halo floats just over the head.
@@ -412,6 +420,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     readonly List<Foliage> _foliageCollisions = new();
     float _terrainSpeed = 1f;
+    // Local ground normal under the mob, refreshed each physics tick from a voxel
+    // heightfield gradient. Only computed for mobs that visually tilt to the
+    // terrain (MobData.alignPitchToGroundNormal > 0); stays Vector3.Up otherwise.
+    // Drives the mesh pitch tilt — see UpdateGroundNormal / UpdateGroundPitch.
+    Vector3 _groundNormal = Vector3.Up;
 
     // Arrows currently stuck in this mob. Populated by StickArrow when the
     // player hits with a bow; drained by Die (each becomes loose loot with
@@ -1646,7 +1659,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // fall / burrow / dead / dizzy default to authored speed.
         if (mobData.IsAnimationSpeedAffected(loopAnim))
         {
-            _animator.effectSpeedMultiplier = _statusEffects?.FoldStat(EStat.AnimSpeed, 1f) ?? 1f;
+            // Retime the move cycle to the terrain speed scalar (foliage + ground
+            // block) so a mud-slowed / road-hastened stride doesn't foot-slide and
+            // its footstep events slow down or speed up with it. Floored so a very
+            // slow surface still reads as walking, not a freeze.
+            float moveAnimSpeed = Mathf.Clamp(_terrainSpeed, MinMoveAnimSpeed, MaxMoveAnimSpeed);
+            _animator.effectSpeedMultiplier = (_statusEffects?.FoldStat(EStat.AnimSpeed, 1f) ?? 1f) * moveAnimSpeed;
         }
 
         // Drive the anim-audio loop off the same loopAnim. Burrowing mobs
@@ -2369,7 +2387,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
         using (Profiler.Sample("Mob.UpdateTerrainSpeed"))
         {
-            UpdateTerrainSpeed();
+            UpdateTerrainSpeed((float)delta);
         }
 
         using (Profiler.Sample("Mob.UpdateWaterRipples"))
@@ -2763,6 +2781,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 {
                     GD.Print($"[yaw] {Name} target={targetYaw.Value:F3} cur={currentRot.Y:F3} delta={yawDelta:F3} step={step:F3} behavior={_curBehavior}");
                 }
+            }
+
+            if (!inBurrow && facingShown && _mesh != null
+                && mobData != null && mobData.alignPitchToGroundNormal > 0f)
+            {
+                UpdateGroundPitch((float)delta);
             }
 
             if (aiOutput.resetInvestigation)
@@ -4295,7 +4319,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    private void UpdateTerrainSpeed()
+    private void UpdateTerrainSpeed(float dt)
     {
         _terrainSpeed = 1f;
         float modifier = mobData != null ? mobData.foliageSpeedModifier : 1f;
@@ -4307,7 +4331,178 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             float slowed = Mathf.Lerp(1f, foliage.speed, modifier);
             _terrainSpeed = Mathf.Min(_terrainSpeed, slowed);
         }
+
+        // Fold in the ground block's own speed multiplier (mud slows, road
+        // speeds up). Separate axis from the foliage floor above — multiplied,
+        // not min'd — so a road through tall grass nets the two effects.
+        BlockData ground = GroundTypeResolver.ResolveBlock(_world?.WorldState, GlobalPosition);
+        if (ground != null)
+        {
+            _terrainSpeed *= ground.speedMultiplier;
+        }
+
+        _terrainSpeed *= SlopeSpeedFactor(dt);
+
+        UpdateGroundNormal();
     }
+
+    // Vertical window (voxels) around the mob's feet to search for the ground
+    // surface when sampling the local slope for ground-pitch alignment.
+    private const int GroundNormalScanUp = 2;
+    private const int GroundNormalScanDown = 3;
+    // Horizontal spacing (m) between the gradient samples — roughly the body
+    // footprint, so the tilt reads the slope the mob actually spans rather than
+    // a single voxel's stepped face.
+    private const float GroundNormalSampleSpacing = 0.5f;
+
+    // Refresh _groundNormal from a 4-neighbour voxel heightfield gradient.
+    // Skipped (left at Vector3.Up) for mobs that don't tilt to the terrain, so
+    // the extra column scans only run for the few species that need them.
+    private void UpdateGroundNormal()
+    {
+        MobData md = mobData;
+        if (md == null || md.alignPitchToGroundNormal <= 0f)
+        {
+            _groundNormal = Vector3.Up;
+            return;
+        }
+        WorldState ws = _world?.WorldState;
+        if (ws == null)
+        {
+            return;
+        }
+        Vector3 pos = GlobalPosition;
+        const float spacing = GroundNormalSampleSpacing;
+        if (TrySampleSurfaceY(ws, pos.X + spacing, pos.Z, pos.Y, out float hxp)
+            && TrySampleSurfaceY(ws, pos.X - spacing, pos.Z, pos.Y, out float hxn)
+            && TrySampleSurfaceY(ws, pos.X, pos.Z + spacing, pos.Y, out float hzp)
+            && TrySampleSurfaceY(ws, pos.X, pos.Z - spacing, pos.Y, out float hzn))
+        {
+            // Heightfield gradient → surface normal: (-dh/dx, run, -dh/dz) with
+            // the 2·spacing run folded in, then normalized.
+            _groundNormal = new Vector3(hxn - hxp, 2f * spacing, hzn - hzp).Normalized();
+        }
+        // On a sampling miss (mob over a gap / chunk edge) keep the previous
+        // normal so the tilt eases rather than snapping flat.
+    }
+
+    // First solid voxel's top face in a short vertical window around centerY at
+    // the given world XZ. False when the column is empty within the window.
+    private static bool TrySampleSurfaceY(WorldState ws, float x, float z, float centerY, out float surfaceY)
+    {
+        int wx = Mathf.FloorToInt(x);
+        int wz = Mathf.FloorToInt(z);
+        int top = Mathf.FloorToInt(centerY) + GroundNormalScanUp;
+        int bottom = Mathf.FloorToInt(centerY) - GroundNormalScanDown;
+        for (int y = top; y >= bottom; y--)
+        {
+            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, y, wz)))
+            {
+                surfaceY = y + 1f;
+                return true;
+            }
+        }
+        surfaceY = 0f;
+        return false;
+    }
+
+    // Mesh pitch lerp speed (per second) toward the ground-aligned target, so
+    // the tilt eases over bumps instead of snapping each tick.
+    private const float GroundPitchLerpSpeed = 8f;
+
+    // Visual-only: pitch the mesh to follow the ground slope under the mob. The
+    // mesh's up vector is laid toward _groundNormal within the facing-vertical
+    // plane (roll discarded) by alignPitchToGroundNormal — scaling the slope
+    // angle by the factor is the slerp from world-up toward the ground normal.
+    // The physics body (axis-locked) and the HUD anchor (a Visuals sibling) stay
+    // upright; only _mesh rotates.
+    private void UpdateGroundPitch(float delta)
+    {
+        float yaw = Rotation.Y;
+        Vector3 fwd = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+        float fullPitch = Mathf.Atan2(_groundNormal.Dot(fwd), _groundNormal.Dot(Vector3.Up));
+        float target = fullPitch * mobData.alignPitchToGroundNormal;
+        Vector3 r = _mesh.Rotation;
+        r.X = Mathf.LerpAngle(r.X, target, Mathf.Min(1f, GroundPitchLerpSpeed * delta));
+        _mesh.Rotation = r;
+    }
+
+    // Speed scale for heading up/down hills: >1 downhill, <1 uphill, 1 on the
+    // flat. Identical model to the player's Player.SlopeSpeedFactor — the grade
+    // is measured from the body's own smoothed vertical-over-horizontal
+    // displacement (a RigidBody mob has no GetFloorNormal, and voxel floors read
+    // flat anyway), normalized to mobData.maxSlopeAngleDegrees, eased, and folded
+    // into _terrainSpeed so movement speed AND the walk/footstep retiming follow.
+    private Vector3 _slopePrevPos;
+    private bool _slopePrevPosInit;
+    private float _slopeGrade; // smoothed dY/dHoriz; + uphill, - downhill
+
+    // Below this per-tick horizontal step (m), don't refresh the grade. Tau is
+    // the smoothing time constant (s) — long enough to ride out the per-step Y
+    // bursts of stepped terrain, short enough to track a real slope within a stride.
+    private const float SlopeMinHorizStep = 0.005f;
+    private const float SlopeGradeTau = 0.25f;
+
+    private float SlopeSpeedFactor(float dt)
+    {
+        if (mobData == null)
+        {
+            return 1f;
+        }
+        Vector3 pos = GlobalPosition;
+        if (!_slopePrevPosInit)
+        {
+            _slopePrevPos = pos;
+            _slopePrevPosInit = true;
+            return 1f;
+        }
+        Vector3 d = pos - _slopePrevPos;
+        _slopePrevPos = pos;
+        float horiz = Mathf.Sqrt(d.X * d.X + d.Z * d.Z);
+
+        // Grounded proxy: not flying, not swimming, not falling fast. Vertical
+        // motion in those states isn't a slope, so don't read a grade from it.
+        bool grounded = !_simState.Airborne && !_swimming
+            && LinearVelocity.Y > -mobData.fallEnterSpeed;
+
+        float k = dt > 0f ? 1f - Mathf.Exp(-dt / SlopeGradeTau) : 1f;
+        if (grounded && horiz > SlopeMinHorizStep)
+        {
+            _slopeGrade = Mathf.Lerp(_slopeGrade, d.Y / horiz, k);
+        }
+        else if (!grounded)
+        {
+            _slopeGrade = Mathf.Lerp(_slopeGrade, 0f, k);
+        }
+
+        if (!grounded)
+        {
+            return 1f;
+        }
+        float maxGrade = Mathf.Tan(Mathf.DegToRad(mobData.maxSlopeAngleDegrees));
+        if (maxGrade <= 0.0001f)
+        {
+            return 1f;
+        }
+        // s: + uphill, - downhill, magnitude is the fraction of the max slope.
+        float s = Mathf.Clamp(_slopeGrade / maxGrade, -1f, 1f);
+        // Ease the magnitude so shallow grades already read strongly and the curve
+        // flattens toward the max slope (exponent < 1). Sign preserved separately.
+        float eased = Mathf.Pow(Mathf.Abs(s), mobData.slopeSpeedEaseExponent);
+        float cap = s >= 0f ? mobData.uphillSpeedPenalty : mobData.downhillSpeedBonus;
+        float factor = 1f - Mathf.Sign(s) * eased * cap;
+        if (CVars.debugSlopes.Value && horiz > SlopeMinHorizStep)
+        {
+            ulong now = _world?.GameTimeMs ?? 0;
+            if (now - _slopeDebugLastMs >= 500)
+            {
+                _slopeDebugLastMs = now;
+                GD.Print($"[slopeSpeed mob:{mobData.displayName}] grade={_slopeGrade:F3} s={s:F2} eased={eased:F2} ({(s >= 0f ? "uphill" : "downhill")}) factor={factor:F3}");
+            }
+        }
+        return factor;
+    }
+    private ulong _slopeDebugLastMs;
 
     // Emit a dynamic water ripple while wading/swimming. Sample the voxel at
     // the mob's feet — if it's water, scan upward to find the surface Y and

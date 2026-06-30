@@ -443,10 +443,23 @@ public class WalkabilityGrid
                     }
                 }
 
+                // Fold the ground block's speed multiplier into the cell cost as
+                // its inverse — a slow block (mud, deep sand) costs more to cross
+                // so routes prefer faster footing (roads, packed ground), the
+                // same multiplier the player/mob locomotion applies to actual
+                // speed. Resolved overlay-aware at Y=wy so it lands on the floor
+                // voxel below (wy-1), matching the runtime GroundTypeResolver path.
+                float blockSpeedCost = 1f;
+                BlockData ground = GroundTypeResolver.ResolveBlock(ws, new Vector3(wx + 0.5f, wy, wz + 0.5f));
+                if (ground != null && ground.speedMultiplier > 0.01f)
+                {
+                    blockSpeedCost = 1f / ground.speedMultiplier;
+                }
+
                 WalkabilityCell wc = default;
                 wc.surfaceY = (short)wy;
                 wc.flags = CellFlags.Walkable | hazardFlag;
-                wc.cost = wallCost;
+                wc.cost = wallCost * blockSpeedCost;
                 cells[baseIdx + found] = wc;
                 lastSurfaceY = wy;
                 found++;

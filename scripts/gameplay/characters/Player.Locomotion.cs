@@ -76,7 +76,7 @@ public partial class Player : CharacterBody3D
 		_sprinting = false;
 	}
 
-	private void UpdateTerrainSpeed()
+	private void UpdateTerrainSpeed(float dt)
 	{
 		_terrainSpeed = 1f;
 		float modifier = data != null ? data.foliageSpeedModifier : 1f;
@@ -87,6 +87,107 @@ public partial class Player : CharacterBody3D
 			float slowed = Mathf.Lerp(1f, foliage.speed, modifier);
 			_terrainSpeed = Mathf.Min(_terrainSpeed, slowed);
 		}
+
+		// Fold in the ground block's own speed multiplier (mud slows, road
+		// speeds up). Separate axis from the foliage floor above — multiplied,
+		// not min'd — so a road through tall grass nets the two effects.
+		BlockData ground = GroundTypeResolver.ResolveBlock(_world?.WorldState, GlobalPosition);
+		if (ground != null)
+		{
+			_terrainSpeed *= ground.speedMultiplier;
+		}
+
+		_terrainSpeed *= SlopeSpeedFactor(dt);
+	}
+
+	// Speed scale for running up/down hills: >1 going downhill, <1 uphill, 1 on
+	// the flat. The bonus/penalty are authored AT the steepest walkable slope
+	// (FloorMaxAngle) and scale linearly with the grade. Directional, so it can't
+	// be baked into the static pathfinding cost — recomputed per tick here and
+	// folded into _terrainSpeed.
+	//
+	// We can't read the slope from GetFloorNormal(): at this point in the tick
+	// IsOnFloor() is false (it reflects the prior MoveAndSlide), and voxel floors
+	// are flat tops with vertical walls anyway, so the normal is ~straight up
+	// even on a hill. Instead we measure the grade the body is actually walking —
+	// vertical over horizontal displacement since last tick — smoothed, since the
+	// player climbs stepped voxels in bursts (flat tread, then a riser).
+	private Vector3 _slopePrevPos;
+	private bool _slopePrevPosInit;
+	private float _slopeGrade; // smoothed dY/dHoriz; + uphill, - downhill
+
+	// Below this per-tick horizontal step (m), don't refresh the grade — standing
+	// still or pure vertical motion carries no slope signal.
+	private const float SlopeMinHorizStep = 0.005f;
+	// Smoothing time constant (s) for the grade estimate. Long enough to ride out
+	// the per-step Y bursts of stepped terrain, short enough to track a real
+	// slope change within a stride.
+	private const float SlopeGradeTau = 0.25f;
+
+	private float SlopeSpeedFactor(float dt)
+	{
+		if (data == null)
+		{
+			return 1f;
+		}
+		Vector3 pos = GlobalPosition;
+		if (!_slopePrevPosInit)
+		{
+			_slopePrevPos = pos;
+			_slopePrevPosInit = true;
+			return 1f;
+		}
+		Vector3 d = pos - _slopePrevPos;
+		_slopePrevPos = pos;
+		float horiz = Mathf.Sqrt(d.X * d.X + d.Z * d.Z);
+
+		float k = dt > 0f ? 1f - Mathf.Exp(-dt / SlopeGradeTau) : 1f;
+		if (_grounded && horiz > SlopeMinHorizStep)
+		{
+			_slopeGrade = Mathf.Lerp(_slopeGrade, d.Y / horiz, k);
+		}
+		else if (!_grounded)
+		{
+			// Airborne (jump / fall) isn't a slope — bleed the estimate to flat so
+			// a leap doesn't leave a stale grade biasing the next grounded step.
+			_slopeGrade = Mathf.Lerp(_slopeGrade, 0f, k);
+		}
+
+		if (!_grounded)
+		{
+			SlopeDebug($"airborne grade={_slopeGrade:F3}", 1f);
+			return 1f;
+		}
+		float maxGrade = Mathf.Tan(FloorMaxAngle);
+		if (maxGrade < 0.0001f)
+		{
+			return 1f;
+		}
+		// s: + uphill, - downhill, magnitude = fraction of the max walkable grade.
+		float s = Mathf.Clamp(_slopeGrade / maxGrade, -1f, 1f);
+		// Ease the magnitude so shallow grades already read strongly and the curve
+		// flattens toward the max slope (exponent < 1). Sign preserved separately.
+		float eased = Mathf.Pow(Mathf.Abs(s), data.slopeSpeedEaseExponent);
+		float cap = s >= 0f ? data.uphillSpeedPenalty : data.downhillSpeedBonus;
+		float factor = 1f - Mathf.Sign(s) * eased * cap;
+		SlopeDebug($"grade={_slopeGrade:F3} s={s:F2} eased={eased:F2} ({(s >= 0f ? "uphill" : "downhill")}) factor={factor:F3} horiz={horiz:F3}", factor);
+		return factor;
+	}
+
+	private ulong _slopeDebugLastMs;
+	private void SlopeDebug(string msg, float factor)
+	{
+		if (!CVars.debugSlopes.Value)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (now - _slopeDebugLastMs < 200)
+		{
+			return;
+		}
+		_slopeDebugLastMs = now;
+		GD.Print($"[slopeSpeed] {msg}");
 	}
 
 	// React to walls hit by an in-flight dash. Head-on contact (dash direction

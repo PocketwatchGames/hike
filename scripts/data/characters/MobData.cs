@@ -371,6 +371,14 @@ public partial class MobData : Resource
     // biome variants (e.g. swamp vs desert goblin) without a unique model each.
     // Null = use the authored textures as-is. See MobPalette / ModelAnimator.
     [Export] public MobPalette palette;
+    // How strongly the mob's visual model pitches to follow the ground slope
+    // under it. The model's up vector is slerped from world-up toward the local
+    // ground normal by this fraction, taking only the tilt along the facing
+    // direction (pitch, no roll) — so a dog trotting uphill noses up, downhill
+    // noses down. 0 = always upright (the default, fine for most mobs); 1 =
+    // fully laid onto the slope. Visual only: the physics body and HUD stay
+    // upright. See Mob.UpdateGroundNormal / UpdateGroundPitch.
+    [Export(PropertyHint.Range, "0,1,0.05")] public float alignPitchToGroundNormal = 0f;
 
     [ExportGroup("Loot & Death")]
     // NOTE: the loot drop list is NOT a base-species trait — it's a per-variant
@@ -461,6 +469,23 @@ public partial class MobData : Resource
     // half-slowed). Light/flying creatures (kunkuns, sparrows) push through
     // unhindered at 0.
     [Export(PropertyHint.Range, "0,1,0.01")] public float foliageSpeedModifier = 1f;
+    // Slope-based locomotion bonus/penalty AT the steepest traversable slope
+    // (maxSlopeAngleDegrees). Heading straight downhill speeds the mob up by up
+    // to downhillSpeedBonus, straight uphill slows it by up to uphillSpeedPenalty;
+    // gentler grades scale linearly toward 1 (flat ground). Derived from the
+    // vertical delta toward the current path target and folded into the terrain
+    // speed scalar, so footstep cadence retimes with it. Mirrors PlayerData.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float downhillSpeedBonus = 0.15f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float uphillSpeedPenalty = 0.25f;
+    // Shapes how the bonus/penalty ramp from flat to the max slope. The grade
+    // fraction (0 flat → 1 at max slope) is raised to this power before scaling
+    // the cap. <1 eases OUT — shallow slopes already feel most of the effect and
+    // it flattens toward the top; 1 = linear. Mirrors PlayerData.
+    [Export(PropertyHint.Range, "0.2,1,0.05")] public float slopeSpeedEaseExponent = 0.5f;
+    // Slope at which the bonus/penalty above reach full strength, in degrees of
+    // incline. 45° = a 1:1 grade (climbing one voxel per voxel travelled), the
+    // natural cap for blocky terrain at the default maxStepHeight.
+    [Export(PropertyHint.Range, "1,89,1")] public float maxSlopeAngleDegrees = 45f;
     // Maximum yaw rate (radians/sec) the body can rotate per physics tick.
     // Drives the yaw lerp in Mob._PhysicsProcess — agile creatures snap to
     // their facing target, lumbering mobs commit to a heading.

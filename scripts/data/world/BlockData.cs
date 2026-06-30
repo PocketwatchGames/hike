@@ -44,6 +44,13 @@ public partial class BlockData : Resource
     // glint/reflection scales with (1 - porosity).
     [Export(PropertyHint.Range, "0,1,0.01")] public float porosity = 0.5f;
 
+    // Movement speed multiplier applied while the player (or a mob) stands on
+    // this block. 1 = normal footing; below 1 slows traversal (mud, deep sand,
+    // snow), above 1 speeds it up (roads, ice). Resolved through
+    // GroundTypeResolver like footsteps, so the overlay block wins over the
+    // base voxel.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float speedMultiplier = 1.0f;
+
     // Logical ground category for footstep dispatch. GroundTypeResolver
     // resolves the voxel under the player's feet to a BlockData (overlay
     // wins over the voxel's flat tile) and reads this field. Multiple

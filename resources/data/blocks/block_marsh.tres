@@ -9,4 +9,6 @@ blockName = &"Marsh"
 atlasBaseIndex = 10
 minimapColor = Color(0.3882353, 0.47843137, 0.2509804, 1)
 porosity = 0.9
+speedMultiplier = 0.8
+groundType = 4
 digItem = ExtResource("2_mud")

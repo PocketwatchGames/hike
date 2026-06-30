@@ -46,6 +46,63 @@
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/blocks/block_dirt_overlay.tres" id="57_dirt"]
 [ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/blocks/block_cobblestone.tres" id="58_cobble"]
 
+[sub_resource type="Resource" id="SEDesc_seeking"]
+script = ExtResource("22_sedesc")
+effect = ExtResource("25_seeking")
+metadata/_custom_type_script = "uid://bf8kas4isp4rx"
+
+[sub_resource type="Resource" id="Desc_club"]
+script = ExtResource("20_desc")
+item = ExtResource("4_melee")
+statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_seeking")])
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_club"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Desc_club")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="SEDesc_fragile"]
+script = ExtResource("22_sedesc")
+effect = ExtResource("21_fragile")
+metadata/_custom_type_script = "uid://bf8kas4isp4rx"
+
+[sub_resource type="Resource" id="Desc_bomb"]
+script = ExtResource("20_desc")
+item = ExtResource("3_jl16k")
+statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_fragile")])
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_bomb"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Desc_bomb")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="Desc_furcoat"]
+script = ExtResource("20_desc")
+item = ExtResource("8_fur_coat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_furcoat"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Desc_furcoat")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="Resource_bjpbp"]
+script = ExtResource("20_desc")
+item = ExtResource("16_glimp")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_afcr5"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Resource_bjpbp")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="Resource_know_potion"]
+script = ExtResource("3_itemteach")
+item = ExtResource("7_potion")
+metadata/_custom_type_script = "uid://bglfc6qt5onq3"
+
 [sub_resource type="Resource" id="Sign_crossroads"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
@@ -171,122 +228,6 @@ toPoi = "desert_well"
 texture = ExtResource("57_dirt")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
-[sub_resource type="Resource" id="Bounds_mountain"]
-script = ExtResource("41_quadrant")
-priority = 1
-metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
-
-[sub_resource type="Resource" id="Placed_mountain"]
-script = ExtResource("40_placed")
-zoneGen = ExtResource("2_zone_mountain")
-bounds = SubResource("Bounds_mountain")
-metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
-
-[sub_resource type="Resource" id="Bounds_desert"]
-script = ExtResource("41_quadrant")
-quadrant = 1
-priority = 1
-metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
-
-[sub_resource type="Resource" id="Placed_desert"]
-script = ExtResource("40_placed")
-zoneGen = ExtResource("2_zone_desert")
-bounds = SubResource("Bounds_desert")
-metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
-
-[sub_resource type="Resource" id="Bounds_swamp"]
-script = ExtResource("41_quadrant")
-quadrant = 2
-priority = 1
-metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
-
-[sub_resource type="Resource" id="Placed_swamp"]
-script = ExtResource("40_placed")
-zoneGen = ExtResource("2_zone_swamp")
-bounds = SubResource("Bounds_swamp")
-metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
-
-[sub_resource type="Resource" id="Bounds_forest"]
-script = ExtResource("41_quadrant")
-quadrant = 3
-priority = 1
-metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
-
-[sub_resource type="Resource" id="Placed_forest"]
-script = ExtResource("40_placed")
-zoneGen = ExtResource("2_zone_forest")
-bounds = SubResource("Bounds_forest")
-metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
-
-[sub_resource type="Resource" id="Bounds_hub"]
-script = ExtResource("42_box")
-halfExtentChunks = Vector2i(2, 2)
-priority = 2
-metadata/_custom_type_script = "uid://ybuh4cg341pyp"
-
-[sub_resource type="Resource" id="Placed_hub"]
-script = ExtResource("40_placed")
-zoneGen = ExtResource("2_zone_hub")
-bounds = SubResource("Bounds_hub")
-metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
-
-[sub_resource type="Resource" id="SEDesc_seeking"]
-script = ExtResource("22_sedesc")
-effect = ExtResource("25_seeking")
-metadata/_custom_type_script = "uid://bf8kas4isp4rx"
-
-[sub_resource type="Resource" id="Desc_club"]
-script = ExtResource("20_desc")
-item = ExtResource("4_melee")
-statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_seeking")])
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_club"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_club")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="SEDesc_fragile"]
-script = ExtResource("22_sedesc")
-effect = ExtResource("21_fragile")
-metadata/_custom_type_script = "uid://bf8kas4isp4rx"
-
-[sub_resource type="Resource" id="Desc_bomb"]
-script = ExtResource("20_desc")
-item = ExtResource("3_jl16k")
-statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_fragile")])
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_bomb"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_bomb")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Desc_furcoat"]
-script = ExtResource("20_desc")
-item = ExtResource("8_fur_coat")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_furcoat"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_furcoat")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Resource_bjpbp"]
-script = ExtResource("20_desc")
-item = ExtResource("16_glimp")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_afcr5"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Resource_bjpbp")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Resource_know_potion"]
-script = ExtResource("3_itemteach")
-item = ExtResource("7_potion")
-metadata/_custom_type_script = "uid://bglfc6qt5onq3"
-
 [sub_resource type="Resource" id="Desc_knife"]
 script = ExtResource("20_desc")
 item = ExtResource("31_knife")
@@ -359,6 +300,65 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 script = ExtResource("3_itemcount")
 descriptor = SubResource("Desc_summoner")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="Bounds_mountain"]
+script = ExtResource("41_quadrant")
+priority = 1
+metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
+
+[sub_resource type="Resource" id="Placed_mountain"]
+script = ExtResource("40_placed")
+zoneGen = ExtResource("2_zone_mountain")
+bounds = SubResource("Bounds_mountain")
+metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
+
+[sub_resource type="Resource" id="Bounds_desert"]
+script = ExtResource("41_quadrant")
+quadrant = 1
+priority = 1
+metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
+
+[sub_resource type="Resource" id="Placed_desert"]
+script = ExtResource("40_placed")
+zoneGen = ExtResource("2_zone_desert")
+bounds = SubResource("Bounds_desert")
+metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
+
+[sub_resource type="Resource" id="Bounds_swamp"]
+script = ExtResource("41_quadrant")
+quadrant = 2
+priority = 1
+metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
+
+[sub_resource type="Resource" id="Placed_swamp"]
+script = ExtResource("40_placed")
+zoneGen = ExtResource("2_zone_swamp")
+bounds = SubResource("Bounds_swamp")
+metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
+
+[sub_resource type="Resource" id="Bounds_forest"]
+script = ExtResource("41_quadrant")
+quadrant = 3
+priority = 1
+metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
+
+[sub_resource type="Resource" id="Placed_forest"]
+script = ExtResource("40_placed")
+zoneGen = ExtResource("2_zone_forest")
+bounds = SubResource("Bounds_forest")
+metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
+
+[sub_resource type="Resource" id="Bounds_hub"]
+script = ExtResource("42_box")
+halfExtentChunks = Vector2i(2, 2)
+priority = 2
+metadata/_custom_type_script = "uid://ybuh4cg341pyp"
+
+[sub_resource type="Resource" id="Placed_hub"]
+script = ExtResource("40_placed")
+zoneGen = ExtResource("2_zone_hub")
+bounds = SubResource("Bounds_hub")
+metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 
 [resource]
 script = ExtResource("1_script")

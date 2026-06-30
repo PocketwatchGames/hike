@@ -100,6 +100,7 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 })
 hudScale = 0.5
 mobScene = ExtResource("3_scene")
+alignPitchToGroundNormal = 0.75
 triggersTraps = false
 verticalClearance = 1
 maxSpeed = 12.0
