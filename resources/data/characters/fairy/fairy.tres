@@ -11,7 +11,7 @@
 script = ExtResource("1_mobdata")
 displayName = &"Fairy"
 team = 4
-VisionRange = 16.0
+visionRange = 16.0
 prominence = 1.5
 maxHealth = 4.0
 modifiers = null
@@ -20,7 +20,7 @@ killsPerLevel = Array[int]([3, 10, 25, 50])
 bestiaryPortrait = ExtResource("3_r2e8e")
 exp = 2
 hudScale = 0.5
-MobScene = ExtResource("3_scene")
+mobScene = ExtResource("3_scene")
 despawnOnDeath = true
 triggersTraps = false
 maxSpeed = 6.0

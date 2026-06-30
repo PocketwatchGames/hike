@@ -91,7 +91,7 @@ public partial class BehaviorAttack : BehaviorBase
         // ChooseReadyWeapon (not on the tier's requirements) so we never commit
         // the profile out of vertical reach — the cooldown isn't bumped and
         // ActionRunner's rejectEffect doesn't fire every tick against a target one
-        // plateau up. Fire it the instant we're inside its MaxAttackRange.
+        // plateau up. Fire it the instant we're inside its maxAttackRange.
         WeaponData ready = ChooseReadyWeapon(me, time, diff.Y, canSee);
         // Don't commit a swing until roughly facing the target, so attacks don't
         // fire off-axis. The mob keeps turning toward the target (output.yaw) while
@@ -103,7 +103,7 @@ public partial class BehaviorAttack : BehaviorBase
         bool facingTarget = !facingShown
             || dist2d <= 0.0001f
             || Mathf.Abs(Mathf.Wrap((output.yaw ?? me.Rotation.Y) - me.Rotation.Y, -Mathf.Pi, Mathf.Pi)) <= facingTolerance;
-        if (ready != null && dist2d < ready.MaxAttackRange && facingTarget)
+        if (ready != null && dist2d < ready.maxAttackRange && facingTarget)
         {
             // Mob's _PhysicsProcess will TryStart the profile this same tick.
             output.attackProfile = ready.actionProfile;
@@ -160,10 +160,10 @@ public partial class BehaviorAttack : BehaviorBase
         // Keyed off targetPos, the ring sits on the last-known spot until the
         // mob reacquires line of sight, matching where it's facing.
         // Standoff distance splits by intent. When a weapon is ready we close to
-        // its desiredAttackRange (which sits inside MaxAttackRange) so the swing
+        // its desiredAttackRange (which sits inside maxAttackRange) so the swing
         // actually lands; with everything on cooldown we fall back to the
         // encircle ring to spread out and wait between swings. This split is why
-        // encircleDistance may sit at — or beyond — MaxAttackRange without
+        // encircleDistance may sit at — or beyond — maxAttackRange without
         // freezing the mob: the attack approach never holds at the ring.
         Vector3 standoff;
         float standoffDistance = (ready != null)
@@ -221,7 +221,7 @@ public partial class BehaviorAttack : BehaviorBase
     // per-weapon cooldown, within vertical reach, and with enough same-team
     // allies nearby. 2D distance is deliberately NOT gated here — the caller
     // closes to the weapon's desiredAttackRange and fires once inside its
-    // MaxAttackRange — so a mob whose encircle ring sits outside attack range
+    // maxAttackRange — so a mob whose encircle ring sits outside attack range
     // still approaches and swings. Ties break toward the earlier weapon in the
     // list. Returns null when nothing qualifies (all on cooldown, out of
     // vertical reach, can't see, or the mob has no weapons), in which case the
@@ -258,7 +258,7 @@ public partial class BehaviorAttack : BehaviorBase
             {
                 continue;
             }
-            if (Mathf.Abs(diffY) > w.MaxVerticalAttackRange)
+            if (Mathf.Abs(diffY) > w.maxVerticalAttackRange)
             {
                 continue;
             }

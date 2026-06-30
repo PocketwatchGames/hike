@@ -527,7 +527,7 @@ public static class CVars
 
     // When true, MobHUD shows the same two-line breakdown for MOB-perceives-
     // PLAYER. Top: V/H/S sense deltas. Bottom: L (player light), D (distance
-    // closeness vs mob VisionRange), F (mob's facing dot-power), S (player
+    // closeness vs mob visionRange), F (mob's facing dot-power), S (player
     // speed-based visibility), C (1 - player camouflage).
     public static CVarBool debugMobPerception = new CVarBool("debug_mob_perception", false);
 

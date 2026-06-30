@@ -47,9 +47,9 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 [resource]
 script = ExtResource("5_mobdata")
 displayName = &"Lurker"
-VisionRange = 8.0
-VisionFovDegrees = 200.0
-HearingStrength = 1.5
+visionRange = 8.0
+visionFovDegrees = 200.0
+hearingStrength = 1.5
 hearingRange = 8.0
 waterHearingMultiplier = 3.0
 visibilityMovementPower = 1.0
@@ -72,7 +72,7 @@ animations = Dictionary[int, ExtResource("2_anim")]({
 18: SubResource("Resource_anim_hitstun")
 })
 hudScale = 0.6
-MobScene = ExtResource("1_scene")
+mobScene = ExtResource("1_scene")
 triggersTraps = false
 verticalClearance = 1
 maxSpeed = 6.0

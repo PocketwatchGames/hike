@@ -77,7 +77,7 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 24: SubResource("anim_cast")
 })
 hudScale = 0.45
-MobScene = ExtResource("3_scene")
+mobScene = ExtResource("3_scene")
 triggersTraps = false
 clearanceRadius = 0.35
 verticalClearance = 1

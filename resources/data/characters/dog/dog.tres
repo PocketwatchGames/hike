@@ -77,8 +77,8 @@ metadata/_custom_type_script = "uid://bxtvjnrohraru"
 script = ExtResource("1_mobdata")
 displayName = &"Dog"
 team = 4
-PerceptionThresholdAlert = 0.85
-PerceptionThresholdWary = 0.3
+perceptionThresholdAlert = 0.85
+perceptionThresholdWary = 0.3
 canTriggerMobs = false
 itemPreferences = Array[ExtResource("5_itempref")]([SubResource("Resource_pref_reject_nonmeat"), SubResource("Resource_pref_love_meat"), SubResource("Resource_pref_hate_gross")])
 maxHealth = 50.0
@@ -99,7 +99,7 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 18: SubResource("Resource_anim_hitstun")
 })
 hudScale = 0.5
-MobScene = ExtResource("3_scene")
+mobScene = ExtResource("3_scene")
 triggersTraps = false
 verticalClearance = 1
 maxSpeed = 12.0

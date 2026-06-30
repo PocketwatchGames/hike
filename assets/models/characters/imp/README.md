@@ -16,6 +16,6 @@ Imp in the Godot **editor** (FBX animation baking is editor-only):
    its clips; retarget/rename them to those keys.
 3. Create `scenes/characters/minion.tscn` (duplicate `goblin.tscn`, swap the FBX
    ext_resource, the `AnimationLibrary`, and the materials for the Imp's), then
-   repoint `resources/data/characters/minion/minion.tres` `MobScene` at it.
+   repoint `resources/data/characters/minion/minion.tres` `mobScene` at it.
 4. Adjust `MeshContainer` scale + ground offset from the AABB; verify idle/run/
    death animations play on a summoned minion.

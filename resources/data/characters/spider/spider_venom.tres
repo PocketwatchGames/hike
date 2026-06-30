@@ -100,7 +100,7 @@ damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 })
 actionProfile = SubResource("Resource_profile")
 priority = 1
-MaxAttackRange = 10.0
+maxAttackRange = 10.0
 desiredAttackRange = 7.0
 cooldownSeconds = 2.5
 displayName = &"Spider Venom"

@@ -697,7 +697,7 @@ public partial class World
                 {
                     float falloff = Mathf.Pow(1f - Mathf.Sqrt(distSq) / maxAudibleDistance, pd.hearingRangePower);
                     sourceMob.SimState.PlayerPerception = Mathf.Clamp(
-                        sourceMob.SimState.PlayerPerception + falloff * pd.HearingStrength, 0f, 1f);
+                        sourceMob.SimState.PlayerPerception + falloff * pd.hearingStrength, 0f, 1f);
                 }
             }
         }

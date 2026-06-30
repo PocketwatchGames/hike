@@ -213,7 +213,7 @@ public static class PlayerPerception
             // so we skip the raycast entirely (the big perf win) and leave LOS
             // Unchecked — we never looked. The floor also gates perception build
             // and the conspicuousness/range emergent behavior.
-            visionDelta = Mathf.Pow(closeness, pd.VisionRangePower) * clarity;
+            visionDelta = Mathf.Pow(closeness, pd.visionRangePower) * clarity;
             if (visionDelta > pd.perceptionMinimum)
             {
                 bool blocked = false;
@@ -270,8 +270,8 @@ public static class PlayerPerception
         // debug.los was set in the in-range block above (Clear/Blocked when the
         // raycast ran, left Unchecked when below the floor or out of range).
 
-        float visionContribution = visionDelta * pd.VisionStrength;
-        float hearingContribution = hearingDelta * pd.HearingStrength;
+        float visionContribution = visionDelta * pd.visionStrength;
+        float hearingContribution = hearingDelta * pd.hearingStrength;
         // Combined sensory signal. It sets how FAST the meter fills, but the fill
         // time is fit to it (see the remap) — perceivability is never bent to hit
         // a target time.
@@ -304,7 +304,7 @@ public static class PlayerPerception
         }
         else
         {
-            state.perception = Mathf.Max(0f, state.perception - pd.PerceptionRelaxationSpeed * delta);
+            state.perception = Mathf.Max(0f, state.perception - pd.perceptionRelaxationSpeed * delta);
         }
 
         // State transitions require active visual contact. Hearing builds

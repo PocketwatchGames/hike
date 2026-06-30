@@ -1,74 +1,5 @@
 using Godot;
 
-public struct AIOutput
-{
-    public Vector3? pathTarget;
-    public float? yaw;
-    public float speed;
-    // When non-null, Mob's tick will TryStart this action through its
-    // ActionRunner (subject to the runner's busy / cooldown checks).
-    // attackContext supplies target / supportingItems / etc.; primaryItem is
-    // the WeaponState for the firing weapon (Mob.GetWeapon), which carries the
-    // damage profile and any weapon-mods (elite lightning).
-    public ItemActionProfile attackProfile;
-    public ActionContext attackContext;
-    public Vector3 targetPos;
-//    public Actor target;
-    public float pathSuccessDistance;
-    public bool inCombat;
-    // Set true by combat behaviors (BehaviorAttack) when actively engaging a
-    // target. Distinct from inCombat above (mob-awareness, used for AI-tick
-    // LOD): this drives the player-facing CombatTracker via
-    // Mob.ReportPlayerCombat.
-    public bool combatBehavior;
-    public bool burrow;
-    // Flying mobs (MobData.CanFly) only: when true, the mob is airborne this
-    // tick — physics disables gravity and runs ApplyFlightPhysics (hover +
-    // wind + steering) instead of ground locomotion. Flight is travel-only:
-    // behaviors set this while moving between points and clear it to land, so
-    // a bird is never left hovering in place by the behavior layer. flyAltitude
-    // (when set) overrides MobData.hoverHeight as the target height above
-    // terrain, so future low/medium/high cruise tiers just vary this value.
-    public bool airborne;
-    public float? flyAltitude;
-    // True when TickAI early-returned because the mob is AI-suspended
-    // (BehaviorIdle latches a 100ms suspend window once it's standing at
-    // spawn so idle mobs can be physics-frozen). Downstream consumers of
-    // AIOutput must treat all other fields as undefined and skip any
-    // edge-style processing.
-    public bool suspended;
-    public InvestigateState? investigation;
-    public bool resetInvestigation;
-    public ulong? suspendTimeMs;
-    // When set, Mob latches this as a one-shot animation through PlayOneShot
-    // for the next tick. Looping animations are state-driven (alive/moving)
-    // and chosen each tick by Mob.UpdateAnimation; behaviors only need to
-    // emit one-shots (attack swing, yell, burrow stab) here. Nullable so
-    // a behavior can leave it unset most ticks.
-    public EAnimation? oneShotAnim;
-    // A vocalization the behavior wants the body to perform this tick (growl,
-    // snarl, bark, whimper). The behavior layer only names the intent; the Mob
-    // scene maps it to an Fx scene / animation via _vocalizationEffects. Nullable
-    // so a behavior leaves it unset on ticks with nothing to say.
-    public EVocalization? vocalization;
-}
-public struct BehaviorOutput
-{
-    public BehaviorOutput(EBehaviorResult r, StringName newB = null)
-    {
-        result = r;
-        newBehavior = newB;
-    }
-    public EBehaviorResult result;
-    public StringName newBehavior;
-}
-public enum EBehaviorResult
-{
-    Running,
-    RunNewBehavior,
-    Complete,
-}
-
 public struct PerceptionState
 {
     public float perception;
@@ -144,217 +75,6 @@ public struct PerceptionDebug
 
 public partial class Mob
 {
-//    private Vector3? _fleePosition;
-    private StringName _curBehavior;
-    private readonly System.Collections.Generic.Dictionary<StringName, BehaviorBase> _behaviors = new();
-
-    // Called from Mob.Initialize after _simState is set. Walks the mob's BrainData,
-    // creates a runtime BehaviorBase per node, validates that every transition
-    // target names a real node, and sets the current behavior to idleBehavior.
-    private void InitBehaviors()
-    {
-        _behaviors.Clear();
-        _curBehavior = default;
-
-        BrainData brain = mobData?.brain;
-        if (brain == null || brain.behaviors == null)
-        {
-            return;
-        }
-
-        foreach (BehaviorNode node in brain.behaviors)
-        {
-            if (node == null || node.data == null)
-            {
-                GD.PushError($"Brain '{brain.ResourcePath}' contains a null node or node with null data");
-                continue;
-            }
-            if (_behaviors.ContainsKey(node.name))
-            {
-                GD.PushError($"Brain '{brain.ResourcePath}' has duplicate behavior name '{node.name}'");
-                continue;
-            }
-            BehaviorBase runtime = node.data.CreateRuntime();
-            if (runtime == null)
-            {
-                continue;
-            }
-            runtime.Init(node);
-            _behaviors[node.name] = runtime;
-        }
-
-        // Validate that every transition destination names a known node.
-        foreach (BehaviorNode node in brain.behaviors)
-        {
-            if (node?.transitions == null)
-            {
-                continue;
-            }
-            foreach (BehaviorNodeTransition t in node.transitions)
-            {
-                if (t == null || t.destination == null)
-                {
-                    continue;
-                }
-                if (!_behaviors.ContainsKey(t.destination))
-                {
-                    GD.PushError($"Brain '{brain.ResourcePath}' node '{node.name}' has transition to unknown destination '{t.destination}'");
-                }
-            }
-        }
-
-        StringName initial = _simState.InitialBehavior;
-        if (initial != null && _behaviors.ContainsKey(initial))
-        {
-            _curBehavior = initial;
-        }
-        else
-        {
-            _curBehavior = brain.idleBehavior;
-        }
-        // Fire OnEnter for the starting behavior so its first tick sees the
-        // same fresh-state guarantees that every later re-entry will. World
-        // time isn't always meaningful at Initialize (the sim clock starts
-        // ticking once GameClient runs), so 0 is fine — behaviors that need
-        // a real timestamp can read me.World.GameTimeMs themselves.
-        if (_curBehavior != null && _behaviors.TryGetValue(_curBehavior, out BehaviorBase startB) && startB != null)
-        {
-            startB.OnEnter(this, 0);
-        }
-    }
-
-    private void TickAI(float deltaTime, out AIOutput output)
-    {
-        using var _profTickAI = Profiler.Sample("Mob.TickAI");
-        output = new AIOutput();
-        if (!alive)
-        {
-            output.suspended = true;
-            return;
-        }
-
-        ulong time = _world.GameTimeMs;
-
-        // Scan perception BEFORE honoring SuspendAITimeMs — a perception
-        // trigger has to wake the mob immediately so the distance-LOD
-        // suspend extension in Mob.PhysicsProcess doesn't strand a mob
-        // through a player approach.
-        // Pick the engaged target slot. Among the perception slots (the player
-        // in singleplayer), the triggered slot with the strongest awareness
-        // wins — this is the "who is this mob aware of" decision. The separate
-        // aggro mechanic (who has hurt it most) is applied downstream, in
-        // BehaviorAttack.ResolveTarget, where the player slot is weighed against
-        // the companion the mob is also tracking via ThreatPerception.
-        PerceptionState targetPerception = default;
-        PerceptionState[] targets = _simState.PerceptionTargets;
-        bool triggered = false;
-        float maxPerception = 0f;
-        float bestTriggeredPerception = -1f;
-        for (int idx = 0; idx < targets.Length; idx++)
-        {
-            ref PerceptionState s = ref targets[idx];
-            triggered |= s.triggered;
-            if (s.perception > maxPerception)
-            {
-                maxPerception = s.perception;
-            }
-            if (s.triggered && s.perception >= bestTriggeredPerception)
-            {
-                bestTriggeredPerception = s.perception;
-                targetPerception = s;
-            }
-        }
-
-        if (!triggered && _simState.SuspendAITimeMs > time)
-        {
-            output.suspended = true;
-            return;
-        }
-
-        if (!triggered)
-        {
-            _simState.Yelled = false;
-        }
-        if (targetPerception.pawnTarget != null)
-        {
-            investigation = null;
-        }
-
-        int maxAttempts = 5;
-        for (int i = 0; i < maxAttempts; i++)
-        {
-            if (_curBehavior != null && _behaviors.TryGetValue(_curBehavior, out BehaviorBase b) && b != null)
-            {
-                BehaviorOutput behaviorOutput;
-                using (Profiler.Sample("Mob.BehaviorRun"))
-                {
-                    behaviorOutput = b.Run(this, time, ref targetPerception, ref output);
-                }
-                if (behaviorOutput.newBehavior != null)
-                {
-                    StartBehavior(behaviorOutput.newBehavior);
-                    if (behaviorOutput.result == EBehaviorResult.RunNewBehavior)
-                    {
-                        continue;
-                    }
-                }
-                else if (behaviorOutput.result == EBehaviorResult.Complete)
-                {
-                    StartBehavior(defaultBehavior);
-                }
-            }
-            break;
-        }
-
-        // Navigator runs after the behavior so behaviors can set high-level
-        // intent via Navigator.Goto/Wander and have the navigator translate
-        // it into a pathTarget for the impulse layer. Behaviors that already
-        // wrote pathTarget directly (legacy) win — the navigator only fills
-        // it in when it's still null. See MobNavigator.WriteSteering.
-        if (_navigator != null && !output.pathTarget.HasValue)
-        {
-            using (Profiler.Sample("Mob.NavigatorWriteSteering"))
-            {
-                _navigator.WriteSteering(deltaTime, ref output);
-            }
-        }
-
-        output.inCombat = maxPerception > 0 && mobData != null && mobData.dangerous;
-
-        // output.combatBehavior is set by the combat behaviors themselves during
-        // the Run loop above (BehaviorAttack), not here — Mob._PhysicsProcess
-        // combines it with dangerous + player-perception to feed the
-        // CombatTracker (see ReportPlayerCombat).
-    }
-
-    // Feed the player-facing CombatTracker each tick. Only a dangerous hostile
-    // the player currently perceives reports; `combatBehavior` says it's in an
-    // attack behavior right now. Dead mobs don't report (a fresh corpse you can
-    // still see mustn't keep combat alive) — Mob.Die routes the kill through
-    // CombatTracker.OnMobDied for the instant-end-on-kill rule.
-    private void ReportPlayerCombat(in AIOutput output)
-    {
-        if (!alive || mobData == null || !mobData.dangerous) { return; }
-        if (!playerCanSee) { return; }
-        if (Teams.AreAllied(ActorTeam, ETeam.Player)) { return; }
-        GameClient.Current?.Combat?.Report(this, output.combatBehavior, _world.GameTimeMs);
-    }
-
-    private void StartBehavior(StringName behaviorName)
-    {
-        if (behaviorName == _curBehavior)
-        {
-            return;
-        }
-        if (!_behaviors.TryGetValue(behaviorName, out BehaviorBase b) || b == null)
-        {
-            GD.PushError($"Mob attempted to start unknown behavior '{behaviorName}'");
-            return;
-        }
-        _curBehavior = behaviorName;
-        b.OnEnter(this, _world?.GameTimeMs ?? 0);
-    }
-
     private void UpdatePerception(float delta)
     {
         using var _profPerception = Profiler.Sample("Mob.UpdatePerception");
@@ -516,14 +236,14 @@ public partial class Mob
                 {
                     if (result.activelyPerceived)
                     {
-                        _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(mobData.MemoryStationaryTime * 1000);
+                        _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(mobData.memoryStationaryTime * 1000);
                         _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(_world.SimData.VisibleTime * 1000);
                     }
                     else
                     {
                         if (LinearVelocity.LengthSquared() > 0.01f)
                         {
-                            _simState.MemoryTimeMs = (ulong)Mathf.Min(_simState.MemoryTimeMs, _world.GameTimeMs + (ulong)(mobData.MemoryMovingTime * 1000));
+                            _simState.MemoryTimeMs = (ulong)Mathf.Min(_simState.MemoryTimeMs, _world.GameTimeMs + (ulong)(mobData.memoryMovingTime * 1000));
                         }
                         if (_simState.PlayerPerception <= 0 && _world.GameTimeMs >= _simState.MemoryTimeMs)
                         {
@@ -561,10 +281,10 @@ public partial class Mob
             bool perched = _perched;
             // Geometric range gate: the mob's vision REACH, deliberately NOT shrunk
             // by the player's stealth or light (those shape clarity below) so the
-            // range is stable and the player can reason about it. Mob VisionRange
+            // range is stable and the player can reason about it. Mob visionRange
             // (15) is shorter than the player's (25), so at distance / off-cone the
             // player spots the mob first; the cone + clarity decide the rest.
-            float maxRange = perched ? mobData.VisionRange * mobData.perchedVisionRangeMultiplier : mobData.VisionRange;
+            float maxRange = perched ? mobData.visionRange * mobData.perchedVisionRangeMultiplier : mobData.visionRange;
             bool inVisionRange = distanceSqToPlayer < maxRange * maxRange;
             float closeness = inVisionRange
                 ? Mathf.Clamp(1f - Mathf.Sqrt(distanceSqToPlayer) / maxRange, 0f, 1f)
@@ -572,7 +292,7 @@ public partial class Mob
             // Facing cone — the mob's view angle, the player's main positional
             // stealth lever (flank it). A HARD FOV limit (peripherally blind beyond
             // ±FOV/2), then inside the cone the forward-dot is remapped 0 (edge) → 1
-            // (dead ahead) and raised to VisionDotPower (sqrt) for clarity.
+            // (dead ahead) and raised to visionDotPower (sqrt) for clarity.
             // Omnidirectional when perched.
             float facingFactor;
             if (perched)
@@ -582,10 +302,10 @@ public partial class Mob
             else
             {
                 float forwardDot = toPlayer.Normalized().Dot(GlobalTransform.Basis.Z);
-                float cosHalfFov = Mathf.Cos(Mathf.DegToRad(mobData.VisionFovDegrees * 0.5f));
+                float cosHalfFov = Mathf.Cos(Mathf.DegToRad(mobData.visionFovDegrees * 0.5f));
                 facingFactor = forwardDot <= cosHalfFov
                     ? 0f
-                    : Mathf.Pow((forwardDot - cosHalfFov) / Mathf.Max(0.0001f, 1f - cosHalfFov), mobData.VisionDotPower);
+                    : Mathf.Pow((forwardDot - cosHalfFov) / Mathf.Max(0.0001f, 1f - cosHalfFov), mobData.visionDotPower);
             }
             bool canSee = false;
             float visionDelta = 0f;
@@ -606,13 +326,13 @@ public partial class Mob
                         * _world.player.data.prominence;
                 float env = PlayerPerception.VisionRangeMultiplier(_world, GlobalPosition, _world.player.GlobalPosition);
                 float clarity = facingFactor * env * playerStealth;
-                // Signal = closeness curve × clarity. MinPerceptionDelta is the
+                // Signal = closeness curve × clarity. minPerceptionDelta is the
                 // floor: kept low so perception starts rising EARLY and visibly (the
                 // player sees the meter climb and can duck / slow before it commits),
                 // and the raycast perf cull. Stealth can pull clarity under it — a
                 // slow, shadowed, camouflaged player off the cone simply isn't seen.
-                visionDelta = Mathf.Pow(closeness, mobData.VisionRangePower) * clarity;
-                if (visionDelta > mobData.MinPerceptionDelta)
+                visionDelta = Mathf.Pow(closeness, mobData.visionRangePower) * clarity;
+                if (visionDelta > mobData.minPerceptionDelta)
                 {
                     float eyeHeight = 1.5f;
                     Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
@@ -685,7 +405,7 @@ public partial class Mob
             // threshold.
             float smellDelta = 0f;
             ScentEmitter scent = _world.player.Scent;
-            if (mobData.SmellStrength > 0f && mobData.smellRange > 0f && scent != null)
+            if (mobData.smellStrength > 0f && mobData.smellRange > 0f && scent != null)
             {
                 Vector3 nose = GlobalPosition + new Vector3(0f, 1.5f, 0f);
                 // Fog widens the scent radius, high wind scatters it (both
@@ -753,9 +473,9 @@ public partial class Mob
                 }
             }
 
-            float visionContribution = visionDelta * mobData.VisionStrength;
-            float hearingContribution = hearingDelta * mobData.HearingStrength;
-            float smellContribution = smellDelta * mobData.SmellStrength;
+            float visionContribution = visionDelta * mobData.visionStrength;
+            float hearingContribution = hearingDelta * mobData.hearingStrength;
+            float smellContribution = smellDelta * mobData.smellStrength;
             float perceptionDelta = visionContribution + hearingContribution + smellContribution;
 
             // A hidden player (perched in a climbable tree) is unperceivable —
@@ -772,14 +492,14 @@ public partial class Mob
 
             // Debug breakdown — written every perception tick for the
             // CVars.debugMobPerception HUD overlay. Facing factor mirrors
-            // the dot-power gate above; distance uses the mob's raw VisionRange
+            // the dot-power gate above; distance uses the mob's raw visionRange
             // so the readout is independent of facing / player visibility.
             mobToPlayerDebug.vision = visionDelta;
             mobToPlayerDebug.hearing = hearingDelta;
             mobToPlayerDebug.smell = smellDelta;
             mobToPlayerDebug.lighting = _world.player.visibilityLight;
-            mobToPlayerDebug.distance = mobData.VisionRange > 0f
-                ? Mathf.Clamp(1f - Mathf.Sqrt(distanceSqToPlayer) / mobData.VisionRange, 0f, 1f)
+            mobToPlayerDebug.distance = mobData.visionRange > 0f
+                ? Mathf.Clamp(1f - Mathf.Sqrt(distanceSqToPlayer) / mobData.visionRange, 0f, 1f)
                 : 0f;
             mobToPlayerDebug.facing = facingFactor;
             mobToPlayerDebug.speed = _world.player.visibilitySpeed;
@@ -790,7 +510,7 @@ public partial class Mob
                 ? (canSee ? EPerceptionLos.Clear : EPerceptionLos.Blocked)
                 : EPerceptionLos.Unchecked;
 
-            if (perceptionDelta > mobData.MinPerceptionDelta)
+            if (perceptionDelta > mobData.minPerceptionDelta)
             {
                 // Accelerating accumulation: linear when the per-tick contact is
                 // faint, very fast when it's strong, and continuous (no snap). A
@@ -799,12 +519,12 @@ public partial class Mob
                 // contact builds slowly and visibly, giving time to react.
                 float accel = perceptionDelta * (1f + (mobData.perceptionAccel - 1f) * Mathf.Clamp(perceptionDelta, 0f, 1f));
                 target.perception = Mathf.Clamp(
-                    target.perception + accel * mobData.PerceptionIncreaseSpeed * delta,
+                    target.perception + accel * mobData.perceptionIncreaseSpeed * delta,
                     0f, 1f);
                 // Triggered (combat alert) requires active visual contact —
                 // a hearing-only spike raises perception but can't latch the
                 // mob into the alert state on its own.
-                if (canSee && target.perception >= mobData.PerceptionThresholdAlert)
+                if (canSee && target.perception >= mobData.perceptionThresholdAlert)
                 {
                     if (!target.triggered)
                     {
@@ -818,20 +538,20 @@ public partial class Mob
                 // directional, but an alerted mob that can still clearly sense
                 // the player should keep turning to face it (BehaviorAttack
                 // drives yaw from lastKnownPosition while canSee is false). The
-                // PerceptionThresholdTrack gate (higher than MinPerceptionDelta)
+                // perceptionThresholdTrack gate (higher than minPerceptionDelta)
                 // means faint edge-of-range contact sustains the alert but
                 // doesn't snap facing — only contact strong enough to "track"
                 // turns the mob. Breaking all sensory contact below
-                // MinPerceptionDelta drops into the decay branch where triggered
+                // minPerceptionDelta drops into the decay branch where triggered
                 // eventually clears.
-                if (target.triggered && perceptionDelta > mobData.PerceptionThresholdTrack)
+                if (target.triggered && perceptionDelta > mobData.perceptionThresholdTrack)
                 {
                     target.lastKnownPosition = _world.player.GlobalPosition;
                 }
             }
             else
             {
-                target.perception = Mathf.Clamp(target.perception - mobData.PerceptionRelaxationSpeed * delta, 0f, 1f);
+                target.perception = Mathf.Clamp(target.perception - mobData.perceptionRelaxationSpeed * delta, 0f, 1f);
                 if (target.perception <= 0f)
                 {
                     target.triggered = false;
@@ -879,7 +599,7 @@ public partial class Mob
             return;
         }
         MobData mobData = _simState?.MobData;
-        if (mobData == null || mobData.hearingRange <= 0f || mobData.HearingStrength <= 0f)
+        if (mobData == null || mobData.hearingRange <= 0f || mobData.hearingStrength <= 0f)
         {
             return;
         }
@@ -906,19 +626,19 @@ public partial class Mob
                 return;
             }
             float falloff = Mathf.Pow(1f - Mathf.Sqrt(distSq) / maxAudibleDistance, mobData.hearingRangePower);
-            targets[i].perception = Mathf.Clamp(targets[i].perception + falloff * mobData.HearingStrength, 0f, 1f);
+            targets[i].perception = Mathf.Clamp(targets[i].perception + falloff * mobData.hearingStrength, 0f, 1f);
             return;
         }
     }
 
     // Build perception toward the nearest opposite-side mob (ThreatScan) exactly
-    // as the mob→player block does — closeness^VisionRangePower over
-    // VisionRange, gated by line of sight, accumulated at PerceptionIncreaseSpeed
-    // and relaxed at PerceptionRelaxationSpeed, latching `triggered` at
-    // PerceptionThresholdAlert. The one deliberate difference from the player
+    // as the mob→player block does — closeness^visionRangePower over
+    // visionRange, gated by line of sight, accumulated at perceptionIncreaseSpeed
+    // and relaxed at perceptionRelaxationSpeed, latching `triggered` at
+    // perceptionThresholdAlert. The one deliberate difference from the player
     // block is that this vision is omnidirectional (no facing cone): a vigilant
     // guard dog scans all around, like the perched-lookout case above. The
-    // crossing of PerceptionThresholdWary / PerceptionThresholdAlert drives the
+    // crossing of perceptionThresholdWary / perceptionThresholdAlert drives the
     // companion brain's Wary / Attack tiers; ThreatScan supplies the candidate
     // (already filtered to triggered, enemy-team, in range, with line of sight).
     private void AccumulateThreatPerception(MobData mobData, float delta)
@@ -930,7 +650,7 @@ public partial class Mob
         // companions (which aren't dangerous-flagged) and only latches onto one
         // once it's in combat, so it ignores a harmlessly idling pet and keeps
         // focus on the player until the pet engages.
-        Mob enemy = ThreatScan.FindNearest(this, mobData.VisionRange,
+        Mob enemy = ThreatScan.FindNearest(this, mobData.visionRange,
             requireTriggered: !IsCompanion,
             danger: IsCompanion ? EThreatDanger.DangerousOnly : EThreatDanger.Any);
 
@@ -956,24 +676,24 @@ public partial class Mob
         {
             // Fog/rain shorten the sightline; fog averaged over both ends of the
             // mob→enemy line.
-            float visionRange = mobData.VisionRange
+            float visionRange = mobData.visionRange
                 * PlayerPerception.VisionRangeMultiplier(_world, GlobalPosition, enemy.GlobalPosition);
             if (visionRange > 0f)
             {
                 float distSq = (enemy.GlobalPosition - GlobalPosition).LengthSquared();
                 float closeness = Mathf.Pow(
                     Mathf.Clamp(1f - distSq / (visionRange * visionRange), 0f, 1f),
-                    mobData.VisionRangePower);
-                perceptionDelta = closeness * mobData.VisionStrength;
+                    mobData.visionRangePower);
+                perceptionDelta = closeness * mobData.visionStrength;
             }
             slot.lastKnownPosition = enemy.GlobalPosition;
         }
         slot.canSee = canSee;
 
-        if (perceptionDelta > mobData.MinPerceptionDelta)
+        if (perceptionDelta > mobData.minPerceptionDelta)
         {
             slot.perception = Mathf.Clamp(
-                slot.perception + perceptionDelta / (1.0f - mobData.MinPerceptionDelta) * mobData.PerceptionIncreaseSpeed * delta,
+                slot.perception + perceptionDelta / (1.0f - mobData.minPerceptionDelta) * mobData.perceptionIncreaseSpeed * delta,
                 0f, 1f);
             // Latch into combat on sight only when the perceived enemy is itself
             // flagged as triggering (enemy.mobData.canTriggerMobs) — a harmless
@@ -981,14 +701,14 @@ public partial class Mob
             // triggered. Such a mob is then triggered toward the enemy only by
             // being attacked (Mob.Hit sets the slot triggered directly, which
             // this branch preserves since it never clears it).
-            if (canSee && slot.perception >= mobData.PerceptionThresholdAlert && enemy.mobData.canTriggerMobs)
+            if (canSee && slot.perception >= mobData.perceptionThresholdAlert && enemy.mobData.canTriggerMobs)
             {
                 slot.triggered = true;
             }
         }
         else
         {
-            slot.perception = Mathf.Clamp(slot.perception - mobData.PerceptionRelaxationSpeed * delta, 0f, 1f);
+            slot.perception = Mathf.Clamp(slot.perception - mobData.perceptionRelaxationSpeed * delta, 0f, 1f);
             if (slot.perception <= 0f)
             {
                 slot.triggered = false;

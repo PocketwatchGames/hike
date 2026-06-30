@@ -304,8 +304,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
     // Perception has crossed the lower "wary" tier (but not necessarily Alert).
     public bool ThreatWary => mobData != null && _simState != null
-        && _simState.ThreatPerception.perception >= mobData.PerceptionThresholdWary;
-    // Perception has latched the full alert/combat tier (>= PerceptionThresholdAlert).
+        && _simState.ThreatPerception.perception >= mobData.perceptionThresholdWary;
+    // Perception has latched the full alert/combat tier (>= perceptionThresholdAlert).
     public bool ThreatTriggered => _simState != null && _simState.ThreatPerception.triggered;
     public bool ThreatCanSee => _simState != null && _simState.ThreatPerception.canSee;
     public Vector3 ThreatLastKnownPosition => _simState?.ThreatPerception.lastKnownPosition ?? GlobalPosition;
@@ -1657,13 +1657,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (alive && !burrowing && !burrowed)
         {
             // The idle loop is gated to a per-species time-of-day window
-            // (MobData.IsIdleLoopActiveAt) and a rain ceiling (IdleLoopMaxRain)
+            // (MobData.IsIdleLoopActiveAt) and a rain ceiling (idleLoopMaxRain)
             // so e.g. sparrows only chirp during the day and clam up once it's
             // more than a drizzle; the move/swim loops play regardless.
             if (loopAnim == EAnimation.Idle)
             {
                 if (mobData.IsIdleLoopActiveAt(_world?.WorldState?.TimeOfDay01 ?? 0.0)
-                    && (_world?.CurrentRainAmount() ?? 0f) <= mobData.IdleLoopMaxRain)
+                    && (_world?.CurrentRainAmount() ?? 0f) <= mobData.idleLoopMaxRain)
                 {
                     animLoopTarget = _idleLoopFx;
                 }
@@ -4133,7 +4133,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.PlayerPerception = 1;
         _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
         _world.WorldState?.SimState?.DiscoverSpecies(_simState.Species);
-        _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
+        _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.memoryStationaryTime * 1000);
     }
 
     // Called on the burrow edges (false→burrowing in the transition block,
@@ -4211,7 +4211,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     //
     // - Presentation: the per-type Fx (bark/growl/snarl/...), plus the dedicated
     //   voice shout for a Yell (it predates the Fx map, authored on VoiceData).
-    // - Hearing: a noise carrying VoiceDecibels raises the PLAYER's awareness of
+    // - Hearing: a noise carrying voiceDecibels raises the PLAYER's awareness of
     //   this mob (the player-side of movement noise). It primes the perception
     //   meter but never latches Detected/Discovered on its own — except a Yell,
     //   which forces Discover() (a mob that shouts to engage is unmissable) and
@@ -4225,7 +4225,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             SpawnWorldEffect(scene);
         }
 
-        float decibels = mobData?.VoiceDecibels ?? 0f;
+        float decibels = mobData?.voiceDecibels ?? 0f;
         if (decibels > 0f)
         {
             _world?.CreateNoiseEvent(GlobalPosition, decibels, this, ENoiseAudience.Player);

@@ -56,7 +56,7 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 [resource]
 script = ExtResource("1_mobdata")
 displayName = &"Spider"
-VisionFovDegrees = 360.0
+visionFovDegrees = 360.0
 dangerous = true
 maxHealth = 12.0
 modifiers = null
@@ -79,9 +79,9 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 24: SubResource("anim_cast")
 })
 hudScale = 0.45
-MobScene = ExtResource("3_scene")
+mobScene = ExtResource("3_scene")
 maxStepHeight = 2
-movement = 27
+movement = 26
 triggersTraps = false
 clearanceRadius = 0.4
 verticalClearance = 1

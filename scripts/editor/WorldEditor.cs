@@ -503,12 +503,12 @@ public partial class WorldEditor : Node3D
             case "Goblin":
             {
                 MobData data = brushPalette?.GoblinMob;
-                return data?.MobScene != null ? new MobSimState(position, 0f, data.MobScene, data) : null;
+                return data?.mobScene != null ? new MobSimState(position, 0f, data.mobScene, data) : null;
             }
             case "KunKun":
             {
                 MobData data = brushPalette?.KunKunMob;
-                return data?.MobScene != null ? new MobSimState(position, 0f, data.MobScene, data) : null;
+                return data?.mobScene != null ? new MobSimState(position, 0f, data.mobScene, data) : null;
             }
             default:
                 return null;

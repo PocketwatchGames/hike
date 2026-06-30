@@ -67,7 +67,7 @@ damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
 actionProfile = SubResource("Resource_profile")
-MaxAttackRange = 5.0
+maxAttackRange = 5.0
 desiredAttackRange = 3.0
 displayName = &"Goblin Torch"
 heldModel = ExtResource("11_held")

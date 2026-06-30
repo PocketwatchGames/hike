@@ -1,0 +1,541 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+
+public partial class Player : CharacterBody3D
+{
+	public void Heal(float amount)
+	{
+		if (amount <= 0f)
+		{
+			return;
+		}
+		// Healing climbs all the way to MaxHealth regardless of any
+		// outstanding blood drain — a potion brings you to full even
+		// while a spell's HP debt is still pending. Any drain the heal
+		// climbs into is forgiven (the invariant `Health + DrainedHealth
+		// <= MaxHealth` is restored), since the bar's dark region
+		// represents debt that would be repaid into bright HP — and
+		// you've already paid yourself up to the cap.
+		float before = _health;
+		_health = Mathf.Min(MaxHealth, _health + amount);
+		_drainedHealth = Mathf.Min(_drainedHealth, Mathf.Max(0f, MaxHealth - _health));
+		float restored = _health - before;
+		if (restored > 0f)
+		{
+			GameClient.Current?.onHeal?.Invoke(GlobalPosition, restored, EHudTextType.HealLight);
+		}
+	}
+
+	// IActionActor — press-time blood gate. Non-mutating peek. Costs of 0
+	// or less always pass; otherwise refuses when the cost would drop HP
+	// to 0, so a drain can never kill the actor directly.
+	public bool HasBlood(float amount)
+	{
+		if (amount <= 0f)
+		{
+			return true;
+		}
+		return _health > amount;
+	}
+
+	// IActionActor — unconditional spend at EnterActive. Subtracts from
+	// current HP, adds to _drainedHealth, and re-arms the single shared
+	// regen delay (PlayerData.bloodRegenDelay). Mirrors armor: every
+	// drain pushes _bloodRegenStartMs forward so chained spells hold
+	// regen back until the player stops drawing.
+	public void DrainBlood(float amount)
+	{
+		if (amount <= 0f || data == null)
+		{
+			return;
+		}
+		_health -= amount;
+		_drainedHealth += amount;
+		ulong now = _world?.GameTimeMs ?? 0;
+		_bloodRegenStartMs = now + (ulong)(data.bloodRegenDelay * 1000f);
+	}
+
+	// Per-tick refund. No-op while _drainedHealth is empty or before the
+	// shared delay elapses; otherwise pays back bloodRegenSpeed * dt to
+	// _health and shrinks _drainedHealth by the same amount so the bright
+	// and dark HUD zones meet seamlessly.
+	private void TickBloodDrain(float dt)
+	{
+		if (_drainedHealth <= 0f || data == null)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (now < _bloodRegenStartMs)
+		{
+			return;
+		}
+		float refund = Mathf.Min(_drainedHealth, data.bloodRegenSpeed * dt);
+		_drainedHealth -= refund;
+		_health = Mathf.Min(MaxHealth, _health + refund);
+	}
+
+	// Sums maxArmor across every equipped armor slot. Current armor is capped
+	// at the new max — unequipping a piece can only shrink the available pool,
+	// it never grants free armor. Increases leave the current value alone so
+	// the recharge logic owns the climb back up to the new max.
+	private void RecalculateMaxArmor()
+	{
+		float total = 0f;
+		if (_inventory != null)
+		{
+			AccumulateArmor(EInventorySlot.ArmorHead, ref total);
+			AccumulateArmor(EInventorySlot.ArmorBody, ref total);
+		}
+		_maxArmor = total;
+		if (_armor > _maxArmor)
+		{
+			_armor = _maxArmor;
+		}
+	}
+
+	private void AccumulateArmor(EInventorySlot slot, ref float total)
+	{
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
+		{
+			total += armor.data.maxArmor;
+		}
+	}
+
+	// Awards `amount` exp to every equipped weapon and armor piece. Called
+	// from Mob.Damage on the lethal hit when the killer is this player; each
+	// state walks SimData.ExpPerLevel and promotes level as thresholds are
+	// crossed, capped at its own data.maxLevel.
+	public void GrantEquippedExperience(int amount)
+	{
+		if (amount <= 0 || _inventory == null)
+		{
+			return;
+		}
+		var thresholds = _world?.SimData?.ExpPerLevel;
+		if (thresholds == null)
+		{
+			return;
+		}
+		(_inventory.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState)?.AddExp(amount, thresholds);
+		(_inventory.GetEquipped(EInventorySlot.WeaponRight) as WeaponState)?.AddExp(amount, thresholds);
+		(_inventory.GetEquipped(EInventorySlot.ArmorHead) as ArmorState)?.AddExp(amount, thresholds);
+		(_inventory.GetEquipped(EInventorySlot.ArmorBody) as ArmorState)?.AddExp(amount, thresholds);
+	}
+
+	// Compose a single stat across inherent PlayerData modifiers, equipped
+	// armor modifiers, and active status-effect modifiers. Seeds with the
+	// stat's neutral identity (1 for multiplicative, 0 for additive) and
+	// folds each source. Multiplicative for most stats, additive for the
+	// four additive ones (Camouflage / MaxStamina / ColdResist / HeatResist)
+	// per StatModifierUtil.IsAdditive.
+	public float ComposeStat(EStat stat)
+	{
+		float value = StatModifierUtil.NeutralValue(stat);
+		if (data?.modifiers != null)
+		{
+			value = StatModifierUtil.Fold(stat, data.modifiers, value);
+		}
+		value = AccumulateArmorStat(EInventorySlot.ArmorHead, stat, value);
+		value = AccumulateArmorStat(EInventorySlot.ArmorBody, stat, value);
+		value = _statusEffects?.FoldStat(stat, value) ?? value;
+		return value;
+	}
+
+	// Multiplicative compose across all sources for a tag mask — used at
+	// hit-application sites (damage / armor-penetration chance / blunt chip / knockback
+	// magnitude). Walks every entry whose single-bit stat overlaps the mask
+	// and multiplies. The StatusEffectController routes through this
+	// callback when scaling buildup contributions and DoT damage ticks.
+	public float ComposeMaskMul(EStat mask)
+	{
+		float product = 1f;
+		if (data?.modifiers != null)
+		{
+			product = StatModifierUtil.FoldMask(mask, data.modifiers, product);
+		}
+		product = AccumulateArmorMask(EInventorySlot.ArmorHead, mask, product);
+		product = AccumulateArmorMask(EInventorySlot.ArmorBody, mask, product);
+		product = _statusEffects?.FoldMask(mask, product) ?? product;
+		return product;
+	}
+
+	private float AccumulateArmorStat(EInventorySlot slot, EStat stat, float value)
+	{
+		if (_inventory == null) { return value; }
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data?.modifiers != null)
+		{
+			value = StatModifierUtil.Fold(stat, armor.data.modifiers, value);
+		}
+		return value;
+	}
+
+	private float AccumulateArmorMask(EInventorySlot slot, EStat mask, float product)
+	{
+		if (_inventory == null) { return product; }
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data?.modifiers != null)
+		{
+			product = StatModifierUtil.FoldMask(mask, armor.data.modifiers, product);
+		}
+		return product;
+	}
+
+	// Composite cold / heat resistance from every equipped armor piece plus
+	// every active status effect. Used by the temperature path to shift the
+	// cold/hot trigger thresholds and by the inventory's player-stats panel
+	// to display the resolved total.
+	public void GetThermalResistances(out float coldResistance, out float heatResistance)
+	{
+		coldResistance = ComposeStat(EStat.ColdResist);
+		heatResistance = ComposeStat(EStat.HeatResist);
+	}
+
+	// Composite sense stats from every equipped armor piece plus every
+	// active status effect. Camouflage is an additive sum (0 = neutral);
+	// the four sense modifiers are multiplicative products (1.0 = neutral).
+	// Callers fold the multipliers into a PlayerData base value when an
+	// effective absolute is wanted; the inventory stats panel just renders
+	// them as signed deltas off neutral.
+	public void GetSenseStats(out float camouflage, out float visionMultiplier, out float hearingMultiplier, out float noiseMultiplier, out float scentMultiplier)
+	{
+		camouflage = ComposeStat(EStat.Camouflage);
+		visionMultiplier = ComposeStat(EStat.Vision);
+		hearingMultiplier = ComposeStat(EStat.Hearing);
+		noiseMultiplier = ComposeStat(EStat.Noise);
+		scentMultiplier = ComposeStat(EStat.Scent);
+	}
+
+	// Composite movement multiplier from every active status effect. Doesn't
+	// include armor — armor doesn't carry a speed modifier in the current
+	// model. Cold and similar effects multiply in here.
+	public float SpeedMultiplier => _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
+
+	// Pushes the armor recharge window out whenever damage actually touches
+	// armor — a direct hit OR a status DoT that chips it (e.g. burn). Damage
+	// that fully bypasses armor (poison / heals, armorPenetration=1) never gets
+	// here, so it can't stall recovery. `hasArmorLeft` true => a chip landed but
+	// armor survived, use the short delay; false => armor is (or already was)
+	// empty, use the long recover window and fire the depleted one-shot on the
+	// transition. Called even when armor was already at zero so sustained armor
+	// damage keeps the recover window from starting mid-fight.
+	private void RefreshArmorRecharge(bool hasArmorLeft)
+	{
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (hasArmorLeft)
+		{
+			_armorDepleted = false;
+			_armorRechargeStartMs = now + (ulong)(data.armorRechargeDelay * 1000f);
+		}
+		else
+		{
+			if (!_armorDepleted)
+			{
+				_armorDepleted = true;
+				SpawnWorldEffect(_armorDepletedFx);
+			}
+			_armorRechargeStartMs = now + (ulong)(data.armorRecoverTime * 1000f);
+		}
+		_armorRecharging = false;
+	}
+
+	private void TickArmor(float dt)
+	{
+		// MaxArmor (not the raw _maxArmor equipment sum) so a MaxArmor stat
+		// modifier actually expands the rechargeable pool, not just the readout.
+		float maxArmor = MaxArmor;
+		if (maxArmor <= 0f || _armor >= maxArmor)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (now < _armorRechargeStartMs)
+		{
+			return;
+		}
+		if (!_armorRecharging)
+		{
+			_armorRecharging = true;
+			SpawnWorldEffect(_armorDepleted ? _armorRecoverStartFx : _armorRechargeStartFx);
+		}
+		_armor = Mathf.Min(maxArmor, _armor + data.armorRechargeSpeed * dt);
+		if (_armor >= maxArmor)
+		{
+			_armorDepleted = false;
+		}
+	}
+
+	// The weapon whose block-armor guard is currently live — non-null only
+	// while the player is charging a weapon that carries a block pool. The
+	// guard is "active" (absorbs damage) only during the Charging phase; it
+	// still recharges between charges (TickBlockArmor) so it's topped up for
+	// the next one.
+	private WeaponState GetChargingBlockWeapon()
+	{
+		if (_runner == null || !_runner.IsBusy || _runner.Phase != EActionPhase.Charging)
+		{
+			return null;
+		}
+		if (_runner.Current.context.primaryItem is WeaponState weapon
+			&& weapon.data != null && weapon.data.blockArmor > 0f)
+		{
+			return weapon;
+		}
+		return null;
+	}
+
+	// Routes the armor-touchable slice of an incoming hit through the charging
+	// weapon's guard before the player's central armor. While the guard has
+	// any charge it eats the WHOLE absorbable slice (zeroing `absorbable` so
+	// the central-armor block downstream sees nothing) and reports how much
+	// the pool actually lost for HUD feedback. The guard recharge follows the
+	// same rule as central armor: any guard-touchable hit (absorbable > 0)
+	// resets the recharge delay — even one that lands while the pool is already
+	// empty — while a fully-bypassing hit (poison / armor-penetrating,
+	// absorbable == 0) never touches the guard and so leaves its recovery
+	// alone. The guard only engages while its weapon is being charged (null
+	// weapon no-ops here), so a player not actively guarding never resets it.
+	private float AbsorbWeaponBlock(WeaponState weapon, ref float absorbable, float blunt)
+	{
+		if (weapon == null || absorbable <= 0f)
+		{
+			return 0f;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		weapon.blockArmorRechargeStartMs = now + (ulong)(weapon.data.blockArmorRechargeDelay * 1000f);
+		if (weapon.blockArmor <= 0f)
+		{
+			return 0f;
+		}
+		float blockDamage = absorbable * (1f + blunt);
+		float before = weapon.blockArmor;
+		weapon.blockArmor = Mathf.Max(0f, before - blockDamage);
+		absorbable = 0f;
+		return before - weapon.blockArmor;
+	}
+
+	// Per-tick recharge of every equipped weapon's block-armor guard. Mirrors
+	// TickArmor but keyed off the weapon's own (independent) recharge stats and
+	// driven for both weapon slots so a guard refills whether or not it's the
+	// one being charged. No depletion fx — the HUD bar carries the feedback.
+	private void TickBlockArmor(float dt)
+	{
+		ulong now = _world?.GameTimeMs ?? 0;
+		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now, dt);
+		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now, dt);
+	}
+
+	private static void TickWeaponBlockArmor(WeaponState weapon, ulong now, float dt)
+	{
+		if (weapon?.data == null)
+		{
+			return;
+		}
+		float max = weapon.data.blockArmor;
+		if (max <= 0f || weapon.blockArmor >= max)
+		{
+			return;
+		}
+		if (now < weapon.blockArmorRechargeStartMs)
+		{
+			return;
+		}
+		weapon.blockArmor = Mathf.Min(max, weapon.blockArmor + weapon.data.blockArmorRechargeSpeed * dt);
+	}
+
+	// Per-tick ammo recharge for every weapon the player owns that opts in
+	// (WeaponData.ammoRechargeSeconds > 0) — the single, unified ammo timer.
+	// Driven for both equip slots AND the backpack so an unequipped weapon
+	// keeps reclaiming arrows / refilling while stashed. A weapon dropped on
+	// the ground isn't ticked at all, but ammoRechargeReadyMs is an absolute
+	// game-time deadline, so the first tick after it re-enters the inventory
+	// catches up every interval that elapsed while it was gone (see the
+	// catch-up loop in TickWeaponAmmoRecharge). The timer is a single deadline
+	// (ammoRechargeReadyMs): armed the frame ammo drops below max, advanced
+	// after each unit refills, and cleared at full — so it runs continuously
+	// while below max and firing never resets an in-flight charge.
+	// On each elapse it recovers one unit of ammo: a weapon that left arrows in
+	// the world (the bow) auto-reclaims its oldest outstanding arrow (which
+	// bumps ammo as it leaves play); a self-recharging weapon with no arrows
+	// (the bomb) just regenerates ammo from nothing.
+	private void TickAmmoRecharge(ulong now)
+	{
+		if (_inventory == null)
+		{
+			return;
+		}
+		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now);
+		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now);
+		// Unequipped weapons keep their recharge timers running so a holstered
+		// bow still reclaims its outstanding arrows (and a stashed bomb still
+		// refills). Equipped weapons live in the slot pointers only — they're
+		// not duplicated in the backpack — so this loop can't double-tick them.
+		// Indexed access over Backpack avoids per-frame enumerator allocation.
+		System.Collections.Generic.IReadOnlyList<ItemState> backpack = _inventory.Backpack;
+		for (int i = 0; i < backpack.Count; i++)
+		{
+			TickWeaponAmmoRecharge(backpack[i] as WeaponState, now);
+		}
+	}
+
+	private static void TickWeaponAmmoRecharge(WeaponState weapon, ulong now)
+	{
+		if (weapon?.data == null)
+		{
+			return;
+		}
+		float per = weapon.data.ammoRechargeSeconds;
+		int max = weapon.data.maxAmmo;
+		if (per <= 0f || max <= 0)
+		{
+			return;
+		}
+		if (weapon.ammo >= max)
+		{
+			// At capacity — clear the deadline so the next depletion arms a
+			// fresh full interval rather than refilling instantly.
+			weapon.ammoRechargeReadyMs = 0;
+			return;
+		}
+		ulong interval = (ulong)(per * 1000f);
+		if (interval == 0)
+		{
+			interval = 1;
+		}
+		if (weapon.ammoRechargeReadyMs == 0)
+		{
+			weapon.ammoRechargeReadyMs = now + interval;
+			return;
+		}
+		// Catch up one unit per elapsed interval. Normally the deadline is at
+		// most one interval in the past (per-frame ticking), so this loops once.
+		// But a weapon that went unticked — dropped on the ground, where it
+		// neither ticks nor holds any outstanding arrows — credits the whole
+		// elapsed time the instant it re-enters the inventory, advancing the
+		// deadline by a fixed interval each step so no time is dropped. Bounded
+		// by maxAmmo iterations (ammo strictly climbs to the cap).
+		while (now >= weapon.ammoRechargeReadyMs && weapon.ammo < max)
+		{
+			// Recover one unit. Prefer reclaiming the oldest arrow still in the
+			// world (an equipped/holstered bow) — its removal routes back through
+			// OnArrowRemoved and bumps ammo; otherwise regenerate directly (the
+			// bomb, or a dropped bow whose arrows were forfeit). Net +1 either way.
+			if (weapon.outstandingArrows.Count > 0)
+			{
+				weapon.RecoverOldestArrow();
+			}
+			else
+			{
+				weapon.ammo++;
+			}
+			weapon.ammoRechargeReadyMs += interval;
+		}
+		// Clear the deadline at full so the next depletion arms a fresh interval
+		// and the HUD / press-gate see a stable count.
+		if (weapon.ammo >= max)
+		{
+			weapon.ammoRechargeReadyMs = 0;
+		}
+	}
+
+	// IActionActor — press-time stamina gate. Non-mutating peek. Costs of 0
+	// or less always pass.
+	public bool HasStamina(float amount)
+	{
+		if (amount <= 0f)
+		{
+			return true;
+		}
+		return _stamina >= amount;
+	}
+
+	// IActionActor — unconditional spend at EnterActive. Allowed to drive
+	// stamina negative; sprint / swim gating already keys off `_stamina <= 0`
+	// and the recharge tick re-fills from negative without special handling.
+	// Arms the recharge delay so a heavy action doesn't begin refilling
+	// immediately after firing.
+	public void ConsumeStamina(float amount)
+	{
+		if (amount <= 0f)
+		{
+			return;
+		}
+		_stamina -= amount;
+		ulong now = _world?.GameTimeMs ?? 0;
+		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+	}
+
+	private void TickStamina(float dt)
+	{
+		float max = MaxStamina;
+		// A status effect with maxStaminaBonus can shrink the cap when it
+		// expires (e.g. Hydrated wearing off). Clamp before the recharge
+		// early-out so a higher-than-cap value comes back down to the new max.
+		if (_stamina > max)
+		{
+			_stamina = max;
+		}
+		if (max <= 0f || _stamina >= max)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (now < _staminaRechargeStartMs)
+		{
+			return;
+		}
+		// staminaRechargeTime is the 0-to-full duration; convert to a flat
+		// per-second rate. A partial spend then refills proportionally faster.
+		float rechargeTime = data.staminaRechargeTime;
+		float rate = rechargeTime > 0f ? max / rechargeTime : max;
+		_stamina = Mathf.Min(max, _stamina + rate * dt);
+	}
+
+	// Swimming + active move input drains stamina at a flat per-second rate
+	// and re-arms the recharge delay each tick (mirrors the dash pattern:
+	// spend is unconditional, stamina is allowed to go negative, movement is
+	// never gated on it).
+	private void TickSwimStamina(float dt)
+	{
+		if (data == null || _waterState != EWaterState.Swimming)
+		{
+			return;
+		}
+		if (_inputMove.LengthSquared() <= 0.0001f)
+		{
+			return;
+		}
+		_stamina -= data.swimStaminaDrainPerSecond * dt;
+		ulong now = _world?.GameTimeMs ?? 0;
+		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+	}
+
+	// Mirrors TickSwimStamina. Sprint drains a flat per-second amount and
+	// re-arms the recharge delay each tick (stamina is allowed to go
+	// negative; movement is never gated on it, but UpdateSprintState ends
+	// sprint as soon as stamina hits zero).
+	private void TickSprintStamina(float dt)
+	{
+		if (!_sprinting || data == null)
+		{
+			return;
+		}
+		_stamina -= data.sprintStaminaDrainPerSecond * dt;
+		ulong now = _world?.GameTimeMs ?? 0;
+		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+	}
+
+	// Fires the out-of-breath one-shot on the positive→exhausted crossing.
+	// Run after the stamina drains/recharge each tick so it reads the settled
+	// value. The latch clears only once stamina climbs back above zero, so the
+	// gasp plays once per exhaustion instead of every frame the bar is empty.
+	private void TickStaminaExhaustion()
+	{
+		bool exhausted = _stamina <= 0f;
+		if (exhausted && !_staminaExhausted)
+		{
+			SpawnVoiceSelf(_voice?.outOfBreath);
+		}
+		_staminaExhausted = exhausted;
+	}
+}

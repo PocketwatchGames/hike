@@ -139,7 +139,7 @@ public class MobSimState : EntitySimState
     // Null only for legacy/editor-placed mobs built straight from a bare
     // MobData — those don't contribute to the bestiary.
     public SpeciesData Species;
-    // Per-instance overrides stamped at spawn so one MobData/MobScene serves many
+    // Per-instance overrides stamped at spawn so one MobData/mobScene serves many
     // variants. Null = fall back to the species defaults. Persisted via
     // EntitySerializer so a reloaded variant keeps these rather than reverting.
     // Both come from the SpeciesData: Palette is the biome recolor, Weapons is the

@@ -40,7 +40,7 @@ public partial class BehaviorWildIdle : BehaviorBase
         // wary tier. Below that the dog hasn't noticed them — stay quiet and still.
         Player player = me.World?.player;
         bool aware = player != null && me.mobData != null
-            && targetPerception.perception >= me.mobData.PerceptionThresholdWary;
+            && targetPerception.perception >= me.mobData.perceptionThresholdWary;
         if (!aware)
         {
             _nextBarkMs = time;

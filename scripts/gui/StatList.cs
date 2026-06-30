@@ -453,7 +453,7 @@ public static class StatList
 			yield return (names[EStatName.Armor], StatFormat.Number(mob.maxArmor));
 		}
 		yield return (names[EStatName.MoveSpeed], StatFormat.Number(mob.maxSpeed));
-		yield return (names[EStatName.Vision], StatFormat.Meters(mob.VisionRange));
+		yield return (names[EStatName.Vision], StatFormat.Meters(mob.visionRange));
 	}
 
 	// Per-armor readout: max armor capacity + every modifier the piece

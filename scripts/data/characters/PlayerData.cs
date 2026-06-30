@@ -167,7 +167,7 @@ public partial class PlayerData : Resource
 	// <1 is CONCAVE: signal stays high across most of the range, so in clear
 	// conditions targets cross perceptionInstant near max range and only the
 	// outer band becomes a slow build. >1 would pull recognition in close.
-	[Export] public float VisionRangePower = 0.5f;
+	[Export] public float visionRangePower = 0.5f;
 	// Pushes the closeness ramp's zero-crossing PAST visionRange: closeness =
 	// 1 − d/(visionRange·this), still hard-culled at visionRange. So at the very
 	// edge of range closeness is (1 − 1/this) instead of 0, letting a target hit
@@ -195,7 +195,7 @@ public partial class PlayerData : Resource
 	// recognition). In clear air clarity≈1, so this is roughly the closeness^power
 	// needed to "instantly" spot a mob; lower = recognised from farther.
 	[Export] public float perceptionInstant = 0.5f;
-	[Export] public float PerceptionRelaxationSpeed = 0.1f;
+	[Export] public float perceptionRelaxationSpeed = 0.1f;
 	// Seconds for the perception meter to fill (0→Discovered) at the two ends of
 	// the partial-visibility band, with fill time fit to perceivability — NOT the
 	// reverse. A target whose perceivability sits just above perceptionMinimum
@@ -208,8 +208,8 @@ public partial class PlayerData : Resource
 	// Per-sense multipliers applied to the vision / hearing perception delta
 	// before they're summed and accumulated. Mirrors MobData; the player's
 	// perception of mobs (PlayerPerception.Tick) uses these.
-	[Export] public float VisionStrength = 1f;
-	[Export] public float HearingStrength = 1f;
+	[Export] public float visionStrength = 1f;
+	[Export] public float hearingStrength = 1f;
 	// Hearing reach scalar. A sound of `decibels` is heard if
 	// `decibels * hearingRange > distance`. The player's state transitions
 	// (Hidden→Detected→Discovered) still require active visual contact —

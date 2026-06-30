@@ -67,9 +67,9 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 [resource]
 script = ExtResource("1_vvowg")
 displayName = &"Goblin"
-VisionRange = 20.0
-VisionDotPower = 2.0
-SmellStrength = 0.15
+visionRange = 20.0
+visionDotPower = 2.0
+smellStrength = 0.15
 smellRange = 5.0
 smellRangePower = 2.0
 visibilityMovementPower = 1.0
@@ -97,6 +97,6 @@ animations = Dictionary[int, ExtResource("7_animdata")]({
 20: SubResource("Resource_id4xl")
 })
 hudScale = 0.8
-MobScene = ExtResource("4_scene")
+mobScene = ExtResource("4_scene")
 maxSpeed = 8.0
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

@@ -25,7 +25,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     // --- Per-individual appearance (each NPC is one unique world entity) ---
     // Rig/gender override: the model scene instanced for THIS individual (e.g. a
     // male vs female villager package). Null = the descriptor's base
-    // MobData.MobScene. Passed into MobDescriptor.CreateState so it's fixed at
+    // MobData.mobScene. Passed into MobDescriptor.CreateState so it's fixed at
     // construction and serializes with the mob.
     [Export] public PackedScene Scene;
     // Outfit: the modular rig's visible clothing/hair/hat mesh names (gender-

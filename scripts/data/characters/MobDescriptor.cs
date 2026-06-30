@@ -3,7 +3,7 @@ using Godot;
 // A spawn-facing composed mob: a reusable SpeciesData (base species + recolor +
 // intrinsic stat modifiers + status effects + weapons) paired with a
 // per-descriptor elite override. Spawn sources hold a MobDescriptor instead of a
-// bare MobData so biome variants reuse one SpeciesData (and its MobScene) instead
+// bare MobData so biome variants reuse one SpeciesData (and its mobScene) instead
 // of a duplicated species file. This is the mob analog of ItemDescriptor
 // (composition, not inheritance): a spawn entry HAS-A descriptor; it is not a
 // kind of one.
@@ -38,13 +38,13 @@ public partial class MobDescriptor : Resource
     // usable species (mirrors ItemDescriptor.CreateState's null-on-unset guard).
     // sceneOverride lets a placement swap the rig per individual (e.g. a male vs
     // female villager) without forking the species — see NpcSpawnEntry.Scene.
-    // Null falls back to the species' base MobData.MobScene. The scene is fixed
+    // Null falls back to the species' base MobData.mobScene. The scene is fixed
     // at construction (EntitySimState.Scene is readonly) and serializes with the
     // mob, so an overridden rig survives chunk eviction and save/load.
     public MobSimState CreateState(Vector3 worldPosition, float rotationY, PackedScene sceneOverride = null)
     {
         MobData mobData = species?.mob;
-        PackedScene scene = sceneOverride ?? mobData?.MobScene;
+        PackedScene scene = sceneOverride ?? mobData?.mobScene;
         if (mobData == null || scene == null)
         {
             return null;

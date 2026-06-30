@@ -4,7 +4,7 @@ using Godot;
 // encircle / cooldown / action-profile tuning; the only behavioral difference
 // is the target — BehaviorDogAttack engages the mob's accumulated threat
 // (MobSimState.ThreatPerception) instead of the player. The vision range /
-// awareness thresholds live on MobData (VisionRange / PerceptionThreshold*), and
+// awareness thresholds live on MobData (visionRange / perceptionThreshold*), and
 // the dog scans threats by virtue of being a companion, so there is nothing
 // extra to author here.
 [GlobalClass]

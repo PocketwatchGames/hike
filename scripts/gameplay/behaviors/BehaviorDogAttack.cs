@@ -6,7 +6,7 @@ using Godot;
 // instead of the player. Overriding ResolveTarget is the entire difference —
 // standoff slots, cooldowns, yaw, and firing the action profile are inherited
 // unchanged. The brain enters here once threat perception latches `triggered`
-// (PerceptionThresholdAlert) and drops back to BehaviorWary when it clears.
+// (perceptionThresholdAlert) and drops back to BehaviorWary when it clears.
 public partial class BehaviorDogAttack : BehaviorAttack
 {
     private readonly DogAttackBehaviorData _data;

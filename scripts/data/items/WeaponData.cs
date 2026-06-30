@@ -152,12 +152,12 @@ public partial class WeaponData : ItemData
 	[Export] public int priority = 0;
 
 	// Distance at which the mob will fire this weapon (when it can see the target).
-	[Export] public float MaxAttackRange = 2.5f;
+	[Export] public float maxAttackRange = 2.5f;
 	// Maximum absolute Y differential between mob and target this weapon fires at.
 	// Approach / encircle / pathfinding still use 2D distance, so the mob chases
 	// up or down to reach the target; this only prevents committing a swing while
 	// the target sits on a plateau above / pit below the weapon's vertical reach.
-	[Export] public float MaxVerticalAttackRange = 4f;
+	[Export] public float maxVerticalAttackRange = 4f;
 	// Standoff distance the wielding mob holds from the target — it stops closing
 	// here so it can attack instead of slamming into the target.
 	[Export] public float desiredAttackRange = 1.75f;

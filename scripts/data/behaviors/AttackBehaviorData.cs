@@ -24,7 +24,7 @@ public partial class AttackBehaviorData : BehaviorData
     // Distance from the target the mob holds *between* swings (while every weapon
     // is on cooldown). When a weapon comes off cooldown the mob closes to that
     // weapon's desiredAttackRange to attack, then falls back here — so this may
-    // sit at or beyond MaxAttackRange to make a skirmisher disengage between
+    // sit at or beyond maxAttackRange to make a skirmisher disengage between
     // swings without ever stalling the attack. <= 0 falls back to the closest
     // desiredAttackRange among the mob's weapons, collapsing the ring onto attack
     // range (no disengage).

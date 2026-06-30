@@ -27,27 +27,27 @@ public partial class MobData : Resource
     // How this mob's AI sees the player — sight cone reach and shape, the
     // accumulation curve that turns "in sight" into the triggered/alert
     // state in MobAI.UpdatePerception's mob-to-player block.
-    [Export] public float VisionRange = 15f;
+    [Export] public float visionRange = 15f;
     // Total field-of-view angle (degrees). A HARD limit: beyond ±FOV/2 off the
     // mob's forward axis the player is peripherally invisible (clarity 0), no
     // matter how close/lit. Narrow for ambush hunters that must be faced
     // (goblin ~90), wide for skittish prey / many-eyed mobs (sparrow/spider near
     // 360). 180 = front hemisphere, which reproduces the old sqrt(dot) cone.
-    [Export(PropertyHint.Range, "30,360,5")] public float VisionFovDegrees = 180f;
+    [Export(PropertyHint.Range, "30,360,5")] public float visionFovDegrees = 180f;
     // Clarity curve INSIDE the FOV: the forward-dot is remapped 0 (cone edge) → 1
     // (dead ahead) and raised to this power. <1 (sqrt) keeps the player clearly
     // seen across most of the cone, fading only near the edge; >1 concentrates
     // clear vision toward dead-ahead.
-    [Export] public float VisionDotPower = 0.5f;
-    [Export] public float VisionRangePower = 0.5f;
-    // Lookout bonus while perched (flying mobs): VisionRange is scaled by this,
+    [Export] public float visionDotPower = 0.5f;
+    [Export] public float visionRangePower = 0.5f;
+    // Lookout bonus while perched (flying mobs): visionRange is scaled by this,
     // and the facing cone is dropped (vision goes omnidirectional) to model a
     // bird watching all around from an elevated vantage. 1 = no bonus. The
     // perched bird also ignores its own perch prop's collider for LOS so the
     // trunk it sits in doesn't blind it. Ignored by non-perching mobs.
     [Export] public float perchedVisionRangeMultiplier = 1.5f;
-    [Export] public float PerceptionIncreaseSpeed = 0.5f;
-    [Export] public float PerceptionRelaxationSpeed = 0.1f;
+    [Export] public float perceptionIncreaseSpeed = 0.5f;
+    [Export] public float perceptionRelaxationSpeed = 0.1f;
     // Shapes how the mob→player perception meter fills with the per-tick contact
     // strength: growth = delta·(1 + (perceptionAccel−1)·delta). 1 = linear; >1
     // makes strong contact (player close & centered in the cone) fill very fast
@@ -61,33 +61,33 @@ public partial class MobData : Resource
     // pulls contact under it to go unseen. Don't set it so low that faint, distant
     // hearing/smell quietly accumulates the meter — keep per-sense reach (hearingRange
     // / smellRange) short instead.
-    [Export] public float MinPerceptionDelta = 0.05f;
-    [Export] public float PerceptionThresholdAlert = 1f;
-    // Lower awareness tier (below PerceptionThresholdAlert) at which the mob is
+    [Export] public float minPerceptionDelta = 0.05f;
+    [Export] public float perceptionThresholdAlert = 1f;
+    // Lower awareness tier (below perceptionThresholdAlert) at which the mob is
     // "wary" of a perceived target — aware enough to react cautiously (turn,
     // growl, bristle) but not yet fully triggered into combat. As perception
-    // accumulates it crosses this first, then PerceptionThresholdAlert. Read by
+    // accumulates it crosses this first, then perceptionThresholdAlert. Read by
     // graded-response behaviors: the companion brain enters BehaviorWary here
-    // and BehaviorDogAttack at PerceptionThresholdAlert. Applies to both the
+    // and BehaviorDogAttack at perceptionThresholdAlert. Applies to both the
     // player perception slot and the threat-perception accumulation below.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float PerceptionThresholdWary = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float perceptionThresholdWary = 0.5f;
     // Contact strength (summed vision+hearing+smell perceptionDelta) above which
     // an already-triggered mob refreshes its fix on the player's true position
     // from ANY sense — so it turns to face a player it can only hear/smell.
-    // Higher than MinPerceptionDelta on purpose: faint contact is enough to
+    // Higher than minPerceptionDelta on purpose: faint contact is enough to
     // *sustain* the alert (it stays out of the decay branch) but not to *track*
     // facing, so a mob lingering at the edge of smell range stays agitated
     // without snapping to stare straight at the player. Direct line of sight
     // refreshes the fix regardless of this value (see UpdatePerception's canSee
     // block); this gate only governs the hearing/smell-only case.
-    [Export] public float PerceptionThresholdTrack = 0.15f;
+    [Export] public float perceptionThresholdTrack = 0.15f;
     // Per-sense multipliers applied to the vision / hearing / smell perception
     // delta before they're summed and accumulated. Setting any of these to 0
     // turns off that sense for this mob (blind / deaf / anosmic) while
     // leaving the others intact.
-    [Export] public float VisionStrength = 1f;
-    [Export] public float HearingStrength = 1f;
-    [Export] public float SmellStrength = 0f;
+    [Export] public float visionStrength = 1f;
+    [Export] public float hearingStrength = 1f;
+    [Export] public float smellStrength = 0f;
     // Hearing reach scalar. A sound of `decibels` is heard if
     // `decibels * hearingRange > distance` — i.e. the audible distance is
     // `decibels * hearingRange`. State transitions (triggered / discovered)
@@ -188,8 +188,8 @@ public partial class MobData : Resource
     // How long a Discovered mob stays Discovered after the player loses
     // sight. Stationary mobs are remembered longer; mobs that have moved
     // out of their last-known position decay faster.
-    [Export] public float MemoryStationaryTime = 60f;
-    [Export] public float MemoryMovingTime = 3f;
+    [Export] public float memoryStationaryTime = 60f;
+    [Export] public float memoryMovingTime = 3f;
 
     [ExportGroup("Personality")]
     // Loyalty threshold at which this mob becomes tamed and joins the player as
@@ -288,15 +288,15 @@ public partial class MobData : Resource
     // Start == End the window is the whole day (always active, the default).
     // Start > End wraps past midnight (e.g. a nocturnal mob at 0.75..0.25).
     // Only the idle loop is gated; the idle animation itself still plays.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float IdleLoopStartTimeOfDay = 0f;
-    [Export(PropertyHint.Range, "0,1,0.001")] public float IdleLoopEndTimeOfDay = 0f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float idleLoopStartTimeOfDay = 0f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float idleLoopEndTimeOfDay = 0f;
     // Blended rainAmount (0..1) above which the idle anim-audio loop falls
     // silent — a skittish critter clams up once the weather turns from a
     // drizzle into real rain. 1 = never suppressed by rain (the default; the
     // loop plays in any weather). 0.2 ≈ "quiet in anything more than a
     // drizzle". Same rainAmount signal the spawn gate reads
     // (World.CurrentRainAmount).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float IdleLoopMaxRain = 1f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float idleLoopMaxRain = 1f;
     // How this mob responds when it hears another mob's Yell vocalization (the
     // receiver-side of the alarm). Range is the Euclidean tolerance around the
     // investigated point at which the receiver considers itself "arrived and
@@ -316,12 +316,12 @@ public partial class MobData : Resource
     [Export] public float runDecibels = 4f;
     // Loudness of this mob's voice — every discrete vocalization (bark / growl /
     // snarl / yell) carries this many decibels, in the same currency as movement
-    // noise (audible distance = VoiceDecibels * listener.hearingRange, wind/fog
+    // noise (audible distance = voiceDecibels * listener.hearingRange, wind/fog
     // adjusted). The single per-species "how loud am I" knob, so behaviors stay
     // shareable without each authoring a volume: a bark raises the player's
     // awareness of this mob, and a Yell additionally reaches other mobs to summon
     // a directed investigation. 0 = vocalizations are silent to perception.
-    [Export] public float VoiceDecibels = 3f;
+    [Export] public float voiceDecibels = 3f;
 
     [ExportGroup("AI")]
     [Export] public StringName defaultBehavior = "Idle";
@@ -366,8 +366,8 @@ public partial class MobData : Resource
     // Scene instantiated for this mob type. The shared base model; an
     // NpcSpawnEntry may override it per individual (e.g. male/female villagers)
     // via NpcSpawnEntry.Scene, stamped onto MobSimState.MobScene at spawn.
-    [Export] public PackedScene MobScene;
-    // Per-instance recolor applied at spawn so one MobScene/FBX can serve many
+    [Export] public PackedScene mobScene;
+    // Per-instance recolor applied at spawn so one mobScene/FBX can serve many
     // biome variants (e.g. swamp vs desert goblin) without a unique model each.
     // Null = use the authored textures as-is. See MobPalette / ModelAnimator.
     [Export] public MobPalette palette;
@@ -574,16 +574,16 @@ public partial class MobData : Resource
     // and treats Start == End as "always on".
     public bool IsIdleLoopActiveAt(double timeOfDay01)
     {
-        if (Mathf.IsEqualApprox(IdleLoopStartTimeOfDay, IdleLoopEndTimeOfDay))
+        if (Mathf.IsEqualApprox(idleLoopStartTimeOfDay, idleLoopEndTimeOfDay))
         {
             return true;
         }
-        if (IdleLoopStartTimeOfDay < IdleLoopEndTimeOfDay)
+        if (idleLoopStartTimeOfDay < idleLoopEndTimeOfDay)
         {
-            return timeOfDay01 >= IdleLoopStartTimeOfDay && timeOfDay01 < IdleLoopEndTimeOfDay;
+            return timeOfDay01 >= idleLoopStartTimeOfDay && timeOfDay01 < idleLoopEndTimeOfDay;
         }
         // Wrap-around window spanning midnight.
-        return timeOfDay01 >= IdleLoopStartTimeOfDay || timeOfDay01 < IdleLoopEndTimeOfDay;
+        return timeOfDay01 >= idleLoopStartTimeOfDay || timeOfDay01 < idleLoopEndTimeOfDay;
     }
 
     // Folds this species' base itemPreferences over an item's base value.

@@ -1,8 +1,8 @@
 using Godot;
 
 // Which awareness tier a threat transition tests against. Wary is the lower
-// PerceptionThresholdWary tier (turn + growl); Alert is the full
-// PerceptionThresholdAlert / triggered tier (attack).
+// perceptionThresholdWary tier (turn + growl); Alert is the full
+// perceptionThresholdAlert / triggered tier (attack).
 public enum EThreatTier
 {
     Wary,
