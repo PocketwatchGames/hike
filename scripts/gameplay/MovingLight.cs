@@ -18,6 +18,14 @@ public partial class MovingLight : Node3D
     [Export(PropertyHint.Range, "0,3,0.01")] public float brightness = 0.9f;
     [Export] public Color lightColor = new(1f, 0.75f, 0.4f);
 
+    // Upward offset (voxels) added to the node origin when sampling the light's
+    // source voxel and shading. The light rides the carrier ROOT (feet) so it
+    // doesn't swing with the hand bone — but at the feet the source voxel floors
+    // into the solid ground block the carrier stands on, and ComputeFloodField
+    // bails on a non-open source voxel (depositing nothing). ~1.2 lands at
+    // torch-flame height, reliably in open air for a standing carrier.
+    [Export(PropertyHint.Range, "0,4,0.05")] public float verticalOffset = 1.2f;
+
     // Opt-in flicker — re-scales the deposited footprint by a random amplitude
     // in [FlickerMin, FlickerMax] every 1/FlickerHz seconds. Cheap: it only
     // re-deposits the cached footprint (O(footprint) array writes), no reflood
@@ -67,6 +75,12 @@ public partial class MovingLight : Node3D
     private float _flickerTimer;
     private Fx _loopEffect;
 
+    // The light's true emission position: the node origin (carrier feet) lifted
+    // by verticalOffset out of the ground voxel. All lighting math — source
+    // voxel, sub-voxel fraction, and shade distances — uses this, not the raw
+    // GlobalPosition, so the flood seed and the shade agree on one position.
+    private Vector3 SourcePosition => GlobalPosition + new Vector3(0f, verticalOffset, 0f);
+
     public override void _Ready()
     {
         // Deferred so Activate's Fx.Create calls run after the parent
@@ -94,7 +108,7 @@ public partial class MovingLight : Node3D
         World world = World.Current;
         if (world == null) { return; }
 
-        Vector3 pos = GlobalPosition;
+        Vector3 pos = SourcePosition;
         Vector3I voxel = new Vector3I(
             Mathf.FloorToInt(pos.X),
             Mathf.FloorToInt(pos.Y),
@@ -227,7 +241,7 @@ public partial class MovingLight : Node3D
             return;
         }
 
-        Vector3 pos = GlobalPosition;
+        Vector3 pos = SourcePosition;
         var voxel = new Vector3I(
             Mathf.FloorToInt(pos.X),
             Mathf.FloorToInt(pos.Y),

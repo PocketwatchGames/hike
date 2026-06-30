@@ -67,6 +67,7 @@ attackPauseRandomSeconds = 1.0
 
 [sub_resource type="Resource" id="Resource_cond_incoming"]
 script = ExtResource("18_incoming")
+requireCanDodge = true
 requireFacingTarget = true
 
 [sub_resource type="Resource" id="Resource_attack_to_dodge"]

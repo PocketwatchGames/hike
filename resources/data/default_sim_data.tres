@@ -78,7 +78,6 @@ footprintMaterial = ExtResource("1_atie7")
 groundShadowMaterial = ExtResource("1_mobshadow")
 playerShadowRadius = 0.65
 mobShadowAlpha = 0.7
-groundShadowDaylightFade = 1.0
 thunderScheduler = ExtResource("11_thunder_distant")
 weatherLightning = ExtResource("12_lightning")
 fogVisionReduction = 0.7

@@ -13,6 +13,8 @@
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_qssw7"]
 [ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="10_solidfx"]
 [ext_resource type="PackedScene" uid="uid://c0tanvr8884cb" path="res://scenes/items/held/torch_held.tscn" id="11_held"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="12_buildup"]
+[ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="13_burning"]
 
 [sub_resource type="Resource" id="Resource_event_windup_anim"]
 script = ExtResource("4_event")
@@ -50,6 +52,11 @@ releaseEffect = ExtResource("8_atkfx")
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_torch")])
 
+[sub_resource type="Resource" id="Resource_fire_buildup"]
+script = ExtResource("12_buildup")
+effect = ExtResource("13_burning")
+amount = 0.5
+
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")
 tags = 1157
@@ -58,7 +65,7 @@ blunt = 0.5
 hitstun = 0.3
 knockbackDistance = 1.0
 knockbackTime = 0.2
-buildups = []
+buildups = Array[ExtResource("12_buildup")]([SubResource("Resource_fire_buildup")])
 modifiers = []
 
 [resource]

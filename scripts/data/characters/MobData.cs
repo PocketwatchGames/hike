@@ -257,6 +257,14 @@ public partial class MobData : Resource
     // { Dizzy, x } StatModifier (kun-kun's { Dizzy, 3 } vulnerability still
     // stacks on top). Leave at 1 for no per-species adjustment.
     [Export(PropertyHint.Range, "0.1,10,0.1,or_greater")] public float dizzyResistance = 1f;
+    // Whether this species can sidestep incoming projectiles (the Attack->Dodge
+    // reaction). Opt-in per species so a shared attack brain doesn't force the
+    // dodge onto every mob that uses it — e.g. the agile goblin dodges, while the
+    // aquatic lurker reuses the same brain but leaves this false (a ground dash
+    // would just beach it). Read by IncomingProjectileCondition.requireCanDodge;
+    // dodge tuning (distance / cooldown) still lives on the brain's
+    // DodgeBehaviorData.
+    [Export] public bool canDodge = false;
     // Status effect applied to this mob the moment it spawns and never removed
     // by the spawn path — the home for an intrinsic, lifelong effect. A summoned
     // minion authors its self-expiry here: a StatusEffectData with

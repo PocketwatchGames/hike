@@ -28,6 +28,11 @@ public partial class BehaviorDodge : BehaviorBase
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
     {
+        // A flier (drake) air-strafes at altitude instead of a grounded dash:
+        // it stays airborne and skips the standable-ground landing check, since
+        // it dodges through open air.
+        bool flying = me.mobData != null && me.mobData.CanFly;
+
         if (!_started)
         {
             _started = true;
@@ -36,13 +41,22 @@ public partial class BehaviorDodge : BehaviorBase
             // a mob boxed in on all sides doesn't re-enter the dodge every tick.
             me.ReactionReadyMs = time + (ulong)(_data.reactionCooldownSeconds * 1000f);
 
-            Vector3 dir = ChooseDodgeDir(me, ref targetPerception);
+            Vector3 dir = ChooseDodgeDir(me, ref targetPerception, flying);
             if (dir != Vector3.Zero)
             {
                 float speed = _data.dashDistance / Mathf.Max(0.01f, _data.dashDurationSeconds);
-                me.ApplyDodge(dir, speed, _data.dashDurationSeconds);
+                // Fliers freeze gravity so the strafe holds altitude; grounded
+                // mobs keep gravity so the dash hugs the terrain.
+                me.ApplyDodge(dir, speed, _data.dashDurationSeconds, freezeGravity: flying);
                 output.dash = true;
             }
+        }
+
+        // A flier must keep requesting flight every tick of the dash, or Mob's
+        // physics would drop it (airborne defaults false) mid-dodge.
+        if (flying)
+        {
+            output.airborne = true;
         }
 
         // Keep facing the player while sliding — the dash must not reorient the
@@ -57,12 +71,13 @@ public partial class BehaviorDodge : BehaviorBase
     }
 
     // Pick a sideways or backward direction (relative to facing the target) that
-    // both moves off the incoming shot's line and lands on valid ground. Returns
-    // Vector3.Zero when no candidate is standable (the mob is boxed in and just
-    // eats the shot). Scores by how perpendicular the move is to the shot's
-    // velocity — so a sidestep that fully clears the line beats a back-hop that
-    // merely retreats along it.
-    private Vector3 ChooseDodgeDir(Mob me, ref PerceptionState targetPerception)
+    // moves off the incoming shot's line. A grounded mob also requires the
+    // landing spot to be valid ground (else it's skipped), and returns
+    // Vector3.Zero when boxed in on all sides; a flier (`flying`) skips that
+    // check and strafes through open air. Scores by how perpendicular the move
+    // is to the shot's velocity — so a sidestep that fully clears the line beats
+    // a back-hop that merely retreats along it.
+    private Vector3 ChooseDodgeDir(Mob me, ref PerceptionState targetPerception, bool flying)
     {
         Vector3 targetPos = TargetPos(me, ref targetPerception);
         Vector3 forward = targetPos - me.GlobalPosition;
@@ -98,10 +113,15 @@ public partial class BehaviorDodge : BehaviorBase
         for (int i = 0; i < candidates.Length; i++)
         {
             Vector3 dir = candidates[i];
-            Vector3 landing = me.GlobalPosition + dir * _data.dashDistance;
-            if (!NavigationGoals.IsGroundStandable(me.World, me.Navigator.Profile, landing, out _))
+            // Grounded mobs must land somewhere standable; fliers strafe through
+            // air and skip the check.
+            if (!flying)
             {
-                continue;
+                Vector3 landing = me.GlobalPosition + dir * _data.dashDistance;
+                if (!NavigationGoals.IsGroundStandable(me.World, me.Navigator.Profile, landing, out _))
+                {
+                    continue;
+                }
             }
             // Perpendicular-to-shot component (1 = fully clears the line, 0 =
             // moves straight along it). With no known shot, prefer strafes (the

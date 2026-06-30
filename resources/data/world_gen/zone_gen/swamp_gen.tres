@@ -9,7 +9,16 @@
 [ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="11_surface"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="12_cave"]
 [ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/fixtures/zone_campfire_fixtures.tres" id="13_fixtures"]
-[ext_resource type="Resource" uid="uid://seiq0glne5orn" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="14_water"]
+[ext_resource type="Resource" uid="uid://cwvam7wm5c6ql" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="14_water"]
+[ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="15_ruins"]
+
+[sub_resource type="Resource" id="Resource_ruins"]
+script = ExtResource("15_ruins")
+squareMetersPerSpawn = 1500.0
+confinementRise = 1
+confinementMinFraction = 0.15
+brokenness = 0.4
+metadata/_custom_type_script = "uid://dbxatq73lngxy"
 
 [resource]
 script = ExtResource("1_script")
@@ -29,4 +38,5 @@ surfaceEntities = ExtResource("11_surface")
 caveEntities = ExtResource("12_cave")
 waterEntities = ExtResource("14_water")
 fixtures = ExtResource("13_fixtures")
+ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("swamp_hollow")

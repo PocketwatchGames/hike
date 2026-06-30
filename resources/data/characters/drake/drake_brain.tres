@@ -7,6 +7,8 @@
 [ext_resource type="Script" uid="uid://dxwttp02tkri5" path="res://scripts/data/behaviors/FlyAttackBehaviorData.cs" id="5_attack"]
 [ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="6_aggro_acquired"]
 [ext_resource type="Script" uid="uid://bj36ge53ur48e" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="7_aggro_lost"]
+[ext_resource type="Script" uid="uid://j3ks8lpiy8np" path="res://scripts/data/behaviors/DodgeBehaviorData.cs" id="8_dodge"]
+[ext_resource type="Script" uid="uid://6hv6e7g1pnbe" path="res://scripts/data/behaviors/conditions/IncomingProjectileCondition.cs" id="9_incoming"]
 
 [sub_resource type="Resource" id="Resource_patrol"]
 script = ExtResource("4_patrol")
@@ -33,6 +35,16 @@ encircleSlotCount = 6
 encircleDistance = 7.0
 attackFacingToleranceDegrees = 60.0
 
+[sub_resource type="Resource" id="Resource_cond_incoming"]
+script = ExtResource("9_incoming")
+requireCanDodge = true
+requireFacingTarget = true
+
+[sub_resource type="Resource" id="Resource_attack_to_dodge"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_incoming")
+destination = &"Dodge"
+
 [sub_resource type="Resource" id="Resource_cond_aggro_lost"]
 script = ExtResource("7_aggro_lost")
 
@@ -45,9 +57,18 @@ destination = &"Patrol"
 script = ExtResource("2_node")
 name = &"Attack"
 data = SubResource("Resource_attack")
-transitions = [SubResource("Resource_attack_to_patrol")]
+transitions = [SubResource("Resource_attack_to_dodge"), SubResource("Resource_attack_to_patrol")]
+
+[sub_resource type="Resource" id="Resource_dodge"]
+script = ExtResource("8_dodge")
+
+[sub_resource type="Resource" id="Resource_dodge_node"]
+script = ExtResource("2_node")
+name = &"Dodge"
+data = SubResource("Resource_dodge")
+transitions = []
 
 [resource]
 script = ExtResource("1_brain")
 idleBehavior = &"Patrol"
-behaviors = [SubResource("Resource_patrol_node"), SubResource("Resource_attack_node")]
+behaviors = [SubResource("Resource_patrol_node"), SubResource("Resource_attack_node"), SubResource("Resource_dodge_node")]

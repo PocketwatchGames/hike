@@ -68,29 +68,10 @@ public partial class ChunkMesh : Node3D
         }
     }
 
-    // Concavity-driven wetness pooling (CUSTOM2.w bake). Cached like _aoStrength
-    // so CVar sets before the material exists still apply. See CVars.
-    private static float _concavityWetness = 1f;
-    private static float _concavityThreshold = 0.15f;
+    // Concavity-bake debug visualization toggle (CUSTOM2.w). Diagnostic, kept as
+    // a CVar; the concavity pooling tuning (concavity_wetness_strength /
+    // concavity_threshold) is now authored on resources/materials/terrain.tres.
     private static bool _debugConcavity = false;
-
-    public static void SetConcavityWetness(float value)
-    {
-        _concavityWetness = value;
-        if (_materialsInitialized && SharedMaterial != null)
-        {
-            SharedMaterial.SetShaderParameter("concavity_wetness_strength", value);
-        }
-    }
-
-    public static void SetConcavityThreshold(float value)
-    {
-        _concavityThreshold = value;
-        if (_materialsInitialized && SharedMaterial != null)
-        {
-            SharedMaterial.SetShaderParameter("concavity_threshold", value);
-        }
-    }
 
     public static void SetDebugConcavity(bool value)
     {
@@ -101,38 +82,11 @@ public partial class ChunkMesh : Node3D
         }
     }
 
-    // Terrain atlas tuning, cached so a CVar set before the material exists
-    // still applies once EnsureMaterialsInitialized runs (see CVars). Defaults
-    // mirror the uniform defaults in voxel_clip.gdshader.
-    private static float _tileScale = VoxelTypeInfo.TILE_UV_SCALE;
-    private static float _tileNormalStrength = 0.6f;
-    private static float _wallBlendSharpness = 0.65f;
-    private static float _cliffBlendSharpness = 0.4f;
-    private static float _groundBlendSharpness = 0.4f;
-
-    // Wetness model tuning, cached like the above (mirror the shader defaults).
-    private static float _wetDisplacement = 0.5f;
-    private static float _wetPoolStrength = 1.0f;
-    private static float _wetRoughnessMin = 0.25f;
-    private static float _wetChroma = 0.2f;
-
-    public static void SetTileScale(float value) { _tileScale = value; PushParam("tile_uv_scale", value); }
-    public static void SetTileNormalStrength(float value) { _tileNormalStrength = value; PushParam("tile_normal_strength", value); }
-    public static void SetWallBlendSharpness(float value) { _wallBlendSharpness = value; PushParam("wall_blend_sharpness", value); }
-    public static void SetCliffBlendSharpness(float value) { _cliffBlendSharpness = value; PushParam("cliff_blend_sharpness", value); }
-    public static void SetGroundBlendSharpness(float value) { _groundBlendSharpness = value; PushParam("ground_blend_sharpness", value); }
-    public static void SetWetDisplacement(float value) { _wetDisplacement = value; PushParam("wet_displacement", value); }
-    public static void SetWetPoolStrength(float value) { _wetPoolStrength = value; PushParam("wet_pool_strength", value); }
-    public static void SetWetRoughnessMin(float value) { _wetRoughnessMin = value; PushParam("wet_roughness_min", value); }
-    public static void SetWetChroma(float value) { _wetChroma = value; PushParam("wet_chroma", value); }
-
-    private static void PushParam(string name, Variant value)
-    {
-        if (_materialsInitialized && SharedMaterial != null)
-        {
-            SharedMaterial.SetShaderParameter(name, value);
-        }
-    }
+    // Terrain atlas + wetness tuning (tile_uv_scale, tile_normal_strength, the
+    // three blend sharpnesses, wet_displacement/roughness_min/chroma, concavity
+    // pooling) is authored on resources/materials/terrain.tres rather than via
+    // CVars — see that material. ao_strength stays a CVar because it also feeds
+    // the detail-sprite material (DetailEntry), keeping ground + props in lockstep.
 
     private static void EnsureMaterialsInitialized()
     {
@@ -145,9 +99,15 @@ public partial class ChunkMesh : Node3D
         // exception below is a real bug to surface, not transient.
         _materialsInitialized = true;
 
-        var shader = GD.Load<Shader>("res://shaders/voxel_clip.gdshader");
-        SharedMaterial = new ShaderMaterial();
-        SharedMaterial.Shader = shader;
+        // Authored base material (shader + author-tunable uniforms with no
+        // runtime/CVar owner — the puddle_ripple_* footstep-ripple feel; tune
+        // them in resources/materials/terrain.tres). Loaded by path like the
+        // shader and texture atlases below — ChunkMesh is the static terrain
+        // infrastructure with no upstream scene owner. The runtime-computed
+        // params (texture arrays, class/porosity tables) and CVar knobs are
+        // pushed onto it below; the authored puddle_ripple_* uniforms are left
+        // as-is.
+        SharedMaterial = GD.Load<ShaderMaterial>("res://resources/materials/terrain.tres");
         var tileArray = GD.Load<TextureLayered>("res://assets/textures/voxels/voxel_tiles.png");
         _tileColorArray = tileArray;
         // Pre-warm the per-layer average-color cache (used for detail-sprite
@@ -160,10 +120,11 @@ public partial class ChunkMesh : Node3D
         }
         SharedMaterial.SetShaderParameter("tile_array", tileArray);
         // Seed AO darkening strength (honors any CVar set before this ran).
+        // Stays a CVar — DetailEntry feeds the same value to detail sprites so
+        // ground and props darken in lockstep.
         SharedMaterial.SetShaderParameter("ao_strength", _aoStrength);
-        // Seed concavity wetness/pooling params (likewise honor pre-init CVars).
-        SharedMaterial.SetShaderParameter("concavity_wetness_strength", _concavityWetness);
-        SharedMaterial.SetShaderParameter("concavity_threshold", _concavityThreshold);
+        // Concavity-bake debug viz toggle (CVar; the pooling tuning is authored
+        // on the material).
         SharedMaterial.SetShaderParameter("debug_concavity", _debugConcavity);
 
         // Packed per-tile normal (RGB) + height (A) atlas, sampled alongside
@@ -171,18 +132,9 @@ public partial class ChunkMesh : Node3D
         var nrmHeight = GD.Load<TextureLayered>("res://assets/textures/voxels/voxel_tiles_nrm_height.png");
         SharedMaterial.SetShaderParameter("tile_nrm_height", nrmHeight);
 
-        // Tiling frequency + blend/normal tuning (honor any CVar set pre-init).
-        SharedMaterial.SetShaderParameter("tile_uv_scale", _tileScale);
-        SharedMaterial.SetShaderParameter("tile_normal_strength", _tileNormalStrength);
-        SharedMaterial.SetShaderParameter("wall_blend_sharpness", _wallBlendSharpness);
-        SharedMaterial.SetShaderParameter("cliff_blend_sharpness", _cliffBlendSharpness);
-        SharedMaterial.SetShaderParameter("ground_blend_sharpness", _groundBlendSharpness);
-
-        // Wetness model tuning (honor any CVar set pre-init).
-        SharedMaterial.SetShaderParameter("wet_displacement", _wetDisplacement);
-        SharedMaterial.SetShaderParameter("wet_pool_strength", _wetPoolStrength);
-        SharedMaterial.SetShaderParameter("wet_roughness_min", _wetRoughnessMin);
-        SharedMaterial.SetShaderParameter("wet_chroma", _wetChroma);
+        // tile_uv_scale, tile_normal_strength, the blend sharpnesses, the wet_*
+        // model params and concavity pooling are authored on terrain.tres — not
+        // re-pushed here, so the material's values win.
 
         // Per-atlas-layer cliff/ground class (BlockData.IsCliff) and wetness
         // porosity (BlockData.Porosity), for the shader's height-blend routing

@@ -101,8 +101,9 @@ public partial class Player : CharacterBody3D
 
 	// Spawn one footstep + footprint at the current foot position, fired from
 	// the model's foot-contact method track. State gates the spawn: skip while
-	// ungrounded, swimming, or interacting; route to the shallow-water splash
-	// variant while wading.
+	// ungrounded, swimming, or interacting. Shallow water (wading) plays the
+	// water splash; a rain puddle on terrain plays the squelchy puddle FX (the
+	// CPU puddle mirror agrees with the puddle the shader draws here).
 	private void EmitFootstep()
 	{
 		if (_world == null)
@@ -120,6 +121,12 @@ public partial class Player : CharacterBody3D
 		{
 			FootstepEmitter.Emit(_world, pos, _shallowWaterFootstepFx);
 		}
+		else if (TerrainWetness.IsPuddleStep(_world.WorldState, pos, SlopeNormalY()))
+		{
+			FootstepEmitter.Emit(_world, pos, _puddleFootstepFx);
+			// Ring out a ripple on the puddle surface (voxel_clip puddle pass).
+			SkyController.Current?.EmitWaterRipple(new Vector2(pos.X, pos.Z), _puddleFootstepRippleStrength);
+		}
 		else
 		{
 			FootstepEmitter.Emit(_world, pos, ground, _footstepEffects);
@@ -127,6 +134,19 @@ public partial class Player : CharacterBody3D
 			float fpDurMul = _statusEffects?.FoldStat(EStat.FootprintDuration, 1f) ?? 1f;
 			FootprintEmitter.Emit(_world, pos, GlobalRotation.Y, ground, _footprintTexture, _footprintSize, fpAlphaMul, fpDurMul, gated: false);
 		}
+	}
+
+	// Upward component of the terrain normal the player is walking on, derived
+	// from the measured movement grade (_slopeGrade) rather than GetFloorNormal:
+	// voxel floors are flat tops with vertical walls, so the collision normal
+	// reads ~straight up even on a hill (see SlopeSpeedFactor). The DC terrain
+	// MESH the puddle shader samples is genuinely sloped, so this measured grade
+	// is what matches its flatness gate. grade = tan(theta) -> normalY = cos(theta).
+	// (Cross-slope traversal carries little vertical motion, so a sidehill step
+	// can still read flat — acceptable for a footstep cue.)
+	private float SlopeNormalY()
+	{
+		return 1f / Mathf.Sqrt(1f + _slopeGrade * _slopeGrade);
 	}
 
 	// Spawn one dirt puff at the player's feet, fired from the dig clip's scoop

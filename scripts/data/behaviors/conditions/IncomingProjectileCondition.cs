@@ -25,6 +25,11 @@ public partial class IncomingProjectileCondition : BehaviorTransitionData
     // miss-distance threshold. A little slack so a near-grazing shot still
     // provokes a reaction.
     [Export] public float detectRadiusBonus = 0.75f;
+    // The reacting mob's MobData.canDodge must be true. Set on the dodge
+    // transition so a shared attack brain only dodges on species opted into it
+    // (the goblin), not every mob that reuses the brain (the lurker). Left false
+    // for the perch-flee, which isn't gated by canDodge.
+    [Export] public bool requireCanDodge = false;
     // The mob must already be combat-triggered against the target to react.
     [Export] public bool requireTriggered = true;
     // The mob must be facing the perception target (within facingToleranceDegrees)
@@ -36,6 +41,10 @@ public partial class IncomingProjectileCondition : BehaviorTransitionData
     {
         World world = me.World;
         if (world == null || me.mobData == null)
+        {
+            return false;
+        }
+        if (requireCanDodge && !me.mobData.canDodge)
         {
             return false;
         }

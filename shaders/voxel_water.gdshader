@@ -110,32 +110,10 @@ global uniform float water_wave_phase;
 // slerped toward +Y by ripple_strength.
 uniform sampler2D ripple_tex_a : filter_linear, repeat_enable, hint_normal;
 uniform sampler2D ripple_tex_b : filter_linear, repeat_enable, hint_normal;
-// Dynamic ripple impacts emitted by entities moving through water.
-// Width=MaxDynamicRipples × height=1 Rgbaf row populated by
-// SkyController.TickDynamicRipples each frame. Per-pixel layout is
-// (world_x, world_z, age_seconds, strength). Inactive slots beyond
-// water_ripple_count are skipped via the loop's bounds check.
-global uniform sampler2D water_ripple_tex : filter_nearest;
-global uniform int water_ripple_count;
-// Ring expansion speed in world units / second. Combined with age this
-// gives the current ring radius for each impact.
-global uniform float water_ripple_speed;
-// Total active lifetime per impact. Beyond this the C# tick drops the
-// entry; the shader applies a linear age fade so the wave dies smoothly.
-global uniform float water_ripple_lifetime;
-// Fade-in window in seconds. At age=0 the ring radius is 0 and the
-// Gaussian sits entirely at the impact origin — a huge central pulse.
-// Ramping amplitude from 0 → full over this window lets the ring
-// propagate outward before becoming visible, so impacts read as
-// expanding rings rather than instantaneous stamps.
-global uniform float water_ripple_fade_in;
-// Gaussian envelope tightness around the moving ring crest. Higher =
-// thinner ring (rapid falloff with distance from crest); lower = wider,
-// softer ring. Drives the visible ring's apparent thickness in meters.
-global uniform float water_ripple_falloff;
-// Overall amplitude of the radial perturbation applied to the water
-// normal. 0 disables the effect entirely without skipping the loop.
-global uniform float water_ripple_tilt;
+// Dynamic radial ripples (entity wakes, raindrop impacts, puddle footsteps).
+// Shared with voxel_clip.gdshader; declares the water_ripple_* globals and
+// the dynamic_ripple_perturb(world_xz) helper used below.
+#include "res://shaders/water_dynamic_ripple.gdshaderinc"
 // Screen-space refraction strength (UV offset in normalized units). 0 skips
 // the extra screen sample entirely. Muddy water damps to near zero.
 global uniform float water_refraction_strength;
@@ -555,44 +533,6 @@ vec3 ripple_normal(vec2 world_xz, vec2 current, float time) {
 
 	vec3 combined = normalize(na + nb);
 	return slerp_normals(vec3(0.0, 1.0, 0.0), combined, ripple_strength);
-}
-
-// Dynamic-ripple perturbation in world XZ. Each active ripple is a single
-// expanding ring: a Gaussian bump in surface height centered at the ring
-// radius (= age × speed) and falling off with `falloff` on either side.
-// Returning the radial slope of that height field gives the normal tilt:
-//   d/d(dr)[exp(-falloff·dr²)] = -2·falloff·dr·exp(-falloff·dr²)
-// The slope is positive on the inside of the ring (dr < 0) and negative
-// on the outside, producing a single propagating ring of normal
-// perturbation — no inner oscillations.
-//
-// Fade-in over `water_ripple_fade_in` seconds prevents the age=0
-// "central pulse" pop. Linear fade-out across the rest of lifetime
-// avoids a hard cutoff at expiry.
-vec2 dynamic_ripple_perturb(vec2 world_xz) {
-	vec2 tilt = vec2(0.0);
-	if (water_ripple_tilt < 1e-4 || water_ripple_count <= 0) {
-		return tilt;
-	}
-	float lifetime = max(water_ripple_lifetime, 1e-3);
-	for (int i = 0; i < water_ripple_count; i++) {
-		vec4 r = texelFetch(water_ripple_tex, ivec2(i, 0), 0);
-		vec2 to = world_xz - r.xy;
-		float d = length(to);
-		if (d < 1e-3) { continue; }
-		float age = r.z;
-		float strength = r.w;
-		float radius = age * water_ripple_speed;
-		float dr = d - radius;
-		float envelope = exp(-dr * dr * water_ripple_falloff);
-		float slope = -2.0 * water_ripple_falloff * dr * envelope;
-		float fade_in = clamp(age / max(water_ripple_fade_in, 1e-3), 0.0, 1.0);
-		float fade_out = clamp(1.0 - age / lifetime, 0.0, 1.0);
-		float fade = fade_in * fade_out;
-		float contrib = slope * fade * strength * water_ripple_tilt;
-		tilt -= (to / d) * contrib;
-	}
-	return tilt;
 }
 
 // Wave streak field — two octaves of procedural noise scrolled along wind

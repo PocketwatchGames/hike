@@ -161,6 +161,16 @@ public partial class Player : CharacterBody3D
 	// _waterState (an Area-trigger flag), not the EGroundType resolver — a
 	// thin film of water over grass should still trigger water audio.
 	[Export] private PackedScene _shallowWaterFootstepFx;
+	// Squelchy splash emitted on footfall when standing in a rain puddle on
+	// terrain (TerrainWetness.IsPuddleStep). Distinct from the shallow-water FX —
+	// a muddy squelch rather than the open-water splash — and bypasses the
+	// per-ground dict the same way, since puddles are a weather/noise overlay the
+	// EGroundType resolver doesn't know about.
+	[Export] private PackedScene _puddleFootstepFx;
+	// Radial ripple strength pushed into the shared water-ripple buffer on a
+	// puddle footfall (rendered by voxel_clip's puddle pass). Matches the wading
+	// footstep stride strength — marks "this is a footstep, not a boulder".
+	[Export(PropertyHint.Range, "0,1,0.01")] private float _puddleFootstepRippleStrength = 0.25f;
 	// Dirt puff spawned at the player's feet on each shovel scoop, fired from a
 	// Call Method Track on the dig clip (ModelAnimator.OnDigDirt). Authored in
 	// the player .tscn; null = no synced puff.

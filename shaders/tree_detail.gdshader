@@ -30,6 +30,9 @@ shader_type spatial;
 //   COLOR.r                 : per-cluster tint mix
 //   COLOR.g                 : player-occlusion fade-eligibility flag
 render_mode depth_prepass_alpha, depth_draw_opaque, cull_disabled, ambient_light_disabled;
+// Stencil 16 = "tree" so the terrain depth-outline skips tree pixels (see
+// tree_lit.gdshader for the value convention).
+stencil_mode write, compare_always, 16;
 
 uniform sampler2D albedo_tex : source_color, filter_linear;
 uniform float alpha_cutoff : hint_range(0.0, 1.0) = 0.5;

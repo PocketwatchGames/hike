@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 20;
+    public const int WORLDGEN_VERSION = 22;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -305,6 +305,7 @@ public static class WorldGen
     private const int SEED_SALT_FIXTURE = 0x0D;
     private const int SEED_SALT_ZONEBOUNDS = 0x0E;
     private const int SEED_SALT_POI = 0x0F;
+    private const int SEED_SALT_RUINS = 0x10;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -465,6 +466,13 @@ public static class WorldGen
         // starting point so the authored overlay art shows up in generated
         // worlds; replace with authored tags once the custom editor lands.
         StampProceduralOverlays(ws, genData);
+
+        // Stamp broken stone ruins (hard-edged Stone walls + pillars) onto flat,
+        // confined ground, per the dominant zone's ZoneGenData.ruins. Runs before
+        // detail/prop/mob scatter so those passes' air-over-solid + walkability
+        // gates keep trees and mobs from spawning inside the masonry, and before
+        // ComputeSunlight so the ruins occlude/cast light correctly.
+        PlaceRuins(ws, genData, heightMap, worldSeed);
 
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
         // the worldgen_skip CVar (bitmask — see SKIP_* flags). Each category is
@@ -808,6 +816,112 @@ public static class WorldGen
             var anchor = new Vector3(anchorCol.X + 0.5f, sy + 1f, anchorCol.Z + 0.5f);
             fixtures.Spawn(ws, anchor, rng, context);
         }
+    }
+
+    // Anchors at which a ruin site has already been committed are probed on a
+    // coarse grid; sites are tens of meters wide, so a 1-voxel scan is wasted
+    // work. The per-sample spawn probability scales by this cell's area so the
+    // expected site count stays independent of the stride.
+    private const int RUIN_SCAN_STRIDE = 4;
+
+    // Scatter broken stone ruins across the world. Samples land columns on a
+    // coarse grid; the dominant zone's ZoneGenData.ruins (if any) rolls its area
+    // chance, and on a hit the anchor must clear the optional confinement gate
+    // and the inter-site spacing, then RuinsGenData.Stamp writes the masonry. The
+    // ruins self-level against noisy terrain (see RuinsGenData), so the anchor
+    // only needs dry land, not flat ground. Early-outs entirely when no zone
+    // authors ruins; same whole-world vein as the fog / overlay passes.
+    private static void PlaceRuins(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        ZoneGenData[] zones = genData.ZoneGens;
+        if (zones == null || zones.Length == 0) { return; }
+
+        bool anyRuins = false;
+        foreach (ZoneGenData z in zones)
+        {
+            if (z?.ruins != null && z.ruins.Enabled) { anyRuins = true; break; }
+        }
+        if (!anyRuins) { return; }
+
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_RUINS));
+        var sites = new System.Collections.Generic.List<Vector2I>();
+
+        int SurfaceYAt(int wx, int wz) => heightMap.GetHeight(wx, wz);
+        bool IsDry(int wx, int wz) => IsDryLand(wx, wz, heightMap);
+
+        const float cellArea = RUIN_SCAN_STRIDE * RUIN_SCAN_STRIDE;
+        for (int wz = worldMinZ; wz <= worldMaxZ; wz += RUIN_SCAN_STRIDE)
+        {
+            for (int wx = worldMinX; wx <= worldMaxX; wx += RUIN_SCAN_STRIDE)
+            {
+                if (!IsDryLand(wx, wz, heightMap)) { continue; }
+                int domIdx = DominantZoneIndex(wx, wz, zones);
+                if (domIdx < 0) { continue; }
+                RuinsGenData ruins = zones[domIdx]?.ruins;
+                if (ruins == null || !ruins.Enabled) { continue; }
+                // Per-sample chance scaled to the scan cell's area.
+                if (rng.NextDouble() * ruins.squareMetersPerSpawn >= cellArea) { continue; }
+                if (!IsRuinSiteConfined(wx, wz, ruins, heightMap)) { continue; }
+
+                float minSpacingSq = ruins.minSiteSpacing * ruins.minSiteSpacing;
+                bool tooClose = false;
+                foreach (Vector2I s in sites)
+                {
+                    float dx = s.X - wx;
+                    float dz = s.Y - wz;
+                    if (dx * dx + dz * dz < minSpacingSq) { tooClose = true; break; }
+                }
+                if (tooClose) { continue; }
+
+                sites.Add(new Vector2I(wx, wz));
+                ruins.Stamp(ws, wx, wz, rng, SurfaceYAt, IsDry);
+            }
+        }
+    }
+
+    // Dry land: an in-bounds column whose surface sits at or above water level.
+    private static bool IsDryLand(int wx, int wz, HeightMap hm)
+    {
+        if (wx < hm.WorldMinX || wx > hm.WorldMaxX || wz < hm.WorldMinZ || wz > hm.WorldMaxZ)
+        {
+            return false;
+        }
+        return hm.GetHeight(wx, wz) >= WATER_LEVEL;
+    }
+
+    // Optional "confined" gate for a ruin anchor — a ring at
+    // RuinsGenData.ConfinementRadius must rise at least ConfinementRise voxels
+    // above it for at least ConfinementMinFraction of the ring (sat in a hollow
+    // / against a cliff step). ConfinementMinFraction 0 drops the gate; the ruins
+    // self-level against terrain noise, so no flatness is required either way.
+    private static bool IsRuinSiteConfined(int cx, int cz, RuinsGenData ruins, HeightMap hm)
+    {
+        int baseH = hm.GetHeight(cx, cz);
+        if (ruins.confinementMinFraction <= 0f) { return true; }
+
+        const int Samples = 16;
+        int radius = Mathf.Max(1, ruins.confinementRadius);
+        int higher = 0;
+        int valid = 0;
+        for (int i = 0; i < Samples; i++)
+        {
+            float a = i / (float)Samples * Mathf.Tau;
+            int x = cx + Mathf.RoundToInt(radius * Mathf.Cos(a));
+            int z = cz + Mathf.RoundToInt(radius * Mathf.Sin(a));
+            if (x < hm.WorldMinX || x > hm.WorldMaxX || z < hm.WorldMinZ || z > hm.WorldMaxZ)
+            {
+                continue;
+            }
+            valid++;
+            if (hm.GetHeight(x, z) >= baseH + ruins.confinementRise) { higher++; }
+        }
+        if (valid == 0) { return false; }
+        return (float)higher / valid >= ruins.confinementMinFraction;
     }
 
     // ─────────────────────────────────────────────────────────────────────

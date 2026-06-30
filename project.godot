@@ -551,6 +551,26 @@ wet_fresnel_base={
 "type": "float",
 "value": 0.04
 }
+wet_pool_strength={
+"type": "float",
+"value": 0.85
+}
+puddle_scale={
+"type": "float",
+"value": 0.3
+}
+puddle_edge={
+"type": "float",
+"value": 0.08
+}
+puddle_ramp={
+"type": "float",
+"value": 0.6
+}
+pool_flatness={
+"type": "float",
+"value": 0.96
+}
 sun_intensity={
 "type": "float",
 "value": 0.85
@@ -906,6 +926,34 @@ ripple_offset_b={
 ripple_strength={
 "type": "float",
 "value": 0.15
+}
+water_ripple_tex={
+"type": "sampler2D",
+"value": "res://assets/textures/water_ripple_placeholder.tres"
+}
+water_ripple_count={
+"type": "int",
+"value": 0
+}
+water_ripple_speed={
+"type": "float",
+"value": 1.5
+}
+water_ripple_lifetime={
+"type": "float",
+"value": 1.0
+}
+water_ripple_fade_in={
+"type": "float",
+"value": 0.2
+}
+water_ripple_falloff={
+"type": "float",
+"value": 30.0
+}
+water_ripple_tilt={
+"type": "float",
+"value": 0.6
 }
 fresnel_power={
 "type": "float",

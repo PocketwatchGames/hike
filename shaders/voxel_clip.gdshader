@@ -72,6 +72,23 @@ global uniform float wet_reflect_strength;
 // floor. Small (~0.02–0.08); the grazing-angle term supplies most of the
 // sheen, this just keeps a faint reflection when looking straight down.
 global uniform float wet_fresnel_base;
+// Standing-water (puddle) shape + slope falloff, all driven by SkyController.
+// Puddles are a world-space NOISE field, not the per-vertex concavity bake
+// (which interpolated across triangles → triangular pools). Coverage grows with
+// wetness_level; only near-flat ground pools (slopes shed to the damp sheen).
+//   wet_pool_strength — max puddle coverage cap on flat ground (≤1, so the
+//                       ground never fully floods).
+//   puddle_scale      — world-space noise frequency; LOWER = larger puddles.
+//   puddle_edge       — rim softness in noise-value space; smaller = harder edge.
+//   puddle_ramp       — coverage-vs-wetness exponent. <1 ramps puddles in faster
+//                       as it starts to wet (1 = linear).
+//   pool_flatness     — min smooth_n.y for standing water (cos of the steepest
+//                       slope that can still pool). ~0.96 sheds above ~16°.
+global uniform float wet_pool_strength;
+global uniform float puddle_scale;
+global uniform float puddle_edge;
+global uniform float puddle_ramp;
+global uniform float pool_flatness;
 // Sky gradient endpoints (also fed by SkyController to the sky shader) —
 // reused here to tint the wet Fresnel reflection so the sheen matches the
 // current time-of-day sky rather than a fixed color.
@@ -128,15 +145,32 @@ uniform float tile_is_cliff[TILE_CLASS_TABLE_SIZE];
 // (water beads on top → reflective), HIGH = soil (water soaks in → darkens).
 uniform float tile_porosity[TILE_CLASS_TABLE_SIZE];
 
-// Wetness model tuning (material uniforms; live via CVars).
+// Wetness model tuning (material uniforms; live via CVars). The standing-water
+// (puddle) shape lives in the SkyController-driven globals up top, alongside the
+// rest of the wet look — only the per-material knobs are here.
 //   wet_displacement   — how much the per-tile height map adds micro-pit pooling.
-//   wet_pool_strength  — strength of the standing-water (pooled) state.
 //   wet_roughness_min  — synthesized wet roughness floor (0 = mirror smooth).
 //   wet_chroma         — extra saturation on wet, porous (soil) surfaces.
 uniform float wet_displacement : hint_range(0.0, 1.0) = 0.5;
-uniform float wet_pool_strength : hint_range(0.0, 1.0) = 1.0;
 uniform float wet_roughness_min : hint_range(0.0, 1.0) = 0.25;
 uniform float wet_chroma : hint_range(0.0, 1.0) = 0.2;
+
+// Footstep ripples in standing-water puddles. The shared ripple buffer is tuned
+// for open-water entity wakes; puddles want their own speed plus thinner,
+// smaller, subtler rings, and a puddle's low-contrast sky reflection barely shows
+// a normal tilt — so we also draw an explicit bright rim where the ring crest is.
+// All pure feel.
+//   puddle_ripple_speed   — ring expansion rate (m/s), independent of the
+//                           open-water wake speed (water_ripple_speed global).
+//   puddle_ripple_amp     — normal-tilt amplitude (vs the open-water wake amount).
+//   puddle_ripple_thinness— ring falloff multiplier; HIGHER = thinner ring.
+//   puddle_ripple_size    — ring radius multiplier; LOWER = smaller/tighter ring.
+//   puddle_ripple_rim     — brightness of the sky-tinted crest rim (the main cue).
+uniform float puddle_ripple_speed : hint_range(0.1, 10.0) = 1.5;
+uniform float puddle_ripple_amp : hint_range(0.0, 3.0) = 0.5;
+uniform float puddle_ripple_thinness : hint_range(0.5, 20.0) = 2.5;
+uniform float puddle_ripple_size : hint_range(0.2, 1.0) = 0.5;
+uniform float puddle_ripple_rim : hint_range(0.0, 5.0) = 1.2;
 
 // Tile layer indices — must match the AtlasBaseIndex authored on the
 // matching BlockData in resources/data/blocks/. Each block is now exactly one
@@ -164,16 +198,16 @@ uniform float tile_uv_scale = 0.3;
 // drives wetness, not shading.
 uniform float ao_strength : hint_range(0.0, 1.0) = 1.0;
 
-// Concavity-driven wetness/pooling. Concavity is baked per-vertex into CUSTOM2.w
-// by the DC mesher (signed voxels; positive = a dip/bowl, negative = a bump).
-// Together with surface flatness it modulates the gameplay wetness_level: a
-// concave + flat + sky-exposed spot collects MORE of the current surface
-// moisture (wets first, dries last), while bumps and steep faces shed. It is a
-// multiplier on wetness_level, not a constant — when the surface is dry, dips
-// are dry too.
-//   concavity_wetness_strength: 0 = off, 1 = authored, >1 exaggerates.
-//   concavity_threshold: dip depth (voxels) at which pooling is full. Smaller =
-//     even shallow dips pool; larger = only deep bowls.
+// Concavity is baked per-vertex into CUSTOM2.w by the DC mesher (signed voxels;
+// positive = a dip/bowl, negative = a bump). It is NO LONGER the puddle shape
+// (that is now world-space noise — see puddle_scale above); instead it BIASES
+// where puddles prefer to sit: a baked dip nudges up the local pool coverage so
+// real bowls pool a little sooner, but the visible pool edge comes from the
+// noise, not the interpolated vertex value. Scaled by wetness, so dry = dry.
+//   concavity_wetness_strength: bias weight. 0 = noise-only (ignore dips),
+//     1 = authored, >1 makes bowls pool much sooner than flat ground.
+//   concavity_threshold: dip depth (voxels) at which the bias is full. Smaller =
+//     even shallow dips bias; larger = only deep bowls.
 uniform float concavity_wetness_strength : hint_range(0.0, 4.0) = 1.0;
 uniform float concavity_threshold : hint_range(0.001, 1.0) = 0.15;
 // Debug: paint the baked concavity directly via EMISSION. Red = concave dip
@@ -239,6 +273,11 @@ global uniform bool ground_stain_enabled;
 // pushed by GameClient. Applied to the lit output below; exact no-op when
 // eye_adaptation == 0. See shaders/eye_adaptation.gdshaderinc.
 #include "res://shaders/eye_adaptation.gdshaderinc"
+
+// Dynamic radial ripples (footsteps in puddles) — the same ring buffer the
+// open-water shader reads. Declares the water_ripple_* globals and the
+// dynamic_ripple_core helper; applied to standing-water pools below.
+#include "res://shaders/water_dynamic_ripple.gdshaderinc"
 
 const float MIN_AMBIENT = 0.0;
 
@@ -635,18 +674,14 @@ void fragment() {
 	// flicker on the normal-map noise. Driving the old specular through the
 	// perturbed normal is exactly what made wet ground read as "crunchier
 	// texture" instead of wet.
+	// General surface wetness ("slickness") — a damp sheen on ALL sky-exposed
+	// upward-facing ground, flat and sloped alike. wet_slope falls off with
+	// incline (full on flat, subtle by ~45°, gone on vertical faces) but never
+	// pools; standing water (below) is a separate, flat-only term.
 	float wet_slope = pow(max(smooth_n.y, 0.0), 3.0);
-	// Displacement: the per-tile height map's micro-pits (low height) collect
-	// water. Folds into the concavity pooling as a [0,1] multiply; wet_displacement
-	// tunes how strongly (0 = ignore the height map, the old weather-only look).
-	float displacement_wetness = mix(1.0, 1.0 - surface_h, wet_displacement);
-	// Concavity pooling (macro dips) × displacement (micro pits), scaled by the
-	// real weather wetness (WorldState.WetnessLevel) so pooling is always
-	// proportional to the current dampness — bone-dry weather = dry dips.
-	float pool_boost = smoothstep(0.0, concavity_threshold, concavity) * displacement_wetness * concavity_wetness_strength;
-	float local_wetness = clamp(wetness_level * (1.0 + pool_boost), 0.0, 1.0);
-	// saturation: how wet this fragment is — weather × sky-exposure × slope ×
-	// pooling. The single "is it wet here" scalar every wet look keys off.
+	float local_wetness = wetness_level;
+	// saturation: how wet this fragment is — weather × sky-exposure × slope. The
+	// single "is it wet here" scalar every wet look keys off.
 	float saturation = sun_mask * wet_slope * local_wetness;
 
 	// Porosity splits the wet LOOK: porous soil (high) soaks water → darkens with
@@ -655,14 +690,33 @@ void fragment() {
 	float porosity = clamp(surface_porosity, 0.0, 1.0);
 	float reflectivity = 1.0 - porosity;
 
-	// Standing-water (pooled) state: where the baked concavity is deep, the
-	// surface is flat (wet_slope), it's wet (local_wetness) and non-porous, water
-	// STANDS — a puddle. Plugs the concavity bake into a distinct water look.
-	float pool_depth = smoothstep(concavity_threshold, concavity_threshold * 2.5, concavity);
-	// Sky occlusion: pools are rain-fed, so they only form / mirror the sky
-	// where the sky actually reaches — sun_mask is the BFS sky-exposure, so
-	// caves and overhangs read ~0 and stay dry (no sky mirror in a cave).
-	float pool_mask = clamp(pool_depth * wet_slope * local_wetness * sun_mask * mix(0.4, 1.0, reflectivity) * wet_pool_strength, 0.0, 1.0);
+	// Standing water (puddles): a world-space NOISE field thresholded by coverage,
+	// NOT the per-vertex concavity bake (that interpolated across triangles and
+	// made pools look triangular). Two octaves of value noise in world XZ — static
+	// in world space, so puddles sit still as the camera moves.
+	vec2 puddle_uv = world_vertex.xz * puddle_scale;
+	float puddle_field = vnoise(vec3(puddle_uv, 0.0)) * 0.65
+		+ vnoise(vec3(puddle_uv * 2.7, 19.0)) * 0.35;
+	// Coverage = how much of the noise field is underwater. Grows with weather
+	// wetness (dry weather → no pools), capped by wet_pool_strength, biased up in
+	// micro-pits (per-tile height map) and in real baked dips (concavity — a soft
+	// nudge on WHERE pools sit, not their shape). The ×local_wetness keeps dips dry
+	// when the weather is dry.
+	float micro_pit = mix(1.0, 1.0 - surface_h, wet_displacement);
+	float concavity_bias = smoothstep(0.0, concavity_threshold, concavity) * concavity_wetness_strength;
+	// puddle_ramp (<1) curves coverage up faster as the ground starts to wet, so
+	// puddles appear with less rain; at full wetness it still caps at wet_pool_strength.
+	float pool_wetness = pow(clamp(local_wetness, 0.0, 1.0), puddle_ramp);
+	float pool_coverage = clamp(pool_wetness * (wet_pool_strength * micro_pit + concavity_bias), 0.0, 1.0);
+	// Threshold the noise: more coverage → lower threshold → more ground pools.
+	float pool_thresh = 1.0 - pool_coverage;
+	float pool_shape = smoothstep(pool_thresh, pool_thresh + puddle_edge, puddle_field);
+	// Slope falloff: standing water needs near-level ground — a much sharper gate
+	// than wet_slope, so gentle slopes shed to the slickness sheen above instead
+	// of pooling. sun_mask (BFS sky-exposure) keeps caves/overhangs dry.
+	float pool_flat = smoothstep(pool_flatness, 1.0, smooth_n.y);
+	float pool_depth = pool_shape * pool_flat;
+	float pool_mask = clamp(pool_depth * sun_mask * mix(0.4, 1.0, reflectivity), 0.0, 1.0);
 	// Water clarity from the zone/weather muddiness: clear pools mirror the sky
 	// strongly; murky pools mostly show their (zone-tinted) body color.
 	float water_clarity = 1.0 - clamp(water_muddiness, 0.0, 1.0);
@@ -679,6 +733,20 @@ void fragment() {
 	// In a pool, flatten the reflecting normal toward level water for a clean
 	// mirror; elsewhere it's the smooth geometric normal (coherent across a face).
 	vec3 wet_n = normalize(mix(smooth_n, vec3(0.0, 1.0, 0.0), pool_mask));
+	// Footstep ripples on the pool surface. Gated by pool_mask so only standing
+	// water reacts (the slope sheen / dry ground stay calm). The normal tilt
+	// (thinner/smaller/subtler than an open-water wake via the puddle_ripple_*
+	// muls) flows through the Fresnel sky reflection + sun glint below; `ripple_rim`
+	// is the crest envelope, drawn as an explicit bright rim later since a
+	// puddle's flat sky reflection barely shows the tilt on its own.
+	float ripple_rim = 0.0;
+	if (pool_mask > 0.001) {
+		float rim;
+		vec2 dyn_tilt = dynamic_ripple_core(world_vertex.xz, puddle_ripple_speed,
+			puddle_ripple_amp, puddle_ripple_thinness, puddle_ripple_size, rim) * pool_mask;
+		wet_n = normalize(wet_n + vec3(dyn_tilt.x, 0.0, dyn_tilt.y));
+		ripple_rim = rim * pool_mask;
+	}
 
 	vec3 wet_view = normalize(INV_VIEW_MATRIX[3].xyz - world_vertex);
 	// Sun glint: hotspot tightness from smoothness (smoother = tighter), gated by
@@ -787,6 +855,10 @@ void fragment() {
 	// vertical face sees less sky, so it reflects less of it). ao_factor also
 	// darkens the diffuse above.
 	EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim) * ao_factor + wet_reflect * cloud_dim * ao_factor;
+	// Footstep ripple crest — a thin sky-tinted rim, the main visible cue since a
+	// flat puddle's reflection barely bends with the normal tilt. Sky-occlusion
+	// gated (cloud_dim, ao_factor) like the rest of the wet reflection above.
+	EMISSION += wet_sky * (ripple_rim * puddle_ripple_rim * cloud_dim * ao_factor);
 
 	// Eye adaptation: lift this fragment when it sits in low local light and the
 	// player is dark-adapted, push it toward blowout in bright light. ea_light is

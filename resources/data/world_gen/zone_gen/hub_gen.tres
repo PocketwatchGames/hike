@@ -8,6 +8,16 @@
 [ext_resource type="Resource" uid="uid://buowgujm0up6j" path="res://resources/data/world_gen/terrain_gen/hub_kit.tres" id="6_vnuep"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="7_cave"]
 [ext_resource type="Resource" uid="uid://c4lym14iaoht2" path="res://resources/data/world_gen/fixtures/hub_fixtures.tres" id="8_fixtures"]
+[ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="9_ruins"]
+
+[sub_resource type="Resource" id="Resource_ruins"]
+script = ExtResource("9_ruins")
+squareMetersPerSpawn = 600.0
+siteRadius = 12
+minSiteSpacing = 45.0
+confinementMinFraction = 0.15
+brokenness = 0.4
+metadata/_custom_type_script = "uid://dbxatq73lngxy"
 
 [resource]
 script = ExtResource("1_script")
@@ -25,4 +35,5 @@ caveNoiseFrequency = 0.04
 grassThreshold = 0.3
 caveEntities = ExtResource("7_cave")
 fixtures = ExtResource("8_fixtures")
+ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("crossroads")

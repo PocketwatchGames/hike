@@ -315,6 +315,16 @@ public partial class GameClient : Node3D
 		onMobKilled?.Invoke(species, damagedByPlayer);
 	}
 
+	// Fired when the player and a mob trade blows — the player damages the mob,
+	// or the mob damages the player. The Hud subscribes to surface a transient
+	// objective panel showing the species' bestiary-level kill progress.
+	public Action<SpeciesData> onMobEngaged;
+	public void NotifyMobEngaged(SpeciesData species)
+	{
+		if (species == null) { return; }
+		onMobEngaged?.Invoke(species);
+	}
+
 	// Player combat state, aggregated by CombatTracker from per-mob reports:
 	// combat is on while a dangerous, player-perceived enemy is in an attack
 	// behavior, lingers combatExitGraceSeconds after the player runs away, and
@@ -686,6 +696,11 @@ public partial class GameClient : Node3D
 				subtitle = $"{SpeciesDisplayName(species)} Level {newLevel}",
 			});
 		}
+
+		// Refresh the HUD objective panel now that the kill is recorded, so its
+		// progress bar reflects the incremented count (fired here, after
+		// RecordSpeciesKill, so it doesn't depend on subscriber ordering).
+		NotifyMobEngaged(species);
 	}
 
 	void OnSimSpeciesDiscovered(SpeciesData species)
@@ -702,7 +717,7 @@ public partial class GameClient : Node3D
 	// Bestiary row label for a species: its own displayName when authored,
 	// else the base mob's (the page title). Shared by the discovery + level-up
 	// announcements so both read with the variant name.
-	static string SpeciesDisplayName(SpeciesData species)
+	public static string SpeciesDisplayName(SpeciesData species)
 	{
 		if (species == null) { return string.Empty; }
 		string name = species.displayName?.ToString();

@@ -6,6 +6,8 @@
 [ext_resource type="Texture2D" uid="uid://ts31m5bk81go" path="res://assets/textures/portraits/sparrow.png" id="4_portrait"]
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="5_mobdata"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="5_wafoc"]
+[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="6_recolor"]
+[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="7_palette"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("2_anim")
@@ -44,6 +46,18 @@ script = ExtResource("2_anim")
 name = &"hitstun"
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
+[sub_resource type="Resource" id="entry_lurker_body"]
+script = ExtResource("6_recolor")
+meshNames = PackedStringArray("Forest Bunny", "Forest_Bunny", "ForestBunny", "Mesh")
+color = Color(0.18, 0.42, 0.34, 1)
+amount = 0.75
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="palette_lurker"]
+script = ExtResource("7_palette")
+recolors = [SubResource("entry_lurker_body")]
+metadata/_custom_type_script = "uid://cicvni6fvcssx"
+
 [resource]
 script = ExtResource("5_mobdata")
 displayName = &"Lurker"
@@ -73,6 +87,7 @@ animations = Dictionary[int, ExtResource("2_anim")]({
 })
 hudScale = 0.6
 mobScene = ExtResource("1_scene")
+palette = SubResource("palette_lurker")
 movement = 35
 triggersTraps = false
 verticalClearance = 1

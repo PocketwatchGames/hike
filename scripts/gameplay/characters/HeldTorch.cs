@@ -113,6 +113,16 @@ public partial class HeldTorch : Node3D
 
     public override void _ExitTree()
     {
+        // Godot fires _ExitTree on a benign REPARENT (RemoveChild→AddChild), not
+        // only on destruction — and HeldItemVisual.UpdateTorchPlacement reparents
+        // this prop hand↔belt the moment it lights. Only drop the world light when
+        // this node is actually being freed; otherwise lighting the torch would
+        // tear down the very light it just spawned. The light lives on the carrier
+        // root (not this prop), so it rides through the reparent untouched.
+        if (!IsQueuedForDeletion())
+        {
+            return;
+        }
         // The prop is being torn down (torch swapped out / carrier despawned).
         // Drop the world light silently — never fire the off-cue from _ExitTree
         // (its Fx.Create would target a dying parent). The player-initiated douse

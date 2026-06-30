@@ -620,6 +620,25 @@ public partial class SkyController : Node3D
     // floor. Small; the grazing-angle term supplies most of the sheen.
     [Export(PropertyHint.Range, "0,0.3,0.005")] public float wetFresnelBase = 0.04f;
 
+    // Standing-water (puddle) shape on terrain. Puddles are a world-space NOISE
+    // field thresholded by coverage (not the per-vertex concavity bake, which
+    // made them triangular). All pushed to voxel_clip as globals each frame; the
+    // CPU mirror (TerrainWetness) reads these same values so footstep splashes
+    // line up with the drawn puddles. See voxel_clip.gdshader.
+    // Max puddle coverage on flat ground at full wetness. <1 keeps dry patches —
+    // the ground never fully floods into a single sheet.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float wetPoolStrength = 0.85f;
+    // World-space puddle noise frequency; LOWER = larger puddles (1 unit = 1 voxel).
+    [Export(PropertyHint.Range, "0.02,2,0.01")] public float puddleScale = 0.3f;
+    // Puddle rim softness in noise-value space; smaller = harder/crisper edge.
+    [Export(PropertyHint.Range, "0.005,0.5,0.005")] public float puddleEdge = 0.08f;
+    // Coverage-vs-wetness exponent. <1 ramps puddles in faster as it starts to
+    // wet (so they show with less rain); 1 = linear with wetness_level.
+    [Export(PropertyHint.Range, "0.2,2,0.05")] public float puddleRamp = 0.6f;
+    // Min surface flatness (smooth normal.y) for standing water — the slope
+    // falloff. ~0.96 sheds to a damp sheen above ~16°; steeper ground never pools.
+    [Export(PropertyHint.Range, "0,1,0.005")] public float poolFlatness = 0.96f;
+
     // Accumulated cloud / ripple scroll offsets — integrated per frame from
     // `wind direction * speed`. These are the shader inputs (replacing the
     // old "speed * TIME" shader-side math) so mid-lerp speed changes don't
@@ -953,6 +972,13 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("wet_albedo_floor", RenderingServer.GlobalShaderParameterType.Float, wetAlbedoFloor);
             ShaderGlobals.Register("wet_reflect_strength", RenderingServer.GlobalShaderParameterType.Float, wetReflectStrength);
             ShaderGlobals.Register("wet_fresnel_base", RenderingServer.GlobalShaderParameterType.Float, wetFresnelBase);
+            // Standing-water (puddle) shape — globals so SkyController owns the
+            // whole wet look; the CPU mirror (TerrainWetness) reads the same fields.
+            ShaderGlobals.Register("wet_pool_strength", RenderingServer.GlobalShaderParameterType.Float, wetPoolStrength);
+            ShaderGlobals.Register("puddle_scale", RenderingServer.GlobalShaderParameterType.Float, puddleScale);
+            ShaderGlobals.Register("puddle_edge", RenderingServer.GlobalShaderParameterType.Float, puddleEdge);
+            ShaderGlobals.Register("puddle_ramp", RenderingServer.GlobalShaderParameterType.Float, puddleRamp);
+            ShaderGlobals.Register("pool_flatness", RenderingServer.GlobalShaderParameterType.Float, poolFlatness);
 
             // Working copies for the zone blend output. Re-populated in
             // _Process each frame — these exist so ZoneBlend can write
@@ -961,24 +987,25 @@ public partial class SkyController : Node3D
             _blendedWeather = new WeatherData();
         }
 
-        // Dynamic ripple buffer + control globals — created in BOTH editor
-        // and runtime modes because SkyController carries [Tool] and Apply()
-        // (the per-frame Set pusher) runs in editor too. Without registering
-        // here the editor spams material_storage.cpp:1677 every frame trying
-        // to Set globals that don't exist (CLAUDE.md cause #3).
+        // Dynamic ripple buffer + control globals. Declared in project.godot's
+        // [shader_globals] (with a placeholder texture for water_ripple_tex) so
+        // they exist in the editor at startup — voxel_water AND voxel_clip
+        // reference them, and a ShaderMaterial on either (terrain.tres) only
+        // exposes its params if the shader compiles in-editor, which needs these
+        // globals present. Register (not RegisterRuntime) seeds the value over
+        // the project.godot declaration. Created in BOTH editor and runtime
+        // because SkyController is [Tool] and Apply() Sets these every frame.
         // Width=MaxDynamicRipples × height=1 Rgbaf image holding (x, z, age,
-        // strength) per active ripple. Sampled via texelFetch in
-        // voxel_water.gdshader; allocated once and updated in-place each
-        // frame.
+        // strength) per active ripple; allocated once, updated in-place.
         _rippleImage = Image.CreateEmpty(MaxDynamicRipples, 1, false, Image.Format.Rgbaf);
         _rippleTexture = ImageTexture.CreateFromImage(_rippleImage);
-        ShaderGlobals.RegisterRuntime("water_ripple_tex", RenderingServer.GlobalShaderParameterType.Sampler2D, _rippleTexture);
-        ShaderGlobals.RegisterRuntime("water_ripple_count", RenderingServer.GlobalShaderParameterType.Int, 0);
-        ShaderGlobals.RegisterRuntime("water_ripple_speed", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleSpeed);
-        ShaderGlobals.RegisterRuntime("water_ripple_lifetime", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleLifetime);
-        ShaderGlobals.RegisterRuntime("water_ripple_fade_in", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleFadeIn);
-        ShaderGlobals.RegisterRuntime("water_ripple_falloff", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleFalloff);
-        ShaderGlobals.RegisterRuntime("water_ripple_tilt", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleTilt);
+        ShaderGlobals.Register("water_ripple_tex", RenderingServer.GlobalShaderParameterType.Sampler2D, _rippleTexture);
+        ShaderGlobals.Register("water_ripple_count", RenderingServer.GlobalShaderParameterType.Int, 0);
+        ShaderGlobals.Register("water_ripple_speed", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleSpeed);
+        ShaderGlobals.Register("water_ripple_lifetime", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleLifetime);
+        ShaderGlobals.Register("water_ripple_fade_in", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleFadeIn);
+        ShaderGlobals.Register("water_ripple_falloff", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleFalloff);
+        ShaderGlobals.Register("water_ripple_tilt", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleTilt);
 
         UpdateSunAndMoon();
         // Seed the palette with null-safe fallbacks so the very first
@@ -1365,11 +1392,17 @@ public partial class SkyController : Node3D
         if (moonLight != null) { moonLight.LightAngularDistance = effShadowAngular; }
 
         // Directional-shadow strength for the grounding-shadow blobs (see the
-        // property doc). Active body's energy × penumbra sharpness × sky clarity.
-        float shadowBodyEnergy = _sunIsPrimary ? sunEnergyFactor : moonEnergyFactor * _palette.NightPrimaryIntensity;
-        float shadowSharpness = shadowAngularBase / Mathf.Max(effShadowAngular, 0.01f);
+        // property doc): elevation sharpness × sky clarity. A real shadow is
+        // crisp when the key light rides high (sin(elev)/sin(maxElev) → 1 at the
+        // day's peak, 0 at the horizon where shadows lengthen and soften) and
+        // when the sky is clear (overcast diffuses it away). The moon's variant
+        // is weighted down by NightPrimaryIntensity so its shadow reads weaker,
+        // leaving night blobs mostly intact.
+        float sinShadowMaxElev = Mathf.Max(Mathf.Sin(Mathf.DegToRad(sim?.sunMaxElevationDegrees ?? 60f)), 1e-4f);
+        float sunElevSharp = Mathf.Clamp(Mathf.Sin(Mathf.DegToRad(_sunElevationDegrees)) / sinShadowMaxElev, 0f, 1f);
+        float shadowElevSharp = _sunIsPrimary ? sunElevSharp : moonEnergyFactor * _palette.NightPrimaryIntensity;
         float shadowClarity = 1f - Mathf.Clamp(Weather?.cloudCover ?? 0f, 0f, 1f);
-        DirectionalShadowStrength = Mathf.Clamp(shadowBodyEnergy * shadowSharpness * shadowClarity, 0f, 1f);
+        DirectionalShadowStrength = Mathf.Clamp(shadowElevSharp * shadowClarity, 0f, 1f);
 
         // _nightT for disk glow fade. Same formula as WeatherDerivation.PhaseWeights.
         float colorRange = Mathf.Max(sim?.sunsetColorRangeDegrees ?? 10f, 0.01f);
@@ -1460,6 +1493,18 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("wet_albedo_floor", wetAlbedoFloor);
         RenderingServer.GlobalShaderParameterSet("wet_reflect_strength", wetReflectStrength);
         RenderingServer.GlobalShaderParameterSet("wet_fresnel_base", wetFresnelBase);
+        RenderingServer.GlobalShaderParameterSet("wet_pool_strength", wetPoolStrength);
+        RenderingServer.GlobalShaderParameterSet("puddle_scale", puddleScale);
+        RenderingServer.GlobalShaderParameterSet("puddle_edge", puddleEdge);
+        RenderingServer.GlobalShaderParameterSet("puddle_ramp", puddleRamp);
+        RenderingServer.GlobalShaderParameterSet("pool_flatness", poolFlatness);
+        // Keep the CPU puddle mirror (footstep splashes) in lockstep with the
+        // values just pushed to the shader.
+        TerrainWetness.PuddleScale = puddleScale;
+        TerrainWetness.PuddleEdge = puddleEdge;
+        TerrainWetness.PuddleRamp = puddleRamp;
+        TerrainWetness.PoolStrength = wetPoolStrength;
+        TerrainWetness.PoolFlatness = poolFlatness;
 
         // --- Water -------------------------------------------------------
         // Muddiness comes from ZoneData.WaterColor.a (via palette). It drives:

@@ -10,13 +10,14 @@
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="8_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="9_pixelsnap"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="10_hurtbox"]
+[ext_resource type="PackedScene" uid="uid://bvq7x2mn4k8rp" path="res://scenes/fx/mob_dash.tscn" id="11_dashfx"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
-height = 1.0
+radius = 0.75
+height = 1.5
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
-radius = 0.6
-height = 1.2
+radius = 1.0
 
 [node name="Mob" type="RigidBody3D" unique_id=613651625 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "hudAnchor")]
 axis_lock_angular_x = true
@@ -31,11 +32,12 @@ hudAnchor = NodePath("Visuals/HudAnchor")
 hudScene = ExtResource("2_hud")
 _bloodDamageFx = ExtResource("3_blood")
 _deathFx = ExtResource("4_death")
+_dashFx = ExtResource("11_dashfx")
 
 [node name="Visuals" type="Node3D" parent="." unique_id=744431305]
 
 [node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=1888429174]
-transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
+transform = Transform3D(0.75, 0, 0, 0, 0.75, 0, 0, 0, 0.75, 0, 0, 0)
 
 [node name="DrakeModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=189906191]
 
@@ -48,7 +50,7 @@ libraries/ = ExtResource("6_birdyanims")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=972731225]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_move")
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=88774065]
@@ -57,7 +59,7 @@ collision_mask = 0
 script = ExtResource("10_hurtbox")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=2042834988]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("CapsuleShape3D_hurt")
 
 [node name="PixelSnap" type="Node" parent="." unique_id=748718050 node_paths=PackedStringArray("_target")]

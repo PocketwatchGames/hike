@@ -1,13 +1,31 @@
-[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://bwjra0l991slu"]
+[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://bwjra0mba1slu"]
 
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_species"]
-[ext_resource type="Resource" uid="uid://ndnvye3ey58mq" path="res://resources/data/characters/lurker/lurker.tres" id="2_mob"]
+[ext_resource type="Resource" uid="uid://brga68cnbkmdg" path="res://resources/data/characters/lurker/lurker.tres" id="2_mob"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_weapon"]
 [ext_resource type="Resource" uid="uid://b4p8s201wnfjt" path="res://resources/data/characters/lurker/lurker_bite.tres" id="4_bite"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="4_ejejn"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="5_lootcount"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="6_desc"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="6_l2rlh"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/lurker_swamp_meat.tres" id="7_meat"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="8_va7jy"]
+
+[sub_resource type="Resource" id="Desc_loot_meat"]
+script = ExtResource("6_desc")
+item = ExtResource("7_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_loot_meat"]
+script = ExtResource("5_lootcount")
+descriptor = SubResource("Desc_loot_meat")
+count = 2
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [resource]
 script = ExtResource("1_species")
 mob = ExtResource("2_mob")
 displayName = &"Swamp Lurker"
 weapons = Array[ExtResource("3_weapon")]([ExtResource("4_bite")])
+loot = Array[ExtResource("5_lootcount")]([SubResource("Resource_loot_meat")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

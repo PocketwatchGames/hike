@@ -90,6 +90,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // footfall. Authored in each mob .tscn; missing keys silently emit
     // nothing.
     [Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
+    // Radial ripple strength pushed into the shared water-ripple buffer on a
+    // puddle footfall (rendered by voxel_clip's puddle pass), mirroring the
+    // player's puddle footstep ripple.
+    [Export(PropertyHint.Range, "0,1,0.01")] private float _puddleFootstepRippleStrength = 0.25f;
     // Minimum horizontal speed² to count as "moving" for loop-FX gating
     // (water swim loop, tall-grass rustle). Footstep cadence itself is
     // frame-driven and ignores this.
@@ -723,6 +727,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             FootstepEmitter.Emit(_world, pos, ground, _footstepEffects);
         }
+        // Puddle footfall: ring a ripple on the standing-water surface (the
+        // voxel_clip puddle pass renders it), same as the player. floorNormalY
+        // comes from the measured slope grade — voxel floors read flat-topped
+        // from the collision normal even on hills (see _slopeGrade). Gated by
+        // perception so a fully-hidden mob doesn't betray itself rippling water.
+        if (perceived)
+        {
+            float floorNormalY = 1f / Mathf.Sqrt(1f + _slopeGrade * _slopeGrade);
+            if (TerrainWetness.IsPuddleStep(ws, pos, floorNormalY))
+            {
+                SkyController.Current?.EmitWaterRipple(new Vector2(pos.X, pos.Z), _puddleFootstepRippleStrength);
+            }
+        }
         float fpAlphaMul = _statusEffects?.FoldStat(EStat.FootprintAlpha, 1f) ?? 1f;
         float fpDurMul = _statusEffects?.FoldStat(EStat.FootprintDuration, 1f) ?? 1f;
         bool perceivedAtEmit = _simState.PlayerPerception > 0f || _simState.MemoryTimeMs > _world.GameTimeMs;
@@ -1054,9 +1071,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // touching facing — unlike ApplyMotion, which always lunges along the body's
     // forward axis. Used by BehaviorDodge to slip sideways / backward out of a
     // shot's path while the mob keeps facing the player. Reuses the same
-    // MotionVelocity channel (gravity left ON so it's a grounded dash that
-    // follows terrain). Zero direction / duration is a no-op.
-    public void ApplyDodge(Vector3 worldDir, float speed, float duration)
+    // MotionVelocity channel. A grounded mob leaves gravity ON (freezeGravity
+    // false) so the dash follows terrain; a flier passes freezeGravity true so
+    // the air-strafe holds altitude instead of dropping. Zero direction /
+    // duration is a no-op.
+    public void ApplyDodge(Vector3 worldDir, float speed, float duration, bool freezeGravity = false)
     {
         worldDir.Y = 0f;
         if (duration <= 0f || speed <= 0f || worldDir.LengthSquared() < 0.0001f)
@@ -1065,7 +1084,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         _simState.MotionVelocity = worldDir.Normalized() * speed;
         _simState.MotionTime = duration;
-        _simState.MotionFreezeGravity = false;
+        _simState.MotionFreezeGravity = freezeGravity;
     }
 
     // Mobs don't have a stamina pool yet; attack tiers always pass the gate
@@ -3446,6 +3465,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // The player swinging at a mob counts as entering combat — releases a
             // guard companion to escalate from wary to attacking (Player.CombatEngaged).
             attackingPlayer.NotifyCombatEngaged();
+            // Surface / refresh the species' combat-objective panel on the HUD.
+            GameClient.Current?.NotifyMobEngaged(_simState.Species);
         }
         // Receiver-side resistance fold. Modulates healthDamage / armorPenetration /
         // blunt / knockback in place so all downstream uses (hit.ArmorPenetrated,
@@ -3922,6 +3943,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         EjectLoot();
         EjectStuckArrows();
         AxisLockAngularY = false;
+        // Undo the airborne/swim physics leftovers so the corpse falls and
+        // settles like any other dead body. The GravityScale write and the
+        // flight collision-mask restore both live in the alive branch of
+        // _PhysicsProcess and never run for a corpse, so a mob killed
+        // mid-flight would otherwise keep GravityScale=0 — with no normal
+        // force, ground contact friction can't bite and it slides forever on
+        // the gentle corpse LinearDamp alone (and a hovering death would just
+        // hang in the air). Restore gravity and clear the airborne flag here.
+        GravityScale = 1f;
+        _lastGravityScale = 1f;
+        _simState.Airborne = false;
+        _flightCollisionDisabled = false;
         // Don't unfreeze on death — a mob that was idle-pinned when it
         // died stays pinned. A mob that died mid-motion / from a hit
         // already has Freeze=false; the new auto-freeze branch above

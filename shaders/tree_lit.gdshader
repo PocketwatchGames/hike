@@ -57,6 +57,10 @@ shader_type spatial;
 // composes with Godot's directional shadow atlas and the cloud_shadow
 // include the same way.
 render_mode ambient_light_disabled, depth_draw_opaque, cull_back;
+// Stamp stencil 16 = "tree" so the terrain depth-outline (depth_outline.gdshader,
+// compare_equal 0) skips tree pixels. 16 avoids the in-use values (2/4 water,
+// 8 character), leaving X-ray and water reflections unaffected.
+stencil_mode write, compare_always, 16;
 
 uniform sampler2D albedo_tex : source_color, filter_nearest;
 

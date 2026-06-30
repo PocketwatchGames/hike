@@ -1,0 +1,74 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://befinhr1geqh8" path="res://assets/audio/source/footsteps/un_shr_foot_mud_01.wav" id="2_m01"]
+[ext_resource type="AudioStream" uid="uid://te6huhfssdxi" path="res://assets/audio/source/footsteps/un_shr_foot_mud_02.wav" id="2_m02"]
+[ext_resource type="AudioStream" uid="uid://bo2mdk1ywtuyi" path="res://assets/audio/source/footsteps/un_shr_foot_mud_03.wav" id="2_m03"]
+[ext_resource type="AudioStream" uid="uid://bb367sg3n2x5a" path="res://assets/audio/source/footsteps/un_shr_foot_mud_04.wav" id="2_m04"]
+[ext_resource type="AudioStream" uid="uid://c2pl51yfxt8yi" path="res://assets/audio/source/footsteps/un_shr_foot_mud_05.wav" id="2_m05"]
+[ext_resource type="AudioStream" uid="uid://v0emtglew0c0" path="res://assets/audio/source/footsteps/un_shr_foot_mud_06.wav" id="2_m06"]
+[ext_resource type="AudioStream" uid="uid://fqgvfr4swcyt" path="res://assets/audio/source/footsteps/un_shr_foot_mud_07.wav" id="2_m07"]
+[ext_resource type="AudioStream" uid="uid://brsnamf8lc6hh" path="res://assets/audio/source/footsteps/un_shr_foot_mud_08.wav" id="2_m08"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_splash"]
+emission_shape = 1
+emission_sphere_radius = 0.05
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_min = 2.0
+initial_velocity_max = 6.0
+gravity = Vector3(0, -10, 0)
+damping_min = 1.0
+damping_max = 2.0
+scale_min = 0.5
+scale_max = 2.0
+color_ramp = ExtResource("fade_grad")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_splash"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo_texture = ExtResource("tex_cloud_puff")
+shader_parameter/albedo = Color(0.20580001, 0.36684665, 0.49, 0.7019608)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_splash"]
+material = SubResource("ShaderMaterial_splash")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_puddle"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 3.0
+streams_count = 8
+stream_0/stream = ExtResource("2_m01")
+stream_1/stream = ExtResource("2_m02")
+stream_2/stream = ExtResource("2_m03")
+stream_3/stream = ExtResource("2_m04")
+stream_4/stream = ExtResource("2_m05")
+stream_5/stream = ExtResource("2_m06")
+stream_6/stream = ExtResource("2_m07")
+stream_7/stream = ExtResource("2_m08")
+
+[node name="FootstepPuddle" type="Node3D" unique_id=1900002001]
+script = ExtResource("1_oneshot")
+
+[node name="Splash" type="GPUParticles3D" parent="." unique_id=1900002002]
+emitting = false
+amount = 4
+lifetime = 0.4
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_splash")
+draw_pass_1 = SubResource("QuadMesh_splash")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1900002003]
+stream = SubResource("AudioStreamRandomizer_puddle")
+volume_db = -16.0
+unit_size = 4.0
+max_distance = 20.0
+bus = &"World3D"

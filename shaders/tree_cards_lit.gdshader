@@ -38,6 +38,9 @@ shader_type spatial;
 //               sphere_normal_strength blends it with the card mesh normal
 //               (1 = pure sphere shading, 0 = pure card-normal shading).
 render_mode ambient_light_disabled, depth_draw_opaque, cull_disabled;
+// Stencil 16 = "tree" so the terrain depth-outline skips tree pixels (see
+// tree_lit.gdshader for the value convention).
+stencil_mode write, compare_always, 16;
 
 // filter_linear on the leaves: smooths color sampling between texels so
 // the texture doesn't read as chunky pixel grids on each card. Alpha is

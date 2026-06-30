@@ -19,6 +19,7 @@
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Script" uid="uid://d1b41gdyhk5hu" path="res://scripts/client/FlyCamera.cs" id="fly_camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
+[ext_resource type="Material" path="res://resources/materials/depth_outline.tres" id="depth_outline_mat"]
 [ext_resource type="Script" uid="uid://bd2qbk8yxpmjj" path="res://scripts/client/GroundStainProjector.cs" id="ground_stain_projector_script"]
 [ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://assets/audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
 [ext_resource type="PackedScene" uid="uid://cwdqs8t0vrv7l" path="res://scenes/subsystems/heat_field.tscn" id="heat_field_scene"]
@@ -68,7 +69,7 @@ size = Vector2(2, 2)
 background_mode = 1
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.0
-fog_enabled = true
+fog_enabled = false
 fog_mode = 1
 fog_light_color = Color(0, 0, 0, 1)
 fog_light_energy = 0.75
@@ -211,6 +212,13 @@ material_override = ExtResource("heat_shimmer_mat")
 cast_shadow = 0
 extra_cull_margin = 16384.0
 mesh = SubResource("QuadMesh_shimmer")
+
+[node name="OutlineQuad" type="MeshInstance3D" parent="SceneViewport/MainCamera" unique_id=1706201795]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)
+material_override = ExtResource("depth_outline_mat")
+cast_shadow = 0
+extra_cull_margin = 16384.0
+mesh = SubResource("QuadMesh_fog")
 
 [node name="RainEffect" parent="SceneViewport/MainCamera" unique_id=480680992 instance=ExtResource("rain_scene")]
 

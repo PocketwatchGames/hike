@@ -9,6 +9,13 @@
 [ext_resource type="Resource" uid="uid://2fxll1oeroha" path="res://resources/data/world_gen/terrain_gen/mountain_kit.tres" id="11_w82ce"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="13_cave"]
 [ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/fixtures/zone_campfire_fixtures.tres" id="14_fixtures"]
+[ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="15_ruins"]
+
+[sub_resource type="Resource" id="Resource_ruins"]
+script = ExtResource("15_ruins")
+confinementMinFraction = 0.3
+brokenness = 0.4
+metadata/_custom_type_script = "uid://dbxatq73lngxy"
 
 [resource]
 script = ExtResource("1_script")
@@ -27,4 +34,5 @@ grassThreshold = 0.5
 surfaceEntities = ExtResource("5_ycgd3")
 caveEntities = ExtResource("13_cave")
 fixtures = ExtResource("14_fixtures")
+ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("mountain_pass")

@@ -21,6 +21,9 @@ shader_type spatial;
 //      rotate around its base or the bottom edge tears off the cylinder
 //      branch's end cap as the tip swings.
 render_mode ambient_light_disabled, depth_draw_opaque, cull_disabled;
+// Stencil 16 = "tree" so the terrain depth-outline skips tree pixels (see
+// tree_lit.gdshader for the value convention).
+stencil_mode write, compare_always, 16;
 
 uniform sampler2D albedo_tex : source_color, filter_linear;
 uniform float alpha_cutoff : hint_range(0.0, 1.0) = 0.5;

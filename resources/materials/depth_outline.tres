@@ -1,0 +1,14 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bl84gy5kiqaeh"]
+
+[ext_resource type="Shader" uid="uid://doqeg5oepv3mh" path="res://shaders/depth_outline.gdshader" id="1"]
+
+[resource]
+render_priority = -50
+shader = ExtResource("1")
+shader_parameter/dark_color = Color(0, 0, 0, 1)
+shader_parameter/dark_strength = 0.6000000285
+shader_parameter/light_color = Color(1, 1, 1, 1)
+shader_parameter/light_strength = 0.0
+shader_parameter/edge_min_depth = 1.999999955296
+shader_parameter/edge_max_depth = 4.99999988824
+shader_parameter/thickness = 1.0

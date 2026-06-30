@@ -126,9 +126,11 @@ public partial class Player : CharacterBody3D
 
 		// Taking damage from a mob counts as entering combat — releases a guard
 		// companion to escalate from wary to attacking (see Player.CombatEngaged).
-		if (incomingDamage > 0f && hit.source is Mob)
+		if (incomingDamage > 0f && hit.source is Mob attackingMob)
 		{
 			NotifyCombatEngaged();
+			// Surface / refresh the attacker's combat-objective panel on the HUD.
+			GameClient.Current?.NotifyMobEngaged(attackingMob.SimState?.Species);
 		}
 
 		// Capture the charging weapon's guard BEFORE TryInterrupt — a weapon

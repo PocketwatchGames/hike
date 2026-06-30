@@ -53,6 +53,7 @@ dangerous = true
 maxHealth = 28.0
 modifiers = null
 dizzyResistance = 1.5
+canDodge = true
 brain = ExtResource("2_brain")
 killsPerLevel = Array[int]([3, 10, 20, 35, 60])
 exp = 18
