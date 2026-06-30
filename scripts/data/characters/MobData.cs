@@ -297,18 +297,16 @@ public partial class MobData : Resource
     // drizzle". Same rainAmount signal the spawn gate reads
     // (World.CurrentRainAmount).
     [Export(PropertyHint.Range, "0,1,0.01")] public float IdleLoopMaxRain = 1f;
-    [Export] public float yellVolume = 15;
-    // How this mob responds when it hears another mob's yell. yellVolume
-    // is yeller-side (who hears me); these three are receiver-side (how
-    // do I investigate what I heard). Range is the Euclidean tolerance
-    // around the yelled-about point at which the receiver considers itself
-    // "arrived and inspecting"; cancelTime caps how long it pursues the
-    // rumour before giving up; pauseTime is how long it lingers at the
-    // point once it arrives. Authored receiver-side so a skittish prey
-    // mob can investigate cautiously while a guard dog charges in.
-    [Export] public float yellInvestigateRange = 8f;
-    [Export] public float yellInvestigateCancelTime = 30f;
-    [Export] public float yellInvestigatePauseTime = 3f;
+    // How this mob responds when it hears another mob's Yell vocalization (the
+    // receiver-side of the alarm). Range is the Euclidean tolerance around the
+    // investigated point at which the receiver considers itself "arrived and
+    // inspecting"; cancelTime caps how long it pursues the rumour before giving
+    // up; pauseTime is how long it lingers once it arrives. Authored
+    // receiver-side so a skittish prey mob investigates cautiously while a guard
+    // dog charges in.
+    [Export] public float investigateRange = 8f;
+    [Export] public float investigateCancelTime = 30f;
+    [Export] public float investigatePauseTime = 3f;
     // Continuous movement noise this mob emits. Mapped from current speed:
     // 0 at rest, sneakDecibels at half maxSpeed, runDecibels at maxSpeed.
     // Listeners (player + other mobs) check `decibels * hearingRange >
@@ -316,13 +314,14 @@ public partial class MobData : Resource
     // delta when they do.
     [Export] public float sneakDecibels = 1f;
     [Export] public float runDecibels = 4f;
-    // Loudness of a discrete vocalization (bark / growl / snarl) as heard BY THE
-    // PLAYER — audible distance = vocalizationDecibels * player.hearingRange. A
-    // vocalizing mob raises the player's awareness of ITSELF (Mob.Vocalize), the
-    // player-side mirror of movement noise. It deliberately does NOT alert other
-    // mobs (that's World.CreateNoiseEvent), so a bark draws the player's eye
-    // without tipping off enemies. 0 = vocalizations are silent to perception.
-    [Export] public float vocalizationDecibels = 2f;
+    // Loudness of this mob's voice — every discrete vocalization (bark / growl /
+    // snarl / yell) carries this many decibels, in the same currency as movement
+    // noise (audible distance = VoiceDecibels * listener.hearingRange, wind/fog
+    // adjusted). The single per-species "how loud am I" knob, so behaviors stay
+    // shareable without each authoring a volume: a bark raises the player's
+    // awareness of this mob, and a Yell additionally reaches other mobs to summon
+    // a directed investigation. 0 = vocalizations are silent to perception.
+    [Export] public float VoiceDecibels = 3f;
 
     [ExportGroup("AI")]
     [Export] public StringName defaultBehavior = "Idle";
@@ -393,6 +392,25 @@ public partial class MobData : Resource
     [Export] public float deathDespawnSeconds = 0.5f;
 
     [ExportGroup("Navigation")]
+    // Locomotion capabilities (swim / fly / climb / land / submerged),
+    // consolidated into one flags field. The default — CanSwim | AvoidsDeepWater
+    // | CanTraverseLand — is a plain ground walker that wades shallow water and
+    // avoids deep. Code reads the derived per-flag accessors below, never
+    // HasFlag directly, so the CanTraverseLand→AvoidsDeepWater interaction stays
+    // in one place.
+    [Export, CompactFlags] public EMovementFlags movement =
+        EMovementFlags.CanSwim | EMovementFlags.AvoidsDeepWater | EMovementFlags.CanTraverseLand;
+
+    public bool CanSwim => movement.HasFlag(EMovementFlags.CanSwim);
+    public bool CanFly => movement.HasFlag(EMovementFlags.CanFly);
+    public bool CanClimb => movement.HasFlag(EMovementFlags.CanClimb);
+    public bool CanTraverseLand => movement.HasFlag(EMovementFlags.CanTraverseLand);
+    public bool SubmergedWhileSwimming => movement.HasFlag(EMovementFlags.SubmergedWhileSwimming);
+    // Effective "treats deep water as a wall". A water-bound mob (no
+    // CanTraverseLand) never avoids deep water regardless of the flag, so it
+    // can't wall itself out of its own habitat.
+    public bool AvoidsDeepWater => movement.HasFlag(EMovementFlags.AvoidsDeepWater) && CanTraverseLand;
+
     [ExportSubgroup("Traversal & Movement")]
     // Read by the navigation system to decide which voxels this mob can walk
     // through, climb, or swim in. A mob with default values is a plain ground
@@ -417,10 +435,6 @@ public partial class MobData : Resource
     // allowFalling=false regardless of this value, so even mobs with a high
     // maxFallHeight don't accidentally wander themselves off a cliff.
     [Export] public int maxFallHeight = 4;
-    // True if the mob can climb arbitrary vertical surfaces (spider). Skips
-    // the maxStepHeight check entirely and lets the pathfinder treat any
-    // adjacent solid as walkable.
-    [Export] public bool canClimb = false;
     // True if the mob is heavy/large enough to set off body-driven traps
     // (pressure-plate spike traps, etc). False = the trap's TriggerSource
     // ignores it entirely, so it neither springs the trap nor is caught by
@@ -467,9 +481,6 @@ public partial class MobData : Resource
     [Export(PropertyHint.Range, "0,1,0.005")] public float windDragXZ = 0.075f;
 
     [ExportSubgroup("Flight")]
-    // True if the mob ignores ground entirely. Pathfinder runs in 3D for
-    // these and steering applies a hover force toward terrain+hoverHeight.
-    [Export] public bool canFly = false;
     // For fliers: preferred altitude above the terrain surface in voxels.
     // Steering layer pulls the mob toward this height when no goal demands
     // otherwise. A behavior may override per-trip via AIOutput.flyAltitude
@@ -502,39 +513,6 @@ public partial class MobData : Resource
     [Export] public float flightLookAhead = 6f;
 
     [ExportSubgroup("Water / Swim")]
-    // True if the mob can enter Water voxels at all. False = water is a hard
-    // wall (e.g. small flightless creatures); true = water is enterable but
-    // costs `waterCost` per cell. Amphibious mobs set canSwim=true,
-    // waterCost=1; mobs that hate water set canSwim=true, waterCost=5.
-    [Export] public bool canSwim = true;
-    // True for a land creature that wades shallow water but treats a swim-depth
-    // column (>= swimDepthThreshold) as a wall: the pathfinder won't route it
-    // into deep water (including when picking an attack / encircle slot) and
-    // BehaviorAttack won't let it attack while swimming. It only ends up
-    // swimming when knocked in, where it makes for the shallows instead of
-    // fighting. Defaults true — most mobs are land creatures; set it false for
-    // an intentional swimmer that should chase prey into deep water. Aquatic
-    // mobs ignore the flag entirely (see AvoidsDeepWater). Read everywhere via
-    // the AvoidsDeepWater property, never the raw field.
-    [Export] public bool avoidsDeepWater = true;
-    // True if the mob is bound to water — it CANNOT walk on dry land. The
-    // pathfinder treats dry surfaces as impassable for this mob (only water
-    // cells are walkable) and ground locomotion is suppressed whenever it
-    // isn't swimming, so a fully aquatic creature (fish, eel) never crawls
-    // ashore. Implies canSwim and forces AvoidsDeepWater false (deep water is
-    // its home). Leave false for amphibious / land mobs.
-    [Export] public bool aquatic = false;
-    // Effective "treats deep water as a wall" flag. Aquatic mobs never avoid
-    // deep water regardless of the authored avoidsDeepWater value, so a future
-    // aquatic mob can't silently wall itself out of its own habitat by leaving
-    // the now-default-true flag set.
-    public bool AvoidsDeepWater => avoidsDeepWater && !aquatic;
-    // True if the mob lives submerged rather than bobbing at the surface.
-    // ApplyWaterPhysics holds it at submergedDepth below the surface (and
-    // pushes it back DOWN if it breaches) instead of floating it up, and it
-    // never tries to haul out onto a bank (TryWaterExit is skipped). Pairs
-    // naturally with `aquatic` for an underwater ambusher.
-    [Export] public bool underwaterPhysics = false;
     // Target depth (voxels) below the water surface an underwaterPhysics mob
     // holds. Larger = lurks deeper. Only consulted when underwaterPhysics is
     // true; surface swimmers use waterSurfaceOffset instead.

@@ -100,6 +100,11 @@ public partial class Main : Node
 		var phaseSw = Stopwatch.StartNew();
 
 		loadingScreen.SetProgress(0.02f, "Loading assets...");
+		// Force the async-generated NoiseTexture2D ripple/cloud maps to finish
+		// generating now — before worldgen pegs the CPU and before SetTerrains
+		// builds the water material — so no material ever binds an unready
+		// (invalid) texture. See WaterRipples.
+		await WaterRipples.EnsureReady(this);
 		WorldGen.BindActivePalettes(worldGenData);
 		// ChunkMesh.SetTerrains touches RenderingServer (SetShaderParameter),
 		// so it must run on the main thread. BindActivePalettes above is pure
@@ -413,13 +418,6 @@ public partial class Main : Node
 		(_currentScreen as GuiMainMenu).OnStartEditor += StartEditor;
 		(_currentScreen as GuiMainMenu).OnStartPainter += StartPainter;
 		AddChild(_currentScreen);
-
-		// TEMP DEBUG: auto-start a new game when HIKE_AUTOSTART is set, to
-		// reproduce in-game rendering errors headlessly. Remove before commit.
-		if (System.Environment.GetEnvironmentVariable("HIKE_AUTOSTART") == "1")
-		{
-			(_currentScreen as GuiMainMenu).CallDeferred(nameof(GuiMainMenu.NewGameStandard));
-		}
 	}
 
 }

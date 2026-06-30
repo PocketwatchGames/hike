@@ -181,7 +181,7 @@ public class LocalPathfinder
                         // up to the surface) and falling in is just a splash,
                         // capped only by maxFallHeight.
                         int dy = n.surfaceY - currentCell.surfaceY;
-                        if (!profile.canClimb)
+                        if (!profile.CanClimb)
                         {
                             if (n.IsWater)
                             {

@@ -12,7 +12,6 @@ public struct AIOutput
     // damage profile and any weapon-mods (elite lightning).
     public ItemActionProfile attackProfile;
     public ActionContext attackContext;
-    public bool yell;
     public Vector3 targetPos;
 //    public Actor target;
     public float pathSuccessDistance;
@@ -23,7 +22,7 @@ public struct AIOutput
     // Mob.ReportPlayerCombat.
     public bool combatBehavior;
     public bool burrow;
-    // Flying mobs (MobData.canFly) only: when true, the mob is airborne this
+    // Flying mobs (MobData.CanFly) only: when true, the mob is airborne this
     // tick — physics disables gravity and runs ApplyFlightPhysics (hover +
     // wind + steering) instead of ground locomotion. Flight is travel-only:
     // behaviors set this while moving between points and clear it to land, so

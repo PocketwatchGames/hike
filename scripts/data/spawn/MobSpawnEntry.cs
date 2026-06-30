@@ -24,18 +24,18 @@ public partial class MobSpawnEntry : SpawnEntryData
     [Export] public int ClusterCountMax = 1;
 
     // Mobs require flat terrain to keep physics from knocking them off step
-    // edges into the cliff face below. Aquatic mobs are exempt — they spawn in
-    // the water column, where the dry-ground flatness test is meaningless (and
-    // would reject every submerged cell).
-    public override bool RequireFlatTerrain => Descriptor?.mob?.aquatic != true;
+    // edges into the cliff face below. Water-bound mobs are exempt — they spawn
+    // in the water column, where the dry-ground flatness test is meaningless
+    // (and would reject every submerged cell).
+    public override bool RequireFlatTerrain => Descriptor?.mob?.CanTraverseLand != false;
 
     // Cave pockets pre-validate only the spawn column itself, so a wall-
     // adjacent column passes — and a mob whose hitbox is wider than the
     // column's lateral half-voxel margin can wind up clipped into the
     // wall. Forcing all 4 lateral neighbors air gives mobs a corridor
-    // they can settle into. Aquatic mobs are exempt — their lateral neighbors
-    // are water, not air, so this check would always reject them.
-    public override bool RequireLateralClearance => Descriptor?.mob?.aquatic != true;
+    // they can settle into. Water-bound mobs are exempt — their lateral
+    // neighbors are water, not air, so this check would always reject them.
+    public override bool RequireLateralClearance => Descriptor?.mob?.CanTraverseLand != false;
 
     public override bool IsMobEntry => true;
 

@@ -58,7 +58,7 @@ public partial class BehaviorPerch : BehaviorBase
 
             if (distXZ < _data.yellDistance && time >= _nextAlarmMs)
             {
-                output.yell = true;
+                output.vocalization = EVocalization.Yell;
                 output.targetPos = threat.GlobalPosition;
                 _nextAlarmMs = time + (ulong)(_data.alarmIntervalSeconds * 1000f);
             }

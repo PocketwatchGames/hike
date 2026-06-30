@@ -464,6 +464,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Reused scratch buffer for the yell broadcast's spatial-hash query so a
     // periodic alarm doesn't allocate a list every call.
     private readonly List<Mob> _yellReceivers = new();
+    // Upper bound on any mob's hearingRange, used only to size the yell
+    // broadcast's spatial query (audible reach = decibels * hearingRange). The
+    // exact per-receiver audibility gate runs inside BroadcastInvestigation, so
+    // this just has to be generous, not tuned.
+    private const float MaxListenerHearingRange = 20f;
     // Current fade values, stepped toward their target every _Process tick.
     // Start at 0 so a freshly-spawned mob dithers IN rather than popping on
     // its first frame; if it's already within visible time the target snaps
@@ -1855,7 +1860,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Either way it's a symmetric spring toward targetY: below it the
             // mob is pushed up, above it pushed back down, so an underwater mob
             // never breaches.
-            float surfaceOffset = md.underwaterPhysics ? md.submergedDepth : md.waterSurfaceOffset;
+            float surfaceOffset = md.SubmergedWhileSwimming ? md.submergedDepth : md.waterSurfaceOffset;
             float targetY = _waterSurfaceY - surfaceOffset;
             float depthBelowSurface = targetY - pos.Y;
             if (depthBelowSurface > 0f)
@@ -1968,7 +1973,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // and let it push into the wall.
         // Swimmers may land on (and hover over) water, so its surface counts as
         // ground; non-swimmers see through it to the bed below.
-        bool waterIsSurface = _simState.MobData.canSwim;
+        bool waterIsSurface = _simState.MobData.CanSwim;
         int surfHere = SurfaceTopAt(ws, wx, wz, wy, waterIsSurface);
         int surfMax = surfHere;
         Vector2 heading = new Vector2(vel.X, vel.Z);
@@ -2498,7 +2503,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
             if (aiOutput.vocalization.HasValue)
             {
-                Vocalize(aiOutput.vocalization.Value);
+                // targetPos is the investigation point a Yell broadcasts (the
+                // threat the behavior is reacting to); ignored by other types.
+                Vocalize(aiOutput.vocalization.Value, aiOutput.targetPos);
             }
             _runner?.Tick();
 
@@ -2575,7 +2582,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // the behavior layer wants them airborne; ground locomotion below is
             // skipped for them. Drive the sim-state flag so animation and the
             // gravity/damp decisions agree we're aloft.
-            bool flying = _simState.MobData.canFly && aiOutput.airborne && !inBurrow && !actionLocksMovement;
+            bool flying = _simState.MobData.CanFly && aiOutput.airborne && !inBurrow && !actionLocksMovement;
             _simState.Airborne = flying;
             // Fliers pass through world geometry while airborne — hover physics
             // owns altitude, so colliding only snags them on cliffs/props and
@@ -2583,7 +2590,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // on the airborne edge and restore it on landing (mirrors the burrow
             // layer swap). Gated on `alive` so Die()/burrow keep ownership of the
             // mask in their own states.
-            if (_simState.MobData.canFly && alive)
+            if (_simState.MobData.CanFly && alive)
             {
                 if (flying && !_flightCollisionDisabled)
                 {
@@ -2603,11 +2610,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 linearDampTarget = 0f;
                 ApplyFlightPhysics((float)delta, in aiOutput, statusMoveMul, ref targetYaw);
             }
-            // An aquatic mob can't walk: it locomotes only while in water
+            // A water-bound mob can't walk: it locomotes only while in water
             // (wading or swimming). Out of water it has no ground drive, so a
             // fish flung onto a bank just flops where it landed.
             else if (!inBurrow && !actionLocksMovement && aiOutput.pathTarget.HasValue
-                && (!_simState.MobData.aquatic || _swimming || IsInWater()))
+                && (_simState.MobData.CanTraverseLand || _swimming || IsInWater()))
             {
                 Vector3 toTarget = aiOutput.pathTarget.Value - GlobalPosition;
                 toTarget.Y = 0f;
@@ -2636,9 +2643,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     {
                         if (_swimming)
                         {
-                            // Underwater mobs are bound to the water and never
+                            // Submerged mobs are bound to the water and never
                             // haul out onto a bank.
-                            if (!_simState.MobData.underwaterPhysics)
+                            if (!_simState.MobData.SubmergedWhileSwimming)
                             {
                                 TryWaterExit(dir);
                             }
@@ -2765,10 +2772,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             else if (aiOutput.investigation.HasValue)
             {
                 _simState.Investigation = aiOutput.investigation.Value;
-            }
-            if (aiOutput.yell)
-            {
-                Yell(aiOutput.targetPos);
             }
             // Two-phase burrow. When aiOutput.burrow first goes true we start
             // a Burrowing descent and arm burrowTime. Once the timer elapses
@@ -3181,44 +3184,57 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // First-hit yell so nearby mobs converge to investigate. After
         // Damage so a killing or incapacitating blow doesn't yell — CC'd
         // mobs are silent for the same reason TickAI suppresses their
-        // AIOutput. Yell() flips _simState.Yelled, mirroring the
+        // AIOutput. The Yell vocalization flips _simState.Yelled, mirroring the
         // AIOutput-driven path from BehaviorAttack / BehaviorFlee.
         if (alive && !incapacitated && !_simState.Yelled && hit.source is Node3D sourceNode)
         {
-            Yell(sourceNode.GlobalPosition);
+            Vocalize(EVocalization.Yell, sourceNode.GlobalPosition);
         }
     }
 
-    // Shared yell path used by both the AIOutput-driven yell (set by combat
-    // behaviors on first sighting) and the damage-driven yell from Hit().
-    // Owns the _simState.Yelled flip so callers never set it directly.
-    private void Yell(Vector3 targetPos)
+    // Broadcast a directed investigation from a Yell to every mob that can hear
+    // it. "Can hear" reuses the decibels model — the yell is audible to a
+    // receiver within decibels * its hearingRange (wind/fog adjusted) — so a
+    // keen-eared mob is summoned from farther than a dull one. Allies walk over
+    // to inspect; everyone else only glances (lookOnly). Whether an ally
+    // actually investigates vs looks is still up to its brain (does it wire an
+    // investigate behavior) — see HasActionableInvestigationCondition.
+    private void BroadcastInvestigation(Vector3 point, float decibels)
     {
-        SpawnVoice(_voice?.yell);
-        Discover();
+        if (decibels <= 0f || _world?.MobSpatialHash == null || mobData == null)
+        {
+            return;
+        }
         using (Profiler.Sample("Mob.YellBroadcast"))
         {
-            // Only the mobs in nearby cells, not every mob in the world.
+            // Generous spatial bound (the precise per-receiver gate is below);
+            // MaxListenerHearingRange caps how far any receiver's hearing reaches.
             _yellReceivers.Clear();
-            _world.MobSpatialHash.QueryRadius(GlobalPosition, _simState.MobData.yellVolume, _yellReceivers, exclude: this);
-            ETeam yellerTeam = _simState.MobData.team;
+            _world.MobSpatialHash.QueryRadius(GlobalPosition, decibels * MaxListenerHearingRange, _yellReceivers, exclude: this);
+            ETeam yellerTeam = mobData.team;
             foreach (Mob mob in _yellReceivers)
             {
                 MobData receiverData = mob.mobData;
-                // Allies investigate the alarm (walk over); everyone else only
-                // glances toward it. Whether an ally actually investigates vs
-                // looks is still up to its brain (does it wire an investigate
-                // behavior) — see HasActionableInvestigationCondition.
+                if (receiverData == null)
+                {
+                    continue;
+                }
+                float audibleDistance = decibels * receiverData.hearingRange
+                    * PlayerPerception.HearingRangeMultiplier(_world, mob.GlobalPosition);
+                if (audibleDistance <= 0f
+                    || GlobalPosition.DistanceSquaredTo(mob.GlobalPosition) > audibleDistance * audibleDistance)
+                {
+                    continue;
+                }
                 bool lookOnly = receiverData.team != yellerTeam;
                 mob.Investigate(
-                    targetPos,
-                    receiverData.yellInvestigateRange,
-                    (ulong)(receiverData.yellInvestigateCancelTime * 1000f),
-                    (ulong)(receiverData.yellInvestigatePauseTime * 1000f),
+                    point,
+                    receiverData.investigateRange,
+                    (ulong)(receiverData.investigateCancelTime * 1000f),
+                    (ulong)(receiverData.investigatePauseTime * 1000f),
                     lookOnly);
             }
         }
-        _simState.Yelled = true;
     }
 
     // Crit decision — combines an unconditional "untriggered mob is always
@@ -4186,29 +4202,44 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         Fx.Create(scene, _world, GlobalPosition);
     }
 
-    // Turn a behavior's vocalization intent into the authored cue. The behavior
-    // layer only names the vocalization (AIOutput.vocalization); this maps it to
-    // the per-species Fx scene wired in the mob .tscn. World-parented so it stays
-    // put as the mob keeps moving, matching the footstep / voice convention.
-    // Missing keys (a species with nothing to say for that intent) no-op.
-    private void Vocalize(EVocalization vocalization)
+    // Perform a behavior's vocalization intent (AIOutput.vocalization). The
+    // single sound path for every mob noise: presentation + the sim-side hearing
+    // signal. The behavior layer only names the type (and, for a Yell, the
+    // investigatePoint it's reacting to); everything client-facing is wired in
+    // the mob .tscn (_vocalizationEffects Fx, _voice clips), keeping behaviors
+    // free of content.
+    //
+    // - Presentation: the per-type Fx (bark/growl/snarl/...), plus the dedicated
+    //   voice shout for a Yell (it predates the Fx map, authored on VoiceData).
+    // - Hearing: a noise carrying VoiceDecibels raises the PLAYER's awareness of
+    //   this mob (the player-side of movement noise). It primes the perception
+    //   meter but never latches Detected/Discovered on its own — except a Yell,
+    //   which forces Discover() (a mob that shouts to engage is unmissable) and
+    //   broadcasts a directed investigation to nearby MOBS (the old yell, now
+    //   one branch of this path). Other vocalizations don't alert other mobs.
+    private void Vocalize(EVocalization vocalization, Vector3 investigatePoint)
     {
-        PackedScene scene = null;
-        bool found = _vocalizationEffects != null && _vocalizationEffects.TryGetValue(vocalization, out scene);
-        if (CVars.companionDebug.Value)
-        {
-            GD.Print($"[companion] {mobData?.displayName} Vocalize {vocalization} found={found} dictCount={_vocalizationEffects?.Count ?? -1}");
-        }
-        if (found)
+        if (_vocalizationEffects != null
+            && _vocalizationEffects.TryGetValue(vocalization, out PackedScene scene) && scene != null)
         {
             SpawnWorldEffect(scene);
         }
-        // A vocalization is an audible sound: the player grows more aware of this
-        // mob by ear, but it doesn't alert other mobs (enemies don't investigate
-        // a bark). Fired on the intent, not gated on a wired Fx.
-        if (mobData != null && mobData.vocalizationDecibels > 0f)
+
+        float decibels = mobData?.VoiceDecibels ?? 0f;
+        if (decibels > 0f)
         {
-            _world?.CreateNoiseEvent(GlobalPosition, mobData.vocalizationDecibels, this, ENoiseAudience.Player);
+            _world?.CreateNoiseEvent(GlobalPosition, decibels, this, ENoiseAudience.Player);
+        }
+
+        if (vocalization == EVocalization.Yell)
+        {
+            SpawnVoice(_voice?.yell);
+            Discover();
+            BroadcastInvestigation(investigatePoint, decibels);
+            if (_simState != null)
+            {
+                _simState.Yelled = true;
+            }
         }
     }
 

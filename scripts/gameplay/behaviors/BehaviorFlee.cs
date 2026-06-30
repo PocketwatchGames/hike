@@ -48,7 +48,7 @@ public partial class BehaviorFlee : BehaviorBase
         // engagement yells again.
         if (!me.yelled && targetPerception.canSee)
         {
-            output.yell = true;
+            output.vocalization = EVocalization.Yell;
             output.targetPos = target.GlobalPosition;
         }
 

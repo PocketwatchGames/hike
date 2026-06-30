@@ -67,7 +67,7 @@ public partial class BehaviorAttack : BehaviorBase
         // yells again.
         if (!me.yelled && canSee)
         {
-            output.yell = true;
+            output.vocalization = EVocalization.Yell;
         }
 
         output.targetPos = targetPos;

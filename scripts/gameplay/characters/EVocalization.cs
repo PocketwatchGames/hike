@@ -14,4 +14,9 @@ public enum EVocalization
     Bark = 2,    // alarmed warning at a dangerous enemy in sight
     Whimper = 3, // injured cry on returning from a fight hurt
     Curious = 4, // inquisitive woof at a harmless creature noticed mid-sniff
+    // Alarm shout on engaging / being hit: the loud one. Beyond the shared
+    // vocalization handling (Fx + player-awareness noise) it also forces the
+    // player to Discover the mob and broadcasts a directed investigation to
+    // nearby mobs (allies converge, others glance) — see Mob.Vocalize.
+    Yell = 5,
 }

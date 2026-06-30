@@ -45,7 +45,7 @@ public partial class BehaviorFlyFlee : BehaviorBase
         Player threat = targetPerception.pawnTarget;
         if (threat != null && !me.yelled && targetPerception.canSee)
         {
-            output.yell = true;
+            output.vocalization = EVocalization.Yell;
             output.targetPos = threat.GlobalPosition;
         }
 

@@ -132,7 +132,7 @@ public static class NavigationGoals
             // A land mob won't stand at the bottom of a deep water body. The
             // accepted voxel is Water only when the whole column is water over
             // a solid floor; reject it once that column reaches swim depth.
-            if (here == VoxelType.Water && profile.avoidsDeepWater)
+            if (here == VoxelType.Water && profile.AvoidsDeepWater)
             {
                 int depth = 1;
                 while (ws.IsInBounds(wx, wy + depth, wz) && ws.GetVoxelWorld(wx, wy + depth, wz) == VoxelType.Water)
