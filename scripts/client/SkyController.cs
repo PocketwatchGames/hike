@@ -1188,9 +1188,9 @@ public partial class SkyController : Node3D
         _timeOfDay01 = t;
 
         SimData sim = World.Current?.WorldState?.SimData;
-        float sunMaxElev = sim?.SunMaxElevationDegrees ?? 60f;
-        float noonAzimuth = sim?.NoonAzimuthDegrees ?? 45f;
-        float sunsetAngle = sim?.SunsetAngleDegrees ?? 15f;
+        float sunMaxElev = sim?.sunMaxElevationDegrees ?? 60f;
+        float noonAzimuth = sim?.noonAzimuthDegrees ?? 45f;
+        float sunsetAngle = sim?.sunsetAngleDegrees ?? 15f;
 
         // Shared orbit basis. noonDir is the sun-at-noon direction on the
         // celestial sphere (azimuth + max elevation); eastDir is horizontal
@@ -1285,7 +1285,7 @@ public partial class SkyController : Node3D
         CurrentPrimaryIntensity = Mathf.Lerp(effDayIntensity, effNightIntensity, _palette.NightT);
 
         SimData sim = World.Current?.WorldState?.SimData;
-        float sunsetAngle = sim?.SunsetAngleDegrees ?? 10f;
+        float sunsetAngle = sim?.sunsetAngleDegrees ?? 10f;
 
         // DirectionalLight3D energy crossfade — keyed off each body's
         // REMAPPED light-direction elevation (clamped at sunsetAngle
@@ -1354,7 +1354,7 @@ public partial class SkyController : Node3D
         if (moonLight != null) { moonLight.LightAngularDistance = effShadowAngular; }
 
         // _nightT for disk glow fade. Same formula as WeatherDerivation.PhaseWeights.
-        float colorRange = Mathf.Max(sim?.SunsetColorRangeDegrees ?? 10f, 0.01f);
+        float colorRange = Mathf.Max(sim?.sunsetColorRangeDegrees ?? 10f, 0.01f);
         float dayNightThreshold = sunsetAngle + colorRange;
         float nightT = 1f - Mathf.SmoothStep(-dayNightThreshold, dayNightThreshold, _sunElevationDegrees);
 
@@ -1368,7 +1368,7 @@ public partial class SkyController : Node3D
         // (the disk is invisible there anyway via the shader's sun_up gate).
         // Humidity and dust then attenuate multiplicatively — thicker air
         // scatters the disk softer regardless of time-of-day.
-        float sunMaxElevRad = Mathf.DegToRad(sim?.SunMaxElevationDegrees ?? 60f);
+        float sunMaxElevRad = Mathf.DegToRad(sim?.sunMaxElevationDegrees ?? 60f);
         float sinMaxElev = Mathf.Max(Mathf.Sin(sunMaxElevRad), 1e-4f);
         float sunPhaseT = Mathf.Clamp(Mathf.Sin(Mathf.DegToRad(_sunElevationDegrees)) / sinMaxElev, 0f, 1f);
         float humidityForDisk = Weather?.humidity ?? 0f;
@@ -1384,7 +1384,7 @@ public partial class SkyController : Node3D
         // the moon. fadeTod is clamped to half the active window (0.25
         // of a day) so very long fade times produce a triangular peak
         // rather than overlapping past 1.
-        float dayLengthSec = Mathf.Max(sim?.DayLengthSeconds ?? 600f, 0.01f);
+        float dayLengthSec = Mathf.Max(sim?.dayLengthSeconds ?? 600f, 0.01f);
         float fadeTod = Mathf.Clamp(sunDiskFadeTime / dayLengthSec, 0f, 0.25f);
         float sunDiskFade = ComputeDiskFade(_timeOfDay01, 0.25, 0.75, fadeTod);
         float moonDiskFade = ComputeDiskFade(_timeOfDay01, 0.75, 1.25, fadeTod);
@@ -1522,7 +1522,7 @@ public partial class SkyController : Node3D
         // shrinks them. Formula divides the UV multiplier so the cell size
         // in world units grows with the response factor.
         SimData sim2 = World.Current?.WorldState?.SimData;
-        float rippleWindRef = sim2?.RippleWindRef ?? 10f;
+        float rippleWindRef = sim2?.rippleWindRef ?? 10f;
         float windFrac = Mathf.Clamp((Weather?.windSpeed ?? 0f) / Mathf.Max(rippleWindRef, 0.1f), 0f, 1f);
         float scaleShift = 1f / Mathf.Max(1f + rippleScaleWindResponse * windFrac, 0.1f);
         float effRippleScaleA = rippleScaleA * scaleShift;
@@ -1703,7 +1703,7 @@ public partial class SkyController : Node3D
         float washCloudCover = weather?.cloudCover ?? 0f;
         float washDust = weather?.dustAmount ?? 0.1f;
         float washHumidity = weather?.humidity ?? 0.5f;
-        float washDustFromHumidity = sim?.DustFromHumidity ?? 0.5f;
+        float washDustFromHumidity = sim?.dustFromHumidity ?? 0.5f;
         float washEffDust = Mathf.Clamp(washDust + washHumidity * washDustFromHumidity, 0f, 1f);
         float washCover = shaftWashBaseline + shaftWashCloudGain * washCloudCover * washCloudCover;
         float washIntensity = Mathf.Min(shaftWashMax, washEffDust * washCover);
@@ -1878,7 +1878,7 @@ public partial class SkyController : Node3D
             Mathf.Max(fogClamped * wetnessFromFog, humidity * wetnessFromHumidity));
         target = Mathf.Clamp(target, 0f, 1f);
         // 24 game-hours * 60 game-min = 1440 game-min/day.
-        float dayLength = Mathf.Max(sim.DayLengthSeconds, 1f);
+        float dayLength = Mathf.Max(sim.dayLengthSeconds, 1f);
         float gameMinPerRealSec = (1440f / dayLength) * CVars.timeScale.Value;
         float dtGameMin = dt * gameMinPerRealSec;
         float halfLifeGameMin = Mathf.Max(wetnessHalfLifeGameMinutes, 1e-3f);

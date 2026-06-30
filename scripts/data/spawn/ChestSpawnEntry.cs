@@ -4,29 +4,29 @@ using Godot;
 [GlobalClass]
 public partial class ChestSpawnEntry : SpawnEntryData
 {
-    [Export] public PackedScene Scene;
+    [Export] public PackedScene scene;
     // Optional alternate scene chosen 50% of the time when set (e.g. a
     // poison chest variant). Null = always use Scene.
-    [Export] public PackedScene AltScene;
+    [Export] public PackedScene altScene;
     // Contents the chest drops on open, with per-item min/max for variance.
     // Ranges are rolled here at worldgen, then baked into the ChestSimState
     // as concrete ItemCounts — opening the chest just ejects the resolved
     // counts, so a chest that rolled "4 mushrooms" at gen time always
     // drops 4 (no re-roll on open, no surprise between save/load).
-    [Export] public ItemCountRange[] LootItems = [];
+    [Export] public ItemCountRange[] lootItems = [];
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Scene == null)
+        if (scene == null)
         {
             return;
         }
-        PackedScene chestScene = AltScene != null && rng.NextDouble() < 0.5
-            ? AltScene
-            : Scene;
+        PackedScene chestScene = altScene != null && rng.NextDouble() < 0.5
+            ? altScene
+            : scene;
         var chest = new ChestSimState(position, chestScene)
         {
-            LootItems = Resolve(LootItems, rng),
+            LootItems = Resolve(lootItems, rng),
             SpawnConditions = spawnConditions,
         };
         ws.AddEntity(chest);

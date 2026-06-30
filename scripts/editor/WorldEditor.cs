@@ -457,21 +457,21 @@ public partial class WorldEditor : Node3D
         {
             case "Tree":
             {
-                WeightedList<PackedScene> treeChances = WeightedScene.BuildList(cursorKit?.TreeScenes);
+                WeightedList<PackedScene> treeChances = WeightedScene.BuildList(cursorKit?.treeScenes);
                 return treeChances.Count > 0
                     ? new PropSimState(PropType.Tree, position, treeChances.Choose(GD.Randf() * treeChances.TotalWeight))
                     : null;
             }
             case "TallGrass":
             {
-                WeightedList<PackedScene> grassChances = WeightedScene.BuildList(cursorKit?.TallGrassScenes);
+                WeightedList<PackedScene> grassChances = WeightedScene.BuildList(cursorKit?.tallGrassScenes);
                 return grassChances.Count > 0
                     ? new PropSimState(PropType.Foliage, position, grassChances.Choose(GD.Randf() * grassChances.TotalWeight))
                     : null;
             }
             case "Loot":
             {
-                ItemDescriptor lootItem = brushPalette?.LootItem;
+                ItemDescriptor lootItem = brushPalette?.lootItem;
                 if (lootItem?.item == null) { return null; }
                 var lootSim = new LootSimState(position, lootItem.item);
                 if (lootItem.HasStatusEffects)
@@ -481,33 +481,33 @@ public partial class WorldEditor : Node3D
                 return lootSim;
             }
             case "Chest":
-                return brushPalette?.ChestScene != null
-                    ? new ChestSimState(position, brushPalette.ChestScene) { LootItems = ChestSpawnEntry.Resolve(brushPalette.ChestLoot, new Random()) }
+                return brushPalette?.chestScene != null
+                    ? new ChestSimState(position, brushPalette.chestScene) { LootItems = ChestSpawnEntry.Resolve(brushPalette.chestLoot, new Random()) }
                     : null;
             case "Torch":
-                return brushPalette?.TorchScene != null
-                    ? new TorchSimState(position, brushPalette.TorchScene)
+                return brushPalette?.torchScene != null
+                    ? new TorchSimState(position, brushPalette.torchScene)
                     : null;
             case "Door":
-                return brushPalette?.DoorScene != null
-                    ? new DoorSimState(position, 0f, brushPalette.DoorScene)
+                return brushPalette?.doorScene != null
+                    ? new DoorSimState(position, 0f, brushPalette.doorScene)
                     : null;
             case "ClimbableTree":
-                return brushPalette?.ClimbableTreeScene != null
-                    ? new ClimbableTreeSimState(position, brushPalette.ClimbableTreeScene)
+                return brushPalette?.climbableTreeScene != null
+                    ? new ClimbableTreeSimState(position, brushPalette.climbableTreeScene)
                     : null;
             case "SpikeTrap":
-                return brushPalette?.SpikeTrapScene != null
-                    ? new TrapSimState(position, brushPalette.SpikeTrapScene)
+                return brushPalette?.spikeTrapScene != null
+                    ? new TrapSimState(position, brushPalette.spikeTrapScene)
                     : null;
             case "Goblin":
             {
-                MobData data = brushPalette?.GoblinMob;
+                MobData data = brushPalette?.goblinMob;
                 return data?.mobScene != null ? new MobSimState(position, 0f, data.mobScene, data) : null;
             }
             case "KunKun":
             {
-                MobData data = brushPalette?.KunKunMob;
+                MobData data = brushPalette?.kunKunMob;
                 return data?.mobScene != null ? new MobSimState(position, 0f, data.mobScene, data) : null;
             }
             default:
@@ -1014,7 +1014,7 @@ public partial class WorldEditor : Node3D
     {
         var min = new Vector3I(-4, -1, -4);
         var max = new Vector3I(3, 1, 3);
-        var ws = new WorldState(min, max, genData.SimData);
+        var ws = new WorldState(min, max, genData.simData);
 
         // Mirror WorldGen's zone setup so the sky preview has something
         // to blend in the editor. ZoneIndex stays 0 across all chunks
@@ -1025,7 +1025,7 @@ public partial class WorldEditor : Node3D
         {
             ws.Zones[i] = new ZoneState
             {
-                Data = genData.ZoneGens[i]?.Zone,
+                Data = genData.ZoneGens[i]?.zone,
                 WindDirection = new Vector3(0.7f, 0f, 0.7f),
                 Elevation = 0f,
             };

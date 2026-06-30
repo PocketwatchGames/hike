@@ -98,7 +98,7 @@ public static class ChunkDetailScatter
                         continue;
                     }
                     DetailGroupData group = groups[groupIdx];
-                    if (group == null || group.Entries == null || group.Entries.Count == 0)
+                    if (group == null || group.entries == null || group.entries.Count == 0)
                     {
                         continue;
                     }
@@ -138,7 +138,7 @@ public static class ChunkDetailScatter
                         int TerrainId = getTerrainId(chunkWx + x, chunkWy + y, chunkWz + z);
                         if (TerrainId >= 0 && TerrainId < terrains.Length && terrains[TerrainId] != null)
                         {
-                            groundTint = terrains[TerrainId].GroundTint;
+                            groundTint = terrains[TerrainId].groundTint;
                         }
                         else
                         {
@@ -177,12 +177,12 @@ public static class ChunkDetailScatter
                         voxelType, chunkWx + x, chunkWy + y, chunkWz + z, getTerrainId, overlayId, terrains);
 
                     palette.Clear();
-                    for (int e = 0; e < group.Entries.Count; e++)
+                    for (int e = 0; e < group.entries.Count; e++)
                     {
-                        DetailEntry de = group.Entries[e];
+                        DetailEntry de = group.entries[e];
                         if (de != null)
                         {
-                            palette.Add(de, de.Weight);
+                            palette.Add(de, de.weight);
                         }
                     }
                     if (palette.TotalWeight <= 0f)
@@ -190,7 +190,7 @@ public static class ChunkDetailScatter
                         continue;
                     }
 
-                    int slots = group.InstancesPerVoxel;
+                    int slots = group.instancesPerVoxel;
                     for (int slot = 0; slot < slots; slot++)
                     {
                         // 4 independent sub-rolls per slot. Hash inputs include
@@ -206,7 +206,7 @@ public static class ChunkDetailScatter
                         uint entryRoll = Hash(chunkCoord, x, y, z, slot, 1);
                         float roll = ((entryRoll & 0xFFFFFF) / (float)0xFFFFFF) * palette.TotalWeight;
                         DetailEntry entry = palette.Choose(roll);
-                        if (entry == null || entry.Texture == null)
+                        if (entry == null || entry.texture == null)
                         {
                             continue;
                         }
@@ -223,15 +223,15 @@ public static class ChunkDetailScatter
                         float jz = INSET + (((posRoll >> 16) & 0xFFFF) / 65535f) * SPAN;
 
                         float scaleT = (shapeRoll & 0xFFFF) / 65535f;
-                        float scaleMult = Mathf.Lerp(entry.ScaleMin, entry.ScaleMax, scaleT);
+                        float scaleMult = Mathf.Lerp(entry.scaleMin, entry.scaleMax, scaleT);
 
                         // Per-instance world size comes from the texture's
                         // pixel dimensions divided by PIXELS_PER_UNIT, so
                         // trimming a PNG shrinks the sprite automatically.
                         // ScaleMult is the per-instance ScaleMin..ScaleMax
                         // roll — layered on as a uniform multiplier.
-                        float worldW = entry.Texture.GetWidth() / PIXELS_PER_UNIT * scaleMult;
-                        float worldH = entry.Texture.GetHeight() / PIXELS_PER_UNIT * scaleMult;
+                        float worldW = entry.texture.GetWidth() / PIXELS_PER_UNIT * scaleMult;
+                        float worldH = entry.texture.GetHeight() / PIXELS_PER_UNIT * scaleMult;
 
                         // Sit on top of the solid voxel. y+1 is the air-voxel
                         // floor. Transforms are emitted in WORLD space — the
@@ -277,7 +277,7 @@ public static class ChunkDetailScatter
             BlockData overlay = catalog.GetByAtlasIndex(overlayId);
             if (overlay != null)
             {
-                return overlay.Porosity;
+                return overlay.porosity;
             }
         }
 
@@ -285,16 +285,16 @@ public static class ChunkDetailScatter
         {
             int terrainId = getTerrainId(wx, wy, wz);
             if (terrains != null && terrainId >= 0 && terrainId < terrains.Length
-                && terrains[terrainId] != null && terrains[terrainId].FlatTile != null)
+                && terrains[terrainId] != null && terrains[terrainId].flatTile != null)
             {
-                return terrains[terrainId].FlatTile.Porosity;
+                return terrains[terrainId].flatTile.porosity;
             }
-            BlockData defaultFlat = catalog.DefaultFlatTile;
-            return defaultFlat != null ? defaultFlat.Porosity : DEFAULT_POROSITY;
+            BlockData defaultFlat = catalog.defaultFlatTile;
+            return defaultFlat != null ? defaultFlat.porosity : DEFAULT_POROSITY;
         }
 
         BlockData block = catalog.GetByAtlasIndex(VoxelTypeInfo.GetTileForFace(voxelType, 0));
-        return block != null ? block.Porosity : DEFAULT_POROSITY;
+        return block != null ? block.porosity : DEFAULT_POROSITY;
     }
 
     // FNV-1a 32-bit over the input bytes. Cheap and produces visually

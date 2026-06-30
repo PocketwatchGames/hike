@@ -20,13 +20,13 @@ public partial class PlayerAnimEvent : Resource
     // bake — the rebuild multiplies it by the final clip length. Range hint set
     // fine enough to dodge the sub-0.01 default-step snapping trap.
     [Export(PropertyHint.Range, "0,1,0.0001")]
-    public float NormalizedTime;
+    public float normalizedTime;
 
     // Method invoked on the rebuild's MethodTrackTarget node (the rig's
     // ModelAnimator) at NormalizedTime — e.g. "EmitFootstep". Empty = skipped.
-    [Export] public StringName Method = "";
+    [Export] public StringName method = "";
 
     // Optional arguments forwarded in the method-track key. Empty for parameter-
     // less cues like EmitFootstep.
-    [Export] public Godot.Collections.Array Args = new();
+    [Export] public Godot.Collections.Array args = new();
 }

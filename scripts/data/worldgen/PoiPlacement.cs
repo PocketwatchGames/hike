@@ -11,9 +11,9 @@ public partial class PoiPlacement : Resource
 {
     // The POI to anchor on (a name from ZoneData.PointsOfInterest). A placement
     // whose name doesn't resolve is skipped.
-    [Export] public string PoiName = "";
+    [Export] public string poiName = "";
 
     // Entries spawned at the POI position. Each entry's TrySpawn is invoked
     // there, so a placement can be a single signpost or a small cluster.
-    [Export] public SpawnListData Content;
+    [Export] public SpawnListData content;
 }

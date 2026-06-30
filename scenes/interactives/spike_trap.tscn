@@ -320,7 +320,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 [node name="Discoverable" type="Node3D" parent="." unique_id=971689703 node_paths=PackedStringArray("_hudAnchor", "_fadeMeshRoot", "_interactBox")]
 script = ExtResource("6_discoverable")
 losRayHeight = 0.0
-HudScene = ExtResource("15_hud")
+hudScene = ExtResource("15_hud")
 hudScale = 0.5
 _hudAnchor = NodePath("../HUDNode")
 _fadeMeshRoot = NodePath("../Node3D")

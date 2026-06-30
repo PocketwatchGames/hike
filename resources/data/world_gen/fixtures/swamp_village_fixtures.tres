@@ -26,14 +26,14 @@
 
 [sub_resource type="Resource" id="StoneRing"]
 script = ExtResource("5_ring")
-Scenes = [ExtResource("10_rock1"), ExtResource("11_rock2"), ExtResource("12_rock3")]
+scenes = [ExtResource("10_rock1"), ExtResource("11_rock2"), ExtResource("12_rock3")]
 metadata/_custom_type_script = "uid://ajwmjuqoukebq"
 
 [sub_resource type="Resource" id="Campfire_center"]
 script = ExtResource("4_camp")
-Scene = ExtResource("9_campscene")
-StartLit = true
-PlaceAtAnchor = true
+scene = ExtResource("9_campscene")
+startLit = true
+placeAtAnchor = true
 metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
 
 [sub_resource type="Resource" id="V1_top"]
@@ -57,14 +57,14 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [sub_resource type="Resource" id="Villager_1"]
 script = ExtResource("3_npc")
-Language = ExtResource("7_lang")
-Conversation = ExtResource("8_6mc61")
-Scene = ExtResource("16_villager_m")
-Outfit = PackedStringArray("M_hair_2b", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
-Palette = SubResource("V1_palette")
-IdleAnimation = &"idle_neutral"
-Descriptor = ExtResource("6_villager")
-InitialBehavior = null
+language = ExtResource("7_lang")
+conversation = ExtResource("8_6mc61")
+scene = ExtResource("16_villager_m")
+outfit = PackedStringArray("M_hair_2b", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
+palette = SubResource("V1_palette")
+idleAnimation = &"idle_neutral"
+descriptor = ExtResource("6_villager")
+initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="V2_top"]
@@ -95,14 +95,14 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [sub_resource type="Resource" id="Villager_2"]
 script = ExtResource("3_npc")
-Language = ExtResource("7_lang")
-Conversation = ExtResource("8_6mc61")
-Scene = ExtResource("17_villager_f")
-Outfit = PackedStringArray("F_hair_3", "F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")
-Palette = SubResource("V2_palette")
-IdleAnimation = &"idle_happy"
-Descriptor = ExtResource("6_villager")
-InitialBehavior = null
+language = ExtResource("7_lang")
+conversation = ExtResource("8_6mc61")
+scene = ExtResource("17_villager_f")
+outfit = PackedStringArray("F_hair_3", "F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")
+palette = SubResource("V2_palette")
+idleAnimation = &"idle_happy"
+descriptor = ExtResource("6_villager")
+initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="V3_top"]
@@ -126,14 +126,14 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [sub_resource type="Resource" id="Villager_3"]
 script = ExtResource("3_npc")
-Language = ExtResource("7_lang")
-Conversation = ExtResource("8_6mc61")
-Scene = ExtResource("16_villager_m")
-Outfit = PackedStringArray("M_hair_5", "M_TopBody", "M_BottomBody")
-Palette = SubResource("V3_palette")
-IdleAnimation = &"idle_nervous"
-Descriptor = ExtResource("6_villager")
-InitialBehavior = null
+language = ExtResource("7_lang")
+conversation = ExtResource("8_6mc61")
+scene = ExtResource("16_villager_m")
+outfit = PackedStringArray("M_hair_5", "M_TopBody", "M_BottomBody")
+palette = SubResource("V3_palette")
+idleAnimation = &"idle_nervous"
+descriptor = ExtResource("6_villager")
+initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="V4_top"]
@@ -157,14 +157,14 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [sub_resource type="Resource" id="Villager_4"]
 script = ExtResource("3_npc")
-Language = ExtResource("7_lang")
-Conversation = ExtResource("8_6mc61")
-Scene = ExtResource("17_villager_f")
-Outfit = PackedStringArray("F_hair_1", "F_Fighter_Top", "F_Fighter_Bottom")
-Palette = SubResource("V4_palette")
-IdleAnimation = &"idle_happy"
-Descriptor = ExtResource("6_villager")
-InitialBehavior = null
+language = ExtResource("7_lang")
+conversation = ExtResource("8_6mc61")
+scene = ExtResource("17_villager_f")
+outfit = PackedStringArray("F_hair_1", "F_Fighter_Top", "F_Fighter_Bottom")
+palette = SubResource("V4_palette")
+idleAnimation = &"idle_happy"
+descriptor = ExtResource("6_villager")
+initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="V5_top"]
@@ -188,28 +188,28 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [sub_resource type="Resource" id="Villager_5"]
 script = ExtResource("3_npc")
-Language = ExtResource("7_lang")
-Conversation = ExtResource("8_conv")
-Scene = ExtResource("16_villager_m")
-Outfit = PackedStringArray("M_hair_7", "M_Hunter_Top", "M_Hunter_Bottom")
-Palette = SubResource("V5_palette")
-IdleAnimation = &"idle_old_man"
-Descriptor = ExtResource("6_villager")
-InitialBehavior = null
+language = ExtResource("7_lang")
+conversation = ExtResource("8_conv")
+scene = ExtResource("16_villager_m")
+outfit = PackedStringArray("M_hair_7", "M_Hunter_Top", "M_Hunter_Bottom")
+palette = SubResource("V5_palette")
+idleAnimation = &"idle_old_man"
+descriptor = ExtResource("6_villager")
+initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="Dog"]
 script = ExtResource("13_mobentry")
-Descriptor = ExtResource("13_dog")
-InitialBehavior = null
+descriptor = ExtResource("13_dog")
+initialBehavior = null
 metadata/_custom_type_script = "uid://dhkkrl6qof485"
 
 [sub_resource type="Resource" id="Well"]
 script = ExtResource("14_wellentry")
-Scene = ExtResource("15_wellscene")
+scene = ExtResource("15_wellscene")
 metadata/_custom_type_script = "uid://b7gskt20b7441"
 
 [resource]
 script = ExtResource("2_group")
-ScatterRadius = 8.0
-Entries = Array[ExtResource("1_base")]([SubResource("StoneRing"), SubResource("Campfire_center"), SubResource("Villager_1"), SubResource("Villager_2"), SubResource("Villager_3"), SubResource("Villager_4"), SubResource("Villager_5"), SubResource("Dog"), SubResource("Well")])
+scatterRadius = 8.0
+entries = Array[ExtResource("1_base")]([SubResource("StoneRing"), SubResource("Campfire_center"), SubResource("Villager_1"), SubResource("Villager_2"), SubResource("Villager_3"), SubResource("Villager_4"), SubResource("Villager_5"), SubResource("Dog"), SubResource("Well")])

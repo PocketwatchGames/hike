@@ -256,7 +256,7 @@ public partial class ItemInfoPanel : PanelContainer
 		}
 		if (_levelProgress != null)
 		{
-			var thresholds = World.Current?.SimData?.ExpPerLevel;
+			var thresholds = World.Current?.SimData?.expPerLevel;
 			int cap = thresholds != null ? System.Math.Min(maxLevel, thresholds.Count) : 0;
 			float ratio;
 			if (thresholds == null || level >= cap)

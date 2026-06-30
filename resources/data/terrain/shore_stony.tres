@@ -5,8 +5,8 @@
 
 [resource]
 script = ExtResource("2_2gm20")
-Name = "Shore Stony"
-FlatTile = ExtResource("3_block_flat")
-WallBand = Vector2(0.3, 0.75)
-BlendAmp = 0.55
-GroundTint = Color(0.16, 0.15850666, 0.1568, 1)
+name = "Shore Stony"
+flatTile = ExtResource("3_block_flat")
+wallBand = Vector2(0.3, 0.75)
+blendAmp = 0.55
+groundTint = Color(0.16, 0.15850666, 0.1568, 1)

@@ -7,11 +7,11 @@
 
 [sub_resource type="Resource" id="Campfire_zone"]
 script = ExtResource("3_camp")
-Scene = ExtResource("4_campscene")
-StartLit = true
+scene = ExtResource("4_campscene")
+startLit = true
 metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
 
 [resource]
 script = ExtResource("2_group")
-ScatterRadius = 0.0
-Entries = Array[ExtResource("1_base")]([SubResource("Campfire_zone")])
+scatterRadius = 0.0
+entries = Array[ExtResource("1_base")]([SubResource("Campfire_zone")])

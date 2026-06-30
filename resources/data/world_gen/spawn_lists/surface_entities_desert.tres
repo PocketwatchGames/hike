@@ -15,43 +15,43 @@
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("3_3y2ux")
-Descriptor = ExtResource("2_ajkyq")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 1000.0
+descriptor = ExtResource("2_ajkyq")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 1000.0
 
 [sub_resource type="Resource" id="Resource_goblin_elite"]
 script = ExtResource("3_3y2ux")
-Descriptor = ExtResource("2_desert_elite")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 6667.0
+descriptor = ExtResource("2_desert_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 6667.0
 
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("3_3y2ux")
-Descriptor = ExtResource("4_epbtr")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.8
-SquareMetersPerSpawn = 200.0
+descriptor = ExtResource("4_epbtr")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.8
+squareMetersPerSpawn = 200.0
 spawnConditions = 2
 
 [sub_resource type="Resource" id="Resource_well"]
 script = ExtResource("9_well_entry")
-Scene = ExtResource("10_well_scene")
-SquareMetersPerSpawn = 2000.0
+scene = ExtResource("10_well_scene")
+squareMetersPerSpawn = 2000.0
 
 [sub_resource type="Resource" id="Resource_spiketrap"]
 script = ExtResource("11_trap_entry")
-Scene = ExtResource("12_trap_scene")
-SquareMetersPerSpawn = 600.0
+scene = ExtResource("12_trap_scene")
+squareMetersPerSpawn = 600.0
 
 [sub_resource type="Resource" id="Resource_spider"]
 script = ExtResource("3_3y2ux")
-Descriptor = ExtResource("20_spider")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 800.0
+descriptor = ExtResource("20_spider")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 800.0
 
 [resource]
 script = ExtResource("8_88i6m")
-Entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap"), SubResource("Resource_spider")])
+entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap"), SubResource("Resource_spider")])

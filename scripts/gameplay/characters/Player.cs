@@ -21,7 +21,7 @@ public partial class Player : CharacterBody3D
 	// World-space anchor (head height) used to project a screen-space point
 	// above the player for HUD elements that float over the character — e.g.
 	// the transient status-effect notification. Mirrors Mob.HudAnchor.
-	[Export] public Node3D HudAnchor;
+	[Export] public Node3D hudAnchor;
 	[Export] private HurtBox _hurtBox;
 	// Per-gender base model packages, keyed by (int)EGender. Each value is a
 	// PlayerModelPackage scene (model + ModelAnimator + HeldItemVisual +
@@ -1494,7 +1494,7 @@ public partial class Player : CharacterBody3D
 		}
 		else if (!_grounded)
 		{
-			float gravity = (_jumpHeld && Velocity.Y > 0) ? _world.SimData.Gravity * data.jumpHoldGravityScale : _world.SimData.Gravity;
+			float gravity = (_jumpHeld && Velocity.Y > 0) ? _world.SimData.gravity * data.jumpHoldGravityScale : _world.SimData.gravity;
 			Velocity += Vector3.Down * gravity * dt;
 			// Two-axis air drag. Skipped while dashing — the dash action
 			// authors its own forced velocity and drag would fight it.
@@ -1753,13 +1753,13 @@ public partial class Player : CharacterBody3D
 			}
 			else
 			{
-				float vt = _world.SimData.PlayerStuckVelocityThreshold;
+				float vt = _world.SimData.playerStuckVelocityThreshold;
 				float tickThreshold = vt * dt;
 				float displacementSq = (GlobalPosition - _lastTickPosition).LengthSquared();
 				if (displacementSq > tickThreshold * tickThreshold || _stuckCheckDeadlineMs == 0)
 				{
 					_stuckCheckDeadlineMs = _world.GameTimeMs
-						+ (ulong)(_world.SimData.PlayerStuckTimeoutSeconds * 1000);
+						+ (ulong)(_world.SimData.playerStuckTimeoutSeconds * 1000);
 				}
 				else if (_world.GameTimeMs >= _stuckCheckDeadlineMs)
 				{

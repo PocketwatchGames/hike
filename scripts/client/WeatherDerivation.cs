@@ -31,10 +31,10 @@ public static class WeatherDerivation
 
         // Safe fallbacks so editor previews render even before zones
         // / weather / sim are fully wired.
-        Color sunC = zone?.SunColor ?? new Color(1.0f, 0.96f, 0.88f);
-        Color moonC = zone?.MoonColor ?? new Color(0.55f, 0.6f, 0.75f);
-        Color skyC = zone?.SkyColor ?? new Color(0.25f, 0.48f, 0.82f);
-        Color dustC = zone?.DustColor ?? new Color(0.85f, 0.78f, 0.6f);
+        Color sunC = zone?.sunColor ?? new Color(1.0f, 0.96f, 0.88f);
+        Color moonC = zone?.moonColor ?? new Color(0.55f, 0.6f, 0.75f);
+        Color skyC = zone?.skyColor ?? new Color(0.25f, 0.48f, 0.82f);
+        Color dustC = zone?.dustColor ?? new Color(0.85f, 0.78f, 0.6f);
         p.DustColor = dustC;
 
         float cloudCover = weather?.cloudCover ?? 0f;
@@ -77,9 +77,9 @@ public static class WeatherDerivation
         // shapes the cooling route; EvaporativeFogStrength caps the evaporative
         // route below full so radiation/precipitation stay the HEAVIEST fog (most
         // fog stays diurnal). Rain has no exponent.
-        float fogFromHumidity = sim?.FogFromHumidity ?? 1.5f;
-        float radiationFogSharpness = sim?.RadiationFogSharpness ?? 1.0f;
-        float evaporativeStrength = sim?.EvaporativeFogStrength ?? 0.35f;
+        float fogFromHumidity = sim?.fogFromHumidity ?? 1.5f;
+        float radiationFogSharpness = sim?.radiationFogSharpness ?? 1.0f;
+        float evaporativeStrength = sim?.evaporativeFogStrength ?? 0.35f;
         float coolDiurnal = 1f - WeatherSimulation.DiurnalCurve(timeOfDay01, sim);
         // Air-mass moisture: the wetter of this place's climate humidity (the value
         // worldgen bakes the fog_map from) and the live advected humidity. Editor
@@ -102,13 +102,13 @@ public static class WeatherDerivation
         // turning a nearly-dry desert's residual humidity into visible haze;
         // heavy fog is barely touched. Applied at the source so the disk /
         // water fog reads agree that a dry zone has no fog.
-        float fogFloor = sim?.FogFloor ?? 0.1f;
+        float fogFloor = sim?.fogFloor ?? 0.1f;
         fog = fogFloor < 1f ? Mathf.Clamp((fog - fogFloor) / (1f - fogFloor), 0f, 1f) : 0f;
         p.Fog = fog;
 
         // Phase weights (day / sunset / night).
-        float sunsetAngle = sim?.SunsetAngleDegrees ?? 15f;
-        float colorRange = sim?.SunsetColorRangeDegrees ?? 10f;
+        float sunsetAngle = sim?.sunsetAngleDegrees ?? 15f;
+        float colorRange = sim?.sunsetColorRangeDegrees ?? 10f;
         PhaseWeights(sunElevationDegrees, sunsetAngle, colorRange, out float nightT, out float sunsetT);
 
         // Combined atmospheric haze — used everywhere fills / fog / etc.
@@ -119,9 +119,9 @@ public static class WeatherDerivation
         // SunColor shifted toward an amber target, with extra dust-
         // driven push toward DustColor. The amber bias scales with
         // dustAmount so a clean sky keeps a gentler sunset.
-        float sunsetWarmth = sim?.SunsetWarmthBias ?? 0.35f;
-        float sunsetDustBias = sim?.SunsetDustBias ?? 0.35f;
-        Color sunsetAmber = sim?.SunsetAmberTarget ?? new Color(1.0f, 0.5f, 0.2f);
+        float sunsetWarmth = sim?.sunsetWarmthBias ?? 0.35f;
+        float sunsetDustBias = sim?.sunsetDustBias ?? 0.35f;
+        Color sunsetAmber = sim?.sunsetAmberTarget ?? new Color(1.0f, 0.5f, 0.2f);
         Color sunsetPrimary = sunC.Lerp(sunsetAmber, sunsetWarmth * (0.5f + 0.5f * dustAmount));
         sunsetPrimary = sunsetPrimary.Lerp(dustC, sunsetDustBias * dustAmount);
 
@@ -137,14 +137,14 @@ public static class WeatherDerivation
         // The cloud KNEE is reused below to drive the ambient lift so
         // direct and ambient track together (inverse during dimming,
         // both at baseline below the knee).
-        float overcastDim = sim?.OvercastDim ?? 0.4f;
-        float humidityDim = sim?.HumidityDim ?? 0.8f;
-        float kneeStartBase = sim?.OvercastKneeStart ?? 0.5f;
-        float kneeEndBase = sim?.OvercastKneeEnd ?? 1.0f;
-        float humidityKneeShift = sim?.HumidityKneeShift ?? 0.3f;
-        float sunsetIntFactor = sim?.SunsetIntensityFactor ?? 0.7f;
-        float dayIntBase = sim?.DayIntensityBase ?? 2f;
-        float nightIntBase = sim?.NightIntensityBase ?? 0.75f;
+        float overcastDim = sim?.overcastDim ?? 0.4f;
+        float humidityDim = sim?.humidityDim ?? 0.8f;
+        float kneeStartBase = sim?.overcastKneeStart ?? 0.5f;
+        float kneeEndBase = sim?.overcastKneeEnd ?? 1.0f;
+        float humidityKneeShift = sim?.humidityKneeShift ?? 0.3f;
+        float sunsetIntFactor = sim?.sunsetIntensityFactor ?? 0.7f;
+        float dayIntBase = sim?.dayIntensityBase ?? 2f;
+        float nightIntBase = sim?.nightIntensityBase ?? 0.75f;
 
         // Slide the knee based on humidity, centered so humidity=0.5 is
         // neutral. Dry air lets sun break through even heavy cloud
@@ -162,7 +162,7 @@ public static class WeatherDerivation
         // it. min() means EITHER condition being wet/cloudy cancels the
         // boost — a cloudless humid jungle stays at baseline, a desert
         // with thin cloud drops it accordingly.
-        float aridBoostMax = sim?.AridBoostMax ?? 1.5f;
+        float aridBoostMax = sim?.aridBoostMax ?? 1.5f;
         float aridFactor = Mathf.Min(1f - humidity, 1f - cloudCover);
         float aridBoost = Mathf.Lerp(1f, aridBoostMax, aridFactor);
 
@@ -191,12 +191,12 @@ public static class WeatherDerivation
         // still drops in thick cloud because the direct loss exceeds
         // the ambient gain. For CLOUD-shadow softness (not terrain-
         // shadow lift) use SkyController.cloudShadowStrength instead.
-        float dayAmbBase = sim?.DayAmbientBase ?? 0.15f;
-        float ambHum = sim?.AmbientHumidityLift ?? 0.1f;
-        float ambCloud = sim?.AmbientCloudLift ?? 0.6f;
-        float nightAmbBase = sim?.NightAmbientBase ?? 0.08f;
-        float nightAmbHum = sim?.NightAmbientHumidityLift ?? 0.05f;
-        float sunsetAmbFactor = sim?.SunsetAmbientFactor ?? 1.1f;
+        float dayAmbBase = sim?.dayAmbientBase ?? 0.15f;
+        float ambHum = sim?.ambientHumidityLift ?? 0.1f;
+        float ambCloud = sim?.ambientCloudLift ?? 0.6f;
+        float nightAmbBase = sim?.nightAmbientBase ?? 0.08f;
+        float nightAmbHum = sim?.nightAmbientHumidityLift ?? 0.05f;
+        float sunsetAmbFactor = sim?.sunsetAmbientFactor ?? 1.1f;
 
         float dayAmbient = Mathf.Clamp(dayAmbBase + humidity * ambHum + cloudKnee * ambCloud, 0f, 1f);
         float nightAmbient = Mathf.Clamp(nightAmbBase + humidity * nightAmbHum, 0f, 1f);
@@ -204,15 +204,15 @@ public static class WeatherDerivation
         p.Ambient = Mathf.Lerp(Mathf.Lerp(dayAmbient, nightAmbient, nightT), sunsetAmbient, sunsetT);
 
         // --- Sky horizon / zenith colors ----------------------------
-        float horizonBrightness = sim?.DayHorizonBrightness ?? 1.2f;
-        float horizonWarmBias = sim?.DayHorizonWarmBias ?? 0.3f;
-        float horizonHumidityHaze = sim?.DayHorizonHumidityHaze ?? 0.4f;
-        float nightZenithScale = sim?.NightZenithSkyScale ?? 0.05f;
-        float nightHorizonScale = sim?.NightHorizonSkyScale ?? 0.18f;
-        float nightHorizonMoonBleed = sim?.NightHorizonMoonBleed ?? 0.15f;
-        float sunsetZenithScale = sim?.SunsetZenithSkyScale ?? 0.4f;
-        Color sunsetPurple = sim?.SunsetZenithPurple ?? new Color(0.35f, 0.15f, 0.45f);
-        float sunsetHumidityPurple = sim?.SunsetZenithHumidityPurple ?? 0.4f;
+        float horizonBrightness = sim?.dayHorizonBrightness ?? 1.2f;
+        float horizonWarmBias = sim?.dayHorizonWarmBias ?? 0.3f;
+        float horizonHumidityHaze = sim?.dayHorizonHumidityHaze ?? 0.4f;
+        float nightZenithScale = sim?.nightZenithSkyScale ?? 0.05f;
+        float nightHorizonScale = sim?.nightHorizonSkyScale ?? 0.18f;
+        float nightHorizonMoonBleed = sim?.nightHorizonMoonBleed ?? 0.15f;
+        float sunsetZenithScale = sim?.sunsetZenithSkyScale ?? 0.4f;
+        Color sunsetPurple = sim?.sunsetZenithPurple ?? new Color(0.35f, 0.15f, 0.45f);
+        float sunsetHumidityPurple = sim?.sunsetZenithHumidityPurple ?? 0.4f;
 
         Color hazeColor = new Color(1f, 1f, 1f).Lerp(dustC, dustAmount);
         Color dayHorizon = ScaleColor(skyC, horizonBrightness);
@@ -235,10 +235,10 @@ public static class WeatherDerivation
         p.ZenithTint = dayZenith.Lerp(nightZenith, nightT).Lerp(sunsetZenith, sunsetT);
 
         // --- Fills --------------------------------------------------
-        float fillASkyBias = sim?.FillAFromSkyBias ?? 0.7f;
-        float fillBWhiteMix = sim?.FillBWhiteMix ?? 0.2f;
-        float fillDustPullK = sim?.FillDustPullK ?? 0.35f;
-        float fillDesatK = sim?.FillDesatK ?? 0.35f;
+        float fillASkyBias = sim?.fillAFromSkyBias ?? 0.7f;
+        float fillBWhiteMix = sim?.fillBWhiteMix ?? 0.2f;
+        float fillDustPullK = sim?.fillDustPullK ?? 0.35f;
+        float fillDesatK = sim?.fillDesatK ?? 0.35f;
 
         // Day: fillA mostly sky (cool bounce), fillB mostly sun lightened.
         Color dayFillA = sunC.Lerp(skyC, fillASkyBias);
@@ -291,9 +291,9 @@ public static class WeatherDerivation
         // just the fog's intrinsic color per zone. Only the sunset
         // pass gets a small explicit warm push since shaft_color
         // doesn't cover the AMBIENT fog contribution at low sun.
-        float fogDensityK = sim?.FogDensityK ?? 0.1f;
-        float ambientFogK = sim?.AmbientFogK ?? 0.005f;
-        float ambientFogHumidityK = sim?.AmbientFogHumidityK ?? 0f;
+        float fogDensityK = sim?.fogDensityK ?? 0.1f;
+        float ambientFogK = sim?.ambientFogK ?? 0.005f;
+        float ambientFogHumidityK = sim?.ambientFogHumidityK ?? 0f;
 
         Color dayFog = dustC;
         Color sunsetFog = dustC.Lerp(sunsetPrimary, 0.35f);
@@ -308,8 +308,8 @@ public static class WeatherDerivation
         // could only distinguish "night" from "day" and missed the
         // equally dim "stormy day" case. Smoothstepped with a floor
         // so fog doesn't snap to invisible at zero direct.
-        float fogIntensityReference = sim?.FogIntensityReference ?? 0.35f;
-        float fogIntensityFloor = sim?.FogIntensityFloor ?? 0.2f;
+        float fogIntensityReference = sim?.fogIntensityReference ?? 0.35f;
+        float fogIntensityFloor = sim?.fogIntensityFloor ?? 0.2f;
         float fogIntensityFactor = Mathf.SmoothStep(0f, fogIntensityReference, p.PrimaryIntensity);
         float fogPhaseScale = Mathf.Lerp(fogIntensityFloor, 1f, fogIntensityFactor);
 
@@ -318,7 +318,7 @@ public static class WeatherDerivation
         // authored fog values (mountain = 0.08) still read as visible
         // haze while high values (swamp = 0.6) don't over-saturate.
         // Old linear mapping made fog=0.6 look like pea soup.
-        float fogCurveExp = sim?.FogCurveExponent ?? 0.5f;
+        float fogCurveExp = sim?.fogCurveExponent ?? 0.5f;
         float fogShaped = fog > 0f ? Mathf.Pow(fog, fogCurveExp) : 0f;
         p.AmbientFogDensity = (fogShaped * ambientFogK + humidity * ambientFogHumidityK) * fogPhaseScale;
 
@@ -327,8 +327,8 @@ public static class WeatherDerivation
         // as additional haze droplets so humid zones can show shafts through
         // partial cloud even where authored dustAmount is low — the shader's
         // contrast gate still keeps them from washing out open sunlit air.
-        float dustDensityK = sim?.DustDensityK ?? 0.03f;
-        float dustFromHumidity = sim?.DustFromHumidity ?? 0.5f;
+        float dustDensityK = sim?.dustDensityK ?? 0.03f;
+        float dustFromHumidity = sim?.dustFromHumidity ?? 0.5f;
         float effectiveDustAmount = Mathf.Clamp(dustAmount + humidity * dustFromHumidity, 0f, 1f);
         p.DustDensity = effectiveDustAmount * dustDensityK;
 
@@ -347,10 +347,10 @@ public static class WeatherDerivation
         // regardless of humidity, and lets the same cloudCover produce
         // the same visible COVERAGE across sharpness variations while
         // only softness changes.
-        float cloudThresholdClear = sim?.CloudThresholdClear ?? 0.95f;
-        float cloudThresholdOvercast = sim?.CloudThresholdOvercast ?? 0.2f;
-        float cloudSharpnessDry = sim?.CloudSharpnessDry ?? 0.85f;
-        float cloudSharpnessHumid = sim?.CloudSharpnessHumid ?? 0.3f;
+        float cloudThresholdClear = sim?.cloudThresholdClear ?? 0.95f;
+        float cloudThresholdOvercast = sim?.cloudThresholdOvercast ?? 0.2f;
+        float cloudSharpnessDry = sim?.cloudSharpnessDry ?? 0.85f;
+        float cloudSharpnessHumid = sim?.cloudSharpnessHumid ?? 0.3f;
 
         // Base sharpness is humidity-driven (wet air = soft edges). At
         // cloudCover EXTREMES (<~15% or >~85%) we override back toward
@@ -370,7 +370,7 @@ public static class WeatherDerivation
         // range authored values (cc=0.5) produce visibly ~50% coverage
         // rather than underloading at ~30% through linear interpolation
         // against a typical FBM noise distribution.
-        float cloudCoverExponent = sim?.CloudCoverExponent ?? 0.7f;
+        float cloudCoverExponent = sim?.cloudCoverExponent ?? 0.7f;
         float shapedCloudCover = Mathf.Pow(cloudCover, cloudCoverExponent);
         float authoredThreshold = Mathf.Lerp(cloudThresholdClear, cloudThresholdOvercast, shapedCloudCover);
         float halfBand = (1f - p.CloudSharpness) * 0.5f;
@@ -384,7 +384,7 @@ public static class WeatherDerivation
         // (each channel's "when this source is primary" colour blended with
         // sunset primary by sunsetT). SkyController does the remaining
         // sun↔moon crossfade by horizon factors.
-        float shaftDustColorMix = sim?.ShaftDustColorMix ?? 0.3f;
+        float shaftDustColorMix = sim?.shaftDustColorMix ?? 0.3f;
         Color sunShaftDay = sunC.Lerp(dustC, shaftDustColorMix);
         Color moonShaftNight = moonC.Lerp(dustC, shaftDustColorMix * 0.5f);
         Color shaftSunset = sunsetPrimary.Lerp(dustC, shaftDustColorMix);
@@ -399,8 +399,8 @@ public static class WeatherDerivation
         // depth falloff), reflection (denser surface = better mirror),
         // refraction (particles scatter before light can bend cleanly),
         // and whitecap formation (viscous water resists air entrainment).
-        Color waterC = zone?.WaterColor ?? new Color(0.3f, 0.45f, 0.5f, 1f);
-        float muddy = Mathf.Clamp(zone?.WaterOpacity ?? 0.5f, 0f, 1f);
+        Color waterC = zone?.waterColor ?? new Color(0.3f, 0.45f, 0.5f, 1f);
+        float muddy = Mathf.Clamp(zone?.waterOpacity ?? 0.5f, 0f, 1f);
         p.WaterMuddiness = muddy;
 
         // Shallow tint is just the authored RGB. Depth tint is derived two
@@ -433,28 +433,28 @@ public static class WeatherDerivation
         // enough that the sun disk smeared across the whole surface.
         // Reference wind for ripple saturation (ripple_strength → 1 at this
         // speed pre-damping). Rain adds a flat contribution.
-        float rippleWindRef = sim?.RippleWindRef ?? 10f;
-        float rippleRainK = sim?.RippleRainK ?? 0.3f;
+        float rippleWindRef = sim?.rippleWindRef ?? 10f;
+        float rippleRainK = sim?.rippleRainK ?? 0.3f;
         float windFrac = Mathf.Clamp(windSpeed / Mathf.Max(rippleWindRef, 0.1f), 0f, 1f);
         float rippleBase = Mathf.Clamp(windFrac * windFrac + rainAmount * rippleRainK, 0f, 1f);
         p.RippleStrength = rippleBase * Mathf.Lerp(1.0f, 0.35f, muddy);
 
         // --- Wind rhythm --------------------------------------------
-        float windFreqBase = sim?.WindFreqBase ?? 1.0f;
-        float windFreqCloud = sim?.WindFreqCloud ?? 0.8f;
-        float gustFreqBase = sim?.GustFreqBase ?? 0.1f;
-        float gustFreqCloud = sim?.GustFreqCloud ?? 0.2f;
-        float gustMinFraction = sim?.GustMinFraction ?? 0.3f;
-        float gustCloudFraction = sim?.GustCloudFraction ?? 0.5f;
+        float windFreqBase = sim?.windFreqBase ?? 1.0f;
+        float windFreqCloud = sim?.windFreqCloud ?? 0.8f;
+        float gustFreqBase = sim?.gustFreqBase ?? 0.1f;
+        float gustFreqCloud = sim?.gustFreqCloud ?? 0.2f;
+        float gustMinFraction = sim?.gustMinFraction ?? 0.3f;
+        float gustCloudFraction = sim?.gustCloudFraction ?? 0.5f;
 
         p.WindFrequency = windFreqBase + cloudCover * windFreqCloud;
         p.GustFrequency = gustFreqBase + cloudCover * gustFreqCloud;
         p.GustStrength = windSpeed * (gustMinFraction + cloudCover * gustCloudFraction);
 
         // --- Rain ---------------------------------------------------
-        float rainWeightMin = sim?.RainWeightMin ?? 0.3f;
-        float rainWeightMax = sim?.RainWeightMax ?? 1.2f;
-        float rainIntensityExp = sim?.RainIntensityExponent ?? 1.25f;
+        float rainWeightMin = sim?.rainWeightMin ?? 0.3f;
+        float rainWeightMax = sim?.rainWeightMax ?? 1.2f;
+        float rainIntensityExp = sim?.rainIntensityExponent ?? 1.25f;
         // Drop COUNT shaped with pow>1 so a light authored rainAmount
         // (e.g. 0.3) emits visibly fewer drops than a linear mapping
         // would, while high values (≈1.0) stay near the authored count.

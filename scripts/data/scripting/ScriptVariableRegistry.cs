@@ -10,7 +10,7 @@ using Godot.Collections;
 [GlobalClass]
 public partial class ScriptVariableRegistry : Resource
 {
-    [Export] public Array<ScriptVariableData> Variables = new();
+    [Export] public Array<ScriptVariableData> variables = new();
 
     // Appends human-readable problems (null / empty / duplicate Ids) to
     // `issues`. Returns true when clean. Called at world load so a malformed
@@ -18,15 +18,15 @@ public partial class ScriptVariableRegistry : Resource
     public bool Validate(List<string> issues)
     {
         var seen = new HashSet<string>();
-        for (int i = 0; i < Variables.Count; i++)
+        for (int i = 0; i < variables.Count; i++)
         {
-            ScriptVariableData v = Variables[i];
+            ScriptVariableData v = variables[i];
             if (v == null)
             {
                 issues.Add($"ScriptVariableRegistry: null entry at index {i}");
                 continue;
             }
-            string id = v.Id.ToString();
+            string id = v.id.ToString();
             if (string.IsNullOrEmpty(id))
             {
                 issues.Add($"ScriptVariableRegistry: empty Id at index {i}");

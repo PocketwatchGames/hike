@@ -277,23 +277,23 @@ public static class CVars
         double daysUntilHandover = nextHandover - ws.TimeOfDayAbsolute;
 
         // Three storm-mode gates — match WeatherSimulation.Apply.
-        float wetGate = Godot.Mathf.SmoothStep(sim.LightningCloudThreshold, 1f, w.cloudCover)
-            * Godot.Mathf.SmoothStep(sim.LightningRainThreshold, 1f, w.rainAmount);
-        float dryGate = Godot.Mathf.SmoothStep(sim.DryLightningCloudThreshold, 1f, w.cloudCover)
-            * (1f - Godot.Mathf.SmoothStep(0f, sim.DryLightningHumidityMax, w.humidity))
-            * Godot.Mathf.SmoothStep(sim.DryLightningTempMin, sim.DryLightningTempMax, w.airTemperature);
+        float wetGate = Godot.Mathf.SmoothStep(sim.lightningCloudThreshold, 1f, w.cloudCover)
+            * Godot.Mathf.SmoothStep(sim.lightningRainThreshold, 1f, w.rainAmount);
+        float dryGate = Godot.Mathf.SmoothStep(sim.dryLightningCloudThreshold, 1f, w.cloudCover)
+            * (1f - Godot.Mathf.SmoothStep(0f, sim.dryLightningHumidityMax, w.humidity))
+            * Godot.Mathf.SmoothStep(sim.dryLightningTempMin, sim.dryLightningTempMax, w.airTemperature);
         // Elevation: use blended ZoneState if available.
         float elev = SkyController.Current?.ZoneState.Elevation ?? 0f;
-        float orographicGate = Godot.Mathf.SmoothStep(sim.OrographicLightningCloudThreshold, 1f, w.cloudCover)
-            * Godot.Mathf.SmoothStep(sim.OrographicLightningWindMin, sim.OrographicLightningWindMax, w.windSpeed)
-            * Godot.Mathf.SmoothStep(sim.OrographicLightningElevationMin, 1f, elev);
+        float orographicGate = Godot.Mathf.SmoothStep(sim.orographicLightningCloudThreshold, 1f, w.cloudCover)
+            * Godot.Mathf.SmoothStep(sim.orographicLightningWindMin, sim.orographicLightningWindMax, w.windSpeed)
+            * Godot.Mathf.SmoothStep(sim.orographicLightningElevationMin, 1f, elev);
         float gateAny = Godot.Mathf.Max(wetGate, Godot.Mathf.Max(dryGate, orographicGate));
         string winner = wetGate >= dryGate && wetGate >= orographicGate ? "WET"
             : dryGate >= orographicGate ? "DRY" : "OROGRAPHIC";
 
         Godot.GD.Print("=== weather probe ===");
         Godot.GD.Print($"  time-of-day:    tod={tod:F3} (abs={ws.TimeOfDayAbsolute:F3})  diurnal={diurnal:F3}  slope={diurnalSlope:F3}  coolingRate={coolingRate:F3}");
-        Godot.GD.Print($"  phase:          {phase} (next handover in {daysUntilHandover * sim.DayLengthSeconds:F0}s wall time @ time_scale=1)");
+        Godot.GD.Print($"  phase:          {phase} (next handover in {daysUntilHandover * sim.dayLengthSeconds:F0}s wall time @ time_scale=1)");
         if (zone != null)
         {
             Godot.GD.Print($"  blended zone:   {zone.ResourcePath}");
@@ -312,8 +312,8 @@ public static class CVars
         // (sun-side only, never drops at night), so this shows whether
         // night fog is rendering at full daytime density.
         DerivedPalette pal = sky.Palette;
-        float fogIntensityReference = sim.FogIntensityReference;
-        float fogIntensityFloor = sim.FogIntensityFloor;
+        float fogIntensityReference = sim.fogIntensityReference;
+        float fogIntensityFloor = sim.fogIntensityFloor;
         // Reconstruct the CURRENT phase scale exactly as WeatherDerivation does.
         float curFactor = Godot.Mathf.SmoothStep(0f, fogIntensityReference, pal.PrimaryIntensity);
         float curPhaseScale = Godot.Mathf.Lerp(fogIntensityFloor, 1f, curFactor);

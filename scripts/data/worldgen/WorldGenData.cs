@@ -4,7 +4,7 @@ using Godot.Collections;
 [GlobalClass]
 public partial class WorldGenData : Resource
 {
-    [Export] public SimData SimData;
+    [Export] public SimData simData;
 
     // Per-zone placement list. Each PlacedZone pairs a reusable ZoneGenData
     // template with the ZoneBounds describing where it goes in THIS world; the
@@ -13,7 +13,7 @@ public partial class WorldGenData : Resource
     // every chunk to the highest-Priority bounds that contains it (see
     // WorldGen.PickZoneIndex) and kernel-blends the per-position scalars across
     // chunk borders for smooth transitions.
-    [Export] public PlacedZone[] Zones = System.Array.Empty<PlacedZone>();
+    [Export] public PlacedZone[] zones = System.Array.Empty<PlacedZone>();
 
     // The ZoneGenData templates of `Zones`, index-aligned, cached. The per-zone
     // worldgen passes (elevation/threshold blending, kit borders, prop palettes)
@@ -25,13 +25,13 @@ public partial class WorldGenData : Resource
     {
         get
         {
-            if (_zoneGens == null || _zoneGens.Length != (Zones?.Length ?? 0))
+            if (_zoneGens == null || _zoneGens.Length != (zones?.Length ?? 0))
             {
-                int n = Zones?.Length ?? 0;
+                int n = zones?.Length ?? 0;
                 _zoneGens = new ZoneGenData[n];
                 for (int i = 0; i < n; i++)
                 {
-                    _zoneGens[i] = Zones[i]?.ZoneGen;
+                    _zoneGens[i] = zones[i]?.zoneGen;
                 }
             }
             return _zoneGens;
@@ -50,7 +50,7 @@ public partial class WorldGenData : Resource
     // but the GameClient's sticky-region rules treat null Data as "no named
     // region here". Each RegionGenData also carries the region's one-off
     // Fixtures (signpost, knowledge stone) placed once within its footprint.
-    [Export] public RegionGenData[] Regions = System.Array.Empty<RegionGenData>();
+    [Export] public RegionGenData[] regions = System.Array.Empty<RegionGenData>();
 
     // World extent (in chunks) and seed are passed as arguments to
     // WorldGen.Generate rather than authored on the data resource — they're
@@ -64,20 +64,20 @@ public partial class WorldGenData : Resource
     // PathThreshold the height stays smooth (creating ramps/paths between
     // plateau levels). Path columns also use VoxelType.TerrainPath so the
     // shader paints them as dirt instead of grass.
-    [Export] public float PlateauStep = 4f;
+    [Export] public float plateauStep = 4f;
     // Tunnels are carved as horizontal slabs at the bottom of each plateau
     // step (the lowest TunnelLayerHeight voxels of each step boundary), gated
     // by 3D tunnel noise. This produces tiered tunnel systems whose floors
     // line up with plateau elevations.
-    [Export] public int TunnelLayerHeight = 3;
+    [Export] public int tunnelLayerHeight = 3;
     // Caves are swiss-cheese style holes carved through terrain wherever
     // |caveNoise3D| > CaveThreshold. Floors are smooth (follow the noise
     // surface), ceilings snap up to the next plateau-step boundary so caves
     // remain at least CaveMinHeight tall and can serve as walkable paths.
     // Caves never breach the surface (no craters) and never connect to
     // tunnels via half-height openings — by construction they are >=3 tall.
-    [Export] public int CaveMinHeight = 3;
-    [Export] public int DirtDepth = 3;
+    [Export] public int caveMinHeight = 3;
+    [Export] public int dirtDepth = 3;
 
     // Where the player spawns. X/Z are world voxel coordinates; a zone placed
     // around this point (a BoxBounds/CircleBounds whose center is the spawn
@@ -94,7 +94,7 @@ public partial class WorldGenData : Resource
     // and stamps them after terrain/cave/road generation but before the
     // sunlight bake. Y is picked from average surface elevation over the
     // footprint — see SubsceneStamper.ComputeSurfaceAnchor.
-    [Export] public SubscenePlacement[] Subscenes = System.Array.Empty<SubscenePlacement>();
+    [Export] public SubscenePlacement[] subscenes = System.Array.Empty<SubscenePlacement>();
 
     // POI-anchored spawn placements. Each binds authored spawn content to a
     // named point of interest (resolved from ZoneData.PointsOfInterest into
@@ -102,11 +102,11 @@ public partial class WorldGenData : Resource
     // position. This is how signposts are placed now (replacing the per-region
     // random-column fixtures) and how bosses / loot / villages will be placed
     // later.
-    [Export] public PoiPlacement[] PointsOfInterestPlacements = System.Array.Empty<PoiPlacement>();
+    [Export] public PoiPlacement[] pointsOfInterestPlacements = System.Array.Empty<PoiPlacement>();
 
     // Roads connecting named points of interest. WorldGen pathfinds and grades
     // a route per connection (see RoadConnection / WorldGen.CarveRoads).
-    [Export] public RoadConnection[] Roads = System.Array.Empty<RoadConnection>();
+    [Export] public RoadConnection[] roads = System.Array.Empty<RoadConnection>();
 
     [ExportGroup("Player Loadout")]
     // The starting loadout/knowledge the player spawns with for this world.
@@ -154,121 +154,121 @@ public partial class WorldGenData : Resource
     [ExportGroup("Terrain Noise")]
     // Primary terrain height noise. Frequency sets feature scale (lower =
     // broader hills); octaves add fractal detail.
-    [Export] public float TerrainNoiseFrequency = 0.02f;
-    [Export] public int TerrainNoiseOctaves = 4;
+    [Export] public float terrainNoiseFrequency = 0.02f;
+    [Export] public int terrainNoiseOctaves = 4;
     // Low-frequency macro elevation the per-zone terrain noise rides on top of
     // — broad continental basins / foothills independent of which zone a chunk
     // belongs to.
-    [Export] public float ElevationNoiseFrequency = 0.005f;
-    [Export] public int ElevationNoiseOctaves = 1;
+    [Export] public float elevationNoiseFrequency = 0.005f;
+    [Export] public int elevationNoiseOctaves = 1;
 
     [ExportGroup("Cave & Tunnel Noise")]
-    [Export] public float TunnelNoiseFrequency = 0.025f;
-    [Export] public int TunnelNoiseOctaves = 2;
+    [Export] public float tunnelNoiseFrequency = 0.025f;
+    [Export] public int tunnelNoiseOctaves = 2;
     // Cave noise frequency is authored per-zone (ZoneGenData.CaveNoiseFrequency);
     // only the fractal octave count is world-wide.
-    [Export] public int CaveNoiseOctaves = 2;
+    [Export] public int caveNoiseOctaves = 2;
 
     [ExportGroup("Scatter Noise")]
-    [Export] public float GrassNoiseFrequency = 0.1f;
-    [Export] public int GrassNoiseOctaves = 2;
+    [Export] public float grassNoiseFrequency = 0.1f;
+    [Export] public int grassNoiseOctaves = 2;
     // Low-frequency ramp gate whose zero-crossings mark which plateau
     // boundaries get ramped instead of cliffed.
-    [Export] public float RampGateNoiseFrequency = 0.015f;
-    [Export] public int RampGateNoiseOctaves = 1;
+    [Export] public float rampGateNoiseFrequency = 0.015f;
+    [Export] public int rampGateNoiseOctaves = 1;
     // Forest noise base frequency stays 1 (per-kit frequency is applied at
     // sample time by scaling input coords); only the octave count is shared.
-    [Export] public int ForestNoiseOctaves = 2;
+    [Export] public int forestNoiseOctaves = 2;
 
     [ExportGroup("Terrain Shaping")]
     // Horizontal cells per 1 vertical voxel on a ramp skirt. With PlateauStep=4,
     // slope 1 gives a 4-cell ramp rising one full step (steep but narrow).
-    [Export] public int RampSlope = 1;
+    [Export] public int rampSlope = 1;
     // |pathNoise| below this marks the core of a ramp zone (thin, sparse
     // meanders). Authored at sub-0.01 magnitudes — the range hint keeps the
     // spinbox from snapping the value.
-    [Export(PropertyHint.Range, "0,1,0.0001")] public float RampAnchorBand = 0.015f;
+    [Export(PropertyHint.Range, "0,1,0.0001")] public float rampAnchorBand = 0.015f;
     // Half-amplitude (in plateau steps) added by the macro elevation noise.
-    [Export] public float MacroElevationRangePlateaus = 1f;
+    [Export] public float macroElevationRangePlateaus = 1f;
     // Far east of the world drops to ocean over this many chunks, down to
     // OceanDepthPlateaus below zero at the east edge.
-    [Export] public int ShorelineChunks = 2;
-    [Export] public float OceanDepthPlateaus = 3f;
+    [Export] public int shorelineChunks = 2;
+    [Export] public float oceanDepthPlateaus = 3f;
 
     [ExportGroup("Fog")]
     // Per-column "bucket capacity" at humidity = 1, in voxel-depth units.
-    [Export] public float FogVolumePerHumidity = 6f;
+    [Export] public float fogVolumePerHumidity = 6f;
     // Density gradient inside the bucket: density(wy) = (ceiling - wy) *
     // FogDensityPerVoxel, clamped to [0, 255].
-    [Export] public float FogDensityPerVoxel = 80f;
+    [Export] public float fogDensityPerVoxel = 80f;
 
     [ExportGroup("Zone Blending")]
     // Per-column smoothstep blend radius (in chunks) for the worldgen scalar
     // fades (elevation, density). See WorldGen.GetZoneGenWeights.
-    [Export] public float ZoneGenBlendRadius = 2.0f;
+    [Export] public float zoneGenBlendRadius = 2.0f;
     // Per-voxel kit-stamp blend radius (in chunks). Must stay >= 1.0 or corner
     // voxels fall back to a chunk-aligned hard seam. See WorldGen.PickKitZone.
-    [Export] public float KitBlendRadius = 2.0f;
+    [Export] public float kitBlendRadius = 2.0f;
 
     [ExportGroup("Overlay Scatter")]
-    [Export] public float OverlayDirtFrequency = 0.2f;
-    [Export(PropertyHint.Range, "0,1,0.001")] public float OverlayDirtThreshold = 0.9f;
+    [Export] public float overlayDirtFrequency = 0.2f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float overlayDirtThreshold = 0.9f;
     // Edge-overlay heuristic (the StampEdgeOverlays pass, currently disabled):
     // how far up/down to scan a neighbour column for its surface, and the
     // diff band that counts as a ramp/step rather than a flat or a cliff.
-    [Export] public int EdgeScanWindow = 4;
-    [Export] public int EdgeMinDiff = 1;
-    [Export] public int EdgeMaxDiff = 3;
+    [Export] public int edgeScanWindow = 4;
+    [Export] public int edgeMinDiff = 1;
+    [Export] public int edgeMaxDiff = 3;
 
     [ExportGroup("Submerged Kit")]
     // Chebyshev radius for the water-adjacency search in TagSubmergedKits.
     // Must be >= 2 (see WorldGen.TagSubmergedKits).
-    [Export] public int SubmergedKitRadius = 2;
+    [Export] public int submergedKitRadius = 2;
 
     [ExportGroup("Props")]
     // XZ jitter (in voxels) applied to scattered tall-grass foliage.
-    [Export] public float TallGrassJitter = 0.2f;
+    [Export] public float tallGrassJitter = 0.2f;
     // Cave-pocket spawn gate: required head clearance and how far up to probe
     // for a ceiling before a column counts as an enclosed pocket.
-    [Export] public int CaveHeadClearance = 2;
-    [Export] public int CaveCeilingProbe = 6;
+    [Export] public int caveHeadClearance = 2;
+    [Export] public int caveCeilingProbe = 6;
 
     [ExportGroup("Placement Tuning")]
     // Max rejection-sampling attempts when rolling a random column for a
     // one-off fixture (region landmark / per-zone cluster anchor) before
     // giving up (or falling back to the target column).
-    [Export] public int FixturePlacementMaxTries = 256;
+    [Export] public int fixturePlacementMaxTries = 256;
 
     [ExportGroup("Roads")]
     // Max voxel rise per horizontal cell-step a road tolerates before the move
     // counts as climbing a cliff. Also the slope cap the ramp-grading uses: a
     // graded road never rises faster than this per cell, so it stays walkable.
-    [Export(PropertyHint.Range, "1,8,1")] public int RoadMaxWalkableStep = 1;
+    [Export(PropertyHint.Range, "1,8,1")] public int roadMaxWalkableStep = 1;
     // Pathfinding penalty multiplier applied (scaled by the excess rise) to a
     // move that climbs faster than RoadMaxWalkableStep. High so roads detour
     // around cliffs when a gentler route exists, but still finite so a road can
     // scale one when it must (then the climb gets graded into a ramp).
-    [Export] public float RoadCliffCostMultiplier = 25f;
+    [Export] public float roadCliffCostMultiplier = 25f;
     // Cost multiplier (<= 1) for stepping onto a column an earlier road already
     // laid. Below 1 so later roads prefer to merge onto and branch off the
     // existing network rather than run a parallel track beside it.
-    [Export(PropertyHint.Range, "0.01,1,0.01")] public float RoadReuseCostMultiplier = 0.25f;
+    [Export(PropertyHint.Range, "0.01,1,0.01")] public float roadReuseCostMultiplier = 0.25f;
     // Per-prop pathfinding cost added for each scatter prop (tree / tall grass)
     // in the R×R window (R = road width) around a step, so roads thread through
     // naturally open ground instead of plowing through dense props. Props the
     // road does cross are removed. 0 disables prop-aware routing.
-    [Export] public float RoadPropCostMultiplier = 4f;
+    [Export] public float roadPropCostMultiplier = 4f;
     // Overlay block used when a RoadConnection leaves its Texture null.
-    [Export] public BlockData RoadDefaultTexture;
+    [Export] public BlockData roadDefaultTexture;
     // How far (meters ≈ voxels) a road holds one rolled width before re-rolling
     // a new one in [MinWidth, MaxWidth]. Each stride is a random length in this
     // range, so the tread swells and pinches organically along its length.
-    [Export] public float RoadStrideMinMeters = 4f;
-    [Export] public float RoadStrideMaxMeters = 20f;
+    [Export] public float roadStrideMinMeters = 4f;
+    [Export] public float roadStrideMaxMeters = 20f;
     // Solid voxels guaranteed under each road tread column after all carving.
     // Tunnels (GenerateChunk) and caves (GenerateCaves) run after the road pass
     // grades the heightmap and can hollow out a road's surface, leaving the road
     // over a void; the road-overlay pass re-solidifies this many voxels down
     // from the tread so a road always bridges caves/tunnels on solid rock. >= 1.
-    [Export(PropertyHint.Range, "1,8,1")] public int RoadBedDepth = 2;
+    [Export(PropertyHint.Range, "1,8,1")] public int roadBedDepth = 2;
 }

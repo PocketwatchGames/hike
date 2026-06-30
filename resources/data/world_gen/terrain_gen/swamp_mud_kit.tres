@@ -10,24 +10,24 @@
 
 [sub_resource type="Resource" id="ws_11_tpi02"]
 script = ExtResource("3_76umd")
-Scene = ExtResource("10_fwg3n")
-Weight = 2.0
+scene = ExtResource("10_fwg3n")
+weight = 2.0
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_12_vum8l"]
 script = ExtResource("3_76umd")
-Scene = ExtResource("11_rqfc1")
-Weight = 2.0
+scene = ExtResource("11_rqfc1")
+weight = 2.0
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_11_eh5vr"]
 script = ExtResource("3_76umd")
-Scene = ExtResource("13_q55et")
+scene = ExtResource("13_q55et")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]
 script = ExtResource("14_4vdwx")
-Terrain = ExtResource("7_ctox4")
-DefaultDetail = ExtResource("1_sk7ie")
-ForestDensity = 0.25
-TreeScenes = [SubResource("ws_11_tpi02"), SubResource("ws_12_vum8l"), SubResource("ws_11_eh5vr")]
+terrain = ExtResource("7_ctox4")
+defaultDetail = ExtResource("1_sk7ie")
+forestDensity = 0.25
+treeScenes = [SubResource("ws_11_tpi02"), SubResource("ws_12_vum8l"), SubResource("ws_11_eh5vr")]

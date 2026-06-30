@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_kit")
-Name = "Forest"
-WallBand = Vector2(0.55, 0.85)
-BlendAmp = 0.55
-GroundTint = Color(0.17244, 0.18, 0.115200005, 1)
+name = "Forest"
+wallBand = Vector2(0.55, 0.85)
+blendAmp = 0.55
+groundTint = Color(0.17244, 0.18, 0.115200005, 1)

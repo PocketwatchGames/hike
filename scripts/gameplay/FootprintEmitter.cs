@@ -23,16 +23,16 @@ public static class FootprintEmitter
             return;
         }
         SimData sim = world.SimData;
-        if (sim?.FootprintColors == null)
+        if (sim?.footprintColors == null)
         {
             return;
         }
-        if (!sim.FootprintColors.TryGetValue(ground, out Color tint))
+        if (!sim.footprintColors.TryGetValue(ground, out Color tint))
         {
             return;
         }
         Color spawnTint = new(tint.R, tint.G, tint.B, Mathf.Clamp(tint.A * alphaMultiplier, 0f, 1f));
-        float duration = sim.FootprintDurationSeconds * durationMultiplier;
+        float duration = sim.footprintDurationSeconds * durationMultiplier;
         world.SpawnFootprint(texture, size, spawnTint, worldPos, yaw, duration, gated);
     }
 }

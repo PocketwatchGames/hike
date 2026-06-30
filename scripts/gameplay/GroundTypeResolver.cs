@@ -20,7 +20,7 @@ public static class GroundTypeResolver
     public static EGroundType Resolve(WorldState ws, Vector3 worldPos)
     {
         BlockData block = ResolveBlock(ws, worldPos);
-        return block != null ? block.GroundType : EGroundType.Stone;
+        return block != null ? block.groundType : EGroundType.Stone;
     }
 
     // Resolves the BlockData under a world-space position, most-specific wins
@@ -69,13 +69,13 @@ public static class GroundTypeResolver
             TerrainData[] terrains = ChunkMesh.ActiveTerrains;
             if (terrains != null && terrainId >= 0 && terrainId < terrains.Length && terrains[terrainId] != null)
             {
-                BlockData flat = terrains[terrainId].FlatTile;
+                BlockData flat = terrains[terrainId].flatTile;
                 if (flat != null)
                 {
                     return flat;
                 }
             }
-            return catalog.DefaultFlatTile;
+            return catalog.defaultFlatTile;
         }
 
         int atlasIndex = VoxelTypeInfo.GetTileForFace(v, 0);

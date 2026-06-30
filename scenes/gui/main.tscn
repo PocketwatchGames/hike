@@ -10,9 +10,9 @@
 
 [node name="gui" type="Node" unique_id=1262159102]
 script = ExtResource("1_jt21j")
-MainMenuScene = ExtResource("2_toqri")
-GameScene = ExtResource("3_2vgtk")
-EditorScene = ExtResource("4_tkjme")
-WorldMapPainterScene = ExtResource("7_wmp")
-DefaultWorldGenData = ExtResource("5_64pts")
-LoadingScreenScene = ExtResource("6_loadscr")
+mainMenuScene = ExtResource("2_toqri")
+gameScene = ExtResource("3_2vgtk")
+editorScene = ExtResource("4_tkjme")
+worldMapPainterScene = ExtResource("7_wmp")
+defaultWorldGenData = ExtResource("5_64pts")
+loadingScreenScene = ExtResource("6_loadscr")

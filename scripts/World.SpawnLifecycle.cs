@@ -63,11 +63,11 @@ public partial class World
         {
             return false;
         }
-        if (conditions.HasFlag(ESpawnConditions.Clear) && CurrentRainAmount() >= SimData.RainSpawnThreshold)
+        if (conditions.HasFlag(ESpawnConditions.Clear) && CurrentRainAmount() >= SimData.rainSpawnThreshold)
         {
             return false;
         }
-        if (conditions.HasFlag(ESpawnConditions.NotHeavyRain) && CurrentRainAmount() >= SimData.HeavyRainSpawnThreshold)
+        if (conditions.HasFlag(ESpawnConditions.NotHeavyRain) && CurrentRainAmount() >= SimData.heavyRainSpawnThreshold)
         {
             return false;
         }
@@ -93,7 +93,7 @@ public partial class World
             return;
         }
         using var _prof = Profiler.Sample("World.CleanupOffConditionMobs");
-        float distance = _worldState.SimData?.SpawnCleanupDistance ?? 50f;
+        float distance = _worldState.SimData?.spawnCleanupDistance ?? 50f;
         float distanceSq = distance * distance;
         Vector3 playerPos = _player.GlobalPosition;
 
@@ -157,7 +157,7 @@ public partial class World
         // sunset. A skipped mob keeps its sim state and spawns later via the
         // normal chunk-load path (which streams in far away) once the player
         // moves off, or at the next nightfall. 0 disables the gate.
-        float minDistance = _worldState.SimData?.SpawnMinDistanceFromPlayer ?? 0f;
+        float minDistance = _worldState.SimData?.spawnMinDistanceFromPlayer ?? 0f;
         float minDistanceSq = minDistance * minDistance;
         bool gateOnDistance = _player != null && minDistanceSq > 0f;
         Vector3 playerPos = _player?.GlobalPosition ?? Vector3.Zero;

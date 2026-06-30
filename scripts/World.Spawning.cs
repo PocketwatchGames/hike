@@ -68,17 +68,17 @@ public partial class World
     private void ComposeFairyBoons(LootSimState simState)
     {
         SimData simData = SimData;
-        if (simData == null || simState.Data != simData.FairyLoot || simData.FairyBoons.Count == 0)
+        if (simData == null || simState.Data != simData.fairyLoot || simData.fairyBoons.Count == 0)
         {
             return;
         }
-        simState.Item ??= simData.FairyLoot.CreateState();
+        simState.Item ??= simData.fairyLoot.CreateState();
         ItemState state = simState.Item;
         if (state.possibleBoons.Count > 0)
         {
             return;
         }
-        foreach (BoonData boon in simData.FairyBoons)
+        foreach (BoonData boon in simData.fairyBoons)
         {
             if (boon != null)
             {
@@ -246,9 +246,9 @@ public partial class World
         // the shovel plays its "found something" cue. Most blocks leave DigItem
         // null and the dig comes up empty.
         BlockData dugBlock = GroundTypeResolver.ResolveBlock(_worldState, position);
-        if (dugBlock?.DigItem != null)
+        if (dugBlock?.digItem != null)
         {
-            SpawnLoot(position + Vector3.Up * DIG_YIELD_POP_HEIGHT, BuildDigYieldImpulse(), dugBlock.DigItem);
+            SpawnLoot(position + Vector3.Up * DIG_YIELD_POP_HEIGHT, BuildDigYieldImpulse(), dugBlock.digItem);
             return EDigResult.Common;
         }
 

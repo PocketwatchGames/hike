@@ -40,31 +40,31 @@ using Godot;
 [GlobalClass]
 public partial class ZoneGenData : Resource
 {
-    [Export] public ZoneData Zone;
+    [Export] public ZoneData zone;
 
     // Gen kit stamped on surface terrain inside this zone (above sea level,
     // not inside caves). Drives the AUTO terrain shader's flat/wall tile
     // pick and the kit-controlled footstep + scatter behaviour. Null falls
     // back to the no-kit (palette index 0) appearance, which is a debug
     // state — author one for any zone you want to render correctly.
-    [Export] public TerrainKitData SurfaceKit;
+    [Export] public TerrainKitData surfaceKit;
 
     // Gen kit stamped on solid voxels exposed to cave interior air. Lets a
     // forest's caves use limestone while a desert's caves use sandstone.
     // Authored independently of SurfaceKit because the cave shell often
     // wants a different ground category (Stone/Sand) and detail group.
-    [Export] public TerrainKitData CaveKit;
+    [Export] public TerrainKitData caveKit;
 
     // Gen kit stamped on submerged seabed (solid voxels at or below water
     // level whose neighborhood touches water). Typically a shared
     // `kit_underwater` across zones, but can be specialized per zone.
-    [Export] public TerrainKitData SubmergedKit;
+    [Export] public TerrainKitData submergedKit;
 
     // Gen kit stamped on shore terrain — surface voxels that fall inside
     // the narrow band straddling water level (above water within
     // [ShoreElevationMin, ShoreElevationMax] meters and submerged within
     // [ShoreSubmergedElevationMin, ShoreSubmergedElevationMax] meters).
-    [Export] public TerrainKitData ShoreKit;
+    [Export] public TerrainKitData shoreKit;
 
     // Authored center elevation for the zone, in PlateauStep units. The
     // value is treated as the elevation at the zone's center; WorldGen
@@ -72,7 +72,7 @@ public partial class ZoneGenData : Resource
     // smoothly. +1 reads as one plateau step above sea level, -1 as one
     // below. Inland zones sit at +1 by convention; wetlands at -1; sea
     // shelves at 0.
-    [Export] public float Elevation = 0;
+    [Export] public float elevation = 0;
 
     // Half-amplitude of plateau variation, in PlateauStep units. Per-column
     // plateau height is approximately
@@ -80,18 +80,18 @@ public partial class ZoneGenData : Resource
     // quantized to a multiple of PlateauStep before the coastal falloff.
     // Mountain zones push this up for dramatic peaks; flat zones keep
     // it lower.
-    [Export] public float ElevationRange = 2;
+    [Export] public float elevationRange = 2;
 
     // Force this zone's surface to a fixed flat plateau, overriding the noisy
     // Elevation/Range/macro height. WorldGen blends the column height toward
     // FlattenPlateau by the zone's kernel weight, so the zone core is dead flat
     // while its edge melts back into the surrounding terrain. Used for a
     // hand-placed clearing (e.g. the starting village pinned to the beach line).
-    [Export] public bool FlattenSurface = false;
+    [Export] public bool flattenSurface = false;
     // Target plateau level when FlattenSurface is set, in PlateauStep units
     // anchored at sea level: 0 = the beach/water line (dry shoreline, no water),
     // +1 = one step above, -1 = submerged. Ignored unless FlattenSurface.
-    [Export] public int FlattenPlateau = 0;
+    [Export] public int flattenPlateau = 0;
 
     // Per-column random elevation range (in meters) used to pick where
     // ShoreKit is stamped. Shore band above water level is a random value
@@ -99,26 +99,26 @@ public partial class ZoneGenData : Resource
     // a random value in [ShoreSubmergedElevationMin,
     // ShoreSubmergedElevationMax]. Defaults yield a thin beach lip just
     // above sea level and a wider underwater shelf below it.
-    [Export] public float ShoreElevationMin = 1f;
-    [Export] public float ShoreElevationMax = 1.5f;
-    [Export] public float ShoreSubmergedElevationMin = -5f;
-    [Export] public float ShoreSubmergedElevationMax = -1f;
+    [Export] public float shoreElevationMin = 1f;
+    [Export] public float shoreElevationMax = 1.5f;
+    [Export] public float shoreSubmergedElevationMin = -5f;
+    [Export] public float shoreSubmergedElevationMax = -1f;
 
     // Path height-smoothing parameters (currently unused by WorldGen — kept
     // here as authored knobs reserved for the path/ramp authoring pass).
-    [Export] public float PathThreshold = 0.1f;
-    [Export] public float PathBlendBand = 0.05f;
+    [Export] public float pathThreshold = 0.1f;
+    [Export] public float pathBlendBand = 0.05f;
 
-    [Export] public float TunnelThreshold = 0.1f;
+    [Export] public float tunnelThreshold = 0.1f;
 
     // Cave 3D-noise frequency. The world-wide cave noise object uses the
     // first zone's value (one shared FastNoiseLite per worldgen run);
     // CaveThreshold can still vary per-zone to make some zones cavernous
     // and others nearly solid.
-    [Export] public float CaveNoiseFrequency = 0.04f;
-    [Export] public float CaveThreshold = 0.25f;
+    [Export] public float caveNoiseFrequency = 0.04f;
+    [Export] public float caveThreshold = 0.25f;
 
-    [Export] public float GrassThreshold = 0.3f;
+    [Export] public float grassThreshold = 0.3f;
 
     // Per-zone authored entity spawn lists. WorldGen iterates the matching
     // list per candidate cell:
@@ -132,10 +132,10 @@ public partial class ZoneGenData : Resource
     //     wire up when underwater authoring lands.
     // Lists are SpawnListData assets so multiple zones can share the same
     // file (e.g. all biomes pointing at one shared cave_entities.tres).
-    [Export] public SpawnListData SurfaceEntities;
-    [Export] public SpawnListData CaveEntities;
-    [Export] public SpawnListData ShoreEntities;
-    [Export] public SpawnListData WaterEntities;
+    [Export] public SpawnListData surfaceEntities;
+    [Export] public SpawnListData caveEntities;
+    [Export] public SpawnListData shoreEntities;
+    [Export] public SpawnListData waterEntities;
 
     // One-off landmark cluster placed ONCE per zone at the zone's anchor
     // (vs the SurfaceEntities density scan), e.g. a "home" campfire. The anchor
@@ -145,7 +145,7 @@ public partial class ZoneGenData : Resource
     // quadrant/everywhere bounds roll a flat-dry column within their footprint.
     // The group's ScatterRadius spreads the members around that anchor. Null =
     // no per-zone cluster.
-    [Export] public SpawnGroupData Fixtures;
+    [Export] public SpawnGroupData fixtures;
 
     // Names of points of interest located in this zone placement. WorldGen
     // resolves each to a random flat column inside this zone's bounds and
@@ -157,5 +157,5 @@ public partial class ZoneGenData : Resource
     // world's village / mud / highlands all share swamp.tres) yet wants a
     // distinct POI per placement. Names are world-unique — the first placement
     // listing a given name resolves it.
-    [Export] public string[] PointsOfInterest = System.Array.Empty<string>();
+    [Export] public string[] pointsOfInterest = System.Array.Empty<string>();
 }

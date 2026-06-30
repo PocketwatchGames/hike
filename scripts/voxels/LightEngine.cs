@@ -51,7 +51,7 @@ public static class LightEngine
         int maxWz = (world.Max.Z + 1) * ChunkState.SIZE;
 
         var queue = new Queue<(int x, int y, int z)>();
-        int canopySunFalloffPeak = world.SimData.CanopySunFalloffPeak;
+        int canopySunFalloffPeak = world.SimData.canopySunFalloffPeak;
 
         for (int wx = minWx; wx < maxWx; wx++)
         {
@@ -257,7 +257,7 @@ public static class LightEngine
         float bright = Math.Max(0f, brightness);
 
         float lambda = dist / Mathf.Pow(Mathf.Log(1f / FLOOD_CUTOFF), 1f / fall);
-        int radius = Math.Clamp(Mathf.CeilToInt(dist) + 2, MIN_FLOOD_RADIUS, sim.BlockLightMaxDistance);
+        int radius = Math.Clamp(Mathf.CeilToInt(dist) + 2, MIN_FLOOD_RADIUS, sim.blockLightMaxDistance);
 
         float windowR = Mathf.Max(1f, radius - 2f);
         float windowFloor = FalloffWeight(windowR, lambda, fall);
@@ -291,8 +291,8 @@ public static class LightEngine
 
         SimData sim = world.SimData;
         int maxDist = floodRadius;
-        float fogExtinction = sim.BlockLightFogExtinction;
-        float canopyExtinction = sim.BlockLightCanopyExtinction;
+        float fogExtinction = sim.blockLightFogExtinction;
+        float canopyExtinction = sim.blockLightCanopyExtinction;
 
         int dim = maxDist * 2 + 1;
         int total = dim * dim * dim;
@@ -381,7 +381,7 @@ public static class LightEngine
 
         float lambda = tuning.Lambda;
         float shape = tuning.Falloff;
-        float aoStrength = world.SimData.BlockLightAO;
+        float aoStrength = world.SimData.blockLightAO;
 
         // Window the geometric falloff to compact support: subtract the curve's
         // value at radius windowR so the weight reaches exactly zero there.
@@ -484,7 +484,7 @@ public static class LightEngine
 
     private static void SpreadSunlight(WorldState world, Queue<(int x, int y, int z)> queue)
     {
-        int canopySunFalloffPeak = world.SimData.CanopySunFalloffPeak;
+        int canopySunFalloffPeak = world.SimData.canopySunFalloffPeak;
         while (queue.Count > 0)
         {
             var (x, y, z) = queue.Dequeue();
@@ -523,7 +523,7 @@ public static class LightEngine
     // ComputeSunlight and MUST stay in sync with it (same attenuation terms).
     private static void RecomputeSkyExposureColumns(WorldState world, List<Vector3I> changedPositions)
     {
-        int canopySunFalloffPeak = world.SimData.CanopySunFalloffPeak;
+        int canopySunFalloffPeak = world.SimData.canopySunFalloffPeak;
         int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
         int minWy = world.Min.Y * ChunkState.SIZE;
 

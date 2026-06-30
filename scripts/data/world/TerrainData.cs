@@ -22,7 +22,7 @@ using Godot;
 [GlobalClass]
 public partial class TerrainData : Resource
 {
-    [Export] public string Name = "";
+    [Export] public string name = "";
 
     // Flat / wall block references. Natural terrain reads as flat until the
     // surface tilts past WallBand, then transitions to wall — no intermediate
@@ -31,8 +31,8 @@ public partial class TerrainData : Resource
     // by shader slope. Null at a consumer call site falls back to GrassTop
     // (flat) / Stone (wall) — entries that don't author a value match the
     // pre-BlockData defaults.
-    [Export] public BlockData FlatTile;
-    [Export] public BlockData WallTile;
+    [Export] public BlockData flatTile;
+    [Export] public BlockData wallTile;
 
     // Smoothstep band on surface normal.y (1 = flat-up, 0 = vertical).
     //   y < WallBand.x            -> 100% WallTile
@@ -41,11 +41,11 @@ public partial class TerrainData : Resource
     // A single transition keeps cliff tops sharp; the old 3-band scheme always
     // painted a dirt ring at plateau edges because per-fragment normals
     // interpolate through the middle band on smooth meshes.
-    [Export] public Vector2 WallBand = new Vector2(0.40f, 0.75f);
+    [Export] public Vector2 wallBand = new Vector2(0.40f, 0.75f);
 
     // Edge-jitter amplitude at boundaries with adjacent voxel types / terrains.
     // 0 = straight bisector (crisp, for man-made walls). Higher = more jagged.
-    [Export] public float BlendAmp = 0.55f;
+    [Export] public float blendAmp = 0.55f;
 
     // Detail-sprite ground tint for blades/flowers scattered on an AUTO-Terrain
     // voxel belonging to this entry. The detail shader pulls sprite pixels
@@ -59,5 +59,5 @@ public partial class TerrainData : Resource
     // authored here is only a fallback used if the tile layer can't be decoded.
     // Authored-override VoxelTypes (Grass/Dirt/Sand/etc.) bypass this and use
     // VoxelTypeInfo.GroundTint instead.
-    [Export] public Color GroundTint = new Color(0.16f, 0.22f, 0.09f);
+    [Export] public Color groundTint = new Color(0.16f, 0.22f, 0.09f);
 }

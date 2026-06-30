@@ -35,7 +35,7 @@ public partial class DetailEntry : Resource
     // Sprite albedo. Wired through to the shader's `sprite_texture` uniform
     // when the runtime material is built. Its pixel dimensions (divided by
     // ChunkDetailScatter.PIXELS_PER_UNIT) drive the sprite's base world size.
-    [Export] public Texture2D Texture;
+    [Export] public Texture2D texture;
 
     // Per-texel recolor mask wired through to the shader's `tint_map` uniform.
     // R = pull toward TintColorA, G = pull toward the ground color of the voxel
@@ -45,29 +45,29 @@ public partial class DetailEntry : Resource
     // as Texture). Import the PNG as a non-sRGB / "Linear" data texture so its
     // channels read as raw weights. Leave null to render straight from Texture
     // (the shader's tint_map defaults to black).
-    [Export] public Texture2D TintMap;
+    [Export] public Texture2D tintMap;
 
     // The two colors the tint map's R and B channels pull toward. White leaves
     // the masked region looking like the texture under the tint (a neutral
     // default); pick the actual recolor targets per entry.
-    [Export] public Color TintColorA = Colors.White;
-    [Export] public Color TintColorB = Colors.White;
+    [Export] public Color tintColorA = Colors.White;
+    [Export] public Color tintColorB = Colors.White;
 
     // Sampling weight within the parent group. The group picks an entry by
     // weighted choice — entries with weight 2.0 appear twice as often as
     // entries with weight 1.0. Weights are not normalized; they're relative.
-    [Export] public float Weight = 1.0f;
+    [Export] public float weight = 1.0f;
 
     // Per-instance uniform scale jitter (multiplied onto the texture-derived
     // world size). 1.0..1.0 = constant size; 0.9..1.1 = ±10%.
-    [Export] public float ScaleMin = 0.9f;
-    [Export] public float ScaleMax = 1.1f;
+    [Export] public float scaleMin = 0.9f;
+    [Export] public float scaleMax = 1.1f;
 
     // Multiplier on wind sway AND player push for this entry. 1.0 = full
     // motion (grass, flowers — default); 0.0 = locked rigid (cave pebbles,
     // bones, anything that should sit still). Stamped into the cloned shader
     // material's `wind_strength` parameter by GetMaterial().
-    [Export(PropertyHint.Range, "0,1,0.01")] public float WindStrength = 1.0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float windStrength = 1.0f;
 
     // Per-entry response to surface wetness. Scales BOTH the wet darken and
     // the wet sheen proportionally (it multiplies the shader's wet_factor, the
@@ -78,7 +78,7 @@ public partial class DetailEntry : Resource
     // into the cloned shader material's `wet_strength` parameter by
     // GetMaterial(); the global wetness level/floor/spec tunables still gate
     // the overall look, this is just the per-entry weight on top.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float WetStrength = 1.0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float wetStrength = 1.0f;
 
     // Lazily-built ShaderMaterial cache. Built once per DetailEntry instance
     // (Godot caches loaded resources, so the same entry shared across many
@@ -99,22 +99,22 @@ public partial class DetailEntry : Resource
             return null;
         }
         var mat = (ShaderMaterial)template.Duplicate();
-        if (Texture != null)
+        if (texture != null)
         {
-            ResolveAtlas(Texture, out Texture2D spriteTex, out Vector4 spriteRegion);
+            ResolveAtlas(texture, out Texture2D spriteTex, out Vector4 spriteRegion);
             mat.SetShaderParameter("sprite_texture", spriteTex);
             mat.SetShaderParameter("uv_region", spriteRegion);
         }
-        if (TintMap != null)
+        if (tintMap != null)
         {
-            ResolveAtlas(TintMap, out Texture2D tintTex, out Vector4 tintRegion);
+            ResolveAtlas(tintMap, out Texture2D tintTex, out Vector4 tintRegion);
             mat.SetShaderParameter("tint_map", tintTex);
             mat.SetShaderParameter("tint_uv_region", tintRegion);
         }
-        mat.SetShaderParameter("tint_color_a", TintColorA);
-        mat.SetShaderParameter("tint_color_b", TintColorB);
-        mat.SetShaderParameter("wind_strength", WindStrength);
-        mat.SetShaderParameter("wet_strength", WetStrength);
+        mat.SetShaderParameter("tint_color_a", tintColorA);
+        mat.SetShaderParameter("tint_color_b", tintColorB);
+        mat.SetShaderParameter("wind_strength", windStrength);
+        mat.SetShaderParameter("wet_strength", wetStrength);
         // Match the terrain's baked-AO darkening strength so sheltered grass
         // darkens in lockstep with the ground (CVars.aoStrength also feeds the
         // terrain material via ChunkMesh.SetAoStrength). Read at material-build

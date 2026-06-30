@@ -84,11 +84,11 @@ public partial class BestiaryScreen : Control
 		MobData focusType = null;
 		MobData pendingType = _pendingFocusSpecies?.mob;
 		_pendingFocusSpecies = null;
-		if (simData != null && worldSim != null && simData.Mobs != null)
+		if (simData != null && worldSim != null && simData.mobs != null)
 		{
-			for (int i = 0; i < simData.Mobs.Count; i++)
+			for (int i = 0; i < simData.mobs.Count; i++)
 			{
-				MobData type = simData.Mobs[i];
+				MobData type = simData.mobs[i];
 				if (type == null || !TypeHasDiscoveredSpecies(worldSim, type))
 				{
 					continue;

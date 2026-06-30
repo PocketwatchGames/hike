@@ -27,13 +27,13 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [resource]
 script = ExtResource("1_palette")
-DoorScene = ExtResource("2_door")
-SpikeTrapScene = ExtResource("3_spiketrap")
-ClimbableTreeScene = ExtResource("4_climbtree")
-TorchScene = ExtResource("5_torch")
-ChestScene = ExtResource("6_chest")
-ChestLoot = [SubResource("ChestLoot_potion")]
-LootItem = SubResource("LootItem_mushroom")
-GoblinMob = ExtResource("11_goblin")
-KunKunMob = ExtResource("12_kunkun")
+doorScene = ExtResource("2_door")
+spikeTrapScene = ExtResource("3_spiketrap")
+climbableTreeScene = ExtResource("4_climbtree")
+torchScene = ExtResource("5_torch")
+chestScene = ExtResource("6_chest")
+chestLoot = [SubResource("ChestLoot_potion")]
+lootItem = SubResource("LootItem_mushroom")
+goblinMob = ExtResource("11_goblin")
+kunKunMob = ExtResource("12_kunkun")
 metadata/_custom_type_script = "uid://rdgentfkzrj0n"

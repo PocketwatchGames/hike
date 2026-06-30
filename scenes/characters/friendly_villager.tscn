@@ -26,8 +26,8 @@ _modelAnimator = NodePath("Visuals/MeshContainer/ModelAnimator")
 _mesh = NodePath("Visuals/MeshContainer")
 _visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
-HudAnchor = NodePath("Visuals/HudAnchor")
-HudScene = ExtResource("4_mobhud")
+hudAnchor = NodePath("Visuals/HudAnchor")
+hudScene = ExtResource("4_mobhud")
 _voice = ExtResource("11_voice")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 

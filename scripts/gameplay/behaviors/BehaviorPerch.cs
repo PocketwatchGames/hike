@@ -33,7 +33,7 @@ public partial class BehaviorPerch : BehaviorBase
         output.speed = 0f;
         if (me.ClaimedPerch != null)
         {
-            output.yaw = me.ClaimedPerch.FacingYaw;
+            output.yaw = me.ClaimedPerch.facingYaw;
         }
 
         // Aware of a threat: sound periodic alarm calls at it while it's within

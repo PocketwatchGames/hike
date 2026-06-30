@@ -13,31 +13,31 @@ public partial class MovingLight : Node3D
     // size its flood radius, so a tight torch floods a small, cheap ball;
     // Brightness is the open-space core intensity (1 ≈ white). See
     // LightEngine.ResolveTuning.
-    [Export(PropertyHint.Range, "1,32,0.5")] public float Distance = 10f;
-    [Export(PropertyHint.Range, "0.3,4,0.05")] public float Falloff = 1.25f;
-    [Export(PropertyHint.Range, "0,3,0.01")] public float Brightness = 0.9f;
-    [Export] public Color LightColor = new(1f, 0.75f, 0.4f);
+    [Export(PropertyHint.Range, "1,32,0.5")] public float distance = 10f;
+    [Export(PropertyHint.Range, "0.3,4,0.05")] public float falloff = 1.25f;
+    [Export(PropertyHint.Range, "0,3,0.01")] public float brightness = 0.9f;
+    [Export] public Color lightColor = new(1f, 0.75f, 0.4f);
 
     // Opt-in flicker — re-scales the deposited footprint by a random amplitude
     // in [FlickerMin, FlickerMax] every 1/FlickerHz seconds. Cheap: it only
     // re-deposits the cached footprint (O(footprint) array writes), no reflood
     // or reshade. Wider min↔max = more dramatic; 10–15 Hz reads as a flame.
-    [Export] public bool Flicker = false;
-    [Export(PropertyHint.Range, "0,2,0.01")] public float FlickerMin = 0.4f;
-    [Export(PropertyHint.Range, "0,2,0.01")] public float FlickerMax = 1.0f;
-    [Export(PropertyHint.Range, "0.1,30,0.1")] public float FlickerHz = 12f;
+    [Export] public bool flicker = false;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float flickerMin = 0.4f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float flickerMax = 1.0f;
+    [Export(PropertyHint.Range, "0.1,30,0.1")] public float flickerHz = 12f;
 
     // Fade envelope — the deposited light ramps from 0→full over FadeInDuration
     // on Activate and full→0 over FadeOutDuration on Deactivate (then the deposit
     // is dropped). Set either to 0 for an instant snap. Combines multiplicatively
     // with flicker, so a torch still flickers while it fades in.
-    [Export(PropertyHint.Range, "0,5,0.05")] public float FadeInDuration = 0.5f;
-    [Export(PropertyHint.Range, "0,5,0.05")] public float FadeOutDuration = 0.5f;
+    [Export(PropertyHint.Range, "0,5,0.05")] public float fadeInDuration = 0.5f;
+    [Export(PropertyHint.Range, "0,5,0.05")] public float fadeOutDuration = 0.5f;
 
     [Export] public bool Active { get; set; } = true;
-    [Export] public PackedScene LightOnEffectScene;
-    [Export] public PackedScene LightOffEffectScene;
-    [Export] public PackedScene LightLoopEffectScene;
+    [Export] public PackedScene lightOnEffectScene;
+    [Export] public PackedScene lightOffEffectScene;
+    [Export] public PackedScene lightLoopEffectScene;
 
     private List<(Vector3I pos, ushort r, ushort g, ushort b)> _currentDeposit = new();
     // Cached flood field (reachable voxels + path optical depth), recomputed
@@ -115,7 +115,7 @@ public partial class MovingLight : Node3D
                 _lastVoxel = voxel;
                 using (Profiler.Sample("MovingLight.FloodRecompute"))
                 {
-                    _tuning = LightEngine.ResolveTuning(world.WorldState, Distance, Falloff, Brightness);
+                    _tuning = LightEngine.ResolveTuning(world.WorldState, distance, falloff, brightness);
                     LightEngine.ComputeFloodField(world.WorldState, voxel, _tuning.FloodRadius, _cells);
                 }
                 Reshade(world.WorldState, pos);
@@ -146,18 +146,18 @@ public partial class MovingLight : Node3D
         // Flicker: re-scale the deposited footprint on a timer, independent of
         // motion (so it pulses while standing still). Just an O(footprint)
         // re-deposit at a new amplitude — no reflood, no reshade.
-        if (Flicker && _currentDeposit.Count > 0)
+        if (flicker && _currentDeposit.Count > 0)
         {
             _flickerTimer -= (float)delta;
             if (_flickerTimer <= 0f)
             {
-                _flickerTimer = 1f / Mathf.Max(FlickerHz, 0.01f);
+                _flickerTimer = 1f / Mathf.Max(flickerHz, 0.01f);
                 using (Profiler.Sample("MovingLight.Flicker"))
                 {
                     // Far lights hold steady — re-deposit only near the player,
                     // where flicker is visible. Carried torches sit at distance ~0
                     // so they always flicker.
-                    float amp = WithinFlickerRange(world) ? (float)GD.RandRange(FlickerMin, FlickerMax) : 1f;
+                    float amp = WithinFlickerRange(world) ? (float)GD.RandRange(flickerMin, flickerMax) : 1f;
                     if (amp != _flickerAmp)
                     {
                         _flickerAmp = amp;
@@ -172,7 +172,7 @@ public partial class MovingLight : Node3D
         // finish the deferred teardown.
         if (_fade != _fadeTarget)
         {
-            float dur = _fadeTarget > _fade ? FadeInDuration : FadeOutDuration;
+            float dur = _fadeTarget > _fade ? fadeInDuration : fadeOutDuration;
             float step = dur > 0f ? (float)delta / dur : 1f;
             _fade = Mathf.MoveToward(_fade, _fadeTarget, step);
             UpdateAmplitude(world.WorldState);
@@ -187,7 +187,7 @@ public partial class MovingLight : Node3D
     {
         Player p = world.player;
         if (p == null) { return true; }
-        float cull = world.WorldState.SimData.BlockLightFlickerCullDistance;
+        float cull = world.WorldState.SimData.blockLightFlickerCullDistance;
         return (p.GlobalPosition - GlobalPosition).LengthSquared() <= cull * cull;
     }
 
@@ -195,7 +195,7 @@ public partial class MovingLight : Node3D
     {
         Player p = world.player;
         if (p == null) { return true; }
-        float cull = world.WorldState.SimData.BlockLightMovingReshadeCullDistance;
+        float cull = world.WorldState.SimData.blockLightMovingReshadeCullDistance;
         return (p.GlobalPosition - GlobalPosition).LengthSquared() <= cull * cull;
     }
 
@@ -219,9 +219,9 @@ public partial class MovingLight : Node3D
                 _deactivating = false;
                 Active = true;
                 _fadeTarget = 1f;
-                if (LightOnEffectScene != null)
+                if (lightOnEffectScene != null)
                 {
-                    Fx.Create(LightOnEffectScene, GetParent() ?? this, GlobalPosition);
+                    Fx.Create(lightOnEffectScene, GetParent() ?? this, GlobalPosition);
                 }
             }
             return;
@@ -243,18 +243,18 @@ public partial class MovingLight : Node3D
         _fadeTarget = 1f;
         _amplitude = 0f;
         _flickerTimer = 0f;
-        _tuning = LightEngine.ResolveTuning(world.WorldState, Distance, Falloff, Brightness);
+        _tuning = LightEngine.ResolveTuning(world.WorldState, distance, falloff, brightness);
         LightEngine.ComputeFloodField(world.WorldState, voxel, _tuning.FloodRadius, _cells);
         Reshade(world.WorldState, pos);
         _lastShadeSub = new Vector3(pos.X - voxel.X, pos.Y - voxel.Y, pos.Z - voxel.Z);
 
-        if (LightOnEffectScene != null)
+        if (lightOnEffectScene != null)
         {
-            Fx.Create(LightOnEffectScene, GetParent() ?? this, GlobalPosition);
+            Fx.Create(lightOnEffectScene, GetParent() ?? this, GlobalPosition);
         }
-        if (_loopEffect == null && LightLoopEffectScene != null)
+        if (_loopEffect == null && lightLoopEffectScene != null)
         {
-            _loopEffect = Fx.Create(LightLoopEffectScene, this, Vector3.Zero);
+            _loopEffect = Fx.Create(lightLoopEffectScene, this, Vector3.Zero);
         }
     }
 
@@ -278,13 +278,13 @@ public partial class MovingLight : Node3D
         _deactivating = true;
         _fadeTarget = 0f;
         // The off-cue fires as the light begins to die out.
-        if (LightOffEffectScene != null)
+        if (lightOffEffectScene != null)
         {
-            Fx.Create(LightOffEffectScene, GetParent() ?? this, GlobalPosition);
+            Fx.Create(lightOffEffectScene, GetParent() ?? this, GlobalPosition);
         }
         // No fade window — drop the deposit immediately. Otherwise the per-frame
         // envelope ramps _fade to 0 and FinishDeactivate runs when it lands.
-        if (FadeOutDuration <= 0f)
+        if (fadeOutDuration <= 0f)
         {
             _fade = 0f;
             FinishDeactivate();
@@ -342,7 +342,7 @@ public partial class MovingLight : Node3D
     {
         RemoveCurrentDeposit(worldState);
         LightEngine.ShadeFloodField(
-            worldState, _cells, pos, LightColor, _tuning, _currentDeposit, out _, out _);
+            worldState, _cells, pos, lightColor, _tuning, _currentDeposit, out _, out _);
         DepositScaled(worldState);
     }
 

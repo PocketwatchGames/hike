@@ -30,7 +30,7 @@ public partial class VoxelAtlasManifest : Resource
 
     // One entry per atlas layer, in AtlasBaseIndex order (entry i bakes into
     // layer i). Order is validated against each entry's Block.AtlasBaseIndex.
-    [Export] public AtlasLayer[] Layers;
+    [Export] public AtlasLayer[] layers;
 
     // Inspector button (Godot 4.4+). Re-stitches both strips from source art.
     [ExportToolButton("Rebuild Atlas")]
@@ -45,15 +45,15 @@ public partial class VoxelAtlasManifest : Resource
             return;
         }
 
-        int n = Layers.Length;
+        int n = layers.Length;
         Image colorStrip = Image.CreateEmpty(Slot, Slot * n, false, Image.Format.Rgb8);
         Image nhStrip = Image.CreateEmpty(Slot, Slot * n, false, Image.Format.Rgba8);
 
         for (int i = 0; i < n; i++)
         {
-            AtlasLayer layer = Layers[i];
+            AtlasLayer layer = layers[i];
 
-            Image color = LoadSlot(layer.Color, Image.Format.Rgb8);
+            Image color = LoadSlot(layer.color, Image.Format.Rgb8);
             if (color == null)
             {
                 GD.PushError($"VoxelAtlasManifest: layer {i} ('{LayerName(layer)}') failed to load its Color texture.");
@@ -61,8 +61,8 @@ public partial class VoxelAtlasManifest : Resource
             }
             colorStrip.BlitRect(color, new Rect2I(0, 0, Slot, Slot), new Vector2I(0, i * Slot));
 
-            Image nrm = layer.Normal != null ? LoadSlot(layer.Normal, Image.Format.Rgb8) : null;
-            Image hgt = layer.Height != null ? LoadSlot(layer.Height, Image.Format.L8) : null;
+            Image nrm = layer.normal != null ? LoadSlot(layer.normal, Image.Format.Rgb8) : null;
+            Image hgt = layer.height != null ? LoadSlot(layer.height, Image.Format.L8) : null;
             for (int y = 0; y < Slot; y++)
             {
                 for (int x = 0; x < Slot; x++)
@@ -97,17 +97,17 @@ public partial class VoxelAtlasManifest : Resource
     public bool IsStale()
     {
         ulong atlasMtime = FileAccess.GetModifiedTime(ColorOutPath);
-        if (atlasMtime == 0 || Layers == null)
+        if (atlasMtime == 0 || layers == null)
         {
             return true;
         }
-        foreach (AtlasLayer layer in Layers)
+        foreach (AtlasLayer layer in layers)
         {
             if (layer == null)
             {
                 continue;
             }
-            foreach (Texture2D tex in new[] { layer.Color, layer.Normal, layer.Height })
+            foreach (Texture2D tex in new[] { layer.color, layer.normal, layer.height })
             {
                 if (tex == null || string.IsNullOrEmpty(tex.ResourcePath))
                 {
@@ -152,24 +152,24 @@ public partial class VoxelAtlasManifest : Resource
     // bake rather than write a misordered atlas.
     private bool Validate()
     {
-        if (Layers == null || Layers.Length == 0)
+        if (layers == null || layers.Length == 0)
         {
             GD.PushError("VoxelAtlasManifest: Layers is empty.");
             return false;
         }
         bool ok = true;
-        for (int i = 0; i < Layers.Length; i++)
+        for (int i = 0; i < layers.Length; i++)
         {
-            AtlasLayer layer = Layers[i];
+            AtlasLayer layer = layers[i];
             if (layer == null)
             {
                 GD.PushError($"VoxelAtlasManifest: null layer at index {i}.");
                 ok = false;
                 continue;
             }
-            if (layer.Block != null && layer.Block.AtlasBaseIndex != i)
+            if (layer.block != null && layer.block.atlasBaseIndex != i)
             {
-                GD.PushError($"VoxelAtlasManifest: layer {i} is block '{layer.Block.BlockName}' with AtlasBaseIndex={layer.Block.AtlasBaseIndex}; array position must equal AtlasBaseIndex.");
+                GD.PushError($"VoxelAtlasManifest: layer {i} is block '{layer.block.blockName}' with AtlasBaseIndex={layer.block.atlasBaseIndex}; array position must equal AtlasBaseIndex.");
                 ok = false;
             }
         }
@@ -178,6 +178,6 @@ public partial class VoxelAtlasManifest : Resource
 
     private static string LayerName(AtlasLayer layer)
     {
-        return layer.Block != null ? layer.Block.BlockName.ToString() : "<no block>";
+        return layer.block != null ? layer.block.blockName.ToString() : "<no block>";
     }
 }

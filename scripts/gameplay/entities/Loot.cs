@@ -422,7 +422,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			_emergeRawInWindow = inWindow;
 			_emergePending = true;
 			_emergePendingInWindow = inWindow;
-			float delaySeconds = te.StaggerSeconds > 0f ? te.StaggerSeconds * GD.Randf() : 0f;
+			float delaySeconds = te.staggerSeconds > 0f ? te.staggerSeconds * GD.Randf() : 0f;
 			_emergeDeadlineMs = now + (ulong)(delaySeconds * 1000f);
 		}
 		if (_emergePending && now >= _emergeDeadlineMs)
@@ -439,7 +439,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 
 		// Advance the active rise/retract on the sim clock.
-		float durMs = Mathf.Max(1f, te.EmergeSeconds * 1000f);
+		float durMs = Mathf.Max(1f, te.emergeSeconds * 1000f);
 		if (_emergeState == EmergeState.Emerging)
 		{
 			float f = Mathf.Min(1f, (now - _emergeStartMs) / durMs);
@@ -497,7 +497,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	// transition (small GameTimeMs) can't underflow the unsigned clock.
 	private ulong BackdatedStart(ulong now, float elapsedFraction)
 	{
-		float durMs = Mathf.Max(1f, (TimedEmergence?.EmergeSeconds ?? 0f) * 1000f);
+		float durMs = Mathf.Max(1f, (TimedEmergence?.emergeSeconds ?? 0f) * 1000f);
 		ulong back = (ulong)(Mathf.Clamp(elapsedFraction, 0f, 1f) * durMs);
 		return now > back ? now - back : 0;
 	}
@@ -528,7 +528,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return;
 		}
-		float rise = TimedEmergence?.RiseDistance ?? 0f;
+		float rise = TimedEmergence?.riseDistance ?? 0f;
 		_emergeVisual.Visible = f > 0f;
 		_emergeVisual.Scale = _emergeRestScale * f;
 		_emergeVisual.Position = _emergeRestPos + new Vector3(0f, -rise * (1f - f), 0f);

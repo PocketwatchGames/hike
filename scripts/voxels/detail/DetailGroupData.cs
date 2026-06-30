@@ -14,19 +14,19 @@ using Godot;
 public partial class DetailGroupData : Resource
 {
     // Optional human-readable name for editor / debugging.
-    [Export] public string GroupName = "";
+    [Export] public string groupName = "";
 
     // Variants in this group. The scatter pass picks one per instance via
     // weight-proportional sampling. Empty arrays scatter nothing.
-    [Export] public Godot.Collections.Array<DetailEntry> Entries = new();
+    [Export] public Godot.Collections.Array<DetailEntry> entries = new();
 
     // Candidate slots rolled per painted voxel. Each slot rolls a hash against
     // DetailStrength/255 to decide whether to spawn an instance. With 4 slots
     // and strength 128, expected count per voxel is ~2.
-    [Export] public int InstancesPerVoxel = 4;
+    [Export] public int instancesPerVoxel = 4;
 
     // Index into MinimapFoliageColors palette. 0 = no minimap stamp (the
     // surface terrain color shows through). Non-zero stamps the group's
     // authored color over the terrain pixel covering the painted voxel.
-    [Export] public byte MinimapFoliageId = 0;
+    [Export] public byte minimapFoliageId = 0;
 }

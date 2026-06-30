@@ -69,86 +69,86 @@ shape = SubResource("CylinderShape3D_trunk")
 mesh = SubResource("ArrayMesh_kbegd")
 surface_material_override/0 = ExtResource("10_bark")
 script = ExtResource("12_trunk")
-TrunkHeight = 9.0
-BottomRadius = 0.25
-TopRadius = 0.04
-SplitHeight = 0.3
-BranchSpread = 0.15
-ElbowReach = 0.8
-Verticality = 0.95
-RootBulge = 0.4
-ThicknessVariation = 0.15
-Jaggedness = 0.06
-BranchMaterial = ExtResource("10_bark")
+trunkHeight = 9.0
+bottomRadius = 0.25
+topRadius = 0.04
+splitHeight = 0.3
+branchSpread = 0.15
+elbowReach = 0.8
+verticality = 0.95
+rootBulge = 0.4
+thicknessVariation = 0.15
+jaggedness = 0.06
+branchMaterial = ExtResource("10_bark")
 
 [node name="Foliage" type="MultiMeshInstance3D" parent="Trunk" unique_id=1670349133]
 material_override = SubResource("ShaderMaterial_dcq80")
 multimesh = SubResource("MultiMesh_cbbxm")
 script = ExtResource("2_foliage")
-CardMesh = ExtResource("4_quad")
-LeafTexture = ExtResource("5_leaf")
-LeafTintA = Color(1, 0.93333334, 0.5, 1)
-LeafTintB = Color(0.76, 0.56582, 0.20519999, 1)
+cardMesh = ExtResource("4_quad")
+leafTexture = ExtResource("5_leaf")
+leafTintA = Color(1, 0.93333334, 0.5, 1)
+leafTintB = Color(0.76, 0.56582, 0.20519999, 1)
 
 [node name="Cluster1" type="Node3D" parent="Trunk/Foliage" unique_id=1301686887]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.25, 9, 0)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(0.5, 0.2, 0.5)
-CastsSunShadow = true
-FadesWhenOccludingPlayer = true
-CardCount = 25
-CardSizeMin = 0.5
-CardSizeMax = 1.0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(0.5, 0.2, 0.5)
+castsSunShadow = true
+fadesWhenOccludingPlayer = true
+cardCount = 25
+cardSizeMin = 0.5
+cardSizeMax = 1.0
+rollJitter = 0.0
 
 [node name="Cluster2" type="Node3D" parent="Trunk/Foliage" unique_id=1818242144]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 7.5, -0.5)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(0.5, 0.25, 0.5)
-CastsSunShadow = true
-FadesWhenOccludingPlayer = true
-CardCount = 20
-RollJitter = 0.0
+ellipsoidRadii = Vector3(0.5, 0.25, 0.5)
+castsSunShadow = true
+fadesWhenOccludingPlayer = true
+cardCount = 20
+rollJitter = 0.0
 
 [node name="Cluster3" type="Node3D" parent="Trunk/Foliage" unique_id=636611218]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 0.5)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(1, 0.5, 1)
-CastsSunShadow = true
-FadesWhenOccludingPlayer = true
-CardCount = 20
-CardSizeMax = 2.0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(1, 0.5, 1)
+castsSunShadow = true
+fadesWhenOccludingPlayer = true
+cardCount = 20
+cardSizeMax = 2.0
+rollJitter = 0.0
 
 [node name="Cluster4" type="Node3D" parent="Trunk/Foliage" unique_id=967671777]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.25, 6.5, -0.5)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(0.6, 0.2, 0.6)
-CastsSunShadow = true
-FadesWhenOccludingPlayer = true
-CardCount = 20
-CardSizeMin = 0.5
-CardSizeMax = 1.0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(0.6, 0.2, 0.6)
+castsSunShadow = true
+fadesWhenOccludingPlayer = true
+cardCount = 20
+cardSizeMin = 0.5
+cardSizeMax = 1.0
+rollJitter = 0.0
 
 [node name="Cluster5" type="Node3D" parent="Trunk/Foliage" unique_id=1533526860]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 4, -0.25)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(1, 0.5, 1)
-CastsSunShadow = true
-FadesWhenOccludingPlayer = true
-CardCount = 20
-CardSizeMax = 2.0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(1, 0.5, 1)
+castsSunShadow = true
+fadesWhenOccludingPlayer = true
+cardCount = 20
+cardSizeMax = 2.0
+rollJitter = 0.0
 
 [node name="Cluster6" type="Node3D" parent="Trunk/Foliage" unique_id=766830368]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(0.75, 0.5, 0.75)
-CastsSunShadow = true
-FadesWhenOccludingPlayer = true
-CardCount = 20
-RollJitter = 0.0
+ellipsoidRadii = Vector3(0.75, 0.5, 0.75)
+castsSunShadow = true
+fadesWhenOccludingPlayer = true
+cardCount = 20
+rollJitter = 0.0
 
 [node name="MinimapStamp" type="Node3D" parent="." unique_id=227949120]
 script = ExtResource("6_mmstamp")

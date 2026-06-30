@@ -213,7 +213,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		_cookingPanel.RefreshRecipes(simData.Recipes, worldSim, _player.Inventory, _forge.ForgeType);
+		_cookingPanel.RefreshRecipes(simData.recipes, worldSim, _player.Inventory, _forge.ForgeType);
 	}
 
 	// A recipe button was clicked. Reconcile the cooking slots with the
@@ -635,7 +635,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		Cooking.MatchResult match = Cooking.TryMatch(inputs, simData.Recipes, _forge.ForgeType);
+		Cooking.MatchResult match = Cooking.TryMatch(inputs, simData.recipes, _forge.ForgeType);
 		if (!match.IsValid)
 		{
 			// Failed cook — drain ingredients and announce the failure.

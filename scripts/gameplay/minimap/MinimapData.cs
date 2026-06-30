@@ -403,11 +403,11 @@ public static class MinimapData
             return BlockCatalog.Active.DefaultFlatTileIndex;
         }
         TerrainData terrain = terrainPalette[TerrainId];
-        if (terrain == null || terrain.FlatTile == null)
+        if (terrain == null || terrain.flatTile == null)
         {
             return BlockCatalog.Active.DefaultFlatTileIndex;
         }
-        return terrain.FlatTile.AtlasBaseIndex;
+        return terrain.flatTile.atlasBaseIndex;
     }
 
     private static int ResolveTerrainWallTile(int TerrainId, TerrainData[] terrainPalette)
@@ -417,11 +417,11 @@ public static class MinimapData
             return BlockCatalog.Active.DefaultWallTileIndex;
         }
         TerrainData terrain = terrainPalette[TerrainId];
-        if (terrain == null || terrain.WallTile == null)
+        if (terrain == null || terrain.wallTile == null)
         {
             return BlockCatalog.Active.DefaultWallTileIndex;
         }
-        return terrain.WallTile.AtlasBaseIndex;
+        return terrain.wallTile.atlasBaseIndex;
     }
 
     // DetailGroup is 1-based — 0 means "no scatter painted on this voxel".
@@ -449,6 +449,6 @@ public static class MinimapData
         {
             return 0;
         }
-        return group.MinimapFoliageId;
+        return group.minimapFoliageId;
     }
 }

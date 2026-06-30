@@ -9,8 +9,8 @@ using Godot;
 [GlobalClass]
 public partial class WeightedScene : Resource
 {
-    [Export] public PackedScene Scene;
-    [Export] public float Weight = 1f;
+    [Export] public PackedScene scene;
+    [Export] public float weight = 1f;
 
     // Refill `list` with the non-null scenes in `entries`, keyed by their
     // Weight. Reuses the caller's list (cleared first) so hot scatter loops
@@ -22,9 +22,9 @@ public partial class WeightedScene : Resource
         {
             foreach (WeightedScene entry in entries)
             {
-                if (entry?.Scene != null)
+                if (entry?.scene != null)
                 {
-                    list.Add(entry.Scene, entry.Weight);
+                    list.Add(entry.scene, entry.weight);
                 }
             }
         }

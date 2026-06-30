@@ -13,44 +13,44 @@
 
 [sub_resource type="Resource" id="Resource_grass_entry"]
 script = ExtResource("1_pbdkf")
-Texture = ExtResource("2_6nkjt")
-TintMap = ExtResource("3_4e7ce")
-TintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
-ScaleMin = 0.7
-ScaleMax = 1.3
+texture = ExtResource("2_6nkjt")
+tintMap = ExtResource("3_4e7ce")
+tintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
+scaleMin = 0.7
+scaleMax = 1.3
 
 [sub_resource type="Resource" id="Resource_a6s4p"]
 script = ExtResource("1_pbdkf")
-Texture = ExtResource("4_qd47s")
-TintMap = ExtResource("5_nvn05")
-TintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
-ScaleMin = 0.7
-ScaleMax = 1.3
+texture = ExtResource("4_qd47s")
+tintMap = ExtResource("5_nvn05")
+tintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
+scaleMin = 0.7
+scaleMax = 1.3
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [sub_resource type="Resource" id="Resource_pbdkf"]
 script = ExtResource("1_pbdkf")
-Texture = ExtResource("6_2jhyf")
-TintMap = ExtResource("7_6fh0p")
-TintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
-TintColorB = Color(0.6509804, 0.2627451, 0.15686275, 1)
-Weight = 0.01
-ScaleMin = 0.7
-ScaleMax = 1.3
+texture = ExtResource("6_2jhyf")
+tintMap = ExtResource("7_6fh0p")
+tintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
+tintColorB = Color(0.6509804, 0.2627451, 0.15686275, 1)
+weight = 0.01
+scaleMin = 0.7
+scaleMax = 1.3
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [sub_resource type="Resource" id="Resource_6nkjt"]
 script = ExtResource("1_pbdkf")
-Texture = ExtResource("8_7goqa")
-TintMap = ExtResource("9_0y8ia")
-TintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
-TintColorB = Color(0.6509804, 0.2627451, 0.15686275, 1)
-Weight = 0.01
-ScaleMin = 0.7
-ScaleMax = 1.3
+texture = ExtResource("8_7goqa")
+tintMap = ExtResource("9_0y8ia")
+tintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
+tintColorB = Color(0.6509804, 0.2627451, 0.15686275, 1)
+weight = 0.01
+scaleMin = 0.7
+scaleMax = 1.3
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [resource]
 script = ExtResource("10_l4pvi")
-GroupName = "grass"
-Entries = Array[ExtResource("1_pbdkf")]([SubResource("Resource_grass_entry"), SubResource("Resource_a6s4p"), SubResource("Resource_pbdkf"), SubResource("Resource_6nkjt")])
+groupName = "grass"
+entries = Array[ExtResource("1_pbdkf")]([SubResource("Resource_grass_entry"), SubResource("Resource_a6s4p"), SubResource("Resource_pbdkf"), SubResource("Resource_6nkjt")])

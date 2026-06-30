@@ -64,7 +64,7 @@ public sealed class SpawnContext
             }
             int sy = SurfaceYAt(wx, wz);
             var candidate = new Vector3(wx + 0.5f, sy + 1f, wz + 0.5f);
-            if (entry.MinSpacing > 0f && ws.HasEntityWithinRadius(candidate, entry.MinSpacing))
+            if (entry.minSpacing > 0f && ws.HasEntityWithinRadius(candidate, entry.minSpacing))
             {
                 continue;
             }

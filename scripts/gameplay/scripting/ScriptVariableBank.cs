@@ -42,14 +42,14 @@ public class ScriptVariableBank
         {
             GD.PushError(issue);
         }
-        foreach (ScriptVariableData v in registry.Variables)
+        foreach (ScriptVariableData v in registry.variables)
         {
-            if (v == null || string.IsNullOrEmpty(v.Id.ToString()))
+            if (v == null || string.IsNullOrEmpty(v.id.ToString()))
             {
                 continue;
             }
-            _declared[v.Id] = v;
-            _values[v.Id] = v.DefaultValue;
+            _declared[v.id] = v;
+            _values[v.id] = v.defaultValue;
         }
     }
 

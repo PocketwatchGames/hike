@@ -162,7 +162,7 @@ public partial class StationaryLight : Node3D
     {
         Player p = _world.player;
         if (p == null) { return true; }
-        float cull = _worldData.SimData.BlockLightFlickerCullDistance;
+        float cull = _worldData.SimData.blockLightFlickerCullDistance;
         return (p.GlobalPosition - GlobalPosition).LengthSquared() <= cull * cull;
     }
 }

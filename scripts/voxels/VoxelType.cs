@@ -50,7 +50,7 @@ public static class VoxelTypeInfo
             GD.PushError($"VoxelTypeInfo: BlockCatalog missing '{name}'.");
             return 0;
         }
-        return block.AtlasBaseIndex;
+        return block.atlasBaseIndex;
     }
 
     // Upper bound on BlockData.AtlasBaseIndex; sizes the catalog's

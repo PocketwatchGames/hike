@@ -142,7 +142,7 @@ public partial class WorldDetailScatter : Node3D
 
         bucket.Mmi = new MultiMeshInstance3D();
         bucket.Mmi.Multimesh = bucket.Mm;
-        bucket.Mmi.Name = MULTIMESH_NAME_PREFIX + (entry.Texture != null ? entry.Texture.ResourceName : "unnamed");
+        bucket.Mmi.Name = MULTIMESH_NAME_PREFIX + (entry.texture != null ? entry.texture.ResourceName : "unnamed");
         bucket.Mmi.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         bucket.Mmi.MaterialOverride = entry.GetMaterial();
         bucket.Mmi.Visible = CVars.detailsVisible.Value;

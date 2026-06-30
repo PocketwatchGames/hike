@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_block")
-BlockName = &"Cobblestone"
-AtlasBaseIndex = 3
-MinimapColor = Color(0.48, 0.45688, 0.39839998, 1)
-Porosity = 0.2
+blockName = &"Cobblestone"
+atlasBaseIndex = 3
+minimapColor = Color(0.48, 0.45688, 0.39839998, 1)
+porosity = 0.2

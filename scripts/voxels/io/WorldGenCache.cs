@@ -94,17 +94,17 @@ public static class WorldGenCache
         // SubscenePlacement.Path strings reference .hikescene files, which are
         // not Godot resources — ResourceLoader.GetDependencies won't surface
         // them. Pull them in explicitly.
-        if (genData.Subscenes != null)
+        if (genData.subscenes != null)
         {
-            foreach (SubscenePlacement sp in genData.Subscenes)
+            foreach (SubscenePlacement sp in genData.subscenes)
             {
-                if (sp == null || string.IsNullOrEmpty(sp.Path))
+                if (sp == null || string.IsNullOrEmpty(sp.path))
                 {
                     continue;
                 }
-                if (visited.Add(sp.Path))
+                if (visited.Add(sp.path))
                 {
-                    queue.Enqueue(sp.Path);
+                    queue.Enqueue(sp.path);
                 }
             }
         }

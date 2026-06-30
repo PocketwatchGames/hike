@@ -8,7 +8,7 @@ using Godot;
 public partial class Perch : Node3D
 {
     // Facing (yaw, radians) the landed bird adopts. Cosmetic.
-    [Export] public float FacingYaw;
+    [Export] public float facingYaw;
 
     // The mob occupying or inbound to this perch, or null. Transient runtime
     // state, never serialized.

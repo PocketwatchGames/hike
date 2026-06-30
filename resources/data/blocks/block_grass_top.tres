@@ -4,8 +4,8 @@
 
 [resource]
 script = ExtResource("1_block")
-BlockName = &"GrassTop"
-AtlasBaseIndex = 1
-MinimapColor = Color(0.47843137, 0.4745098, 0.2509804, 1)
-GroundType = 0
-Porosity = 0.7
+blockName = &"GrassTop"
+atlasBaseIndex = 1
+minimapColor = Color(0.47843137, 0.4745098, 0.2509804, 1)
+groundType = 0
+porosity = 0.7

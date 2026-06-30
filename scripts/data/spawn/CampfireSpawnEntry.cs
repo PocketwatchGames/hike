@@ -12,7 +12,7 @@ using Godot;
 [GlobalClass]
 public partial class CampfireSpawnEntry : SpawnEntryData
 {
-    [Export] public PackedScene Scene;
+    [Export] public PackedScene scene;
 
     // Radius (meters) around the campfire where worldgen-painted detail
     // sprites (small grasses, pebbles — see DetailEntry / ChunkDetailScatter)
@@ -20,14 +20,14 @@ public partial class CampfireSpawnEntry : SpawnEntryData
     // don't share a footprint with scattered foliage. StampDetailScatter
     // runs before the surface-entity pass in WorldGen.Generate, so the
     // clear can fire inline from this Spawn — no post-pass needed.
-    [Export] public float DetailSuppressionRadius = 2f;
+    [Export] public float detailSuppressionRadius = 2f;
 
     // Danger-zone radius mobs avoid while wandering and never spawn inside
     // (the campfire's damage sphere is ~0.75m; pad it). Small enough that an
     // encampment's scattered mobs still ring the fire — they just won't stand
     // in it. Attack pathing ignores it so the player can lure mobs in.
-    [Export] public float HazardRadius = ForgeSimState.DefaultHazardRadius;
-    public override float HazardSpawnRadius => HazardRadius;
+    [Export] public float hazardRadius = ForgeSimState.DefaultHazardRadius;
+    public override float HazardSpawnRadius => hazardRadius;
 
     // Campfires sit visually awkwardly on cliff edges and ramp adjacencies
     // (the bowl tilts, surrounding fuel/rocks intersect the step face).
@@ -36,19 +36,19 @@ public partial class CampfireSpawnEntry : SpawnEntryData
     // Spawn already lit and Active rather than dark + AutoLightAtNight. Used by
     // the hub / per-zone "home" campfires the player can Camp at immediately;
     // wild scattered campfires leave this false so they only kindle after dark.
-    [Export] public bool StartLit = false;
+    [Export] public bool startLit = false;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Scene == null)
+        if (scene == null)
         {
             return;
         }
-        var campfire = new ForgeSimState(position, Scene);
-        campfire.AutoLightAtNight = !StartLit;
-        campfire.Active = StartLit;
-        campfire.HazardRadius = HazardRadius;
+        var campfire = new ForgeSimState(position, scene);
+        campfire.AutoLightAtNight = !startLit;
+        campfire.Active = startLit;
+        campfire.HazardRadius = hazardRadius;
         ws.AddEntity(campfire);
-        ws.ClearDetailVoxelsWithin(position, DetailSuppressionRadius);
+        ws.ClearDetailVoxelsWithin(position, detailSuppressionRadius);
     }
 }

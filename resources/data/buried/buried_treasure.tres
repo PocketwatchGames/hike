@@ -13,8 +13,8 @@ metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [sub_resource type="Resource" id="Resource_chest_payload"]
 script = ExtResource("2_chest_entry")
-Scene = ExtResource("4_chest_scene")
-LootItems = [SubResource("Resource_loot_range")]
+scene = ExtResource("4_chest_scene")
+lootItems = [SubResource("Resource_loot_range")]
 
 [resource]
 script = ExtResource("1_data")

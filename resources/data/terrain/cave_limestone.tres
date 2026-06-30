@@ -5,8 +5,8 @@
 
 [resource]
 script = ExtResource("1_kit")
-Name = "Cave Limestone"
-FlatTile = ExtResource("3_block_flat")
-WallBand = Vector2(0.3, 0.75)
-BlendAmp = 0.55
-GroundTint = Color(0.22, 0.22, 0.22, 1)
+name = "Cave Limestone"
+flatTile = ExtResource("3_block_flat")
+wallBand = Vector2(0.3, 0.75)
+blendAmp = 0.55
+groundTint = Color(0.22, 0.22, 0.22, 1)

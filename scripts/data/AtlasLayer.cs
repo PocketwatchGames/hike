@@ -17,15 +17,15 @@ public partial class AtlasLayer : Resource
     // manifest's Layers array must equal Block.AtlasBaseIndex; the manifest
     // validates this before stitching so the PNG layer order can never silently
     // drift from the authored wire ids.
-    [Export] public BlockData Block;
+    [Export] public BlockData block;
 
     // Base color (sRGB). Required.
-    [Export] public Texture2D Color;
+    [Export] public Texture2D color;
 
     // Tangent-space normal map. Null -> flat normal (0.5, 0.5, 1.0).
-    [Export] public Texture2D Normal;
+    [Export] public Texture2D normal;
 
     // Height / displacement (grayscale). Null -> zero height. Baked into the
     // alpha channel of voxel_tiles_nrm_height.png.
-    [Export] public Texture2D Height;
+    [Export] public Texture2D height;
 }

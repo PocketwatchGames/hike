@@ -35,7 +35,7 @@ public class WorldMapState
     public WorldMapState(WorldMapData data)
     {
         Data = data;
-        SeaLevel = data.SeaLevel;
+        SeaLevel = data.seaLevel;
         Elevation = data.LoadOrCreateElevation();
         Water = data.LoadOrCreateWater();
         Region = data.LoadOrCreateRegion();
@@ -51,7 +51,7 @@ public class WorldMapState
 
     public int ColumnHeight(float v01)
     {
-        return SeaLevel + Mathf.RoundToInt(Mathf.Clamp(v01, 0f, 1f) * Data.MaxElevationVoxels);
+        return SeaLevel + Mathf.RoundToInt(Mathf.Clamp(v01, 0f, 1f) * Data.maxElevationVoxels);
     }
 
     public float Elevation01(int px, int pz)
@@ -126,24 +126,24 @@ public class WorldMapState
     // stamp regions/zones, stamp all columns, propagate sunlight.
     public WorldState BuildWorld()
     {
-        var ws = new WorldState(Data.MinChunk, Data.MaxChunk, Data.GenData.SimData);
+        var ws = new WorldState(Data.MinChunk, Data.MaxChunk, Data.genData.simData);
 
-        ZoneGenData[] zones = Data.GenData.ZoneGens ?? [];
+        ZoneGenData[] zones = Data.genData.ZoneGens ?? [];
         ws.Zones = new ZoneState[zones.Length];
         for (int i = 0; i < zones.Length; i++)
         {
             ws.Zones[i] = new ZoneState
             {
-                Data = zones[i]?.Zone,
+                Data = zones[i]?.zone,
                 WindDirection = new Vector3(0.7f, 0f, 0.7f),
                 Elevation = 0f,
             };
         }
-        RegionGenData[] regions = Data.GenData.Regions ?? [];
+        RegionGenData[] regions = Data.genData.regions ?? [];
         ws.Regions = new RegionState[regions.Length];
         for (int i = 0; i < regions.Length; i++)
         {
-            ws.Regions[i] = new RegionState { Data = regions[i]?.Region };
+            ws.Regions[i] = new RegionState { Data = regions[i]?.region };
         }
 
         for (int cx = Data.MinChunk.X; cx <= Data.MaxChunk.X; cx++)
@@ -328,13 +328,13 @@ public class WorldMapState
         Data.SaveZone(Zone);
         Data.SaveScatter(Scatter);
         Data.SaveTunnels(Tunnels);
-        if (!string.IsNullOrEmpty(Data.OutputWorldPath))
+        if (!string.IsNullOrEmpty(Data.outputWorldPath))
         {
             try
             {
                 BuildWorld();
-                WorldFile.Write(Data.OutputWorldPath, WorldState);
-                GD.Print($"WorldMapState: saved layers + baked world to {Data.OutputWorldPath}");
+                WorldFile.Write(Data.outputWorldPath, WorldState);
+                GD.Print($"WorldMapState: saved layers + baked world to {Data.outputWorldPath}");
             }
             catch (System.Exception e)
             {

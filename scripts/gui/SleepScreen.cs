@@ -125,8 +125,8 @@ public partial class SleepScreen : Control
 	}
 
 	SimData SimData => _player?.World?.SimData;
-	float SunriseTimeOfDay() => SimData?.SunriseTimeOfDay ?? DefaultSunrise;
-	float SunsetTimeOfDay() => SimData?.SunsetTimeOfDay ?? DefaultSunset;
+	float SunriseTimeOfDay() => SimData?.sunriseTimeOfDay ?? DefaultSunrise;
+	float SunsetTimeOfDay() => SimData?.sunsetTimeOfDay ?? DefaultSunset;
 
 	// In-world hours from now until the clock next reaches targetTod, wrapping
 	// past midnight. TimeOfDay01 spans one 24-hour day over [0,1).

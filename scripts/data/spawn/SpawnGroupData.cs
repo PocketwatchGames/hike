@@ -23,8 +23,8 @@ using Godot.Collections;
 [GlobalClass]
 public partial class SpawnGroupData : SpawnEntryData
 {
-    [Export] public float ScatterRadius = 3f;
-    [Export] public Array<SpawnEntryData> Entries = new();
+    [Export] public float scatterRadius = 3f;
+    [Export] public Array<SpawnEntryData> entries = new();
 
     private const int ScatterAttemptsPerInstance = 6;
 
@@ -33,16 +33,16 @@ public partial class SpawnGroupData : SpawnEntryData
     // meaningless here. Sub-entries enforce their own MinSpacing per pick.
     public SpawnGroupData()
     {
-        MinSpacing = 0f;
+        minSpacing = 0f;
     }
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Entries == null)
+        if (entries == null)
         {
             return;
         }
-        foreach (SpawnEntryData entry in Entries)
+        foreach (SpawnEntryData entry in entries)
         {
             if (entry == null)
             {
@@ -51,7 +51,7 @@ public partial class SpawnGroupData : SpawnEntryData
             int count = entry.RollCount(rng);
             for (int i = 0; i < count; i++)
             {
-                if (entry.PlaceAtAnchor)
+                if (entry.placeAtAnchor)
                 {
                     // Centerpiece: pin to the cluster anchor (no scatter), but
                     // still run the entry's gates.
@@ -64,13 +64,13 @@ public partial class SpawnGroupData : SpawnEntryData
                     // sampler would wrongly reject it, so bypass it.
                     entry.Spawn(ws, position, rng, context);
                 }
-                else if (context != null && ScatterRadius > 0f)
+                else if (context != null && scatterRadius > 0f)
                 {
                     // TryPickInRadius runs the entry's flat-terrain + overlap
                     // checks inside its rejection loop, so the surviving pick
                     // is already validated — call Spawn directly to avoid a
                     // redundant second pass.
-                    if (!context.TryPickInRadius(entry, ws, position, ScatterRadius, rng,
+                    if (!context.TryPickInRadius(entry, ws, position, scatterRadius, rng,
                         ScatterAttemptsPerInstance, out Vector3 instancePos))
                     {
                         continue;

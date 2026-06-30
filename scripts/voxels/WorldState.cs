@@ -229,8 +229,8 @@ public class WorldState
         SimData = simData;
         // Seed the scripting-variable bank from the authored registry before
         // any save data loads; harmless when no registry is authored.
-        SimState.ScriptVars.Initialize(simData?.ScriptVariables);
-        TimeOfDay01 = simData?.InitialTimeOfDay ?? 0.3f;
+        SimState.ScriptVars.Initialize(simData?.scriptVariables);
+        TimeOfDay01 = simData?.initialTimeOfDay ?? 0.3f;
         TimeOfDayAbsolute = TimeOfDay01;
         WeatherRng.Randomize();
         // Seed prev/cur/next on each channel so the first frame has a
@@ -685,7 +685,7 @@ public class WorldState
         // visible darkness of dusk.
         SkyController sky = SkyController.Current;
         float ambient = sky?.CurrentAmbient ?? 0.4f;
-        float primaryIntensity = sky?.CurrentPrimaryIntensity ?? SimData?.DayIntensityBase ?? 2f;
+        float primaryIntensity = sky?.CurrentPrimaryIntensity ?? SimData?.dayIntensityBase ?? 2f;
         float sunFactor = ambient + (sunReachesPoint ? (1f - ambient) : 0f);
         float sun = sunMask * primaryIntensity * sunFactor;
 

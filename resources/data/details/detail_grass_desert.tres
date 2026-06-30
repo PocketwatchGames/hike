@@ -13,44 +13,44 @@
 
 [sub_resource type="Resource" id="Resource_grass_entry"]
 script = ExtResource("1_l8bm1")
-Texture = ExtResource("2_llra7")
-TintMap = ExtResource("3_vdwjn")
-TintColorA = Color(0.41960785, 0.43137255, 0.30980393, 1)
-ScaleMin = 0.7
-ScaleMax = 1.3
+texture = ExtResource("2_llra7")
+tintMap = ExtResource("3_vdwjn")
+tintColorA = Color(0.41960785, 0.43137255, 0.30980393, 1)
+scaleMin = 0.7
+scaleMax = 1.3
 
 [sub_resource type="Resource" id="Resource_a6s4p"]
 script = ExtResource("1_l8bm1")
-Texture = ExtResource("4_btgde")
-TintMap = ExtResource("5_fmjvn")
-TintColorA = Color(0.41960785, 0.43137255, 0.30980393, 1)
-ScaleMin = 0.7
-ScaleMax = 1.3
+texture = ExtResource("4_btgde")
+tintMap = ExtResource("5_fmjvn")
+tintColorA = Color(0.41960785, 0.43137255, 0.30980393, 1)
+scaleMin = 0.7
+scaleMax = 1.3
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [sub_resource type="Resource" id="Resource_llra7"]
 script = ExtResource("1_l8bm1")
-Texture = ExtResource("6_3bd4d")
-TintMap = ExtResource("7_fnqjc")
-TintColorA = Color(0.41960785, 0.43137255, 0.30980393, 1)
-TintColorB = Color(0.80784315, 0.32156864, 1, 1)
-Weight = 0.02
-ScaleMin = 0.7
-ScaleMax = 1.3
+texture = ExtResource("6_3bd4d")
+tintMap = ExtResource("7_fnqjc")
+tintColorA = Color(0.41960785, 0.43137255, 0.30980393, 1)
+tintColorB = Color(0.80784315, 0.32156864, 1, 1)
+weight = 0.02
+scaleMin = 0.7
+scaleMax = 1.3
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [sub_resource type="Resource" id="Resource_vdwjn"]
 script = ExtResource("1_l8bm1")
-Texture = ExtResource("8_r7une")
-TintMap = ExtResource("9_fp27c")
-TintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
-TintColorB = Color(0.80784315, 0.32156864, 1, 1)
-Weight = 0.02
-ScaleMin = 0.7
-ScaleMax = 1.3
+texture = ExtResource("8_r7une")
+tintMap = ExtResource("9_fp27c")
+tintColorA = Color(0.6, 0.5647059, 0.45490196, 1)
+tintColorB = Color(0.80784315, 0.32156864, 1, 1)
+weight = 0.02
+scaleMin = 0.7
+scaleMax = 1.3
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [resource]
 script = ExtResource("6_vdwjn")
-GroupName = "grass"
-Entries = Array[ExtResource("1_l8bm1")]([SubResource("Resource_grass_entry"), SubResource("Resource_a6s4p"), SubResource("Resource_llra7"), SubResource("Resource_vdwjn")])
+groupName = "grass"
+entries = Array[ExtResource("1_l8bm1")]([SubResource("Resource_grass_entry"), SubResource("Resource_a6s4p"), SubResource("Resource_llra7"), SubResource("Resource_vdwjn")])

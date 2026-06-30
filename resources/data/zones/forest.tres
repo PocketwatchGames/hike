@@ -15,12 +15,12 @@ metadata/_custom_type_script = "uid://d25sc6n2mi728"
 
 [resource]
 script = ExtResource("1_region")
-SunColor = Color(0.8993333, 0.95, 0.79800004, 1)
-MoonColor = Color(0.44849998, 0.5828333, 0.65, 1)
-SkyColor = Color(0.3, 0.55, 0.75, 1)
-DustColor = Color(0.462, 0.6, 0.54480004, 1)
-WaterColor = Color(0.3, 0.4166667, 0.5, 1)
-WaterOpacity = 0.5019608
-DustAmount = 0.0
+sunColor = Color(0.8993333, 0.95, 0.79800004, 1)
+moonColor = Color(0.44849998, 0.5828333, 0.65, 1)
+skyColor = Color(0.3, 0.55, 0.75, 1)
+dustColor = Color(0.462, 0.6, 0.54480004, 1)
+waterColor = Color(0.3, 0.4166667, 0.5, 1)
+waterOpacity = 0.5019608
+dustAmount = 0.0
 weather = SubResource("Resource_weather")
 ambience = ExtResource("3_ambience")

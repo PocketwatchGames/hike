@@ -586,15 +586,15 @@ public partial class Minimap : Node3D
             table[i] = unauthored;
         }
 
-        if (catalog?.Blocks != null)
+        if (catalog?.blocks != null)
         {
-            foreach (BlockData block in catalog.Blocks)
+            foreach (BlockData block in catalog.blocks)
             {
                 if (block == null) { continue; }
-                int idx = block.AtlasBaseIndex;
+                int idx = block.atlasBaseIndex;
                 if (idx >= 0 && idx < W)
                 {
-                    table[idx] = block.MinimapColor;
+                    table[idx] = block.minimapColor;
                 }
             }
         }
@@ -627,7 +627,7 @@ public partial class Minimap : Node3D
         for (int i = 0; i < W; i++)
         {
             MinimapFoliageEntry entry = palette?.Get(i);
-            Color c = entry != null ? entry.Color : new Color(0f, 0f, 0f, 0f);
+            Color c = entry != null ? entry.color : new Color(0f, 0f, 0f, 0f);
             pixels[i * 4 + 0] = (byte)Mathf.Clamp((int)(c.R * 255f), 0, 255);
             pixels[i * 4 + 1] = (byte)Mathf.Clamp((int)(c.G * 255f), 0, 255);
             pixels[i * 4 + 2] = (byte)Mathf.Clamp((int)(c.B * 255f), 0, 255);

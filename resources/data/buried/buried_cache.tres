@@ -12,7 +12,7 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_loot_payload"]
 script = ExtResource("2_loot_entry")
-Item = SubResource("Desc_loot")
+item = SubResource("Desc_loot")
 
 [resource]
 script = ExtResource("1_data")

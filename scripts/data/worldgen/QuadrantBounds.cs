@@ -6,13 +6,13 @@ using Godot;
 [GlobalClass]
 public partial class QuadrantBounds : ZoneBounds
 {
-    [Export] public EQuadrant Quadrant;
+    [Export] public EQuadrant quadrant;
 
     public override bool Contains(int chunkX, int chunkZ, in ZoneBoundsContext ctx)
     {
         bool east = chunkX >= 0;
         bool north = chunkZ >= 0;
-        return Quadrant switch
+        return quadrant switch
         {
             EQuadrant.NE => east && north,
             EQuadrant.NW => !east && north,

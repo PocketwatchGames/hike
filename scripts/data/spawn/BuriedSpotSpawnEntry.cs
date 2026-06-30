@@ -11,9 +11,9 @@ using Godot;
 public partial class BuriedSpotSpawnEntry : SpawnEntryData
 {
     // Shared buried_spot.tscn (carries the BuriedSpot script + model anchor).
-    [Export] public PackedScene Scene;
+    [Export] public PackedScene scene;
     // Payload + visuals for spots placed by this entry.
-    [Export] public BuriedSpotData Data;
+    [Export] public BuriedSpotData data;
     // Restrict placement to flat patches (the column and its 8 neighbours share
     // a surface height). On by default so the surface hint / dirt mound sit
     // level and the dug-up payload doesn't tumble down a slope. Clear it for
@@ -24,10 +24,10 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Scene == null || Data == null)
+        if (scene == null || data == null)
         {
             return;
         }
-        ws.AddEntity(new BuriedSpotSimState(position, Scene, Data));
+        ws.AddEntity(new BuriedSpotSimState(position, scene, data));
     }
 }

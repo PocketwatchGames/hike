@@ -51,14 +51,14 @@ shader_parameter/canopy_height = 9.030342
 
 [sub_resource type="Resource" id="Resource_aqiqr"]
 script = ExtResource("8_yhm1s")
-Texture = ExtResource("7_0kfd4")
-Density = 0.5
-TintA = Color(0.6, 0.46670002, 0.342, 1)
-TintB = Color(0.6, 0.5202, 0.34800005, 1)
-SizeMin = 0.2
-SizeMax = 0.4
-DepthBias = 0.2
-VerticalOffset = -0.85
+texture = ExtResource("7_0kfd4")
+density = 0.5
+tintA = Color(0.6, 0.46670002, 0.342, 1)
+tintB = Color(0.6, 0.5202, 0.34800005, 1)
+sizeMin = 0.2
+sizeMax = 0.4
+depthBias = 0.2
+verticalOffset = -0.85
 
 [node name="PropInstance" type="Node3D" unique_id=883199019]
 script = ExtResource("1_prop")
@@ -74,71 +74,71 @@ shape = SubResource("CylinderShape3D_trunk")
 mesh = SubResource("ArrayMesh_x0dw1")
 surface_material_override/0 = ExtResource("10_bark")
 script = ExtResource("13_trunk")
-TrunkHeight = 6.0
-BottomRadius = 0.3
-CapBottom = false
-MaxBranchDepth = 6
-SplitMinSpread = 0.35
-SplitHeight = 0.55
-BranchSpread = 0.75
-ElbowReach = 0.4
-MaxBendAngle = 66.0
-KnotSwell = 0.5
-Verticality = 0.15
-RootBulge = 0.7
-RootBulgeHeight = 0.2
-ThicknessVariation = 0.4
-Jaggedness = 0.35
-BranchMaterial = ExtResource("10_bark")
-TwigsMesh = ExtResource("4_quad")
-TwigsTexture = ExtResource("12_twigs_tex")
-TwigsSize = 2.0
+trunkHeight = 6.0
+bottomRadius = 0.3
+capBottom = false
+maxBranchDepth = 6
+splitMinSpread = 0.35
+splitHeight = 0.55
+branchSpread = 0.75
+elbowReach = 0.4
+maxBendAngle = 66.0
+knotSwell = 0.5
+verticality = 0.15
+rootBulge = 0.7
+rootBulgeHeight = 0.2
+thicknessVariation = 0.4
+jaggedness = 0.35
+branchMaterial = ExtResource("10_bark")
+twigsMesh = ExtResource("4_quad")
+twigsTexture = ExtResource("12_twigs_tex")
+twigsSize = 2.0
 
 [node name="Foliage" type="MultiMeshInstance3D" parent="Trunk" unique_id=621170568]
 material_override = SubResource("ShaderMaterial_0kfd4")
 script = ExtResource("2_foliage")
-CardMesh = ExtResource("4_quad")
-LeafTexture = ExtResource("5_leaf")
-LeafTintA = Color(0.17225, 0.3, 0.081, 1)
-LeafTintB = Color(0.67, 0.60969996, 0.4288, 1)
-Details = [SubResource("Resource_aqiqr")]
+cardMesh = ExtResource("4_quad")
+leafTexture = ExtResource("5_leaf")
+leafTintA = Color(0.17225, 0.3, 0.081, 1)
+leafTintB = Color(0.67, 0.60969996, 0.4288, 1)
+details = [SubResource("Resource_aqiqr")]
 
 [node name="Cluster1" type="Node3D" parent="Trunk/Foliage" unique_id=1498616389]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 7.5303426, -0.5)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(2, 1.5, 2)
-CardCount = 0
-CardSizeMin = 1.5
-CardSizeMax = 3.0
-RollJitter = 0.25
-DroopAmount = 0.97
+ellipsoidRadii = Vector3(2, 1.5, 2)
+cardCount = 0
+cardSizeMin = 1.5
+cardSizeMax = 3.0
+rollJitter = 0.25
+droopAmount = 0.97
 
 [node name="Cluster2" type="Node3D" parent="Trunk/Foliage" unique_id=2060170590]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7.582717, 1)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(2, 0.75, 2)
-CardCount = 0
-CardSizeMin = 1.5
-CardSizeMax = 3.0
-RollJitter = 0.25
+ellipsoidRadii = Vector3(2, 0.75, 2)
+cardCount = 0
+cardSizeMin = 1.5
+cardSizeMax = 3.0
+rollJitter = 0.25
 
 [node name="Cluster3" type="Node3D" parent="Trunk/Foliage" unique_id=1960069559]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 8, 0)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(1, 0.5, 1)
-CardCount = 0
-CardSizeMax = 2.0
-RollJitter = 0.25
-DroopAmount = 0.28
+ellipsoidRadii = Vector3(1, 0.5, 1)
+cardCount = 0
+cardSizeMax = 2.0
+rollJitter = 0.25
+droopAmount = 0.28
 
 [node name="Cluster4" type="Node3D" parent="Trunk/Foliage" unique_id=636063561]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 6.678219, 1)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(1, 0.5, 1)
-CardCount = 0
-CardSizeMax = 2.0
-RollJitter = 0.25
-DroopAmount = 0.26
+ellipsoidRadii = Vector3(1, 0.5, 1)
+cardCount = 0
+cardSizeMax = 2.0
+rollJitter = 0.25
+droopAmount = 0.26
 
 [node name="Perch" type="Node3D" parent="." unique_id=936104173]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6, 0)

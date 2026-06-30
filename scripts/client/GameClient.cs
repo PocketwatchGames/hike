@@ -1654,7 +1654,7 @@ public partial class GameClient : Node3D
 				}
 			}
 		}
-		BoonData gold = _world?.SimData?.FairyBoonGold;
+		BoonData gold = _world?.SimData?.fairyBoonGold;
 		if (viable.Count < UpgradeChoiceCount && gold != null && !viable.Contains(gold))
 		{
 			viable.Add(gold);
@@ -1742,9 +1742,9 @@ public partial class GameClient : Node3D
 
 	void OnMobSpawned(Mob mob)
 	{
-		if (mob.HudScene != null)
+		if (mob.hudScene != null)
 		{
-			MobHUD.Create(mob.HudScene, camera, mob, worldHUD);
+			MobHUD.Create(mob.hudScene, camera, mob, worldHUD);
 		}
 	}
 
@@ -1754,9 +1754,9 @@ public partial class GameClient : Node3D
 
 	void OnDiscoverableSpawned(Discoverable discoverable)
 	{
-		if (discoverable.HudScene != null)
+		if (discoverable.hudScene != null)
 		{
-			DiscoverableHud.Create(discoverable.HudScene, camera, discoverable, worldHUD);
+			DiscoverableHud.Create(discoverable.hudScene, camera, discoverable, worldHUD);
 		}
 	}
 

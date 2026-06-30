@@ -13,10 +13,10 @@
 
 [sub_resource type="Resource" id="Resource_goblin_entry"]
 script = ExtResource("5_k7525")
-Descriptor = ExtResource("4_3ofq4")
-InitialBehavior = null
-ClusterCountMin = 2
-ClusterCountMax = 3
+descriptor = ExtResource("4_3ofq4")
+initialBehavior = null
+clusterCountMin = 2
+clusterCountMax = 3
 spawnConditions = 2
 
 [sub_resource type="Resource" id="Resource_chest_loot_mushrooms"]
@@ -42,12 +42,12 @@ metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [sub_resource type="Resource" id="Resource_chest_entry"]
 script = ExtResource("9_lvrwy")
-Scene = ExtResource("8_3f36l")
-LootItems = [SubResource("Resource_chest_loot_mushrooms"), SubResource("Resource_lh7ja"), SubResource("Resource_udeir")]
+scene = ExtResource("8_3f36l")
+lootItems = [SubResource("Resource_chest_loot_mushrooms"), SubResource("Resource_lh7ja"), SubResource("Resource_udeir")]
 spawnConditions = 2
 
 [resource]
 script = ExtResource("10_x87yb")
-ScatterRadius = 5.0
-Entries = Array[ExtResource("1_oxdew")]([SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")])
-SquareMetersPerSpawn = 1000.0
+scatterRadius = 5.0
+entries = Array[ExtResource("1_oxdew")]([SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")])
+squareMetersPerSpawn = 1000.0

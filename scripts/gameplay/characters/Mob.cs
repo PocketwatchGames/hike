@@ -20,8 +20,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // channel is used for mobs; null on species that never carry a held prop.
     [Export] private HeldItemVisual _heldVisual;
     [Export] private HurtBox _hurtBox;
-    [Export] public Node3D HudAnchor;
-    [Export] public PackedScene HudScene;
+    [Export] public Node3D hudAnchor;
+    [Export] public PackedScene hudScene;
     // Per-species authored interaction verbs (e.g. species-specific Trade,
     // Inspect). Talk and GiveItem are NOT authored here — they auto-inject
     // from SimData for any mob whose SimState carries a Conversation; see
@@ -760,7 +760,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Shared elite buff applied to every elite. It's categorized Permanent
             // (not Elite), so it never collides with a signature Elite-category
             // effect from the descriptor.
-            StatusEffectData sharedElite = _world?.SimData?.EliteStatusEffect;
+            StatusEffectData sharedElite = _world?.SimData?.eliteStatusEffect;
             if (sharedElite != null)
             {
                 _statusEffects.Add(sharedElite);
@@ -843,14 +843,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // crown. No-op (and no marker) when neither authors a crown scene.
     private void SpawnEliteCrown()
     {
-        PackedScene scene = _simState.EliteCrownScene ?? _world?.SimData?.EliteCrownScene;
+        PackedScene scene = _simState.EliteCrownScene ?? _world?.SimData?.eliteCrownScene;
         if (scene == null || _mesh == null)
         {
             return;
         }
         _crown = scene.Instantiate<EliteCrown>();
         _mesh.AddChild(_crown);
-        float headY = HudAnchor != null ? HudAnchor.Position.Y : 2f;
+        float headY = hudAnchor != null ? hudAnchor.Position.Y : 2f;
         _crown.Position = new Vector3(0f, headY + CrownHeadMargin, 0f);
     }
 
@@ -1154,13 +1154,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // IInteractive — only mobs with authored _interactiveActions surface as
     // interactable. The InteractiveBox on the mob's .tscn drives detection;
     // CanInteract / CanActorInteract gate the press itself.
-    public Vector3 hudPosition => HudAnchor != null ? HudAnchor.GlobalPosition : GlobalPosition;
+    public Vector3 hudPosition => hudAnchor != null ? hudAnchor.GlobalPosition : GlobalPosition;
 
     // A dead tamed companion surfaces the shared revive verb instead of its
     // live actions. Gated on SimData.ReviveAction so a null authoring slot
     // disables revival cleanly (CanInteract falls through to the live path,
     // which is already false for a corpse).
-    private bool CanRevive => !alive && IsCompanion && _world?.SimData?.ReviveAction != null;
+    private bool CanRevive => !alive && IsCompanion && _world?.SimData?.reviveAction != null;
 
     public bool CanInteract()
     {
@@ -1197,7 +1197,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             if (_reviveActions == null)
             {
-                _reviveActions = new Godot.Collections.Array<InteractiveAction> { _world.SimData.ReviveAction };
+                _reviveActions = new Godot.Collections.Array<InteractiveAction> { _world.SimData.reviveAction };
             }
             return _reviveActions;
         }
@@ -1209,15 +1209,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             if (hasConversation && sim != null)
             {
                 _resolvedActions = new Godot.Collections.Array<InteractiveAction>();
-                if (sim.TalkAction != null)
+                if (sim.talkAction != null)
                 {
-                    _resolvedActions.Add(sim.TalkAction);
+                    _resolvedActions.Add(sim.talkAction);
                 }
                 // Trade replaces Give on merchants; the two are mutually
                 // exclusive so the player only sees one shop verb per mob.
                 InteractiveAction shopAction = _simState != null && _simState.WillTrade
-                    ? sim.TradeAction
-                    : sim.GiveItemAction;
+                    ? sim.tradeAction
+                    : sim.giveItemAction;
                 if (shopAction != null)
                 {
                     _resolvedActions.Add(shopAction);
@@ -1786,7 +1786,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return 0f;
         }
-        return ws.Zones[zi].Data?.WaterOpacity ?? 0f;
+        return ws.Zones[zi].Data?.waterOpacity ?? 0f;
     }
 
     // Set _swimming when the contiguous water column at this mob's XZ is
@@ -2288,9 +2288,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             pinTarget.Transform = _meshPinnedLocal;
             _meshPinned = false;
         }
-        if (HudAnchor != null && (!_lastHudVisibleInit || hudVisibleTarget != _lastHudVisible))
+        if (hudAnchor != null && (!_lastHudVisibleInit || hudVisibleTarget != _lastHudVisible))
         {
-            HudAnchor.Visible = hudVisibleTarget;
+            hudAnchor.Visible = hudVisibleTarget;
             _lastHudVisible = hudVisibleTarget;
             _lastHudVisibleInit = true;
         }
@@ -2413,7 +2413,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         MobData dilData = _simState.MobData;
         if (dilData != null)
         {
-            float targetLightMax = _world?.SimData?.TargetLightMax ?? 0.75f;
+            float targetLightMax = _world?.SimData?.targetLightMax ?? 0.75f;
             float mobLight01 = targetLightMax > 0f ? Mathf.Clamp(_simState.AmbientLight / targetLightMax, 0f, 1f) : 0f;
             float dilTarget = 1f - mobLight01;
             float dilTau = dilTarget > _simState.EyeDilation ? dilData.eyeDilationDilateSeconds : dilData.eyeDilationConstrictSeconds;
@@ -3925,7 +3925,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // the same halo (SimData.EliteCrownScene) that marked them alive, now a
         // collectible. Authored once on SimData so it's species-agnostic, and
         // dropped even by an elite of a mob type with no authored loot.
-        LootData eliteLoot = IsElite ? _world.SimData?.EliteLoot : null;
+        LootData eliteLoot = IsElite ? _world.SimData?.eliteLoot : null;
         if (!hasSpeciesLoot && eliteLoot == null)
         {
             return;

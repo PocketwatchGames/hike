@@ -7,24 +7,24 @@ using Godot;
 public partial class WorldMapBrush : Resource
 {
     // Inner fraction of the radius at full strength before the soft edge.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float Hardness = 0.4f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float hardness = 0.4f;
 
     // Per-application strength multiplier (0..1). Held drags apply per motion
     // event, so Flow controls how fast a stroke builds.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float Flow = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float flow = 0.5f;
 
     // Noise modulation amplitude + frequency (used by tools that opt in, e.g.
     // elevation raise/lower). Sub-0.01 frequencies are meaningful, hence the
     // fine range step (see the [Export]-precision note in CLAUDE.md).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float NoiseAmount = 0f;
-    [Export(PropertyHint.Range, "0.001,1,0.0001")] public float NoiseFrequency = 0.05f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float noiseAmount = 0f;
+    [Export(PropertyHint.Range, "0.001,1,0.0001")] public float noiseFrequency = 0.05f;
 
     private FastNoiseLite _noise;
 
     // Signed noise contribution at a texel, scaled by NoiseAmount (0 if off).
     public float NoiseAt(int px, int pz)
     {
-        if (NoiseAmount <= 0f)
+        if (noiseAmount <= 0f)
         {
             return 0f;
         }
@@ -33,8 +33,8 @@ public partial class WorldMapBrush : Resource
             _noise = new FastNoiseLite();
             _noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         }
-        _noise.Frequency = NoiseFrequency;
-        return _noise.GetNoise2D(px, pz) * NoiseAmount;
+        _noise.Frequency = noiseFrequency;
+        return _noise.GetNoise2D(px, pz) * noiseAmount;
     }
 
     // Iterate texels within `radius` of `center`, invoking `apply(px, pz, weight)`
@@ -80,7 +80,7 @@ public partial class WorldMapBrush : Resource
         {
             return 0f;
         }
-        float hard = Mathf.Clamp(Hardness, 0f, 0.99f);
+        float hard = Mathf.Clamp(hardness, 0f, 0.99f);
         if (t <= hard)
         {
             return 1f;

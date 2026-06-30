@@ -451,7 +451,7 @@ public partial class Player : CharacterBody3D
 		// as the normal — the projection collapses to zero tangent gravity,
 		// so only friction drains the carried momentum.
 		Vector3 surfaceNormal = _onSkateSurface ? _slideNormal : Vector3.Up;
-		Vector3 gravityVec = Vector3.Down * _world.SimData.Gravity;
+		Vector3 gravityVec = Vector3.Down * _world.SimData.gravity;
 		Vector3 gravityAlongSlope = gravityVec - gravityVec.Dot(surfaceNormal) * surfaceNormal;
 		Vector3 newHoriz = heading * horizSpeed
 			+ new Vector3(gravityAlongSlope.X, 0f, gravityAlongSlope.Z) * dt;

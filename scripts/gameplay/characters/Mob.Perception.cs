@@ -237,7 +237,7 @@ public partial class Mob
                     if (result.activelyPerceived)
                     {
                         _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(mobData.memoryStationaryTime * 1000);
-                        _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(_world.SimData.VisibleTime * 1000);
+                        _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(_world.SimData.visibleTime * 1000);
                     }
                     else
                     {
@@ -447,7 +447,7 @@ public partial class Mob
                         if (toNose.LengthSquared() > 0.000001f)
                         {
                             float alignment = toNose.Normalized().Dot(windDir);
-                            float coeff = alignment >= 0f ? sim.SmellDownwindBoost : sim.SmellUpwindReduction;
+                            float coeff = alignment >= 0f ? sim.smellDownwindBoost : sim.smellUpwindReduction;
                             potential *= Mathf.Max(0f, 1f + coeff * alignment * smellWindBias);
                         }
                     }
@@ -738,7 +738,7 @@ public partial class Mob
         int wz = Mathf.FloorToInt(pos.Z);
         int sunBfs = ws.GetSunlightWorld(wx, wy, wz);
         float sunExposure = (float)sunBfs / LightEngine.MAX_LIGHT;
-        float skyBrightness = SkyController.Current?.CurrentPrimaryIntensity ?? ws.SimData?.DayIntensityBase ?? 2f;
+        float skyBrightness = SkyController.Current?.CurrentPrimaryIntensity ?? ws.SimData?.dayIntensityBase ?? 2f;
         _simState.SunExposure = sunExposure;
         _simState.SkyBrightness = skyBrightness;
         _simState.AmbientLight = sunExposure * skyBrightness;

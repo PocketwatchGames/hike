@@ -5,17 +5,17 @@
 
 [resource]
 script = ExtResource("1_wmd")
-GenData = ExtResource("2_gen")
-SizeChunksX = 18
-SizeChunksZ = 16
-FloorChunkY = -1
-CeilChunkY = 4
-SeaLevel = 0
-MaxElevationVoxels = 64.0
-ElevationImagePath = "res://resources/data/worldmap/elevation.exr"
-WaterImagePath = "res://resources/data/worldmap/water.exr"
-RegionImagePath = "res://resources/data/worldmap/region.png"
-ZoneImagePath = "res://resources/data/worldmap/zone.png"
-ScatterImagePath = "res://resources/data/worldmap/scatter.png"
-TunnelMaskPath = "res://resources/data/worldmap/tunnels.bin"
-OutputWorldPath = "res://resources/data/worldmap/painted_world.hike"
+genData = ExtResource("2_gen")
+sizeChunksX = 18
+sizeChunksZ = 16
+floorChunkY = -1
+ceilChunkY = 4
+seaLevel = 0
+maxElevationVoxels = 64.0
+elevationImagePath = "res://resources/data/worldmap/elevation.exr"
+waterImagePath = "res://resources/data/worldmap/water.exr"
+regionImagePath = "res://resources/data/worldmap/region.png"
+zoneImagePath = "res://resources/data/worldmap/zone.png"
+scatterImagePath = "res://resources/data/worldmap/scatter.png"
+tunnelMaskPath = "res://resources/data/worldmap/tunnels.bin"
+outputWorldPath = "res://resources/data/worldmap/painted_world.hike"

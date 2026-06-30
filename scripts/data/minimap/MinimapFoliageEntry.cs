@@ -5,8 +5,8 @@ using Godot;
 [GlobalClass]
 public partial class MinimapFoliageEntry : Resource
 {
-    [Export] public string Name = "";
-    [Export] public Color Color = new Color(0f, 1f, 0f);
+    [Export] public string name = "";
+    [Export] public Color color = new Color(0f, 1f, 0f);
     // Higher beats lower when stamps overlap in the same pixel.
-    [Export(PropertyHint.Range, "0,255,1")] public int Priority = 1;
+    [Export(PropertyHint.Range, "0,255,1")] public int priority = 1;
 }

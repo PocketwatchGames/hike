@@ -64,11 +64,11 @@ public partial class RecipeScreen : Control
 		WorldSimState worldSim = _gameClient?.World?.WorldState?.SimState;
 		Button firstButton = null;
 		RecipeData firstRecipe = null;
-		if (simData != null && worldSim != null && simData.Recipes != null)
+		if (simData != null && worldSim != null && simData.recipes != null)
 		{
-			for (int i = 0; i < simData.Recipes.Count; i++)
+			for (int i = 0; i < simData.recipes.Count; i++)
 			{
-				RecipeData recipe = simData.Recipes[i];
+				RecipeData recipe = simData.recipes[i];
 				if (recipe == null || !worldSim.DiscoveredRecipes.Contains(recipe))
 				{
 					continue;

@@ -5,8 +5,8 @@
 
 [resource]
 script = ExtResource("1_kit")
-Name = "Marsh"
-FlatTile = ExtResource("5_block_flat")
-WallBand = Vector2(0.55, 0.85)
-BlendAmp = 0.55
-GroundTint = Color(0.12, 0.16, 0.1, 1)
+name = "Marsh"
+flatTile = ExtResource("5_block_flat")
+wallBand = Vector2(0.55, 0.85)
+blendAmp = 0.55
+groundTint = Color(0.12, 0.16, 0.1, 1)

@@ -40,16 +40,16 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [sub_resource type="Resource" id="Hermit"]
 script = ExtResource("3_npc")
-Language = ExtResource("9_lang")
-Conversation = ExtResource("5_conv")
-Scene = ExtResource("6_villager_m")
-Outfit = PackedStringArray("M_hair_8", "M_TopBody", "M_BottomBody")
-Palette = SubResource("Hermit_palette")
-IdleAnimation = &"idle_old_man"
-Descriptor = ExtResource("4_hermit")
-InitialBehavior = null
+language = ExtResource("9_lang")
+conversation = ExtResource("5_conv")
+scene = ExtResource("6_villager_m")
+outfit = PackedStringArray("M_hair_8", "M_TopBody", "M_BottomBody")
+palette = SubResource("Hermit_palette")
+idleAnimation = &"idle_old_man"
+descriptor = ExtResource("4_hermit")
+initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [resource]
 script = ExtResource("2_group")
-Entries = Array[ExtResource("1_base")]([SubResource("Hermit")])
+entries = Array[ExtResource("1_base")]([SubResource("Hermit")])

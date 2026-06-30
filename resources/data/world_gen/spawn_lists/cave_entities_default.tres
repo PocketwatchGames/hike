@@ -21,17 +21,17 @@
 
 [sub_resource type="Resource" id="Resource_goblin"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("6_goblin_data")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 1000.0
+descriptor = ExtResource("6_goblin_data")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 1000.0
 
 [sub_resource type="Resource" id="Resource_goblin_elite"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("6_goblin_elite")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 6667.0
+descriptor = ExtResource("6_goblin_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 6667.0
 
 [sub_resource type="Resource" id="Desc_loot"]
 script = ExtResource("99_desc")
@@ -40,8 +40,8 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("4_loot_entry")
-Item = SubResource("Desc_loot")
-SquareMetersPerSpawn = 200.0
+item = SubResource("Desc_loot")
+squareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_osyot"]
 script = ExtResource("9_1cm8f")
@@ -50,21 +50,21 @@ metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [sub_resource type="Resource" id="Resource_chest"]
 script = ExtResource("3_chest_entry")
-Scene = ExtResource("9_chest_scene")
-AltScene = ExtResource("10_poison_scene")
-LootItems = [SubResource("Resource_osyot")]
-SquareMetersPerSpawn = 500.0
+scene = ExtResource("9_chest_scene")
+altScene = ExtResource("10_poison_scene")
+lootItems = [SubResource("Resource_osyot")]
+squareMetersPerSpawn = 500.0
 
 [sub_resource type="Resource" id="Resource_torch"]
 script = ExtResource("5_torch_entry")
-Scene = ExtResource("11_torch_scene")
-SquareMetersPerSpawn = 400.0
+scene = ExtResource("11_torch_scene")
+squareMetersPerSpawn = 400.0
 
 [sub_resource type="Resource" id="Resource_spiketrap"]
 script = ExtResource("12_trap_entry")
-Scene = ExtResource("13_trap_scene")
-SquareMetersPerSpawn = 400.0
+scene = ExtResource("13_trap_scene")
+squareMetersPerSpawn = 400.0
 
 [resource]
 script = ExtResource("1_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin"), SubResource("Resource_goblin_elite"), SubResource("Resource_loot"), SubResource("Resource_chest"), SubResource("Resource_torch"), SubResource("Resource_spiketrap")])
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin"), SubResource("Resource_goblin_elite"), SubResource("Resource_loot"), SubResource("Resource_chest"), SubResource("Resource_torch"), SubResource("Resource_spiketrap")])

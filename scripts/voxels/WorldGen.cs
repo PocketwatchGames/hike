@@ -165,10 +165,10 @@ public static class WorldGen
             foreach (ZoneGenData z in zones)
             {
                 if (z == null) { continue; }
-                AddIfNew(z.SurfaceKit, list, seen);
-                AddIfNew(z.CaveKit, list, seen);
-                AddIfNew(z.SubmergedKit, list, seen);
-                AddIfNew(z.ShoreKit, list, seen);
+                AddIfNew(z.surfaceKit, list, seen);
+                AddIfNew(z.caveKit, list, seen);
+                AddIfNew(z.submergedKit, list, seen);
+                AddIfNew(z.shoreKit, list, seen);
             }
         }
         return list.ToArray();
@@ -184,7 +184,7 @@ public static class WorldGen
         var arr = new TerrainData[gen.Length];
         for (int i = 0; i < gen.Length; i++)
         {
-            arr[i] = gen[i]?.Terrain;
+            arr[i] = gen[i]?.terrain;
         }
         return arr;
     }
@@ -203,9 +203,9 @@ public static class WorldGen
             foreach (TerrainKitData k in kits)
             {
                 if (k == null) { continue; }
-                if (k.DefaultDetail != null && seen.Add(k.DefaultDetail))
+                if (k.defaultDetail != null && seen.Add(k.defaultDetail))
                 {
-                    list.Add(k.DefaultDetail);
+                    list.Add(k.defaultDetail);
                 }
             }
         }
@@ -368,10 +368,10 @@ public static class WorldGen
             foreach (ZoneGenData z in genData.ZoneGens)
             {
                 if (z == null) { continue; }
-                ClassifyKit(z.SurfaceKit, EKitPurpose.Surface);
-                ClassifyKit(z.CaveKit, EKitPurpose.Cave);
-                ClassifyKit(z.SubmergedKit, EKitPurpose.Submerged);
-                ClassifyKit(z.ShoreKit, EKitPurpose.Shore);
+                ClassifyKit(z.surfaceKit, EKitPurpose.Surface);
+                ClassifyKit(z.caveKit, EKitPurpose.Cave);
+                ClassifyKit(z.submergedKit, EKitPurpose.Submerged);
+                ClassifyKit(z.shoreKit, EKitPurpose.Shore);
             }
         }
     }
@@ -383,7 +383,7 @@ public static class WorldGen
 
         var min = new Vector3I(-worldSize.X / 2, -1, -worldSize.Z / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, min.Y + worldSize.Y - 1, min.Z + worldSize.Z - 1);
-        var ws = new WorldState(min, max, genData.SimData);
+        var ws = new WorldState(min, max, genData.simData);
 
         // Zone-placement context. The edge-noise channel wobbles box/circle zone
         // borders; sampled at chunk coords so the border resolves per chunk and
@@ -557,7 +557,7 @@ public static class WorldGen
         ApplySubsceneEnvOverrides(ws, stampedSubscenes);
 
         _lastHeightMap = heightMap;
-        _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.PlateauStep));
+        _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.plateauStep));
         return ws;
     }
 
@@ -608,13 +608,13 @@ public static class WorldGen
         // frequency 1; per-kit frequency is applied at sample time by scaling
         // input coords, so two kits in a zone can read different patterns.
         return new WorldNoise(
-            terrain: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_TERRAIN), genData.TerrainNoiseFrequency, genData.TerrainNoiseOctaves),
-            tunnel: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_TUNNEL), genData.TunnelNoiseFrequency, genData.TunnelNoiseOctaves),
-            cave: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_CAVE), FirstZoneGen(genData)?.CaveNoiseFrequency ?? 0.04f, genData.CaveNoiseOctaves),
-            grass: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_GRASS), genData.GrassNoiseFrequency, genData.GrassNoiseOctaves),
-            rampGate: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_PATH), genData.RampGateNoiseFrequency, genData.RampGateNoiseOctaves),
-            forest: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_FOREST), 1f, genData.ForestNoiseOctaves),
-            elevation: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_ELEVATION), genData.ElevationNoiseFrequency, genData.ElevationNoiseOctaves));
+            terrain: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_TERRAIN), genData.terrainNoiseFrequency, genData.terrainNoiseOctaves),
+            tunnel: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_TUNNEL), genData.tunnelNoiseFrequency, genData.tunnelNoiseOctaves),
+            cave: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_CAVE), FirstZoneGen(genData)?.caveNoiseFrequency ?? 0.04f, genData.caveNoiseOctaves),
+            grass: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_GRASS), genData.grassNoiseFrequency, genData.grassNoiseOctaves),
+            rampGate: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_PATH), genData.rampGateNoiseFrequency, genData.rampGateNoiseOctaves),
+            forest: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_FOREST), 1f, genData.forestNoiseOctaves),
+            elevation: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_ELEVATION), genData.elevationNoiseFrequency, genData.elevationNoiseOctaves));
     }
 
     // Build the per-world ZoneState array from the authored zone templates. The
@@ -633,7 +633,7 @@ public static class WorldGen
             float angle = zoneRng.RandfRange(0f, Mathf.Tau);
             ws.Zones[i] = new ZoneState
             {
-                Data = genData.ZoneGens[i]?.Zone,
+                Data = genData.ZoneGens[i]?.zone,
                 WindDirection = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)),
                 Elevation = 0f,
             };
@@ -646,11 +646,11 @@ public static class WorldGen
     // PickZoneIndex) decides which entry each chunk belongs to.
     private static void BuildRegionStates(WorldState ws, WorldGenData genData)
     {
-        RegionGenData[] regionPalette = genData.Regions ?? [];
+        RegionGenData[] regionPalette = genData.regions ?? [];
         ws.Regions = new RegionState[regionPalette.Length];
         for (int i = 0; i < regionPalette.Length; i++)
         {
-            ws.Regions[i] = new RegionState { Data = regionPalette[i]?.Region };
+            ws.Regions[i] = new RegionState { Data = regionPalette[i]?.region };
         }
     }
 
@@ -721,7 +721,7 @@ public static class WorldGen
     private static bool TryRollColumn(Random rng, WorldGenData genData,
         int xLo, int xHi, int zLo, int zHi, Func<int, int, bool> valid, out int rx, out int rz)
     {
-        int maxTries = genData.FixturePlacementMaxTries;
+        int maxTries = genData.fixturePlacementMaxTries;
         for (int i = 0; i < maxTries; i++)
         {
             int x = rng.Next(xLo, xHi + 1);
@@ -753,7 +753,7 @@ public static class WorldGen
     // column inside their footprint. The group's ScatterRadius spreads members.
     private static void PlaceZoneFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
-        PlacedZone[] zones = genData.Zones ?? System.Array.Empty<PlacedZone>();
+        PlacedZone[] zones = genData.zones ?? System.Array.Empty<PlacedZone>();
         if (zones.Length == 0) { return; }
 
         int worldMinX = ws.Min.X * ChunkState.SIZE;
@@ -772,12 +772,12 @@ public static class WorldGen
         for (int zi = 0; zi < zones.Length; zi++)
         {
             PlacedZone placed = zones[zi];
-            SpawnGroupData fixtures = placed?.ZoneGen?.Fixtures;
+            SpawnGroupData fixtures = placed?.zoneGen?.fixtures;
             if (fixtures == null) { continue; }
 
             Vector3I anchorCol;
-            if (placed.Bounds != null
-                && placed.Bounds.TryGetAnchorChunk(_zoneBoundsContext, out Vector2I anchorChunk))
+            if (placed.bounds != null
+                && placed.bounds.TryGetAnchorChunk(_zoneBoundsContext, out Vector2I anchorChunk))
             {
                 // Fixed-center bounds (box/circle): anchor at the bounds center,
                 // converting chunk → the column at the chunk's center voxel.
@@ -790,7 +790,7 @@ public static class WorldGen
             {
                 // No fixed center: roll a flat-dry column anywhere inside the
                 // zone's bounds (rejection-sampled across the whole world).
-                ZoneBounds bounds = placed.Bounds;
+                ZoneBounds bounds = placed.bounds;
                 if (!TryRollColumn(rng, genData, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
                         (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap)
                             && (bounds == null || bounds.Contains(
@@ -828,7 +828,7 @@ public static class WorldGen
     private static void ResolvePointsOfInterest(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         ws.PointsOfInterest.Clear();
-        PlacedZone[] zones = genData.Zones ?? System.Array.Empty<PlacedZone>();
+        PlacedZone[] zones = genData.zones ?? System.Array.Empty<PlacedZone>();
         if (zones.Length == 0) { return; }
 
         int worldMinX = ws.Min.X * ChunkState.SIZE;
@@ -840,9 +840,9 @@ public static class WorldGen
 
         foreach (PlacedZone placed in zones)
         {
-            string[] names = placed?.ZoneGen?.PointsOfInterest;
+            string[] names = placed?.zoneGen?.pointsOfInterest;
             if (names == null) { continue; }
-            ZoneBounds bounds = placed.Bounds;
+            ZoneBounds bounds = placed.bounds;
             foreach (string name in names)
             {
                 if (string.IsNullOrEmpty(name) || ws.PointsOfInterest.ContainsKey(name))
@@ -890,7 +890,7 @@ public static class WorldGen
     // rolled column).
     private static void PlacePoiPlacements(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
-        PoiPlacement[] placements = genData.PointsOfInterestPlacements ?? System.Array.Empty<PoiPlacement>();
+        PoiPlacement[] placements = genData.pointsOfInterestPlacements ?? System.Array.Empty<PoiPlacement>();
         if (placements.Length == 0) { return; }
 
         var context = new SpawnContext
@@ -903,17 +903,17 @@ public static class WorldGen
         for (int pi = 0; pi < placements.Length; pi++)
         {
             PoiPlacement placement = placements[pi];
-            if (placement == null || string.IsNullOrEmpty(placement.PoiName) || placement.Content?.Entries == null)
+            if (placement == null || string.IsNullOrEmpty(placement.poiName) || placement.content?.entries == null)
             {
                 continue;
             }
-            if (!ws.PointsOfInterest.TryGetValue(placement.PoiName, out Vector3 pos))
+            if (!ws.PointsOfInterest.TryGetValue(placement.poiName, out Vector3 pos))
             {
-                GD.PushWarning($"WorldGen: POI placement references unresolved point of interest '{placement.PoiName}'.");
+                GD.PushWarning($"WorldGen: POI placement references unresolved point of interest '{placement.poiName}'.");
                 continue;
             }
             var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), pi, 1));
-            foreach (SpawnEntryData entry in placement.Content.Entries)
+            foreach (SpawnEntryData entry in placement.content.entries)
             {
                 entry?.TrySpawn(ws, pos, rng, context);
             }
@@ -931,7 +931,7 @@ public static class WorldGen
     {
         _roadColumns = new HashSet<(int, int)>();
 
-        RoadConnection[] roads = genData.Roads ?? System.Array.Empty<RoadConnection>();
+        RoadConnection[] roads = genData.roads ?? System.Array.Empty<RoadConnection>();
         if (roads.Length == 0) { return; }
 
         // Index entities the road should route around, by column. Two kinds:
@@ -965,15 +965,15 @@ public static class WorldGen
         {
             int connIndex = ci++;
             if (conn == null) { continue; }
-            if (!ws.PointsOfInterest.TryGetValue(conn.FromPoi ?? "", out Vector3 a)
-                || !ws.PointsOfInterest.TryGetValue(conn.ToPoi ?? "", out Vector3 b))
+            if (!ws.PointsOfInterest.TryGetValue(conn.fromPoi ?? "", out Vector3 a)
+                || !ws.PointsOfInterest.TryGetValue(conn.toPoi ?? "", out Vector3 b))
             {
-                GD.PushWarning($"WorldGen: road '{conn.FromPoi}' → '{conn.ToPoi}' references an unresolved point of interest; skipped.");
+                GD.PushWarning($"WorldGen: road '{conn.fromPoi}' → '{conn.toPoi}' references an unresolved point of interest; skipped.");
                 continue;
             }
 
-            int minWidth = Math.Max(1, Math.Min(conn.MinWidth, conn.MaxWidth));
-            int maxWidth = Math.Max(minWidth, conn.MaxWidth);
+            int minWidth = Math.Max(1, Math.Min(conn.minWidth, conn.maxWidth));
+            int maxWidth = Math.Max(minWidth, conn.maxWidth);
             var start = (Mathf.FloorToInt(a.X), Mathf.FloorToInt(a.Z));
             var goal = (Mathf.FloorToInt(b.X), Mathf.FloorToInt(b.Z));
             // Route with the widest case so the corridor it picks stays clear
@@ -981,12 +981,12 @@ public static class WorldGen
             List<(int, int)> path = FindRoadPath(heightMap, genData, start, goal, obstacleColumns, maxWidth);
             if (path == null || path.Count == 0)
             {
-                GD.PushWarning($"WorldGen: no road route found '{conn.FromPoi}' → '{conn.ToPoi}'.");
+                GD.PushWarning($"WorldGen: no road route found '{conn.fromPoi}' → '{conn.toPoi}'.");
                 continue;
             }
 
-            BlockData tex = conn.Texture ?? genData.RoadDefaultTexture;
-            byte overlay = tex != null ? (byte)tex.AtlasBaseIndex : OVERLAY_DIRT;
+            BlockData tex = conn.texture ?? genData.roadDefaultTexture;
+            byte overlay = tex != null ? (byte)tex.atlasBaseIndex : OVERLAY_DIRT;
             var widthRng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_ROAD), connIndex, 0));
             GradeCarvePaintRoad(ws, genData, heightMap, path, minWidth, maxWidth, overlay, widthRng, obstacleColumns, protectedColumns);
         }
@@ -1010,10 +1010,10 @@ public static class WorldGen
         int sizeZ = maxZ - minZ + 1;
         int Idx(int x, int z) => (x - minX) * sizeZ + (z - minZ);
 
-        int maxStep = Math.Max(1, genData.RoadMaxWalkableStep);
-        float cliffMult = genData.RoadCliffCostMultiplier;
-        float reuseMult = genData.RoadReuseCostMultiplier;
-        float propMult = genData.RoadPropCostMultiplier;
+        int maxStep = Math.Max(1, genData.roadMaxWalkableStep);
+        float cliffMult = genData.roadCliffCostMultiplier;
+        float reuseMult = genData.roadReuseCostMultiplier;
+        float propMult = genData.roadPropCostMultiplier;
         int propScan = width / 2; // R×R window radius
 
         // Number of obstacle columns (scenery + fixtures) in the R×R window.
@@ -1151,8 +1151,8 @@ public static class WorldGen
         HashSet<(int, int)> protectedColumns)
     {
         int n = path.Count;
-        int maxStep = Math.Max(1, genData.RoadMaxWalkableStep);
-        int bedDepth = Math.Max(1, genData.RoadBedDepth);
+        int maxStep = Math.Max(1, genData.roadMaxWalkableStep);
+        int bedDepth = Math.Max(1, genData.roadBedDepth);
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
 
@@ -1188,8 +1188,8 @@ public static class WorldGen
 
         // Per-point tread radius: hold a rolled width for a random stride, then
         // re-roll. Stride is consumed in along-path distance (diagonal = √2).
-        float strideMin = Math.Max(0f, genData.RoadStrideMinMeters);
-        float strideMax = Math.Max(strideMin, genData.RoadStrideMaxMeters);
+        float strideMin = Math.Max(0f, genData.roadStrideMinMeters);
+        float strideMax = Math.Max(strideMin, genData.roadStrideMaxMeters);
         int RollWidth() => widthRng.Next(minWidth, maxWidth + 1);
         float RollStride() => strideMin + (float)widthRng.NextDouble() * (strideMax - strideMin);
         int curWidth = RollWidth();
@@ -1411,27 +1411,27 @@ public static class WorldGen
     private static List<(SubsceneState sub, Vector3 anchor)> StampAuthoredSubscenes(WorldState ws, WorldGenData genData)
     {
         var stamped = new List<(SubsceneState, Vector3)>();
-        if (genData.Subscenes == null || genData.Subscenes.Length == 0)
+        if (genData.subscenes == null || genData.subscenes.Length == 0)
         {
             return stamped;
         }
-        foreach (SubscenePlacement placement in genData.Subscenes)
+        foreach (SubscenePlacement placement in genData.subscenes)
         {
-            if (placement == null || string.IsNullOrEmpty(placement.Path))
+            if (placement == null || string.IsNullOrEmpty(placement.path))
             {
                 continue;
             }
             SubsceneState sub;
             try
             {
-                sub = SubsceneFile.Read(placement.Path);
+                sub = SubsceneFile.Read(placement.path);
             }
             catch (Exception e)
             {
-                GD.PrintErr($"WorldGen: subscene '{placement.Path}' failed to load: {e.Message}");
+                GD.PrintErr($"WorldGen: subscene '{placement.path}' failed to load: {e.Message}");
                 continue;
             }
-            Vector3 anchor = SubsceneStamper.ComputeSurfaceAnchor(ws, sub, placement.AnchorXZ);
+            Vector3 anchor = SubsceneStamper.ComputeSurfaceAnchor(ws, sub, placement.anchorXZ);
             SubsceneStamper.StampVoxels(ws, sub, anchor);
             stamped.Add((sub, anchor));
         }
@@ -1459,7 +1459,7 @@ public static class WorldGen
         if (zoneCount <= 0) { return 0; }
 
         // _activeGenData is set at the top of Generate before any zone pick.
-        PlacedZone[] zones = _activeGenData?.Zones;
+        PlacedZone[] zones = _activeGenData?.zones;
         if (zones == null) { return 0; }
 
         int best = -1;
@@ -1467,13 +1467,13 @@ public static class WorldGen
         int n = Math.Min(zoneCount, zones.Length);
         for (int i = 0; i < n; i++)
         {
-            ZoneBounds bounds = zones[i]?.Bounds;
+            ZoneBounds bounds = zones[i]?.bounds;
             if (bounds == null) { continue; }
-            if (bounds.Priority <= bestPriority) { continue; }
+            if (bounds.priority <= bestPriority) { continue; }
             if (bounds.Contains(chunkCoord.X, chunkCoord.Z, _zoneBoundsContext))
             {
                 best = i;
-                bestPriority = bounds.Priority;
+                bestPriority = bounds.priority;
             }
         }
         return best >= 0 ? (byte)best : (byte)0;
@@ -1525,7 +1525,7 @@ public static class WorldGen
     // to do about that).
     private static void GetZoneGenWeights(int wx, int wz, int zoneCount, Span<float> weights)
     {
-        GetZoneGenWeights(wx, wz, zoneCount, weights, _activeGenData?.ZoneGenBlendRadius ?? 2.0f);
+        GetZoneGenWeights(wx, wz, zoneCount, weights, _activeGenData?.zoneGenBlendRadius ?? 2.0f);
     }
 
     private static void GetZoneGenWeights(int wx, int wz, int zoneCount, Span<float> weights, float blendRadius)
@@ -1604,7 +1604,7 @@ public static class WorldGen
         // up to its edge while the swamp around it keeps blending softly with the
         // mud/highlands. Only recompute when the dominant zone overrides the
         // global radius, so ordinary columns pay nothing.
-        PlacedZone[] placed = _activeGenData?.Zones;
+        PlacedZone[] placed = _activeGenData?.zones;
         if (placed != null)
         {
             int dom = -1;
@@ -1614,7 +1614,7 @@ public static class WorldGen
                 if (weights[i] > bestW) { bestW = weights[i]; dom = i; }
             }
             float reach = dom >= 0 && dom < placed.Length
-                ? (placed[dom]?.Bounds?.TerrainBlendChunks ?? 0f)
+                ? (placed[dom]?.bounds?.terrainBlendChunks ?? 0f)
                 : 0f;
             if (reach > 0f)
             {
@@ -1628,15 +1628,15 @@ public static class WorldGen
             if (w <= 0f) { continue; }
             ZoneGenData rg = zones[i];
             if (rg == null) { continue; }
-            result.Elevation += rg.Elevation * w;
-            result.ElevationRange += rg.ElevationRange * w;
-            result.TunnelThreshold += rg.TunnelThreshold * w;
-            result.CaveThreshold += rg.CaveThreshold * w;
-            result.GrassThreshold += rg.GrassThreshold * w;
-            if (rg.FlattenSurface)
+            result.Elevation += rg.elevation * w;
+            result.ElevationRange += rg.elevationRange * w;
+            result.TunnelThreshold += rg.tunnelThreshold * w;
+            result.CaveThreshold += rg.caveThreshold * w;
+            result.GrassThreshold += rg.grassThreshold * w;
+            if (rg.flattenSurface)
             {
                 result.FlattenWeight += w;
-                result.FlattenLevel += rg.FlattenPlateau * w;
+                result.FlattenLevel += rg.flattenPlateau * w;
             }
         }
         return result;
@@ -1651,7 +1651,7 @@ public static class WorldGen
     // if no zone has positive weight (caller skips the spawn).
     private static int PickWeightedZone(int wx, int wz, ZoneGenData[] zones, Random rng)
     {
-        return PickWeightedZone(wx, wz, zones, rng, _activeGenData?.ZoneGenBlendRadius ?? 2.0f);
+        return PickWeightedZone(wx, wz, zones, rng, _activeGenData?.zoneGenBlendRadius ?? 2.0f);
     }
 
     // As above but with an explicit kernel reach — the spawn pass passes the
@@ -1784,7 +1784,7 @@ public static class WorldGen
     // instead of penetrating ~2 chunks into adjacent biomes.
     private static int PickKitZone(int wx, int wz, ZoneGenData[] zones, int fallbackZoneIndex)
     {
-        int idx = PickWeightedZoneFromHash(wx, wz, zones, HashFloat01(wx, wz, KIT_HASH_SALT), _activeGenData?.KitBlendRadius ?? 2.0f);
+        int idx = PickWeightedZoneFromHash(wx, wz, zones, HashFloat01(wx, wz, KIT_HASH_SALT), _activeGenData?.kitBlendRadius ?? 2.0f);
         return idx >= 0 ? idx : fallbackZoneIndex;
     }
 
@@ -1866,7 +1866,7 @@ public static class WorldGen
         using (var sw = new System.IO.StreamWriter($"{dir}/stats.txt"))
         {
             sw.WriteLine($"World: {sizeX} x {sizeZ} = {total} columns");
-            int rampSlope = _activeGenData?.RampSlope ?? 1;
+            int rampSlope = _activeGenData?.rampSlope ?? 1;
             sw.WriteLine($"RampSlope={rampSlope}, PlateauStep={_lastPlateauStep}, rampRadius={_lastPlateauStep * rampSlope}");
             sw.WriteLine();
             sw.WriteLine($"Ramp cells: {rampCells} ({100.0 * rampCells / total:F1}%)");
@@ -2075,16 +2075,16 @@ public static class WorldGen
 
         int[,] plateau = new int[sizeX, sizeZ];
         bool[,] rampAnchor = new bool[sizeX, sizeZ];
-        int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+        int step = Math.Max(1, (int)Math.Round(genData.plateauStep));
         // Ramp anchor band, macro-elevation amplitude, and shoreline falloff
         // are authored on WorldGenData (Terrain Shaping group). `|pathNoise|`
         // below RampAnchorBand marks the core of a ramp zone; the macro noise
         // adds ±MacroElevationRangePlateaus steps; the far east drops to ocean
         // over ShorelineChunks chunks down to OceanDepthPlateaus below zero.
-        float rampAnchorBand = genData.RampAnchorBand;
-        float macroElevationRangePlateaus = genData.MacroElevationRangePlateaus;
-        float oceanDepthPlateaus = genData.OceanDepthPlateaus;
-        float shorelineFalloffWidth = genData.ShorelineChunks * ChunkState.SIZE;
+        float rampAnchorBand = genData.rampAnchorBand;
+        float macroElevationRangePlateaus = genData.macroElevationRangePlateaus;
+        float oceanDepthPlateaus = genData.oceanDepthPlateaus;
+        float shorelineFalloffWidth = genData.shorelineChunks * ChunkState.SIZE;
 
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
@@ -2161,7 +2161,7 @@ public static class WorldGen
         // worth on each side of the raw anchor line, so the lift scan has a
         // fully eligible neighbourhood and always produces a complete skirt.
         bool[,] rampEligible = new bool[sizeX, sizeZ];
-        int rampRadiusConst = step * genData.RampSlope;
+        int rampRadiusConst = step * genData.rampSlope;
         int dilateRadius = rampRadiusConst;
         for (int lx = 0; lx < sizeX; lx++)
         {
@@ -2195,7 +2195,7 @@ public static class WorldGen
         // One step of rise takes `step * RampSlope` horizontal cells; that's
         // also the scan radius since anything farther would only contribute
         // a zero (or clamped-away) lift.
-        int rampSlope = genData.RampSlope;
+        int rampSlope = genData.rampSlope;
         int rampRadius = step * rampSlope;
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
@@ -2333,9 +2333,9 @@ public static class WorldGen
         {
             return false;
         }
-        int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+        int step = Math.Max(1, (int)Math.Round(genData.plateauStep));
         int rem = ((wy % step) + step) % step;
-        if (rem < step - genData.TunnelLayerHeight)
+        if (rem < step - genData.tunnelLayerHeight)
         {
             return false;
         }
@@ -2354,7 +2354,7 @@ public static class WorldGen
         int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
         int chunkWorldY = data.ChunkCoord.Y * ChunkState.SIZE;
         int chunkWorldZ = data.ChunkCoord.Z * ChunkState.SIZE;
-        int tunnelStep = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+        int tunnelStep = Math.Max(1, (int)Math.Round(genData.plateauStep));
 
         // True iff this column's surface reaches the plateau ceiling above wy,
         // so the rem=0 voxel at bandTop is solid and can serve as a tunnel
@@ -2396,16 +2396,16 @@ public static class WorldGen
                 // band (shoreUpperY = WATER_LEVEL → no voxel falls in it).
                 int kitZone = PickKitZone(wx, wz, genData.ZoneGens, data.ZoneIndex);
                 ZoneGenData kitZoneData = kitZone >= 0 ? genData.ZoneGens[kitZone] : null;
-                byte surfaceTerrainId = TerrainIdOf(kitZoneData?.SurfaceKit);
+                byte surfaceTerrainId = TerrainIdOf(kitZoneData?.surfaceKit);
                 byte shoreTerrainId = surfaceTerrainId;
                 int shoreUpperY = WATER_LEVEL;
-                if (kitZoneData != null && kitZoneData.ShoreKit != null)
+                if (kitZoneData != null && kitZoneData.shoreKit != null)
                 {
-                    shoreTerrainId = TerrainIdOf(kitZoneData.ShoreKit);
+                    shoreTerrainId = TerrainIdOf(kitZoneData.shoreKit);
                     float shoreUpperR = HashFloat01(wx, wz, SHORE_UPPER_HASH_SALT);
                     float shoreUpperMeters = Mathf.Lerp(
-                        kitZoneData.ShoreElevationMin,
-                        kitZoneData.ShoreElevationMax,
+                        kitZoneData.shoreElevationMin,
+                        kitZoneData.shoreElevationMax,
                         shoreUpperR);
                     shoreUpperY = WATER_LEVEL + (int)Math.Round(shoreUpperMeters);
                 }
@@ -2488,7 +2488,7 @@ public static class WorldGen
     // language-component now live on the authored entries.
     private static void PlaceRegionFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
-        RegionGenData[] regions = genData.Regions ?? System.Array.Empty<RegionGenData>();
+        RegionGenData[] regions = genData.regions ?? System.Array.Empty<RegionGenData>();
         if (regions.Length == 0) { return; }
 
         int worldMinX = ws.Min.X * ChunkState.SIZE;
@@ -2505,8 +2505,8 @@ public static class WorldGen
 
         for (int ri = 0; ri < regions.Length; ri++)
         {
-            SpawnListData fixtures = regions[ri]?.Fixtures;
-            if (fixtures?.Entries == null) { continue; }
+            SpawnListData fixtures = regions[ri]?.fixtures;
+            if (fixtures?.entries == null) { continue; }
             int quadrant = Math.Min(ri, 3);
             if (!QuadrantColumnRange(quadrant, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
                     out int xLo, out int xHi, out int zLo, out int zHi))
@@ -2516,7 +2516,7 @@ public static class WorldGen
             // Per-region rng so each region's placement is independent and
             // deterministic across runs.
             var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), ri, 0));
-            foreach (SpawnEntryData entry in fixtures.Entries)
+            foreach (SpawnEntryData entry in fixtures.entries)
             {
                 if (entry == null) { continue; }
                 // Roll a column that already satisfies the entry's flat-terrain
@@ -2594,11 +2594,11 @@ public static class WorldGen
             floors.Sort();
             float humidity = 0f;
             ZoneGenData rg = genData.ZoneGens[i];
-            if (rg?.Zone?.weather != null)
+            if (rg?.zone?.weather != null)
             {
-                humidity = rg.Zone.weather.humidity;
+                humidity = rg.zone.weather.humidity;
             }
-            float desiredVolume = humidity * genData.FogVolumePerHumidity * floors.Count;
+            float desiredVolume = humidity * genData.fogVolumePerHumidity * floors.Count;
             fogLevelY[i] = SolveBucketFill(floors, desiredVolume);
         }
 
@@ -2651,7 +2651,7 @@ public static class WorldGen
                         continue;
                     }
                     float depth = blendedLevel - wy;
-                    int density = (int)Mathf.Clamp(depth * genData.FogDensityPerVoxel, 0f, FOG_MAX_DENSITY);
+                    int density = (int)Mathf.Clamp(depth * genData.fogDensityPerVoxel, 0f, FOG_MAX_DENSITY);
                     if (density > 0)
                     {
                         ws.SetFogWorld(wx, wy, wz, density);
@@ -2702,7 +2702,7 @@ public static class WorldGen
     // discarded if shorter than CaveMinHeight, guaranteeing walkable paths.
     private static void GenerateCaves(WorldState ws, WorldGenData genData, FastNoiseLite caveNoise)
     {
-        int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+        int step = Math.Max(1, (int)Math.Round(genData.plateauStep));
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
         int worldMinX = ws.Min.X * ChunkState.SIZE;
@@ -2746,7 +2746,7 @@ public static class WorldGen
                 // on a clearing pinned to the water line that pit fills with
                 // water, punching ponds into what should be solid dry ground.
                 int domZone = DominantZoneIndex(wx, wz, genData.ZoneGens);
-                if (domZone >= 0 && genData.ZoneGens[domZone]?.FlattenSurface == true)
+                if (domZone >= 0 && genData.ZoneGens[domZone]?.flattenSurface == true)
                 {
                     continue;
                 }
@@ -2777,7 +2777,7 @@ public static class WorldGen
                     // snap reaches above surface, that's fine — the cave just
                     // breaches as an open-topped pit.
                     int ceilingY = (int)Math.Floor((double)runHi / step) * step + step;
-                    if (ceilingY - runLo < genData.CaveMinHeight)
+                    if (ceilingY - runLo < genData.caveMinHeight)
                     {
                         continue;
                     }
@@ -2824,7 +2824,7 @@ public static class WorldGen
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+        int step = Math.Max(1, (int)Math.Round(genData.plateauStep));
         int ceilingY = WATER_LEVEL + step;
 
         for (int dx = -HalfSize; dx < HalfSize; dx++)
@@ -2951,7 +2951,7 @@ public static class WorldGen
                         // Overrides SubmergedKit for submerged caves — the
                         // cave palette wins there.
                         int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
-                        ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.CaveKit));
+                        ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.caveKit));
                     }
                 }
             }
@@ -2969,7 +2969,7 @@ public static class WorldGen
     {
         // Chebyshev radius for the water-adjacency search. Must be >= 2 (see
         // WorldGenData.SubmergedKitRadius for the mesher-vote rationale).
-        int submergedRadius = genData.SubmergedKitRadius;
+        int submergedRadius = genData.submergedKitRadius;
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMinX = ws.Min.X * ChunkState.SIZE;
         int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
@@ -2993,14 +2993,14 @@ public static class WorldGen
                 ZoneGenData columnZoneData = columnZone >= 0 ? genData.ZoneGens[columnZone] : null;
                 byte shoreTerrainId = 0;
                 int shoreLowerY = WATER_LEVEL;
-                bool hasShore = columnZoneData != null && columnZoneData.ShoreKit != null;
+                bool hasShore = columnZoneData != null && columnZoneData.shoreKit != null;
                 if (hasShore)
                 {
-                    shoreTerrainId = TerrainIdOf(columnZoneData.ShoreKit);
+                    shoreTerrainId = TerrainIdOf(columnZoneData.shoreKit);
                     float shoreLowerR = HashFloat01(wx, wz, SHORE_LOWER_HASH_SALT);
                     float shoreLowerMeters = Mathf.Lerp(
-                        columnZoneData.ShoreSubmergedElevationMin,
-                        columnZoneData.ShoreSubmergedElevationMax,
+                        columnZoneData.shoreSubmergedElevationMin,
+                        columnZoneData.shoreSubmergedElevationMax,
                         shoreLowerR);
                     shoreLowerY = WATER_LEVEL + (int)Math.Round(shoreLowerMeters);
                 }
@@ -3037,7 +3037,7 @@ public static class WorldGen
                         else
                         {
                             int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
-                            ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.SubmergedKit));
+                            ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.submergedKit));
                         }
                     }
                 }
@@ -3062,7 +3062,7 @@ public static class WorldGen
             GD.PushError($"WorldGen: BlockCatalog has no block named '{blockName}'.");
             return 0;
         }
-        return (byte)block.AtlasBaseIndex;
+        return (byte)block.atlasBaseIndex;
     }
 
     // Edge-overlay scan window / diff band (EdgeScanWindow, EdgeMinDiff,
@@ -3092,7 +3092,7 @@ public static class WorldGen
         var dirtNoise = new FastNoiseLite();
         dirtNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         dirtNoise.Seed = OVERLAY_DIRT_SEED;
-        dirtNoise.Frequency = genData.OverlayDirtFrequency;
+        dirtNoise.Frequency = genData.overlayDirtFrequency;
         dirtNoise.FractalOctaves = 2;
 
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
@@ -3117,7 +3117,7 @@ public static class WorldGen
                         continue;
                     }
 
-                    if (dirtNoise.GetNoise2D(wx, wz) > genData.OverlayDirtThreshold)
+                    if (dirtNoise.GetNoise2D(wx, wz) > genData.overlayDirtThreshold)
                     {
                         ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_DIRT);
                     }
@@ -3197,14 +3197,14 @@ public static class WorldGen
                     TerrainKitData kit = isSurface
                         ? (DominantZoneSurfaceKit(wx, wz, genData.ZoneGens) ?? ResolveKit(voxelTerrainId))
                         : ResolveKit(voxelTerrainId);
-                    if (kit == null || kit.DefaultDetail == null)
+                    if (kit == null || kit.defaultDetail == null)
                     {
                         continue;
                     }
 
                     FastNoiseLite noise = isSurface ? surfaceNoise : subsurfaceNoise;
-                    float n = noise.GetNoise2D(wx * kit.DetailNoiseFrequency, wz * kit.DetailNoiseFrequency);
-                    if (n <= kit.DetailNoiseThreshold)
+                    float n = noise.GetNoise2D(wx * kit.detailNoiseFrequency, wz * kit.detailNoiseFrequency);
+                    if (n <= kit.detailNoiseThreshold)
                     {
                         continue;
                     }
@@ -3213,8 +3213,8 @@ public static class WorldGen
                     // owns both the threshold and the floor, so a sandstone-
                     // cave kit can thin its pebble scatter without affecting
                     // a sibling kit in the same zone.
-                    float t = (n - kit.DetailNoiseThreshold) / Math.Max(0.0001f, 1f - kit.DetailNoiseThreshold);
-                    int strengthMin = kit.DetailStrengthMin;
+                    float t = (n - kit.detailNoiseThreshold) / Math.Max(0.0001f, 1f - kit.detailNoiseThreshold);
+                    int strengthMin = kit.detailStrengthMin;
                     int strength = strengthMin + (int)(t * (255 - strengthMin));
                     strength = Mathf.Clamp(strength, 0, 255);
                     if (strength <= 0)
@@ -3222,7 +3222,7 @@ public static class WorldGen
                         continue;
                     }
 
-                    ws.SetDetailGroupWorld(wx, wy, wz, DetailIndexOf(kit.DefaultDetail));
+                    ws.SetDetailGroupWorld(wx, wy, wz, DetailIndexOf(kit.defaultDetail));
                     ws.SetDetailStrengthWorld(wx, wy, wz, strength);
                 }
             }
@@ -3242,7 +3242,7 @@ public static class WorldGen
         int n = zones != null ? zones.Length : 0;
         if (n == 0) { return null; }
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetZoneGenWeights(wx, wz, n, weights, _activeGenData?.KitBlendRadius ?? 2.0f);
+        GetZoneGenWeights(wx, wz, n, weights, _activeGenData?.kitBlendRadius ?? 2.0f);
         int best = -1;
         float bestW = 0f;
         for (int i = 0; i < n; i++)
@@ -3253,7 +3253,7 @@ public static class WorldGen
                 best = i;
             }
         }
-        return best >= 0 ? zones[best]?.SurfaceKit : null;
+        return best >= 0 ? zones[best]?.surfaceKit : null;
     }
 
     // Stamp OVERLAY_DIRT on "surface voxels" (solid with air directly above)
@@ -3264,9 +3264,9 @@ public static class WorldGen
     // in Generate); reads its tuning from the active WorldGenData.
     private static void StampEdgeOverlays(WorldState ws)
     {
-        int edgeScanWindow = _activeGenData?.EdgeScanWindow ?? 4;
-        int edgeMinDiff = _activeGenData?.EdgeMinDiff ?? 1;
-        int edgeMaxDiff = _activeGenData?.EdgeMaxDiff ?? 3;
+        int edgeScanWindow = _activeGenData?.edgeScanWindow ?? 4;
+        int edgeMinDiff = _activeGenData?.edgeMinDiff ?? 1;
+        int edgeMaxDiff = _activeGenData?.edgeMaxDiff ?? 3;
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
         int worldMinX = ws.Min.X * ChunkState.SIZE;
@@ -3386,8 +3386,8 @@ public static class WorldGen
         int chunkCenterWz = chunkCoord.Z * ChunkState.SIZE + ChunkState.SIZE / 2;
         int chunkCenterSy = SurfaceYAt(chunkCenterWx, chunkCenterWz);
         TerrainKitData chunkCenterKit = ResolveKit(ws.GetTerrainIdWorld(chunkCenterWx, chunkCenterSy, chunkCenterWz));
-        int treesPerChunkMin = chunkCenterKit?.TreesPerChunkMin ?? 0;
-        int treesPerChunkMax = chunkCenterKit?.TreesPerChunkMax ?? 0;
+        int treesPerChunkMin = chunkCenterKit?.treesPerChunkMin ?? 0;
+        int treesPerChunkMax = chunkCenterKit?.treesPerChunkMax ?? 0;
         int treeCount = treesPerChunkMax >= treesPerChunkMin
             ? rng.Next(treesPerChunkMin, treesPerChunkMax + 1)
             : 0;
@@ -3413,7 +3413,7 @@ public static class WorldGen
             }
             int sy = SurfaceYAt(wx, wz);
             TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
-            WeightedScene.Fill(scenePalette, cellKit?.TreeScenes);
+            WeightedScene.Fill(scenePalette, cellKit?.treeScenes);
             if (scenePalette.Count == 0)
             {
                 return false;
@@ -3462,13 +3462,13 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    float f = forestNoise.GetNoise2D(wx * kit.ForestNoiseFrequency, wz * kit.ForestNoiseFrequency);
-                    if (f < kit.ForestThreshold)
+                    float f = forestNoise.GetNoise2D(wx * kit.forestNoiseFrequency, wz * kit.forestNoiseFrequency);
+                    if (f < kit.forestThreshold)
                     {
                         continue;
                     }
-                    float t = (f - kit.ForestThreshold) / Math.Max(0.0001f, 1f - kit.ForestThreshold);
-                    float density = kit.ForestDensity * Mathf.Clamp(t, 0f, 1f);
+                    float t = (f - kit.forestThreshold) / Math.Max(0.0001f, 1f - kit.forestThreshold);
+                    float density = kit.forestDensity * Mathf.Clamp(t, 0f, 1f);
                     if (rng.NextDouble() >= density)
                     {
                         continue;
@@ -3496,7 +3496,7 @@ public static class WorldGen
 
                     int sy = SurfaceYAt(wx, wz);
                     TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
-                    WeightedScene.Fill(scenePalette, cellKit?.TallGrassScenes);
+                    WeightedScene.Fill(scenePalette, cellKit?.tallGrassScenes);
                     if (scenePalette.Count == 0)
                     {
                         continue;
@@ -3506,7 +3506,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    float grassJitter = genData.TallGrassJitter;
+                    float grassJitter = genData.tallGrassJitter;
                     float jitterX = ((float)rng.NextDouble() * 2f - 1f) * grassJitter;
                     float jitterZ = ((float)rng.NextDouble() * 2f - 1f) * grassJitter;
                     ws.AddEntity(new PropSimState(PropType.Foliage,
@@ -3562,15 +3562,15 @@ public static class WorldGen
                     // neighbour's wild mobs.
                     int domIdx = DominantZoneIndex(wx, wz, zonesArr);
                     if (domIdx < 0) { continue; }
-                    float reach = genData.Zones[domIdx]?.Bounds?.SpawnBlendReachChunks ?? 0f;
+                    float reach = genData.zones[domIdx]?.bounds?.spawnBlendReachChunks ?? 0f;
                     ZoneGenData spawnZone = zonesArr[domIdx];
                     if (reach > 0f)
                     {
                         int idx = PickWeightedZone(wx, wz, zonesArr, rng, reach);
                         if (idx >= 0) { spawnZone = zonesArr[idx]; }
                     }
-                    if (spawnZone?.SurfaceEntities?.Entries == null) { continue; }
-                    foreach (SpawnEntryData entry in spawnZone.SurfaceEntities.Entries)
+                    if (spawnZone?.surfaceEntities?.entries == null) { continue; }
+                    foreach (SpawnEntryData entry in spawnZone.surfaceEntities.entries)
                     {
                         if (entry == null) { continue; }
                         bool isMob = entry is MobSpawnEntry;
@@ -3624,14 +3624,14 @@ public static class WorldGen
                     // pass, so water content respects zone borders identically.
                     int domIdx = DominantZoneIndex(wx, wz, zonesArr);
                     if (domIdx < 0) { continue; }
-                    float reach = genData.Zones[domIdx]?.Bounds?.SpawnBlendReachChunks ?? 0f;
+                    float reach = genData.zones[domIdx]?.bounds?.spawnBlendReachChunks ?? 0f;
                     ZoneGenData spawnZone = zonesArr[domIdx];
                     if (reach > 0f)
                     {
                         int idx = PickWeightedZone(wx, wz, zonesArr, rng, reach);
                         if (idx >= 0) { spawnZone = zonesArr[idx]; }
                     }
-                    if (spawnZone?.WaterEntities?.Entries == null) { continue; }
+                    if (spawnZone?.waterEntities?.entries == null) { continue; }
 
                     int surfaceY = WaterSurfaceYAt(wx, wz);
                     if (surfaceY == int.MinValue) { continue; }
@@ -3649,7 +3649,7 @@ public static class WorldGen
                     // locomotion gate needs water, and the auto-freeze pins a
                     // zero-velocity body before gravity can drop it in).
                     var pos = new Vector3(wx + 0.5f, surfaceY + 0.5f, wz + 0.5f);
-                    foreach (SpawnEntryData entry in spawnZone.WaterEntities.Entries)
+                    foreach (SpawnEntryData entry in spawnZone.waterEntities.entries)
                     {
                         if (entry == null) { continue; }
                         bool isMob = entry is MobSpawnEntry;
@@ -3668,8 +3668,8 @@ public static class WorldGen
         // surface). No SpawnContext is supplied — cave-pocket cells are
         // pre-validated by the loop, and a SpawnGroupData inside a cave
         // list collapses to anchor-only placement.
-        int HEAD_CLEARANCE = genData.CaveHeadClearance;
-        int CAVE_CEILING_PROBE = genData.CaveCeilingProbe;
+        int HEAD_CLEARANCE = genData.caveHeadClearance;
+        int CAVE_CEILING_PROBE = genData.caveCeilingProbe;
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
         for (int localX = 0; localX < ChunkState.SIZE; localX++)
@@ -3713,12 +3713,12 @@ public static class WorldGen
                     }
 
                     ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
-                    if (rg?.CaveEntities?.Entries == null)
+                    if (rg?.caveEntities?.entries == null)
                     {
                         continue;
                     }
                     var pos = new Vector3(wx + 0.5f, wy, wz + 0.5f);
-                    foreach (SpawnEntryData entry in rg.CaveEntities.Entries)
+                    foreach (SpawnEntryData entry in rg.caveEntities.entries)
                     {
                         if (entry == null) { continue; }
                         bool isMob = entry is MobSpawnEntry;

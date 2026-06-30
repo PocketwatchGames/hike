@@ -16,5 +16,5 @@ using Godot.Collections;
 [GlobalClass]
 public partial class SpawnListData : Resource
 {
-    [Export] public Array<SpawnEntryData> Entries = new();
+    [Export] public Array<SpawnEntryData> entries = new();
 }

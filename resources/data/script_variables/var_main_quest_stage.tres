@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_svd")
-Id = &"main_quest_stage"
-Type = 1
-DefaultValue = 0
-Description = "Main quest progression: 0 = not started, 1 = accepted, 2 = in progress, 3 = complete. Branch conversations on stage thresholds."
+id = &"main_quest_stage"
+type = 1
+defaultValue = 0
+description = "Main quest progression: 0 = not started, 1 = accepted, 2 = in progress, 3 = complete. Branch conversations on stage thresholds."

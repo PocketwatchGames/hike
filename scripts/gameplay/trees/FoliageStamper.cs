@@ -27,8 +27,8 @@ public static class FoliageStamper
         // is authored as a 0..1 float so overlapping clusters stack toward
         // the byte ceiling — at the default 0.4, two clusters land near
         // saturated, three+ peg at 255.
-        int baseDensity = Mathf.Clamp((int)Math.Round(world.SimData.CanopyDensity * 255f), 0, 255);
-        int shadowDepthVoxels = world.SimData.CanopyShadowDepthVoxels;
+        int baseDensity = Mathf.Clamp((int)Math.Round(world.SimData.canopyDensity * 255f), 0, 255);
+        int shadowDepthVoxels = world.SimData.canopyShadowDepthVoxels;
 
         int propsScanned = 0;
         int clustersStamped = 0;

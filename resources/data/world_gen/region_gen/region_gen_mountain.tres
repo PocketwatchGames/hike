@@ -10,4 +10,4 @@
 
 [resource]
 script = ExtResource("1_rgd")
-Region = ExtResource("5_region")
+region = ExtResource("5_region")

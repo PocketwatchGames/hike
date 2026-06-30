@@ -6,12 +6,12 @@
 
 [node name="MovingLight" type="Node3D" unique_id=1552034073]
 script = ExtResource("1_moving")
-Distance = 6.0
-Falloff = 2.0
-Brightness = 0.5
-Flicker = true
-FlickerMin = 0.8
-FlickerHz = 5.0
-FadeOutDuration = 0.1
-LightOnEffectScene = ExtResource("2_torchon")
-LightOffEffectScene = ExtResource("3_torchoff")
+distance = 6.0
+falloff = 2.0
+brightness = 0.5
+flicker = true
+flickerMin = 0.8
+flickerHz = 5.0
+fadeOutDuration = 0.1
+lightOnEffectScene = ExtResource("2_torchon")
+lightOffEffectScene = ExtResource("3_torchoff")

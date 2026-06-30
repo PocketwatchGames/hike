@@ -8,18 +8,18 @@ using Godot;
 [GlobalClass]
 public partial class SignpostSpawnEntry : SpawnEntryData
 {
-    [Export] public PackedScene Scene;
-    [Export(PropertyHint.MultilineText)] public string Text = "";
-    [Export] public LanguageData Language;
+    [Export] public PackedScene scene;
+    [Export(PropertyHint.MultilineText)] public string text = "";
+    [Export] public LanguageData language;
 
     public override bool RequireFlatTerrain => true;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Scene == null || string.IsNullOrEmpty(Text))
+        if (scene == null || string.IsNullOrEmpty(text))
         {
             return;
         }
-        ws.AddEntity(new SignpostSimState(position, Scene, Text, Language));
+        ws.AddEntity(new SignpostSimState(position, scene, text, language));
     }
 }

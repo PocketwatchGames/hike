@@ -691,7 +691,7 @@ public partial class Hud : Control
 		}
 
 		float tod = (float)ws.TimeOfDay01;
-		float halfWidth = sim.VarianceCrossfadeHalfWidth01;
+		float halfWidth = sim.varianceCrossfadeHalfWidth01;
 		const float SunriseCenter = 0.25f;
 		const float SunsetCenter = 0.75f;
 		float sunriseStart = SunriseCenter - halfWidth;
@@ -1102,7 +1102,7 @@ public partial class Hud : Control
 		{
 			return;
 		}
-		Vector3 worldPos = _player.HudAnchor != null ? _player.HudAnchor.GlobalPosition : _player.GlobalPosition;
+		Vector3 worldPos = _player.hudAnchor != null ? _player.hudAnchor.GlobalPosition : _player.GlobalPosition;
 		bool behindCamera = gameClient.camera.IsPositionBehind(worldPos);
 		_statusEffectNotificationAnchor.Visible = !behindCamera;
 		if (!behindCamera)

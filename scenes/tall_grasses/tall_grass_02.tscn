@@ -56,28 +56,28 @@ EmitterScene = ExtResource("3_6noq7")
 material_override = SubResource("ShaderMaterial_1rofu")
 multimesh = SubResource("MultiMesh_x0hr5")
 script = ExtResource("7_ljg44")
-CardMesh = ExtResource("6_xua8b")
-LeafTexture = ExtResource("5_i22op")
-LeafTintA = Color(0.16692, 0.39, 0.08580001, 1)
-LeafTintB = Color(0.48, 0.44976002, 0.1776, 1)
+cardMesh = ExtResource("6_xua8b")
+leafTexture = ExtResource("5_i22op")
+leafTintA = Color(0.16692, 0.39, 0.08580001, 1)
+leafTintB = Color(0.48, 0.44976002, 0.1776, 1)
 
 [node name="Cluster1" type="Node3D" parent="Foliage" unique_id=891447617]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 script = ExtResource("8_7np8p")
-EllipsoidRadii = Vector3(1.2, 0.4, 1)
-CardCount = 25
-CardSizeMin = 0.4
-CardSizeMax = 0.6
-AngleJitter = 0.1
-RollJitter = 0.1
-DroopAmount = 0.5
+ellipsoidRadii = Vector3(1.2, 0.4, 1)
+cardCount = 25
+cardSizeMin = 0.4
+cardSizeMax = 0.6
+angleJitter = 0.1
+rollJitter = 0.1
+droopAmount = 0.5
 
 [node name="Cluster2" type="Node3D" parent="Foliage" unique_id=1032230991]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 script = ExtResource("8_7np8p")
-EllipsoidRadii = Vector3(0.7, 0.5, 0.8)
-CardCount = 20
-CardSizeMin = 0.4
-CardSizeMax = 0.6
-RollJitter = 0.25
-DroopAmount = 0.97
+ellipsoidRadii = Vector3(0.7, 0.5, 0.8)
+cardCount = 20
+cardSizeMin = 0.4
+cardSizeMax = 0.6
+rollJitter = 0.25
+droopAmount = 0.97

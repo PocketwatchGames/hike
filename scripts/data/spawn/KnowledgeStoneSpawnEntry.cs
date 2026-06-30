@@ -9,23 +9,23 @@ using Godot;
 [GlobalClass]
 public partial class KnowledgeStoneSpawnEntry : SpawnEntryData
 {
-    [Export] public PackedScene Scene;
-    [Export] public LanguageData Language;
-    [Export(PropertyHint.MultilineText)] public string Text = "";
-    [Export, CompactFlags] public ELanguageComponents Components = ELanguageComponents.All;
+    [Export] public PackedScene scene;
+    [Export] public LanguageData language;
+    [Export(PropertyHint.MultilineText)] public string text = "";
+    [Export, CompactFlags] public ELanguageComponents components = ELanguageComponents.All;
 
     public override bool RequireFlatTerrain => true;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Scene == null || Language == null)
+        if (scene == null || language == null)
         {
             return;
         }
         var concepts = new Godot.Collections.Array<TeachableConcept>
         {
-            new LanguageTeachable { language = Language, components = Components },
+            new LanguageTeachable { language = language, components = components },
         };
-        ws.AddEntity(new KnowledgeStoneSimState(position, Scene, Text, Language, concepts));
+        ws.AddEntity(new KnowledgeStoneSimState(position, scene, text, language, concepts));
     }
 }

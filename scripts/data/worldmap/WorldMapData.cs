@@ -12,48 +12,48 @@ using Godot;
 [GlobalClass]
 public partial class WorldMapData : Resource
 {
-    [Export] public WorldGenData GenData;
+    [Export] public WorldGenData genData;
 
     // World extent (XZ footprint + vertical chunk range). Per-column images are
     // SizeChunks * ChunkState.SIZE texels; per-chunk images are SizeChunks.
-    [Export(PropertyHint.Range, "1,256,1")] public int SizeChunksX = 18;
-    [Export(PropertyHint.Range, "1,256,1")] public int SizeChunksZ = 16;
-    [Export(PropertyHint.Range, "-8,0,1")] public int FloorChunkY = -1;
-    [Export(PropertyHint.Range, "0,32,1")] public int CeilChunkY = 4;
+    [Export(PropertyHint.Range, "1,256,1")] public int sizeChunksX = 18;
+    [Export(PropertyHint.Range, "1,256,1")] public int sizeChunksZ = 16;
+    [Export(PropertyHint.Range, "-8,0,1")] public int floorChunkY = -1;
+    [Export(PropertyHint.Range, "0,32,1")] public int ceilChunkY = 4;
 
     // Default ocean elevation in world voxels (the elevation tool tweaks this
     // live; matches WorldGen.WATER_LEVEL).
-    [Export] public int SeaLevel = 0;
+    [Export] public int seaLevel = 0;
 
     // World voxels of elevation a normalized layer value of 1.0 maps to. Shared
     // by the elevation and water layers (same column-height encoding).
-    [Export(PropertyHint.Range, "1,512,1")] public float MaxElevationVoxels = 64f;
+    [Export(PropertyHint.Range, "1,512,1")] public float maxElevationVoxels = 64f;
 
     // External layer files, stored as res:// paths (globalized at load/save).
-    [Export] public string ElevationImagePath = "";   // .exr, Rf, per column
-    [Export] public string WaterImagePath = "";        // .exr, Rf, per column
-    [Export] public string RegionImagePath = "";       // .png, R8, per chunk
-    [Export] public string ZoneImagePath = "";         // .png, R8, per chunk
-    [Export] public string ScatterImagePath = "";      // .png, Rgba8, per column (R=kind, G=density)
-    [Export] public string TunnelMaskPath = "";        // .bin, per voxel carve mask
+    [Export] public string elevationImagePath = "";   // .exr, Rf, per column
+    [Export] public string waterImagePath = "";        // .exr, Rf, per column
+    [Export] public string regionImagePath = "";       // .png, R8, per chunk
+    [Export] public string zoneImagePath = "";         // .png, R8, per chunk
+    [Export] public string scatterImagePath = "";      // .png, Rgba8, per column (R=kind, G=density)
+    [Export] public string tunnelMaskPath = "";        // .bin, per voxel carve mask
 
     // Where BakeToWorldFile writes the packed world (res:// path).
-    [Export] public string OutputWorldPath = "";
+    [Export] public string outputWorldPath = "";
 
-    public Vector3I MinChunk => new Vector3I(-SizeChunksX / 2, FloorChunkY, -SizeChunksZ / 2);
-    public Vector3I MaxChunk => new Vector3I(MinChunk.X + SizeChunksX - 1, CeilChunkY, MinChunk.Z + SizeChunksZ - 1);
+    public Vector3I MinChunk => new Vector3I(-sizeChunksX / 2, floorChunkY, -sizeChunksZ / 2);
+    public Vector3I MaxChunk => new Vector3I(MinChunk.X + sizeChunksX - 1, ceilChunkY, MinChunk.Z + sizeChunksZ - 1);
 
     public int WorldMinX => MinChunk.X * ChunkState.SIZE;
     public int WorldMinZ => MinChunk.Z * ChunkState.SIZE;
     public int WorldMinY => MinChunk.Y * ChunkState.SIZE;
     public int WorldMaxY => MaxChunk.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-    public int ImageWidth => SizeChunksX * ChunkState.SIZE;
-    public int ImageHeight => SizeChunksZ * ChunkState.SIZE;
+    public int ImageWidth => sizeChunksX * ChunkState.SIZE;
+    public int ImageHeight => sizeChunksZ * ChunkState.SIZE;
     public int VoxelHeight => WorldMaxY - WorldMinY + 1;
 
-    public int RegionCount => GenData?.Regions != null ? GenData.Regions.Length : 0;
-    public int ZoneCount => GenData?.Zones != null ? GenData.Zones.Length : 0;
+    public int RegionCount => genData?.regions != null ? genData.regions.Length : 0;
+    public int ZoneCount => genData?.zones != null ? genData.zones.Length : 0;
 
     // Column texel -> owning chunk's texel (shared by region + zone images).
     public Vector2I ColumnTexelToChunkTexel(int px, int pz)
@@ -62,54 +62,54 @@ public partial class WorldMapData : Resource
     }
 
     [ExportToolButton("Bake to .hike")]
-    public Callable BakeButton => Callable.From(BakeToWorldFile);
+    public Callable bakeButton => Callable.From(BakeToWorldFile);
 
     // Headless bake (no running game): build a transient state from the layer
     // files and write the world. WorldMapState + WorldFile.Write are pure C#.
     public void BakeToWorldFile()
     {
-        if (GenData == null)
+        if (genData == null)
         {
             GD.PrintErr("WorldMapData: GenData not set.");
             return;
         }
-        if (string.IsNullOrEmpty(OutputWorldPath))
+        if (string.IsNullOrEmpty(outputWorldPath))
         {
             GD.PrintErr("WorldMapData: OutputWorldPath not set.");
             return;
         }
         var state = new WorldMapState(this);
         WorldState ws = state.BuildWorld();
-        WorldFile.Write(OutputWorldPath, ws);
-        GD.Print($"WorldMapData: baked world to {OutputWorldPath}");
+        WorldFile.Write(outputWorldPath, ws);
+        GD.Print($"WorldMapData: baked world to {outputWorldPath}");
     }
 
     // ---- Layer load / create / save -------------------------------------
 
     public Image LoadOrCreateElevation()
     {
-        return LoadOrCreateColumnImage(ElevationImagePath);
+        return LoadOrCreateColumnImage(elevationImagePath);
     }
 
     public Image LoadOrCreateWater()
     {
-        return LoadOrCreateColumnImage(WaterImagePath);
+        return LoadOrCreateColumnImage(waterImagePath);
     }
 
     public Image LoadOrCreateRegion()
     {
-        return LoadOrCreateChunkImage(RegionImagePath);
+        return LoadOrCreateChunkImage(regionImagePath);
     }
 
     public Image LoadOrCreateZone()
     {
-        return LoadOrCreateChunkImage(ZoneImagePath);
+        return LoadOrCreateChunkImage(zoneImagePath);
     }
 
     // Scatter is a per-column RGBA8 image: R = kind id (0 = none), G = density.
     public Image LoadOrCreateScatter()
     {
-        Image img = TryLoad(ScatterImagePath);
+        Image img = TryLoad(scatterImagePath);
         if (img != null)
         {
             if (img.GetWidth() != ImageWidth || img.GetHeight() != ImageHeight)
@@ -152,9 +152,9 @@ public partial class WorldMapData : Resource
         Image img = TryLoad(path);
         if (img != null)
         {
-            if (img.GetWidth() != SizeChunksX || img.GetHeight() != SizeChunksZ)
+            if (img.GetWidth() != sizeChunksX || img.GetHeight() != sizeChunksZ)
             {
-                img.Resize(SizeChunksX, SizeChunksZ, Image.Interpolation.Nearest);
+                img.Resize(sizeChunksX, sizeChunksZ, Image.Interpolation.Nearest);
             }
             if (img.GetFormat() != Image.Format.R8)
             {
@@ -162,7 +162,7 @@ public partial class WorldMapData : Resource
             }
             return img;
         }
-        Image blank = Image.CreateEmpty(SizeChunksX, SizeChunksZ, false, Image.Format.R8);
+        Image blank = Image.CreateEmpty(sizeChunksX, sizeChunksZ, false, Image.Format.R8);
         blank.Fill(new Color(0f, 0f, 0f, 1f));
         return blank;
     }
@@ -175,9 +175,9 @@ public partial class WorldMapData : Resource
         int nx = ImageWidth;
         int ny = VoxelHeight;
         int nz = ImageHeight;
-        if (!string.IsNullOrEmpty(TunnelMaskPath))
+        if (!string.IsNullOrEmpty(tunnelMaskPath))
         {
-            string os = ProjectSettings.GlobalizePath(TunnelMaskPath);
+            string os = ProjectSettings.GlobalizePath(tunnelMaskPath);
             if (System.IO.File.Exists(os))
             {
                 try
@@ -206,32 +206,32 @@ public partial class WorldMapData : Resource
 
     public void SaveElevation(Image img)
     {
-        SaveExr(ElevationImagePath, img, "elevation");
+        SaveExr(elevationImagePath, img, "elevation");
     }
 
     public void SaveWater(Image img)
     {
-        SaveExr(WaterImagePath, img, "water");
+        SaveExr(waterImagePath, img, "water");
     }
 
     public void SaveRegion(Image img)
     {
-        SavePng(RegionImagePath, img, "region");
+        SavePng(regionImagePath, img, "region");
     }
 
     public void SaveZone(Image img)
     {
-        SavePng(ZoneImagePath, img, "zone");
+        SavePng(zoneImagePath, img, "zone");
     }
 
     public void SaveScatter(Image img)
     {
-        SavePng(ScatterImagePath, img, "scatter");
+        SavePng(scatterImagePath, img, "scatter");
     }
 
     public void SaveTunnels(byte[,,] tunnels)
     {
-        if (string.IsNullOrEmpty(TunnelMaskPath))
+        if (string.IsNullOrEmpty(tunnelMaskPath))
         {
             return;
         }
@@ -242,7 +242,7 @@ public partial class WorldMapData : Resource
             int nz = tunnels.GetLength(2);
             byte[] buf = new byte[tunnels.Length];
             System.Buffer.BlockCopy(tunnels, 0, buf, 0, buf.Length);
-            using var fs = System.IO.File.Create(ProjectSettings.GlobalizePath(TunnelMaskPath));
+            using var fs = System.IO.File.Create(ProjectSettings.GlobalizePath(tunnelMaskPath));
             using var bw = new System.IO.BinaryWriter(fs);
             bw.Write(nx);
             bw.Write(ny);

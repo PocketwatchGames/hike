@@ -117,7 +117,7 @@ public static class PlayerPerception
         {
             return result;
         }
-        float targetLightMax = world.SimData?.TargetLightMax ?? 0.75f;
+        float targetLightMax = world.SimData?.targetLightMax ?? 0.75f;
 
         EPlayerPerceptionState prevState = state.state;
         Vector3 toTarget = targetPos - player.GlobalPosition;
@@ -205,8 +205,8 @@ public static class PlayerPerception
             float rain = world.CurrentRainAmount();
             float bite = 1f / Mathf.Max(0.01f, pd.clarityPower);
             float mLight = 1f - Mathf.Pow(1f - lightFactor, bite);
-            float mFog = sim != null ? 1f - sim.FogVisionReduction * Mathf.Pow(fog, bite) : 1f;
-            float mRain = sim != null ? 1f - sim.RainVisionReduction * Mathf.Pow(rain, bite) : 1f;
+            float mFog = sim != null ? 1f - sim.fogVisionReduction * Mathf.Pow(fog, bite) : 1f;
+            float mRain = sim != null ? 1f - sim.rainVisionReduction * Mathf.Pow(rain, bite) : 1f;
             float clarity = Mathf.Max(0f, mLight * mFog * mRain) * inputs.prominence;
             // Signal = closeness curve × clarity. perceptionMinimum is the floor:
             // below it the target can't register even with a perfectly clear line,
@@ -370,7 +370,7 @@ public static class PlayerPerception
         {
             return 0f;
         }
-        return Mathf.Clamp(windSpeed / Mathf.Max(0.001f, sim.PerceptionWindReference), 0f, 1f);
+        return Mathf.Clamp(windSpeed / Mathf.Max(0.001f, sim.perceptionWindReference), 0f, 1f);
     }
 
     // Normalized fog density [0,1] at a world position. Single-voxel sample
@@ -406,7 +406,7 @@ public static class PlayerPerception
         float fog = 0.5f * (FogFraction(world, perceiverPos) + FogFraction(world, targetPos))
             * world.CurrentFogAmount();
         float rain = world.CurrentRainAmount();
-        return Mathf.Max(0f, (1f - sim.FogVisionReduction * fog) * (1f - sim.RainVisionReduction * rain));
+        return Mathf.Max(0f, (1f - sim.fogVisionReduction * fog) * (1f - sim.rainVisionReduction * rain));
     }
 
     // Hearing-range multiplier at the listener: wind masks sound (turbulent
@@ -420,7 +420,7 @@ public static class PlayerPerception
         }
         float wind = WindFraction(world, listenerPos);
         float fog = FogFraction(world, listenerPos);
-        return Mathf.Max(0f, (1f - sim.HearingWindSuppression * wind) * (1f + sim.FogHearingBoost * fog));
+        return Mathf.Max(0f, (1f - sim.hearingWindSuppression * wind) * (1f + sim.fogHearingBoost * fog));
     }
 
     // Non-directional smell-range multiplier at the nose: humid fog holds
@@ -435,7 +435,7 @@ public static class PlayerPerception
         }
         float wind = WindFraction(world, nosePos);
         float fog = FogFraction(world, nosePos);
-        return Mathf.Max(0f, (1f - sim.SmellWindDisruption * wind) * (1f + sim.FogSmellBoost * fog));
+        return Mathf.Max(0f, (1f - sim.smellWindDisruption * wind) * (1f + sim.fogSmellBoost * fog));
     }
 
     // Force-promote a target to Discovered. Used when a trap triggers — the

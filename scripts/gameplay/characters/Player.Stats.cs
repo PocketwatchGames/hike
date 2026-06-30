@@ -113,7 +113,7 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		var thresholds = _world?.SimData?.ExpPerLevel;
+		var thresholds = _world?.SimData?.expPerLevel;
 		if (thresholds == null)
 		{
 			return;

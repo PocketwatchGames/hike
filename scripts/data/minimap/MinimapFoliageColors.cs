@@ -17,14 +17,14 @@ public partial class MinimapFoliageColors : Resource
 {
     public const int Size = 256;
 
-    [Export] public Godot.Collections.Array<MinimapFoliageEntry> Entries = new();
+    [Export] public Godot.Collections.Array<MinimapFoliageEntry> entries = new();
 
     public MinimapFoliageEntry Get(int foliageId)
     {
-        if (foliageId <= 0 || foliageId >= Entries.Count)
+        if (foliageId <= 0 || foliageId >= entries.Count)
         {
             return null;
         }
-        return Entries[foliageId];
+        return entries[foliageId];
     }
 }

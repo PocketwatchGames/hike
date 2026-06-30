@@ -59,39 +59,39 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [sub_resource type="Resource" id="Npc_villager"]
 script = ExtResource("3_npc")
-Language = ExtResource("10_lang")
-Conversation = ExtResource("11_conv")
-Scene = ExtResource("16_villager_m")
-Outfit = PackedStringArray("M_hair_4", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
-Palette = SubResource("Merch_palette")
-IdleAnimation = null
-LoyaltyGifts = Array[ExtResource("6_loyaltygift")]([SubResource("Loyalty_grammar")])
-Inventory = [SubResource("Stock_leather")]
-Descriptor = ExtResource("8_villager")
-InitialBehavior = null
+language = ExtResource("10_lang")
+conversation = ExtResource("11_conv")
+scene = ExtResource("16_villager_m")
+outfit = PackedStringArray("M_hair_4", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
+palette = SubResource("Merch_palette")
+idleAnimation = null
+loyaltyGifts = Array[ExtResource("6_loyaltygift")]([SubResource("Loyalty_grammar")])
+inventory = [SubResource("Stock_leather")]
+descriptor = ExtResource("8_villager")
+initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="Npc_companion"]
 script = ExtResource("3_npc")
-IdleAnimation = null
-Tamed = true
-Persistent = true
-Descriptor = ExtResource("9_companion")
-InitialBehavior = null
+idleAnimation = null
+tamed = true
+persistent = true
+descriptor = ExtResource("9_companion")
+initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="Campfire_home"]
 script = ExtResource("4_camp")
-Scene = ExtResource("14_campscene")
-StartLit = true
+scene = ExtResource("14_campscene")
+startLit = true
 metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
 
 [sub_resource type="Resource" id="Boat_home"]
 script = ExtResource("5_boat")
-Scene = ExtResource("15_boatscene")
+scene = ExtResource("15_boatscene")
 metadata/_custom_type_script = "uid://kfffp8mrtgin"
 
 [resource]
 script = ExtResource("2_group")
-ScatterRadius = 5.0
-Entries = Array[ExtResource("1_base")]([SubResource("Npc_villager"), SubResource("Npc_companion"), SubResource("Campfire_home"), SubResource("Boat_home")])
+scatterRadius = 5.0
+entries = Array[ExtResource("1_base")]([SubResource("Npc_villager"), SubResource("Npc_companion"), SubResource("Campfire_home"), SubResource("Boat_home")])

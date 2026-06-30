@@ -31,95 +31,95 @@
 
 [sub_resource type="Resource" id="Sign_swamp"]
 script = ExtResource("52_sign")
-Scene = ExtResource("55_signscene")
-Text = "Swampland. Stay on the high ground after dusk."
-Language = ExtResource("56_lang")
+scene = ExtResource("55_signscene")
+text = "Swampland. Stay on the high ground after dusk."
+language = ExtResource("56_lang")
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="SignList_swamp"]
 script = ExtResource("51_spawnlist")
-Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_swamp")])
+entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_swamp")])
 metadata/_custom_type_script = "uid://b3yy1yx4hje70"
 
 [sub_resource type="Resource" id="Poi_swamp"]
 script = ExtResource("53_poiplace")
-PoiName = "swamp_hollow"
-Content = SubResource("SignList_swamp")
+poiName = "swamp_hollow"
+content = SubResource("SignList_swamp")
 metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 
 [sub_resource type="Resource" id="Sign_village"]
 script = ExtResource("52_sign")
-Scene = ExtResource("55_signscene")
-Text = "Village ahead. Trade, rest, and ask after the road."
-Language = ExtResource("56_lang")
+scene = ExtResource("55_signscene")
+text = "Village ahead. Trade, rest, and ask after the road."
+language = ExtResource("56_lang")
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="SignList_village"]
 script = ExtResource("51_spawnlist")
-Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_village")])
+entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_village")])
 metadata/_custom_type_script = "uid://b3yy1yx4hje70"
 
 [sub_resource type="Resource" id="Poi_village"]
 script = ExtResource("53_poiplace")
-PoiName = "swamp_village"
-Content = SubResource("SignList_village")
+poiName = "swamp_village"
+content = SubResource("SignList_village")
 metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 
 [sub_resource type="Resource" id="Sign_mud"]
 script = ExtResource("52_sign")
-Scene = ExtResource("55_signscene")
-Text = "Mudflats. Test each step — the mire swallows the careless."
-Language = ExtResource("56_lang")
+scene = ExtResource("55_signscene")
+text = "Mudflats. Test each step — the mire swallows the careless."
+language = ExtResource("56_lang")
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="SignList_mud"]
 script = ExtResource("51_spawnlist")
-Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_mud")])
+entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_mud")])
 metadata/_custom_type_script = "uid://b3yy1yx4hje70"
 
 [sub_resource type="Resource" id="Poi_mud"]
 script = ExtResource("53_poiplace")
-PoiName = "swamp_mud"
-Content = SubResource("SignList_mud")
+poiName = "swamp_mud"
+content = SubResource("SignList_mud")
 metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 
 [sub_resource type="Resource" id="Sign_highlands"]
 script = ExtResource("52_sign")
-Scene = ExtResource("55_signscene")
-Text = "The highlands. Drier ground and a long view."
-Language = ExtResource("56_lang")
+scene = ExtResource("55_signscene")
+text = "The highlands. Drier ground and a long view."
+language = ExtResource("56_lang")
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="SignList_highlands"]
 script = ExtResource("51_spawnlist")
-Entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_highlands")])
+entries = Array[ExtResource("50_spawnbase")]([SubResource("Sign_highlands")])
 metadata/_custom_type_script = "uid://b3yy1yx4hje70"
 
 [sub_resource type="Resource" id="Poi_highlands"]
 script = ExtResource("53_poiplace")
-PoiName = "swamp_highlands"
-Content = SubResource("SignList_highlands")
+poiName = "swamp_highlands"
+content = SubResource("SignList_highlands")
 metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 
 [sub_resource type="Resource" id="Road_village_hollow"]
 script = ExtResource("54_road")
-FromPoi = "swamp_village"
-ToPoi = "swamp_hollow"
-Texture = ExtResource("57_dirt")
+fromPoi = "swamp_village"
+toPoi = "swamp_hollow"
+texture = ExtResource("57_dirt")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
 [sub_resource type="Resource" id="Road_village_mud"]
 script = ExtResource("54_road")
-FromPoi = "swamp_village"
-ToPoi = "swamp_mud"
-Texture = ExtResource("57_dirt")
+fromPoi = "swamp_village"
+toPoi = "swamp_mud"
+texture = ExtResource("57_dirt")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
 [sub_resource type="Resource" id="Road_village_highlands"]
 script = ExtResource("54_road")
-FromPoi = "swamp_village"
-ToPoi = "swamp_highlands"
-Texture = ExtResource("58_cobble")
+fromPoi = "swamp_village"
+toPoi = "swamp_highlands"
+texture = ExtResource("58_cobble")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
 [sub_resource type="Resource" id="Bounds_swamp"]
@@ -128,47 +128,47 @@ metadata/_custom_type_script = "uid://4ht0mfp58w5f8"
 
 [sub_resource type="Resource" id="Placed_swamp"]
 script = ExtResource("30_placed")
-ZoneGen = ExtResource("21_1tdd7")
-Bounds = SubResource("Bounds_swamp")
+zoneGen = ExtResource("21_1tdd7")
+bounds = SubResource("Bounds_swamp")
 metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 
 [sub_resource type="Resource" id="Bounds_village"]
 script = ExtResource("32_circle")
-CenterChunk = Vector2i(4, 4)
-RadiusChunks = 3.0
-EdgeNoiseChunks = 0.5
-Priority = 2
-TerrainBlendChunks = 1.0
+centerChunk = Vector2i(4, 4)
+radiusChunks = 3.0
+edgeNoiseChunks = 0.5
+priority = 2
+terrainBlendChunks = 1.0
 metadata/_custom_type_script = "uid://pdqmnml62brob"
 
 [sub_resource type="Resource" id="Placed_village"]
 script = ExtResource("30_placed")
-ZoneGen = ExtResource("17_se4m7")
-Bounds = SubResource("Bounds_village")
+zoneGen = ExtResource("17_se4m7")
+bounds = SubResource("Bounds_village")
 metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 
 [sub_resource type="Resource" id="Bounds_mud"]
 script = ExtResource("33_quadrant")
-Quadrant = 1
-Priority = 1
+quadrant = 1
+priority = 1
 metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
 
 [sub_resource type="Resource" id="Placed_mud"]
 script = ExtResource("30_placed")
-ZoneGen = ExtResource("18_se4m7")
-Bounds = SubResource("Bounds_mud")
+zoneGen = ExtResource("18_se4m7")
+bounds = SubResource("Bounds_mud")
 metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 
 [sub_resource type="Resource" id="Bounds_highlands"]
 script = ExtResource("33_quadrant")
-Quadrant = 3
-Priority = 1
+quadrant = 3
+priority = 1
 metadata/_custom_type_script = "uid://qu2v88n5kwq9q"
 
 [sub_resource type="Resource" id="Placed_highlands"]
 script = ExtResource("30_placed")
-ZoneGen = ExtResource("17_hnhxf")
-Bounds = SubResource("Bounds_highlands")
+zoneGen = ExtResource("17_hnhxf")
+bounds = SubResource("Bounds_highlands")
 metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 
 [sub_resource type="Resource" id="SEDesc_seeking"]
@@ -199,12 +199,12 @@ metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [resource]
 script = ExtResource("23_7umo2")
-SimData = ExtResource("18_8e3k4")
-Zones = [SubResource("Placed_swamp"), SubResource("Placed_village"), SubResource("Placed_mud"), SubResource("Placed_highlands")]
-Regions = [ExtResource("15_7nyke")]
+simData = ExtResource("18_8e3k4")
+zones = [SubResource("Placed_swamp"), SubResource("Placed_village"), SubResource("Placed_mud"), SubResource("Placed_highlands")]
+regions = [ExtResource("15_7nyke")]
 playerSpawnPosition = Vector3(72, 0, 80)
-PointsOfInterestPlacements = [SubResource("Poi_swamp"), SubResource("Poi_village"), SubResource("Poi_mud"), SubResource("Poi_highlands")]
-Roads = [SubResource("Road_village_hollow"), SubResource("Road_village_mud"), SubResource("Road_village_highlands")]
+pointsOfInterestPlacements = [SubResource("Poi_swamp"), SubResource("Poi_village"), SubResource("Poi_mud"), SubResource("Poi_highlands")]
+roads = [SubResource("Road_village_hollow"), SubResource("Road_village_mud"), SubResource("Road_village_highlands")]
 equippedInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_club")])
 startingConsumables = Array[ExtResource("2_consumable_script")]([])
 startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_jl16k")])

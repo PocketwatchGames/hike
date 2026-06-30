@@ -16,6 +16,6 @@
 
 [resource]
 script = ExtResource("1_catalog")
-Blocks = Array[ExtResource("2_block_script")]([ExtResource("3_stone"), ExtResource("4_grass"), ExtResource("5_water"), ExtResource("6_cobble"), ExtResource("7_dirt"), ExtResource("9_desert_top"), ExtResource("10_desert_sand"), ExtResource("11_desert_wall"), ExtResource("12_desert_cave"), ExtResource("13_marsh"), ExtResource("14_cave_floor")])
-DefaultFlatTile = ExtResource("4_grass")
-DefaultWallTile = ExtResource("3_stone")
+blocks = Array[ExtResource("2_block_script")]([ExtResource("3_stone"), ExtResource("4_grass"), ExtResource("5_water"), ExtResource("6_cobble"), ExtResource("7_dirt"), ExtResource("9_desert_top"), ExtResource("10_desert_sand"), ExtResource("11_desert_wall"), ExtResource("12_desert_cave"), ExtResource("13_marsh"), ExtResource("14_cave_floor")])
+defaultFlatTile = ExtResource("4_grass")
+defaultWallTile = ExtResource("3_stone")

@@ -11,38 +11,38 @@
 
 [sub_resource type="Resource" id="Resource_pebble_01"]
 script = ExtResource("1_5c3fe")
-Texture = ExtResource("2_bhbmd")
-TintMap = ExtResource("3_su6n1")
-TintColorA = Color(0.3019608, 0.34901962, 0.36078432, 1)
-ScaleMin = 0.7
-ScaleMax = 1.2
-WindStrength = 0.0
+texture = ExtResource("2_bhbmd")
+tintMap = ExtResource("3_su6n1")
+tintColorA = Color(0.3019608, 0.34901962, 0.36078432, 1)
+scaleMin = 0.7
+scaleMax = 1.2
+windStrength = 0.0
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [sub_resource type="Resource" id="Resource_pebble_02"]
 script = ExtResource("1_5c3fe")
-Texture = ExtResource("3_oo7oi")
-TintMap = ExtResource("5_nl87c")
-TintColorA = Color(0.3019608, 0.34901962, 0.36078432, 1)
-Weight = 0.6
-ScaleMin = 0.7
-ScaleMax = 1.3
-WindStrength = 0.0
+texture = ExtResource("3_oo7oi")
+tintMap = ExtResource("5_nl87c")
+tintColorA = Color(0.3019608, 0.34901962, 0.36078432, 1)
+weight = 0.6
+scaleMin = 0.7
+scaleMax = 1.3
+windStrength = 0.0
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [sub_resource type="Resource" id="Resource_pebble_03"]
 script = ExtResource("1_5c3fe")
-Texture = ExtResource("4_su6n1")
-TintMap = ExtResource("7_j6cub")
-TintColorA = Color(0.3019608, 0.34901962, 0.36078432, 1)
-Weight = 0.4
-ScaleMin = 0.7
-ScaleMax = 1.2
-WindStrength = 0.0
+texture = ExtResource("4_su6n1")
+tintMap = ExtResource("7_j6cub")
+tintColorA = Color(0.3019608, 0.34901962, 0.36078432, 1)
+weight = 0.4
+scaleMin = 0.7
+scaleMax = 1.2
+windStrength = 0.0
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [resource]
 script = ExtResource("5_43chk")
-GroupName = "pebbles"
-Entries = Array[ExtResource("1_5c3fe")]([SubResource("Resource_pebble_01"), SubResource("Resource_pebble_02"), SubResource("Resource_pebble_03")])
-InstancesPerVoxel = 1
+groupName = "pebbles"
+entries = Array[ExtResource("1_5c3fe")]([SubResource("Resource_pebble_01"), SubResource("Resource_pebble_02"), SubResource("Resource_pebble_03")])
+instancesPerVoxel = 1

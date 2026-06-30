@@ -104,51 +104,51 @@ public static class ScatterFactory
 {
     public static EntitySimState Create(EScatterKind kind, WorldMapData data, int zoneIdx, Vector3 pos, uint hash)
     {
-        ZoneGenData[] zones = data.GenData?.ZoneGens;
+        ZoneGenData[] zones = data.genData?.ZoneGens;
         ZoneGenData zone = (zones != null && zoneIdx >= 0 && zoneIdx < zones.Length) ? zones[zoneIdx] : null;
-        TerrainKitData kit = zone?.SurfaceKit;
+        TerrainKitData kit = zone?.surfaceKit;
 
         switch (kind)
         {
             case EScatterKind.Tree:
             {
-                WeightedList<PackedScene> w = WeightedScene.BuildList(kit?.TreeScenes);
+                WeightedList<PackedScene> w = WeightedScene.BuildList(kit?.treeScenes);
                 return w.Count > 0
                     ? new PropSimState(PropType.Tree, pos, w.Choose(HashF(hash, 1u) * w.TotalWeight))
                     : null;
             }
             case EScatterKind.TallGrass:
             {
-                WeightedList<PackedScene> w = WeightedScene.BuildList(kit?.TallGrassScenes);
+                WeightedList<PackedScene> w = WeightedScene.BuildList(kit?.tallGrassScenes);
                 return w.Count > 0
                     ? new PropSimState(PropType.Foliage, pos, w.Choose(HashF(hash, 2u) * w.TotalWeight))
                     : null;
             }
             case EScatterKind.Loot:
             {
-                LootSpawnEntry e = FindFirst<LootSpawnEntry>(zone?.SurfaceEntities);
-                if (e?.Item?.item == null)
+                LootSpawnEntry e = FindFirst<LootSpawnEntry>(zone?.surfaceEntities);
+                if (e?.item?.item == null)
                 {
                     return null;
                 }
-                var sim = new LootSimState(pos, e.Item.item);
-                if (e.Item.HasStatusEffects)
+                var sim = new LootSimState(pos, e.item.item);
+                if (e.item.HasStatusEffects)
                 {
-                    sim.Item = e.Item.CreateState();
+                    sim.Item = e.item.CreateState();
                 }
                 return sim;
             }
             case EScatterKind.Chest:
             {
-                ChestSpawnEntry e = FindFirst<ChestSpawnEntry>(zone?.CaveEntities);
-                return e?.Scene != null
-                    ? new ChestSimState(pos, e.Scene) { LootItems = ChestSpawnEntry.Resolve(e.LootItems, new System.Random((int)hash)) }
+                ChestSpawnEntry e = FindFirst<ChestSpawnEntry>(zone?.caveEntities);
+                return e?.scene != null
+                    ? new ChestSimState(pos, e.scene) { LootItems = ChestSpawnEntry.Resolve(e.lootItems, new System.Random((int)hash)) }
                     : null;
             }
             case EScatterKind.Torch:
             {
-                TorchSpawnEntry e = FindFirst<TorchSpawnEntry>(zone?.CaveEntities);
-                return e?.Scene != null ? new TorchSimState(pos, e.Scene) : null;
+                TorchSpawnEntry e = FindFirst<TorchSpawnEntry>(zone?.caveEntities);
+                return e?.scene != null ? new TorchSimState(pos, e.scene) : null;
             }
             default:
                 return null;
@@ -157,11 +157,11 @@ public static class ScatterFactory
 
     private static T FindFirst<T>(SpawnListData list) where T : SpawnEntryData
     {
-        if (list?.Entries == null)
+        if (list?.entries == null)
         {
             return null;
         }
-        foreach (SpawnEntryData entry in list.Entries)
+        foreach (SpawnEntryData entry in list.entries)
         {
             if (entry is T match)
             {

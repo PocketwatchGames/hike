@@ -16,59 +16,59 @@
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("4_g01")
+scene = ExtResource("4_g01")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_4_g02"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("4_g02")
+scene = ExtResource("4_g02")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_4_g03"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("4_g03")
+scene = ExtResource("4_g03")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_4_g04"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("4_g04")
+scene = ExtResource("4_g04")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_5_t03"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("5_t03")
+scene = ExtResource("5_t03")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_5_t04"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("5_t04")
+scene = ExtResource("5_t04")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_5_t05"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("5_t05")
+scene = ExtResource("5_t05")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_15_3vcyj"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("15_3vcyj")
-Weight = 2.0
+scene = ExtResource("15_3vcyj")
+weight = 2.0
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_16_o5gs6"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("16_o5gs6")
-Weight = 2.0
+scene = ExtResource("16_o5gs6")
+weight = 2.0
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]
 script = ExtResource("1_script")
-Terrain = ExtResource("2_kit")
-DefaultDetail = ExtResource("1_kamth")
-DetailNoiseFrequency = 0.2
-DetailNoiseThreshold = 0.0
-ForestNoiseFrequency = 5.0
-ForestThreshold = 1.0
-ForestDensity = 0.05
-TreeScenes = [SubResource("ws_5_t03"), SubResource("ws_5_t04"), SubResource("ws_5_t05"), SubResource("ws_15_3vcyj"), SubResource("ws_16_o5gs6")]
-TallGrassScenes = [SubResource("ws_4_g01"), SubResource("ws_4_g02"), SubResource("ws_4_g03"), SubResource("ws_4_g04")]
+terrain = ExtResource("2_kit")
+defaultDetail = ExtResource("1_kamth")
+detailNoiseFrequency = 0.2
+detailNoiseThreshold = 0.0
+forestNoiseFrequency = 5.0
+forestThreshold = 1.0
+forestDensity = 0.05
+treeScenes = [SubResource("ws_5_t03"), SubResource("ws_5_t04"), SubResource("ws_5_t05"), SubResource("ws_15_3vcyj"), SubResource("ws_16_o5gs6")]
+tallGrassScenes = [SubResource("ws_4_g01"), SubResource("ws_4_g02"), SubResource("ws_4_g03"), SubResource("ws_4_g04")]

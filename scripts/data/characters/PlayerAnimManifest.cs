@@ -50,20 +50,20 @@ public partial class PlayerAnimManifest : Resource
     // character rig FBXs (BasicHero_F/M, HeroPoses) so those aren't swept in as
     // bogus clips.
     [Export(PropertyHint.Dir)]
-    public string SourceFolder = "res://assets/models/characters/polysplit/anims";
+    public string sourceFolder = "res://assets/models/characters/polysplit/anims";
 
     // The combined library written/merged into. The player.tscn AnimationPlayer
     // loads this as its default ("") library, so clip names must be bare
     // ("idle", not "lib/idle").
     [Export(PropertyHint.GlobalFile, "*.res")]
-    public string OutputLibraryPath = "res://assets/models/characters/polysplit/human_anims.res";
+    public string outputLibraryPath = "res://assets/models/characters/polysplit/human_anims.res";
 
     // One row per clip: its name (= source filename, lower-cased), loop flag,
     // playback speed, and authored events. The single source of truth for
     // per-clip authoring — auto-grows as new FBXs are added to the folder and
     // rebuilt.
     [Export]
-    public PlayerAnimClipSetting[] Clips = System.Array.Empty<PlayerAnimClipSetting>();
+    public PlayerAnimClipSetting[] clips = System.Array.Empty<PlayerAnimClipSetting>();
 
     // NodePath (relative to the AnimationPlayer's root_node) of the node whose
     // method a baked event calls — the rig's ModelAnimator. The player model
@@ -71,7 +71,7 @@ public partial class PlayerAnimManifest : Resource
     // both BasicHero_F and BasicHero_M sharing this one library. Authored here
     // (not hardcoded) so a different rig layout can repoint it.
     [Export]
-    public string MethodTrackTarget = "../../ModelAnimator";
+    public string methodTrackTarget = "../../ModelAnimator";
 
     // Initial loop guess for a freshly-discovered clip's auto-appended row.
     // These are the typical one-shots; everything else defaults to looping.
@@ -98,30 +98,30 @@ public partial class PlayerAnimManifest : Resource
     // by an FBX are preserved; newly-found clips get a default row appended.
     public void RebuildLibrary()
     {
-        using DirAccess dir = DirAccess.Open(SourceFolder);
+        using DirAccess dir = DirAccess.Open(sourceFolder);
         if (dir == null)
         {
-            GD.PushError($"PlayerAnimManifest: cannot open source folder '{SourceFolder}' (error {DirAccess.GetOpenError()}).");
+            GD.PushError($"PlayerAnimManifest: cannot open source folder '{sourceFolder}' (error {DirAccess.GetOpenError()}).");
             return;
         }
 
         AnimationLibrary lib = null;
-        if (Godot.FileAccess.FileExists(OutputLibraryPath))
+        if (Godot.FileAccess.FileExists(outputLibraryPath))
         {
             // Load the cached shared instance so an open scene's AnimationPlayer
             // sees the merged clips immediately, not just after reload.
-            lib = ResourceLoader.Load<AnimationLibrary>(OutputLibraryPath, "", ResourceLoader.CacheMode.Reuse);
+            lib = ResourceLoader.Load<AnimationLibrary>(outputLibraryPath, "", ResourceLoader.CacheMode.Reuse);
         }
         lib ??= new AnimationLibrary();
 
         Dictionary<string, PlayerAnimClipSetting> byName = new();
-        if (Clips != null)
+        if (clips != null)
         {
-            foreach (PlayerAnimClipSetting c in Clips)
+            foreach (PlayerAnimClipSetting c in clips)
             {
-                if (c != null && !string.IsNullOrEmpty(c.Name))
+                if (c != null && !string.IsNullOrEmpty(c.name))
                 {
-                    byName[c.Name] = c;
+                    byName[c.name] = c;
                 }
             }
         }
@@ -138,7 +138,7 @@ public partial class PlayerAnimManifest : Resource
             }
 
             string clip = file.GetBaseName().ToLower();
-            string path = SourceFolder.PathJoin(file);
+            string path = sourceFolder.PathJoin(file);
             PackedScene scene = ResourceLoader.Load<PackedScene>(path);
             if (scene == null)
             {
@@ -164,9 +164,9 @@ public partial class PlayerAnimManifest : Resource
             {
                 setting = new PlayerAnimClipSetting
                 {
-                    Name = clip,
-                    Loop = !DefaultOneShots.Contains(clip),
-                    Speed = 1f,
+                    name = clip,
+                    loop = !DefaultOneShots.Contains(clip),
+                    speed = 1f,
                     ResourceName = clip,
                 };
                 byName[clip] = setting;
@@ -175,8 +175,8 @@ public partial class PlayerAnimManifest : Resource
 
             // Duplicate so the embedded copy is independent of the imported FBX.
             Animation anim = (Animation)ap.GetAnimation(names[0]).Duplicate(true);
-            anim.LoopMode = setting.Loop ? Animation.LoopModeEnum.Linear : Animation.LoopModeEnum.None;
-            ApplyClipSpeed(anim, setting.Speed, clip);
+            anim.LoopMode = setting.loop ? Animation.LoopModeEnum.Linear : Animation.LoopModeEnum.None;
+            ApplyClipSpeed(anim, setting.speed, clip);
             // Re-bake authored events (footsteps, hit frames, ...) onto the fresh
             // duplicate — done AFTER speed scaling so normalized times map onto
             // the final clip length. This is what makes events outlast a re-import.
@@ -194,14 +194,14 @@ public partial class PlayerAnimManifest : Resource
 
         if (merged.Count == 0)
         {
-            GD.PushWarning($"PlayerAnimManifest: no .fbx clips found in '{SourceFolder}'. Nothing written.");
+            GD.PushWarning($"PlayerAnimManifest: no .fbx clips found in '{sourceFolder}'. Nothing written.");
             return;
         }
 
-        Error err = ResourceSaver.Save(lib, OutputLibraryPath);
+        Error err = ResourceSaver.Save(lib, outputLibraryPath);
         if (err != Error.Ok)
         {
-            GD.PushError($"PlayerAnimManifest: failed to save '{OutputLibraryPath}' (error {err}).");
+            GD.PushError($"PlayerAnimManifest: failed to save '{outputLibraryPath}' (error {err}).");
             return;
         }
 
@@ -209,9 +209,9 @@ public partial class PlayerAnimManifest : Resource
         // animation in the folder has an editable row, then persist the manifest.
         if (appended.Count > 0)
         {
-            List<PlayerAnimClipSetting> grown = new(Clips ?? System.Array.Empty<PlayerAnimClipSetting>());
+            List<PlayerAnimClipSetting> grown = new(clips ?? System.Array.Empty<PlayerAnimClipSetting>());
             grown.AddRange(appended);
-            Clips = grown.ToArray();
+            clips = grown.ToArray();
             if (!string.IsNullOrEmpty(ResourcePath))
             {
                 ResourceSaver.Save(this, ResourcePath);
@@ -220,7 +220,7 @@ public partial class PlayerAnimManifest : Resource
         }
 
         merged.Sort();
-        GD.Print($"PlayerAnimManifest: merged {merged.Count} clip(s) into {OutputLibraryPath}: {string.Join(", ", merged)}");
+        GD.Print($"PlayerAnimManifest: merged {merged.Count} clip(s) into {outputLibraryPath}: {string.Join(", ", merged)}");
         if (Engine.IsEditorHint())
         {
             EditorInterface.Singleton.GetResourceFilesystem().Scan();
@@ -259,33 +259,33 @@ public partial class PlayerAnimManifest : Resource
     // clips without events are byte-identical to the plain FBX duplicate.
     private void ApplyClipEvents(Animation anim, PlayerAnimClipSetting setting, string clip)
     {
-        if (setting?.Events == null || setting.Events.Length == 0)
+        if (setting?.events == null || setting.events.Length == 0)
         {
             return;
         }
         int track = -1;
-        foreach (PlayerAnimEvent ev in setting.Events)
+        foreach (PlayerAnimEvent ev in setting.events)
         {
-            if (ev == null || string.IsNullOrEmpty(ev.Method))
+            if (ev == null || string.IsNullOrEmpty(ev.method))
             {
                 continue;
             }
             if (track < 0)
             {
                 track = anim.AddTrack(Animation.TrackType.Method);
-                anim.TrackSetPath(track, MethodTrackTarget);
+                anim.TrackSetPath(track, methodTrackTarget);
             }
-            double time = Mathf.Clamp(ev.NormalizedTime, 0f, 1f) * anim.Length;
+            double time = Mathf.Clamp(ev.normalizedTime, 0f, 1f) * anim.Length;
             Godot.Collections.Dictionary key = new()
             {
-                { "method", ev.Method },
-                { "args", ev.Args ?? new Godot.Collections.Array() },
+                { "method", ev.method },
+                { "args", ev.args ?? new Godot.Collections.Array() },
             };
             anim.TrackInsertKey(track, time, key);
         }
         if (track >= 0)
         {
-            GD.Print($"PlayerAnimManifest: baked {setting.Events.Length} event(s) onto '{clip}'.");
+            GD.Print($"PlayerAnimManifest: baked {setting.events.Length} event(s) onto '{clip}'.");
         }
     }
 
@@ -297,26 +297,26 @@ public partial class PlayerAnimManifest : Resource
     // (so deleting a key in the dock + capturing also clears it from the manifest).
     public void CaptureEventsFromLibrary()
     {
-        if (!Godot.FileAccess.FileExists(OutputLibraryPath))
+        if (!Godot.FileAccess.FileExists(outputLibraryPath))
         {
-            GD.PushError($"PlayerAnimManifest: library '{OutputLibraryPath}' does not exist; nothing to capture.");
+            GD.PushError($"PlayerAnimManifest: library '{outputLibraryPath}' does not exist; nothing to capture.");
             return;
         }
-        AnimationLibrary lib = ResourceLoader.Load<AnimationLibrary>(OutputLibraryPath, "", ResourceLoader.CacheMode.Reuse);
+        AnimationLibrary lib = ResourceLoader.Load<AnimationLibrary>(outputLibraryPath, "", ResourceLoader.CacheMode.Reuse);
         if (lib == null)
         {
-            GD.PushError($"PlayerAnimManifest: failed to load '{OutputLibraryPath}'.");
+            GD.PushError($"PlayerAnimManifest: failed to load '{outputLibraryPath}'.");
             return;
         }
 
         Dictionary<string, PlayerAnimClipSetting> byName = new();
-        if (Clips != null)
+        if (clips != null)
         {
-            foreach (PlayerAnimClipSetting c in Clips)
+            foreach (PlayerAnimClipSetting c in clips)
             {
-                if (c != null && !string.IsNullOrEmpty(c.Name))
+                if (c != null && !string.IsNullOrEmpty(c.name))
                 {
-                    byName[c.Name] = c;
+                    byName[c.name] = c;
                 }
             }
         }
@@ -344,15 +344,15 @@ public partial class PlayerAnimManifest : Resource
                     Godot.Collections.Dictionary key = anim.TrackGetKeyValue(t, k).AsGodotDictionary();
                     events.Add(new PlayerAnimEvent
                     {
-                        NormalizedTime = (float)(anim.TrackGetKeyTime(t, k) / length),
-                        Method = key.TryGetValue("method", out Variant m) ? m.AsStringName() : "",
-                        Args = key.TryGetValue("args", out Variant a) ? a.AsGodotArray() : new Godot.Collections.Array(),
+                        normalizedTime = (float)(anim.TrackGetKeyTime(t, k) / length),
+                        method = key.TryGetValue("method", out Variant m) ? m.AsStringName() : "",
+                        args = key.TryGetValue("args", out Variant a) ? a.AsGodotArray() : new Godot.Collections.Array(),
                     });
                 }
             }
-            if (events.Count != (setting.Events?.Length ?? 0) || events.Count > 0)
+            if (events.Count != (setting.events?.Length ?? 0) || events.Count > 0)
             {
-                setting.Events = events.ToArray();
+                setting.events = events.ToArray();
                 clipsTouched++;
                 totalEvents += events.Count;
             }

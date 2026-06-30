@@ -5,17 +5,17 @@ using System.Threading.Tasks;
 
 public partial class Main : Node
 {
-	[Export] public PackedScene MainMenuScene;
-	[Export] public PackedScene GameScene;
-	[Export] public PackedScene EditorScene;
-	[Export] public PackedScene WorldMapPainterScene;
-	[Export] public WorldGenData DefaultWorldGenData;
+	[Export] public PackedScene mainMenuScene;
+	[Export] public PackedScene gameScene;
+	[Export] public PackedScene editorScene;
+	[Export] public PackedScene worldMapPainterScene;
+	[Export] public WorldGenData defaultWorldGenData;
 	// Loading overlay shown across the new-game / load-game sequence. Lives at
 	// the Main level (not inside game.tscn) so the screen is visible during
 	// worldgen and scene-load — both phases that happen before GameClient
 	// exists. Main drives the early progress; GameClient takes over once the
 	// game scene is instantiated.
-	[Export] public PackedScene LoadingScreenScene;
+	[Export] public PackedScene loadingScreenScene;
 
 	// Default worldgen run parameters. Fixed so a fresh boot deterministically
 	// reproduces the same world.
@@ -44,7 +44,7 @@ public partial class Main : Node
 		string debugDumpDir = CVars.worldgenDebugDump.Value;
 		if (!string.IsNullOrEmpty(debugDumpDir))
 		{
-			WorldGen.Generate(DefaultWorldGenData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE);
+			WorldGen.Generate(defaultWorldGenData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE);
 			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(debugDumpDir));
 			GetTree().Quit();
 			return;
@@ -78,7 +78,7 @@ public partial class Main : Node
 
 	LoadingScreen ShowLoadingScreen()
 	{
-		LoadingScreen loadingScreen = LoadingScreenScene.Instantiate<LoadingScreen>();
+		LoadingScreen loadingScreen = loadingScreenScene.Instantiate<LoadingScreen>();
 		AddChild(loadingScreen);
 		loadingScreen.Show("Loading...");
 		return loadingScreen;
@@ -248,7 +248,7 @@ public partial class Main : Node
 		// dependency graph (shaders, textures, sub-resources) on a worker
 		// thread; the bar polls progress each frame. Instantiate() itself
 		// must run on the main thread.
-		string scenePath = GameScene.ResourcePath;
+		string scenePath = gameScene.ResourcePath;
 		Error reqErr = ResourceLoader.LoadThreadedRequest(scenePath);
 		if (reqErr != Error.Ok)
 		{
@@ -280,8 +280,8 @@ public partial class Main : Node
 			return;
 		}
 
-		var gameScene = (PackedScene)ResourceLoader.LoadThreadedGet(scenePath);
-		_currentScreen = gameScene.Instantiate<Node>();
+		var loadedScene = (PackedScene)ResourceLoader.LoadThreadedGet(scenePath);
+		_currentScreen = loadedScene.Instantiate<Node>();
 		AddChild(_currentScreen);
 		GD.Print($"[Load] Scene loaded: {phaseSw.ElapsedMilliseconds}ms");
 		loadingScreen.SetProgress(0.6f, "Building world...");
@@ -377,7 +377,7 @@ public partial class Main : Node
 			worldState = WorldEditor.CreateEmptyWorld(worldGenData);
 		}
 
-		_currentScreen = EditorScene.Instantiate<Node>();
+		_currentScreen = editorScene.Instantiate<Node>();
 		AddChild(_currentScreen);
 		(_currentScreen as WorldEditor).Init(worldState);
 		(_currentScreen as WorldEditor).onQuitToMenu += () =>
@@ -396,7 +396,7 @@ public partial class Main : Node
 	{
 		_currentScreen.QueueFree();
 
-		var painter = WorldMapPainterScene.Instantiate<WorldMapPainter>();
+		var painter = worldMapPainterScene.Instantiate<WorldMapPainter>();
 		_currentScreen = painter;
 		AddChild(painter);
 		painter.Init();
@@ -412,7 +412,7 @@ public partial class Main : Node
 		// Clears loading on every path back to the menu, including the
 		// worldgen / scene-load failure early-returns in StartGame.
 		MusicManager.Instance?.SetLoading(false);
-		_currentScreen = MainMenuScene.Instantiate<Node>();
+		_currentScreen = mainMenuScene.Instantiate<Node>();
 		(_currentScreen as GuiMainMenu).OnNewGame += NewGame;
 		(_currentScreen as GuiMainMenu).OnLoadGame += LoadGame;
 		(_currentScreen as GuiMainMenu).OnStartEditor += StartEditor;

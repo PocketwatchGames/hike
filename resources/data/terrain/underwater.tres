@@ -5,8 +5,8 @@
 
 [resource]
 script = ExtResource("1_kit")
-Name = "Underwater"
-FlatTile = ExtResource("2_block_flat")
-WallBand = Vector2(0.3, 0.75)
-BlendAmp = 0.55
-GroundTint = Color(0.16, 0.13983999, 0.1168, 1)
+name = "Underwater"
+flatTile = ExtResource("2_block_flat")
+wallBand = Vector2(0.3, 0.75)
+blendAmp = 0.55
+groundTint = Color(0.16, 0.13983999, 0.1168, 1)

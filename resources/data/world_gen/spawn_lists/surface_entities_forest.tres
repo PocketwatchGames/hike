@@ -23,24 +23,24 @@
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("2_av785")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 1000.0
+descriptor = ExtResource("2_av785")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 1000.0
 
 [sub_resource type="Resource" id="Resource_goblin_elite"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("4_htqfg")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 6667.0
+descriptor = ExtResource("4_htqfg")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 6667.0
 
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("7_kunkun_data")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.33
-SquareMetersPerSpawn = 200.0
+descriptor = ExtResource("7_kunkun_data")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.33
+squareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Desc_loot"]
 script = ExtResource("99_desc")
@@ -49,49 +49,49 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("3_loot_entry")
-Item = SubResource("Desc_loot")
-SquareMetersPerSpawn = 200.0
+item = SubResource("Desc_loot")
+squareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_berry"]
 script = ExtResource("5_berry_entry")
-Scene = ExtResource("11_berry_scene")
-BerryCountMin = 3
-BerryCountMax = 6
-SquareMetersPerSpawn = 300.0
-MinSpacing = 4.0
+scene = ExtResource("11_berry_scene")
+berryCountMin = 3
+berryCountMax = 6
+squareMetersPerSpawn = 300.0
+minSpacing = 4.0
 
 [sub_resource type="Resource" id="Resource_well"]
 script = ExtResource("13_well_entry")
-Scene = ExtResource("14_well_scene")
-SquareMetersPerSpawn = 2000.0
+scene = ExtResource("14_well_scene")
+squareMetersPerSpawn = 2000.0
 
 [sub_resource type="Resource" id="Resource_638lp"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("12_u4h7o")
-InitialBehavior = null
-SquareMetersPerSpawn = 100.0
+descriptor = ExtResource("12_u4h7o")
+initialBehavior = null
+squareMetersPerSpawn = 100.0
 spawnConditions = 9
 metadata/_custom_type_script = "uid://dhkkrl6qof485"
 
 [sub_resource type="Resource" id="Resource_climbtree"]
 script = ExtResource("15_climb_entry")
-Scene = ExtResource("16_climb_scene")
-SquareMetersPerSpawn = 800.0
+scene = ExtResource("16_climb_scene")
+squareMetersPerSpawn = 800.0
 
 [sub_resource type="Resource" id="Resource_fairy"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("17_fairy_data")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.5
-SquareMetersPerSpawn = 3000.0
+descriptor = ExtResource("17_fairy_data")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.5
+squareMetersPerSpawn = 3000.0
 
 [sub_resource type="Resource" id="Resource_spider"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("20_spider")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 800.0
+descriptor = ExtResource("20_spider")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 800.0
 
 [resource]
 script = ExtResource("1_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("10_av785"), SubResource("Resource_berry"), SubResource("Resource_well"), SubResource("Resource_638lp"), SubResource("Resource_climbtree"), SubResource("Resource_fairy"), SubResource("Resource_spider")])
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("10_av785"), SubResource("Resource_berry"), SubResource("Resource_well"), SubResource("Resource_638lp"), SubResource("Resource_climbtree"), SubResource("Resource_fairy"), SubResource("Resource_spider")])

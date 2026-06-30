@@ -6,7 +6,7 @@
 
 [sub_resource type="Resource" id="Resource_mob_payload"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("3_mob")
+descriptor = ExtResource("3_mob")
 
 [resource]
 script = ExtResource("1_data")

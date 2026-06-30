@@ -7,10 +7,10 @@
 
 [sub_resource type="Resource" id="Resource_lurker"]
 script = ExtResource("3_mob_entry")
-Descriptor = ExtResource("4_lurker")
-InitialBehavior = &"Wander"
-SquareMetersPerSpawn = 400.0
+descriptor = ExtResource("4_lurker")
+initialBehavior = &"Wander"
+squareMetersPerSpawn = 400.0
 
 [resource]
 script = ExtResource("2_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_lurker")])
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_lurker")])

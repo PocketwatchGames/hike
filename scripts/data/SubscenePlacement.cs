@@ -13,6 +13,6 @@ using Godot;
 [GlobalClass]
 public partial class SubscenePlacement : Resource
 {
-    [Export(PropertyHint.File, "*.hikescene")] public string Path;
-    [Export] public Vector2I AnchorXZ;
+    [Export(PropertyHint.File, "*.hikescene")] public string path;
+    [Export] public Vector2I anchorXZ;
 }

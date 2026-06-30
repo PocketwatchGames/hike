@@ -6,14 +6,14 @@ using Godot;
 [GlobalClass]
 public partial class TorchSpawnEntry : SpawnEntryData
 {
-    [Export] public PackedScene Scene;
+    [Export] public PackedScene scene;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Scene == null)
+        if (scene == null)
         {
             return;
         }
-        ws.AddEntity(new TorchSimState(position, Scene));
+        ws.AddEntity(new TorchSimState(position, scene));
     }
 }

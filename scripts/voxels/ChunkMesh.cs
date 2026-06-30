@@ -192,8 +192,8 @@ public partial class ChunkMesh : Node3D
         for (int i = 0; i < VoxelTypeInfo.MAX_ATLAS_LAYERS; i++)
         {
             BlockData block = BlockCatalog.Active.GetByAtlasIndex(i);
-            cliffTable.Add((block != null && block.IsCliff) ? 1f : 0f);
-            porosityTable.Add(block != null ? block.Porosity : 0.5f);
+            cliffTable.Add((block != null && block.isCliff) ? 1f : 0f);
+            porosityTable.Add(block != null ? block.porosity : 0.5f);
         }
         SharedMaterial.SetShaderParameter("tile_is_cliff", cliffTable);
         SharedMaterial.SetShaderParameter("tile_porosity", porosityTable);
@@ -284,10 +284,10 @@ public partial class ChunkMesh : Node3D
         {
             var terrain = terrains[i];
             if (terrain == null) { continue; }
-            int flat = terrain.FlatTile != null ? terrain.FlatTile.AtlasBaseIndex : BlockCatalog.Active.GetAtlasIndexByName("GrassTop");
-            int wall = terrain.WallTile != null ? terrain.WallTile.AtlasBaseIndex : BlockCatalog.Active.GetAtlasIndexByName("Stone");
+            int flat = terrain.flatTile != null ? terrain.flatTile.atlasBaseIndex : BlockCatalog.Active.GetAtlasIndexByName("GrassTop");
+            int wall = terrain.wallTile != null ? terrain.wallTile.atlasBaseIndex : BlockCatalog.Active.GetAtlasIndexByName("Stone");
             tiles[i] = new Vector4(flat, wall, 0f, 0f);
-            bands[i] = new Vector4(terrain.WallBand.X, terrain.WallBand.Y, 0f, 0f);
+            bands[i] = new Vector4(terrain.wallBand.X, terrain.wallBand.Y, 0f, 0f);
 
             // Detail-sprite ground tint = the average color of the exact flat
             // tile the shader renders for this terrain, so grass roots blended
@@ -298,7 +298,7 @@ public partial class ChunkMesh : Node3D
             // can't be decoded (logged once in TryGetLayerAverageLinear).
             if (TryGetLayerAverageLinear(flat, out Color flatAverage))
             {
-                terrain.GroundTint = flatAverage;
+                terrain.groundTint = flatAverage;
             }
         }
         SharedMaterial.SetShaderParameter("terrain_tiles", tiles);

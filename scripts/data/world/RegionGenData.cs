@@ -15,6 +15,6 @@ using Godot;
 [GlobalClass]
 public partial class RegionGenData : Resource
 {
-    [Export] public RegionData Region;
-    [Export] public SpawnListData Fixtures;
+    [Export] public RegionData region;
+    [Export] public SpawnListData fixtures;
 }

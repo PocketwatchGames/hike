@@ -10,18 +10,18 @@
 
 [sub_resource type="Resource" id="Stone_forest"]
 script = ExtResource("5_stone")
-Scene = ExtResource("9_stonescene")
-Language = ExtResource("7_lang")
-Text = "Vyeshal is difficult to read. But study, my friend, and you will learn it.."
-Components = 16
+scene = ExtResource("9_stonescene")
+language = ExtResource("7_lang")
+text = "Vyeshal is difficult to read. But study, my friend, and you will learn it.."
+components = 16
 metadata/_custom_type_script = "uid://d3c3iycy3trkp"
 
 [sub_resource type="Resource" id="Fixtures_forest"]
 script = ExtResource("2_list")
-Entries = Array[ExtResource("3_base")]([SubResource("Stone_forest")])
+entries = Array[ExtResource("3_base")]([SubResource("Stone_forest")])
 metadata/_custom_type_script = "uid://b3yy1yx4hje70"
 
 [resource]
 script = ExtResource("1_rgd")
-Region = ExtResource("6_region")
-Fixtures = SubResource("Fixtures_forest")
+region = ExtResource("6_region")
+fixtures = SubResource("Fixtures_forest")

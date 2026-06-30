@@ -289,6 +289,6 @@ public class MinimapTextures
             return 1;
         }
         MinimapFoliageEntry entry = palette.Get(foliageId);
-        return entry?.Priority ?? 1;
+        return entry?.priority ?? 1;
     }
 }

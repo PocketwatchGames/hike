@@ -25,14 +25,14 @@ public partial class TerrainKitData : Resource
     // per slot, so a null Terrain produces a null runtime entry and any
     // voxel stamped with that slot will fall back to the no-terrain
     // appearance.
-    [Export] public TerrainData Terrain;
+    [Export] public TerrainData terrain;
 
     // Detail-sprite group seeded by worldgen on voxels that carry this kit.
     // A forest kit points its DefaultDetail at detail_grass, a cave kit
     // at detail_pebbles, an underwater kit at null (no scatter). WorldGen
     // samples its detail noise field and stamps this group on matching
     // surface voxels.
-    [Export] public DetailGroupData DefaultDetail;
+    [Export] public DetailGroupData defaultDetail;
 
     // Detail-sprite scatter tuning. Owned per-kit so kits within the same
     // zone can scatter independently (e.g. dense grass on the inland kit and
@@ -42,9 +42,9 @@ public partial class TerrainKitData : Resource
     //   DetailNoiseFrequency : 2D noise frequency for the scatter mask.
     //   DetailNoiseThreshold : noise values above this seed sprites.
     //   DetailStrengthMin    : minimum density (0..255) at the threshold.
-    [Export] public float DetailNoiseFrequency = 0.06f;
-    [Export] public float DetailNoiseThreshold = -0.1f;
-    [Export] public int DetailStrengthMin = 80;
+    [Export] public float detailNoiseFrequency = 0.06f;
+    [Export] public float detailNoiseThreshold = -0.1f;
+    [Export] public int detailStrengthMin = 80;
 
     // Tree-placement noise tuning, owned per-kit for the same reason as the
     // detail fields above: sharp tree-density transitions where one kit
@@ -55,9 +55,9 @@ public partial class TerrainKitData : Resource
     //   ForestThreshold      : noise values above this can place a tree.
     //   ForestDensity        : per-cell probability ramp from 0 at threshold
     //                          up to ForestDensity at noise = 1.
-    [Export] public float ForestNoiseFrequency = 0.05f;
-    [Export] public float ForestThreshold = 0.01f;
-    [Export] public float ForestDensity = 0.5f;
+    [Export] public float forestNoiseFrequency = 0.05f;
+    [Export] public float forestThreshold = 0.01f;
+    [Export] public float forestDensity = 0.5f;
 
     // Tree palette and per-chunk allotment for cells stamped with this kit.
     // The forest pass picks each tree's scene from the kit at the placement
@@ -71,8 +71,8 @@ public partial class TerrainKitData : Resource
     // WeightedList from these and draws one per tree, so a commoner tree just
     // carries a higher Frequency instead of being listed multiple times. The
     // tall-grass palette works the same way.
-    [Export] public WeightedScene[] TreeScenes = System.Array.Empty<WeightedScene>();
-    [Export] public WeightedScene[] TallGrassScenes = System.Array.Empty<WeightedScene>();
-    [Export] public int TreesPerChunkMin = 0;
-    [Export] public int TreesPerChunkMax = 4;
+    [Export] public WeightedScene[] treeScenes = System.Array.Empty<WeightedScene>();
+    [Export] public WeightedScene[] tallGrassScenes = System.Array.Empty<WeightedScene>();
+    [Export] public int treesPerChunkMin = 0;
+    [Export] public int treesPerChunkMax = 4;
 }

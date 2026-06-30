@@ -197,7 +197,7 @@ public partial class Player : CharacterBody3D
 		// fill the 0→1 meter. One game day is DayLengthSeconds real seconds at
 		// time_scale 1, so the per-real-second rate tracks the same clock (and
 		// CVar) that advances the sky.
-		float dayLength = _world?.WorldState?.SimData?.DayLengthSeconds ?? 600f;
+		float dayLength = _world?.WorldState?.SimData?.dayLengthSeconds ?? 600f;
 		float daysToFull = Mathf.Max(data.dirtyDaysToFull, 0.0001f);
 		float dirtyDelta = dayLength > 0f ? dt * CVars.timeScale.Value / (daysToFull * dayLength) : 0f;
 

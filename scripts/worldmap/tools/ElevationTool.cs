@@ -37,7 +37,7 @@ public class ElevationTool : IWorldMapTool
         brush.Stamp(texel, Radius, w, h, (px, pz, weight) =>
         {
             float v = ctx.Elevation.GetPixel(px, pz).R;
-            float k = brush.Flow * weight;
+            float k = brush.flow * weight;
             switch (op)
             {
                 case EBrushOp.Raise:

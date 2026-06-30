@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_svd")
-Id = &"boss_dragon_defeated"
-Type = 0
-DefaultValue = 0
-Description = "Set true (1) once the player defeats the dragon boss. Permanent world state; read by NPC conversations and guard behaviors."
+id = &"boss_dragon_defeated"
+type = 0
+defaultValue = 0
+description = "Set true (1) once the player defeats the dragon boss. Permanent world state; read by NPC conversations and guard behaviors."

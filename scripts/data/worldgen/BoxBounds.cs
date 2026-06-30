@@ -6,25 +6,25 @@ using Godot;
 [GlobalClass]
 public partial class BoxBounds : ZoneBounds
 {
-    [Export] public Vector2I CenterChunk;
-    [Export] public Vector2I HalfExtentChunks = new(1, 1);
+    [Export] public Vector2I centerChunk;
+    [Export] public Vector2I halfExtentChunks = new(1, 1);
 
     // Border wobble: the half-extent is pushed in/out by up to this many chunks
     // per edge, sampled from the context's smooth edge noise. 0 = clean square.
-    [Export] public float EdgeNoiseChunks;
+    [Export] public float edgeNoiseChunks;
 
     public override bool Contains(int chunkX, int chunkZ, in ZoneBoundsContext ctx)
     {
-        float wobble = EdgeNoiseChunks * ctx.SampleEdgeNoise(chunkX, chunkZ);
-        float halfX = HalfExtentChunks.X + wobble;
-        float halfZ = HalfExtentChunks.Y + wobble;
-        return Mathf.Abs(chunkX - CenterChunk.X) <= halfX
-            && Mathf.Abs(chunkZ - CenterChunk.Y) <= halfZ;
+        float wobble = edgeNoiseChunks * ctx.SampleEdgeNoise(chunkX, chunkZ);
+        float halfX = halfExtentChunks.X + wobble;
+        float halfZ = halfExtentChunks.Y + wobble;
+        return Mathf.Abs(chunkX - centerChunk.X) <= halfX
+            && Mathf.Abs(chunkZ - centerChunk.Y) <= halfZ;
     }
 
     public override bool TryGetAnchorChunk(in ZoneBoundsContext ctx, out Vector2I chunk)
     {
-        chunk = CenterChunk;
+        chunk = centerChunk;
         return true;
     }
 }

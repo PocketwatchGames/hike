@@ -38,15 +38,15 @@ public partial class BlockCatalog : Resource
         }
     }
 
-    [Export] public BlockData[] Blocks;
+    [Export] public BlockData[] blocks;
 
     // Fallback blocks used when a TerrainData entry doesn't author a FlatTile /
     // WallTile, or when minimap surface resolution can't map the terrain. Resolved
     // to int indices once at build time so hot paths read a field instead of
     // doing a name lookup. Authored on block_catalog.tres so renaming or
     // re-indexing the underlying block doesn't silently fall back to slot 0.
-    [Export] public BlockData DefaultFlatTile;
-    [Export] public BlockData DefaultWallTile;
+    [Export] public BlockData defaultFlatTile;
+    [Export] public BlockData defaultWallTile;
 
     public int DefaultFlatTileIndex { get; private set; }
     public int DefaultWallTileIndex { get; private set; }
@@ -83,7 +83,7 @@ public partial class BlockCatalog : Resource
             GD.PushError($"BlockCatalog: no block named '{name}'.");
             return 0;
         }
-        return block.AtlasBaseIndex;
+        return block.atlasBaseIndex;
     }
 
     // Boot-time validator. Logs to GD.PushError so issues surface as red in
@@ -93,7 +93,7 @@ public partial class BlockCatalog : Resource
     {
         EnsureBuilt();
 
-        if (Blocks == null || Blocks.Length == 0)
+        if (blocks == null || blocks.Length == 0)
         {
             GD.PushError("BlockCatalog: Blocks array is empty.");
             return;
@@ -101,7 +101,7 @@ public partial class BlockCatalog : Resource
 
         var seenIndices = new HashSet<int>();
         var seenNames = new HashSet<StringName>();
-        foreach (var block in Blocks)
+        foreach (var block in blocks)
         {
             if (block == null)
             {
@@ -109,23 +109,23 @@ public partial class BlockCatalog : Resource
                 continue;
             }
 
-            if (block.AtlasBaseIndex < 0 || block.AtlasBaseIndex >= VoxelTypeInfo.MAX_ATLAS_LAYERS)
+            if (block.atlasBaseIndex < 0 || block.atlasBaseIndex >= VoxelTypeInfo.MAX_ATLAS_LAYERS)
             {
-                GD.PushError($"BlockCatalog: '{block.BlockName}' AtlasBaseIndex={block.AtlasBaseIndex} out of range [0, {VoxelTypeInfo.MAX_ATLAS_LAYERS}).");
+                GD.PushError($"BlockCatalog: '{block.blockName}' AtlasBaseIndex={block.atlasBaseIndex} out of range [0, {VoxelTypeInfo.MAX_ATLAS_LAYERS}).");
             }
 
-            if (!seenIndices.Add(block.AtlasBaseIndex))
+            if (!seenIndices.Add(block.atlasBaseIndex))
             {
-                GD.PushError($"BlockCatalog: duplicate AtlasBaseIndex={block.AtlasBaseIndex} (block '{block.BlockName}').");
+                GD.PushError($"BlockCatalog: duplicate AtlasBaseIndex={block.atlasBaseIndex} (block '{block.blockName}').");
             }
 
-            if (block.BlockName.IsEmpty)
+            if (block.blockName.IsEmpty)
             {
-                GD.PushError($"BlockCatalog: block at AtlasBaseIndex={block.AtlasBaseIndex} has empty BlockName.");
+                GD.PushError($"BlockCatalog: block at AtlasBaseIndex={block.atlasBaseIndex} has empty BlockName.");
             }
-            else if (!seenNames.Add(block.BlockName))
+            else if (!seenNames.Add(block.blockName))
             {
-                GD.PushError($"BlockCatalog: duplicate BlockName='{block.BlockName}'.");
+                GD.PushError($"BlockCatalog: duplicate BlockName='{block.blockName}'.");
             }
         }
 
@@ -135,11 +135,11 @@ public partial class BlockCatalog : Resource
         AssertNamedAtIndex("Stone", 0);
         AssertNamedAtIndex("GrassTop", 1);
 
-        if (DefaultFlatTile == null)
+        if (defaultFlatTile == null)
         {
             GD.PushError("BlockCatalog: DefaultFlatTile is not assigned.");
         }
-        if (DefaultWallTile == null)
+        if (defaultWallTile == null)
         {
             GD.PushError("BlockCatalog: DefaultWallTile is not assigned.");
         }
@@ -153,9 +153,9 @@ public partial class BlockCatalog : Resource
             GD.PushError($"BlockCatalog: required block '{name}' is missing.");
             return;
         }
-        if (block.AtlasBaseIndex != expectedIndex)
+        if (block.atlasBaseIndex != expectedIndex)
         {
-            GD.PushError($"BlockCatalog: block '{name}' AtlasBaseIndex={block.AtlasBaseIndex}, shader expects {expectedIndex}.");
+            GD.PushError($"BlockCatalog: block '{name}' AtlasBaseIndex={block.atlasBaseIndex}, shader expects {expectedIndex}.");
         }
     }
 
@@ -167,26 +167,26 @@ public partial class BlockCatalog : Resource
         }
         _byAtlasIndex = new BlockData[VoxelTypeInfo.MAX_ATLAS_LAYERS];
         _byName = new Dictionary<StringName, BlockData>();
-        if (Blocks == null)
+        if (blocks == null)
         {
             return;
         }
-        foreach (var block in Blocks)
+        foreach (var block in blocks)
         {
             if (block == null)
             {
                 continue;
             }
-            if (block.AtlasBaseIndex >= 0 && block.AtlasBaseIndex < _byAtlasIndex.Length)
+            if (block.atlasBaseIndex >= 0 && block.atlasBaseIndex < _byAtlasIndex.Length)
             {
-                _byAtlasIndex[block.AtlasBaseIndex] = block;
+                _byAtlasIndex[block.atlasBaseIndex] = block;
             }
-            if (!block.BlockName.IsEmpty)
+            if (!block.blockName.IsEmpty)
             {
-                _byName[block.BlockName] = block;
+                _byName[block.blockName] = block;
             }
         }
-        DefaultFlatTileIndex = DefaultFlatTile != null ? DefaultFlatTile.AtlasBaseIndex : 0;
-        DefaultWallTileIndex = DefaultWallTile != null ? DefaultWallTile.AtlasBaseIndex : 0;
+        DefaultFlatTileIndex = defaultFlatTile != null ? defaultFlatTile.atlasBaseIndex : 0;
+        DefaultWallTileIndex = defaultWallTile != null ? defaultWallTile.atlasBaseIndex : 0;
     }
 }

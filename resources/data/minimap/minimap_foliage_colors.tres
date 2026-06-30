@@ -5,39 +5,39 @@
 
 [sub_resource type="Resource" id="Resource_unused"]
 script = ExtResource("2_foliage_entry_script")
-Name = "unused (id 0)"
-Color = Color(1, 1, 1, 0)
-Priority = 0
+name = "unused (id 0)"
+color = Color(1, 1, 1, 0)
+priority = 0
 metadata/_custom_type_script = "uid://cmxjuae4muavw"
 
 [sub_resource type="Resource" id="Resource_grass"]
 script = ExtResource("2_foliage_entry_script")
-Name = "grass"
-Color = Color(0.44928, 0.48, 0.4032, 0.7058824)
+name = "grass"
+color = Color(0.44928, 0.48, 0.4032, 0.7058824)
 metadata/_custom_type_script = "uid://cmxjuae4muavw"
 
 [sub_resource type="Resource" id="Resource_bush"]
 script = ExtResource("2_foliage_entry_script")
-Name = "bush"
-Color = Color(0.22464, 0.24, 0.2016, 0.78431374)
-Priority = 2
+name = "bush"
+color = Color(0.22464, 0.24, 0.2016, 0.78431374)
+priority = 2
 metadata/_custom_type_script = "uid://cmxjuae4muavw"
 
 [sub_resource type="Resource" id="Resource_tree"]
 script = ExtResource("2_foliage_entry_script")
-Name = "tree"
-Color = Color(0.22464, 0.24, 0.2016, 0.78431374)
-Priority = 3
+name = "tree"
+color = Color(0.22464, 0.24, 0.2016, 0.78431374)
+priority = 3
 metadata/_custom_type_script = "uid://cmxjuae4muavw"
 
 [sub_resource type="Resource" id="Resource_berry_tree"]
 script = ExtResource("2_foliage_entry_script")
-Name = "berry tree"
-Color = Color(0.6509804, 0.16078432, 0, 1)
-Priority = 3
+name = "berry tree"
+color = Color(0.6509804, 0.16078432, 0, 1)
+priority = 3
 metadata/_custom_type_script = "uid://cmxjuae4muavw"
 
 [resource]
 script = ExtResource("1_foliage_colors_script")
-Entries = Array[ExtResource("2_foliage_entry_script")]([SubResource("Resource_unused"), SubResource("Resource_grass"), SubResource("Resource_bush"), SubResource("Resource_tree"), SubResource("Resource_berry_tree")])
+entries = Array[ExtResource("2_foliage_entry_script")]([SubResource("Resource_unused"), SubResource("Resource_grass"), SubResource("Resource_bush"), SubResource("Resource_tree"), SubResource("Resource_berry_tree")])
 metadata/_custom_type_script = "uid://cmfolcolr1ak2"

@@ -10,15 +10,15 @@ using Godot;
 [GlobalClass]
 public partial class BoatSpawnEntry : SpawnEntryData
 {
-    [Export] public PackedScene Scene;
+    [Export] public PackedScene scene;
     // Ring-scan radius (in voxels) for the nearest water-topped column.
-    [Export] public int SearchRadius = 48;
+    [Export] public int searchRadius = 48;
 
     public override bool SelfPlaces => true;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Scene == null)
+        if (scene == null)
         {
             return;
         }
@@ -29,7 +29,7 @@ public partial class BoatSpawnEntry : SpawnEntryData
         int originX = Mathf.FloorToInt(position.X);
         int originZ = Mathf.FloorToInt(position.Z);
 
-        for (int r = 1; r <= SearchRadius; r++)
+        for (int r = 1; r <= searchRadius; r++)
         {
             for (int dx = -r; dx <= r; dx++)
             {
@@ -45,7 +45,7 @@ public partial class BoatSpawnEntry : SpawnEntryData
                     if (ws.GetVoxelWorld(bx, WorldGen.WATER_LEVEL, bz) != VoxelType.Water
                         || ws.GetVoxelWorld(bx, WorldGen.WATER_LEVEL + 1, bz) != VoxelType.Air) { continue; }
                     var boatPos = new Vector3(bx + 0.5f, WorldGen.WATER_LEVEL + 1f, bz + 0.5f);
-                    ws.AddEntity(new BoatSimState(boatPos, 0f, Scene));
+                    ws.AddEntity(new BoatSimState(boatPos, 0f, scene));
                     return;
                 }
             }

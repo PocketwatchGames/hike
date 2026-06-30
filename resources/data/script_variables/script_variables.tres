@@ -7,4 +7,4 @@
 
 [resource]
 script = ExtResource("1_reg")
-Variables = Array[ExtResource("2_svd")]([ExtResource("3_boss"), ExtResource("4_quest")])
+variables = Array[ExtResource("2_svd")]([ExtResource("3_boss"), ExtResource("4_quest")])

@@ -12,19 +12,19 @@
 
 [resource]
 script = ExtResource("1_script")
-Zone = ExtResource("2_region")
-SurfaceKit = ExtResource("11_w82ce")
-CaveKit = ExtResource("4_kit_cave")
-SubmergedKit = ExtResource("5_kit_underwater")
-ShoreKit = ExtResource("9_w82ce")
-Elevation = 1.0
-ElevationRange = 8.0
-PathThreshold = 0.1
-PathBlendBand = 0.05
-TunnelThreshold = 0.1
-CaveNoiseFrequency = 0.04
-GrassThreshold = 0.5
-SurfaceEntities = ExtResource("5_ycgd3")
-CaveEntities = ExtResource("13_cave")
-Fixtures = ExtResource("14_fixtures")
-PointsOfInterest = PackedStringArray("mountain_pass")
+zone = ExtResource("2_region")
+surfaceKit = ExtResource("11_w82ce")
+caveKit = ExtResource("4_kit_cave")
+submergedKit = ExtResource("5_kit_underwater")
+shoreKit = ExtResource("9_w82ce")
+elevation = 1.0
+elevationRange = 8.0
+pathThreshold = 0.1
+pathBlendBand = 0.05
+tunnelThreshold = 0.1
+caveNoiseFrequency = 0.04
+grassThreshold = 0.5
+surfaceEntities = ExtResource("5_ycgd3")
+caveEntities = ExtResource("13_cave")
+fixtures = ExtResource("14_fixtures")
+pointsOfInterest = PackedStringArray("mountain_pass")

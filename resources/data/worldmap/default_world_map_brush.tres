@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_brush")
-Hardness = 0.4
-Flow = 0.5
-NoiseAmount = 0.0
-NoiseFrequency = 0.05
+hardness = 0.4
+flow = 0.5
+noiseAmount = 0.0
+noiseFrequency = 0.05

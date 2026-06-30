@@ -26,7 +26,7 @@ public class WaterTool : IWorldMapTool
         // value (ColumnHeight(v) == SeaLevel + v*Max). 0 = no painted water.
         float v01 = erase
             ? 0f
-            : Mathf.Clamp((ActiveLevel - ctx.SeaLevel) / ctx.Data.MaxElevationVoxels, 0f, 1f);
+            : Mathf.Clamp((ActiveLevel - ctx.SeaLevel) / ctx.Data.maxElevationVoxels, 0f, 1f);
 
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {

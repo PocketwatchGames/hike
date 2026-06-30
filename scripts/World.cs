@@ -230,7 +230,7 @@ public partial class World : Node3D
         // Frozen while the player rests at a camp (CampScreen sets the flag) so
         // the day/night clock holds. Sleeping still advances time — that runs
         // through AdvanceTime, not this per-frame path.
-        float dayLength = _worldState.SimData?.DayLengthSeconds ?? 600f;
+        float dayLength = _worldState.SimData?.dayLengthSeconds ?? 600f;
         if (dayLength > 0f && !TimeOfDayFrozen)
         {
             double todDelta = delta * CVars.timeScale.Value / dayLength;
@@ -251,7 +251,7 @@ public partial class World : Node3D
         // mobs whose spawn conditions have lapsed. Runs on an interval (not the
         // night edge) because weather-gated conditions (Clear / NotHeavyRain)
         // drift continuously, not just at dawn/dusk.
-        float cleanupInterval = _worldState.SimData?.SpawnCleanupIntervalSeconds ?? 2f;
+        float cleanupInterval = _worldState.SimData?.spawnCleanupIntervalSeconds ?? 2f;
         _spawnCleanupAccumulator += (float)delta;
         if (_spawnCleanupAccumulator >= cleanupInterval)
         {
@@ -291,7 +291,7 @@ public partial class World : Node3D
         // skip is (6/24) * DayLengthSeconds of GameTimeMs — keeping the two
         // clocks consistent with how Tick advances them at timeScale 1. Status
         // durations are authored against GameTimeMs, so they age by this amount.
-        float dayLength = _worldState.SimData?.DayLengthSeconds ?? 600f;
+        float dayLength = _worldState.SimData?.dayLengthSeconds ?? 600f;
         double totalSeconds = dayLength > 0f ? hours / 24.0 * dayLength : 0.0;
         bool wasNight = WorldState.IsNight(_worldState.TimeOfDay01);
 

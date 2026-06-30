@@ -36,8 +36,8 @@ class Program
 
     static readonly Regex ExtResourceRegex = new(@"\[ext_resource\b(?<attrs>[^\]]*)\]", RegexOptions.Compiled);
     static readonly Regex AttrRegex = new(@"(?<key>\w+)\s*=\s*""(?<val>[^""]*)""", RegexOptions.Compiled);
-    static readonly Regex IdRegex = new(@"^\s*Id\s*=\s*&?""(?<id>[^""]*)""", RegexOptions.Compiled);
-    static readonly Regex TypeRegex = new(@"^\s*Type\s*=\s*(?<n>\d+)", RegexOptions.Compiled);
+    static readonly Regex IdRegex = new(@"^\s*id\s*=\s*&?""(?<id>[^""]*)""", RegexOptions.Compiled);
+    static readonly Regex TypeRegex = new(@"^\s*type\s*=\s*(?<n>\d+)", RegexOptions.Compiled);
     static readonly Regex VariableRegex = new(@"^\s*variable\s*=\s*&?""(?<id>[^""]*)""", RegexOptions.Compiled);
     static readonly Regex OpRegex = new(@"^\s*op\s*=\s*(?<n>\d+)", RegexOptions.Compiled);
     static readonly Regex ScriptRefRegex = new(@"^\s*script\s*=\s*ExtResource\(\s*""(?<id>[^""]*)""\s*\)", RegexOptions.Compiled);

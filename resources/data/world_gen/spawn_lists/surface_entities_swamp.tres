@@ -16,17 +16,17 @@
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("6_goblin_data")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 500.0
+descriptor = ExtResource("6_goblin_data")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 500.0
 
 [sub_resource type="Resource" id="Resource_goblin_elite"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("6_goblin_elite")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 1429.0
+descriptor = ExtResource("6_goblin_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 1429.0
 
 [sub_resource type="Resource" id="Desc_loot"]
 script = ExtResource("99_desc")
@@ -35,21 +35,21 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("3_loot_entry")
-Item = SubResource("Desc_loot")
-SquareMetersPerSpawn = 200.0
+item = SubResource("Desc_loot")
+squareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_firetrap"]
 script = ExtResource("5_firetrap_entry")
-Scene = ExtResource("11_firetrap_scene")
-SquareMetersPerSpawn = 250.0
+scene = ExtResource("11_firetrap_scene")
+squareMetersPerSpawn = 250.0
 
 [sub_resource type="Resource" id="Resource_spider"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("20_spider")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 800.0
+descriptor = ExtResource("20_spider")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 800.0
 
 [resource]
 script = ExtResource("1_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_loot"), ExtResource("9_1wbki"), SubResource("Resource_firetrap"), SubResource("Resource_spider")])
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_loot"), ExtResource("9_1wbki"), SubResource("Resource_firetrap"), SubResource("Resource_spider")])

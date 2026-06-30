@@ -16,17 +16,17 @@
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("3_hm38d")
-Descriptor = ExtResource("2_0hqmj")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 500.0
+descriptor = ExtResource("2_0hqmj")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 500.0
 
 [sub_resource type="Resource" id="Resource_goblin_elite"]
 script = ExtResource("3_hm38d")
-Descriptor = ExtResource("4_cppj0")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 1429.0
+descriptor = ExtResource("4_cppj0")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 1429.0
 
 [sub_resource type="Resource" id="Desc_loot"]
 script = ExtResource("6_vsoji")
@@ -35,21 +35,21 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("8_ffi6x")
-Item = SubResource("Desc_loot")
-SquareMetersPerSpawn = 200.0
+item = SubResource("Desc_loot")
+squareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_firetrap"]
 script = ExtResource("11_lthrm")
-Scene = ExtResource("10_3qw2q")
-SquareMetersPerSpawn = 250.0
+scene = ExtResource("10_3qw2q")
+squareMetersPerSpawn = 250.0
 
 [sub_resource type="Resource" id="Resource_spider"]
 script = ExtResource("3_hm38d")
-Descriptor = ExtResource("12_llhnd")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 800.0
+descriptor = ExtResource("12_llhnd")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 800.0
 
 [resource]
 script = ExtResource("13_ep0wb")
-Entries = Array[ExtResource("1_5s1fk")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_loot"), ExtResource("9_jjp43"), SubResource("Resource_firetrap"), SubResource("Resource_spider")])
+entries = Array[ExtResource("1_5s1fk")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_loot"), ExtResource("9_jjp43"), SubResource("Resource_firetrap"), SubResource("Resource_spider")])

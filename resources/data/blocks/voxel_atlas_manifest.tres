@@ -30,74 +30,74 @@
 
 [sub_resource type="Resource" id="layer_0"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_stone")
-Normal = ExtResource("nrm_stone")
-Height = ExtResource("hgt_stone")
+color = ExtResource("col_stone")
+normal = ExtResource("nrm_stone")
+height = ExtResource("hgt_stone")
 
 [sub_resource type="Resource" id="layer_1"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_grass")
-Normal = ExtResource("nrm_grass")
-Height = ExtResource("hgt_grass")
+color = ExtResource("col_grass")
+normal = ExtResource("nrm_grass")
+height = ExtResource("hgt_grass")
 
 [sub_resource type="Resource" id="layer_2"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_water")
+color = ExtResource("col_water")
 
 [sub_resource type="Resource" id="layer_3"]
 script = ExtResource("s_layer")
-Color = ExtResource("27_7bd13")
-Normal = ExtResource("nrm_stonefloor")
-Height = ExtResource("hgt_stonefloor")
+color = ExtResource("27_7bd13")
+normal = ExtResource("nrm_stonefloor")
+height = ExtResource("hgt_stonefloor")
 
 [sub_resource type="Resource" id="layer_4"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_drymud")
-Normal = ExtResource("nrm_drymud")
-Height = ExtResource("hgt_drymud")
+color = ExtResource("col_drymud")
+normal = ExtResource("nrm_drymud")
+height = ExtResource("hgt_drymud")
 
 [sub_resource type="Resource" id="layer_5"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_grass")
-Normal = ExtResource("nrm_grass")
-Height = ExtResource("hgt_grass")
+color = ExtResource("col_grass")
+normal = ExtResource("nrm_grass")
+height = ExtResource("hgt_grass")
 
 [sub_resource type="Resource" id="layer_6"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_sand002")
-Normal = ExtResource("nrm_sand002")
-Height = ExtResource("hgt_sand002")
+color = ExtResource("col_sand002")
+normal = ExtResource("nrm_sand002")
+height = ExtResource("hgt_sand002")
 
 [sub_resource type="Resource" id="layer_7"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_sand001")
-Normal = ExtResource("nrm_sand001")
-Height = ExtResource("hgt_sand001")
+color = ExtResource("col_sand001")
+normal = ExtResource("nrm_sand001")
+height = ExtResource("hgt_sand001")
 
 [sub_resource type="Resource" id="layer_8"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_cliff006")
-Normal = ExtResource("nrm_cliff006")
-Height = ExtResource("hgt_cliff006")
+color = ExtResource("col_cliff006")
+normal = ExtResource("nrm_cliff006")
+height = ExtResource("hgt_cliff006")
 
 [sub_resource type="Resource" id="layer_9"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_drymud")
-Normal = ExtResource("nrm_drymud")
-Height = ExtResource("hgt_drymud")
+color = ExtResource("col_drymud")
+normal = ExtResource("nrm_drymud")
+height = ExtResource("hgt_drymud")
 
 [sub_resource type="Resource" id="layer_10"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_wet")
-Normal = ExtResource("nrm_wet")
-Height = ExtResource("hgt_wet")
+color = ExtResource("col_wet")
+normal = ExtResource("nrm_wet")
+height = ExtResource("hgt_wet")
 
 [sub_resource type="Resource" id="layer_11"]
 script = ExtResource("s_layer")
-Color = ExtResource("27_7bd13")
-Normal = ExtResource("nrm_stonefloor")
-Height = ExtResource("hgt_stonefloor")
+color = ExtResource("27_7bd13")
+normal = ExtResource("nrm_stonefloor")
+height = ExtResource("hgt_stonefloor")
 
 [resource]
 script = ExtResource("29_04t8j")
-Layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_2"), SubResource("layer_3"), SubResource("layer_4"), SubResource("layer_5"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11")]
+layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_2"), SubResource("layer_3"), SubResource("layer_4"), SubResource("layer_5"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11")]

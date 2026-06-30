@@ -217,16 +217,16 @@ public partial class FootprintScatter : Node3D
                 float tickDelta = slot.Perception.tickAccumulator;
                 slot.Perception.tickAccumulator = 0f;
 
-                float threshold = sim?.FootprintDiscoveryThreshold ?? 1f;
+                float threshold = sim?.footprintDiscoveryThreshold ?? 1f;
                 var inputs = new PerceptionInputs
                 {
-                    prominence = sim?.FootprintDiscoveryProminence ?? 0.3f,
+                    prominence = sim?.footprintDiscoveryProminence ?? 0.3f,
                     rangeScale = 1f,
                     // No Detected phase / HUD for prints — the visual keys on
                     // Discovered, so collapse Detected onto the same threshold.
                     detectedThreshold = threshold,
                     discoveredThreshold = threshold,
-                    lightSampleHeight = sim?.FootprintDiscoveryLightSampleHeight ?? 0.05f,
+                    lightSampleHeight = sim?.footprintDiscoveryLightSampleHeight ?? 0.05f,
                     losRayHeight = 0f,
                     // Light already encodes "behind a wall / in the dark", and a
                     // per-print raycast across many prints would dominate.
@@ -236,7 +236,7 @@ public partial class FootprintScatter : Node3D
             }
         }
 
-        float fadeSeconds = sim?.FootprintDiscoveryFadeSeconds ?? 0.4f;
+        float fadeSeconds = sim?.footprintDiscoveryFadeSeconds ?? 0.4f;
         float target = slot.Perception.state == EPlayerPerceptionState.Discovered ? 1f : 0f;
         if (slot.DiscoveryAlpha != target)
         {
@@ -268,7 +268,7 @@ public partial class FootprintScatter : Node3D
             return existing;
         }
 
-        Material template = World.Current?.SimData?.FootprintMaterial;
+        Material template = World.Current?.SimData?.footprintMaterial;
         if (template == null)
         {
             GD.PushError("FootprintScatter: SimData.FootprintMaterial is not set — cannot render footprints.");

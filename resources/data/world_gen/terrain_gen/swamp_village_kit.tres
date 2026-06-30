@@ -6,6 +6,6 @@
 
 [resource]
 script = ExtResource("13_uep7x")
-Terrain = ExtResource("7_7tly5")
-DefaultDetail = ExtResource("1_jex71")
-ForestDensity = 0.4
+terrain = ExtResource("7_7tly5")
+defaultDetail = ExtResource("1_jex71")
+forestDensity = 0.4

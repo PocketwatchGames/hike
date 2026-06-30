@@ -15,20 +15,20 @@ public partial class RoadConnection : Resource
     // POI names (from ZoneData.PointsOfInterest, resolved into
     // WorldState.PointsOfInterest). A connection whose endpoints don't both
     // resolve is skipped with a warning.
-    [Export] public string FromPoi = "";
-    [Export] public string ToPoi = "";
+    [Export] public string fromPoi = "";
+    [Export] public string toPoi = "";
 
     // Tread width range in voxels. The road holds one width (rolled in
     // [MinWidth, MaxWidth]) for a random stride (WorldGenData.RoadStride*Meters),
     // then re-rolls — so a road swells and narrows along its length instead of
     // being a uniform ribbon. Keep MinWidth >= 2 so the mesher's neighborhood
     // overlay vote reliably reads the road texture rather than averaging it away.
-    [Export(PropertyHint.Range, "1,16,1")] public int MinWidth = 3;
-    [Export(PropertyHint.Range, "1,16,1")] public int MaxWidth = 4;
+    [Export(PropertyHint.Range, "1,16,1")] public int minWidth = 3;
+    [Export(PropertyHint.Range, "1,16,1")] public int maxWidth = 4;
 
     // Overlay block stamped as the per-voxel OverlayId along the tread. Its
     // AtlasBaseIndex is the painted value — e.g. a "DirtOverlay" block for a
     // dirt road or a "Cobblestone" block for a stone road. Null falls back to
     // WorldGenData.RoadDefaultTexture.
-    [Export] public BlockData Texture;
+    [Export] public BlockData texture;
 }

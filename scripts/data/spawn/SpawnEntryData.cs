@@ -34,7 +34,7 @@ public partial class SpawnEntryData : Resource
     // Default 0 disables the per-column scan for this entry — used by
     // SpawnGroupData sub-entries, which are gated by their parent's
     // RollCount rather than an independent area roll.
-    [Export(PropertyHint.Range, "0,5000,1,or_greater")] public float SquareMetersPerSpawn;
+    [Export(PropertyHint.Range, "0,5000,1,or_greater")] public float squareMetersPerSpawn;
 
     // Required circumstances for this entry's node to materialize. Mob and
     // chest sim states honour these by deferring node spawn until their chunk
@@ -48,13 +48,13 @@ public partial class SpawnEntryData : Resource
     // Set to 0 to disable the check (composite entries like SpawnGroupData
     // don't sit on a tile themselves — their anchor is just a scatter center,
     // so overlap at the group level is meaningless).
-    [Export] public float MinSpacing = 0.5f;
+    [Export] public float minSpacing = 0.5f;
 
     // When this entry is a sub-entry of a SpawnGroupData, place it directly on
     // the group's anchor (the cluster center) instead of scattering it within
     // ScatterRadius — the cluster's centerpiece (a home campfire, a well). The
     // entry's placement gates still run via TrySpawn. Ignored outside a group.
-    [Export] public bool PlaceAtAnchor;
+    [Export] public bool placeAtAnchor;
 
     // True iff this entry requires a flat patch — the column and all 8
     // surrounding columns must share the same surface height. Subclasses
@@ -116,8 +116,8 @@ public partial class SpawnEntryData : Resource
     // surface and cave passes in WorldGen go through here.
     public bool RollAreaChance(Random rng)
     {
-        if (SquareMetersPerSpawn <= 0f) { return false; }
-        return rng.NextDouble() * SquareMetersPerSpawn < 1f;
+        if (squareMetersPerSpawn <= 0f) { return false; }
+        return rng.NextDouble() * squareMetersPerSpawn < 1f;
     }
 
     // Run the entry-specific placement gates (flat-terrain check, overlap
@@ -140,7 +140,7 @@ public partial class SpawnEntryData : Resource
         {
             return false;
         }
-        if (MinSpacing > 0f && ws.HasEntityWithinRadius(position, MinSpacing))
+        if (minSpacing > 0f && ws.HasEntityWithinRadius(position, minSpacing))
         {
             return false;
         }

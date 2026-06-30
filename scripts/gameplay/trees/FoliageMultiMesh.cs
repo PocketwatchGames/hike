@@ -22,10 +22,10 @@ using Godot;
 [GlobalClass]
 public partial class FoliageMultiMesh : MultiMeshInstance3D
 {
-    [Export] public Mesh CardMesh;
-    [Export] public Texture2D LeafTexture;
-    [Export] public Color LeafTintA = new Color(0.78f, 1.0f, 0.62f);
-    [Export] public Color LeafTintB = new Color(1.05f, 1.0f, 0.45f);
+    [Export] public Mesh cardMesh;
+    [Export] public Texture2D leafTexture;
+    [Export] public Color leafTintA = new Color(0.78f, 1.0f, 0.62f);
+    [Export] public Color leafTintB = new Color(1.05f, 1.0f, 0.45f);
 
     // Sparse canopy detail species — flowers, buds, acorns, etc. Each entry is
     // one species (texture + tint + size + density + offsets, see
@@ -35,7 +35,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
     // own billboard MultiMesh under _Details (one extra draw call per species
     // per tree). Details inherit the canopy's lighting / wind / player-fade via
     // the tree_detail material.
-    [Export] public FoliageDetailData[] Details;
+    [Export] public FoliageDetailData[] details;
 
     // Per-tree wind tuning, stamped onto the per-MMI ShaderMaterial in
     // BuildCardMaterial. SwayAmplitude drives the per-card local rustle's
@@ -48,8 +48,8 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
     // gusted wind through wind_amplitude, so this is a per-tree multiplier
     // on top of the weather signal. Drop to 0 to disable directional bend
     // on a variant (e.g. a stiff cactus or a dead tree).
-    [Export] public float SwayAmplitude = 0.08f;
-    [Export] public float WindBendStrength = 1.0f;
+    [Export] public float swayAmplitude = 0.08f;
+    [Export] public float windBendStrength = 1.0f;
 
     [ExportToolButton("Rebuild")]
     public Callable RebuildButton => Callable.From(Rebuild);
@@ -76,7 +76,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
 
     public void Rebuild()
     {
-        if (CardMesh == null)
+        if (cardMesh == null)
         {
             Multimesh = null;
             return;
@@ -99,7 +99,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
         int totalCards = 0;
         foreach (FoliageCluster c in clusters)
         {
-            totalCards += Math.Max(0, c.CardCount);
+            totalCards += Math.Max(0, c.cardCount);
         }
         if (totalCards == 0)
         {
@@ -111,14 +111,14 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
         mm.TransformFormat = MultiMesh.TransformFormatEnum.Transform3D;
         mm.UseCustomData = true;
         mm.UseColors = true;
-        mm.Mesh = CardMesh;
+        mm.Mesh = cardMesh;
         mm.InstanceCount = totalCards;
 
         int globalIdx = 0;
         int clusterIdx = 0;
         foreach (FoliageCluster cluster in clusters)
         {
-            if (cluster.CardCount <= 0)
+            if (cluster.cardCount <= 0)
             {
                 clusterIdx++;
                 continue;
@@ -127,7 +127,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             // Cluster-level RNG combines the authored PlacementSeed with the
             // cluster's child-index, so two clusters with the seed left at 0
             // still produce distinct placements.
-            int seed = unchecked(cluster.PlacementSeed * 17 + clusterIdx * 6151 + 0x9E37);
+            int seed = unchecked(cluster.placementSeed * 17 + clusterIdx * 6151 + 0x9E37);
             RandomNumberGenerator rng = new RandomNumberGenerator();
             rng.Seed = unchecked((ulong)seed);
 
@@ -137,9 +137,9 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             // composed onto each card so the cluster acts as a sub-origin.
             Transform3D clusterXform = cluster.Transform;
 
-            for (int i = 0; i < cluster.CardCount; i++)
+            for (int i = 0; i < cluster.cardCount; i++)
             {
-                (Transform3D cardInClusterLocal, Vector3 blobRelOffsetCardLocal) = ComputeCardTransform(cluster, i, cluster.CardCount, rng, cluster.CardSizeMin, cluster.CardSizeMax);
+                (Transform3D cardInClusterLocal, Vector3 blobRelOffsetCardLocal) = ComputeCardTransform(cluster, i, cluster.cardCount, rng, cluster.cardSizeMin, cluster.cardSizeMax);
                 // Compose cluster-local → MMI-local. The card's
                 // blob-relative offset stays in CARD-local space (already
                 // pre-rotated by the card's inverse basis) — when the
@@ -177,7 +177,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
         float canopyTopWorldY = treeOrigin.Y;
         foreach (FoliageCluster cluster in clusters)
         {
-            Vector3 topLocal = cluster.Position + new Vector3(0f, cluster.EllipsoidRadii.Y, 0f);
+            Vector3 topLocal = cluster.Position + new Vector3(0f, cluster.ellipsoidRadii.Y, 0f);
             float topWorldY = ToGlobal(topLocal).Y;
             if (topWorldY > canopyTopWorldY)
             {
@@ -208,9 +208,9 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
     private static Color ClusterInstanceColor(FoliageCluster cluster, int clusterIdx)
     {
         RandomNumberGenerator tintRng = new RandomNumberGenerator();
-        tintRng.Seed = unchecked((ulong)(cluster.PlacementSeed * 7919 + clusterIdx * 104729 + 0xABCDEF));
+        tintRng.Seed = unchecked((ulong)(cluster.placementSeed * 7919 + clusterIdx * 104729 + 0xABCDEF));
         float clusterMix = tintRng.Randf();
-        float fadeEligible = cluster.FadesWhenOccludingPlayer ? 1f : 0f;
+        float fadeEligible = cluster.fadesWhenOccludingPlayer ? 1f : 0f;
         return new Color(clusterMix, fadeEligible, 1f, 1f);
     }
 
@@ -231,15 +231,15 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             existing.QueueFree();
         }
 
-        if (CardMesh == null || Details == null || Details.Length == 0)
+        if (cardMesh == null || details == null || details.Length == 0)
         {
             return;
         }
 
-        for (int typeIdx = 0; typeIdx < Details.Length; typeIdx++)
+        for (int typeIdx = 0; typeIdx < details.Length; typeIdx++)
         {
-            FoliageDetailData detail = Details[typeIdx];
-            if (detail == null || detail.Texture == null || detail.Density <= 0f)
+            FoliageDetailData detail = details[typeIdx];
+            if (detail == null || detail.texture == null || detail.density <= 0f)
             {
                 continue;
             }
@@ -256,14 +256,14 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
 
             // Width follows the texture's aspect ratio; the authored size is
             // the billboard HEIGHT (see FoliageDetailData.SizeMin/Max).
-            int texH = Math.Max(1, detail.Texture.GetHeight());
-            float detailAspect = detail.Texture.GetWidth() / (float)texH;
+            int texH = Math.Max(1, detail.texture.GetHeight());
+            float detailAspect = detail.texture.GetWidth() / (float)texH;
 
             MultiMesh mm = new MultiMesh();
             mm.TransformFormat = MultiMesh.TransformFormatEnum.Transform3D;
             mm.UseCustomData = true;
             mm.UseColors = true;
-            mm.Mesh = CardMesh;
+            mm.Mesh = cardMesh;
             mm.InstanceCount = totalCards;
 
             int globalIdx = 0;
@@ -280,7 +280,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
                 // Distinct seed (mixes the species index) so each detail
                 // species samples different surface points than the leaves and
                 // than each other, while staying deterministic across rebuilds.
-                int seed = unchecked(cluster.PlacementSeed * 17 + clusterIdx * 6151 + typeIdx * 2749 + 0x5EED);
+                int seed = unchecked(cluster.placementSeed * 17 + clusterIdx * 6151 + typeIdx * 2749 + 0x5EED);
                 RandomNumberGenerator rng = new RandomNumberGenerator();
                 rng.Seed = unchecked((ulong)seed);
 
@@ -314,10 +314,10 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
                     Vector3 outward = horiz.LengthSquared() > 1e-4f ? horiz.Normalized() : Vector3.Zero;
 
                     Vector3 anchorLocal = anchorBase
-                        + outward * detail.OutwardOffset
-                        + Vector3.Up * detail.VerticalOffset;
+                        + outward * detail.outwardOffset
+                        + Vector3.Up * detail.verticalOffset;
 
-                    float height = Mathf.Lerp(detail.SizeMin, detail.SizeMax, rng.Randf());
+                    float height = Mathf.Lerp(detail.sizeMin, detail.sizeMax, rng.Randf());
                     float width = height * detailAspect;
                     // Billboard reads width/height from the basis column lengths
                     // (MODEL_MATRIX[0]/[1]); orientation is irrelevant since the
@@ -349,11 +349,11 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
     // scaled by the species Density, rounded to the nearest whole card.
     private static int DetailCardCount(FoliageCluster cluster, FoliageDetailData detail)
     {
-        if (cluster.CardCount <= 0 || detail.Density <= 0f)
+        if (cluster.cardCount <= 0 || detail.density <= 0f)
         {
             return 0;
         }
-        return Mathf.RoundToInt(cluster.CardCount * detail.Density);
+        return Mathf.RoundToInt(cluster.cardCount * detail.density);
     }
 
     // Detail material — built from the billboard tree_detail template (so
@@ -370,12 +370,12 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             return null;
         }
         ShaderMaterial mat = (ShaderMaterial)template.Duplicate();
-        mat.SetShaderParameter("albedo_tex", detail.Texture);
-        mat.SetShaderParameter("leaf_tint_a", detail.TintA);
-        mat.SetShaderParameter("leaf_tint_b", detail.TintB);
-        mat.SetShaderParameter("depth_bias", detail.DepthBias);
-        mat.SetShaderParameter("sway_amplitude", SwayAmplitude);
-        mat.SetShaderParameter("wind_bend_strength", WindBendStrength);
+        mat.SetShaderParameter("albedo_tex", detail.texture);
+        mat.SetShaderParameter("leaf_tint_a", detail.tintA);
+        mat.SetShaderParameter("leaf_tint_b", detail.tintB);
+        mat.SetShaderParameter("depth_bias", detail.depthBias);
+        mat.SetShaderParameter("sway_amplitude", swayAmplitude);
+        mat.SetShaderParameter("wind_bend_strength", windBendStrength);
         mat.SetShaderParameter("tree_origin", treeOrigin);
         mat.SetShaderParameter("canopy_height", canopyHeight);
         return mat;
@@ -407,14 +407,14 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             return null;
         }
         ShaderMaterial mat = (ShaderMaterial)template.Duplicate();
-        if (LeafTexture != null)
+        if (leafTexture != null)
         {
-            mat.SetShaderParameter("albedo_tex", LeafTexture);
+            mat.SetShaderParameter("albedo_tex", leafTexture);
         }
-        mat.SetShaderParameter("leaf_tint_a", LeafTintA);
-        mat.SetShaderParameter("leaf_tint_b", LeafTintB);
-        mat.SetShaderParameter("sway_amplitude", SwayAmplitude);
-        mat.SetShaderParameter("wind_bend_strength", WindBendStrength);
+        mat.SetShaderParameter("leaf_tint_a", leafTintA);
+        mat.SetShaderParameter("leaf_tint_b", leafTintB);
+        mat.SetShaderParameter("sway_amplitude", swayAmplitude);
+        mat.SetShaderParameter("wind_bend_strength", windBendStrength);
         return mat;
     }
 
@@ -445,25 +445,25 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
         Vector3 tipHint = Vector3.Up;
         float centerPivotFactor = 0f;
 
-        switch (cluster.Placement)
+        switch (cluster.placement)
         {
             case ECanopyPlacementMode.UprightStrand:
             {
                 float angle = (i + 0.5f) / Math.Max(1, count) * Mathf.Tau;
                 float cx = MathF.Cos(angle);
                 float cz = MathF.Sin(angle);
-                posLocal = new Vector3(cx * cluster.EllipsoidRadii.X, 0f, cz * cluster.EllipsoidRadii.Z);
+                posLocal = new Vector3(cx * cluster.ellipsoidRadii.X, 0f, cz * cluster.ellipsoidRadii.Z);
                 normal = new Vector3(cx, 0f, cz).Normalized();
                 break;
             }
             case ECanopyPlacementMode.Drooping:
             {
                 FibonacciOnUpperHemisphere(i, count, out float y, out float xr, out float zr);
-                posLocal = new Vector3(xr * cluster.EllipsoidRadii.X, y * cluster.EllipsoidRadii.Y, zr * cluster.EllipsoidRadii.Z);
+                posLocal = new Vector3(xr * cluster.ellipsoidRadii.X, y * cluster.ellipsoidRadii.Y, zr * cluster.ellipsoidRadii.Z);
                 normal = new Vector3(
-                    SafeDiv(xr, cluster.EllipsoidRadii.X),
-                    SafeDiv(y, cluster.EllipsoidRadii.Y),
-                    SafeDiv(zr, cluster.EllipsoidRadii.Z)).Normalized();
+                    SafeDiv(xr, cluster.ellipsoidRadii.X),
+                    SafeDiv(y, cluster.ellipsoidRadii.Y),
+                    SafeDiv(zr, cluster.ellipsoidRadii.Z)).Normalized();
 
                 Vector3 outwardHorizontal = new Vector3(posLocal.X, 0f, posLocal.Z);
                 if (outwardHorizontal.LengthSquared() < 1e-6f)
@@ -478,7 +478,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
                 }
                 swingAxis = swingAxis.Normalized();
 
-                float perCardDroop = Mathf.Clamp(cluster.DroopAmount, 0f, 1f);
+                float perCardDroop = Mathf.Clamp(cluster.droopAmount, 0f, 1f);
                 tipHint = Vector3.Up.Rotated(swingAxis, perCardDroop * Mathf.Pi);
                 centerPivotFactor = y * y * y;
                 break;
@@ -486,7 +486,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             case ECanopyPlacementMode.SweptBough:
             {
                 FibonacciOnUpperHemisphere(i, count, out float y, out float xr, out float zr);
-                posLocal = new Vector3(xr * cluster.EllipsoidRadii.X, y * cluster.EllipsoidRadii.Y, zr * cluster.EllipsoidRadii.Z);
+                posLocal = new Vector3(xr * cluster.ellipsoidRadii.X, y * cluster.ellipsoidRadii.Y, zr * cluster.ellipsoidRadii.Z);
 
                 Vector3 outwardHorizontal = new Vector3(posLocal.X, 0f, posLocal.Z);
                 if (outwardHorizontal.LengthSquared() < 1e-6f)
@@ -513,7 +513,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
                 }
                 swingAxis = swingAxis.Normalized();
 
-                float sweep = Mathf.Clamp(cluster.DroopAmount, 0f, 1f) * Mathf.Pi;
+                float sweep = Mathf.Clamp(cluster.droopAmount, 0f, 1f) * Mathf.Pi;
                 tipHint = Vector3.Up.Rotated(swingAxis, sweep);
                 normal = outwardHorizontal.Rotated(swingAxis, sweep);
                 centerPivotFactor = y * y * y;
@@ -523,24 +523,24 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             default:
             {
                 FibonacciOnUpperHemisphere(i, count, out float y, out float xr, out float zr);
-                posLocal = new Vector3(xr * cluster.EllipsoidRadii.X, y * cluster.EllipsoidRadii.Y, zr * cluster.EllipsoidRadii.Z);
+                posLocal = new Vector3(xr * cluster.ellipsoidRadii.X, y * cluster.ellipsoidRadii.Y, zr * cluster.ellipsoidRadii.Z);
                 normal = new Vector3(
-                    SafeDiv(xr, cluster.EllipsoidRadii.X),
-                    SafeDiv(y, cluster.EllipsoidRadii.Y),
-                    SafeDiv(zr, cluster.EllipsoidRadii.Z)).Normalized();
+                    SafeDiv(xr, cluster.ellipsoidRadii.X),
+                    SafeDiv(y, cluster.ellipsoidRadii.Y),
+                    SafeDiv(zr, cluster.ellipsoidRadii.Z)).Normalized();
                 break;
             }
         }
 
         Basis baseBasis = BasisFromNormal(normal, tipHint);
 
-        float roll = (rng.Randf() * Mathf.Tau) * cluster.RollJitter;
+        float roll = (rng.Randf() * Mathf.Tau) * cluster.rollJitter;
         Basis withRoll = baseBasis.Rotated(baseBasis.Z, roll);
 
-        if (cluster.AngleJitter > 0f)
+        if (cluster.angleJitter > 0f)
         {
             Vector3 axis = RandomUnitVector(rng);
-            float angle = Mathf.DegToRad(MaxAngleJitterDeg) * rng.Randf() * cluster.AngleJitter;
+            float angle = Mathf.DegToRad(MaxAngleJitterDeg) * rng.Randf() * cluster.angleJitter;
             withRoll = withRoll.Rotated(axis, angle);
         }
 

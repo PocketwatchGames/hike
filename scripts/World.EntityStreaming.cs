@@ -251,7 +251,7 @@ public partial class World
             return;
         }
         SimData simData = _worldState?.SimData;
-        float interval = simData?.CompanionRescueSampleSeconds ?? 1f;
+        float interval = simData?.companionRescueSampleSeconds ?? 1f;
         _companionHistoryAccumulator += delta;
         if (_companionHistoryAccumulator < interval)
         {
@@ -259,7 +259,7 @@ public partial class World
         }
         _companionHistoryAccumulator = 0f;
         _playerPositionHistory.Add(_player.GlobalPosition);
-        int cap = Mathf.Max(1, simData?.CompanionRescueHistoryCount ?? 16);
+        int cap = Mathf.Max(1, simData?.companionRescueHistoryCount ?? 16);
         while (_playerPositionHistory.Count > cap)
         {
             _playerPositionHistory.RemoveAt(0);
@@ -295,13 +295,13 @@ public partial class World
         if (!_companion.StayCommanded)
         {
             SimData simData = _worldState?.SimData;
-            float maxDist = simData?.CompanionRescueMaxDistance ?? 30f;
+            float maxDist = simData?.companionRescueMaxDistance ?? 30f;
             Vector3 gap = _companion.GlobalPosition - _player.GlobalPosition;
             gap.Y = 0f;
             if (gap.LengthSquared() > maxDist * maxDist)
             {
                 _companionFarSeconds += delta;
-                farTriggered = _companionFarSeconds >= (simData?.CompanionRescueMaxDistanceGraceSeconds ?? 1.5f);
+                farTriggered = _companionFarSeconds >= (simData?.companionRescueMaxDistanceGraceSeconds ?? 1.5f);
             }
             else
             {

@@ -11,6 +11,6 @@ using Godot;
 [GlobalClass]
 public partial class PlacedZone : Resource
 {
-    [Export] public ZoneGenData ZoneGen;
-    [Export] public ZoneBounds Bounds;
+    [Export] public ZoneGenData zoneGen;
+    [Export] public ZoneBounds bounds;
 }

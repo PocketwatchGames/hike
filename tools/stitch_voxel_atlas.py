@@ -9,7 +9,7 @@ Stitches the PBR terrain source maps into two vertical Texture2DArray strips:
 The layer list is NOT duplicated here — it is parsed from the manifest .tres so
 the editor button and this CLI/CI path stay in lockstep. To change which source
 texture a block uses, edit the manifest in the Godot inspector (or the .tres),
-not this script. Layer order in the manifest must match the AtlasBaseIndex on
+not this script. Layer order in the manifest must match the atlasBaseIndex on
 each BlockData and the slices/vertical count in both .import files.
 
 Reads only; never overwrites source art.
@@ -45,7 +45,7 @@ def _parse_manifest(path):
     for m in re.finditer(r'\[ext_resource\b[^\]]*\bpath="([^"]+)"[^\]]*\bid="([^"]+)"\]', text):
         ext[m.group(2)] = m.group(1)
 
-    # sub_resource id -> {Color/Normal/Height ext-id}
+    # sub_resource id -> {color/normal/height ext-id}
     subs = {}
     for m in re.finditer(r'\[sub_resource type="Resource" id="([^"]+)"\]\n(.*?)(?=\n\[|\Z)', text, re.S):
         body = m.group(2)
@@ -54,10 +54,12 @@ def _parse_manifest(path):
             fields[fm.group(1)] = fm.group(2)
         subs[m.group(1)] = fields
 
-    # Layers array order (list of SubResource ids)
-    lm = re.search(r'Layers = Array\[[^\]]*\]\(\[(.*?)\]\)', text, re.S)
+    # layers array order (list of SubResource ids); typed (Array[T]([...])) or plain ([...])
+    lm = re.search(r'layers = Array\[[^\]]*\]\(\[(.*?)\]\)', text, re.S)
     if lm is None:
-        raise SystemExit("stitch_voxel_atlas: no Layers array found in manifest")
+        lm = re.search(r'layers = \[(.*?)\]', text, re.S)
+    if lm is None:
+        raise SystemExit("stitch_voxel_atlas: no layers array found in manifest")
     order = re.findall(r'SubResource\("([^"]+)"\)', lm.group(1))
 
     layers = []
@@ -69,9 +71,9 @@ def _parse_manifest(path):
             return _res_to_path(ext[ext_id]) if ext_id else None
 
         layers.append({
-            "color": resolve("Color"),
-            "normal": resolve("Normal"),
-            "height": resolve("Height"),
+            "color": resolve("color"),
+            "normal": resolve("normal"),
+            "height": resolve("height"),
         })
     return layers
 

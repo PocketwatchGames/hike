@@ -19,22 +19,22 @@ public partial class BlockData : Resource
     // Logical name. Used for catalog lookup-by-name and for the boot-time
     // assertion that "Stone" maps to atlas 0 and "GrassTop" to atlas 1, since
     // the shader hardcodes those two ids as float constants.
-    [Export] public StringName BlockName;
+    [Export] public StringName blockName;
 
     // The atlas layer in voxel_tiles.png / voxel_tiles_nrm_height.png belonging
     // to this block. Each block is exactly one layer. Stable wire id — the
     // per-voxel OverlayId byte is this index. When adding a block, append the
     // next free index.
-    [Export] public int AtlasBaseIndex;
+    [Export] public int atlasBaseIndex;
 
     // Flat-shaded color for this block on the minimap.
-    [Export] public Color MinimapColor = new Color(0.3f, 0.3f, 0.3f);
+    [Export] public Color minimapColor = new Color(0.3f, 0.3f, 0.3f);
 
     // Cliff/rock material? Drives the terrain shader's height-blend ramps:
     // cliff↔ground blends tightly (sharp interlock), while cliff↔cliff and
     // ground↔ground blend softly. The shader routes each tile to a "cliff" or
     // "ground" accumulator by this flag (uploaded as tile_is_cliff[]).
-    [Export] public bool IsCliff = false;
+    [Export] public bool isCliff = false;
 
     // Wetness porosity in [0,1] — how absorbent the material is. LOW (rock,
     // cobble) = water beads on top and reads as reflective standing water; HIGH
@@ -42,14 +42,14 @@ public partial class BlockData : Resource
     // little glint. The terrain shader's wet model splits its look by this
     // (uploaded as tile_porosity[]): albedo darkening scales with porosity,
     // glint/reflection scales with (1 - porosity).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float Porosity = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float porosity = 0.5f;
 
     // Logical ground category for footstep dispatch. GroundTypeResolver
     // resolves the voxel under the player's feet to a BlockData (overlay
     // wins over the voxel's flat tile) and reads this field. Multiple
     // blocks may share a category — DesertTop, DesertSand, DesertCave all
     // resolve to Sand. New categories should append to EGroundType.
-    [Export] public EGroundType GroundType = EGroundType.Grass;
+    [Export] public EGroundType groundType = EGroundType.Grass;
 
     // Material scooped up when the player digs a bare hole in this block —
     // i.e. the shovel finds no buried spot or burrowed mob (see World.TryDig).
@@ -57,5 +57,5 @@ public partial class BlockData : Resource
     // up empty). The item is dropped as loose loot at the dig point and the
     // shovel reports a Common find. Resolved through GroundTypeResolver, so
     // the overlay block wins over the base voxel just like footsteps.
-    [Export] public ItemData DigItem;
+    [Export] public ItemData digItem;
 }

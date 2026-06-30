@@ -12,23 +12,23 @@ using Godot;
 [GlobalClass]
 public partial class TrapSpawnEntry : SpawnEntryData
 {
-    [Export] public PackedScene Scene;
+    [Export] public PackedScene scene;
 
     // Danger-zone radius mobs avoid while wandering and never spawn inside.
     // The spike field is a ~3x3m square (4x4 trigger), so this is larger than
     // the fire traps — a disc of this radius covers the spiked floor. Attack
     // pathing ignores it so the player can lure mobs across the spikes.
-    [Export] public float HazardRadius = TrapSimState.DefaultHazardRadius;
-    public override float HazardSpawnRadius => HazardRadius;
+    [Export] public float hazardRadius = TrapSimState.DefaultHazardRadius;
+    public override float HazardSpawnRadius => hazardRadius;
 
     public override bool RequireFlatTerrain => true;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Scene == null)
+        if (scene == null)
         {
             return;
         }
-        ws.AddEntity(new TrapSimState(position, Scene) { HazardRadius = HazardRadius });
+        ws.AddEntity(new TrapSimState(position, scene) { HazardRadius = hazardRadius });
     }
 }

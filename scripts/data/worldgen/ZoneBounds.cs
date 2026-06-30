@@ -15,7 +15,7 @@ public partial class ZoneBounds : Resource
     // Highest-priority matching bounds wins where several overlap a chunk. A
     // background fill (EverywhereBounds) sits at 0; insets override it with a
     // higher value.
-    [Export] public int Priority;
+    [Export] public int priority;
 
     // How far (in chunks) this zone's surface content blends across its border.
     // The surface spawn pass places content from each column's DOMINANT zone by
@@ -24,7 +24,7 @@ public partial class ZoneBounds : Resource
     // softens the seam: the pass instead does a kernel-weighted roll over this
     // reach, so this zone's content (and its neighbours') interleave that many
     // chunks past the boundary — the natural look for two wild biomes meeting.
-    [Export] public float SpawnBlendReachChunks = 0f;
+    [Export] public float spawnBlendReachChunks = 0f;
 
     // How far (in chunks) terrain elevation feathers at this zone's border when
     // it's the dominant zone. 0 = use the world's global ZoneGenBlendRadius (the
@@ -32,7 +32,7 @@ public partial class ZoneBounds : Resource
     // terrain holds across its whole footprint without a neighbour's elevation
     // bleeding in — e.g. the village stays a flat, dry beach right up to its rim
     // instead of the swamp's underwater terrain dipping a pond inside it.
-    [Export] public float TerrainBlendChunks = 0f;
+    [Export] public float terrainBlendChunks = 0f;
 
     // True iff this zone claims the chunk at (chunkX, chunkZ). Base returns
     // false (claims nothing); subclasses override.

@@ -68,7 +68,7 @@ floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
 interactArea = NodePath("Area3D")
-HudAnchor = NodePath("HudAnchor")
+hudAnchor = NodePath("HudAnchor")
 _hurtBox = NodePath("HurtBox")
 _modelPackages = Dictionary[int, PackedScene]({
 0: ExtResource("29_modelfem"),

@@ -16,55 +16,55 @@
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("4_g01")
+scene = ExtResource("4_g01")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_4_g02"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("4_g02")
+scene = ExtResource("4_g02")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_4_g03"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("4_g03")
+scene = ExtResource("4_g03")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_4_g04"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("4_g04")
+scene = ExtResource("4_g04")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_9_veml7"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("9_veml7")
+scene = ExtResource("9_veml7")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_10_c0fex"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("10_c0fex")
+scene = ExtResource("10_c0fex")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_11_tpi02"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("11_tpi02")
-Weight = 2.0
+scene = ExtResource("11_tpi02")
+weight = 2.0
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_12_vum8l"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("12_vum8l")
-Weight = 2.0
+scene = ExtResource("12_vum8l")
+weight = 2.0
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [sub_resource type="Resource" id="ws_11_eh5vr"]
 script = ExtResource("6_weighted")
-Scene = ExtResource("11_eh5vr")
+scene = ExtResource("11_eh5vr")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]
 script = ExtResource("1_script")
-Terrain = ExtResource("2_kit")
-DefaultDetail = ExtResource("1_c0fex")
-ForestDensity = 0.4
-TreeScenes = [SubResource("ws_9_veml7"), SubResource("ws_10_c0fex"), SubResource("ws_11_tpi02"), SubResource("ws_12_vum8l"), SubResource("ws_11_eh5vr")]
-TallGrassScenes = [SubResource("ws_4_g01"), SubResource("ws_4_g02"), SubResource("ws_4_g03"), SubResource("ws_4_g04")]
+terrain = ExtResource("2_kit")
+defaultDetail = ExtResource("1_c0fex")
+forestDensity = 0.4
+treeScenes = [SubResource("ws_9_veml7"), SubResource("ws_10_c0fex"), SubResource("ws_11_tpi02"), SubResource("ws_12_vum8l"), SubResource("ws_11_eh5vr")]
+tallGrassScenes = [SubResource("ws_4_g01"), SubResource("ws_4_g02"), SubResource("ws_4_g03"), SubResource("ws_4_g04")]

@@ -60,25 +60,25 @@ public static class ZoneBlend
             ZoneData rd = ws.Zones[i].Data;
             if (rd == null) { continue; }
             themeWeightSum += w;
-            AccumulateColor(rd.SunColor, w, ref sunR, ref sunG, ref sunB, ref sunA);
-            AccumulateColor(rd.MoonColor, w, ref moonR, ref moonG, ref moonB, ref moonA);
-            AccumulateColor(rd.SkyColor, w, ref skyR, ref skyG, ref skyB, ref skyA);
-            AccumulateColor(rd.DustColor, w, ref dustR, ref dustG, ref dustB, ref dustA);
-            AccumulateColor(rd.WaterColor, w, ref waterR, ref waterG, ref waterB, ref waterA);
-            dustAmount += rd.DustAmount * w;
-            waterOpacity += rd.WaterOpacity * w;
+            AccumulateColor(rd.sunColor, w, ref sunR, ref sunG, ref sunB, ref sunA);
+            AccumulateColor(rd.moonColor, w, ref moonR, ref moonG, ref moonB, ref moonA);
+            AccumulateColor(rd.skyColor, w, ref skyR, ref skyG, ref skyB, ref skyA);
+            AccumulateColor(rd.dustColor, w, ref dustR, ref dustG, ref dustB, ref dustA);
+            AccumulateColor(rd.waterColor, w, ref waterR, ref waterG, ref waterB, ref waterA);
+            dustAmount += rd.dustAmount * w;
+            waterOpacity += rd.waterOpacity * w;
         }
 
         if (themeWeightSum >= MinTotalWeight)
         {
             float themeInv = 1f / themeWeightSum;
-            outZone.SunColor = new Color(sunR * themeInv, sunG * themeInv, sunB * themeInv, sunA * themeInv);
-            outZone.MoonColor = new Color(moonR * themeInv, moonG * themeInv, moonB * themeInv, moonA * themeInv);
-            outZone.SkyColor = new Color(skyR * themeInv, skyG * themeInv, skyB * themeInv, skyA * themeInv);
-            outZone.DustColor = new Color(dustR * themeInv, dustG * themeInv, dustB * themeInv, dustA * themeInv);
-            outZone.WaterColor = new Color(waterR * themeInv, waterG * themeInv, waterB * themeInv, waterA * themeInv);
-            outZone.DustAmount = dustAmount * themeInv;
-            outZone.WaterOpacity = waterOpacity * themeInv;
+            outZone.sunColor = new Color(sunR * themeInv, sunG * themeInv, sunB * themeInv, sunA * themeInv);
+            outZone.moonColor = new Color(moonR * themeInv, moonG * themeInv, moonB * themeInv, moonA * themeInv);
+            outZone.skyColor = new Color(skyR * themeInv, skyG * themeInv, skyB * themeInv, skyA * themeInv);
+            outZone.dustColor = new Color(dustR * themeInv, dustG * themeInv, dustB * themeInv, dustA * themeInv);
+            outZone.waterColor = new Color(waterR * themeInv, waterG * themeInv, waterB * themeInv, waterA * themeInv);
+            outZone.dustAmount = dustAmount * themeInv;
+            outZone.waterOpacity = waterOpacity * themeInv;
         }
 
         // --- Runtime fields (ZoneState) ---

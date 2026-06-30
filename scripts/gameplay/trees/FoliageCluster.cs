@@ -15,7 +15,7 @@ using Godot;
 [GlobalClass]
 public partial class FoliageCluster : Node3D
 {
-    [Export] public Vector3 EllipsoidRadii = new Vector3(1.5f, 1.5f, 1.5f);
+    [Export] public Vector3 ellipsoidRadii = new Vector3(1.5f, 1.5f, 1.5f);
 
     // When true, FoliageStamper rasterizes this cluster's ellipsoid plus a
     // downward shadow column into WorldState.CanopyAttenuation, which
@@ -25,7 +25,7 @@ public partial class FoliageCluster : Node3D
     // rain. Defaults OFF so decorative foliage (tall grass, ground cover,
     // bushes) is opt-out by default — set true per-cluster on trees whose
     // canopies are tall enough to actually shelter the player.
-    [Export] public bool CastsSunShadow;
+    [Export] public bool castsSunShadow;
 
     // When true, FoliageMultiMesh drives a Bayer-dither fade-out on this
     // cluster's cards while it sits between the camera and the player —
@@ -36,21 +36,21 @@ public partial class FoliageCluster : Node3D
     // foliage (tall grass, low bushes) doesn't flicker as the player
     // walks past — turn on per-cluster for canopies tall enough that
     // their cards genuinely cross between camera and head.
-    [Export] public bool FadesWhenOccludingPlayer;
+    [Export] public bool fadesWhenOccludingPlayer;
 
-    [Export] public int CardCount = 30;
-    [Export] public float CardSizeMin = 1.0f;
-    [Export] public float CardSizeMax = 1.5f;
+    [Export] public int cardCount = 30;
+    [Export] public float cardSizeMin = 1.0f;
+    [Export] public float cardSizeMax = 1.5f;
 
-    [Export] public ECanopyPlacementMode Placement = ECanopyPlacementMode.Drooping;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float AngleJitter;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float RollJitter = 1.0f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float DroopAmount = 1.0f;
+    [Export] public ECanopyPlacementMode placement = ECanopyPlacementMode.Drooping;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float angleJitter;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float rollJitter = 1.0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float droopAmount = 1.0f;
 
     // Per-cluster placement seed. Different clusters under one parent
     // should ideally have different seeds so their internal card patterns
     // don't align identically; FoliageMultiMesh combines this with the
     // cluster's child-index for uniqueness, so leaving it at 0 still
     // produces distinct patterns per cluster.
-    [Export] public int PlacementSeed;
+    [Export] public int placementSeed;
 }

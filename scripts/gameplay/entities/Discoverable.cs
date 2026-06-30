@@ -43,7 +43,7 @@ public partial class Discoverable : Node3D
     [Export] public bool skipLineOfSightCheck = false;
 
     // Optional worldspace HUD shown during Detected. Null = no callout.
-    [Export] public PackedScene HudScene;
+    [Export] public PackedScene hudScene;
     // Screen-space scale applied to the spawned HUD. Bump down for small
     // targets (footprints) or up for large ones; mirrors MobData.hudScale.
     [Export] public float hudScale = 1f;

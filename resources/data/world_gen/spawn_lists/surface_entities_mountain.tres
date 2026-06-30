@@ -22,26 +22,26 @@
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("5_goblin_data")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 200.0
+descriptor = ExtResource("5_goblin_data")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 200.0
 spawnConditions = 2
 
 [sub_resource type="Resource" id="Resource_goblin_elite"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("5_goblin_elite")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.25
-SquareMetersPerSpawn = 1333.0
+descriptor = ExtResource("5_goblin_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 1333.0
 spawnConditions = 2
 
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("6_kunkun_data")
-InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.33
-SquareMetersPerSpawn = 200.0
+descriptor = ExtResource("6_kunkun_data")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.33
+squareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Desc_loot"]
 script = ExtResource("99_desc")
@@ -50,33 +50,33 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("3_loot_entry")
-Item = SubResource("Desc_loot")
-SquareMetersPerSpawn = 200.0
+item = SubResource("Desc_loot")
+squareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_well"]
 script = ExtResource("10_well_entry")
-Scene = ExtResource("11_well_scene")
-SquareMetersPerSpawn = 2000.0
+scene = ExtResource("11_well_scene")
+squareMetersPerSpawn = 2000.0
 
 [sub_resource type="Resource" id="Resource_prf3q"]
 script = ExtResource("2_mob_entry")
-Descriptor = ExtResource("10_ub7y2")
-InitialBehavior = null
-SquareMetersPerSpawn = 100.0
+descriptor = ExtResource("10_ub7y2")
+initialBehavior = null
+squareMetersPerSpawn = 100.0
 spawnConditions = 9
 metadata/_custom_type_script = "uid://dhkkrl6qof485"
 
 [sub_resource type="Resource" id="Resource_climbtree"]
 script = ExtResource("12_climb_entry")
-Scene = ExtResource("13_climb_scene")
-SquareMetersPerSpawn = 1000.0
+scene = ExtResource("13_climb_scene")
+squareMetersPerSpawn = 1000.0
 
 [sub_resource type="Resource" id="Resource_carrot"]
 script = ExtResource("14_buried_entry")
-Scene = ExtResource("15_buried_scene")
-Data = ExtResource("16_carrot_data")
-SquareMetersPerSpawn = 200.0
+scene = ExtResource("15_buried_scene")
+data = ExtResource("16_carrot_data")
+squareMetersPerSpawn = 200.0
 
 [resource]
 script = ExtResource("1_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("8_campfire_group"), SubResource("Resource_well"), SubResource("Resource_prf3q"), SubResource("Resource_climbtree"), SubResource("Resource_carrot")])
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("8_campfire_group"), SubResource("Resource_well"), SubResource("Resource_prf3q"), SubResource("Resource_climbtree"), SubResource("Resource_carrot")])

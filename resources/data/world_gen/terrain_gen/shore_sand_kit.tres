@@ -6,5 +6,5 @@
 
 [resource]
 script = ExtResource("1_script")
-Terrain = ExtResource("2_kit")
-DefaultDetail = ExtResource("3_detail")
+terrain = ExtResource("2_kit")
+defaultDetail = ExtResource("3_detail")

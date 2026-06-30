@@ -61,78 +61,78 @@ shape = SubResource("CylinderShape3D_trunk")
 mesh = SubResource("ArrayMesh_x5rh2")
 surface_material_override/0 = ExtResource("10_bark")
 script = ExtResource("12_trunk")
-TrunkHeight = 9.0
-BottomRadius = 0.2
-TopRadius = 0.04
-MaxBranchDepth = 6
-SplitMinSpread = 0.4
-SplitHeight = 0.3
-BranchSpread = 0.2
-ElbowReach = 0.55
-MaxBendAngle = 50.0
-KnotSwell = 0.3
-Verticality = 0.45
-RootBulge = 0.35
-Jaggedness = 0.18
-BranchMaterial = ExtResource("10_bark")
-TwigsMesh = ExtResource("4_quad")
-TwigsTexture = ExtResource("13_twigs")
+trunkHeight = 9.0
+bottomRadius = 0.2
+topRadius = 0.04
+maxBranchDepth = 6
+splitMinSpread = 0.4
+splitHeight = 0.3
+branchSpread = 0.2
+elbowReach = 0.55
+maxBendAngle = 50.0
+knotSwell = 0.3
+verticality = 0.45
+rootBulge = 0.35
+jaggedness = 0.18
+branchMaterial = ExtResource("10_bark")
+twigsMesh = ExtResource("4_quad")
+twigsTexture = ExtResource("13_twigs")
 
 [node name="Foliage" type="MultiMeshInstance3D" parent="Trunk" unique_id=1670349133]
 material_override = SubResource("ShaderMaterial_dcq80")
 script = ExtResource("2_foliage")
-CardMesh = ExtResource("4_quad")
-LeafTexture = ExtResource("5_leaf")
-LeafTintA = Color(1, 0.93333334, 0.5, 1)
-LeafTintB = Color(0.76, 0.56582, 0.20519999, 1)
+cardMesh = ExtResource("4_quad")
+leafTexture = ExtResource("5_leaf")
+leafTintA = Color(1, 0.93333334, 0.5, 1)
+leafTintB = Color(0.76, 0.56582, 0.20519999, 1)
 
 [node name="Cluster1" type="Node3D" parent="Trunk/Foliage" unique_id=1301686887]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.25, 9, 0)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(0.5, 0.2, 0.5)
-CardCount = 0
-CardSizeMin = 0.5
-CardSizeMax = 1.0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(0.5, 0.2, 0.5)
+cardCount = 0
+cardSizeMin = 0.5
+cardSizeMax = 1.0
+rollJitter = 0.0
 
 [node name="Cluster2" type="Node3D" parent="Trunk/Foliage" unique_id=1818242144]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 7.5, -0.5)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(0.5, 0.25, 0.5)
-CardCount = 0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(0.5, 0.25, 0.5)
+cardCount = 0
+rollJitter = 0.0
 
 [node name="Cluster3" type="Node3D" parent="Trunk/Foliage" unique_id=636611218]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 0.5)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(1, 0.5, 1)
-CardCount = 0
-CardSizeMax = 2.0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(1, 0.5, 1)
+cardCount = 0
+cardSizeMax = 2.0
+rollJitter = 0.0
 
 [node name="Cluster4" type="Node3D" parent="Trunk/Foliage" unique_id=967671777]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.25, 6.5, -0.5)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(0.6, 0.2, 0.6)
-CardCount = 0
-CardSizeMin = 0.5
-CardSizeMax = 1.0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(0.6, 0.2, 0.6)
+cardCount = 0
+cardSizeMin = 0.5
+cardSizeMax = 1.0
+rollJitter = 0.0
 
 [node name="Cluster5" type="Node3D" parent="Trunk/Foliage" unique_id=1533526860]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 4, -0.25)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(1, 0.5, 1)
-CardCount = 0
-CardSizeMax = 2.0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(1, 0.5, 1)
+cardCount = 0
+cardSizeMax = 2.0
+rollJitter = 0.0
 
 [node name="Cluster6" type="Node3D" parent="Trunk/Foliage" unique_id=766830368]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
 script = ExtResource("3_cluster")
-EllipsoidRadii = Vector3(0.75, 0.5, 0.75)
-CardCount = 0
-RollJitter = 0.0
+ellipsoidRadii = Vector3(0.75, 0.5, 0.75)
+cardCount = 0
+rollJitter = 0.0
 
 [node name="Perch" type="Node3D" parent="." unique_id=1325315275]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0)

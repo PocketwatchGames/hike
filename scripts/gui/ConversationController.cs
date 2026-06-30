@@ -198,7 +198,7 @@ public partial class ConversationController : Control
 		LanguageData lang = primary?.language ?? _ctx.speakerLanguage;
 		// Look up the language tuning once. Falls back to a sensible default
 		// if SimData is unavailable (e.g. very early bootstrap or tests).
-		float grammarWeight = _ctx.world?.SimData?.LanguageGrammarWeight ?? 0.2f;
+		float grammarWeight = _ctx.world?.SimData?.languageGrammarWeight ?? 0.2f;
 		// Pre-compute the branch score once; Compute mins it with each
 		// response's own score so the bottleneck axis caps visibility.
 		float branchComp = primary != null

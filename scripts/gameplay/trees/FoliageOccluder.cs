@@ -80,9 +80,9 @@ public static class FoliageOccluderCache
             output.Add(new FoliageOccluder
             {
                 CenterLocal = xform.Origin,
-                Radii = cluster.EllipsoidRadii,
-                CastsSunShadow = cluster.CastsSunShadow,
-                FadesWhenOccludingPlayer = cluster.FadesWhenOccludingPlayer,
+                Radii = cluster.ellipsoidRadii,
+                CastsSunShadow = cluster.castsSunShadow,
+                FadesWhenOccludingPlayer = cluster.fadesWhenOccludingPlayer,
             });
         }
         int childCount = node.GetChildCount();

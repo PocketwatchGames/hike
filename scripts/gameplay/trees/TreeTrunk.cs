@@ -48,19 +48,19 @@ public partial class TreeTrunk : MeshInstance3D
 
     // Nominal canopy-base height. Drives the per-instance height variation and
     // the root-bulge extent; the actual skeleton height follows the clusters.
-    [Export] public float TrunkHeight = 5.0f;
-    [Export] public float BottomRadius = 0.35f;
+    [Export] public float trunkHeight = 5.0f;
+    [Export] public float bottomRadius = 0.35f;
     // How far below the prop origin the trunk base is buried. The tree is
     // anchored at a height tuned for a flat grass column's smoothed top, so on
     // sloped or uneven terrain the origin can sit slightly above the visible
     // surface on the downhill side; sinking the base keeps it embedded instead
     // of floating with a gap between the trunk and its shadow.
-    [Export(PropertyHint.Range, "0,2,0.05")] public float GroundSink = 0.5f;
+    [Export(PropertyHint.Range, "0,2,0.05")] public float groundSink = 0.5f;
     // Radius at a branch tip (the thin end of every terminal branch).
-    [Export] public float TopRadius = 0.06f;
+    [Export] public float topRadius = 0.06f;
     // Radial faceting (sides around each branch tube).
-    [Export(PropertyHint.Range, "3,32,1")] public int RadialSegments = 8;
-    [Export] public bool CapBottom = true;
+    [Export(PropertyHint.Range, "3,32,1")] public int radialSegments = 8;
+    [Export] public bool capBottom = true;
 
     // -- Branching ---------------------------------------------------------
 
@@ -68,47 +68,47 @@ public partial class TreeTrunk : MeshInstance3D
     // (no forking); each increment allows another generation of forks. Needs to
     // be high enough to resolve the cluster count to single tips (binary, so
     // ~ceil(log2(clusterCount))) or the deepest clusters merge at a centroid.
-    [Export(PropertyHint.Range, "0,8,1")] public int MaxBranchDepth = 5;
+    [Export(PropertyHint.Range, "0,8,1")] public int maxBranchDepth = 5;
     // A node only forks if its clusters are spread (max 3D separation) beyond
     // this many meters — tight clusters share one tip instead of forking. 3D
     // (not just horizontal) so a vertically-stacked column (slender birch) keeps
     // forking up through its full height instead of stopping at the centroid.
-    [Export] public float SplitMinSpread = 0.5f;
+    [Export] public float splitMinSpread = 0.5f;
     // Where a fork happens, as a fraction from the branch start up toward the
     // lowest cluster it serves. Low => forks near the bottom and the children
     // travel up; high => a tall shared trunk that forks late.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float SplitHeight = 0.4f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float splitHeight = 0.4f;
     // How far (fraction of the horizontal gap to its clusters) a fork point
     // travels sideways toward them — the horizontal "reach" of a branch.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float BranchSpread = 0.6f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float branchSpread = 0.6f;
     // After a fork, how much of the horizontal distance to its target a branch
     // covers in an initial near-horizontal run before kinking to climb mostly
     // vertical (the leftover horizontal becomes a slight lean). 0 = head straight
     // at the target; ~0.8 = reach out low then turn up (birch-style elbow).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float ElbowReach = 0.45f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float elbowReach = 0.45f;
     // Child radius / parent radius at each fork. < 1 thins the tree upward.
-    [Export(PropertyHint.Range, "0.3,1,0.01")] public float RadiusFalloff = 0.75f;
+    [Export(PropertyHint.Range, "0.3,1,0.01")] public float radiusFalloff = 0.75f;
     // How front-loaded a branch's taper is: 1 = even taper along its length;
     // higher shrinks it toward the tip radius quickly at the base then holds
     // roughly uniform, so branches don't read as long heavy cones.
-    [Export(PropertyHint.Range, "1,5,0.1")] public float TaperBias = 3.0f;
+    [Export(PropertyHint.Range, "1,5,0.1")] public float taperBias = 3.0f;
 
     // -- Jagged branch shape (zigzag, not smooth arcs) --------------------
     // Each branch run is straight; the branch zigzags at hard corners instead of
     // bending in a smooth arc. KinkLength is the average straight run between
     // corners (shorter = more zigzag); MaxBendAngle caps how hard each corner
     // turns. Verticality (below) damps the zigzag toward a straight line.
-    [Export] public float KinkLength = 0.6f;
-    [Export(PropertyHint.Range, "0,80,1")] public float MaxBendAngle = 40f;
+    [Export] public float kinkLength = 0.6f;
+    [Export(PropertyHint.Range, "0,80,1")] public float maxBendAngle = 40f;
     // Random radius swell at kink corners — a branch can bulge slightly thicker
     // at a turn (a knot). 0 = none; 0.3 = up to +30% at some kinks.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float KnotSwell = 0.2f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float knotSwell = 0.2f;
 
     // -- Per-instance height variation ------------------------------------
 
     // Per-instance upward height variation: a tree grows by 0 .. HeightVariation
     // of TrunkHeight (never below TrunkHeight). 0.2 = up to +20% taller.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float HeightVariation = 0.2f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float heightVariation = 0.2f;
 
     // When true, the per-instance world-position hash that drives the branch
     // structure is replaced by a fixed seed, so EVERY spawn of this scene grows
@@ -117,22 +117,22 @@ public partial class TreeTrunk : MeshInstance3D
     // (the climbable tree, which must read the same everywhere). Defaults off so
     // normal forest trees keep their per-location variation. (Leaf/twig tint is
     // still position-hashed in the foliage shaders; only the geometry is pinned.)
-    [Export] public bool LockSeed = false;
+    [Export] public bool lockSeed = false;
 
     // -- Gnarl / irregularity ---------------------------------------------
 
     // Straightness damper for the zigzag: 1 = straight runs (no zigzag), lower
     // lets each branch zigzag up to MaxBendAngle at its corners.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float Verticality = 0.9f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float verticality = 0.9f;
     // Extra radius at the very base, flaring over the bottom RootBulgeHeight
     // (a fraction of TrunkHeight) of the root — the root swell.
-    [Export(PropertyHint.Range, "0,3,0.01")] public float RootBulge = 0.6f;
-    [Export(PropertyHint.Range, "0.01,1,0.01")] public float RootBulgeHeight = 0.18f;
+    [Export(PropertyHint.Range, "0,3,0.01")] public float rootBulge = 0.6f;
+    [Export(PropertyHint.Range, "0.01,1,0.01")] public float rootBulgeHeight = 0.18f;
     // Per-region radius swell/pinch along each branch (low-frequency 1D noise).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float ThicknessVariation = 0.25f;
-    [Export(PropertyHint.Range, "0.5,8,0.1")] public float ThicknessWaves = 3.0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float thicknessVariation = 0.25f;
+    [Export(PropertyHint.Range, "0.5,8,0.1")] public float thicknessWaves = 3.0f;
     // Per-vertex radial jitter — the faceted, bark-knotty silhouette.
-    [Export(PropertyHint.Range, "0,0.6,0.01")] public float Jaggedness = 0.12f;
+    [Export(PropertyHint.Range, "0,0.6,0.01")] public float jaggedness = 0.12f;
 
     // -- Ambient occlusion bake -------------------------------------------
     // We have the full branch skeleton here, so we bake REAL concavity AO into
@@ -147,28 +147,28 @@ public partial class TreeTrunk : MeshInstance3D
     //   * Root contact — vertices within AoBaseHeight of the ground darken,
     //     replacing the shader's contact-AO ramp for trunks.
     // 0 = skip the bake (no vertex colors written; mesh reads as fully open).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float AoStrength = 0.7f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float aoStrength = 0.7f;
     // How far out from another branch's SURFACE the crotch darkening reaches, in
     // meters. Larger = softer, wider-spreading junction shadows.
-    [Export] public float AoWoodReach = 0.5f;
+    [Export] public float aoWoodReach = 0.5f;
     // Height above the trunk base over which root-contact darkening fades to none.
-    [Export] public float AoBaseHeight = 0.6f;
+    [Export] public float aoBaseHeight = 0.6f;
 
     // -- Bark + twigs ------------------------------------------------------
     // Bark for the whole skeleton — applied to the generated trunk surface in
     // code (removing the static CylinderMesh sub-resource orphans any scene-
     // authored surface_material_override/0 at load). Wire it to the species' bark.
-    [Export] public Material BranchMaterial;
+    [Export] public Material branchMaterial;
 
     // Optional twig card at each branch tip — a quad textured with TwigsTexture
     // that bridges the bark and the leaf cluster and survives the foliage cutaway
     // (so a deep forest doesn't read as a row of bare tips). Null disables.
-    [Export] public Mesh TwigsMesh;
-    [Export] public Texture2D TwigsTexture;
-    [Export] public float TwigsSize = 1.0f;
+    [Export] public Mesh twigsMesh;
+    [Export] public Texture2D twigsTexture;
+    [Export] public float twigsSize = 1.0f;
     // Fraction of the twigs quad height pulled back down the branch axis so the
     // texture's visible content meets the branch end.
-    [Export(PropertyHint.Range, "0,0.5,0.01")] public float TwigsAttachInset = 0.1f;
+    [Export(PropertyHint.Range, "0,0.5,0.01")] public float twigsAttachInset = 0.1f;
 
     // -- Collision ---------------------------------------------------------
     // The trunk's movement collider (a Porous cylinder) is sized SHORT of the
@@ -178,8 +178,8 @@ public partial class TreeTrunk : MeshInstance3D
     // the perch height, but never drops more than ColliderMaxDropBelowPerch
     // below the perch — short trees keep most of their trunk solid; tall trees
     // cap the open gap so the lower trunk still blocks movement.
-    [Export(PropertyHint.Range, "0.1,1,0.01")] public float ColliderHeightFraction = 0.85f;
-    [Export(PropertyHint.Range, "0,5,0.1")] public float ColliderMaxDropBelowPerch = 1.0f;
+    [Export(PropertyHint.Range, "0.1,1,0.01")] public float colliderHeightFraction = 0.85f;
+    [Export(PropertyHint.Range, "0,5,0.1")] public float colliderMaxDropBelowPerch = 1.0f;
 
     [ExportToolButton("Rebuild")]
     public Callable RebuildButton => Callable.From(Rebuild);
@@ -212,7 +212,7 @@ public partial class TreeTrunk : MeshInstance3D
         // LockSeed pins this hash to a fixed point so a "locked" tree grows the
         // same geometry at every spawn (world-Y math below still uses the real
         // treeOrigin — only the variation seed is pinned).
-        Vector3 seedOrigin = LockSeed ? Vector3.Zero : treeOrigin;
+        Vector3 seedOrigin = lockSeed ? Vector3.Zero : treeOrigin;
         float heightHash = Hash13(seedOrigin);
         float baseSeed = Hash13(seedOrigin + new Vector3(31.4f, 2.7f, 11.9f)) * 100f;
 
@@ -221,10 +221,10 @@ public partial class TreeTrunk : MeshInstance3D
         // ADDS height (hash is [0,1)), so TrunkHeight is the authored minimum — a
         // tree never shrinks below its authored size, only grows up to
         // TrunkHeight * (1 + HeightVariation).
-        float effHeight = TrunkHeight;
+        float effHeight = trunkHeight;
         if (!Engine.IsEditorHint())
         {
-            effHeight = TrunkHeight * (1f + heightHash * HeightVariation);
+            effHeight = trunkHeight * (1f + heightHash * heightVariation);
         }
         effHeight = Mathf.Max(effHeight, 0.5f);
 
@@ -240,7 +240,7 @@ public partial class TreeTrunk : MeshInstance3D
         // the perch lands on its final tip (ResizeCollider keys off perch height).
         if (!Engine.IsEditorHint() && clusters.Count > 0)
         {
-            float scale = effHeight / TrunkHeight;
+            float scale = effHeight / trunkHeight;
             float pivotY = MinClusterY(clusters);
             foreach (FoliageCluster c in clusters)
             {
@@ -269,9 +269,9 @@ public partial class TreeTrunk : MeshInstance3D
         }
         // Apply bark in code — the scene-authored surface_material_override/0 is
         // orphaned once the static trunk mesh sub-resource is removed.
-        if (BranchMaterial != null)
+        if (branchMaterial != null)
         {
-            SetSurfaceOverrideMaterial(0, BranchMaterial);
+            SetSurfaceOverrideMaterial(0, branchMaterial);
         }
 
         float canopyHeight = ComputeCanopyHeight(clusters, treeOrigin);
@@ -340,7 +340,7 @@ public partial class TreeTrunk : MeshInstance3D
         {
             return;
         }
-        float colliderTop = Mathf.Max(perchHeight * ColliderHeightFraction, perchHeight - ColliderMaxDropBelowPerch);
+        float colliderTop = Mathf.Max(perchHeight * colliderHeightFraction, perchHeight - colliderMaxDropBelowPerch);
         colliderTop = Mathf.Max(colliderTop, MinSegmentLength);
         foreach (Node child in body.GetChildren())
         {
@@ -393,12 +393,12 @@ public partial class TreeTrunk : MeshInstance3D
     private List<Strand> BuildSkeleton(List<FoliageCluster> clusters, float effHeight, float baseSeed, List<Tip> tips)
     {
         List<Strand> strands = new List<Strand>();
-        Strand root = new Strand { CapBase = CapBottom };
+        Strand root = new Strand { CapBase = capBottom };
         strands.Add(root);
 
         // Start the root below the origin so the base stays buried on uneven
         // terrain (see GroundSink).
-        Vector3 baseStart = new Vector3(0f, -GroundSink, 0f);
+        Vector3 baseStart = new Vector3(0f, -groundSink, 0f);
 
         if (clusters.Count == 0)
         {
@@ -407,14 +407,14 @@ public partial class TreeTrunk : MeshInstance3D
             {
                 A = baseStart,
                 B = new Vector3(0f, effHeight, 0f),
-                RadiusA = BottomRadius,
-                RadiusB = TopRadius,
+                RadiusA = bottomRadius,
+                RadiusB = topRadius,
                 IsRoot = true,
                 Seed = baseSeed,
             });
             return strands;
         }
-        Grow(baseStart, new List<FoliageCluster>(clusters), BottomRadius, 0, baseSeed, root, strands, tips);
+        Grow(baseStart, new List<FoliageCluster>(clusters), bottomRadius, 0, baseSeed, root, strands, tips);
         return strands;
     }
 
@@ -432,11 +432,11 @@ public partial class TreeTrunk : MeshInstance3D
             return;
         }
 
-        bool terminal = group.Count == 1 || depth >= MaxBranchDepth || MaxClusterSpread(group) < SplitMinSpread;
+        bool terminal = group.Count == 1 || depth >= maxBranchDepth || MaxClusterSpread(group) < splitMinSpread;
         if (terminal)
         {
             Vector3 goal = group.Count == 1 ? group[0].Position : Centroid(group);
-            strand.Segs.Add(new Segment { A = start, B = goal, RadiusA = radius, RadiusB = TopRadius, IsRoot = depth == 0, Seed = seed });
+            strand.Segs.Add(new Segment { A = start, B = goal, RadiusA = radius, RadiusB = topRadius, IsRoot = depth == 0, Seed = seed });
             Vector3 dir = (goal - start);
             dir = dir.LengthSquared() > 1e-6f ? dir.Normalized() : Vector3.Up;
             tips.Add(new Tip { Position = goal, Dir = dir });
@@ -449,11 +449,11 @@ public partial class TreeTrunk : MeshInstance3D
         // SplitHeight (so fork heights vary a lot, not a regular ladder), nudged
         // horizontally toward the group's centroid by BranchSpread.
         float groupMinY = MinClusterY(group);
-        float splitFrac = Mathf.Clamp(SplitHeight * (0.3f + 1.6f * Hash2(seed, 4.6f)), 0.05f, 0.95f);
+        float splitFrac = Mathf.Clamp(splitHeight * (0.3f + 1.6f * Hash2(seed, 4.6f)), 0.05f, 0.95f);
         float forkY = Mathf.Lerp(start.Y, groupMinY, splitFrac);
         forkY = Mathf.Max(forkY, start.Y + MinForkRise);
         Vector3 cen = Centroid(group);
-        Vector3 forkXz = new Vector3(start.X, 0f, start.Z) + new Vector3(cen.X - start.X, 0f, cen.Z - start.Z) * (BranchSpread * splitFrac);
+        Vector3 forkXz = new Vector3(start.X, 0f, start.Z) + new Vector3(cen.X - start.X, 0f, cen.Z - start.Z) * (branchSpread * splitFrac);
         Vector3 fork = new Vector3(forkXz.X, forkY, forkXz.Z);
 
         float forkRadius = radius * 0.92f;
@@ -477,7 +477,7 @@ public partial class TreeTrunk : MeshInstance3D
         Strand side = new Strand { CapBase = true };
         strands.Add(side);
         Vector3 sideStart = fork - incoming * (forkRadius * SideBranchBury);
-        Grow(sideStart, sideGroup, radius * RadiusFalloff, depth + 1, sideSeed, side, strands, tips);
+        Grow(sideStart, sideGroup, radius * radiusFalloff, depth + 1, sideSeed, side, strands, tips);
     }
 
     // How well a sub-group continues the incoming direction (dot of the incoming
@@ -592,7 +592,7 @@ public partial class TreeTrunk : MeshInstance3D
     {
         SurfaceTool st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
-        float rootBulgeMeters = RootBulgeHeight * TrunkHeight;
+        float rootBulgeMeters = rootBulgeHeight * trunkHeight;
 
         // Build every strand's centreline first, then emit — so the per-vertex AO
         // can see all the other branches it might be tucked against.
@@ -677,12 +677,12 @@ public partial class TreeTrunk : MeshInstance3D
     //   * Root contact — vertices within AoBaseHeight of the ground.
     private float ComputeAo(Vector3 v, int ownStrand, List<StrandLine> lines)
     {
-        if (AoStrength <= 0f)
+        if (aoStrength <= 0f)
         {
             return 0f;
         }
         float wood = 0f;
-        float reach = Mathf.Max(AoWoodReach, 1e-3f);
+        float reach = Mathf.Max(aoWoodReach, 1e-3f);
         for (int li = 0; li < lines.Count; li++)
         {
             if (li == ownStrand)
@@ -702,8 +702,8 @@ public partial class TreeTrunk : MeshInstance3D
                 }
             }
         }
-        float baseTerm = AoBaseHeight > 1e-4f ? Mathf.Clamp(1f - v.Y / AoBaseHeight, 0f, 1f) : 0f;
-        return Mathf.Clamp(Mathf.Max(wood, baseTerm) * AoStrength, 0f, 1f);
+        float baseTerm = aoBaseHeight > 1e-4f ? Mathf.Clamp(1f - v.Y / aoBaseHeight, 0f, 1f) : 0f;
+        return Mathf.Clamp(Mathf.Max(wood, baseTerm) * aoStrength, 0f, 1f);
     }
 
     // Vertex color carrying baked AO brightness (1 = open) in all channels.
@@ -729,8 +729,8 @@ public partial class TreeTrunk : MeshInstance3D
         }
         total = Mathf.Max(total, 1e-3f);
 
-        float bendK = Mathf.Tan(Mathf.DegToRad(MaxBendAngle) * 0.5f) * (1f - Mathf.Clamp(Verticality, 0f, 1f));
-        float radSpan = Mathf.Max(BottomRadius - TopRadius, 1e-4f);
+        float bendK = Mathf.Tan(Mathf.DegToRad(maxBendAngle) * 0.5f) * (1f - Mathf.Clamp(verticality, 0f, 1f));
+        float radSpan = Mathf.Max(bottomRadius - topRadius, 1e-4f);
 
         nodes = new List<Vector3> { basePath[0] };
         ts = new List<float> { 0f };
@@ -755,16 +755,16 @@ public partial class TreeTrunk : MeshInstance3D
             while (true)
             {
                 float jitter = 0.45f + 1.2f * Hash2(seg.Seed + i * 31.7f + kIdx, 9.4f);   // ~0.45..1.65
-                pos += KinkLength * jitter;
-                if (pos > runLen - 0.4f * KinkLength)
+                pos += kinkLength * jitter;
+                if (pos > runLen - 0.4f * kinkLength)
                 {
                     break;
                 }
                 float gt = (cum + pos) / total;
                 // Thinness 0 (thick base) .. 1 (thin tip): stiffer wood kinks less.
-                float thin = Mathf.Clamp((BottomRadius - TaperRadius(seg, gt)) / radSpan, 0f, 1f);
+                float thin = Mathf.Clamp((bottomRadius - TaperRadius(seg, gt)) / radSpan, 0f, 1f);
                 float kinkScale = Mathf.Lerp(0.1f, 1f, thin);
-                float prevStep = KinkLength * jitter;
+                float prevStep = kinkLength * jitter;
                 float mag = prevStep * bendK * kinkScale * (0.6f + 0.6f * Hash2(seg.Seed + kIdx * 5.2f, 3.1f));
                 float sign = (kIdx % 2 == 0) ? 1f : -1f;
                 nodes.Add(p0 + u * pos + perp * (mag * sign));
@@ -792,14 +792,14 @@ public partial class TreeTrunk : MeshInstance3D
             if (seg.IsRoot && rootBulgeMeters > 1e-4f && nodes[k].Y < rootBulgeMeters)
             {
                 float b = 1f - nodes[k].Y / rootBulgeMeters;
-                radius *= 1f + RootBulge * b * b;
+                radius *= 1f + rootBulge * b * b;
             }
-            float tn = ValueNoise1(t * ThicknessWaves + seg.Seed);
-            radius *= 1f + ThicknessVariation * (tn * 2f - 1f);
+            float tn = ValueNoise1(t * thicknessWaves + seg.Seed);
+            radius *= 1f + thicknessVariation * (tn * 2f - 1f);
             // Knot: random swell at interior kink corners (incl. the elbow).
-            if (KnotSwell > 0f && k > 0 && k < n)
+            if (knotSwell > 0f && k > 0 && k < n)
             {
-                radius *= 1f + KnotSwell * Hash2(seg.Seed + k * 2.1f, 7.7f);
+                radius *= 1f + knotSwell * Hash2(seg.Seed + k * 2.1f, 7.7f);
             }
             radii[k] = Mathf.Max(radius, 0.01f);
         }
@@ -810,7 +810,7 @@ public partial class TreeTrunk : MeshInstance3D
     // tip radius quickly at the base then holds roughly uniform (no long cones).
     private float TaperRadius(Segment seg, float t)
     {
-        return seg.RadiusB + (seg.RadiusA - seg.RadiusB) * Mathf.Pow(1f - t, Mathf.Max(TaperBias, 1f));
+        return seg.RadiusB + (seg.RadiusA - seg.RadiusB) * Mathf.Pow(1f - t, Mathf.Max(taperBias, 1f));
     }
 
     // Elbow base path: when the target is off to the side, insert a hard corner
@@ -822,7 +822,7 @@ public partial class TreeTrunk : MeshInstance3D
     private List<Vector3> BuildBasePath(Vector3 a, Vector3 b, float seed)
     {
         float hLen = new Vector3(b.X - a.X, 0f, b.Z - a.Z).Length();
-        float reach = Mathf.Clamp(ElbowReach * 1.3f * Hash2(seed, 2.2f), 0f, 1f);
+        float reach = Mathf.Clamp(elbowReach * 1.3f * Hash2(seed, 2.2f), 0f, 1f);
         if (reach > 0.05f && hLen > 0.3f)
         {
             const float elbowRise = 0.12f;   // slight upward angle on the reach
@@ -850,7 +850,7 @@ public partial class TreeTrunk : MeshInstance3D
         {
             return;
         }
-        int radial = Math.Max(3, RadialSegments);
+        int radial = Math.Max(3, radialSegments);
 
         // Per-node tangent = miter of the adjacent run directions.
         Vector3[] tan = new Vector3[n + 1];
@@ -946,10 +946,10 @@ public partial class TreeTrunk : MeshInstance3D
     private Vector3 TubeVertex(Vector3 center, Vector3 nrm, Vector3 bin, float radius, float angle, int ring, int seg, float seed)
     {
         float rr = radius;
-        if (Jaggedness > 0f)
+        if (jaggedness > 0f)
         {
             float h = Hash2(ring * 0.731f + seed, seg * 1.137f);
-            rr *= 1f + Jaggedness * (h * 2f - 1f);
+            rr *= 1f + jaggedness * (h * 2f - 1f);
         }
         return center + (nrm * Mathf.Cos(angle) + bin * Mathf.Sin(angle)) * rr;
     }
@@ -978,7 +978,7 @@ public partial class TreeTrunk : MeshInstance3D
             existing.QueueFree();
         }
 
-        if (TwigsMesh == null || twigsRuntimeMat == null)
+        if (twigsMesh == null || twigsRuntimeMat == null)
         {
             return;
         }
@@ -991,13 +991,13 @@ public partial class TreeTrunk : MeshInstance3D
             int twigSeed = unchecked((int)(tip.Position.X * 73856093f) ^ (int)(tip.Position.Y * 19349663f) ^ (int)(tip.Position.Z * 83492791f));
             RandomNumberGenerator twigRng = new RandomNumberGenerator { Seed = unchecked((ulong)twigSeed) };
             float roll = twigRng.Randf() * Mathf.Tau;
-            Basis twigsBasis = basis.Rotated(tip.Dir, roll).Scaled(new Vector3(TwigsSize, TwigsSize, TwigsSize));
+            Basis twigsBasis = basis.Rotated(tip.Dir, roll).Scaled(new Vector3(twigsSize, twigsSize, twigsSize));
             // Pull the quad pivot back along the branch axis so the texture's
             // visible content meets the branch end.
-            Vector3 origin = tip.Position - tip.Dir * (TwigsAttachInset * TwigsSize);
+            Vector3 origin = tip.Position - tip.Dir * (twigsAttachInset * twigsSize);
             MeshInstance3D twigs = new MeshInstance3D
             {
-                Mesh = TwigsMesh,
+                Mesh = twigsMesh,
                 Transform = new Transform3D(twigsBasis, origin),
                 MaterialOverride = twigsRuntimeMat,
             };
@@ -1026,7 +1026,7 @@ public partial class TreeTrunk : MeshInstance3D
 
     private ShaderMaterial BuildTwigsMaterial(Vector3 treeOrigin, float canopyHeight)
     {
-        if (TwigsMesh == null || TwigsTexture == null)
+        if (twigsMesh == null || twigsTexture == null)
         {
             return null;
         }
@@ -1037,7 +1037,7 @@ public partial class TreeTrunk : MeshInstance3D
             return null;
         }
         ShaderMaterial mat = (ShaderMaterial)template.Duplicate();
-        mat.SetShaderParameter("albedo_tex", TwigsTexture);
+        mat.SetShaderParameter("albedo_tex", twigsTexture);
         mat.SetShaderParameter("tree_origin", treeOrigin);
         mat.SetShaderParameter("canopy_height", canopyHeight);
         return mat;
@@ -1067,7 +1067,7 @@ public partial class TreeTrunk : MeshInstance3D
         float canopyTopWorldY = treeOrigin.Y;
         foreach (FoliageCluster cluster in clusters)
         {
-            Vector3 topLocal = cluster.Position + new Vector3(0f, cluster.EllipsoidRadii.Y, 0f);
+            Vector3 topLocal = cluster.Position + new Vector3(0f, cluster.ellipsoidRadii.Y, 0f);
             float topWorldY = ToGlobal(topLocal).Y;
             if (topWorldY > canopyTopWorldY)
             {

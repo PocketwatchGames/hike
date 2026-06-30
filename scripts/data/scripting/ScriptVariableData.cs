@@ -23,14 +23,14 @@ public partial class ScriptVariableData : Resource
     // Stable lookup key referenced by conditions/actions and save files.
     // Renaming it orphans existing references and any saved value — edit the
     // .tres contents, not the Id, once a variable is in use.
-    [Export] public StringName Id;
+    [Export] public StringName id;
 
-    [Export] public EScriptVarType Type = EScriptVarType.Bool;
+    [Export] public EScriptVarType type = EScriptVarType.Bool;
 
     // Seeded into the bank at world creation, before save data loads. Bool
     // reads this as (value != 0).
-    [Export] public int DefaultValue;
+    [Export] public int defaultValue;
 
     // Author-facing note: what this variable means and who reads/writes it.
-    [Export(PropertyHint.MultilineText)] public string Description = "";
+    [Export(PropertyHint.MultilineText)] public string description = "";
 }
