@@ -94,6 +94,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // puddle footfall (rendered by voxel_clip's puddle pass), mirroring the
     // player's puddle footstep ripple.
     [Export(PropertyHint.Range, "0,1,0.01")] private float _puddleFootstepRippleStrength = 0.25f;
+    // Moving-wake water ripples while wading/swimming. Stride is the distance
+    // moved between emitted ripples (smaller = more frequent); strength marks
+    // "footstep, not a boulder" (voxel_water amplifies via water_ripple_tilt).
+    [Export(PropertyHint.Range, "0.25,5,0.05")] private float _waterRippleStride = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.01")] private float _waterRippleStrength = 0.8f;
     // Minimum horizontal speed² to count as "moving" for loop-FX gating
     // (water swim loop, tall-grass rustle). Footstep cadence itself is
     // frame-driven and ignores this.
@@ -4664,7 +4669,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             scanY++;
         }
         Vector3 ripplePos = new(pos.X, scanY, pos.Z);
-        _rippleEmitter.Update(ripplePos, true, 0.8f, 0.5f);
+        _rippleEmitter.Update(ripplePos, true, _waterRippleStrength, _waterRippleStride);
     }
 
     // Footsteps and footprints emit from the model's foot-contact method track

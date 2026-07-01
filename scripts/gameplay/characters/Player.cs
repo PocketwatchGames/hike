@@ -171,6 +171,15 @@ public partial class Player : CharacterBody3D
 	// puddle footfall (rendered by voxel_clip's puddle pass). Matches the wading
 	// footstep stride strength — marks "this is a footstep, not a boulder".
 	[Export(PropertyHint.Range, "0,1,0.01")] private float _puddleFootstepRippleStrength = 0.25f;
+	// Moving-wake water ripples. Stride is the distance moved between emitted
+	// ripples (smaller = more frequent); strength marks "footstep, not a boulder"
+	// (kept low — voxel_water amplifies via water_ripple_tilt). Separate swim vs
+	// wade values: swimming is a continuous wake (shorter stride), wading discrete
+	// step impacts (longer stride).
+	[Export(PropertyHint.Range, "0.25,5,0.05")] private float _swimRippleStride = 1.5f;
+	[Export(PropertyHint.Range, "0.25,5,0.05")] private float _wadeRippleStride = 2.0f;
+	[Export(PropertyHint.Range, "0,1,0.01")] private float _swimRippleStrength = 0.15f;
+	[Export(PropertyHint.Range, "0,1,0.01")] private float _wadeRippleStrength = 0.25f;
 	// Dirt puff spawned at the player's feet on each shovel scoop, fired from a
 	// Call Method Track on the dig clip (ModelAnimator.OnDigDirt). Authored in
 	// the player .tscn; null = no synced puff.
@@ -1222,15 +1231,11 @@ public partial class Player : CharacterBody3D
 		}
 		_scent?.Tick(dt);
 
-		// Footstep / wake ripples on the water surface. Stride is longer
-		// while wading (discrete step impacts) than while swimming
-		// (continuous wake). Strength is kept low — the radial wave packet
-		// in voxel_water.gdshader is already amplified by water_ripple_tilt,
-		// so per-emit strength only needs to mark "this is a footstep,
-		// not a boulder splash".
+		// Footstep / wake ripples on the water surface. See the ripple stride/
+		// strength exports above for the swim-vs-wade tuning.
 		bool inWater = _waterState != EWaterState.None;
-		float rippleStride = _waterState == EWaterState.Swimming ? 1.5f : 2.0f;
-		float rippleStrength = _waterState == EWaterState.Swimming ? 0.15f : 0.25f;
+		float rippleStride = _waterState == EWaterState.Swimming ? _swimRippleStride : _wadeRippleStride;
+		float rippleStrength = _waterState == EWaterState.Swimming ? _swimRippleStrength : _wadeRippleStrength;
 		Vector3 ripplePos = new(GlobalPosition.X, _waterSurfaceY, GlobalPosition.Z);
 		_rippleEmitter.Update(ripplePos, inWater, rippleStrength, rippleStride);
 

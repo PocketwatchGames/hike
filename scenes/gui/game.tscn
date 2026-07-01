@@ -17,9 +17,9 @@
 [ext_resource type="Script" uid="uid://bjcyjqjs04viu" path="res://scripts/client/BirdsEyeController.cs" id="birds_eye_script"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
+[ext_resource type="Material" uid="uid://bl84gy5kiqaeh" path="res://resources/materials/depth_outline.tres" id="depth_outline_mat"]
 [ext_resource type="Script" uid="uid://d1b41gdyhk5hu" path="res://scripts/client/FlyCamera.cs" id="fly_camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
-[ext_resource type="Material" path="res://resources/materials/depth_outline.tres" id="depth_outline_mat"]
 [ext_resource type="Script" uid="uid://bd2qbk8yxpmjj" path="res://scripts/client/GroundStainProjector.cs" id="ground_stain_projector_script"]
 [ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://assets/audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
 [ext_resource type="PackedScene" uid="uid://cwdqs8t0vrv7l" path="res://scenes/subsystems/heat_field.tscn" id="heat_field_scene"]
@@ -69,7 +69,6 @@ size = Vector2(2, 2)
 background_mode = 1
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.0
-fog_enabled = false
 fog_mode = 1
 fog_light_color = Color(0, 0, 0, 1)
 fog_light_energy = 0.75
@@ -325,8 +324,8 @@ rimStrength = 0.8
 rippleScaleA = 0.1
 rippleScaleB = 0.06
 rippleAngleOffsetB = 65.0
-dynamicRippleLifetime = 2.0
-dynamicRippleFalloff = 10.0
+dynamicRippleLifetime = 1.5
+dynamicRippleFalloff = 60.0
 dynamicRippleTilt = 0.25
 reflectionFovVerticalCenter = 0.35
 fresnelPower = 0.5

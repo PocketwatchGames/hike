@@ -43,10 +43,11 @@ global uniform float cloud_altitude;
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
 
-// Ceiling cutaway: discard fragments above the animating camera clip so model
-// mobs / props vanish under a cutaway like terrain and sprites do (terrain via
-// voxel_clip, sprites via sprite_lit_common — same per-fragment test). Globals
-// owned by GameCamera; must be declared before the include.
+// Ceiling cutaway: discard the mesh above the animating camera clip so model
+// mobs / props vanish under a cutaway like sprites do. Unlike terrain
+// (voxel_clip, per-fragment), this tests the mesh ORIGIN so the whole model
+// dithers/culls as a unit rather than being sliced at the plane — see the
+// model_origin varying. Globals owned by GameCamera; declare before the include.
 global uniform float camera_clip;
 global uniform float camera_clip_prev;
 global uniform float camera_clip_blend;
@@ -164,9 +165,15 @@ varying vec3 world_normal;
 varying float object_y;
 // Baked per-vertex occlusion brightness (COLOR.r): 1 = open, <1 = occluded.
 varying float vert_brightness;
+// Mesh origin (world space) — flat, so the ceiling-clip test resolves once
+// per instance instead of per fragment. Keeps a mesh from being sliced at the
+// clip plane: the whole model dithers/culls as a unit, matching sprites (which
+// clip against their flat per-sprite anchor). See fragment().
+varying flat vec3 model_origin;
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	model_origin = MODEL_MATRIX[3].xyz;
 	object_y = VERTEX.y;
 	vert_brightness = COLOR.r;
 	// Uniform-scale rig, so transforming the normal by MODEL_MATRIX (without
@@ -175,9 +182,12 @@ void vertex() {
 }
 
 void fragment() {
-	// Ceiling cutaway: drop fragments above the animating clip (per-fragment, so
-	// a mesh straddling the clip is cut at the plane). Runs before any other work.
-	if (clip_dither_should_discard(world_pos, FRAGCOORD.xy)) {
+	// Ceiling cutaway: test the whole mesh against the clip by its origin (a
+	// flat varying), NOT the per-fragment world_pos — otherwise a mesh
+	// straddling the clip gets sliced at the plane. A prop should either fully
+	// dither out or stay, as a unit, like sprites do (which clip against their
+	// flat anchor). Runs before any other work.
+	if (clip_dither_should_discard(model_origin, FRAGCOORD.xy)) {
 		discard;
 	}
 

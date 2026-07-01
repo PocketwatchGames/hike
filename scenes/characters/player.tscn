@@ -7,9 +7,9 @@
 [ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/fx/footstep_sand.tscn" id="5_g66nw"]
 [ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/fx/footstep_mud.tscn" id="6_rpnd8"]
 [ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/fx/footstep_water.tscn" id="7_d6tgn"]
-[ext_resource type="PackedScene" path="res://scenes/fx/footstep_puddle.tscn" id="10_puddle"]
 [ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="8_5jukt"]
 [ext_resource type="PackedScene" uid="uid://8aexarbmcq87" path="res://scenes/fx/skating_dirt.tscn" id="9_vwwfy"]
+[ext_resource type="PackedScene" path="res://scenes/fx/footstep_puddle.tscn" id="10_puddle"]
 [ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/fx/footstep_grass.tscn" id="11_footstep_grass"]
 [ext_resource type="PackedScene" uid="uid://c2fhdirtfst01" path="res://scenes/fx/footstep_dirt.tscn" id="12_5jukt"]
 [ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/fx/blood_damage.tscn" id="12_blooddmg"]
@@ -23,7 +23,7 @@
 [ext_resource type="PackedScene" uid="uid://dy7pahbiw5boy" path="res://scenes/fx/land_hard.tscn" id="19_landhard"]
 [ext_resource type="PackedScene" uid="uid://da0fmu7g5je6s" path="res://scenes/fx/water_plunge.tscn" id="20_plunge"]
 [ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/fx/player_swim_idle_loop.tscn" id="21_tread"]
-[ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="22_s1x7u"]
+[ext_resource type="Script" uid="uid://jgnbllrj442r" path="res://scripts/data/characters/VoiceData.cs" id="22_s1x7u"]
 [ext_resource type="Resource" uid="uid://dhis3te0u5ii" path="res://resources/data/characters/human/player_voice_female.tres" id="22_voicefem"]
 [ext_resource type="Resource" uid="uid://xdns0m6o8hu4" path="res://resources/data/characters/human/player_voice_male.tres" id="23_voicemale"]
 [ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
@@ -115,6 +115,10 @@ _footstepEffects = Dictionary[int, PackedScene]({
 })
 _shallowWaterFootstepFx = ExtResource("7_d6tgn")
 _puddleFootstepFx = ExtResource("10_puddle")
+_swimRippleStride = 1.25
+_wadeRippleStride = 1.5
+_swimRippleStrength = 0.05
+_wadeRippleStrength = 0.05
 _digDirtFx = ExtResource("42_digscoop")
 _footprintTexture = ExtResource("8_5jukt")
 _footprintSize = Vector2(0.4, 0.6)
