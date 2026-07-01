@@ -8,6 +8,14 @@
 [ext_resource type="Resource" uid="uid://csjvdcg5sawpo" path="res://resources/data/world_gen/terrain_gen/swamp_highlands_kit.tres" id="6_4w8xh"]
 [ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/zones/swamp.tres" id="7_cpg00"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_4e6x3"]
+[ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="9_ruins"]
+
+[sub_resource type="Resource" id="Resource_ruins"]
+script = ExtResource("9_ruins")
+squareMetersPerSpawn = 1500.0
+confinementMinFraction = 0.15
+brokenness = 0.4
+metadata/_custom_type_script = "uid://dbxatq73lngxy"
 
 [resource]
 script = ExtResource("8_4e6x3")
@@ -24,4 +32,5 @@ caveNoiseFrequency = 0.04
 grassThreshold = 0.5
 surfaceEntities = ExtResource("5_4w8xh")
 caveEntities = ExtResource("1_4w8xh")
+ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("swamp_highlands")

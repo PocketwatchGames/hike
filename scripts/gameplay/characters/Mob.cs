@@ -493,6 +493,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // True while the flier's movement collision is suppressed for flight (mask
     // zeroed). Edge-tracked so we only touch the mask on takeoff / landing.
     private bool _flightCollisionDisabled;
+    // Seconds a solid flier (FliesSolid) has been pinned against terrain —
+    // intending to move horizontally but held near-stationary by collision.
+    // Drives the reactive climb-over / duck-under escape in ApplyFlightUnstick.
+    private float _flightStuckSeconds;
     // Reused scratch buffer for the yell broadcast's spatial-hash query so a
     // periodic alarm doesn't allocate a list every call.
     private readonly List<Mob> _yellReceivers = new();
@@ -2026,15 +2030,98 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             targetY = ClampAbsoluteFlightAltitude(pos, aiOutput.flyTargetY.Value);
         }
+        else if (aiOutput.flyAltitude.HasValue)
+        {
+            targetY = ComputeFlightAltitude(pos, currentVel, aiOutput.flyAltitude.Value);
+        }
+        else if (md.FliesSolid && aiOutput.pathTarget.HasValue
+            && _navigator != null && _navigator.CurrentState == MobNavigator.State.Goto)
+        {
+            // A solid flier following a Goto route tracks the route's surface Y
+            // (the waypoint carries the surface of the cell it steers over) plus
+            // hoverHeight, so the path's descent into a cave — and climb back out
+            // — carries the flier's altitude with it, instead of the terrain
+            // spring pinning it above the roof. Clamped into the local flyable
+            // band like an absolute anchor. Plain Wander keeps the look-ahead
+            // spring below so it still rises over hills ahead while patrolling.
+            targetY = ClampAbsoluteFlightAltitude(pos, aiOutput.pathTarget.Value.Y + md.hoverHeight);
+        }
         else
         {
-            float hoverH = aiOutput.flyAltitude ?? md.hoverHeight;
-            targetY = ComputeFlightAltitude(pos, currentVel, hoverH);
+            targetY = ComputeFlightAltitude(pos, currentVel, md.hoverHeight);
+        }
+
+        // Reactive unstick for a solid flier: straight-line hover steering has no
+        // horizontal obstacle avoidance, so a flier whose heading points into a
+        // cliff (or under an overhang lip) just pins against it. When pinned,
+        // override the altitude target to climb over — or duck out from under a
+        // ceiling — until it clears. Suppressed during an intentional descent so
+        // it never fights a dive into a cave.
+        if (md.FliesSolid)
+        {
+            targetY = ApplyFlightUnstick(pos, targetY, desiredHoriz, currentVel, delta, md);
         }
         float desiredVy = Mathf.Clamp((targetY - pos.Y) * md.hoverStiffness, -md.verticalSpeed, md.verticalSpeed);
 
         Vector3 desiredVel = new Vector3(desiredHoriz.X, desiredVy, desiredHoriz.Z);
         ApplyImpulse((desiredVel - currentVel) * Mass);
+    }
+
+    // How long a solid flier must be pinned before the escape kicks in — long
+    // enough that a momentary graze doesn't jerk it upward, short enough that a
+    // real snag reads as an immediate climb.
+    private const float FlightStuckTriggerSeconds = 0.2f;
+    // A branch altitude target this far below the flier means it's intentionally
+    // descending (diving into a cave); the unstick stands down so it never fights
+    // its own dive.
+    private const float FlightDiveGuard = 2f;
+    // Vertical gap to the ceiling above which "climb over" is viable; at or below
+    // it the flier is wedged under an overhang and drops out instead.
+    private const float FlightUnstickHeadroom = 2f;
+
+    // Reactive obstacle escape for a FliesSolid flier. When the flier intends to
+    // move horizontally but collision holds it near-stationary, it's pinned on
+    // terrain the straight-line steering can't route around. Return an overridden
+    // altitude target that climbs over the obstacle (headroom above) or ducks
+    // down and back out (wedged under an overhang), escalating with time-stuck so
+    // it always eventually clears. Returns the unchanged target when not pinned.
+    private float ApplyFlightUnstick(Vector3 pos, float branchTargetY, Vector3 desiredHoriz, Vector3 vel, float delta, MobData md)
+    {
+        float intendHoriz = new Vector2(desiredHoriz.X, desiredHoriz.Z).Length();
+        float actualHoriz = new Vector2(vel.X, vel.Z).Length();
+        // Diving on purpose (branch target well below us) keeps the escape off so
+        // it can't fight a cave entry, where scraping the rim would read as pinned.
+        // Hysteretic: the guard only blocks STARTING an escape — once we're
+        // already climbing a cliff, ignore it so cresting above the target's own
+        // elevation (which momentarily looks like a dive) doesn't stall the climb.
+        bool alreadyEscaping = _flightStuckSeconds >= FlightStuckTriggerSeconds;
+        bool diving = !alreadyEscaping && branchTargetY < pos.Y - FlightDiveGuard;
+        bool pinned = !diving && intendHoriz > 0.5f && actualHoriz < intendHoriz * 0.3f;
+        if (!pinned)
+        {
+            // Decay faster than it accrues so a brief graze clears quickly.
+            _flightStuckSeconds = Mathf.Max(0f, _flightStuckSeconds - delta * 3f);
+            return branchTargetY;
+        }
+        _flightStuckSeconds += delta;
+        if (_flightStuckSeconds < FlightStuckTriggerSeconds)
+        {
+            return branchTargetY;
+        }
+
+        WorldState ws = _world?.WorldState;
+        int ceiling = ws != null
+            ? CeilingYAbove(ws, Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y) + 1, Mathf.FloorToInt(pos.Z))
+            : int.MaxValue;
+        // Escape distance grows the longer we stay stuck, so a tall cliff is
+        // cleared instead of the flier plateauing partway up.
+        float escape = md.hoverHeight + (_flightStuckSeconds - FlightStuckTriggerSeconds) * md.verticalSpeed;
+        if (ceiling == int.MaxValue || ceiling - pos.Y > FlightUnstickHeadroom)
+        {
+            float cap = ceiling == int.MaxValue ? float.MaxValue : ceiling - 1f;
+            return Mathf.Min(Mathf.Max(branchTargetY, pos.Y + escape), cap);
+        }
+        return Mathf.Min(branchTargetY, pos.Y - escape);
     }
 
     // Target flight altitude (world Y) for a bird at `pos` heading along `vel`:
@@ -2712,17 +2799,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             bool airborneIntent = _simState.MobData.CanFly && aiOutput.airborne && !inBurrow;
             bool flying = airborneIntent && !actionLocksMovement;
             _simState.Airborne = airborneIntent;
-            // Fliers pass through world geometry while airborne — hover physics
-            // owns altitude, so colliding only snags them on cliffs/props and
-            // blocks perch approaches. Drop the movement body's mask to nothing
-            // on the airborne edge and restore it on landing (mirrors the burrow
-            // layer swap). Gated on `alive` so Die()/burrow keep ownership of the
-            // mask in their own states.
+            // Fliers manage the movement body's collision mask across the
+            // airborne edge. A pass-through flier (sparrow) drops the mask to
+            // nothing while aloft — hover physics owns altitude, so colliding
+            // only snags it on cliffs/props and blocks perch approaches. A solid
+            // flier (drake, FliesSolid) instead keeps a Solid-only mask so it
+            // slides along walls rather than clipping through them (Player/Mob
+            // dropped so combat overlap doesn't shove it); its nav route carries
+            // it into and out of caves. Restored to the full ground mask on
+            // landing (mirrors the burrow layer swap). Gated on `alive` so
+            // Die()/burrow keep ownership of the mask in their own states.
             if (_simState.MobData.CanFly && alive)
             {
                 if (airborneIntent && !_flightCollisionDisabled)
                 {
-                    CollisionMask = 0;
+                    CollisionMask = _simState.MobData.FliesSolid ? (uint)ECollisionLayer.Solid : 0;
                     _flightCollisionDisabled = true;
                 }
                 else if (!airborneIntent && _flightCollisionDisabled)

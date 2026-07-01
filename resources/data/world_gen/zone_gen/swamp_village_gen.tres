@@ -9,6 +9,14 @@
 [ext_resource type="Resource" uid="uid://ds1ldsisnfc4e" path="res://resources/data/world_gen/terrain_gen/swamp_village_kit.tres" id="7_gyyab"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_m0lsp"]
 [ext_resource type="Resource" uid="uid://cyjva4b6lpasi" path="res://resources/data/world_gen/fixtures/swamp_village_fixtures.tres" id="9_village"]
+[ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="10_ruins"]
+
+[sub_resource type="Resource" id="Resource_ruins"]
+script = ExtResource("10_ruins")
+squareMetersPerSpawn = 1500.0
+confinementMinFraction = 0.15
+brokenness = 0.4
+metadata/_custom_type_script = "uid://dbxatq73lngxy"
 
 [resource]
 script = ExtResource("8_m0lsp")
@@ -27,4 +35,5 @@ grassThreshold = 0.5
 surfaceEntities = ExtResource("5_5w857")
 caveEntities = ExtResource("1_5w857")
 fixtures = ExtResource("9_village")
+ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("swamp_village")

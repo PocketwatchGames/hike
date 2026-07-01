@@ -969,9 +969,22 @@ public struct CameraAngleSettings
 		Distance = 18f,
 		PitchDegrees = -55f,
 	};
+	public static readonly CameraAngleSettings Perspective20 = new CameraAngleSettings
+	{
+		Perspective = true,
+		Fov = 20f,
+		Distance = 55f,
+		PitchDegrees = -40f,
+	};
 
 	public static CameraAngleSettings FromPreset(int index)
 	{
-		return index == 1 ? Perspective70 : Orthographic;
+		switch (index)
+		{
+			case 0: return Orthographic;
+			case 1: return Perspective70;
+			case 2: return Perspective20;
+			default: return Orthographic;
+		}
 	}
 }

@@ -15,7 +15,6 @@
 [sub_resource type="Resource" id="Resource_ruins"]
 script = ExtResource("15_ruins")
 squareMetersPerSpawn = 1500.0
-confinementRise = 1
 confinementMinFraction = 0.15
 brokenness = 0.4
 metadata/_custom_type_script = "uid://dbxatq73lngxy"

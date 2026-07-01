@@ -427,6 +427,9 @@ public partial class MobData : Resource
 
     public bool CanSwim => movement.HasFlag(EMovementFlags.CanSwim);
     public bool CanFly => movement.HasFlag(EMovementFlags.CanFly);
+    // Flier that keeps solid collision while airborne (drake) rather than
+    // passing through terrain (sparrow). Only meaningful together with CanFly.
+    public bool FliesSolid => movement.HasFlag(EMovementFlags.FliesSolid);
     public bool CanClimb => movement.HasFlag(EMovementFlags.CanClimb);
     public bool CanTraverseLand => movement.HasFlag(EMovementFlags.CanTraverseLand);
     public bool SubmergedWhileSwimming => movement.HasFlag(EMovementFlags.SubmergedWhileSwimming);

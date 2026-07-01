@@ -21,8 +21,10 @@ public enum EMovementFlags
     // ignore this — read everywhere via MobData.AvoidsDeepWater, never the raw
     // flag.
     AvoidsDeepWater = 1 << 1,
-    // Ignores ground entirely: the pathfinder runs in 3D and steering applies a
-    // hover force toward terrain + hoverHeight (birds).
+    // Flies: steering applies a hover force toward terrain + hoverHeight rather
+    // than ground locomotion. Routing still uses the layered 2.5D grid, but the
+    // A* vertical step/fall caps are lifted (a flier moves freely between stacked
+    // surfaces, like a climber) so its route can dive into and out of caves.
     CanFly = 1 << 2,
     // Climbs arbitrary vertical surfaces (spider): skips the maxStepHeight
     // check, so any adjacent solid is walkable.
@@ -37,4 +39,10 @@ public enum EMovementFlags
     // instead of floating it up, and it never hauls out onto a bank. Pairs with
     // a water-bound mob (CanTraverseLand cleared) for an underwater ambusher.
     SubmergedWhileSwimming = 1 << 5,
+    // For a flier (CanFly): keep a solid collision mask while airborne instead
+    // of passing through world geometry. The flier slides along walls and its
+    // nav route (relaxed to move freely between vertical layers) carries it into
+    // and out of caves. Clear it for cheap pass-through fliers (sparrows) that
+    // never chase into tight spaces. No effect without CanFly.
+    FliesSolid = 1 << 6,
 }

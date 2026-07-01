@@ -22,7 +22,8 @@ animName = 36
 [sub_resource type="Resource" id="Resource_event_dig"]
 script = ExtResource("4_event")
 type = 131072
-digReach = 1.75
+digRadius = 2.0
+digReach = 0.0
 digNothingEffect = ExtResource("9_dignothing")
 digCommonEffect = ExtResource("10_digcommon")
 digTreasureEffect = ExtResource("11_digtreasure")

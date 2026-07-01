@@ -6,6 +6,6 @@
 script = ExtResource("1_block")
 blockName = &"DirtOverlay"
 atlasBaseIndex = 4
-minimapColor = Color(0.3882353, 0.47843137, 0.2509804, 1)
-groundType = 6
+minimapColor = Color(0.47843137, 0.45882353, 0.4, 1)
 porosity = 0.8
+groundType = 6

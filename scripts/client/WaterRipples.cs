@@ -23,6 +23,10 @@ public static class WaterRipples
         "res://assets/textures/water_ripple_a.tres",
         "res://assets/textures/water_ripple_b.tres",
         "res://assets/textures/skybox/cloud_noise.tres",
+        // Sky/reflection star_texture global uniform. Only rasterized once the
+        // sky dome is in frame (e.g. a perspective/wider-FOV preset), so a
+        // starved cold worldgen spams uniform_set_create the moment sky renders.
+        "res://assets/textures/skybox/starfield_placeholder.tres",
     };
 
     public static async Task EnsureReady(Node ctx)

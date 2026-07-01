@@ -467,7 +467,7 @@ public class MobNavigator
             {
                 return false;
             }
-            if (!_profile.CanClimb && Mathf.Abs(c.surfaceY - curSurfaceY) > _profile.maxStepHeight)
+            if (!_profile.CanClimb && !_profile.CanFly && Mathf.Abs(c.surfaceY - curSurfaceY) > _profile.maxStepHeight)
             {
                 return false;
             }
@@ -718,7 +718,7 @@ public class MobNavigator
                         // endpoint reachable both ways — the whole point of
                         // disallowing falls during wander.
                         int dy = c.surfaceY - prev.surfaceY;
-                        if (!_profile.CanClimb && Mathf.Abs(dy) > _profile.maxStepHeight)
+                        if (!_profile.CanClimb && !_profile.CanFly && Mathf.Abs(dy) > _profile.maxStepHeight)
                         {
                             continue;
                         }

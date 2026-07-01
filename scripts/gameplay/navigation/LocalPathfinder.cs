@@ -181,7 +181,11 @@ public class LocalPathfinder
                         // up to the surface) and falling in is just a splash,
                         // capped only by maxFallHeight.
                         int dy = n.surfaceY - currentCell.surfaceY;
-                        if (!profile.CanClimb)
+                        // Fliers move freely between stacked layers (down a cave
+                        // mouth, up the exit) — the step/fall caps model a walker
+                        // and would strand a flier at a ledge it can simply fly
+                        // over. Treated like a climber here.
+                        if (!profile.CanClimb && !profile.CanFly)
                         {
                             if (n.IsWater)
                             {
