@@ -1291,6 +1291,14 @@ public partial class GameClient : Node3D
 			{
 				return;
 			}
+			// Free-look orbit (camera preset 3): the mouse drives the camera, not
+			// the aim cursor. Consume the motion here so it doesn't also deflect
+			// the aim stick below.
+			if (camera.FreeLookMode)
+			{
+				camera.AddMouseLook(mouseMotion.Relative * CVars.mouseSensitivity.Value);
+				return;
+			}
 			// Virtual aim-stick model: _mousePosition is the deflection of an
 			// imaginary cursor around the player, in pixels. Mouse Relative is
 			// scaled by sensitivity, accumulated, and clamped to a fixed

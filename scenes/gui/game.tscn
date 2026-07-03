@@ -197,6 +197,8 @@ followTimeSprinting = 1.0
 followTimeAirAscending = 0.65
 followTimeDashing = 1.5
 clipTargetStabilityFrames = 6
+campDistance = 20.0
+campFov = 25.0
 
 [node name="FogQuad" type="MeshInstance3D" parent="SceneViewport/MainCamera" unique_id=1706201793]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)

@@ -395,9 +395,10 @@ public static class CVars
     });
 
     // Swaps the MainCamera between authored framing presets (CameraAngleSettings)
-    // for A/B testing angles: 0 = orthographic shipping framing, 1 = narrow
-    // perspective. Applied to the live camera only on change, so any inspector
-    // live-tuning of the resulting pitch/distance/fov sticks between swaps.
+    // for A/B testing angles: 0 = orthographic shipping framing, 1/2 = perspective,
+    // 3 = free-look orbit (mouse / right stick drive yaw & pitch). Applied to the
+    // live camera only on change, so any inspector live-tuning of the resulting
+    // pitch/distance/fov sticks between swaps.
     public static CVarInt cameraPreset = new CVarInt("camera_preset", 0, (cvar) =>
     {
         var client = GameClient.Current;

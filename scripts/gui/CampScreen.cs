@@ -66,9 +66,9 @@ public partial class CampScreen : Control
 		_player?.ClearInteractive();
 		_player?.EnterCamp();
 		MusicManager.Instance?.SetCamping(true);
-		// Lower-pitch zoomed-in framing (with a transition blur) and hold the
-		// day/night clock while resting.
-		_gameClient?.camera?.SetCampMode(true);
+		// Lower-pitch zoomed-in framing focused on the campfire (with a transition
+		// blur) and hold the day/night clock while resting.
+		_gameClient?.camera?.SetCampMode(true, forge?.GlobalPosition ?? Vector3.Zero);
 		if (_player?.World != null) { _player.World.TimeOfDayFrozen = true; }
 		_open = true;
 		Visible = true;

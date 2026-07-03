@@ -26,6 +26,25 @@ public partial class GameCamera : Camera3D
 	[Export] public float followTimeAirAscending = 0.5f;
 	[Export] public float followTimeDashing = 1f;
 
+	[ExportGroup("Free Look (preset 3)")]
+	// Right-stick orbit speed at full deflection, radians/sec.
+	[Export(PropertyHint.Range, "0.5,6,0.1")] public float freeLookStickSpeed = 2.5f;
+	// Mouse orbit speed, radians per pixel of motion.
+	[Export(PropertyHint.Range, "0.001,0.02,0.0005")] public float freeLookMouseSpeed = 0.005f;
+	// Pitch clamp for the orbit (negative = looking down). Min is the steepest
+	// top-down, Max the most level.
+	[Export(PropertyHint.Range, "-89,-1,1")] public float freeLookPitchMinDegrees = -85f;
+	[Export(PropertyHint.Range, "-89,-1,1")] public float freeLookPitchMaxDegrees = -10f;
+	// Orbit radius as the camera lowers toward level. At the steepest (top-down)
+	// pitch the radius is the full `distance`; at the most level pitch it shrinks
+	// to freeLookMinDistance. The blend is squared against how far the pitch has
+	// lowered, so the camera holds the far distance through the top of the range
+	// and closes on the player more quickly as it approaches level.
+	[Export(PropertyHint.Range, "1,40,0.5")] public float freeLookMinDistance = 30f;
+	// Height above the player root (feet plane) that the orbit focuses on. The
+	// normal follow uses followHeightOffset; free-look frames slightly higher.
+	[Export(PropertyHint.Range, "0,3,0.05")] public float freeLookFocusHeight = 1.5f;
+
 	[ExportGroup("Focus Subject")]
 	// Generic "point the camera at a subject" override (a killed mob, a future
 	// cinematic / dialogue target). FocusOn eases the framing anchor from the
@@ -95,6 +114,13 @@ public partial class GameCamera : Camera3D
 	private float _yawStart = Mathf.Pi / 4f;
 	private float _rotationElapsed;
 	private bool _rotating;
+	// Free-look orbit (preset 3). _freeLook is set from the preset; _freeYaw /
+	// _freePitch (radians) are the continuous orbit angles the mouse / right
+	// stick drive, seeded from the live pose the first tick after enabling.
+	private bool _freeLook;
+	private float _freeYaw;
+	private float _freePitch;
+	private bool _freeLookInitialized;
 	private Vector3 _followPosition;
 	private bool _followInitialized;
 	// Focus-subject override (see focusBlendTime / focusWeight). _focusNode is
@@ -143,14 +169,27 @@ public partial class GameCamera : Camera3D
 
 	[ExportGroup("Camp Framing")]
 	// Resting at a campfire (CampScreen → SetCampMode) lowers the pitch toward
-	// campPitchDegrees and zooms the ortho view in by campZoomPixelSteps pixel-
-	// scale steps (same "+1 pixel size" zoom as SlowMotionController). A radial
-	// motion blur tracks the transition velocity, peaking as the camera leaves
-	// each resting point and tapering to 0 at the held framing.
+	// campPitchDegrees, pulls the orbit radius in to campDistance, zooms the ortho
+	// view in by campZoomPixelSteps pixel-scale steps (same "+1 pixel size" zoom as
+	// SlowMotionController), re-frames on the campfire instead of the player, and
+	// layers a very slow idle wobble on top. A radial motion blur tracks the
+	// transition velocity, peaking as the camera leaves each resting point and
+	// tapering to 0 at the held framing.
 	[Export] public float campPitchDegrees = -30f;
+	// Orbit radius while camped — eases from the live `distance` to this on engage.
+	[Export] public float campDistance = 30f;
+	// Perspective FOV while camped (only applied in perspective presets; ortho
+	// presets zoom via campZoomPixelSteps). The resting FOV is captured on engage
+	// and restored on leave.
+	[Export(PropertyHint.Range, "10,90,1")] public float campFov = 35f;
 	[Export(PropertyHint.Range, "0,4,1")] public int campZoomPixelSteps = 1;
 	[Export(PropertyHint.Range, "0.05,3,0.05")] public float campTransitionSeconds = 0.5f;
 	[Export(PropertyHint.Range, "0,1,0.05")] public float campMotionBlurPeak = 0.8f;
+	// Slow idle wobble layered on the held camp framing so the shot breathes.
+	// Amplitude in degrees; period in seconds (large = very slow). Yaw and pitch
+	// oscillate at slightly detuned frequencies for an organic drift.
+	[Export(PropertyHint.Range, "0,5,0.1")] public float campWobbleAmplitudeDegrees = 1.2f;
+	[Export(PropertyHint.Range, "1,40,0.5")] public float campWobblePeriodSeconds = 14f;
 
 	// Camp framing state. _campActive is true from SetCampMode(true) until the
 	// ease-out fully completes; _campBlend is the raw 0..1 progress toward
@@ -160,6 +199,16 @@ public partial class GameCamera : Camera3D
 	private float _campTarget;
 	private float _campBlend;
 	private float _campBaseSize = 1f;
+	// Resting FOV captured on engage so the perspective zoom and its restore ride
+	// the same anchor even if Fov is retuned while camped.
+	private float _campBaseFov;
+	// World-space framing target while camped: the campfire (lifted by
+	// followHeightOffset), so the held shot centers the fire, not the player.
+	private Vector3 _campFocusPoint;
+	private bool _hasCampFocus;
+	// Wall-clock accumulator driving the slow idle wobble (presentational only —
+	// stays on render delta so slow-mo doesn't drag it).
+	private float _campWobbleTime;
 	private float _campRadialBlur;
 	// Radial zoom-blur from the camp transition, folded into the post-process
 	// alongside SlowMotion / BirdsEye by GameClient. 0 whenever idle.
@@ -196,6 +245,10 @@ public partial class GameCamera : Camera3D
 	{
 		pitchDegrees = settings.PitchDegrees;
 		distance = settings.Distance;
+		// Re-seed the orbit angles from the current pose on the next tick when
+		// switching into free-look, so it picks up wherever the fixed camera was.
+		_freeLook = settings.FreeLook;
+		_freeLookInitialized = false;
 		if (settings.Perspective)
 		{
 			Projection = ProjectionType.Perspective;
@@ -414,15 +467,25 @@ public partial class GameCamera : Camera3D
 		}
 	}
 
-	// Enter / leave camp framing. Capturing the resting Size on engage lets the
-	// zoom-in and its later restore share one anchor even if Size is retuned
-	// while camped. Mirrors SlowMotionController's Trigger/Release shape.
-	public void SetCampMode(bool active)
+	// Enter / leave camp framing, focusing on the campfire at `campfirePosition`
+	// (default when leaving). Capturing the resting Size / FOV on engage lets the
+	// zoom-in and its later restore share one anchor even if they're retuned while
+	// camped. Mirrors SlowMotionController's Trigger/Release shape.
+	public void SetCampMode(bool active, Vector3 campfirePosition = default)
 	{
 		_campTarget = active ? 1f : 0f;
+		if (active)
+		{
+			// Lift the focus to the fire (not its base) with the same offset the
+			// player follow uses, so the framing reads centered on the flames.
+			_campFocusPoint = GetFollowTarget(campfirePosition);
+			_hasCampFocus = true;
+		}
 		if (active && !_campActive)
 		{
 			_campBaseSize = Size;
+			_campBaseFov = Fov;
+			_campWobbleTime = 0f;
 			_campActive = true;
 		}
 	}
@@ -458,6 +521,51 @@ public partial class GameCamera : Camera3D
 		return eased;
 	}
 
+	// True while preset 3 (free-look orbit) is active. GameClient reads this to
+	// route mouse motion into AddMouseLook instead of the aim cursor.
+	public bool FreeLookMode => _freeLook;
+
+	// Polls the right-stick Look axes and advances the free-look orbit angles.
+	// Seeds from the live pose the first tick after enabling so the swap is
+	// seamless. Right stick only; mouse motion arrives via AddMouseLook.
+	private void TickFreeLook(float deltaTime)
+	{
+		if (!_freeLookInitialized)
+		{
+			_freeYaw = _yaw;
+			_freePitch = _pitchRadians;
+			_freeLookInitialized = true;
+		}
+
+		Vector2 look = new(
+			Input.GetActionStrength("LookRight") - Input.GetActionStrength("LookLeft"),
+			Input.GetActionStrength("LookDown") - Input.GetActionStrength("LookUp"));
+		_freeYaw -= look.X * freeLookStickSpeed * deltaTime;
+		_freePitch += look.Y * freeLookStickSpeed * deltaTime;
+		ClampFreePitch();
+	}
+
+	// Feeds a raw mouse-motion delta (pixels) into the free-look orbit. X yaws,
+	// Y pitches (mouse down looks down). No-op unless free-look is active.
+	public void AddMouseLook(Vector2 relative)
+	{
+		if (!_freeLook)
+		{
+			return;
+		}
+		_freeYaw -= relative.X * freeLookMouseSpeed;
+		_freePitch += relative.Y * freeLookMouseSpeed;
+		ClampFreePitch();
+	}
+
+	private void ClampFreePitch()
+	{
+		_freePitch = Mathf.Clamp(
+			_freePitch,
+			Mathf.DegToRad(freeLookPitchMinDegrees),
+			Mathf.DegToRad(freeLookPitchMaxDegrees));
+	}
+
 	public void UpdateCamera(double deltaTime, Vector3 playerPosition, float followTime)
 	{
 		TickRotation((float)deltaTime);
@@ -476,13 +584,64 @@ public partial class GameCamera : Camera3D
 
 		Vector3 framingAnchor = ResolveFocusAnchor(_followPosition, (float)deltaTime);
 
-		// Camp framing eases the pitch lower and the zoom in; TickCamp also drives
-		// the ortho Size and the camp motion blur. Returns the eased 0..1 blend so
-		// the pitch lerp lands in lockstep with the zoom.
-		float campEased = TickCamp((float)deltaTime);
-		float pitchDeg = Mathf.Lerp(pitchDegrees, campPitchDegrees, campEased);
-		GlobalRotation = new Vector3(Mathf.DegToRad(pitchDeg), _yaw, 0);
-		GlobalPosition = framingAnchor + GlobalTransform.Basis.Z * distance;
+		float orbitDistance = distance;
+		if (_freeLook)
+		{
+			// Mouse/right-stick orbit. Set the orientation to the free yaw/pitch,
+			// then push the camera back along its own +Z (the "ray back" from the
+			// target) by orbitDistance so it looks straight at the framing anchor.
+			// Mirror _yaw so camera-relative movement and everything reading Yaw
+			// follows.
+			TickFreeLook((float)deltaTime);
+			_yaw = _freeYaw;
+			GlobalRotation = new Vector3(_freePitch, _freeYaw, 0);
+
+			// Frame freeLookFocusHeight above the player instead of the normal
+			// followHeightOffset. The delta is constant, so the horizontal follow
+			// smoothing already baked into framingAnchor is preserved.
+			framingAnchor += Vector3.Up * (freeLookFocusHeight - followHeightOffset);
+
+			// Pull the orbit radius in as the camera lowers toward level. lower = 0
+			// at the steepest pitch, 1 at the most level; squaring it holds the far
+			// distance through the top of the range and closes on the player faster
+			// near level.
+			float pitchMin = Mathf.DegToRad(freeLookPitchMinDegrees);
+			float pitchMax = Mathf.DegToRad(freeLookPitchMaxDegrees);
+			float lower = Mathf.InverseLerp(pitchMin, pitchMax, _freePitch);
+			orbitDistance = Mathf.Lerp(distance, freeLookMinDistance, lower * lower);
+		}
+		else
+		{
+			// Camp framing eases the pitch lower, the orbit in to campDistance, the
+			// perspective FOV to campFov, the framing onto the campfire, and layers a
+			// slow wobble. TickCamp also drives the ortho Size and the camp motion
+			// blur, returning the eased 0..1 blend so everything lands in lockstep.
+			float campEased = TickCamp((float)deltaTime);
+			if (campEased > 0f && _hasCampFocus)
+			{
+				framingAnchor = framingAnchor.Lerp(_campFocusPoint, campEased);
+			}
+			orbitDistance = Mathf.Lerp(distance, campDistance, campEased);
+			if (Projection == ProjectionType.Perspective)
+			{
+				Fov = Mathf.Lerp(_campBaseFov, campFov, campEased);
+			}
+
+			float pitchRad = Mathf.DegToRad(Mathf.Lerp(pitchDegrees, campPitchDegrees, campEased));
+			float yawRad = _yaw;
+			if (campEased > 0f)
+			{
+				// Detuned yaw/pitch sinusoids, scaled by the blend so the wobble
+				// fades in with the framing and out on leave.
+				_campWobbleTime += (float)deltaTime;
+				float w = Mathf.Tau / Mathf.Max(campWobblePeriodSeconds, 0.01f);
+				float amp = Mathf.DegToRad(campWobbleAmplitudeDegrees) * campEased;
+				yawRad += Mathf.Sin(_campWobbleTime * w) * amp;
+				pitchRad += Mathf.Cos(_campWobbleTime * w * 0.7f) * amp * 0.5f;
+			}
+			GlobalRotation = new Vector3(pitchRad, yawRad, 0);
+		}
+		GlobalPosition = framingAnchor + GlobalTransform.Basis.Z * orbitDistance;
 
 		// Camera shake offset, applied before the chunky-pixel snap in
 		// GameClient._Process so the shake quantizes onto the snap grid
@@ -948,6 +1107,10 @@ public struct CameraAngleSettings
 	public float Fov;
 	public float Distance;
 	public float PitchDegrees;
+	// Free-look orbit mode (preset 3): mouse / right-stick drive continuous yaw
+	// and pitch instead of the fixed pitch + discrete Q/E yaw. Distance still
+	// governs the orbit radius; PitchDegrees is only the starting pitch.
+	public bool FreeLook;
 
 	// Preset 0 — the current shipping framing. Orthographic, pulled well back
 	// and angled shallow. The Fov here only matters if Godot's volumetric fog
@@ -977,6 +1140,17 @@ public struct CameraAngleSettings
 		PitchDegrees = -40f,
 	};
 
+	// Preset 3 — free-look orbit. Same framing as Perspective20 but the mouse /
+	// right stick continuously rotate the orbit's yaw and pitch.
+	public static readonly CameraAngleSettings FreeLookOrbit = new CameraAngleSettings
+	{
+		Perspective = true,
+		Fov = 20f,
+		Distance = 55f,
+		PitchDegrees = -40f,
+		FreeLook = true,
+	};
+
 	public static CameraAngleSettings FromPreset(int index)
 	{
 		switch (index)
@@ -984,6 +1158,7 @@ public struct CameraAngleSettings
 			case 0: return Orthographic;
 			case 1: return Perspective70;
 			case 2: return Perspective20;
+			case 3: return FreeLookOrbit;
 			default: return Orthographic;
 		}
 	}
