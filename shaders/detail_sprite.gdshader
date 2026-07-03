@@ -385,6 +385,12 @@ void fragment() {
 	} else {
 		px_aa = seam;
 	}
+	// Clamp to this sprite's own texel region so filter_linear can't bleed the
+	// outer texels into the wrapped opposite edge (default repeat) or an
+	// adjacent atlas cell.
+	vec2 region_min = uv_region.xy * full_size;
+	vec2 region_max = (uv_region.xy + uv_region.zw) * full_size;
+	px_aa = clamp(px_aa, region_min + vec2(0.5), region_max - vec2(0.5));
 	vec2 sprite_uv = px_aa / full_size;
 	vec4 tex = texture(sprite_texture, sprite_uv);
 	if (tex.a < 0.5) {
