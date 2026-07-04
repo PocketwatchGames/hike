@@ -3,4 +3,4 @@
 // Lines starting with // are comments
 volume_music 0.1
 pixel_scale 4
-camera_preset 2
+camera_preset 0

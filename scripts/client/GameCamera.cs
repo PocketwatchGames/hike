@@ -622,7 +622,13 @@ public partial class GameCamera : Camera3D
 				framingAnchor = framingAnchor.Lerp(_campFocusPoint, campEased);
 			}
 			orbitDistance = Mathf.Lerp(distance, campDistance, campEased);
-			if (Projection == ProjectionType.Perspective)
+			// Only drive the FOV while camp is engaged. Outside camp, _campBaseFov
+			// is unset (0) and campEased is 0, so this would lerp Fov to 0 every
+			// frame — which Godot rejects (valid FOV is 1..179), spamming
+			// set_fov errors. _campActive stays true through the full ease-out, so
+			// the final frame (campEased == 0) restores Fov to _campBaseFov before
+			// it clears; the preset's FOV is left untouched the rest of the time.
+			if (Projection == ProjectionType.Perspective && _campActive)
 			{
 				Fov = Mathf.Lerp(_campBaseFov, campFov, campEased);
 			}
