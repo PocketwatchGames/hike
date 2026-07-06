@@ -27,6 +27,22 @@ public partial class Main : Node
 
 	Node _currentScreen;
 
+	// True once the OS has asked the app to close (window X / Alt+F4). Teardown
+	// code reads this to skip freeing GPU resources that the final render frame
+	// still samples — the process is exiting, so the driver reclaims them anyway,
+	// and freeing them mid-shutdown spams "Texture is not a valid texture". The
+	// only in-game exit path is the window close (the pause menu's "quit" only
+	// returns to the main menu), so this flag covers a real app exit.
+	public static bool IsQuitting { get; private set; }
+
+	public override void _Notification(int what)
+	{
+		if (what == NotificationWMCloseRequest)
+		{
+			IsQuitting = true;
+		}
+	}
+
 	// Called when the node enters the scene tree for the first time.
 	public override void _Ready()
 	{

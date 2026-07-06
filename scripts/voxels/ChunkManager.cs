@@ -420,7 +420,16 @@ public partial class ChunkManager : Node3D
     {
         // The windowed volume maps own RenderingDevice texture RIDs (not GC-
         // managed), so release them explicitly or they leak GPU memory across
-        // game loads.
+        // in-process game loads (menu → game → menu → game).
+        //
+        // But NOT during a real app quit: these RIDs are bound as live shader
+        // globals (light_map, sky_exposure_map, wind_map, water_current_map) and
+        // the fog material param, and the renderer samples them on its final
+        // frame(s) as the tree tears down. Freeing them here first leaves those
+        // uniform sets pointing at dangling RIDs, which spams "Texture ... is not
+        // a valid texture" per draw call. The process is exiting, so the driver
+        // reclaims the memory regardless — skip the free and stay quiet.
+        if (Main.IsQuitting) { return; }
         _lightMap?.Free();
         _skyExposureMap?.Free();
         _fogMap?.Free();

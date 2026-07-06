@@ -13,6 +13,9 @@ builds/
 # Temp files
 *.tmp
 
+# Per-machine CVar config (runtime tuning, local tweaks) — not shared.
+cvars.txt
+
 # Auto-generated version file
 scripts/VersionGenerated.g.cs
 
