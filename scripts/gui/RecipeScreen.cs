@@ -9,7 +9,7 @@ using Godot.Collections;
 // and the ingredient slots with the recipe's authored inputs.
 //
 // View only — recipes are discovered by actually cooking at a forge
-// (CookingScreen / Forge), not from this screen. The Almanac wrapper owns
+// (CookingScreen / Campfire), not from this screen. The Almanac wrapper owns
 // InputSuppressed / hud-visibility / ui_cancel handling; this screen just
 // rebuilds when its tab is shown.
 [GlobalClass]
@@ -69,7 +69,7 @@ public partial class RecipeScreen : Control
 			for (int i = 0; i < simData.recipes.Count; i++)
 			{
 				RecipeData recipe = simData.recipes[i];
-				if (recipe == null || !worldSim.DiscoveredRecipes.Contains(recipe))
+				if (recipe == null || !worldSim.IsRecipeDiscovered(recipe))
 				{
 					continue;
 				}

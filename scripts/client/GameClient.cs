@@ -51,6 +51,11 @@ public partial class GameClient : Node3D
 		{ EStatName.AnimSpeed, "Animation Speed" },
 		{ EStatName.FootprintAlpha, "Footprint Alpha" },
 		{ EStatName.FootprintDuration, "Footprint Duration" },
+		{ EStatName.Fortitude, "Fortitude" },
+		{ EStatName.Strength, "Strength" },
+		{ EStatName.Perception, "Perception" },
+		{ EStatName.Stealth, "Stealth" },
+		{ EStatName.Charisma, "Charisma" },
 	};
 
 	// Damage modifier trigger labels. Used as the header of the conditional
@@ -72,7 +77,10 @@ public partial class GameClient : Node3D
 	[Export] public CampScreen campScreen;
 	[Export] public DeathScreen deathScreen;
 	[Export] public SleepOverlay sleepOverlay;
+	// Full-screen black fade for the cinematic camp entry (lighting a campfire).
+	[Export] public ScreenFade campFade;
 	[Export] public UpgradeScreen upgradeScreen;
+	[Export] public ForgeScreen forgeScreen;
 	[Export] public Node worldHUD;
 	[Export] public SubViewport sceneViewport;
 	// Scene WorldEnvironment (SceneViewport/InnerEnv). Its built-in DEPTH fog
@@ -403,7 +411,19 @@ public partial class GameClient : Node3D
 	public World World => _world;
 
 	Player _player;
+	// The party's Player nodes, index-aligned with WorldSimState.Party.Members.
+	// One is active (== _player, controlled); the rest are inactive members that
+	// idle where placed around camp. Populated by SpawnParty; used by
+	// SwitchControlTo to move control between members.
+	readonly List<Player> _partyPlayers = new();
+	// Radius (m) of the ring that inactive party members spread around the
+	// spawn / campfire anchor.
+	[Export] float partyRingRadius = 2.5f;
 	World _world;
+	// Held from Init so party members recruited mid-run (RecruitToParty) can be
+	// spawned as Player nodes the same way SpawnParty builds the starting roster.
+	PackedScene _playerScene;
+	WorldGenData _worldGenData;
 	// Accumulator for the once-per-second sun + canopy print gated by
 	// CVars.debugSkyLight. Frame-rate independent; counts deltaTime in
 	// _Process and snaps the line whenever it crosses one second.
@@ -414,6 +434,13 @@ public partial class GameClient : Node3D
 	// our own copy keeps respawn intact if a future save-load path mutates
 	// WorldState.Spawn for a different purpose.
 	Vector3 _spawnPosition;
+	// The campfire the party is anchored to — the starting campfire until the
+	// player camps somewhere new (CampScreen.Open → NotifyCampedAt). On a party
+	// member's death the survivors gather here and the fade-in frames it.
+	Vector3 _lastCampfirePosition;
+	// Set during a camp entry that detours through the map-reveal almanac — the
+	// campfire to open the camp screen on once the almanac is closed.
+	Campfire _campReturnForge;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
@@ -492,15 +519,22 @@ public partial class GameClient : Node3D
 		{
 			upgradeScreen.Visible = false;
 		}
+		if (forgeScreen != null)
+		{
+			forgeScreen.Visible = false;
+		}
 
 		_inputSuppressed = false;
 		_inputSuppressClearPending = false;
 
 	}
 
-	public async void Init(Vector3 playerPosition, PackedScene playerScene, CharacterCreationState characterCreation, WorldGenData worldGenData, WorldState worldState, LoadingScreen loadingScreen = null)
+	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData, WorldState worldState, LoadingScreen loadingScreen = null)
 	{
 		_spawnPosition = playerPosition;
+		_lastCampfirePosition = playerPosition;
+		_playerScene = playerScene;
+		_worldGenData = worldGenData;
 		onHudText += OnHudTextRequested;
 		onDamage += OnDamageRequested;
 		onHeal += OnHealRequested;
@@ -558,27 +592,36 @@ public partial class GameClient : Node3D
 		GD.Print($"[Load] Spawn-ready wait: {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
 
-		_player = playerScene.Instantiate<Player>();
-		_player.onHighlightChanged += OnPlayerHighlightChanged;
-		_player.onInteractChanged += OnPlayerInteractChanged;
-		_player.onLanguageLearned += OnPlayerLanguageLearned;
-		_player.onDied += OnPlayerDiedInternal;
-		if (birdsEye != null) { _player.onBirdsEye += birdsEye.SetActive; }
-		sceneViewport.AddChild(_player);
-		// Suppress announcements during spawn-time knowledge application so
-		// the starting health potion, known recipes, etc. don't pop banners
-		// on the first frame. Player.Initialize walks
-		// WorldGenData.initialKnowledge under this gate; everything else
-		// it does (inventory seeding, ability setup) doesn't touch the bus.
+		// Build the party roster once from the authored templates. Guard on an
+		// existing roster so a future disk-load / SaveGame path that already
+		// carries a party doesn't rebuild or double-spawn it.
+		if (sim != null && sim.Party == null)
+		{
+			sim.Party = Party.FromTemplates(worldGenData?.startingParty);
+		}
+		Party party = sim?.Party ?? Party.FromTemplates(worldGenData?.startingParty);
+
+		// Spawn every member as a Player node: the active member at the spawn
+		// anchor (controlled), the rest evenly ringed around it and inactive
+		// (they idle where placed). Suppress announcements during spawn-time
+		// knowledge application so the starting potion / known recipes don't pop
+		// banners on the first frame — Player.Initialize walks
+		// WorldGenData.initialKnowledge under this gate.
 		SuppressAnnouncements = true;
 		try
 		{
-			_player.Initialize(_world, worldGenData, characterCreation, playerPosition, Vector3.Zero);
+			SpawnParty(party, playerScene, worldGenData, playerPosition);
 		}
 		finally
 		{
 			SuppressAnnouncements = false;
 		}
+
+		// The scenario's initial knowledge was just applied to the active member's
+		// provisional store during spawn — bank it into the permanent party pool
+		// so it's shared from the first frame rather than sitting un-banked on
+		// (and lost with) the starting character.
+		sim?.BankActiveKnowledge();
 
 		// Burst the per-frame spawn budget while the loading overlay is
 		// opaque — the player can't see frame hitches, so we trade smooth
@@ -639,6 +682,347 @@ public partial class GameClient : Node3D
 		InputSuppressed = false;
 	}
 
+	// Instantiate one Player node per party member and place them around the
+	// spawn anchor: the active member at the anchor (controlled), the rest
+	// spread evenly on a ring and set inactive. Sets _player to the active one.
+	void SpawnParty(Party party, PackedScene playerScene, WorldGenData worldGenData, Vector3 anchor)
+	{
+		_partyPlayers.Clear();
+		int activeIndex = party.ActiveIndex;
+		int inactiveCount = Math.Max(0, party.Count - 1);
+		int ringSlot = 0;
+		for (int i = 0; i < party.Count; i++)
+		{
+			bool active = i == activeIndex;
+			Vector3 pos;
+			if (active)
+			{
+				pos = anchor;
+			}
+			else
+			{
+				// Even ring so the controlled member (at the anchor) has room to
+				// sit; gravity in Player.TickInactive settles each onto the ground.
+				pos = RingPosition(anchor, ringSlot, inactiveCount);
+				ringSlot++;
+			}
+			Player p = SpawnPartyMember(party[i], playerScene, worldGenData, pos, active);
+			_partyPlayers.Add(p);
+			if (active) { _player = p; }
+		}
+		// Every Player._Ready claims the audio listener, so the last member
+		// spawned would otherwise own it — hand it to the controlled member.
+		_player?.MakeAudioListenerCurrent();
+	}
+
+	// Even-spaced position on a ring of `ringCount` members around `anchor`.
+	Vector3 RingPosition(Vector3 anchor, int slot, int ringCount)
+	{
+		float a = ringCount > 0 ? Mathf.Tau * slot / ringCount : 0f;
+		return anchor + new Vector3(Mathf.Cos(a) * partyRingRadius, 0f, Mathf.Sin(a) * partyRingRadius);
+	}
+
+	// Teleport the living party to the campfire anchor: the controlled member at
+	// the center (room to sit), the other survivors spread evenly around it. Dead
+	// members are left where they fell (their body is the revivable corpse).
+	// Used by the death flow to gather survivors, and by the camp Select-Character
+	// confirm to re-center the newly-controlled member.
+	public void GatherPartyAt(Vector3 anchor)
+	{
+		Party party = _world?.WorldState?.SimState?.Party;
+		if (party == null) { return; }
+		int ringCount = 0;
+		for (int i = 0; i < _partyPlayers.Count; i++)
+		{
+			if (party.IsAlive(i) && _partyPlayers[i] != null && _partyPlayers[i] != _player) { ringCount++; }
+		}
+		int slot = 0;
+		for (int i = 0; i < _partyPlayers.Count; i++)
+		{
+			Player p = _partyPlayers[i];
+			if (p == null || !party.IsAlive(i)) { continue; }
+			if (p == _player)
+			{
+				p.TeleportTo(anchor);
+			}
+			else
+			{
+				p.TeleportTo(RingPosition(anchor, slot, ringCount));
+				slot++;
+			}
+		}
+	}
+
+	// Cinematic camp entry from lighting a campfire: fade to black, and while the
+	// screen is fully black light the fire and bank the party's field knowledge.
+	// If that bank charts new ground on the world map, the almanac opens first and
+	// the reveal grows in over ~1.5s once it fades in; closing the almanac then
+	// opens the camp screen. Otherwise the camp screen opens directly. Input is
+	// gated for the whole transition; campScreen.Open keeps it gated once open and
+	// campScreen.Close releases it. Falls back to opening immediately if no fade
+	// overlay is wired.
+	public void EnterCampWithFade(Campfire forge)
+	{
+		if (forge == null || campScreen == null || _player == null)
+		{
+			return;
+		}
+		InputSuppressed = true;
+		bool showReveal = false;
+		void OnBlack()
+		{
+			forge.Light();
+			// Arrival: snapshot the pre-camp world map, bank field knowledge, then
+			// diff for newly-charted ground. NotifyCampedAt does the bank + display
+			// rebuild; capture the baseline just before it.
+			_world?.Minimap?.CaptureBankedRevealBaseline();
+			NotifyCampedAt(forge.GlobalPosition);
+			showReveal = _world?.Minimap?.PrepareBankedReveal() ?? false;
+			if (showReveal && almanacScreen != null)
+			{
+				_campReturnForge = forge;
+				almanacScreen.Open(AlmanacScreen.EAlmanacTab.WorldMap, this, onClose: ResumeCampAfterReveal);
+			}
+			else
+			{
+				campScreen.Open(_player, forge);
+			}
+		}
+		void OnRevealed()
+		{
+			// Almanac has faded in on the pre-camp map — now grow the new ground in.
+			if (showReveal)
+			{
+				_world?.Minimap?.StartBankedReveal();
+			}
+		}
+		if (campFade != null && !campFade.Busy)
+		{
+			campFade.Play(OnBlack, OnRevealed);
+		}
+		else
+		{
+			OnBlack();
+			OnRevealed();
+		}
+	}
+
+	// Almanac closed after the camp map-reveal — snap the map to fully charted (in
+	// case it was closed mid-sweep) and open the camp screen on the anchored fire.
+	void ResumeCampAfterReveal()
+	{
+		_world?.Minimap?.FinalizeBankedReveal();
+		Campfire forge = _campReturnForge;
+		_campReturnForge = null;
+		if (forge != null && _player != null)
+		{
+			campScreen.Open(_player, forge);
+		}
+	}
+
+	// The party is anchored to a new campfire — record it so a later death
+	// gathers survivors here. Called when the player camps (CampScreen.Open).
+	public void NotifyCampedAt(Vector3 campfirePosition)
+	{
+		_lastCampfirePosition = campfirePosition;
+		// Returning to a campfire banks the active member's provisional field
+		// knowledge into the permanent party pool (the "commit" in the two-tier
+		// knowledge model).
+		_world?.WorldState?.SimState?.BankActiveKnowledge();
+		// The map shows only the banked party pool, so surface the freshly-banked
+		// reveal now that it's been committed.
+		_world?.Minimap?.RebuildExplorationDisplay();
+		TransferCarriedMaterialsToStash();
+	}
+
+	// On camping, the controlled member's carried materials drain into the shared
+	// party material stash (cooking pulls ingredients from there). Merges into
+	// existing stacks. Equipment / weapons / armor stay on the member — only the
+	// material backpack empties.
+	void TransferCarriedMaterialsToStash()
+	{
+		Inventory inv = _player?.Inventory;
+		List<ItemState> stash = _world?.WorldState?.SimState?.PartyMaterialStash;
+		if (inv == null || stash == null)
+		{
+			return;
+		}
+		foreach (ItemState material in inv.DrainBackpack())
+		{
+			ItemStash.Add(stash, material);
+		}
+	}
+
+	// Recruit a talkable NPC into the party (fired by a RecruitToPartyAction in
+	// the mob's conversation). Deep-clones the mob's authored party-member
+	// template into a new roster member, spawns that member as an inactive Player
+	// standing on the campfire ring, and despawns the mob. The newcomer idles at
+	// camp — even though the player is out in the field talking — until the
+	// player returns and can switch control to them (matching "show up at the
+	// active campfire"). No-op (returns false) if the mob isn't recruitable or the
+	// roster isn't ready. Idempotent by construction: the mob is removed here, so
+	// its conversation can't fire this twice.
+	public bool RecruitToParty(Mob mob)
+	{
+		PlayerState template = mob?.RecruitTemplate;
+		Party party = _world?.WorldState?.SimState?.Party;
+		if (template == null || party == null || _playerScene == null)
+		{
+			return false;
+		}
+
+		// Clone so the roster member is independent of the authored .tres (their
+		// vitals / inventory evolve per-run), matching Party.FromTemplates.
+		var member = (PlayerState)template.Duplicate(true);
+		party.Add(member);
+
+		// Place on the campfire ring alongside the other standing members. Sized to
+		// the inactive count including the newcomer; the existing members keep their
+		// slots (a slight unevenness) until the next GatherPartyAt re-rings them.
+		int inactiveBefore = 0;
+		for (int i = 0; i < _partyPlayers.Count; i++)
+		{
+			if (_partyPlayers[i] != null && _partyPlayers[i] != _player) { inactiveBefore++; }
+		}
+		Vector3 pos = RingPosition(_lastCampfirePosition, inactiveBefore, inactiveBefore + 1);
+		Player p = SpawnPartyMember(member, _playerScene, _worldGenData, pos, active: false);
+		// Party.Add appended, so a plain Add keeps _partyPlayers index-aligned.
+		_partyPlayers.Add(p);
+
+		mob.Despawn();
+
+		Announce(new Announcement
+		{
+			type = EAnnouncementType.PartyJoined,
+			title = "Joined the Party",
+			subtitle = string.IsNullOrEmpty(member.characterName) ? null : member.characterName,
+		});
+		return true;
+	}
+
+	Player SpawnPartyMember(PlayerState member, PackedScene playerScene, WorldGenData worldGenData, Vector3 position, bool active)
+	{
+		Player p = playerScene.Instantiate<Player>();
+		// Only the active (controlled) member's events drive GameClient; inactive
+		// members are wired the moment control switches to them (SwitchControlTo).
+		if (active) { SubscribePlayerEvents(p); }
+		sceneViewport.AddChild(p);
+		p.Initialize(_world, worldGenData, member, position, Vector3.Zero);
+		if (!active) { p.SetActive(false); }
+		return p;
+	}
+
+	void SubscribePlayerEvents(Player p)
+	{
+		p.onHighlightChanged += OnPlayerHighlightChanged;
+		p.onInteractChanged += OnPlayerInteractChanged;
+		p.onLanguageLearned += OnPlayerLanguageLearned;
+		p.onDied += OnPlayerDiedInternal;
+		if (birdsEye != null) { p.onBirdsEye += birdsEye.SetActive; }
+	}
+
+	void UnsubscribePlayerEvents(Player p)
+	{
+		p.onHighlightChanged -= OnPlayerHighlightChanged;
+		p.onInteractChanged -= OnPlayerInteractChanged;
+		p.onLanguageLearned -= OnPlayerLanguageLearned;
+		p.onDied -= OnPlayerDiedInternal;
+		if (birdsEye != null) { p.onBirdsEye -= birdsEye.SetActive; }
+	}
+
+	// The party's Player nodes (index-aligned with the roster) and the index of
+	// the controlled one. Read by the camp Select-Character screen.
+	public IReadOnlyList<Player> PartyPlayers => _partyPlayers;
+	// The roster's active member — the current selection, which the party tab
+	// defaults its highlight to. Diverges from the controlled member only between
+	// a Select-Character pick and the control transfer (camp close); falls back to
+	// the controlled member's index if there's no party.
+	public int ActivePartyIndex =>
+		_world?.WorldState?.SimState?.Party?.ActiveIndex ?? _partyPlayers.IndexOf(_player);
+
+	// Mark a party member as active in the roster (data only). Control transfers
+	// on the next SyncControlToActive — the camp Select-Character screen calls
+	// this on Select and defers the transfer to camp exit. Returns true if the
+	// active member actually changed.
+	public bool SetPartyActive(int index)
+	{
+		Party party = _world?.WorldState?.SimState?.Party;
+		return party != null && party.SetActive(index);
+	}
+
+	// Hand control — input, camera, World.player, HUD, audio listener — to
+	// whichever member the roster currently marks active. The previously-
+	// controlled member goes inactive (idles where it stands). No-op if that
+	// member is already controlled. Called on camp exit after a Select-Character
+	// choice, and by SwitchControlTo for the immediate debug switch.
+	//
+	// transferBelt: on a deliberate campfire character switch the quick-use
+	// consumable belt travels with the player (moves from the outgoing member to
+	// the incoming one). Left false for the death-respawn switch, where each
+	// survivor keeps their own belt.
+	public void SyncControlToActive(bool transferBelt = false)
+	{
+		Party party = _world?.WorldState?.SimState?.Party;
+		if (party == null)
+		{
+			return;
+		}
+		int index = party.ActiveIndex;
+		if (index < 0 || index >= _partyPlayers.Count)
+		{
+			return;
+		}
+		Player target = _partyPlayers[index];
+		if (target == null || target == _player)
+		{
+			return;
+		}
+		Player outgoing = _player;
+		if (outgoing != null)
+		{
+			UnsubscribePlayerEvents(outgoing);
+			outgoing.SetActive(false);
+			// Carry the belt to the new character before the HUD rebinds to it.
+			if (transferBelt)
+			{
+				outgoing.Inventory?.TransferBeltTo(target.Inventory);
+			}
+		}
+		SubscribePlayerEvents(target);
+		target.SetActive(true);
+		target.MakeAudioListenerCurrent();
+		_player = target;
+		_world.SetPlayer(target);
+		hud?.RebindPlayer(target);
+		camera?.SetInitialPosition(target.GlobalPosition);
+		// Control moved to a different member — recompose the minimap fog-of-war
+		// as party ∪ new-active so the previous member's un-banked field reveal
+		// doesn't carry onto this character's map.
+		_world.Minimap?.RebuildExplorationDisplay();
+	}
+
+	// Immediate switch to a specific member: mark active + transfer control now.
+	// Used by the `party_next` debug command.
+	public void SwitchControlTo(int index)
+	{
+		if (SetPartyActive(index))
+		{
+			SyncControlToActive();
+		}
+	}
+
+	// Debug helper (party_next console command): cycle control to the next
+	// member. No-op for a solo party.
+	public void SwitchToNextPartyMember()
+	{
+		Party party = _world?.WorldState?.SimState?.Party;
+		if (party == null || _partyPlayers.Count <= 1)
+		{
+			return;
+		}
+		SwitchControlTo((party.ActiveIndex + 1) % _partyPlayers.Count);
+	}
+
 	void OnSimItemIdentified(ItemData data)
 	{
 		if (data == null) { return; }
@@ -681,9 +1065,9 @@ public partial class GameClient : Node3D
 		// been created yet — TryGetValue leaves kills at 0, which maps to
 		// level 0 in ComputeLevel. Level thresholds are shared per type
 		// (MobData.killsPerLevel); the kill count is the per-species total.
-		int prevKills = sim.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry prev) ? prev.Kills : 0;
+		int prevKills = sim.TryGetBestiaryEntry(species, out MobBestiaryEntry prev) ? prev.Kills : 0;
 		sim.RecordSpeciesKill(species);
-		int newKills = sim.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry next) ? next.Kills : prevKills;
+		int newKills = sim.TryGetBestiaryEntry(species, out MobBestiaryEntry next) ? next.Kills : prevKills;
 
 		int prevLevel = MobBestiaryEntry.ComputeLevel(prevKills, species.mob.killsPerLevel);
 		int newLevel = MobBestiaryEntry.ComputeLevel(newKills, species.mob.killsPerLevel);
@@ -924,6 +1308,8 @@ public partial class GameClient : Node3D
 			return;
 		}
 		_world.Tick(deltaTime);
+		// Retire any fallen member whose revive deadline the day cycle just passed.
+		CheckReviveDeadlines();
 		Combat?.Tick(_world.GameTimeMs);
 		UpdateRegion(deltaTime);
 		UpdateDebugSkyLight(deltaTime);
@@ -1147,7 +1533,7 @@ public partial class GameClient : Node3D
 			_currentRegionEnterPos = playerPos;
 			_pendingRegion = null;
 			_pendingRegionElapsed = 0f;
-			ws.SimState.DiscoveredRegions.Add(CurrentRegion);
+			ws.SimState.DiscoverRegion(CurrentRegion);
 			Announce(new Announcement
 			{
 				type = EAnnouncementType.Region,
@@ -1354,7 +1740,12 @@ public partial class GameClient : Node3D
 			return;
 		}
 
-		if (e.IsActionPressed("TogglePause"))
+		// Suppressed while a modal is up (almanac, merchant, etc.): Escape is
+		// bound to both TogglePause and ui_cancel, so consuming it here would
+		// open the pause menu instead of letting the modal close on its own
+		// ui_cancel. TogglePause deliberately isn't gated on `paused` so Escape
+		// still un-pauses (modals don't set `paused`).
+		if (!InputSuppressed && e.IsActionPressed("TogglePause"))
 		{
 			TogglePause();
 			GetViewport().SetInputAsHandled();
@@ -1373,13 +1764,6 @@ public partial class GameClient : Node3D
 		if (e.IsActionPressed("Map") && almanacScreen != null)
 		{
 			almanacScreen.Open(AlmanacScreen.EAlmanacTab.WorldMap, this);
-			GetViewport().SetInputAsHandled();
-			return;
-		}
-
-		if (e.IsActionPressed("Inventory") && almanacScreen != null)
-		{
-			almanacScreen.Open(AlmanacScreen.EAlmanacTab.Inventory, this);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
@@ -1758,6 +2142,43 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	// Forge item-pick. A Forge interaction calls this with the leveled,
+	// ephemeral items it minted and a callback that equips the chosen one.
+	// Mirrors the upgrade-screen gating (input suppressed, HUD hidden, mouse
+	// freed) but always returns straight to gameplay on close — the forge is
+	// used from the world, never nested inside another modal.
+	public void OpenForgeScreen(List<ItemState> items, Action<ItemState> onComplete)
+	{
+		if (forgeScreen == null)
+		{
+			return;
+		}
+		InputSuppressed = true;
+		if (hud != null) { hud.Visible = false; }
+		Input.MouseMode = Input.MouseModeEnum.Visible;
+		forgeScreen.Visible = true;
+
+		forgeScreen.Init(
+			chosen =>
+			{
+				onComplete?.Invoke(chosen);
+				CloseForgeScreen();
+			},
+			CloseForgeScreen,
+			items);
+	}
+
+	void CloseForgeScreen()
+	{
+		if (forgeScreen != null)
+		{
+			forgeScreen.Visible = false;
+		}
+		InputSuppressed = false;
+		if (hud != null) { hud.Visible = true; }
+		Input.MouseMode = Input.MouseModeEnum.Captured;
+	}
+
 	void OnPlayerInteractChanged(IInteractive interactive)
 	{
 		UpdateInteractHUD();
@@ -1824,25 +2245,168 @@ public partial class GameClient : Node3D
 		screenEffects?.NotifyPlayerDied(deathScreen?.fadeOutSeconds ?? 0f);
 
 		// Punch into slow-motion + zoom and hold it through the death-screen
-		// fade; RespawnPlayer releases it. Cancel any pending finisher auto-
-		// release so it can't cut this hold short.
+		// fade. Cancel any pending finisher auto-release so it can't cut short.
 		_victorySlowMoReleaseMs = 0;
 		slowMotion?.Trigger();
 		// A finisher focus could still be panning to a corpse when the player
 		// dies — snap framing intent back to the player for the death cam.
 		camera?.ClearFocus();
 
+		// The fallen member's body stays where it died as a revivable corpse: mark
+		// it dead, make it an inactive (dead-pose) standing body, and enable its
+		// revive interactive so a surviving member can bring it back.
+		Party party = _world?.WorldState?.SimState?.Party;
+		if (player?.Member != null) { player.Member.IsDead = true; }
+		player?.SetActive(false);
+		player?.SetCorpseInteractable(true);
+
+		bool anySurvivors = party != null && party.AliveCount > 0;
 		if (deathScreen != null)
 		{
-			deathScreen.Show(this);
+			deathScreen.Show(this, anySurvivors
+				? DeathScreen.EDeathOutcome.PartySelect
+				: DeathScreen.EDeathOutcome.GameOver);
+		}
+		else if (anySurvivors)
+		{
+			// No screen wired (tests): resolve immediately so input isn't stranded.
+			OnDeathBlackout();
+			OpenDeathPartySelect();
 		}
 		else
 		{
-			// No screen wired (unit-test scaffolding): respawn immediately
-			// so the gate doesn't strand input forever.
-			RespawnPlayer();
+			QuitToMenu();
+		}
+	}
+
+	// Called by DeathScreen once the screen is fully black (party-select outcome):
+	// hand control to the first surviving member, gather the survivors at the last
+	// campfire, and frame it. The dead member's body is left behind as a corpse.
+	public void OnDeathBlackout()
+	{
+		Party party = _world?.WorldState?.SimState?.Party;
+		int alive = party?.FirstAliveIndex() ?? -1;
+		if (alive < 0)
+		{
+			return;
+		}
+		// Hand control to a living member FIRST — AdvanceTime early-outs on a dead
+		// _player, so a survivor must be driving before we skip time.
+		party.SetActive(alive);
+		SyncControlToActive();
+		// "Sleep off" the death: advance to the next sunrise, then give the newly-
+		// fallen member their one-day revive grace and destroy anyone whose
+		// deadline the skip just passed.
+		_world?.AdvanceTimeToNextSunrise();
+		AssignReviveDeadlines();
+		CheckReviveDeadlines();
+		GatherPartyAt(_lastCampfirePosition);
+		camera?.SetInitialPosition(_lastCampfirePosition);
+		slowMotion?.Release();
+		screenEffects?.ResetOnRespawn();
+	}
+
+	// Give every fallen member without a deadline one sunrise of grace: they must
+	// be revived before the NEXT sunrise (a full day past the one the party just
+	// woke at) or be destroyed. Assigned after the death time-skip, so
+	// TimeOfDayAbsolute already sits on the wake-up sunrise.
+	void AssignReviveDeadlines()
+	{
+		Party party = _world?.WorldState?.SimState?.Party;
+		if (party == null || _world == null)
+		{
+			return;
+		}
+		double deadline = _world.TimeOfDayAbsolute + 1.0;
+		for (int i = 0; i < party.Count; i++)
+		{
+			PlayerState m = party[i];
+			if (m != null && m.IsDead && m.ReviveDeadlineAbsolute <= 0.0)
+			{
+				m.ReviveDeadlineAbsolute = deadline;
+			}
+		}
+	}
+
+	// Destroy any fallen member whose revive deadline the clock has reached — the
+	// body is removed and they leave the party for good. Called after the death
+	// time-skip and every frame (natural day passage), so a corpse left un-revived
+	// past its second sunrise is lost.
+	void CheckReviveDeadlines()
+	{
+		Party party = _world?.WorldState?.SimState?.Party;
+		if (party == null || _world == null)
+		{
+			return;
+		}
+		double now = _world.TimeOfDayAbsolute;
+		for (int i = party.Count - 1; i >= 0; i--)
+		{
+			PlayerState m = party[i];
+			if (m != null && m.IsDead && m.ReviveDeadlineAbsolute > 0.0 && now >= m.ReviveDeadlineAbsolute)
+			{
+				DestroyPartyMember(i);
+			}
+		}
+	}
+
+	// Remove a fallen member permanently: free the corpse body and drop the roster
+	// entry (kept index-aligned with _partyPlayers). Only ever called on dead
+	// members, so the controlled member is never destroyed.
+	void DestroyPartyMember(int index)
+	{
+		if (index < 0 || index >= _partyPlayers.Count)
+		{
+			return;
+		}
+		Player corpse = _partyPlayers[index];
+		_partyPlayers.RemoveAt(index);
+		_world?.WorldState?.SimState?.Party?.RemoveAt(index);
+		corpse?.QueueFree();
+	}
+
+	// Called by DeathScreen after the fade-in reveals the campfire (party-select
+	// outcome): open the camp Select-Character screen, locked to the party tab, so
+	// the player must pick who to control. It manages its own input gating and
+	// transfers control to the chosen survivor on close.
+	public void OpenDeathPartySelect()
+	{
+		if (campScreen != null)
+		{
+			campScreen.OpenPartySelect(_player, _lastCampfirePosition);
+		}
+		else
+		{
+			// No camp screen wired: just release input on the auto-picked survivor.
 			InputSuppressed = false;
 		}
+	}
+
+	// Resolution of a party member's Revive interactive (Player corpse → Complete).
+	// The revive fx already played via the action's completion event; here we
+	// restore the member and relocate them to the campfire as a selectable,
+	// standing (not controlled) party member.
+	public void RevivePartyMember(Player corpse)
+	{
+		if (corpse?.Member == null || !corpse.Member.IsDead)
+		{
+			return;
+		}
+		// Recover the fallen member's un-banked field knowledge into the reviving
+		// (active) player's provisional store. MergeFrom folds in the map reveal too, so the
+		// minimap display is recomposed to surface it immediately.
+		PlayerState reviver = _player?.Member;
+		if (reviver != null && reviver != corpse.Member)
+		{
+			reviver.Knowledge.MergeFrom(corpse.Member.Knowledge);
+			corpse.Member.Knowledge.Clear();
+			_world.Minimap?.RebuildExplorationDisplay();
+		}
+		corpse.Member.IsDead = false;
+		corpse.Member.ReviveDeadlineAbsolute = 0.0;
+		corpse.SetCorpseInteractable(false);
+		corpse.Respawn(_lastCampfirePosition);
+		corpse.SetActive(false);
 	}
 
 	// Called from DeathScreen when the player accepts the respawn prompt.

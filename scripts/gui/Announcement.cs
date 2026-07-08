@@ -15,13 +15,16 @@ public enum EAnnouncementType
 	MobDiscovered,
 	MobLevelUp,
 	GiftReceived,
+	// A new member joined the party (a recruited NPC). Event-log line carrying
+	// the member's name.
+	PartyJoined,
 	// Generic event-log notice with no dedicated category — carries its full
 	// text in `title`. Used by interactive-action refusals ("Danger Nearby").
 	Notice,
 }
 
 // Carrier for a queued HUD announcement. Built by whoever discovers the
-// underlying knowledge / event (Forge, WorldSimState, Player, etc.) and
+// underlying knowledge / event (Campfire, WorldSimState, Player, etc.) and
 // handed to GameClient.Announce, which forwards to the HUD. The HUD routes
 // Region to HudRegionBanner (a serialized full-width banner) and every other
 // type to HudEventLog as a fading line.

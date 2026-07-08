@@ -27,6 +27,11 @@ public partial class World
     public Action<Mob> onMobRemoved;
     public Action<Discoverable> onDiscoverableSpawned;
     public Action<Discoverable> onDiscoverableRemoved;
+    // Map markers self-register here on spawn / deregister on removal (mirrors
+    // the Discoverable events). The Minimap subscribes to keep the live marker
+    // set it scans for reveal-driven discovery at its reveal cadence.
+    public Action<MapMarker> onMapMarkerSpawned;
+    public Action<MapMarker> onMapMarkerRemoved;
     // Fires after LoadEntitiesForChunk has spawned the chunk's entity nodes.
     // Used by the minimap to stamp prop foliage once the trees / props are
     // actually in the scene (the chunk-mesh-loaded event fires earlier, when

@@ -48,6 +48,11 @@ public class StatusEffectController
 	// only the Mob controller wires it). Kept separate from _applyHealthDelta so
 	// max decay never routes through the damage/DoT path (no floating number).
 	readonly Action<float> _applyMaxHealthDelta;
+	// Evaluates an authored ETraitCondition against the owning actor's live state
+	// (stamina fraction, party) so conditionalModifiers fold in only while active.
+	// Null on actors that don't carry conditional traits (Mob, item-side
+	// controllers) — those skip every conditional group. See Player.EvaluateTraitCondition.
+	readonly Func<ETraitCondition, float, bool> _conditionActive;
 	readonly List<StatusEffectState> _statusEffects = new();
 	readonly Dictionary<StatusEffectData, BuildupState> _buildups = new();
 	// Rendered-visibility gate for every loop fx, driven by the owning actor
@@ -63,13 +68,14 @@ public class StatusEffectController
 	// fx at and no health to chip away. `world` may also be null; the meter
 	// machinery falls back to a zero game-time which is fine for ContinuousArm
 	// (it doesn't read time) and degrades gracefully for ThresholdCross decay.
-	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null)
+	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null, Func<ETraitCondition, float, bool> conditionActive = null)
 	{
 		_actor = actor;
 		_world = world;
 		_applyHealthDelta = applyHealthDelta;
 		_composeMaskMul = composeMaskMul;
 		_applyMaxHealthDelta = applyMaxHealthDelta;
+		_conditionActive = conditionActive;
 	}
 
 	public bool Contains(StatusEffectState state) => state != null && _statusEffects.Contains(state);
@@ -1165,6 +1171,7 @@ public class StatusEffectController
 				continue;
 			}
 			running = StatModifierUtil.Fold(stat, data.modifiers, running);
+			running = FoldConditional(data, running, mask: false, stat: stat, maskArg: EStat.None);
 		}
 		return running;
 	}
@@ -1190,8 +1197,67 @@ public class StatusEffectController
 				continue;
 			}
 			product = StatModifierUtil.FoldMask(mask, data.modifiers, product);
+			product = FoldConditional(data, product, mask: true, stat: EStat.None, maskArg: mask);
 		}
 		return product;
+	}
+
+	// Fold an effect's conditionalModifiers into `running` for whichever fold is in
+	// flight — a single-stat Fold (mask == false, uses `stat`) or a tag-mask FoldMask
+	// (mask == true, uses `maskArg`). Each group is included only when the owning
+	// actor's evaluator reports its condition active; without an evaluator (mobs,
+	// items) or a conditionalModifiers list, this is a no-op.
+	private float FoldConditional(StatusEffectData data, float running, bool mask, EStat stat, EStat maskArg)
+	{
+		Godot.Collections.Array<ConditionalModifierData> groups = data.conditionalModifiers;
+		if (groups == null || _conditionActive == null)
+		{
+			return running;
+		}
+		for (int g = 0; g < groups.Count; g++)
+		{
+			ConditionalModifierData group = groups[g];
+			if (group?.modifiers == null || !_conditionActive(group.condition, group.parameter))
+			{
+				continue;
+			}
+			running = mask
+				? StatModifierUtil.FoldMask(maskArg, group.modifiers, running)
+				: StatModifierUtil.Fold(stat, group.modifiers, running);
+		}
+		return running;
+	}
+
+	// Self-apply each active effect's onDamagedEffect when a hit whose tags overlap
+	// that effect's onDamagedTags lands on the wearer (Thin Skinned → its "+5% damage
+	// taken" debuff on physical damage). Called from the actor's hit pipeline after
+	// damage resolves. The applied effect's own maxStack governs whether repeat hits
+	// stack or just refresh the timer. Snapshots the effects to apply first because
+	// Add mutates _statusEffects mid-scan.
+	public void TriggerOnDamaged(EStat hitTags)
+	{
+		List<StatusEffectData> toApply = null;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data?.onDamagedEffect == null)
+			{
+				continue;
+			}
+			if (data.onDamagedTags != EStat.None && (data.onDamagedTags & hitTags) == 0)
+			{
+				continue;
+			}
+			(toApply ??= new List<StatusEffectData>()).Add(data.onDamagedEffect);
+		}
+		if (toApply == null)
+		{
+			return;
+		}
+		for (int i = 0; i < toApply.Count; i++)
+		{
+			Add(toApply[i]);
+		}
 	}
 
 	// Show / hide every active effect's loop fx, following the owning body's

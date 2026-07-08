@@ -69,7 +69,7 @@ public partial class Main : Node
 		StartMainMenu();
 	}
 
-	async void NewGame(Vector3 playerPosition, PackedScene playerScene, CharacterCreationState characterCreation, WorldGenData worldGenData)
+	async void NewGame(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData)
 	{
 		LoadingScreen loadingScreen = ShowLoadingScreen();
 		MusicManager.Instance?.SetLoading(true);
@@ -82,7 +82,7 @@ public partial class Main : Node
 		_currentScreen.QueueFree();
 		_currentScreen = null;
 
-		await StartGame(loadingScreen, playerPosition, playerScene, characterCreation, worldGenData);
+		await StartGame(loadingScreen, playerPosition, playerScene, worldGenData);
 	}
 
 	void LoadGame(string savePath)
@@ -100,7 +100,7 @@ public partial class Main : Node
 		return loadingScreen;
 	}
 
-	async Task StartGame(LoadingScreen loadingScreen, Vector3 playerPosition, PackedScene playerScene, CharacterCreationState characterCreation, WorldGenData worldGenData)
+	async Task StartGame(LoadingScreen loadingScreen, Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData)
 	{
 		// Upload the active world's terrain + detail palettes to the terrain
 		// shader / scatter system before any chunk mesh is built. Disk-loaded
@@ -301,7 +301,7 @@ public partial class Main : Node
 		AddChild(_currentScreen);
 		GD.Print($"[Load] Scene loaded: {phaseSw.ElapsedMilliseconds}ms");
 		loadingScreen.SetProgress(0.6f, "Building world...");
-		(_currentScreen as GameClient).Init(playerPosition, playerScene, characterCreation, worldGenData, worldState, loadingScreen);
+		(_currentScreen as GameClient).Init(playerPosition, playerScene, worldGenData, worldState, loadingScreen);
 		// Hand the persistent music director the fresh session so it can
 		// subscribe to combat/world events; it auto-detaches on quit.
 		MusicManager.Instance?.BindGame(_currentScreen as GameClient);

@@ -14,8 +14,16 @@ hermit_resp_who	Who are you?
 hermit_who	No one worth a name anymore. I came to the marsh to be forgotten, and it obliged.
 hermit_resp_marsh	What's out here?
 hermit_marsh	Old things. Sunken things. Tread careful where the water goes still.
+hermit_resp_join	Come with me. There's nothing left for you out here.
+hermit_join	Hah. Been a long while since anyone asked. ...Aye. Better than rotting in the mud alone. Lead on, then — I'll make my way to your fire.
 hermit_resp_leave	I'll leave you be.
 hermit_farewell	Aye. Mind the deep water.
+wanderer_greeting	Well met, traveler. I've been resting my feet by this fire.
+wanderer_intro	I know these roads — the peaks, the wood, the dunes, the mire. Been walking them alone too long, if I'm honest.
+wanderer_resp_join	Walk them with me, then. Join my party.
+wanderer_join	Ha — I thought you'd never ask. Aye, I'm with you. I'll wait at your fire till you're ready to move.
+wanderer_resp_leave	Safe travels.
+wanderer_farewell	And to you. I'll be here a while yet.
 weapon_name_prefix	%0 %1
 weapon_name_suffix	%0 %1
 status_duration_until	Until %0

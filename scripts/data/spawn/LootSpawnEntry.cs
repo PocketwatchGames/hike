@@ -16,11 +16,12 @@ public partial class LootSpawnEntry : SpawnEntryData
             return;
         }
         var simState = new LootSimState(position, item.item);
-        // Eager-create the carried ItemState only when there are mods to compose
-        // — plain drops leave Item null on the sim state and synthesize a fresh
-        // state at pickup (cheaper, matches the world-loot default). Mirrors the
-        // fairy-loot composition path in World.SpawnLoot.
-        if (item.HasStatusEffects)
+        // Eager-create the carried ItemState only when the descriptor has
+        // per-instance data to compose (mods or ephemeral) — plain drops leave
+        // Item null on the sim state and synthesize a fresh state at pickup
+        // (cheaper, matches the world-loot default). Mirrors the fairy-loot
+        // composition path in World.SpawnLoot.
+        if (item.NeedsComposedState)
         {
             simState.Item = item.CreateState();
         }

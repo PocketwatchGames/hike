@@ -53,6 +53,12 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     // it persists by path and reusable rules can be shared across merchants.
     // Empty leaves the species defaults untouched.
     [Export] public Array<ItemTagPreference> itemPreferences = new();
+    // Party-member identity for a recruitable NPC: the PlayerState this
+    // individual becomes when added to the party (via a RecruitToPartyAction in
+    // their conversation). Authored as a standalone .tres like the starting
+    // party; cloned into the roster on recruit while the NPC's mob despawns and
+    // the clone stands at the active campfire. Null = not recruitable.
+    [Export] public PlayerState recruitTemplate;
     // Already tamed at spawn — joins the player's side (the starter companion).
     [Export] public bool tamed;
     // Persistent (non-chunked) player-attached state, spawned once and never
@@ -111,6 +117,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
                 if (pref != null) { state.ItemPreferences.Add(pref); }
             }
         }
+        if (recruitTemplate != null) { state.RecruitTemplate = recruitTemplate; }
         if (tamed) { state.Tamed = true; }
         if (persistent)
         {

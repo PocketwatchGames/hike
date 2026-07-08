@@ -8,7 +8,6 @@
 [sub_resource type="Resource" id="Campfire_zone"]
 script = ExtResource("3_camp")
 scene = ExtResource("4_campscene")
-startLit = true
 metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
 
 [resource]

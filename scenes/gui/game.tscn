@@ -10,7 +10,9 @@
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
+[ext_resource type="PackedScene" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
 [ext_resource type="PackedScene" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
+[ext_resource type="Script" uid="uid://fplnhal49qx0f" path="res://scripts/gui/ScreenFade.cs" id="42_screenfade"]
 [ext_resource type="PackedScene" uid="uid://blq0cn2x7hpke" path="res://scenes/gui/camp_screen.tscn" id="40_30f04"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://assets/audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
@@ -80,7 +82,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "upgradeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 flyCamera = NodePath("FlyCamera")
@@ -90,7 +92,9 @@ merchantScreen = NodePath("GUICanvas/MerchantScreen")
 campScreen = NodePath("GUICanvas/CampScreen")
 deathScreen = NodePath("DeathCanvas/DeathScreen")
 sleepOverlay = NodePath("SleepCanvas/SleepOverlay")
+campFade = NodePath("FadeCanvas/ScreenFade")
 upgradeScreen = NodePath("GUICanvas/UpgradeScreen")
+forgeScreen = NodePath("GUICanvas/ForgeScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
 sceneEnvironment = NodePath("SceneViewport/InnerEnv")
@@ -402,6 +406,9 @@ visible = false
 [node name="UpgradeScreen" parent="GUICanvas" unique_id=1337731579 instance=ExtResource("27_upgrade")]
 visible = false
 
+[node name="ForgeScreen" parent="GUICanvas" instance=ExtResource("41_forge")]
+visible = false
+
 [node name="CampScreen" parent="GUICanvas" unique_id=1625914699 instance=ExtResource("40_30f04")]
 visible = false
 
@@ -454,3 +461,27 @@ layer = 15
 layer = 16
 
 [node name="SleepOverlay" parent="SleepCanvas" unique_id=1377417289 instance=ExtResource("28_sleep")]
+
+[node name="FadeCanvas" type="CanvasLayer" parent="."]
+layer = 17
+
+[node name="ScreenFade" type="Control" parent="FadeCanvas" node_paths=PackedStringArray("overlay")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("42_screenfade")
+overlay = NodePath("Overlay")
+
+[node name="Overlay" type="ColorRect" parent="FadeCanvas/ScreenFade"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0)

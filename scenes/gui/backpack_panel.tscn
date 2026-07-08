@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://bi0li20a44lg5"]
+
+[ext_resource type="Script" uid="uid://c6fma23i8hjb3" path="res://scripts/gui/BackpackPanel.cs" id="1_entro"]
+[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="1_lso6f"]
+
+[node name="BackpackPanel" type="MarginContainer" unique_id=1913399409 node_paths=PackedStringArray("_slots")]
+offset_right = 248.0
+offset_bottom = 332.0
+size_flags_horizontal = 2
+size_flags_vertical = 0
+script = ExtResource("1_entro")
+_slots = [NodePath("GridContainer/Backpack1"), NodePath("GridContainer/Backpack2"), NodePath("GridContainer/Backpack3"), NodePath("GridContainer/Backpack4"), NodePath("GridContainer/Backpack5"), NodePath("GridContainer/Backpack6"), NodePath("GridContainer/Backpack7"), NodePath("GridContainer/Backpack8"), NodePath("GridContainer/Backpack9"), NodePath("GridContainer/Backpack10"), NodePath("GridContainer/Backpack11"), NodePath("GridContainer/Backpack12")]
+
+[node name="GridContainer" type="GridContainer" parent="." unique_id=259826716]
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 4
+columns = 3
+
+[node name="Backpack1" parent="GridContainer" unique_id=982744505 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack2" parent="GridContainer" unique_id=1921487351 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack3" parent="GridContainer" unique_id=300620457 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack4" parent="GridContainer" unique_id=142392481 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack5" parent="GridContainer" unique_id=986301415 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack6" parent="GridContainer" unique_id=1032895654 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack7" parent="GridContainer" unique_id=921769295 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack8" parent="GridContainer" unique_id=926290607 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack9" parent="GridContainer" unique_id=876127737 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack10" parent="GridContainer" unique_id=44852735 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack11" parent="GridContainer" unique_id=455049828 instance=ExtResource("1_lso6f")]
+layout_mode = 2
+
+[node name="Backpack12" parent="GridContainer" unique_id=1580672711 instance=ExtResource("1_lso6f")]
+layout_mode = 2

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://chywgb4qw5ohg"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
+[ext_resource type="Resource" uid="uid://rru3dva78yaj" path="res://resources/data/status_effects/traits/status_thin_skinned_vulnerable.tres" id="3_vuln"]
+
+[sub_resource type="Resource" id="mod_out"]
+script = ExtResource("2_mod")
+stat = 2048
+value = 1.05
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Thin Skinned"
+description = "You hit a little harder, but pain lingers — for a few seconds after taking physical damage you're more vulnerable to it."
+category = 2
+durationType = 1
+maxStack = 1
+removesOnApply = []
+modifiers = Array[ExtResource("2_mod")]([SubResource("mod_out")])
+conditionalModifiers = []
+onDamagedEffect = ExtResource("3_vuln")
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

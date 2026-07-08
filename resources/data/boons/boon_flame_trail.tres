@@ -19,6 +19,7 @@ durationType = 2
 maxStack = 1
 removesOnApply = []
 modifiers = []
+conditionalModifiers = []
 trail = SubResource("trail")
 
 [resource]

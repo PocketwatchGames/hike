@@ -269,6 +269,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // becomes a companion the moment its loyalty crosses MobData.tameLoyalty
     // (or it spawns pre-tamed, like the starter pet). See Tame / ActorTeam.
     public bool IsCompanion => _simState != null && _simState.Tamed;
+    // Party-member template for a recruitable NPC (null = not recruitable). When
+    // set, a RecruitToPartyAction in this mob's conversation hands the mob to
+    // GameClient.RecruitToParty, which clones the template into the roster and
+    // despawns this mob. See MobSimState.RecruitTemplate.
+    public PlayerState RecruitTemplate => _simState?.RecruitTemplate;
     // Companion follow/stay command state, read by the companion brain's
     // transition conditions. Backed by sim state so it persists across
     // streaming. Toggled by the player's command input.
@@ -3670,10 +3675,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         health -= incoming;
         if (health <= 0f)
         {
-            if (hit.source is Player killer)
-            {
-                killer.GrantEquippedExperience(mobData.exp);
-            }
             Die();
         }
         // Per-hit blood / hurt VO. Suppressed for continuous DoT hits (the

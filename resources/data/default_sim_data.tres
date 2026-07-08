@@ -41,6 +41,13 @@
 [ext_resource type="Resource" uid="uid://cl34ccsehfsfi" path="res://resources/data/boons/boon_stoneskin.tres" id="27_boon_stoneskin"]
 [ext_resource type="Resource" uid="uid://d37luqaiw0bcx" path="res://resources/data/boons/boon_seeking.tres" id="28_boon_seeking"]
 [ext_resource type="Resource" uid="uid://3jjnm78vuj6c" path="res://resources/data/boons/boon_ranged_seeking.tres" id="29_boon_ranged_seeking"]
+[ext_resource type="Resource" uid="uid://c3jy0q0qdvu5v" path="res://resources/data/actions/party_revive_action.tres" id="30_party_revive"]
+[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="31_itemdata"]
+[ext_resource type="Resource" uid="uid://d3xp3psvbwcie" path="res://resources/data/items/weapons/knife.tres" id="32_knife"]
+[ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/club.tres" id="33_club"]
+[ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="34_bow"]
+[ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="35_leather"]
+[ext_resource type="Resource" uid="uid://bnleciyyfwrqk" path="res://resources/data/items/armor/chainmail_armor.tres" id="36_chain"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -54,9 +61,11 @@ eliteLoot = ExtResource("17_elite_loot")
 fairyLoot = ExtResource("18_fairy_loot")
 fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking")])
 fairyBoonGold = ExtResource("22_boon_gold")
+forgeItems = Array[ExtResource("31_itemdata")]([ExtResource("32_knife"), ExtResource("33_club"), ExtResource("34_bow"), ExtResource("35_leather"), ExtResource("36_chain")])
 talkAction = ExtResource("13_talk_action")
 giveItemAction = ExtResource("14_give_action")
 reviveAction = ExtResource("20_revive_action")
+partyReviveAction = ExtResource("30_party_revive")
 sunMaxElevationDegrees = 65.0
 sunsetAngleDegrees = 25.0
 fillAFromSkyBias = 1.0

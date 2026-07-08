@@ -80,7 +80,7 @@ public partial class Player : CharacterBody3D
 		BeginBirdsEye();
 	}
 
-	// Entered from Forge.Complete (EActionVerb.Camp) when the camp screen opens
+	// Entered from Campfire.Complete (EActionVerb.Camp) when the camp screen opens
 	// at a lit campfire. Conceals the player from mobs (the camp action is gated
 	// by NoDangerRequirement, but time can pass / mobs can wander while the modal
 	// is up) and switches the loop pose to SitIdle. The model stays visible.

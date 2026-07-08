@@ -43,3 +43,4 @@ endFx = ExtResource("4_endfx")
 loopFx = ExtResource("5_loopfx")
 removesOnApply = Array[ExtResource("1_data")]([ExtResource("6_burning")])
 modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("m_heat"), SubResource("m_fire"), SubResource("m_lightning")])
+conditionalModifiers = []

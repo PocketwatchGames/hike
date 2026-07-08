@@ -32,7 +32,6 @@ metadata/_custom_type_script = "uid://ajwmjuqoukebq"
 [sub_resource type="Resource" id="Campfire_center"]
 script = ExtResource("4_camp")
 scene = ExtResource("9_campscene")
-startLit = true
 placeAtAnchor = true
 metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
 

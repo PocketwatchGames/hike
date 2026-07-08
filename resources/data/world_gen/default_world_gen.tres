@@ -1,38 +1,19 @@
 [gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://carn5t06puf34"]
 
 [ext_resource type="Script" uid="uid://bk2smsd8gwalq" path="res://scripts/data/worldgen/WorldGenData.cs" id="1_script"]
-[ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="2_consumable_script"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="2_sim"]
 [ext_resource type="Resource" uid="uid://wwpw4gcdk0vs" path="res://resources/data/world_gen/zone_gen/desert_gen.tres" id="2_zone_desert"]
 [ext_resource type="Resource" uid="uid://wwpw4geql0vs" path="res://resources/data/world_gen/zone_gen/forest_gen.tres" id="2_zone_forest"]
 [ext_resource type="Resource" uid="uid://dhg7c42lgnit2" path="res://resources/data/world_gen/zone_gen/hub_gen.tres" id="2_zone_hub"]
 [ext_resource type="Resource" uid="uid://wwpw4glsf0vs" path="res://resources/data/world_gen/zone_gen/mountain_gen.tres" id="2_zone_mountain"]
 [ext_resource type="Resource" uid="uid://wwpw4grvh0vs" path="res://resources/data/world_gen/zone_gen/swamp_gen.tres" id="2_zone_swamp"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="3_itemcount"]
 [ext_resource type="Script" uid="uid://bglfc6qt5onq3" path="res://scripts/data/teaching/ItemTeachable.cs" id="3_itemteach"]
-[ext_resource type="Resource" uid="uid://bm0weapondat1" path="res://resources/data/items/weapons/bomb.tres" id="3_jl16k"]
 [ext_resource type="Resource" uid="uid://c0mthwo8voc3w" path="res://resources/data/world_gen/region_gen/region_gen_desert.tres" id="3_region_desert"]
 [ext_resource type="Resource" uid="uid://d2rxg8txuelf0" path="res://resources/data/world_gen/region_gen/region_gen_forest.tres" id="3_region_forest"]
 [ext_resource type="Resource" uid="uid://dql8txwkuxpdg" path="res://resources/data/world_gen/region_gen/region_gen_mountain.tres" id="3_region_mountain"]
 [ext_resource type="Resource" uid="uid://bbelkvnbtjkl6" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="3_region_swamp"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]
-[ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/club.tres" id="4_melee"]
-[ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_ranged"]
-[ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/consumables/lantern.tres" id="6_torch"]
 [ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="7_potion"]
-[ext_resource type="Resource" uid="uid://b7fxk2m4n8rap" path="res://resources/data/items/armor/fur_coat.tres" id="8_fur_coat"]
-[ext_resource type="Resource" uid="uid://b1m3fjtd0cwee" path="res://resources/data/items/consumables/ruby_slippers.tres" id="13_h1t84"]
-[ext_resource type="Resource" uid="uid://81q2o38qjx8h" path="res://resources/data/items/armor/helmet_gosbark.tres" id="15_gosbark"]
-[ext_resource type="Resource" uid="uid://5q3iyfp2t5mj" path="res://resources/data/items/armor/helmet_glimp.tres" id="16_glimp"]
-[ext_resource type="Resource" uid="uid://cq8n2v7rwk4be" path="res://resources/data/items/consumables/shovel.tres" id="17_shovel"]
-[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="20_desc"]
-[ext_resource type="Resource" uid="uid://dw3fg1rqxn2va" path="res://resources/data/status_effects/items/status_weapon_fragile.tres" id="21_fragile"]
-[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="22_sedesc"]
-[ext_resource type="Resource" uid="uid://cw61wtmhdekq0" path="res://resources/data/status_effects/items/status_weapon_charged_pierce.tres" id="23_pierce"]
-[ext_resource type="Resource" uid="uid://dq4mw8k2vx7nb" path="res://resources/data/status_effects/items/status_weapon_flaming.tres" id="24_flaming"]
-[ext_resource type="Resource" uid="uid://bxwk3pkwmbaws" path="res://resources/data/status_effects/items/status_weapon_seeking.tres" id="25_seeking"]
-[ext_resource type="Resource" uid="uid://cwqfrv0c27v5x" path="res://resources/data/items/weapons/summoner.tres" id="30_summoner"]
-[ext_resource type="Resource" uid="uid://d3xp3psvbwcie" path="res://resources/data/items/weapons/knife.tres" id="31_knife"]
 [ext_resource type="Script" uid="uid://c247odltr1n2o" path="res://scripts/data/worldgen/PlacedZone.cs" id="40_placed"]
 [ext_resource type="Script" uid="uid://bfgfv0y5b388o" path="res://scripts/data/worldgen/QuadrantBounds.cs" id="41_quadrant"]
 [ext_resource type="Script" uid="uid://4fakyxlqthf4" path="res://scripts/data/worldgen/BoxBounds.cs" id="42_box"]
@@ -45,58 +26,9 @@
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="56_lang"]
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/blocks/block_dirt_overlay.tres" id="57_dirt"]
 [ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/blocks/block_cobblestone.tres" id="58_cobble"]
-
-[sub_resource type="Resource" id="SEDesc_seeking"]
-script = ExtResource("22_sedesc")
-effect = ExtResource("25_seeking")
-metadata/_custom_type_script = "uid://bf8kas4isp4rx"
-
-[sub_resource type="Resource" id="Desc_club"]
-script = ExtResource("20_desc")
-item = ExtResource("4_melee")
-statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_seeking")])
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_club"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_club")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="SEDesc_fragile"]
-script = ExtResource("22_sedesc")
-effect = ExtResource("21_fragile")
-metadata/_custom_type_script = "uid://bf8kas4isp4rx"
-
-[sub_resource type="Resource" id="Desc_bomb"]
-script = ExtResource("20_desc")
-item = ExtResource("3_jl16k")
-statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_fragile")])
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_bomb"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_bomb")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Desc_furcoat"]
-script = ExtResource("20_desc")
-item = ExtResource("8_fur_coat")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_furcoat"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_furcoat")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Resource_bjpbp"]
-script = ExtResource("20_desc")
-item = ExtResource("16_glimp")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_afcr5"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Resource_bjpbp")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+[ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/world_gen/party/mischa.tres" id="60_mischa"]
+[ext_resource type="Resource" uid="uid://vlhadu2uwy1q" path="res://resources/data/world_gen/party/rowan.tres" id="61_rowan"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="62_forge"]
 
 [sub_resource type="Resource" id="Resource_know_potion"]
 script = ExtResource("3_itemteach")
@@ -228,79 +160,6 @@ toPoi = "desert_well"
 texture = ExtResource("57_dirt")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
-[sub_resource type="Resource" id="Desc_knife"]
-script = ExtResource("20_desc")
-item = ExtResource("31_knife")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_knife"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_knife")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Desc_jl16k"]
-script = ExtResource("20_desc")
-item = ExtResource("13_h1t84")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_jl16k"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_jl16k")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="SEDesc_pierce"]
-script = ExtResource("22_sedesc")
-effect = ExtResource("23_pierce")
-scope = 1
-chargeIndex = 1
-metadata/_custom_type_script = "uid://bf8kas4isp4rx"
-
-[sub_resource type="Resource" id="SEDesc_flaming"]
-script = ExtResource("22_sedesc")
-effect = ExtResource("24_flaming")
-metadata/_custom_type_script = "uid://bf8kas4isp4rx"
-
-[sub_resource type="Resource" id="Desc_ntk62"]
-script = ExtResource("20_desc")
-item = ExtResource("5_ranged")
-statusEffects = Array[ExtResource("22_sedesc")]([SubResource("SEDesc_pierce"), SubResource("SEDesc_flaming")])
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_ntk62"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_ntk62")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Desc_helmgosbark"]
-script = ExtResource("20_desc")
-item = ExtResource("15_gosbark")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_helmgosbark"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_helmgosbark")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Desc_helmglimp"]
-script = ExtResource("20_desc")
-item = ExtResource("16_glimp")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_helmglimp"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_helmglimp")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Desc_summoner"]
-script = ExtResource("20_desc")
-item = ExtResource("30_summoner")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_summoner"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Desc_summoner")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
 [sub_resource type="Resource" id="Bounds_mountain"]
 script = ExtResource("41_quadrant")
 priority = 1
@@ -367,7 +226,6 @@ zones = [SubResource("Placed_mountain"), SubResource("Placed_desert"), SubResour
 regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), ExtResource("3_region_swamp"), ExtResource("3_region_forest")]
 pointsOfInterestPlacements = [SubResource("Poi_crossroads"), SubResource("Poi_mountain"), SubResource("Poi_desert"), SubResource("Poi_swamp"), SubResource("Poi_forest")]
 roads = [SubResource("Road_mountain"), SubResource("Road_forest"), SubResource("Road_desert"), SubResource("Road_swamp"), SubResource("Road_forest_desert")]
-equippedInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_club"), SubResource("Resource_bomb"), SubResource("Resource_furcoat"), SubResource("Resource_afcr5")])
-startingConsumables = Array[ExtResource("2_consumable_script")]([ExtResource("6_torch"), ExtResource("7_potion"), ExtResource("17_shovel")])
-startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_knife"), SubResource("Resource_jl16k"), SubResource("Resource_ntk62"), SubResource("Resource_helmgosbark"), SubResource("Resource_helmglimp"), SubResource("Resource_summoner")])
+forge = ExtResource("62_forge")
+startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]
 initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_potion")])

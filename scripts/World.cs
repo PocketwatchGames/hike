@@ -24,6 +24,28 @@ public partial class World : Node3D
     public ulong GameTimeMs => _worldState.GameTimeMs;
     public double TimeOfDayAbsolute => _worldState.TimeOfDayAbsolute;
 
+    // Sim-clock (GameTimeMs) time of the next moment the day cycle reaches
+    // sunrise (TimeOfDay01 == 0.25). Used to schedule dawn-expiry deadlines
+    // (ephemeral items). Exactly at sunrise returns the FOLLOWING day's sunrise
+    // (a full day out) so an item acquired at dawn survives the day. Assumes
+    // GameTimeMs and TimeOfDay advance in lockstep (true at time_scale 1);
+    // returns `now` when the day cycle is disabled (dayLengthSeconds <= 0).
+    public ulong NextSunriseMs()
+    {
+        const double SunriseTimeOfDay = 0.25;
+        float dayLength = _worldState.SimData?.dayLengthSeconds ?? 600f;
+        if (dayLength <= 0f)
+        {
+            return _worldState.GameTimeMs;
+        }
+        double untilSunrise = SunriseTimeOfDay - _worldState.TimeOfDay01;
+        if (untilSunrise <= 0.0)
+        {
+            untilSunrise += 1.0;
+        }
+        return _worldState.GameTimeMs + (ulong)(untilSunrise * dayLength * 1000.0);
+    }
+
     // Halts the per-frame day/night clock advance in Tick while the player rests
     // at a camp (set by CampScreen). The sim clock (GameTimeMs) and sleep's
     // AdvanceTime skip are unaffected — only the ambient time-of-day holds.
@@ -331,6 +353,26 @@ public partial class World : Node3D
         }
         CleanupOffConditionMobs();
         return dayLength > 0f ? advanced / dayLength * 24.0 : 0.0;
+    }
+
+    // Fast-forward the day cycle to the next sunrise (TimeOfDay01 == 0.25),
+    // replaying the same status-effect / mob catch-up path as a sleep skip. Used
+    // by the death flow to "sleep off" a fallen member. Returns hours advanced.
+    // Requires a living _player (AdvanceTime early-outs on IsDead), so control
+    // must already be on a survivor when this is called.
+    public double AdvanceTimeToNextSunrise()
+    {
+        if (_worldState == null)
+        {
+            return 0.0;
+        }
+        const double sunriseTimeOfDay = 0.25;
+        double untilSunrise = sunriseTimeOfDay - _worldState.TimeOfDay01;
+        if (untilSunrise <= 0.0)
+        {
+            untilSunrise += 1.0;
+        }
+        return AdvanceTime(untilSunrise * 24.0);
     }
 
     private void AdvanceClocks(double seconds, float dayLength)

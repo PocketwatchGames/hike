@@ -38,11 +38,11 @@ theme_override_constants/margin_top = 50
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="InventoryScreen" parent="MarginContainer2" unique_id=1391817300 instance=ExtResource("2_idb3r")]
+[node name="WorldMapScreen" parent="MarginContainer2" unique_id=590275791 instance=ExtResource("3_bxxtj")]
 visible = false
 layout_mode = 2
 
-[node name="WorldMapScreen" parent="MarginContainer2" unique_id=590275791 instance=ExtResource("3_bxxtj")]
+[node name="InventoryScreen" parent="MarginContainer2" unique_id=1391817300 instance=ExtResource("2_idb3r")]
 visible = false
 layout_mode = 2
 
@@ -69,18 +69,6 @@ size_flags_horizontal = 4
 layout_mode = 2
 InputAction = "TabLeft"
 
-[node name="InventoryTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=376300006]
-layout_mode = 2
-
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/InventoryTab" unique_id=254634264]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_right = 10
-
-[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/InventoryTab/MarginContainer" unique_id=1348383687]
-layout_mode = 2
-text = "Inventory"
-
 [node name="WorldMapTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=1908585019]
 layout_mode = 2
 
@@ -92,6 +80,18 @@ theme_override_constants/margin_right = 10
 [node name="Label" type="Label" parent="MarginContainer/HBoxContainer/WorldMapTab/MarginContainer" unique_id=121430654]
 layout_mode = 2
 text = "World Map"
+
+[node name="InventoryTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=376300006]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/InventoryTab" unique_id=254634264]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/InventoryTab/MarginContainer" unique_id=1348383687]
+layout_mode = 2
+text = "Inventory"
 
 [node name="BestiaryTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=38180903]
 layout_mode = 2

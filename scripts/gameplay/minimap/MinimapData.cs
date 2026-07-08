@@ -59,6 +59,11 @@ public static class MinimapData
     // contribution (even just 1) overrides it.
     public const ushort NoSurfaceHeight = 0;
 
+    // Cap on samples marched along a single line-of-sight ray. Keeps per-ray
+    // cost O(1) regardless of reveal radius — the march step grows with
+    // distance so a huge bird's-eye disk costs the same per cell as a small one.
+    public const int LosMaxStepsPerRay = 24;
+
     public struct SurfaceCell
     {
         // World Y of the top face (= Y_topSolid + 1). 0 = no surface.
@@ -450,5 +455,38 @@ public static class MinimapData
             return 0;
         }
         return group.minimapFoliageId;
+    }
+}
+
+// Immutable tuning bundle for map-reveal line-of-sight, built once per reveal
+// tick from the Minimap node's [Export]s and threaded down into the reveal
+// passes. Keeps the reveal methods from taking six loose float params.
+public readonly struct MinimapLos
+{
+    // Master toggle. When false the reveal passes fall back to plain filled disks.
+    public readonly bool Enabled;
+    // Height of the sightline origin above the player's feet, in meters. This is
+    // the main generosity knob: a higher eye looks down over small rises, so a
+    // 2 m hillock never casts a map shadow — only terrain taller than roughly
+    // this height above the player starts occluding.
+    public readonly float EyeHeightMeters;
+    // Vertical soft-shadow band, in meters. A target column is fully charted
+    // once it reaches the occluder's horizon line and fades to hidden over this
+    // many meters below it — wider = softer, more forgiving shadow edges.
+    public readonly float ForgivenessMeters;
+    // Base spacing between samples marched along a sightline. The effective step
+    // grows with distance so no ray exceeds LosMaxStepsPerRay samples.
+    public readonly float StepMeters;
+    // Meters of maximum-density (255) volumetric fog along a sightline needed to
+    // fully hide the far end. <= 0 disables fog's effect on reveal.
+    public readonly float FogFullBlockMeters;
+
+    public MinimapLos(bool enabled, float eyeHeightMeters, float forgivenessMeters, float stepMeters, float fogFullBlockMeters)
+    {
+        Enabled = enabled;
+        EyeHeightMeters = eyeHeightMeters;
+        ForgivenessMeters = Mathf.Max(forgivenessMeters, 0.01f);
+        StepMeters = Mathf.Max(stepMeters, 0.5f);
+        FogFullBlockMeters = fogFullBlockMeters;
     }
 }

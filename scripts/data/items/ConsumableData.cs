@@ -11,6 +11,8 @@ public partial class ConsumableData : ItemData
 	// is true (e.g. lit torch). Null falls back to inventorySprite.
 	[Export] public Texture2D activeSprite;
 
+	protected override EItemCategory ComputeCategory() => EItemCategory.Equipment;
+
 	public override ItemState CreateState()
 	{
 		return new ConsumableState(this);

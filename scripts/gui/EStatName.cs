@@ -43,4 +43,11 @@ public enum EStatName
 	AnimSpeed,
 	FootprintAlpha,
 	FootprintDuration,
+	// Per-character party sheet attributes (PlayerState), shown on the camp
+	// Select-Character stats panel.
+	Fortitude,
+	Strength,
+	Perception,
+	Stealth,
+	Charisma,
 }

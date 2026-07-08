@@ -22,6 +22,8 @@
 [ext_resource type="Material" uid="uid://dj3ur6ltwb1tk" path="res://resources/materials/plank_pine.tres" id="18_pine"]
 [ext_resource type="Material" uid="uid://ddlwld85tbt3p" path="res://resources/materials/plank_orange.tres" id="19_orange"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
+[ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="20_mapmarker"]
+[ext_resource type="Texture2D" uid="uid://doapexuvxqq2p" path="res://assets/textures/map_markers/climbable_tree.png" id="21_mapicon"]
 
 [sub_resource type="Resource" id="Resource_climb_event"]
 script = ExtResource("2_event")
@@ -346,3 +348,8 @@ MinimapFoliageId = 4
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=836939466]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+
+[node name="MapMarker" type="Node3D" parent="."]
+script = ExtResource("20_mapmarker")
+displayName = &"Climbable Tree"
+icon = ExtResource("21_mapicon")

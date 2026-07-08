@@ -124,6 +124,14 @@ public class MobSimState : EntitySimState
     // the player has staged. Per-instance so a worldgen-authored shopkeeper
     // can trade while another mob sharing the same MobData stays gift-only.
     public bool WillTrade;
+    // Authored party-member template for a recruitable NPC (NpcSpawnEntry
+    // .recruitTemplate). When set, a RecruitToPartyAction in this mob's
+    // conversation can add them to the party: the template is DEEP-cloned into a
+    // new roster member who stands at the active campfire, and this mob despawns.
+    // Null = not recruitable. A standalone PlayerState .tres (like the starting
+    // party) so it round-trips through EntitySerializer by resource path — an
+    // un-recruited NPC keeps its recruitability across chunk eviction / save.
+    public PlayerState RecruitTemplate;
     // Elite mobs are a rarer, tougher variant — 25% larger (Mob applies the
     // scale), crowned, with the shared elite buff and crown-trophy loot. Authored
     // on the spawning MobDescriptor (a dedicated *_elite.tres), so it persists as

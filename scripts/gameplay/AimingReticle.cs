@@ -543,10 +543,10 @@ public partial class AimingReticle : Node3D
 	bool IsRangedWeaponEquipped()
 	{
 		if (_player?.Inventory == null) { return false; }
-		WeaponState weapon = _player.Inventory.GetWeapon(EInventorySlot.WeaponRight);
+		WeaponState weapon = _player.Inventory.GetWeapon(EInventorySlot.WeaponRanged);
 		if (weapon?.data?.actionProfile == null) { return false; }
 		ActionRunner runner = _player.Runner;
-		if (runner != null && runner.IsBusy && runner.Current.context.sourceSlot != EInventorySlot.WeaponRight)
+		if (runner != null && runner.IsBusy && runner.Current.context.sourceSlot != EInventorySlot.WeaponRanged)
 		{
 			return false;
 		}
@@ -557,7 +557,7 @@ public partial class AimingReticle : Node3D
 	// reticle dims rather than hiding during this window.
 	bool IsRangedWeaponOnCooldown()
 	{
-		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRanged);
 		return weapon != null && weapon.cooldownExpireMs > _player.GameTimeMs;
 	}
 
@@ -566,7 +566,7 @@ public partial class AimingReticle : Node3D
 	// recharges.
 	bool IsRangedWeaponOutOfAmmo()
 	{
-		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRanged);
 		return weapon?.data != null && weapon.data.maxAmmo > 0 && weapon.ammo <= 0;
 	}
 
@@ -613,7 +613,7 @@ public partial class AimingReticle : Node3D
 		Vector3 forward = _player.ActorForward.Normalized();
 		// Weapon drives the mob-lock filter via Mob.CanTarget so the visual
 		// telegraph matches whatever weapon-specific rules the assist uses.
-		WeaponData weaponData = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+		WeaponData weaponData = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRanged)?.data;
 
 		float lineLength = maxRange;
 		bool clippedAtSurface = false;
@@ -793,7 +793,7 @@ public partial class AimingReticle : Node3D
 		ringOuter = _groundRingOuterRadius;
 		_ringPinned = false;
 		bool gamepad = aim.Device == InputDevice.EDevice.Gamepad;
-		WeaponData weapon = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+		WeaponData weapon = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRanged)?.data;
 
 		// Drop a lock that died, left release range, or is no longer targetable.
 		if (_positionalLocked && !IsPositionalLockValid(_positionalTargetMob, weapon, playerPos, maxRange))
@@ -1101,7 +1101,7 @@ public partial class AimingReticle : Node3D
 		if (!_cursorValid)
 		{
 			Vector3 forward = _player.ActorForward.Normalized();
-			WeaponData weaponData = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+			WeaponData weaponData = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRanged)?.data;
 			if (TryRaycastForward(chestWorld, forward, maxRange, weaponData, out Vector3 forwardHit, out Mob _))
 			{
 				if (TryRaycastDown(forwardHit, _maxGroundDropDistance, out Vector3 dropHit))
@@ -1224,7 +1224,7 @@ public partial class AimingReticle : Node3D
 		// reticle doesn't track which charge tier the throw will commit to, and
 		// the only detonate mod in play (Fragile) is weapon-global. -1 matches
 		// AllAttacks-scoped mods and skips charge-specific ones.
-		WeaponState rightWeapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+		WeaponState rightWeapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRanged);
 		bool detonateOnContact = ItemEventHandlers.ArcDetonatesOnContact(arc, rightWeapon, -1);
 
 		Vector3 bearing = HorizontalBearing(origin, target);
@@ -1858,7 +1858,7 @@ public partial class AimingReticle : Node3D
 	ItemAction ResolveActiveTier(out float chargeT)
 	{
 		chargeT = 0f;
-		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRanged);
 		ItemActionProfile profile = weapon?.data?.actionProfile;
 		if (profile?.chargedActions == null || profile.chargedActions.Count == 0)
 		{
@@ -1867,7 +1867,7 @@ public partial class AimingReticle : Node3D
 		ActionRunner runner = _player.Runner;
 		if (runner != null
 			&& runner.Phase == EActionPhase.Charging
-			&& runner.Current.context.sourceSlot == EInventorySlot.WeaponRight)
+			&& runner.Current.context.sourceSlot == EInventorySlot.WeaponRanged)
 		{
 			chargeT = runner.CurrentChargeT;
 			return runner.Current.selectedTier ?? profile.chargedActions[0];
@@ -1917,6 +1917,6 @@ public partial class AimingReticle : Node3D
 		{
 			return tier.positionalRange;
 		}
-		return _player.GetWeaponRange(EInventorySlot.WeaponRight);
+		return _player.GetWeaponRange(EInventorySlot.WeaponRanged);
 	}
 }

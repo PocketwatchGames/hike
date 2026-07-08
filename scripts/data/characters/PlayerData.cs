@@ -558,7 +558,7 @@ public partial class PlayerData : Resource
 	[Export(PropertyHint.Range, "0.5,600,0.5,or_greater")] public float muddyDrySeconds = 30f;
 
 	[ExportGroup("Appearance")]
-	// Palettes the character's modular look is picked from. CharacterCreationState
+	// Palettes the character's modular look is picked from. PlayerState
 	// stores the chosen INDEX into each (skinTone / hairColor / hairStyle), so a
 	// spawn / character-creation choice is a small int and the menu of options
 	// lives here as authored data. Colors feed the model's per-instance `recolor`

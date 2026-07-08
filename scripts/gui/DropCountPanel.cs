@@ -50,7 +50,10 @@ public partial class DropCountPanel : MarginContainer
 
 	public override void _UnhandledInput(InputEvent e)
 	{
-		if (!Visible)
+		// IsVisibleInTree, not Visible: unhandled input is delivered regardless of
+		// ancestor visibility, so a locally-visible panel under a closed host screen
+		// would otherwise keep eating ui_cancel / ui_accept game-wide.
+		if (!IsVisibleInTree())
 		{
 			return;
 		}

@@ -20,4 +20,5 @@ tags = 32
 maxStack = 1
 removesOnApply = []
 modifiers = [SubResource("Resource_m0eo0")]
+conditionalModifiers = []
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"

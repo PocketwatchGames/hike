@@ -131,7 +131,7 @@ public partial class WeaponModData : Resource
 	// weapon-composed mod (the Seeking sword) ignores it, scoped already by living
 	// on one weapon. None = any slot. Default WeaponLeft. Ignored when
 	// onAttackEvent is null.
-	[Export] public EInventorySlot onAttackSlot = EInventorySlot.WeaponLeft;
+	[Export] public EInventorySlot onAttackSlot = EInventorySlot.WeaponMelee;
 
 	// ============================ Naming ============================
 	// How this mod names the weapons it's attached to (see WeaponNameGenerator).

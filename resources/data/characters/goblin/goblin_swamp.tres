@@ -58,6 +58,7 @@ category = 2
 maxStack = 1
 removesOnApply = []
 modifiers = []
+conditionalModifiers = []
 weaponMod = SubResource("Resource_venom_mod")
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"
 

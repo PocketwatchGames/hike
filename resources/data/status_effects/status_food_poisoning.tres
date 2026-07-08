@@ -16,4 +16,5 @@ tags = 257
 duration = 30.0
 removesOnApply = []
 modifiers = []
+conditionalModifiers = []
 dot = SubResource("dot")

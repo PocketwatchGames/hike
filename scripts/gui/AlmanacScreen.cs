@@ -11,8 +11,8 @@ public partial class AlmanacScreen : Control
 {
 	public enum EAlmanacTab
 	{
-		Inventory,
 		WorldMap,
+		Inventory,
 		Bestiary,
 		Recipe
 	}
@@ -123,7 +123,7 @@ public partial class AlmanacScreen : Control
 		{
 			return;
 		}
-		if (e.IsActionPressed("ui_cancel") || e.IsActionPressed("Map") || e.IsActionPressed("Inventory"))
+		if (e.IsActionPressed("ui_cancel") || e.IsActionPressed("Map"))
 		{
 			Close();
 			GetViewport().SetInputAsHandled();

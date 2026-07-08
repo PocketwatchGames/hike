@@ -1,8 +1,9 @@
 using System;
 using Godot;
 
-// Single campfire entity. Spawns dark with AutoLightAtNight set so the
-// campfire ignites only when its chunk activates after dark.
+// Single campfire entity. Spawns unlit unless startLit is set — only the
+// party's spawn campfire lights on its own; every other fire is lit by the
+// player, and lighting one douses all the rest (Campfire.DouseOtherCampfires).
 //
 // To author a campfire surrounded by an encampment (mobs, chests scattered
 // around the fire), wrap this entry inside a SpawnGroupData entry alongside
@@ -26,16 +27,15 @@ public partial class CampfireSpawnEntry : SpawnEntryData
     // (the campfire's damage sphere is ~0.75m; pad it). Small enough that an
     // encampment's scattered mobs still ring the fire — they just won't stand
     // in it. Attack pathing ignores it so the player can lure mobs in.
-    [Export] public float hazardRadius = ForgeSimState.DefaultHazardRadius;
+    [Export] public float hazardRadius = CampfireSimState.DefaultHazardRadius;
     public override float HazardSpawnRadius => hazardRadius;
 
     // Campfires sit visually awkwardly on cliff edges and ramp adjacencies
     // (the bowl tilts, surrounding fuel/rocks intersect the step face).
     public override bool RequireFlatTerrain => true;
 
-    // Spawn already lit and Active rather than dark + AutoLightAtNight. Used by
-    // the hub / per-zone "home" campfires the player can Camp at immediately;
-    // wild scattered campfires leave this false so they only kindle after dark.
+    // Spawn already lit. Reserved for the party's spawn campfire — every other
+    // campfire leaves this false and starts unlit until the player lights it.
     [Export] public bool startLit = false;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
@@ -44,8 +44,7 @@ public partial class CampfireSpawnEntry : SpawnEntryData
         {
             return;
         }
-        var campfire = new ForgeSimState(position, scene);
-        campfire.AutoLightAtNight = !startLit;
+        var campfire = new CampfireSimState(position, scene);
         campfire.Active = startLit;
         campfire.HazardRadius = hazardRadius;
         ws.AddEntity(campfire);

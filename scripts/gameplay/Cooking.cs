@@ -41,7 +41,7 @@ public static class Cooking
 		public ItemData OutputItem => recipe?.outputItem;
 	}
 
-	public static MatchResult TryMatch(IReadOnlyList<ItemState> inputs, Array<RecipeData> recipes, EForgeType forgeType)
+	public static MatchResult TryMatch(IReadOnlyList<ItemState> inputs, Array<RecipeData> recipes, ECampfireType forgeType)
 	{
 		if (inputs == null || recipes == null || recipes.Count == 0)
 		{
@@ -92,7 +92,7 @@ public static class Cooking
 		return bestRecipe != null ? new MatchResult(bestRecipe) : default;
 	}
 
-	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds, EForgeType forgeType)
+	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds, ECampfireType forgeType)
 	{
 		if (recipe?.inputs == null || recipe.inputs.Count == 0)
 		{

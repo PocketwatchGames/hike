@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3]
+
+[ext_resource type="Texture2D" uid="uid://whcsmapxod45" path="res://assets/textures/items/Armor.png" id="1_sprite"]
+[ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_pen"]
+script = ExtResource("m_script")
+stat = 16
+value = 0.6
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_speed"]
+script = ExtResource("m_script")
+stat = 4096
+value = 0.92
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("2_armor")
+maxArmor = 45.0
+modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_speed")])
+wornMeshNamesFemale = PackedStringArray("F_Hunter_Top", "F_Hunter_Bottom")
+wornMeshNamesMale = PackedStringArray("M_Hunter_Top", "M_Hunter_Bottom")
+displayName = &"Scale Armor"
+description = "Overlapping metal scales spread the force of a blow — heavier than mail, and it shows in the stride."
+value = 90
+inventorySprite = ExtResource("1_sprite")

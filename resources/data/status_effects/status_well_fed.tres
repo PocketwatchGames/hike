@@ -20,4 +20,5 @@ startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 removesOnApply = []
 modifiers = []
+conditionalModifiers = []
 dot = SubResource("dot")

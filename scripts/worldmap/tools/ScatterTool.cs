@@ -132,7 +132,7 @@ public static class ScatterFactory
                     return null;
                 }
                 var sim = new LootSimState(pos, e.item.item);
-                if (e.item.HasStatusEffects)
+                if (e.item.NeedsComposedState)
                 {
                     sim.Item = e.item.CreateState();
                 }

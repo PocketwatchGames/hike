@@ -210,7 +210,7 @@ public partial class WorldEditor : Node3D
         }
 
         // Tab toggles mode
-        if (e.IsActionPressed("Inventory"))
+        if (e.IsActionPressed("Map"))
         {
             _entityMode = !_entityMode;
             UpdateHud();
@@ -474,7 +474,7 @@ public partial class WorldEditor : Node3D
                 ItemDescriptor lootItem = brushPalette?.lootItem;
                 if (lootItem?.item == null) { return null; }
                 var lootSim = new LootSimState(position, lootItem.item);
-                if (lootItem.HasStatusEffects)
+                if (lootItem.NeedsComposedState)
                 {
                     lootSim.Item = lootItem.CreateState();
                 }

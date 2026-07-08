@@ -76,7 +76,7 @@ public partial class ModelAnimator : Node
     [Export] public string[] bareBodyMeshNames = Array.Empty<string>();
     // Skin meshes recolored by the chosen skin tone (face shell + bare body).
     [Export] public string[] skinMeshNames = Array.Empty<string>();
-    // Hair-style menu: a creation-choice index (CharacterCreationState.hairStyle) maps
+    // Hair-style menu: a creation-choice index (PlayerState.hairStyle) maps
     // to the hair MeshInstance3D name shown when no head armor is worn. Authored
     // in the SAME order across genders so a creation pick is gender-agnostic; an
     // empty / out-of-range pick resolves to bald (no hair mesh).
@@ -332,6 +332,29 @@ public partial class ModelAnimator : Node
             {
                 mesh.SetInstanceShaderParameter("recolor", rgb);
                 mesh.SetInstanceShaderParameter("recolor_amount", amount);
+            }
+        }
+    }
+
+    // Toggle a VisualInstance3D render-layer bit on every model mesh. Used by the
+    // party-select outline, which adds GameCamera.OutlineMaskLayer so the mask
+    // camera renders the character's silhouette (same mesh set as SetMeshRecolor).
+    public void SetLayerBit(uint bit, bool on)
+    {
+        for (int i = 0; i < _meshes.Count; i++)
+        {
+            MeshInstance3D mesh = _meshes[i];
+            if (mesh == null)
+            {
+                continue;
+            }
+            if (on)
+            {
+                mesh.Layers |= bit;
+            }
+            else
+            {
+                mesh.Layers &= ~bit;
             }
         }
     }

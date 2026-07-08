@@ -81,6 +81,10 @@ public static class CVars
     // when you want to confirm a fresh regeneration.
     public static CVar worldCacheClear = new CVar("world_cache_clear", (cvar) => WorldGenCache.Clear());
 
+    // Debug: cycle control to the next party member. Exercises the party-switch
+    // path (GameClient.SwitchControlTo) before the camp Select-Character UI lands.
+    public static CVar partyNext = new CVar("party_next", (cvar) => GameClient.Current?.SwitchToNextPartyMember());
+
     // Detaches the game camera from the player and lets WASD + right-mouse-look
     // fly it freely. Disables pixel snapping while active so mouse-look is smooth.
     public static CVarBool debugFlyCam = new CVarBool("debug_flycam", false);

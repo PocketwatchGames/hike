@@ -1,7 +1,9 @@
 public class ArmorState : ItemState
 {
-	public int exp;
-	public int level;
+	// Composed level (ItemState.level) doubles this piece's armor points per level
+	// (2^level, so level 0 = ×1). Summed into the wearer's max armor in
+	// Player.RecalculateMaxArmor.
+	public float EffectiveMaxArmor => (_data?.maxArmor ?? 0f) * (1 << level);
 
 	public override ArmorData data => _data;
 	private readonly ArmorData _data;
@@ -9,27 +11,5 @@ public class ArmorState : ItemState
 	public ArmorState(ArmorData d) : base(d)
 	{
 		_data = d;
-	}
-
-	// Adds exp and promotes level while the running total has crossed the
-	// next threshold in SimData.ExpPerLevel. ArmorData.maxLevel caps how
-	// many entries this armor may consume — a piece with maxLevel=0 never
-	// levels regardless of the table contents.
-	public void AddExp(int amount, Godot.Collections.Array<int> thresholds)
-	{
-		if (amount <= 0 || _data == null)
-		{
-			return;
-		}
-		exp += amount;
-		if (thresholds == null)
-		{
-			return;
-		}
-		int cap = System.Math.Min(_data.maxLevel, thresholds.Count);
-		while (level < cap && exp >= thresholds[level])
-		{
-			level++;
-		}
 	}
 }

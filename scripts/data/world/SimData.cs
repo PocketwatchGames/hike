@@ -83,6 +83,12 @@ public partial class SimData : Resource
     // however many viable boons remain).
     [Export] public BoonData fairyBoonGold;
 
+    // Weapon/armor pool a Forge draws its offered items from. Each pick is
+    // minted at the forge's level as an ephemeral (sunrise-expiring) piece and
+    // equipped on selection. Centralized here so the pool is tuned in one place,
+    // mirroring the fairy-boon pool above. Empty = the forge offers nothing.
+    [Export] public Array<ItemData> forgeItems = new();
+
     // Shared interactive verbs auto-injected on any mob whose runtime
     // SimState carries a Conversation. Authored here once so adding a new
     // talking NPC species doesn't require copy-pasting Talk / GiveItem
@@ -103,6 +109,13 @@ public partial class SimData : Resource
     // companion comes back with is per-species (MobData.reviveHealth).
     [Export] public InteractiveAction reviveAction;
 
+    // Shared interactive verb surfaced on a fallen party member's body (see
+    // Player corpse interactive). Reviving a party member is free (no blood
+    // cost, unlike reviveAction) — walk up and interact; the completion event's
+    // fx plays and the member respawns at the campfire. Null disables party
+    // revival.
+    [Export] public InteractiveAction partyReviveAction;
+
     // Grammar's contribution to TextScrambler.ComputeComprehension. Final
     // understanding = translatedPct × ((1 - this) + orderPct × this), so:
     //   0   = grammar irrelevant, only word translation counts.
@@ -113,12 +126,6 @@ public partial class SimData : Resource
     //         ~80% of any text, missing a soft tax for jumbled order.
     [Export(PropertyHint.Range, "0,1,0.01")] public float languageGrammarWeight = 0.2f;
 
-    // Shared item-leveling thresholds. Entry i is the cumulative exp required
-    // to reach level (i+1); WeaponState.AddExp / ArmorState.AddExp walk this
-    // list and promote level while the running total has crossed the next
-    // entry. Per-item ItemData.maxLevel caps how many of these entries the
-    // item is allowed to consume (a maxLevel=0 item never levels regardless).
-    [Export] public Array<int> expPerLevel = new() { 100, 200, 500, 2000, 10000 };
     [Export] public float visibleTime = 0.25f;
     // World-wide threshold for "fully visible to perception". Light readings
     // at the target's sample point are clamped to [0, this] then divided

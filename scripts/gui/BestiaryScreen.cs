@@ -214,7 +214,7 @@ public partial class BestiaryScreen : Control
 		}
 		foreach (SpeciesData species in DiscoveredSpeciesForType(worldSim, type))
 		{
-			worldSim.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry entry);
+			worldSim.TryGetBestiaryEntry(species, out MobBestiaryEntry entry);
 			BestiarySpeciesPanel panel = _mobSpeciesScene.Instantiate<BestiarySpeciesPanel>();
 			_mobSpeciesContainer.AddChild(panel);
 			panel.Populate(species, entry);
@@ -223,9 +223,9 @@ public partial class BestiaryScreen : Control
 
 	static bool TypeHasDiscoveredSpecies(WorldSimState worldSim, MobData type)
 	{
-		foreach (KeyValuePair<SpeciesData, MobBestiaryEntry> kvp in worldSim.DiscoveredSpecies)
+		foreach ((SpeciesData species, MobBestiaryEntry _) in worldSim.EnumerateBestiary())
 		{
-			if (kvp.Key?.mob == type)
+			if (species?.mob == type)
 			{
 				return true;
 			}
@@ -238,11 +238,11 @@ public partial class BestiaryScreen : Control
 	static List<SpeciesData> DiscoveredSpeciesForType(WorldSimState worldSim, MobData type)
 	{
 		var list = new List<SpeciesData>();
-		foreach (KeyValuePair<SpeciesData, MobBestiaryEntry> kvp in worldSim.DiscoveredSpecies)
+		foreach ((SpeciesData species, MobBestiaryEntry _) in worldSim.EnumerateBestiary())
 		{
-			if (kvp.Key?.mob == type)
+			if (species?.mob == type)
 			{
-				list.Add(kvp.Key);
+				list.Add(species);
 			}
 		}
 		list.Sort((a, b) => string.Compare(Label(a), Label(b), System.StringComparison.OrdinalIgnoreCase));

@@ -1,0 +1,73 @@
+[gd_scene format=3 uid="uid://8pc5dagm262w"]
+
+[ext_resource type="Script" uid="uid://bsnysmw8va0w8" path="res://scripts/gui/PartyScreen.cs" id="1_h2ykk"]
+[ext_resource type="PackedScene" uid="uid://dhquaxn2wsyge" path="res://scenes/gui/player_stats_panel.tscn" id="2_2ynt1"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_71ahm"]
+
+[node name="PartyScreen" type="Control" unique_id=1486344868 node_paths=PackedStringArray("_playerStatsPanel", "_buttonHintSelect")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_h2ykk")
+_playerStatsPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/PlayerStats")
+_buttonHintSelect = NodePath("MarginContainer/ButtonHints/ButtonHintA")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=2030125050]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=1765785918]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("2_71ahm")]
+layout_mode = 2
+ActionName = "Equip"
+
+[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=910399599 instance=ExtResource("2_71ahm")]
+visible = false
+layout_mode = 2
+ActionName = "Drop"
+InputAction = "X"
+
+[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=337323295 instance=ExtResource("2_71ahm")]
+visible = false
+layout_mode = 2
+ActionName = "Use"
+InputAction = "Y"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=239317895]
+layout_mode = 2
+alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1932081672]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="PlayerStats" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=1646474992 instance=ExtResource("2_2ynt1")]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1758448782]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="MarginContainer3" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1139575222]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2

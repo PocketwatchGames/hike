@@ -29,6 +29,14 @@ public partial class WorldMapScreen : Control
 	// added as children and positioned in local pixels each frame.
 	[Export] public Control regionLabels;
 	[Export(PropertyHint.Range, "8,64,1")] public int regionLabelFontSize = 24;
+	// Shared "?" icon drawn for Sensed (unidentified) map markers. Optional —
+	// null falls back to a drawn "?" glyph. Identified markers use their own icon.
+	[Export] public Texture2D unknownMarkerIcon;
+	[Export(PropertyHint.Range, "8,96,1")] public int markerIconSize = 28;
+
+	// Marker icon overlay, lazily created as a child of regionLabels (which is
+	// sized to mapTexture's rect and un-rotated, so markers land on the terrain).
+	MapMarkerOverlay _markerOverlay;
 
 	GameClient _gameClient;
 
@@ -104,6 +112,17 @@ public partial class WorldMapScreen : Control
 		mat.SetShaderParameter("state_transition", minimap.StateTransition);
 
 		UpdateRegionLabels(worldCenter, viewRadius);
+
+		if (regionLabels != null)
+		{
+			if (_markerOverlay == null)
+			{
+				// World map is banked-only — field markers appear here after camping.
+				_markerOverlay = MapMarkerOverlay.Create(_gameClient, unknownMarkerIcon, markerIconSize, includeProvisional: false);
+				regionLabels.AddChild(_markerOverlay);
+			}
+			_markerOverlay.SetFraming(worldCenter, viewRadius);
+		}
 	}
 
 	// Mirrors the world→UV math in minimap.gdshader so labels track the
@@ -135,7 +154,6 @@ public partial class WorldMapScreen : Control
 			return;
 		}
 
-		HashSet<RegionData> discovered = ws.SimState.DiscoveredRegions;
 		foreach (var kv in centroids)
 		{
 			RegionData region = kv.Key;
@@ -150,7 +168,10 @@ public partial class WorldMapScreen : Control
 				_labels[region] = label;
 			}
 
-			bool show = discovered.Contains(region);
+			// Show a region label only once it's been recorded at a campfire —
+			// field discoveries stay hidden (in the active member's provisional
+			// store) until banked, matching the exploration fog-of-war split.
+			bool show = ws.SimState.IsRegionBanked(region);
 			label.Visible = show;
 			if (!show)
 			{
@@ -187,9 +208,12 @@ public partial class WorldMapScreen : Control
 		Texture2D surf = s.Surface;
 		Texture2D below1 = s.SurfaceBelow1 ?? surf;
 		Texture2D below2 = s.SurfaceBelow2 ?? surf;
-		Texture2D expl = s.Exploration ?? surf;
-		Texture2D explBelow1 = s.ExplorationBelow1 ?? expl;
-		Texture2D explBelow2 = s.ExplorationBelow2 ?? expl;
+		// The world map shows banked (party-only) reveal — un-banked field reveal
+		// stays on the minimap until recorded at a campfire. (The HUD minimap uses
+		// the party ∪ active Exploration textures instead.)
+		Texture2D expl = s.ExplorationBanked ?? surf;
+		Texture2D explBelow1 = s.ExplorationBankedBelow1 ?? expl;
+		Texture2D explBelow2 = s.ExplorationBankedBelow2 ?? expl;
 
 		if (surf != bound.Surface) { mat.SetShaderParameter("surface_texture" + suffix, surf); bound.Surface = surf; }
 		if (below1 != bound.SurfaceBelow1) { mat.SetShaderParameter("surface_texture_below1" + suffix, below1); bound.SurfaceBelow1 = below1; }

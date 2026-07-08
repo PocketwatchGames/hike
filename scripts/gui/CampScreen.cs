@@ -2,15 +2,16 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// Modal camp hub, opened from a lit campfire (Forge → EActionVerb.Camp). Mirrors
+// Modal camp hub, opened from a lit campfire (Campfire → EActionVerb.Camp). Mirrors
 // AlmanacScreen: it owns the input gate (GameClient.InputSuppressed), hides the
 // in-game HUD, releases the mouse, and cycles Sleep / Cook / Stash tabs with
 // TabLeft / TabRight. While open the player is concealed from mobs and plays the
 // SitIdle pose (Player.EnterCamp / ExitCamp). ui_cancel closes the whole screen.
 //
 // Unlike AlmanacScreen's read-only sub-screens, the cooking and stash tabs are
-// data-bound per open: Cook attaches to the campfire's Forge, Stash to the
-// global player stash (WorldSimState.CampStash, reachable from any campfire).
+// data-bound per open: Cook attaches to the campfire's Campfire, Stash to the
+// party equipment stash (WorldSimState.PartyEquipmentStash, reachable from any
+// campfire).
 // Each sub-screen is driven via its Open()/Close() — they no longer own any
 // global gating of their own; this screen is the single owner.
 [GlobalClass]
@@ -19,24 +20,36 @@ public partial class CampScreen : Control
 	public enum ECampTab
 	{
 		Sleep,
+		Party,
 		Cook,
 		Stash,
+		Craft
 	}
 
 	[Export] SleepScreen _sleepScreen;
+	[Export] PartyScreen _partyScreen;
 	[Export] CookingScreen _cookingScreen;
 	[Export] StashScreen _stashScreen;
+	[Export] CraftingScreen _craftingScreen;
 	[Export] ButtonHint _tabLeftButtonHint;
 	[Export] ButtonHint _tabRightButtonHint;
 	[Export] Control _sleepTab;
 	[Export] Control _cookTab;
+	[Export] Control _partyTab;
 	[Export] Control _stashTab;
+	[Export] Control _craftTab;
 
 	GameClient _gameClient;
 	Player _player;
-	Forge _forge;
+	Campfire _forge;
 	ECampTab _curTab;
 	bool _open;
+	// Forced death party-select: only the party tab is available and tab cycling
+	// is locked, so the player picks a surviving member to control.
+	bool _partySelectMode;
+	// The campfire this camp is anchored to — used to re-gather the party when the
+	// controlled member changes via the Select-Character tab.
+	Vector3 _campfirePosition;
 
 	public override void _Ready()
 	{
@@ -45,7 +58,25 @@ public partial class CampScreen : Control
 		Visible = false;
 	}
 
-	public void Open(Player player, Forge forge)
+	public void Open(Player player, Campfire forge)
+	{
+		// Camping anchors the party to this campfire (a later death gathers
+		// survivors here). The arrival bank / material transfer is done up front by
+		// GameClient.EnterCampWithFade before this screen opens.
+		OpenInternal(player, forge, forge?.GlobalPosition ?? player?.GlobalPosition ?? Vector3.Zero,
+			ECampTab.Sleep, partySelectMode: false);
+	}
+
+	// Forced Select-Character screen after a party member's death: opens at the
+	// last campfire locked to the party tab (no sleep/cook/stash), so the player
+	// picks a surviving member to control. Driven by GameClient.OpenDeathPartySelect.
+	public void OpenPartySelect(Player controlledSurvivor, Vector3 campfirePosition)
+	{
+		OpenInternal(controlledSurvivor, null, campfirePosition,
+			ECampTab.Party, partySelectMode: true);
+	}
+
+	void OpenInternal(Player player, Campfire forge, Vector3 campfirePosition, ECampTab startTab, bool partySelectMode)
 	{
 		if (_open)
 		{
@@ -53,6 +84,8 @@ public partial class CampScreen : Control
 		}
 		_player = player;
 		_forge = forge;
+		_partySelectMode = partySelectMode;
+		_campfirePosition = campfirePosition;
 		_gameClient = GameClient.Current;
 		if (_gameClient != null)
 		{
@@ -66,16 +99,32 @@ public partial class CampScreen : Control
 		_player?.ClearInteractive();
 		_player?.EnterCamp();
 		MusicManager.Instance?.SetCamping(true);
+		// Seat the living party around the fire (the death party-select gathers
+		// itself once the player picks a survivor, so skip it there).
+		if (!_partySelectMode) { _gameClient?.GatherPartyAt(campfirePosition); }
 		// Lower-pitch zoomed-in framing focused on the campfire (with a transition
 		// blur) and hold the day/night clock while resting.
-		_gameClient?.camera?.SetCampMode(true, forge?.GlobalPosition ?? Vector3.Zero);
+		_gameClient?.camera?.SetCampMode(true, campfirePosition);
 		if (_player?.World != null) { _player.World.TimeOfDayFrozen = true; }
+		// Party-select mode shows only the party tab (the player must pick, not rest).
+		UpdateTabVisibility();
 		_open = true;
 		Visible = true;
-		// Open the default tab even though _curTab already equals it — there is
+		// Open the start tab even though _curTab may already equal it — there is
 		// no active sub-screen yet, so force the bind.
-		_curTab = ECampTab.Sleep;
-		OpenTab(ECampTab.Sleep);
+		_curTab = startTab;
+		OpenTab(startTab);
+	}
+
+	// Hide the non-party tab chips while in the forced death party-select.
+	void UpdateTabVisibility()
+	{
+		bool full = !_partySelectMode;
+		if (_sleepTab != null) { _sleepTab.Visible = full; }
+		if (_cookTab != null) { _cookTab.Visible = full; }
+		if (_stashTab != null) { _stashTab.Visible = full; }
+		if (_tabLeftButtonHint != null) { _tabLeftButtonHint.Visible = full; }
+		if (_tabRightButtonHint != null) { _tabRightButtonHint.Visible = full; }
 	}
 
 	public void Close()
@@ -97,9 +146,18 @@ public partial class CampScreen : Control
 			_gameClient.InputSuppressed = false;
 			if (_gameClient.hud != null) { _gameClient.hud.Visible = true; }
 		}
+		// Apply any Select-Character choice made this camp: control transfers to
+		// the member the roster now marks active (no-op if unchanged). Runs after
+		// camp teardown so it repoints the follow camera / HUD to the new member.
+		// A deliberate switch carries the consumable belt to the new character; the
+		// death-respawn switch (OnDeathBlackout / OnPartyMemberConfirmed) does not.
+		_gameClient?.SyncControlToActive(transferBelt: true);
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 		_player = null;
 		_forge = null;
+		// Restore the full tab set for the next (normal) camp.
+		_partySelectMode = false;
+		UpdateTabVisibility();
 	}
 
 	// Switch to a tab: tear down the current sub-screen, bind the new one. The
@@ -124,13 +182,41 @@ public partial class CampScreen : Control
 			case ECampTab.Sleep:
 				_sleepScreen?.Open(_player, _forge?.HealFractionPerHour ?? 0f, RequestSleep);
 				break;
+			case ECampTab.Party:
+				// In the forced death select, choosing a member confirms + closes;
+				// in normal camp there's no callback and the switch defers to close.
+				_partyScreen?.Open(_gameClient, _partySelectMode ? OnPartyMemberConfirmed : null);
+				break;
 			case ECampTab.Cook:
 				_cookingScreen?.Open(_player, _forge);
 				break;
 			case ECampTab.Stash:
-				_stashScreen?.Open(_player, GlobalStash());
+				_stashScreen?.Open(_player, EquipmentStash());
+				break;
+			case ECampTab.Craft:
+				_craftingScreen?.Open(_player, _forge);
 				break;
 		}
+	}
+
+	// Forced death party-select: choosing a member commits the pick — control
+	// transfers to the chosen survivor now and the party re-gathers so they sit at
+	// the fire — then the forced-select lock drops and the screen proceeds to the
+	// stash tab so the player can outfit their new character before leaving.
+	void OnPartyMemberConfirmed()
+	{
+		if (_gameClient != null)
+		{
+			_player?.ExitCamp();
+			_gameClient.SyncControlToActive();
+			_player = _gameClient.Player;
+			_player?.EnterCamp();
+			_gameClient.GatherPartyAt(_campfirePosition);
+			_gameClient.camera?.SetCampMode(true, _campfirePosition);
+		}
+		_partySelectMode = false;
+		UpdateTabVisibility();
+		ShowTab(ECampTab.Stash);
 	}
 
 	void CloseTab(ECampTab tab)
@@ -140,18 +226,24 @@ public partial class CampScreen : Control
 			case ECampTab.Sleep:
 				_sleepScreen?.Close();
 				break;
+			case ECampTab.Party:
+				_partyScreen?.Close();
+				break;
 			case ECampTab.Cook:
 				_cookingScreen?.Close();
 				break;
 			case ECampTab.Stash:
 				_stashScreen?.Close();
 				break;
+			case ECampTab.Craft:
+				_craftingScreen?.Close();
+				break;
 		}
 	}
 
-	List<ItemState> GlobalStash()
+	List<ItemState> EquipmentStash()
 	{
-		return _player?.World?.WorldState?.SimState?.CampStash;
+		return _player?.World?.WorldState?.SimState?.PartyEquipmentStash;
 	}
 
 	// SleepScreen callback: hide the camp UI but keep the player in camp state
@@ -210,7 +302,9 @@ public partial class CampScreen : Control
 	{
 		SetTabActive(_sleepTab, _curTab == ECampTab.Sleep);
 		SetTabActive(_cookTab, _curTab == ECampTab.Cook);
+		SetTabActive(_partyTab, _curTab == ECampTab.Party);
 		SetTabActive(_stashTab, _curTab == ECampTab.Stash);
+		SetTabActive(_craftTab, _curTab == ECampTab.Craft);
 	}
 
 	static void SetTabActive(Control tab, bool active)
@@ -223,6 +317,11 @@ public partial class CampScreen : Control
 
 	void CycleTab(int direction)
 	{
+		// Locked to the party tab during the forced death select.
+		if (_partySelectMode)
+		{
+			return;
+		}
 		int count = Enum.GetValues<ECampTab>().Length;
 		int next = (((int)_curTab + direction) % count + count) % count;
 		ShowTab((ECampTab)next);
@@ -240,7 +339,12 @@ public partial class CampScreen : Control
 		// falls through to here and closes the whole screen.
 		if (e.IsActionPressed("ui_cancel"))
 		{
-			Close();
+			// The forced death select has no active character yet — the player
+			// must pick a survivor, so backing out is disallowed.
+			if (!_partySelectMode)
+			{
+				Close();
+			}
 			GetViewport().SetInputAsHandled();
 			return;
 		}

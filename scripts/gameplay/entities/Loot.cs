@@ -172,6 +172,16 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		if (data is LootData lootData && lootData.removeTimeMs > 0 && ageMs >= (ulong)lootData.removeTimeMs)
 		{
 			Expire();
+			return;
+		}
+		// A carried instance can also carry its own ABSOLUTE expiry deadline
+		// (ItemState.removeTimeMs) — e.g. an ephemeral fairy corpse dropped back
+		// out is still due to vanish at sunrise. Unlike LootData.removeTimeMs
+		// (an age-since-spawn duration) this is a fixed sim-clock time.
+		ItemState carried = _simState?.Item;
+		if (carried != null && carried.removeTimeMs > 0 && now >= carried.removeTimeMs)
+		{
+			Expire();
 		}
 	}
 
@@ -776,12 +786,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 		Inventory inv = player.Inventory;
 
-		// Armor/weapons land directly in an empty equip slot — bypasses the
-		// backpack so the player can grab an obvious upgrade even when the
-		// backpack is full.
-		if (TryEquipToEmptySlot(inv, toAdd))
+		// Field pickup only takes materials into the backpack. Weapons / armor /
+		// equipment can't enter the backpack and aren't auto-equipped from the
+		// field — a dedicated equipment-pickup flow will handle those — so leave
+		// them lying in the world for now.
+		if (toAdd.data == null || !toAdd.data.IsMaterial)
 		{
-			return true;
+			return false;
 		}
 
 		int initial = toAdd.stackCount;
@@ -790,41 +801,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return false;
 		}
-
-		// Consumables promote from the backpack into the first empty hotbar
-		// slot. No-op when the item fully merged into an existing stack (the
-		// move requires the item to be present in the backpack).
-		if (toAdd.data is ConsumableData)
-		{
-			inv.TryMoveToConsumableSlot(toAdd);
-		}
 		return true;
-	}
-
-	private static bool TryEquipToEmptySlot(Inventory inv, ItemState item)
-	{
-		if (item?.data == null)
-		{
-			return false;
-		}
-		switch (item.data)
-		{
-			case ArmorData armor:
-				if (inv.GetEquipped(armor.armorSlot) == null)
-				{
-					return inv.TryEquip(item, armor.armorSlot);
-				}
-				return false;
-			case WeaponData weapon:
-				EInventorySlot weaponSlot = weapon.CanonicalSlot;
-				if (inv.GetEquipped(weaponSlot) == null)
-				{
-					return inv.TryEquip(item, weaponSlot);
-				}
-				return false;
-			default:
-				return false;
-		}
 	}
 
 	private void OnPickedUpFinished(StringName animName)

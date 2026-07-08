@@ -5,7 +5,7 @@ using System.Collections.Generic;
 // The grid of cooking input slots, progress bar, and Cook / Cancel commit
 // button. Like InventoryPanel this script owns only slot/focus/input
 // plumbing — the persistent backing store (the campfire's TorchSimState
-// ForgeSlots array) lives outside, and the verb behavior (recipe match,
+// CampfireSlots array) lives outside, and the verb behavior (recipe match,
 // item routing, completion delivery) lives in CookingScreen. The screen
 // hands us the slot array on Bind and drives the in-progress UI state via
 // SetCookingProgress / SetCookingActive each frame.
@@ -156,7 +156,7 @@ public partial class CookingPanel : MarginContainer
 		}
 	}
 
-	// Bind the panel to its backing slot array (the campfire's ForgeSlots).
+	// Bind the panel to its backing slot array (the campfire's CampfireSlots).
 	// All TryAdd / TryRemove / DrainInputs operations mutate this array
 	// directly so the persistent owner sees the changes immediately.
 	public void Bind(ItemState[] slots)
@@ -310,7 +310,7 @@ public partial class CookingPanel : MarginContainer
 	// come back disabled; the click handler swaps slot contents in-place
 	// against the recipe target rather than draining and re-adding, so
 	// items already in the right slots don't visibly flash.
-	public void RefreshRecipes(Array<RecipeData> allRecipes, WorldSimState worldSim, Inventory inventory, EForgeType forgeType)
+	public void RefreshRecipes(Array<RecipeData> allRecipes, WorldSimState worldSim, System.Collections.Generic.IEnumerable<ItemState> available, ECampfireType forgeType)
 	{
 		if (_recipeButtonContainer == null)
 		{
@@ -318,9 +318,9 @@ public partial class CookingPanel : MarginContainer
 		}
 
 		var combined = new System.Collections.Generic.Dictionary<ItemData, int>();
-		if (inventory != null)
+		if (available != null)
 		{
-			foreach (ItemState s in inventory.EnumerateAll())
+			foreach (ItemState s in available)
 			{
 				AccumulateInto(combined, s);
 			}
@@ -343,7 +343,7 @@ public partial class CookingPanel : MarginContainer
 				{
 					continue;
 				}
-				if (!worldSim.DiscoveredRecipes.Contains(recipe))
+				if (!worldSim.IsRecipeDiscovered(recipe))
 				{
 					continue;
 				}

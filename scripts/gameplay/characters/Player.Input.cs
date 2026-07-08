@@ -102,8 +102,8 @@ public partial class Player : CharacterBody3D
 
 	static readonly Dictionary<EInventorySlot, string> _weaponActions = new()
 	{
-		{ EInventorySlot.WeaponLeft, "AttackMelee" },
-		{ EInventorySlot.WeaponRight, "AttackRanged" }
+		{ EInventorySlot.WeaponMelee, "AttackMelee" },
+		{ EInventorySlot.WeaponRanged, "AttackRanged" }
 	};
 	// Zero the cached input vectors so _PhysicsProcess stops applying the
 	// last-known stick deflection while gameplay input is suppressed (e.g.
@@ -419,8 +419,8 @@ public partial class Player : CharacterBody3D
 		if (Input.IsActionJustPressed("AttackContextSensitive"))
 		{
 			EInventorySlot slot = Input.IsActionPressed("Aim")
-				? EInventorySlot.WeaponRight
-				: EInventorySlot.WeaponLeft;
+				? EInventorySlot.WeaponRanged
+				: EInventorySlot.WeaponMelee;
 			_contextSensitiveAttackSlot = slot;
 			TryStartWeaponAction(slot, "AttackContextSensitive");
 		}

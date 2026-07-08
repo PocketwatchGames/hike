@@ -13,10 +13,22 @@ public enum EWaterState
 public partial class Player : CharacterBody3D
 {
 	[Export] public PlayerData data;
-	// The character's display name (stats panel, etc.), set from
-	// CharacterCreationState.playerName at Initialize. Defaults to a placeholder
-	// so the UI always has something to show even before / without spawn data.
+	// The character's display name (stats panel, etc.), set from the hosted
+	// PlayerState.characterName at Initialize. Defaults to a placeholder so the
+	// UI always has something to show even before / without spawn data.
 	public string PlayerName { get; private set; } = "Wyatt Anderson";
+
+	// The party member this Player node is hosting — its identity, appearance,
+	// stat sheet, loadout, and traits. Set at Initialize; the camp stats panel
+	// reads it and (Phase 2) the switch flow flushes live state back to it.
+	public PlayerState Member { get; private set; }
+
+	// Party-control gate. Exactly one Player (the active member) is controlled at
+	// a time; inactive members stand where placed and idle, running none of the
+	// controlled-player per-frame systems (input, aim, scent, combat, interactive
+	// scanning). Defaults true so a lone player / the existing spawn path behaves
+	// exactly as before — GameClient flips this per member.
+	public bool IsActive { get; private set; } = true;
 	[Export] public Area3D interactArea;
 	// World-space anchor (head height) used to project a screen-space point
 	// above the player for HUD elements that float over the character — e.g.
@@ -36,6 +48,9 @@ public partial class Player : CharacterBody3D
 	// The rest of the class drives animation through _animator.
 	private PlayerModelPackage _modelPackageInstance;
 	private ModelAnimator _animator;
+	// The spawned body type, resolved from the hosted member in Initialize. Drives
+	// the gender-specific worn-armor mesh set (ArmorData.GetWornMeshNames).
+	private EGender _gender = EGender.Female;
 	// The visual root of the live model subtree — toggled by SetModelVisible for
 	// hide / birds-eye.
 	private Node3D _activeVisual;
@@ -400,13 +415,6 @@ public partial class Player : CharacterBody3D
 	public static bool DebugHasWallHit;
 	float _debugLastLoggedWallAngle = float.NaN;
 	ulong _debugLastWallLogMs;
-	// Languages the player has partially or fully learned this run. Keyed by
-	// the shared LanguageData resource instance; value is the set of
-	// components learned (Grammar/Numbers/Glyphs/Spelling). A missing key
-	// means the language is fully unknown — all four components scramble.
-	// TextScrambler reads the per-language gap to decide which transforms
-	// to apply at display time.
-	readonly Dictionary<LanguageData, ELanguageComponents> _learnedLanguages = new();
 	ActionRunner _runner;
 	float _health;
 	float _armor;
@@ -566,31 +574,44 @@ public partial class Player : CharacterBody3D
 	public bool HasDamagingStatusEffect => _statusEffects?.HasDamagingEffect ?? false;
 	public World World => _world;
 	public Inventory Inventory => _inventory;
-	public IReadOnlyDictionary<LanguageData, ELanguageComponents> LearnedLanguages => _learnedLanguages;
-	// Returns the components the player has learned for `language`. Null
-	// language is treated as universally readable — All. Otherwise, an
-	// unseen language returns None.
+	// The active member's roster knowledge store (provisional field knowledge),
+	// or null before the roster exists. Language learning writes here and combines
+	// it with the permanent party pool on read (the two-tier knowledge model).
+	Knowledge ActiveKnowledge => _world?.WorldState?.SimState?.Party?.Active?.Knowledge;
+	Knowledge PartyKnowledge => _world?.WorldState?.SimState?.Party?.Knowledge;
+
+	// Returns the components the player has learned for `language`, combining the
+	// permanent party pool with the active member's provisional field store. Null
+	// language is treated as universally readable — All. An unseen language
+	// returns None.
 	public ELanguageComponents GetLearnedComponents(LanguageData language)
 	{
 		if (language == null) { return ELanguageComponents.All; }
-		return _learnedLanguages.TryGetValue(language, out var c) ? c : ELanguageComponents.None;
+		ELanguageComponents combined = ELanguageComponents.None;
+		if (PartyKnowledge != null && PartyKnowledge.LearnedLanguages.TryGetValue(language, out var banked)) { combined |= banked; }
+		if (ActiveKnowledge != null && ActiveKnowledge.LearnedLanguages.TryGetValue(language, out var indiv)) { combined |= indiv; }
+		return combined;
 	}
 	public bool HasLearnedLanguage(LanguageData language) => GetLearnedComponents(language) == ELanguageComponents.All;
-	// OR `components` into the player's learned-set for `language`. Returns
-	// true only when this call newly added at least one component bit — used
-	// by stones / consumables to gate the one-shot firstLearnEffect. Fires
-	// onLanguageLearned with the bits that were NEWLY added (combined &
-	// ~existing) so listeners can describe exactly what was gained ("Vyeshal
-	// Grammar" rather than the player's full known set).
+	// OR `components` into the active member's learned-set for `language`. Returns
+	// true only when this call newly added at least one component bit *relative to
+	// combined (party + individual) knowledge* — used by stones / consumables to
+	// gate the one-shot firstLearnEffect. Fires onLanguageLearned with the bits
+	// that were NEWLY added so listeners can describe exactly what was gained
+	// ("Vyeshal Grammar" rather than the player's full known set). Banked into the
+	// party pool when the player camps.
 	public Action<LanguageData, ELanguageComponents> onLanguageLearned;
 	public bool LearnLanguageComponents(LanguageData language, ELanguageComponents components)
 	{
 		if (language == null || components == ELanguageComponents.None) { return false; }
-		_learnedLanguages.TryGetValue(language, out var existing);
+		Knowledge store = ActiveKnowledge;
+		if (store == null) { return false; }
+		ELanguageComponents existing = GetLearnedComponents(language);
 		ELanguageComponents combined = existing | components;
 		if (combined == existing) { return false; }
 		ELanguageComponents added = combined & ~existing;
-		_learnedLanguages[language] = combined;
+		store.LearnedLanguages.TryGetValue(language, out var storeExisting);
+		store.LearnedLanguages[language] = storeExisting | components;
 		onLanguageLearned?.Invoke(language, added);
 		return true;
 	}
@@ -996,9 +1017,10 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	public void Initialize(World world, WorldGenData worldGenData, CharacterCreationState characterCreation, Vector3 position, Vector3 rotation)
+	public void Initialize(World world, WorldGenData worldGenData, PlayerState member, Vector3 position, Vector3 rotation)
 	{
 		_world = world;
+		Member = member;
 		GlobalPosition = position;
 		Rotation = rotation;
 		_grounded = false;
@@ -1016,36 +1038,38 @@ public partial class Player : CharacterBody3D
 		// held-torch prop has to refresh even when the inventory contents don't.
 		_inventory.onActiveConsumableChanged += OnActiveConsumableChanged;
 		_runner = new ActionRunner(this);
-		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul);
+		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, conditionActive: EvaluateTraitCondition);
 		_scent = new ScentEmitter(this, world, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
 
-		// Adopt the spawned character's name (blank keeps the default).
-		if (!string.IsNullOrEmpty(characterCreation?.playerName))
+		// Adopt the hosted member's name (blank keeps the default).
+		if (!string.IsNullOrEmpty(member?.characterName))
 		{
-			PlayerName = characterCreation.playerName;
+			PlayerName = member.characterName;
 		}
 
 		// Instance the base model package for the spawned gender, then activate
 		// the live visual. Must run before UpdateArmorVisual below, which drives
 		// the active model's mesh set.
-		EGender spawnGender = characterCreation?.gender ?? EGender.Female;
+		EGender spawnGender = member?.gender ?? EGender.Female;
+		_gender = spawnGender;
 		_voice = ResolveGenderVoice(spawnGender);
 		SpawnModelPackage(spawnGender);
 		ActivateVisual();
 		// Resolve + apply the modular appearance (skin tone, hair color, hair
 		// style) before inventory seeding so the styled hair mesh is known the
 		// first time the armor compositor runs.
-		ApplyAppearance(characterCreation);
+		ApplyAppearance(member);
 
-		// Starting loadout / knowledge is a property of the world scenario, not
-		// the character, so it rides on WorldGenData.
-		if (worldGenData != null)
+		// Starting loadout is per-character — this member's own gear, seeded
+		// into their inventory. (Moved off WorldGenData, which used to carry a
+		// single shared loadout.)
+		if (member != null)
 		{
-			if (worldGenData.equippedInventory != null)
+			if (member.equippedInventory != null)
 			{
-				foreach (ItemCount ic in worldGenData.equippedInventory)
+				foreach (ItemCount ic in member.equippedInventory)
 				{
 					if (ic?.descriptor?.item == null || ic.count <= 0) { continue; }
 					int stackSize = ic.descriptor.item.maxStack > 0 ? ic.descriptor.item.maxStack : 1;
@@ -1061,20 +1085,21 @@ public partial class Player : CharacterBody3D
 					}
 				}
 			}
-			if (worldGenData.startingConsumables != null)
+			if (member.startingConsumables != null)
 			{
-				foreach (ConsumableData cd in worldGenData.startingConsumables)
+				foreach (ConsumableData cd in member.startingConsumables)
 				{
 					if (cd == null) { continue; }
 					ItemState item = cd.CreateState();
 					item.stackCount = cd.maxStack;
-					_inventory.TryAdd(item);
-					_inventory.TryMoveToConsumableSlot(item);
+					// Equipment can't enter the material backpack — seed it straight
+					// into the hotbar (overflow past 3 slots is dropped).
+					_inventory.TryAddEquipmentToHotbar(item);
 				}
 			}
-			if (worldGenData.startingInventory != null)
+			if (member.startingInventory != null)
 			{
-				foreach (ItemCount ic in worldGenData.startingInventory)
+				foreach (ItemCount ic in member.startingInventory)
 				{
 					if (ic?.descriptor?.item == null || ic.count <= 0) { continue; }
 					int stackSize = ic.descriptor.item.maxStack > 0 ? ic.descriptor.item.maxStack : 1;
@@ -1089,19 +1114,31 @@ public partial class Player : CharacterBody3D
 					}
 				}
 			}
-			// Apply the spawn-time knowledge pack. Each entry is a
-			// TeachableConcept (item identification, recipe, language piece,
-			// region reveal, mob bestiary seed) and routes through the same
-			// Teach() flow that scrolls / NPC dialogue use. Announcements
-			// are gated by GameClient.SuppressAnnouncements (set around
-			// this whole Init call) so the player doesn't see a wall of
-			// banners on the first frame for things they already know.
-			if (worldGenData.initialKnowledge != null)
+			// Passive traits (perks / afflictions) intrinsic to this character,
+			// applied as status effects. Announcements are suppressed during
+			// spawn so no banners pop.
+			if (member.traits != null)
 			{
-				for (int i = 0; i < worldGenData.initialKnowledge.Count; i++)
+				foreach (StatusEffectData trait in member.traits)
 				{
-					worldGenData.initialKnowledge[i]?.Teach(this);
+					if (trait != null) { AddStatusEffect(trait); }
 				}
+			}
+		}
+
+		// Spawn-time knowledge is a property of the world SCENARIO, not the
+		// character, so it stays on WorldGenData. Each entry is a
+		// TeachableConcept (item identification, recipe, language piece, region
+		// reveal, mob bestiary seed) and routes through the same Teach() flow
+		// that scrolls / NPC dialogue use. Announcements are gated by
+		// GameClient.SuppressAnnouncements (set around this whole Init call) so
+		// the player doesn't see a wall of banners on the first frame for things
+		// they already know.
+		if (worldGenData?.initialKnowledge != null)
+		{
+			for (int i = 0; i < worldGenData.initialKnowledge.Count; i++)
+			{
+				worldGenData.initialKnowledge[i]?.Teach(this);
 			}
 		}
 
@@ -1121,6 +1158,77 @@ public partial class Player : CharacterBody3D
 		{
 			_bodyTemperature = _world.SampleAirTemperature(GlobalPosition);
 		}
+	}
+
+	// Flip party-control state. The active member is the one GameClient feeds
+	// input to and the camera follows; inactive members run only TickInactive
+	// (stand + idle). Deactivating stops residual motion and settles to an idle
+	// pose immediately so there's no one-frame T-pose / drift before the next
+	// physics tick.
+	public void SetActive(bool active)
+	{
+		IsActive = active;
+		if (!active)
+		{
+			Velocity = Vector3.Zero;
+			ClearInput();
+			UpdateAnimation();
+		}
+	}
+
+	// Claim the positional audio listener for this member. Every Player's _Ready
+	// calls MakeCurrent, so with a multi-member party the last one spawned would
+	// win by default — GameClient calls this on the ACTIVE member after spawn and
+	// on each control switch so audio is always heard from the controlled body.
+	public void MakeAudioListenerCurrent() => _audioListener?.MakeCurrent();
+
+	// Toggle the party-select outline on this member's model: adds/removes the
+	// OutlineMaskLayer bit on its meshes and drives GameCamera's outline
+	// composite — the same silhouette InteractiveMeshHighlight uses. Called by
+	// the camp Select-Character screen as the highlight moves between members.
+	public void SetHighlighted(bool on)
+	{
+		_animator?.SetLayerBit(GameCamera.OutlineMaskLayer, on);
+		GameCamera.Current?.SetOutlineActive(on);
+	}
+
+	// Per-frame tick for an inactive party member — hold horizontal position,
+	// settle under gravity so they rest on the ground, and drive the idle loop.
+	// Deliberately minimal; the heavy controlled-player systems are skipped.
+	private void TickInactive(float dt)
+	{
+		Vector3 v = Velocity;
+		v.X = 0f;
+		v.Z = 0f;
+		if (IsOnFloor())
+		{
+			if (v.Y < 0f) { v.Y = 0f; }
+		}
+		else
+		{
+			v.Y -= (_world?.SimData?.gravity ?? 0f) * dt;
+		}
+		Velocity = v;
+		MoveAndSlide();
+		_grounded = IsOnFloor();
+		UpdateAnimation();
+	}
+
+	// Equip a freshly-minted item (e.g. a forged piece) into its canonical slot;
+	// any current occupant is displaced to the party equipment stash. Returns
+	// false for a non-equippable item. Ephemeral expiry is armed by Inventory on
+	// acquisition.
+	public bool EquipItem(ItemState item)
+	{
+		if (_inventory == null || item?.data == null)
+		{
+			return false;
+		}
+		if (!TryGetEquipSlot(item.data, out EInventorySlot slot))
+		{
+			return false;
+		}
+		return _inventory.TryEquip(item, slot);
 	}
 
 	private void TryAutoEquipFromBackpack(ItemState item)
@@ -1149,10 +1257,81 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Backfill empty weapon/armor slots from this member's starting loadout so the
+	// player is never left barehanded or unarmored — e.g. after an equipped
+	// ephemeral piece expires at sunrise (or is otherwise destroyed). Levels are
+	// composed (not earned), so there's no per-item progress to preserve: always
+	// regenerate the piece fresh from the template. Any stray copy displaced into
+	// the backpack (when ephemeral gear was equipped over it) is dropped first so
+	// regeneration can't leave a duplicate behind.
+	private void RefillEmptyEquipmentFromStarting()
+	{
+		if (_inventory == null || Member?.equippedInventory == null)
+		{
+			return;
+		}
+		foreach (ItemCount ic in Member.equippedInventory)
+		{
+			ItemData template = ic?.descriptor?.item;
+			if (template == null || !TryGetEquipSlot(template, out EInventorySlot slot))
+			{
+				continue;
+			}
+			if (_inventory.GetEquipped(slot) != null)
+			{
+				continue;
+			}
+			for (ItemState stray = FindBackpackItem(template); stray != null; stray = FindBackpackItem(template))
+			{
+				_inventory.Remove(stray);
+			}
+			ItemState fresh = ic.descriptor.CreateState();
+			if (fresh == null)
+			{
+				continue;
+			}
+			_inventory.TryAdd(fresh);
+			_inventory.TryEquip(fresh, slot);
+		}
+	}
+
+	// The equip slot an equippable item belongs in — armor by its armorSlot,
+	// weapons by handedness. False for anything not slot-equippable.
+	private static bool TryGetEquipSlot(ItemData data, out EInventorySlot slot)
+	{
+		switch (data)
+		{
+			case ArmorData armor:
+				slot = armor.armorSlot;
+				return true;
+			case WeaponData weapon:
+				slot = weapon.CanonicalSlot;
+				return true;
+			default:
+				slot = EInventorySlot.None;
+				return false;
+		}
+	}
+
+	// First backpack item backed by `data`, or null. Used to purge a displaced
+	// starting piece before regenerating it, so refill can't leave a duplicate.
+	private ItemState FindBackpackItem(ItemData data)
+	{
+		System.Collections.Generic.IReadOnlyList<ItemState> backpack = _inventory.Backpack;
+		for (int i = 0; i < backpack.Count; i++)
+		{
+			if (backpack[i]?.data == data)
+			{
+				return backpack[i];
+			}
+		}
+		return null;
+	}
+
 	private void OnInventorySlotChanged(EInventorySlot slot)
 	{
-		if (slot == EInventorySlot.ArmorHead
-			|| slot == EInventorySlot.ArmorBody)
+		if (slot == EInventorySlot.Helmet
+			|| slot == EInventorySlot.Armor)
 		{
 			RecalculateMaxArmor();
 			UpdateArmorVisual();
@@ -1176,6 +1355,16 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		// Inactive party members skip the entire controlled-player tick and just
+		// stand where placed (settle under gravity + idle pose). None of the
+		// input / aim / scent / ripple / combat / status systems below run for
+		// them — GameClient drives only the one active member.
+		if (!IsActive)
+		{
+			TickInactive(dt);
+			return;
+		}
+
 		// Riding a vehicle: the boat / mount owns position, physics, and water
 		// handling; the rider just keeps its status effects and seated anim
 		// ticking. Began-mounted frames take this gate; the frame mounting
@@ -1192,6 +1381,7 @@ public partial class Player : CharacterBody3D
 		TickArmor(dt);
 		TickBlockArmor(dt);
 		TickAmmoRecharge(_world?.GameTimeMs ?? 0);
+		TickItemExpiry(_world?.GameTimeMs ?? 0);
 		TickStamina(dt);
 		TickSwimStamina(dt);
 		TickSprintStamina(dt);
@@ -1273,7 +1463,7 @@ public partial class Player : CharacterBody3D
 		bool chargingRightWeapon = _runner != null
 			&& _runner.IsBusy
 			&& _runner.Phase == EActionPhase.Charging
-			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponRight;
+			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponRanged;
 		_aiming = canLook
 			&& (Input.IsActionPressed("Aim")
 				|| (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad)

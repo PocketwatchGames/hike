@@ -11,6 +11,9 @@
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="7_palette"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="8_recolor"]
 [ext_resource type="Resource" path="res://resources/data/languages/muddish.tres" id="9_lang"]
+[ext_resource type="Resource" uid="uid://b8sb4docghyjo" path="res://resources/data/world_gen/party/hermit.tres" id="10_recruit"]
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="11_stone"]
+[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="12_stonescene"]
 
 [sub_resource type="Resource" id="Hermit_top"]
 script = ExtResource("8_recolor")
@@ -46,10 +49,19 @@ scene = ExtResource("6_villager_m")
 outfit = PackedStringArray("M_hair_8", "M_TopBody", "M_BottomBody")
 palette = SubResource("Hermit_palette")
 idleAnimation = &"idle_old_man"
+recruitTemplate = ExtResource("10_recruit")
 descriptor = ExtResource("4_hermit")
 initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
+[sub_resource type="Resource" id="Stone_mud"]
+script = ExtResource("11_stone")
+scene = ExtResource("12_stonescene")
+language = ExtResource("9_lang")
+text = "The shape of Muddish speech — how its words are ordered and strung. The hermit keeps to it still."
+components = 1
+metadata/_custom_type_script = "uid://d3c3iycy3trkp"
+
 [resource]
 script = ExtResource("2_group")
-entries = Array[ExtResource("1_base")]([SubResource("Hermit")])
+entries = Array[ExtResource("1_base")]([SubResource("Hermit"), SubResource("Stone_mud")])

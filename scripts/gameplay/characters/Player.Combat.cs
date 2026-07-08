@@ -257,6 +257,14 @@ public partial class Player : CharacterBody3D
 		if (_health > 0f)
 		{
 			_statusEffects?.ApplyHitBuildups(ref hit);
+			// On-damaged trait reactions (Thin Skinned → its "+5% damage taken"
+			// debuff). Discrete hits only — a continuous DoT tick shouldn't re-arm
+			// the debuff every physics frame; the tag filter on each effect further
+			// scopes it (e.g. physical only).
+			if (!hit.dot)
+			{
+				_statusEffects?.TriggerOnDamaged(hit.tags);
+			}
 		}
 
 		// Hitstun + knockback: latch the flinch + knockback windows so

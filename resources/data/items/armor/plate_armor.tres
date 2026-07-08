@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3]
+
+[ext_resource type="Texture2D" uid="uid://bihqgais5fhrf" path="res://assets/textures/items/BonesteelArmor.png" id="1_sprite"]
+[ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_pen"]
+script = ExtResource("m_script")
+stat = 16
+value = 0.4
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_speed"]
+script = ExtResource("m_script")
+stat = 4096
+value = 0.8
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_fire"]
+script = ExtResource("m_script")
+stat = 2
+value = 0.7
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("2_armor")
+maxArmor = 60.0
+modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_speed"), SubResource("m_fire")])
+wornMeshNamesFemale = PackedStringArray("F_Knight_Top", "F_Knight_Bottom", "F_Knight_Pauldrons", "F_Knight_Skirt")
+wornMeshNamesMale = PackedStringArray("M_Knight_Top", "M_Knight_Bottom", "M_Knight_Pauldrons")
+displayName = &"Plate Armor"
+description = "A full harness of shaped steel — the best protection coin can buy, if you can bear the weight."
+value = 150
+inventorySprite = ExtResource("1_sprite")

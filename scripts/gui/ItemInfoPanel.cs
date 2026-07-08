@@ -10,7 +10,6 @@ public partial class ItemInfoPanel : PanelContainer
 	[Export] private Label _nameLabel;
 	[Export] private Label _descriptionLabel;
 	[Export] private TextureRect _icon;
-	[Export] private ProgressBar _levelProgress;
 	[Export] private Label _levelLabel;
 	[Export] private PackedScene _actionPanel;
 	[Export] private Control _actionPanelContainer;
@@ -19,7 +18,10 @@ public partial class ItemInfoPanel : PanelContainer
 	[Export] private Control _statusContainer;
 	[Export] private PackedScene _statusScene;
 
-	public void SetItem(ItemState item)
+	// forceIdentified overrides the world's identification gate so the item's
+	// stats/description always show — the forge picker uses it so a freshly
+	// minted piece reads in full before the player commits to it.
+	public void SetItem(ItemState item, bool forceIdentified = false)
 	{
 		ItemData data = item?.data;
 		if (data == null)
@@ -28,7 +30,7 @@ public partial class ItemInfoPanel : PanelContainer
 			return;
 		}
 		WorldSimState worldSim = World.Current?.WorldState?.SimState;
-		bool identified = worldSim == null || worldSim.IsItemIdentified(data);
+		bool identified = forceIdentified || worldSim == null || worldSim.IsItemIdentified(data);
 		if (_nameLabel != null)
 		{
 			_nameLabel.Text = worldSim != null
@@ -217,62 +219,16 @@ public partial class ItemInfoPanel : PanelContainer
 
 	private void UpdateLevelDisplay(ItemState item)
 	{
-		int maxLevel = item.data?.maxLevel ?? 0;
-		bool levels = maxLevel > 0;
-		if (_levelProgress != null)
-		{
-			_levelProgress.Visible = levels;
-		}
+		// Levels are composed, not earned. Only ephemeral (altar / forge) gear
+		// advertises its tier — permanent gear stays unlabeled.
+		bool showLevel = item.ephemeral;
 		if (_levelLabel != null)
 		{
-			_levelLabel.Visible = levels;
-		}
-		if (!levels)
-		{
-			return;
-		}
-
-		int level;
-		int exp;
-		switch (item)
-		{
-			case WeaponState w:
-				level = w.level;
-				exp = w.exp;
-				break;
-			case ArmorState a:
-				level = a.level;
-				exp = a.exp;
-				break;
-			default:
-				level = 0;
-				exp = 0;
-				break;
-		}
-
-		if (_levelLabel != null)
-		{
-			_levelLabel.Text = $"Level {level + 1}";
-		}
-		if (_levelProgress != null)
-		{
-			var thresholds = World.Current?.SimData?.expPerLevel;
-			int cap = thresholds != null ? System.Math.Min(maxLevel, thresholds.Count) : 0;
-			float ratio;
-			if (thresholds == null || level >= cap)
+			_levelLabel.Visible = showLevel;
+			if (showLevel)
 			{
-				ratio = 1f;
+				_levelLabel.Text = $"Level {item.level}";
 			}
-			else
-			{
-				int prev = level > 0 ? thresholds[level - 1] : 0;
-				int next = thresholds[level];
-				int span = next - prev;
-				ratio = span > 0 ? Mathf.Clamp((exp - prev) / (float)span, 0f, 1f) : 1f;
-			}
-			_levelProgress.MinValue = 0;
-			_levelProgress.MaxValue = 1;
-			_levelProgress.Value = ratio;
 		}
 	}
 }

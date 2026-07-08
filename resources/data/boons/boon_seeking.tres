@@ -53,6 +53,7 @@ durationType = 1
 maxStack = 1
 removesOnApply = []
 modifiers = []
+conditionalModifiers = []
 weaponMod = SubResource("weaponMod")
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"
 

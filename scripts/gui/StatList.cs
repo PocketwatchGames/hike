@@ -390,6 +390,20 @@ public static class StatList
 		yield return (names[EStatName.Health], StatFormat.Number(player.MaxHealth));
 		yield return (names[EStatName.MaxStamina], StatFormat.Number(player.MaxStamina));
 		yield return (names[EStatName.Armor], StatFormat.Number(player.MaxArmor));
+
+		// Per-character party sheet (PlayerState) — the authored attributes that
+		// distinguish one member from another on the camp Select-Character panel.
+		// Display-only for now (not yet folded into gameplay), read straight off
+		// the hosted member. Always shown so members are comparable.
+		if (player.Member is PlayerState member)
+		{
+			yield return (names[EStatName.Strength], StatFormat.Number(member.strength));
+			yield return (names[EStatName.Perception], StatFormat.Number(member.perception));
+			yield return (names[EStatName.Stealth], StatFormat.Number(member.stealth));
+			yield return (names[EStatName.Fortitude], StatFormat.Number(member.fortitude));
+			yield return (names[EStatName.Charisma], StatFormat.Number(member.charisma));
+		}
+
 		float speed = player.SpeedMultiplier;
 		if (!Mathf.IsEqualApprox(speed, 1f))
 		{

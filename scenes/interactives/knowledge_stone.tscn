@@ -16,6 +16,8 @@
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 [ext_resource type="PackedScene" uid="uid://bpk7jh8tfg3fh" path="res://scenes/fx/knowledge_stone_ambient_loop.tscn" id="11_ambloop"]
 [ext_resource type="PackedScene" uid="uid://due3oqhb0clen" path="res://scenes/fx/knowledge_stone_use.tscn" id="12_use"]
+[ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="13_mapmarker"]
+[ext_resource type="Texture2D" uid="uid://cc5oqi7tf0ylw" path="res://assets/textures/map_markers/knowledge_stone.png" id="14_mapicon"]
 
 [sub_resource type="Resource" id="Resource_ks_event_open"]
 script = ExtResource("4_event")
@@ -91,3 +93,8 @@ _collectFrom = NodePath("../StatueModel")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=1996100106]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+
+[node name="MapMarker" type="Node3D" parent="."]
+script = ExtResource("13_mapmarker")
+displayName = &"Knowledge Stone"
+icon = ExtResource("14_mapicon")

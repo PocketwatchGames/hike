@@ -485,7 +485,7 @@ public partial class MerchantScreen : Control
 			return InventoryScreen.EquipCompatible(destEquip, _selectedItem) ? "Equip" : string.Empty;
 		}
 		if (destBackpack) { return "Unequip"; }
-		if (sourceEquip == EInventorySlot.Consumable && destEquip == EInventorySlot.Consumable) { return "Move"; }
+		if (sourceEquip == EInventorySlot.Equipment && destEquip == EInventorySlot.Equipment) { return "Move"; }
 		if (InventoryScreen.CanSwapEquipSlots(sourceEquip, destEquip, _selectedItem, _player?.Inventory)) { return "Move"; }
 		return string.Empty;
 	}
@@ -865,7 +865,7 @@ public partial class MerchantScreen : Control
 		}
 		if (sourceBackpack)
 		{
-			if (destEquip == EInventorySlot.Consumable)
+			if (destEquip == EInventorySlot.Equipment)
 			{
 				return inv.TryMoveToConsumableSlot(_selectedItem, _playerInventory.GetConsumableIndex(dest));
 			}
@@ -877,13 +877,13 @@ public partial class MerchantScreen : Control
 		}
 		if (destBackpack)
 		{
-			if (sourceEquip == EInventorySlot.Consumable)
+			if (sourceEquip == EInventorySlot.Equipment)
 			{
 				return inv.TryRemoveFromConsumableSlot(_selectedItem);
 			}
 			return inv.TryUnequip(sourceEquip);
 		}
-		if (sourceEquip == EInventorySlot.Consumable && destEquip == EInventorySlot.Consumable)
+		if (sourceEquip == EInventorySlot.Equipment && destEquip == EInventorySlot.Equipment)
 		{
 			return inv.TryMoveToConsumableSlot(_selectedItem, _playerInventory.GetConsumableIndex(dest));
 		}
@@ -1575,7 +1575,7 @@ public partial class MerchantScreen : Control
 		{
 			verb = EActionVerb.Use,
 			primaryItem = item,
-			sourceSlot = EInventorySlot.Consumable,
+			sourceSlot = EInventorySlot.Equipment,
 		});
 	}
 

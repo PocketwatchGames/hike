@@ -195,10 +195,13 @@ public partial class Player : CharacterBody3D
 		{
 			loopAnim = EAnimation.Dead;
 		}
-		else if (_camping)
+		else if (_camping || !IsActive)
 		{
-			// Camp screen open at a campfire: sit by the fire. Movement is
-			// already gated (InputSuppressed) so the player is stationary.
+			// Sit by the fire: the controlled player while the camp screen is open
+			// (_camping), and every inactive party member gathered around the
+			// campfire (!IsActive). An inactive member only stands once selected —
+			// becoming the controlled member clears this and resumes normal
+			// locomotion. Movement is gated either way, so the body is stationary.
 			loopAnim = EAnimation.SitIdle;
 		}
 		else if (_mount != null)
@@ -394,7 +397,7 @@ public partial class Player : CharacterBody3D
 
 		PackedScene itemModel = null;
 		if (_runner != null && _runner.IsBusy
-			&& _runner.Current.context.sourceSlot == EInventorySlot.Consumable)
+			&& _runner.Current.context.sourceSlot == EInventorySlot.Equipment)
 		{
 			itemModel = _runner.Current.context.primaryItem?.data?.heldModel;
 		}
@@ -408,7 +411,7 @@ public partial class Player : CharacterBody3D
 		// melee weapon equipped leaves the existing held model untouched.
 		if (_aiming)
 		{
-			WeaponState ranged = _inventory?.GetWeapon(EInventorySlot.WeaponRight);
+			WeaponState ranged = _inventory?.GetWeapon(EInventorySlot.WeaponRanged);
 			PackedScene rangedModel = ranged?.data?.heldModel;
 			if (rangedModel != null)
 			{

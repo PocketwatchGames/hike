@@ -31,6 +31,7 @@ startFx = ExtResource("2_startfx")
 loopFx = ExtResource("3_loopfx")
 removesOnApply = []
 modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed")])
+conditionalModifiers = []
 incapacitates = true
 loopAnimOverride = 10
 vulnerable = 1.0

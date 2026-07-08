@@ -15,8 +15,11 @@ public class WeaponState : ItemState
 	public int comboIndex;
 	public ulong comboExpireMs;
 
-	public int exp;
-	public int level;
+	// Composed level (ItemState.level) doubles this weapon's outgoing health
+	// damage per level (2^level, so level 0 = ×1). Applied at hit resolution on
+	// top of the authored DamageData — melee/hitscan in ItemEventHandlers.ResolveHit,
+	// projectiles threaded through Projectile.Launch.
+	public float DamageMultiplier => 1 << level;
 
 	// Live block-armor guard pool + its recharge-delay gate. Capacity and
 	// recharge tuning live on WeaponData (blockArmor / blockArmorRechargeDelay
@@ -208,28 +211,6 @@ public class WeaponState : ItemState
 			{
 				_minions.RemoveAt(i);
 			}
-		}
-	}
-
-	// Adds exp and promotes level while the running total has crossed the
-	// next threshold in SimData.ExpPerLevel. WeaponData.maxLevel caps how
-	// many entries this weapon may consume — a weapon with maxLevel=0 never
-	// levels regardless of the table contents.
-	public void AddExp(int amount, Godot.Collections.Array<int> thresholds)
-	{
-		if (amount <= 0 || _data == null)
-		{
-			return;
-		}
-		exp += amount;
-		if (thresholds == null)
-		{
-			return;
-		}
-		int cap = System.Math.Min(_data.maxLevel, thresholds.Count);
-		while (level < cap && exp >= thresholds[level])
-		{
-			level++;
 		}
 	}
 }

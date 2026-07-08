@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://b45t676la3e45"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
+[ext_resource type="Script" uid="uid://s6bfihcepal1" path="res://scripts/data/effects/payloads/ConditionalModifierData.cs" id="3_cond"]
+
+[sub_resource type="Resource" id="mod_out"]
+script = ExtResource("2_mod")
+stat = 2048
+value = 2.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="cond_lowstam"]
+script = ExtResource("3_cond")
+modifiers = Array[ExtResource("2_mod")]([SubResource("mod_out")])
+metadata/_custom_type_script = "uid://eok50kekxv5ds"
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Runs Hot"
+description = "Fights fiercest when spent — deals double damage while stamina is below 25%."
+category = 2
+durationType = 1
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = Array[ExtResource("3_cond")]([SubResource("cond_lowstam")])
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

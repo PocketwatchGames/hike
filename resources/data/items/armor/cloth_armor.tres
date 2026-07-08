@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3]
+
+[ext_resource type="Texture2D" uid="uid://xbn8ns80jnq6" path="res://assets/textures/items/BasicCloak.png" id="1_sprite"]
+[ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_speed"]
+script = ExtResource("m_script")
+stat = 4096
+value = 1.05
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_noise"]
+script = ExtResource("m_script")
+stat = 65536
+value = 0.8
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("2_armor")
+maxArmor = 8.0
+modifiers = Array[ExtResource("m_script")]([SubResource("m_speed"), SubResource("m_noise")])
+wornMeshNamesFemale = PackedStringArray("F_Mage_Top", "F_Mage_Bottom", "F_Mage_Cape")
+wornMeshNamesMale = PackedStringArray("M_Warlock_Top", "M_Warlock_Bottom", "M_Warlock_Cape")
+displayName = &"Cloth Armor"
+description = "Little more than layered robes — light and quiet, but it stops nothing."
+value = 10
+inventorySprite = ExtResource("1_sprite")

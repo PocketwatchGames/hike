@@ -15,3 +15,4 @@ displayName = &"Invulnerable"
 duration = 0.2
 removesOnApply = []
 modifiers = Array[ExtResource("m_script")]([SubResource("m_damage")])
+conditionalModifiers = []

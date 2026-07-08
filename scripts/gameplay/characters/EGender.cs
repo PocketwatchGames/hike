@@ -1,5 +1,5 @@
 // Player body type. Selects which base character model renders; authored on
-// CharacterCreationState, resolved to the live visual in Player.Initialize.
+// PlayerState, resolved to the live visual in Player.Initialize.
 //
 // Wire values are stable — gender is serialized and used as a dictionary key
 // on Player's per-gender model map, so renames are safe but reorders are not.

@@ -131,6 +131,10 @@ public partial class Projectile : Node3D
 	// Knockback-mod shove (m/s) + stagger (s) added to each hit. 0 = none.
 	private float _knockbackBonus;
 	private float _knockbackTimeBonus;
+	// Firing weapon's composed level damage multiplier (2^level). 1 = no scaling.
+	// The shot rebuilds its HitInfo from raw DamageData, so ResolveHit's scaling
+	// doesn't reach it — the multiplier is threaded through Launch instead.
+	private float _damageMultiplier = 1f;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -189,7 +193,8 @@ public partial class Projectile : Node3D
 		Godot.Collections.Array<PackedScene> projectileFx = null,
 		Godot.Collections.Array<StatusEffectBuildup> onHitBuildups = null,
 		ItemEvent directHitEvent = null,
-		ItemEvent expirationEvent = null)
+		ItemEvent expirationEvent = null,
+		float damageMultiplier = 1f)
 	{
 		if (scene == null || parent == null)
 		{
@@ -202,6 +207,7 @@ public partial class Projectile : Node3D
 		inst._chainLightning = chainLightning;
 		inst._knockbackBonus = knockbackBonus;
 		inst._knockbackTimeBonus = knockbackTimeBonus;
+		inst._damageMultiplier = damageMultiplier;
 		inst._damageData = damageData;
 		inst._source = source;
 		inst._velocity = velocity;
@@ -401,6 +407,8 @@ public partial class Projectile : Node3D
 					{
 						var hit = new HitInfo(_damageData, _source, _velocity.Normalized(), _attackerTeam);
 						hit.friendlyFire = _friendlyFire;
+						// Composed weapon level doubles outgoing damage per level (2^level).
+						hit.healthDamage *= _damageMultiplier;
 						// Weapon-mod on-hit effects (Burning applied immediately,
 						// Poison buildup) the shot carries, on top of the
 						// DamageData's own buildups.

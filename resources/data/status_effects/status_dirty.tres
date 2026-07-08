@@ -20,3 +20,4 @@ buildupBehavior = 1
 armThreshold = 0.99
 removesOnApply = []
 modifiers = Array[ExtResource("m_script")]([SubResource("m_scent")])
+conditionalModifiers = []

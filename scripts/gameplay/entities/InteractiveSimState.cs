@@ -41,7 +41,7 @@ public class TorchSimState : EntitySimState
 
 // Campfires / cooking stations. Standalone from TorchSimState — the
 // persistent cooking inputs and cook-job timer are forge-specific.
-public class ForgeSimState : EntitySimState
+public class CampfireSimState : EntitySimState
 {
     // Default hazard danger-zone radius (meters) — see EntitySimState.HazardRadius.
     // Single source for the spawn entry's [Export] default and the .hike
@@ -51,45 +51,42 @@ public class ForgeSimState : EntitySimState
     // Number of cooking slots a forge exposes. Mirrored by the
     // CookingPanel.tscn layout — adding a slot here requires adding a
     // matching ItemSlotPanel reference there.
-    public const int ForgeSlotCount = 3;
+    public const int CampfireSlotCount = 3;
 
-    public bool Active = true;
-    // When true, Forge.Create overrides Active based on world time-of-day
-    // at chunk activation: lit at night, unlit during the day. Authored on
-    // worldgen-spawned campfires so they "come alive" after dark without
-    // the player having to light each one.
-    public bool AutoLightAtNight;
+    // A campfire spawns unlit unless authored otherwise (the party's spawn
+    // campfire). Lighting one douses all others so only one is ever Active.
+    public bool Active = false;
 
-    // Persistent cooking inputs. Forge reads/writes through this array so
+    // Persistent cooking inputs. Campfire reads/writes through this array so
     // contents survive CookingScreen open/close; idle-close returns them
     // to the player's inventory, mid-cook close leaves them for the active
     // job to consume.
-    public ItemState[] ForgeSlots = new ItemState[ForgeSlotCount];
+    public ItemState[] CampfireSlots = new ItemState[CampfireSlotCount];
 
-    // Non-null while a cook job is in flight. Forge._PhysicsProcess ticks
+    // Non-null while a cook job is in flight. Campfire._PhysicsProcess ticks
     // remainingSeconds; on completion the slots are drained and the output
     // is delivered through the bound CookingScreen (if any) or spawned as
     // Loot at the forge's position.
-    public ForgeJob ActiveForgeJob;
+    public CampfireJob ActiveCampfireJob;
 
-    public ForgeSimState(Vector3 worldPosition, PackedScene scene)
+    public CampfireSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
     }
 
     public override Node3D CreateEntity(World world)
     {
-        return Forge.Create(world, this);
+        return Campfire.Create(world, this);
     }
 }
 
 // Active cook job — recipe + timer + output preview. Owned by
-// ForgeSimState; the forge's runtime entity ticks the timer. Discovery
-// flags aren't tracked here — Forge.CompleteForgeJob computes them against
+// CampfireSimState; the forge's runtime entity ticks the timer. Discovery
+// flags aren't tracked here — Campfire.CompleteCampfireJob computes them against
 // the live WorldSimState at the moment the cook actually finishes, so a
 // cancelled cook doesn't leak credit and an offscreen completion still
 // records correctly.
-public class ForgeJob
+public class CampfireJob
 {
     public RecipeData recipe;
     public ItemData outputItem;
@@ -141,10 +138,10 @@ public class ChestSimState : EntitySimState
     // Mutators (stash UI, future chest UIs) must write to this list
     // directly — the runtime Chest node holds a reference to this SimState,
     // so direct mutation persists without any sync-back hook.
-    // Subclass-specific ItemState fields (WeaponState.ammo/level,
-    // ConsumableState.isActive, ArmorState.exp/level) are NOT preserved
-    // — items round-trip through ItemData.CreateState(), resetting to
-    // authored defaults. Lift this when player Inventory persistence lands.
+    // Subclass-specific ItemState fields (WeaponState.ammo,
+    // ConsumableState.isActive) are NOT preserved — items round-trip through
+    // ItemData.CreateState(), resetting to authored defaults. Lift this when
+    // player Inventory persistence lands.
     public readonly List<ItemState> Contents = new();
 
     public ChestSimState(Vector3 worldPosition, PackedScene scene)
@@ -355,5 +352,34 @@ public class FireTrapSimState : EntitySimState
     public override Node3D CreateEntity(World world)
     {
         return FireTrap.Create(world, this);
+    }
+}
+
+// Smithing forge (weapon/armor granting station). Distinct from the Campfire
+// cooking station — no lit state, no cook jobs.
+public class ForgeSimState : EntitySimState
+{
+    // Power tier stamped onto every item the forge mints (see ItemState.level).
+    public int Level;
+
+    // Sim-clock (GameTimeMs) time the forge becomes usable again; 0 = ready.
+    // Stamped to the next sunrise when the player forges an item. Persisted so
+    // the cooldown survives chunk eviction and save/load.
+    public ulong ReactivateMs;
+
+    public ForgeSimState(Vector3 worldPosition, PackedScene scene, int level)
+        : base(worldPosition, scene)
+    {
+        Level = level;
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return Forge.Create(world, this);
+    }
+
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
+    {
+        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
     }
 }

@@ -3,11 +3,10 @@
 [ext_resource type="Script" uid="uid://cntd0vmcmhkly" path="res://scripts/gui/CookingScreen.cs" id="1_f2qv6"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_f2qv6"]
 [ext_resource type="PackedScene" uid="uid://dpdp3rplt633u" path="res://scenes/gui/cooking_panel.tscn" id="3_2sopy"]
-[ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="4_h3fcw"]
+[ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_vv7vb"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_m6qmy"]
-[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/drop_count_panel.tscn" id="6_ph72v"]
 
-[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_inventoryPanel", "_cookingPanel", "_itemInfoPanel", "_dropCountPanel")]
+[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_backpackPanel", "_cookingPanel", "_itemInfoPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -15,10 +14,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_f2qv6")
-_inventoryPanel = NodePath("MarginContainer/HBoxContainer/Inventory")
+_backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/StashPanel")
 _cookingPanel = NodePath("MarginContainer/HBoxContainer/CookingContainer/CookingPanel")
-_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
-_dropCountPanel = NodePath("MarginContainer/MarginContainer/DropCountPanel")
+_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/ItemInfoPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767524930]
 layout_mode = 1
@@ -67,27 +65,20 @@ size_flags_vertical = 0
 [node name="CookingPanel" parent="MarginContainer/HBoxContainer/CookingContainer" unique_id=1417314439 instance=ExtResource("3_2sopy")]
 layout_mode = 2
 
-[node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary", "_buttonHintSecondary", "_buttonHintTertiary") instance=ExtResource("4_h3fcw")]
-layout_mode = 2
-size_flags_horizontal = 0
-size_flags_vertical = 0
-_buttonHintPrimary = NodePath("../../ButtonHints/ButtonHintA")
-_buttonHintSecondary = NodePath("../../ButtonHints/ButtonHintX")
-_buttonHintTertiary = NodePath("../../ButtonHints/ButtonHintY")
-
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1484389953]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
 
-[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=638608018 instance=ExtResource("5_m6qmy")]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=1828088405]
 layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer" unique_id=1086251021]
+[node name="StashPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1854400171 instance=ExtResource("4_vv7vb")]
 layout_mode = 2
-theme_override_constants/margin_bottom = 100
+size_flags_horizontal = 6
 
-[node name="DropCountPanel" parent="MarginContainer/MarginContainer" unique_id=695241055 instance=ExtResource("6_ph72v")]
+[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=638608018 instance=ExtResource("5_m6qmy")]
 layout_mode = 2
-size_flags_vertical = 8

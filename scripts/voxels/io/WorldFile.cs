@@ -117,7 +117,10 @@ public static class WorldFile
     //      (EliteMobDescriptor.crownScene, PackedScene ref, may be null) after the
     //      badge — so an elite that authors its own crown keeps it across
     //      save/load instead of reverting to the shared SimData.EliteCrownScene.
-    public const uint VERSION = 26;
+    // v27: Campfire entity payload dropped the AutoLightAtNight bool — campfires
+    //      now spawn unlit (except the party spawn fire) and are lit by the
+    //      player, with lighting one dousing all others (only one lit at a time).
+    public const uint VERSION = 27;
 
     public struct IndexEntry
     {

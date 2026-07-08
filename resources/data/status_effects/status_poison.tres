@@ -18,4 +18,5 @@ buildupRemovalDelay = 3.0
 buildupRemovalSpeed = 0.3
 removesOnApply = []
 modifiers = []
+conditionalModifiers = []
 dot = SubResource("dot")

@@ -10,8 +10,14 @@ using Godot;
 //                    Caller-side monotonic merge: only overwrite a pixel
 //                    when the new height >= existing (vertically stacked
 //                    chunk loads must converge to the highest surface).
-//   _exploration  — R8, same dimensions. Reveal logic (circular outdoor,
-//                    shadowcast indoor) writes max(existing, falloff).
+//   _exploration  — R8, same dimensions. The MINIMAP's display buffer = party
+//                    pool ∪ active member's provisional reveal. Reveal writes
+//                    into it live (max(existing, falloff)) so the controlled
+//                    player's freshly-charted ground shows immediately.
+//   _explorationBanked — R8, same dimensions. The WORLD MAP's display buffer =
+//                    party pool ONLY. Updated solely by RebuildExploration, so
+//                    un-banked field reveal stays off the world map until it's
+//                    recorded at a campfire.
 //
 // Sized once at construction from WorldState.Min/Max; one full-extent
 // upload per flush.
@@ -21,10 +27,13 @@ public class MinimapTextures
 
     private readonly byte[] _surfaceData;
     private readonly byte[] _exploration;
+    private readonly byte[] _explorationBanked;
     private readonly Image _surfaceImage;
     private readonly Image _explorationImage;
+    private readonly Image _explorationBankedImage;
     private readonly ImageTexture _surfaceTexture;
     private readonly ImageTexture _explorationTexture;
+    private readonly ImageTexture _explorationBankedTexture;
 
     private readonly int _widthPixels;
     private readonly int _heightPixels;
@@ -37,9 +46,15 @@ public class MinimapTextures
 
     private bool _surfaceDirty;
     private bool _explorationDirty;
+    private bool _explorationBankedDirty;
 
     public ImageTexture SurfaceTexture => _surfaceTexture;
+    // Minimap display (party ∪ active); world map display (party only).
     public ImageTexture ExplorationTexture => _explorationTexture;
+    public ImageTexture ExplorationBankedTexture => _explorationBankedTexture;
+    // Length of the outdoor exploration buffer — callers size their per-member
+    // ExplorationMask.Outdoor to this so pixel indices line up 1:1 with display.
+    public int ExplorationBufferSize => _widthPixels * _heightPixels;
     public int WidthPixels => _widthPixels;
     public int HeightPixels => _heightPixels;
     public Vector2I WorldOriginXZ => _worldOriginXZ;
@@ -58,11 +73,14 @@ public class MinimapTextures
 
         _surfaceData = new byte[_widthPixels * _heightPixels * BytesPerSurfacePixel];
         _exploration = new byte[_widthPixels * _heightPixels];
+        _explorationBanked = new byte[_widthPixels * _heightPixels];
 
         _surfaceImage = Image.CreateFromData(_widthPixels, _heightPixels, false, Image.Format.Rgba8, _surfaceData);
         _explorationImage = Image.CreateFromData(_widthPixels, _heightPixels, false, Image.Format.R8, _exploration);
+        _explorationBankedImage = Image.CreateFromData(_widthPixels, _heightPixels, false, Image.Format.R8, _explorationBanked);
         _surfaceTexture = ImageTexture.CreateFromImage(_surfaceImage);
         _explorationTexture = ImageTexture.CreateFromImage(_explorationImage);
+        _explorationBankedTexture = ImageTexture.CreateFromImage(_explorationBankedImage);
     }
 
     // Apply one chunk's surface contribution. cells.Length must be at least
@@ -194,8 +212,36 @@ public class MinimapTextures
     // `innerFraction` controls the soft-edge: inside pxRadius * innerFraction
     // the disk paints 255, from there it linearly falls to 0 at the outer
     // edge. 1.0 = hard edge, ~0.5 = wide soft fade.
-    public void RevealCircle(Vector3 worldPosXZ, float radiusMeters, float innerFraction = 0.7f)
+    //
+    // Apply one reveal sample: max-merge into the caller's provisional buffer
+    // (banked at a campfire) and into the live minimap display buffer (party ∪
+    // active, shown immediately). The banked world-map buffer is untouched.
+    private void WriteReveal(byte[] individual, int idx, byte target)
     {
+        if (target > individual[idx])
+        {
+            individual[idx] = target;
+        }
+        if (target > _exploration[idx])
+        {
+            _exploration[idx] = target;
+            _explorationDirty = true;
+        }
+    }
+
+    // Writes into the caller's per-member `individual` buffer (may be null
+    // before a roster exists) — the active member's provisional field reveal —
+    // AND into the live minimap display buffer (party ∪ active) so the
+    // controlled player's newly-charted ground shows immediately. It does NOT
+    // touch the banked world-map buffer: un-banked reveal stays off the world
+    // map until it's recorded at a campfire, at which point RebuildExploration
+    // recomposes both display buffers from the (now-merged) party pool.
+    public void RevealCircle(Vector3 worldPosXZ, float radiusMeters, float innerFraction, byte[] individual)
+    {
+        if (individual == null)
+        {
+            return;
+        }
         float pxRadius = radiusMeters / MinimapData.OutdoorMetersPerPixel;
         int cx = (Mathf.FloorToInt(worldPosXZ.X) - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
         int cz = (Mathf.FloorToInt(worldPosXZ.Z) - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
@@ -207,7 +253,6 @@ public class MinimapTextures
         float innerR = pxRadius * Mathf.Clamp(innerFraction, 0f, 1f);
         float innerSq = innerR * innerR;
         float outerSq = pxRadius * pxRadius;
-        bool changed = false;
         for (int z = z0; z <= z1; z++)
         {
             for (int x = x0; x <= x1; x++)
@@ -230,17 +275,266 @@ public class MinimapTextures
                     target = (byte)Mathf.Clamp((int)(t * 255f), 0, 255);
                 }
                 int idx = z * _widthPixels + x;
-                if (target > _exploration[idx])
+                WriteReveal(individual, idx, target);
+            }
+        }
+    }
+
+    // Line-of-sight reveal: same soft disk as RevealCircle, but each cell's
+    // value is additionally scaled by terrain occlusion (a mountain hides the
+    // valley behind it) and volumetric fog accumulated along the sightline. Used
+    // for ground-level outdoor reveal; bird's-eye uses RevealCircleFogged and the
+    // los-disabled path uses RevealCircle. `eyeFootPos` is the player's feet;
+    // the sightline origin is lifted by los.EyeHeightMeters.
+    public void RevealViewshed(Vector3 eyeFootPos, float radiusMeters, float innerFraction, in MinimapLos los, WorldState ws, byte[] individual)
+    {
+        if (individual == null)
+        {
+            return;
+        }
+        Vector2 eyeXZ = new Vector2(eyeFootPos.X, eyeFootPos.Z);
+        float eyeY = eyeFootPos.Y + los.EyeHeightMeters;
+        float pxRadius = radiusMeters / MinimapData.OutdoorMetersPerPixel;
+        int cx = (Mathf.FloorToInt(eyeFootPos.X) - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
+        int cz = (Mathf.FloorToInt(eyeFootPos.Z) - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
+        int r = Mathf.CeilToInt(pxRadius);
+        int x0 = Mathf.Max(cx - r, 0);
+        int x1 = Mathf.Min(cx + r, _widthPixels - 1);
+        int z0 = Mathf.Max(cz - r, 0);
+        int z1 = Mathf.Min(cz + r, _heightPixels - 1);
+        float innerR = pxRadius * Mathf.Clamp(innerFraction, 0f, 1f);
+        float innerSq = innerR * innerR;
+        float outerSq = pxRadius * pxRadius;
+        for (int z = z0; z <= z1; z++)
+        {
+            for (int x = x0; x <= x1; x++)
+            {
+                int dx = x - cx;
+                int dz = z - cz;
+                int distSq = dx * dx + dz * dz;
+                if (distSq > outerSq)
                 {
-                    _exploration[idx] = target;
-                    changed = true;
+                    continue;
+                }
+                float falloff = distSq <= innerSq
+                    ? 1f
+                    : (outerSq - distSq) / (outerSq - innerSq);
+                int wx = _worldOriginXZ.X + x * MinimapData.OutdoorMetersPerPixel;
+                int wz = _worldOriginXZ.Y + z * MinimapData.OutdoorMetersPerPixel;
+                float terrainVis = ComputeGroundVisibility(eyeXZ, eyeY, wx, wz, los, ws, out float fogVis);
+                byte target = (byte)Mathf.Clamp((int)(falloff * terrainVis * fogVis * 255f), 0, 255);
+                int idx = z * _widthPixels + x;
+                WriteReveal(individual, idx, target);
+            }
+        }
+    }
+
+    // Bird's-eye reveal: a plain filled disk (no terrain occlusion — scouting
+    // from above looks straight down over the terrain) attenuated only by
+    // LOCAL volumetric fog at each cell, scaled by distance. A distant column
+    // buried in a painted fog volume stays uncharted; a near one reads through.
+    public void RevealCircleFogged(Vector3 worldPosXZ, float radiusMeters, float innerFraction, WorldState ws, float fogFullBlockMeters, byte[] individual)
+    {
+        if (individual == null)
+        {
+            return;
+        }
+        bool fogOn = ws != null && fogFullBlockMeters > 0f;
+        float pxRadius = radiusMeters / MinimapData.OutdoorMetersPerPixel;
+        int cx = (Mathf.FloorToInt(worldPosXZ.X) - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
+        int cz = (Mathf.FloorToInt(worldPosXZ.Z) - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
+        int r = Mathf.CeilToInt(pxRadius);
+        int x0 = Mathf.Max(cx - r, 0);
+        int x1 = Mathf.Min(cx + r, _widthPixels - 1);
+        int z0 = Mathf.Max(cz - r, 0);
+        int z1 = Mathf.Min(cz + r, _heightPixels - 1);
+        float innerR = pxRadius * Mathf.Clamp(innerFraction, 0f, 1f);
+        float innerSq = innerR * innerR;
+        float outerSq = pxRadius * pxRadius;
+        for (int z = z0; z <= z1; z++)
+        {
+            for (int x = x0; x <= x1; x++)
+            {
+                int dx = x - cx;
+                int dz = z - cz;
+                int distSq = dx * dx + dz * dz;
+                if (distSq > outerSq)
+                {
+                    continue;
+                }
+                float falloff = distSq <= innerSq
+                    ? 1f
+                    : (outerSq - distSq) / (outerSq - innerSq);
+                float fogVis = 1f;
+                if (fogOn)
+                {
+                    int wx = _worldOriginXZ.X + x * MinimapData.OutdoorMetersPerPixel;
+                    int wz = _worldOriginXZ.Y + z * MinimapData.OutdoorMetersPerPixel;
+                    ushort th = GetHeightAtWorld(wx, wz);
+                    int fy = th == 0 ? Mathf.FloorToInt(worldPosXZ.Y) : th - 1;
+                    int fog = ws.GetFogWorld(wx, fy, wz);
+                    if (fog > 0)
+                    {
+                        float distMeters = Mathf.Sqrt(distSq) * MinimapData.OutdoorMetersPerPixel;
+                        fogVis = Mathf.Clamp(1f - (fog / 255f) * distMeters / fogFullBlockMeters, 0f, 1f);
+                    }
+                }
+                byte target = (byte)Mathf.Clamp((int)(falloff * fogVis * 255f), 0, 255);
+                int idx = z * _widthPixels + x;
+                WriteReveal(individual, idx, target);
+            }
+        }
+    }
+
+    // Terrain-only line-of-sight visibility [0..1] of the column at world
+    // (wx, wz) from the eye — 1 = clear, 0 = fully occluded. Used to gate the
+    // slice-column reveal pass so cliff faces hidden behind a ridge stay dark.
+    // Fog is intentionally excluded here (the slice pass is a secondary trace).
+    public float ColumnVisibility(Vector2 eyeXZ, float eyeY, int wx, int wz, in MinimapLos los)
+    {
+        return ComputeGroundVisibility(eyeXZ, eyeY, wx, wz, los, null, out _);
+    }
+
+    // Marches the 2 m heightmap from the eye toward the target column, tracking
+    // the maximum elevation angle of intervening terrain (the running horizon).
+    // The target is visible when its own ground — lifted by ForgivenessMeters —
+    // rises to that horizon, fading out over the forgiveness band below it. When
+    // `ws` is non-null and fog is enabled, also accumulates fog optical depth
+    // along the sightline into `fogVis`. Height 0 (unstamped column) is treated
+    // as no occluder / no target terrain so map edges and water still reveal.
+    private float ComputeGroundVisibility(Vector2 eyeXZ, float eyeY, int wx, int wz, in MinimapLos los, WorldState ws, out float fogVis)
+    {
+        fogVis = 1f;
+        float dxw = wx - eyeXZ.X;
+        float dzw = wz - eyeXZ.Y;
+        float dist = Mathf.Sqrt(dxw * dxw + dzw * dzw);
+        if (dist < 1f)
+        {
+            return 1f;
+        }
+        ushort th = GetHeightAtWorld(wx, wz);
+        float targetGroundY = th == 0 ? eyeY : th - 1;
+
+        float step = Mathf.Max(los.StepMeters, dist / MinimapData.LosMaxStepsPerRay);
+        float invDist = 1f / dist;
+        float nx = dxw * invDist;
+        float nz = dzw * invDist;
+        float maxHorizon = float.NegativeInfinity;
+        float fogDepth = 0f;
+        bool fogOn = ws != null && los.FogFullBlockMeters > 0f;
+
+        for (float t = step; t < dist; t += step)
+        {
+            int sx = Mathf.RoundToInt(eyeXZ.X + nx * t);
+            int sz = Mathf.RoundToInt(eyeXZ.Y + nz * t);
+            ushort sh = GetHeightAtWorld(sx, sz);
+            if (sh != 0)
+            {
+                float ang = ((sh - 1) - eyeY) / t;
+                if (ang > maxHorizon)
+                {
+                    maxHorizon = ang;
+                }
+            }
+            if (fogOn)
+            {
+                float lineY = eyeY + (targetGroundY - eyeY) * (t * invDist);
+                int fog = ws.GetFogWorld(sx, Mathf.FloorToInt(lineY), sz);
+                if (fog > 0)
+                {
+                    fogDepth += (fog / 255f) * step / los.FogFullBlockMeters;
                 }
             }
         }
-        if (changed)
+
+        float terrainVis;
+        if (float.IsNegativeInfinity(maxHorizon))
         {
-            _explorationDirty = true;
+            terrainVis = 1f;
         }
+        else
+        {
+            float horizonY = eyeY + maxHorizon * dist;
+            terrainVis = Mathf.Clamp((targetGroundY + los.ForgivenessMeters - horizonY) / los.ForgivenessMeters, 0f, 1f);
+        }
+        if (fogOn)
+        {
+            fogVis = Mathf.Clamp(1f - fogDepth, 0f, 1f);
+        }
+        return terrainVis;
+    }
+
+    // Recompose both display exploration buffers. The minimap buffer is
+    // party ∪ active (the controlled player's un-banked field reveal is shown),
+    // the world-map buffer is party only. Called on bank, member switch, and
+    // revive — the switch case is why the minimap buffer is fully rebuilt rather
+    // than only accrued: it must drop the previous member's provisional reveal.
+    // Either mask may be null (nothing banked / no active member yet).
+    public void RebuildExploration(byte[] party, byte[] active)
+    {
+        for (int i = 0; i < _exploration.Length; i++)
+        {
+            byte p = (party != null && i < party.Length) ? party[i] : (byte)0;
+            byte a = (active != null && i < active.Length) ? active[i] : (byte)0;
+            _exploration[i] = a > p ? a : p;
+            _explorationBanked[i] = p;
+        }
+        _explorationDirty = true;
+        _explorationBankedDirty = true;
+    }
+
+    // Snapshot / drive the world-map (banked) outdoor buffer. The campfire reveal
+    // animation captures the pre-bank buffer, then walks the displayed buffer from
+    // that baseline up to the freshly-banked buffer over ~1.5s so newly charted
+    // ground grows in on the world map instead of popping (see Minimap reveal anim).
+    public byte[] CopyBankedOutdoor()
+    {
+        return (byte[])_explorationBanked.Clone();
+    }
+
+    public void SetBankedOutdoor(byte[] data)
+    {
+        if (data == null || data.Length != _explorationBanked.Length)
+        {
+            return;
+        }
+        System.Array.Copy(data, _explorationBanked, _explorationBanked.Length);
+        _explorationBankedDirty = true;
+    }
+
+    // Normalized (0..1) world-map reveal value at world XZ — same world→pixel
+    // mapping as IsRevealed, reading the banked display buffer. Out-of-bounds reads
+    // as 0. Lets world-map marker icons fade in with their ground during the
+    // campfire reveal sweep (Minimap.BankedRevealAlphaAt).
+    public float SampleBankedOutdoorAlpha(Vector3 worldPosXZ)
+    {
+        int px = (Mathf.FloorToInt(worldPosXZ.X) - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
+        int pz = (Mathf.FloorToInt(worldPosXZ.Z) - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
+        if (px < 0 || pz < 0 || px >= _widthPixels || pz >= _heightPixels)
+        {
+            return 0f;
+        }
+        return _explorationBanked[pz * _widthPixels + px] / 255f;
+    }
+
+    // True if world XZ is revealed (value > threshold) in the supplied outdoor
+    // mask buffer (typically a member's ExplorationMask.Outdoor). Same world→pixel
+    // mapping as RevealCircle. A null/short buffer or out-of-bounds position reads
+    // as unrevealed. Drives reveal-gated map-marker discovery (Minimap).
+    public bool IsRevealed(byte[] outdoor, Vector3 worldPosXZ, byte threshold = 0)
+    {
+        if (outdoor == null)
+        {
+            return false;
+        }
+        int px = (Mathf.FloorToInt(worldPosXZ.X) - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
+        int pz = (Mathf.FloorToInt(worldPosXZ.Z) - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
+        if (px < 0 || pz < 0 || px >= _widthPixels || pz >= _heightPixels)
+        {
+            return false;
+        }
+        int idx = pz * _widthPixels + px;
+        return idx < outdoor.Length && outdoor[idx] > threshold;
     }
 
     // Returns the stored top-face Y at world XZ, or 0 if the column is
@@ -275,6 +569,12 @@ public class MinimapTextures
             _explorationImage.SetData(_widthPixels, _heightPixels, false, Image.Format.R8, _exploration);
             _explorationTexture.Update(_explorationImage);
             _explorationDirty = false;
+        }
+        if (_explorationBankedDirty)
+        {
+            _explorationBankedImage.SetData(_widthPixels, _heightPixels, false, Image.Format.R8, _explorationBanked);
+            _explorationBankedTexture.Update(_explorationBankedImage);
+            _explorationBankedDirty = false;
         }
     }
 

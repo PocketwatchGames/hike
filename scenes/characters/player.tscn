@@ -23,7 +23,7 @@
 [ext_resource type="PackedScene" uid="uid://dy7pahbiw5boy" path="res://scenes/fx/land_hard.tscn" id="19_landhard"]
 [ext_resource type="PackedScene" uid="uid://da0fmu7g5je6s" path="res://scenes/fx/water_plunge.tscn" id="20_plunge"]
 [ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/fx/player_swim_idle_loop.tscn" id="21_tread"]
-[ext_resource type="Script" uid="uid://jgnbllrj442r" path="res://scripts/data/characters/VoiceData.cs" id="22_s1x7u"]
+[ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="22_s1x7u"]
 [ext_resource type="Resource" uid="uid://dhis3te0u5ii" path="res://resources/data/characters/human/player_voice_female.tres" id="22_voicefem"]
 [ext_resource type="Resource" uid="uid://xdns0m6o8hu4" path="res://resources/data/characters/human/player_voice_male.tres" id="23_voicemale"]
 [ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
@@ -38,6 +38,7 @@
 [ext_resource type="PackedScene" uid="uid://el7ngc3sj7g" path="res://scenes/fx/dash_speed_lines.tscn" id="33_dashlines"]
 [ext_resource type="PackedScene" uid="uid://cypanyqryd22f" path="res://scenes/characters/player_model_male.tscn" id="41_modelmale"]
 [ext_resource type="PackedScene" uid="uid://dqv7n2wk8rmpc" path="res://scenes/fx/dig_scoop.tscn" id="42_digscoop"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="43_corpsebox"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -64,7 +65,10 @@ rings = 6
 
 [sub_resource type="ImmediateMesh" id="ImmediateMesh_arc"]
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_audioListener", "_aimingReticle")]
+[sub_resource type="SphereShape3D" id="SphereShape3D_corpse"]
+radius = 1.0
+
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_audioListener", "_aimingReticle", "_corpseInteractiveBox")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
@@ -76,6 +80,7 @@ _modelPackages = Dictionary[int, PackedScene]({
 })
 _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
+_corpseInteractiveBox = NodePath("CorpseInteractiveBox")
 _wetEffectData = ExtResource("26_statuswet")
 _wetClothesEffectData = ExtResource("26_statuswetclothes")
 _dirtyEffectData = ExtResource("27_statusdirty")
@@ -146,6 +151,18 @@ script = ExtResource("5_7vyk4")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=1476629525]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
+
+[node name="CorpseInteractiveBox" type="Area3D" parent="." unique_id=811223344 node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+monitorable = false
+script = ExtResource("43_corpsebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CorpseInteractiveBox" unique_id=811223345]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("SphereShape3D_corpse")
 
 [node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_groundCircle", "_endKnob", "_arcRibbon")]
 script = ExtResource("24_aimreticle_script")

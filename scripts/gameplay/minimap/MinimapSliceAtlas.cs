@@ -73,26 +73,45 @@ public class MinimapSliceAtlas
     // If the slice has no allocated layer (no chunk in this band has had any
     // content), the reveal call no-ops — the player is in genuinely-empty
     // air and there's nothing to remember as explored.
-    public void RevealCircle(int sliceLevel, Vector3 worldPosXZ, float radiusMeters, float innerFraction = 0.7f)
+    //
+    // Writes into both the display layer and the active member's per-slice buffer
+    // (lazily allocated in `individual`, may be null before a roster exists).
+    public void RevealCircle(int sliceLevel, Vector3 worldPosXZ, float radiusMeters, float innerFraction, ExplorationMask individual, WorldState ws, float eyeY, in MinimapLos los)
     {
         if (!_layers.TryGetValue(sliceLevel, out SliceLayer layer))
         {
             return;
         }
-        layer.RevealCircle(_worldOriginXZ, worldPosXZ, radiusMeters, innerFraction);
+        byte[] indiv = individual?.EnsureSlice(sliceLevel, _widthPixels * _heightPixels);
+        layer.RevealCircle(_worldOriginXZ, worldPosXZ, radiusMeters, innerFraction, indiv, ws, eyeY, los);
     }
 
     // Reveal a single (wx, wz) cell at the given slice level. Used by the
     // outdoor heightmap-driven reveal pass to set per-column visibility on
     // whatever slice a column's ground falls in. No-ops if the slice has no
     // allocated layer.
-    public void RevealCellAtWorld(int sliceLevel, int wx, int wz, byte value)
+    public void RevealCellAtWorld(int sliceLevel, int wx, int wz, byte value, ExplorationMask individual)
     {
         if (!_layers.TryGetValue(sliceLevel, out SliceLayer layer))
         {
             return;
         }
-        layer.RevealCellAtWorld(_worldOriginXZ, wx, wz, value);
+        byte[] indiv = individual?.EnsureSlice(sliceLevel, _widthPixels * _heightPixels);
+        layer.RevealCellAtWorld(_worldOriginXZ, wx, wz, value, indiv);
+    }
+
+    // Recompose every allocated display slice: minimap buffer = party ∪ active
+    // (the controlled player's un-banked indoor reveal is shown), world-map
+    // buffer = party only. Called on bank, member switch, and revive. Slices
+    // absent from a pool are treated as null (fully fogged for that source).
+    public void RebuildExploration(ExplorationMask party, ExplorationMask active)
+    {
+        foreach (KeyValuePair<int, SliceLayer> kv in _layers)
+        {
+            byte[] p = party != null && party.Slices.TryGetValue(kv.Key, out byte[] pb) ? pb : null;
+            byte[] a = active != null && active.Slices.TryGetValue(kv.Key, out byte[] ab) ? ab : null;
+            kv.Value.RebuildExploration(p, a);
+        }
     }
 
     public SliceLayer TryGetLayer(int sliceLevel)
@@ -137,11 +156,15 @@ public class MinimapSliceAtlas
         public const int BytesPerPixel = 4; // RGBA8
 
         private readonly byte[] _tileData;
+        // Minimap display (party ∪ active) and world-map display (party only).
         private readonly byte[] _exploration;
+        private readonly byte[] _explorationBanked;
         private readonly Image _tileImage;
         private readonly Image _explorationImage;
+        private readonly Image _explorationBankedImage;
         private readonly ImageTexture _tileTexture;
         private readonly ImageTexture _explorationTexture;
+        private readonly ImageTexture _explorationBankedTexture;
         private readonly int _width;
         private readonly int _height;
         private readonly int _sliceLevel;
@@ -153,9 +176,11 @@ public class MinimapSliceAtlas
         private readonly ushort _sliceCenterY;
         private bool _tileDirty;
         private bool _explDirty;
+        private bool _explBankedDirty;
 
         public ImageTexture TileTexture => _tileTexture;
         public ImageTexture ExplorationTexture => _explorationTexture;
+        public ImageTexture ExplorationBankedTexture => _explorationBankedTexture;
 
         public SliceLayer(int width, int height, int sliceLevel)
         {
@@ -165,10 +190,13 @@ public class MinimapSliceAtlas
             _sliceCenterY = (ushort)(sliceLevel * MinimapData.PlateauHeight + MinimapData.PlateauHeight / 2);
             _tileData = new byte[width * height * BytesPerPixel];
             _exploration = new byte[width * height];
+            _explorationBanked = new byte[width * height];
             _tileImage = Image.CreateFromData(width, height, false, Image.Format.Rgba8, _tileData);
             _explorationImage = Image.CreateFromData(width, height, false, Image.Format.R8, _exploration);
+            _explorationBankedImage = Image.CreateFromData(width, height, false, Image.Format.R8, _explorationBanked);
             _tileTexture = ImageTexture.CreateFromImage(_tileImage);
             _explorationTexture = ImageTexture.CreateFromImage(_explorationImage);
+            _explorationBankedTexture = ImageTexture.CreateFromImage(_explorationBankedImage);
         }
 
         public void ApplyChunkSlice(
@@ -217,8 +245,34 @@ public class MinimapSliceAtlas
             _tileDirty = true;
         }
 
-        public void RevealCircle(Vector2I worldOriginXZ, Vector3 worldPosXZ, float radiusMeters, float innerFraction = 0.7f)
+        // Max-merge one reveal sample into the caller's provisional slice buffer
+        // (banked at a campfire) and into the live minimap display buffer
+        // (party ∪ active, shown immediately). The banked world-map buffer is
+        // untouched — un-banked indoor reveal stays off the world map until
+        // recorded at a campfire.
+        private void WriteReveal(byte[] individual, int idx, byte target)
         {
+            if (target > individual[idx])
+            {
+                individual[idx] = target;
+            }
+            if (target > _exploration[idx])
+            {
+                _exploration[idx] = target;
+                _explDirty = true;
+            }
+        }
+
+        // Writes into the caller's per-member `individual` slice buffer (may be
+        // null before a roster exists) AND the live minimap display buffer
+        // (party ∪ active). The banked world-map buffer is untouched.
+        public void RevealCircle(Vector2I worldOriginXZ, Vector3 worldPosXZ, float radiusMeters, float innerFraction, byte[] individual, WorldState ws, float eyeY, in MinimapLos los)
+        {
+            if (individual == null)
+            {
+                return;
+            }
+            bool losOn = los.Enabled && ws != null;
             float pxRadius = radiusMeters / MinimapData.IndoorMetersPerPixel;
             int cx = Mathf.FloorToInt(worldPosXZ.X) - worldOriginXZ.X;
             int cz = Mathf.FloorToInt(worldPosXZ.Z) - worldOriginXZ.Y;
@@ -230,7 +284,9 @@ public class MinimapSliceAtlas
             float innerR = pxRadius * Mathf.Clamp(innerFraction, 0f, 1f);
             float innerSq = innerR * innerR;
             float outerSq = pxRadius * pxRadius;
-            bool changed = false;
+            // Sightline is cast at the player's real eye height (not the generous
+            // outdoor LOS eye) so a normal 2-block wall reliably blocks the view.
+            int eyeYi = Mathf.FloorToInt(eyeY);
             for (int z = z0; z <= z1; z++)
             {
                 for (int x = x0; x <= x1; x++)
@@ -242,32 +298,79 @@ public class MinimapSliceAtlas
                     {
                         continue;
                     }
-                    byte target;
+                    float vis = 1f;
+                    if (losOn)
+                    {
+                        vis = ComputeVisibility(ws, worldPosXZ.X, worldPosXZ.Z, eyeYi,
+                            worldOriginXZ.X + x, worldOriginXZ.Y + z, los);
+                        if (vis <= 0f)
+                        {
+                            continue;
+                        }
+                    }
+                    float falloff;
                     if (distSq <= innerSq)
                     {
-                        target = 255;
+                        falloff = 1f;
                     }
                     else
                     {
-                        float t = (outerSq - distSq) / (outerSq - innerSq);
-                        target = (byte)Mathf.Clamp((int)(t * 255f), 0, 255);
+                        falloff = (outerSq - distSq) / (outerSq - innerSq);
                     }
+                    byte target = (byte)Mathf.Clamp((int)(falloff * vis * 255f), 0, 255);
                     int idx = z * _width + x;
-                    if (target > _exploration[idx])
-                    {
-                        _exploration[idx] = target;
-                        changed = true;
-                    }
+                    WriteReveal(individual, idx, target);
                 }
-            }
-            if (changed)
-            {
-                _explDirty = true;
             }
         }
 
-        public void RevealCellAtWorld(Vector2I worldOriginXZ, int wx, int wz, byte value)
+        // 2D raymarch for indoor reveal: marches from the player toward the
+        // target cell at eye height and returns visibility [0..1]. A solid voxel
+        // hard-blocks (returns 0); otherwise volumetric fog is accumulated along
+        // the ray the same way the outdoor viewshed does. Stops one step short of
+        // the target so a wall pixel doesn't self-occlude (we still chart the
+        // wall face the player can see).
+        private static float ComputeVisibility(WorldState ws, float eyeX, float eyeZ, int eyeY, int wx, int wz, in MinimapLos los)
         {
+            float dxw = (wx + 0.5f) - eyeX;
+            float dzw = (wz + 0.5f) - eyeZ;
+            float dist = Mathf.Sqrt(dxw * dxw + dzw * dzw);
+            if (dist < 1.5f)
+            {
+                return 1f;
+            }
+            float step = Mathf.Max(los.StepMeters, dist / MinimapData.LosMaxStepsPerRay);
+            float invDist = 1f / dist;
+            float nx = dxw * invDist;
+            float nz = dzw * invDist;
+            bool fogOn = los.FogFullBlockMeters > 0f;
+            float fogDepth = 0f;
+            for (float t = step; t < dist - 0.5f; t += step)
+            {
+                int sx = Mathf.RoundToInt(eyeX + nx * t);
+                int sz = Mathf.RoundToInt(eyeZ + nz * t);
+                if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(sx, eyeY, sz)))
+                {
+                    return 0f;
+                }
+                if (fogOn)
+                {
+                    int fog = ws.GetFogWorld(sx, eyeY, sz);
+                    if (fog > 0)
+                    {
+                        fogDepth += (fog / 255f) * step / los.FogFullBlockMeters;
+                    }
+                }
+            }
+            return fogOn ? Mathf.Clamp(1f - fogDepth, 0f, 1f) : 1f;
+        }
+
+        public void RevealCellAtWorld(Vector2I worldOriginXZ, int wx, int wz, byte value, byte[] individual)
+        {
+            if (individual == null)
+            {
+                return;
+            }
             int x = wx - worldOriginXZ.X;
             int z = wz - worldOriginXZ.Y;
             if (x < 0 || z < 0 || x >= _width || z >= _height)
@@ -275,11 +378,23 @@ public class MinimapSliceAtlas
                 return;
             }
             int idx = z * _width + x;
-            if (value > _exploration[idx])
+            WriteReveal(individual, idx, value);
+        }
+
+        // Recompose this slice's display buffers: minimap = party ∪ active,
+        // world map = party only (see MinimapTextures). Either buffer may be
+        // null (this slice not present in that pool → fully-fogged source).
+        public void RebuildExploration(byte[] party, byte[] active)
+        {
+            for (int i = 0; i < _exploration.Length; i++)
             {
-                _exploration[idx] = value;
-                _explDirty = true;
+                byte p = (party != null && i < party.Length) ? party[i] : (byte)0;
+                byte a = (active != null && i < active.Length) ? active[i] : (byte)0;
+                _exploration[i] = a > p ? a : p;
+                _explorationBanked[i] = p;
             }
+            _explDirty = true;
+            _explBankedDirty = true;
         }
 
         public void Flush()
@@ -295,6 +410,12 @@ public class MinimapSliceAtlas
                 _explorationImage.SetData(_width, _height, false, Image.Format.R8, _exploration);
                 _explorationTexture.Update(_explorationImage);
                 _explDirty = false;
+            }
+            if (_explBankedDirty)
+            {
+                _explorationBankedImage.SetData(_width, _height, false, Image.Format.R8, _explorationBanked);
+                _explorationBankedTexture.Update(_explorationBankedImage);
+                _explBankedDirty = false;
             }
         }
     }

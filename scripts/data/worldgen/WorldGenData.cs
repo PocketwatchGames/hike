@@ -108,28 +108,21 @@ public partial class WorldGenData : Resource
     // a route per connection (see RoadConnection / WorldGen.CarveRoads).
     [Export] public RoadConnection[] roads = System.Array.Empty<RoadConnection>();
 
+    // Smithing forge placed once in each non-spawn zone (see
+    // WorldGen.PlaceZoneForges). The spawn zone the player starts in is skipped.
+    // Null = no forges in this world.
+    [Export] public ForgeSpawnEntry forge;
+
+    [ExportGroup("Player Party")]
+    // The party the run begins with. Each PlayerState is one playable character
+    // (identity + appearance + stat sheet + its own starting loadout + traits);
+    // the first entry is the initially-controlled member. GameClient.Init clones
+    // these templates into the runtime WorldSimState.Party at game start. This
+    // replaces the old single CharacterCreationState + the shared per-world
+    // loadout (starting gear is now per-character, on PlayerState).
+    [Export] public PlayerState[] startingParty = System.Array.Empty<PlayerState>();
+
     [ExportGroup("Player Loadout")]
-    // The starting loadout/knowledge the player spawns with for this world.
-    // These describe the run's scenario (a different world template can hand
-    // the player different gear), so they live here rather than on the
-    // character-creation picks. Player.Initialize seeds them at spawn; the
-    // character's name/appearance ride in separately via CharacterCreationState.
-
-    // Items the player tries to spawn already equipped. Each entry is added to
-    // the inventory and then we attempt to move it into the matching slot:
-    // armor → its armorSlot, weapons → their CanonicalSlot (melee → WeaponLeft,
-    // ranged → WeaponRight). If the target slot is already taken (or the item
-    // isn't equippable), the item stays in the backpack.
-    [Export] public ItemCount[] equippedInventory;
-
-    // Items added to the player's inventory and pushed into consumable hotbar
-    // slots in order. Each is created at maxStack.
-    [Export] public ConsumableData[] startingConsumables;
-
-    // Items added to the player's backpack at spawn. Each entry's count is
-    // split into maxStack-sized stacks. No equip / hotbar placement.
-    [Export] public ItemCount[] startingInventory;
-
     // Things the player already knows about when the run begins. Each
     // entry is a TeachableConcept subclass — ItemTeachable identifies an
     // item by name, RecipeTeachable seeds a recipe into the cookbook,

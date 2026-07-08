@@ -25,3 +25,4 @@ maxStack = 1
 buildupBehavior = 1
 removesOnApply = []
 modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_scent")])
+conditionalModifiers = []

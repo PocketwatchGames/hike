@@ -20,13 +20,14 @@ public static class EntitySerializer
         FireTrap = 8,
         BerryTree = 9,
         Loot = 10,
-        Forge = 11,
+        Campfire = 11,
         KnowledgeStone = 12,
         Well = 13,
         ClimbableTree = 14,
         Boat = 15,
         BuriedSpot = 16,
         Tent = 17,
+        Forge = 18,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -207,6 +208,10 @@ public static class EntitySerializer
                 // a clip name, may be empty. Appended last so older world files
                 // still parse.
                 w.Write(mob.IdleAnimation != null ? mob.IdleAnimation.ToString() : "");
+                // Recruitable-NPC party-member template (NpcSpawnEntry
+                // .recruitTemplate): a standalone PlayerState .tres, resource
+                // ref, may be null. Appended last so older world files still parse.
+                WriteResource(w, mob.RecruitTemplate);
                 break;
 
             case DoorSimState door:
@@ -224,13 +229,12 @@ public static class EntitySerializer
                 w.Write(boat.RotationY);
                 break;
 
-            case ForgeSimState forge:
-                w.Write((byte)Tag.Forge);
-                WriteVec3(w, forge.WorldPosition);
-                WriteScene(w, forge.Scene);
-                w.Write(forge.Active);
-                w.Write(forge.AutoLightAtNight);
-                // Transient cooking state (ForgeSlots, ActiveForgeJob) is
+            case CampfireSimState campfire:
+                w.Write((byte)Tag.Campfire);
+                WriteVec3(w, campfire.WorldPosition);
+                WriteScene(w, campfire.Scene);
+                w.Write(campfire.Active);
+                // Transient cooking state (CampfireSlots, ActiveCampfireJob) is
                 // not serialized — open jobs are abandoned and slot
                 // contents reset on world reload. Persisting them would
                 // need stable ItemData refs and recipe wire IDs first.
@@ -352,6 +356,14 @@ public static class EntitySerializer
                 w.Write((byte)Tag.Tent);
                 WriteVec3(w, tent.WorldPosition);
                 WriteScene(w, tent.Scene);
+                break;
+
+            case ForgeSimState forge:
+                w.Write((byte)Tag.Forge);
+                WriteVec3(w, forge.WorldPosition);
+                WriteScene(w, forge.Scene);
+                w.Write(forge.Level);
+                w.Write(forge.ReactivateMs);
                 break;
 
             default:
@@ -482,6 +494,7 @@ public static class EntitySerializer
                     outfit[i] = r.ReadString();
                 }
                 string idleAnimation = r.ReadString();
+                var recruitTemplate = ReadResource<PlayerState>(r);
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.Species = species;
@@ -525,6 +538,7 @@ public static class EntitySerializer
                 {
                     mob.IdleAnimation = idleAnimation;
                 }
+                mob.RecruitTemplate = recruitTemplate;
                 return mob;
             }
             case Tag.Door:
@@ -555,19 +569,17 @@ public static class EntitySerializer
                 torch.AutoLightAtNight = autoLightAtNight;
                 return torch;
             }
-            case Tag.Forge:
+            case Tag.Campfire:
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool active = r.ReadBoolean();
-                bool autoLightAtNight = r.ReadBoolean();
-                var forge = new ForgeSimState(pos, scene);
-                forge.Active = active;
-                forge.AutoLightAtNight = autoLightAtNight;
+                var campfire = new CampfireSimState(pos, scene);
+                campfire.Active = active;
                 // Per-type constant (not serialized) so disk-loaded campfires
                 // still project their mob-avoidance hazard zone.
-                forge.HazardRadius = ForgeSimState.DefaultHazardRadius;
-                return forge;
+                campfire.HazardRadius = CampfireSimState.DefaultHazardRadius;
+                return campfire;
             }
             case Tag.Chest:
             {
@@ -683,6 +695,16 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 return new TentSimState(pos, scene);
             }
+            case Tag.Forge:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                int level = r.ReadInt32();
+                ulong reactivateMs = r.ReadUInt64();
+                var forge = new ForgeSimState(pos, scene, level);
+                forge.ReactivateMs = reactivateMs;
+                return forge;
+            }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");
         }
@@ -793,10 +815,10 @@ public static class EntitySerializer
         return effects;
     }
 
-    // ItemState wire format: ItemData resource path + the base ItemState
-    // fields (stackCount, cooldownExpireMs, cooldownDurationMs, touched). Polymorphic
-    // subclass fields (WeaponState.ammo/level, ConsumableState.isActive,
-    // ArmorState.exp/level) are not preserved — items round-trip through
+    // ItemState wire format: ItemData resource path + the base ItemState fields
+    // (stackCount, cooldownExpireMs, cooldownDurationMs, touched, removeTimeMs,
+    // ephemeral, level). Polymorphic subclass fields (WeaponState.ammo,
+    // ConsumableState.isActive) are not preserved — items round-trip through
     // ItemData.CreateState() which resets them to authored defaults. Extend
     // this when player Inventory persistence lands and subclass state needs
     // to survive save/load.
@@ -812,6 +834,9 @@ public static class EntitySerializer
         w.Write(item.cooldownExpireMs);
         w.Write(item.cooldownDurationMs);
         w.Write(item.touched);
+        w.Write(item.removeTimeMs);
+        w.Write(item.ephemeral);
+        w.Write(item.level);
     }
 
     private static ItemState ReadItemState(BinaryReader r)
@@ -830,6 +855,9 @@ public static class EntitySerializer
         ulong cooldownExpireMs = r.ReadUInt64();
         ulong cooldownDurationMs = r.ReadUInt64();
         bool touched = r.ReadBoolean();
+        ulong removeTimeMs = r.ReadUInt64();
+        bool ephemeral = r.ReadBoolean();
+        int level = r.ReadInt32();
         if (data == null)
         {
             return null;
@@ -839,6 +867,9 @@ public static class EntitySerializer
         state.cooldownExpireMs = cooldownExpireMs;
         state.cooldownDurationMs = cooldownDurationMs;
         state.touched = touched;
+        state.removeTimeMs = removeTimeMs;
+        state.ephemeral = ephemeral;
+        state.level = level;
         return state;
     }
 

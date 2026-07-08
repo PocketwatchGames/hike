@@ -85,8 +85,8 @@ public partial class Player : CharacterBody3D
 		float total = 0f;
 		if (_inventory != null)
 		{
-			AccumulateArmor(EInventorySlot.ArmorHead, ref total);
-			AccumulateArmor(EInventorySlot.ArmorBody, ref total);
+			AccumulateArmor(EInventorySlot.Helmet, ref total);
+			AccumulateArmor(EInventorySlot.Armor, ref total);
 		}
 		_maxArmor = total;
 		if (_armor > _maxArmor)
@@ -99,29 +99,8 @@ public partial class Player : CharacterBody3D
 	{
 		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
 		{
-			total += armor.data.maxArmor;
+			total += armor.EffectiveMaxArmor;
 		}
-	}
-
-	// Awards `amount` exp to every equipped weapon and armor piece. Called
-	// from Mob.Damage on the lethal hit when the killer is this player; each
-	// state walks SimData.ExpPerLevel and promotes level as thresholds are
-	// crossed, capped at its own data.maxLevel.
-	public void GrantEquippedExperience(int amount)
-	{
-		if (amount <= 0 || _inventory == null)
-		{
-			return;
-		}
-		var thresholds = _world?.SimData?.expPerLevel;
-		if (thresholds == null)
-		{
-			return;
-		}
-		(_inventory.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState)?.AddExp(amount, thresholds);
-		(_inventory.GetEquipped(EInventorySlot.WeaponRight) as WeaponState)?.AddExp(amount, thresholds);
-		(_inventory.GetEquipped(EInventorySlot.ArmorHead) as ArmorState)?.AddExp(amount, thresholds);
-		(_inventory.GetEquipped(EInventorySlot.ArmorBody) as ArmorState)?.AddExp(amount, thresholds);
 	}
 
 	// Compose a single stat across inherent PlayerData modifiers, equipped
@@ -137,8 +116,8 @@ public partial class Player : CharacterBody3D
 		{
 			value = StatModifierUtil.Fold(stat, data.modifiers, value);
 		}
-		value = AccumulateArmorStat(EInventorySlot.ArmorHead, stat, value);
-		value = AccumulateArmorStat(EInventorySlot.ArmorBody, stat, value);
+		value = AccumulateArmorStat(EInventorySlot.Helmet, stat, value);
+		value = AccumulateArmorStat(EInventorySlot.Armor, stat, value);
 		value = _statusEffects?.FoldStat(stat, value) ?? value;
 		return value;
 	}
@@ -155,10 +134,42 @@ public partial class Player : CharacterBody3D
 		{
 			product = StatModifierUtil.FoldMask(mask, data.modifiers, product);
 		}
-		product = AccumulateArmorMask(EInventorySlot.ArmorHead, mask, product);
-		product = AccumulateArmorMask(EInventorySlot.ArmorBody, mask, product);
+		product = AccumulateArmorMask(EInventorySlot.Helmet, mask, product);
+		product = AccumulateArmorMask(EInventorySlot.Armor, mask, product);
 		product = _statusEffects?.FoldMask(mask, product) ?? product;
 		return product;
+	}
+
+	// Maps a data-authored ETraitCondition to this player's live state for the
+	// conditional-modifier fold (ConditionalModifierData). Handed to the
+	// StatusEffectController as its condition evaluator, it's consulted at
+	// stat-compose time so a trait's situational bonus blinks on/off with the
+	// condition without churning the effect list. Unknown conditions read false.
+	// `_evaluatingStaminaCondition` guards the StaminaBelowFraction branch: it reads
+	// MaxStamina, which composes status effects (a conditional MaxStamina trait like
+	// Empathetic among them) and could otherwise recurse; on reentry we treat the
+	// condition as unmet rather than loop.
+	private bool _evaluatingStaminaCondition;
+
+	private bool EvaluateTraitCondition(ETraitCondition condition, float parameter)
+	{
+		switch (condition)
+		{
+			case ETraitCondition.StaminaBelowFraction:
+				if (_evaluatingStaminaCondition)
+				{
+					return false;
+				}
+				_evaluatingStaminaCondition = true;
+				float max = MaxStamina;
+				_evaluatingStaminaCondition = false;
+				return max > 0f && _stamina < max * parameter;
+			case ETraitCondition.PartyMemberFallen:
+				Party party = _world?.WorldState?.SimState?.Party;
+				return party != null && party.AliveCount < party.Count;
+			default:
+				return false;
+		}
 	}
 
 	private float AccumulateArmorStat(EInventorySlot slot, EStat stat, float value)
@@ -321,8 +332,8 @@ public partial class Player : CharacterBody3D
 	private void TickBlockArmor(float dt)
 	{
 		ulong now = _world?.GameTimeMs ?? 0;
-		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now, dt);
-		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now, dt);
+		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponMelee) as WeaponState, now, dt);
+		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponRanged) as WeaponState, now, dt);
 	}
 
 	private static void TickWeaponBlockArmor(WeaponState weapon, ulong now, float dt)
@@ -358,14 +369,46 @@ public partial class Player : CharacterBody3D
 	// the world (the bow) auto-reclaims its oldest outstanding arrow (which
 	// bumps ammo as it leaves play); a self-recharging weapon with no arrows
 	// (the bomb) just regenerates ammo from nothing.
+	// Destroys any owned item whose removeTimeMs deadline (sim clock) has passed
+	// — ephemeral items that expire at sunrise, wherever they sit: backpack,
+	// hotbar, or an equipped slot. Collect-then-remove so Inventory.Remove
+	// (which mutates slots and fires onChanged) isn't called mid-enumeration.
+	private void TickItemExpiry(ulong now)
+	{
+		if (_inventory == null)
+		{
+			return;
+		}
+		System.Collections.Generic.List<ItemState> expired = null;
+		foreach (ItemState item in _inventory.EnumerateAll())
+		{
+			if (item.removeTimeMs != 0 && now >= item.removeTimeMs)
+			{
+				(expired ??= new System.Collections.Generic.List<ItemState>()).Add(item);
+			}
+		}
+		if (expired == null)
+		{
+			return;
+		}
+		foreach (ItemState item in expired)
+		{
+			_inventory.Remove(item);
+		}
+		// An expired equipped piece leaves its slot empty — backfill weapon/armor
+		// slots from the member's starting loadout so the player is never stranded
+		// barehanded or unarmored at sunrise.
+		RefillEmptyEquipmentFromStarting();
+	}
+
 	private void TickAmmoRecharge(ulong now)
 	{
 		if (_inventory == null)
 		{
 			return;
 		}
-		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now);
-		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now);
+		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponMelee) as WeaponState, now);
+		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponRanged) as WeaponState, now);
 		// Unequipped weapons keep their recharge timers running so a holstered
 		// bow still reclaims its outstanding arrows (and a stashed bomb still
 		// refills). Equipped weapons live in the slot pointers only — they're

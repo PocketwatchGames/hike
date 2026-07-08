@@ -22,6 +22,18 @@ public partial class ItemDescriptor : Resource
 	// "Weapon modifiers" section). Empty = a plain item.
 	[Export] public Godot.Collections.Array<StatusEffectDescriptor> statusEffects = new();
 
+	// Stamps ItemState.ephemeral on the created state — the item vanishes at the
+	// next sunrise once acquired. Set on the descriptors an altar / forge offers
+	// so the temporary gear it grants is intrinsically time-limited, while the
+	// same base ItemData stays permanent when granted through an ordinary drop.
+	[Export] public bool ephemeral = false;
+
+	// Stamps ItemState.level on the created state — the item's power tier (0 =
+	// base). A weapon deals 2^level damage, armor grants 2^level armor points.
+	// Composed here, not earned, so the altar / forge grants a leveled piece from
+	// the same base ItemData.
+	[Export] public int level = 0;
+
 	// Build the runtime state and compose the permanent mods onto it. Returns
 	// null when `item` is unset. The composed effects live on the returned
 	// state's item-side `statusEffects` controller (null actor / world / health,
@@ -42,7 +54,13 @@ public partial class ItemDescriptor : Resource
 	// same way CreateState does.
 	public void ApplyTo(ItemState state)
 	{
-		if (state == null || statusEffects == null)
+		if (state == null)
+		{
+			return;
+		}
+		state.ephemeral = ephemeral;
+		state.level = level;
+		if (statusEffects == null)
 		{
 			return;
 		}
@@ -77,8 +95,12 @@ public partial class ItemDescriptor : Resource
 		return item is WeaponData weapon && (weapon.delivery & required) != 0;
 	}
 
-	// True when this descriptor carries at least one mod — i.e. CreateState
-	// produces a state worth threading through the loot pipeline rather than
-	// synthesizing a fresh one at pickup.
+	// True when this descriptor carries at least one mod.
 	public bool HasStatusEffects => statusEffects != null && statusEffects.Count > 0;
+
+	// True when CreateState produces per-instance data that must be threaded
+	// through the loot pipeline rather than re-synthesized fresh at pickup —
+	// composed mods, the ephemeral flag, or a non-base level (all of which a
+	// fresh synthesis would drop).
+	public bool NeedsComposedState => HasStatusEffects || ephemeral || level != 0;
 }

@@ -152,6 +152,13 @@ public partial class StatusEffectData : Resource
 	[ExportGroup("Character Modifiers")]
 	[Export] public Godot.Collections.Array<StatModifier> modifiers;
 
+	// Like `modifiers`, but each group contributes only while its runtime condition
+	// holds (see ConditionalModifierData). Lets a permanent trait grant a situational
+	// bonus — Runs Hot's low-stamina damage spike, Empathetic's stamina while a party
+	// member is down — without churning a separate effect on/off. Evaluated by the
+	// owning actor at compose time; actors with no evaluator (mobs, items) skip these.
+	[Export] public Godot.Collections.Array<ConditionalModifierData> conditionalModifiers;
+
 	// Per-second health-over-time (damage / heal / max-health decay). Null = none.
 	// See DamageOverTimeData.
 	[Export] public DamageOverTimeData dot;
@@ -180,6 +187,15 @@ public partial class StatusEffectData : Resource
 	// (independent probabilities). Top-level because that math isn't a StatModifier. Dizzy
 	// authors 1.0 (always crit when triggered).
 	[Export(PropertyHint.Range, "0,1,0.01")] public float vulnerable = 0f;
+
+	// On-damaged reaction — when the wearer takes a hit whose tags overlap
+	// `onDamagedTags`, self-apply `onDamagedEffect`. Thin Skinned uses this to arm a
+	// short "+5% damage taken" debuff each time physical damage lands. Fired from the
+	// actor's hit pipeline (StatusEffectController.TriggerOnDamaged); null effect = no
+	// reaction. onDamagedTags == None matches any damaging hit.
+	[ExportGroup("On Damaged")]
+	[Export] public StatusEffectData onDamagedEffect;
+	[Export, CompactFlags] public EStat onDamagedTags = EStat.Melee | EStat.Ranged;
 
 	// Weapon-only payload — null on non-weapon effects. See WeaponModData.
 	// The empty [ExportGroup] resets grouping so this stays ungrouped.

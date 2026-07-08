@@ -77,7 +77,7 @@ public partial class Player : CharacterBody3D
 
 	// Show the instanced model and wire its drivers. Deferred to Initialize (not
 	// _Ready) because the gender that selects the base model only arrives with
-	// CharacterCreationState. GameClient calls Initialize synchronously right after
+	// the PlayerState member. GameClient calls Initialize synchronously right after
 	// instantiating the scene, before any frame is processed, so there's no
 	// window where the player renders unselected.
 	private void ActivateVisual()

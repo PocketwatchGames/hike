@@ -20,4 +20,9 @@ public partial class ArrowLootData : LootData
     // LootData.worldModel (the on-ground mesh) — an embedded arrow is not the
     // same visual as a dropped one, so it gets its own slot.
     [Export] public PackedScene stuckModel;
+
+    // Arrows never enter the inventory — a pickup reclaims them into the firing
+    // weapon's ammo pool (see Loot), so they're their own category, neither
+    // backpack material nor an equip slot.
+    protected override EItemCategory ComputeCategory() => EItemCategory.Ammo;
 }

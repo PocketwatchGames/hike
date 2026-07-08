@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://bnleciyyfwrqk"]
+
+[ext_resource type="Texture2D" uid="uid://x2030l2041kw" path="res://assets/textures/items/ChainmailArmor.png" id="1_sprite"]
+[ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_pen"]
+script = ExtResource("m_script")
+stat = 16
+value = 0.5
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_noise"]
+script = ExtResource("m_script")
+stat = 65536
+value = 1.25
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("2_armor")
+maxArmor = 35.0
+modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_noise")])
+wornMeshNamesFemale = PackedStringArray("F_Swordsman_Top", "F_Swordsman_Bottom")
+wornMeshNamesMale = PackedStringArray("M_Swordsman_Top", "M_Swordsman_Bottom")
+displayName = &"Chainmail"
+description = "Interlocking steel rings turn a blade's edge, though the links jingle with every step."
+value = 60
+inventorySprite = ExtResource("1_sprite")

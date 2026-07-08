@@ -13,6 +13,8 @@
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="17_meshhl"]
 [ext_resource type="PackedScene" uid="uid://bqpljtncy01vm" path="res://assets/models/well/SM_Prop_Well_01.fbx" id="18_wellfbx"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
+[ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="19_mapmarker"]
+[ext_resource type="Texture2D" uid="uid://cci6ftqwqo18g" path="res://assets/textures/map_markers/well.png" id="20_mapicon"]
 
 [sub_resource type="Resource" id="Resource_apply_hydrated"]
 script = ExtResource("4_apply")
@@ -73,3 +75,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.639555, 0)
 [node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=1383154147 node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("17_meshhl")
 _collectFrom = NodePath("../Model")
+
+[node name="MapMarker" type="Node3D" parent="."]
+script = ExtResource("19_mapmarker")
+displayName = &"Well"
+icon = ExtResource("20_mapicon")

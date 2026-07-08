@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://4hqhwaeg3xwx"]
 
-[ext_resource type="Script" uid="uid://dq8w0kn7p4mr3" path="res://scripts/gameplay/entities/Forge.cs" id="1_5bkwe"]
+[ext_resource type="Script" uid="uid://dq8w0kn7p4mr3" path="res://scripts/gameplay/entities/Campfire.cs" id="1_5bkwe"]
 [ext_resource type="PackedScene" path="res://scenes/fx/campfire_light.tscn" id="2_q0pgg"]
 [ext_resource type="PackedScene" path="res://scenes/fx/campfire_extinguish.tscn" id="3_qk6wi"]
 [ext_resource type="PackedScene" path="res://scenes/fx/campfire_loop.tscn" id="4_4nu01"]
@@ -14,7 +14,6 @@
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_continuous"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="14_3pg55"]
 [ext_resource type="Script" uid="uid://bnwcak8yxdu2q" path="res://scripts/gameplay/WarmthZone.cs" id="17_warmth"]
-[ext_resource type="Texture2D" uid="uid://bagjs7ylxtu6r" path="res://assets/textures/interactions/douse.png" id="19_douse"]
 [ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="20_light"]
 [ext_resource type="Texture2D" uid="uid://ba2akoi7qnnje" path="res://assets/textures/interactions/sleep.png" id="30_sleep"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="21_burning"]
@@ -27,6 +26,8 @@
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="28_xray"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 [ext_resource type="Script" uid="uid://b7kq3xn2v9wdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="29_nodanger"]
+[ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="31_mapmarker"]
+[ext_resource type="Texture2D" uid="uid://c4e77bjjtnm2l" path="res://assets/textures/map_markers/campfire.png" id="32_mapicon"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("6_xn81r")
@@ -43,13 +44,6 @@ displayName = &"Camp"
 icon = ExtResource("30_sleep")
 completionEvents = Array[ExtResource("6_xn81r")]([SubResource("Resource_torch_event_open")])
 requirements = Array[ExtResource("8_e7drt")]([SubResource("Resource_campfire_nodanger")])
-
-[sub_resource type="Resource" id="Resource_campfire_action_douse"]
-script = ExtResource("5_yf2vb")
-verb = 4
-displayName = &"Douse"
-icon = ExtResource("19_douse")
-completionEvents = Array[ExtResource("6_xn81r")]([SubResource("Resource_torch_event_open")])
 
 [sub_resource type="Resource" id="Resource_campfire_action_light"]
 script = ExtResource("5_yf2vb")
@@ -89,7 +83,7 @@ _light = NodePath("StationaryLight")
 _hudNode = NodePath("HUDNode")
 _damageZone = NodePath("DamageZone")
 _warmthZone = NodePath("WarmthZone")
-_litActions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_campfire_action_camp"), SubResource("Resource_campfire_action_douse")])
+_litActions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_campfire_action_camp")])
 _unlitActions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_campfire_action_light")])
 _lightOnEffectScene = ExtResource("2_q0pgg")
 _lightOffEffectScene = ExtResource("3_qk6wi")
@@ -157,3 +151,11 @@ _collectFrom = NodePath("../Model")
 [node name="InteractiveXray" type="Node3D" parent="." unique_id=1694021549 node_paths=PackedStringArray("_meshRoots")]
 script = ExtResource("28_xray")
 _meshRoots = [NodePath("../Model")]
+
+[node name="MapMarker" type="Node3D" parent="."]
+script = ExtResource("31_mapmarker")
+displayName = &"Campfire"
+icon = ExtResource("32_mapicon")
+hasActiveState = true
+iconModulate = Color(0.55, 0.62, 0.72, 1)
+activeModulate = Color(1, 0.62, 0.22, 1)

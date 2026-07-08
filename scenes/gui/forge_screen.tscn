@@ -1,0 +1,49 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://jy2mfs8ednf1" path="res://scripts/gui/ForgeScreen.cs" id="1_forge"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_hint"]
+[ext_resource type="PackedScene" path="res://scenes/gui/forge_item_card.tscn" id="3_card"]
+
+[node name="ForgeScreen" type="Control" node_paths=PackedStringArray("_panelContainer")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_forge")
+itemCardScene = ExtResource("3_card")
+_panelContainer = NodePath("MarginContainer/HBoxContainer")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ButtonHints" type="HBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="ButtonHintA" parent="MarginContainer/ButtonHints" instance=ExtResource("2_hint")]
+layout_mode = 2
+ActionName = "Forge"
+
+[node name="ButtonHintB" parent="MarginContainer/ButtonHints" instance=ExtResource("2_hint")]
+layout_mode = 2
+ActionName = "Cancel"
+InputAction = "B"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 100

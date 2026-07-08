@@ -34,4 +34,5 @@ category = 2
 maxStack = 1
 removesOnApply = []
 modifiers = [SubResource("Resource_ki1mv"), SubResource("Resource_g20gd"), SubResource("Resource_lqeo4"), SubResource("Resource_bgspn")]
+conditionalModifiers = []
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"

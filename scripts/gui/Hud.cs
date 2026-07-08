@@ -56,6 +56,10 @@ public partial class Hud : Control
 	[Export] ConversationController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
 	[Export] TextureRect _minimapTexture;
+	// Shared "?" icon drawn for Sensed (unidentified) map markers. Optional —
+	// null falls back to a drawn "?" glyph. Identified markers use their own icon.
+	[Export] Texture2D _unknownMarkerIcon;
+	[Export(PropertyHint.Range, "8,64,1")] int _markerIconSize = 24;
 	[Export] ButtonHint _buttonHintTurnLeft;
 	[Export] ButtonHint _buttonHintTurnRight;
 	[Export] ButtonHint _buttonHintIndoors;
@@ -152,6 +156,9 @@ public partial class Hud : Control
 	readonly Queue<StatusEffectData> _statusEffectQueue = new();
 	StatusEffectIcon _activeStatusEffectIcon;
 	float _mapRotation;
+	// Marker icon overlay, lazily created as a child of _minimapTexture so it
+	// shares the map's rect + camera-yaw rotation.
+	MapMarkerOverlay _markerOverlay;
 	// Lerped minimap view radius (meters), computed each frame from
 	// TextureRect size and Minimap.pixelsPerMeter. Damps toward the target
 	// so indoor/outdoor mode toggles glide smoothly.
@@ -458,7 +465,7 @@ public partial class Hud : Control
 		}
 
 		WorldSimState sim = gameClient?.World?.WorldState?.SimState;
-		int kills = sim != null && sim.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry entry)
+		int kills = sim != null && sim.TryGetBestiaryEntry(species, out MobBestiaryEntry entry)
 			? entry.Kills : 0;
 
 		int level = MobBestiaryEntry.ComputeLevel(kills, thresholds);
@@ -493,15 +500,28 @@ public partial class Hud : Control
 		panel.Set(GameClient.SpeciesDisplayName(species), fraction, countText);
 	}
 
+	// Rebind the HUD to a different party member when control switches (camp
+	// Select-Character). Drops the old member's inventory subscriptions first so
+	// they don't leak, then binds the new member exactly as a fresh spawn would.
+	public void RebindPlayer(Player player)
+	{
+		if (_inventory != null)
+		{
+			_inventory.onSlotChanged -= OnInventorySlotChanged;
+			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+		}
+		OnPlayerSpawned(player);
+	}
+
 	void OnPlayerSpawned(Player player)
 	{
 		_player = player;
 		_inventory = player.Inventory;
 		_inventory.onSlotChanged += OnInventorySlotChanged;
 		_inventory.onActiveConsumableChanged += OnActiveConsumableChanged;
-		RefreshSlot(EInventorySlot.WeaponLeft);
-		RefreshSlot(EInventorySlot.WeaponRight);
-		RefreshSlot(EInventorySlot.Consumable);
+		RefreshSlot(EInventorySlot.WeaponMelee);
+		RefreshSlot(EInventorySlot.WeaponRanged);
+		RefreshSlot(EInventorySlot.Equipment);
 		// Seed the diff baseline so persistent effects already on the player
 		// at spawn (saved game restore, scripted intro state) don't all fire
 		// notifications on the first tick after spawn.
@@ -524,7 +544,7 @@ public partial class Hud : Control
 
 	void OnActiveConsumableChanged(int index)
 	{
-		RefreshSlot(EInventorySlot.Consumable);
+		RefreshSlot(EInventorySlot.Equipment);
 	}
 
 	void RefreshSlot(EInventorySlot slot)
@@ -532,15 +552,15 @@ public partial class Hud : Control
 		ItemState item = _inventory?.GetEquipped(slot);
 		switch (slot)
 		{
-			case EInventorySlot.WeaponLeft:
+			case EInventorySlot.WeaponMelee:
 				_weaponLeftHud.SetItem(item);
 				_weaponLeftButtonHint.Visible = item != null;
 				break;
-			case EInventorySlot.WeaponRight:
+			case EInventorySlot.WeaponRanged:
 				_weaponRightHud.SetItem(item);
 				_weaponRightButtonHint.Visible = item != null;
 				break;
-			case EInventorySlot.Consumable:
+			case EInventorySlot.Equipment:
 				_consumableHud.SetItem(item);
 				_consumableButtonHint.Visible = item != null;
 				break;
@@ -711,15 +731,15 @@ public partial class Hud : Control
 		_staminaBar.Value = maxStamina > 0f ? _player.Stamina / maxStamina : 0f;
 
 		ulong now = gameClient.World?.GameTimeMs ?? 0;
-		_weaponLeftHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponLeft));
-		_weaponRightHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponRight));
-		_consumableHud.Tick(now, IsSlotCharging(EInventorySlot.Consumable));
+		_weaponLeftHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponMelee));
+		_weaponRightHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponRanged));
+		_consumableHud.Tick(now, IsSlotCharging(EInventorySlot.Equipment));
 
 		UpdateStatusEffects(now);
 
-		_weaponLeftButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponLeft, now));
-		_weaponRightButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponRight, now));
-		_consumableButtonHint.SetProgress(GetChargeProgress(EInventorySlot.Consumable, now));
+		_weaponLeftButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponMelee, now));
+		_weaponRightButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponRanged, now));
+		_consumableButtonHint.SetProgress(GetChargeProgress(EInventorySlot.Equipment, now));
 
 		if (gameClient.camera.RotationDegrees.Y != _mapRotation)
 		{
@@ -970,9 +990,21 @@ public partial class Hud : Control
 		PushState(mat, minimap.StateB, suffix: "_b", ref _boundB);
 
 		Vector3 pos = _player?.GlobalPosition ?? Vector3.Zero;
+		float viewRadius = UpdateMinimapViewRadius(minimap);
 		mat.SetShaderParameter("player_world_xz", new Vector2(pos.X, pos.Z));
-		mat.SetShaderParameter("view_radius_meters", UpdateMinimapViewRadius(minimap));
+		mat.SetShaderParameter("view_radius_meters", viewRadius);
 		mat.SetShaderParameter("state_transition", minimap.StateTransition);
+
+		// Marker overlay tracks the same framing the shader renders with. Parented
+		// under the rotated TextureRect so it inherits the camera-yaw rotation.
+		if (_markerOverlay == null)
+		{
+			// Minimap shows party ∪ active markers (the controlled player's field
+			// discoveries appear immediately), matching its fog-of-war.
+			_markerOverlay = MapMarkerOverlay.Create(gameClient, _unknownMarkerIcon, _markerIconSize, includeProvisional: true);
+			_minimapTexture.AddChild(_markerOverlay);
+		}
+		_markerOverlay.SetFraming(new Vector2(pos.X, pos.Z), viewRadius);
 	}
 
 	// Computes the visible half-extent (meters) for the minimap shader.
@@ -1251,16 +1283,16 @@ public partial class Hud : Control
 	WeaponState SelectBlockArmorWeapon(out bool charging)
 	{
 		charging = false;
-		WeaponState left = _inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState;
-		WeaponState right = _inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState;
+		WeaponState left = _inventory?.GetEquipped(EInventorySlot.WeaponMelee) as WeaponState;
+		WeaponState right = _inventory?.GetEquipped(EInventorySlot.WeaponRanged) as WeaponState;
 		bool leftHas = left?.data != null && left.data.blockArmor > 0f;
 		bool rightHas = right?.data != null && right.data.blockArmor > 0f;
-		if (leftHas && IsSlotCharging(EInventorySlot.WeaponLeft))
+		if (leftHas && IsSlotCharging(EInventorySlot.WeaponMelee))
 		{
 			charging = true;
 			return left;
 		}
-		if (rightHas && IsSlotCharging(EInventorySlot.WeaponRight))
+		if (rightHas && IsSlotCharging(EInventorySlot.WeaponRanged))
 		{
 			charging = true;
 			return right;

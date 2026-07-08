@@ -2,10 +2,14 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-// Single source of truth for everything the player owns. Equip slots and
-// consumable hotbar slots hold REFERENCES into _items; they don't own their
-// items separately. The invariant is: every ItemState the player owns is in
-// _items exactly once. Equipping points a slot field at one of those items.
+// Everything the player carries: the four singular equip slots (helmet / armor /
+// melee / ranged weapon), the 3-slot Equipment hotbar (potions / food / torches —
+// EItemCategory.Equipment), and the material-only backpack. The backpack holds
+// ONLY materials; weapons / armor / equipment never enter it. Displacing a piece
+// out of an equip slot (equip-over) sends it to the world-scope party equipment
+// stash (WorldSimState.PartyEquipmentStash), not back to the backpack. Weapons /
+// armor / helmets can't be unequipped or dropped once worn — they change only by
+// being replaced.
 public class Inventory
 {
 	private readonly Player _owner;
@@ -22,10 +26,10 @@ public class Inventory
 	// Equip slot pointers — null means empty. Each pointer is also present in
 	// _items via _backpack OR via _consumableSlots (for consumables) when
 	// equipped. To enumerate every item the player owns, use EnumerateAll().
-	private ItemState _armorHead;
-	private ItemState _armorBody;
-	private WeaponState _weaponLeft;
-	private WeaponState _weaponRight;
+	private ItemState _helmet;
+	private ItemState _armor;
+	private WeaponState _weaponMelee;
+	private WeaponState _weaponRanged;
 
 	// Consumable hotbar — fixed-size, indexed by activeConsumableIndex. Empty
 	// slots hold null. Sized from PlayerData.consumableSlotCount at construction.
@@ -124,9 +128,55 @@ public class Inventory
 	// partial). The caller's ItemState reference is consumed: if fully merged
 	// into existing stacks, the original is no longer used; if it's added to
 	// the backpack, the original is what's stored.
+	// Schedule an ephemeral item's dawn expiry the first time it enters the
+	// player's possession. Only stamps on first acquisition (removeTimeMs == 0)
+	// so shuffling the item around the inventory never pushes its deadline back.
+	// No-op for ordinary items and when there's no live world clock to read.
+	private void ArmEphemeralExpiry(ItemState item)
+	{
+		if (item == null || !item.ephemeral || item.removeTimeMs != 0)
+		{
+			return;
+		}
+		World world = _owner?.World;
+		if (world != null)
+		{
+			item.removeTimeMs = world.NextSunriseMs();
+		}
+	}
+
+	// The world-scope party equipment stash — where displaced weapons / armor /
+	// equipment go when equipped over. Null before the player has a live world
+	// (never during normal play).
+	private List<ItemState> PartyEquipmentStash => _owner?.World?.WorldState?.SimState?.PartyEquipmentStash;
+
+	// Hand a displaced equip-slot piece to the party equipment stash, merging
+	// stackable equipment into an existing stack when possible. A weapon forfeits
+	// its outstanding arrows on the way out, mirroring Remove() — it has left the
+	// player's possession.
+	private void PushToEquipmentStash(ItemState item)
+	{
+		if (item == null)
+		{
+			return;
+		}
+		if (item is WeaponState ws)
+		{
+			ws.DestroyOutstandingArrows();
+		}
+		ItemStash.Add(PartyEquipmentStash, item);
+	}
+
 	public int TryAdd(ItemState item)
 	{
 		if (item == null || item.data == null || item.stackCount <= 0)
+		{
+			return 0;
+		}
+
+		// The backpack holds materials only — weapons / armor / equipment / ammo
+		// are refused here (they route to equip slots or the party stashes).
+		if (!item.data.IsMaterial)
 		{
 			return 0;
 		}
@@ -135,6 +185,7 @@ public class Inventory
 		// life (see ItemState.touched). Stamp before the merge so even units
 		// that fold into an existing stack count as handled.
 		item.touched = true;
+		ArmEphemeralExpiry(item);
 
 		int initialStack = item.stackCount;
 
@@ -233,11 +284,11 @@ public class Inventory
 	{
 		return slot switch
 		{
-			EInventorySlot.ArmorHead => _armorHead,
-			EInventorySlot.ArmorBody => _armorBody,
-			EInventorySlot.WeaponLeft => _weaponLeft,
-			EInventorySlot.WeaponRight => _weaponRight,
-			EInventorySlot.Consumable => GetActiveConsumable(),
+			EInventorySlot.Helmet => _helmet,
+			EInventorySlot.Armor => _armor,
+			EInventorySlot.WeaponMelee => _weaponMelee,
+			EInventorySlot.WeaponRanged => _weaponRanged,
+			EInventorySlot.Equipment => GetActiveConsumable(),
 			_ => null,
 		};
 	}
@@ -246,27 +297,27 @@ public class Inventory
 	{
 		return slot switch
 		{
-			EInventorySlot.WeaponLeft => _weaponLeft,
-			EInventorySlot.WeaponRight => _weaponRight,
+			EInventorySlot.WeaponMelee => _weaponMelee,
+			EInventorySlot.WeaponRanged => _weaponRanged,
 			_ => null,
 		};
 	}
 
-	// Equip an item that is already in the inventory into the given slot. If
-	// the slot is occupied, the previous item swaps back to the backpack —
-	// refused outright if the swap won't fit (no silent drop). Caller must
-	// ensure the item kind matches the slot (a sword goes in a weapon slot,
-	// armor in an armor slot — slot validation is up to the call site).
+	// Equip `item` into one of the SINGULAR slots (helmet / armor / melee /
+	// ranged weapon). Any current occupant is displaced to the party equipment
+	// stash (an ephemeral occupant is destroyed instead). The Equipment hotbar is
+	// index-addressed — use TryEquipToConsumableSlot for it. The caller owns the
+	// source: if `item` came from the equipment stash, remove it there on success.
+	// Caller must ensure the item's category matches the slot.
 	public bool TryEquip(ItemState item, EInventorySlot slot)
 	{
-		if (item == null)
+		if (item == null || slot == EInventorySlot.None || slot == EInventorySlot.Equipment)
 		{
 			return false;
 		}
 
-		// Equipping is an entry path too — Loot grants an obvious upgrade
-		// straight into an empty slot, bypassing TryAdd. Mark it touched.
 		item.touched = true;
+		ArmEphemeralExpiry(item);
 
 		ItemState prev = GetEquipped(slot);
 		if (prev == item)
@@ -274,37 +325,16 @@ public class Inventory
 			return true;
 		}
 
-		// If prev exists, it must fit somewhere when we displace it. Today
-		// "somewhere" is the backpack — capacity check. The item being
-		// equipped frees a backpack slot when it leaves the backpack, so the
-		// net swap is feasible iff prev fits given the post-swap state.
-		int sourceBackpackIndex = IndexOfInBackpack(item);
-		bool itemInBackpack = sourceBackpackIndex >= 0;
-		int postSwapBackpackCount = BackpackCount + (itemInBackpack ? -1 : 0) + (prev != null ? 1 : 0);
-		if (postSwapBackpackCount > _data.backpackCapacity)
+		// Displaced piece: an ephemeral one is consumed (destroyed — never
+		// re-stashed); otherwise it returns to the party equipment stash. SetSlot
+		// fires the outgoing weapon's minion cleanup either way.
+		if (prev != null && !prev.ephemeral)
 		{
-			return false;
+			PushToEquipmentStash(prev);
 		}
-
-		if (itemInBackpack)
+		else if (prev is WeaponState prevWeapon)
 		{
-			_backpack[sourceBackpackIndex] = null;
-		}
-
-		if (prev != null)
-		{
-			// Land the displaced item in the slot the equipped item vacated
-			// when possible so the player's grid layout stays stable across
-			// a swap. If the equipped item didn't come from the backpack,
-			// fall back to the first empty slot.
-			if (sourceBackpackIndex >= 0)
-			{
-				_backpack[sourceBackpackIndex] = prev;
-			}
-			else
-			{
-				AppendToBackpack(prev);
-			}
+			prevWeapon.DestroyOutstandingArrows();
 		}
 
 		SetSlot(slot, item);
@@ -312,20 +342,21 @@ public class Inventory
 		return true;
 	}
 
+	// Weapons / armor / helmets can't be unequipped — they only change by being
+	// replaced. Equipment returns the ACTIVE hotbar item to the party equipment
+	// stash. (To pull a specific hotbar item, use TryRemoveFromConsumableSlot.)
 	public bool TryUnequip(EInventorySlot slot)
 	{
-		ItemState prev = GetEquipped(slot);
+		if (slot != EInventorySlot.Equipment)
+		{
+			return false;
+		}
+		ItemState prev = GetActiveConsumable();
 		if (prev == null)
 		{
 			return true;
 		}
-		if (!AppendToBackpack(prev))
-		{
-			return false;
-		}
-		SetSlot(slot, null);
-		NotifySlot(slot);
-		return true;
+		return TryRemoveFromConsumableSlot(prev);
 	}
 
 	// Swap items between two equip slots (e.g., WeaponLeft ↔ WeaponRight).
@@ -338,7 +369,7 @@ public class Inventory
 	{
 		if (a == b) { return true; }
 		if (a == EInventorySlot.None || b == EInventorySlot.None) { return false; }
-		if (a == EInventorySlot.Consumable || b == EInventorySlot.Consumable) { return false; }
+		if (a == EInventorySlot.Equipment || b == EInventorySlot.Equipment) { return false; }
 		ItemState itemA = GetEquipped(a);
 		ItemState itemB = GetEquipped(b);
 		SetSlot(a, itemB);
@@ -357,7 +388,15 @@ public class Inventory
 	// the same kind is spawned with the dropped count.
 	public void Drop(ItemState item, int? stackCount = null)
 	{
-		if (item == null || _owner == null)
+		if (item == null || _owner == null || item.data == null)
+		{
+			return;
+		}
+
+		// Only materials and equipment leave the player by dropping — weapons,
+		// armor, and helmets are permanent until replaced, and ammo never lives
+		// in the inventory to begin with.
+		if (!item.data.IsMaterial && item.data.Category != EItemCategory.Equipment)
 		{
 			return;
 		}
@@ -685,11 +724,9 @@ public class Inventory
 		return incoming.stackCount;
 	}
 
-	// Move a consumable out of the hotbar back into the backpack. Mirror of
-	// TryMoveToConsumableSlot — used by the inventory screen's Unequip path
-	// for items that live in inactive hotbar slots (GetEquippedSlot only
-	// reports the active slot). Refused outright if the backpack is full —
-	// no silent drop.
+	// Pull an equipment item out of the hotbar and return it to the party
+	// equipment stash (equipment can't go to the material backpack). Used by the
+	// stash screen's unequip path.
 	public bool TryRemoveFromConsumableSlot(ItemState item)
 	{
 		if (item == null)
@@ -702,26 +739,131 @@ public class Inventory
 			{
 				continue;
 			}
-			int destIdx = FindFirstEmptyBackpackIndex();
-			if (destIdx < 0)
-			{
-				return false;
-			}
 			if (_activeConsumableIndex == i && item is ConsumableState cs)
 			{
 				cs.OnUnequipped(_owner);
 			}
 			_consumableSlots[i] = null;
-			_backpack[destIdx] = item;
 			if (_activeConsumableIndex == i)
 			{
 				_activeConsumableIndex = -1;
 				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
 			}
+			PushToEquipmentStash(item);
 			onChanged?.Invoke();
 			return true;
 		}
 		return false;
+	}
+
+	// Equip an externally-sourced equipment item (from the party equipment stash)
+	// into hotbar slot `index`. Any current occupant is displaced to the stash
+	// (an ephemeral one is destroyed). The caller removes `item` from the stash
+	// list on success. Returns false if the item isn't equipment or the index is
+	// out of range.
+	public bool TryEquipToConsumableSlot(ItemState item, int index)
+	{
+		if (item is not ConsumableState || index < 0 || index >= _consumableSlots.Length)
+		{
+			return false;
+		}
+		item.touched = true;
+		ArmEphemeralExpiry(item);
+		ItemState prev = _consumableSlots[index];
+		if (prev == item)
+		{
+			return true;
+		}
+		bool prevWasActive = _activeConsumableIndex == index;
+		if (prev != null)
+		{
+			if (prevWasActive && prev is ConsumableState prevCs)
+			{
+				prevCs.OnUnequipped(_owner);
+			}
+			if (!prev.ephemeral)
+			{
+				PushToEquipmentStash(prev);
+			}
+		}
+		_consumableSlots[index] = item;
+		if (_activeConsumableIndex == -1)
+		{
+			SetActiveConsumableIndex(index);
+		}
+		else if (prevWasActive && item is ConsumableState newCs)
+		{
+			// The active slot's occupant changed in place — fire the incoming
+			// item's equip hook (SetActiveConsumableIndex no-ops on same index).
+			newCs.OnEquipped(_owner);
+		}
+		onChanged?.Invoke();
+		return true;
+	}
+
+	// Place an equipment item into the first empty hotbar slot without displacing
+	// anything. Returns false if every slot is occupied. Used for starting-loadout
+	// seeding and cooking-output delivery (equipment can't sit in the backpack).
+	public bool TryAddEquipmentToHotbar(ItemState item)
+	{
+		if (item is not ConsumableState)
+		{
+			return false;
+		}
+		for (int i = 0; i < _consumableSlots.Length; i++)
+		{
+			if (_consumableSlots[i] == null)
+			{
+				return TryEquipToConsumableSlot(item, i);
+			}
+		}
+		return false;
+	}
+
+	// Move the whole consumable belt (potions / food / torches) into another
+	// inventory, preserving slot positions. Any item already on the destination
+	// belt is displaced to the party equipment stash (the normal equip-over path).
+	// Used when the player deliberately switches which party member they control
+	// at a campfire, so the quick-use belt travels with them. Ephemeral items keep
+	// their expiry. No-op onto self or a null destination.
+	public void TransferBeltTo(Inventory dest)
+	{
+		if (dest == null || dest == this)
+		{
+			return;
+		}
+		bool moved = false;
+		for (int i = 0; i < _consumableSlots.Length; i++)
+		{
+			ItemState item = _consumableSlots[i];
+			if (item == null)
+			{
+				continue;
+			}
+			// Detach from this belt WITHOUT routing to the stash (it's re-placed on
+			// the destination belt below). Unequip the active occupant so its hook
+			// fires on the character losing it.
+			if (_activeConsumableIndex == i && item is ConsumableState cs)
+			{
+				cs.OnUnequipped(_owner);
+			}
+			_consumableSlots[i] = null;
+			// Same slot on the destination; its prior occupant (the incoming
+			// character's own belt item) is displaced to the equipment stash. If the
+			// destination can't take it (mismatched slot count), stash it rather than
+			// orphan it.
+			if (!dest.TryEquipToConsumableSlot(item, i))
+			{
+				PushToEquipmentStash(item);
+			}
+			moved = true;
+		}
+		if (moved)
+		{
+			_activeConsumableIndex = -1;
+			onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
+			onChanged?.Invoke();
+		}
 	}
 
 	// Directly select a consumable slot by index. Empty slots and out-of-range
@@ -823,11 +965,11 @@ public class Inventory
 		{
 			return null;
 		}
-		if (item == _armorHead) { return EInventorySlot.ArmorHead; }
-		if (item == _armorBody) { return EInventorySlot.ArmorBody; }
-		if (item == _weaponLeft) { return EInventorySlot.WeaponLeft; }
-		if (item == _weaponRight) { return EInventorySlot.WeaponRight; }
-		if (item == GetActiveConsumable()) { return EInventorySlot.Consumable; }
+		if (item == _helmet) { return EInventorySlot.Helmet; }
+		if (item == _armor) { return EInventorySlot.Armor; }
+		if (item == _weaponMelee) { return EInventorySlot.WeaponMelee; }
+		if (item == _weaponRanged) { return EInventorySlot.WeaponRanged; }
+		if (item == GetActiveConsumable()) { return EInventorySlot.Equipment; }
 		return null;
 	}
 
@@ -844,12 +986,12 @@ public class Inventory
 				yield return _consumableSlots[i];
 			}
 		}
-		if (_armorHead != null) { yield return _armorHead; }
-		if (_armorBody != null) { yield return _armorBody; }
+		if (_helmet != null) { yield return _helmet; }
+		if (_armor != null) { yield return _armor; }
 		// Weapons live in equip-slot pointers only; they're not duplicated in the
 		// backpack list, so enumerate them here too.
-		if (_weaponLeft != null) { yield return _weaponLeft; }
-		if (_weaponRight != null) { yield return _weaponRight; }
+		if (_weaponMelee != null) { yield return _weaponMelee; }
+		if (_weaponRanged != null) { yield return _weaponRanged; }
 	}
 
 	// Enumerate equipped armor as ArmorState (skips null slots). Used by
@@ -857,22 +999,40 @@ public class Inventory
 	// transmits wetness back into the wearer's meter.
 	public System.Collections.Generic.IEnumerable<ArmorState> EnumerateEquippedArmor()
 	{
-		if (_armorHead is ArmorState head) { yield return head; }
-		if (_armorBody is ArmorState body) { yield return body; }
+		if (_helmet is ArmorState head) { yield return head; }
+		if (_armor is ArmorState body) { yield return body; }
 	}
 
-	// Enumerate every owned armor — equipped slots plus any ArmorState held
-	// in the backpack — so wetness ticking (and any future per-item upkeep)
-	// applies whether the player is wearing the piece or stuffing it in the
-	// pack. A wet shirt rolled up in the backpack still dries.
+	// Every owned armor piece for wetness ticking (and any future per-item
+	// upkeep). Armor now lives only in the two equip slots — the backpack is
+	// materials-only — so this is just the worn set.
 	public System.Collections.Generic.IEnumerable<ArmorState> EnumerateAllArmor()
 	{
-		if (_armorHead is ArmorState head) { yield return head; }
-		if (_armorBody is ArmorState body) { yield return body; }
+		if (_helmet is ArmorState head) { yield return head; }
+		if (_armor is ArmorState body) { yield return body; }
+	}
+
+	// Remove every material from the backpack and return them, leaving it empty.
+	// Used on camping to drain the controlled member's carried materials into the
+	// party material stash. Fires a single onChanged pulse.
+	public List<ItemState> DrainBackpack()
+	{
+		var drained = new List<ItemState>();
+		bool any = false;
 		for (int i = 0; i < _backpack.Length; i++)
 		{
-			if (_backpack[i] is ArmorState packed) { yield return packed; }
+			if (_backpack[i] != null)
+			{
+				drained.Add(_backpack[i]);
+				_backpack[i] = null;
+				any = true;
+			}
 		}
+		if (any)
+		{
+			onChanged?.Invoke();
+		}
+		return drained;
 	}
 
 	// Sparse view: Backpack[i] is the item at slot i, or null if empty. Count
@@ -896,10 +1056,10 @@ public class Inventory
 		}
 		switch (slot)
 		{
-			case EInventorySlot.ArmorHead: _armorHead = item; break;
-			case EInventorySlot.ArmorBody: _armorBody = item; break;
-			case EInventorySlot.WeaponLeft: _weaponLeft = item as WeaponState; break;
-			case EInventorySlot.WeaponRight: _weaponRight = item as WeaponState; break;
+			case EInventorySlot.Helmet: _helmet = item; break;
+			case EInventorySlot.Armor: _armor = item; break;
+			case EInventorySlot.WeaponMelee: _weaponMelee = item as WeaponState; break;
+			case EInventorySlot.WeaponRanged: _weaponRanged = item as WeaponState; break;
 			default: break;
 		}
 	}

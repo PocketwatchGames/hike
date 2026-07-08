@@ -30,3 +30,4 @@ endFx = ExtResource("4_endfx")
 loopFx = ExtResource("5_loopfx")
 removesOnApply = []
 modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed")])
+conditionalModifiers = []

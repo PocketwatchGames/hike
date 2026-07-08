@@ -28,3 +28,4 @@ buildupRemovalSpeed = 0.5
 clearBuildupOnApply = true
 removesOnApply = []
 modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed")])
+conditionalModifiers = []

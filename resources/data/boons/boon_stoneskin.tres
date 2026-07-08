@@ -20,6 +20,7 @@ durationType = 2
 maxStack = 1
 removesOnApply = []
 modifiers = [SubResource("mod_armor")]
+conditionalModifiers = []
 
 [resource]
 script = ExtResource("1_boon")

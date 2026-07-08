@@ -12,7 +12,7 @@ using Godot.Collections;
 [GlobalClass]
 public partial class RecipeData : Resource
 {
-	[Export] public EForgeType forgeType;
+	[Export] public ECampfireType forgeType;
 	[Export] public ItemData outputItem;
 	[Export] public Array<RecipeInput> inputs = new();
 	// Higher priority wins when multiple recipes match the same inputs.

@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 22;
+    public const int WORLDGEN_VERSION = 23;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -306,6 +306,7 @@ public static class WorldGen
     private const int SEED_SALT_ZONEBOUNDS = 0x0E;
     private const int SEED_SALT_POI = 0x0F;
     private const int SEED_SALT_RUINS = 0x10;
+    private const int SEED_SALT_FORGE = 0x11;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -494,6 +495,10 @@ public static class WorldGen
         // companion / lit campfire / boat; other zones = their landmark
         // cluster), each authored as a ZoneGenData.Fixtures SpawnGroupData.
         PlaceZoneFixtures(ws, genData, heightMap, worldSeed);
+
+        // One smithing forge per non-spawn zone (skips the zone the player
+        // starts in). Authored via genData.forge; no-op when unset.
+        PlaceZoneForges(ws, genData, heightMap, worldSeed);
 
         // Spawn authored content anchored to named POIs (signposts now; bosses /
         // loot / villages later). Replaces the per-region random-column signpost
@@ -815,6 +820,56 @@ public static class WorldGen
             int sy = heightMap.GetHeight(anchorCol.X, anchorCol.Z);
             var anchor = new Vector3(anchorCol.X + 0.5f, sy + 1f, anchorCol.Z + 0.5f);
             fixtures.Spawn(ws, anchor, rng, context);
+        }
+    }
+
+    // Place one smithing forge in every zone EXCEPT the spawn zone (the hub /
+    // village the player starts in, identified by PickZoneIndex on the spawn
+    // chunk — there is no explicit "is spawn" flag). Each forge lands on its own
+    // rejection-sampled flat column inside the zone's bounds, independent of the
+    // zone's fixture anchor so it never stacks on the home campfire. No-op when
+    // genData.forge is unset.
+    private static void PlaceZoneForges(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        ForgeSpawnEntry forge = genData.forge;
+        if (forge == null) { return; }
+        PlacedZone[] zones = genData.zones ?? System.Array.Empty<PlacedZone>();
+        if (zones.Length == 0) { return; }
+
+        byte spawnZoneIndex = PickZoneIndex(
+            new Vector3I(_zoneBoundsContext.SpawnChunk.X, 0, _zoneBoundsContext.SpawnChunk.Y),
+            zones.Length);
+
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_FORGE));
+        var context = new SpawnContext
+        {
+            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
+            IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
+        };
+
+        for (int zi = 0; zi < zones.Length; zi++)
+        {
+            if (zi == spawnZoneIndex) { continue; }
+            ZoneBounds bounds = zones[zi]?.bounds;
+            if (!TryRollColumn(rng, genData, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
+                    (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap)
+                        && (bounds == null || bounds.Contains(
+                            (int)Math.Floor((double)wx / ChunkState.SIZE),
+                            (int)Math.Floor((double)wz / ChunkState.SIZE),
+                            _zoneBoundsContext)),
+                    out int rx, out int rz))
+            {
+                continue;
+            }
+            int sy = heightMap.GetHeight(rx, rz);
+            var anchor = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
+            forge.Spawn(ws, anchor, rng, context);
         }
     }
 

@@ -21,7 +21,9 @@ public partial class WeaponData : ItemData
 	// Independent of whether the weapon bears ammo (maxAmmo) and of the visual
 	// wieldHand below.
 	[Export] public bool rightHandSlot = false;
-	public EInventorySlot CanonicalSlot => rightHandSlot ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
+	public EInventorySlot CanonicalSlot => rightHandSlot ? EInventorySlot.WeaponRanged : EInventorySlot.WeaponMelee;
+
+	protected override EItemCategory ComputeCategory() => rightHandSlot ? EItemCategory.WeaponRanged : EItemCategory.WeaponMelee;
 
 	// How this weapon delivers its attacks. A capability set — a weapon may
 	// carry several bits (a melee weapon with a charged throw). Gates which
@@ -128,8 +130,6 @@ public partial class WeaponData : ItemData
 	// (tier x locomotion), attack one-shots, and block reaction. Null = the
 	// player uses the unarmed clips throughout. See WeaponAnimSet.
 	[Export] public WeaponAnimSet animSet;
-
-	[Export] public override int maxLevel { get; set; } = 5;
 
 	// Summoner weapon: how many minions this weapon may keep alive at once.
 	// WeaponState tracks its summoned minions; summoning past this cap recycles

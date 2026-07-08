@@ -30,7 +30,21 @@ public partial class DeathScreen : Control
 		FadingIn,
 	}
 
+	// What the death screen resolves to when the fade completes:
+	//  Respawn     — legacy: fade to black, prompt, respawn the same player.
+	//  PartySelect — a party member fell but survivors remain: at black, gather
+	//                survivors at the last campfire and hand control off; fade in
+	//                and open the Select-Character screen (no prompt).
+	//  GameOver    — total party wipe: prompt, then return to the main menu.
+	public enum EDeathOutcome
+	{
+		Respawn,
+		PartySelect,
+		GameOver,
+	}
+
 	GameClient _gameClient;
+	EDeathOutcome _outcome = EDeathOutcome.Respawn;
 	EState _state = EState.Hidden;
 	float _darkness;
 	// Wall-clock stamp for the fade. _Process delta is scaled by Engine.TimeScale,
@@ -62,13 +76,16 @@ public partial class DeathScreen : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 	}
 
-	public void Show(GameClient gameClient)
+	public void Show(GameClient gameClient) => Show(gameClient, EDeathOutcome.Respawn);
+
+	public void Show(GameClient gameClient, EDeathOutcome outcome)
 	{
 		if (_state != EState.Hidden)
 		{
 			return;
 		}
 		_gameClient = gameClient;
+		_outcome = outcome;
 		Visible = true;
 		_darkness = 0f;
 		_state = EState.FadingOut;
@@ -77,6 +94,9 @@ public partial class DeathScreen : Control
 		{
 			promptRoot.Visible = false;
 		}
+		// GameOver (total wipe) is the only outcome that still shows a prompt; its
+		// button returns to the menu rather than respawning.
+		respawnHint?.SetHint("ui_accept", outcome == EDeathOutcome.GameOver ? "Continue" : "Respawn");
 		CaptureAudioBaseline();
 	}
 
@@ -102,10 +122,20 @@ public partial class DeathScreen : Control
 				ApplyDarkness();
 				if (_darkness >= 1f)
 				{
-					_state = EState.Prompt;
-					if (promptRoot != null)
+					if (_outcome == EDeathOutcome.PartySelect)
 					{
-						promptRoot.Visible = true;
+						// No prompt: gather survivors + hand off control while
+						// black, then fade back in on the campfire.
+						_gameClient?.OnDeathBlackout();
+						_state = EState.FadingIn;
+					}
+					else
+					{
+						_state = EState.Prompt;
+						if (promptRoot != null)
+						{
+							promptRoot.Visible = true;
+						}
 					}
 				}
 				break;
@@ -133,7 +163,16 @@ public partial class DeathScreen : Control
 		if (e.IsActionPressed("ui_accept"))
 		{
 			GetViewport().SetInputAsHandled();
-			BeginRespawn();
+			if (_outcome == EDeathOutcome.GameOver)
+			{
+				// Total party wipe: end the run from black.
+				RestoreAudioBaseline();
+				_gameClient?.QuitToMenu();
+			}
+			else
+			{
+				BeginRespawn();
+			}
 		}
 	}
 
@@ -161,7 +200,13 @@ public partial class DeathScreen : Control
 		ApplyDarkness();
 		Visible = false;
 		RestoreAudioBaseline();
-		if (_gameClient != null)
+		if (_outcome == EDeathOutcome.PartySelect)
+		{
+			// The campfire is revealed — hand off to the forced Select-Character
+			// screen, which owns input gating from here until the player picks.
+			_gameClient?.OpenDeathPartySelect();
+		}
+		else if (_gameClient != null)
 		{
 			_gameClient.InputSuppressed = false;
 		}

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="InteractiveAction" format=3 uid="uid://c3jy0q0qdvu5v"]
+
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="1_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_56f6o"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_852wd"]
+[ext_resource type="Texture2D" uid="uid://ddce2ofirul1c" path="res://assets/textures/status_effects/heart.png" id="3_icon"]
+[ext_resource type="PackedScene" uid="uid://by6a0b7qfx2j5" path="res://scenes/fx/revive.tscn" id="4_revivefx"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_uqtxu"]
+
+[sub_resource type="Resource" id="Resource_event_revive"]
+script = ExtResource("2_event")
+type = 256
+fx = ExtResource("4_revivefx")
+
+[resource]
+script = ExtResource("1_action")
+verb = 9
+displayName = &"Revive"
+icon = ExtResource("3_icon")
+completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_event_revive")])
+durationSeconds = 0.5
+locksMovement = true

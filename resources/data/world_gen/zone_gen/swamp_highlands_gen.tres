@@ -9,6 +9,24 @@
 [ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/zones/swamp.tres" id="7_cpg00"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_4e6x3"]
 [ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="9_ruins"]
+[ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_grp"]
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="11_base"]
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="12_stone"]
+[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="13_stonescene"]
+[ext_resource type="Resource" path="res://resources/data/languages/muddish.tres" id="14_lang"]
+
+[sub_resource type="Resource" id="Stone_highlands"]
+script = ExtResource("12_stone")
+scene = ExtResource("13_stonescene")
+language = ExtResource("14_lang")
+text = "More of the old tongue, carved where the ground climbs clear of the mire. Speak it, and the swamp answers back."
+components = 8
+metadata/_custom_type_script = "uid://d3c3iycy3trkp"
+
+[sub_resource type="Resource" id="Fixtures_highlands"]
+script = ExtResource("10_grp")
+entries = Array[ExtResource("11_base")]([SubResource("Stone_highlands")])
+metadata/_custom_type_script = "uid://ci23e7ltpsb6o"
 
 [sub_resource type="Resource" id="Resource_ruins"]
 script = ExtResource("9_ruins")
@@ -32,5 +50,6 @@ caveNoiseFrequency = 0.04
 grassThreshold = 0.5
 surfaceEntities = ExtResource("5_4w8xh")
 caveEntities = ExtResource("1_4w8xh")
+fixtures = SubResource("Fixtures_highlands")
 ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("swamp_highlands")

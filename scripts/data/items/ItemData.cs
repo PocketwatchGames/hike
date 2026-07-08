@@ -31,6 +31,12 @@ public partial class ItemData : Resource
 	// Meat | Food). See EItemType and MobData.itemPreferences.
 	[Export] public EItemType typeTags = EItemType.None;
 
+	// Slot classification (which equip slot / store this item belongs to). Left
+	// at None it derives from the subclass (ComputeCategory); set an explicit
+	// value only to reclassify a one-off item without a dedicated subclass.
+	// Distinct from typeTags — this is single-valued and drives placement.
+	[Export] public EItemCategory categoryOverride = EItemCategory.None;
+
 	// Optional "is-a" link to a more general item, walked by the recipe matcher
 	// (Cooking.TryMatch): a recipe input naming a parent is satisfied by any
 	// descendant, while one naming the descendant stays specific. e.g.
@@ -61,10 +67,32 @@ public partial class ItemData : Resource
 
 	public bool IsStackable => maxStack > 1;
 
-	// Item-leveling cap. 0 = does not level (consumables, loot). Weapons and
-	// armor override this with an exported value. WeaponState.AddExp /
-	// ArmorState.AddExp walk SimData.ExpPerLevel up to this many entries.
-	public virtual int maxLevel { get; set; } = 0;
+	// Resolved slot classification: the explicit override when set, else the
+	// per-subclass default.
+	public EItemCategory Category => categoryOverride != EItemCategory.None ? categoryOverride : ComputeCategory();
+
+	// Per-subclass default category. Base items (loot, meat, ingredients) are
+	// Material; WeaponData / ArmorData / ConsumableData / ArrowLootData override.
+	protected virtual EItemCategory ComputeCategory() => EItemCategory.Material;
+
+	// Materials are the only items the carried backpack holds; everything else
+	// lives in an equip slot, a party stash, or (ammo) is reclaimed on pickup.
+	public bool IsMaterial => Category == EItemCategory.Material;
+
+	// True when this item occupies one of the equip slots (weapon/armor/helmet/
+	// equipment). Materials and ammo are false.
+	public bool IsEquippable => EquipSlotKind != EInventorySlot.None;
+
+	// The equip slot this item's category maps to, or None (materials, ammo).
+	public EInventorySlot EquipSlotKind => Category switch
+	{
+		EItemCategory.WeaponMelee => EInventorySlot.WeaponMelee,
+		EItemCategory.WeaponRanged => EInventorySlot.WeaponRanged,
+		EItemCategory.Armor => EInventorySlot.Armor,
+		EItemCategory.Helmet => EInventorySlot.Helmet,
+		EItemCategory.Equipment => EInventorySlot.Equipment,
+		_ => EInventorySlot.None,
+	};
 
 	public virtual ItemState CreateState()
 	{

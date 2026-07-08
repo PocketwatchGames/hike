@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 // Coordinator for the minimap. Lives as a child of World, subscribes to
@@ -39,10 +40,47 @@ public partial class Minimap : Node3D
     // the outdoor surface mask and the indoor active-slice mask; independent of
     // zoom because how far you see doesn't depend on how the map is rendered.
     [Export(PropertyHint.Range, "0.5,10,0.1")] public float revealMultiplier = 1.5f;
+    // Extra reveal-radius multiplier while the player is in the bird's-eye
+    // overlook (tree climb or the birds_eye consumable) — scouting from above
+    // charts farther than ground level. Stacks on revealMultiplier. The indoor
+    // light gate still applies, so a dark region aloft stays uncharted.
+    [Export(PropertyHint.Range, "1,8,0.1")] public float birdsEyeRevealMultiplier = 3f;
     // Soft-edge inner-fraction for every reveal disk. Inside `radius * this`
     // the disk paints at full brightness; from there to the outer radius the
     // value falls linearly to 0. 1.0 = hard edge, ~0.5 = wide soft fade.
     [Export(PropertyHint.Range, "0.1,1,0.05")] public float revealInnerFraction = 0.7f;
+
+    [ExportGroup("Line of Sight")]
+    // Master toggle. Off = the old plain filled-disk reveal (no occlusion, no fog).
+    [Export] public bool losEnabled = true;
+    // Sightline eye height above the player's feet for OUTDOOR reveal. The main
+    // generosity knob — the higher the eye, the taller a rise must be before it
+    // casts a map shadow, so small 2 m hillocks never shadow the valley behind
+    // them. Indoor wall occlusion ignores this and uses the real camera eye.
+    [Export(PropertyHint.Range, "0,20,0.5")] public float losEyeHeightMeters = 5f;
+    // Vertical soft-shadow band in meters: how far below a ridge's horizon a
+    // column fades from charted to hidden. Wider = softer terrain-shadow edges.
+    [Export(PropertyHint.Range, "0.5,20,0.5")] public float losForgivenessMeters = 3f;
+    // Base sample spacing along a sightline. Effective step grows with distance
+    // so a ray never exceeds MinimapData.LosMaxStepsPerRay samples.
+    [Export(PropertyHint.Range, "0.5,8,0.5")] public float losMarchStepMeters = 2f;
+    // Meters of thickest (255) volumetric fog along a sightline that fully hides
+    // the far end on the map. Painted fog volumes (swamp pools, etc.) between the
+    // player and a distant area shorten how far the map charts through them; most
+    // visible while scouting from the bird's-eye overlook. 0 = fog ignored.
+    [Export(PropertyHint.Range, "0,64,1")] public float losFogFullBlockMeters = 16f;
+
+    [ExportGroup("Campfire Reveal")]
+    // Duration of the world-map reveal animation played when camping banks new
+    // ground (GameClient.EnterCampWithFade → almanac). Newly charted cells grow in
+    // as an animated noise threshold sweeps 0→1 over this many seconds.
+    [Export(PropertyHint.Range, "0.25,5,0.05")] public float bankRevealSeconds = 1.5f;
+    // Value-noise cell size in map pixels — larger = broader, softer reveal patches;
+    // smaller = a finer, more granular dissolve.
+    [Export(PropertyHint.Range, "2,64,1")] public float bankRevealNoiseCellPixels = 10f;
+    // Soft-edge width of the sweeping threshold (in threshold units): cells fade in
+    // across this band rather than snapping on as the threshold passes their noise value.
+    [Export(PropertyHint.Range, "0.01,0.5,0.01")] public float bankRevealEdgeSoftness = 0.15f;
 
     private World _world;
     private MinimapTextures _textures;
@@ -58,6 +96,25 @@ public partial class Minimap : Node3D
     private double _revealAccumulator;
     private Vector3 _lastRevealPos;
     private bool _hasRevealedOnce;
+
+    // Campfire reveal animation state. Baseline = the world-map (banked) outdoor
+    // buffer as it was BEFORE the camp bank; _bankRevealTarget = the freshly-banked
+    // buffer. _bankRevealCells lists the pixels that gained reveal, each paired with
+    // a [0,1) noise threshold; the animation lerps a sweeping threshold up so a cell
+    // fades from baseline to target as the sweep passes its noise value. Wall-clock
+    // timed (presentational — a frozen sim clock must not stretch it).
+    private byte[] _bankRevealBaseline;
+    private byte[] _bankRevealTarget;
+    private byte[] _bankRevealWork;
+    private int[] _bankRevealCells;
+    private float[] _bankRevealNoise;
+    private bool _bankRevealPrepared;
+    private bool _bankRevealAnimating;
+    private ulong _bankRevealStartMs;
+
+    // Live map markers, self-registered via World.onMapMarker{Spawned,Removed}.
+    // Scanned each reveal tick for reveal-driven discovery (see UpdateMarkerDiscovery).
+    private readonly HashSet<MapMarker> _markers = new();
 
     private EMinimapMode _mode = EMinimapMode.Outdoor;
     private int _activeSliceLevel;
@@ -81,6 +138,11 @@ public partial class Minimap : Node3D
         public Texture2D Exploration;
         public Texture2D ExplorationBelow1;
         public Texture2D ExplorationBelow2;
+        // Party-only (banked) exploration for the world map; the fields above are
+        // party ∪ active for the minimap.
+        public Texture2D ExplorationBanked;
+        public Texture2D ExplorationBankedBelow1;
+        public Texture2D ExplorationBankedBelow2;
         public Vector2I WorldOriginXZ;
         public Vector2 ExtentPixels;
         public float MetersPerPixel;
@@ -161,6 +223,19 @@ public partial class Minimap : Node3D
             return _sliceAtlas?.TryGetLayer(_activeSliceLevel)?.ExplorationTexture;
         }
     }
+    // Banked (party-only) exploration — the world map samples these instead of
+    // the party ∪ active textures above, so un-banked field reveal stays off it.
+    public ImageTexture ActiveExplorationBankedTexture
+    {
+        get
+        {
+            if (_mode == EMinimapMode.Outdoor)
+            {
+                return _textures?.ExplorationBankedTexture;
+            }
+            return _sliceAtlas?.TryGetLayer(_activeSliceLevel)?.ExplorationBankedTexture;
+        }
+    }
 
     // Underlying-slice textures for indoor display. The shader composites
     // active + below1 + below2 with brightness multipliers so the player
@@ -218,6 +293,30 @@ public partial class Minimap : Node3D
                 ?? ActiveExplorationTextureBelow1;
         }
     }
+    public ImageTexture ActiveExplorationBankedTextureBelow1
+    {
+        get
+        {
+            if (_mode == EMinimapMode.Outdoor || _sliceAtlas == null)
+            {
+                return ActiveExplorationBankedTexture;
+            }
+            return _sliceAtlas.TryGetLayer(_activeSliceLevel - 1)?.ExplorationBankedTexture
+                ?? ActiveExplorationBankedTexture;
+        }
+    }
+    public ImageTexture ActiveExplorationBankedTextureBelow2
+    {
+        get
+        {
+            if (_mode == EMinimapMode.Outdoor || _sliceAtlas == null)
+            {
+                return ActiveExplorationBankedTexture;
+            }
+            return _sliceAtlas.TryGetLayer(_activeSliceLevel - 2)?.ExplorationBankedTexture
+                ?? ActiveExplorationBankedTextureBelow1;
+        }
+    }
     public Vector2I ActiveWorldOriginXZ
     {
         get
@@ -243,6 +342,208 @@ public partial class Minimap : Node3D
         }
     }
 
+    // The active member's provisional field-reveal buffers (the reveal target;
+    // shown on the minimap but not the world map until banked) and the permanent
+    // party pool's (banked reveal, shown on both). Null before the roster exists,
+    // in which case reveal no-ops.
+    private ExplorationMask ActiveExplorationMask =>
+        _world?.WorldState?.SimState?.Party?.Active?.Knowledge?.Exploration;
+    private ExplorationMask PartyExplorationMask =>
+        _world?.WorldState?.SimState?.Party?.Knowledge?.Exploration;
+
+    // Recompose the display exploration textures: the minimap texture from
+    // party ∪ active (the controlled player's un-banked field reveal shows on
+    // the minimap immediately), the world-map texture from the party pool only
+    // (banked-at-a-campfire reveal). GameClient calls this on bank
+    // (NotifyCampedAt) to fold freshly-banked reveal into the party pool, on
+    // member switch (SyncControlToActive) to swap in the new active member's
+    // provisional reveal, and on revive.
+    public void RebuildExplorationDisplay()
+    {
+        ExplorationMask party = PartyExplorationMask;
+        ExplorationMask active = ActiveExplorationMask;
+        _textures?.RebuildExploration(party?.Outdoor, active?.Outdoor);
+        _sliceAtlas?.RebuildExploration(party, active);
+    }
+
+    // Campfire reveal animation. Orchestrated by GameClient.EnterCampWithFade:
+    //   1. CaptureBankedRevealBaseline() — before the camp bank, snapshot the
+    //      world-map buffer as-is.
+    //   2. (bank happens: NotifyCampedAt → RebuildExplorationDisplay)
+    //   3. PrepareBankedReveal() — diff the newly-banked buffer against the
+    //      baseline; if new ground was charted, rewind the display to the baseline
+    //      (so the almanac opens on the pre-camp map) and return true.
+    //   4. StartBankedReveal() — once the almanac has faded in, begin the sweep.
+    //   5. FinalizeBankedReveal() — on almanac close, snap to the fully-revealed map
+    //      in case the player closed before the sweep finished. Idempotent.
+
+    public void CaptureBankedRevealBaseline()
+    {
+        _bankRevealBaseline = _textures?.CopyBankedOutdoor();
+    }
+
+    // Diff the freshly-banked buffer against the pre-bank baseline. If nothing new
+    // was charted, returns false (caller skips the reveal and opens camp directly).
+    // Otherwise rewinds the displayed world-map buffer to the baseline and arms the
+    // animation (held at threshold 0 until StartBankedReveal).
+    public bool PrepareBankedReveal()
+    {
+        ClearBankedReveal();
+        byte[] baseline = _bankRevealBaseline;
+        byte[] target = _textures?.CopyBankedOutdoor();
+        if (baseline == null || target == null || baseline.Length != target.Length)
+        {
+            return false;
+        }
+
+        int changed = 0;
+        for (int i = 0; i < target.Length; i++)
+        {
+            if (target[i] > baseline[i])
+            {
+                changed++;
+            }
+        }
+        if (changed == 0)
+        {
+            return false;
+        }
+
+        _bankRevealTarget = target;
+        _bankRevealWork = (byte[])baseline.Clone();
+        _bankRevealCells = new int[changed];
+        _bankRevealNoise = new float[changed];
+        int width = _textures.WidthPixels;
+        int c = 0;
+        for (int i = 0; i < target.Length; i++)
+        {
+            if (target[i] <= baseline[i])
+            {
+                continue;
+            }
+            _bankRevealCells[c] = i;
+            _bankRevealNoise[c] = RevealNoise(i % width, i / width);
+            c++;
+        }
+
+        // Rewind the world map to the pre-camp state so the reveal grows from there.
+        _textures.SetBankedOutdoor(baseline);
+        _bankRevealPrepared = true;
+        return true;
+    }
+
+    public void StartBankedReveal()
+    {
+        if (!_bankRevealPrepared)
+        {
+            return;
+        }
+        _bankRevealAnimating = true;
+        _bankRevealStartMs = Time.GetTicksMsec();
+    }
+
+    // Snap to the fully-charted map and drop the animation state. Safe to call at
+    // any point (never armed, mid-sweep, or already finished).
+    public void FinalizeBankedReveal()
+    {
+        if (_bankRevealTarget != null)
+        {
+            _textures?.SetBankedOutdoor(_bankRevealTarget);
+        }
+        ClearBankedReveal();
+    }
+
+    // Alpha [0,1] for a world-map marker at worldXZ so its icon fades in with the
+    // ground beneath it during the campfire reveal. Gated on _bankRevealPrepared
+    // (not _bankRevealAnimating) so it tracks the rewound terrain the moment the map
+    // is rewound — through the black/fade-in hold before the sweep starts — instead
+    // of showing icons over still-hidden ground and then snapping them off. Returns
+    // 1 with no reveal armed (and for markers on already-charted ground, whose
+    // banked value is already full), so normal display and stable icons are untouched.
+    public float BankedRevealAlphaAt(Vector3 worldXZ)
+    {
+        if (!_bankRevealPrepared)
+        {
+            return 1f;
+        }
+        return _textures?.SampleBankedOutdoorAlpha(worldXZ) ?? 1f;
+    }
+
+    private void ClearBankedReveal()
+    {
+        _bankRevealTarget = null;
+        _bankRevealWork = null;
+        _bankRevealCells = null;
+        _bankRevealNoise = null;
+        _bankRevealPrepared = false;
+        _bankRevealAnimating = false;
+    }
+
+    // Advance the sweep one frame (called from _PhysicsProcess). The threshold ramps
+    // 0→1 over bankRevealSeconds; each changed cell lerps baseline→target as the
+    // threshold crosses its noise value, across a bankRevealEdgeSoftness-wide band.
+    private void UpdateBankedReveal()
+    {
+        if (!_bankRevealAnimating)
+        {
+            return;
+        }
+        float elapsed = (Time.GetTicksMsec() - _bankRevealStartMs) / 1000f;
+        float duration = Mathf.Max(bankRevealSeconds, 0.01f);
+        float t = Mathf.Clamp(elapsed / duration, 0f, 1f);
+        // Expand the sweep range slightly past [0,1] so the softness band fully
+        // clears every cell (a cell at noise 1.0 still reaches full reveal at t=1).
+        float soft = Mathf.Max(bankRevealEdgeSoftness, 0.0001f);
+        float threshold = t * (1f + soft);
+
+        for (int c = 0; c < _bankRevealCells.Length; c++)
+        {
+            int idx = _bankRevealCells[c];
+            float reveal = Mathf.Clamp((threshold - _bankRevealNoise[c]) / soft, 0f, 1f);
+            byte from = _bankRevealBaseline[idx];
+            byte to = _bankRevealTarget[idx];
+            _bankRevealWork[idx] = (byte)Mathf.RoundToInt(Mathf.Lerp(from, to, reveal));
+        }
+        _textures.SetBankedOutdoor(_bankRevealWork);
+
+        if (t >= 1f)
+        {
+            FinalizeBankedReveal();
+        }
+    }
+
+    // Coherent value noise in [0,1) over map-pixel coords — bilinearly interpolated
+    // hashed lattice so reveal patches are contiguous blobs rather than TV static.
+    private float RevealNoise(int px, int py)
+    {
+        float cell = Mathf.Max(bankRevealNoiseCellPixels, 1f);
+        float fx = px / cell;
+        float fy = py / cell;
+        int x0 = Mathf.FloorToInt(fx);
+        int y0 = Mathf.FloorToInt(fy);
+        float tx = Smooth(fx - x0);
+        float ty = Smooth(fy - y0);
+        float n00 = Hash01(x0, y0);
+        float n10 = Hash01(x0 + 1, y0);
+        float n01 = Hash01(x0, y0 + 1);
+        float n11 = Hash01(x0 + 1, y0 + 1);
+        return Mathf.Lerp(Mathf.Lerp(n00, n10, tx), Mathf.Lerp(n01, n11, tx), ty);
+    }
+
+    private static float Smooth(float t)
+    {
+        return t * t * (3f - 2f * t);
+    }
+
+    private static float Hash01(int x, int y)
+    {
+        uint h = (uint)(x * 73856093) ^ (uint)(y * 19349663);
+        h ^= h >> 13;
+        h *= 2654435761u;
+        h ^= h >> 16;
+        return (h & 0xFFFFFF) / (float)0x1000000;
+    }
+
     public void Initialize(World world)
     {
         _world = world;
@@ -258,6 +559,8 @@ public partial class Minimap : Node3D
 
         world.ChunkManager.onChunkLoaded += OnChunkLoaded;
         world.onChunkEntitiesLoaded += OnChunkEntitiesLoaded;
+        world.onMapMarkerSpawned += OnMapMarkerSpawned;
+        world.onMapMarkerRemoved += OnMapMarkerRemoved;
 
         // Catch up on chunks that loaded before we subscribed (typical when
         // Initialize runs after WorldGen has populated the world synchronously).
@@ -276,8 +579,13 @@ public partial class Minimap : Node3D
                 _world.ChunkManager.onChunkLoaded -= OnChunkLoaded;
             }
             _world.onChunkEntitiesLoaded -= OnChunkEntitiesLoaded;
+            _world.onMapMarkerSpawned -= OnMapMarkerSpawned;
+            _world.onMapMarkerRemoved -= OnMapMarkerRemoved;
         }
     }
+
+    private void OnMapMarkerSpawned(MapMarker marker) => _markers.Add(marker);
+    private void OnMapMarkerRemoved(MapMarker marker) => _markers.Remove(marker);
 
     public override void _PhysicsProcess(double delta)
     {
@@ -297,29 +605,71 @@ public partial class Minimap : Node3D
         UpdateStateTransition(delta);
 
         _revealAccumulator += delta;
+        // Bird's-eye movement-locks the player, so the moved gate would fire
+        // once on entry (with the ground-level radius already banked from
+        // walking there) and then never again. Keep revealing while perched so
+        // the wider birds-eye radius actually charts new ground — the max-merge
+        // makes re-running on a stationary player essentially free.
         bool moved = !_hasRevealedOnce
+            || (player.IsBirdsEye)
             || (playerPos - _lastRevealPos).LengthSquared() >= RevealMoveThresholdSquared;
-        if (_revealAccumulator >= RevealIntervalSeconds && moved)
+        if (_revealAccumulator >= RevealIntervalSeconds)
         {
             _revealAccumulator = 0.0;
-            float innerFraction = revealInnerFraction;
-            // Reveal radius is independent of indoor zoom — it represents
-            // what the player can perceive, which doesn't shrink just
-            // because we're rendering a more zoomed-in indoor view.
-            float revealRadius = ComputeRevealRadius();
-            if (_mode == EMinimapMode.Outdoor)
+            if (moved)
             {
-                _textures.RevealCircle(playerPos, revealRadius, innerFraction);
-                RevealOutdoorSliceColumns(playerPos, innerFraction);
+                float innerFraction = revealInnerFraction;
+                // Reveal radius is independent of indoor zoom — it represents
+                // what the player can perceive, which doesn't shrink just
+                // because we're rendering a more zoomed-in indoor view.
+                float revealRadius = ComputeRevealRadius();
+                // The active member accumulates their own field reveal here; it
+                // stays off the displayed map until banked at a campfire. Null
+                // before the roster exists — reveal then no-ops.
+                ExplorationMask individual = ActiveExplorationMask;
+                WorldState ws = _world.WorldState;
+                MinimapLos los = BuildLos();
+                if (_mode == EMinimapMode.Outdoor)
+                {
+                    byte[] individualOutdoor = individual?.EnsureOutdoor(_textures.ExplorationBufferSize);
+                    bool birdsEye = player.IsBirdsEye;
+                    if (!los.Enabled)
+                    {
+                        _textures.RevealCircle(playerPos, revealRadius, innerFraction, individualOutdoor);
+                    }
+                    else if (birdsEye)
+                    {
+                        // Scouting from above: no terrain occlusion, but distant
+                        // fog volumes still hide what's inside them.
+                        _textures.RevealCircleFogged(playerPos, revealRadius, innerFraction, ws, los.FogFullBlockMeters, individualOutdoor);
+                    }
+                    else
+                    {
+                        _textures.RevealViewshed(playerPos, revealRadius, innerFraction, los, ws, individualOutdoor);
+                    }
+                    // Slice-column reveal gated by terrain LOS on the ground, but
+                    // ungated in bird's-eye (looking down over the terrain) and
+                    // when LOS is off.
+                    RevealOutdoorSliceColumns(playerPos, innerFraction, individual, los, ws, gate: los.Enabled && !birdsEye);
+                }
+                else
+                {
+                    // Indoor / underground: reveal only the active slice, with
+                    // walls occluding at the player's real eye height.
+                    float eyeY = playerPos.Y + GameCamera.EYE_HEIGHT;
+                    _sliceAtlas.RevealCircle(_activeSliceLevel, playerPos, revealRadius, innerFraction, individual, ws, eyeY, los);
+                }
+                _lastRevealPos = playerPos;
+                _hasRevealedOnce = true;
             }
-            else
-            {
-                // Indoor / underground: reveal only the active slice.
-                _sliceAtlas.RevealCircle(_activeSliceLevel, playerPos, revealRadius, innerFraction);
-            }
-            _lastRevealPos = playerPos;
-            _hasRevealedOnce = true;
+            // Runs at the reveal cadence even when stationary, so a landmark that
+            // streams in under already-charted fog is Sensed without waiting for
+            // the player to move.
+            UpdateMarkerDiscovery(playerPos);
         }
+
+        // Drive the campfire reveal sweep (armed by GameClient during camp entry).
+        UpdateBankedReveal();
 
         _textures.Flush();
         _sliceAtlas.Flush();
@@ -345,7 +695,7 @@ public partial class Minimap : Node3D
     // been stamped (height=0) are skipped — there's no ground to register
     // as visible. Cells whose target slice has no allocated layer no-op
     // inside the atlas (cheap dictionary miss).
-    private void RevealOutdoorSliceColumns(Vector3 playerPos, float innerFraction)
+    private void RevealOutdoorSliceColumns(Vector3 playerPos, float innerFraction, ExplorationMask individual, in MinimapLos los, WorldState ws, bool gate)
     {
         if (_textures == null || _sliceAtlas == null)
         {
@@ -362,6 +712,8 @@ public partial class Minimap : Node3D
         int r = Mathf.CeilToInt(radius);
         int cx = Mathf.FloorToInt(playerPos.X);
         int cz = Mathf.FloorToInt(playerPos.Z);
+        Vector2 eyeXZ = new Vector2(playerPos.X, playerPos.Z);
+        float eyeY = playerPos.Y + los.EyeHeightMeters;
         for (int dz = -r; dz <= r; dz++)
         {
             for (int dx = -r; dx <= r; dx++)
@@ -390,7 +742,68 @@ public partial class Minimap : Node3D
                     float t = (outerSq - distSq) / (outerSq - innerSq);
                     target = (byte)Mathf.Clamp((int)(t * 255f), 0, 255);
                 }
-                _sliceAtlas.RevealCellAtWorld(sliceLevel, wx, wz, target);
+                if (gate)
+                {
+                    // A cliff face hidden behind a ridge shouldn't reveal its
+                    // slice either — scale by the same terrain LOS the surface
+                    // reveal uses (fog excluded; this is the secondary trace).
+                    float vis = _textures.ColumnVisibility(eyeXZ, eyeY, wx, wz, los);
+                    if (vis <= 0f)
+                    {
+                        continue;
+                    }
+                    target = (byte)Mathf.Clamp((int)(target * vis), 0, 255);
+                }
+                _sliceAtlas.RevealCellAtWorld(sliceLevel, wx, wz, target, individual);
+            }
+        }
+    }
+
+    private MinimapLos BuildLos()
+    {
+        return new MinimapLos(losEnabled, losEyeHeightMeters, losForgivenessMeters, losMarchStepMeters, losFogFullBlockMeters);
+    }
+
+    // Reveal-driven map-marker discovery, run each reveal tick. For every live
+    // marker: mark it Sensed ("?" on the maps) once the outdoor fog has cleared
+    // over its position, then — in Proximity mode — Identified once the player is
+    // within identifyRadius. Perception / Interaction identify happen off-loop
+    // (sibling Discoverable / host call). All writes go into the active member's
+    // Knowledge, so the marker shows on the MINIMAP immediately (party ∪ active)
+    // and graduates onto the WORLD MAP when banked at the next campfire. Gated on
+    // the active member's OUTDOOR mask regardless of mode — markers are outdoor
+    // landmarks and it's the persistent chart.
+    private void UpdateMarkerDiscovery(Vector3 playerPos)
+    {
+        if (_markers.Count == 0)
+        {
+            return;
+        }
+        WorldSimState sim = _world?.WorldState?.SimState;
+        if (sim == null)
+        {
+            return;
+        }
+        byte[] outdoor = ActiveExplorationMask?.Outdoor;
+        foreach (MapMarker marker in _markers)
+        {
+            Vector3 pos = marker.WorldPosition;
+            EMapMarkerLevel known = sim.GetMarkerLevel(pos);
+            if (known < EMapMarkerLevel.Sensed && _textures.IsRevealed(outdoor, pos))
+            {
+                sim.RecordMarker(pos, EMapMarkerLevel.Sensed, marker);
+                known = EMapMarkerLevel.Sensed;
+            }
+            if (known == EMapMarkerLevel.Sensed
+                && marker.IdentifyMode == EMapMarkerIdentifyMode.Proximity
+                && marker.IdentifyRadius > 0f)
+            {
+                Vector3 flat = pos - playerPos;
+                flat.Y = 0f;
+                if (flat.LengthSquared() <= marker.IdentifyRadius * marker.IdentifyRadius)
+                {
+                    sim.RecordMarker(pos, EMapMarkerLevel.Identified, marker);
+                }
             }
         }
     }
@@ -429,6 +842,7 @@ public partial class Minimap : Node3D
     {
         Texture2D surf = ActiveSurfaceTexture;
         Texture2D expl = ActiveExplorationTexture;
+        Texture2D explBanked = ActiveExplorationBankedTexture;
         // Empty fallbacks: when no live texture exists yet (e.g. indoor mode
         // toggled into a slice that never loaded a layer), show void rather
         // than NaNs.
@@ -440,6 +854,9 @@ public partial class Minimap : Node3D
             Exploration = expl,
             ExplorationBelow1 = ActiveExplorationTextureBelow1 ?? expl,
             ExplorationBelow2 = ActiveExplorationTextureBelow2 ?? expl,
+            ExplorationBanked = explBanked,
+            ExplorationBankedBelow1 = ActiveExplorationBankedTextureBelow1 ?? explBanked,
+            ExplorationBankedBelow2 = ActiveExplorationBankedTextureBelow2 ?? explBanked,
             WorldOriginXZ = ActiveWorldOriginXZ,
             ExtentPixels = ActiveExtentPixels,
             MetersPerPixel = ActiveMetersPerPixel,
@@ -455,6 +872,10 @@ public partial class Minimap : Node3D
     {
         float multiplier = revealMultiplier;
         float visionRange = _world?.player?.data?.visionRange ?? DefaultVisionRange;
+        if (_world?.player?.IsBirdsEye ?? false)
+        {
+            multiplier *= birdsEyeRevealMultiplier;
+        }
         return visionRange * multiplier;
     }
 

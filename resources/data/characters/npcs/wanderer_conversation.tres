@@ -1,0 +1,61 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://b2q10suq78qsl"]
+
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="1_conv"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="2_branch"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_entry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="4_response"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="6_respgroup"]
+[ext_resource type="Script" uid="uid://16lwc7o58whm" path="res://scripts/data/conversation/actions/RecruitToPartyAction.cs" id="7_recruit"]
+
+[sub_resource type="Resource" id="Branch_greeting"]
+script = ExtResource("2_branch")
+name = &"greeting"
+lineLocKeys = Array[StringName]([&"wanderer_greeting", &"wanderer_intro"])
+endActions = null
+exitGroup = &"topics"
+isPrimaryGroupEntry = true
+
+[sub_resource type="Resource" id="Action_recruit"]
+script = ExtResource("7_recruit")
+
+[sub_resource type="Resource" id="Branch_join"]
+script = ExtResource("2_branch")
+name = &"join"
+lineLocKeys = Array[StringName]([&"wanderer_join"])
+endActions = [SubResource("Action_recruit")]
+exitGroup = null
+
+[sub_resource type="Resource" id="Branch_farewell"]
+script = ExtResource("2_branch")
+name = &"farewell"
+lineLocKeys = Array[StringName]([&"wanderer_farewell"])
+endActions = null
+exitGroup = null
+
+[sub_resource type="Resource" id="Entry_greeting"]
+script = ExtResource("3_entry")
+branch = &"greeting"
+actions = null
+
+[sub_resource type="Resource" id="Resp_join"]
+script = ExtResource("4_response")
+textLocKey = &"wanderer_resp_join"
+destination = &"join"
+actions = null
+
+[sub_resource type="Resource" id="Resp_leave"]
+script = ExtResource("4_response")
+textLocKey = &"wanderer_resp_leave"
+destination = &"farewell"
+actions = null
+
+[sub_resource type="Resource" id="Group_Topics"]
+script = ExtResource("6_respgroup")
+name = &"topics"
+responses = [SubResource("Resp_join"), SubResource("Resp_leave")]
+
+[resource]
+script = ExtResource("1_conv")
+entryBranches = [SubResource("Entry_greeting")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_join"), SubResource("Branch_farewell")]
+responseGroups = [SubResource("Group_Topics")]

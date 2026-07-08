@@ -142,7 +142,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return weapon;
 		}
-		if (slot == EInventorySlot.WeaponLeft && data?.unarmedWeapon != null)
+		if (slot == EInventorySlot.WeaponMelee && data?.unarmedWeapon != null)
 		{
 			_unarmedWeapon ??= new WeaponState(data.unarmedWeapon);
 			return _unarmedWeapon;
@@ -252,7 +252,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			verb = EActionVerb.Use,
 			primaryItem = item,
-			sourceSlot = EInventorySlot.Consumable,
+			sourceSlot = EInventorySlot.Equipment,
 		};
 		_runner.TryStart(profile, context);
 	}
@@ -263,7 +263,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return;
 		}
-		if (_runner.Current.context.sourceSlot != EInventorySlot.Consumable)
+		if (_runner.Current.context.sourceSlot != EInventorySlot.Equipment)
 		{
 			return;
 		}
@@ -406,7 +406,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			_aimPitchRadians = 0f;
 			return;
 		}
-		WeaponData weaponData = _inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+		WeaponData weaponData = _inventory?.GetWeapon(EInventorySlot.WeaponRanged)?.data;
 		if (weaponData == null)
 		{
 			_aimPitchRadians = 0f;
@@ -421,7 +421,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			_aimPitchRadians = 0f;
 			return;
 		}
-		float range = GetWeaponRange(EInventorySlot.WeaponRight);
+		float range = GetWeaponRange(EInventorySlot.WeaponRanged);
 		World3D world3D = GetWorld3D();
 		if (range <= 0f || world3D == null || _world?.MobSpatialHash == null)
 		{

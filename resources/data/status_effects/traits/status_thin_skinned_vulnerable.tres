@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://rru3dva78yaj"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
+
+[sub_resource type="Resource" id="mod_dmg"]
+script = ExtResource("2_mod")
+stat = 1
+value = 1.05
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Exposed"
+description = "A fresh wound has left you vulnerable — incoming damage is increased."
+duration = 5.0
+maxStack = 1
+removesOnApply = []
+modifiers = Array[ExtResource("2_mod")]([SubResource("mod_dmg")])
+conditionalModifiers = []
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

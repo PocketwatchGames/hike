@@ -22,3 +22,4 @@ startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 removesOnApply = []
 modifiers = Array[ExtResource("m_script")]([SubResource("m_stamina")])
+conditionalModifiers = []

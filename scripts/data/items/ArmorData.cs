@@ -4,7 +4,9 @@ using Godot;
 public partial class ArmorData : ItemData
 {
 	[Export] public float maxArmor = 0f;
-	[Export] public EInventorySlot armorSlot = EInventorySlot.ArmorBody;
+	[Export] public EInventorySlot armorSlot = EInventorySlot.Armor;
+
+	protected override EItemCategory ComputeCategory() => armorSlot == EInventorySlot.Helmet ? EItemCategory.Helmet : EItemCategory.Armor;
 
 	// Stat modifications granted while this piece is equipped. Composed with
 	// the wearer's inherent modifiers and active status effects when the
@@ -17,14 +19,25 @@ public partial class ArmorData : ItemData
 	[Export] public Godot.Collections.Array<StatModifier> modifiers;
 
 	// Names of the MeshInstance3D parts this piece shows on the player's 3D
-	// model while equipped (the worn-mesh path referenced by ItemData.heldModel).
-	// They live on the shared polysplit rig and replace that slot's bare-body
-	// default — a body piece names its torso+legs outfit meshes, a head piece
-	// its helmet/hood. Player.UpdateArmorVisual composites these per slot.
-	// Empty = the slot falls back to the bare body (no visual change on equip).
-	[Export] public string[] wornMeshNames = System.Array.Empty<string>();
+	// model while equipped, replacing that slot's bare-body default — a body
+	// piece names its torso+legs outfit meshes, a head piece its helmet/hood.
+	// Player.UpdateArmorVisual composites these per slot; empty = the slot falls
+	// back to the bare body (no visual change on equip).
+	//
+	// Split by gender because the two rigs prefix their parts differently (Female
+	// F_, Male M_) and the outfits don't map by a simple prefix swap (the Male
+	// Mage has no cape, the Male Knight no skirt), so each set names its own rig's
+	// meshes. GetWornMeshNames resolves the live gender; an empty set for a gender
+	// leaves that rig on its bare body (author both to dress both bodies).
+	[Export] public string[] wornMeshNamesFemale = System.Array.Empty<string>();
+	[Export] public string[] wornMeshNamesMale = System.Array.Empty<string>();
 
-	[Export] public override int maxLevel { get; set; } = 5;
+	// The worn-mesh set for the spawned body type. Empty when this piece isn't
+	// authored for that gender — the compositor then keeps the bare body.
+	public string[] GetWornMeshNames(EGender gender)
+	{
+		return gender == EGender.Male ? wornMeshNamesMale : wornMeshNamesFemale;
+	}
 
 	public override ItemState CreateState()
 	{

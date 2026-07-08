@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://c7r0drbmx8ob5"]
 
 [ext_resource type="Script" uid="uid://bho327tgdqbxw" path="res://scripts/gui/Hud.cs" id="1_ahhtf"]
+[ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
 [ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="2_icon"]
 [ext_resource type="PackedScene" uid="uid://dy8owtvikxnqf" path="res://scenes/gui/weapon_hud.tscn" id="2_qxonp"]
 [ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_ueg55"]
@@ -118,6 +119,7 @@ _objectivePanelScene = ExtResource("4_hbx25")
 _itemWheel = NodePath("ScreenMarginContainer/ItemWheel")
 _itemSlots = [NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot1"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot2"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot3"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot4")]
 _lightningFlashOverlay = NodePath("LightningFlashOverlay")
+_unknownMarkerIcon = ExtResource("mm_question")
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
 layout_mode = 1

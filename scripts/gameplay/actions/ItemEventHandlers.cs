@@ -737,6 +737,10 @@ public static class ItemEventHandlers
 		// layered on top of any intrinsic trail authored as a child Fx of the
 		// projectile scene.
 		Godot.Collections.Array<PackedScene> projectileFx = null;
+		// Composed weapon level doubles the shot's damage per level (2^level);
+		// threaded through Launch since the projectile rebuilds its HitInfo from
+		// raw DamageData and never sees ResolveHit's scaling.
+		float damageMultiplier = firingWeapon?.DamageMultiplier ?? 1f;
 		if (firingWeapon != null)
 		{
 			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingChargeIndex));
@@ -808,7 +812,8 @@ public static class ItemEventHandlers
 				projectileFx,
 				onHitBuildups,
 				ev.directHitEvent,
-				ev.expirationEvent);
+				ev.expirationEvent,
+				damageMultiplier);
 		}
 
 		// On-attack mods for a ranged-slot Fairy boon: a bow shot is a Projectile
@@ -1581,6 +1586,8 @@ public static class ItemEventHandlers
 		// and the Knockback mod adds shove + stagger to the hit.
 		if (action.context.primaryItem is WeaponState weapon2)
 		{
+			// Composed weapon level doubles outgoing damage per level (2^level).
+			hit.healthDamage *= weapon2.DamageMultiplier;
 			int chargeIndex = FindChargeIndex(weapon2, action.selectedTier);
 			hit.AddBuildups(weapon2.statusEffects.WeaponModOnHitBuildups(chargeIndex));
 			hit.knockbackDistance += weapon2.statusEffects.WeaponModKnockbackBonus(chargeIndex);

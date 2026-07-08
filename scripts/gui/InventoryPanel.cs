@@ -20,6 +20,10 @@ public partial class InventoryPanel : Control
 	[Export] private ItemSlotPanel _weaponLeftPanel;
 	[Export] private ItemSlotPanel _weaponRightPanel;
 	[Export] private Array<ItemSlotPanel> _consumablePanels;
+	// Optional in-panel backpack grid. The material-carrying screens (inventory /
+	// stash / cooking) render the backpack with a SEPARATE BackpackPanel and leave
+	// this empty, so InventoryPanel here is just the equip-slot cluster; the legacy
+	// MerchantScreen still drives its backpack through these slots.
 	[Export] private Array<ItemSlotPanel> _backpackPanels;
 	[Export] private ButtonHint _buttonHintPrimary;
 	[Export] private ButtonHint _buttonHintSecondary;
@@ -228,10 +232,10 @@ public partial class InventoryPanel : Control
 			return;
 		}
 
-		_armorHeadPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.ArmorHead));
-		_armorBodyPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.ArmorBody));
-		_weaponLeftPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponLeft));
-		_weaponRightPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponRight));
+		_armorHeadPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.Helmet));
+		_armorBodyPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.Armor));
+		_weaponLeftPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponMelee));
+		_weaponRightPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponRanged));
 
 		if (_consumablePanels != null)
 		{
@@ -381,20 +385,20 @@ public partial class InventoryPanel : Control
 		return panel != null && _backpackPanels != null && _backpackPanels.Contains(panel);
 	}
 
-	// Resolve a panel to its EInventorySlot identity (ArmorHead, ArmorBody,
-	// WeaponLeft, WeaponRight, Consumable, or None for backpack). For
-	// Consumable, the slot is shared across the hotbar — use GetConsumableIndex
-	// to get the specific position.
+	// Resolve a panel to its EInventorySlot identity (Helmet, Armor, WeaponMelee,
+	// WeaponRanged, Equipment, or None for backpack). For Equipment, the slot is
+	// shared across the hotbar — use GetConsumableIndex to get the specific
+	// position.
 	public EInventorySlot GetEquipSlotKind(ItemSlotPanel panel)
 	{
 		if (panel == null) { return EInventorySlot.None; }
-		if (panel == _armorHeadPanel) { return EInventorySlot.ArmorHead; }
-		if (panel == _armorBodyPanel) { return EInventorySlot.ArmorBody; }
-		if (panel == _weaponLeftPanel) { return EInventorySlot.WeaponLeft; }
-		if (panel == _weaponRightPanel) { return EInventorySlot.WeaponRight; }
+		if (panel == _armorHeadPanel) { return EInventorySlot.Helmet; }
+		if (panel == _armorBodyPanel) { return EInventorySlot.Armor; }
+		if (panel == _weaponLeftPanel) { return EInventorySlot.WeaponMelee; }
+		if (panel == _weaponRightPanel) { return EInventorySlot.WeaponRanged; }
 		if (_consumablePanels != null && _consumablePanels.Contains(panel))
 		{
-			return EInventorySlot.Consumable;
+			return EInventorySlot.Equipment;
 		}
 		return EInventorySlot.None;
 	}
@@ -451,9 +455,9 @@ public partial class InventoryPanel : Control
 			switch (item.data)
 			{
 				case ArmorData armor:
-					return armor.armorSlot == EInventorySlot.ArmorHead ? _armorHeadPanel : _armorBodyPanel;
+					return armor.armorSlot == EInventorySlot.Helmet ? _armorHeadPanel : _armorBodyPanel;
 				case WeaponData weapon:
-					return weapon.CanonicalSlot == EInventorySlot.WeaponRight ? _weaponRightPanel : _weaponLeftPanel;
+					return weapon.CanonicalSlot == EInventorySlot.WeaponRanged ? _weaponRightPanel : _weaponLeftPanel;
 				case ConsumableData:
 					return FindFirstEmptyConsumablePanel() ?? (_consumablePanels?.Count > 0 ? _consumablePanels[0] : null);
 			}

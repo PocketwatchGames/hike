@@ -1,12 +1,7 @@
 [gd_resource type="Resource" script_class="RegionGenData" format=3 uid="uid://dql8txwkuxpdg"]
 
 [ext_resource type="Script" uid="uid://qm48pd0cotgy" path="res://scripts/data/world/RegionGenData.cs" id="1_rgd"]
-[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="3_base"]
-[ext_resource type="Script" uid="uid://db5ulwxm6oe8v" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="4_sign"]
 [ext_resource type="Resource" path="res://resources/data/regions/mountain.tres" id="5_region"]
-[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="6_lang"]
-[ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="7_signscene"]
 
 [resource]
 script = ExtResource("1_rgd")

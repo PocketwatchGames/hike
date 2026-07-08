@@ -26,6 +26,6 @@ public partial class RegionTeachable : TeachableConcept
         {
             return false;
         }
-        return sim.DiscoveredRegions.Add(region);
+        return sim.DiscoverRegion(region);
     }
 }

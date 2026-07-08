@@ -3,12 +3,11 @@
 [ext_resource type="Script" uid="uid://dia3226sojhdo" path="res://scripts/gui/StashScreen.cs" id="1_8n8os"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="2_w6lr8"]
 [ext_resource type="Texture2D" uid="uid://cxu0m67ovyyb3" path="res://assets/textures/interactives/chest.png" id="3_w6lr8"]
-[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="4_shhvg"]
+[ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_8n8os"]
 [ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="5_nmwrw"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="6_11unt"]
-[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/drop_count_panel.tscn" id="7_t7qfq"]
 
-[node name="StashScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_playerInventory", "_stashSlotPanels", "_dropCountPanel", "_itemInfoPanelStash", "_itemInfoPanelInventory")]
+[node name="StashScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_playerInventory", "_stashPanel", "_itemInfoPanelStash", "_itemInfoPanelInventory")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,8 +16,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_8n8os")
 _playerInventory = NodePath("MarginContainer/HBoxContainer/Inventory")
-_stashSlotPanels = [NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel2"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel3"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel4"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel5"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel6"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel7"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel8"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel9")]
-_dropCountPanel = NodePath("MarginContainer/MarginContainer2/DropCountPanel")
+_stashPanel = NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/BackpackPanel")
 _itemInfoPanelStash = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
 _itemInfoPanelInventory = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
 
@@ -80,44 +78,7 @@ text = "Stash"
 layout_mode = 2
 size_flags_horizontal = 4
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2" unique_id=2009717768]
-layout_mode = 2
-theme_override_constants/margin_left = 5
-theme_override_constants/margin_top = 5
-theme_override_constants/margin_right = 5
-theme_override_constants/margin_bottom = 5
-
-[node name="GridContainer" type="GridContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer" unique_id=576435687]
-layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
-columns = 3
-
-[node name="ItemSlotPanel" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=982744505 instance=ExtResource("4_shhvg")]
-layout_mode = 2
-
-[node name="ItemSlotPanel2" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=925957295 instance=ExtResource("4_shhvg")]
-layout_mode = 2
-
-[node name="ItemSlotPanel3" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1642076212 instance=ExtResource("4_shhvg")]
-layout_mode = 2
-
-[node name="ItemSlotPanel4" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1071569680 instance=ExtResource("4_shhvg")]
-layout_mode = 2
-
-[node name="ItemSlotPanel5" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1775930160 instance=ExtResource("4_shhvg")]
-layout_mode = 2
-
-[node name="ItemSlotPanel6" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=52161742 instance=ExtResource("4_shhvg")]
-layout_mode = 2
-
-[node name="ItemSlotPanel7" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=727650033 instance=ExtResource("4_shhvg")]
-layout_mode = 2
-
-[node name="ItemSlotPanel8" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1298628383 instance=ExtResource("4_shhvg")]
-layout_mode = 2
-
-[node name="ItemSlotPanel9" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1775575881 instance=ExtResource("4_shhvg")]
+[node name="BackpackPanel" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2" unique_id=1913399409 instance=ExtResource("4_8n8os")]
 layout_mode = 2
 
 [node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary", "_buttonHintSecondary", "_buttonHintTertiary") instance=ExtResource("5_nmwrw")]
@@ -157,6 +118,3 @@ InputAction = "Y"
 layout_mode = 2
 theme_override_constants/margin_bottom = 100
 
-[node name="DropCountPanel" parent="MarginContainer/MarginContainer2" unique_id=256445145 instance=ExtResource("7_t7qfq")]
-layout_mode = 2
-size_flags_vertical = 8
