@@ -55,6 +55,12 @@ public interface IActionActor
 	// actor sources a hit (battle-cry buffs, etc.). 1.0 = neutral.
 	float OutgoingDamageMultiplier { get; }
 
+	// Melee-only outgoing-damage scale. ResolveHit applies it on top of
+	// OutgoingDamageMultiplier for melee-tagged swings only (ranged / thrown
+	// are unaffected). The player folds in its PlayerState.strength; mobs
+	// return 1.0 (no strength stat). 1.0 = neutral.
+	float MeleeDamageMultiplier { get; }
+
 	// Faction tag used by direct-hit handlers (Melee / Hitscan / Projectile)
 	// to skip same-team hurtboxes when DamageData.friendlyFire is false. Player
 	// returns ETeam.Player; mobs forward MobData.team.

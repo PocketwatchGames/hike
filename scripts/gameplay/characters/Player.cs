@@ -617,11 +617,13 @@ public partial class Player : CharacterBody3D
 	}
 	public ActionRunner Runner => _runner;
 	public float Health => _health;
-	public float MaxHealth => (data?.maxHealth ?? 100f) + ComposeStat(EStat.MaxHealth);
+	// Base pool = PlayerData baseline scaled by the hosted member's health/stamina
+	// multiplier (1 when no member), then flat Max* stat modifiers add on top.
+	public float MaxHealth => (data?.maxHealth ?? 100f) * (Member?.health ?? 1f) + ComposeStat(EStat.MaxHealth);
 	public float Armor => _armor;
 	public float MaxArmor => _maxArmor + ComposeStat(EStat.MaxArmor);
 	public float Stamina => _stamina;
-	public float MaxStamina => (data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina);
+	public float MaxStamina => (data?.maxStamina ?? 0f) * (Member?.stamina ?? 1f) + ComposeStat(EStat.MaxStamina);
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	// Catch up status effects by `dt` seconds in one call. Used by the sleep

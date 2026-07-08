@@ -24,6 +24,10 @@ public partial class MapMarkerOverlay : Control
     public float IconSize = 24f;
     // True (minimap): draw party ∪ active. False (world map): banked-only.
     public bool IncludeProvisional;
+    // Round-minimap mask: icons fade out and cull as they reach this fraction of
+    // the panel's half-extent from center (matching the map shader's mask_radius),
+    // so none poke past the circle. 0 disables it (the square world map).
+    public float CircleMaskFraction;
 
     private GameClient _gameClient;
     // Framing pushed by the host each frame before the redraw.
@@ -31,7 +35,7 @@ public partial class MapMarkerOverlay : Control
     private float _viewRadiusMeters;
     private bool _framed;
 
-    public static MapMarkerOverlay Create(GameClient gameClient, Texture2D unknownIcon, float iconSize, bool includeProvisional)
+    public static MapMarkerOverlay Create(GameClient gameClient, Texture2D unknownIcon, float iconSize, bool includeProvisional, float circleMaskFraction)
     {
         var overlay = new MapMarkerOverlay
         {
@@ -39,6 +43,7 @@ public partial class MapMarkerOverlay : Control
             UnknownIcon = unknownIcon,
             IconSize = iconSize,
             IncludeProvisional = includeProvisional,
+            CircleMaskFraction = circleMaskFraction,
             MouseFilter = MouseFilterEnum.Ignore,
             ClipContents = true,
         };
@@ -103,6 +108,24 @@ public partial class MapMarkerOverlay : Control
             // maps it to screen exactly as it maps the map texture beneath.
             Vector2 px = center + worldOffset / diameter * panel;
             float revealAlpha = minimap?.BankedRevealAlphaAt(record.WorldPosition) ?? 1f;
+            if (CircleMaskFraction > 0f)
+            {
+                // Fade the icon to zero BY THE TIME its outer radius (IconSize/2)
+                // reaches the round mask edge, so it never pokes past the minimap
+                // circle. maxDist is the center distance at which the icon edge is
+                // flush with the circle; it's fully faded there and over the band
+                // just inside it. Pixel-space and centered, so it's correct under
+                // the map's yaw rotation (the circle is symmetric).
+                float circleR = Mathf.Min(panel.X, panel.Y) * CircleMaskFraction;
+                float maxDist = circleR - IconSize * 0.5f;
+                float band = IconSize * 0.5f;
+                float edgeFade = Mathf.Clamp((maxDist - px.DistanceTo(center)) / Mathf.Max(band, 1f), 0f, 1f);
+                if (edgeFade <= 0f)
+                {
+                    continue;
+                }
+                revealAlpha *= edgeFade;
+            }
             DrawSetTransform(px, counterRot, Vector2.One);
             DrawMarker(record, sim, revealAlpha);
         }

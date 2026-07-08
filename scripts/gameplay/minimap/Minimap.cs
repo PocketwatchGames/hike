@@ -28,14 +28,18 @@ public partial class Minimap : Node3D
     [Export] public Color wallSlotColor = new Color(0.045f, 0.045f, 0.05f);
     // Color palette for foliage stamps on the minimap.
     [Export] public MinimapFoliageColors foliageColors;
-    // Visual zoom: how many minimap-source pixels each world meter occupies
-    // on the rendered TextureRect. Higher = more zoomed in. Independent of
-    // player vision — purely presentation. Read by Hud.UpdateMinimapViewRadius.
-    [Export(PropertyHint.Range, "0.25,16,0.25")] public float pixelsPerMeter = 2f;
-    // Indoor zoom-in multiplier on top of pixelsPerMeter — 2.0 = 2× closer
-    // indoors, useful for corridors. Presentation only; doesn't affect what
-    // the player perceives.
-    [Export(PropertyHint.Range, "0.5,8,0.25")] public float indoorZoom = 2f;
+    // Adaptive zoom: the minimap view radius (how much world the widget shows)
+    // follows the player's current reveal distance (ComputeVisibleRevealRadiusMeters
+    // — max reveal dimmed by time-of-day sun brightness + night vision, and scaled
+    // by vision stats) times this margin, so the view sits just inside what's
+    // charted. ~0.85 ≈ the old fixed zoom in daylight; 1 = flush with the edge.
+    [Export(PropertyHint.Range, "0.3,1,0.01")] public float viewRevealMargin = 0.85f;
+    // Floor for the adaptive view radius (meters) so night / no vision never
+    // zooms the map down to a dot.
+    [Export(PropertyHint.Range, "2,64,1")] public float minViewRadiusMeters = 10f;
+    // Extra indoor zoom-in factor — the view radius is divided by this in indoor
+    // mode so corridors read closer. Presentation only; doesn't affect reveal.
+    [Export(PropertyHint.Range, "1,8,0.25")] public float indoorZoom = 2f;
     // Reveal radius (what the player perceives) = vision × this. Drives both
     // the outdoor surface mask and the indoor active-slice mask; independent of
     // zoom because how far you see doesn't depend on how the map is rendered.
@@ -158,8 +162,8 @@ public partial class Minimap : Node3D
     private int _lastCapturedSliceLevel;
     private const float StateLerpRate = 7f;
 
-    // Reveal cadence. Reveal radius is vision × revealMultiplier; view radius
-    // (zoom) is computed by Hud from the TextureRect size + pixelsPerMeter.
+    // Reveal cadence. Reveal radius is vision × revealMultiplier; the view radius
+    // (adaptive zoom) follows ComputeVisibleRevealRadiusMeters (Hud reads it).
     private const double RevealIntervalSeconds = 0.1;
     private const float RevealMoveThresholdSquared = 0.25f * 0.25f;
     // Fallback player vision range used when PlayerData isn't available
@@ -864,15 +868,21 @@ public partial class Minimap : Node3D
         };
     }
 
-    // Reveal radius = vision × multiplier. Same value for outdoor and
-    // indoor — the player perceives the same distance regardless of which
-    // mode the minimap is rendering in. View radius (zoom) lives entirely
-    // in Hud, computed from TextureRect size + GameClient pixels-per-meter.
+    // Reveal radius = effective vision range × multiplier. Same value for outdoor
+    // and indoor — the player perceives the same distance regardless of which mode
+    // the minimap renders. Vision-affecting stats (base perception, buffs, gear —
+    // EStat.Vision) scale it, so anything that extends the player's sight widens
+    // both the charted map-reveal radius AND the adaptive zoom by the same factor.
     public float ComputeRevealRadius()
     {
         float multiplier = revealMultiplier;
-        float visionRange = _world?.player?.data?.visionRange ?? DefaultVisionRange;
-        if (_world?.player?.IsBirdsEye ?? false)
+        Player player = _world?.player;
+        float visionRange = player?.data?.visionRange ?? DefaultVisionRange;
+        if (player != null)
+        {
+            visionRange *= player.ComposeStat(EStat.Vision);
+        }
+        if (player?.IsBirdsEye ?? false)
         {
             multiplier *= birdsEyeRevealMultiplier;
         }
@@ -908,6 +918,65 @@ public partial class Minimap : Node3D
             }
         }
         return baseRadius * light01;
+    }
+
+    // The reveal distance the player can currently chart, for the adaptive minimap
+    // zoom: the max reveal radius (already vision-stat scaled) dimmed by the global
+    // time-of-day sun brightness and by the local painted fog at the player,
+    // floored by minViewRadiusMeters so night / thick fog never collapse the zoom
+    // to a dot.
+    public float ComputeVisibleRevealRadiusMeters()
+    {
+        float radius = ComputeRevealRadius() * DaylightFactor01();
+        // Local painted fog shortens how far it charts: in fog this thick the
+        // sightline is limited to losFogFullBlockMeters (matches the reveal
+        // viewshed's fog model, fog01 · d / F = 1). Fog is the ONE local sample
+        // left; it only flickers at a fog-volume edge (swamp pools), and the Hud
+        // zoom damp-lerp eases that crossing — unlike a per-frame local LIGHT
+        // sample (canopy-dappled) which is why brightness now comes from the sky.
+        WorldState ws = _world?.WorldState;
+        Player player = _world?.player;
+        if (ws != null && player != null && losFogFullBlockMeters > 0f)
+        {
+            Vector3 pos = player.GlobalPosition;
+            int fx = Mathf.FloorToInt(pos.X);
+            int fy = Mathf.FloorToInt(pos.Y + GameCamera.EYE_HEIGHT);
+            int fz = Mathf.FloorToInt(pos.Z);
+            float fog01 = ws.GetFogWorld(fx, fy, fz) / 255f;
+            if (fog01 > 0f)
+            {
+                radius = Mathf.Min(radius, losFogFullBlockMeters / fog01);
+            }
+        }
+        return Mathf.Max(radius, minViewRadiusMeters);
+    }
+
+    // Global time-of-day sun/moon brightness in [0,1] — SkyController's blended
+    // primary intensity (day-side ↔ night-side by NightT) normalized by the day
+    // base. Unlike a locally-sampled light it doesn't flicker as the player walks
+    // under canopy, so the zoom stays stable. Night-vision gear lifts it toward
+    // full brightness (same darkness relief the perception system applies to
+    // sight — NightVision 1.85 = 85% relief), so scouting at night with the gear
+    // keeps the map zoomed out.
+    private float DaylightFactor01()
+    {
+        SkyController sky = SkyController.Current;
+        if (sky == null)
+        {
+            return 1f;
+        }
+        float dayBase = _world?.SimData?.dayIntensityBase ?? 2f;
+        float sun01 = Mathf.Clamp(sky.CurrentPrimaryIntensity / Mathf.Max(dayBase, 0.001f), 0f, 1f);
+        Player player = _world?.player;
+        if (player != null)
+        {
+            float nightVisionRelief = Mathf.Clamp(player.ComposeStat(EStat.NightVision) - 1f, 0f, 1f);
+            if (nightVisionRelief > 0f)
+            {
+                sun01 = Mathf.Lerp(sun01, 1f, nightVisionRelief);
+            }
+        }
+        return sun01;
     }
 
     // Glide the reference elevation toward its target. First call snaps so

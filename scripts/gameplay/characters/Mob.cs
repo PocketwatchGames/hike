@@ -1121,6 +1121,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool HasDamagingStatusEffect => _statusEffects?.HasDamagingEffect ?? false;
 
     public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
+    // IActionActor — mobs have no strength stat; melee scale is neutral.
+    public float MeleeDamageMultiplier => 1f;
 
     // IActionActor — fire any active status effect's on-attack-impact burst
     // (elite lightning aura, etc.) at the swing/ray impact point. Forwarded to

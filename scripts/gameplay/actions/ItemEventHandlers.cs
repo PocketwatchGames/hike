@@ -1581,6 +1581,17 @@ public static class ItemEventHandlers
 		{
 			hit.healthDamage *= mul;
 		}
+		// Melee-only strength scale (the player's PlayerState.strength). Gated on
+		// the event's Melee flag so ranged / thrown swings are unaffected; mobs
+		// return 1.0. Layered on top of the status-effect OutgoingDamageMultiplier.
+		if ((ev.type & EItemEventType.Melee) != 0)
+		{
+			float meleeMul = actor.MeleeDamageMultiplier;
+			if (meleeMul != 1f)
+			{
+				hit.healthDamage *= meleeMul;
+			}
+		}
 		// Weapon-mod payloads scope-filtered to the firing tier: on-hit enchants
 		// (a Flaming weapon's Burning) ride on top of the template's statusEffects,
 		// and the Knockback mod adds shove + stagger to the hit.

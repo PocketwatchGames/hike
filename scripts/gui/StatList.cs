@@ -331,6 +331,7 @@ public static class StatList
 			EStat.MaxHealth => EStatName.Health,
 			EStat.ColdResist => EStatName.ColdResist,
 			EStat.HeatResist => EStatName.HeatResist,
+			EStat.FortitudeResistance => EStatName.Fortitude,
 			_ => EStatName.Damage,
 		};
 	}

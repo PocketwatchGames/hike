@@ -570,7 +570,13 @@ public class StatusEffectController
 			// buildup feeding a Dizzy-tagged effect regardless of what hit
 			// landed it. effect.tags == None falls through to a 1x
 			// multiplier (untagged buildups take no resistance scaling).
-			float resistance = _composeMaskMul?.Invoke(entry.effect.tags) ?? 1f;
+			// FortitudeResistance is OR'd into the mask so the actor's general
+			// buildup resistance (the player's PlayerState.fortitude, plus any
+			// gear/status FortitudeResistance modifier) scales every combat
+			// buildup on top of its per-tag resistance. Only combat-delivered
+			// buildup routes through here — ambient meters (rain Wet) call
+			// AddBuildup directly and are intentionally untouched.
+			float resistance = _composeMaskMul?.Invoke(entry.effect.tags | EStat.FortitudeResistance) ?? 1f;
 			bool applied = AddBuildup(entry.effect, entry.amount * hit.buildupAmountMultiplier * resistance);
 			if (applied && entry.effect.applyTrigger != EDamageTrigger.None)
 			{

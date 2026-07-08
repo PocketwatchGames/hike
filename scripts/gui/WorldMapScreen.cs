@@ -118,7 +118,7 @@ public partial class WorldMapScreen : Control
 			if (_markerOverlay == null)
 			{
 				// World map is banked-only — field markers appear here after camping.
-				_markerOverlay = MapMarkerOverlay.Create(_gameClient, unknownMarkerIcon, markerIconSize, includeProvisional: false);
+				_markerOverlay = MapMarkerOverlay.Create(_gameClient, unknownMarkerIcon, markerIconSize, includeProvisional: false, circleMaskFraction: 0f);
 				regionLabels.AddChild(_markerOverlay);
 			}
 			_markerOverlay.SetFraming(worldCenter, viewRadius);

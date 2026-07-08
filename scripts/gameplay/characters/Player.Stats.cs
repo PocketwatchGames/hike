@@ -119,7 +119,39 @@ public partial class Player : CharacterBody3D
 		value = AccumulateArmorStat(EInventorySlot.Helmet, stat, value);
 		value = AccumulateArmorStat(EInventorySlot.Armor, stat, value);
 		value = _statusEffects?.FoldStat(stat, value) ?? value;
+		value *= MemberStat(stat);
 		return value;
+	}
+
+	// The hosted party member's multiplicative contribution to a composed
+	// stat (1 = neutral, or no member hosted). Folded into ComposeStat /
+	// ComposeMaskMul so the character sheet rides the same pipeline as gear
+	// and status modifiers. Returns 1 for every stat the sheet doesn't map
+	// (including all additive stats), so multiplying it in is always safe.
+	// Melee strength is applied at the hit site (ItemEventHandlers.ResolveHit),
+	// not here; health/stamina are pool bases, not composed stats.
+	private float MemberStat(EStat stat)
+	{
+		if (Member is not PlayerState m)
+		{
+			return 1f;
+		}
+		switch (stat)
+		{
+			case EStat.Vision:
+			case EStat.Hearing:
+				return m.perception;
+			case EStat.Noise:
+			case EStat.Scent:
+				// Higher stealth = quieter / less scent, so it divides the
+				// louder-is-higher Noise/Scent multipliers.
+				return m.stealth > 0f ? 1f / m.stealth : 1f;
+			case EStat.FortitudeResistance:
+				// Higher fortitude = smaller buildup multiplier = more resistant.
+				return m.fortitude > 0f ? 1f / m.fortitude : 1f;
+			default:
+				return 1f;
+		}
 	}
 
 	// Multiplicative compose across all sources for a tag mask — used at
@@ -137,6 +169,13 @@ public partial class Player : CharacterBody3D
 		product = AccumulateArmorMask(EInventorySlot.Helmet, mask, product);
 		product = AccumulateArmorMask(EInventorySlot.Armor, mask, product);
 		product = _statusEffects?.FoldMask(mask, product) ?? product;
+		// Member-sheet contribution for the mask path. Only FortitudeResistance
+		// (the combat-buildup channel) rides ComposeMaskMul today — the sense
+		// stats are single-stat composes via ComposeStat.
+		if ((mask & EStat.FortitudeResistance) != 0)
+		{
+			product *= MemberStat(EStat.FortitudeResistance);
+		}
 		return product;
 	}
 

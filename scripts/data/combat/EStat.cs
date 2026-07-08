@@ -61,4 +61,5 @@ public enum EStat
 	NightVision = 1 << 25,       // multiplicative (perception darkness relief; value-1 = fraction of darkness penalty removed, e.g. 1.85 = 85%)
 	MaxHealth = 1 << 26,        // additive (flat health bonus)
 	MaxArmor = 1 << 27,        // additive (flat armor bonus)
+	FortitudeResistance = 1 << 28, // multiplicative — incoming status-buildup scale (<1 = resistant); sourced from PlayerState.fortitude + any gear/status modifier, folded at the combat-buildup site
 }

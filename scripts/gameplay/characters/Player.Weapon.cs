@@ -594,6 +594,8 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();
 	public Node3D AttackerNode => this;
 	public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
+	// IActionActor — melee-only damage scale from the hosted member's strength.
+	public float MeleeDamageMultiplier => Member?.strength ?? 1f;
 	public ETeam ActorTeam => ETeam.Player;
 	// IActionActor — fire any active status effect's on-attack-impact burst at
 	// the swing/ray impact point. Shares the controller path with Mob so an

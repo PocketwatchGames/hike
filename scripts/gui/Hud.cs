@@ -159,9 +159,10 @@ public partial class Hud : Control
 	// Marker icon overlay, lazily created as a child of _minimapTexture so it
 	// shares the map's rect + camera-yaw rotation.
 	MapMarkerOverlay _markerOverlay;
-	// Lerped minimap view radius (meters), computed each frame from
-	// TextureRect size and Minimap.pixelsPerMeter. Damps toward the target
-	// so indoor/outdoor mode toggles glide smoothly.
+	// Lerped minimap view radius (meters) — the adaptive zoom. Follows the
+	// player's current charting distance (Minimap.ComputeVisibleRevealRadiusMeters:
+	// time-of-day light + night vision + vision stats). Damps toward the target so
+	// day/night, gear, and mode changes glide instead of snapping.
 	float _minimapViewRadius;
 	const float MinimapViewRadiusLerpRate = 10f;
 	// Last-pushed texture references per state slot, so we only call
@@ -1001,27 +1002,28 @@ public partial class Hud : Control
 		{
 			// Minimap shows party ∪ active markers (the controlled player's field
 			// discoveries appear immediately), matching its fog-of-war.
-			_markerOverlay = MapMarkerOverlay.Create(gameClient, _unknownMarkerIcon, _markerIconSize, includeProvisional: true);
+			// circleMaskFraction 0.5 matches the map shader's mask_radius so icons
+			// clip to the round minimap; the world map (square) passes 0.
+			_markerOverlay = MapMarkerOverlay.Create(gameClient, _unknownMarkerIcon, _markerIconSize, includeProvisional: true, circleMaskFraction: 0.5f);
 			_minimapTexture.AddChild(_markerOverlay);
 		}
 		_markerOverlay.SetFraming(new Vector2(pos.X, pos.Z), viewRadius);
 	}
 
-	// Computes the visible half-extent (meters) for the minimap shader.
-	// Independent of player vision: the TextureRect's screen-pixel size
-	// divided by Minimap.pixelsPerMeter gives the world meters
-	// the rect covers; halve for the radius. Indoor mode multiplies
-	// pixels-per-meter by Minimap.indoorZoom so corridors zoom in. Damp-
-	// lerps toward the target so mode toggles glide smoothly.
+	// Computes the visible half-extent (meters) for the minimap shader — the
+	// adaptive zoom. Target = the player's current charting distance
+	// (Minimap.ComputeVisibleRevealRadiusMeters, dimmed by time-of-day light +
+	// night vision and scaled by vision stats) × viewRevealMargin, so the view
+	// sits just inside what's charted and zooms in as night falls / out with a
+	// vision buff. Indoor mode divides by indoorZoom so corridors read closer.
+	// Damp-lerps toward the target so the transitions glide.
 	float UpdateMinimapViewRadius(Minimap minimap)
 	{
-		float ppm = minimap.pixelsPerMeter;
-		if (minimap.Mode == Minimap.EMinimapMode.Indoor)
+		float target = minimap.ComputeVisibleRevealRadiusMeters() * minimap.viewRevealMargin;
+		if (minimap.Mode == Minimap.EMinimapMode.Indoor && minimap.indoorZoom > 0f)
 		{
-			ppm *= minimap.indoorZoom;
+			target /= minimap.indoorZoom;
 		}
-		float screenPx = Mathf.Min(_minimapTexture.Size.X, _minimapTexture.Size.Y);
-		float target = (screenPx / ppm) * 0.5f;
 		if (_minimapViewRadius <= 0f)
 		{
 			_minimapViewRadius = target;

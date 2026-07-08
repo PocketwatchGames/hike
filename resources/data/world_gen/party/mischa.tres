@@ -19,7 +19,6 @@
 [ext_resource type="Resource" uid="uid://cwqfrv0c27v5x" path="res://resources/data/items/weapons/summoner.tres" id="30_summoner"]
 [ext_resource type="Resource" uid="uid://d3xp3psvbwcie" path="res://resources/data/items/weapons/knife.tres" id="31_knife"]
 [ext_resource type="Resource" uid="uid://b45t676la3e45" path="res://resources/data/status_effects/traits/trait_runs_hot.tres" id="32_runshot"]
-[ext_resource type="Resource" uid="uid://chywgb4qw5ohg" path="res://resources/data/status_effects/traits/trait_thin_skinned.tres" id="33_thinskin"]
 
 [sub_resource type="Resource" id="SEDesc_seeking"]
 script = ExtResource("22_sedesc")
@@ -123,8 +122,12 @@ metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 [resource]
 script = ExtResource("1_playerstate")
 characterName = "Mischa"
+health = 1.4
+fortitude = 0.9
+strength = 1.1
+stealth = 0.8
 equippedInventory = [SubResource("Resource_club"), SubResource("Resource_x1qdn")]
 startingConsumables = [ExtResource("6_torch"), ExtResource("17_shovel")]
 startingInventory = [SubResource("Resource_knife"), SubResource("Resource_jl16k"), SubResource("Resource_ntk62"), SubResource("Resource_helmgosbark"), SubResource("Resource_helmglimp"), SubResource("Resource_summoner")]
-traits = Array[ExtResource("18_0l78o")]([ExtResource("32_runshot"), ExtResource("33_thinskin")])
+traits = Array[ExtResource("18_0l78o")]([ExtResource("32_runshot")])
 metadata/_custom_type_script = "uid://b1rjovy8825fh"

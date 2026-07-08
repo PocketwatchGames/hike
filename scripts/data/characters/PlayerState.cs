@@ -37,13 +37,18 @@ public partial class PlayerState : Resource
 	[Export] public int hairStyle;
 
 	[ExportGroup("Stats")]
-	// The character sheet. DISPLAY-ONLY for now — surfaced in the camp stats
-	// panel but not yet folded into combat / perception / status gameplay (that
-	// wiring is a follow-up). health / stamina are max values (default matches
-	// PlayerData); strength / perception / stealth are multipliers around 1;
-	// fortitude resists negative status buildup; charisma is currently unused.
-	[Export] public float health = 100f;
-	[Export] public float stamina = 100f;
+	// The character sheet — per-member multipliers around 1.0 (1 = the
+	// PlayerData baseline), folded into the shared stat-compose pipeline when
+	// this member is the hosted Player (see Player.MemberStat / MaxHealth /
+	// MaxStamina and ItemEventHandlers.ResolveHit):
+	//   health / stamina — scale the member's max HP / stamina pools.
+	//   strength         — scales melee-swing damage only (ranged/thrown unaffected).
+	//   perception       — sharpens the player's own senses (Vision + Hearing).
+	//   stealth          — quiets the player's emissions (Noise + Scent); higher = stealthier.
+	//   fortitude        — resists incoming combat status buildup (via EStat.FortitudeResistance); higher = more resistant.
+	//   charisma         — reserved for a future dialogue system; currently unused.
+	[Export] public float health = 1f;
+	[Export] public float stamina = 1f;
 	[Export] public float fortitude = 1f;
 	[Export] public float strength = 1f;
 	[Export] public float perception = 1f;
