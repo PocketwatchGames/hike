@@ -92,7 +92,6 @@ modifiers = Array[ExtResource("8_bjh47")]([SubResource("Resource_dizzy_vuln")])
 dizzyResistance = 0.30000000000000004
 burrowTime = 0.0
 hideRange = 8.0
-idleLoopStartTimeOfDay = 0.0
 idleLoopEndTimeOfDay = 0.6
 idleLoopMaxRain = 0.2
 runDecibels = 1.0

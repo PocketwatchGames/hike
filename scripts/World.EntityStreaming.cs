@@ -32,6 +32,26 @@ public partial class World
     // set it scans for reveal-driven discovery at its reveal cadence.
     public Action<MapMarker> onMapMarkerSpawned;
     public Action<MapMarker> onMapMarkerRemoved;
+    // Live map markers (NPCs, fallen party members) drawn at their current
+    // position, always visible. Entities register on spawn / unregister on
+    // removal; the map overlays iterate this each redraw. Unlike MapMarker these
+    // are NOT recorded into Knowledge — they track the live entity, not a
+    // discovered landmark.
+    private readonly List<ILiveMapMarker> _liveMapMarkers = new();
+    public IReadOnlyList<ILiveMapMarker> LiveMapMarkers => _liveMapMarkers;
+
+    public void RegisterLiveMapMarker(ILiveMapMarker marker)
+    {
+        if (marker != null && !_liveMapMarkers.Contains(marker))
+        {
+            _liveMapMarkers.Add(marker);
+        }
+    }
+
+    public void UnregisterLiveMapMarker(ILiveMapMarker marker)
+    {
+        _liveMapMarkers.Remove(marker);
+    }
     // Fires after LoadEntitiesForChunk has spawned the chunk's entity nodes.
     // Used by the minimap to stamp prop foliage once the trees / props are
     // actually in the scene (the chunk-mesh-loaded event fires earlier, when

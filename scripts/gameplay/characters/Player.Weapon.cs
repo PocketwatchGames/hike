@@ -270,6 +270,44 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		_runner.OnInputReleased();
 	}
 
+	// Toggle the lantern on/off from its dedicated slot — the Lantern input's
+	// counterpart to TryUseActiveConsumable. Runs the lantern's action profile
+	// (a single ToggleMovingLight event) through the runner, so a fuel-empty
+	// lantern is refused by the same HasFuel gate the manual douse uses.
+	void TryUseLantern()
+	{
+		CancelDashAndSprint();
+		if (_runner == null || _runner.IsBusy)
+		{
+			return;
+		}
+		ItemState item = _inventory?.GetEquipped(EInventorySlot.Lantern);
+		if (item?.data is not ConsumableData lanternData || lanternData.actionProfile == null)
+		{
+			return;
+		}
+		var context = new ActionContext
+		{
+			verb = EActionVerb.Use,
+			primaryItem = item,
+			sourceSlot = EInventorySlot.Lantern,
+		};
+		_runner.TryStart(lanternData.actionProfile, context);
+	}
+
+	void ReleaseUseLantern()
+	{
+		if (_runner == null || !_runner.IsBusy)
+		{
+			return;
+		}
+		if (_runner.Current.context.sourceSlot != EInventorySlot.Lantern)
+		{
+			return;
+		}
+		_runner.OnInputReleased();
+	}
+
 	// Immediately run a consumable's Use action on this player from a source
 	// other than the equipped hotbar slot — e.g. a dish eaten the moment it comes
 	// off the campfire. The item is treated as a standalone one-unit stack: the

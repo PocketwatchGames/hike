@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-// Everything the player carries: the four singular equip slots (helmet / armor /
-// melee / ranged weapon), the 3-slot Equipment hotbar (potions / food / torches —
+// Everything the player carries: the singular equip slots (helmet / armor /
+// melee / ranged weapon / lantern), the 3-slot Equipment hotbar (potions / food —
 // EItemCategory.Equipment), and the material-only backpack. The backpack holds
 // ONLY materials; weapons / armor / equipment never enter it. Displacing a piece
 // out of an equip slot (equip-over) sends it to the world-scope party equipment
@@ -30,6 +30,11 @@ public class Inventory
 	private ItemState _armor;
 	private WeaponState _weaponMelee;
 	private WeaponState _weaponRanged;
+	// The player's lantern — its own permanent slot, seeded at spawn and toggled
+	// on/off with the Lantern input. Never enters the Equipment hotbar (lanterns
+	// are refused there); enumerated in EnumerateAll so its fuel ticks / refuels
+	// and its lit state lights the player like any carried torch.
+	private ItemState _lantern;
 
 	// Consumable hotbar — fixed-size, indexed by activeConsumableIndex. Empty
 	// slots hold null. Sized from PlayerData.consumableSlotCount at construction.
@@ -310,6 +315,7 @@ public class Inventory
 			EInventorySlot.WeaponMelee => _weaponMelee,
 			EInventorySlot.WeaponRanged => _weaponRanged,
 			EInventorySlot.Equipment => GetActiveConsumable(),
+			EInventorySlot.Lantern => _lantern,
 			_ => null,
 		};
 	}
@@ -981,6 +987,7 @@ public class Inventory
 		if (item == _armor) { return EInventorySlot.Armor; }
 		if (item == _weaponMelee) { return EInventorySlot.WeaponMelee; }
 		if (item == _weaponRanged) { return EInventorySlot.WeaponRanged; }
+		if (item == _lantern) { return EInventorySlot.Lantern; }
 		if (item == GetActiveConsumable()) { return EInventorySlot.Equipment; }
 		return null;
 	}
@@ -1004,6 +1011,7 @@ public class Inventory
 		// backpack list, so enumerate them here too.
 		if (_weaponMelee != null) { yield return _weaponMelee; }
 		if (_weaponRanged != null) { yield return _weaponRanged; }
+		if (_lantern != null) { yield return _lantern; }
 	}
 
 	// Enumerate equipped armor as ArmorState (skips null slots). Used by
@@ -1072,6 +1080,7 @@ public class Inventory
 			case EInventorySlot.Armor: _armor = item; break;
 			case EInventorySlot.WeaponMelee: _weaponMelee = item as WeaponState; break;
 			case EInventorySlot.WeaponRanged: _weaponRanged = item as WeaponState; break;
+			case EInventorySlot.Lantern: _lantern = item; break;
 			default: break;
 		}
 	}

@@ -114,6 +114,17 @@ public partial class WeaponHud : BoxContainer
 
 	void UpdateCooldown(ulong nowMs)
 	{
+		// A fuel-limited lantern repurposes the cooldown bar as a fuel gauge —
+		// always shown, tracking the remaining burn budget as a fraction rather
+		// than a cooldown countdown.
+		if (_item is TorchState torch && torch.data is TorchData torchData && torchData.HasLimitedFuel)
+		{
+			_cooldownBar.MinValue = 0;
+			_cooldownBar.MaxValue = 1;
+			_cooldownBar.Value = (double)torch.FuelRemainingMs / torchData.BurnTimeMs;
+			_cooldownBar.Visible = true;
+			return;
+		}
 		if (_item == null || _item.cooldownDurationMs == 0 || nowMs >= _item.cooldownExpireMs)
 		{
 			_cooldownBar.Visible = false;

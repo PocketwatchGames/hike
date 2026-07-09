@@ -6,6 +6,7 @@
 [ext_resource type="Resource" uid="uid://b5x8h2qkvr3wm" path="res://resources/data/actions/dash_action.tres" id="6_dash"]
 [ext_resource type="Resource" uid="uid://ct4ntwjta4pai" path="res://resources/data/characters/human/anim_sets/unarmed.tres" id="7_unarmed"]
 [ext_resource type="Resource" uid="uid://b8nf3qkxr7m2p" path="res://resources/data/items/weapons/fists.tres" id="8_fists"]
+[ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/consumables/lantern.tres" id="9_lantern"]
 
 [resource]
 script = ExtResource("1_mknwc")
@@ -33,6 +34,7 @@ hearingRange = 15.0
 eyeDilationDilateSeconds = 10.0
 eyeDilationConstrictSeconds = 3.0
 swimJumpSpeed = 16.0
+startingLantern = ExtResource("9_lantern")
 unarmedWeapon = ExtResource("8_fists")
 modifiers = Array[Object]([])
 armorRechargeDelay = 5.0

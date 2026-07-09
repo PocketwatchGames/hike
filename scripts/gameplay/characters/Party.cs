@@ -112,15 +112,16 @@ public class Party
 	// (the "return to a campfire" commit). Clearing after the merge is required so
 	// re-camping can't double-count species kills. Only the active member is
 	// merged — they're the only one who explores in the field.
-	public void BankActive()
+	public EKnowledgeCategory BankActive()
 	{
 		PlayerState active = Active;
 		if (active == null)
 		{
-			return;
+			return EKnowledgeCategory.None;
 		}
-		Knowledge.MergeFrom(active.Knowledge);
+		EKnowledgeCategory banked = Knowledge.MergeFrom(active.Knowledge);
 		active.Knowledge.Clear();
+		return banked;
 	}
 
 	// Point control at a different member. Clamped to the roster; a no-op if the

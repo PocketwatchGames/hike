@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://c7r0drbmx8ob5"]
 
 [ext_resource type="Script" uid="uid://bho327tgdqbxw" path="res://scripts/gui/Hud.cs" id="1_ahhtf"]
-[ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
 [ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="2_icon"]
 [ext_resource type="PackedScene" uid="uid://dy8owtvikxnqf" path="res://scenes/gui/weapon_hud.tscn" id="2_qxonp"]
 [ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_ueg55"]
@@ -16,6 +15,7 @@
 [ext_resource type="Texture2D" uid="uid://dqyckjku6gox3" path="res://assets/textures/weather/night_cold_cloudy.png" id="9_is1ux"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="11_1hqqq"]
 [ext_resource type="PackedScene" path="res://scenes/gui/region_banner.tscn" id="13_is1ux"]
+[ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_drain_bg"]
 
@@ -79,7 +79,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_selectConsumableButtonHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_objectivesContainer", "_itemWheel", "_itemSlots", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_lanternHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_selectConsumableButtonHint", "_lanternHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_objectivesContainer", "_itemWheel", "_itemSlots", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -92,10 +92,12 @@ _statusEffectIconScene = ExtResource("2_icon")
 _weaponLeftHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeft")
 _weaponRightHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRight")
 _consumableHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/HBoxContainer/Consumable")
+_lanternHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer4/Lantern")
 _weaponLeftButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeftHint")
 _weaponRightButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRightHint")
 _consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/ConsumableHint")
 _selectConsumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/SelectConsumableHint")
+_lanternHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer4/LanternHint")
 _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StatusEffects")
 _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
@@ -107,6 +109,7 @@ _signpostPanel = NodePath("HudSignpostPanel")
 _dialoguePanel = NodePath("DialoguePanel")
 _regionBanner = NodePath("RegionBanner")
 _minimapTexture = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/MinimapTexture")
+_unknownMarkerIcon = ExtResource("mm_question")
 _buttonHintTurnLeft = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintRotateLeft")
 _buttonHintTurnRight = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintRotateRight")
 _buttonHintIndoors = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintToggleIndoors")
@@ -119,7 +122,6 @@ _objectivePanelScene = ExtResource("4_hbx25")
 _itemWheel = NodePath("ScreenMarginContainer/ItemWheel")
 _itemSlots = [NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot1"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot2"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot3"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot4")]
 _lightningFlashOverlay = NodePath("LightningFlashOverlay")
-_unknownMarkerIcon = ExtResource("mm_question")
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
 layout_mode = 1
@@ -260,6 +262,15 @@ layout_mode = 2
 [node name="WeaponRightHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3" unique_id=735103172 instance=ExtResource("3_ueg55")]
 layout_mode = 2
 
+[node name="VBoxContainer4" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1475018221]
+layout_mode = 2
+
+[node name="Lantern" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer4" unique_id=402379602 instance=ExtResource("2_qxonp")]
+layout_mode = 2
+
+[node name="LanternHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer4" unique_id=1060139491 instance=ExtResource("3_ueg55")]
+layout_mode = 2
+
 [node name="BottomRight" type="MarginContainer" parent="ScreenMarginContainer" unique_id=1191100021]
 layout_mode = 2
 size_flags_horizontal = 8
@@ -289,17 +300,25 @@ texture = ExtResource("5_gbuxp")
 
 [node name="Label" type="Label" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/MinimapTexture" unique_id=1946964906]
 layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
+anchors_preset = -1
+anchor_left = 0.21
+anchor_top = 0.21
+anchor_right = 0.21
+anchor_bottom = 0.21
 offset_left = -20.0
+offset_top = -17.0
 offset_right = 20.0
-offset_bottom = 34.0
+offset_bottom = 17.0
 grow_horizontal = 2
+grow_vertical = 2
+rotation = -0.7853982
+pivot_offset = Vector2(20, 17)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.49803922)
 theme_override_constants/outline_size = 5
 theme_override_font_sizes/font_size = 24
 text = "N"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Border" type="TextureRect" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Minimap" unique_id=310066966]
 layout_mode = 1

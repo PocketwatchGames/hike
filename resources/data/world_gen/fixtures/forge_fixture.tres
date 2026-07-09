@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ForgeSpawnEntry" format=3]
+[gd_resource type="Resource" script_class="ForgeSpawnEntry" format=3 uid="uid://xko125hcxayg"]
 
 [ext_resource type="Script" uid="uid://bgfy2e17rrkux" path="res://scripts/data/spawn/ForgeSpawnEntry.cs" id="1_forge"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/forge.tscn" id="2_scene"]
@@ -6,7 +6,4 @@
 [resource]
 script = ExtResource("1_forge")
 scene = ExtResource("2_scene")
-levelMin = 1
-levelMax = 5
-detailSuppressionRadius = 2.0
 metadata/_custom_type_script = "uid://bgfy2e17rrkux"

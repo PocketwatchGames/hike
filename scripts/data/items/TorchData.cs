@@ -15,6 +15,20 @@ public partial class TorchData : ConsumableData
 	// with the mob held torch.
 	[Export] public PackedScene heldTorchScene;
 
+	// How long (seconds of lit time) this torch may burn before its fuel is
+	// spent — it then extinguishes and refuses to relight until recharged at a
+	// campfire (Player.RefuelCarriedTorches). Only counts down while lit, on the
+	// sim clock. 0 (or less) = burns forever, the old always-on behavior.
+	[Export] public float burnTimeSeconds = 0f;
+
+	public bool HasLimitedFuel => burnTimeSeconds > 0f;
+	public long BurnTimeMs => (long)(burnTimeSeconds * 1000f);
+
+	// Lanterns live in the dedicated Lantern slot, never the Equipment hotbar —
+	// so they carry their own category rather than inheriting ConsumableData's
+	// Equipment. EquipSlotKind maps this straight to EInventorySlot.Lantern.
+	protected override EItemCategory ComputeCategory() => EItemCategory.Lantern;
+
 	public override ItemState CreateState()
 	{
 		return new TorchState(this);

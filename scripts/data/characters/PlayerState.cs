@@ -103,4 +103,10 @@ public partial class PlayerState : Resource
 	// the member is destroyed permanently. 0 = no pending deadline (alive, or not
 	// yet assigned).
 	public int ReviveByDay;
+
+	// Runtime (not authored): true once this member has eaten a cooked dish today.
+	// Each character may cook and eat once per day; the camp Cook tab is withheld
+	// from a member who already has. Cleared for the whole party at each sunrise
+	// (GameClient handles World.OnNewDay).
+	public bool HasEatenToday;
 }

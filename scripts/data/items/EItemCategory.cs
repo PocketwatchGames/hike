@@ -11,11 +11,14 @@ public enum EItemCategory
 	WeaponRanged,
 	Armor,
 	Helmet,
-	// The 3-slot active hotbar: potions, food, torches, scrolls.
+	// The 3-slot active hotbar: potions, food, scrolls.
 	Equipment,
 	// Carried in the material-only backpack; cooking ingredients, loot, meat.
 	Material,
 	// Ammo (arrows): never enters the inventory — a pickup reclaims it straight
 	// into the firing weapon. Neither backpack material nor an equip slot.
 	Ammo,
+	// The player's lantern — its own dedicated equip slot, kept out of the
+	// Equipment hotbar. TorchData items resolve to this.
+	Lantern,
 }

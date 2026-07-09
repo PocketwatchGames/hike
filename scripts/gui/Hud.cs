@@ -19,10 +19,12 @@ public partial class Hud : Control
 	[Export] WeaponHud _weaponLeftHud;
 	[Export] WeaponHud _weaponRightHud;
 	[Export] WeaponHud _consumableHud;
+	[Export] WeaponHud _lanternHud;
 	[Export] ButtonHint _weaponLeftButtonHint;
 	[Export] ButtonHint _weaponRightButtonHint;
 	[Export] ButtonHint _consumableButtonHint;
 	[Export] ButtonHint _selectConsumableButtonHint;
+	[Export] ButtonHint _lanternHint;
 	// Persistent strip parent — usually an HBoxContainer above the health bar.
 	[Export] Control _statusEffectContainer;
 	// Screen-space anchor for the transient over-the-player notification.
@@ -256,6 +258,7 @@ public partial class Hud : Control
 		// (ConsumableCycleRight); keyboard shows the direct hotbar key range.
 		_selectConsumableButtonHint.SetHint("ConsumableCycleRight", string.Empty);
 		_selectConsumableButtonHint.GlyphOverrideKeyboard = "1-4";
+		_lanternHint.SetHint("Lantern", string.Empty);
 		_buttonHintTurnLeft.SetHint("CameraLeft", string.Empty);
 		_buttonHintTurnRight.SetHint("CameraRight", string.Empty);
 		_buttonHintIndoors.SetHint("CameraDown", string.Empty);
@@ -523,6 +526,7 @@ public partial class Hud : Control
 		RefreshSlot(EInventorySlot.WeaponMelee);
 		RefreshSlot(EInventorySlot.WeaponRanged);
 		RefreshSlot(EInventorySlot.Equipment);
+		RefreshSlot(EInventorySlot.Lantern);
 		// Seed the diff baseline so persistent effects already on the player
 		// at spawn (saved game restore, scripted intro state) don't all fire
 		// notifications on the first tick after spawn.
@@ -564,6 +568,10 @@ public partial class Hud : Control
 			case EInventorySlot.Equipment:
 				_consumableHud.SetItem(item);
 				_consumableButtonHint.Visible = item != null;
+				break;
+			case EInventorySlot.Lantern:
+				_lanternHud.SetItem(item);
+				_lanternHint.Visible = item != null;
 				break;
 		}
 	}
@@ -735,6 +743,7 @@ public partial class Hud : Control
 		_weaponLeftHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponMelee));
 		_weaponRightHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponRanged));
 		_consumableHud.Tick(now, IsSlotCharging(EInventorySlot.Equipment));
+		_lanternHud.Tick(now, false);
 
 		UpdateStatusEffects(now);
 

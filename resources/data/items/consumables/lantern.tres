@@ -7,8 +7,8 @@
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_n6qxs"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_n6qxs"]
-[ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="5_sprite"]
-[ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/interactives/torch_01_lit.png" id="6_sprite_lit"]
+[ext_resource type="Texture2D" uid="uid://dit6x3xeay3qq" path="res://assets/textures/items/BasicLantern.png" id="5_sprite"]
+[ext_resource type="Texture2D" uid="uid://ytounbhlpcqb" path="res://assets/textures/items/BasicLanternActive.png" id="6_sprite_lit"]
 [ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/fx/torch_douse.tscn" id="8_douse"]
 [ext_resource type="PackedScene" uid="uid://pwi4ejb1gusx" path="res://scenes/items/held/lantern_held.tscn" id="9_vmr08"]
 
@@ -29,10 +29,10 @@ interruptOnDamage = false
 script = ExtResource("1_torch")
 douseEffectScene = ExtResource("8_douse")
 heldTorchScene = ExtResource("9_vmr08")
+burnTimeSeconds = 360.0
 actionProfile = SubResource("Resource_profile")
 activeSprite = ExtResource("6_sprite_lit")
 displayName = &"Lantern"
 description = "A light in the darkness. Clips to your belt when lit."
-maxStack = 5
 value = 10
 inventorySprite = ExtResource("5_sprite")

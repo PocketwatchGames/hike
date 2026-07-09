@@ -102,6 +102,13 @@ public partial class AlmanacScreen : Control
 		UpdateTab(_worldMapScreen, _worldMapTab, tab == EAlmanacTab.WorldMap);
 		UpdateTab(_bestiaryScreen, _bestiaryTab, tab == EAlmanacTab.Bestiary);
 		UpdateTab(_recipeScreen, _recipeTab, tab == EAlmanacTab.Recipe);
+		// Opening (or cycling to) the world map plays any reveal armed by the last
+		// campfire bank / bird's-eye lift — the deferred "chart what you learned"
+		// sweep that camp entry deliberately held back. No-op when nothing is armed.
+		if (tab == EAlmanacTab.WorldMap)
+		{
+			_gameClient?.World?.Minimap?.StartBankedReveal();
+		}
 	}
 
 	static void UpdateTab(Control screen, Control tab, bool active)

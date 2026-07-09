@@ -8,5 +8,44 @@
 // turns it off.
 public class TorchState : ConsumableState
 {
-	public TorchState(TorchData d) : base(d) { }
+	private readonly TorchData _torchData;
+
+	// Remaining burn budget, in sim-ms. Counts down only while lit
+	// (Player.TickTorchFuel) and is refilled to full when the player camps at a
+	// campfire (Refuel). Ignored entirely when the torch has unlimited fuel.
+	public long FuelRemainingMs;
+
+	public TorchState(TorchData d) : base(d)
+	{
+		_torchData = d;
+		FuelRemainingMs = d.BurnTimeMs;
+	}
+
+	// Whether the torch can be lit / stay lit: either it burns forever or it
+	// still has fuel left. The relight gate reads this.
+	public bool HasFuel => !_torchData.HasLimitedFuel || FuelRemainingMs > 0;
+
+	// Recharge to a full tank — the campfire refuel.
+	public void Refuel()
+	{
+		FuelRemainingMs = _torchData.BurnTimeMs;
+	}
+
+	// Spend `elapsedMs` of the fuel budget while lit. Returns true on the tick
+	// the tank runs dry, so the caller can extinguish the flame. No-op (returns
+	// false) for unlimited torches or ones already empty.
+	public bool BurnFuel(long elapsedMs)
+	{
+		if (!_torchData.HasLimitedFuel || FuelRemainingMs <= 0)
+		{
+			return false;
+		}
+		FuelRemainingMs -= elapsedMs;
+		if (FuelRemainingMs <= 0)
+		{
+			FuelRemainingMs = 0;
+			return true;
+		}
+		return false;
+	}
 }

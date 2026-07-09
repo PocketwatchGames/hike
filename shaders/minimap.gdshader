@@ -58,6 +58,13 @@ uniform vec2 player_world_xz = vec2(0.0);
 // Don't author in the .tres — any value set there gets clobbered.
 uniform float view_radius_meters = 32.0;
 
+// Rotates the world sampling around player_world_xz so a chosen world
+// direction lands "up" on screen. 0 = world +X right / +Z down (the HUD
+// minimap, which instead rotates its whole TextureRect to the camera yaw).
+// The world map sets −π/4 so game-north (−X,−Z) points to the top — see
+// WorldMapScreen. Off-map corners fall out of bounds and read as void.
+uniform float map_rotation = 0.0;
+
 // Plateau height (meters per elevation band). Must match
 // MinimapData.PlateauHeight on the C# side.
 uniform float plateau_height = 4.0;
@@ -193,7 +200,14 @@ void render_state(
     out vec3 out_color, out float out_has_any
 ) {
     vec2 uv_centered = frag_uv - vec2(0.5);
-    vec2 world_xz = player_world_xz + uv_centered * (view_radius_meters * 2.0);
+    // Rotate the screen offset into world space so map_rotation radians of
+    // spin put the desired world direction at the top of the panel.
+    float map_cos = cos(map_rotation);
+    float map_sin = sin(map_rotation);
+    vec2 rot_centered = vec2(
+        uv_centered.x * map_cos - uv_centered.y * map_sin,
+        uv_centered.x * map_sin + uv_centered.y * map_cos);
+    vec2 world_xz = player_world_xz + rot_centered * (view_radius_meters * 2.0);
     vec2 voxel_extent = extent_pixels * meters_per_pix;
     vec2 tex_uv = (world_xz - world_origin) / voxel_extent;
     bool out_of_bounds = tex_uv.x < 0.0 || tex_uv.x > 1.0 || tex_uv.y < 0.0 || tex_uv.y > 1.0;

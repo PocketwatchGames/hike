@@ -320,6 +320,12 @@ public partial class PlayerData : Resource
 	[Export] public int backpackCapacity = 12;
 	[Export] public int consumableSlotCount = 3;
 
+	// The lantern every character spawns carrying, seeded into the dedicated
+	// Lantern slot (never the Equipment hotbar). Shared across all party members
+	// since PlayerData is the common base tuning. Null = characters spawn without
+	// a lantern.
+	[Export] public TorchData startingLantern;
+
 	[ExportGroup("Combat")]
 	[Export] public float maxHealth = 100f;
 

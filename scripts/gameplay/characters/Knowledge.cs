@@ -1,6 +1,20 @@
 using System.Collections.Generic;
 using Godot;
 
+// Which categories of knowledge a merge/bank freshly added to the destination
+// store. Returned by Knowledge.MergeFrom so a campfire bank can announce exactly
+// the kinds of knowledge that were newly committed to the party pool.
+[System.Flags]
+public enum EKnowledgeCategory
+{
+    None = 0,
+    Map = 1 << 0,       // fog-of-war reveal, discovered regions, or landmark markers
+    Recipe = 1 << 1,
+    Bestiary = 1 << 2,  // per-species progress
+    Language = 1 << 3,
+    Item = 1 << 4,      // identified items
+}
+
 // A store of "learned" knowledge — identified items, discovered recipes, revealed
 // map regions, bestiary progress, and learned language pieces. Two instances
 // exist per run: one PERMANENT party-shared pool (Party.Knowledge) and one
@@ -36,28 +50,43 @@ public class Knowledge
 
     // Fold `other` into this store: union the sets, SUM species kills, OR language
     // component bits. Used to bank a member's field knowledge into the permanent
-    // party pool.
-    public void MergeFrom(Knowledge other)
+    // party pool. Returns the categories that gained something new here, so the
+    // campfire bank can announce exactly what was committed.
+    public EKnowledgeCategory MergeFrom(Knowledge other)
     {
         if (other == null)
         {
-            return;
+            return EKnowledgeCategory.None;
         }
+        EKnowledgeCategory changed = EKnowledgeCategory.None;
+
+        int itemsBefore = IdentifiedItems.Count;
         IdentifiedItems.UnionWith(other.IdentifiedItems);
+        if (IdentifiedItems.Count > itemsBefore) { changed |= EKnowledgeCategory.Item; }
+
+        int recipesBefore = DiscoveredRecipes.Count;
         DiscoveredRecipes.UnionWith(other.DiscoveredRecipes);
+        if (DiscoveredRecipes.Count > recipesBefore) { changed |= EKnowledgeCategory.Recipe; }
+
+        int regionsBefore = DiscoveredRegions.Count;
         DiscoveredRegions.UnionWith(other.DiscoveredRegions);
+        if (DiscoveredRegions.Count > regionsBefore) { changed |= EKnowledgeCategory.Map; }
+
         foreach (KeyValuePair<SpeciesData, MobBestiaryEntry> kv in other.DiscoveredSpecies)
         {
             if (kv.Key == null)
             {
                 continue;
             }
-            if (!DiscoveredSpecies.TryGetValue(kv.Key, out MobBestiaryEntry entry))
+            bool isNew = !DiscoveredSpecies.TryGetValue(kv.Key, out MobBestiaryEntry entry);
+            if (isNew)
             {
                 entry = new MobBestiaryEntry();
                 DiscoveredSpecies[kv.Key] = entry;
             }
-            entry.Kills += kv.Value?.Kills ?? 0;
+            int addedKills = kv.Value?.Kills ?? 0;
+            if (isNew || addedKills > 0) { changed |= EKnowledgeCategory.Bestiary; }
+            entry.Kills += addedKills;
         }
         foreach (KeyValuePair<LanguageData, ELanguageComponents> kv in other.LearnedLanguages)
         {
@@ -66,7 +95,9 @@ public class Knowledge
                 continue;
             }
             LearnedLanguages.TryGetValue(kv.Key, out ELanguageComponents existing);
-            LearnedLanguages[kv.Key] = existing | kv.Value;
+            ELanguageComponents merged = existing | kv.Value;
+            if (merged != existing) { changed |= EKnowledgeCategory.Language; }
+            LearnedLanguages[kv.Key] = merged;
         }
         foreach (KeyValuePair<Vector3I, MapMarkerRecord> kv in other.DiscoveredMarkers)
         {
@@ -81,6 +112,7 @@ public class Knowledge
                 DiscoveredMarkers[kv.Key] = new MapMarkerRecord(
                     kv.Value.WorldPosition, kv.Value.Level, kv.Value.Icon, kv.Value.DisplayName,
                     kv.Value.HasActiveState, kv.Value.IconModulate, kv.Value.ActiveModulate);
+                changed |= EKnowledgeCategory.Map;
             }
             else if (kv.Value.Level > existing.Level)
             {
@@ -90,9 +122,12 @@ public class Knowledge
                 existing.HasActiveState = kv.Value.HasActiveState;
                 existing.IconModulate = kv.Value.IconModulate;
                 existing.ActiveModulate = kv.Value.ActiveModulate;
+                changed |= EKnowledgeCategory.Map;
             }
         }
-        Exploration.MergeFrom(other.Exploration);
+        if (Exploration.MergeFrom(other.Exploration)) { changed |= EKnowledgeCategory.Map; }
+
+        return changed;
     }
 
     public void Clear()

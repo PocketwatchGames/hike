@@ -34,6 +34,13 @@ public partial class WorldMapScreen : Control
 	[Export] public Texture2D unknownMarkerIcon;
 	[Export(PropertyHint.Range, "8,96,1")] public int markerIconSize = 28;
 
+	// World-sampling spin (radians) that puts game-north (−X,−Z) at the top of
+	// the map. +X is screen-right and +Z screen-down in the shader's unrotated
+	// frame, so the (−X,−Z) diagonal starts at the upper-left; −π/4 rotates it
+	// to straight up. Fed to the shader's map_rotation and mirrored by the label
+	// / marker projection below so all three stay locked together.
+	const float NorthMapRotation = -Mathf.Pi / 4f;
+
 	// Marker icon overlay, lazily created as a child of regionLabels (which is
 	// sized to mapTexture's rect and un-rotated, so markers land on the terrain).
 	MapMarkerOverlay _markerOverlay;
@@ -97,18 +104,21 @@ public partial class WorldMapScreen : Control
 		PushState(mat, minimap.StateA, "_a", ref _boundA);
 		PushState(mat, minimap.StateB, "_b", ref _boundB);
 
-		// Center on world midpoint, view radius = max half-extent so the
-		// entire authored world fits the square AspectRatioContainer.
-		// The smaller axis ends up with void_color margins, which is fine.
+		// Center on world midpoint. The map is spun so game-north (+X,+Z) points
+		// up (NorthMapRotation), turning the authored world into a diamond inside
+		// the square AspectRatioContainer — so the view half-extent grows to the
+		// rotated world's bounding box ((extentX+extentZ)/2 · cos45) to fit the
+		// whole diamond. Rect corners past the diamond read as void_color.
 		Vector2 extent = minimap.ExtentMeters;
 		Vector2I origin = minimap.WorldOriginXZ;
 		Vector2 worldCenter = new Vector2(
 			origin.X + extent.X * 0.5f,
 			origin.Y + extent.Y * 0.5f);
-		float viewRadius = Mathf.Max(extent.X, extent.Y) * 0.5f;
+		float viewRadius = (extent.X + extent.Y) * 0.5f * Mathf.Sqrt2 * 0.5f;
 
 		mat.SetShaderParameter("player_world_xz", worldCenter);
 		mat.SetShaderParameter("view_radius_meters", viewRadius);
+		mat.SetShaderParameter("map_rotation", NorthMapRotation);
 		mat.SetShaderParameter("state_transition", minimap.StateTransition);
 
 		UpdateRegionLabels(worldCenter, viewRadius);
@@ -121,7 +131,7 @@ public partial class WorldMapScreen : Control
 				_markerOverlay = MapMarkerOverlay.Create(_gameClient, unknownMarkerIcon, markerIconSize, includeProvisional: false, circleMaskFraction: 0f);
 				regionLabels.AddChild(_markerOverlay);
 			}
-			_markerOverlay.SetFraming(worldCenter, viewRadius);
+			_markerOverlay.SetFraming(worldCenter, viewRadius, NorthMapRotation);
 		}
 	}
 
@@ -180,7 +190,10 @@ public partial class WorldMapScreen : Control
 			}
 
 			Vector2 centroid = kv.Value;
-			Vector2 uv = (centroid - worldCenter) / diameter + new Vector2(0.5f, 0.5f);
+			// Mirror the shader: screen offset → world offset is a +NorthMapRotation
+			// spin, so world offset → screen inverts it (-NorthMapRotation).
+			Vector2 uvCentered = ((centroid - worldCenter) / diameter).Rotated(-NorthMapRotation);
+			Vector2 uv = uvCentered + new Vector2(0.5f, 0.5f);
 			Vector2 px = new Vector2(uv.X * panelSize.X, uv.Y * panelSize.Y);
 			Vector2 labelSize = label.Size;
 			label.Position = new Vector2(px.X - labelSize.X * 0.5f, px.Y - labelSize.Y * 0.5f);

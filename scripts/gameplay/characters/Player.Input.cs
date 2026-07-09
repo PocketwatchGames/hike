@@ -333,6 +333,15 @@ public partial class Player : CharacterBody3D
 			ReleaseUseConsumable();
 		}
 
+		if (Input.IsActionJustPressed("Lantern"))
+		{
+			TryUseLantern();
+		}
+		if (Input.IsActionJustReleased("Lantern"))
+		{
+			ReleaseUseLantern();
+		}
+
 		if (Input.IsActionJustPressed("Jump"))
 		{
 			bool swimSurfaceJump = _waterState == EWaterState.Swimming && GlobalPosition.Y >= _waterSurfaceY - data.waterJumpOffset;

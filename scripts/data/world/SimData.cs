@@ -140,6 +140,15 @@ public partial class SimData : Resource
     // revival.
     [Export] public InteractiveAction partyReviveAction;
 
+    // LIVE map markers (drawn at an entity's current position, always visible —
+    // no fog-reveal gate, no camp banking), distinct from the static discovered
+    // MapMarker landmarks. Icon for a talkable NPC (mob carrying a conversation)
+    // and for a fallen party member's grave; both tinted liveMapMarkerColor.
+    // Authored centrally since every NPC / grave shares the same icon + tint.
+    [Export] public Texture2D npcMapMarkerIcon;
+    [Export] public Texture2D partyGraveMapMarkerIcon;
+    [Export] public Color liveMapMarkerColor = new Color(1f, 0.85f, 0.2f);
+
     // Grammar's contribution to TextScrambler.ComputeComprehension. Final
     // understanding = translatedPct × ((1 - this) + orderPct × this), so:
     //   0   = grammar irrelevant, only word translation counts.

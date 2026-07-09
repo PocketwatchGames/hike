@@ -27,4 +27,13 @@ public partial class MobTeachable : TeachableConcept
         WorldSimState sim = player.World?.WorldState?.SimState;
         return sim != null && sim.DiscoverSpecies(species);
     }
+
+    public override bool IsKnown(Player player)
+    {
+        if (species == null)
+        {
+            return false;
+        }
+        return player?.World?.WorldState?.SimState?.IsSpeciesDiscovered(species) ?? false;
+    }
 }

@@ -28,4 +28,13 @@ public partial class RegionTeachable : TeachableConcept
         }
         return sim.DiscoverRegion(region);
     }
+
+    public override bool IsKnown(Player player)
+    {
+        if (region == null)
+        {
+            return false;
+        }
+        return player?.World?.WorldState?.SimState?.IsRegionDiscovered(region) ?? false;
+    }
 }

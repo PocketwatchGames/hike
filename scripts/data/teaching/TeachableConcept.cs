@@ -34,4 +34,15 @@ public partial class TeachableConcept : Resource
         GD.PushError($"TeachableConcept.Teach not overridden by {GetType().Name}");
         return false;
     }
+
+    // Read-only counterpart of Teach: true when this concept is ALREADY held in
+    // full — checked against the same combined knowledge Teach dedups on (party
+    // pool ∪ the active member's provisional field store). Lets a teaching
+    // source (knowledge stone) dim its map marker once the party has nothing
+    // left to learn from it. Base returns false (never-known) so an un-overridden
+    // concept safely reads as still-teachable rather than silently dimming.
+    public virtual bool IsKnown(Player player)
+    {
+        return false;
+    }
 }

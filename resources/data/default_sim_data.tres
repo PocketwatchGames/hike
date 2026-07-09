@@ -42,21 +42,17 @@
 [ext_resource type="Resource" uid="uid://d37luqaiw0bcx" path="res://resources/data/boons/boon_seeking.tres" id="28_boon_seeking"]
 [ext_resource type="Resource" uid="uid://3jjnm78vuj6c" path="res://resources/data/boons/boon_ranged_seeking.tres" id="29_boon_ranged_seeking"]
 [ext_resource type="Resource" uid="uid://c3jy0q0qdvu5v" path="res://resources/data/actions/party_revive_action.tres" id="30_party_revive"]
-[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="31_itemdata"]
-[ext_resource type="Resource" uid="uid://d3xp3psvbwcie" path="res://resources/data/items/weapons/knife.tres" id="32_knife"]
-[ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/club.tres" id="33_club"]
-[ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="34_bow"]
-[ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="35_leather"]
-[ext_resource type="Resource" uid="uid://bnleciyyfwrqk" path="res://resources/data/items/armor/chainmail_armor.tres" id="36_chain"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="37_statuseffect_script"]
-[ext_resource type="Resource" path="res://resources/data/status_effects/upgrades/upgrade_melee_honed.tres" id="37_up_melee"]
-[ext_resource type="Resource" path="res://resources/data/status_effects/upgrades/upgrade_ranged_keen.tres" id="38_up_ranged"]
-[ext_resource type="Resource" path="res://resources/data/status_effects/upgrades/upgrade_armor_reinforced.tres" id="39_up_armor"]
-[ext_resource type="Resource" path="res://resources/data/status_effects/upgrades/upgrade_helmet_hardy.tres" id="40_up_helmet"]
-[ext_resource type="Texture2D" uid="uid://bamasnw1w56u3" path="res://assets/textures/items/Sword.png" id="41_icon_melee"]
-[ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="42_icon_ranged"]
-[ext_resource type="Texture2D" uid="uid://s0u3880g3w8n" path="res://assets/textures/items/ShieldLarge.png" id="43_icon_armor"]
-[ext_resource type="Texture2D" uid="uid://b64wopu4i148w" path="res://assets/textures/items/HelmetScrab.png" id="44_icon_helmet"]
+[ext_resource type="Resource" uid="uid://x2ypc0w32g55" path="res://resources/data/status_effects/upgrades/upgrade_melee_honed.tres" id="37_up_melee"]
+[ext_resource type="Resource" uid="uid://dip6luoqgngdn" path="res://resources/data/status_effects/upgrades/upgrade_ranged_keen.tres" id="38_up_ranged"]
+[ext_resource type="Resource" uid="uid://dsnjpo4lvoxw4" path="res://resources/data/status_effects/upgrades/upgrade_armor_reinforced.tres" id="39_up_armor"]
+[ext_resource type="Resource" uid="uid://daqgnmhtw3n5n" path="res://resources/data/status_effects/upgrades/upgrade_helmet_hardy.tres" id="40_up_helmet"]
+[ext_resource type="Texture2D" uid="uid://c2od5w8siccmp" path="res://assets/textures/map_markers/sword.png" id="41_icon_melee"]
+[ext_resource type="Texture2D" uid="uid://dlg10rgtlqgr0" path="res://assets/textures/map_markers/lightning.png" id="42_icon_ranged"]
+[ext_resource type="Texture2D" uid="uid://dn51j2f4lqjbr" path="res://assets/textures/map_markers/shield.png" id="43_icon_armor"]
+[ext_resource type="Texture2D" uid="uid://dusxfg1i7ik4i" path="res://assets/textures/map_markers/crown.png" id="44_icon_helmet"]
+[ext_resource type="Texture2D" uid="uid://dr6jpb6ba715x" path="res://assets/textures/map_markers/npc.png" id="45_icon_npc"]
+[ext_resource type="Texture2D" uid="uid://dxt67iud2lt3s" path="res://assets/textures/map_markers/grave.png" id="46_icon_grave"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -79,6 +75,8 @@ talkAction = ExtResource("13_talk_action")
 giveItemAction = ExtResource("14_give_action")
 reviveAction = ExtResource("20_revive_action")
 partyReviveAction = ExtResource("30_party_revive")
+npcMapMarkerIcon = ExtResource("45_icon_npc")
+partyGraveMapMarkerIcon = ExtResource("46_icon_grave")
 sunMaxElevationDegrees = 65.0
 sunsetAngleDegrees = 25.0
 fillAFromSkyBias = 1.0

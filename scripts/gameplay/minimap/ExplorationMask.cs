@@ -46,16 +46,18 @@ public class ExplorationMask
     }
 
     // Fold `other` into this buffer set (per-pixel max). Used to bank a member's
-    // field reveal into the permanent party pool.
-    public void MergeFrom(ExplorationMask other)
+    // field reveal into the permanent party pool. Returns true if any pixel was
+    // newly revealed here (drives the campfire "Map Updated" announcement).
+    public bool MergeFrom(ExplorationMask other)
     {
         if (other == null)
         {
-            return;
+            return false;
         }
+        bool changed = false;
         if (other.Outdoor != null)
         {
-            MaxInto(EnsureOutdoor(other.Outdoor.Length), other.Outdoor);
+            changed |= MaxInto(EnsureOutdoor(other.Outdoor.Length), other.Outdoor);
         }
         foreach (KeyValuePair<int, byte[]> kv in other.Slices)
         {
@@ -63,8 +65,9 @@ public class ExplorationMask
             {
                 continue;
             }
-            MaxInto(EnsureSlice(kv.Key, kv.Value.Length), kv.Value);
+            changed |= MaxInto(EnsureSlice(kv.Key, kv.Value.Length), kv.Value);
         }
+        return changed;
     }
 
     public void Clear()
@@ -73,15 +76,18 @@ public class ExplorationMask
         Slices.Clear();
     }
 
-    static void MaxInto(byte[] dst, byte[] src)
+    static bool MaxInto(byte[] dst, byte[] src)
     {
+        bool changed = false;
         int n = System.Math.Min(dst.Length, src.Length);
         for (int i = 0; i < n; i++)
         {
             if (src[i] > dst[i])
             {
                 dst[i] = src[i];
+                changed = true;
             }
         }
+        return changed;
     }
 }

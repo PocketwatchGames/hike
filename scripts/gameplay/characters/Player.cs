@@ -1052,10 +1052,68 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Sim-clock timestamp of the last torch-fuel drain, so TickTorchFuel spends
+	// exactly the elapsed sim time each frame (frame-rate independent, slows
+	// under slow-mo). Reset to 0 = "first tick, nothing to spend yet".
+	private ulong _lastTorchFuelTickMs;
+
+	// Burns down the fuel of every lit carried torch on the sim clock; a torch
+	// whose tank empties this tick is extinguished (and won't relight until a
+	// campfire recharge — see DoToggleMovingLight's HasFuel gate). Unlimited
+	// torches (burnTimeSeconds <= 0) never drain, so this is a no-op for them.
+	private void TickTorchFuel()
+	{
+		if (_inventory == null) { return; }
+		ulong now = _world?.GameTimeMs ?? 0;
+		ulong last = _lastTorchFuelTickMs;
+		_lastTorchFuelTickMs = now;
+		if (last == 0 || now <= last) { return; }
+		long elapsedMs = (long)(now - last);
+
+		bool extinguishedAny = false;
+		PackedScene douseFx = null;
+		foreach (ItemState item in _inventory.EnumerateAll())
+		{
+			if (item is TorchState ts && ts.isActive && ts.BurnFuel(elapsedMs))
+			{
+				ts.isActive = false;
+				extinguishedAny = true;
+				douseFx ??= (ts.data as TorchData)?.douseEffectScene;
+			}
+		}
+		if (extinguishedAny)
+		{
+			RefreshCarriedLight();
+			if (douseFx != null)
+			{
+				Fx.Create(douseFx, this, Vector3.Up * SkyExposureProbeHeight);
+			}
+		}
+	}
+
+	// Refill every carried torch's fuel to full — the campfire recharge. Called
+	// when the player camps (GameClient.EnterCampWithFade). Refuels torches in
+	// any slot whether lit or not, so a fire is topped off before you set out.
+	public void RefuelCarriedTorches()
+	{
+		if (_inventory == null) { return; }
+		foreach (ItemState item in _inventory.EnumerateAll())
+		{
+			if (item is TorchState ts)
+			{
+				ts.Refuel();
+			}
+		}
+	}
+
 	public void Initialize(World world, WorldGenData worldGenData, PlayerState member, Vector3 position, Vector3 rotation)
 	{
 		_world = world;
 		Member = member;
+		// Live map marker for this party member's grave, shown only while dead
+		// (ShouldShowMapMarker). Registered for the member's whole lifetime;
+		// unregistered in _ExitTree (see Player.Corpse.cs).
+		_world?.RegisterLiveMapMarker(this);
 		GlobalPosition = position;
 		Rotation = rotation;
 		_grounded = false;
@@ -1159,6 +1217,15 @@ public partial class Player : CharacterBody3D
 					if (trait != null) { AddStatusEffect(trait); }
 				}
 			}
+		}
+
+		// Every character spawns with a lantern in its own dedicated slot (shared
+		// across the party, so it lives on PlayerData rather than the per-member
+		// loadout). Seeded straight into EInventorySlot.Lantern — lanterns are
+		// refused from the Equipment hotbar.
+		if (data?.startingLantern != null)
+		{
+			_inventory.TryEquip(data.startingLantern.CreateState(), EInventorySlot.Lantern);
 		}
 
 		// Spawn-time knowledge is a property of the world SCENARIO, not the
@@ -1436,6 +1503,7 @@ public partial class Player : CharacterBody3D
 		UpdateNightVisionShaderGlobal();
 		TickWetEffect(dt);
 		DouseCarriedTorches();
+		TickTorchFuel();
 		TickDirtyEffect(dt);
 		TickMuddyEffect(dt);
 		TickBodyTemperature(dt);

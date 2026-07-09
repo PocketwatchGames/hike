@@ -44,6 +44,10 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
 
     public void OnSpawned(World world)
     {
+        // Register what this stone teaches so its map marker can dim once the
+        // party has learned all of it (WorldSimState.IsMarkerActive). Keyed by the
+        // stone's position, which matches the sibling MapMarker's (no local offset).
+        world?.WorldState?.SimState?.SetKnowledgeStoneConcepts(GlobalPosition, _concepts);
         if (_ambientLoopEffect != null)
         {
             Fx.Create(_ambientLoopEffect, this, Vector3.Zero);

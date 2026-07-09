@@ -91,6 +91,7 @@ public partial class ItemData : Resource
 		EItemCategory.Armor => EInventorySlot.Armor,
 		EItemCategory.Helmet => EInventorySlot.Helmet,
 		EItemCategory.Equipment => EInventorySlot.Equipment,
+		EItemCategory.Lantern => EInventorySlot.Lantern,
 		_ => EInventorySlot.None,
 	};
 

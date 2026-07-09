@@ -5,7 +5,6 @@
 [ext_resource type="Resource" uid="uid://bm0weapondat1" path="res://resources/data/items/weapons/bomb.tres" id="3_jl16k"]
 [ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/club.tres" id="4_melee"]
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_ranged"]
-[ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/consumables/lantern.tres" id="6_torch"]
 [ext_resource type="Resource" uid="uid://b1m3fjtd0cwee" path="res://resources/data/items/consumables/ruby_slippers.tres" id="13_h1t84"]
 [ext_resource type="Resource" uid="uid://81q2o38qjx8h" path="res://resources/data/items/armor/helmet_gosbark.tres" id="15_gosbark"]
 [ext_resource type="Resource" uid="uid://5q3iyfp2t5mj" path="res://resources/data/items/armor/helmet_glimp.tres" id="16_glimp"]
@@ -127,7 +126,7 @@ fortitude = 0.9
 strength = 1.1
 stealth = 0.8
 equippedInventory = [SubResource("Resource_club"), SubResource("Resource_x1qdn")]
-startingConsumables = [ExtResource("6_torch"), ExtResource("17_shovel")]
+startingConsumables = [ExtResource("17_shovel")]
 startingInventory = [SubResource("Resource_knife"), SubResource("Resource_jl16k"), SubResource("Resource_ntk62"), SubResource("Resource_helmgosbark"), SubResource("Resource_helmglimp"), SubResource("Resource_summoner")]
 traits = Array[ExtResource("18_0l78o")]([ExtResource("32_runshot")])
 metadata/_custom_type_script = "uid://b1rjovy8825fh"

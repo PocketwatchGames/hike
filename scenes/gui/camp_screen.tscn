@@ -4,11 +4,9 @@
 [ext_resource type="PackedScene" uid="uid://bfjaekwc2fo4t" path="res://scenes/gui/sleep_screen.tscn" id="2_sleep"]
 [ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="3_cook"]
 [ext_resource type="PackedScene" uid="uid://8pc5dagm262w" path="res://scenes/gui/party_screen.tscn" id="3_wnj6t"]
-[ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="4_stash"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_hint"]
-[ext_resource type="PackedScene" uid="uid://di11q4qj1f2o4" path="res://scenes/gui/crafting_screen.tscn" id="6_gh4wp"]
 
-[node name="CampScreen" type="Control" unique_id=924238542 node_paths=PackedStringArray("_sleepScreen", "_partyScreen", "_cookingScreen", "_stashScreen", "_craftingScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_sleepTab", "_cookTab", "_partyTab", "_stashTab", "_craftTab")]
+[node name="CampScreen" type="Control" unique_id=924238542 node_paths=PackedStringArray("_sleepScreen", "_partyScreen", "_cookingScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_sleepTab", "_cookTab", "_partyTab")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,15 +17,11 @@ script = ExtResource("1_camp")
 _sleepScreen = NodePath("MarginContainer2/SleepScreen")
 _partyScreen = NodePath("MarginContainer2/PartyScreen")
 _cookingScreen = NodePath("MarginContainer2/CookingScreen")
-_stashScreen = NodePath("MarginContainer2/StashScreen")
-_craftingScreen = NodePath("MarginContainer2/CraftingScreen")
 _tabLeftButtonHint = NodePath("MarginContainer/HBoxContainer/TabLeft")
 _tabRightButtonHint = NodePath("MarginContainer/HBoxContainer/TabRight")
 _sleepTab = NodePath("MarginContainer/HBoxContainer/SleepTab")
 _cookTab = NodePath("MarginContainer/HBoxContainer/CookTab")
 _partyTab = NodePath("MarginContainer/HBoxContainer/PartyTab")
-_stashTab = NodePath("MarginContainer/HBoxContainer/StashTab")
-_craftTab = NodePath("MarginContainer/HBoxContainer/CraftTab")
 
 [node name="MarginContainer2" type="MarginContainer" parent="." unique_id=1059497977]
 layout_mode = 1
@@ -49,14 +43,6 @@ visible = false
 layout_mode = 2
 
 [node name="CookingScreen" parent="MarginContainer2" unique_id=199928144 instance=ExtResource("3_cook")]
-visible = false
-layout_mode = 2
-
-[node name="StashScreen" parent="MarginContainer2" unique_id=900096750 instance=ExtResource("4_stash")]
-visible = false
-layout_mode = 2
-
-[node name="CraftingScreen" parent="MarginContainer2" unique_id=1391817300 instance=ExtResource("6_gh4wp")]
 visible = false
 layout_mode = 2
 
@@ -111,30 +97,6 @@ theme_override_constants/margin_right = 10
 [node name="Label" type="Label" parent="MarginContainer/HBoxContainer/CookTab/MarginContainer" unique_id=925969656]
 layout_mode = 2
 text = "Cook"
-
-[node name="StashTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=2057667986]
-layout_mode = 2
-
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/StashTab" unique_id=2140474392]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_right = 10
-
-[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/StashTab/MarginContainer" unique_id=499028822]
-layout_mode = 2
-text = "Stash"
-
-[node name="CraftTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=276469584]
-layout_mode = 2
-
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/CraftTab" unique_id=1953363440]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_right = 10
-
-[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/CraftTab/MarginContainer" unique_id=1900192197]
-layout_mode = 2
-text = "Craft"
 
 [node name="TabRight" parent="MarginContainer/HBoxContainer" unique_id=1059281483 instance=ExtResource("5_hint")]
 layout_mode = 2

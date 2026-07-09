@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://h850nx5woxbs"]
 
-[ext_resource type="Shader" uid="uid://6afkmsmke3y37" path="res://shaders/aiming_reticle.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://c5lwdajvhy13" path="res://shaders/aiming_reticle.gdshader" id="1_shader"]
 
 [resource]
 render_priority = 5

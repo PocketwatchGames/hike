@@ -36,4 +36,13 @@ public partial class RecipeTeachable : TeachableConcept
         // (no separate redundant "Item Identified" banner follows).
         return sim.DiscoverRecipe(recipe, identifyOutput: true);
     }
+
+    public override bool IsKnown(Player player)
+    {
+        if (recipe == null)
+        {
+            return false;
+        }
+        return player?.World?.WorldState?.SimState?.IsRecipeDiscovered(recipe) ?? false;
+    }
 }

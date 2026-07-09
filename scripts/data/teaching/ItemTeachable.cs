@@ -24,4 +24,16 @@ public partial class ItemTeachable : TeachableConcept
         WorldSimState sim = player.World?.WorldState?.SimState;
         return sim != null && sim.IdentifyItem(item);
     }
+
+    public override bool IsKnown(Player player)
+    {
+        if (item == null)
+        {
+            return false;
+        }
+        // IsItemIdentified returns true for items with no placeholder name; guard
+        // so a no-op teach doesn't read as "known" and dim a marker prematurely.
+        WorldSimState sim = player?.World?.WorldState?.SimState;
+        return sim != null && sim.IsItemIdentified(item);
+    }
 }

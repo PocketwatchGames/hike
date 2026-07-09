@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Godot;
 
 [GlobalClass]
-public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive, IAimTarget
+public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive, IAimTarget, ILiveMapMarker
 {
     [Export] private CollisionShape3D _collisionShape;
     // The mob's 3D skinned-model animator. Wired in every mob .tscn; _Ready
@@ -277,6 +277,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // becomes a companion the moment its loyalty crosses MobData.tameLoyalty
     // (or it spawns pre-tamed, like the starter pet). See Tame / ActorTeam.
     public bool IsCompanion => _simState != null && _simState.Tamed;
+
+    // ILiveMapMarker: a talkable, un-recruited, living NPC shows a message icon
+    // at its current position (it wanders, so the marker tracks it live). A
+    // recruited companion (IsCompanion) or a dead mob drops off the map.
+    public bool ShouldShowMapMarker => alive && !IsCompanion && _simState?.Conversation != null;
+    public Vector3 MapMarkerWorldPosition => GlobalPosition;
+    public Texture2D MapMarkerIcon => _world?.SimData?.npcMapMarkerIcon;
+    public Color MapMarkerModulate => _world?.SimData?.liveMapMarkerColor ?? Colors.Yellow;
+
     // Party-member template for a recruitable NPC (null = not recruitable). When
     // set, a RecruitToPartyAction in this mob's conversation hands the mob to
     // GameClient.RecruitToParty, which clones the template into the roster and
@@ -783,6 +792,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             world.RegisterCompanion(this);
         }
+        // Talkable NPCs (mobs carrying a conversation) get a live map marker.
+        // Registered here for all conversation-carriers; ShouldShowMapMarker
+        // gates the actual draw on alive + not-yet-recruited.
+        if (_simState?.Conversation != null)
+        {
+            world.RegisterLiveMapMarker(this);
+        }
         TreeExiting += () =>
         {
             SyncToSimState();
@@ -791,6 +807,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 world.UnregisterCompanion(this);
             }
+            world.UnregisterLiveMapMarker(this);
             // Release any encircle slot held against any target so the
             // ring doesn't keep a dead mob occupying a slot for the rest
             // of the encounter.

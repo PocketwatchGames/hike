@@ -33,6 +33,11 @@ public partial class MapMarkerOverlay : Control
     // Framing pushed by the host each frame before the redraw.
     private Vector2 _centerWorldXZ;
     private float _viewRadiusMeters;
+    // Matches the map shader's map_rotation — the world sampling spin that puts
+    // game-north up. Applied to each icon's world offset so icons track the
+    // rotated terrain. 0 for the HUD minimap (it rotates its whole TextureRect
+    // instead); −π/4 for the world map.
+    private float _mapRotation;
     private bool _framed;
 
     public static MapMarkerOverlay Create(GameClient gameClient, Texture2D unknownIcon, float iconSize, bool includeProvisional, float circleMaskFraction)
@@ -53,12 +58,14 @@ public partial class MapMarkerOverlay : Control
 
     // Host pushes the current framing each frame, then the overlay redraws.
     // center = world XZ at panel center; viewRadiusMeters = half the panel's world
-    // extent. Rotation is inherited from the parent surface (the HUD minimap
-    // TextureRect is rotated to camera yaw; the world map isn't) — see _Draw.
-    public void SetFraming(Vector2 centerWorldXZ, float viewRadiusMeters)
+    // extent; mapRotation matches the shader's map_rotation (world map spins its
+    // sampling to put game-north up; the minimap passes 0 and rotates its whole
+    // TextureRect to camera yaw instead) — see _Draw.
+    public void SetFraming(Vector2 centerWorldXZ, float viewRadiusMeters, float mapRotation = 0f)
     {
         _centerWorldXZ = centerWorldXZ;
         _viewRadiusMeters = viewRadiusMeters;
+        _mapRotation = mapRotation;
         _framed = true;
         QueueRedraw();
     }
@@ -104,32 +111,85 @@ public partial class MapMarkerOverlay : Control
             {
                 continue; // outside the visible area
             }
-            // Unrotated local px — the parent's transform (including its rotation)
-            // maps it to screen exactly as it maps the map texture beneath.
-            Vector2 px = center + worldOffset / diameter * panel;
+            // World offset → panel px. Rotate by -mapRotation to invert the
+            // shader's world sampling spin (screen offset → world offset) so the
+            // icon lands on the same terrain the shader draws under it. For the
+            // minimap (mapRotation 0) the parent TextureRect's own rotation
+            // carries the icon to camera yaw exactly as it does the map beneath.
+            Vector2 px = center + (worldOffset / diameter).Rotated(-_mapRotation) * panel;
             float revealAlpha = minimap?.BankedRevealAlphaAt(record.WorldPosition) ?? 1f;
-            if (CircleMaskFraction > 0f)
+            float edgeFade = CircleEdgeFade(px, center, panel);
+            if (edgeFade <= 0f)
             {
-                // Fade the icon to zero BY THE TIME its outer radius (IconSize/2)
-                // reaches the round mask edge, so it never pokes past the minimap
-                // circle. maxDist is the center distance at which the icon edge is
-                // flush with the circle; it's fully faded there and over the band
-                // just inside it. Pixel-space and centered, so it's correct under
-                // the map's yaw rotation (the circle is symmetric).
-                float circleR = Mathf.Min(panel.X, panel.Y) * CircleMaskFraction;
-                float maxDist = circleR - IconSize * 0.5f;
-                float band = IconSize * 0.5f;
-                float edgeFade = Mathf.Clamp((maxDist - px.DistanceTo(center)) / Mathf.Max(band, 1f), 0f, 1f);
-                if (edgeFade <= 0f)
-                {
-                    continue;
-                }
-                revealAlpha *= edgeFade;
+                continue;
             }
+            revealAlpha *= edgeFade;
             DrawSetTransform(px, counterRot, Vector2.One);
             DrawMarker(record, sim, revealAlpha);
         }
+        DrawLiveMarkers(center, panel, diameter, radiusSq, counterRot);
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
+    }
+
+    // Round-minimap edge fade for an icon centered at px (pixel space): 1 in the
+    // interior, ramping to 0 as the icon's outer edge (IconSize/2) reaches the
+    // circle mask so it never pokes past. Returns 1 when there's no circle mask
+    // (the square world map). Centered + symmetric, so correct under yaw rotation.
+    private float CircleEdgeFade(Vector2 px, Vector2 center, Vector2 panel)
+    {
+        if (CircleMaskFraction <= 0f)
+        {
+            return 1f;
+        }
+        float circleR = Mathf.Min(panel.X, panel.Y) * CircleMaskFraction;
+        float maxDist = circleR - IconSize * 0.5f;
+        float band = IconSize * 0.5f;
+        return Mathf.Clamp((maxDist - px.DistanceTo(center)) / Mathf.Max(band, 1f), 0f, 1f);
+    }
+
+    // Live entity markers (talkable NPCs, fallen party members): drawn at each
+    // entity's CURRENT position every redraw, always visible — no fog-reveal gate
+    // and no camp banking, so they show on both the minimap and world map the
+    // instant the entity exists. Sourced from the live World registry rather than
+    // the discovered-Knowledge stores the static markers above come from.
+    private void DrawLiveMarkers(Vector2 center, Vector2 panel, float diameter, float radiusSq, float counterRot)
+    {
+        World world = _gameClient?.World;
+        if (world == null)
+        {
+            return;
+        }
+        float half = IconSize * 0.5f;
+        System.Collections.Generic.IReadOnlyList<ILiveMapMarker> markers = world.LiveMapMarkers;
+        for (int i = 0; i < markers.Count; i++)
+        {
+            ILiveMapMarker marker = markers[i];
+            if (marker == null || !marker.ShouldShowMapMarker)
+            {
+                continue;
+            }
+            Texture2D tex = marker.MapMarkerIcon;
+            if (tex == null)
+            {
+                continue;
+            }
+            Vector3 wp = marker.MapMarkerWorldPosition;
+            Vector2 worldOffset = new Vector2(wp.X - _centerWorldXZ.X, wp.Z - _centerWorldXZ.Y);
+            if (worldOffset.LengthSquared() > radiusSq)
+            {
+                continue;
+            }
+            Vector2 px = center + (worldOffset / diameter).Rotated(-_mapRotation) * panel;
+            float edgeFade = CircleEdgeFade(px, center, panel);
+            if (edgeFade <= 0f)
+            {
+                continue;
+            }
+            Color modulate = marker.MapMarkerModulate;
+            modulate.A *= edgeFade;
+            DrawSetTransform(px, counterRot, Vector2.One);
+            DrawTextureRect(tex, new Rect2(-half, -half, IconSize, IconSize), false, modulate);
+        }
     }
 
     // Draws one marker centered at the current canvas origin (set via

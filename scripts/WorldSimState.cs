@@ -73,6 +73,20 @@ public class WorldSimState
         return ForgeMarkers.TryGetValue(MapMarkerRecord.KeyFor(worldPos), out info);
     }
 
+    // Per-knowledge-stone concept list, keyed by quantized world position, so the
+    // map can dim a stone's marker once the party has learned everything it
+    // teaches (IsMarkerActive) even while the stone's chunk is unloaded. A stone
+    // registers on stream-in (KnowledgeStone.OnSpawned). Runtime cache, not
+    // serialized: each stone re-registers on stream-in, and known-ness is derived
+    // live from the (serialized) Knowledge stores.
+    public readonly Dictionary<Vector3I, Godot.Collections.Array<TeachableConcept>> KnowledgeStoneMarkers = new();
+
+    // Register the concepts a knowledge stone teaches for map-marker dimming.
+    public void SetKnowledgeStoneConcepts(Vector3 worldPos, Godot.Collections.Array<TeachableConcept> concepts)
+    {
+        KnowledgeStoneMarkers[MapMarkerRecord.KeyFor(worldPos)] = concepts;
+    }
+
     // Central bank of named scripting variables — quest progress, world flags
     // (boss defeated), counters — read/written by ScriptVarCondition /
     // ScriptVarTransition / SetScriptVarAction to branch conversations and mob
@@ -107,7 +121,7 @@ public class WorldSimState
     // party pool. Called when the player camps (GameClient.NotifyCampedAt) — the
     // single "return to a campfire" commit — and once right after spawn so the
     // scenario's initial knowledge is party-permanent from the first frame.
-    public void BankActiveKnowledge() => Party?.BankActive();
+    public EKnowledgeCategory BankActiveKnowledge() => Party?.BankActive() ?? EKnowledgeCategory.None;
 
     // Drop the provisional tree-climb world-map snapshots so the world map reverts
     // to the banked party pool only. Called from Minimap.RebuildExplorationDisplay —
@@ -404,6 +418,33 @@ public class WorldSimState
         {
             return (World.Current?.DayNumber ?? 0) >= forge.ReactivateDay;
         }
+        // Knowledge stone: active (bright) while the party still has something to
+        // learn from it; inactive (dim) once every concept it teaches is known in
+        // either store. Derived live so learning the same concept elsewhere (a
+        // scroll, another stone) dims this one even while its chunk is unloaded.
+        if (KnowledgeStoneMarkers.TryGetValue(key, out Godot.Collections.Array<TeachableConcept> concepts))
+        {
+            return KnowledgeStoneHasUnlearned(concepts);
+        }
+        return false;
+    }
+
+    // True if any concept in `concepts` is not yet known (party ∪ active store).
+    // A null/empty list has nothing left to teach, so it reads as fully learned.
+    bool KnowledgeStoneHasUnlearned(Godot.Collections.Array<TeachableConcept> concepts)
+    {
+        if (concepts == null || concepts.Count == 0)
+        {
+            return false;
+        }
+        Player player = World.Current?.player;
+        foreach (TeachableConcept concept in concepts)
+        {
+            if (concept != null && !concept.IsKnown(player))
+            {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -428,14 +469,17 @@ public class WorldSimState
     // graduates field-charted landmarks onto the world map at a tree climb and holds
     // them frozen there until banked (walking never adds), mirroring the region-label
     // and fog snapshots. Snapshot record wins on a key collision (it's the union
-    // capture, so at least the banked tier).
+    // capture, so at least the banked tier). Each record is reported at its LIVE
+    // identification tier (see WithLiveMarkerLevel): the SET of world-map markers
+    // stays frozen, but a marker already shown as "?" upgrades to its real icon the
+    // moment it's identified in the field, without waiting for a camp bank.
     public IEnumerable<MapMarkerRecord> EnumerateWorldMapMarkers()
     {
         var seen = new HashSet<Vector3I>();
         foreach (KeyValuePair<Vector3I, MapMarkerRecord> kv in _worldMapMarkerSnapshot)
         {
             seen.Add(kv.Key);
-            yield return kv.Value;
+            yield return WithLiveMarkerLevel(kv.Key, kv.Value);
         }
         Knowledge banked = Banked;
         if (banked != null)
@@ -444,10 +488,28 @@ public class WorldSimState
             {
                 if (seen.Add(kv.Key))
                 {
-                    yield return kv.Value;
+                    yield return WithLiveMarkerLevel(kv.Key, kv.Value);
                 }
             }
         }
+    }
+
+    // Report a world-map marker at the CURRENT union (party ∪ active) tier so a
+    // field identification promotes an already-shown "?" to its real icon
+    // provisionally, before the change banks. The display data (icon/name/tints)
+    // already rides on the frozen record — it's stamped at Sensed — so only the
+    // Level needs bumping; return a shallow copy so the shared store/snapshot
+    // record is never mutated (that would silently persist the identification past
+    // an un-banked field death, breaking the provisional split).
+    MapMarkerRecord WithLiveMarkerLevel(Vector3I key, MapMarkerRecord record)
+    {
+        EMapMarkerLevel live = GetMarkerLevel(key);
+        if (live <= record.Level)
+        {
+            return record;
+        }
+        return new MapMarkerRecord(record.WorldPosition, live, record.Icon, record.DisplayName,
+            record.HasActiveState, record.IconModulate, record.ActiveModulate);
     }
 
     // Party pool ∪ active member's provisional markers for the MINIMAP — the

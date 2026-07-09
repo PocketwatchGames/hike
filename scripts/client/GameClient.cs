@@ -467,9 +467,6 @@ public partial class GameClient : Node3D
 	// player camps somewhere new (CampScreen.Open → NotifyCampedAt). On a party
 	// member's death the survivors gather here and the fade-in frames it.
 	Vector3 _lastCampfirePosition;
-	// Set during a camp entry that detours through the map-reveal almanac — the
-	// campfire to open the camp screen on once the almanac is closed.
-	Campfire _campReturnForge;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
@@ -596,6 +593,7 @@ public partial class GameClient : Node3D
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
 		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
+		_world.OnNewDay += OnNewDayResetMeals;
 		sceneViewport.AddChild(_world);
 		// World.Initialize is the chunk-mesh sphere fill — fully synchronous
 		// today (~900 chunks). The bar can't tick during this; it stays
@@ -797,13 +795,12 @@ public partial class GameClient : Node3D
 	}
 
 	// Cinematic camp entry from lighting a campfire: fade to black, and while the
-	// screen is fully black light the fire and bank the party's field knowledge.
-	// If that bank charts new ground on the world map, the almanac opens first and
-	// the reveal grows in over ~1.5s once it fades in; closing the almanac then
-	// opens the camp screen. Otherwise the camp screen opens directly. Input is
-	// gated for the whole transition; campScreen.Open keeps it gated once open and
-	// campScreen.Close releases it. Falls back to opening immediately if no fade
-	// overlay is wired.
+	// screen is fully black light the fire, bank the party's field knowledge, and
+	// open the camp screen directly. Anything the bank newly commits to the party
+	// pool is announced to the event log, which sits on a canvas above the camp
+	// screen so the notices read on top of it. Input is gated for the whole
+	// transition; campScreen.Open keeps it gated once open and campScreen.Close
+	// releases it. Falls back to opening immediately if no fade overlay is wired.
 	public void EnterCampWithFade(Campfire forge)
 	{
 		if (forge == null || campScreen == null || _player == null)
@@ -811,55 +808,27 @@ public partial class GameClient : Node3D
 			return;
 		}
 		InputSuppressed = true;
-		bool showReveal = false;
 		void OnBlack()
 		{
 			forge.Light();
-			// Arrival: snapshot the pre-camp world map, bank field knowledge, then
-			// diff for newly-charted ground. NotifyCampedAt does the bank + display
-			// rebuild; capture the baseline just before it.
-			_world?.Minimap?.CaptureBankedRevealBaseline();
+			// Arrival: light the fire and bank the active member's field knowledge
+			// into the party pool, then open camp directly. The map reveal is armed
+			// but NOT shown here — it plays the next time the player opens the map.
+			// Knowledge that newly landed in the pool is announced (on top of the
+			// camp screen) inside NotifyCampedAt.
 			NotifyCampedAt(forge.GlobalPosition);
-			showReveal = _world?.Minimap?.PrepareBankedReveal() ?? false;
-			if (showReveal && almanacScreen != null)
-			{
-				_campReturnForge = forge;
-				almanacScreen.Open(AlmanacScreen.EAlmanacTab.WorldMap, this, onClose: ResumeCampAfterReveal);
-			}
-			else
-			{
-				campScreen.Open(_player, forge);
-			}
-		}
-		void OnRevealed()
-		{
-			// Almanac has faded in on the pre-camp map — now grow the new ground in.
-			if (showReveal)
-			{
-				_world?.Minimap?.StartBankedReveal();
-			}
+			// Camping tops off every carried torch/lantern — the campfire is the
+			// only way spent fuel comes back.
+			_player.RefuelCarriedTorches();
+			campScreen.Open(_player, forge);
 		}
 		if (campFade != null && !campFade.Busy)
 		{
-			campFade.Play(OnBlack, OnRevealed);
+			campFade.Play(OnBlack);
 		}
 		else
 		{
 			OnBlack();
-			OnRevealed();
-		}
-	}
-
-	// Almanac closed after the camp map-reveal — snap the map to fully charted (in
-	// case it was closed mid-sweep) and open the camp screen on the anchored fire.
-	void ResumeCampAfterReveal()
-	{
-		_world?.Minimap?.FinalizeBankedReveal();
-		Campfire forge = _campReturnForge;
-		_campReturnForge = null;
-		if (forge != null && _player != null)
-		{
-			campScreen.Open(_player, forge);
 		}
 	}
 
@@ -868,14 +837,56 @@ public partial class GameClient : Node3D
 	public void NotifyCampedAt(Vector3 campfirePosition)
 	{
 		_lastCampfirePosition = campfirePosition;
+		// Snapshot the world map as the player last saw it BEFORE banking, so the
+		// deferred reveal can animate from that state to the freshly-banked one.
+		// Skip re-capturing when a reveal is already armed from an earlier camp the
+		// player hasn't opened the map to see yet — that keeps the baseline pinned to
+		// the genuinely last-seen state so the accumulated delta grows in one sweep.
+		Minimap minimap = _world?.Minimap;
+		if (minimap != null && !minimap.BankRevealArmed)
+		{
+			minimap.CaptureBankedRevealBaseline();
+		}
 		// Returning to a campfire banks the active member's provisional field
 		// knowledge into the permanent party pool (the "commit" in the two-tier
-		// knowledge model).
-		_world?.WorldState?.SimState?.BankActiveKnowledge();
-		// The map shows only the banked party pool, so surface the freshly-banked
-		// reveal now that it's been committed.
-		_world?.Minimap?.RebuildExplorationDisplay();
+		// knowledge model). The returned flags say which categories gained new
+		// knowledge, so we can announce exactly what was recorded.
+		EKnowledgeCategory banked = _world?.WorldState?.SimState?.BankActiveKnowledge() ?? EKnowledgeCategory.None;
+		AnnounceBankedKnowledge(banked);
+		// Fold the freshly-banked reveal into the party pool display (the minimap,
+		// which shows party ∪ active, updates now), then ARM the world-map reveal
+		// WITHOUT playing it: PrepareBankedReveal rewinds the world map back to the
+		// pre-camp baseline and holds it there. The sweep only fires the next time
+		// the player opens the almanac to the map — in camp or later in the field
+		// (see AlmanacScreen.ShowTab) — so the map isn't updated on entering camp.
+		minimap?.RebuildExplorationDisplay();
+		minimap?.PrepareBankedReveal();
 		TransferCarriedMaterialsToStash();
+	}
+
+	// Announce a HUD line for each category of knowledge freshly banked into the
+	// shared party pool at the campfire. Surfaced immediately: the event log lives
+	// on the AnnouncementCanvas (above the camp screen's GUICanvas), so the lines
+	// read on top of the open camp screen. Item identification has no campfire
+	// notice (it announces in the field on ID).
+	void AnnounceBankedKnowledge(EKnowledgeCategory banked)
+	{
+		if (banked.HasFlag(EKnowledgeCategory.Map))
+		{
+			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Map Updated" });
+		}
+		if (banked.HasFlag(EKnowledgeCategory.Recipe))
+		{
+			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Recipe Logged" });
+		}
+		if (banked.HasFlag(EKnowledgeCategory.Bestiary))
+		{
+			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Bestiary Updated" });
+		}
+		if (banked.HasFlag(EKnowledgeCategory.Language))
+		{
+			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Language Recorded" });
+		}
 	}
 
 	// On camping, the controlled member's carried materials drain into the shared
@@ -1715,14 +1726,11 @@ public partial class GameClient : Node3D
 		minimap?.CaptureBankedRevealBaseline();
 		minimap?.SnapshotFieldRevealToWorldMap();
 		_world?.WorldState?.SimState?.SnapshotWorldMapReveal();
-		bool showReveal = minimap?.PrepareBankedReveal() ?? false;
+		minimap?.PrepareBankedReveal();
+		// Opening the almanac to the world map fires the armed sweep (AlmanacScreen
+		// .ShowTab → StartBankedReveal). The map opens instantly (no fade-to-black),
+		// so the player watches the newly-surveyed ground grow in right away.
 		almanacScreen.Open(AlmanacScreen.EAlmanacTab.WorldMap, this, onClose: OnBirdsEyeMapClosed);
-		// The map opens instantly (no fade-to-black), so kick off the sweep now —
-		// the player is already looking at it. No-op when nothing new was charted.
-		if (showReveal)
-		{
-			minimap?.StartBankedReveal();
-		}
 	}
 
 	// The bird's-eye world map closed — snap any in-progress reveal to fully charted
@@ -2395,6 +2403,27 @@ public partial class GameClient : Node3D
 		camera?.SetInitialPosition(_lastCampfirePosition);
 		slowMotion?.Release();
 		screenEffects?.ResetOnRespawn();
+	}
+
+	// A fresh day clears every member's "eaten today" flag so each character may
+	// cook and eat once again. Subscribed to World.OnNewDay, the only day-advance
+	// path (World.AdvanceToNextSunrise) — covers both the camp sleep-to-sunrise and
+	// the death time-skip.
+	void OnNewDayResetMeals(int dayNumber)
+	{
+		Party party = _world?.WorldState?.SimState?.Party;
+		if (party == null)
+		{
+			return;
+		}
+		for (int i = 0; i < party.Count; i++)
+		{
+			PlayerState m = party[i];
+			if (m != null)
+			{
+				m.HasEatenToday = false;
+			}
+		}
 	}
 
 	// Give every fallen member without a deadline one day of grace: they must be

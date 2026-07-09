@@ -22,6 +22,9 @@ public partial class CookingScreen : Control
 	[Export] private ItemInfoPanel _itemInfoPanel;
 
 	Action _onClose;
+	// Fires once a cook job completes and its output is delivered (CampScreen uses
+	// it to leave camp). Distinct from _onClose, which fires on tab teardown.
+	Action _onCooked;
 	Player _player;
 	Campfire _forge;
 
@@ -74,7 +77,7 @@ public partial class CookingScreen : Control
 		_player = player;
 	}
 
-	public void Open(Player player, Campfire forge = null, Action onClose = null)
+	public void Open(Player player, Campfire forge = null, Action onClose = null, Action onCooked = null)
 	{
 		if (player != null)
 		{
@@ -82,6 +85,7 @@ public partial class CookingScreen : Control
 		}
 		_forge = forge;
 		_onClose = onClose;
+		_onCooked = onCooked;
 		_cookingPanel?.HideAnnouncement();
 		Visible = true;
 	}
@@ -95,6 +99,7 @@ public partial class CookingScreen : Control
 		ReturnInputsIfIdle();
 		DetachFromCampfire();
 		Visible = false;
+		_onCooked = null;
 		Action cb = _onClose;
 		_onClose = null;
 		cb?.Invoke();
@@ -322,6 +327,12 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
+		// One cooked meal per character per day. Backstop — CampScreen already
+		// withholds the Cook tab from a fed member, so this is normally unreachable.
+		if (_player.Member != null && _player.Member.HasEatenToday)
+		{
+			return;
+		}
 		SimData simData = _player.World?.SimData;
 		if (simData == null)
 		{
@@ -379,7 +390,16 @@ public partial class CookingScreen : Control
 		}
 		ItemState state = completion.output.CreateState();
 		state.stackCount = 1;
-		if (!_player.TryConsumeImmediately(state))
+		if (_player.TryConsumeImmediately(state))
+		{
+			// The cook ate what they made — spend their one meal for the day (the
+			// camp Cook tab is withheld from a fed member until the next sunrise).
+			if (_player.Member != null)
+			{
+				_player.Member.HasEatenToday = true;
+			}
+		}
+		else
 		{
 			DeliverOutput(state);
 		}
@@ -393,6 +413,9 @@ public partial class CookingScreen : Control
 			: $"Cooking Complete: {outputName}";
 		_cookingPanel?.ShowAnnouncement(text, completion.output.inventorySprite);
 		RefreshRecipeList();
+		// A dish came off the fire — hand back to CampScreen (leaves camp). Last, so
+		// the screen's own bookkeeping finishes before any re-entrant teardown.
+		_onCooked?.Invoke();
 	}
 
 	void DeliverOutput(ItemState state)

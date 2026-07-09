@@ -393,16 +393,24 @@ public partial class Minimap : Node3D
         _sliceAtlas?.MergeActiveIntoBanked(active);
     }
 
-    // Campfire reveal animation. Orchestrated by GameClient.EnterCampWithFade:
+    // Campfire reveal animation. Armed by GameClient.NotifyCampedAt at camp entry,
+    // but played later when the player opens the map:
     //   1. CaptureBankedRevealBaseline() — before the camp bank, snapshot the
     //      world-map buffer as-is.
     //   2. (bank happens: NotifyCampedAt → RebuildExplorationDisplay)
     //   3. PrepareBankedReveal() — diff the newly-banked buffer against the
     //      baseline; if new ground was charted, rewind the display to the baseline
-    //      (so the almanac opens on the pre-camp map) and return true.
-    //   4. StartBankedReveal() — once the almanac has faded in, begin the sweep.
+    //      (so the map still shows the pre-camp state) and return true. The map is
+    //      NOT updated on entering camp — it holds the baseline until step 4.
+    //   4. StartBankedReveal() — fired when the player next opens the almanac to the
+    //      world map (AlmanacScreen.ShowTab), in camp or later in the field.
     //   5. FinalizeBankedReveal() — on almanac close, snap to the fully-revealed map
     //      in case the player closed before the sweep finished. Idempotent.
+
+    // True once a deferred reveal is armed (display rewound to the baseline) but
+    // not yet played/finalized. Lets the camp bank avoid re-baselining across
+    // successive camps the player hasn't yet opened the map to see.
+    public bool BankRevealArmed => _bankRevealPrepared;
 
     public void CaptureBankedRevealBaseline()
     {

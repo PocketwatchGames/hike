@@ -1432,6 +1432,12 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
+		// A fuel-empty torch can't be relit — it only comes back after a campfire
+		// recharge. Refuse the light half of the toggle; dousing is always allowed.
+		if (!consumable.isActive && consumable is TorchState torch && !torch.HasFuel)
+		{
+			return;
+		}
 		consumable.isActive = !consumable.isActive;
 		player.RefreshCarriedLight();
 	}

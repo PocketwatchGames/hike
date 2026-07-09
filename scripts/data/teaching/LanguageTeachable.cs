@@ -26,4 +26,14 @@ public partial class LanguageTeachable : TeachableConcept
         }
         return player.LearnLanguageComponents(language, components);
     }
+
+    public override bool IsKnown(Player player)
+    {
+        if (player == null || language == null)
+        {
+            return false;
+        }
+        // Known only once every component bit this concept grants is already learned.
+        return (player.GetLearnedComponents(language) & components) == components;
+    }
 }
