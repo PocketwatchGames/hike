@@ -21,20 +21,15 @@ public partial class BirdsEyeController : Node
 	// Vertical lift (world meters) added to the camera's normal offset at the
 	// top of the FlyUp. Orthographic projection so altitude doesn't change
 	// scale on its own — paired with the size multiplier below for the zoom.
-	[Export(PropertyHint.Range, "0,400,1,or_greater")] public float altitude = 80f;
-	// Degrees to steepen (lower) the camera pitch at the apex, eased in
-	// alongside the lift and zoom. The camera's resting pitchDegrees is
-	// negative (looking down), so we subtract this to tilt further toward
-	// straight-down for the overview. Reverses on FlyDown.
-	[Export(PropertyHint.Range, "0,45,1,or_greater")] public float pitchDelta = 15f;
-	// Multiplier on the camera's base orthographic Size at the apex. This is
-	// the "zoom out" knob; combined with altitude it controls how big the
-	// overview reads. The overlook streaming profile (ChunkManager
-	// BeginOverlook + the fog reveal) fills the wider footprint as the camera
-	// zooms, so this can go well past the old 4× — the backdrop chunks beyond
-	// the normal load distance stream in visual-only and hide behind the fog
-	// curtain until resident.
-	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float sizeMultiplier = 8f;
+	// Shared by both entry points (birds_eye consumable AND tree climb — they do
+	// the same thing).
+	[Export(PropertyHint.Range, "0,400,1,or_greater")] public float altitude = 10f;
+	// Multiplier on the camera's base orthographic Size at the apex — the "zoom
+	// out" knob; combined with altitude it controls how big the overview reads.
+	// Kept modest so the pixel-art stays crisp (the ortho zoom shrinks source
+	// pixels). The pitch is NOT a knob — it's derived each frame to keep the lift
+	// anchor centered as the camera rises (see UpdateCamera).
+	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float sizeMultiplier = 2f;
 	// Wall-clock seconds for either transition (fly-up and fly-down match).
 	[Export(PropertyHint.Range, "0.25,5,0.05")] public float transitionSeconds = 1.5f;
 	// Peak motion-blur strength during FlyUp. 1 = max (heavy smear), 0 = no
@@ -77,6 +72,10 @@ public partial class BirdsEyeController : Node
 	// How far the ground ambience bus is ducked at the apex (dB), so the wind
 	// reads as taking over aloft. Restored on the way down.
 	[Export(PropertyHint.Range, "0,24,0.5")] public float ambienceDuckDb = 12f;
+
+	// Fired once when the fly-up reaches its apex (FlyUp → Steady). GameClient
+	// uses it to auto-open the world map after the lift.
+	public System.Action onLiftReachedApex;
 
 	enum EPhase { None, FlyUp, Steady, FlyDown }
 	EPhase _phase = EPhase.None;
@@ -209,9 +208,10 @@ public partial class BirdsEyeController : Node
 			// if they want it back.
 			camera.ClipAlways = false;
 			camera.SetClip(float.PositiveInfinity, player.GlobalPosition);
-			// Cloud quad renders only while the overview is active AND the
-			// `clouds` CVar is enabled. UpdateCamera re-checks the CVar every
-			// frame so toggling it mid-overlook updates live.
+			// Cloud quad renders only while the overview is active AND the `clouds`
+			// CVar is enabled (default off — the moderate overview reads cleaner
+			// without it). UpdateCamera re-checks every frame so a CVar toggle
+			// mid-overlook updates live.
 			if (_cloudOverheadPlane != null)
 			{
 				_cloudOverheadPlane.Visible = CVars.clouds.Value;
@@ -293,9 +293,8 @@ public partial class BirdsEyeController : Node
 		camera.TickRotation(dt);
 		camera.AdvanceClipFade(dt);
 
-		// Re-sync the cloud quad's visibility against the `clouds` CVar each
-		// frame so toggling it mid-overlook updates without waiting for the
-		// next FlyUp/Down.
+		// Re-sync the cloud quad's visibility each frame so a `clouds` CVar toggle
+		// mid-overlook updates without waiting for the next FlyUp/Down.
 		if (_cloudOverheadPlane != null)
 		{
 			_cloudOverheadPlane.Visible = CVars.clouds.Value;
@@ -310,6 +309,8 @@ public partial class BirdsEyeController : Node
 			if (t >= 1f)
 			{
 				_phase = EPhase.Steady;
+				// Lift settled at the apex — the scout's world map opens here.
+				onLiftReachedApex?.Invoke();
 			}
 		}
 		else if (_phase == EPhase.FlyDown)
@@ -335,23 +336,33 @@ public partial class BirdsEyeController : Node
 			? t * t                       // ease-out toward the ground (t: 1→0)
 			: 1f - (1f - t) * (1f - t);   // ease-out toward the apex  (t: 0→1)
 
-		// Camera pose. Read live camera.Yaw (TickRotation just updated it) so
-		// CameraLeft / CameraRight rotate the overview, lift straight up along
-		// world-Y by the eased altitude, and steepen the pitch by the eased
-		// delta so the overview looks further down. Horizontal tracking stays
+		// Camera pose. The resting offset (yaw-rotated, at the camera's authored
+		// resting pitch) fixes WHERE the camera orbits; the lift adds world-up
+		// altitude on top. Read live camera.Yaw (TickRotation just updated it) so
+		// CameraLeft / CameraRight rotate the overview. Horizontal tracking stays
 		// glued to the player so a knockback (which bypasses the movement lock)
 		// doesn't strand the view.
-		float pitchDeg = Mathf.Lerp(camera.pitchDegrees, camera.pitchDegrees - pitchDelta, eased);
-		float pitch = Mathf.DegToRad(pitchDeg);
-		camera.GlobalRotation = new Vector3(pitch, camera.Yaw, 0f);
-		Vector3 baseOffset = camera.GlobalTransform.Basis.Z * camera.distance;
+		float restPitch = Mathf.DegToRad(camera.pitchDegrees);
+		Basis restBasis = Basis.FromEuler(new Vector3(restPitch, camera.Yaw, 0f));
+		Vector3 baseOffset = restBasis.Z * camera.distance;
 		Vector3 lifted = baseOffset + Vector3.Up * altitude;
 		// Anchor on the SAME framing target the normal follow uses, not the raw
 		// player feet — otherwise the eased=0 endpoint sits ~followHeightOffset
 		// below where the standard camera path resumes, popping the view on the
 		// FlyDown handoff.
 		Vector3 followTarget = camera.GetFollowTarget(player.GlobalPosition);
-		camera.GlobalPosition = followTarget + baseOffset.Lerp(lifted, eased);
+		Vector3 offset = baseOffset.Lerp(lifted, eased);
+		camera.GlobalPosition = followTarget + offset;
+
+		// Pitch is INHERENT, not a tuned delta: aim from the raised camera straight
+		// back down at the anchor so it stays centered as the camera rises. At
+		// eased=0 the offset is exactly the resting view vector, so this equals the
+		// resting pitch (no pop on the FlyDown handoff); the added altitude steepens
+		// it automatically. Yaw stays player-driven.
+		Vector3 toTarget = -offset;
+		float horiz = new Vector2(toTarget.X, toTarget.Z).Length();
+		float lookPitch = Mathf.Atan2(toTarget.Y, Mathf.Max(horiz, 1e-4f));
+		camera.GlobalRotation = new Vector3(lookPitch, camera.Yaw, 0f);
 
 		camera.Size = Mathf.Lerp(_baseSize, _baseSize * sizeMultiplier, eased);
 
@@ -537,7 +548,13 @@ public partial class BirdsEyeController : Node
 	{
 		SubViewport sceneViewport = GameClient.Current?.sceneViewport;
 		float apexSize = _baseSize * sizeMultiplier;
-		float phi = Mathf.DegToRad(Mathf.Abs(camera.pitchDegrees - pitchDelta));
+		// Apex pitch below horizontal, derived from the lifted offset geometry (the
+		// same inherent look-at UpdateCamera uses): the camera sits distance·cos back
+		// and distance·sin + altitude up, and looks at the anchor.
+		float restPitch = Mathf.DegToRad(camera.pitchDegrees);
+		float apexHoriz = camera.distance * Mathf.Cos(restPitch);
+		float apexVert = camera.distance * Mathf.Abs(Mathf.Sin(restPitch)) + altitude;
+		float phi = Mathf.Atan2(apexVert, Mathf.Max(Mathf.Abs(apexHoriz), 1e-4f));
 		float sinPhi = Mathf.Max(0.1f, Mathf.Sin(phi));
 		float aspect = sceneViewport != null && sceneViewport.Size.Y > 0
 			? (float)sceneViewport.Size.X / sceneViewport.Size.Y

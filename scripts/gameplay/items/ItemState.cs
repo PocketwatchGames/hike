@@ -10,24 +10,18 @@ public class ItemState
 	public ulong cooldownExpireMs;
 	public ulong cooldownDurationMs;
 
-	// Absolute sim-clock (World.GameTimeMs) deadline at which this item is
-	// destroyed wherever it lives — backpack, hotbar, or an equipped slot. 0 =
-	// no scheduled removal (the default). Ephemeral items stamp this to the next
-	// sunrise when they enter the inventory; the player ticks it in
-	// TickItemExpiry and a dropped instance also honors it in Loot.
-	public ulong removeTimeMs;
-
-	// This instance vanishes at the next sunrise once acquired. Composed onto the
-	// state at construction (ItemDescriptor.ephemeral) rather than being intrinsic
-	// to the ItemData — the same base weapon/armor exists in permanent and
-	// ephemeral forms (e.g. the temporary gear granted at an altar / forge). Set
-	// once at build time; the acquiring Inventory path reads it to arm removeTimeMs.
-	public bool ephemeral;
+	// Day number (World.DayNumber) on which this item is destroyed wherever it
+	// lives — backpack, hotbar, or an equipped slot. 0 = no scheduled removal
+	// (the default). A time-limited drop (e.g. the fairy corpse) stamps this to a
+	// future day directly, so it vanishes at the next sleep-to-sunrise (there is no
+	// wall-clock sunrise to project toward — the clock stops at midnight). The
+	// player checks it in TickItemExpiry and a dropped instance honors it in Loot.
+	public int removeOnDay;
 
 	// Power tier, composed onto the state at construction (ItemDescriptor.level),
-	// NOT earned through use — the altar / forge grants a leveled piece directly.
-	// 0 = base. WeaponState scales outgoing damage by 2^level and ArmorState scales
-	// its armor points by 2^level; harmless (unused) on other item kinds.
+	// NOT earned through use. 0 = base. WeaponState scales outgoing damage by
+	// 2^level and ArmorState scales its armor points by 2^level; harmless (unused)
+	// on other item kinds.
 	public int level;
 
 	// Set once this item has ever entered the player's inventory (picked up,

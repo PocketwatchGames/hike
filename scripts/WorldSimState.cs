@@ -47,6 +47,32 @@ public class WorldSimState
     // and this reference is re-established as the lit campfire streams in.
     public CampfireSimState LitCampfire;
 
+    // World position of the climbable tree the player is currently perched in, or
+    // null when not climbing. Drives the active (red) tint on that tree's map
+    // marker (IsMarkerActive). Runtime-only; set/cleared by Player.EnterClimbableTree
+    // / OnBirdsEyeReturnComplete.
+    public Vector3? ActiveClimbTreePosition;
+
+    // Per-forge marker cache (reactivation day + level), keyed by quantized world
+    // position, so the map can tint a forge marker ready/inert (see IsMarkerActive),
+    // pick its slot icon, and stamp its level even while the forge's chunk is
+    // unloaded. A forge registers itself here on stream-in and on use. Runtime
+    // cache, not serialized: each forge's own state rides the chunk data and
+    // re-registers on stream-in.
+    public readonly Dictionary<Vector3I, ForgeMarkerInfo> ForgeMarkers = new();
+
+    // Register a forge's reactivation day (0 = ready) and level for map display.
+    public void SetForgeReactivate(Vector3 worldPos, int reactivateDay, int level)
+    {
+        ForgeMarkers[MapMarkerRecord.KeyFor(worldPos)] = new ForgeMarkerInfo(reactivateDay, level);
+    }
+
+    // Forge marker state for the map, if a forge is registered at this position.
+    public bool TryGetForgeMarker(Vector3 worldPos, out ForgeMarkerInfo info)
+    {
+        return ForgeMarkers.TryGetValue(MapMarkerRecord.KeyFor(worldPos), out info);
+    }
+
     // Central bank of named scripting variables — quest progress, world flags
     // (boss defeated), counters — read/written by ScriptVarCondition /
     // ScriptVarTransition / SetScriptVarAction to branch conversations and mob
@@ -82,6 +108,19 @@ public class WorldSimState
     // single "return to a campfire" commit — and once right after spawn so the
     // scenario's initial knowledge is party-permanent from the first frame.
     public void BankActiveKnowledge() => Party?.BankActive();
+
+    // Drop the provisional tree-climb world-map snapshots so the world map reverts
+    // to the banked party pool only. Called from Minimap.RebuildExplorationDisplay —
+    // the single choke point hit whenever the fog display is reseeded from the party
+    // pool (camp bank, member switch, revive). This keeps the region/marker snapshots
+    // PLAYER-TIED exactly like the fog: a member's un-banked survey graduates onto the
+    // world map at a tree climb but is lost when that field knowledge is (death /
+    // permanent destroy / switching away), leaving only what the party actually banked.
+    public void ClearWorldMapSnapshots()
+    {
+        _worldMapRegionSnapshot.Clear();
+        _worldMapMarkerSnapshot.Clear();
+    }
 
     // ---- Items -------------------------------------------------------------
 
@@ -202,6 +241,43 @@ public class WorldSimState
         return Banked?.DiscoveredRegions.Contains(region) ?? false;
     }
 
+    // Frozen "what the world map shows" snapshots: everything banked, PLUS a
+    // provisional snapshot captured each time the player scouts from a climbable
+    // tree (SnapshotWorldMapReveal). Walking around afterwards does NOT add to
+    // them — only the next tree climb re-snapshots, matching the exploration fog
+    // snapshot. Camp banks the field knowledge and clears these (the banked pool
+    // then covers everything). Regions gate labels; markers gate icons.
+    readonly HashSet<RegionData> _worldMapRegionSnapshot = new();
+    readonly Dictionary<Vector3I, MapMarkerRecord> _worldMapMarkerSnapshot = new();
+
+    public bool IsRegionShownOnWorldMap(RegionData region)
+    {
+        if (region == null)
+        {
+            return false;
+        }
+        return IsRegionBanked(region) || _worldMapRegionSnapshot.Contains(region);
+    }
+
+    // Graduate the field-discovered knowledge ("as discovered up until this point")
+    // onto the world map as a frozen snapshot — regions (labels) and markers
+    // (icons). Called from the tree-climb scout; unlike a campfire bank it leaves
+    // the provisional store untouched, so the knowledge stays un-banked until the
+    // player actually returns to a fire.
+    public void SnapshotWorldMapReveal()
+    {
+        foreach (RegionData r in EnumerateDiscoveredRegions())
+        {
+            _worldMapRegionSnapshot.Add(r);
+        }
+        // Markers: capture the current union (party ∪ active) so field-charted
+        // landmarks show on the world map without waiting for a camp bank.
+        foreach (MapMarkerRecord record in EnumerateMarkers())
+        {
+            _worldMapMarkerSnapshot[MapMarkerRecord.KeyFor(record.WorldPosition)] = record;
+        }
+    }
+
     // Reveals a named map region (region-entry commit, treasure-map scroll, NPC
     // hint). Returns true only when newly recorded. No announcement event —
     // callers own their own region banner.
@@ -302,20 +378,33 @@ public class WorldSimState
         return true;
     }
 
-    // True if the marker at worldPos is currently in its ACTIVE state. Presently
-    // this means "the campfire here is the world's lit campfire" — campfires are
-    // the only live-state markers. Read at RENDER time (never stored on the record)
-    // so the map's lit/unlit tint tracks the real world even while the campfire's
-    // chunk is unloaded. LitCampfire is maintained across chunk unload, so a
-    // just-lit campfire far away still reads correctly here.
+    // True if the marker at worldPos is currently in its ACTIVE state — read at
+    // RENDER time (never stored on the record) so the map's tint tracks the real
+    // world even while the host's chunk is unloaded. Both caches (LitCampfire,
+    // ForgeMarkers) are maintained across chunk unload / re-established on
+    // stream-in, so a distant host still reads correctly.
+    //   - Campfire: active = this is the world's single lit campfire.
+    //   - Forge: active = usable (past its reactivation deadline; inert while on
+    //     its sunrise cooldown).
     public bool IsMarkerActive(Vector3 worldPos)
     {
-        CampfireSimState lit = LitCampfire;
-        if (lit == null)
+        Vector3I key = MapMarkerRecord.KeyFor(worldPos);
+        // The climbable tree the player is currently perched in reads as active
+        // (its marker draws in the active/red tint). Set in Player.EnterClimbableTree.
+        if (ActiveClimbTreePosition.HasValue && MapMarkerRecord.KeyFor(ActiveClimbTreePosition.Value) == key)
         {
-            return false;
+            return true;
         }
-        return MapMarkerRecord.KeyFor(lit.WorldPosition) == MapMarkerRecord.KeyFor(worldPos);
+        CampfireSimState lit = LitCampfire;
+        if (lit != null && MapMarkerRecord.KeyFor(lit.WorldPosition) == key)
+        {
+            return true;
+        }
+        if (ForgeMarkers.TryGetValue(key, out ForgeMarkerInfo forge))
+        {
+            return (World.Current?.DayNumber ?? 0) >= forge.ReactivateDay;
+        }
+        return false;
     }
 
     // Banked (party-pool) markers for the WORLD MAP. Mirrors the region-label /
@@ -332,6 +421,32 @@ public class WorldSimState
         foreach (MapMarkerRecord record in banked.DiscoveredMarkers.Values)
         {
             yield return record;
+        }
+    }
+
+    // WORLD-MAP markers = banked pool ∪ the frozen tree-climb snapshot. The snapshot
+    // graduates field-charted landmarks onto the world map at a tree climb and holds
+    // them frozen there until banked (walking never adds), mirroring the region-label
+    // and fog snapshots. Snapshot record wins on a key collision (it's the union
+    // capture, so at least the banked tier).
+    public IEnumerable<MapMarkerRecord> EnumerateWorldMapMarkers()
+    {
+        var seen = new HashSet<Vector3I>();
+        foreach (KeyValuePair<Vector3I, MapMarkerRecord> kv in _worldMapMarkerSnapshot)
+        {
+            seen.Add(kv.Key);
+            yield return kv.Value;
+        }
+        Knowledge banked = Banked;
+        if (banked != null)
+        {
+            foreach (KeyValuePair<Vector3I, MapMarkerRecord> kv in banked.DiscoveredMarkers)
+            {
+                if (seen.Add(kv.Key))
+                {
+                    yield return kv.Value;
+                }
+            }
         }
     }
 

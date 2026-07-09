@@ -97,9 +97,10 @@ public partial class PlayerState : Resource
 	// because the runtime Party is a fresh clone of the templates.
 	public bool IsDead;
 
-	// Runtime (not authored): the World.TimeOfDayAbsolute by which a fallen member
-	// must be revived. Set to the sunrise AFTER the one they wake at (one full day
-	// out); if the clock reaches it un-revived, the member is destroyed
-	// permanently. 0 = no pending deadline (alive, or not yet assigned).
-	public double ReviveDeadlineAbsolute;
+	// Runtime (not authored): the World.DayNumber by which a fallen member must be
+	// revived. Set to the day AFTER the one they wake at (one full day of grace);
+	// once DayNumber reaches it un-revived (i.e. the party sleeps to that sunrise),
+	// the member is destroyed permanently. 0 = no pending deadline (alive, or not
+	// yet assigned).
+	public int ReviveByDay;
 }

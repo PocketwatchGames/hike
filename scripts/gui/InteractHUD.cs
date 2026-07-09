@@ -25,12 +25,22 @@ public partial class InteractHUD : Node2D
 	[Export] private Control _interactOptionsContainer;
 	[Export] private PackedScene _interactOptionScene;
 
+	// Level star pips (fan of up to five), lit to _interactive.InteractLevel.
+	// Mirrors the mob HUD's difficulty fan. Hidden entirely for level-0
+	// interactives (everything but the forge today).
+	[Export] private Control _levelContainer;
+	[Export] private Array<TextureRect> _levelPips = new();
+	// Radius of the pip arc (px) and angular spacing between adjacent pips.
+	[Export] private float _pipArcRadius = 20f;
+	[Export(PropertyHint.Range, "0,90")] private float _pipArcSpacingDegrees = 32f;
+
 	Camera3D _camera;
 	Player _player;
 	IInteractive _interactive;
 	Array<InteractiveAction> _actions;
 	bool _modalOpen;
 	int _modalFocusedIndex = -1;
+	int _interactLevel;
 
 	public IInteractive Interactive => _interactive;
 	public bool ModalOpen => _modalOpen;
@@ -58,7 +68,53 @@ public partial class InteractHUD : Node2D
 			_interactOptionsParent.Visible = false;
 		}
 		RefreshActions();
+		SetupLevelPips();
 		Update();
+	}
+
+	// Light one pip per level (fixed at spawn — an interactive's level is
+	// immutable) and lay them out in a downward fan, mirroring MobHUD. The
+	// container's on-screen visibility is resolved per-frame in Update.
+	void SetupLevelPips()
+	{
+		_interactLevel = _interactive.InteractLevel;
+		for (int i = 0; i < _levelPips.Count; i++)
+		{
+			if (_levelPips[i] != null)
+			{
+				_levelPips[i].Visible = i < _interactLevel;
+			}
+		}
+		LayoutPipArc(_interactLevel);
+		if (_levelContainer != null)
+		{
+			_levelContainer.Visible = false;
+		}
+	}
+
+	// Fan the lit pips along a downward arc centered under the HUD icon, so the
+	// row stays symmetric regardless of count (a single pip lands dead-center).
+	void LayoutPipArc(int count)
+	{
+		if (_levelPips == null || count <= 0)
+		{
+			return;
+		}
+		float step = Mathf.DegToRad(_pipArcSpacingDegrees);
+		// Screen +Y is down, so π/2 points the fan straight down under the icon.
+		const float centerAngle = Mathf.Pi * 0.5f;
+		float startAngle = centerAngle - step * (count - 1) * 0.5f;
+		for (int i = 0; i < count && i < _levelPips.Count; i++)
+		{
+			TextureRect pip = _levelPips[i];
+			if (pip == null)
+			{
+				continue;
+			}
+			float angle = startAngle + step * i;
+			Vector2 arcCenter = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _pipArcRadius;
+			pip.Position = arcCenter - pip.CustomMinimumSize * 0.5f;
+		}
 	}
 
 	public override void _ExitTree()
@@ -172,6 +228,13 @@ public partial class InteractHUD : Node2D
 		}
 
 		UpdateIcon();
+
+		// Pips ride with the icon: shown only while an action icon is up and the
+		// interactive carries a level. Parent Visible already gated on-screen above.
+		if (_levelContainer != null)
+		{
+			_levelContainer.Visible = _interactLevel > 0 && _icon != null && _icon.Visible;
+		}
 
 		if (_interactTimer != null)
 		{

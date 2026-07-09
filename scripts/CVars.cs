@@ -102,6 +102,13 @@ public static class CVars
     // tuning blast radii. Toggle with `debug_aoe 1` in the in-game console.
     public static CVarBool debugAoe = new CVarBool("debug_aoe", false);
 
+    // Draw the arced-throw preview trajectory (AimingReticle._arcPoints) as
+    // debug lines + a marker at each sampled point, bypassing the ribbon shader
+    // entirely. Off by default — a dev visualizer for diagnosing the arc ribbon
+    // (if these show but the ribbon doesn't, the solve is fine and the bug is in
+    // the ribbon's rendering). Toggle with `debug_aim_arc 1` in the console.
+    public static CVarBool debugAimArc = new CVarBool("debug_aim_arc", false);
+
     // Once-per-second console print of the sun + canopy reading at the
     // player's voxel — useful to verify foliage shadowing (a tree's
     // FoliageCluster with CastsSunShadow stamps into CanopyAttenuation;
@@ -272,13 +279,11 @@ public static class CVars
         }
 
         float tod = (float)ws.TimeOfDay01;
-        float diurnal = WeatherSimulation.DiurnalCurve(tod, sim);
-        float diurnalSlope = WeatherSimulation.DiurnalCurveSlope(tod, sim);
+        // The diurnal curve is authored in orbit phase (noon = 0.5), so remap.
+        float orbitPhase = (float)WorldState.OrbitPhase01(tod);
+        float diurnal = WeatherSimulation.DiurnalCurve(orbitPhase, sim);
+        float diurnalSlope = WeatherSimulation.DiurnalCurveSlope(orbitPhase, sim);
         float coolingRate = Godot.Mathf.Max(0f, -diurnalSlope);
-        long phase = WeatherSimulation.CurrentPhase(ws.TimeOfDayAbsolute, sim);
-        int hpd = WeatherSimulation.HandoversPerDay(sim);
-        double nextHandover = ((double)(phase + 1) / hpd) + 0.25;
-        double daysUntilHandover = nextHandover - ws.TimeOfDayAbsolute;
 
         // Three storm-mode gates — match WeatherSimulation.Apply.
         float wetGate = Godot.Mathf.SmoothStep(sim.lightningCloudThreshold, 1f, w.cloudCover)
@@ -296,8 +301,8 @@ public static class CVars
             : dryGate >= orographicGate ? "DRY" : "OROGRAPHIC";
 
         Godot.GD.Print("=== weather probe ===");
-        Godot.GD.Print($"  time-of-day:    tod={tod:F3} (abs={ws.TimeOfDayAbsolute:F3})  diurnal={diurnal:F3}  slope={diurnalSlope:F3}  coolingRate={coolingRate:F3}");
-        Godot.GD.Print($"  phase:          {phase} (next handover in {daysUntilHandover * sim.dayLengthSeconds:F0}s wall time @ time_scale=1)");
+        Godot.GD.Print($"  time-of-day:    day={ws.DayNumber} tod={tod:F3} (abs={ws.TimeOfDayAbsolute:F3})  diurnal={diurnal:F3}  slope={diurnalSlope:F3}  coolingRate={coolingRate:F3}");
+        Godot.GD.Print($"  {(WorldState.IsNight(tod) ? "NIGHT slot active" : "DAY slot active")} (day/night weather re-roll at each sleep-to-sunrise)");
         if (zone != null)
         {
             Godot.GD.Print($"  blended zone:   {zone.ResourcePath}");
@@ -361,12 +366,12 @@ public static class CVars
         Godot.GD.Print($"    fogPhaseScale  CURRENT = {curPhaseScale:F3}   (1.0 = no night dimming)");
         Godot.GD.Print($"    fogPhaseScale  IF FIXED= {fixPhaseScale:F3}   (would scale fog by this/{curPhaseScale:F3} = {(curPhaseScale > 0 ? fixPhaseScale / curPhaseScale : 1f):F2}×)");
 
-        Godot.GD.Print($"  VARIANCE  (prev → cur → next   |   currently displayed)");
-        Godot.GD.Print($"    weather    = {ws.WeatherVariancePrev:F3} → {ws.WeatherVarianceCur:F3} → {ws.WeatherVarianceNext:F3}   |  {ws.WeatherVariance:F3}  slope={ws.WeatherVarianceSlope:F3}");
-        Godot.GD.Print($"    humidity   = {ws.HumidityVariancePrev:F3} → {ws.HumidityVarianceCur:F3} → {ws.HumidityVarianceNext:F3}   |  {ws.HumidityVariance:F3}");
-        Godot.GD.Print($"    cloud      = {ws.CloudVariancePrev:F3} → {ws.CloudVarianceCur:F3} → {ws.CloudVarianceNext:F3}   |  {ws.CloudVariance:F3}");
-        Godot.GD.Print($"    lightning  = {ws.LightningVariancePrev:F3} → {ws.LightningVarianceCur:F3} → {ws.LightningVarianceNext:F3}   |  {ws.LightningVariance:F3}");
-        Godot.GD.Print($"    (cloud variance is INVERSE: low = cloudier; lightning variance reads through directly)");
+        Godot.GD.Print($"  VARIANCE  (day slot → night slot   |   currently active)");
+        Godot.GD.Print($"    weather    = {ws.DayWeatherVariance:F3} → {ws.NightWeatherVariance:F3}   |  {ws.WeatherVariance:F3}  slope={ws.WeatherVarianceSlope:F3}");
+        Godot.GD.Print($"    humidity   = {ws.DayHumidityVariance:F3} → {ws.NightHumidityVariance:F3}   |  {ws.HumidityVariance:F3}");
+        Godot.GD.Print($"    cloud      = {ws.DayCloudVariance:F3} → {ws.NightCloudVariance:F3}   |  {ws.CloudVariance:F3}");
+        Godot.GD.Print($"    lightning  = {ws.DayLightningVariance:F3} → {ws.NightLightningVariance:F3}   |  {ws.LightningVariance:F3}");
+        Godot.GD.Print($"    (cloud variance is INVERSE: low = cloudier; lightning variance reads through directly; day→night crossfades at sunset)");
         Godot.GD.Print($"  LIGHTNING GATES (3 modes, max wins)  active mode: {winner}");
         Godot.GD.Print($"    WET        = {wetGate:F3}   (cloud × rain — warm humid w/ rain)");
         Godot.GD.Print($"    DRY        = {dryGate:F3}   (cloud × low-humidity × high-temp — desert virga)");
@@ -380,22 +385,17 @@ public static class CVars
     // cooldowns, AI timers, etc. stay at real speed.
     public static CVarFloat timeScale = new CVarFloat("time_scale", 1f);
 
-    // Set/read the current normalized time-of-day on the active world.
-    // 0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset. Writing wraps
-    // into [0, 1). Setting via console jumps the sun/moon orbit immediately.
-    public static CVarFloat timeOfDay = new CVarFloat("time_of_day", 0.3f, (cvar) =>
+    // Set/read the current normalized time-of-day on the active world (the awake
+    // day). 0 = sunrise, 1/3 = noon, 2/3 = sunset, 1 = midnight. Clamped to
+    // [0, 1] (the clock never runs before sunrise and pauses at midnight);
+    // setting via console jumps the sun/moon orbit immediately within the day.
+    public static CVarFloat timeOfDay = new CVarFloat("time_of_day", 0.05f, (cvar) =>
     {
         WorldState ws = World.Current?.WorldState;
         if (ws == null) { return; }
-        double v = ((CVarFloat)cvar).Value;
-        v -= System.Math.Floor(v);
-        // Keep TimeOfDayAbsolute in sync within the current day so the
-        // variance phase index lands at the same handover boundary the
-        // user is jumping to. Without this, a console time jump would
-        // desync the variance phase from the lighting cycle.
-        double dayFloor = System.Math.Floor(ws.TimeOfDayAbsolute);
+        double v = System.Math.Clamp((double)((CVarFloat)cvar).Value, 0.0, 1.0);
         ws.TimeOfDay01 = v;
-        ws.TimeOfDayAbsolute = dayFloor + v;
+        ws.TimeOfDayAbsolute = ws.DayNumber + v;
     });
 
     // Swaps the MainCamera between authored framing presets (CameraAngleSettings)
@@ -438,14 +438,12 @@ public static class CVars
     public static CVarBool rumble = new CVarBool("rumble", true);
     public static CVarFloat rumbleScale = new CVarFloat("rumble_scale", 1f);
 
-    // Gates the bird's-eye volumetric cloud quad. When false, the cloud
-    // mesh stays hidden during the overlook regardless of bird's-eye
-    // state — useful on low-spec machines, for screenshotting without
-    // clouds in the frame, or when iterating on terrain layout from
-    // above without the fog obscuring the view. The bird's-eye state
-    // machine and camera lift are unaffected; only the visible cloud
-    // layer is suppressed.
-    public static CVarBool clouds = new CVarBool("clouds", true);
+    // Gates the bird's-eye volumetric cloud quad. Default OFF — the moderate
+    // overview reads cleaner without it (the cloud band suited the old dramatic
+    // high overlook). Enable to bring the cloud layer back during the overlook;
+    // the bird's-eye state machine and camera lift are unaffected either way,
+    // only the visible cloud layer is toggled.
+    public static CVarBool clouds = new CVarBool("clouds", false);
 
     // Heat shimmer post-process. When true, HeatField populates a 2D heat
     // texture from ambient air temperature + active WarmthZones each tick;

@@ -308,7 +308,13 @@ public partial class Player : CharacterBody3D
 			_armorRecharging = true;
 			SpawnWorldEffect(_armorDepleted ? _armorRecoverStartFx : _armorRechargeStartFx);
 		}
-		_armor = Mathf.Min(maxArmor, _armor + data.armorRechargeSpeed * dt);
+		// Rate derived from the current max so a full refill always takes
+		// armorRechargeTime seconds, whatever armor the player has equipped (and
+		// so a +MaxArmor buff doesn't slow the refill). armorRechargeDelay /
+		// armorRecoverTime stay as flat timing.
+		float rechargeTime = data.armorRechargeTime;
+		float speed = rechargeTime > 0f ? maxArmor / rechargeTime : 0f;
+		_armor = Mathf.Min(maxArmor, _armor + speed * dt);
 		if (_armor >= maxArmor)
 		{
 			_armorDepleted = false;
@@ -390,7 +396,11 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		weapon.blockArmor = Mathf.Min(max, weapon.blockArmor + weapon.data.blockArmorRechargeSpeed * dt);
+		// Rate derived from the pool size so a full refill takes
+		// blockArmorRechargeTime seconds regardless of the guard's capacity.
+		float rechargeTime = weapon.data.blockArmorRechargeTime;
+		float speed = rechargeTime > 0f ? max / rechargeTime : 0f;
+		weapon.blockArmor = Mathf.Min(max, weapon.blockArmor + speed * dt);
 	}
 
 	// Per-tick ammo recharge for every weapon the player owns that opts in
@@ -408,20 +418,23 @@ public partial class Player : CharacterBody3D
 	// the world (the bow) auto-reclaims its oldest outstanding arrow (which
 	// bumps ammo as it leaves play); a self-recharging weapon with no arrows
 	// (the bomb) just regenerates ammo from nothing.
-	// Destroys any owned item whose removeTimeMs deadline (sim clock) has passed
-	// — ephemeral items that expire at sunrise, wherever they sit: backpack,
-	// hotbar, or an equipped slot. Collect-then-remove so Inventory.Remove
-	// (which mutates slots and fires onChanged) isn't called mid-enumeration.
-	private void TickItemExpiry(ulong now)
+	// Destroys any owned item whose removeOnDay deadline has been reached —
+	// time-limited items (e.g. the fairy corpse) that expire at the next
+	// sleep-to-sunrise, wherever they sit: backpack, hotbar, or an equipped slot.
+	// Collect-then-remove so
+	// Inventory.Remove (which mutates slots and fires onChanged) isn't called
+	// mid-enumeration.
+	private void TickItemExpiry()
 	{
 		if (_inventory == null)
 		{
 			return;
 		}
+		int today = _world?.DayNumber ?? 0;
 		System.Collections.Generic.List<ItemState> expired = null;
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			if (item.removeTimeMs != 0 && now >= item.removeTimeMs)
+			if (item.removeOnDay != 0 && today >= item.removeOnDay)
 			{
 				(expired ??= new System.Collections.Generic.List<ItemState>()).Add(item);
 			}

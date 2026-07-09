@@ -20,8 +20,8 @@ public enum EBuildupBehavior
 //                arming system or explicit Remove owns lifetime, e.g. Wet).
 //   Persistent — never expires on its own; gameplay code calls Remove.
 //   TimeOfDay  — expires at the next occurrence of `timeOfDayTarget`
-//                (0.25 = sunrise), so a boon can last "until sunrise" regardless
-//                of how long that is.
+//                (0 = sunrise), so a boon can last "until sunrise" regardless
+//                of how long that is (the sleep-to-sunrise crosses it).
 // Timed is value 0 so existing effects authored before this field (no stored
 // durationType) keep their seconds-based behavior.
 public enum EDurationType
@@ -46,6 +46,20 @@ public enum EEffectCategory
 	Elite = 1 << 2,
 }
 
+// Forge "upgrade" slot. A non-None value marks the effect as a slot-locked,
+// mutually-exclusive upgrade: applying one evicts whatever occupies the same
+// slot (see StatusEffectController.Add). The four slots mirror the player's
+// equipment (melee weapon, ranged weapon, body armor, helmet). None (default)
+// = an ordinary, non-slotted status effect.
+public enum EUpgradeSlot
+{
+	None = 0,
+	Melee = 1,
+	Ranged = 2,
+	Armor = 3,
+	Helmet = 4,
+}
+
 // Authored data for a status effect on a Player, Mob, or item. Stat changes live as
 // StatModifier entries on `modifiers`; feature payloads live in optional sub-resources
 // (`dot`, `attackImpact`, `dashBurst`, `trail`, `weaponMod`; null = absent). Fields are
@@ -59,6 +73,11 @@ public partial class StatusEffectData : Resource
 	[Export] public StringName displayName;
 	// Inspector flavor text shown under the effect name on detail panels. Keep it short.
 	[Export(PropertyHint.MultilineText)] public string description = "";
+
+	// Forge upgrade slot. Non-None marks this effect as a slot-locked, exclusive
+	// "upgrade" (forges grant these): applying it evicts whatever occupies the same
+	// slot on the actor. None = an ordinary status effect. See EUpgradeSlot.
+	[Export] public EUpgradeSlot upgradeSlot = EUpgradeSlot.None;
 
 	// ============================ Lifecycle ============================
 
@@ -88,10 +107,12 @@ public partial class StatusEffectData : Resource
 	// Wet lives off the wetness meter; others arm a timer via StatusEffectState.ArmTimer).
 	[Export] public float duration;
 
-	// TimeOfDay only: normalized time-of-day the effect expires at (0 = midnight,
-	// 0.25 = sunrise, 0.5 = noon, 0.75 = sunset). The effect lasts until the next
-	// occurrence of this time. See WorldState.TimeOfDay01.
-	[Export(PropertyHint.Range, "0,1,0.001")] public float timeOfDayTarget = 0.25f;
+	// TimeOfDay only: normalized time-of-day the effect expires at on the awake
+	// day (0 = sunrise, 1/3 = noon, 2/3 = sunset, 1 = midnight). The effect lasts
+	// until the next occurrence of this time; the default (sunrise) is the common
+	// "until sunrise" boon, which the sleep-to-sunrise then crosses. See
+	// WorldState.TimeOfDay01.
+	[Export(PropertyHint.Range, "0,1,0.001")] public float timeOfDayTarget = 0.0f;
 
 	// Max simultaneous instances. A further Add refreshes the oldest instance's timer
 	// instead of stacking. 1 makes re-applying just extend the timer (consumables, Wet).

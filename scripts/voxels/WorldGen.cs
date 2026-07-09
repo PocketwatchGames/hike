@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 23;
+    public const int WORLDGEN_VERSION = 28;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -70,6 +70,14 @@ public static class WorldGen
     // noise), set at the top of Generate alongside _activeGenData. PickZoneIndex
     // reads it to evaluate each PlacedZone's ZoneBounds.
     private static ZoneBoundsContext _zoneBoundsContext;
+
+    // Per-run monster-level field, built at the top of Generate from
+    // WorldGenData's mob-leveling knobs. Sampled by ComputeMobLevel when a mob
+    // spawn is placed (MobSpawnEntry.Spawn) — kept as static per-run state for
+    // the same reason as _activeGenData (the spawn passes don't thread noise
+    // channels through). Null outside a Generate run → ComputeMobLevel returns
+    // the descriptor's base level unchanged.
+    private static FastNoiseLite _mobLevelNoise;
 
     // Road tread columns laid so far by CarveRoads for the current run. Read by
     // the pathfinder so later roads prefer to merge onto earlier ones. Same
@@ -307,6 +315,8 @@ public static class WorldGen
     private const int SEED_SALT_POI = 0x0F;
     private const int SEED_SALT_RUINS = 0x10;
     private const int SEED_SALT_FORGE = 0x11;
+    private const int SEED_SALT_MOBLEVEL = 0x12;
+    private const int SEED_SALT_FOUNTAIN = 0x13;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -331,6 +341,53 @@ public static class WorldGen
     public static int DeriveSeed(int worldSeed, int salt)
     {
         return StableMix(worldSeed, salt, 0);
+    }
+
+    // Difficulty tier for a monster placed at `position`, layered on the
+    // descriptor's authored `baseLevel`. A low-frequency noise field partitions
+    // the world into level bands (mapped to [0, mobLevelSurfaceMax]); an
+    // underground spawn — a solid ceiling within mobLevelUndergroundProbe voxels
+    // overhead — adds mobLevelUndergroundBonus. The total is clamped to
+    // [0, mobLevelMax]. Sunlight isn't baked yet when mobs are placed (it runs
+    // after prop/mob scatter), so "underground" is a direct upward solid scan
+    // rather than a sky-exposure read. Called per worldgen mob spawn.
+    public static int ComputeMobLevel(WorldState ws, Vector3 position, int baseLevel)
+    {
+        WorldGenData genData = _activeGenData;
+        if (genData == null || _mobLevelNoise == null)
+        {
+            return Math.Max(0, baseLevel);
+        }
+        // Raw Perlin FBm only spans ~±0.55 and clusters near 0, so a plain
+        // *0.5+0.5 map crushes ~90% of the world into the middle band. Divide by
+        // the (smaller) spread magnitude and clamp so the level bands populate
+        // toward the extremes too (see mobLevelNoiseSpread / the probe tool).
+        float spread = Mathf.Max(0.01f, genData.mobLevelNoiseSpread);
+        float n01 = Mathf.Clamp(_mobLevelNoise.GetNoise2D(position.X, position.Z) / spread * 0.5f + 0.5f, 0f, 1f);
+        int surfaceLevel = Mathf.Min(genData.mobLevelSurfaceMax, Mathf.FloorToInt(n01 * (genData.mobLevelSurfaceMax + 1)));
+        int level = baseLevel + surfaceLevel;
+        if (IsUnderground(ws, position, genData.mobLevelUndergroundProbe))
+        {
+            level += genData.mobLevelUndergroundBonus;
+        }
+        return Math.Clamp(level, 0, genData.mobLevelMax);
+    }
+
+    // True if a solid voxel sits within `probe` voxels straight above the spawn —
+    // i.e. the mob is in a cave, tunnel, or under a roof rather than open sky.
+    private static bool IsUnderground(WorldState ws, Vector3 position, int probe)
+    {
+        int wx = Mathf.FloorToInt(position.X);
+        int wy = Mathf.FloorToInt(position.Y);
+        int wz = Mathf.FloorToInt(position.Z);
+        for (int dy = 1; dy <= probe; dy++)
+        {
+            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + dy, wz)))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Resolve the kit / detail palettes for `genData` and store them on the
@@ -382,6 +439,7 @@ public static class WorldGen
     {
         BindActivePalettes(genData);
         _activeGenData = genData;
+        _mobLevelNoise = MakePerlin(DeriveSeed(worldSeed, SEED_SALT_MOBLEVEL), genData.mobLevelNoiseFrequency, 2);
 
         var min = new Vector3I(-worldSize.X / 2, -1, -worldSize.Z / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, min.Y + worldSize.Y - 1, min.Z + worldSize.Z - 1);
@@ -499,6 +557,10 @@ public static class WorldGen
         // One smithing forge per non-spawn zone (skips the zone the player
         // starts in). Authored via genData.forge; no-op when unset.
         PlaceZoneForges(ws, genData, heightMap, worldSeed);
+
+        // A handful of healing fountains scattered anywhere across the world.
+        // Authored via genData.healingFountain + healingFountainCount.
+        PlaceHealingFountains(ws, genData, heightMap, worldSeed);
 
         // Spawn authored content anchored to named POIs (signposts now; bosses /
         // loot / villages later). Replaces the per-region random-column signpost
@@ -870,6 +932,42 @@ public static class WorldGen
             int sy = heightMap.GetHeight(rx, rz);
             var anchor = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
             forge.Spawn(ws, anchor, rng, context);
+        }
+    }
+
+    // Scatter genData.healingFountainCount healing fountains across the whole
+    // world, each on its own rejection-sampled flat-grass column (no per-zone
+    // rule — a fountain can land in any biome). No-op when the entry is unset or
+    // the count is zero.
+    private static void PlaceHealingFountains(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        HealingFountainSpawnEntry fountain = genData.healingFountain;
+        if (fountain == null || genData.healingFountainCount <= 0) { return; }
+
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_FOUNTAIN));
+        var context = new SpawnContext
+        {
+            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
+            IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
+        };
+
+        for (int i = 0; i < genData.healingFountainCount; i++)
+        {
+            if (!TryRollColumn(rng, genData, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
+                    (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
+                    out int rx, out int rz))
+            {
+                continue;
+            }
+            int sy = heightMap.GetHeight(rx, rz);
+            var anchor = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
+            fountain.Spawn(ws, anchor, rng, context);
         }
     }
 

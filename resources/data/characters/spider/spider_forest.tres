@@ -13,7 +13,7 @@
 
 [sub_resource type="Resource" id="entry_body"]
 script = ExtResource("3_entry")
-meshNames = PackedStringArray("Body_LP", "Abdomen_LP", "Legs_LP", "Chelicera_LP", "Pedipalp_LP", "Spikes_LP")
+meshNames = PackedStringArray("Body_LP", "Abdomen_LP", "Chelicera_LP", "Pedipalp_LP")
 color = Color(0.3, 0.18, 0.1, 1)
 amount = 0.7
 metadata/_custom_type_script = "uid://c4f283lqo67wq"

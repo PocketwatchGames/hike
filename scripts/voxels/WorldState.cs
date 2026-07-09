@@ -51,29 +51,48 @@ public class WorldState
     // AI timers, etc. survive save/load.
     public ulong GameTimeMs;
 
-    // Normalized time-of-day in [0, 1): 0 = midnight, 0.25 = sunrise,
-    // 0.5 = noon, 0.75 = sunset. Advanced by World.Tick scaled by
-    // SimData.DayLengthSeconds and the time_scale CVar. SkyController reads
-    // this each frame to compute sun/moon orbit and blend day/sunset/night
-    // colors. Seeded from SimData.InitialTimeOfDay at world creation.
+    // Normalized time-of-day of the AWAKE portion of a day, in [0, 1]:
+    // 0 = sunrise, 1/3 = noon, 2/3 = sunset, 1 = midnight. Advanced by
+    // World.Tick scaled by SimData.DayLengthSeconds and the time_scale CVar,
+    // and CLAMPED at 1 (midnight) — the celestial cycle pauses there and only
+    // a sleep advances to the next day's sunrise (see World.AdvanceToNextSunrise).
+    // The pre-dawn gap (midnight → sunrise) is elided; you sleep through it.
+    // SkyController remaps this to the orbit phase (0.25 + 0.75·tod) to drive
+    // the sun/moon arc. Seeded from SimData.InitialTimeOfDay at world creation.
     public double TimeOfDay01;
 
-    // Single shared night threshold so SpawnAtNight gating, the day/night
-    // refresh in World, and ad-hoc isNight checks scattered across entities
-    // all agree on when night begins and ends.
-    public static bool IsNight(double timeOfDay01) => timeOfDay01 < 0.25 || timeOfDay01 >= 0.75;
+    // The single source of truth for the day's key normalized-time positions,
+    // so spawn gating, the day/night refresh, weather, and ad-hoc checks all
+    // agree. Sunrise is the start of the awake day; there is no pre-dawn night.
+    public const double SunriseTimeOfDay01 = 0.0;
+    public const double NoonTimeOfDay01 = 1.0 / 3.0;
+    public const double SunsetTimeOfDay01 = 2.0 / 3.0;
+    public const double MidnightTimeOfDay01 = 1.0;
 
-    // Monotonic absolute-day counter advanced in lockstep with
-    // TimeOfDay01 (= TimeOfDay01 + integer day index). Anything that
-    // needs an unwrapping time coordinate aligned with the day cycle —
-    // most importantly the WeatherSimulation variance phase, whose
-    // handover boundaries are at TimeOfDayAbsolute = N/2 + 0.25 (i.e.
-    // sunrise / sunset of each successive day) — should read this
-    // rather than deriving from GameTimeMs. (GameTimeMs runs at real
-    // time, while TimeOfDay is on the time_scale clock; deriving day
-    // fractions from GameTimeMs causes the variance windows to drift
-    // out of phase with the lighting transitions and lights pop when
-    // a variance handover happens to coincide with sunrise/sunset.)
+    // Night is everything from sunset to midnight (the clock never runs before
+    // sunrise, so there is no early-morning night band anymore).
+    public static bool IsNight(double timeOfDay01) => timeOfDay01 >= SunsetTimeOfDay01;
+
+    // Map the awake-day clock [0,1] (0 = sunrise … 1 = midnight) onto the
+    // ORIGINAL celestial orbit phase (0.25 = sunrise, 0.5 = noon, 0.75 = sunset,
+    // 1.0 = midnight). The sun/moon arc math and the diurnal weather curve are
+    // written in orbit-phase terms, so anything driving them from TimeOfDay01
+    // remaps through here. The pre-dawn quarter (phase [0, 0.25)) is never
+    // produced — you sleep through it.
+    public static double OrbitPhase01(double timeOfDay01) => 0.25 + 0.75 * timeOfDay01;
+
+    // Explicit whole-day counter. Starts at 0 and is incremented ONLY by the
+    // sleep-to-sunrise path (World.AdvanceToNextSunrise) — the day cycle no
+    // longer rolls over on its own, so this can't be derived from the clock.
+    // Dawn-expiring deadlines (time-limited items, forge cooldown) compare against
+    // this rather than projecting a wall-clock sunrise (there is no such time
+    // now — the clock stops at midnight until the player sleeps).
+    public int DayNumber;
+
+    // Unwrapping day+fraction coordinate = DayNumber + TimeOfDay01. Still used
+    // by "until sunrise" status-effect expiry (StatusEffectState) and the sky
+    // disk-fade windows. Advances with TimeOfDay01 during the awake day and
+    // jumps to (DayNumber+1) + 0 on a sleep-to-sunrise.
     public double TimeOfDayAbsolute;
 
     // Sun direction (unit vector, the direction light travels). Written by
@@ -93,75 +112,31 @@ public class WorldState
     // treated as horizontal.
     public Vector3 WindDirection = new Vector3(0.7f, 0f, 0.7f);
 
-    // 12-hour weather variance, in [0, 1]. 0 = stormy / unstable
-    // (cool), 1 = fair / stable (warm). Drives the temperature swing
-    // around the diurnal baseline, and (via its analytical slope
-    // across the sunrise/sunset crossfade) the wind transient.
-    // Humidity and cloud cover use their OWN independent variance
-    // channels (below) so a humid front can roll in without dragging
-    // temperature with it.
-    //
-    // Each channel has prev / cur / next + a HANDOVER PHASE INDEX.
-    // Phase increments at the start of each sunrise/sunset crossfade
-    // window; when it does, prev := cur, cur := next, next := fresh
-    // roll. Inside the window, the displayed value smooth-steps
-    // prev → cur; outside, it sits at cur until the next window. The
-    // pre-rolled `next` holds the variance for the UPCOMING phase so
-    // the HUD weather icon can preview tomorrow's day / tonight's
-    // night peak before its own handover lands. Lives on WorldState
-    // so a save/reload resumes the same forecast rather than snapping.
+    // Per-day weather variance, in [0, 1]. 0 = stormy / unstable (cool),
+    // 1 = fair / stable (warm). Each awake day pre-rolls TWO weather states
+    // at sunrise (World.RollDailyWeather, on OnNewDay): a DAY slot (active
+    // sunrise → sunset) and a NIGHT slot (active sunset → midnight), with a
+    // crossfade between them across the sunset window. Four independent
+    // channels each: WeatherVariance drives temperature (+wind transient via
+    // its sunset-crossfade slope); Humidity and Cloud are wind-gated advection
+    // channels; Lightning multiplies the storm gate. Both slots are known at
+    // sunrise so the HUD can forecast the day AND night icons up front. Lives
+    // on WorldState so a save/reload resumes the same forecast.
+    public float DayWeatherVariance = 0.5f, NightWeatherVariance = 0.5f;
+    public float DayHumidityVariance = 0.5f, NightHumidityVariance = 0.5f;
+    public float DayCloudVariance = 0.5f, NightCloudVariance = 0.5f;
+    public float DayLightningVariance = 0.5f, NightLightningVariance = 0.5f;
+
+    // Active (sunset-crossfaded) variance for the current frame — lerp(day,
+    // night, sunsetBlend), computed by WeatherSimulation.UpdateVariance and
+    // read by Apply. WeatherVarianceSlope is the per-day-fraction analytical
+    // slope of the sunset crossfade (nonzero only inside the sunset window),
+    // driving the wind "frontal kick".
     public float WeatherVariance = 0.5f;
-    public float WeatherVariancePrev = 0.5f;
-    public float WeatherVarianceCur = 0.5f;
-    public float WeatherVarianceNext = 0.5f;
-    // Per-day-fraction analytical slope of WeatherVariance. 0 outside
-    // the crossfade window; ramps with SmoothStep' inside. Wind /
-    // temperature transient calcs read this directly so the signal is
-    // independent of frame rate and survives time_scale changes.
-    public float WeatherVarianceSlope = 0.0f;
-    // Most recently completed handover phase index. long.MinValue means
-    // "uninitialized" — first UpdateVariance call snaps this to the
-    // current phase without rolling, so the freshly seeded prev/cur/next
-    // triple isn't promoted away on frame 0.
-    public long WeatherVariancePhase = long.MinValue;
-
-    // Independent humidity-variance channel. Same handover-phase
-    // structure as WeatherVariance, but its effect on simulated
-    // humidity is GATED BY SIMULATED WIND SPEED — calm air holds the
-    // regional baseline; rising wind blows the neighboring humidity
-    // pattern in.
     public float HumidityVariance = 0.5f;
-    public float HumidityVariancePrev = 0.5f;
-    public float HumidityVarianceCur = 0.5f;
-    public float HumidityVarianceNext = 0.5f;
-    public float HumidityVarianceSlope = 0.0f;
-    public long HumidityVariancePhase = long.MinValue;
-
-    // Independent cloud-cover variance channel. Same gating rule as
-    // humidity — clouds are physically advected by the wind, so on a
-    // calm day the regional baseline holds and a strong wind pulls in
-    // whatever the variance says is "out there".
     public float CloudVariance = 0.5f;
-    public float CloudVariancePrev = 0.5f;
-    public float CloudVarianceCur = 0.5f;
-    public float CloudVarianceNext = 0.5f;
-    public float CloudVarianceSlope = 0.0f;
-    public long CloudVariancePhase = long.MinValue;
-
-    // Independent lightning variance channel. Same handover-phase
-    // structure as the other variance channels. Multiplies the zone's
-    // authored lightningAmount (zone max) AFTER the storm gate (heavy
-    // cloud + active rain), so it expresses "this storm is electric"
-    // vs "this storm is just wet" — two adjacent rainy phases can have
-    // very different lightning levels. Not wind-gated: unlike humidity
-    // and cloud (which model advection), lightning is generated in
-    // place by the storm itself, so its variance reads through directly.
     public float LightningVariance = 0.5f;
-    public float LightningVariancePrev = 0.5f;
-    public float LightningVarianceCur = 0.5f;
-    public float LightningVarianceNext = 0.5f;
-    public float LightningVarianceSlope = 0.0f;
-    public long LightningVariancePhase = long.MinValue;
+    public float WeatherVarianceSlope = 0.0f;
 
     // Lingering surface wetness in [0, 1]. Integrates rainAmount, derived
     // fog, and humidity (per-second gains in SimData) and decays with an
@@ -230,31 +205,33 @@ public class WorldState
         // Seed the scripting-variable bank from the authored registry before
         // any save data loads; harmless when no registry is authored.
         SimState.ScriptVars.Initialize(simData?.scriptVariables);
-        TimeOfDay01 = simData?.initialTimeOfDay ?? 0.3f;
-        TimeOfDayAbsolute = TimeOfDay01;
+        TimeOfDay01 = simData?.initialTimeOfDay ?? 0.05f;
+        DayNumber = 0;
+        TimeOfDayAbsolute = DayNumber + TimeOfDay01;
         WeatherRng.Randomize();
-        // Seed prev/cur/next on each channel so the first frame has a
-        // valid lerp pair AND a pre-rolled upcoming-phase value for the
-        // HUD forecast. The phase fields stay at long.MinValue —
-        // UpdateVariance snaps each channel's phase to "current" on
-        // first call without rolling, so these initial values aren't
-        // promoted away.
-        WeatherVariancePrev = WeatherRng.Randf();
-        WeatherVarianceCur = WeatherRng.Randf();
-        WeatherVarianceNext = WeatherRng.Randf();
-        WeatherVariance = WeatherVarianceCur;
-        HumidityVariancePrev = WeatherRng.Randf();
-        HumidityVarianceCur = WeatherRng.Randf();
-        HumidityVarianceNext = WeatherRng.Randf();
-        HumidityVariance = HumidityVarianceCur;
-        CloudVariancePrev = WeatherRng.Randf();
-        CloudVarianceCur = WeatherRng.Randf();
-        CloudVarianceNext = WeatherRng.Randf();
-        CloudVariance = CloudVarianceCur;
-        LightningVariancePrev = WeatherRng.Randf();
-        LightningVarianceCur = WeatherRng.Randf();
-        LightningVarianceNext = WeatherRng.Randf();
-        LightningVariance = LightningVarianceCur;
+        // Roll the first day's day + night weather slots. Subsequent days
+        // re-roll on the sleep-to-sunrise (World fires OnNewDay → RollDailyWeather).
+        RollDailyWeather();
+        WeatherVariance = DayWeatherVariance;
+        HumidityVariance = DayHumidityVariance;
+        CloudVariance = DayCloudVariance;
+        LightningVariance = DayLightningVariance;
+    }
+
+    // Pre-roll a fresh DAY and NIGHT weather slot from WeatherRng. Called at
+    // world creation and on every sleep-to-sunrise (World.AdvanceToNextSunrise).
+    // Both slots are determined here so the HUD can forecast the whole day up
+    // front and the sunset crossfade has a fixed target.
+    public void RollDailyWeather()
+    {
+        DayWeatherVariance = WeatherRng.Randf();
+        DayHumidityVariance = WeatherRng.Randf();
+        DayCloudVariance = WeatherRng.Randf();
+        DayLightningVariance = WeatherRng.Randf();
+        NightWeatherVariance = WeatherRng.Randf();
+        NightHumidityVariance = WeatherRng.Randf();
+        NightCloudVariance = WeatherRng.Randf();
+        NightLightningVariance = WeatherRng.Randf();
     }
 
     // World-coordinate accessors for cross-chunk light propagation

@@ -14,7 +14,6 @@ public partial class InventoryScreen : Control
 	[Export] private PlayerStatsPanel _statsPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
 	[Export] private BackpackPanel _backpackPanel;
-	[Export] private ButtonHint _dropHint;
 
 	GameClient _gameClient;
 	Player _player;
@@ -35,10 +34,6 @@ public partial class InventoryScreen : Control
 		if (_panel != null)
 		{
 			_panel.onFocusedItemChanged += OnEquipFocusChanged;
-			_panel.onTertiaryPressed += OnUsePressed;
-			_panel.onTertiaryReleased += OnUseReleased;
-			_panel.ButtonHintPrimary?.SetHint(_panel.PrimaryAction, "Select");
-			_panel.ButtonHintTertiary?.SetHint(_panel.TertiaryAction, "Use");
 		}
 		if (_backpackPanel != null)
 		{
@@ -52,8 +47,6 @@ public partial class InventoryScreen : Control
 		if (_panel != null)
 		{
 			_panel.onFocusedItemChanged -= OnEquipFocusChanged;
-			_panel.onTertiaryPressed -= OnUsePressed;
-			_panel.onTertiaryReleased -= OnUseReleased;
 		}
 		if (_backpackPanel != null)
 		{
@@ -106,7 +99,6 @@ public partial class InventoryScreen : Control
 		_focusedBackpackIndex = -1;
 		_focusedBackpackItem = null;
 		_itemInfoPanel?.SetItem(item);
-		UpdateDropHint(null);
 		// The tertiary (Use) event only fires while its hint is visible — show it
 		// exactly for a usable equipment item.
 		if (_panel?.ButtonHintTertiary != null)
@@ -120,48 +112,6 @@ public partial class InventoryScreen : Control
 		_focusedBackpackIndex = index;
 		_focusedBackpackItem = panel?.Item;
 		_itemInfoPanel?.SetItem(_focusedBackpackItem);
-		UpdateDropHint(_focusedBackpackItem);
-	}
-
-	void UpdateDropHint(ItemState material)
-	{
-		if (_dropHint == null)
-		{
-			return;
-		}
-		_dropHint.Visible = material != null;
-	}
-
-	// Use = fire an equipped equipment item's action (drink a potion, light a
-	// torch). Only the Equipment hotbar slots carry a usable ConsumableState.
-	void OnUsePressed(ItemSlotPanel panel, ItemState item)
-	{
-		if (item is not ConsumableState consumable || _player == null)
-		{
-			return;
-		}
-		ConsumableData data = consumable.data;
-		if (data?.actionProfile == null)
-		{
-			return;
-		}
-		ActionRunner runner = _player.Runner;
-		if (runner == null || runner.IsBusy)
-		{
-			return;
-		}
-		var context = new ActionContext
-		{
-			verb = EActionVerb.Use,
-			primaryItem = item,
-			sourceSlot = EInventorySlot.Equipment,
-		};
-		runner.TryStart(data.actionProfile, context);
-	}
-
-	void OnUseReleased()
-	{
-		_player?.Runner?.OnInputReleased();
 	}
 
 	// Drop the focused material (backpack side). BackpackPanel forwards no

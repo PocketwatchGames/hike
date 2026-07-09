@@ -12,11 +12,20 @@ public partial class ClimbableTree : Node3D, IInteractive, IWorldEntity
 {
     [Export] private Node3D _hudNode;
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
+    // Leaf tint applied to this tree's canopy while a player is perched in it, so
+    // the tree they climbed reads distinctly during the scout overview. Overrides
+    // both per-cluster tint axes (leaf_tint_a/b) on each FoliageMultiMesh; the
+    // authored tints are stashed and restored on descent.
+    [Export] private Color _climbedLeafTint = new Color(1.0f, 0.72f, 0.18f);
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     // Stashed from GetActions so Complete (which only receives the action index)
     // can act on the climbing player.
     private Player _climber;
+
+    // Saved authored leaf tints (a, b) per canopy MultiMesh so the highlight can
+    // be reverted exactly. Empty when not currently highlighted.
+    private readonly System.Collections.Generic.List<(FoliageMultiMesh mesh, Color a, Color b)> _stashedLeafTints = new();
 
     public void OnSpawned(World world) { }
 
@@ -49,7 +58,62 @@ public partial class ClimbableTree : Node3D, IInteractive, IWorldEntity
 
     public void Complete(int actionIndex)
     {
-        _climber?.EnterClimbableTree();
+        if (_climber == null)
+        {
+            return;
+        }
+        SetClimbedHighlight(true);
+        _climber.EnterClimbableTree(this);
+    }
+
+    // Tint (or restore) this tree's canopy so the climbed tree stands out during
+    // the scout overview. Idempotent: turning it on stashes each FoliageMultiMesh's
+    // authored leaf tints once; turning it off restores and clears the stash.
+    public void SetClimbedHighlight(bool on)
+    {
+        if (on)
+        {
+            if (_stashedLeafTints.Count > 0)
+            {
+                return;
+            }
+            CollectFoliage(this, mesh =>
+            {
+                if (mesh.MaterialOverride is not ShaderMaterial mat)
+                {
+                    return;
+                }
+                Color a = (Color)mat.GetShaderParameter("leaf_tint_a");
+                Color b = (Color)mat.GetShaderParameter("leaf_tint_b");
+                _stashedLeafTints.Add((mesh, a, b));
+                mat.SetShaderParameter("leaf_tint_a", _climbedLeafTint);
+                mat.SetShaderParameter("leaf_tint_b", _climbedLeafTint);
+            });
+        }
+        else
+        {
+            foreach ((FoliageMultiMesh mesh, Color a, Color b) in _stashedLeafTints)
+            {
+                if (mesh != null && GodotObject.IsInstanceValid(mesh) && mesh.MaterialOverride is ShaderMaterial mat)
+                {
+                    mat.SetShaderParameter("leaf_tint_a", a);
+                    mat.SetShaderParameter("leaf_tint_b", b);
+                }
+            }
+            _stashedLeafTints.Clear();
+        }
+    }
+
+    static void CollectFoliage(Node node, System.Action<FoliageMultiMesh> visit)
+    {
+        if (node is FoliageMultiMesh mesh)
+        {
+            visit(mesh);
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            CollectFoliage(child, visit);
+        }
     }
 
     public static ClimbableTree Create(World world, ClimbableTreeSimState data)

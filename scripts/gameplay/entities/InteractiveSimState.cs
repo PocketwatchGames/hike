@@ -362,10 +362,11 @@ public class ForgeSimState : EntitySimState
     // Power tier stamped onto every item the forge mints (see ItemState.level).
     public int Level;
 
-    // Sim-clock (GameTimeMs) time the forge becomes usable again; 0 = ready.
-    // Stamped to the next sunrise when the player forges an item. Persisted so
-    // the cooldown survives chunk eviction and save/load.
-    public ulong ReactivateMs;
+    // Day number (World.DayNumber) the forge becomes usable again; 0 = ready.
+    // Stamped to DayNumber + 1 when the player forges an item, so it re-arms at
+    // the next sleep-to-sunrise. Persisted so the cooldown survives chunk
+    // eviction and save/load.
+    public int ReactivateDay;
 
     public ForgeSimState(Vector3 worldPosition, PackedScene scene, int level)
         : base(worldPosition, scene)
@@ -376,6 +377,32 @@ public class ForgeSimState : EntitySimState
     public override Node3D CreateEntity(World world)
     {
         return Forge.Create(world, this);
+    }
+
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
+    {
+        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
+    }
+}
+
+// Healing fountain (full-heal station). Like the Forge it re-arms once per
+// in-world day; no level or minted items — just the reactivation deadline.
+public class HealingFountainSimState : EntitySimState
+{
+    // World day number (World.DayNumber) on/after which the fountain is usable
+    // again; 0 = ready. Stamped to the next day when the player uses it — the
+    // fountain re-arms at the next sunrise. Persisted so the cooldown survives
+    // chunk eviction and save/load.
+    public int ReactivateDay;
+
+    public HealingFountainSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return HealingFountain.Create(world, this);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)

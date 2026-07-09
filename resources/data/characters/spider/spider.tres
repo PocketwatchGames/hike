@@ -80,6 +80,7 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 })
 hudScale = 0.45
 mobScene = ExtResource("3_scene")
+levelColorMeshNames = PackedStringArray("Eyes_LP", "Legs_LP", "Spikes_LP")
 alignPitchToGroundNormal = 1.0
 movement = 26
 maxStepHeight = 2

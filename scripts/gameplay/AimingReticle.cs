@@ -26,8 +26,9 @@ public partial class AimingReticle : Node3D
 	[Export] private MeshInstance3D _endKnob;
 	// Ballistic-arc preview for Arced aim: a camera-facing ribbon (connected
 	// quads) rebuilt each frame along the previewed trajectory (RenderArcRibbon)
-	// into its ImmediateMesh. Should be top_level so its vertices are authored in
-	// world space. Null is tolerated — Arced aim then shows no arc.
+	// into a code-created ImmediateMesh (_arcRibbonMesh, assigned in _Ready — a
+	// .tscn-authored ImmediateMesh doesn't render). Verts are authored in this
+	// node's local space. Null is tolerated — Arced aim then shows no arc.
 	[Export] private MeshInstance3D _arcRibbon;
 
 	// Vertical offset of the chest pivot above the player's feet.
@@ -306,6 +307,11 @@ public partial class AimingReticle : Node3D
 	Vector3 _arcLaunchVelocity;
 	float _arcLaunchGravity;
 	bool _arcLaunchValid;
+	// The arc ribbon's mesh, created in code and assigned to _arcRibbon in _Ready.
+	// Authoring an ImmediateMesh as a .tscn sub-resource loads an instance that
+	// accepts surface writes but never registers geometry with the renderer, so
+	// the ribbon draws nothing — build it at runtime instead.
+	ImmediateMesh _arcRibbonMesh;
 	readonly List<Vector3> _arcPoints = new(ArcSimMaxSteps + 8);
 
 	// Preview path simulation: timestep (matches the projectile's physics tick so
@@ -380,6 +386,14 @@ public partial class AimingReticle : Node3D
 			_groundCircle.SetInstanceShaderParameter("ring_outer_radius", _groundRingOuterRadius);
 			_groundCircle.SetInstanceShaderParameter("ring_inner_radius", _groundRingInnerRadius);
 			_groundMaterial = _groundCircle.GetActiveMaterial(0) as ShaderMaterial;
+		}
+
+		// Build the arc ribbon's mesh in code — a .tscn-serialized ImmediateMesh
+		// never registers geometry with the renderer (see _arcRibbonMesh).
+		if (_arcRibbon != null)
+		{
+			_arcRibbonMesh = new ImmediateMesh();
+			_arcRibbon.Mesh = _arcRibbonMesh;
 		}
 	}
 
@@ -525,7 +539,7 @@ public partial class AimingReticle : Node3D
 		if (_arcRibbon != null)
 		{
 			_arcRibbon.Visible = false;
-			(_arcRibbon.Mesh as ImmediateMesh)?.ClearSurfaces();
+			_arcRibbonMesh?.ClearSurfaces();
 		}
 		// Next aim session re-seeds the smoothed beam Y from its first endpoint
 		// instead of gliding up from wherever the last session left it.
@@ -1492,27 +1506,40 @@ public partial class AimingReticle : Node3D
 	}
 
 	// Rebuilds the arc-preview ribbon (a connected triangle strip of camera-facing
-	// quads) along _arcPoints into the ImmediateMesh each frame. Each cross-pair
-	// is offset by `right = tangent × toCamera`, so the strip rolls around the arc
-	// to face the camera (the CPU analog of the billboard line shader). The
-	// ribbon's MeshInstance is top_level, so vertices are authored in world space.
+	// quads) along _arcPoints into its ImmediateMesh each frame. Each cross-pair is
+	// offset by `right = tangent × toCamera`, so the strip rolls around the arc to
+	// face the camera (the CPU analog of the billboard line shader). Verts are
+	// authored in the node's local space. The ImmediateMesh is created in code (see
+	// _Ready) — a .tscn-serialized ImmediateMesh silently fails to register its
+	// geometry with the renderer, so nothing draws.
 	void RenderArcRibbon(bool show)
 	{
-		if (_arcRibbon == null || _arcRibbon.Mesh is not ImmediateMesh mesh)
+		// Dev visualizer (debug_aim_arc): draw the solved trajectory straight from
+		// _arcPoints via DebugDraw, so the raw arc is visible independent of the ribbon.
+		if (show && CVars.debugAimArc.Value && _arcPoints.Count >= 2)
+		{
+			DebugDraw.Lines(_arcPoints, new Color(0.2f, 1f, 0.4f, 1f));
+			for (int i = 0; i < _arcPoints.Count; i++)
+			{
+				DebugDraw.Cross(_arcPoints[i], 0.15f, new Color(1f, 0.9f, 0.1f, 1f));
+			}
+		}
+
+		if (_arcRibbon == null || _arcRibbonMesh == null)
 		{
 			return;
 		}
-		mesh.ClearSurfaces();
+		_arcRibbonMesh.ClearSurfaces();
 		if (!show || _arcPoints.Count < 2)
 		{
 			_arcRibbon.Visible = false;
 			return;
 		}
 
+		int n = _arcPoints.Count;
 		Camera3D cam = GetViewport()?.GetCamera3D();
 		Vector3 camPos = cam != null ? cam.GlobalPosition : _player.GlobalPosition + Vector3.Up * 8f;
 		float halfWidth = Mathf.Max(0.005f, _arcRibbonWidth * 0.5f);
-		int n = _arcPoints.Count;
 
 		// Total path length for the tail fade (distance-along-the-arc, so a path
 		// that loops back near itself still fades only its true end).
@@ -1528,7 +1555,7 @@ public partial class AimingReticle : Node3D
 		// Per-vertex alpha (carried in COLOR.a, which the shader multiplies in):
 		// fade in from the launch over [fadeInStart, fadeInEnd] of arc length, fade
 		// out over the last fadeOutDistance before the end.
-		mesh.SurfaceBegin(Mesh.PrimitiveType.TriangleStrip);
+		_arcRibbonMesh.SurfaceBegin(Mesh.PrimitiveType.TriangleStrip);
 		float cumLen = 0f;
 		for (int i = 0; i < n; i++)
 		{
@@ -1569,12 +1596,14 @@ public partial class AimingReticle : Node3D
 			float aIn = Mathf.Clamp((cumLen - fadeInStart) / fadeInSpan, 0f, 1f);
 			float aOut = Mathf.Clamp((totalLen - cumLen) / fadeOut, 0f, 1f);
 			Color c = new Color(1f, 1f, 1f, aIn * aOut);
-			mesh.SurfaceSetColor(c);
-			mesh.SurfaceAddVertex(p - right);
-			mesh.SurfaceSetColor(c);
-			mesh.SurfaceAddVertex(p + right);
+			// Verts in the node's local space (the ribbon isn't top_level, so
+			// MODEL_MATRIX carries the AimingReticle transform).
+			_arcRibbonMesh.SurfaceSetColor(c);
+			_arcRibbonMesh.SurfaceAddVertex(_arcRibbon.ToLocal(p - right));
+			_arcRibbonMesh.SurfaceSetColor(c);
+			_arcRibbonMesh.SurfaceAddVertex(_arcRibbon.ToLocal(p + right));
 		}
-		mesh.SurfaceEnd();
+		_arcRibbonMesh.SurfaceEnd();
 		_arcRibbon.Visible = true;
 	}
 

@@ -1,68 +1,75 @@
 using System;
-using System.Collections.Generic;
 using Godot;
 
-// "Forge an item" modal. Opened by GameClient when the player uses a forge.
-// Instances one selectable ForgeItemCard per offered item (each an ItemInfoPanel
-// display) and reports the player's pick — or back-out — through the callbacks
-// GameClient supplies. GameClient owns visibility and the input / HUD / mouse
-// gating; this class is purely the view + selection plumbing. Mirrors
-// UpgradeScreen, but over ItemStates instead of BoonData.
+// "Forge an upgrade" modal. Opened by GameClient when the player uses a forge.
+// Shows a single offered upgrade on the right (via StatusEffectInfoPanel) and the
+// upgrade it would replace in that slot on the left (or an "empty slot" note when
+// the slot is free), plus the forge's level as a row of stars. The player accepts
+// (ui_accept) or backs out (ui_cancel); GameClient owns visibility and the input /
+// HUD / mouse gating. This class is purely the view + accept/cancel plumbing.
 [GlobalClass]
 public partial class ForgeScreen : Control
 {
-    [Export] private PackedScene itemCardScene;
-    // Row the per-item cards are added into (MarginContainer/HBoxContainer).
-    [Export] private Container _panelContainer;
+    // Left: the upgrade currently in the slot (what gets replaced). Right: the
+    // forge's offer.
+    [Export] private StatusEffectInfoPanel _replacingPanel;
+    [Export] private StatusEffectInfoPanel _offeredPanel;
+    // Shown on the left when the slot is empty (nothing to replace).
+    [Export] private Control _replacingEmptyLabel;
+    // Up to five star pips lit to the forge's level.
+    [Export] private Godot.Collections.Array<TextureRect> _levelStars = new();
 
-    // Invoked with the chosen item; GameClient equips it and closes the screen.
-    Action<ItemState> _onComplete;
-    // Invoked instead when the player backs out without picking.
+    // Invoked when the player accepts the offered upgrade; GameClient applies it
+    // and closes the screen.
+    Action _onAccept;
+    // Invoked instead when the player backs out.
     Action _onCancel;
 
-    public void Init(Action<ItemState> completeFunc, Action onCancel, List<ItemState> items)
+    public void Init(Action acceptFunc, Action onCancel, StatusEffectData offered, StatusEffectData replacing, int level)
     {
-        _onComplete = completeFunc;
+        _onAccept = acceptFunc;
         _onCancel = onCancel;
-        ClearPanels();
-        ForgeItemCard first = null;
-        if (items != null && _panelContainer != null && itemCardScene != null)
+
+        if (_offeredPanel != null && offered != null)
         {
-            for (int i = 0; i < items.Count; i++)
+            _offeredPanel.SetStatusEffect(offered);
+        }
+
+        bool hasReplacing = replacing != null;
+        if (_replacingPanel != null)
+        {
+            _replacingPanel.Visible = hasReplacing;
+            if (hasReplacing)
             {
-                ItemState item = items[i];
-                if (item == null)
-                {
-                    continue;
-                }
-                ForgeItemCard card = itemCardScene.Instantiate<ForgeItemCard>();
-                _panelContainer.AddChild(card);
-                // Capture per-iteration so each button forges its own item.
-                ItemState captured = item;
-                card.Init(captured, () => Choose(captured));
-                first ??= card;
+                _replacingPanel.SetStatusEffect(replacing);
             }
         }
-        // Seed gamepad/keyboard focus on the first card. Deferred so the freshly
-        // added button is in the tree and focusable first.
-        if (first != null)
+        if (_replacingEmptyLabel != null)
         {
-            first.CallDeferred(ForgeItemCard.MethodName.GrabButtonFocus);
+            _replacingEmptyLabel.Visible = !hasReplacing;
+        }
+
+        for (int i = 0; i < _levelStars.Count; i++)
+        {
+            if (_levelStars[i] != null)
+            {
+                _levelStars[i].Visible = i < level;
+            }
         }
     }
 
-    void Choose(ItemState item)
+    void Accept()
     {
-        Action<ItemState> cb = _onComplete;
-        _onComplete = null;
+        Action cb = _onAccept;
+        _onAccept = null;
         _onCancel = null;
-        cb?.Invoke(item);
+        cb?.Invoke();
     }
 
     void Cancel()
     {
         Action cb = _onCancel;
-        _onComplete = null;
+        _onAccept = null;
         _onCancel = null;
         cb?.Invoke();
     }
@@ -78,20 +85,10 @@ public partial class ForgeScreen : Control
             Cancel();
             GetViewport().SetInputAsHandled();
         }
-    }
-
-    void ClearPanels()
-    {
-        if (_panelContainer == null)
+        else if (e.IsActionPressed("ui_accept"))
         {
-            return;
-        }
-        foreach (Node child in _panelContainer.GetChildren())
-        {
-            if (child is ForgeItemCard)
-            {
-                child.QueueFree();
-            }
+            Accept();
+            GetViewport().SetInputAsHandled();
         }
     }
 }

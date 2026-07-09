@@ -24,6 +24,7 @@
 [ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/world_gen/party/mischa.tres" id="60_mischa"]
 [ext_resource type="Resource" uid="uid://vlhadu2uwy1q" path="res://resources/data/world_gen/party/rowan.tres" id="61_rowan"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="62_forge"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
 
 [sub_resource type="Resource" id="Sign_swamp"]
 script = ExtResource("52_sign")
@@ -176,4 +177,6 @@ playerSpawnPosition = Vector3(72, 0, 80)
 pointsOfInterestPlacements = [SubResource("Poi_swamp"), SubResource("Poi_village"), SubResource("Poi_mud"), SubResource("Poi_highlands")]
 roads = [SubResource("Road_village_hollow"), SubResource("Road_village_mud"), SubResource("Road_village_highlands")]
 forge = ExtResource("62_forge")
+healingFountain = ExtResource("63_fountain")
+healingFountainCount = 3
 startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]

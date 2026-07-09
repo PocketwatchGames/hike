@@ -752,22 +752,17 @@ public partial class Hud : Control
 		UpdateWeatherWidget(delta);
 	}
 
-	// Drive the clock-face weather widget: container rotation, the
-	// day/night icon crossfade across sunrise/sunset, icon selection from
-	// the forecasted peak-of-day / trough-of-night weather, and an
-	// alpha-fade when the player is buried far enough underground that no
-	// sunlight reaches their voxel.
+	// Drive the clock-face weather widget: container rotation, the day→night icon
+	// crossfade at sunset, icon selection from the pre-rolled day / night weather
+	// slots, and an alpha-fade when the player is buried far enough underground
+	// that no sunlight reaches their voxel.
 	//
-	// Rotation: 135° at sunrise, -45° at sunset → 360°/day clockwise.
-	// Day icon alpha:
-	//   [0, dayFadeInStart]            : 0
-	//   [dayFadeInStart, sunriseEnd]   : 0 → 1
-	//   [sunriseEnd, sunsetStart]      : 1
-	//   [sunsetStart, sunsetEnd]       : 1 → 0
-	//   [sunsetEnd, 1]                 : 0
-	// Night icon alpha wraps midnight (mirror of day, opposite phase).
-	// dayFadeInStart = halfway midnight → sunrise window start.
-	// nightFadeInStart = halfway noon → sunset window start.
+	// Rotation: 135° at sunrise (tod 0) → -135° at midnight (tod 1).
+	// Day icon alpha:  fades in [0, 2·halfWidth], holds 1 to sunsetStart, fades
+	//   out [sunsetStart, sunsetEnd], then 0 through the night.
+	// Night icon alpha: 0 until sunsetStart, ramps 0→1 across the sunset window,
+	//   holds 1 to midnight. At a fresh sunrise both are ~0, so the previous day's
+	//   night icon is gone rather than lingering into the new day.
 	void UpdateWeatherWidget(double delta)
 	{
 		if (_weatherContainer == null || _weatherDay == null || _weatherNight == null)
@@ -783,18 +778,20 @@ public partial class Hud : Control
 
 		float tod = (float)ws.TimeOfDay01;
 		float halfWidth = sim.varianceCrossfadeHalfWidth01;
-		const float SunriseCenter = 0.25f;
-		const float SunsetCenter = 0.75f;
-		float sunriseStart = SunriseCenter - halfWidth;
-		float sunriseEnd = SunriseCenter + halfWidth;
-		float sunsetStart = SunsetCenter - halfWidth;
-		float sunsetEnd = SunsetCenter + halfWidth;
-		float dayFadeInStart = 0.5f * sunriseStart;
-		float nightFadeInStart = 0.5f * (0.5f + sunsetStart);
+		float sunsetStart = (float)WorldState.SunsetTimeOfDay01 - halfWidth;
+		float sunsetEnd = (float)WorldState.SunsetTimeOfDay01 + halfWidth;
+		float sunriseFadeEnd = 2f * halfWidth;
 
-		_weatherContainer.RotationDegrees = 135f - 360f * (tod - SunriseCenter);
-		float dayAlpha = ComputeDayIconAlpha(tod, dayFadeInStart, sunriseEnd, sunsetStart, sunsetEnd);
-		float nightAlpha = ComputeNightIconAlpha(tod, sunriseStart, sunriseEnd, nightFadeInStart, sunsetEnd);
+		// Celestial dial: sweep the icons with the actual sun. The awake day runs
+		// sunrise (tod 0) → midnight (tod 1), and the orbit spans 270° over it, so
+		// the container rotates 135° → -135°.
+		_weatherContainer.RotationDegrees = 135f - 270f * tod;
+		// Day icon fades in from sunrise and out at sunset; the night icon is
+		// absent until sunset, then fades in and holds through midnight. At a fresh
+		// sunrise (tod ≈ 0) both start at ~0 — the previous day's night icon is
+		// already gone, and the new day's icon fades up from nothing.
+		float dayAlpha = ComputeDayIconAlpha(tod, 0f, sunriseFadeEnd, sunsetStart, sunsetEnd);
+		float nightAlpha = Mathf.Clamp((tod - sunsetStart) / Mathf.Max(sunsetEnd - sunsetStart, 1e-4f), 0f, 1f);
 
 		Vector3 pos = _player?.GlobalPosition ?? Vector3.Zero;
 		int sunBfs = ws.GetSunlightWorld(
@@ -827,48 +824,15 @@ public partial class Hud : Control
 		CopyWeather(_forecastEnvelope, _forecastDayPeak);
 		CopyWeather(_forecastEnvelope, _forecastNightTrough);
 
-		// Pick the variance source per icon. Phase 0 (the daytime period
-		// starting at sunrise) is even; phase 1 (the night) is odd. The
-		// current phase's settled variance lives in *VarianceCur; the
-		// upcoming phase's is pre-rolled into *VarianceNext, so the
-		// pre-dawn day-icon fade-in can already classify with tomorrow's
-		// daytime variance instead of the night's. Slope is 0 — the icon
-		// shows the steady-state plateau, not a mid-handover lerp.
-		//
-		// Fade-out latching: during the icon's fade-out window the
-		// handover has already happened (it lands at the window start),
-		// so *VarianceCur now holds the INCOMING phase's variance and a
-		// fresh roll lives in *VarianceNext. Reading either would pop
-		// the retiring icon to a different classification at the moment
-		// of handover. The retired phase's variance is sitting in
-		// *VariancePrev, so the fading-out icon reads from there and
-		// keeps its old classification all the way to alpha 0.
-		long curPhase = WeatherSimulation.CurrentPhase(ws.TimeOfDayAbsolute, sim);
-		bool inDayPhase = (curPhase & 1L) == 0L;
-		bool dayFadingOut = tod >= sunsetStart && tod < sunsetEnd;
-		bool nightFadingOut = tod >= sunriseStart && tod < sunriseEnd;
-
-		float dayWeatherVar = dayFadingOut ? ws.WeatherVariancePrev
-			: inDayPhase ? ws.WeatherVarianceCur : ws.WeatherVarianceNext;
-		float dayHumidityVar = dayFadingOut ? ws.HumidityVariancePrev
-			: inDayPhase ? ws.HumidityVarianceCur : ws.HumidityVarianceNext;
-		float dayCloudVar = dayFadingOut ? ws.CloudVariancePrev
-			: inDayPhase ? ws.CloudVarianceCur : ws.CloudVarianceNext;
-		float dayLightningVar = dayFadingOut ? ws.LightningVariancePrev
-			: inDayPhase ? ws.LightningVarianceCur : ws.LightningVarianceNext;
-		float nightWeatherVar = nightFadingOut ? ws.WeatherVariancePrev
-			: inDayPhase ? ws.WeatherVarianceNext : ws.WeatherVarianceCur;
-		float nightHumidityVar = nightFadingOut ? ws.HumidityVariancePrev
-			: inDayPhase ? ws.HumidityVarianceNext : ws.HumidityVarianceCur;
-		float nightCloudVar = nightFadingOut ? ws.CloudVariancePrev
-			: inDayPhase ? ws.CloudVarianceNext : ws.CloudVarianceCur;
-		float nightLightningVar = nightFadingOut ? ws.LightningVariancePrev
-			: inDayPhase ? ws.LightningVarianceNext : ws.LightningVarianceCur;
-
+		// Forecast source per icon: the day icon shows the pre-rolled DAY weather
+		// slot at the day plateau, the night icon the NIGHT slot at the night
+		// trough. Both slots are rolled at sunrise (WorldState.RollDailyWeather),
+		// so the whole day — and tonight — is known up front with no phase
+		// bookkeeping. Slope 0: the icon shows the steady-state plateau.
 		WeatherSimulation.ApplyAtDiurnal(_forecastDayPeak, _forecastZone, elevation, sim,
-			diurnal: 1f, dayWeatherVar, 0f, dayHumidityVar, dayCloudVar, dayLightningVar);
+			diurnal: 1f, ws.DayWeatherVariance, 0f, ws.DayHumidityVariance, ws.DayCloudVariance, ws.DayLightningVariance);
 		WeatherSimulation.ApplyAtDiurnal(_forecastNightTrough, _forecastZone, elevation, sim,
-			diurnal: 0f, nightWeatherVar, 0f, nightHumidityVar, nightCloudVar, nightLightningVar);
+			diurnal: 0f, ws.NightWeatherVariance, 0f, ws.NightHumidityVariance, ws.NightCloudVariance, ws.NightLightningVariance);
 
 		PlayerData pd = _player?.data;
 		int dayTemp = ClassifyTemp(_forecastDayPeak, pd, includeSun: true);
@@ -943,15 +907,6 @@ public partial class Hud : Control
 		if (tod < fadeOutStart) { return 1f; }
 		if (tod < fadeOutEnd) { return 1f - (tod - fadeOutStart) / (fadeOutEnd - fadeOutStart); }
 		return 0f;
-	}
-
-	static float ComputeNightIconAlpha(float tod, float fadeOutStart, float fadeOutEnd, float fadeInStart, float fadeInEnd)
-	{
-		if (tod < fadeOutStart) { return 1f; }
-		if (tod < fadeOutEnd) { return 1f - (tod - fadeOutStart) / (fadeOutEnd - fadeOutStart); }
-		if (tod < fadeInStart) { return 0f; }
-		if (tod < fadeInEnd) { return (tod - fadeInStart) / (fadeInEnd - fadeInStart); }
-		return 1f;
 	}
 
 	// Pushes the minimap's two-state crossfade snapshot into the shader

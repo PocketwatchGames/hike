@@ -113,6 +113,12 @@ public partial class WorldGenData : Resource
     // Null = no forges in this world.
     [Export] public ForgeSpawnEntry forge;
 
+    // Healing fountains scattered across the world (see
+    // WorldGen.PlaceHealingFountains). Each lands on its own rejection-sampled
+    // flat column. Null entry or healingFountainCount == 0 = no fountains.
+    [Export] public HealingFountainSpawnEntry healingFountain;
+    [Export(PropertyHint.Range, "0,16,1,or_greater")] public int healingFountainCount;
+
     [ExportGroup("Player Party")]
     // The party the run begins with. Each PlayerState is one playable character
     // (identity + appearance + stat sheet + its own starting loadout + traits);
@@ -264,4 +270,34 @@ public partial class WorldGenData : Resource
     // over a void; the road-overlay pass re-solidifies this many voxels down
     // from the tread so a road always bridges caves/tunnels on solid rock. >= 1.
     [Export(PropertyHint.Range, "1,8,1")] public int roadBedDepth = 2;
+
+    [ExportGroup("Mob Leveling")]
+    // Low-frequency field partitioning the world into monster-difficulty
+    // regions. Lower = broader level bands. Sampled per spawn by
+    // WorldGen.ComputeMobLevel.
+    [Export] public float mobLevelNoiseFrequency = 0.02f;
+    // How sharply monster levels vary across the world: the noise magnitude that
+    // maps to a full level step. The raw Perlin field (2-octave FBm) only spans
+    // ~±0.55 (std ~0.18) and clusters near 0, so the noise is divided by this and
+    // clamped before banding — SMALLER = bands pile toward the extremes, LARGER =
+    // most of the world sits mid-level. The default is tuned WITH mobLevelSurfaceMax
+    // below to spread surface levels ~evenly (~25% each across {0,1,2,3}); the
+    // even-spread value depends on the band count, so re-measure with
+    // tools/mob_level_noise_probe.gd if you change mobLevelSurfaceMax or the octaves.
+    [Export(PropertyHint.Range, "0.05,1,0.01")] public float mobLevelNoiseSpread = 0.22f;
+    // Highest level a surface region reaches from the noise field alone (before
+    // the underground bonus). The [0,1] field is scaled to [0, this+1) and floored,
+    // so this is the top band index. 3 → surface levels {0,1,2,3}; the underground
+    // bonus then reaches mobLevelMax (4). Retune mobLevelNoiseSpread if you change it.
+    [Export(PropertyHint.Range, "0,4,1")] public int mobLevelSurfaceMax = 3;
+    // Flat level bonus added to any monster spawned underground (a solid ceiling
+    // within MobLevelUndergroundProbe voxels overhead), on top of the surface level.
+    [Export(PropertyHint.Range, "0,4,1")] public int mobLevelUndergroundBonus = 1;
+    // Voxels to scan straight up from a spawn before giving up on finding a
+    // ceiling — a solid voxel within this window marks the spawn underground.
+    [Export] public int mobLevelUndergroundProbe = 24;
+    // Absolute cap on monster level after noise + underground bonus + the
+    // descriptor's authored base. Each level doubles health/armor/damage (2^level),
+    // so keep this small.
+    [Export(PropertyHint.Range, "0,4,1")] public int mobLevelMax = 4;
 }

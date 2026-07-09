@@ -28,6 +28,7 @@ public static class EntitySerializer
         BuriedSpot = 16,
         Tent = 17,
         Forge = 18,
+        HealingFountain = 19,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -212,6 +213,11 @@ public static class EntitySerializer
                 // .recruitTemplate): a standalone PlayerState .tres, resource
                 // ref, may be null. Appended last so older world files still parse.
                 WriteResource(w, mob.RecruitTemplate);
+                // Difficulty tier (MobDescriptor.level + worldgen level field).
+                // Scales health/armor/damage by 2^Level, so it must persist or a
+                // reloaded mob would revert to base stats. Appended last so older
+                // world files still parse.
+                w.Write(mob.Level);
                 break;
 
             case DoorSimState door:
@@ -363,7 +369,14 @@ public static class EntitySerializer
                 WriteVec3(w, forge.WorldPosition);
                 WriteScene(w, forge.Scene);
                 w.Write(forge.Level);
-                w.Write(forge.ReactivateMs);
+                w.Write(forge.ReactivateDay);
+                break;
+
+            case HealingFountainSimState fountain:
+                w.Write((byte)Tag.HealingFountain);
+                WriteVec3(w, fountain.WorldPosition);
+                WriteScene(w, fountain.Scene);
+                w.Write(fountain.ReactivateDay);
                 break;
 
             default:
@@ -539,6 +552,7 @@ public static class EntitySerializer
                     mob.IdleAnimation = idleAnimation;
                 }
                 mob.RecruitTemplate = recruitTemplate;
+                mob.Level = r.ReadInt32();
                 return mob;
             }
             case Tag.Door:
@@ -700,10 +714,19 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 int level = r.ReadInt32();
-                ulong reactivateMs = r.ReadUInt64();
+                int reactivateDay = r.ReadInt32();
                 var forge = new ForgeSimState(pos, scene, level);
-                forge.ReactivateMs = reactivateMs;
+                forge.ReactivateDay = reactivateDay;
                 return forge;
+            }
+            case Tag.HealingFountain:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                int reactivateDay = r.ReadInt32();
+                var fountain = new HealingFountainSimState(pos, scene);
+                fountain.ReactivateDay = reactivateDay;
+                return fountain;
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");
@@ -816,8 +839,8 @@ public static class EntitySerializer
     }
 
     // ItemState wire format: ItemData resource path + the base ItemState fields
-    // (stackCount, cooldownExpireMs, cooldownDurationMs, touched, removeTimeMs,
-    // ephemeral, level). Polymorphic subclass fields (WeaponState.ammo,
+    // (stackCount, cooldownExpireMs, cooldownDurationMs, touched, removeOnDay,
+    // level). Polymorphic subclass fields (WeaponState.ammo,
     // ConsumableState.isActive) are not preserved — items round-trip through
     // ItemData.CreateState() which resets them to authored defaults. Extend
     // this when player Inventory persistence lands and subclass state needs
@@ -834,8 +857,7 @@ public static class EntitySerializer
         w.Write(item.cooldownExpireMs);
         w.Write(item.cooldownDurationMs);
         w.Write(item.touched);
-        w.Write(item.removeTimeMs);
-        w.Write(item.ephemeral);
+        w.Write(item.removeOnDay);
         w.Write(item.level);
     }
 
@@ -855,8 +877,7 @@ public static class EntitySerializer
         ulong cooldownExpireMs = r.ReadUInt64();
         ulong cooldownDurationMs = r.ReadUInt64();
         bool touched = r.ReadBoolean();
-        ulong removeTimeMs = r.ReadUInt64();
-        bool ephemeral = r.ReadBoolean();
+        int removeOnDay = r.ReadInt32();
         int level = r.ReadInt32();
         if (data == null)
         {
@@ -867,8 +888,7 @@ public static class EntitySerializer
         state.cooldownExpireMs = cooldownExpireMs;
         state.cooldownDurationMs = cooldownDurationMs;
         state.touched = touched;
-        state.removeTimeMs = removeTimeMs;
-        state.ephemeral = ephemeral;
+        state.removeOnDay = removeOnDay;
         state.level = level;
         return state;
     }

@@ -168,10 +168,11 @@ public partial class WorldMapScreen : Control
 				_labels[region] = label;
 			}
 
-			// Show a region label only once it's been recorded at a campfire —
-			// field discoveries stay hidden (in the active member's provisional
-			// store) until banked, matching the exploration fog-of-war split.
-			bool show = ws.SimState.IsRegionBanked(region);
+			// Show a region label once it's on the world map: banked at a
+			// campfire, OR captured in the frozen tree-climb scout snapshot
+			// (field-discovered regions graduate onto the world map when the
+			// player scouts from a tree, and stay frozen there until banked).
+			bool show = ws.SimState.IsRegionShownOnWorldMap(region);
 			label.Visible = show;
 			if (!show)
 			{

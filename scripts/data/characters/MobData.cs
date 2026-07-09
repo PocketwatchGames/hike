@@ -238,7 +238,11 @@ public partial class MobData : Resource
     // consulted for revivable mobs (tameLoyalty > 0).
     [Export] public float reviveHealthCost = 0f;
     [Export] public float armorRechargeDelay = 6f;
-    [Export] public float armorRechargeSpeed = 1f;
+    // Seconds for the armor pool to refill from empty to full maxArmor. The
+    // per-tick rate is derived as maxArmor / armorRechargeTime, so a mob whose
+    // maxArmor is scaled up (e.g. by level) still refills in this same time
+    // rather than proportionally slower. 0 = armor never recharges.
+    [Export] public float armorRechargeTime = 10f;
     [Export] public float armorRecoverTime = 30f;
     // Inherent stat modifiers. Composed with active StatusEffectData.
     // modifiers when the actor queries any stat. Damage / armor penetration / blunt /
@@ -288,14 +292,14 @@ public partial class MobData : Resource
     [Export] public StatusEffectData dugUpStun;
 
     [ExportGroup("Audio")]
-    // Time-of-day window (normalized [0,1): 0 = midnight, 0.25 = sunrise,
-    // 0.5 = noon, 0.75 = sunset) during which this mob plays its idle anim-
-    // audio loop (the _idleLoopFx chirp/hum). Outside the window the idle
-    // loop is suppressed — a sparrow set to 0.15..0.65 chirps from before
-    // dawn to early afternoon and falls silent the rest of the day. When
-    // Start == End the window is the whole day (always active, the default).
-    // Start > End wraps past midnight (e.g. a nocturnal mob at 0.75..0.25).
-    // Only the idle loop is gated; the idle animation itself still plays.
+    // Time-of-day window on the awake day (normalized [0,1]: 0 = sunrise,
+    // 1/3 = noon, 2/3 = sunset, 1 = midnight) during which this mob plays its
+    // idle anim-audio loop (the _idleLoopFx chirp/hum). Outside the window the
+    // idle loop is suppressed — a sparrow set to 0.0..0.6 chirps from sunrise
+    // to late afternoon and falls silent the rest of the day. When Start == End
+    // the window is the whole day (always active, the default). Start > End wraps
+    // (e.g. a nocturnal mob at 2/3..1 = sunset to midnight is simplest without a
+    // wrap). Only the idle loop is gated; the idle animation itself still plays.
     [Export(PropertyHint.Range, "0,1,0.001")] public float idleLoopStartTimeOfDay = 0f;
     [Export(PropertyHint.Range, "0,1,0.001")] public float idleLoopEndTimeOfDay = 0f;
     // Blended rainAmount (0..1) above which the idle anim-audio loop falls
@@ -379,6 +383,16 @@ public partial class MobData : Resource
     // biome variants (e.g. swamp vs desert goblin) without a unique model each.
     // Null = use the authored textures as-is. See MobPalette / ModelAnimator.
     [Export] public MobPalette palette;
+    // Mesh node names that take the shared per-level difficulty tint at spawn (a
+    // spider's "Eyes_LP", a drake's "Eyes", a goblin's armor) — the species-side
+    // half of the level tell: the color is global (GameClient.mobLevelColors,
+    // keyed by Level) while WHICH meshes wear it is authored per species here.
+    // Applied on top of `palette` (biome recolors the body, this flat-replaces
+    // the accent), so it stays consistent across every biome variant without
+    // duplicating an entry into each one. Always a flat replace so the tier color
+    // reads exactly, regardless of the mesh's source texture. Empty = no level
+    // tell for this species.
+    [Export] public string[] levelColorMeshNames = System.Array.Empty<string>();
     // How strongly the mob's visual model pitches to follow the ground slope
     // under it. The model's up vector is slerped from world-up toward the local
     // ground normal by this fraction, taking only the tilt along the facing

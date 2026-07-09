@@ -90,7 +90,7 @@ public partial class MapMarkerOverlay : Control
         // sweep; the minimap (provisional) overlay is never gated.
         Minimap minimap = IncludeProvisional ? null : _gameClient?.World?.Minimap;
         System.Collections.Generic.IEnumerable<MapMarkerRecord> markers =
-            IncludeProvisional ? sim.EnumerateMarkers() : sim.EnumerateBankedMarkers();
+            IncludeProvisional ? sim.EnumerateMarkers() : sim.EnumerateWorldMapMarkers();
         foreach (MapMarkerRecord record in markers)
         {
             if (record == null || record.Level < EMapMarkerLevel.Sensed)
@@ -156,9 +156,35 @@ public partial class MapMarkerOverlay : Control
                 : record.IconModulate;
         }
         modulate.A *= revealAlpha;
+
+        // Forge markers: swap in the icon for the slot the forge currently offers
+        // (resolved identically to the in-world floating model, so map and world
+        // agree) and stamp its level. Resolvable while the chunk is unloaded — the
+        // slot comes from the global upgrade pool + the always-resident forge cache.
+        int forgeLevel = 0;
+        if (identified && sim.TryGetForgeMarker(record.WorldPosition, out ForgeMarkerInfo forge))
+        {
+            forgeLevel = forge.Level;
+            SimData simData = World.Current?.SimData;
+            if (simData != null)
+            {
+                int today = World.Current?.DayNumber ?? 0;
+                StatusEffectData offered = ForgeOffer.Resolve(simData.forgeUpgrades, record.WorldPosition, today, forge.ReactivateDay);
+                Texture2D slotIcon = simData.GetForgeSlotIcon(offered?.upgradeSlot ?? EUpgradeSlot.None);
+                if (slotIcon != null)
+                {
+                    tex = slotIcon;
+                }
+            }
+        }
+
         if (tex != null)
         {
             DrawTextureRect(tex, new Rect2(-half, -half, IconSize, IconSize), false, modulate);
+            if (forgeLevel > 0)
+            {
+                DrawLevelBadge(forgeLevel, half, revealAlpha);
+            }
             return;
         }
         // Placeholder until art is wired.
@@ -175,5 +201,22 @@ public partial class MapMarkerOverlay : Control
             DrawString(font, new Vector2(-sz.X * 0.5f, sz.Y * 0.35f), "?",
                 HorizontalAlignment.Left, -1, fs, new Color(0.9f, 0.9f, 0.9f, revealAlpha));
         }
+    }
+
+    // Stamp a small level number at the icon's bottom-right corner, with a dark
+    // drop-shadow for legibility over any map ground. Used by forge markers.
+    private void DrawLevelBadge(int level, float half, float alpha)
+    {
+        Font font = GetThemeDefaultFont();
+        if (font == null)
+        {
+            return;
+        }
+        int fs = Mathf.Max(8, Mathf.RoundToInt(IconSize * 0.6f));
+        string txt = level.ToString();
+        Vector2 sz = font.GetStringSize(txt, HorizontalAlignment.Left, -1, fs);
+        Vector2 pos = new Vector2(half - sz.X + 1f, half + sz.Y * 0.15f);
+        DrawString(font, pos + new Vector2(1f, 1f), txt, HorizontalAlignment.Left, -1, fs, new Color(0f, 0f, 0f, alpha));
+        DrawString(font, pos, txt, HorizontalAlignment.Left, -1, fs, new Color(1f, 1f, 1f, alpha));
     }
 }

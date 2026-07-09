@@ -96,6 +96,10 @@ public partial class MobSpawnEntry : SpawnEntryData
         {
             return;
         }
+        // Layer the per-area worldgen level field (and underground bonus) onto
+        // the descriptor's authored base level. Scales health/armor/damage by
+        // 2^Level and drives the HUD pips.
+        state.Level = WorldGen.ComputeMobLevel(ws, position, descriptor.level);
         state.SpawnConditions = spawnConditions;
         if (initialBehavior != null && (string)initialBehavior != ""
             && rng.NextDouble() < initialBehaviorChance)

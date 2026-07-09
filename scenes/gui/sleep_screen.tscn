@@ -11,8 +11,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_sleep")
 _oneHourButton = NodePath("HBoxContainer/MarginContainer/VBoxContainer/Button")
-_sixHourButton = NodePath("HBoxContainer/MarginContainer/VBoxContainer/Button2")
-_untilHealedButton = NodePath("HBoxContainer/MarginContainer/VBoxContainer/Button3")
+_sixHourButton = NodePath("")
+_untilHealedButton = NodePath("")
 _untilSunButton = NodePath("HBoxContainer/MarginContainer/VBoxContainer/Button4")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1209401613]
@@ -34,21 +34,13 @@ layout_mode = 2
 text = "Sleep"
 horizontal_alignment = 1
 
-[node name="Button" type="Button" parent="HBoxContainer/MarginContainer/VBoxContainer" unique_id=135189955]
-layout_mode = 2
-text = "1 Hour"
-
-[node name="Button2" type="Button" parent="HBoxContainer/MarginContainer/VBoxContainer" unique_id=1132149196]
-layout_mode = 2
-text = "6 Hours"
-
-[node name="Button3" type="Button" parent="HBoxContainer/MarginContainer/VBoxContainer" unique_id=1517081718]
-layout_mode = 2
-text = "Until Healed"
-
 [node name="Button4" type="Button" parent="HBoxContainer/MarginContainer/VBoxContainer" unique_id=148784379]
 layout_mode = 2
-text = "Until Sunrise"
+text = "Sleep Until Sunrise"
+
+[node name="Button" type="Button" parent="HBoxContainer/MarginContainer/VBoxContainer" unique_id=135189955]
+layout_mode = 2
+text = "Rest 1 Hour"
 
 [node name="MarginContainer2" type="MarginContainer" parent="HBoxContainer" unique_id=971149405]
 custom_minimum_size = Vector2(400, 0)

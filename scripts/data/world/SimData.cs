@@ -83,11 +83,35 @@ public partial class SimData : Resource
     // however many viable boons remain).
     [Export] public BoonData fairyBoonGold;
 
-    // Weapon/armor pool a Forge draws its offered items from. Each pick is
-    // minted at the forge's level as an ephemeral (sunrise-expiring) piece and
-    // equipped on selection. Centralized here so the pool is tuned in one place,
-    // mirroring the fairy-boon pool above. Empty = the forge offers nothing.
-    [Export] public Array<ItemData> forgeItems = new();
+    // Upgrade pool a Forge draws its single offered upgrade from. Each entry is a
+    // slot-locked StatusEffectData (upgradeSlot != None) applied at the forge's
+    // level and expiring at the next sunrise (author with durationType TimeOfDay).
+    // A given forge deterministically offers one of these per day. Centralized here
+    // so the pool is tuned in one place, mirroring the fairy-boon pool above.
+    // Empty = the forge offers nothing.
+    [Export] public Array<StatusEffectData> forgeUpgrades = new();
+
+    // Map / minimap marker icons for a forge, chosen by the slot it currently
+    // offers (sword / bow / shield / helmet). The forge marker draws one of these
+    // instead of a generic forge icon so the player can read the offered slot from
+    // the map. Null leaves the marker's default icon.
+    [Export] public Texture2D forgeMeleeIcon;
+    [Export] public Texture2D forgeRangedIcon;
+    [Export] public Texture2D forgeArmorIcon;
+    [Export] public Texture2D forgeHelmetIcon;
+
+    // The map icon for a forge offering the given upgrade slot (null if unmapped).
+    public Texture2D GetForgeSlotIcon(EUpgradeSlot slot)
+    {
+        return slot switch
+        {
+            EUpgradeSlot.Melee => forgeMeleeIcon,
+            EUpgradeSlot.Ranged => forgeRangedIcon,
+            EUpgradeSlot.Armor => forgeArmorIcon,
+            EUpgradeSlot.Helmet => forgeHelmetIcon,
+            _ => null,
+        };
+    }
 
     // Shared interactive verbs auto-injected on any mob whose runtime
     // SimState carries a Conversation. Authored here once so adding a new
@@ -141,15 +165,12 @@ public partial class SimData : Resource
     // The time_scale CVar multiplies this advancement for fast-forward testing.
     [Export] public float dayLengthSeconds = 600f;
 
-    // Normalized time the world starts at: 0 = midnight, 0.25 = sunrise,
-    // 0.5 = noon, 0.75 = sunset. Applied when a fresh game is started.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float initialTimeOfDay = 0.3f;
-
-    // Normalized time-of-day of sunrise / sunset (0 = midnight, 0.5 = noon).
-    // Daytime is [SunriseTimeOfDay, SunsetTimeOfDay); the camp screen's "Until
-    // Sunrise/Sunset" rest reads these to pick its label and target time.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float sunriseTimeOfDay = 0.25f;
-    [Export(PropertyHint.Range, "0,1,0.001")] public float sunsetTimeOfDay = 0.75f;
+    // Normalized time the awake day starts at: 0 = sunrise, 1/3 = noon,
+    // 2/3 = sunset, 1 = midnight. Applied when a fresh game is started; a small
+    // value starts the player just after dawn. Sunrise/noon/sunset/midnight
+    // positions themselves are fixed constants on WorldState (the clock's shape),
+    // not authored here.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float initialTimeOfDay = 0.05f;
 
     // Sun's elevation above the horizon at noon. 90 = sun passes through
     // zenith; lower values produce a shallower arc (higher-latitude look).

@@ -28,6 +28,17 @@ public partial class MobHUD : Node2D
 	// rides the bar's visibility — it shows exactly when the badged mob's health
 	// bar is on screen. Hidden (and untextured) for mobs with no badge.
 	[Export] private TextureRect _eliteStatusIcon;
+	// Difficulty pips: one shown per mob level (Level+1 total). The strip rides
+	// the same perceived/on-screen visibility as the status-effect strip below.
+	[Export] private Control _levelContainer;
+	[Export] private Godot.Collections.Array<TextureRect> _levelPips;
+	// Pips fan out along a downward arc ("smile") centered on the HUD circle, so
+	// the row stays symmetric no matter how many are lit. Radius is in the (scale-1)
+	// circle's space; the container is scaled each frame to match the circle's
+	// display scale (see _Process), so the pips ride the circle's edge.
+	[Export] private float _pipArcRadius = 20f;
+	// Angular gap between adjacent pips (the total fan = this × (count − 1)).
+	[Export(PropertyHint.Range, "0,90,1")] private float _pipArcSpacingDegrees = 32f;
 
 	// One icon per active StatusEffectState — multiple stacks of the same data
 	// show as multiple icons side-by-side. New entries play the intro animation
@@ -42,6 +53,9 @@ public partial class MobHUD : Node2D
 	Mob _mob;
 	float _curScale;
 	float _curAlpha;
+	// Whether this mob shows level pips at all — dangerous mobs (combat threats)
+	// only. Companions, villagers, and prey never surface them. Fixed at spawn.
+	bool _showLevelPips;
 
 	public static void Create(PackedScene scene, Camera3D camera, Mob mob, Node parent)
 	{
@@ -71,12 +85,67 @@ public partial class MobHUD : Node2D
 				_eliteStatusIcon.Texture = badge;
 			}
 		}
+		// Level pips are fixed at spawn (Level is immutable), so light up Level+1
+		// of them once here; the container's on-screen visibility is toggled in
+		// _Process. Only dangerous mobs show them at all.
+		_showLevelPips = _mob.mobData?.dangerous ?? false;
+		if (_levelPips != null)
+		{
+			int pipCount = _mob.Level + 1;
+			for (int i = 0; i < _levelPips.Count; i++)
+			{
+				if (_levelPips[i] != null)
+				{
+					_levelPips[i].Visible = i < pipCount;
+				}
+			}
+			LayoutPipArc(pipCount);
+		}
+		// Hidden until _Process places the root and resolves on-screen visibility;
+		// otherwise the lit pips flash at the screen's top-left (the root's default
+		// (0,0) position) for the frame before the first _Process runs. Matches how
+		// _bars is hidden at spawn below.
+		if (_levelContainer != null)
+		{
+			_levelContainer.Visible = false;
+		}
 		_mob.TreeExiting += QueueFree;
 		_curScale = 0f;
 		_curAlpha = 0f;
 		_bars.Visible = false;
 		_bars.Scale = Vector2.Zero;
 		_bars.Modulate = new Color(1f, 1f, 1f, 0f);
+	}
+
+	// Spreads the `count` visible pips evenly across a downward arc, centered on
+	// straight-down so the row is symmetric for any count. Positions are local to
+	// the pip container, so they scale with a scaled ancestor. Called once at
+	// spawn (pip count is immutable).
+	void LayoutPipArc(int count)
+	{
+		if (_levelPips == null || count <= 0)
+		{
+			return;
+		}
+		float step = Mathf.DegToRad(_pipArcSpacingDegrees);
+		// Screen +Y is down, so straight-down is +90°; pips fan out around it. The
+		// fan is (count-1) gaps wide, so start half of it left of center (a single
+		// pip gets a zero-wide fan and lands dead-center).
+		const float centerAngle = Mathf.Pi * 0.5f;
+		float startAngle = centerAngle - step * (count - 1) * 0.5f;
+		for (int i = 0; i < count && i < _levelPips.Count; i++)
+		{
+			TextureRect pip = _levelPips[i];
+			if (pip == null)
+			{
+				continue;
+			}
+			float angle = startAngle + step * i;
+			Vector2 arcCenter = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _pipArcRadius;
+			// TextureRect.Position is its top-left; offset by half its size to
+			// center the pip on the arc point.
+			pip.Position = arcCenter - pip.CustomMinimumSize * 0.5f;
+		}
 	}
 
 	public override void _Process(double delta)
@@ -132,19 +201,24 @@ public partial class MobHUD : Node2D
 		// the perception/health bar happens to be on screen this tick. As a
 		// direct child of the (unscaled, unmodulated) root they ride their
 		// authored offset and are untouched by the _bars fade below.
+		bool perceivedOnScreen = !behindCamera && _mob.alive && _mob.playerPerceptionState != EPlayerPerceptionState.Hidden;
 		if (_statusEffectContainer != null)
 		{
-			bool statusVisible = !behindCamera && _mob.alive && _mob.playerPerceptionState != EPlayerPerceptionState.Hidden;
-			_statusEffectContainer.Visible = statusVisible;
-			if (statusVisible)
+			_statusEffectContainer.Visible = perceivedOnScreen;
+			if (perceivedOnScreen)
 			{
 				UpdateStatusEffects();
 			}
 		}
+		bool statusStripShowing = perceivedOnScreen && _statusEffectIcons.Count > 0;
 
 		if (behindCamera)
 		{
 			_bars.Visible = false;
+			if (_levelContainer != null)
+			{
+				_levelContainer.Visible = false;
+			}
 			return;
 		}
 
@@ -194,6 +268,24 @@ public partial class MobHUD : Node2D
 		}
 
 		bool anyBarVisible = _discoveryBar.Visible || _perceptionBar.Visible || _healthBar.Visible;
+
+		// Level pips (dangerous mobs only) show only alongside another HUD
+		// element — any perception/health/discovery bar or a live status icon —
+		// so they never float over the mob on their own. Set here (after bar
+		// visibility resolves) rather than at the fade tail so they track the
+		// logical bar state, not the fade-out.
+		if (_levelContainer != null)
+		{
+			_levelContainer.Visible = _showLevelPips && perceivedOnScreen && (anyBarVisible || statusStripShowing);
+			// Match the circle's steady display scale so the arc rides its edge. Use
+			// the target scale (Detected → PerceptionScale, else hudScale), not the
+			// animating _curScale, so the pips stay full-size instead of riding the
+			// fade — and stay non-zero when only the status strip is up (no bar).
+			float pipScale = _mob.playerPerceptionState == EPlayerPerceptionState.Detected
+				? PerceptionScale
+				: (_mob.mobData?.hudScale ?? 1f);
+			_levelContainer.Scale = new Vector2(pipScale, pipScale);
+		}
 
 		// Hostile mobs show perception + health together as soon as perception
 		// ticks above 0 — health bar visibility alone doesn't mean "discovered",

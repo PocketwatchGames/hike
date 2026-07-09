@@ -7,6 +7,11 @@ public interface IInteractive
     bool CanInteract();
     bool CanActorInteract(Player player);
 
+    // Power tier shown as star pips on the interact HUD, mirroring the mob HUD's
+    // level fan. 0 (default) = no pips; the forge overrides it with its level
+    // (1-5). Purely presentational.
+    int InteractLevel => 0;
+
     // Whether the discovery X-ray silhouette should currently render (driven by
     // InteractiveXray's LOS probe). Defaults to CanInteract() — an interactive
     // the player can no longer act on isn't worth highlighting through walls, so

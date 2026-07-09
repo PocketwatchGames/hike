@@ -138,6 +138,12 @@ public class MobSimState : EntitySimState
     // a plain flag; the signature effect + HUD badge ride StatusEffects / Badge
     // below.
     public bool Elite;
+    // Difficulty tier, stamped at spawn (MobDescriptor.level plus the worldgen
+    // level field — see WorldGen.ComputeMobLevel). Each level doubles the mob's
+    // health, armor, and outgoing damage (2^Level, applied by Mob) and shows as
+    // Level+1 pips on the HUD. 0 = base. Persisted via EntitySerializer so the
+    // scaled vitals stay consistent across chunk eviction and save/load.
+    public int Level;
     // The species variant this mob IS — the bestiary identity (discovery /
     // kill-leveling key, see WorldSimState.DiscoveredSpecies) and the source of
     // its recolor / loot / per-variant stat modifiers. Stamped from

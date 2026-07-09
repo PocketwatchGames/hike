@@ -29,6 +29,7 @@
 [ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/world_gen/party/mischa.tres" id="60_mischa"]
 [ext_resource type="Resource" uid="uid://vlhadu2uwy1q" path="res://resources/data/world_gen/party/rowan.tres" id="61_rowan"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="62_forge"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
 
 [sub_resource type="Resource" id="Resource_know_potion"]
 script = ExtResource("3_itemteach")
@@ -227,5 +228,7 @@ regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), Ext
 pointsOfInterestPlacements = [SubResource("Poi_crossroads"), SubResource("Poi_mountain"), SubResource("Poi_desert"), SubResource("Poi_swamp"), SubResource("Poi_forest")]
 roads = [SubResource("Road_mountain"), SubResource("Road_forest"), SubResource("Road_desert"), SubResource("Road_swamp"), SubResource("Road_forest_desert")]
 forge = ExtResource("62_forge")
+healingFountain = ExtResource("63_fountain")
+healingFountainCount = 3
 startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]
 initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_potion")])

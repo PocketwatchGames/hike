@@ -5,8 +5,9 @@
 [ext_resource type="Texture2D" uid="uid://o5hwqlxrrmty" path="res://assets/textures/gui/mob_hud_bg.png" id="3_uqyid"]
 [ext_resource type="Texture2D" uid="uid://dhp4qjqqs0pcx" path="res://assets/textures/interactives/goblin.png" id="4_wbs0u"]
 [ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="5_j6560"]
+[ext_resource type="Texture2D" uid="uid://c724fln4nwxjb" path="res://assets/textures/gui/mob_hud_level_star.png" id="6_lvlstar"]
 
-[node name="InteractHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_interactTimer", "_holdTimer", "_icon", "_holdContainer", "_interactOptionsParent", "_interactOptionsContainer")]
+[node name="InteractHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_interactTimer", "_holdTimer", "_icon", "_holdContainer", "_interactOptionsParent", "_interactOptionsContainer", "_levelContainer", "_levelPips")]
 script = ExtResource("1_kuoe4")
 _interactTimer = NodePath("MarginContainer/HBoxContainer/MarginContainer/TextureRect/TextureProgressBar")
 _holdTimer = NodePath("MarginContainer/HBoxContainer/MarginContainer/MarginContainer/ProgressBar")
@@ -15,6 +16,8 @@ _holdContainer = NodePath("MarginContainer/HBoxContainer/MarginContainer/MarginC
 _interactOptionsParent = NodePath("MarginContainer/HBoxContainer/PanelContainer")
 _interactOptionsContainer = NodePath("MarginContainer/HBoxContainer/PanelContainer/MarginContainer/VBoxContainer")
 _interactOptionScene = ExtResource("2_73lh7")
+_levelContainer = NodePath("Level")
+_levelPips = [NodePath("Level/Star1"), NodePath("Level/Star2"), NodePath("Level/Star3"), NodePath("Level/Star4"), NodePath("Level/Star5")]
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=10288936]
 anchors_preset = 7
@@ -116,3 +119,46 @@ theme_override_constants/margin_bottom = 3
 
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/PanelContainer/MarginContainer" unique_id=5581626]
 layout_mode = 2
+
+[node name="Level" type="Control" parent="."]
+mouse_filter = 2
+
+[node name="Star1" type="TextureRect" parent="Level"]
+custom_minimum_size = Vector2(24, 24)
+offset_right = 24.0
+offset_bottom = 24.0
+texture = ExtResource("6_lvlstar")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star2" type="TextureRect" parent="Level"]
+custom_minimum_size = Vector2(24, 24)
+offset_right = 24.0
+offset_bottom = 24.0
+texture = ExtResource("6_lvlstar")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star3" type="TextureRect" parent="Level"]
+custom_minimum_size = Vector2(24, 24)
+offset_right = 24.0
+offset_bottom = 24.0
+texture = ExtResource("6_lvlstar")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star4" type="TextureRect" parent="Level"]
+custom_minimum_size = Vector2(24, 24)
+offset_right = 24.0
+offset_bottom = 24.0
+texture = ExtResource("6_lvlstar")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star5" type="TextureRect" parent="Level"]
+custom_minimum_size = Vector2(24, 24)
+offset_right = 24.0
+offset_bottom = 24.0
+texture = ExtResource("6_lvlstar")
+expand_mode = 1
+stretch_mode = 5

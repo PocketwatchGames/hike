@@ -502,6 +502,34 @@ public class MinimapTextures
         _explorationBankedDirty = true;
     }
 
+    // Fold a member's outdoor field reveal into the WORLD MAP's display buffer as
+    // a one-shot snapshot (per-pixel max) — the tree-climb scout. The perched
+    // wide reveal graduates onto the world map immediately (and stays frozen
+    // there, since normal walking reveal only writes the minimap's _exploration),
+    // without waiting for a campfire bank. A later RebuildExploration reseeds this
+    // buffer from the party pool, at which point a banked snapshot persists.
+    public void MergeActiveIntoBanked(byte[] activeOutdoor)
+    {
+        if (activeOutdoor == null)
+        {
+            return;
+        }
+        int n = System.Math.Min(_explorationBanked.Length, activeOutdoor.Length);
+        bool changed = false;
+        for (int i = 0; i < n; i++)
+        {
+            if (activeOutdoor[i] > _explorationBanked[i])
+            {
+                _explorationBanked[i] = activeOutdoor[i];
+                changed = true;
+            }
+        }
+        if (changed)
+        {
+            _explorationBankedDirty = true;
+        }
+    }
+
     // Normalized (0..1) world-map reveal value at world XZ — same world→pixel
     // mapping as IsRevealed, reading the banked display buffer. Out-of-bounds reads
     // as 0. Lets world-map marker icons fade in with their ground during the

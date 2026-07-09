@@ -96,8 +96,15 @@ varying vec3 local_pos;
 varying float side_uv;
 varying float is_billboard;
 varying vec2 line_uv;
+// Explicitly forward the per-vertex COLOR to the fragment stage. The arc ribbon
+// (an ImmediateMesh) carries its fade-in/out in COLOR.a; reading COLOR directly
+// in fragment() dropped it to 0 (invisible ribbon), so pass it through a named
+// varying. Meshes without vertex colors supply COLOR = (1,1,1,1), so this stays
+// a no-op for the lines / ground ring.
+varying vec4 v_vertex_color;
 
 void vertex() {
+	v_vertex_color = COLOR;
 	if (line_width_world > 0.0) {
 		float t = VERTEX.y + 0.5;
 		float side = VERTEX.x * 2.0;
@@ -217,7 +224,8 @@ void fragment() {
 	}
 
 	ALBEDO = out_rgb;
-	// COLOR.a carries the arc ribbon's per-vertex fade (in/out). Meshes without
-	// vertex colors get COLOR = (1,1,1,1), so this is a no-op for them.
-	ALPHA = alpha * alpha_multiplier * COLOR.a;
+	// v_vertex_color.a carries the arc ribbon's per-vertex fade (in/out), forwarded
+	// from the vertex stage. Meshes without vertex colors get (1,1,1,1), so this is
+	// a no-op for them.
+	ALPHA = alpha * alpha_multiplier * v_vertex_color.a;
 }

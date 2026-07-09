@@ -58,17 +58,19 @@ public static class StatFormat
 		}
 	}
 
-	// Localized name for a normalized time-of-day. The four cardinal points
-	// (matching WorldState's sunrise/noon/sunset/midnight) read as phase names;
-	// any other target falls back to a 24-hour clock string.
+	// Localized name for a normalized time-of-day on the awake-day clock (0 =
+	// sunrise, 1/3 = noon, 2/3 = sunset, 1 = midnight). The cardinal points read
+	// as phase names; any other target falls back to a 24-hour clock string,
+	// where the awake day spans 06:00 (sunrise) → 24:00 (midnight).
 	private static string TimeOfDayLabel(float timeOfDay01)
 	{
 		const float Tol = 0.01f;
-		if (Mathf.Abs(timeOfDay01 - 0.25f) < Tol) { return Loc.Get(Loc.Keys.time_of_day_sunrise); }
-		if (Mathf.Abs(timeOfDay01 - 0.5f) < Tol) { return Loc.Get(Loc.Keys.time_of_day_noon); }
-		if (Mathf.Abs(timeOfDay01 - 0.75f) < Tol) { return Loc.Get(Loc.Keys.time_of_day_sunset); }
-		if (timeOfDay01 < Tol || timeOfDay01 > 1f - Tol) { return Loc.Get(Loc.Keys.time_of_day_midnight); }
-		int totalMinutes = Mathf.RoundToInt(timeOfDay01 * 24f * 60f) % (24 * 60);
+		if (timeOfDay01 < Tol) { return Loc.Get(Loc.Keys.time_of_day_sunrise); }
+		if (Mathf.Abs(timeOfDay01 - (float)WorldState.NoonTimeOfDay01) < Tol) { return Loc.Get(Loc.Keys.time_of_day_noon); }
+		if (Mathf.Abs(timeOfDay01 - (float)WorldState.SunsetTimeOfDay01) < Tol) { return Loc.Get(Loc.Keys.time_of_day_sunset); }
+		if (timeOfDay01 > 1f - Tol) { return Loc.Get(Loc.Keys.time_of_day_midnight); }
+		// 06:00 at sunrise, +18h across the awake day to 24:00 at midnight.
+		int totalMinutes = Mathf.RoundToInt((6f + timeOfDay01 * 18f) * 60f) % (24 * 60);
 		return (totalMinutes / 60).ToString("00") + ":" + (totalMinutes % 60).ToString("00");
 	}
 

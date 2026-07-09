@@ -219,9 +219,9 @@ public partial class ItemInfoPanel : PanelContainer
 
 	private void UpdateLevelDisplay(ItemState item)
 	{
-		// Levels are composed, not earned. Only ephemeral (altar / forge) gear
-		// advertises its tier — permanent gear stays unlabeled.
-		bool showLevel = item.ephemeral;
+		// Levels are composed, not earned. Only leveled gear advertises its tier —
+		// base (level 0) gear stays unlabeled.
+		bool showLevel = item.level != 0;
 		if (_levelLabel != null)
 		{
 			_levelLabel.Visible = showLevel;

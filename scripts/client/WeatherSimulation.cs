@@ -93,163 +93,50 @@ public static class WeatherSimulation
         return dt > 0f ? -magnitude : magnitude;
     }
 
-    // Total swing magnitude of the curve over a day — used as the
-    // baseline-wind "convection" forcing. Constant 1.0 by construction
-    // (the curve spans 0..1) but kept named for readability.
-    private const float DiurnalSwingMagnitude = 1.0f;
-
-    // Number of handover events per game-day. With VarianceHours=12,
-    // returns 2 (sunrise + sunset). Other cadences distribute evenly:
-    // VarianceHours=24 → 1 (sunrise only); VarianceHours=6 → 4
-    // (sunrise / noon / sunset / midnight). Clamped to >= 1.
-    public static int HandoversPerDay(SimData sim)
+    // Fraction [0, 1] of the day→night weather crossfade at `timeOfDay01`:
+    // 0 before the sunset window opens, ramping to 1 across it (centered on
+    // SunsetTimeOfDay01), then held at 1 through the night. `slopeShape` is the
+    // SmoothStep derivative normalized to a [0, 1] peak (matches the old handover
+    // shape), so the wind "frontal kick" reads a frame-rate-independent signal.
+    // Sunrise has NO crossfade — the night→day handover happened while the player
+    // slept, so a fresh day simply starts at the day slot.
+    public static float SunsetBlend(float timeOfDay01, SimData sim, out float slopeShape)
     {
-        return Mathf.Max(1, Mathf.RoundToInt(24f / Mathf.Max(sim?.varianceHours ?? 12f, 1f)));
-    }
-
-    // Phase index whose crossfade window has STARTED at `gameDay`. Window
-    // N starts at N/hpd + 0.25 - halfWidth (i.e. the leading edge of the
-    // sunrise / sunset crossfade), so phase increments AT the start of
-    // each window. Public so the HUD weather widget can pick variance
-    // sources by phase parity without depending on
-    // WorldState.WeatherVariancePhase having been bumped this frame.
-    public static long CurrentPhase(double gameDay, SimData sim)
-    {
-        if (sim == null) { return 0; }
-        return CurrentPhase(gameDay, HandoversPerDay(sim),
-            Mathf.Max(sim.varianceCrossfadeHalfWidth01, 1e-4f));
-    }
-
-    private static long CurrentPhase(double gameDay, int hpd, float halfWidth)
-    {
-        return (long)Math.Floor((gameDay - 0.25 + halfWidth) * hpd);
-    }
-
-    // Advance one variance channel using a HANDOVER-PHASE index:
-    // - Phase N is the index of the most recently STARTED crossfade
-    //   window. Window N opens at gameDay = N/hpd + 0.25 - halfWidth
-    //   (i.e. just before sunrise / sunset), so phase increments AT
-    //   the start of each window.
-    // - When phase increments, the chain rotates: prev := cur,
-    //   cur := next, next := fresh roll. At that moment the displayed
-    //   value equals both the old `cur` (just before promotion) and
-    //   the new `prev` (just after), so the transition is continuous.
-    //   `next` always holds the variance for the UPCOMING phase, rolled
-    //   one handover early so HUD forecasts can read it before the
-    //   transition begins.
-    // - Inside the window, the displayed value smooth-steps prev → cur.
-    // - Outside the window (between the end of one and the start of
-    //   the next), the value sits at cur.
-    //
-    // Returns (value, slopePerDayFraction). The slope is 0 outside the
-    // window, peaks at the window center, and is the analytical
-    // derivative of the SmoothStep blend — used by Apply for wind /
-    // temperature transients without frame-rate-dependent diffs.
-    private static void AdvanceChannel(
-        double gameDay, int hpd, float halfWidth,
-        ref float prev, ref float cur, ref float next, ref long phaseField,
-        RandomNumberGenerator rng,
-        out float value, out float slopePerDayFraction)
-    {
-        long currentPhase = CurrentPhase(gameDay, hpd, halfWidth);
-
-        if (phaseField == long.MinValue)
+        float hw = Mathf.Max(sim?.varianceCrossfadeHalfWidth01 ?? 0.05f, 1e-4f);
+        float a0 = (float)WorldState.SunsetTimeOfDay01 - hw;
+        float a1 = (float)WorldState.SunsetTimeOfDay01 + hw;
+        float blend = Mathf.SmoothStep(a0, a1, timeOfDay01);
+        if (timeOfDay01 > a0 && timeOfDay01 < a1)
         {
-            // First call after WorldState construction — the seeded
-            // prev/cur/next triple is what's "in flight" now; just snap
-            // to the current phase without rolling.
-            phaseField = currentPhase;
-        }
-        while (phaseField < currentPhase)
-        {
-            // Rotate the pre-roll chain: prev := the value that just
-            // finished its phase, cur := the value pre-rolled one phase
-            // ahead (now the current phase's settled value), next :=
-            // freshly rolled value for the upcoming phase. The HUD
-            // weather widget consumes `next` to forecast tomorrow's
-            // day or tonight's night peak before the transition begins.
-            prev = cur;
-            cur = next;
-            next = rng.Randf();
-            phaseField++;
-        }
-
-        // Day-fraction position of the handover at the center of the
-        // current phase's window. distInWindow = 0 at window start,
-        // 2*halfWidth at window end, and grows past 2*halfWidth in the
-        // hold period before the next window opens (clamped by
-        // SmoothStep, so the displayed value sits at cur).
-        double handoverGameDay = (double)currentPhase / hpd + 0.25;
-        double windowStart = handoverGameDay - halfWidth;
-        double distInWindow = gameDay - windowStart;
-        float windowSpan = 2f * halfWidth;
-        float crossfade = Mathf.SmoothStep(0f, windowSpan, (float)distInWindow);
-        value = Mathf.Lerp(prev, cur, crossfade);
-
-        // Analytical slope of SmoothStep across [0, windowSpan]:
-        //   d/dx SmoothStep(0, w, x) = 6x(w-x) / w³, for x in [0, w], else 0.
-        // Combined with d(value)/d(crossfade) = (cur - prev), we get
-        // d(value)/d(gameDay). Normalized to a peak magnitude of 1 by
-        // dividing by 1.5 / windowSpan (the SmoothStep slope max), so
-        // the returned slope is in the same range as (cur - prev).
-        if (distInWindow > 0 && distInWindow < windowSpan)
-        {
-            float x = (float)distInWindow;
-            // 6x(w-x)/w^3 has max 1.5/w at x=w/2. Dividing by that max
-            // gives 4x(w-x)/w^2 — clean shape function in [0, 1].
-            float shape = 4f * x * (windowSpan - x) / (windowSpan * windowSpan);
-            slopePerDayFraction = (cur - prev) * shape;
+            float x = timeOfDay01 - a0;
+            float w = a1 - a0;
+            // 6x(w-x)/w³ peaks at 1.5/w; ×(w²/1.5·2/w)… normalize to 4x(w-x)/w².
+            slopeShape = 4f * x * (w - x) / (w * w);
         }
         else
         {
-            slopePerDayFraction = 0f;
+            slopeShape = 0f;
         }
+        return blend;
     }
 
-    // Advance the WorldState's variance state. Three independent
-    // channels — temperature/wind (`WeatherVariance`), humidity, and
-    // cloud cover — each with their own prev/cur/next/phase index. Rolls
-    // are tied to sunrise/sunset crossings, NOT absolute game-hours,
-    // so a roll never pops the displayed value. Channels are
-    // decoupled so a humid front doesn't have to coincide with a
-    // temperature swing. Humidity / cloud channels' effect is gated
-    // by simulated wind speed in Apply (advection model).
+    // Compute the active (sunset-crossfaded) variance for the current frame from
+    // the day/night slots pre-rolled at sunrise (WorldState.RollDailyWeather).
+    // Before sunset the DAY slot is in effect; across the sunset window it
+    // crossfades to the NIGHT slot; after, the night slot holds until the next
+    // sleep re-rolls both. WeatherVarianceSlope carries the crossfade's signed
+    // slope (day→night delta × shape) for the wind transient — nonzero only at
+    // sunset. Channels are decoupled so a humid front needn't coincide with a
+    // temperature swing; humidity/cloud effects are wind-gated in Apply.
     public static void UpdateVariance(WorldState ws, SimData sim)
     {
         if (ws == null || sim == null) { return; }
-
-        // Use TimeOfDayAbsolute (advances on the time_scale clock, in
-        // lockstep with TimeOfDay01) — NOT GameTimeMs. The variance
-        // handover boundaries must align with the actual sunrise /
-        // sunset times that the lighting cycle uses; deriving them
-        // from real time would let them drift whenever time_scale != 1
-        // or InitialTimeOfDay != 0, and a variance handover landing on
-        // top of the day/night phase blend produces a visible
-        // lighting pop.
-        double gameDay = ws.TimeOfDayAbsolute;
-        int hpd = HandoversPerDay(sim);
-        float halfWidth = Mathf.Max(sim.varianceCrossfadeHalfWidth01, 1e-4f);
-
-        AdvanceChannel(gameDay, hpd, halfWidth,
-            ref ws.WeatherVariancePrev, ref ws.WeatherVarianceCur, ref ws.WeatherVarianceNext,
-            ref ws.WeatherVariancePhase,
-            ws.WeatherRng,
-            out ws.WeatherVariance, out ws.WeatherVarianceSlope);
-        AdvanceChannel(gameDay, hpd, halfWidth,
-            ref ws.HumidityVariancePrev, ref ws.HumidityVarianceCur, ref ws.HumidityVarianceNext,
-            ref ws.HumidityVariancePhase,
-            ws.WeatherRng,
-            out ws.HumidityVariance, out ws.HumidityVarianceSlope);
-        AdvanceChannel(gameDay, hpd, halfWidth,
-            ref ws.CloudVariancePrev, ref ws.CloudVarianceCur, ref ws.CloudVarianceNext,
-            ref ws.CloudVariancePhase,
-            ws.WeatherRng,
-            out ws.CloudVariance, out ws.CloudVarianceSlope);
-        AdvanceChannel(gameDay, hpd, halfWidth,
-            ref ws.LightningVariancePrev, ref ws.LightningVarianceCur, ref ws.LightningVarianceNext,
-            ref ws.LightningVariancePhase,
-            ws.WeatherRng,
-            out ws.LightningVariance, out ws.LightningVarianceSlope);
+        float blend = SunsetBlend((float)ws.TimeOfDay01, sim, out float slopeShape);
+        ws.WeatherVariance = Mathf.Lerp(ws.DayWeatherVariance, ws.NightWeatherVariance, blend);
+        ws.HumidityVariance = Mathf.Lerp(ws.DayHumidityVariance, ws.NightHumidityVariance, blend);
+        ws.CloudVariance = Mathf.Lerp(ws.DayCloudVariance, ws.NightCloudVariance, blend);
+        ws.LightningVariance = Mathf.Lerp(ws.DayLightningVariance, ws.NightLightningVariance, blend);
+        ws.WeatherVarianceSlope = (ws.NightWeatherVariance - ws.DayWeatherVariance) * slopeShape;
     }
 
     // Rewrite weather fields in place using (zone, zone max,
@@ -263,21 +150,30 @@ public static class WeatherSimulation
     // value for every weather channel.
     public static void Apply(WeatherData weather, ZoneData zone, float elevation, WorldState ws, SimData sim)
     {
-        // Destination variances are the end-of-crossfade `Cur` values for
-        // every channel — every variance channel rotates on the same
-        // sunrise/sunset handover, so by the time the in-flight lerp
-        // commits, ALL channels are sitting at their respective Cur
-        // values. Slope is implicitly 0 at the destination (the chain
-        // has settled).
-        Apply(weather, zone, elevation, sim,
-            (float)(ws?.TimeOfDay01 ?? 0.5),
-            ws?.WeatherVariance ?? 0.5f, ws?.WeatherVarianceSlope ?? 0f,
-            ws?.HumidityVariance ?? 0.5f, ws?.CloudVariance ?? 0.5f,
-            ws?.LightningVariance ?? 0.5f,
-            ws?.WeatherVarianceCur ?? 0.5f,
-            ws?.HumidityVarianceCur ?? 0.5f,
-            ws?.CloudVarianceCur ?? 0.5f,
-            ws?.LightningVarianceCur ?? 0.5f);
+        if (ws == null)
+        {
+            Apply(weather, zone, elevation, sim, 0.5f,
+                0.5f, 0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f);
+            return;
+        }
+        float tod = (float)ws.TimeOfDay01;
+        float hw = Mathf.Max(sim?.varianceCrossfadeHalfWidth01 ?? 0.05f, 1e-4f);
+        // Destination = the slot we're settling INTO: the day slot before the
+        // sunset window opens, the night slot once it has — so the storm gate
+        // (destinationLightningAmount) reads the stable target rather than a
+        // mid-crossfade blip.
+        bool headingNight = tod >= (float)WorldState.SunsetTimeOfDay01 - hw;
+        float destWeather = headingNight ? ws.NightWeatherVariance : ws.DayWeatherVariance;
+        float destHumidity = headingNight ? ws.NightHumidityVariance : ws.DayHumidityVariance;
+        float destCloud = headingNight ? ws.NightCloudVariance : ws.DayCloudVariance;
+        float destLightning = headingNight ? ws.NightLightningVariance : ws.DayLightningVariance;
+        // The inner overload's timeOfDay01 feeds only DiurnalCurve, which is
+        // authored in orbit-phase (peak at noon = 0.5), so pass the remapped
+        // phase rather than the raw awake-day tod.
+        Apply(weather, zone, elevation, sim, (float)WorldState.OrbitPhase01(tod),
+            ws.WeatherVariance, ws.WeatherVarianceSlope,
+            ws.HumidityVariance, ws.CloudVariance, ws.LightningVariance,
+            destWeather, destHumidity, destCloud, destLightning);
     }
 
     // Fully-explicit overload used by the HUD weather widget. Lets the

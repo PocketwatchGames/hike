@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+
+[sub_resource type="Resource" id="m_vision"]
+script = ExtResource("3_mod")
+stat = 16384
+value = 1.25
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Keen Eye"
+description = "Sharpens your sight for the day, extending how far you can pick out targets until sunrise."
+upgradeSlot = 2
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = Array[ExtResource("3_mod")]([SubResource("m_vision")])
+conditionalModifiers = []

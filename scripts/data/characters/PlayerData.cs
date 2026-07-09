@@ -350,7 +350,10 @@ public partial class PlayerData : Resource
 
 	[ExportGroup("Armor")]
 	[Export] public float armorRechargeDelay = 3f;
-	[Export] public float armorRechargeSpeed = 20f;
+	// Seconds for armor to refill from empty to full (the equipped MaxArmor).
+	// The per-tick rate is derived as MaxArmor / armorRechargeTime, so the refill
+	// takes this long regardless of how much armor is equipped. 0 = never recharges.
+	[Export] public float armorRechargeTime = 3f;
 	[Export] public float armorRecoverTime = 8f;
 
 	[ExportGroup("Blood Regen")]

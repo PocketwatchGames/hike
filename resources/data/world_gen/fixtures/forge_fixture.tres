@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_forge")
 scene = ExtResource("2_scene")
-level = 1
+levelMin = 1
+levelMax = 5
 detailSuppressionRadius = 2.0
 metadata/_custom_type_script = "uid://bgfy2e17rrkux"

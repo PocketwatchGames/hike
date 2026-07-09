@@ -353,3 +353,5 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
 script = ExtResource("20_mapmarker")
 displayName = &"Climbable Tree"
 icon = ExtResource("21_mapicon")
+hasActiveState = true
+activeModulate = Color(1, 0.2, 0.2, 1)

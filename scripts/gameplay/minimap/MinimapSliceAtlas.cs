@@ -114,6 +114,23 @@ public class MinimapSliceAtlas
         }
     }
 
+    // Fold a member's per-slice field reveal into the WORLD MAP's banked display
+    // buffers as a one-shot snapshot (tree-climb scout). Only iterates already-
+    // allocated layers, matching RebuildExploration; a slice the member revealed
+    // has a layer, so nothing charted is missed.
+    public void MergeActiveIntoBanked(ExplorationMask active)
+    {
+        if (active == null)
+        {
+            return;
+        }
+        foreach (KeyValuePair<int, SliceLayer> kv in _layers)
+        {
+            byte[] a = active.Slices.TryGetValue(kv.Key, out byte[] ab) ? ab : null;
+            kv.Value.MergeActiveIntoBanked(a);
+        }
+    }
+
     public SliceLayer TryGetLayer(int sliceLevel)
     {
         _layers.TryGetValue(sliceLevel, out SliceLayer layer);
@@ -395,6 +412,30 @@ public class MinimapSliceAtlas
             }
             _explDirty = true;
             _explBankedDirty = true;
+        }
+
+        // Per-slice counterpart of MinimapTextures.MergeActiveIntoBanked — folds
+        // `active` into this slice's world-map (banked) buffer via per-pixel max.
+        public void MergeActiveIntoBanked(byte[] active)
+        {
+            if (active == null)
+            {
+                return;
+            }
+            int n = System.Math.Min(_explorationBanked.Length, active.Length);
+            bool changed = false;
+            for (int i = 0; i < n; i++)
+            {
+                if (active[i] > _explorationBanked[i])
+                {
+                    _explorationBanked[i] = active[i];
+                    changed = true;
+                }
+            }
+            if (changed)
+            {
+                _explBankedDirty = true;
+            }
         }
 
         public void Flush()

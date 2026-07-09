@@ -157,5 +157,5 @@ script = ExtResource("31_mapmarker")
 displayName = &"Campfire"
 icon = ExtResource("32_mapicon")
 hasActiveState = true
-iconModulate = Color(0.55, 0.62, 0.72, 1)
+iconModulate = Color(0.6, 0.6, 0.6, 1)
 activeModulate = Color(1, 0.62, 0.22, 1)

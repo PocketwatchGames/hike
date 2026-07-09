@@ -128,23 +128,6 @@ public class Inventory
 	// partial). The caller's ItemState reference is consumed: if fully merged
 	// into existing stacks, the original is no longer used; if it's added to
 	// the backpack, the original is what's stored.
-	// Schedule an ephemeral item's dawn expiry the first time it enters the
-	// player's possession. Only stamps on first acquisition (removeTimeMs == 0)
-	// so shuffling the item around the inventory never pushes its deadline back.
-	// No-op for ordinary items and when there's no live world clock to read.
-	private void ArmEphemeralExpiry(ItemState item)
-	{
-		if (item == null || !item.ephemeral || item.removeTimeMs != 0)
-		{
-			return;
-		}
-		World world = _owner?.World;
-		if (world != null)
-		{
-			item.removeTimeMs = world.NextSunriseMs();
-		}
-	}
-
 	// The world-scope party equipment stash — where displaced weapons / armor /
 	// equipment go when equipped over. Null before the player has a live world
 	// (never during normal play).
@@ -185,7 +168,6 @@ public class Inventory
 		// life (see ItemState.touched). Stamp before the merge so even units
 		// that fold into an existing stack count as handled.
 		item.touched = true;
-		ArmEphemeralExpiry(item);
 
 		int initialStack = item.stackCount;
 
@@ -227,6 +209,45 @@ public class Inventory
 			onChanged?.Invoke();
 		}
 		return totalAdded;
+	}
+
+	// True if `count` units of material `data` would ALL fit right now. Mirrors
+	// TryAdd's placement (fill same-kind partial stacks, then empty backpack
+	// slots) WITHOUT mutating anything — the field auto-pickup / loot-magnet gate
+	// uses it so a pickup only commits (and a loot only flies in) when the whole
+	// stack lands, never leaving a partial pile bonking the player.
+	public bool CanFullyAdd(ItemData data, int count)
+	{
+		if (data == null || !data.IsMaterial || count <= 0)
+		{
+			return false;
+		}
+		int remaining = count;
+		if (data.IsStackable)
+		{
+			foreach (ItemState existing in EnumerateAll())
+			{
+				if (existing.data != data)
+				{
+					continue;
+				}
+				remaining -= existing.RemainingStackSpace();
+				if (remaining <= 0)
+				{
+					return true;
+				}
+			}
+		}
+		int emptySlots = 0;
+		for (int i = 0; i < _backpack.Length; i++)
+		{
+			if (_backpack[i] == null)
+			{
+				emptySlots++;
+			}
+		}
+		int perSlot = data.IsStackable ? Math.Max(1, data.maxStack) : 1;
+		return remaining <= emptySlots * perSlot;
 	}
 
 	// Removes an item from wherever it lives in the inventory. If it's
@@ -305,7 +326,7 @@ public class Inventory
 
 	// Equip `item` into one of the SINGULAR slots (helmet / armor / melee /
 	// ranged weapon). Any current occupant is displaced to the party equipment
-	// stash (an ephemeral occupant is destroyed instead). The Equipment hotbar is
+	// stash. The Equipment hotbar is
 	// index-addressed — use TryEquipToConsumableSlot for it. The caller owns the
 	// source: if `item` came from the equipment stash, remove it there on success.
 	// Caller must ensure the item's category matches the slot.
@@ -317,7 +338,6 @@ public class Inventory
 		}
 
 		item.touched = true;
-		ArmEphemeralExpiry(item);
 
 		ItemState prev = GetEquipped(slot);
 		if (prev == item)
@@ -325,16 +345,12 @@ public class Inventory
 			return true;
 		}
 
-		// Displaced piece: an ephemeral one is consumed (destroyed — never
-		// re-stashed); otherwise it returns to the party equipment stash. SetSlot
-		// fires the outgoing weapon's minion cleanup either way.
-		if (prev != null && !prev.ephemeral)
+		// Displaced piece returns to the party equipment stash (PushToEquipmentStash
+		// forfeits an outgoing weapon's outstanding arrows on the way out). SetSlot
+		// fires the outgoing weapon's minion cleanup.
+		if (prev != null)
 		{
 			PushToEquipmentStash(prev);
-		}
-		else if (prev is WeaponState prevWeapon)
-		{
-			prevWeapon.DestroyOutstandingArrows();
 		}
 
 		SetSlot(slot, item);
@@ -757,8 +773,8 @@ public class Inventory
 	}
 
 	// Equip an externally-sourced equipment item (from the party equipment stash)
-	// into hotbar slot `index`. Any current occupant is displaced to the stash
-	// (an ephemeral one is destroyed). The caller removes `item` from the stash
+	// into hotbar slot `index`. Any current occupant is displaced to the stash.
+	// The caller removes `item` from the stash
 	// list on success. Returns false if the item isn't equipment or the index is
 	// out of range.
 	public bool TryEquipToConsumableSlot(ItemState item, int index)
@@ -768,7 +784,6 @@ public class Inventory
 			return false;
 		}
 		item.touched = true;
-		ArmEphemeralExpiry(item);
 		ItemState prev = _consumableSlots[index];
 		if (prev == item)
 		{
@@ -781,10 +796,7 @@ public class Inventory
 			{
 				prevCs.OnUnequipped(_owner);
 			}
-			if (!prev.ephemeral)
-			{
-				PushToEquipmentStash(prev);
-			}
+			PushToEquipmentStash(prev);
 		}
 		_consumableSlots[index] = item;
 		if (_activeConsumableIndex == -1)

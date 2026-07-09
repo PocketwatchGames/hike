@@ -70,6 +70,7 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 })
 hudScale = 0.6
 mobScene = ExtResource("3_scene")
+levelColorMeshNames = PackedStringArray("Eyes", "Feathers")
 movement = 87
 triggersTraps = false
 clearanceRadius = 0.5

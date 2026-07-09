@@ -52,6 +52,22 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	[Export] private float _waterSurfaceOffset = 0.3f;
 	[Export] private float _waterCurrentDrag = 3f;
 
+	// Loot magnet. A material pickup inside the player's attract sphere
+	// (Player._pickupAttractArea) flies toward them when the path is clear:
+	// _magnetAcceleration ramps its speed toward the player up to _magnetMaxSpeed,
+	// aimed _magnetTargetHeight up the player's body. The item stays a rigidbody
+	// while seeking, so it flies "using collision" (a wall it clips into stops
+	// it), and losing line of sight drops it back to normal physics until the
+	// path clears. Per-loot so a heavy pickup could feel more sluggish.
+	[Export] private float _magnetAcceleration = 45f;
+	[Export] private float _magnetMaxSpeed = 14f;
+	[Export] private float _magnetTargetHeight = 1.0f;
+	// Height above the loot's origin the line-of-sight ray leaves from — lifts
+	// the origin off the ground so a lip of terrain right at its feet doesn't
+	// read as blocked. (Its own Passive body is never on the Solid ray mask, so
+	// the loot can't self-block regardless.)
+	[Export] private float _losRayHeight = 0.3f;
+
 	// Authored interaction list. The first entry's events should include an
 	// OpenInteractive event that triggers Complete() — that's how the runner
 	// signals "the loot has been collected."
@@ -81,6 +97,15 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private float _gravityScaleAuthored;
 	private bool _gravityScaleCaptured;
 	private bool _gravityScaleSwimActive;
+
+	// Loot-magnet state. _attractor is the player whose pickup-attract sphere
+	// this loot is currently inside (set/cleared by Player on area enter/exit);
+	// _seeking is true only on ticks it's actively flying toward them (eligible +
+	// clear LOS). _seekGravityActive tracks whether engine gravity is zeroed for
+	// the flight so StopSeeking restores the authored scale exactly once.
+	private Player _attractor;
+	private bool _seeking;
+	private bool _seekGravityActive;
 
 	// Timed-emergence state (LootData.timedEmergence). Drives a buried->risen
 	// animation of the visual only — the rigidbody stays settled on the ground.
@@ -174,12 +199,12 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			Expire();
 			return;
 		}
-		// A carried instance can also carry its own ABSOLUTE expiry deadline
-		// (ItemState.removeTimeMs) — e.g. an ephemeral fairy corpse dropped back
-		// out is still due to vanish at sunrise. Unlike LootData.removeTimeMs
-		// (an age-since-spawn duration) this is a fixed sim-clock time.
+		// A carried instance can also carry its own dawn expiry
+		// (ItemState.removeOnDay) — e.g. a time-limited fairy corpse dropped back
+		// out is still due to vanish at the next sleep-to-sunrise. Unlike
+		// LootData.removeTimeMs (an age-since-spawn duration) this is a day count.
 		ItemState carried = _simState?.Item;
-		if (carried != null && carried.removeTimeMs > 0 && now >= carried.removeTimeMs)
+		if (carried != null && carried.removeOnDay > 0 && _world.DayNumber >= carried.removeOnDay)
 		{
 			Expire();
 		}
@@ -246,6 +271,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			return;
 		}
 
+		// While flying to the player the magnet drives velocity every tick — don't
+		// let a graze-contact settle (and freeze) it mid-flight.
+		if (_seeking)
+		{
+			return;
+		}
+
 		// Don't settle (and freeze) while in water — buoyancy and currents
 		// need to keep acting on the body so it bobs and drifts. The
 		// _PhysicsProcess water path will handle wake-up if a settled item
@@ -272,6 +304,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			_gravityScaleAuthored = GravityScale;
 			_gravityScaleCaptured = true;
+		}
+
+		if (UpdateMagnet((float)delta))
+		{
+			// Magnet owns the body's motion this tick — skip the water/settle path
+			// so buoyancy doesn't fight the seek.
+			return;
 		}
 
 		UpdateWaterState();
@@ -360,6 +399,140 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			Vector3 v = LinearVelocity;
 			LinearVelocity = new Vector3(v.X, -_waterSinkSpeed, v.Z);
 		}
+	}
+
+	// --- Loot magnet -------------------------------------------------------
+	// Called by Player when this loot enters/leaves that player's pickup-attract
+	// sphere. The per-tick seek in UpdateMagnet decides eligibility + LOS; here we
+	// only track which player is in range, preferring the active (controlled)
+	// member so an idle party member standing nearby can't claim the magnet.
+	public void OnEnterAttractRange(Player player)
+	{
+		if (player == null)
+		{
+			return;
+		}
+		if (_attractor != null && _attractor != player
+			&& IsInstanceValid(_attractor) && _attractor.IsActive && !player.IsActive)
+		{
+			return;
+		}
+		_attractor = player;
+	}
+
+	public void OnExitAttractRange(Player player)
+	{
+		if (_attractor == player)
+		{
+			_attractor = null;
+			StopSeeking();
+		}
+	}
+
+	// Drive the loot toward its attractor when it's an eligible material pickup
+	// with a clear line of sight. Returns true on ticks it's actively seeking
+	// (the caller then hands motion entirely to the magnet). A blocked path or
+	// lost eligibility stops the seek and lets normal physics drop it to ground.
+	private bool UpdateMagnet(float dt)
+	{
+		Player p = _attractor;
+		if (p != null && !IsInstanceValid(p))
+		{
+			p = _attractor = null;
+		}
+		if (p == null || !IsMagnetEligible(p) || !HasLineOfSight(p))
+		{
+			if (_seeking)
+			{
+				StopSeeking();
+			}
+			return false;
+		}
+
+		if (!_seeking)
+		{
+			_seeking = true;
+			// Guarantee the interact area is probing so contact pickup fires even
+			// if the post-spawn arc delay hasn't elapsed, and stop the idle bob —
+			// the magnet owns the loot's vertical motion now.
+			if (_interactArea != null)
+			{
+				_interactArea.Monitoring = true;
+			}
+			_animationPlayer?.Play("Idle");
+		}
+		Freeze = false;
+		if (!_seekGravityActive)
+		{
+			GravityScale = 0f;
+			_seekGravityActive = true;
+		}
+
+		Vector3 target = p.GlobalPosition + Vector3.Up * _magnetTargetHeight;
+		Vector3 dir = (target - GlobalPosition).Normalized();
+		Vector3 vel = LinearVelocity + dir * _magnetAcceleration * dt;
+		if (vel.LengthSquared() > _magnetMaxSpeed * _magnetMaxSpeed)
+		{
+			vel = vel.Normalized() * _magnetMaxSpeed;
+		}
+		LinearVelocity = vel;
+		return true;
+	}
+
+	// Hand motion back to normal physics after a seek ends (out of range, LOS
+	// lost, or no longer fits). Restores the authored gravity so the loot falls
+	// and re-settles — the "drop" — and _IntegrateForces re-freezes it at rest.
+	private void StopSeeking()
+	{
+		_seeking = false;
+		if (_seekGravityActive)
+		{
+			if (_gravityScaleCaptured)
+			{
+				GravityScale = _gravityScaleAuthored;
+			}
+			_seekGravityActive = false;
+		}
+	}
+
+	// Whether this loot should fly to `player`: a depositable material whose whole
+	// stack currently fits, not flagged interact-only, and the player is the active
+	// (controlled) member. Re-checked every seek tick so it drops the instant the
+	// backpack fills or control switches away.
+	private bool IsMagnetEligible(Player player)
+	{
+		if (_pickedUp || _removed || _simState == null || _simState.RequireInteract)
+		{
+			return false;
+		}
+		if (player?.Inventory == null || !player.IsActive)
+		{
+			return false;
+		}
+		if (!_simState.CanPickup(player) || !_simState.ShouldDepositToInventory())
+		{
+			return false;
+		}
+		ItemData data = _simState.Item?.data ?? _simState.Data;
+		if (data == null || !data.IsMaterial)
+		{
+			return false;
+		}
+		return player.Inventory.CanFullyAdd(data, _simState.Item?.stackCount ?? 1);
+	}
+
+	// Clear straight-line path from the loot up to the player's chest. Masks Solid
+	// (terrain + porous props) only — the loot's own Passive body and the player's
+	// Player-layer body aren't on it, so neither self-blocks the ray.
+	private bool HasLineOfSight(Player player)
+	{
+		Vector3 from = GlobalPosition + Vector3.Up * _losRayHeight;
+		Vector3 to = player.GlobalPosition + Vector3.Up * _magnetTargetHeight;
+		var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
+		query.CollideWithAreas = false;
+		query.CollideWithBodies = true;
+		Dictionary hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
+		return hit.Count == 0;
 	}
 
 	private void Settle()
@@ -577,10 +750,10 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		FinalizePickup();
 	}
 
-	// Auto-pickup only fires when the entire pile would top off into existing
-	// same-kind stacks. Fresh items (player has none of this kind) and items
-	// that would need a new backpack slot fall through to the interactive
-	// path so the player chooses to commit to a new slot.
+	// Materials always auto-pickup on contact, provided the whole stack fits —
+	// a fresh material claims a new backpack slot, it no longer has to top off
+	// an existing stack. Non-materials (weapons / armor) never auto-pickup from
+	// the field; they fall through to the press-to-interact path.
 	private bool CanAutoPickup(Player player)
 	{
 		if (_simState == null || _simState.RequireInteract)
@@ -610,26 +783,11 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 
 		ItemData data = _simState.Item?.data ?? _simState.Data;
-		if (data == null || !data.IsStackable)
+		if (data == null || !data.IsMaterial)
 		{
 			return false;
 		}
-
-		int needed = _simState.Item?.stackCount ?? 1;
-		int avail = 0;
-		foreach (ItemState s in player.Inventory.EnumerateAll())
-		{
-			if (s.data != data)
-			{
-				continue;
-			}
-			avail += s.RemainingStackSpace();
-			if (avail >= needed)
-			{
-				return true;
-			}
-		}
-		return false;
+		return player.Inventory.CanFullyAdd(data, _simState.Item?.stackCount ?? 1);
 	}
 
 	public bool CanInteract() => !_pickedUp && (!IsTimedEmergent || _emergeState == EmergeState.Visible);
@@ -730,6 +888,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 
 		_pickedUp = true;
+		// Kill any magnet flight velocity so a fast-seeking pickup stops dead at
+		// the player instead of drifting on (gravity is zeroed mid-seek) under the
+		// PickedUp shrink animation, which would fling the sprite off the body.
+		_seeking = false;
+		LinearVelocity = Vector3.Zero;
+		AngularVelocity = Vector3.Zero;
+		Freeze = true;
 		if (_simState != null)
 		{
 			_simState.PickedUp = true;

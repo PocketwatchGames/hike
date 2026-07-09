@@ -22,15 +22,9 @@ public partial class ItemDescriptor : Resource
 	// "Weapon modifiers" section). Empty = a plain item.
 	[Export] public Godot.Collections.Array<StatusEffectDescriptor> statusEffects = new();
 
-	// Stamps ItemState.ephemeral on the created state — the item vanishes at the
-	// next sunrise once acquired. Set on the descriptors an altar / forge offers
-	// so the temporary gear it grants is intrinsically time-limited, while the
-	// same base ItemData stays permanent when granted through an ordinary drop.
-	[Export] public bool ephemeral = false;
-
 	// Stamps ItemState.level on the created state — the item's power tier (0 =
 	// base). A weapon deals 2^level damage, armor grants 2^level armor points.
-	// Composed here, not earned, so the altar / forge grants a leveled piece from
+	// Composed here, not earned, so a spawn source can grant a leveled piece from
 	// the same base ItemData.
 	[Export] public int level = 0;
 
@@ -58,7 +52,6 @@ public partial class ItemDescriptor : Resource
 		{
 			return;
 		}
-		state.ephemeral = ephemeral;
 		state.level = level;
 		if (statusEffects == null)
 		{
@@ -100,7 +93,7 @@ public partial class ItemDescriptor : Resource
 
 	// True when CreateState produces per-instance data that must be threaded
 	// through the loot pipeline rather than re-synthesized fresh at pickup —
-	// composed mods, the ephemeral flag, or a non-base level (all of which a
-	// fresh synthesis would drop).
-	public bool NeedsComposedState => HasStatusEffects || ephemeral || level != 0;
+	// composed mods or a non-base level (both of which a fresh synthesis would
+	// drop).
+	public bool NeedsComposedState => HasStatusEffects || level != 0;
 }

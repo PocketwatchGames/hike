@@ -180,14 +180,16 @@ public partial class WeaponData : ItemData
 	// player's central armor (see Player.OnHurtBoxHit), so a held charge
 	// doubles as a shield. blockArmor is the pool capacity (0 = the weapon has
 	// no guard and none of this applies). The recharge stats are independent
-	// of the player's central-armor recharge — the guard refills at
-	// blockArmorRechargeSpeed (units/sec) once blockArmorRechargeDelay seconds
-	// have elapsed since the last hit. Any damage taken mid-charge re-arms that
-	// delay even when the pool is already empty, so a focused player can't
-	// regenerate their guard under fire.
+	// of the player's central-armor recharge — the guard refills fully over
+	// blockArmorRechargeTime seconds (rate derived from blockArmor / that time)
+	// once blockArmorRechargeDelay seconds have elapsed since the last hit. Any
+	// damage taken mid-charge re-arms that delay even when the pool is already
+	// empty, so a focused player can't regenerate their guard under fire.
 	[Export] public float blockArmor = 0f;
 	[Export] public float blockArmorRechargeDelay = 1f;
-	[Export] public float blockArmorRechargeSpeed = 20f;
+	// Seconds for the guard to refill from empty to full blockArmor. 0 = never
+	// recharges.
+	[Export] public float blockArmorRechargeTime = 0.5f;
 
 	public override ItemState CreateState()
 	{

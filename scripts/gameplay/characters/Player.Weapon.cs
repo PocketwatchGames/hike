@@ -270,6 +270,31 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		_runner.OnInputReleased();
 	}
 
+	// Immediately run a consumable's Use action on this player from a source
+	// other than the equipped hotbar slot — e.g. a dish eaten the moment it comes
+	// off the campfire. The item is treated as a standalone one-unit stack: the
+	// profile's DecrementStack drops it to zero and the (not-in-inventory) Remove
+	// is a harmless no-op. Returns true if the action started (false if the item
+	// isn't a usable consumable or the runner is busy).
+	public bool TryConsumeImmediately(ItemState item)
+	{
+		if (_runner == null || _runner.IsBusy)
+		{
+			return false;
+		}
+		if (item?.data is not ConsumableData consumableData || consumableData.actionProfile == null)
+		{
+			return false;
+		}
+		var context = new ActionContext
+		{
+			verb = EActionVerb.Use,
+			primaryItem = item,
+			sourceSlot = EInventorySlot.Equipment,
+		};
+		return _runner.TryStart(consumableData.actionProfile, context);
+	}
+
 	// Starts the interactive's action at `actionIndex` through the runner and
 	// stashes (interactive, actionIndex) on the player so the movement-lock
 	// and Interacting-anim checks elsewhere can key off _curInteractive.

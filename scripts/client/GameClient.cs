@@ -67,6 +67,35 @@ public partial class GameClient : Node3D
 		{ EDamageTrigger.OnBackstab, "Backstab" },
 	};
 
+	// Shared per-level "difficulty tell" tint ramp. Each species maps this to its
+	// own accent mesh(es) (MobData.levelColorMeshNames — a spider's eyes, a drake's
+	// eyes, a goblin's armor) so a mob's level reads at a glance and consistently
+	// across every species. Indexed by MobSimState.Level (0..4, matching the HUD
+	// level pips); MobLevelColor clamps out-of-range levels to the nearest end.
+	// Authored here as the single source of truth; still inspector-tunable per the
+	// [Export] convention. Escalates neutral → yellow → orange → red → violet.
+	[Export] public Color[] mobLevelColors =
+	{
+		new Color(0.85f, 0.85f, 0.85f),
+		new Color(1f, 0.82f, 0.25f),
+		new Color(1f, 0.5f, 0.12f),
+		new Color(0.95f, 0.15f, 0.12f),
+		new Color(0.7f, 0.2f, 1f),
+	};
+
+	// The shared level tint for a mob at the given level (see mobLevelColors).
+	// Static + null-safe so the spawn path can call it before/without a live
+	// GameClient (editor, tests) — falls back to white (an inert recolor).
+	public static Color MobLevelColor(int level)
+	{
+		Color[] colors = Current?.mobLevelColors;
+		if (colors == null || colors.Length == 0)
+		{
+			return Colors.White;
+		}
+		return colors[Mathf.Clamp(level, 0, colors.Length - 1)];
+	}
+
 	[Export] public GameCamera camera;
 	// Debug free-fly camera (WASD + right-drag), gated by the `debugFlyCam`
 	// CVar. GameClient ticks it in _Process and forwards mouse-motion in _Input.
@@ -527,6 +556,12 @@ public partial class GameClient : Node3D
 		_inputSuppressed = false;
 		_inputSuppressClearPending = false;
 
+		// Tree-climb scout: when the gentle lift settles at its apex, open the
+		// world map on the freshly-charted snapshot (see OnBirdsEyeLiftApex).
+		if (birdsEye != null)
+		{
+			birdsEye.onLiftReachedApex += OnBirdsEyeLiftApex;
+		}
 	}
 
 	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData, WorldState worldState, LoadingScreen loadingScreen = null)
@@ -661,6 +696,14 @@ public partial class GameClient : Node3D
 
 		camera.Init(sceneViewport);
 		camera.SetInitialPosition(_player.GlobalPosition);
+
+		// Chart the spawn surroundings from frame one: the spawn chunks are loaded
+		// now, so run one reveal pass and bank it into the party pool — otherwise a
+		// fresh save opens to a blank world map (the per-tick reveal only fills the
+		// active member's provisional store, invisible to the world map until banked).
+		_world.Minimap?.RevealAtPlayerNow();
+		sim?.BankActiveKnowledge();
+		_world.Minimap?.RebuildExplorationDisplay();
 
 		onPlayerSpawned?.Invoke(_player);
 
@@ -1648,6 +1691,48 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	// Bird's-eye lift (tree climb OR birds_eye consumable — they do the same
+	// thing) has settled at its apex. Snapshot the wide reveal (fog + discovered
+	// regions + markers) onto the world map, then open the map on it. Closing the
+	// map (ESC / Map) descends the camera via OnBirdsEyeMapClosed. No-op if a modal
+	// is already up.
+	void OnBirdsEyeLiftApex()
+	{
+		if (_player == null || !_player.IsBirdsEye)
+		{
+			return;
+		}
+		if (almanacScreen == null || almanacScreen.Visible)
+		{
+			return;
+		}
+		Minimap minimap = _world?.Minimap;
+		// Snapshot onto the world map, then grow the newly-surveyed ground in with
+		// the SAME animated sweep the campfire bank uses. Baseline is the world map
+		// as it stood at the last provisional update (or last camp); the snapshot
+		// merges this climb's reveal into it; PrepareBankedReveal diffs the two and
+		// rewinds the display to the baseline so the delta fades in on top.
+		minimap?.CaptureBankedRevealBaseline();
+		minimap?.SnapshotFieldRevealToWorldMap();
+		_world?.WorldState?.SimState?.SnapshotWorldMapReveal();
+		bool showReveal = minimap?.PrepareBankedReveal() ?? false;
+		almanacScreen.Open(AlmanacScreen.EAlmanacTab.WorldMap, this, onClose: OnBirdsEyeMapClosed);
+		// The map opens instantly (no fade-to-black), so kick off the sweep now —
+		// the player is already looking at it. No-op when nothing new was charted.
+		if (showReveal)
+		{
+			minimap?.StartBankedReveal();
+		}
+	}
+
+	// The bird's-eye world map closed — snap any in-progress reveal to fully charted
+	// (in case it closed mid-sweep), then drop back down / end the overlook.
+	void OnBirdsEyeMapClosed()
+	{
+		_world?.Minimap?.FinalizeBankedReveal();
+		_player?.RequestEndBirdsEye();
+	}
+
 	// Bumps the screen damage-flash + low-health overlay window. Called from
 	// Player.OnHurtBoxHit (direct) and from _PhysicsProcess after each DOT HUD
 	// flush; forwards to the ScreenEffectsController that owns the post pass.
@@ -1732,8 +1817,11 @@ public partial class GameClient : Node3D
 
 		// Bird's-eye cancel runs before TogglePause because both actions are
 		// bound to Escape — when the overlook is active the press should drop
-		// the overview, not open the pause menu.
-		if (_player != null && _player.IsBirdsEye && e.IsActionPressed("ui_cancel"))
+		// the overview, not open the pause menu. Skipped while the scout world
+		// map is up: there ESC must close the map first, whose onClose descends
+		// the camera (OnScoutMapClosed) — otherwise the map would be stranded
+		// open over the fly-down.
+		if (_player != null && _player.IsBirdsEye && !(almanacScreen?.Visible ?? false) && e.IsActionPressed("ui_cancel"))
 		{
 			_player.RequestEndBirdsEye();
 			GetViewport().SetInputAsHandled();
@@ -2142,12 +2230,13 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// Forge item-pick. A Forge interaction calls this with the leveled,
-	// ephemeral items it minted and a callback that equips the chosen one.
-	// Mirrors the upgrade-screen gating (input suppressed, HUD hidden, mouse
-	// freed) but always returns straight to gameplay on close — the forge is
-	// used from the world, never nested inside another modal.
-	public void OpenForgeScreen(List<ItemState> items, Action<ItemState> onComplete)
+	// Forge upgrade offer. A Forge interaction calls this with the single offered
+	// upgrade, whatever it would replace in that slot (null if the slot is empty),
+	// the forge's level, and an accept callback that applies it. Mirrors the
+	// upgrade-screen gating (input suppressed, HUD hidden, mouse freed) but always
+	// returns straight to gameplay on close — the forge is used from the world,
+	// never nested inside another modal.
+	public void OpenForgeScreen(StatusEffectData offered, StatusEffectData replacing, int level, Action onAccept)
 	{
 		if (forgeScreen == null)
 		{
@@ -2159,13 +2248,15 @@ public partial class GameClient : Node3D
 		forgeScreen.Visible = true;
 
 		forgeScreen.Init(
-			chosen =>
+			() =>
 			{
-				onComplete?.Invoke(chosen);
+				onAccept?.Invoke();
 				CloseForgeScreen();
 			},
 			CloseForgeScreen,
-			items);
+			offered,
+			replacing,
+			level);
 	}
 
 	void CloseForgeScreen()
@@ -2297,7 +2388,7 @@ public partial class GameClient : Node3D
 		// "Sleep off" the death: advance to the next sunrise, then give the newly-
 		// fallen member their one-day revive grace and destroy anyone whose
 		// deadline the skip just passed.
-		_world?.AdvanceTimeToNextSunrise();
+		_world?.AdvanceToNextSunrise();
 		AssignReviveDeadlines();
 		CheckReviveDeadlines();
 		GatherPartyAt(_lastCampfirePosition);
@@ -2306,10 +2397,10 @@ public partial class GameClient : Node3D
 		screenEffects?.ResetOnRespawn();
 	}
 
-	// Give every fallen member without a deadline one sunrise of grace: they must
-	// be revived before the NEXT sunrise (a full day past the one the party just
-	// woke at) or be destroyed. Assigned after the death time-skip, so
-	// TimeOfDayAbsolute already sits on the wake-up sunrise.
+	// Give every fallen member without a deadline one day of grace: they must be
+	// revived before the NEXT sunrise (a full day past the one the party just woke
+	// at) or be destroyed. Assigned after the death time-skip, so DayNumber already
+	// sits on the wake-up day.
 	void AssignReviveDeadlines()
 	{
 		Party party = _world?.WorldState?.SimState?.Party;
@@ -2317,13 +2408,13 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		double deadline = _world.TimeOfDayAbsolute + 1.0;
+		int deadlineDay = _world.DayNumber + 1;
 		for (int i = 0; i < party.Count; i++)
 		{
 			PlayerState m = party[i];
-			if (m != null && m.IsDead && m.ReviveDeadlineAbsolute <= 0.0)
+			if (m != null && m.IsDead && m.ReviveByDay <= 0)
 			{
-				m.ReviveDeadlineAbsolute = deadline;
+				m.ReviveByDay = deadlineDay;
 			}
 		}
 	}
@@ -2339,11 +2430,11 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		double now = _world.TimeOfDayAbsolute;
+		int today = _world.DayNumber;
 		for (int i = party.Count - 1; i >= 0; i--)
 		{
 			PlayerState m = party[i];
-			if (m != null && m.IsDead && m.ReviveDeadlineAbsolute > 0.0 && now >= m.ReviveDeadlineAbsolute)
+			if (m != null && m.IsDead && m.ReviveByDay > 0 && today >= m.ReviveByDay)
 			{
 				DestroyPartyMember(i);
 			}
@@ -2403,7 +2494,7 @@ public partial class GameClient : Node3D
 			_world.Minimap?.RebuildExplorationDisplay();
 		}
 		corpse.Member.IsDead = false;
-		corpse.Member.ReviveDeadlineAbsolute = 0.0;
+		corpse.Member.ReviveByDay = 0;
 		corpse.SetCorpseInteractable(false);
 		corpse.Respawn(_lastCampfirePosition);
 		corpse.SetActive(false);
@@ -2461,8 +2552,10 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		// Plain rest (tent): EndSleep releases the input gate on wake.
+		// Plain rest (tent): a fixed-hours nap (never rolls the day), EndSleep
+		// releases the input gate on wake.
 		_onSleepWake = null;
+		_sleepToSunrise = false;
 		InputSuppressed = true;
 		sleepOverlay.Show(this, hours, healFractionPerHour);
 	}
@@ -2472,17 +2565,24 @@ public partial class GameClient : Node3D
 	// releasing it. Cleared on a clean wake and on death-in-sleep.
 	Action _onSleepWake;
 
+	// Whether the pending sleep advances to the next day's sunrise (clears the
+	// player's effects + full-heals) vs. a short in-day nap (integrates effects +
+	// fractional heal). Set by the Begin* entry points, read by PerformSleepAdvance.
+	bool _sleepToSunrise;
+
 	// Camp-screen rest entry point. The camp modal stays open (just hidden) across
 	// the sleep, so we skip the modal guard BeginSleep uses for the tent path and
-	// keep input gated the whole time. onWake fires when the fade-in completes so
+	// keep input gated the whole time. `toSunrise` selects the sleep-to-sunrise
+	// path (else a fixed-hours nap). onWake fires when the fade-in completes so
 	// the camp screen can re-show itself, still in camp state.
-	public void BeginSleepFromCamp(double hours, double healFractionPerHour, Action onWake)
+	public void BeginSleepFromCamp(double hours, double healFractionPerHour, Action onWake, bool toSunrise)
 	{
 		if (_player == null || sleepOverlay == null || sleepOverlay.Busy)
 		{
 			return;
 		}
 		_onSleepWake = onWake;
+		_sleepToSunrise = toSunrise;
 		InputSuppressed = true;
 		// Camp music stops the moment the player sleeps; the wake plays the
 		// time-of-day ambient cue (MusicManager.OnCampSleepWake via EndSleep).
@@ -2495,13 +2595,29 @@ public partial class GameClient : Node3D
 	// death-cam happen behind the curtain).
 	public void PerformSleepAdvance(double hours, double healFractionPerHour)
 	{
-		_world?.AdvanceTime(hours);
-		// Rest heals after the time-skip's status effects resolve, so a DoT that
-		// ran during the skip is applied first — and a player the skip killed is
-		// not revived by the rest heal.
-		if (_player != null && !_player.IsDead)
+		if (_sleepToSunrise)
 		{
-			_player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours));
+			// Sleep to sunrise: advance the day (loaded mobs catch up, but the
+			// player is NOT integrated), then clear the player's active status
+			// effects and full-heal — a DoT can never chip or kill them in their
+			// sleep, and they wake refreshed at the new day.
+			_world?.AdvanceToNextSunrise();
+			if (_player != null && !_player.IsDead)
+			{
+				_player.ClearTransientStatusEffects();
+				_player.Heal(_player.MaxHealth);
+			}
+		}
+		else
+		{
+			_world?.AdvanceTime(hours);
+			// Rest heals after the time-skip's status effects resolve, so a DoT
+			// that ran during the skip is applied first — and a player the skip
+			// killed is not revived by the rest heal.
+			if (_player != null && !_player.IsDead)
+			{
+				_player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours));
+			}
 		}
 		// The companion wakes at the player's side, fully healed and revived if it
 		// had died — regardless of where it wandered or fell during the day.

@@ -120,7 +120,15 @@ public static class WorldFile
     // v27: Campfire entity payload dropped the AutoLightAtNight bool — campfires
     //      now spawn unlit (except the party spawn fire) and are lit by the
     //      player, with lighting one dousing all others (only one lit at a time).
-    public const uint VERSION = 27;
+    // v28: Mob entity payload appended a difficulty tier int (MobSimState.Level,
+    //      from MobDescriptor.level + the worldgen level field) after the recruit
+    //      template — scales health/armor/damage by 2^Level, shown as HUD pips.
+    // v29: Day-count time model — the day/night clock pauses at midnight and only
+    //      a sleep advances to sunrise. Dawn deadlines moved from a wall-clock
+    //      (GameTimeMs) projection to a day number: ForgeSimState.ReactivateMs
+    //      (ulong) → ReactivateDay (int); ItemState.removeTimeMs (ulong) →
+    //      removeOnDay (int) in the item wire format.
+    public const uint VERSION = 29;
 
     public struct IndexEntry
     {

@@ -239,4 +239,24 @@ public partial class Player : CharacterBody3D
 			_interactiveCollisions.Remove(box.Interactive);
 		}
 	}
+
+	// The pickup-attract sphere overlaps Loot rigid bodies (ECollisionLayer.Passive).
+	// Hand each one this player as its magnet attractor on enter and drop it on
+	// exit; the Loot itself gates on material/eligibility + line of sight and
+	// drives the flight.
+	private void OnPickupAttractBodyEntered(Node body)
+	{
+		if (body is Loot loot)
+		{
+			loot.OnEnterAttractRange(this);
+		}
+	}
+
+	private void OnPickupAttractBodyExited(Node body)
+	{
+		if (body is Loot loot)
+		{
+			loot.OnExitAttractRange(this);
+		}
+	}
 }

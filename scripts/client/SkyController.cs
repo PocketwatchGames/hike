@@ -1214,15 +1214,23 @@ public partial class SkyController : Node3D
     //     a sub-horizon "orbit" that isn't a real light.
     private void UpdateSunAndMoon()
     {
-        double t;
+        double todAwake;
         if (!Engine.IsEditorHint() && World.Current?.WorldState != null)
         {
-            t = World.Current.WorldState.TimeOfDay01;
+            todAwake = World.Current.WorldState.TimeOfDay01;
         }
         else
         {
-            t = previewTimeOfDay;
+            todAwake = previewTimeOfDay;
         }
+        // WorldState.TimeOfDay01 is the AWAKE-day clock (0 = sunrise … 1 =
+        // midnight). All the orbit math below is written in the ORIGINAL orbit
+        // phase (0.25 = sunrise, 0.5 = noon, 0.75 = sunset, 1.0/0 = midnight), so
+        // remap once here (WorldState.OrbitPhase01) and everything downstream
+        // keeps working unchanged. The pre-dawn quarter (phase [0, 0.25)) is
+        // never produced — the awake day ends at midnight (phase 1.0) and the
+        // next sunrise resets to phase 0.25.
+        double t = WorldState.OrbitPhase01(todAwake);
         _timeOfDay01 = t;
 
         SimData sim = World.Current?.WorldState?.SimData;

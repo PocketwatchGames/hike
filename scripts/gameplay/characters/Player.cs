@@ -30,6 +30,12 @@ public partial class Player : CharacterBody3D
 	// exactly as before — GameClient flips this per member.
 	public bool IsActive { get; private set; } = true;
 	[Export] public Area3D interactArea;
+	// Larger-than-interact sphere that magnetizes eligible material loot toward
+	// the player. On body enter/exit it tells the Loot to start/stop tracking
+	// this player as its attractor; the Loot itself runs the line-of-sight check
+	// and flight. Monitoring is gated to the active member (SetActive) so idle
+	// party members don't vacuum up loot.
+	[Export] private Area3D _pickupAttractArea;
 	// World-space anchor (head height) used to project a screen-space point
 	// above the player for HUD elements that float over the character — e.g.
 	// the transient status-effect notification. Mirrors Mob.HudAnchor.
@@ -231,6 +237,12 @@ public partial class Player : CharacterBody3D
 	public Action<bool> onBirdsEye;
 	bool _birdsEye;
 	public bool IsBirdsEye => _birdsEye;
+
+	// The climbable tree the player is currently perched in, so its highlight
+	// tint can be cleared when they drop back down (OnBirdsEyeReturnComplete).
+	// May become a freed instance if the tree's chunk streamed out meanwhile —
+	// guarded with IsInstanceValid before use.
+	ClimbableTree _climbedTree;
 
 	// Mirrors the mob's `burrowed` flag, but for the player: while true the
 	// player is unperceivable. MobAI's mob-perceives-player tick zeroes every
@@ -720,6 +732,12 @@ public partial class Player : CharacterBody3D
 		interactArea.AreaEntered += OnInteractAreaEntered;
 		interactArea.AreaExited += OnInteractAreaExited;
 
+		if (_pickupAttractArea != null)
+		{
+			_pickupAttractArea.BodyEntered += OnPickupAttractBodyEntered;
+			_pickupAttractArea.BodyExited += OnPickupAttractBodyExited;
+		}
+
 		if (_hurtBox != null)
 		{
 			_hurtBox.OnHit = OnHurtBoxHit;
@@ -801,7 +819,12 @@ public partial class Player : CharacterBody3D
 	// First runs any apply-time payloads (instant heal, removesOnApply cleanse).
 	// An `instantaneous` effect (the Restore blessing) is a one-shot — its
 	// payloads fire and no lingering state is kept.
-	public StatusEffectState AddStatusEffect(StatusEffectData data)
+	public StatusEffectState AddStatusEffect(StatusEffectData data) => AddStatusEffect(data, 0);
+
+	// `level` stamps the created instance's upgrade tier (0 = none). Forge upgrades
+	// pass the forge's level; the eviction of any same-slot occupant happens inside
+	// StatusEffectController.Add.
+	public StatusEffectState AddStatusEffect(StatusEffectData data, int level)
 	{
 		if (data == null)
 		{
@@ -815,8 +838,12 @@ public partial class Player : CharacterBody3D
 			_statusEffects.ApplyRemovesOnApply(data);
 			return null;
 		}
-		return _statusEffects.Add(data);
+		return _statusEffects.Add(data, level);
 	}
+
+	// The status effect currently occupying the given forge upgrade slot, or null
+	// if empty. Read by the forge to show what a new upgrade would replace.
+	public StatusEffectData ActiveUpgrade(EUpgradeSlot slot) => _statusEffects.ActiveUpgrade(slot);
 
 	// Fire the one-shot apply-time payloads on `data`. Cleanse before heal so a
 	// poison tick can't shave the freshly-restored HP.
@@ -852,6 +879,12 @@ public partial class Player : CharacterBody3D
 	public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
 
 	public void RemoveStatusEffectsByTagMask(EStat mask) => _statusEffects.RemoveByTagMask(mask);
+
+	// Wipe ordinary combat states (poison, burning, wet, buildup, timed boons)
+	// while sparing permanent traits and elite auras. Used by the sleep-to-sunrise
+	// rest, which clears afflictions and full-heals rather than integrating a DoT
+	// over the skipped night.
+	public void ClearTransientStatusEffects() => _statusEffects.RemoveByCategory(EEffectCategory.Transient);
 
 
 	// How exposed to falling rain are we, in [0, 1]? 0 = sheltered (no
@@ -1170,6 +1203,12 @@ public partial class Player : CharacterBody3D
 	public void SetActive(bool active)
 	{
 		IsActive = active;
+		// Only the controlled member vacuums loot — disable the attract sphere on
+		// inactive members so they don't magnetize pickups while standing idle.
+		if (_pickupAttractArea != null)
+		{
+			_pickupAttractArea.Monitoring = active;
+		}
 		if (!active)
 		{
 			Velocity = Vector3.Zero;
@@ -1260,12 +1299,11 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Backfill empty weapon/armor slots from this member's starting loadout so the
-	// player is never left barehanded or unarmored — e.g. after an equipped
-	// ephemeral piece expires at sunrise (or is otherwise destroyed). Levels are
-	// composed (not earned), so there's no per-item progress to preserve: always
-	// regenerate the piece fresh from the template. Any stray copy displaced into
-	// the backpack (when ephemeral gear was equipped over it) is dropped first so
-	// regeneration can't leave a duplicate behind.
+	// player is never left barehanded or unarmored — e.g. after an equipped piece
+	// is destroyed. Levels are composed (not earned), so there's no per-item
+	// progress to preserve: always regenerate the piece fresh from the template.
+	// Any stray copy displaced into the backpack is dropped first so regeneration
+	// can't leave a duplicate behind.
 	private void RefillEmptyEquipmentFromStarting()
 	{
 		if (_inventory == null || Member?.equippedInventory == null)
@@ -1383,7 +1421,7 @@ public partial class Player : CharacterBody3D
 		TickArmor(dt);
 		TickBlockArmor(dt);
 		TickAmmoRecharge(_world?.GameTimeMs ?? 0);
-		TickItemExpiry(_world?.GameTimeMs ?? 0);
+		TickItemExpiry();
 		TickStamina(dt);
 		TickSwimStamina(dt);
 		TickSprintStamina(dt);

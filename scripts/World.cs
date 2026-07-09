@@ -24,27 +24,17 @@ public partial class World : Node3D
     public ulong GameTimeMs => _worldState.GameTimeMs;
     public double TimeOfDayAbsolute => _worldState.TimeOfDayAbsolute;
 
-    // Sim-clock (GameTimeMs) time of the next moment the day cycle reaches
-    // sunrise (TimeOfDay01 == 0.25). Used to schedule dawn-expiry deadlines
-    // (ephemeral items). Exactly at sunrise returns the FOLLOWING day's sunrise
-    // (a full day out) so an item acquired at dawn survives the day. Assumes
-    // GameTimeMs and TimeOfDay advance in lockstep (true at time_scale 1);
-    // returns `now` when the day cycle is disabled (dayLengthSeconds <= 0).
-    public ulong NextSunriseMs()
-    {
-        const double SunriseTimeOfDay = 0.25;
-        float dayLength = _worldState.SimData?.dayLengthSeconds ?? 600f;
-        if (dayLength <= 0f)
-        {
-            return _worldState.GameTimeMs;
-        }
-        double untilSunrise = SunriseTimeOfDay - _worldState.TimeOfDay01;
-        if (untilSunrise <= 0.0)
-        {
-            untilSunrise += 1.0;
-        }
-        return _worldState.GameTimeMs + (ulong)(untilSunrise * dayLength * 1000.0);
-    }
+    // Fired once when the day advances at sunrise (a sleep-to-sunrise). A shared
+    // day-cadence hook — forge reactivation, daily weather re-roll, permanent
+    // removal of fallen party members, spawn/quest bookkeeping — so those don't
+    // each poll the clock. Passes the new DayNumber.
+    public event Action<int> OnNewDay;
+
+    // Explicit whole-day counter, only advanced by AdvanceToNextSunrise (the day
+    // cycle no longer rolls over on its own — it pauses at midnight until sleep).
+    // Dawn-expiring deadlines compare against this (there is no wall-clock sunrise
+    // to project toward now).
+    public int DayNumber => _worldState.DayNumber;
 
     // Halts the per-frame day/night clock advance in Tick while the player rests
     // at a camp (set by CampScreen). The sim clock (GameTimeMs) and sleep's
@@ -257,20 +247,19 @@ public partial class World : Node3D
     {
         _worldState.GameTimeMs += (ulong)(delta * 1000.0);
 
-        // Advance normalized time-of-day. time_scale lets the player
-        // fast-forward the cycle without disturbing GameTimeMs (which
+        // Advance normalized time-of-day toward midnight, CLAMPING there —
+        // the celestial cycle pauses at midnight and only a sleep advances to
+        // the next day's sunrise (World.AdvanceToNextSunrise). time_scale lets
+        // the player fast-forward the cycle without disturbing GameTimeMs (which
         // drives cooldowns and AI timers that should stay at real speed).
-        // Frozen while the player rests at a camp (CampScreen sets the flag) so
-        // the day/night clock holds. Sleeping still advances time — that runs
-        // through AdvanceTime, not this per-frame path.
+        // Frozen while the player rests at a camp (CampScreen sets the flag).
         float dayLength = _worldState.SimData?.dayLengthSeconds ?? 600f;
-        if (dayLength > 0f && !TimeOfDayFrozen)
+        if (dayLength > 0f && !TimeOfDayFrozen && _worldState.TimeOfDay01 < WorldState.MidnightTimeOfDay01)
         {
             double todDelta = delta * CVars.timeScale.Value / dayLength;
-            _worldState.TimeOfDayAbsolute += todDelta;
-            double tod = _worldState.TimeOfDay01 + todDelta;
-            tod -= System.Math.Floor(tod);
+            double tod = System.Math.Min(WorldState.MidnightTimeOfDay01, _worldState.TimeOfDay01 + todDelta);
             _worldState.TimeOfDay01 = tod;
+            _worldState.TimeOfDayAbsolute = _worldState.DayNumber + tod;
         }
 
         bool isNight = WorldState.IsNight(_worldState.TimeOfDay01);
@@ -302,16 +291,19 @@ public partial class World : Node3D
         _heatField?.Tick();
     }
 
-    // Sleep / rest time-skip. Fast-forwards the simulation by `hours` in-world
-    // hours in a single call (vs Tick's per-frame slices), replaying the same
-    // status-effect tick path so timed effects expire, "till sunrise" boons
-    // lapse, and damage-over-time integrates over the skipped span. The player
-    // is advanced in one-second steps so an integrated DoT that turns lethal
-    // stops the skip at the instant of death — the player wakes (or dies) at
-    // that time rather than sleeping through the full duration. Loaded mobs are
-    // caught up in a single bulk step over the time the player actually
-    // survived. Returns the in-world hours actually advanced (< `hours` only if
-    // the player died mid-skip).
+    // In-world hours in the AWAKE portion of a day (sunrise → midnight), mapped
+    // onto TimeOfDay01 [0, 1], and the elided pre-dawn gap (midnight → sunrise)
+    // that a sleep-to-sunrise skips. 18 + 6 = a 24-hour day; only the 18h awake
+    // window is ever on the clock.
+    private const double AwakeHoursPerDay = 18.0;
+    private const double PreDawnHours = 6.0;
+
+    // Short in-day rest ("Sleep 1 hour"): fast-forwards `hours` of the awake day
+    // in one-second steps, replaying the status-effect tick path so timed effects
+    // expire and damage-over-time integrates over the skipped span. Steps stop at
+    // the instant of a lethal DoT so the player wakes (or dies) then. NEVER rolls
+    // the day — the advance is capped at midnight (only AdvanceToNextSunrise
+    // crosses to the next day). Returns the in-world hours actually advanced.
     public double AdvanceTime(double hours)
     {
         if (hours <= 0.0 || _player == null || _worldState == null)
@@ -319,13 +311,13 @@ public partial class World : Node3D
             return 0.0;
         }
 
-        // GameTimeMs and the day cycle advance together during normal play at a
-        // rate of DayLengthSeconds real-seconds per in-world day, so a 6-hour
-        // skip is (6/24) * DayLengthSeconds of GameTimeMs — keeping the two
-        // clocks consistent with how Tick advances them at timeScale 1. Status
-        // durations are authored against GameTimeMs, so they age by this amount.
         float dayLength = _worldState.SimData?.dayLengthSeconds ?? 600f;
-        double totalSeconds = dayLength > 0f ? hours / 24.0 * dayLength : 0.0;
+        double requestedSeconds = dayLength > 0f ? hours / AwakeHoursPerDay * dayLength : 0.0;
+        // A nap can't pass midnight — cap the advance at the awake day's end.
+        double secondsToMidnight = dayLength > 0f
+            ? (WorldState.MidnightTimeOfDay01 - _worldState.TimeOfDay01) * dayLength
+            : 0.0;
+        double totalSeconds = System.Math.Min(requestedSeconds, System.Math.Max(0.0, secondsToMidnight));
         bool wasNight = WorldState.IsNight(_worldState.TimeOfDay01);
 
         const double stepSeconds = 1.0;
@@ -352,27 +344,47 @@ public partial class World : Node3D
             RefreshTimeOfDayEntities();
         }
         CleanupOffConditionMobs();
-        return dayLength > 0f ? advanced / dayLength * 24.0 : 0.0;
+        return dayLength > 0f ? advanced / dayLength * AwakeHoursPerDay : 0.0;
     }
 
-    // Fast-forward the day cycle to the next sunrise (TimeOfDay01 == 0.25),
-    // replaying the same status-effect / mob catch-up path as a sleep skip. Used
-    // by the death flow to "sleep off" a fallen member. Returns hours advanced.
-    // Requires a living _player (AdvanceTime early-outs on IsDead), so control
-    // must already be on a survivor when this is called.
-    public double AdvanceTimeToNextSunrise()
+    // Sleep-to-sunrise: the ONLY path that advances the day. Jumps straight to
+    // the next day's sunrise, rolls fresh day/night weather, and fires OnNewDay.
+    // Loaded mobs are caught up over the whole skipped span (rest of the awake
+    // day + the pre-dawn gap), but the PLAYER is deliberately NOT integrated
+    // here — the sleep caller (GameClient.PerformSleepAdvance) clears the
+    // player's status effects and full-heals instead, so a DoT can never chip or
+    // kill them in their sleep. Returns the real-time seconds skipped (for
+    // GameTimeMs-aged cooldowns). Also used by the death "sleep off a fallen
+    // member" flow.
+    public double AdvanceToNextSunrise()
     {
         if (_worldState == null)
         {
             return 0.0;
         }
-        const double sunriseTimeOfDay = 0.25;
-        double untilSunrise = sunriseTimeOfDay - _worldState.TimeOfDay01;
-        if (untilSunrise <= 0.0)
+        float dayLength = _worldState.SimData?.dayLengthSeconds ?? 600f;
+        double awakeRemaining = dayLength > 0f
+            ? (WorldState.MidnightTimeOfDay01 - _worldState.TimeOfDay01) * dayLength
+            : 0.0;
+        double preDawnSeconds = dayLength > 0f ? dayLength * (PreDawnHours / AwakeHoursPerDay) : 0.0;
+        double skippedSeconds = awakeRemaining + preDawnSeconds;
+
+        _worldState.GameTimeMs += (ulong)(skippedSeconds * 1000.0);
+        _worldState.DayNumber += 1;
+        _worldState.TimeOfDay01 = WorldState.SunriseTimeOfDay01;
+        _worldState.TimeOfDayAbsolute = _worldState.DayNumber + WorldState.SunriseTimeOfDay01;
+        _worldState.RollDailyWeather();
+
+        foreach (Mob mob in GetEntities<Mob>())
         {
-            untilSunrise += 1.0;
+            mob.TickStatusEffects((float)skippedSeconds);
         }
-        return AdvanceTime(untilSunrise * 24.0);
+
+        _wasNight = WorldState.IsNight(_worldState.TimeOfDay01);
+        RefreshTimeOfDayEntities();
+        OnNewDay?.Invoke(_worldState.DayNumber);
+        CleanupOffConditionMobs();
+        return skippedSeconds;
     }
 
     private void AdvanceClocks(double seconds, float dayLength)
@@ -381,10 +393,9 @@ public partial class World : Node3D
         if (dayLength > 0f)
         {
             double todDelta = seconds / dayLength;
-            _worldState.TimeOfDayAbsolute += todDelta;
-            double tod = _worldState.TimeOfDay01 + todDelta;
-            tod -= System.Math.Floor(tod);
+            double tod = System.Math.Min(WorldState.MidnightTimeOfDay01, _worldState.TimeOfDay01 + todDelta);
             _worldState.TimeOfDay01 = tod;
+            _worldState.TimeOfDayAbsolute = _worldState.DayNumber + tod;
         }
     }
 

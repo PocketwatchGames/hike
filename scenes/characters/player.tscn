@@ -63,12 +63,13 @@ height = 0.12
 radial_segments = 12
 rings = 6
 
-[sub_resource type="ImmediateMesh" id="ImmediateMesh_arc"]
-
 [sub_resource type="SphereShape3D" id="SphereShape3D_corpse"]
 radius = 1.0
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_audioListener", "_aimingReticle", "_corpseInteractiveBox")]
+[sub_resource type="SphereShape3D" id="SphereShape3D_attract"]
+radius = 4.0
+
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_audioListener", "_aimingReticle", "_corpseInteractiveBox", "_pickupAttractArea")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
@@ -81,6 +82,7 @@ _modelPackages = Dictionary[int, PackedScene]({
 _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
 _corpseInteractiveBox = NodePath("CorpseInteractiveBox")
+_pickupAttractArea = NodePath("PickupAttractArea")
 _wetEffectData = ExtResource("26_statuswet")
 _wetClothesEffectData = ExtResource("26_statuswetclothes")
 _dirtyEffectData = ExtResource("27_statusdirty")
@@ -164,6 +166,14 @@ _interactiveNode = NodePath("..")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("SphereShape3D_corpse")
 
+[node name="PickupAttractArea" type="Area3D" parent="." unique_id=811223360]
+collision_layer = 0
+collision_mask = 8
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PickupAttractArea" unique_id=811223361]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("SphereShape3D_attract")
+
 [node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_groundCircle", "_endKnob", "_arcRibbon")]
 script = ExtResource("24_aimreticle_script")
 _mainLine = NodePath("MainLine")
@@ -201,10 +211,8 @@ extra_cull_margin = 32.0
 mesh = SubResource("SphereMesh_aim_knob")
 
 [node name="ArcRibbon" type="MeshInstance3D" parent="AimingReticle" unique_id=911384673]
-top_level = true
 material_override = ExtResource("25_arcdotmat")
 extra_cull_margin = 64.0
-mesh = SubResource("ImmediateMesh_arc")
 
 [node name="HudAnchor" type="Node3D" parent="." unique_id=1151412001]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0131006, 0)

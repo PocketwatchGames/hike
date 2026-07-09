@@ -48,6 +48,15 @@
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="34_bow"]
 [ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="35_leather"]
 [ext_resource type="Resource" uid="uid://bnleciyyfwrqk" path="res://resources/data/items/armor/chainmail_armor.tres" id="36_chain"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="37_statuseffect_script"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/upgrades/upgrade_melee_honed.tres" id="37_up_melee"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/upgrades/upgrade_ranged_keen.tres" id="38_up_ranged"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/upgrades/upgrade_armor_reinforced.tres" id="39_up_armor"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/upgrades/upgrade_helmet_hardy.tres" id="40_up_helmet"]
+[ext_resource type="Texture2D" uid="uid://bamasnw1w56u3" path="res://assets/textures/items/Sword.png" id="41_icon_melee"]
+[ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="42_icon_ranged"]
+[ext_resource type="Texture2D" uid="uid://s0u3880g3w8n" path="res://assets/textures/items/ShieldLarge.png" id="43_icon_armor"]
+[ext_resource type="Texture2D" uid="uid://b64wopu4i148w" path="res://assets/textures/items/HelmetScrab.png" id="44_icon_helmet"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -61,7 +70,11 @@ eliteLoot = ExtResource("17_elite_loot")
 fairyLoot = ExtResource("18_fairy_loot")
 fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking")])
 fairyBoonGold = ExtResource("22_boon_gold")
-forgeItems = Array[ExtResource("31_itemdata")]([ExtResource("32_knife"), ExtResource("33_club"), ExtResource("34_bow"), ExtResource("35_leather"), ExtResource("36_chain")])
+forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet")])
+forgeMeleeIcon = ExtResource("41_icon_melee")
+forgeRangedIcon = ExtResource("42_icon_ranged")
+forgeArmorIcon = ExtResource("43_icon_armor")
+forgeHelmetIcon = ExtResource("44_icon_helmet")
 talkAction = ExtResource("13_talk_action")
 giveItemAction = ExtResource("14_give_action")
 reviveAction = ExtResource("20_revive_action")

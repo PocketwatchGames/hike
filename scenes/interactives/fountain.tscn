@@ -1,0 +1,102 @@
+[gd_scene load_steps=19 format=3]
+
+[ext_resource type="Script" uid="uid://dq0gsfedya8d3" path="res://scripts/gameplay/entities/HealingFountain.cs" id="1_fountain"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_ibox"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Texture2D" uid="uid://d2gqmdkg2cujq" path="res://assets/textures/interactions/drink.png" id="5_drink"]
+[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="6_disc"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="7_meshhl"]
+[ext_resource type="PackedScene" uid="uid://ba78teqxy16f0" path="res://assets/models/fountain/SM_Env_Stone_Fountain_01.fbx" id="8_fountainfbx"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="9_xray"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="10_porous"]
+[ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="11_mapmarker"]
+[ext_resource type="Texture2D" uid="uid://cci6ftqwqo18g" path="res://assets/textures/map_markers/well.png" id="12_mapicon"]
+[ext_resource type="Material" path="res://resources/materials/fountain_water.tres" id="13_water"]
+
+[sub_resource type="Resource" id="Resource_fountain_event_heal"]
+script = ExtResource("4_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_fountain_action_heal"]
+script = ExtResource("3_action")
+displayName = &"Drink"
+icon = ExtResource("5_drink")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_fountain_event_heal")])
+durationSeconds = 2.0
+locksMovement = true
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_water"]
+top_radius = 0.58
+bottom_radius = 0.58
+height = 0.05
+radial_segments = 24
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(3, 3, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_block"]
+size = Vector3(2, 2.6, 1.7)
+
+[node name="HealingFountain" type="Node3D" node_paths=PackedStringArray("_discoverable", "_hudNode", "_waterMesh")]
+script = ExtResource("1_fountain")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_fountain_action_heal")])
+_discoverable = NodePath("Discoverable")
+_hudNode = NodePath("HUDNode")
+_waterMesh = NodePath("FountainVisual/Water")
+
+[node name="FountainVisual" type="Node3D" parent="."]
+
+[node name="Model" type="Node3D" parent="FountainVisual"]
+transform = Transform3D(200, 0, 0, 0, 200, 0, 0, 0, 200, 0, 0, 0)
+
+[node name="SM_Env_Stone_Fountain_01" parent="FountainVisual/Model" instance=ExtResource("8_fountainfbx")]
+
+[node name="Water" type="MeshInstance3D" parent="FountainVisual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.64, 0.05)
+mesh = SubResource("CylinderMesh_water")
+material_override = ExtResource("13_water")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_ibox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="BlockCollider" type="StaticBody3D" parent="."]
+collision_layer = 2048
+script = ExtResource("10_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 0.1)
+shape = SubResource("BoxShape3D_block")
+
+[node name="Discoverable" type="Node3D" parent="." node_paths=PackedStringArray("_fadeMeshRoot", "_interactBox")]
+script = ExtResource("6_disc")
+discoveredThreshold = 0.1
+hudScale = 0.5
+_fadeMeshRoot = NodePath("../FountainVisual")
+_interactBox = NodePath("../InteractiveBox")
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("7_meshhl")
+_collectFrom = NodePath("../FountainVisual/Model")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.9, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_meshRoots", "_discoverable")]
+script = ExtResource("9_xray")
+_meshRoots = [NodePath("../FountainVisual/Model")]
+_discoverable = NodePath("../Discoverable")
+
+[node name="MapMarker" type="Node3D" parent="." node_paths=PackedStringArray("_discoverable")]
+script = ExtResource("11_mapmarker")
+displayName = &"Healing Fountain"
+icon = ExtResource("12_mapicon")
+_discoverable = NodePath("../Discoverable")

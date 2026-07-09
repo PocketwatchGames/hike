@@ -28,6 +28,13 @@ public partial class MobDescriptor : Resource
     // every species/biome elite descriptor. Null = an ordinary (non-elite) mob.
     [Export] public EliteMobDescriptor elite;
 
+    // Base difficulty tier for mobs spawned from this descriptor. WorldGen adds
+    // its per-area level field on top (see WorldGen.ComputeMobLevel), so this is
+    // a floor an authored variant can raise — e.g. a mini-boss descriptor that
+    // starts at level 2 everywhere. Each level doubles health, armor, and
+    // outgoing damage (2^level) and shows as level+1 HUD pips. 0 = base.
+    [Export(PropertyHint.Range, "0,4,1")] public int level = 0;
+
     // Convenience accessor for the descriptor's base species template (null when
     // no species is set). Spawn gates and worldgen probes read this without
     // reaching through species.
@@ -54,6 +61,10 @@ public partial class MobDescriptor : Resource
         // key) as well as the source of its recolor / loot / stat modifiers.
         state.Species = species;
         state.Palette = species.palette;
+        // Authored base tier; WorldGen bumps this by its per-area level field at
+        // placement (MobSpawnEntry.Spawn). Left as-is for editor/runtime spawns
+        // that don't route through worldgen.
+        state.Level = level;
         if (species.weapons != null && species.weapons.Count > 0)
         {
             state.Weapons = species.weapons;

@@ -1,13 +1,20 @@
 using System;
-using System.Collections.Generic;
 using Godot;
 
 // Smithing forge. On interact (while off cooldown) it opens the ForgeScreen
-// offering a few weapons/armor drawn at random from SimData.forgeItems, each
-// minted at this forge's Level. Selecting one creates an ephemeral, leveled
-// item and equips it on the player; the forge then goes inert until the next
-// in-world sunrise — a sim-clock deadline persisted on the sim state so the
-// cooldown survives chunk streaming and save/load.
+// offering a single slot-locked "upgrade" (a StatusEffectData with a non-None
+// upgradeSlot) drawn from SimData.forgeUpgrades. Accepting applies the upgrade at
+// this forge's Level — evicting whatever occupies that slot — and the forge goes
+// inert until the next in-world sunrise (a sim-clock deadline persisted on the sim
+// state so the cooldown survives chunk streaming and save/load). The upgrade
+// effects are authored as sunrise-expiring (durationType TimeOfDay), so they last
+// exactly one day, matching the forge's daily re-arm.
+//
+// The offered upgrade is chosen deterministically from (world position, day), so
+// the model hovering over the forge always previews what the player will get.
+// Instead of a single orb, the forge floats the model of the offered slot (melee
+// sword / ranged bow / armor shield / helmet), glowing purple while ready and
+// darkened once used.
 //
 // Distinct from the Campfire cooking station: no lit/doused state, no jobs.
 [GlobalClass]
@@ -16,23 +23,189 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     [Export] private Discoverable _discoverable;
     [Export] private Node3D _hudNode;
-    // How many weapon/armor choices the forge offers per use.
-    [Export] private int _choiceCount = 3;
+
+    // Hovering purple voxel light: glows while the forge is ready, fades once used.
+    [Export] private StationaryLight _light;
+    // Voxels above the forge origin at which the orb light is deposited, so the
+    // glow centers on the hovering model rather than the pedestal base.
+    [Export] private int _orbLightHeight = 3;
+
+    // Slot models — one per upgrade slot, only the offered slot's model is shown.
+    // The pivot spins + bobs; the visible model swaps every descendant mesh's
+    // material override between the active (purple emissive) and inert (darkened)
+    // variants for its atlas. These are Node3D holders (the FBX may split into
+    // several MeshInstance3D — the sword blade + scabbard, the skinned bow).
+    [Export] private Node3D _modelPivot;
+    [Export] private Node3D _modelMelee;   // sword
+    [Export] private Node3D _modelRanged;  // bow
+    [Export] private Node3D _modelArmor;   // shield
+    [Export] private Node3D _modelHelmet;  // helmet
+    // Active/inert material pairs. The melee/ranged/helmet models share one atlas
+    // (PolysplitGames); the armor shield uses its own (PolygonDungeon).
+    [Export] private Material _slotActiveMaterial;
+    [Export] private Material _slotInertMaterial;
+    [Export] private Material _armorActiveMaterial;
+    [Export] private Material _armorInertMaterial;
+
+    // Presentational hover: height amplitude (m) + cycles/second, and spin speed.
+    [Export] private float _bobAmplitude = 0.12f;
+    [Export] private float _bobHz = 0.4f;
+    [Export] private float _spinDegreesPerSecond = 45f;
 
     private ForgeSimState _simState;
     private World _world;
-    private readonly Random _rng = new();
+    private bool _visualReady = true;
+    private float _pivotBaseY;
+    private float _bobTime;
+
+    // The upgrade this forge currently offers (and previews as a floating model),
+    // resolved deterministically from position + the next-usable day.
+    private StatusEffectData _offeredUpgrade;
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
+    // Star pips on the interact HUD reflect the forge's power tier (1-5).
+    public int InteractLevel => _simState?.Level ?? 0;
+
     public void OnSpawned(World world) { }
+
+    public override void _Ready()
+    {
+        if (_modelPivot != null)
+        {
+            _pivotBaseY = _modelPivot.Position.Y;
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        if (_world != null)
+        {
+            _world.OnNewDay -= HandleNewDay;
+        }
+    }
+
+    // Wall-clock spin + bob only — a purely presentational hover, so it stays
+    // smooth at render fps and doesn't drag under slow-mo. Ready/inert state is
+    // event-driven (use + OnNewDay), not polled here.
+    public override void _Process(double delta)
+    {
+        if (_modelPivot == null)
+        {
+            return;
+        }
+        _bobTime += (float)delta;
+        Vector3 pos = _modelPivot.Position;
+        pos.Y = _pivotBaseY + Mathf.Sin(_bobTime * Mathf.Tau * _bobHz) * _bobAmplitude;
+        _modelPivot.Position = pos;
+        _modelPivot.RotateY(Mathf.DegToRad(_spinDegreesPerSecond) * (float)delta);
+    }
+
+    // The forge re-arms at sunrise; re-roll the offer (a new day picks a new
+    // upgrade) and re-evaluate the glow when the day rolls over.
+    private void HandleNewDay(int day)
+    {
+        RefreshOffer();
+        ApplyReadyVisual(CanInteract());
+    }
+
+    // Pick the offered upgrade for the day the forge is next usable — today while
+    // ready, tomorrow while inert — so the floating model previews what you'll
+    // actually receive. Deterministic in (position, day) so it's stable across
+    // streaming / reload and changes only when the forge re-arms.
+    private void RefreshOffer()
+    {
+        int today = World.Current?.DayNumber ?? 0;
+        _offeredUpgrade = _simState == null
+            ? null
+            : ForgeOffer.Resolve(_world?.SimData?.forgeUpgrades, _simState.WorldPosition, today, _simState.ReactivateDay);
+        ApplyOfferModel();
+    }
+
+    private EUpgradeSlot OfferedSlot => _offeredUpgrade?.upgradeSlot ?? EUpgradeSlot.None;
+
+    // Show only the model for the offered slot; reapply its ready/inert material.
+    private void ApplyOfferModel()
+    {
+        EUpgradeSlot slot = OfferedSlot;
+        SetModel(_modelMelee, slot == EUpgradeSlot.Melee);
+        SetModel(_modelRanged, slot == EUpgradeSlot.Ranged);
+        SetModel(_modelArmor, slot == EUpgradeSlot.Armor);
+        SetModel(_modelHelmet, slot == EUpgradeSlot.Helmet);
+        ApplyModelMaterial(_visualReady);
+    }
+
+    private static void SetModel(Node3D model, bool shown)
+    {
+        if (model != null)
+        {
+            model.Visible = shown;
+        }
+    }
+
+    // The holder + material pair for the currently-offered slot (armor uses its own
+    // atlas materials; the rest share one). Null holder when no slot is offered.
+    private void ResolveOfferedModel(out Node3D holder, out Material active, out Material inert)
+    {
+        switch (OfferedSlot)
+        {
+            case EUpgradeSlot.Melee:
+                holder = _modelMelee; active = _slotActiveMaterial; inert = _slotInertMaterial; return;
+            case EUpgradeSlot.Ranged:
+                holder = _modelRanged; active = _slotActiveMaterial; inert = _slotInertMaterial; return;
+            case EUpgradeSlot.Helmet:
+                holder = _modelHelmet; active = _slotActiveMaterial; inert = _slotInertMaterial; return;
+            case EUpgradeSlot.Armor:
+                holder = _modelArmor; active = _armorActiveMaterial; inert = _armorInertMaterial; return;
+            default:
+                holder = null; active = null; inert = null; return;
+        }
+    }
+
+    private void ApplyModelMaterial(bool ready)
+    {
+        ResolveOfferedModel(out Node3D holder, out Material active, out Material inert);
+        if (holder != null)
+        {
+            ApplyOverrideRecursive(holder, ready ? active : inert);
+        }
+    }
+
+    // MaterialOverride replaces every surface, so an FBX that split into several
+    // MeshInstance3D (sword blade + scabbard, skinned bow) needs the override on
+    // each. Walks the holder subtree.
+    private static void ApplyOverrideRecursive(Node node, Material material)
+    {
+        if (node is MeshInstance3D mesh)
+        {
+            mesh.MaterialOverride = material;
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            ApplyOverrideRecursive(child, material);
+        }
+    }
+
+    // Purple flickering glow + emissive model while ready; light out + darkened
+    // model once used. fade=false snaps (spawn/streaming) so a loading forge
+    // doesn't flare up.
+    private void ApplyReadyVisual(bool ready, bool fade = true)
+    {
+        if (ready == _visualReady && fade)
+        {
+            return;
+        }
+        _visualReady = ready;
+        _light?.SetActive(ready, fade);
+        ApplyModelMaterial(ready);
+    }
 
     public bool CanInteract()
     {
-        // Inert until the sim clock passes the reactivation deadline (stamped to
-        // the next sunrise on use). 0 = ready.
-        ulong now = World.Current?.GameTimeMs ?? 0;
-        return _simState == null || now >= _simState.ReactivateMs;
+        // Inert until the day advances past the reactivation day (stamped to the
+        // next sleep-to-sunrise on use). 0 = ready.
+        int today = World.Current?.DayNumber ?? 0;
+        return _simState == null || today >= _simState.ReactivateDay;
     }
 
     public bool CanActorInteract(Player player)
@@ -51,7 +224,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
 
     public void Complete(int actionIndex)
     {
-        if (!CanInteract())
+        if (!CanInteract() || _offeredUpgrade == null)
         {
             return;
         }
@@ -61,54 +234,14 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        List<ItemState> choices = RollChoices();
-        if (choices.Count == 0)
+        StatusEffectData offered = _offeredUpgrade;
+        int level = _simState?.Level ?? 0;
+        StatusEffectData replacing = player.ActiveUpgrade(offered.upgradeSlot);
+        gc.OpenForgeScreen(offered, replacing, level, () =>
         {
-            return;
-        }
-        gc.OpenForgeScreen(choices, chosen =>
-        {
-            if (chosen == null)
-            {
-                return;
-            }
-            player.EquipItem(chosen);
+            player.AddStatusEffect(offered, level);
             BeginCooldown();
         });
-    }
-
-    // Draw up to _choiceCount distinct items from the pool, each minted at the
-    // forge's level as an ephemeral (sunrise-expiring) instance.
-    private List<ItemState> RollChoices()
-    {
-        var result = new List<ItemState>();
-        Godot.Collections.Array<ItemData> pool = _world?.SimData?.forgeItems;
-        if (pool == null || pool.Count == 0)
-        {
-            return result;
-        }
-        int level = _simState?.Level ?? 0;
-        var indices = new List<int>(pool.Count);
-        for (int i = 0; i < pool.Count; i++)
-        {
-            indices.Add(i);
-        }
-        int take = Math.Min(_choiceCount, indices.Count);
-        for (int n = 0; n < take; n++)
-        {
-            int pick = _rng.Next(indices.Count);
-            ItemData data = pool[indices[pick]];
-            indices.RemoveAt(pick);
-            if (data == null)
-            {
-                continue;
-            }
-            ItemState state = data.CreateState();
-            state.level = level;
-            state.ephemeral = true;
-            result.Add(state);
-        }
-        return result;
     }
 
     private void BeginCooldown()
@@ -117,7 +250,14 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        _simState.ReactivateMs = World.Current?.NextSunriseMs() ?? 0;
+        _simState.ReactivateDay = (World.Current?.DayNumber ?? 0) + 1;
+        // Keep the map-marker tint cache current so the icon dims immediately and
+        // stays dim while this chunk is unloaded.
+        _world?.WorldState?.SimState?.SetForgeReactivate(_simState.WorldPosition, _simState.ReactivateDay, _simState.Level);
+        // Snuff the glow immediately and preview tomorrow's offer (darkened);
+        // HandleNewDay relights it at the next sunrise.
+        RefreshOffer();
+        ApplyReadyVisual(false);
     }
 
     public static Forge Create(World world, ForgeSimState data)
@@ -126,7 +266,21 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         instance.Position = data.WorldPosition;
         instance._simState = data;
         instance._world = world;
+        var lightPos = new Vector3I(
+            Mathf.FloorToInt(data.WorldPosition.X),
+            Mathf.FloorToInt(data.WorldPosition.Y) + instance._orbLightHeight,
+            Mathf.FloorToInt(data.WorldPosition.Z)
+        );
+        instance._light?.Initialize(world.WorldState, world, lightPos);
+        // Register this forge's cooldown deadline so its map marker tints
+        // ready/inert even while the chunk is unloaded (mirrors LitCampfire).
+        world.WorldState?.SimState?.SetForgeReactivate(data.WorldPosition, data.ReactivateDay, data.Level);
         world.AddChild(instance);
+        // Resolve the offered upgrade + model, then snap to the ready/inert state
+        // (no fade on stream-in) and relight on the sunrise rollover.
+        instance.RefreshOffer();
+        instance.ApplyReadyVisual(instance.CanInteract(), fade: false);
+        world.OnNewDay += instance.HandleNewDay;
         return instance;
     }
 }

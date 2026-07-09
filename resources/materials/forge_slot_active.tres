@@ -1,0 +1,14 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3]
+
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://3smdoop7jeuh" path="res://assets/models/forge_slots/genericRGB_medievalTexture.png" id="2_tex"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_tex")
+shader_parameter/form_strength = 0.4
+shader_parameter/color_tint = Color(0.95, 0.85, 1, 1)
+shader_parameter/emission_tint = Color(0.5, 0.25, 0.85, 1)
+shader_parameter/emission_strength = 0.05
+shader_parameter/ao_contact_strength = 0.0

@@ -112,9 +112,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
 
         if (data.AutoLightAtNight)
         {
-            double tod = world.WorldState.TimeOfDay01;
-            bool isNight = tod < 0.25 || tod >= 0.75;
-            data.Active = isNight;
+            data.Active = WorldState.IsNight(world.WorldState.TimeOfDay01);
         }
         instance._active = data.Active;
         instance.UpdateVisuals();

@@ -45,10 +45,11 @@ public partial class Minimap : Node3D
     // zoom because how far you see doesn't depend on how the map is rendered.
     [Export(PropertyHint.Range, "0.5,10,0.1")] public float revealMultiplier = 1.5f;
     // Extra reveal-radius multiplier while the player is in the bird's-eye
-    // overlook (tree climb or the birds_eye consumable) — scouting from above
-    // charts farther than ground level. Stacks on revealMultiplier. The indoor
-    // light gate still applies, so a dark region aloft stays uncharted.
-    [Export(PropertyHint.Range, "1,8,0.1")] public float birdsEyeRevealMultiplier = 3f;
+    // overlook (tree climb OR birds_eye consumable — they do the same thing) —
+    // scouting from above charts farther than ground level, but a modest area,
+    // not a huge swath. Stacks on revealMultiplier. The indoor light gate still
+    // applies, so a dark region aloft stays uncharted.
+    [Export(PropertyHint.Range, "1,8,0.1")] public float birdsEyeRevealMultiplier = 1.5f;
     // Soft-edge inner-fraction for every reveal disk. Inside `radius * this`
     // the disk paints at full brightness; from there to the outer radius the
     // value falls linearly to 0. 1.0 = hard edge, ~0.5 = wide soft fade.
@@ -368,6 +369,28 @@ public partial class Minimap : Node3D
         ExplorationMask active = ActiveExplorationMask;
         _textures?.RebuildExploration(party?.Outdoor, active?.Outdoor);
         _sliceAtlas?.RebuildExploration(party, active);
+        // Reseeding the world-map fog from the party pool also retires the frozen
+        // region/marker snapshots, so all three world-map layers revert together
+        // and stay player-tied (lost on death, not stranded at party level).
+        _world?.WorldState?.SimState?.ClearWorldMapSnapshots();
+    }
+
+    // Graduate the active member's field reveal onto the WORLD MAP as a frozen
+    // snapshot — the tree-climb scout. Unlike a campfire bank, this doesn't touch
+    // the party pool: it only advances the world map's banked-display buffers, so
+    // the perched wide reveal shows on the world map immediately yet stays
+    // provisional (un-banked) until the player actually returns to a fire. Normal
+    // walking reveal never writes these buffers, so the world map holds this
+    // snapshot frozen and only advances on the next tree climb.
+    public void SnapshotFieldRevealToWorldMap()
+    {
+        ExplorationMask active = ActiveExplorationMask;
+        if (active == null)
+        {
+            return;
+        }
+        _textures?.MergeActiveIntoBanked(active.Outdoor);
+        _sliceAtlas?.MergeActiveIntoBanked(active);
     }
 
     // Campfire reveal animation. Orchestrated by GameClient.EnterCampWithFade:
@@ -622,49 +645,7 @@ public partial class Minimap : Node3D
             _revealAccumulator = 0.0;
             if (moved)
             {
-                float innerFraction = revealInnerFraction;
-                // Reveal radius is independent of indoor zoom — it represents
-                // what the player can perceive, which doesn't shrink just
-                // because we're rendering a more zoomed-in indoor view.
-                float revealRadius = ComputeRevealRadius();
-                // The active member accumulates their own field reveal here; it
-                // stays off the displayed map until banked at a campfire. Null
-                // before the roster exists — reveal then no-ops.
-                ExplorationMask individual = ActiveExplorationMask;
-                WorldState ws = _world.WorldState;
-                MinimapLos los = BuildLos();
-                if (_mode == EMinimapMode.Outdoor)
-                {
-                    byte[] individualOutdoor = individual?.EnsureOutdoor(_textures.ExplorationBufferSize);
-                    bool birdsEye = player.IsBirdsEye;
-                    if (!los.Enabled)
-                    {
-                        _textures.RevealCircle(playerPos, revealRadius, innerFraction, individualOutdoor);
-                    }
-                    else if (birdsEye)
-                    {
-                        // Scouting from above: no terrain occlusion, but distant
-                        // fog volumes still hide what's inside them.
-                        _textures.RevealCircleFogged(playerPos, revealRadius, innerFraction, ws, los.FogFullBlockMeters, individualOutdoor);
-                    }
-                    else
-                    {
-                        _textures.RevealViewshed(playerPos, revealRadius, innerFraction, los, ws, individualOutdoor);
-                    }
-                    // Slice-column reveal gated by terrain LOS on the ground, but
-                    // ungated in bird's-eye (looking down over the terrain) and
-                    // when LOS is off.
-                    RevealOutdoorSliceColumns(playerPos, innerFraction, individual, los, ws, gate: los.Enabled && !birdsEye);
-                }
-                else
-                {
-                    // Indoor / underground: reveal only the active slice, with
-                    // walls occluding at the player's real eye height.
-                    float eyeY = playerPos.Y + GameCamera.EYE_HEIGHT;
-                    _sliceAtlas.RevealCircle(_activeSliceLevel, playerPos, revealRadius, innerFraction, individual, ws, eyeY, los);
-                }
-                _lastRevealPos = playerPos;
-                _hasRevealedOnce = true;
+                RevealOnce(playerPos);
             }
             // Runs at the reveal cadence even when stationary, so a landmark that
             // streams in under already-charted fog is Sensed without waiting for
@@ -675,6 +656,78 @@ public partial class Minimap : Node3D
         // Drive the campfire reveal sweep (armed by GameClient during camp entry).
         UpdateBankedReveal();
 
+        _textures.Flush();
+        _sliceAtlas.Flush();
+    }
+
+    // One reveal pass at playerPos into the active member's field store (+ the live
+    // display buffer). Shared by the per-tick reveal and the on-spawn RevealAtPlayerNow.
+    private void RevealOnce(Vector3 playerPos)
+    {
+        float innerFraction = revealInnerFraction;
+        // Reveal radius is independent of indoor zoom — it represents what the
+        // player can perceive, which doesn't shrink just because we're rendering a
+        // more zoomed-in indoor view.
+        float revealRadius = ComputeRevealRadius();
+        // The active member accumulates their own field reveal here; it stays off
+        // the displayed world map until banked at a campfire. Null before the roster
+        // exists — reveal then no-ops.
+        ExplorationMask individual = ActiveExplorationMask;
+        WorldState ws = _world.WorldState;
+        MinimapLos los = BuildLos();
+        if (_mode == EMinimapMode.Outdoor)
+        {
+            byte[] individualOutdoor = individual?.EnsureOutdoor(_textures.ExplorationBufferSize);
+            bool birdsEye = _world.player?.IsBirdsEye ?? false;
+            if (!los.Enabled)
+            {
+                _textures.RevealCircle(playerPos, revealRadius, innerFraction, individualOutdoor);
+            }
+            else if (birdsEye)
+            {
+                // Scouting from above: no terrain occlusion, but distant fog volumes
+                // still hide what's inside them.
+                _textures.RevealCircleFogged(playerPos, revealRadius, innerFraction, ws, los.FogFullBlockMeters, individualOutdoor);
+            }
+            else
+            {
+                _textures.RevealViewshed(playerPos, revealRadius, innerFraction, los, ws, individualOutdoor);
+            }
+            // Slice-column reveal gated by terrain LOS on the ground, but ungated in
+            // bird's-eye (looking down over the terrain) and when LOS is off.
+            RevealOutdoorSliceColumns(playerPos, innerFraction, individual, los, ws, gate: los.Enabled && !birdsEye);
+        }
+        else
+        {
+            // Indoor / underground: reveal only the active slice, with walls
+            // occluding at the player's real eye height.
+            float eyeY = playerPos.Y + GameCamera.EYE_HEIGHT;
+            _sliceAtlas.RevealCircle(_activeSliceLevel, playerPos, revealRadius, innerFraction, individual, ws, eyeY, los);
+        }
+        _lastRevealPos = playerPos;
+        _hasRevealedOnce = true;
+    }
+
+    // Force a single reveal pass at the player's current position right now, outside
+    // the per-tick cadence. Called once at spawn (GameClient.Init) so the immediate
+    // surroundings can be banked into the party pool — otherwise a fresh save opens
+    // to a blank world map (the per-tick reveal only fills the active member's
+    // provisional store, which the world map doesn't show until banked).
+    public void RevealAtPlayerNow()
+    {
+        if (_world == null || _textures == null)
+        {
+            return;
+        }
+        Player player = _world.player;
+        if (player == null)
+        {
+            return;
+        }
+        Vector3 playerPos = player.GlobalPosition;
+        UpdateMode(playerPos);
+        RevealOnce(playerPos);
+        UpdateMarkerDiscovery(playerPos);
         _textures.Flush();
         _sliceAtlas.Flush();
     }

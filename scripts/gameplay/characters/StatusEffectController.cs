@@ -820,7 +820,48 @@ public class StatusEffectController
 		}
 	}
 
-	public StatusEffectState Add(StatusEffectData data)
+	// `level` is the upgrade tier stamped on the created instance (0 = none). Only
+	// meaningful for slotted forge upgrades; ordinary callers omit it.
+	// Remove any active state occupying `slot` (its fx wound down). No-op for
+	// EUpgradeSlot.None so ordinary effects are unaffected. Called by Add before
+	// inserting a slotted upgrade, giving the swap-not-stack semantics.
+	private void EvictUpgradeSlot(EUpgradeSlot slot)
+	{
+		if (slot == EUpgradeSlot.None)
+		{
+			return;
+		}
+		for (int i = _statusEffects.Count - 1; i >= 0; i--)
+		{
+			if (_statusEffects[i]?.data?.upgradeSlot == slot)
+			{
+				EndFx(_statusEffects[i]);
+				_statusEffects.RemoveAt(i);
+			}
+		}
+	}
+
+	// Currently-active upgrade occupying `slot`, or null if the slot is empty.
+	// Lets the forge show what a new upgrade would replace.
+	public StatusEffectData ActiveUpgrade(EUpgradeSlot slot)
+	{
+		if (slot == EUpgradeSlot.None)
+		{
+			return null;
+		}
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			if (_statusEffects[i]?.data?.upgradeSlot == slot)
+			{
+				return _statusEffects[i].data;
+			}
+		}
+		return null;
+	}
+
+	// `level` is the upgrade tier stamped on the created instance (0 = none). Only
+	// meaningful for slotted forge upgrades; ordinary callers omit it.
+	public StatusEffectState Add(StatusEffectData data, int level = 0)
 	{
 		if (data == null)
 		{
@@ -833,6 +874,10 @@ public class StatusEffectController
 		// stack-cap branch so a same-frame re-add of `data` itself can't get
 		// tangled with its own removal.
 		ApplyRemovesOnApply(data);
+		// Slot-exclusive upgrades: applying one evicts the current occupant of the
+		// same upgrade slot (melee/ranged/armor/helmet), so a forge visit swaps the
+		// slot rather than stacking. None-slotted effects skip this entirely.
+		EvictUpgradeSlot(data.upgradeSlot);
 		// Enforce data.maxStack by refreshing the oldest still-alive instance
 		// instead of appending. List order is insertion order (Tick prunes in
 		// place via RemoveAt) so the first match is the oldest. ArmTimer is a
@@ -860,7 +905,7 @@ public class StatusEffectController
 				return oldest;
 			}
 		}
-		var state = new StatusEffectState(data, now, nowTod);
+		var state = new StatusEffectState(data, now, nowTod) { level = level };
 		_statusEffects.Add(state);
 		SpawnStartFx(data);
 		if (data.loopFx != null && _actor != null)

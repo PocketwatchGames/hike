@@ -99,5 +99,6 @@ animations = Dictionary[int, ExtResource("7_animdata")]({
 })
 hudScale = 0.8
 mobScene = ExtResource("4_scene")
+levelColorMeshNames = PackedStringArray("SK_ShoulderPad", "SM_ForearmArmorLeft", "SM_ForearmArmorRight", "SM_LegArmorLeft", "SM_LegArmorRight", "SM_Shield")
 maxSpeed = 8.0
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

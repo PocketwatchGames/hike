@@ -10,6 +10,12 @@ public class StatusEffectState
 {
 	public readonly StatusEffectData data;
 
+	// Upgrade tier for slotted forge upgrades (0 = unleveled / not a forge
+	// upgrade). Stamped from the forge's level when applied. Intended to scale the
+	// effect's magnitude, but the scaling is bespoke per effect and DEFERRED — for
+	// now the level is stored + surfaced to UI only. See StatusEffectController.Add.
+	public int level;
+
 	// Game-time (ms) at which a Timed effect expires. 0 = no ms timer
 	// (Persistent, TimeOfDay, or a paused situational timer — see PauseTimer).
 	public ulong expireTimeMs;

@@ -157,13 +157,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // active status effects, so a buff applied mid-life raises the cap and HUD
     // bar immediately. The per-frame clamp in Tick pulls current health down
     // when the buff expires and this shrinks.
-    public float maxHealth => _simState.MaxHealth + ComposeStat(EStat.MaxHealth);
+    public float maxHealth => (_simState.MaxHealth + ComposeStat(EStat.MaxHealth)) * LevelMultiplier;
     public float health { get => _simState.Health; set => _simState.Health = value; }
     // Live cap — base armor plus any MaxArmor stat modifier from active status
     // effects (e.g. Stoneskin), so a buff applied mid-life raises the recharge
     // ceiling and the HUD bar immediately. TickArmor clamps current armor down
     // when the buff expires and this shrinks.
-    public float maxArmor => (mobData?.maxArmor ?? 0f) + ComposeStat(EStat.MaxArmor);
+    public float maxArmor => ((mobData?.maxArmor ?? 0f) + ComposeStat(EStat.MaxArmor)) * LevelMultiplier;
+    // Difficulty tier stamped at spawn (MobSimState.Level). Drives LevelMultiplier
+    // below and the HUD level pips (Level+1 of them). Immutable after spawn.
+    public int Level => _simState?.Level ?? 0;
+    // 2^Level — the flat multiplier a mob's level applies to health, armor, and
+    // outgoing damage. Folded into the maxHealth/maxArmor caps (so current vitals
+    // fill to the scaled max at spawn) and OutgoingDamageMultiplier. Base
+    // (Level 0) mobs get 1.
+    public float LevelMultiplier => Mathf.Pow(2f, Mathf.Max(0, Level));
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
     // Elite marker, authored on the spawning MobDescriptor. Drives the crown,
     // shared elite buff, and crown-trophy loot; the signature effect rides
@@ -648,6 +656,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Biome-variant recolor: one model, many palettes (null = untouched).
             // The descriptor's per-instance override wins; else the species default.
             _modelAnimator.ApplyPalette(_simState.Palette ?? mobData?.palette);
+            // Level tell: tint the species' designated accent mesh(es) — eyes,
+            // armor — with the shared per-level color so a mob's difficulty tier
+            // reads at a glance, consistently across species. Layered on top of the
+            // biome palette (which recolors other meshes). No-op when unnamed.
+            if (mobData != null && mobData.levelColorMeshNames.Length > 0)
+            {
+                _modelAnimator.SetMeshRecolor(mobData.levelColorMeshNames, GameClient.MobLevelColor(Level));
+            }
             // Per-individual outfit (NpcSpawnEntry.Outfit) composed onto the rig's
             // base meshes. No-op when unset — the scene's authored outfit stands.
             _modelAnimator.ApplyOutfit(_simState.Outfit);
@@ -1120,7 +1136,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool IsSwimming => _swimming;
     public bool HasDamagingStatusEffect => _statusEffects?.HasDamagingEffect ?? false;
 
-    public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
+    public float OutgoingDamageMultiplier => (_statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f) * LevelMultiplier;
     // IActionActor — mobs have no strength stat; melee scale is neutral.
     public float MeleeDamageMultiplier => 1f;
 
@@ -3891,7 +3907,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             SpawnWorldEffect(_simState.ArmorDepleted ? _armorRecoverStartFx : _armorRechargeStartFx);
         }
         MobData md = mobData;
-        float speed = md?.armorRechargeSpeed ?? 0f;
+        // Rate is derived from the (level-scaled) max so a full refill always
+        // takes armorRechargeTime seconds — a leveled mob's larger pool recharges
+        // in the same time, no explicit level factor needed. The flat delays
+        // (armorRechargeDelay / armorRecoverTime) stay as timing feel.
+        float rechargeTime = md?.armorRechargeTime ?? 0f;
+        float speed = rechargeTime > 0f ? max / rechargeTime : 0f;
         armor = Mathf.Min(max, armor + speed * dt);
         if (armor >= max)
         {

@@ -28,6 +28,11 @@ public partial class Player : CharacterBody3D
 	public void OnBirdsEyeReturnComplete()
 	{
 		_birdsEye = false;
+		// No longer perched — the tree's marker reverts to its inactive tint.
+		if (_world?.WorldState?.SimState != null)
+		{
+			_world.WorldState.SimState.ActiveClimbTreePosition = null;
+		}
 		// A tree climb rides the bird's-eye lifecycle: the camera landing back
 		// on the player is also when the player drops out of the canopy, so
 		// restore the model and clear concealment here. Exit can be triggered
@@ -37,6 +42,16 @@ public partial class Player : CharacterBody3D
 		{
 			_hidden = false;
 			SetModelVisible(true);
+		}
+		// Clear the climbed tree's highlight tint (guarded — the tree may have
+		// streamed out while perched, freeing the instance).
+		if (_climbedTree != null)
+		{
+			if (GodotObject.IsInstanceValid(_climbedTree))
+			{
+				_climbedTree.SetClimbedHighlight(false);
+			}
+			_climbedTree = null;
 		}
 	}
 
@@ -69,13 +84,20 @@ public partial class Player : CharacterBody3D
 	// restore lives in OnBirdsEyeReturnComplete, driven by the bird's-eye
 	// fly-down — there is no explicit "descend" call, the player leaves the tree
 	// by ending bird's-eye (ESC) or by taking damage.
-	public void EnterClimbableTree()
+	public void EnterClimbableTree(ClimbableTree tree)
 	{
 		if (_hidden || _birdsEye)
 		{
 			return;
 		}
 		_hidden = true;
+		_climbedTree = tree;
+		// Mark this as the currently-climbed tree so its map marker draws in its
+		// active (red) tint (WorldSimState.IsMarkerActive). Cleared on descent.
+		if (tree != null && _world?.WorldState?.SimState != null)
+		{
+			_world.WorldState.SimState.ActiveClimbTreePosition = tree.GlobalPosition;
+		}
 		SetModelVisible(false);
 		BeginBirdsEye();
 	}

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://ctut32nocamqn" path="res://assets/textures/status_effects/Icon32.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+
+[sub_resource type="Resource" id="m_armor"]
+script = ExtResource("3_mod")
+stat = 134217728
+value = 3.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Reinforced"
+description = "Reinforces your armor for the day, granting extra protection until sunrise."
+upgradeSlot = 3
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = Array[ExtResource("3_mod")]([SubResource("m_armor")])
+conditionalModifiers = []

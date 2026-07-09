@@ -366,8 +366,11 @@ public partial class CookingScreen : Control
 	}
 
 	// Delivered on cook completion while this screen is bound. Cooked dishes are
-	// Equipment, so they go to a free hotbar slot or the party equipment stash —
-	// never the material backpack; a material output goes to the material stash.
+	// eaten the instant they come off the fire — the cook consumes the output and
+	// its effects apply immediately, rather than stocking the inventory. A
+	// non-consumable output (or a busy action runner) falls back to delivery:
+	// Equipment goes to a free hotbar slot or the party equipment stash, a
+	// material output to the material stash.
 	void OnCookOutputDelivered(CampfireCompletion completion)
 	{
 		if (completion.output == null || _player == null)
@@ -376,7 +379,10 @@ public partial class CookingScreen : Control
 		}
 		ItemState state = completion.output.CreateState();
 		state.stackCount = 1;
-		DeliverOutput(state);
+		if (!_player.TryConsumeImmediately(state))
+		{
+			DeliverOutput(state);
+		}
 
 		WorldSimState worldSim = _player.World?.WorldState?.SimState;
 		string outputName = worldSim != null

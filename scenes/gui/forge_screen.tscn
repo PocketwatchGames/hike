@@ -1,10 +1,11 @@
-[gd_scene format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" uid="uid://jy2mfs8ednf1" path="res://scripts/gui/ForgeScreen.cs" id="1_forge"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_hint"]
-[ext_resource type="PackedScene" path="res://scenes/gui/forge_item_card.tscn" id="3_card"]
+[ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="3_sepanel"]
+[ext_resource type="Texture2D" uid="uid://c724fln4nwxjb" path="res://assets/textures/gui/mob_hud_level_star.png" id="4_star"]
 
-[node name="ForgeScreen" type="Control" node_paths=PackedStringArray("_panelContainer")]
+[node name="ForgeScreen" type="Control" node_paths=PackedStringArray("_replacingPanel", "_offeredPanel", "_replacingEmptyLabel", "_levelStars")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,8 +13,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_forge")
-itemCardScene = ExtResource("3_card")
-_panelContainer = NodePath("MarginContainer/HBoxContainer")
+_replacingPanel = NodePath("MarginContainer/Content/Compare/ReplacingSide/ReplacingPanel")
+_offeredPanel = NodePath("MarginContainer/Content/Compare/OfferedSide/OfferedPanel")
+_replacingEmptyLabel = NodePath("MarginContainer/Content/Compare/ReplacingSide/EmptyLabel")
+_levelStars = [NodePath("MarginContainer/Content/LevelStars/Star1"), NodePath("MarginContainer/Content/LevelStars/Star2"), NodePath("MarginContainer/Content/LevelStars/Star3"), NodePath("MarginContainer/Content/LevelStars/Star4"), NodePath("MarginContainer/Content/LevelStars/Star5")]
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -26,6 +29,100 @@ theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
+
+[node name="Content" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="LevelStars" type="HBoxContainer" parent="MarginContainer/Content"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="Star1" type="TextureRect" parent="MarginContainer/Content/LevelStars"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+texture = ExtResource("4_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star2" type="TextureRect" parent="MarginContainer/Content/LevelStars"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+texture = ExtResource("4_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star3" type="TextureRect" parent="MarginContainer/Content/LevelStars"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+texture = ExtResource("4_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star4" type="TextureRect" parent="MarginContainer/Content/LevelStars"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+texture = ExtResource("4_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star5" type="TextureRect" parent="MarginContainer/Content/LevelStars"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+texture = ExtResource("4_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Compare" type="HBoxContainer" parent="MarginContainer/Content"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 40
+alignment = 1
+
+[node name="ReplacingSide" type="VBoxContainer" parent="MarginContainer/Content/Compare"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="ReplacingHeading" type="Label" parent="MarginContainer/Content/Compare/ReplacingSide"]
+layout_mode = 2
+text = "Replacing"
+horizontal_alignment = 1
+
+[node name="ReplacingPanel" parent="MarginContainer/Content/Compare/ReplacingSide" instance=ExtResource("3_sepanel")]
+layout_mode = 2
+
+[node name="EmptyLabel" type="Label" parent="MarginContainer/Content/Compare/ReplacingSide"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+text = "Empty slot"
+horizontal_alignment = 1
+vertical_alignment = 1
+modulate = Color(1, 1, 1, 0.5)
+
+[node name="Arrow" type="Label" parent="MarginContainer/Content/Compare"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 32
+text = "→"
+
+[node name="OfferedSide" type="VBoxContainer" parent="MarginContainer/Content/Compare"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="OfferedHeading" type="Label" parent="MarginContainer/Content/Compare/OfferedSide"]
+layout_mode = 2
+text = "New Upgrade"
+horizontal_alignment = 1
+
+[node name="OfferedPanel" parent="MarginContainer/Content/Compare/OfferedSide" instance=ExtResource("3_sepanel")]
+layout_mode = 2
 
 [node name="ButtonHints" type="HBoxContainer" parent="MarginContainer"]
 layout_mode = 2
@@ -41,9 +138,3 @@ ActionName = "Forge"
 layout_mode = 2
 ActionName = "Cancel"
 InputAction = "B"
-
-[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer"]
-layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
-theme_override_constants/separation = 100
