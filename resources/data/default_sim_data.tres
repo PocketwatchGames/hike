@@ -51,8 +51,6 @@
 [ext_resource type="Texture2D" uid="uid://dlg10rgtlqgr0" path="res://assets/textures/map_markers/lightning.png" id="42_icon_ranged"]
 [ext_resource type="Texture2D" uid="uid://dn51j2f4lqjbr" path="res://assets/textures/map_markers/shield.png" id="43_icon_armor"]
 [ext_resource type="Texture2D" uid="uid://dusxfg1i7ik4i" path="res://assets/textures/map_markers/crown.png" id="44_icon_helmet"]
-[ext_resource type="Texture2D" uid="uid://dr6jpb6ba715x" path="res://assets/textures/map_markers/npc.png" id="45_icon_npc"]
-[ext_resource type="Texture2D" uid="uid://dxt67iud2lt3s" path="res://assets/textures/map_markers/grave.png" id="46_icon_grave"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -75,8 +73,6 @@ talkAction = ExtResource("13_talk_action")
 giveItemAction = ExtResource("14_give_action")
 reviveAction = ExtResource("20_revive_action")
 partyReviveAction = ExtResource("30_party_revive")
-npcMapMarkerIcon = ExtResource("45_icon_npc")
-partyGraveMapMarkerIcon = ExtResource("46_icon_grave")
 sunMaxElevationDegrees = 65.0
 sunsetAngleDegrees = 25.0
 fillAFromSkyBias = 1.0

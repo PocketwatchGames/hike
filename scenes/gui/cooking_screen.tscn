@@ -41,11 +41,13 @@ layout_mode = 2
 ActionName = "Equip"
 
 [node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("2_f2qv6")]
+visible = false
 layout_mode = 2
 ActionName = "Drop"
 InputAction = "X"
 
 [node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("2_f2qv6")]
+visible = false
 layout_mode = 2
 ActionName = "Use"
 InputAction = "Y"

@@ -231,9 +231,9 @@ public partial class CampScreen : Control
 	}
 
 	// Forced death party-select: choosing a member commits the pick — control
-	// transfers to the chosen survivor now and the party re-gathers so they sit at
-	// the fire — then the forced-select lock drops and the screen proceeds to the
-	// stash tab so the player can outfit their new character before leaving.
+	// transfers to the chosen survivor now (the controlled character is a corpse, so
+	// unlike the normal-camp select this can't defer to camp close) and the party
+	// re-gathers so they sit at the fire — then proceed like any post-select.
 	void OnPartyMemberConfirmed()
 	{
 		if (_gameClient != null)
@@ -245,8 +245,7 @@ public partial class CampScreen : Control
 			_gameClient.GatherPartyAt(_campfirePosition);
 			_gameClient.camera?.SetCampMode(true, _campfirePosition);
 		}
-		_partySelectMode = false;
-		UpdateTabVisibility();
+		ProceedAfterSelection();
 	}
 
 	void CloseTab(ECampTab tab)
@@ -319,12 +318,20 @@ public partial class CampScreen : Control
 	}
 
 	// Normal-camp Select-Character callback: the pick marks the roster's active
-	// member (the control switch still defers to camp close) and lifts any
-	// fresh-day selection lock. A member who still has their meal advances to the
-	// Cook tab; one who has already eaten today has nothing to do at camp, so the
-	// screen closes (transferring control to the pick on the way out).
+	// member (the control switch still defers to camp close). No control-transfer
+	// prologue is needed — the controlled character is alive.
 	void OnPartyMemberSelected()
 	{
+		ProceedAfterSelection();
+	}
+
+	// Shared tail for both Select-Character callbacks: drop any selection lock,
+	// refresh tab visibility, then move to the Cook tab so the active member can
+	// cook their meal — or close straight out if they've already eaten today (there's
+	// nothing left to do at camp), transferring control to the pick on the way out.
+	void ProceedAfterSelection()
+	{
+		_partySelectMode = false;
 		_mustSelectCharacter = false;
 		UpdateTabVisibility();
 		if (ActiveMemberHasEaten)

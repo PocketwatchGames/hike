@@ -1110,10 +1110,12 @@ public partial class Player : CharacterBody3D
 	{
 		_world = world;
 		Member = member;
-		// Live map marker for this party member's grave, shown only while dead
-		// (ShouldShowMapMarker). Registered for the member's whole lifetime;
-		// unregistered in _ExitTree (see Player.Corpse.cs).
-		_world?.RegisterLiveMapMarker(this);
+		// Grave marker (authored into player.tscn) self-registers; gate its draw
+		// on this party member being dead.
+		if (_liveMapMarker != null)
+		{
+			_liveMapMarker.ActiveCondition = () => Member is { IsDead: true };
+		}
 		GlobalPosition = position;
 		Rotation = rotation;
 		_grounded = false;

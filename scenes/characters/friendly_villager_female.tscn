@@ -12,16 +12,19 @@
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
 [ext_resource type="Resource" uid="uid://cx7ub2sgi3fui" path="res://resources/data/characters/human/friendly_villager_voice.tres" id="11_voice"]
 [ext_resource type="Material" uid="uid://nsghx0dy6spm" path="res://resources/materials/model_lit_face_cutout.tres" id="12_facemat"]
+[ext_resource type="Script" uid="uid://ra804zm0hgk7y" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="13_livemarker"]
+[ext_resource type="Texture2D" uid="uid://dr6jpb6ba715x" path="res://assets/textures/map_markers/npc.png" id="14_npcicon"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_villager"]
 radius = 0.35
 height = 1.5
 
-[node name="FriendlyVillagerFemale" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
+[node name="FriendlyVillagerFemale" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_liveMapMarker", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")
 _collisionShape = NodePath("MovementCollision")
+_liveMapMarker = NodePath("LiveMapMarker")
 _modelAnimator = NodePath("Visuals/MeshContainer/ModelAnimator")
 _mesh = NodePath("Visuals/MeshContainer")
 _visuals = NodePath("Visuals")
@@ -88,3 +91,7 @@ metadata/_custom_type_script = "uid://y5ti8jcvqdvm"
 [node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("10_meshhl")
 _collectFrom = NodePath("../Visuals/MeshContainer/VillagerModel")
+
+[node name="LiveMapMarker" type="Node3D" parent="."]
+script = ExtResource("13_livemarker")
+icon = ExtResource("14_npcicon")

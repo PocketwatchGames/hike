@@ -39,6 +39,8 @@
 [ext_resource type="PackedScene" uid="uid://cypanyqryd22f" path="res://scenes/characters/player_model_male.tscn" id="41_modelmale"]
 [ext_resource type="PackedScene" uid="uid://dqv7n2wk8rmpc" path="res://scenes/fx/dig_scoop.tscn" id="42_digscoop"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="43_corpsebox"]
+[ext_resource type="Script" uid="uid://ra804zm0hgk7y" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="44_livemarker"]
+[ext_resource type="Texture2D" uid="uid://dxt67iud2lt3s" path="res://assets/textures/map_markers/grave.png" id="45_graveicon"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -69,7 +71,7 @@ radius = 1.0
 [sub_resource type="SphereShape3D" id="SphereShape3D_attract"]
 radius = 4.0
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_audioListener", "_aimingReticle", "_corpseInteractiveBox", "_pickupAttractArea")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_audioListener", "_aimingReticle", "_corpseInteractiveBox", "_pickupAttractArea", "_liveMapMarker")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
@@ -83,6 +85,7 @@ _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
 _corpseInteractiveBox = NodePath("CorpseInteractiveBox")
 _pickupAttractArea = NodePath("PickupAttractArea")
+_liveMapMarker = NodePath("LiveMapMarker")
 _wetEffectData = ExtResource("26_statuswet")
 _wetClothesEffectData = ExtResource("26_statuswetclothes")
 _dirtyEffectData = ExtResource("27_statusdirty")
@@ -216,3 +219,8 @@ extra_cull_margin = 64.0
 
 [node name="HudAnchor" type="Node3D" parent="." unique_id=1151412001]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0131006, 0)
+
+[node name="LiveMapMarker" type="Node3D" parent="." unique_id=1151412002]
+script = ExtResource("44_livemarker")
+icon = ExtResource("45_graveicon")
+modulate = Color(1, 0.85, 0.2, 1)

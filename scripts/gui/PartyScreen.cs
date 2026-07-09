@@ -49,7 +49,7 @@ public partial class PartyScreen : Control
 		_gameClient = gameClient;
 		_members = gameClient?.PartyPlayers;
 		_onSelected = onSelected;
-		_buttonHintSelect?.SetHint("ui_select", string.Empty);
+		_buttonHintSelect?.SetHint("ui_select", "Select");
 		_lastMousePos = GetViewport().GetMousePosition();
 		_mouseWasPressed = Input.IsMouseButtonPressed(MouseButton.Left);
 		// Start focused on the currently-controlled member; if it somehow fell,

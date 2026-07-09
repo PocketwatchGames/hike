@@ -160,20 +160,20 @@ public partial class MapMarkerOverlay : Control
             return;
         }
         float half = IconSize * 0.5f;
-        System.Collections.Generic.IReadOnlyList<ILiveMapMarker> markers = world.LiveMapMarkers;
+        System.Collections.Generic.IReadOnlyList<LiveMapMarker> markers = world.LiveMapMarkers;
         for (int i = 0; i < markers.Count; i++)
         {
-            ILiveMapMarker marker = markers[i];
-            if (marker == null || !marker.ShouldShowMapMarker)
+            LiveMapMarker marker = markers[i];
+            if (marker == null || !marker.IsActive)
             {
                 continue;
             }
-            Texture2D tex = marker.MapMarkerIcon;
+            Texture2D tex = marker.Icon;
             if (tex == null)
             {
                 continue;
             }
-            Vector3 wp = marker.MapMarkerWorldPosition;
+            Vector3 wp = marker.WorldPosition;
             Vector2 worldOffset = new Vector2(wp.X - _centerWorldXZ.X, wp.Z - _centerWorldXZ.Y);
             if (worldOffset.LengthSquared() > radiusSq)
             {
@@ -185,7 +185,7 @@ public partial class MapMarkerOverlay : Control
             {
                 continue;
             }
-            Color modulate = marker.MapMarkerModulate;
+            Color modulate = marker.Modulate;
             modulate.A *= edgeFade;
             DrawSetTransform(px, counterRot, Vector2.One);
             DrawTextureRect(tex, new Rect2(-half, -half, IconSize, IconSize), false, modulate);

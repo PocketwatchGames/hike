@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using Godot;
 
 [GlobalClass]
-public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive, IAimTarget, ILiveMapMarker
+public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive, IAimTarget
 {
     [Export] private CollisionShape3D _collisionShape;
+    // Live map/minimap marker child (talkable NPCs only — authored into the
+    // NPC's scene with its icon + tint). Null on mob scenes that aren't NPCs.
+    [Export] private LiveMapMarker _liveMapMarker;
     // The mob's 3D skinned-model animator. Wired in every mob .tscn; _Ready
     // activates it as the live visual and subscribes its footstep hooks.
     [Export] private ModelAnimator _modelAnimator;
@@ -277,14 +280,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // becomes a companion the moment its loyalty crosses MobData.tameLoyalty
     // (or it spawns pre-tamed, like the starter pet). See Tame / ActorTeam.
     public bool IsCompanion => _simState != null && _simState.Tamed;
-
-    // ILiveMapMarker: a talkable, un-recruited, living NPC shows a message icon
-    // at its current position (it wanders, so the marker tracks it live). A
-    // recruited companion (IsCompanion) or a dead mob drops off the map.
-    public bool ShouldShowMapMarker => alive && !IsCompanion && _simState?.Conversation != null;
-    public Vector3 MapMarkerWorldPosition => GlobalPosition;
-    public Texture2D MapMarkerIcon => _world?.SimData?.npcMapMarkerIcon;
-    public Color MapMarkerModulate => _world?.SimData?.liveMapMarkerColor ?? Colors.Yellow;
 
     // Party-member template for a recruitable NPC (null = not recruitable). When
     // set, a RecruitToPartyAction in this mob's conversation hands the mob to
@@ -792,12 +787,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             world.RegisterCompanion(this);
         }
-        // Talkable NPCs (mobs carrying a conversation) get a live map marker.
-        // Registered here for all conversation-carriers; ShouldShowMapMarker
-        // gates the actual draw on alive + not-yet-recruited.
-        if (_simState?.Conversation != null)
+        // The live map marker (authored into NPC scenes) self-registers; gate its
+        // draw on a living, un-recruited mob that carries a conversation.
+        if (_liveMapMarker != null)
         {
-            world.RegisterLiveMapMarker(this);
+            _liveMapMarker.ActiveCondition = () => alive && !IsCompanion && _simState?.Conversation != null;
         }
         TreeExiting += () =>
         {
@@ -807,7 +801,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 world.UnregisterCompanion(this);
             }
-            world.UnregisterLiveMapMarker(this);
             // Release any encircle slot held against any target so the
             // ring doesn't keep a dead mob occupying a slot for the rest
             // of the encounter.

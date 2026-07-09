@@ -8,24 +8,13 @@ using Godot.Collections;
 // the campfire (GameClient.RevivePartyMember); the action's completion event fx
 // is the visual cue. An InteractiveBox child — monitorable only while dead —
 // makes the body targetable without the live player ever detecting itself.
-public partial class Player : IInteractive, ILiveMapMarker
+public partial class Player : IInteractive
 {
 	[Export] private InteractiveBox _corpseInteractiveBox;
+	// Live map marker child (the grave). Authored into player.tscn with its icon
+	// + tint; shown only while this party member is dead (see Initialize).
+	[Export] private LiveMapMarker _liveMapMarker;
 	private Array<InteractiveAction> _reviveActions;
-
-	// ILiveMapMarker: a fallen party member marks a grave where it lies, always
-	// visible on the maps until revived. A live member shows nothing (its own
-	// position isn't charted). Icon + tint are authored centrally on SimData.
-	public bool ShouldShowMapMarker => Member is { IsDead: true };
-	public Vector3 MapMarkerWorldPosition => GlobalPosition;
-	public Texture2D MapMarkerIcon => _world?.SimData?.partyGraveMapMarkerIcon;
-	public Color MapMarkerModulate => _world?.SimData?.liveMapMarkerColor ?? Colors.Yellow;
-
-	public override void _ExitTree()
-	{
-		_world?.UnregisterLiveMapMarker(this);
-		base._ExitTree();
-	}
 
 	// Enable/disable the corpse's interactive detection. GameClient calls this on
 	// death (true) and on revive (false). While alive the body must not be

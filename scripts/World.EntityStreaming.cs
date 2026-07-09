@@ -37,10 +37,10 @@ public partial class World
     // removal; the map overlays iterate this each redraw. Unlike MapMarker these
     // are NOT recorded into Knowledge — they track the live entity, not a
     // discovered landmark.
-    private readonly List<ILiveMapMarker> _liveMapMarkers = new();
-    public IReadOnlyList<ILiveMapMarker> LiveMapMarkers => _liveMapMarkers;
+    private readonly List<LiveMapMarker> _liveMapMarkers = new();
+    public IReadOnlyList<LiveMapMarker> LiveMapMarkers => _liveMapMarkers;
 
-    public void RegisterLiveMapMarker(ILiveMapMarker marker)
+    public void RegisterLiveMapMarker(LiveMapMarker marker)
     {
         if (marker != null && !_liveMapMarkers.Contains(marker))
         {
@@ -48,7 +48,7 @@ public partial class World
         }
     }
 
-    public void UnregisterLiveMapMarker(ILiveMapMarker marker)
+    public void UnregisterLiveMapMarker(LiveMapMarker marker)
     {
         _liveMapMarkers.Remove(marker);
     }
