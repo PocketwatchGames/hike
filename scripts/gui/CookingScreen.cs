@@ -20,11 +20,22 @@ public partial class CookingScreen : Control
 	[Export] private BackpackPanel _backpackPanel;
 	[Export] private CookingPanel _cookingPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
+	// The A / primary button hint. Its label tracks the commit button: "Cook"
+	// while ingredients are loaded, "Continue" (leave camp) when the slots are
+	// empty.
+	[Export] private ButtonHint _buttonHintPrimary;
+
+	// Glyph action driving the primary button hint (the A button); matches the
+	// primary-verb convention used by the inventory-style screens.
+	const string PrimaryHintAction = "ui_select";
 
 	Action _onClose;
 	// Fires once a cook job completes and its output is delivered (CampScreen uses
 	// it to leave camp). Distinct from _onClose, which fires on tab teardown.
 	Action _onCooked;
+	// Fires when the player presses the primary button with the slots empty —
+	// nothing to cook, so "Continue" out of camp. CampScreen wires it to Close.
+	Action _onContinue;
 	Player _player;
 	Campfire _forge;
 
@@ -77,7 +88,7 @@ public partial class CookingScreen : Control
 		_player = player;
 	}
 
-	public void Open(Player player, Campfire forge = null, Action onClose = null, Action onCooked = null)
+	public void Open(Player player, Campfire forge = null, Action onClose = null, Action onCooked = null, Action onContinue = null)
 	{
 		if (player != null)
 		{
@@ -86,8 +97,13 @@ public partial class CookingScreen : Control
 		_forge = forge;
 		_onClose = onClose;
 		_onCooked = onCooked;
+		_onContinue = onContinue;
 		_cookingPanel?.HideAnnouncement();
 		Visible = true;
+		// Focus the commit button so the primary A action (Cook / Continue) works
+		// immediately on gamepad; deferred so the just-shown node is visible-in-
+		// tree when GrabFocus runs.
+		_cookingPanel?.CallDeferred(CookingPanel.MethodName.GrabCookButtonFocus);
 	}
 
 	public void Close()
@@ -100,6 +116,7 @@ public partial class CookingScreen : Control
 		DetachFromCampfire();
 		Visible = false;
 		_onCooked = null;
+		_onContinue = null;
 		Action cb = _onClose;
 		_onClose = null;
 		cb?.Invoke();
@@ -111,6 +128,7 @@ public partial class CookingScreen : Control
 		{
 			AttachToCampfire();
 			RefreshMaterials();
+			UpdatePrimaryHint();
 		}
 		else
 		{
@@ -208,6 +226,7 @@ public partial class CookingScreen : Control
 		}
 		RefreshMaterials();
 		RefreshRecipeList();
+		UpdatePrimaryHint();
 	}
 
 	// ---- Cooking side (return to material stash) ---------------------------
@@ -231,6 +250,7 @@ public partial class CookingScreen : Control
 		ItemStash.Add(MaterialStash, removed);
 		RefreshMaterials();
 		RefreshRecipeList();
+		UpdatePrimaryHint();
 	}
 
 	// Reconcile the cooking slots to a clicked recipe: keep what's already right,
@@ -279,6 +299,7 @@ public partial class CookingScreen : Control
 		}
 		RefreshMaterials();
 		RefreshRecipeList();
+		UpdatePrimaryHint();
 	}
 
 	// Move up to `amount` units of `itemKind` from the material stash into the
@@ -346,6 +367,8 @@ public partial class CookingScreen : Control
 		}
 		if (!anyInputs)
 		{
+			// Nothing loaded — the primary button reads "Continue"; leave camp.
+			_onContinue?.Invoke();
 			return;
 		}
 		Cooking.MatchResult match = Cooking.TryMatch(inputs, simData.recipes, _forge.CampfireType);
@@ -374,6 +397,37 @@ public partial class CookingScreen : Control
 				_cookingPanel.Refresh();
 			}
 		}
+		UpdatePrimaryHint();
+	}
+
+	// Reflect the primary (A) action on the commit button and its hint. While a
+	// cook is in flight the button is "Cancel"; idle it flips between "Cook"
+	// (ingredients loaded) and "Continue" (empty slots — a press leaves camp).
+	void UpdatePrimaryHint()
+	{
+		string label = IsCooking ? "Cancel" : (HasAnyInput() ? "Cook" : "Continue");
+		_buttonHintPrimary?.SetHint(PrimaryHintAction, label);
+		if (!IsCooking)
+		{
+			_cookingPanel?.SetIdleLabel(HasAnyInput() ? "Cook!" : "Continue");
+		}
+	}
+
+	bool HasAnyInput()
+	{
+		IReadOnlyList<ItemState> inputs = _cookingPanel?.Inputs;
+		if (inputs == null)
+		{
+			return false;
+		}
+		for (int i = 0; i < inputs.Count; i++)
+		{
+			if (inputs[i] != null && inputs[i].stackCount > 0)
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// Delivered on cook completion while this screen is bound. Cooked dishes are

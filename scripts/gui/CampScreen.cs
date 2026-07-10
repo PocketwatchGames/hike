@@ -224,8 +224,9 @@ public partial class CampScreen : Control
 				_partyScreen?.Open(_gameClient, _partySelectMode ? OnPartyMemberConfirmed : OnPartyMemberSelected);
 				break;
 			case ECampTab.Cook:
-				// A completed cook leaves camp (see OnDishCooked).
-				_cookingScreen?.Open(_player, _forge, onCooked: OnDishCooked);
+				// A completed cook leaves camp (see OnDishCooked); so does pressing
+				// the primary button with nothing loaded ("Continue" → Close).
+				_cookingScreen?.Open(_player, _forge, onCooked: OnDishCooked, onContinue: Close);
 				break;
 		}
 	}

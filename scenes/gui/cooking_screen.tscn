@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_vv7vb"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_m6qmy"]
 
-[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_backpackPanel", "_cookingPanel", "_itemInfoPanel")]
+[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_backpackPanel", "_cookingPanel", "_itemInfoPanel", "_buttonHintPrimary")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,6 +17,7 @@ script = ExtResource("1_f2qv6")
 _backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/StashPanel")
 _cookingPanel = NodePath("MarginContainer/HBoxContainer/CookingContainer/CookingPanel")
 _itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/ItemInfoPanel")
+_buttonHintPrimary = NodePath("MarginContainer/ButtonHints/ButtonHintA")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767524930]
 layout_mode = 1
@@ -38,7 +39,8 @@ alignment = 1
 
 [node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("2_f2qv6")]
 layout_mode = 2
-ActionName = "Equip"
+ActionName = "Cook"
+InputAction = "ui_select"
 
 [node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("2_f2qv6")]
 visible = false

@@ -80,6 +80,9 @@ public partial class CookingPanel : MarginContainer
 	// Mirrors the screen's "a cook is in flight" state — drives the button
 	// label and routes the press to onCancelPressed vs onCookPressed.
 	bool _cookingActive;
+	// Label shown on the commit button while idle. The screen swaps this to
+	// "Continue" when the slots are empty (a press then just leaves camp).
+	string _idleLabel = "Cook!";
 	// Auto-hide countdown for the announcement banner. 0 = hidden / not
 	// counting; positive = currently showing and ticking down each frame.
 	float _announcementRemaining;
@@ -481,12 +484,24 @@ public partial class CookingPanel : MarginContainer
 		_cookingActive = active;
 		if (_cookButton != null)
 		{
-			_cookButton.Text = active ? "Cancel" : "Cook!";
+			_cookButton.Text = active ? "Cancel" : _idleLabel;
 		}
 		if (_cookingProgress != null)
 		{
 			_cookingProgress.Visible = active;
 			_cookingProgress.Value = Mathf.Clamp(progress, 0f, 1f);
+		}
+	}
+
+	// Set the commit button's idle label (applied only while no cook is in
+	// flight — a running job keeps the "Cancel" label). The screen uses this to
+	// flip between "Cook!" (ingredients loaded) and "Continue" (slots empty).
+	public void SetIdleLabel(string label)
+	{
+		_idleLabel = string.IsNullOrEmpty(label) ? "Cook!" : label;
+		if (!_cookingActive && _cookButton != null)
+		{
+			_cookButton.Text = _idleLabel;
 		}
 	}
 
@@ -624,6 +639,14 @@ public partial class CookingPanel : MarginContainer
 	{
 		ItemSlotPanel target = _focused ?? FindFirstFocusable();
 		target?.GrabFocus();
+	}
+
+	// Focus the commit button so gamepad / keyboard can drive the primary
+	// (Cook / Continue) action the moment the tab opens, without navigating.
+	// Deferred by the caller — GrabFocus needs the node visible-in-tree.
+	public void GrabCookButtonFocus()
+	{
+		_cookButton?.GrabFocus();
 	}
 
 	ItemSlotPanel FindFirstFocusable()
