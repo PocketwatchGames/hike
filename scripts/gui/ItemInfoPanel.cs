@@ -17,6 +17,10 @@ public partial class ItemInfoPanel : PanelContainer
 	[Export] private PackedScene _statScene;
 	[Export] private Control _statusContainer;
 	[Export] private PackedScene _statusScene;
+	// When false, action panels list only the attack names — the per-attack
+	// stat rows (damage, range, cost) are suppressed. The party screen uses
+	// this for a compact at-a-glance readout.
+	[Export] private bool _showDetails = true;
 
 	// forceIdentified overrides the world's identification gate so the item's
 	// stats/description always show — the forge picker uses it so a freshly
@@ -213,7 +217,7 @@ public partial class ItemInfoPanel : PanelContainer
 			}
 			ItemActionPanel panel = _actionPanel.Instantiate<ItemActionPanel>();
 			_actionPanelContainer.AddChild(panel);
-			panel.SetAction(action, data, i);
+			panel.SetAction(action, data, i, _showDetails);
 		}
 	}
 

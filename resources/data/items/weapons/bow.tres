@@ -42,7 +42,7 @@ forbidSwimming = true
 
 [sub_resource type="Resource" id="Resource_charged_snap"]
 script = ExtResource("4_charged")
-displayName = &"Light Attack"
+displayName = &"Quickshot"
 chargeTime = 0.7
 activeDurationSeconds = 0.25
 cooldownSeconds = 0.25
@@ -72,7 +72,7 @@ projectileLifetimeSeconds = 0.25
 
 [sub_resource type="Resource" id="Resource_charged_full"]
 script = ExtResource("4_charged")
-displayName = &"Heavy Attack"
+displayName = &"Snipe"
 activeDurationSeconds = 0.25
 cooldownSeconds = 0.25
 bloodCost = 10.0

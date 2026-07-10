@@ -64,6 +64,7 @@ forbidSwimming = true
 
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
+displayName = &"Bash"
 chargeTime = 0.35
 activeDurationSeconds = 0.3
 cooldownSeconds = 0.3
@@ -96,6 +97,7 @@ impactLethalEffect = ExtResource("7_hitkill")
 
 [sub_resource type="Resource" id="Resource_charged_heavy"]
 script = ExtResource("4_charged")
+displayName = &"Slam"
 activeDurationSeconds = 0.5
 cooldownSeconds = 0.7
 staminaCost = 20.0

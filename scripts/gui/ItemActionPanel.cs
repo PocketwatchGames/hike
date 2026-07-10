@@ -11,7 +11,9 @@ public partial class ItemActionPanel : PanelContainer
 	[Export] private Control _statContainer;
 	[Export] private PackedScene _statScene;
 
-	public void SetAction(ItemAction action, WeaponData weapon, int index)
+	// showDetails false lists just the attack name — the per-attack stat rows
+	// and conditional-damage context panels are skipped for a compact readout.
+	public void SetAction(ItemAction action, WeaponData weapon, int index, bool showDetails = true)
 	{
 		string title = action?.displayName.ToString();
 		if (string.IsNullOrEmpty(title))
@@ -30,7 +32,7 @@ public partial class ItemActionPanel : PanelContainer
 
 		ClearStats();
 		ClearContextPanels();
-		if (action == null)
+		if (action == null || !showDetails)
 		{
 			return;
 		}
