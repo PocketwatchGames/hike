@@ -1,13 +1,12 @@
 [gd_scene format=3 uid="uid://d115dmvboelcp"]
 
 [ext_resource type="Script" uid="uid://ch1bcra4yc4s3" path="res://scripts/gui/InventoryScreen.cs" id="1_7a5n3"]
-[ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="2_hmtof"]
 [ext_resource type="PackedScene" uid="uid://dhquaxn2wsyge" path="res://scenes/gui/player_stats_panel.tscn" id="3_aue6y"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="4_j245h"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_wawlv"]
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="5_vc0ui"]
 
-[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_panel", "_statsPanel", "_itemInfoPanel", "_backpackPanel", "_dropHint")]
+[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_backpackPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -15,11 +14,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_7a5n3")
-_panel = NodePath("MarginContainer/HBoxContainer/VBoxContainer/Inventory")
 _statsPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/PlayerStats")
-_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
-_backpackPanel = NodePath("MarginContainer/HBoxContainer/VBoxContainer/BackpackPanel")
-_dropHint = NodePath("MarginContainer/ButtonHints/ButtonHintX")
+_meleePanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/MeleePanel")
+_rangedPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/RangedPanel")
+_backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/BackpackPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=2000139086]
 layout_mode = 1
@@ -30,12 +28,14 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=1245740980]
+visible = false
 layout_mode = 2
 size_flags_vertical = 8
 theme_override_constants/separation = 30
 alignment = 1
 
 [node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("4_wawlv")]
+visible = false
 layout_mode = 2
 ActionName = "Equip"
 
@@ -65,21 +65,16 @@ size_flags_vertical = 4
 [node name="PlayerStats" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=1646474992 instance=ExtResource("3_aue6y")]
 layout_mode = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer" unique_id=1073686282]
-layout_mode = 2
-theme_override_constants/separation = 20
-alignment = 1
-
-[node name="Inventory" parent="MarginContainer/HBoxContainer/VBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary", "_buttonHintSecondary", "_buttonHintTertiary") instance=ExtResource("2_hmtof")]
+[node name="MarginContainer3" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1837419429]
+custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
-_buttonHintPrimary = NodePath("../../../ButtonHints/ButtonHintA")
-_buttonHintSecondary = NodePath("../../../ButtonHints/ButtonHintX")
-_buttonHintTertiary = NodePath("../../../ButtonHints/ButtonHintY")
 
-[node name="BackpackPanel" parent="MarginContainer/HBoxContainer/VBoxContainer" unique_id=1913399409 instance=ExtResource("5_vc0ui")]
+[node name="BackpackPanel" parent="MarginContainer/HBoxContainer/MarginContainer3" unique_id=1913399409 instance=ExtResource("5_vc0ui")]
 layout_mode = 2
+size_flags_horizontal = 6
+size_flags_vertical = 4
 
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1484389953]
 custom_minimum_size = Vector2(500, 0)
@@ -87,5 +82,13 @@ layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=638608018 instance=ExtResource("4_j245h")]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=508680546]
 layout_mode = 2
+
+[node name="MeleePanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=638608018 instance=ExtResource("4_j245h")]
+layout_mode = 2
+_showDetails = false
+
+[node name="RangedPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=393433198 instance=ExtResource("4_j245h")]
+layout_mode = 2
+_showDetails = false

@@ -1,27 +1,21 @@
 using Godot;
 
-// Inventory tab rendered inside AlmanacScreen. Shows the controlled member's
-// EQUIP SLOTS (helmet / armor / weapons / 3-slot equipment hotbar, via
-// InventoryPanel) alongside the carried MATERIAL backpack (via BackpackPanel).
-// It's primarily a viewer: the player can Use an equipped equipment item and
-// Drop a carried material. Equipping weapons / armor / equipment happens on the
-// camp Stash screen, not here (the material backpack can't hold gear, and the
-// equipment stash isn't reachable in the field).
+// Inventory tab rendered inside AlmanacScreen. A read-only readout of the
+// controlled member: player stats, the weapons equipped in the melee / ranged
+// slots (ItemInfoPanel viewers), and the carried MATERIAL backpack. Purely
+// informational — there is no interaction here. Equipping weapons / armor /
+// equipment happens on the camp Stash screen; dropping materials happens
+// elsewhere.
 [GlobalClass]
 public partial class InventoryScreen : Control
 {
-	[Export] private InventoryPanel _panel;
 	[Export] private PlayerStatsPanel _statsPanel;
-	[Export] private ItemInfoPanel _itemInfoPanel;
+	[Export] private ItemInfoPanel _meleePanel;
+	[Export] private ItemInfoPanel _rangedPanel;
 	[Export] private BackpackPanel _backpackPanel;
 
 	GameClient _gameClient;
 	Player _player;
-
-	// The focused backpack slot (material side), tracked so the Drop poll knows
-	// what to act on — BackpackPanel forwards only raw focus/press events.
-	int _focusedBackpackIndex = -1;
-	ItemState _focusedBackpackItem;
 
 	public void Initialize(GameClient gameClient)
 	{
@@ -31,27 +25,6 @@ public partial class InventoryScreen : Control
 	public override void _Ready()
 	{
 		VisibilityChanged += OnVisibilityChanged;
-		if (_panel != null)
-		{
-			_panel.onFocusedItemChanged += OnEquipFocusChanged;
-		}
-		if (_backpackPanel != null)
-		{
-			_backpackPanel.onSlotFocused += OnBackpackFocused;
-		}
-		_itemInfoPanel?.SetItem(null);
-	}
-
-	public override void _ExitTree()
-	{
-		if (_panel != null)
-		{
-			_panel.onFocusedItemChanged -= OnEquipFocusChanged;
-		}
-		if (_backpackPanel != null)
-		{
-			_backpackPanel.onSlotFocused -= OnBackpackFocused;
-		}
 	}
 
 	void OnVisibilityChanged()
@@ -59,74 +32,28 @@ public partial class InventoryScreen : Control
 		if (Visible)
 		{
 			_player = _gameClient?.Player;
-			_panel?.Bind(_player);
 			_statsPanel?.SetPlayer(_player);
 			if (_player?.Inventory != null)
 			{
-				_player.Inventory.onChanged += RefreshBackpack;
+				_player.Inventory.onChanged += Refresh;
 			}
-			RefreshBackpack();
+			Refresh();
 		}
-		else
+		else if (_player?.Inventory != null)
 		{
-			if (_player?.Inventory != null)
-			{
-				_player.Inventory.onChanged -= RefreshBackpack;
-			}
-			_panel?.Unbind();
-			_focusedBackpackIndex = -1;
-			_focusedBackpackItem = null;
+			_player.Inventory.onChanged -= Refresh;
 		}
 	}
 
-	void RefreshBackpack()
+	// Repaint the equipped-weapon viewers and the material backpack from the
+	// live inventory. Bound to Inventory.onChanged so an ammo change shows
+	// immediately.
+	void Refresh()
 	{
-		_backpackPanel?.Refresh(_player?.Inventory?.Backpack);
-		// The focused backpack item may have changed under the cursor (a drop
-		// shifted the list) — re-resolve it so Drop acts on what's shown.
-		if (_focusedBackpackIndex >= 0)
-		{
-			_focusedBackpackItem = _backpackPanel?.GetSlot(_focusedBackpackIndex)?.Item;
-			if (_focusedBackpackItem != null)
-			{
-				_itemInfoPanel?.SetItem(_focusedBackpackItem);
-			}
-		}
-	}
-
-	void OnEquipFocusChanged(ItemSlotPanel panel, ItemState item)
-	{
-		_focusedBackpackIndex = -1;
-		_focusedBackpackItem = null;
-		_itemInfoPanel?.SetItem(item);
-		// The tertiary (Use) event only fires while its hint is visible — show it
-		// exactly for a usable equipment item.
-		if (_panel?.ButtonHintTertiary != null)
-		{
-			_panel.ButtonHintTertiary.Visible = item is ConsumableState c && c.data?.actionProfile != null;
-		}
-	}
-
-	void OnBackpackFocused(int index, ItemSlotPanel panel)
-	{
-		_focusedBackpackIndex = index;
-		_focusedBackpackItem = panel?.Item;
-		_itemInfoPanel?.SetItem(_focusedBackpackItem);
-	}
-
-	// Drop the focused material (backpack side). BackpackPanel forwards no
-	// secondary event, so poll the Drop action here while a material is focused.
-	public override void _UnhandledInput(InputEvent e)
-	{
-		if (!Visible || _focusedBackpackItem == null || _player?.Inventory == null)
-		{
-			return;
-		}
-		if (e.IsActionPressed("MenuSecondary"))
-		{
-			_player.Inventory.Drop(_focusedBackpackItem, 1);
-			GetViewport().SetInputAsHandled();
-		}
+		Inventory inv = _player?.Inventory;
+		_meleePanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponMelee), forceIdentified: true);
+		_rangedPanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponRanged), forceIdentified: true);
+		_backpackPanel?.Refresh(inv?.Backpack);
 	}
 
 	// ---- Equip-compat helpers, shared with MerchantScreen ------------------
