@@ -128,7 +128,14 @@ public static class WorldFile
     //      (GameTimeMs) projection to a day number: ForgeSimState.ReactivateMs
     //      (ulong) → ReactivateDay (int); ItemState.removeTimeMs (ulong) →
     //      removeOnDay (int) in the item wire format.
-    public const uint VERSION = 29;
+    // v30: Regrow deadlines unified onto RegrowSimState.RegrowDay. BerryTree
+    //      payload replaced its terminal Picked (bool) with RegrowDay (int) —
+    //      bushes now regrow after an authored number of days instead of staying
+    //      bare forever. New ForageSpawner entity (tag 20): pos + scene + item +
+    //      RegrowDays + RegrowDay — a persistent anchor that regrows scattered
+    //      pickups (mushrooms). Forge/Fountain fields renamed to RegrowDay (same
+    //      int wire, no layout change).
+    public const uint VERSION = 30;
 
     public struct IndexEntry
     {

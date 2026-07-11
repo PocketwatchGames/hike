@@ -1,0 +1,54 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://dn7k3wravx2mb"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
+[ext_resource type="Script" uid="uid://ce8wqk3mxr7n2" path="res://scripts/data/effects/payloads/ChainLightningData.cs" id="3_chain"]
+[ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="4_fx"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="5_mod"]
+[ext_resource type="PackedScene" uid="uid://csh0ckcr2kl08" path="res://scenes/fx/weapon_shock_crackle_loop.tscn" id="6_idle"]
+[ext_resource type="PackedScene" path="res://scenes/fx/lightning_arc.tscn" id="7_arc"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="8_buildup"]
+[ext_resource type="Resource" uid="uid://vpftgrww2h73" path="res://resources/data/status_effects/status_shocked.tres" id="9_shocked"]
+[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="10_dizzy"]
+
+[sub_resource type="Resource" id="dizzyBuildup"]
+script = ExtResource("8_buildup")
+effect = ExtResource("10_dizzy")
+amount = 0.5
+metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
+
+[sub_resource type="Resource" id="dischargeDamage"]
+script = ExtResource("2_damage")
+tags = 33
+healthDamage = 8.0
+hitstun = 0.15
+buildups = Array[ExtResource("8_buildup")]([SubResource("dizzyBuildup")])
+modifiers = []
+
+[sub_resource type="Resource" id="chainLightning"]
+script = ExtResource("3_chain")
+shockEffect = ExtResource("9_shocked")
+buildupPerHit = 1.2
+chainBuildupFalloff = 0.6
+dischargeDamage = SubResource("dischargeDamage")
+fx = ExtResource("4_fx")
+boltFx = ExtResource("7_arc")
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("5_mod")
+onHitBuildups = null
+chainLightning = SubResource("chainLightning")
+idleFx = ExtResource("6_idle")
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Shocking"
+upgradeSlot = 3
+durationType = 2
+description = "Each hit charges nearby foes with electricity. Charged enemies discharge, and the arc leaps on. Wet enemies charge twice as fast."
+category = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = null
+weaponMod = SubResource("weaponMod")

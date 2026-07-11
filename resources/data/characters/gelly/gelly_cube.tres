@@ -59,9 +59,7 @@ displayName = &"Gelatinous Cube"
 dangerous = true
 modifiers = null
 brain = ExtResource("2_brain")
-killsPerLevel = Array[int]([5, 15, 30, 50, 100])
 bestiaryPortrait = ExtResource("3_m1kuv")
-exp = 2
 animations = Dictionary[int, ExtResource("4_animdata")]({
 0: SubResource("anim_attack"),
 1: SubResource("anim_dead"),

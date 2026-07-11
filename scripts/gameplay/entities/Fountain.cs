@@ -1,27 +1,37 @@
 using Godot;
 
-// Healing fountain. On interact (while off cooldown) it refills the active
-// player's health, then goes inert until the next in-world sunrise — a sim-clock
-// deadline persisted on the sim state so the cooldown survives chunk streaming
-// and save/load. While ready its basin water is visible and glows red; once used
-// the water mesh is hidden until the fountain re-arms at sunrise.
+// Which player resource a fountain refills on use.
+public enum EFountainKind
+{
+    Health,
+    LanternFuel,
+}
+
+// Daily-cooldown refill station. On interact (while off cooldown) it refills a
+// player resource — full health, or every carried lantern's fuel — then goes
+// inert until the next in-world sunrise (a DayNumber deadline persisted on the
+// sim state, so the cooldown survives chunk streaming and save/load). While
+// ready its basin water is visible; once used the water mesh is hidden until the
+// fountain re-arms at sunrise. One scene per variant supplies the water color +
+// _kind; all the cooldown/visibility/discovery logic is shared here.
 //
 // Mirrors Forge's ready/inert daily-cooldown pattern (sans the item-minting
 // screen); the visual cue is water visibility rather than an orb material swap.
 [GlobalClass]
-public partial class HealingFountain : Node3D, IInteractive, IWorldEntity
+public partial class Fountain : Node3D, IInteractive, IWorldEntity
 {
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     [Export] private Discoverable _discoverable;
     [Export] private Node3D _hudNode;
-    // Basin water surface — visible + glowing while ready, hidden once used.
+    // Basin water surface — visible while ready, hidden once used.
     [Export] private MeshInstance3D _waterMesh;
-    // Fraction of the player's MaxHealth restored on use (1 = full refill).
+    // Which player resource a use refills.
+    [Export] private EFountainKind _kind = EFountainKind.Health;
+    // Fraction of the player's MaxHealth restored on use (Health kind; 1 = full).
     [Export(PropertyHint.Range, "0,1,0.05")] private float _healFraction = 1f;
 
-    private HealingFountainSimState _simState;
+    private FountainSimState _simState;
     private World _world;
-    private bool _visualReady = true;
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
@@ -44,7 +54,6 @@ public partial class HealingFountain : Node3D, IInteractive, IWorldEntity
     // Water shown while ready, hidden once used.
     private void ApplyReadyVisual(bool ready)
     {
-        _visualReady = ready;
         if (_waterMesh != null)
         {
             _waterMesh.Visible = ready;
@@ -56,7 +65,7 @@ public partial class HealingFountain : Node3D, IInteractive, IWorldEntity
         // Inert until the world day reaches the reactivation day (stamped to the
         // next day on use, so the fountain re-arms at sunrise). 0 = ready.
         int today = World.Current?.DayNumber ?? 0;
-        return _simState == null || today >= _simState.ReactivateDay;
+        return _simState == null || today >= _simState.RegrowDay;
     }
 
     public bool CanActorInteract(Player player)
@@ -84,7 +93,15 @@ public partial class HealingFountain : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        player.Heal(player.MaxHealth * _healFraction);
+        switch (_kind)
+        {
+            case EFountainKind.Health:
+                player.Heal(player.MaxHealth * _healFraction);
+                break;
+            case EFountainKind.LanternFuel:
+                player.RefuelCarriedTorches();
+                break;
+        }
         BeginCooldown();
     }
 
@@ -94,14 +111,14 @@ public partial class HealingFountain : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        _simState.ReactivateDay = (World.Current?.DayNumber ?? 0) + 1;
+        _simState.RegrowDay = (World.Current?.DayNumber ?? 0) + 1;
         // Hide the water immediately; HandleNewDay restores it at the next sunrise.
         ApplyReadyVisual(false);
     }
 
-    public static HealingFountain Create(World world, HealingFountainSimState data)
+    public static Fountain Create(World world, FountainSimState data)
     {
-        var instance = data.Scene.Instantiate<HealingFountain>();
+        var instance = data.Scene.Instantiate<Fountain>();
         instance.Position = data.WorldPosition;
         instance._simState = data;
         instance._world = world;

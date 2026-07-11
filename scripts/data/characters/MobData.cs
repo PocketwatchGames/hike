@@ -348,21 +348,11 @@ public partial class MobData : Resource
     // on these mobs for AI / HUD purposes; this flag just controls the
     // species-level bestiary entry.
     [Export] public bool appearsInBestiary = true;
-    // Cumulative kill thresholds for the bestiary entry's level. Entry i
-    // is the total kills required to reach level (i+1); the bestiary
-    // shows current level + progress to the next threshold. Empty list
-    // means the entry doesn't level (stays at level 0). At max level the
-    // bar fills and shows total kills instead of a target.
-    [Export] public Array<int> killsPerLevel = new();
     // Portrait shown on the right-hand bestiary detail panel for this
     // species. Authored at higher resolution than the in-world sprite —
     // the bestiary's TextureRect controls final size. Null leaves the
     // portrait slot empty (hidden).
     [Export] public Texture2D bestiaryPortrait;
-    // Exp awarded to each of the killing player's equipped weapons and armor
-    // when this mob dies. Granted in Mob.Damage on the lethal hit; status-
-    // effect kills (poison without an attributable source) do not award exp.
-    [Export] public int exp = 0;
 
     [ExportGroup("Visuals")]
     // Per-EAnimation binding from logical slot to a concrete animation clip name

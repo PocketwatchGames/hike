@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://d4nf6t08w1rye" path="res://scenes/characters/elite_crown.tscn" id="2_oa0fv"]
 [ext_resource type="Script" uid="uid://blohdqlbvypqy" path="res://scripts/data/characters/EliteMobDescriptor.cs" id="3_gelg7"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_p35r7"]
-[ext_resource type="Resource" uid="uid://cnfhynpg06w6l" path="res://resources/data/status_effects/status_elite_stoneskin.tres" id="5_a1a46"]
+[ext_resource type="Resource" uid="uid://cnfhynpg06w6l" path="res://resources/data/status_effects/elite/status_elite_stoneskin.tres" id="5_a1a46"]
 
 [resource]
 script = ExtResource("3_gelg7")

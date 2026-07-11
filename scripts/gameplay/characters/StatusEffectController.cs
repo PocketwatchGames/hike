@@ -53,6 +53,14 @@ public class StatusEffectController
 	// Null on actors that don't carry conditional traits (Mob, item-side
 	// controllers) — those skip every conditional group. See Player.EvaluateTraitCondition.
 	readonly Func<ETraitCondition, float, bool> _conditionActive;
+	// Receiver-side per-level resistance (<=1) folded onto every combat-delivered
+	// buildup, alongside the tag/fortitude resistance. Sourced from the actor's
+	// defensive level — the player's Armor forge-upgrade level, a mob's difficulty
+	// Level (see Player/Mob.IncomingLevelResist). Null on item-side controllers and
+	// any actor with no level defense → a neutral 1. Kept as a live callback (not a
+	// cached scalar) because the level can change mid-life (a forge visit swaps the
+	// Armor upgrade).
+	readonly Func<float> _incomingLevelResist;
 	readonly List<StatusEffectState> _statusEffects = new();
 	readonly Dictionary<StatusEffectData, BuildupState> _buildups = new();
 	// Rendered-visibility gate for every loop fx, driven by the owning actor
@@ -68,7 +76,7 @@ public class StatusEffectController
 	// fx at and no health to chip away. `world` may also be null; the meter
 	// machinery falls back to a zero game-time which is fine for ContinuousArm
 	// (it doesn't read time) and degrades gracefully for ThresholdCross decay.
-	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null, Func<ETraitCondition, float, bool> conditionActive = null)
+	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null, Func<ETraitCondition, float, bool> conditionActive = null, Func<float> incomingLevelResist = null)
 	{
 		_actor = actor;
 		_world = world;
@@ -76,6 +84,7 @@ public class StatusEffectController
 		_composeMaskMul = composeMaskMul;
 		_applyMaxHealthDelta = applyMaxHealthDelta;
 		_conditionActive = conditionActive;
+		_incomingLevelResist = incomingLevelResist;
 	}
 
 	public bool Contains(StatusEffectState state) => state != null && _statusEffects.Contains(state);
@@ -141,6 +150,45 @@ public class StatusEffectController
 		}
 	}
 
+	// --- Wielder upgrade source (forge weapon upgrades) ---
+	// A wielder points its equipped weapon's controller at its own controller so the
+	// WeaponMod* reads below also fold in the wielder's slot-matching forge upgrades
+	// (a Flaming edge, Venomous tips). The upgrade effect lives on the WIELDER — never
+	// composed onto the weapon item, which would mutate the shared inventory item and
+	// persist through save/load (EntitySerializer writes an item's statusEffects). Set
+	// per wield with the weapon's slot (see Player.TryStartWeaponAction); null folds in
+	// nothing (mob weapons, un-wielded items). Upgrade mods aren't charge-scoped — an
+	// upgrade modifies every attack the weapon makes — so ForEachWielderUpgradeMod
+	// skips the ModReachesCharge gate the weapon's own mods use.
+	private StatusEffectController _wielderUpgradeSource;
+	private EUpgradeSlot _wielderUpgradeSlot;
+
+	public void SetWielderUpgradeSource(StatusEffectController wielder, EUpgradeSlot slot)
+	{
+		_wielderUpgradeSource = wielder;
+		_wielderUpgradeSlot = slot;
+	}
+
+	// Invoke `fold` for each of the wielder's active upgrade weaponMods applied to
+	// this weapon's slot (appliedUpgradeSlot). No-op when no wielder source is set.
+	private void ForEachWielderUpgradeMod(System.Action<WeaponModData> fold)
+	{
+		StatusEffectController src = _wielderUpgradeSource;
+		if (src == null || _wielderUpgradeSlot == EUpgradeSlot.None)
+		{
+			return;
+		}
+		for (int i = 0; i < src._statusEffects.Count; i++)
+		{
+			StatusEffectState s = src._statusEffects[i];
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod != null && s.appliedUpgradeSlot == _wielderUpgradeSlot)
+			{
+				fold(mod);
+			}
+		}
+	}
+
 	// True when any active weapon mod reaching charge tier `chargeIndex` sets
 	// projectilesDetonateOnContact (the "Fragile" mod).
 	public bool ProjectilesDetonateOnContact(int chargeIndex)
@@ -153,7 +201,9 @@ public class StatusEffectController
 				return true;
 			}
 		}
-		return false;
+		bool detonate = false;
+		ForEachWielderUpgradeMod(mod => detonate |= mod.projectilesDetonateOnContact);
+		return detonate;
 	}
 
 	// Largest projectilePierceCount among active weapon mods reaching charge tier
@@ -170,6 +220,7 @@ public class StatusEffectController
 				max = mod.projectilePierceCount;
 			}
 		}
+		ForEachWielderUpgradeMod(mod => { if (mod.projectilePierceCount > max) { max = mod.projectilePierceCount; } });
 		return max;
 	}
 
@@ -188,6 +239,26 @@ public class StatusEffectController
 				max = mod.vampiric;
 			}
 		}
+		ForEachWielderUpgradeMod(mod => { if (mod.vampiric > max) { max = mod.vampiric; } });
+		return max;
+	}
+
+	// Largest flat stamina-on-hit refund among active weapon mods reaching charge
+	// tier `chargeIndex` (0 if none); the melee/hitscan/projectile handlers refill
+	// the attacker by this many stamina points on each landed creature hit.
+	public float StaminaOnHit(int chargeIndex)
+	{
+		float max = 0f;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod != null && mod.staminaOnHit > max && ModReachesCharge(s, chargeIndex))
+			{
+				max = mod.staminaOnHit;
+			}
+		}
+		ForEachWielderUpgradeMod(mod => { if (mod.staminaOnHit > max) { max = mod.staminaOnHit; } });
 		return max;
 	}
 
@@ -212,6 +283,19 @@ public class StatusEffectController
 				result.Add(onHit[j]);
 			}
 		}
+		ForEachWielderUpgradeMod(mod =>
+		{
+			Godot.Collections.Array<StatusEffectBuildup> onHit = mod.onHitBuildups;
+			if (onHit == null || onHit.Count == 0)
+			{
+				return;
+			}
+			result ??= new Godot.Collections.Array<StatusEffectBuildup>();
+			for (int j = 0; j < onHit.Count; j++)
+			{
+				result.Add(onHit[j]);
+			}
+		});
 		return result;
 	}
 
@@ -232,6 +316,15 @@ public class StatusEffectController
 			result ??= new Godot.Collections.Array<ChainLightningData>();
 			result.Add(chain);
 		}
+		ForEachWielderUpgradeMod(mod =>
+		{
+			if (mod.chainLightning == null)
+			{
+				return;
+			}
+			result ??= new Godot.Collections.Array<ChainLightningData>();
+			result.Add(mod.chainLightning);
+		});
 		return result;
 	}
 
@@ -250,6 +343,7 @@ public class StatusEffectController
 				sum += mod.knockbackBonus;
 			}
 		}
+		ForEachWielderUpgradeMod(mod => sum += mod.knockbackBonus);
 		return sum;
 	}
 
@@ -267,6 +361,7 @@ public class StatusEffectController
 				sum += mod.knockbackTimeBonus;
 			}
 		}
+		ForEachWielderUpgradeMod(mod => sum += mod.knockbackTimeBonus);
 		return sum;
 	}
 
@@ -287,6 +382,15 @@ public class StatusEffectController
 			result ??= new Godot.Collections.Array<PackedScene>();
 			result.Add(fx);
 		}
+		ForEachWielderUpgradeMod(mod =>
+		{
+			if (mod.idleFx == null)
+			{
+				return;
+			}
+			result ??= new Godot.Collections.Array<PackedScene>();
+			result.Add(mod.idleFx);
+		});
 		return result;
 	}
 
@@ -308,6 +412,15 @@ public class StatusEffectController
 			result ??= new Godot.Collections.Array<PackedScene>();
 			result.Add(fx);
 		}
+		ForEachWielderUpgradeMod(mod =>
+		{
+			if (mod.projectileFx == null)
+			{
+				return;
+			}
+			result ??= new Godot.Collections.Array<PackedScene>();
+			result.Add(mod.projectileFx);
+		});
 		return result;
 	}
 
@@ -331,6 +444,15 @@ public class StatusEffectController
 			result ??= new Godot.Collections.Array<ItemEvent>();
 			result.Add(mod.onAttackEvent);
 		}
+		ForEachWielderUpgradeMod(mod =>
+		{
+			if (mod.onAttackEvent == null || (mod.onAttackTrigger & trigger) == 0)
+			{
+				return;
+			}
+			result ??= new Godot.Collections.Array<ItemEvent>();
+			result.Add(mod.onAttackEvent);
+		});
 		return result;
 	}
 
@@ -348,7 +470,16 @@ public class StatusEffectController
 		Godot.Collections.Array<WeaponModData> result = null;
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
-			WeaponModData mod = _statusEffects[i]?.data?.weaponMod;
+			StatusEffectData data = _statusEffects[i]?.data;
+			// Forge weapon upgrades (upgradeSlot != None) route through the wielded
+			// weapon's WeaponMod* reads, folded by weapon slot — skip them on the body
+			// path so a Seeking upgrade doesn't ALSO fire here (slot-agnostically), which
+			// would double up its missiles and fire them with the wrong weapon.
+			if (data == null || data.upgradeSlot != EUpgradeSlot.None)
+			{
+				continue;
+			}
+			WeaponModData mod = data.weaponMod;
 			if (mod?.onAttackEvent == null || (mod.onAttackTrigger & trigger) == 0)
 			{
 				continue;
@@ -570,19 +701,35 @@ public class StatusEffectController
 			// buildup feeding a Dizzy-tagged effect regardless of what hit
 			// landed it. effect.tags == None falls through to a 1x
 			// multiplier (untagged buildups take no resistance scaling).
-			// FortitudeResistance is OR'd into the mask so the actor's general
-			// buildup resistance (the player's PlayerState.fortitude, plus any
-			// gear/status FortitudeResistance modifier) scales every combat
-			// buildup on top of its per-tag resistance. Only combat-delivered
-			// buildup routes through here — ambient meters (rain Wet) call
-			// AddBuildup directly and are intentionally untouched.
-			float resistance = _composeMaskMul?.Invoke(entry.effect.tags | EStat.FortitudeResistance) ?? 1f;
-			bool applied = AddBuildup(entry.effect, entry.amount * hit.buildupAmountMultiplier * resistance);
+			// Only combat-delivered buildup routes through here — ambient meters
+			// (rain Wet) call AddBuildup directly and are intentionally untouched.
+			bool applied = AddCombatBuildup(entry.effect, entry.amount * hit.buildupAmountMultiplier);
 			if (applied && entry.effect.applyTrigger != EDamageTrigger.None)
 			{
 				hit.ApplyTrigger(entry.effect.applyTrigger);
 			}
 		}
+	}
+
+	// Land one combat-delivered buildup contribution, folding the receiver's
+	// resistance onto `amount` exactly as the ApplyHitBuildups meter path does,
+	// and report whether it armed / crossed. Split out so out-of-band combat
+	// sources that need the crossing result (chain lightning, which gates its
+	// next hop on whether this link discharged) can share the identical scaling
+	// the ref-HitInfo path can't hand back. FortitudeResistance is OR'd into the
+	// tag mask so the actor's general buildup resistance (PlayerState.fortitude
+	// plus any gear/status modifier) scales every combat buildup on top of its
+	// per-tag resistance; levelResist (Armor upgrade / mob Level) is the buildup
+	// counterpart of the incoming-damage resist in ApplyResistance.
+	public bool AddCombatBuildup(StatusEffectData effect, float amount)
+	{
+		if (effect == null || amount == 0f)
+		{
+			return false;
+		}
+		float resistance = _composeMaskMul?.Invoke(effect.tags | EStat.FortitudeResistance) ?? 1f;
+		float levelResist = _incomingLevelResist?.Invoke() ?? 1f;
+		return AddBuildup(effect, amount * resistance * levelResist);
 	}
 
 	// Add a signed contribution to `data`'s buildup meter and run the per-
@@ -820,11 +967,9 @@ public class StatusEffectController
 		}
 	}
 
-	// `level` is the upgrade tier stamped on the created instance (0 = none). Only
-	// meaningful for slotted forge upgrades; ordinary callers omit it.
-	// Remove any active state occupying `slot` (its fx wound down). No-op for
-	// EUpgradeSlot.None so ordinary effects are unaffected. Called by Add before
-	// inserting a slotted upgrade, giving the swap-not-stack semantics.
+	// Remove any active upgrade occupying the concrete `slot` (its fx wound down).
+	// No-op for EUpgradeSlot.None so ordinary effects are unaffected. Called by Add
+	// before inserting a slotted upgrade, giving the swap-not-stack semantics.
 	private void EvictUpgradeSlot(EUpgradeSlot slot)
 	{
 		if (slot == EUpgradeSlot.None)
@@ -833,7 +978,7 @@ public class StatusEffectController
 		}
 		for (int i = _statusEffects.Count - 1; i >= 0; i--)
 		{
-			if (_statusEffects[i]?.data?.upgradeSlot == slot)
+			if (_statusEffects[i]?.appliedUpgradeSlot == slot)
 			{
 				EndFx(_statusEffects[i]);
 				_statusEffects.RemoveAt(i);
@@ -841,7 +986,7 @@ public class StatusEffectController
 		}
 	}
 
-	// Currently-active upgrade occupying `slot`, or null if the slot is empty.
+	// Currently-active upgrade occupying the concrete `slot`, or null if none.
 	// Lets the forge show what a new upgrade would replace.
 	public StatusEffectData ActiveUpgrade(EUpgradeSlot slot)
 	{
@@ -851,7 +996,7 @@ public class StatusEffectController
 		}
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
-			if (_statusEffects[i]?.data?.upgradeSlot == slot)
+			if (_statusEffects[i]?.appliedUpgradeSlot == slot)
 			{
 				return _statusEffects[i].data;
 			}
@@ -859,9 +1004,33 @@ public class StatusEffectController
 		return null;
 	}
 
+	// Upgrade tier (StatusEffectState.level) of the upgrade occupying the concrete
+	// `slot`, or 0 when none. Drives the per-level offense/defense scaling: the
+	// firing weapon's slot picks the Melee/Ranged upgrade for outgoing damage +
+	// buildup, and the Armor slot picks the defensive resist. Since a slot holds at
+	// most one upgrade (Add evicts the prior occupant), the first match is definitive.
+	public int ActiveUpgradeLevel(EUpgradeSlot slot)
+	{
+		if (slot == EUpgradeSlot.None)
+		{
+			return 0;
+		}
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			if (_statusEffects[i]?.appliedUpgradeSlot == slot)
+			{
+				return _statusEffects[i].level;
+			}
+		}
+		return 0;
+	}
+
 	// `level` is the upgrade tier stamped on the created instance (0 = none). Only
-	// meaningful for slotted forge upgrades; ordinary callers omit it.
-	public StatusEffectState Add(StatusEffectData data, int level = 0)
+	// meaningful for slotted forge upgrades; ordinary callers omit it. `appliedSlot`
+	// is the concrete slot a forge applies the upgrade to (None for ordinary effects
+	// and weapon mods) — it drives the swap-not-stack slot exclusivity and is stamped
+	// onto the instance for weapon-mod matching (see StatusEffectState.appliedUpgradeSlot).
+	public StatusEffectState Add(StatusEffectData data, int level = 0, EUpgradeSlot appliedSlot = EUpgradeSlot.None)
 	{
 		if (data == null)
 		{
@@ -875,15 +1044,18 @@ public class StatusEffectController
 		// tangled with its own removal.
 		ApplyRemovesOnApply(data);
 		// Slot-exclusive upgrades: applying one evicts the current occupant of the
-		// same upgrade slot (melee/ranged/armor/helmet), so a forge visit swaps the
+		// same concrete slot (melee/ranged/armor/helmet), so a forge visit swaps that
 		// slot rather than stacking. None-slotted effects skip this entirely.
-		EvictUpgradeSlot(data.upgradeSlot);
+		EvictUpgradeSlot(appliedSlot);
 		// Enforce data.maxStack by refreshing the oldest still-alive instance
 		// instead of appending. List order is insertion order (Tick prunes in
 		// place via RemoveAt) so the first match is the oldest. ArmTimer is a
 		// no-op for persistent effects (duration == 0), which is fine — the
-		// stack cap still suppresses the duplicate add.
-		if (data.maxStack > 0)
+		// stack cap still suppresses the duplicate add. Slotted forge upgrades
+		// skip this: per-slot exclusivity (the eviction above) is their cap, so a
+		// maxStack-1 upgrade can still sit on two different slots at once (Vampiric
+		// on both the melee and ranged weapon).
+		if (appliedSlot == EUpgradeSlot.None && data.maxStack > 0)
 		{
 			int count = 0;
 			StatusEffectState oldest = null;
@@ -905,7 +1077,7 @@ public class StatusEffectController
 				return oldest;
 			}
 		}
-		var state = new StatusEffectState(data, now, nowTod) { level = level };
+		var state = new StatusEffectState(data, now, nowTod) { level = level, appliedUpgradeSlot = appliedSlot };
 		_statusEffects.Add(state);
 		SpawnStartFx(data);
 		if (data.loopFx != null && _actor != null)
@@ -1173,7 +1345,10 @@ public class StatusEffectController
 					if (dps > 0f)
 					{
 						float resistance = _composeMaskMul?.Invoke(s.data.tags) ?? 1f;
-						dps *= resistance;
+						// Defensive-level resist (Armor upgrade / mob Level) reduces
+						// incoming DoT the same as a direct hit — "damage resist"
+						// covers burn/poison ticks, not just the landing blow.
+						dps *= resistance * (_incomingLevelResist?.Invoke() ?? 1f);
 					}
 					_applyHealthDelta(-dps, dot.armorPenetration);
 				}

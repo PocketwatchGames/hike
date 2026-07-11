@@ -120,6 +120,23 @@ public partial class ZoneGenData : Resource
 
     [Export] public float grassThreshold = 0.3f;
 
+    // Monster difficulty band for this zone. WorldGen samples a low-frequency
+    // world-space noise field per spawn and lerps between these two across it, so
+    // a zone ramps from MobLevelMin at one end of its footprint to MobLevelMax at
+    // the other rather than sitting at one flat difficulty. Blended across zone
+    // borders like the other per-position scalars (see WorldGen.ComputeMobLevel).
+    // Mobs add their species base level and an underground bonus on top. Keep the
+    // span small — each level doubles a monster's health/armor/damage (2^Level).
+    [Export(PropertyHint.Range, "0,4,1")] public int mobLevelMin = 0;
+    [Export(PropertyHint.Range, "0,4,1")] public int mobLevelMax = 3;
+
+    // Forge power band for this zone, sampled the same way but from an
+    // INDEPENDENT noise field (see WorldGen.ComputeForgeLevel), so a zone's
+    // forges and monsters vary in difficulty separately. Drives the forge's
+    // granted-upgrade strength and star pips (0-4).
+    [Export(PropertyHint.Range, "0,4,1")] public int forgeLevelMin = 0;
+    [Export(PropertyHint.Range, "0,4,1")] public int forgeLevelMax = 4;
+
     // Per-zone authored entity spawn lists. WorldGen iterates the matching
     // list per candidate cell:
     //   SurfaceEntities — rolled per grass column (mobs, campfires, loot,

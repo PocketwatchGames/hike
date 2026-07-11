@@ -69,8 +69,6 @@ public partial class Hud : Control
 	[Export] TextureRect _weatherDay;
 	[Export] TextureRect _weatherNight;
 	[Export] Control _weatherContainer;
-	[Export] Control _objectivesContainer;
-	[Export] PackedScene _objectivePanelScene;
 	// Height above the player's feet to sample sunlight for the cave-fade.
 	// The feet voxel straddles the solid ground, so a sub-voxel bob while
 	// moving flips it between lit air and dark ground and flickers the icon;
@@ -131,11 +129,6 @@ public partial class Hud : Control
 	// progress bar from the closest-to-expiry instance. Mirrors the original
 	// pre-notification behavior.
 	readonly Dictionary<StatusEffectData, StatusEffectHud> _statusEffectHuds = new();
-	// One transient combat-objective panel per species the player is currently
-	// fighting. Re-engaging a species refreshes its existing panel (and resets
-	// its fade timer) rather than stacking a duplicate; each panel drops its own
-	// entry here via its OnDismiss callback when it fades out and frees itself.
-	readonly Dictionary<SpeciesData, ObjectivePanel> _objectivePanels = new();
 	readonly Dictionary<StatusEffectData, int> _statusEffectCounts = new();
 	// Smallest remaining-lifetime fraction [0,1] across the live instances of each
 	// data — the instance closest to expiring, used to drive the strip's timer bar.
@@ -245,7 +238,6 @@ public partial class Hud : Control
 		Current = this;
 		gameClient.onPlayerSpawned += OnPlayerSpawned;
 		gameClient.onAnnouncement += OnAnnouncement;
-		gameClient.onMobEngaged += OnMobEngaged;
 		_signpostPanel.gameClient = gameClient;
 		if (_dialoguePanel != null)
 		{
@@ -326,7 +318,6 @@ public partial class Hud : Control
 		{
 			gameClient.onPlayerSpawned -= OnPlayerSpawned;
 			gameClient.onAnnouncement -= OnAnnouncement;
-			gameClient.onMobEngaged -= OnMobEngaged;
 		}
 		if (_inventory != null)
 		{
@@ -441,67 +432,6 @@ public partial class Hud : Control
 		// presentation synchronously would re-enter Show on the same node
 		// before its current state has settled.
 		Callable.From(DispatchNext).CallDeferred();
-	}
-
-	// Player traded a blow with a mob (or just landed a credited kill, refreshed
-	// from GameClient after the count is recorded) — show / refresh that species'
-	// objective panel.
-	void OnMobEngaged(SpeciesData species)
-	{
-		ShowObjective(species);
-	}
-
-	// Instantiate or refresh the combat-objective panel for `species`, binding it
-	// to the species' current bestiary-level kill progress. Only species that
-	// appear in the bestiary AND carry kill-level thresholds get a panel — there's
-	// no experience progress to show otherwise.
-	void ShowObjective(SpeciesData species)
-	{
-		if (species?.mob == null || !species.mob.appearsInBestiary
-			|| _objectivesContainer == null || _objectivePanelScene == null)
-		{
-			return;
-		}
-		Godot.Collections.Array<int> thresholds = species.mob.killsPerLevel;
-		if (thresholds == null || thresholds.Count == 0)
-		{
-			return;
-		}
-
-		WorldSimState sim = gameClient?.World?.WorldState?.SimState;
-		int kills = sim != null && sim.TryGetBestiaryEntry(species, out MobBestiaryEntry entry)
-			? entry.Kills : 0;
-
-		int level = MobBestiaryEntry.ComputeLevel(kills, thresholds);
-		bool atMax = level >= thresholds.Count;
-		float fraction;
-		string countText;
-		if (atMax)
-		{
-			fraction = 1f;
-			countText = Loc.Get(Loc.Keys.objective_max_level);
-		}
-		else
-		{
-			// Bar spans the current level's range only, matching the bestiary
-			// panel: fills 0 → 1 between the previous threshold and the next.
-			int prevThreshold = level > 0 ? thresholds[level - 1] : 0;
-			int nextThreshold = thresholds[level];
-			int span = Mathf.Max(1, nextThreshold - prevThreshold);
-			fraction = (float)(kills - prevThreshold) / span;
-			countText = $"{kills}/{nextThreshold}";
-		}
-
-		if (!_objectivePanels.TryGetValue(species, out ObjectivePanel panel)
-			|| !GodotObject.IsInstanceValid(panel))
-		{
-			panel = _objectivePanelScene.Instantiate<ObjectivePanel>();
-			_objectivesContainer.AddChild(panel);
-			SpeciesData key = species;
-			panel.OnDismiss = () => _objectivePanels.Remove(key);
-			_objectivePanels[species] = panel;
-		}
-		panel.Set(GameClient.SpeciesDisplayName(species), fraction, countText);
 	}
 
 	// Rebind the HUD to a different party member when control switches (camp

@@ -48,7 +48,7 @@ public static class TextScrambler
 
         bool doNumbers = (missing & ELanguageComponents.Numbers) != 0;
         bool doGrammar = (missing & ELanguageComponents.Grammar) != 0;
-        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1 | ELanguageComponents.Vocabulary2 | ELanguageComponents.Vocabulary3);
+        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1 | ELanguageComponents.Vocabulary2);
 
         List<string> tokens = new List<string>();
         List<string> separators = new List<string>();
@@ -108,8 +108,7 @@ public static class TextScrambler
         return bucket switch
         {
             0 => ELanguageComponents.Vocabulary1,
-            1 => ELanguageComponents.Vocabulary2,
-            _ => ELanguageComponents.Vocabulary3,
+            _ => ELanguageComponents.Vocabulary2,
         };
     }
 
@@ -203,7 +202,7 @@ public static class TextScrambler
         }
 
         ELanguageComponents missing = ELanguageComponents.All & ~learned;
-        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1 | ELanguageComponents.Vocabulary2 | ELanguageComponents.Vocabulary3);
+        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1 | ELanguageComponents.Vocabulary2);
         bool numbersKnown = (missing & ELanguageComponents.Numbers) == 0;
         bool grammarKnown = (missing & ELanguageComponents.Grammar) == 0;
 

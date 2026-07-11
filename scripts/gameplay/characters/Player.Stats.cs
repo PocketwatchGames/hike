@@ -560,6 +560,18 @@ public partial class Player : CharacterBody3D
 		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
 	}
 
+	// IActionActor — refill stamina from the stamina-on-hit weapon mod. Clamped at
+	// the current cap. Unlike ConsumeStamina it leaves the recharge delay alone, so
+	// a landed hit tops up without stalling the passive refill.
+	public void RestoreStamina(float amount)
+	{
+		if (amount <= 0f)
+		{
+			return;
+		}
+		_stamina = Mathf.Min(MaxStamina, _stamina + amount);
+	}
+
 	private void TickStamina(float dt)
 	{
 		float max = MaxStamina;

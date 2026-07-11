@@ -13,6 +13,7 @@ script = ExtResource("2_ythwi")
 timedEmergence = SubResource("Resource_emerge")
 displayName = &"Purple Mushroom"
 maxStack = 99
+spoilDays = 3
 value = 1
 inventorySprite = ExtResource("3_ythwi")
 parent = ExtResource("4_parent")

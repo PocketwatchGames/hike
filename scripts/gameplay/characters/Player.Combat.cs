@@ -70,6 +70,15 @@ public partial class Player : CharacterBody3D
 	// without each call site re-asking.
 	private void ApplyResistance(ref HitInfo hit)
 	{
+		// General defensive-level resistance (Armor forge upgrade), applied to all
+		// incoming damage regardless of tag — the damage counterpart of the combat-
+		// buildup resist in StatusEffectController. Ahead of the tags==None guard so
+		// even an untagged damaging hit is reduced.
+		float levelResist = IncomingLevelResist;
+		if (levelResist != 1f)
+		{
+			hit.healthDamage *= levelResist;
+		}
 		if (hit.tags == EStat.None)
 		{
 			return;
@@ -129,8 +138,6 @@ public partial class Player : CharacterBody3D
 		if (incomingDamage > 0f && hit.source is Mob attackingMob)
 		{
 			NotifyCombatEngaged();
-			// Surface / refresh the attacker's combat-objective panel on the HUD.
-			GameClient.Current?.NotifyMobEngaged(attackingMob.SimState?.Species);
 		}
 
 		// Capture the charging weapon's guard BEFORE TryInterrupt — a weapon

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://jk2r46149xcyg"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://brtbxwojsqpq4" path="res://assets/textures/status_effects/Stamina_Boost_Status.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="3_mod"]
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("3_mod")
+staminaOnHit = 10.0
+onHitBuildups = []
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Siphoning"
+description = "Each landed shot draws a jolt of energy back into you, restoring a small amount of stamina on hit until sunrise."
+upgradeSlot = 2
+durationType = 2
+category = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = []
+weaponMod = SubResource("weaponMod")

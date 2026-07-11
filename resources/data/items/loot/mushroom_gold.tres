@@ -11,3 +11,4 @@ maxStack = 99
 value = 1
 inventorySprite = ExtResource("1_x4kx3")
 parent = ExtResource("2_parent")
+spoilDays = 3

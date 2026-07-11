@@ -11,9 +11,11 @@ public class StatusEffectState
 	public readonly StatusEffectData data;
 
 	// Upgrade tier for slotted forge upgrades (0 = unleveled / not a forge
-	// upgrade). Stamped from the forge's level when applied. Intended to scale the
-	// effect's magnitude, but the scaling is bespoke per effect and DEFERRED — for
-	// now the level is stored + surfaced to UI only. See StatusEffectController.Add.
+	// upgrade). Stamped from the forge's level when applied. Drives the shared
+	// per-level power curve (SimData.LevelOutgoingScale / LevelIncomingResist):
+	// an upgrade on the Melee/Ranged slot scales that weapon's outgoing damage +
+	// buildups, one on the Armor slot scales incoming damage + buildup resist.
+	// Read via StatusEffectController.ActiveUpgradeLevel.
 	public int level;
 
 	// Game-time (ms) at which a Timed effect expires. 0 = no ms timer
@@ -57,6 +59,15 @@ public class StatusEffectState
 	// `weaponModChargeIndex` tier of the wielding weapon's ItemActionProfile.
 	public EWeaponModScope weaponModScope = EWeaponModScope.AllAttacks;
 	public int weaponModChargeIndex;
+
+	// Concrete forge upgrade slot this instance was applied to (Melee / Ranged /
+	// Armor), or None for a non-forge effect. A SINGLE value — unlike
+	// StatusEffectData.upgradeSlot, which is the eligibility FLAGS of which slots the
+	// upgrade MAY go in: a ranged forge offering a Melee|Ranged-eligible upgrade
+	// stamps Ranged here. Drives slot exclusivity (Add evicts the same-slot occupant)
+	// and weapon-mod matching (a weapon folds in upgrades whose appliedUpgradeSlot
+	// equals its slot).
+	public EUpgradeSlot appliedUpgradeSlot = EUpgradeSlot.None;
 
 	public StatusEffectState(StatusEffectData data, ulong nowMs, double nowTimeOfDayAbsolute)
 	{

@@ -28,6 +28,5 @@ public enum ELanguageComponents
     // any text resolves per Vocabulary component learned.
     Vocabulary1 = 1 << 2,
     Vocabulary2 = 1 << 3,
-    Vocabulary3 = 1 << 4,
-    All = Grammar | Numbers | Vocabulary1 | Vocabulary2 | Vocabulary3,
+    All = Grammar | Numbers | Vocabulary1 | Vocabulary2,
 }

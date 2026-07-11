@@ -12,12 +12,18 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     // apples, blackberry bush → blackberries) so it lives on the .tscn rather
     // than the per-instance sim state.
     [Export] private ItemData _berryItem;
+    // In-world days a picked bush takes to bear fruit again. Species-tied, so it
+    // lives on the scene alongside _berryItem.
+    [Export(PropertyHint.Range, "1,60,1,or_greater")] private int _regrowDays = 3;
     [Export] private float _lootSpeed = 10;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
-    private bool _picked;
     private BerryTreeSimState _interactiveState;
     private World _world;
+
+    // Bare while the world day is below the regrow deadline; ripe once reached.
+    private bool IsRipe => _interactiveState == null
+        || _interactiveState.IsRegrown(_world?.DayNumber ?? 0);
 
     public override void _Ready()
     {
@@ -28,9 +34,24 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         }
     }
 
+    public override void _ExitTree()
+    {
+        if (_world != null)
+        {
+            _world.OnNewDay -= HandleNewDay;
+        }
+    }
+
+    // Bushes regrow at sunrise: re-show the fruit + re-arm the hurtbox once the
+    // day rolls past the regrow deadline.
+    private void HandleNewDay(int day)
+    {
+        ApplyRipeState(IsRipe);
+    }
+
     private void OnHurtBoxHit(HitInfo hit)
     {
-        if (_picked)
+        if (!IsRipe)
         {
             return;
         }
@@ -41,7 +62,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
 
     public bool CanInteract()
     {
-        return !_picked;
+        return IsRipe;
     }
 
     public bool CanActorInteract(Player player)
@@ -65,16 +86,12 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
 
     private void Pick()
     {
-        _picked = true;
-        _interactiveState.Picked = true;
-        UpdateVisuals();
-
-        // Hurtbox off so subsequent sword swings pass through the bare tree.
-        if (_hurtBox != null)
+        if (!IsRipe || _interactiveState == null || _world == null)
         {
-            _hurtBox.Monitorable = false;
-            _hurtBox.Monitoring = false;
+            return;
         }
+        _interactiveState.RegrowDay = _world.DayNumber + Mathf.Max(1, _regrowDays);
+        ApplyRipeState(false);
 
         var rng = new Random();
         float horizontalSpeed = _lootSpeed * Mathf.Cos(Mathf.Pi / 4f);
@@ -93,9 +110,19 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         }
     }
 
-    private void UpdateVisuals()
+    // Show/hide the fruit and gate the hurtbox so sword swings only knock berries
+    // off a ripe bush.
+    private void ApplyRipeState(bool ripe)
     {
-        _berries.Visible = !_picked;
+        if (_berries != null)
+        {
+            _berries.Visible = ripe;
+        }
+        if (_hurtBox != null)
+        {
+            _hurtBox.Monitorable = ripe;
+            _hurtBox.Monitoring = ripe;
+        }
     }
 
     public static BerryTree Create(World world, BerryTreeSimState data)
@@ -106,14 +133,8 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         instance._world = world;
         world.AddChild(instance);
 
-        instance._picked = data.Picked;
-        instance.UpdateVisuals();
-
-        if (instance._picked && instance._hurtBox != null)
-        {
-            instance._hurtBox.Monitorable = false;
-            instance._hurtBox.Monitoring = false;
-        }
+        instance.ApplyRipeState(instance.IsRipe);
+        world.OnNewDay += instance.HandleNewDay;
 
         return instance;
     }

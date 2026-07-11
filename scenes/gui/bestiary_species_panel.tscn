@@ -3,13 +3,10 @@
 [ext_resource type="Script" uid="uid://8dmpvo4tvoh7" path="res://scripts/gui/BestiarySpeciesPanel.cs" id="1_7kyvj"]
 [ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="2_stat0"]
 
-[node name="PanelContainer" type="PanelContainer" unique_id=319000195 node_paths=PackedStringArray("_mobNameLabel", "_mobPortrait", "_mobLevelLabel", "_mobKillProgressBar", "_mobKillProgressLabel", "_statPanelContainer")]
+[node name="PanelContainer" type="PanelContainer" unique_id=319000195 node_paths=PackedStringArray("_mobNameLabel", "_mobPortrait", "_statPanelContainer")]
 script = ExtResource("1_7kyvj")
 _mobNameLabel = NodePath("VBoxContainer/HFlowContainer/NameLabel")
 _mobPortrait = NodePath("VBoxContainer/HFlowContainer/Portrait")
-_mobLevelLabel = NodePath("VBoxContainer/HBoxContainer/LevelPanel/MarginContainer/LevelLabel")
-_mobKillProgressBar = NodePath("VBoxContainer/HBoxContainer/KillProgressBar")
-_mobKillProgressLabel = NodePath("VBoxContainer/HBoxContainer/KillProgressBar/KillProgressLabel")
 _statPanelScene = ExtResource("2_stat0")
 _statPanelContainer = NodePath("VBoxContainer/StatsContainer")
 
@@ -29,42 +26,6 @@ stretch_mode = 5
 [node name="NameLabel" type="Label" parent="VBoxContainer/HFlowContainer" unique_id=33071117]
 layout_mode = 2
 text = "spider"
-
-[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer" unique_id=869173573]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="LevelPanel" type="PanelContainer" parent="VBoxContainer/HBoxContainer" unique_id=1798986357]
-custom_minimum_size = Vector2(120, 0)
-layout_mode = 2
-
-[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/HBoxContainer/LevelPanel" unique_id=1267217873]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 5
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 5
-
-[node name="LevelLabel" type="Label" parent="VBoxContainer/HBoxContainer/LevelPanel/MarginContainer" unique_id=744123991]
-layout_mode = 2
-text = "Level: 0"
-horizontal_alignment = 1
-
-[node name="KillProgressBar" type="ProgressBar" parent="VBoxContainer/HBoxContainer" unique_id=1550391611]
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-size_flags_horizontal = 3
-show_percentage = false
-
-[node name="KillProgressLabel" type="Label" parent="VBoxContainer/HBoxContainer/KillProgressBar" unique_id=879010871]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="StatsContainer" type="HFlowContainer" parent="VBoxContainer" unique_id=1882107833]
 layout_mode = 2

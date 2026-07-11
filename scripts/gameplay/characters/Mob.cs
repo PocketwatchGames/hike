@@ -168,12 +168,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // when the buff expires and this shrinks.
     public float maxArmor => ((mobData?.maxArmor ?? 0f) + ComposeStat(EStat.MaxArmor)) * LevelMultiplier;
     // Difficulty tier stamped at spawn (MobSimState.Level). Drives LevelMultiplier
-    // below and the HUD level pips (Level+1 of them). Immutable after spawn.
+    // below, the per-level offense/defense scaling (OutgoingLevelScale /
+    // IncomingLevelResist), and the HUD level pips (Level+1 of them). Immutable
+    // after spawn.
     public int Level => _simState?.Level ?? 0;
-    // 2^Level — the flat multiplier a mob's level applies to health, armor, and
-    // outgoing damage. Folded into the maxHealth/maxArmor caps (so current vitals
-    // fill to the scaled max at spawn) and OutgoingDamageMultiplier. Base
-    // (Level 0) mobs get 1.
+    // 2^Level — the flat multiplier a mob's level applies to its health and armor
+    // POOLS. Folded into the maxHealth/maxArmor caps so current vitals fill to the
+    // scaled max at spawn. Outgoing DAMAGE and incoming resist are NOT here — those
+    // route through the shared SimData curve (OutgoingLevelScale / IncomingLevelResist)
+    // so mob and player leveling stay in lockstep. Base (Level 0) mobs get 1.
     public float LevelMultiplier => Mathf.Pow(2f, Mathf.Max(0, Level));
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
     // Elite marker, authored on the spawning MobDescriptor. Drives the crown,
@@ -820,7 +823,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // (for voxel queries), so construct here after both are wired.
         _navigator = new MobNavigator(this);
         _runner = new ActionRunner(this);
-        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, DrainMaxHealth);
+        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, DrainMaxHealth, incomingLevelResist: () => IncomingLevelResist);
         InitBehaviors();
         world.AddChild(this);
         // A mob loaded mid-burrow (from save data) needs its rigid body +
@@ -1132,6 +1135,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // route into a MobSimState pool the same way the player's does.
     public bool HasStamina(float amount) => true;
     public void ConsumeStamina(float amount) { }
+    public void RestoreStamina(float amount) { }
 
     // Mobs don't have a blood-mana pool — attack tiers with bloodCost
     // always pass the gate and the spend is a no-op.
@@ -1146,9 +1150,24 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool IsSwimming => _swimming;
     public bool HasDamagingStatusEffect => _statusEffects?.HasDamagingEffect ?? false;
 
-    public float OutgoingDamageMultiplier => (_statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f) * LevelMultiplier;
+    // Status-effect outgoing scale only. The Level damage factor moved to
+    // OutgoingLevelScale (the shared per-level curve applied in ResolveHit /
+    // Projectile), so a mob and the player scale outgoing damage identically.
+    public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
     // IActionActor — mobs have no strength stat; melee scale is neutral.
     public float MeleeDamageMultiplier => 1f;
+
+    // IActionActor — per-level offense scale from the mob's difficulty Level (slot
+    // is irrelevant — a mob has no weapon slots). Scales outgoing damage + delivered
+    // buildups via the same SimData curve the player's forge upgrades use. Default
+    // curve (2x/level) reproduces the mob's prior 2^Level outgoing-damage behavior.
+    public float OutgoingLevelScale(EInventorySlot slot) => _world?.SimData?.LevelOutgoingScale(Level) ?? 1f;
+
+    // Receiver-side per-level resistance (<=1) from the mob's Level, applied to
+    // incoming damage (ApplyResistance) and combat buildup (the controller callback).
+    // Stacks on top of the Level-scaled health/armor pool — a leveled mob is both
+    // bigger and tougher per hit.
+    public float IncomingLevelResist => _world?.SimData?.LevelIncomingResist(Level) ?? 1f;
 
     // IActionActor — fire any active status effect's on-attack-impact burst
     // (elite lightning aura, etc.) at the swing/ray impact point. Forwarded to
@@ -1213,6 +1232,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Player-side ApplyResistance shape.
     private void ApplyResistance(ref HitInfo hit)
     {
+        // General per-level defensive resistance (mob Level), applied to all incoming
+        // damage regardless of tag — mirrors the player's Armor-upgrade resist and the
+        // combat-buildup resist in StatusEffectController. Ahead of the tags==None
+        // guard so even an untagged damaging hit is reduced.
+        float levelResist = IncomingLevelResist;
+        if (levelResist != 1f)
+        {
+            hit.healthDamage *= levelResist;
+        }
         if (hit.tags == EStat.None)
         {
             return;
@@ -1945,6 +1973,46 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (_swimming)
         {
             _waterSurfaceY = topY + 1;
+        }
+    }
+
+    // Per-physics-tick wet driver for mobs. Mirrors the player's TickWetEffect
+    // but far simpler — mobs have no armor wetness cascade and dry fast (mob
+    // wetness "shouldn't last"). Water / swimming snaps the meter to full; open-
+    // sky rain soaks it at mobWetRainSoakSeconds; otherwise it drains at
+    // mobWetDrySeconds. The shared status_wet arms via its ContinuousArm
+    // thresholds, bringing its Electrical vulnerability / Fire resistance along.
+    // Call after UpdateWaterState so _swimming reflects this tick.
+    private void TickMobWet(float dt)
+    {
+        SimData sim = _world?.SimData;
+        StatusEffectData wet = sim?.mobWetStatusEffect;
+        if (wet == null)
+        {
+            return;
+        }
+        float delta;
+        if (_swimming || IsInWater())
+        {
+            // Snap toward fully soaked the moment any part of the mob is in water.
+            delta = 1f - _statusEffects.GetBuildup(wet);
+        }
+        else
+        {
+            // Open-sky rain soaks; a canopy / roof (sky01 → 0) shelters. Not drying
+            // while being rained on, mirroring the player's water-beats-dry order.
+            float rainIntensity = Mathf.Clamp(SkyController.Current?.Palette.RainIntensity ?? 0f, 0f, 1f);
+            float sky01 = _world?.WorldState?.GetSkyExposure01(GlobalPosition + Vector3.Up) ?? 0f;
+            float rainAccum = (rainIntensity > 0f && sim.mobWetRainSoakSeconds > 0f)
+                ? (dt / sim.mobWetRainSoakSeconds) * rainIntensity * sky01
+                : 0f;
+            delta = rainAccum > 0f
+                ? rainAccum
+                : (sim.mobWetDrySeconds > 0f ? -dt / sim.mobWetDrySeconds : 0f);
+        }
+        if (delta != 0f)
+        {
+            _statusEffects.AddBuildup(wet, delta);
         }
     }
 
@@ -2685,6 +2753,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 SpawnVoice(_voice?.hurt);
             }
             UpdateWaterState();
+            TickMobWet((float)delta);
             _exitingWater = false;
             // Engine gravity is owned by ApplyWaterPhysics while swimming —
             // disable Godot's default gravity application on this body so
@@ -3594,8 +3663,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // The player swinging at a mob counts as entering combat — releases a
             // guard companion to escalate from wary to attacking (Player.CombatEngaged).
             attackingPlayer.NotifyCombatEngaged();
-            // Surface / refresh the species' combat-objective panel on the HUD.
-            GameClient.Current?.NotifyMobEngaged(_simState.Species);
         }
         // Receiver-side resistance fold. Modulates healthDamage / armorPenetration /
         // blunt / knockback in place so all downstream uses (hit.ArmorPenetrated,
@@ -3757,6 +3824,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         return _statusEffects.Add(data);
     }
+
+    // Land a combat buildup contribution (with the mob's resistance fold) and
+    // report whether it crossed — the receiver-side entry point chain lightning
+    // uses to gate its next hop. See StatusEffectController.AddCombatBuildup.
+    public bool ApplyCombatBuildup(StatusEffectData effect, float amount) => _statusEffects?.AddCombatBuildup(effect, amount) ?? false;
 
     public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
 

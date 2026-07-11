@@ -6,3 +6,4 @@
 script = ExtResource("1_loot_data")
 displayName = &"Mushroom"
 maxStack = 99
+spoilDays = 3

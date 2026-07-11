@@ -63,6 +63,15 @@ public class ItemState
 		return other != null && other.data == _data;
 	}
 
+	// Two items combine into one stack only when they're the same kind AND share
+	// a spoil deadline — perishables acquired on different days keep separate
+	// stacks so each cohort expires on its own day. Non-perishables both carry
+	// removeOnDay == 0, so this reduces to IsSameKind for them.
+	public bool CanStackWith(ItemState other)
+	{
+		return IsSameKind(other) && removeOnDay == other.removeOnDay;
+	}
+
 	public int RemainingStackSpace()
 	{
 		if (_data == null)

@@ -81,9 +81,7 @@ modifiers = null
 dizzyResistance = 2.0
 canDodge = true
 brain = ExtResource("2_brain")
-killsPerLevel = Array[int]([5, 15, 30, 50, 100])
 bestiaryPortrait = ExtResource("3_cqdkd")
-exp = 10
 animations = Dictionary[int, ExtResource("7_animdata")]({
 0: SubResource("Resource_anim_attack"),
 1: SubResource("Resource_anim_dead"),

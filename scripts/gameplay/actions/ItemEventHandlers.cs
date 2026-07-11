@@ -438,17 +438,21 @@ public static class ItemEventHandlers
 	}
 
 	// Chain lightning: from `origin`, repeatedly find a random enemy hurtbox
-	// within `chainRange` of the current link and zap it, hopping up to
-	// `maxChains` times. Each link is chosen uniformly at random among all
-	// in-range targets not yet struck by THIS chain, so the arc forks
-	// unpredictably through a crowd. Damage is Electrical-tagged, so wet targets
-	// take the bonus via the receiver's tag-resistance fold. Shared by the
-	// Shocking weapon mod (player) and the elite lightning aura (goblins); team
-	// scoping rides on the attacker's AttackHurtboxMask + the receiver's CanBeHit,
-	// exactly like ApplyAreaDamage. Does not re-enter the attack pipeline.
+	// within `chainRange` of the current link and feed it Electrical BUILDUP,
+	// hopping up to `maxChains` times. Each link is chosen uniformly at random
+	// among all in-range targets not yet struck by THIS chain, so the arc forks
+	// unpredictably through a crowd. A link only DISCHARGES (dischargeDamage — a
+	// jolt of damage + Dizzy) and passes the arc onward when its shock meter
+	// crosses the threshold; the buildup shrinks each hop (chainBuildupFalloff),
+	// so the chain dies once a link can't cross. Wet targets are 2x vulnerable to
+	// Electrical buildup, so arcs propagate freely through soaked crowds and
+	// fizzle on dry ones. Shared by the Shocking weapon mod (player) and the
+	// elite lightning aura (goblins); team scoping rides on the attacker's
+	// AttackHurtboxMask + the receiver's CanBeHit, exactly like ApplyAreaDamage.
+	// Does not re-enter the attack pipeline.
 	public static void ApplyChainLightning(IActionActor attacker, ChainLightningData data, Vector3 origin)
 	{
-		if (attacker == null || data?.damage == null || data.maxChains <= 0 || data.chainRange <= 0f)
+		if (attacker == null || data?.shockEffect == null || data.maxChains <= 0 || data.chainRange <= 0f)
 		{
 			return;
 		}
@@ -462,6 +466,7 @@ public static class ItemEventHandlers
 		var struck = new System.Collections.Generic.HashSet<ulong>();
 		var sphere = new SphereShape3D { Radius = data.chainRange };
 		Vector3 current = origin;
+		float buildup = data.buildupPerHit;
 
 		// Bolt from the attacker (weapon) to the impact point — the "zap the thing
 		// you hit" arc. Drawn even if no chain link is found.
@@ -493,8 +498,7 @@ public static class ItemEventHandlers
 				{
 					continue;
 				}
-				HitInfo probe = new HitInfo(data.damage, attacker.AttackerNode, Vector3.Zero, attacker.ActorTeam);
-				if (!hurtBox.CanBeHit(probe))
+				if (!CanChainTo(hurtBox, data, attacker))
 				{
 					continue;
 				}
@@ -509,21 +513,62 @@ public static class ItemEventHandlers
 				break;
 			}
 			struck.Add(pick.GetRid().Id);
+			Vector3 from = current;
 			Vector3 targetPos = pick.GlobalPosition;
-			pick.Hit(new HitInfo(data.damage, attacker.AttackerNode, Vector3.Zero, attacker.ActorTeam));
 			// Bolt from the previous link (or the impact point on the first hop) to
-			// this one — the arc forking between chained targets.
-			SpawnChainArc(fxHost, data.boltFx, current, targetPos);
+			// this one — drawn whether or not the link crosses, so a fizzled arc
+			// still visibly reaches the target before dying.
+			SpawnChainArc(fxHost, data.boltFx, from, targetPos);
+			current = targetPos;
+
+			// Feed the link's shock meter (folding its Electrical resistance /
+			// wetness) and discharge + continue only when it crosses.
+			bool crossed = ApplyShockBuildup(pick, data.shockEffect, buildup);
+			if (CVars.debugAoe.Value)
+			{
+				DebugDraw.Line(from, targetPos, new Color(0.6f, 0.85f, 1f, crossed ? 0.9f : 0.35f), 0.2f);
+			}
+			if (!crossed)
+			{
+				break;
+			}
+			if (data.dischargeDamage != null)
+			{
+				pick.Hit(new HitInfo(data.dischargeDamage, attacker.AttackerNode, Vector3.Zero, attacker.ActorTeam));
+			}
 			if (data.fx != null && fxHost != null)
 			{
 				Fx.Create(data.fx, fxHost, targetPos);
 			}
-			if (CVars.debugAoe.Value)
-			{
-				DebugDraw.Line(current, targetPos, new Color(0.6f, 0.85f, 1f, 0.9f), 0.2f);
-			}
-			current = targetPos;
+			buildup *= data.chainBuildupFalloff;
 		}
+	}
+
+	// A hurtbox is a valid chain link if the discharge (or, when none is
+	// authored, a neutral electrical probe) would be accepted by its team filter.
+	private static bool CanChainTo(HurtBox hurtBox, ChainLightningData data, IActionActor attacker)
+	{
+		if (data.dischargeDamage == null)
+		{
+			return true;
+		}
+		HitInfo probe = new HitInfo(data.dischargeDamage, attacker.AttackerNode, Vector3.Zero, attacker.ActorTeam);
+		return hurtBox.CanBeHit(probe);
+	}
+
+	// Route a shock buildup contribution to whichever actor owns `hurtBox` and
+	// report whether it crossed the threshold. Mob and Player both fold their own
+	// Electrical resistance / wetness in AddCombatBuildup; ownerless hurtboxes
+	// (props) can't be shocked, so the chain stops on them.
+	private static bool ApplyShockBuildup(HurtBox hurtBox, StatusEffectData shockEffect, float amount)
+	{
+		Mob mob = FindOwningMob(hurtBox);
+		if (mob != null)
+		{
+			return mob.ApplyCombatBuildup(shockEffect, amount);
+		}
+		Player player = FindOwningPlayer(hurtBox);
+		return player != null && player.ApplyCombatBuildup(shockEffect, amount);
 	}
 
 	// Shortest arc we bother drawing — below this the two points are effectively
@@ -577,6 +622,23 @@ public static class ItemEventHandlers
 			if (node is Mob mob)
 			{
 				return mob;
+			}
+			node = node.GetParent();
+		}
+		return null;
+	}
+
+	// Player counterpart to FindOwningMob — walks up from a hurtbox to the owning
+	// Player (the player authors its HurtBox as a child), or null for non-player
+	// boxes. Used by the chain-lightning shock path to reach the receiver's
+	// buildup meter regardless of whether the link is a mob or the player.
+	public static Player FindOwningPlayer(Node node)
+	{
+		while (node != null)
+		{
+			if (node is Player player)
+			{
+				return player;
 			}
 			node = node.GetParent();
 		}
@@ -722,6 +784,9 @@ public static class ItemEventHandlers
 		// Vampiric (lifesteal) fraction this shot carries — applied in-flight when
 		// it deals health damage, healing the firer back.
 		float lifestealFraction = 0f;
+		// Flat stamina refunded to the firer on each creature this shot strikes
+		// (the ranged stamina-recharge mod).
+		float staminaOnHit = 0f;
 		// On-hit effect contributions (a Flaming bow's Burning applied immediately,
 		// a Venomous shot's Poison buildup) the shot adds to each creature it
 		// strikes. The projectile rebuilds its HitInfo from the raw DamageData, so
@@ -739,12 +804,19 @@ public static class ItemEventHandlers
 		Godot.Collections.Array<PackedScene> projectileFx = null;
 		// Composed weapon level doubles the shot's damage per level (2^level);
 		// threaded through Launch since the projectile rebuilds its HitInfo from
-		// raw DamageData and never sees ResolveHit's scaling.
-		float damageMultiplier = firingWeapon?.DamageMultiplier ?? 1f;
+		// raw DamageData and never sees ResolveHit's scaling. The per-level offense
+		// scale (a Ranged forge upgrade's level, or a mob's Level) rides the same two
+		// multipliers: damage folds into damageMultiplier, buildup into
+		// buildupMultiplier, so a leveled ranged attack lands harder hits AND harder
+		// status buildups on every creature the shot strikes.
+		float levelScale = actor.OutgoingLevelScale(action.context.sourceSlot ?? EInventorySlot.None);
+		float damageMultiplier = (firingWeapon?.DamageMultiplier ?? 1f) * levelScale;
+		float buildupMultiplier = levelScale;
 		if (firingWeapon != null)
 		{
 			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingChargeIndex));
 			lifestealFraction = firingWeapon.statusEffects.Vampiric(firingChargeIndex);
+			staminaOnHit = firingWeapon.statusEffects.StaminaOnHit(firingChargeIndex);
 			onHitBuildups = firingWeapon.statusEffects.WeaponModOnHitBuildups(firingChargeIndex);
 			chainLightning = firingWeapon.statusEffects.WeaponModChainLightning(firingChargeIndex);
 			knockbackBonus = firingWeapon.statusEffects.WeaponModKnockbackBonus(firingChargeIndex);
@@ -813,7 +885,9 @@ public static class ItemEventHandlers
 				onHitBuildups,
 				ev.directHitEvent,
 				ev.expirationEvent,
-				damageMultiplier);
+				damageMultiplier,
+				buildupMultiplier,
+				staminaOnHit);
 		}
 
 		// On-attack mods for a ranged-slot Fairy boon: a bow shot is a Projectile
@@ -935,10 +1009,10 @@ public static class ItemEventHandlers
 	}
 
 	// Lifesteal: heal the attacker by the firing weapon's vampiric fraction of
-	// the health damage just dealt by a landed melee/hitscan hit. No-op for mob
-	// attacks (no WeaponState), zero damage, or a weapon carrying no vampiric mod
-	// that reaches the firing charge tier. Read off the weapon's composed mods
-	// the same way DoProjectile reads pierce / detonate.
+	// the health damage just dealt by a landed melee/hitscan hit, and refund the
+	// weapon's flat stamina-on-hit amount. No-op for mob attacks (no WeaponState),
+	// zero damage, or a weapon carrying neither mod at the firing charge tier. Read
+	// off the weapon's composed mods the same way DoProjectile reads pierce / detonate.
 	private static void ApplyLifesteal(IActionActor actor, in PlayerAction action, float healthDamageDealt)
 	{
 		if (healthDamageDealt <= 0f)
@@ -949,10 +1023,16 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		float fraction = weapon.statusEffects.Vampiric(FindChargeIndex(weapon, action.selectedTier));
+		int chargeIndex = FindChargeIndex(weapon, action.selectedTier);
+		float fraction = weapon.statusEffects.Vampiric(chargeIndex);
 		if (fraction > 0f)
 		{
 			actor.Heal(healthDamageDealt * fraction);
+		}
+		float stamina = weapon.statusEffects.StaminaOnHit(chargeIndex);
+		if (stamina > 0f)
+		{
+			actor.RestoreStamina(stamina);
 		}
 	}
 
@@ -1240,6 +1320,16 @@ public static class ItemEventHandlers
 		if (cam == null) { return; }
 		Vector3 playerPos = GameClient.Current?.Player?.GlobalPosition ?? actor.ActorWorldPosition;
 		cam.Shake.AddImpulse(ev.cameraShakeMagnitude, ev.cameraShakeDuration, actor.ActorWorldPosition, ev.cameraShakeRange, playerPos);
+	}
+
+	// One-shot full-screen flash toward ev.screenFlashColor, decayed by the
+	// ScreenEffectsController. The main-timeline counterpart to the projectile-
+	// impact ScreenFlash in DispatchAtPosition — author it on any tier / charge
+	// event that should punch a screenspace flash (a spell going off). No-op
+	// when there's no controller (headless).
+	public static void DoScreenFlash(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		ScreenEffectsController.Current?.Flash(ev.screenFlashColor, ev.screenFlashIntensity, ev.screenFlashFadeSeconds);
 	}
 
 	// Fires a one-shot controller-rumble impulse anchored at the actor's
@@ -1597,6 +1687,18 @@ public static class ItemEventHandlers
 			{
 				hit.healthDamage *= meleeMul;
 			}
+		}
+		// Per-level offense scale (player: the forge upgrade on this weapon's slot;
+		// mob: its difficulty Level). Scales healthDamage AND every buildup the hit
+		// delivers (buildupAmountMultiplier), so a leveled attacker lands its status
+		// effects harder too. For projectiles this same scale is folded into the
+		// threaded damage/buildup multipliers in DoProjectile — the rebuilt HitInfo
+		// there ignores this one — so ranged upgrades aren't double-counted.
+		float levelScale = actor.OutgoingLevelScale(action.context.sourceSlot ?? EInventorySlot.None);
+		if (levelScale != 1f)
+		{
+			hit.healthDamage *= levelScale;
+			hit.buildupAmountMultiplier *= levelScale;
 		}
 		// Weapon-mod payloads scope-filtered to the firing tier: on-hit enchants
 		// (a Flaming weapon's Burning) ride on top of the template's statusEffects,

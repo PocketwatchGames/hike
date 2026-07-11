@@ -88,6 +88,24 @@ public partial class BackpackPanel : Control
 		return _slots[0];
 	}
 
+	// First slot holding an item, or null if the grid is empty — the cooking
+	// screen's auto-highlight target when no recipe can be pre-selected.
+	public ItemSlotPanel FirstOccupied()
+	{
+		if (_slots == null)
+		{
+			return null;
+		}
+		foreach (ItemSlotPanel p in _slots)
+		{
+			if (p != null && p.Item != null)
+			{
+				return p;
+			}
+		}
+		return null;
+	}
+
 	public void SetFocusable(bool focusable)
 	{
 		if (_slots == null)

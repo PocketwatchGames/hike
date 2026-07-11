@@ -28,6 +28,16 @@ public partial class ItemAction : Resource
 	// the next tier becomes selectable immediately.
 	[Export] public float chargeTime = 0f;
 
+	// Per-tier "hold to completion": when true, releasing the input while THIS
+	// tier is the selected charging tier aborts instead of committing — the tier
+	// only fires by auto-activating at full charge. The profile-wide
+	// ItemActionProfile.requireFullCharge forces this on every tier; this field
+	// lets a single tier opt in while others in the same profile still commit on
+	// release. The lantern uses it so its low toggle tier fires on a quick tap
+	// while the high heal tier demands a full hold (an early release cancels the
+	// cast without toggling the light).
+	[Export] public bool requireFullCharge = false;
+
 	// Length of the Active phase in seconds. May be 0 — t=0 events fire and
 	// Active exits the same tick.
 	[Export] public float activeDurationSeconds = 0f;
@@ -46,6 +56,14 @@ public partial class ItemAction : Resource
 	// ItemAction entirely (InteractiveAction is the right home for those).
 	[Export] public float staminaCost = 0f;
 	[Export] public float bloodCost = 0f;
+
+	// Lantern/torch fuel spent (in seconds of burn budget) when this tier
+	// activates, drawn from the driving item's fuel tank. Unlike stamina/blood,
+	// the gate is "has ANY fuel left" (> 0), not "can afford the full cost" — a
+	// near-empty lantern still casts and the spend clamps the tank at 0 (see
+	// TorchState.SpendFuel). 0 (default) = no fuel cost. Only meaningful when the
+	// driving item (context.primaryItem) is a fuel-bearing consumable (a lantern).
+	[Export] public float fuelCost = 0f;
 
 	// True if this tier consumes ammo from the driving WeaponState — gates
 	// the press at zero ammo (PlayerWeapon / AimingReticle / WeaponHud read

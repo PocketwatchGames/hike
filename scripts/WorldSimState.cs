@@ -32,6 +32,30 @@ public class WorldSimState
     // this on camping, and cooking pulls ingredients from it. Persisted by SaveGame.
     public readonly List<ItemState> PartyMaterialStash = new();
 
+    // Drop any stashed item whose spoil deadline (ItemState.removeOnDay) has been
+    // reached — perishables (meat, mushrooms) vanish from the shared party stashes
+    // at the sunrise their day arrives, mirroring the backpack sweep in
+    // Player.TickItemExpiry. Called from World.AdvanceToNextSunrise on the day
+    // rollover. The equipment stash is swept too for symmetry; equipment never
+    // sets removeOnDay, so it's a no-op there.
+    public void PruneExpiredPerishables(int dayNumber)
+    {
+        PruneExpiredStash(PartyMaterialStash, dayNumber);
+        PruneExpiredStash(PartyEquipmentStash, dayNumber);
+    }
+
+    private static void PruneExpiredStash(List<ItemState> stash, int dayNumber)
+    {
+        for (int i = stash.Count - 1; i >= 0; i--)
+        {
+            ItemState item = stash[i];
+            if (item != null && item.removeOnDay != 0 && dayNumber >= item.removeOnDay)
+            {
+                stash.RemoveAt(i);
+            }
+        }
+    }
+
     // The player's party roster — the characters they can switch between. Built
     // once at game start from WorldGenData.startingParty (GameClient.Init) and
     // persisted here alongside the other run-spanning state. Null until the
@@ -61,10 +85,10 @@ public class WorldSimState
     // re-registers on stream-in.
     public readonly Dictionary<Vector3I, ForgeMarkerInfo> ForgeMarkers = new();
 
-    // Register a forge's reactivation day (0 = ready) and level for map display.
-    public void SetForgeReactivate(Vector3 worldPos, int reactivateDay, int level)
+    // Register a forge's reactivation day (0 = ready), level, and slot for map display.
+    public void SetForgeReactivate(Vector3 worldPos, int reactivateDay, int level, EUpgradeSlot slot)
     {
-        ForgeMarkers[MapMarkerRecord.KeyFor(worldPos)] = new ForgeMarkerInfo(reactivateDay, level);
+        ForgeMarkers[MapMarkerRecord.KeyFor(worldPos)] = new ForgeMarkerInfo(reactivateDay, level, slot);
     }
 
     // Forge marker state for the map, if a forge is registered at this position.
@@ -551,8 +575,8 @@ public class WorldSimState
         {
             return false;
         }
-        return (Banked?.DiscoveredSpecies.ContainsKey(species) ?? false)
-            || (Active?.DiscoveredSpecies.ContainsKey(species) ?? false);
+        return (Banked?.DiscoveredSpecies.Contains(species) ?? false)
+            || (Active?.DiscoveredSpecies.Contains(species) ?? false);
     }
 
     // Records a species discovery and fires onSpeciesDiscovered. Returns true on
@@ -572,95 +596,35 @@ public class WorldSimState
         {
             return false;
         }
-        store.DiscoveredSpecies[species] = new MobBestiaryEntry();
+        store.DiscoveredSpecies.Add(species);
         onSpeciesDiscovered?.Invoke(species);
         return true;
     }
 
-    // Records a confirmed player kill against the given species into the active
-    // member's store. If the species hasn't been discovered in either store yet
-    // this also creates the entry and fires onSpeciesDiscovered. Species whose
-    // base MobData.appearsInBestiary is false (or a null species) silently no-op.
-    public void RecordSpeciesKill(SpeciesData species)
-    {
-        if (species == null || species.mob == null || !species.mob.appearsInBestiary)
-        {
-            return;
-        }
-        Knowledge store = Active;
-        if (store == null)
-        {
-            return;
-        }
-        if (!IsSpeciesDiscovered(species))
-        {
-            store.DiscoveredSpecies[species] = new MobBestiaryEntry();
-            onSpeciesDiscovered?.Invoke(species);
-        }
-        if (!store.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry entry))
-        {
-            // Discovered only in the banked pool so far — start an active-store
-            // delta entry; combined reads add its kills to the banked total.
-            entry = new MobBestiaryEntry();
-            store.DiscoveredSpecies[species] = entry;
-        }
-        entry.Kills++;
-    }
-
-    // Combined bestiary entry (party + active member, kills summed) for a single
-    // species. Returns a FRESH entry — callers must not write it back into a
-    // store. False when the species is undiscovered in both stores.
-    public bool TryGetBestiaryEntry(SpeciesData species, out MobBestiaryEntry combined)
-    {
-        combined = null;
-        if (species == null)
-        {
-            return false;
-        }
-        bool found = false;
-        int kills = 0;
-        if (Banked?.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry b) ?? false)
-        {
-            found = true;
-            kills += b.Kills;
-        }
-        if (Active?.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry a) ?? false)
-        {
-            found = true;
-            kills += a.Kills;
-        }
-        if (!found)
-        {
-            return false;
-        }
-        combined = new MobBestiaryEntry { Kills = kills };
-        return true;
-    }
-
-    // All discovered species with their combined (summed) entries, one per
-    // species even when present in both stores. Backs the bestiary screen.
-    public IEnumerable<(SpeciesData species, MobBestiaryEntry entry)> EnumerateBestiary()
+    // All discovered species, one per species even when present in both stores
+    // (party pool ∪ active member). Backs the bestiary screen.
+    public IEnumerable<SpeciesData> EnumerateBestiary()
     {
         var seen = new HashSet<SpeciesData>();
         Knowledge banked = Banked;
         if (banked != null)
         {
-            foreach (SpeciesData species in banked.DiscoveredSpecies.Keys)
+            foreach (SpeciesData species in banked.DiscoveredSpecies)
             {
-                if (seen.Add(species) && TryGetBestiaryEntry(species, out MobBestiaryEntry e))
+                if (seen.Add(species))
                 {
-                    yield return (species, e);
+                    yield return species;
                 }
             }
         }
         Knowledge active = Active;
         if (active != null)
         {
-            foreach (SpeciesData species in active.DiscoveredSpecies.Keys)
+            foreach (SpeciesData species in active.DiscoveredSpecies)
             {
-                if (seen.Add(species) && TryGetBestiaryEntry(species, out MobBestiaryEntry e))
+                if (seen.Add(species))
                 {
-                    yield return (species, e);
+                    yield return species;
                 }
             }
         }

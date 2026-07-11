@@ -13,7 +13,6 @@ public enum EAnnouncementType
 	LevelUp,
 	Boss,
 	MobDiscovered,
-	MobLevelUp,
 	GiftReceived,
 	// A new member joined the party (a recruited NPC). Event-log line carrying
 	// the member's name.

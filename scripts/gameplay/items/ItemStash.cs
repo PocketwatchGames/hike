@@ -17,7 +17,7 @@ public static class ItemStash
 		{
 			foreach (ItemState existing in stash)
 			{
-				if (existing == null || !existing.IsSameKind(item))
+				if (existing == null || !existing.CanStackWith(item))
 				{
 					continue;
 				}

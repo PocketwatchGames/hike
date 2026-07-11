@@ -2,24 +2,6 @@
 
 [ext_resource type="Script" uid="uid://c7pjuf5dv31v1" path="res://scripts/gui/WeaponHud.cs" id="1_06rsg"]
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_block_bg"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_block_back"]
-bg_color = Color(0.12, 0.14, 0.18, 1)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
-corner_detail = 3
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_block_fill"]
-bg_color = Color(0.55, 0.7, 0.85, 1)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
-corner_detail = 3
-
 [node name="WeaponHud" type="BoxContainer" unique_id=150891526 node_paths=PackedStringArray("_cooldownBar", "_icon", "_ammoGroup", "_ammoProgress", "_ammoText", "_blockArmorGroup", "_blockArmorBar")]
 anchors_preset = 8
 anchor_left = 0.5
@@ -40,8 +22,8 @@ _icon = NodePath("VBoxContainer/PanelContainer/Icon")
 _ammoGroup = NodePath("VBoxContainer/PanelContainer/AmmoContainer")
 _ammoProgress = NodePath("VBoxContainer/PanelContainer/AmmoContainer/AmmoBar")
 _ammoText = NodePath("VBoxContainer/PanelContainer/AmmoContainer/AmmoBar/Ammo")
-_blockArmorGroup = NodePath("VBoxContainer/BlockArmor")
-_blockArmorBar = NodePath("VBoxContainer/BlockArmor/BlockArmorFill")
+_blockArmorGroup = NodePath("")
+_blockArmorBar = NodePath("")
 metadata/_custom_type_script = "uid://c7pjuf5dv31v1"
 
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1947861846]
@@ -88,29 +70,3 @@ theme_override_font_sizes/font_size = 14
 text = "99"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="BlockArmor" type="MarginContainer" parent="VBoxContainer" unique_id=1437412902]
-visible = false
-custom_minimum_size = Vector2(64, 6)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="BlockArmorBack" type="ProgressBar" parent="VBoxContainer/BlockArmor" unique_id=1437412903]
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/background = SubResource("StyleBoxEmpty_block_bg")
-theme_override_styles/fill = SubResource("StyleBoxFlat_block_back")
-max_value = 1.0
-step = 0.001
-value = 1.0
-show_percentage = false
-
-[node name="BlockArmorFill" type="ProgressBar" parent="VBoxContainer/BlockArmor" unique_id=1437412904]
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/background = SubResource("StyleBoxEmpty_block_bg")
-theme_override_styles/fill = SubResource("StyleBoxFlat_block_fill")
-max_value = 1.0
-step = 0.001
-value = 1.0
-show_percentage = false

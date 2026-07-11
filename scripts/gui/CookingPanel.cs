@@ -649,6 +649,26 @@ public partial class CookingPanel : MarginContainer
 		_cookButton?.GrabFocus();
 	}
 
+	// Focus the first recipe button the party can currently cook (enabled ==
+	// HasIngredients). Walks the container in visual order. Returns false when no
+	// makeable recipe is listed so the screen can fall back to another target.
+	public bool GrabFirstAvailableRecipeFocus()
+	{
+		if (_recipeButtonContainer == null)
+		{
+			return false;
+		}
+		foreach (Node child in _recipeButtonContainer.GetChildren())
+		{
+			if (child is Button button && button.Visible && !button.Disabled)
+			{
+				button.GrabFocus();
+				return true;
+			}
+		}
+		return false;
+	}
+
 	ItemSlotPanel FindFirstFocusable()
 	{
 		if (_itemInputs == null)

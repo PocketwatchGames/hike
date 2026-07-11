@@ -343,23 +343,13 @@ public partial class GameClient : Node3D
 
 	// Fired the moment a mob's Die() runs, with the per-instance
 	// DamagedByPlayer flag piped through so subscribers can decide whether
-	// the player earned credit (bestiary kill count, future quest counters).
+	// the player earned credit (bestiary discovery, future quest counters).
 	// GameClient subscribes its own bestiary bridge in Init.
 	public Action<SpeciesData, bool> onMobKilled;
 	public void NotifyMobKilled(SpeciesData species, bool damagedByPlayer)
 	{
 		if (species == null) { return; }
 		onMobKilled?.Invoke(species, damagedByPlayer);
-	}
-
-	// Fired when the player and a mob trade blows — the player damages the mob,
-	// or the mob damages the player. The Hud subscribes to surface a transient
-	// objective panel showing the species' bestiary-level kill progress.
-	public Action<SpeciesData> onMobEngaged;
-	public void NotifyMobEngaged(SpeciesData species)
-	{
-		if (species == null) { return; }
-		onMobEngaged?.Invoke(species);
 	}
 
 	// Player combat state, aggregated by CombatTracker from per-mob reports:
@@ -943,6 +933,16 @@ public partial class GameClient : Node3D
 		// Party.Add appended, so a plain Add keeps _partyPlayers index-aligned.
 		_partyPlayers.Add(p);
 
+		// Drop the player's highlight/current interactive if it still points at the
+		// mob we're about to free. Recruit runs from the (now closed) conversation,
+		// so the proximity re-detect that would otherwise clear a stale highlight
+		// doesn't fire — without this, UpdateInteractHUD keeps the InteractHUD bound
+		// to the despawned mob and Update() derefs its disposed GlobalPosition.
+		if (_player != null && (ReferenceEquals(_player.CurInteractive, mob) || ReferenceEquals(_player.HighlightInteractive, mob)))
+		{
+			_player.ClearInteractive();
+		}
+
 		mob.Despawn();
 
 		Announce(new Announcement
@@ -1110,35 +1110,11 @@ public partial class GameClient : Node3D
 
 	void OnMobKilled(SpeciesData species, bool damagedByPlayer)
 	{
-		if (!damagedByPlayer || species?.mob == null) { return; }
-		WorldSimState sim = _world?.WorldState?.SimState;
-		if (sim == null) { return; }
-
-		// Snapshot the entry's level before the kill is recorded so we can
-		// announce on threshold-crossing edges. A first-kill entry hasn't
-		// been created yet — TryGetValue leaves kills at 0, which maps to
-		// level 0 in ComputeLevel. Level thresholds are shared per type
-		// (MobData.killsPerLevel); the kill count is the per-species total.
-		int prevKills = sim.TryGetBestiaryEntry(species, out MobBestiaryEntry prev) ? prev.Kills : 0;
-		sim.RecordSpeciesKill(species);
-		int newKills = sim.TryGetBestiaryEntry(species, out MobBestiaryEntry next) ? next.Kills : prevKills;
-
-		int prevLevel = MobBestiaryEntry.ComputeLevel(prevKills, species.mob.killsPerLevel);
-		int newLevel = MobBestiaryEntry.ComputeLevel(newKills, species.mob.killsPerLevel);
-		if (newLevel > prevLevel)
-		{
-			Announce(new Announcement
-			{
-				type = EAnnouncementType.MobLevelUp,
-				title = "Bestiary Level Up",
-				subtitle = $"{SpeciesDisplayName(species)} Level {newLevel}",
-			});
-		}
-
-		// Refresh the HUD objective panel now that the kill is recorded, so its
-		// progress bar reflects the incremented count (fired here, after
-		// RecordSpeciesKill, so it doesn't depend on subscriber ordering).
-		NotifyMobEngaged(species);
+		if (!damagedByPlayer) { return; }
+		// A player-credited kill charts the species in the bestiary if it wasn't
+		// already discovered by perception. DiscoverSpecies handles the
+		// appearsInBestiary / already-known guards and fires the announcement.
+		_world?.WorldState?.SimState?.DiscoverSpecies(species);
 	}
 
 	void OnSimSpeciesDiscovered(SpeciesData species)
@@ -1191,7 +1167,6 @@ public partial class GameClient : Node3D
 			ELanguageComponents.Numbers => "Numbers",
 			ELanguageComponents.Vocabulary1 => "Vocabulary 1",
 			ELanguageComponents.Vocabulary2 => "Vocabulary 2",
-			ELanguageComponents.Vocabulary3 => "Vocabulary 3",
 			_ => null,
 		};
 		return component != null ? $"{langName} {component}" : langName;

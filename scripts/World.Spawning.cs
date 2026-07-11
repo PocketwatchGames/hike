@@ -57,6 +57,33 @@ public partial class World
         return loot;
     }
 
+    // Spawn a ForageSpawner's presented pickup (a mushroom). Unlike the SpawnLoot
+    // overloads this is TRANSIENT — the sim state is NOT added to WorldState, so
+    // the spawner remains the single persistent record and re-creates the pickup
+    // on each stream-in while ripe (a persisted copy would double up on reload).
+    // The pickup still rides the chunk's active-entity list so it's freed on
+    // eviction; its ForageLootSimState re-arms the spawner's regrow deadline when
+    // collected. Returns null if no loot scene is configured.
+    public Loot SpawnForageLoot(ItemData item, Vector3 position, ForageSpawnerSimState owner)
+    {
+        PackedScene scene = GameClient.Current?.lootScene;
+        if (item == null || scene == null)
+        {
+            return null;
+        }
+        var simState = new ForageLootSimState(position, item, owner);
+        Loot loot = Loot.Create(this, simState, scene, Vector3.Zero);
+
+        Vector3I coord = WorldToChunkCoord(position);
+        if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
+        {
+            entities = new List<Node3D>();
+            _activeEntities[coord] = entities;
+        }
+        RegisterEntity(loot, entities, simState);
+        return loot;
+    }
+
     // Compose the fairy corpse's candidate boons onto its carried ItemState so
     // one can be applied (and chosen by the player) on use. Lives in the shared
     // spawn tail so every drop path gets it — a mob kill (ItemDescriptor loot,

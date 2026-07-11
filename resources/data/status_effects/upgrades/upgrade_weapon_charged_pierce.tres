@@ -13,6 +13,8 @@ affixPosition = 1
 [resource]
 script = ExtResource("1_data")
 displayName = &"Piercing"
+upgradeSlot = 2
+durationType = 2
 description = "The charged shot punches through up to three foes before it drops."
 category = 2
 maxStack = 1

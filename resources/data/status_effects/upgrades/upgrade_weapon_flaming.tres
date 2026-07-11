@@ -9,7 +9,7 @@
 [sub_resource type="Resource" id="buildup_burning"]
 script = ExtResource("5_buildup")
 effect = ExtResource("3_burning")
-applyImmediately = true
+amount = 0.5
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
@@ -20,6 +20,8 @@ projectileFx = ExtResource("4_flame")
 [resource]
 script = ExtResource("1_data")
 displayName = &"Flaming"
+upgradeSlot = 3
+durationType = 2
 description = "Sets struck targets ablaze, dealing fire damage over time."
 category = 2
 maxStack = 1

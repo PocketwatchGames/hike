@@ -84,9 +84,7 @@ hideRange = 8.0
 dugUpStun = ExtResource("8_digstun")
 idleLoopMaxRain = 0.2
 brain = ExtResource("2_brain")
-killsPerLevel = Array[int]([3, 10, 25, 50])
 bestiaryPortrait = ExtResource("3_ojd85")
-exp = 1
 animations = Dictionary[int, ExtResource("6_animdata")]({
 1: SubResource("Resource_anim_dead"),
 2: SubResource("Resource_anim_die"),

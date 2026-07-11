@@ -48,4 +48,17 @@ public class TorchState : ConsumableState
 		}
 		return false;
 	}
+
+	// Discrete one-shot spend for a fuel-costed action (a lantern spell cast),
+	// as opposed to BurnFuel's continuous while-lit drain. Spends up to `ms`,
+	// clamping the tank at 0 — a near-empty lantern still pays what it can and
+	// bottoms out rather than going negative. No-op for unlimited torches.
+	public void SpendFuel(long ms)
+	{
+		if (!_torchData.HasLimitedFuel)
+		{
+			return;
+		}
+		FuelRemainingMs = System.Math.Max(0, FuelRemainingMs - ms);
+	}
 }

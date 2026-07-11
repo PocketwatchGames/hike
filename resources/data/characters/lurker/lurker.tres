@@ -73,9 +73,7 @@ maxHealth = 12.0
 modifiers = null
 defaultBehavior = &"Wander"
 brain = ExtResource("3_brain")
-killsPerLevel = Array[int]([3, 10, 25, 50])
 bestiaryPortrait = ExtResource("4_portrait")
-exp = 2
 animations = Dictionary[int, ExtResource("2_anim")]({
 1: SubResource("Resource_anim_dead"),
 2: SubResource("Resource_anim_die"),

@@ -97,9 +97,7 @@ idleLoopMaxRain = 0.2
 runDecibels = 1.0
 defaultBehavior = &"Perch"
 brain = ExtResource("3_mky6i")
-killsPerLevel = Array[int]([3, 10, 25, 50])
 bestiaryPortrait = ExtResource("3_ub8pw")
-exp = 1
 animations = Dictionary[int, ExtResource("2_mky6i")]({
 1: SubResource("Resource_anim_dead"),
 2: SubResource("Resource_anim_die"),

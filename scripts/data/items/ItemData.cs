@@ -19,6 +19,15 @@ public partial class ItemData : Resource
 	// to match displayName's StringName convention.
 	[Export(PropertyHint.MultilineText)] public string description = "";
 	[Export] public int maxStack = 1;
+
+	// In-world days this item keeps before it spoils and is destroyed wherever it
+	// sits (backpack, party stash). 0 = never spoils (the default). Perishables
+	// (meat, mushrooms) set this; on acquisition the deadline is stamped onto
+	// ItemState.removeOnDay (DayNumber + spoilDays), which the backpack prune
+	// (Player.TickItemExpiry), the stash prune (WorldSimState.PruneExpiredPerishables),
+	// and dropped Loot all honor. Stacks only merge with a matching removeOnDay
+	// (ItemState.CanStackWith), so a fresh batch never resets an older one.
+	[Export(PropertyHint.Range, "0,60,1,or_greater")] public int spoilDays;
 	// Subjective worth of one unit. Mob.CalculatePersonalValue starts from this
 	// and lets per-mob preferences scale it (a vegetarian villager values a
 	// roast at 0, etc). Drives gift-loyalty gain on the merchant screen and is

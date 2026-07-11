@@ -217,10 +217,10 @@ public partial class MapMarkerOverlay : Control
         }
         modulate.A *= revealAlpha;
 
-        // Forge markers: swap in the icon for the slot the forge currently offers
-        // (resolved identically to the in-world floating model, so map and world
-        // agree) and stamp its level. Resolvable while the chunk is unloaded — the
-        // slot comes from the global upgrade pool + the always-resident forge cache.
+        // Forge markers: swap in the icon for the forge's fixed slot (derived from its
+        // position, identical to the in-world floating model, so map and world agree)
+        // and stamp its level. Resolvable while the chunk is unloaded — the slot is a
+        // pure function of position and the level rides the always-resident forge cache.
         int forgeLevel = 0;
         if (identified && sim.TryGetForgeMarker(record.WorldPosition, out ForgeMarkerInfo forge))
         {
@@ -228,9 +228,7 @@ public partial class MapMarkerOverlay : Control
             SimData simData = World.Current?.SimData;
             if (simData != null)
             {
-                int today = World.Current?.DayNumber ?? 0;
-                StatusEffectData offered = ForgeOffer.Resolve(simData.forgeUpgrades, record.WorldPosition, today, forge.ReactivateDay);
-                Texture2D slotIcon = simData.GetForgeSlotIcon(offered?.upgradeSlot ?? EUpgradeSlot.None);
+                Texture2D slotIcon = simData.GetForgeSlotIcon(forge.Slot);
                 if (slotIcon != null)
                 {
                     tex = slotIcon;

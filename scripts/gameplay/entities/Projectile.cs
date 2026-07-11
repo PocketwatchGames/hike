@@ -121,6 +121,9 @@ public partial class Projectile : Node3D
 	// (_source) as healing. Composed at fire time from the weapon's vampiric mods.
 	// 0 = no lifesteal.
 	private float _lifestealFraction;
+	// Flat stamina points refunded to the firer on each creature this shot strikes
+	// (the ranged stamina-recharge mod). Composed at fire time. 0 = none.
+	private float _staminaOnHit;
 	// On-hit effect contributions (weapon-mod enchants — Burning applied
 	// immediately, Poison buildup) added to every creature this shot strikes.
 	// Null when the shot carries no enchant.
@@ -131,10 +134,14 @@ public partial class Projectile : Node3D
 	// Knockback-mod shove (m/s) + stagger (s) added to each hit. 0 = none.
 	private float _knockbackBonus;
 	private float _knockbackTimeBonus;
-	// Firing weapon's composed level damage multiplier (2^level). 1 = no scaling.
-	// The shot rebuilds its HitInfo from raw DamageData, so ResolveHit's scaling
-	// doesn't reach it — the multiplier is threaded through Launch instead.
+	// Firing weapon's composed level damage multiplier (2^level), folded with the
+	// attacker's per-level offense scale (Ranged forge upgrade / mob Level). 1 = no
+	// scaling. The shot rebuilds its HitInfo from raw DamageData, so ResolveHit's
+	// scaling doesn't reach it — the multiplier is threaded through Launch instead.
 	private float _damageMultiplier = 1f;
+	// Attacker's per-level offense scale applied to every buildup this shot delivers
+	// (the buildup counterpart of _damageMultiplier's damage scaling). 1 = neutral.
+	private float _buildupMultiplier = 1f;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -194,7 +201,9 @@ public partial class Projectile : Node3D
 		Godot.Collections.Array<StatusEffectBuildup> onHitBuildups = null,
 		ItemEvent directHitEvent = null,
 		ItemEvent expirationEvent = null,
-		float damageMultiplier = 1f)
+		float damageMultiplier = 1f,
+		float buildupMultiplier = 1f,
+		float staminaOnHit = 0f)
 	{
 		if (scene == null || parent == null)
 		{
@@ -203,11 +212,13 @@ public partial class Projectile : Node3D
 		var inst = scene.Instantiate<Projectile>();
 		inst._pierceRemaining = Mathf.Max(0, pierceCount);
 		inst._lifestealFraction = lifestealFraction;
+		inst._staminaOnHit = staminaOnHit;
 		inst._onHitBuildups = onHitBuildups;
 		inst._chainLightning = chainLightning;
 		inst._knockbackBonus = knockbackBonus;
 		inst._knockbackTimeBonus = knockbackTimeBonus;
 		inst._damageMultiplier = damageMultiplier;
+		inst._buildupMultiplier = buildupMultiplier;
 		inst._damageData = damageData;
 		inst._source = source;
 		inst._velocity = velocity;
@@ -407,8 +418,12 @@ public partial class Projectile : Node3D
 					{
 						var hit = new HitInfo(_damageData, _source, _velocity.Normalized(), _attackerTeam);
 						hit.friendlyFire = _friendlyFire;
-						// Composed weapon level doubles outgoing damage per level (2^level).
+						// Composed weapon level doubles outgoing damage per level (2^level),
+						// folded with the attacker's per-level offense scale; the buildup
+						// counterpart rides buildupAmountMultiplier so the DamageData's own
+						// buildups AND the weapon-mod on-hit buildups below both scale.
 						hit.healthDamage *= _damageMultiplier;
+						hit.buildupAmountMultiplier *= _buildupMultiplier;
 						// Weapon-mod on-hit effects (Burning applied immediately,
 						// Poison buildup) the shot carries, on top of the
 						// DamageData's own buildups.
@@ -445,6 +460,9 @@ public partial class Projectile : Node3D
 						// Lifesteal leeches off every creature the shot wounds —
 						// both the terminal hit and each pierce-through.
 						ApplyLifesteal(hitResult, hit.healthDamage);
+						// Stamina-recharge mod refunds a flat amount on each connect,
+						// regardless of whether it drew health or pinged armor.
+						ApplyStaminaOnHit();
 						// Chain-lightning mods arc off the struck creature.
 						if (_chainLightning != null && GodotObject.IsInstanceValid(_source) && _source is IActionActor chainActor)
 						{
@@ -519,6 +537,21 @@ public partial class Projectile : Node3D
 		if (GodotObject.IsInstanceValid(_source) && _source is IActionActor actor)
 		{
 			actor.Heal(healthDamage * _lifestealFraction);
+		}
+	}
+
+	// Refill the firing actor's stamina by the composed flat amount on each
+	// creature this shot strikes (the ranged stamina-recharge mod). Fires on any
+	// connect regardless of damage; mob firers no-op (no stamina pool).
+	private void ApplyStaminaOnHit()
+	{
+		if (_staminaOnHit <= 0f)
+		{
+			return;
+		}
+		if (GodotObject.IsInstanceValid(_source) && _source is IActionActor actor)
+		{
+			actor.RestoreStamina(_staminaOnHit);
 		}
 	}
 

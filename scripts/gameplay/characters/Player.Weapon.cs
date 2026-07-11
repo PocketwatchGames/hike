@@ -132,7 +132,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// Resolve the weapon a press on `slot` should drive. Normally the equipped
 	// weapon, but an empty melee slot (WeaponLeft) falls back to the player's
 	// unarmed weapon so a bare-handed player still punches. The unarmed
-	// WeaponState is built once and cached — it carries its own combo / exp
+	// WeaponState is built once and cached — it carries its own combo / level
 	// state like any inventory weapon. Returns null only when the slot is empty
 	// and there's no unarmed fallback (or it's the ranged slot).
 	WeaponState GetMeleeWeaponOrUnarmed(EInventorySlot slot)
@@ -190,6 +190,18 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		}
 		_pendingWeaponPressSlot = null;
 		_pendingWeaponPressActionName = null;
+
+		// Point the weapon at the player's own status effects so its weapon-mod reads
+		// fold in any active forge upgrade for this slot (a Flaming edge on the melee
+		// weapon, Seeking on the bow). The upgrade lives on the player, never composed
+		// onto the weapon item — see StatusEffectController.SetWielderUpgradeSource.
+		EUpgradeSlot upgradeSlot = slot switch
+		{
+			EInventorySlot.WeaponMelee => EUpgradeSlot.Melee,
+			EInventorySlot.WeaponRanged => EUpgradeSlot.Ranged,
+			_ => EUpgradeSlot.None,
+		};
+		weapon.statusEffects?.SetWielderUpgradeSource(_statusEffects, upgradeSlot);
 
 		var context = new ActionContext
 		{
@@ -270,10 +282,11 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		_runner.OnInputReleased();
 	}
 
-	// Toggle the lantern on/off from its dedicated slot — the Lantern input's
-	// counterpart to TryUseActiveConsumable. Runs the lantern's action profile
-	// (a single ToggleMovingLight event) through the runner, so a fuel-empty
-	// lantern is refused by the same HasFuel gate the manual douse uses.
+	// Drive the lantern's action from its dedicated slot — the Lantern input's
+	// counterpart to TryUseActiveConsumable. Runs the lantern's charge profile
+	// through the runner: a quick tap fires the low tier (toggle the light,
+	// refused by the same HasFuel gate the manual douse uses), while a full hold
+	// reaches the fuel-costed heal tier that auto-casts when charged.
 	void TryUseLantern()
 	{
 		CancelDashAndSprint();
@@ -307,6 +320,45 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		}
 		_runner.OnInputReleased();
 	}
+
+	// Drives the crescendo cues while the lantern's held heal spell charges: the
+	// player-carried charge glow grows with the hold and the screen shake builds
+	// toward the auto-cast, both keyed off the heal tier's charge fraction. The
+	// heal tier is identified generically as a Lantern-slot Charging tier with a
+	// fuelCost (the toggle tier has none), so a plain light toggle produces no
+	// glow or shake. Called each physics tick right after the runner ticks;
+	// resolves to zero (glow off, no shake) whenever the heal isn't charging.
+	void UpdateLanternHealCharge()
+	{
+		float t = 0f;
+		if (_runner != null
+			&& _runner.Phase == EActionPhase.Charging
+			&& _runner.Current.context.sourceSlot == EInventorySlot.Lantern
+			&& (_runner.Current.selectedTier?.fuelCost ?? 0f) > 0f)
+		{
+			t = _runner.CurrentChargeT;
+		}
+		if (_lanternHealLight != null)
+		{
+			_lanternHealLight.LightEnergy = t * _lanternHealLightPeakEnergy;
+			_lanternHealLight.Visible = t > 0f;
+		}
+		// Build the shake with t² so it stays calm early and rushes in at the
+		// end. Fed as a short per-frame impulse (range 0 = full strength) rather
+		// than a persistent source, so it needs no scene node and self-clears the
+		// instant charging stops. GameCamera.Current is re-checked each call, so
+		// this is robust to camera spawn order.
+		if (t > 0f && _lanternHealShakePeakMagnitude > 0f)
+		{
+			float magnitude = t * t * _lanternHealShakePeakMagnitude;
+			GameCamera.Current?.Shake?.AddImpulse(magnitude, LanternHealShakeImpulseSeconds, GlobalPosition, 0f, GlobalPosition);
+		}
+	}
+
+	// Lifetime of each per-frame charge-shake impulse. A hair over two physics
+	// frames so successive impulses overlap into a continuous shake, but the tail
+	// decays out within ~2 frames once charging ends.
+	const float LanternHealShakeImpulseSeconds = 0.05f;
 
 	// Immediately run a consumable's Use action on this player from a source
 	// other than the equipped hotbar slot — e.g. a dish eaten the moment it comes
@@ -659,6 +711,32 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
 	// IActionActor — melee-only damage scale from the hosted member's strength.
 	public float MeleeDamageMultiplier => Member?.strength ?? 1f;
+
+	// IActionActor — per-level offense scale from the forge upgrade occupying the
+	// firing weapon's slot (Melee/Ranged); other slots (consumables, unarmed) carry
+	// no upgrade and resolve to a neutral 1. Scales outgoing damage + delivered
+	// buildups via the shared SimData curve. See StatusEffectController.ActiveUpgradeLevel.
+	public float OutgoingLevelScale(EInventorySlot slot)
+	{
+		EUpgradeSlot upgradeSlot = slot switch
+		{
+			EInventorySlot.WeaponMelee => EUpgradeSlot.Melee,
+			EInventorySlot.WeaponRanged => EUpgradeSlot.Ranged,
+			_ => EUpgradeSlot.None,
+		};
+		if (upgradeSlot == EUpgradeSlot.None)
+		{
+			return 1f;
+		}
+		int level = _statusEffects?.ActiveUpgradeLevel(upgradeSlot) ?? 0;
+		return _world?.SimData?.LevelOutgoingScale(level) ?? 1f;
+	}
+
+	// Receiver-side per-level resistance (<=1) from the forge upgrade on the Armor
+	// slot, applied to incoming damage (Player.ApplyResistance) and combat buildup
+	// (StatusEffectController via the incomingLevelResist callback). Neutral 1 when
+	// no Armor upgrade is slotted.
+	public float IncomingLevelResist => _world?.SimData?.LevelIncomingResist(_statusEffects?.ActiveUpgradeLevel(EUpgradeSlot.Armor) ?? 0) ?? 1f;
 	public ETeam ActorTeam => ETeam.Player;
 	// IActionActor — fire any active status effect's on-attack-impact burst at
 	// the swing/ray impact point. Shares the controller path with Mob so an

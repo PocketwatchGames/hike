@@ -61,6 +61,14 @@ public interface IActionActor
 	// return 1.0 (no strength stat). 1.0 = neutral.
 	float MeleeDamageMultiplier { get; }
 
+	// Attacker-side per-level power scale for an attack fired from `slot`, applied
+	// to BOTH the hit's healthDamage and every buildup it delivers. The player maps
+	// the slot to its Melee/Ranged forge-upgrade level; a mob ignores the slot and
+	// uses its difficulty Level. Both resolve through SimData.LevelOutgoingScale so
+	// player and mob share one curve. 1.0 = neutral (unleveled / no upgrade). Melee
+	// & hitscan apply it in ResolveHit; projectiles thread it through Launch.
+	float OutgoingLevelScale(EInventorySlot slot);
+
 	// Faction tag used by direct-hit handlers (Melee / Hitscan / Projectile)
 	// to skip same-team hurtboxes when DamageData.friendlyFire is false. Player
 	// returns ETeam.Player; mobs forward MobData.team.
@@ -70,6 +78,11 @@ public interface IActionActor
 	// vampiric (lifesteal) weapon mod to leech a fraction of the health damage a
 	// landed attack deals back to the attacker. Symmetric with DrainBlood.
 	void Heal(float amount);
+
+	// Refill `amount` stamina points on this actor, clamped at MaxStamina. Used by
+	// the stamina-on-hit weapon mod to top up the attacker on each landed hit.
+	// Player-only; mobs have no stamina pool and no-op. Symmetric with Heal.
+	void RestoreStamina(float amount);
 
 	// Fire any status-effect-driven on-attack-impact payloads at `position`.
 	// Called by the Melee / Hitscan handlers the moment an attack resolves its

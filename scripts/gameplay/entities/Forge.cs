@@ -13,8 +13,8 @@ using Godot;
 // The offered upgrade is chosen deterministically from (world position, day), so
 // the model hovering over the forge always previews what the player will get.
 // Instead of a single orb, the forge floats the model of the offered slot (melee
-// sword / ranged bow / armor shield / helmet), glowing purple while ready and
-// darkened once used.
+// sword / ranged bow / armor shield), glowing purple while ready and darkened once
+// used.
 //
 // Distinct from the Campfire cooking station: no lit/doused state, no jobs.
 [GlobalClass]
@@ -39,8 +39,13 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     [Export] private Node3D _modelMelee;   // sword
     [Export] private Node3D _modelRanged;  // bow
     [Export] private Node3D _modelArmor;   // shield
-    [Export] private Node3D _modelHelmet;  // helmet
-    // Active/inert material pairs. The melee/ranged/helmet models share one atlas
+
+    // Per-level pedestal (station) models, indexed by the forge's Level (0..N). Only
+    // the one matching this forge's tier is shown, so a level-5 forge looks grander
+    // from a distance than a level-1. Index clamped, so fewer entries than tiers just
+    // reuses the top pedestal. Empty = whatever pedestal the scene leaves visible.
+    [Export] private Godot.Collections.Array<Node3D> _levelPedestals = new();
+    // Active/inert material pairs. The melee/ranged models share one atlas
     // (PolysplitGames); the armor shield uses its own (PolygonDungeon).
     [Export] private Material _slotActiveMaterial;
     [Export] private Material _slotInertMaterial;
@@ -64,7 +69,8 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
-    // Star pips on the interact HUD reflect the forge's power tier (1-5).
+    // Star pips on the interact HUD reflect the forge's power tier (0-4); a
+    // level-0 forge shows no pips.
     public int InteractLevel => _simState?.Level ?? 0;
 
     public void OnSpawned(World world) { }
@@ -118,11 +124,15 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         int today = World.Current?.DayNumber ?? 0;
         _offeredUpgrade = _simState == null
             ? null
-            : ForgeOffer.Resolve(_world?.SimData?.forgeUpgrades, _simState.WorldPosition, today, _simState.ReactivateDay);
+            : ForgeOffer.Resolve(_world?.SimData?.forgeUpgrades, _simState.WorldPosition, today, _simState.RegrowDay, _simState.Slot);
         ApplyOfferModel();
     }
 
-    private EUpgradeSlot OfferedSlot => _offeredUpgrade?.upgradeSlot ?? EUpgradeSlot.None;
+    // The forge's fixed slot (authored on the spawn entry, or position-derived),
+    // resolved at bake time onto ForgeSimState.Slot. The offered upgrade rolls daily
+    // among those eligible for it, but the slot — and thus the floating model / marker
+    // icon — is constant for this forge.
+    private EUpgradeSlot OfferedSlot => _simState?.Slot ?? EUpgradeSlot.None;
 
     // Show only the model for the offered slot; reapply its ready/inert material.
     private void ApplyOfferModel()
@@ -131,7 +141,6 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         SetModel(_modelMelee, slot == EUpgradeSlot.Melee);
         SetModel(_modelRanged, slot == EUpgradeSlot.Ranged);
         SetModel(_modelArmor, slot == EUpgradeSlot.Armor);
-        SetModel(_modelHelmet, slot == EUpgradeSlot.Helmet);
         ApplyModelMaterial(_visualReady);
     }
 
@@ -140,6 +149,24 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         if (model != null)
         {
             model.Visible = shown;
+        }
+    }
+
+    // Show only the pedestal for this forge's level (clamped to the authored list),
+    // hiding the rest. No-op when no per-level pedestals are wired.
+    private void ApplyLevelPedestal()
+    {
+        if (_levelPedestals == null || _levelPedestals.Count == 0)
+        {
+            return;
+        }
+        int lvl = Mathf.Clamp(_simState?.Level ?? 0, 0, _levelPedestals.Count - 1);
+        for (int i = 0; i < _levelPedestals.Count; i++)
+        {
+            if (_levelPedestals[i] != null)
+            {
+                _levelPedestals[i].Visible = i == lvl;
+            }
         }
     }
 
@@ -153,8 +180,6 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
                 holder = _modelMelee; active = _slotActiveMaterial; inert = _slotInertMaterial; return;
             case EUpgradeSlot.Ranged:
                 holder = _modelRanged; active = _slotActiveMaterial; inert = _slotInertMaterial; return;
-            case EUpgradeSlot.Helmet:
-                holder = _modelHelmet; active = _slotActiveMaterial; inert = _slotInertMaterial; return;
             case EUpgradeSlot.Armor:
                 holder = _modelArmor; active = _armorActiveMaterial; inert = _armorInertMaterial; return;
             default:
@@ -205,7 +230,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         // Inert until the day advances past the reactivation day (stamped to the
         // next sleep-to-sunrise on use). 0 = ready.
         int today = World.Current?.DayNumber ?? 0;
-        return _simState == null || today >= _simState.ReactivateDay;
+        return _simState == null || today >= _simState.RegrowDay;
     }
 
     public bool CanActorInteract(Player player)
@@ -236,10 +261,11 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         }
         StatusEffectData offered = _offeredUpgrade;
         int level = _simState?.Level ?? 0;
-        StatusEffectData replacing = player.ActiveUpgrade(offered.upgradeSlot);
+        EUpgradeSlot slot = OfferedSlot;
+        StatusEffectData replacing = player.ActiveUpgrade(slot);
         gc.OpenForgeScreen(offered, replacing, level, () =>
         {
-            player.AddStatusEffect(offered, level);
+            player.AddStatusEffect(offered, level, slot);
             BeginCooldown();
         });
     }
@@ -250,10 +276,10 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        _simState.ReactivateDay = (World.Current?.DayNumber ?? 0) + 1;
+        _simState.RegrowDay = (World.Current?.DayNumber ?? 0) + 1;
         // Keep the map-marker tint cache current so the icon dims immediately and
         // stays dim while this chunk is unloaded.
-        _world?.WorldState?.SimState?.SetForgeReactivate(_simState.WorldPosition, _simState.ReactivateDay, _simState.Level);
+        _world?.WorldState?.SimState?.SetForgeReactivate(_simState.WorldPosition, _simState.RegrowDay, _simState.Level, _simState.Slot);
         // Snuff the glow immediately and preview tomorrow's offer (darkened);
         // HandleNewDay relights it at the next sunrise.
         RefreshOffer();
@@ -274,8 +300,10 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         instance._light?.Initialize(world.WorldState, world, lightPos);
         // Register this forge's cooldown deadline so its map marker tints
         // ready/inert even while the chunk is unloaded (mirrors LitCampfire).
-        world.WorldState?.SimState?.SetForgeReactivate(data.WorldPosition, data.ReactivateDay, data.Level);
+        world.WorldState?.SimState?.SetForgeReactivate(data.WorldPosition, data.RegrowDay, data.Level, data.Slot);
         world.AddChild(instance);
+        // Pick the pedestal for this forge's tier (bigger station at higher levels).
+        instance.ApplyLevelPedestal();
         // Resolve the offered upgrade + model, then snap to the ready/inert state
         // (no fade on stream-in) and relight on the sunrise rollover.
         instance.RefreshOffer();

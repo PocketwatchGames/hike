@@ -172,7 +172,7 @@ public class Inventory
 		// Entering the inventory marks the item as touched for the rest of its
 		// life (see ItemState.touched). Stamp before the merge so even units
 		// that fold into an existing stack count as handled.
-		item.touched = true;
+		MarkAcquired(item);
 
 		int initialStack = item.stackCount;
 
@@ -185,7 +185,7 @@ public class Inventory
 				{
 					break;
 				}
-				if (!existing.IsSameKind(item))
+				if (!existing.CanStackWith(item))
 				{
 					continue;
 				}
@@ -216,6 +216,23 @@ public class Inventory
 		return totalAdded;
 	}
 
+	// Every path an item enters the inventory through routes its touched/spoil
+	// bookkeeping here: mark it handled for life (see ItemState.touched) and, if
+	// it's a perishable not already dated, start its spoil clock so it expires
+	// spoilDays from now wherever it comes to rest (backpack, later the stash).
+	private void MarkAcquired(ItemState item)
+	{
+		if (item == null)
+		{
+			return;
+		}
+		item.touched = true;
+		if (item.removeOnDay == 0 && item.data != null && item.data.spoilDays > 0)
+		{
+			item.removeOnDay = (_owner?.World?.DayNumber ?? 0) + item.data.spoilDays;
+		}
+	}
+
 	// True if `count` units of material `data` would ALL fit right now. Mirrors
 	// TryAdd's placement (fill same-kind partial stacks, then empty backpack
 	// slots) WITHOUT mutating anything — the field auto-pickup / loot-magnet gate
@@ -228,11 +245,15 @@ public class Inventory
 			return false;
 		}
 		int remaining = count;
+		// A fresh pickup lands with this spoil deadline; only same-deadline stacks
+		// can absorb it (ItemState.CanStackWith), so partial space in a different
+		// spoil cohort must not count toward "fits".
+		int freshRemoveDay = data.spoilDays > 0 ? (_owner?.World?.DayNumber ?? 0) + data.spoilDays : 0;
 		if (data.IsStackable)
 		{
 			foreach (ItemState existing in EnumerateAll())
 			{
-				if (existing.data != data)
+				if (existing.data != data || existing.removeOnDay != freshRemoveDay)
 				{
 					continue;
 				}
@@ -343,7 +364,7 @@ public class Inventory
 			return false;
 		}
 
-		item.touched = true;
+		MarkAcquired(item);
 
 		ItemState prev = GetEquipped(slot);
 		if (prev == item)
@@ -431,6 +452,9 @@ public class Inventory
 			dropped = new ItemState(item.data);
 			dropped.stackCount = amount;
 			dropped.touched = item.touched;
+			// A split keeps the parent's spoil deadline — dropping half a stack
+			// must not reset (or start) its clock.
+			dropped.removeOnDay = item.removeOnDay;
 		}
 		else
 		{
@@ -596,7 +620,7 @@ public class Inventory
 		{
 			return 0;
 		}
-		fresh.touched = true;
+		MarkAcquired(fresh);
 		if (targetIndex < 0 || targetIndex >= _consumableSlots.Length)
 		{
 			return 0;
@@ -612,7 +636,7 @@ public class Inventory
 			onChanged?.Invoke();
 			return fresh.stackCount;
 		}
-		if (existing.IsSameKind(fresh) && fresh.data.IsStackable)
+		if (existing.CanStackWith(fresh) && fresh.data.IsStackable)
 		{
 			int space = existing.RemainingStackSpace();
 			int moved = Math.Min(space, fresh.stackCount);
@@ -661,12 +685,13 @@ public class Inventory
 			ItemState fresh = source.data.CreateState();
 			fresh.stackCount = take;
 			fresh.touched = source.touched;
+			fresh.removeOnDay = source.removeOnDay;
 			_backpack[targetIndex] = fresh;
 			moved = take;
 		}
 		else
 		{
-			if (!target.IsSameKind(source)) { return 0; }
+			if (!target.CanStackWith(source)) { return 0; }
 			int space = target.RemainingStackSpace();
 			moved = Math.Min(space, Math.Min(amount, source.stackCount));
 			if (moved <= 0) { return 0; }
@@ -707,7 +732,7 @@ public class Inventory
 		{
 			return 0;
 		}
-		incoming.touched = true;
+		MarkAcquired(incoming);
 		ItemState target = _backpack[index];
 		if (target == null)
 		{
@@ -715,7 +740,7 @@ public class Inventory
 			onChanged?.Invoke();
 			return incoming.stackCount;
 		}
-		if (incoming.data.IsStackable && target.IsSameKind(incoming))
+		if (incoming.data.IsStackable && target.CanStackWith(incoming))
 		{
 			int space = target.RemainingStackSpace();
 			int moved = Math.Min(space, incoming.stackCount);
@@ -789,7 +814,7 @@ public class Inventory
 		{
 			return false;
 		}
-		item.touched = true;
+		MarkAcquired(item);
 		ItemState prev = _consumableSlots[index];
 		if (prev == item)
 		{

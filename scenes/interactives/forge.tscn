@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" uid="uid://ua46j2wiqjsm" path="res://scripts/gameplay/entities/Forge.cs" id="1_forge"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_ibox"]
@@ -20,7 +20,8 @@
 [ext_resource type="PackedScene" uid="uid://klyllcqvngtg" path="res://assets/models/forge_slots/SwordBasic_A.fbx" id="21_sword"]
 [ext_resource type="PackedScene" uid="uid://bfq1nxqcwl2yb" path="res://assets/models/forge_slots/BowBasic.fbx" id="22_bow"]
 [ext_resource type="PackedScene" uid="uid://dpfuy5odul3sp" path="res://assets/models/forge_slots/SM_Wep_Shield_Heater_01.fbx" id="23_shield"]
-[ext_resource type="PackedScene" uid="uid://dde38aoxvuon7" path="res://assets/models/forge_slots/GreatHelm.fbx" id="24_helmet"]
+[ext_resource type="PackedScene" uid="uid://c5k6kb2ci6rim" path="res://assets/models/forge/Pedestal_01.fbx" id="24_ped01"]
+[ext_resource type="PackedScene" uid="uid://dm4j4qwk2puuw" path="res://assets/models/forge/Pedestal_03.fbx" id="25_ped03"]
 
 [sub_resource type="Resource" id="Resource_forge_event_open"]
 script = ExtResource("5_event")
@@ -40,7 +41,7 @@ size = Vector3(3, 3, 3)
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 size = Vector3(1.7, 2.7, 1.7)
 
-[node name="Forge" type="Node3D" node_paths=PackedStringArray("_discoverable", "_hudNode", "_light", "_modelPivot", "_modelMelee", "_modelRanged", "_modelArmor", "_modelHelmet")]
+[node name="Forge" type="Node3D" node_paths=PackedStringArray("_discoverable", "_hudNode", "_light", "_modelPivot", "_modelMelee", "_modelRanged", "_modelArmor", "_levelPedestals")]
 script = ExtResource("1_forge")
 _actions = Array[ExtResource("4_action")]([SubResource("Resource_forge_action_use")])
 _discoverable = NodePath("Discoverable")
@@ -51,7 +52,7 @@ _modelPivot = NodePath("SlotModels")
 _modelMelee = NodePath("SlotModels/Melee")
 _modelRanged = NodePath("SlotModels/Ranged")
 _modelArmor = NodePath("SlotModels/Armor")
-_modelHelmet = NodePath("SlotModels/Helmet")
+_levelPedestals = [NodePath("ForgeVisual/Pedestal_03"), NodePath("ForgeVisual/Pedestal_02"), NodePath("ForgeVisual/Pedestal_01")]
 _slotActiveMaterial = ExtResource("17_slotactive")
 _slotInertMaterial = ExtResource("18_slotinert")
 _armorActiveMaterial = ExtResource("19_shieldactive")
@@ -61,6 +62,12 @@ _armorInertMaterial = ExtResource("20_shieldinert")
 transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
 
 [node name="Pedestal_02" parent="ForgeVisual" instance=ExtResource("11_pedestal")]
+
+[node name="Pedestal_01" parent="ForgeVisual" instance=ExtResource("24_ped01")]
+visible = false
+
+[node name="Pedestal_03" parent="ForgeVisual" instance=ExtResource("25_ped03")]
+visible = false
 
 [node name="SlotModels" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0, 0)
@@ -81,12 +88,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.191)
 transform = Transform3D(198, 0, 0, 0, 198, 0, 0, 0, 198, 0, 0, 0)
 
 [node name="SM_Wep_Shield_Heater_01" parent="SlotModels/Armor" instance=ExtResource("23_shield")]
-
-[node name="Helmet" type="Node3D" parent="SlotModels"]
-transform = Transform3D(4.73, 0, 0, 0, 4.73, 0, 0, 0, 4.73, 0, 0, 0)
-
-[node name="GreatHelm" parent="SlotModels/Helmet" instance=ExtResource("24_helmet")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.869, 0)
 
 [node name="OrbLight" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0, 0)

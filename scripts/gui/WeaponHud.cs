@@ -8,13 +8,6 @@ public partial class WeaponHud : BoxContainer
 	[Export] Control _ammoGroup;
 	[Export] ProgressBar _ammoProgress;
 	[Export] Label _ammoText;
-	// Block-armor guard widget — a darker "capacity" bar (fixed full value)
-	// with a brighter fill painted over the current pool on top, so the
-	// recharging deficit reads as a dark span exactly like the health bar's
-	// blood. _blockArmorGroup carries the modulate alpha that fades the whole
-	// gauge to a faint ghost when this weapon isn't being charged.
-	[Export] Control _blockArmorGroup;
-	[Export] ProgressBar _blockArmorBar;
 
 	// Alpha applied to the guard gauge while the player isn't charging this
 	// weapon — the guard is dormant, so it reads as a faint ghost rather than
@@ -39,31 +32,8 @@ public partial class WeaponHud : BoxContainer
 		UpdateIcon();
 		UpdateCounter(nowMs);
 		UpdateCooldown(nowMs);
-		UpdateBlockArmor(charging);
 	}
 
-	void UpdateBlockArmor(bool charging)
-	{
-		if (_blockArmorGroup == null)
-		{
-			return;
-		}
-		if (_item is WeaponState weapon && weapon.data is WeaponData weaponData && weaponData.blockArmor > 0f)
-		{
-			_blockArmorGroup.Visible = true;
-			if (_blockArmorBar != null)
-			{
-				_blockArmorBar.MinValue = 0;
-				_blockArmorBar.MaxValue = 1;
-				_blockArmorBar.Value = weapon.blockArmor / weaponData.blockArmor;
-			}
-			Color modulate = _blockArmorGroup.Modulate;
-			modulate.A = charging ? 1f : BlockArmorIdleAlpha;
-			_blockArmorGroup.Modulate = modulate;
-			return;
-		}
-		_blockArmorGroup.Visible = false;
-	}
 
 	void UpdateIcon()
 	{

@@ -70,6 +70,16 @@ public partial class Player : CharacterBody3D
 	// from UpdateHeldItemVisual (consumable show, weapon conceal). Optional —
 	// null on rigs without the socket wired.
 	[Export] private HeldItemVisual _heldVisual;
+	// Charge glow for the lantern's held heal spell: an OmniLight3D on the player
+	// whose energy ramps 0 → _lanternHealLightPeakEnergy with the heal tier's
+	// charge fraction, then snaps off when the cast fires or aborts. Authored dark
+	// (energy 0) in player.tscn; UpdateLanternHealCharge drives it.
+	[Export] private OmniLight3D _lanternHealLight;
+	[Export] private float _lanternHealLightPeakEnergy = 6f;
+	// Peak magnitude (meters of camera offset) of the building screen shake fed
+	// while the heal charges. Ramps in with the charge fraction via per-frame
+	// impulses to GameCamera's shake driver; 0 disables the charge shake.
+	[Export] private float _lanternHealShakePeakMagnitude = 0.06f;
 	// Status effect applied while the player is in water or in unsheltered
 	// rain. Authored data lives on the resource (duration, displayName, icon);
 	// TickWetEffect arms / pauses the timer so the 30s dry-out only counts
@@ -534,7 +544,7 @@ public partial class Player : CharacterBody3D
 	WeaponState _wieldedWeapon;
 	// Lazily-built WeaponState wrapping PlayerData.unarmedWeapon — the fists the
 	// melee attack falls back to when the WeaponLeft slot is empty. Cached so the
-	// unarmed weapon keeps its own runtime state (combo chain, exp/level) across
+	// unarmed weapon keeps its own runtime state (combo chain, level) across
 	// swings instead of being rebuilt each press. Lives on the player, never in
 	// the inventory. See GetMeleeWeaponOrUnarmed.
 	WeaponState _unarmedWeapon;
@@ -821,10 +831,15 @@ public partial class Player : CharacterBody3D
 	// payloads fire and no lingering state is kept.
 	public StatusEffectState AddStatusEffect(StatusEffectData data) => AddStatusEffect(data, 0);
 
+	// Land a combat buildup contribution (with the player's resistance fold) and
+	// report whether it crossed — the receiver-side entry point chain lightning
+	// uses to gate its next hop. See StatusEffectController.AddCombatBuildup.
+	public bool ApplyCombatBuildup(StatusEffectData effect, float amount) => _statusEffects?.AddCombatBuildup(effect, amount) ?? false;
+
 	// `level` stamps the created instance's upgrade tier (0 = none). Forge upgrades
-	// pass the forge's level; the eviction of any same-slot occupant happens inside
-	// StatusEffectController.Add.
-	public StatusEffectState AddStatusEffect(StatusEffectData data, int level)
+	// pass the forge's level and the concrete `appliedSlot` the forge grants into;
+	// the eviction of any same-slot occupant happens inside StatusEffectController.Add.
+	public StatusEffectState AddStatusEffect(StatusEffectData data, int level, EUpgradeSlot appliedSlot = EUpgradeSlot.None)
 	{
 		if (data == null)
 		{
@@ -838,7 +853,7 @@ public partial class Player : CharacterBody3D
 			_statusEffects.ApplyRemovesOnApply(data);
 			return null;
 		}
-		return _statusEffects.Add(data, level);
+		return _statusEffects.Add(data, level, appliedSlot);
 	}
 
 	// The status effect currently occupying the given forge upgrade slot, or null
@@ -1074,7 +1089,10 @@ public partial class Player : CharacterBody3D
 		PackedScene douseFx = null;
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			if (item is TorchState ts && ts.isActive && ts.BurnFuel(elapsedMs))
+			// Extinguish a lit torch when its tank empties — either drained by this
+			// tick's burn (BurnFuel true) or already at 0 from a discrete spell-cast
+			// spend (SpendFuel) since the last tick (!HasFuel).
+			if (item is TorchState ts && ts.isActive && (ts.BurnFuel(elapsedMs) || !ts.HasFuel))
 			{
 				ts.isActive = false;
 				extinguishedAny = true;
@@ -1133,7 +1151,7 @@ public partial class Player : CharacterBody3D
 		// held-torch prop has to refresh even when the inventory contents don't.
 		_inventory.onActiveConsumableChanged += OnActiveConsumableChanged;
 		_runner = new ActionRunner(this);
-		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, conditionActive: EvaluateTraitCondition);
+		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, conditionActive: EvaluateTraitCondition, incomingLevelResist: () => IncomingLevelResist);
 		_scent = new ScentEmitter(this, world, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
@@ -1894,6 +1912,9 @@ public partial class Player : CharacterBody3D
 		UpdateAimAssist();
 
 		_runner?.Tick();
+		// Crescendo cues for the lantern's held heal spell — reads the freshly
+		// ticked charge fraction to ramp the charge glow + building screen shake.
+		UpdateLanternHealCharge();
 
 		// Runner finished the interactive action this tick — clear the
 		// player's "engaged with X" state so movement unlocks next frame and

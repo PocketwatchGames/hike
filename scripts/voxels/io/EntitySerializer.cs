@@ -28,7 +28,8 @@ public static class EntitySerializer
         BuriedSpot = 16,
         Tent = 17,
         Forge = 18,
-        HealingFountain = 19,
+        Fountain = 19,
+        ForageSpawner = 20,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -341,7 +342,7 @@ public static class EntitySerializer
                 WriteVec3(w, berry.WorldPosition);
                 WriteScene(w, berry.Scene);
                 w.Write(berry.BerryCount);
-                w.Write(berry.Picked);
+                w.Write(berry.RegrowDay);
                 break;
 
             case ClimbableTreeSimState climbTree:
@@ -369,14 +370,24 @@ public static class EntitySerializer
                 WriteVec3(w, forge.WorldPosition);
                 WriteScene(w, forge.Scene);
                 w.Write(forge.Level);
-                w.Write(forge.ReactivateDay);
+                w.Write(forge.RegrowDay);
+                w.Write((int)forge.Slot);
                 break;
 
-            case HealingFountainSimState fountain:
-                w.Write((byte)Tag.HealingFountain);
+            case FountainSimState fountain:
+                w.Write((byte)Tag.Fountain);
                 WriteVec3(w, fountain.WorldPosition);
                 WriteScene(w, fountain.Scene);
-                w.Write(fountain.ReactivateDay);
+                w.Write(fountain.RegrowDay);
+                break;
+
+            case ForageSpawnerSimState forage:
+                w.Write((byte)Tag.ForageSpawner);
+                WriteVec3(w, forage.WorldPosition);
+                WriteScene(w, forage.Scene);
+                WriteResource(w, forage.Item);
+                w.Write(forage.RegrowDays);
+                w.Write(forage.RegrowDay);
                 break;
 
             default:
@@ -682,9 +693,9 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 int berryCount = r.ReadInt32();
-                bool picked = r.ReadBoolean();
+                int berryRegrowDay = r.ReadInt32();
                 var berry = new BerryTreeSimState(pos, scene, berryCount);
-                berry.Picked = picked;
+                berry.RegrowDay = berryRegrowDay;
                 return berry;
             }
             case Tag.ClimbableTree:
@@ -715,18 +726,30 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 int level = r.ReadInt32();
                 int reactivateDay = r.ReadInt32();
-                var forge = new ForgeSimState(pos, scene, level);
-                forge.ReactivateDay = reactivateDay;
+                var slot = (EUpgradeSlot)r.ReadInt32();
+                var forge = new ForgeSimState(pos, scene, level, slot);
+                forge.RegrowDay = reactivateDay;
                 return forge;
             }
-            case Tag.HealingFountain:
+            case Tag.Fountain:
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 int reactivateDay = r.ReadInt32();
-                var fountain = new HealingFountainSimState(pos, scene);
-                fountain.ReactivateDay = reactivateDay;
+                var fountain = new FountainSimState(pos, scene);
+                fountain.RegrowDay = reactivateDay;
                 return fountain;
+            }
+            case Tag.ForageSpawner:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                var item = ReadResource<ItemData>(r);
+                int regrowDays = r.ReadInt32();
+                int regrowDay = r.ReadInt32();
+                var forage = new ForageSpawnerSimState(pos, scene, item, regrowDays);
+                forage.RegrowDay = regrowDay;
+                return forage;
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

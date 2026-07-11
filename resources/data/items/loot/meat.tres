@@ -7,3 +7,4 @@ script = ExtResource("1_loot_data")
 displayName = &"Meat"
 typeTags = 1
 maxStack = 99
+spoilDays = 3

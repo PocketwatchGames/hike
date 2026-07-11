@@ -25,6 +25,7 @@
 [ext_resource type="Resource" uid="uid://vlhadu2uwy1q" path="res://resources/data/world_gen/party/rowan.tres" id="61_rowan"]
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="62_forge"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
 
 [sub_resource type="Resource" id="Sign_swamp"]
 script = ExtResource("52_sign")
@@ -179,4 +180,6 @@ roads = [SubResource("Road_village_hollow"), SubResource("Road_village_mud"), Su
 forge = ExtResource("62_forge")
 healingFountain = ExtResource("63_fountain")
 healingFountainCount = 3
+manaFountain = ExtResource("64_mana")
+manaFountainCount = 3
 startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]

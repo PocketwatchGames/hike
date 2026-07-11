@@ -100,10 +100,34 @@ public partial class CookingScreen : Control
 		_onContinue = onContinue;
 		_cookingPanel?.HideAnnouncement();
 		Visible = true;
-		// Focus the commit button so the primary A action (Cook / Continue) works
-		// immediately on gamepad; deferred so the just-shown node is visible-in-
-		// tree when GrabFocus runs.
-		_cookingPanel?.CallDeferred(CookingPanel.MethodName.GrabCookButtonFocus);
+		// Auto-highlight priority: a recipe the party can currently cook, else the
+		// first available ingredient, else the commit button. Deferred so the just-
+		// shown nodes are visible-in-tree (GrabFocus needs that) and so it runs after
+		// the visibility-change refresh has rebuilt the recipe list / repainted the
+		// stash.
+		Callable.From(ApplyInitialFocus).CallDeferred();
+	}
+
+	// Choose the initial keyboard/gamepad focus when the tab opens, in priority
+	// order: a recipe the party can currently cook, otherwise the first available
+	// ingredient, otherwise the Cook / Continue button.
+	void ApplyInitialFocus()
+	{
+		if (!Visible)
+		{
+			return;
+		}
+		if (_cookingPanel != null && _cookingPanel.GrabFirstAvailableRecipeFocus())
+		{
+			return;
+		}
+		ItemSlotPanel firstIngredient = _backpackPanel?.FirstOccupied();
+		if (firstIngredient != null)
+		{
+			firstIngredient.GrabFocus();
+			return;
+		}
+		_cookingPanel?.GrabCookButtonFocus();
 	}
 
 	public void Close()

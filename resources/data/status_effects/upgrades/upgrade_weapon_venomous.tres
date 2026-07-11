@@ -9,7 +9,7 @@
 [sub_resource type="Resource" id="buildup_poison"]
 script = ExtResource("5_buildup")
 effect = ExtResource("3_poison")
-applyImmediately = true
+amount = 0.5
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
@@ -19,10 +19,12 @@ idleFx = ExtResource("4_idle")
 [resource]
 script = ExtResource("1_data")
 displayName = &"Venomous"
+upgradeSlot = 3
+durationType = 2
 description = "Poisons struck targets, dealing damage over time that ignores armor."
 category = 2
-modifiers = []
-duration = 0.0
 maxStack = 1
-weaponMod = SubResource("weaponMod")
 removesOnApply = []
+modifiers = []
+conditionalModifiers = null
+weaponMod = SubResource("weaponMod")

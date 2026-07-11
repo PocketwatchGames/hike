@@ -9,8 +9,7 @@ using System.Collections.Generic;
 // once at least one of its species is discovered.
 //
 // View only — species are discovered by perceiving a mob past
-// MobData.discoveredThreshold (see MobAI and Mob.Discover), and kills are
-// counted in WorldSimState.RecordSpeciesKill on each player-credited death.
+// MobData.discoveredThreshold (see MobAI and Mob.Discover) or by killing one.
 // The Almanac wrapper owns InputSuppressed / hud-visibility / ui_cancel
 // handling; this screen just rebuilds when its tab is shown.
 [GlobalClass]
@@ -214,16 +213,15 @@ public partial class BestiaryScreen : Control
 		}
 		foreach (SpeciesData species in DiscoveredSpeciesForType(worldSim, type))
 		{
-			worldSim.TryGetBestiaryEntry(species, out MobBestiaryEntry entry);
 			BestiarySpeciesPanel panel = _mobSpeciesScene.Instantiate<BestiarySpeciesPanel>();
 			_mobSpeciesContainer.AddChild(panel);
-			panel.Populate(species, entry);
+			panel.Populate(species);
 		}
 	}
 
 	static bool TypeHasDiscoveredSpecies(WorldSimState worldSim, MobData type)
 	{
-		foreach ((SpeciesData species, MobBestiaryEntry _) in worldSim.EnumerateBestiary())
+		foreach (SpeciesData species in worldSim.EnumerateBestiary())
 		{
 			if (species?.mob == type)
 			{
@@ -238,7 +236,7 @@ public partial class BestiaryScreen : Control
 	static List<SpeciesData> DiscoveredSpeciesForType(WorldSimState worldSim, MobData type)
 	{
 		var list = new List<SpeciesData>();
-		foreach ((SpeciesData species, MobBestiaryEntry _) in worldSim.EnumerateBestiary())
+		foreach (SpeciesData species in worldSim.EnumerateBestiary())
 		{
 			if (species?.mob == type)
 			{

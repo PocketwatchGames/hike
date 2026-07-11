@@ -144,8 +144,8 @@ public class MobSimState : EntitySimState
     // Level+1 pips on the HUD. 0 = base. Persisted via EntitySerializer so the
     // scaled vitals stay consistent across chunk eviction and save/load.
     public int Level;
-    // The species variant this mob IS — the bestiary identity (discovery /
-    // kill-leveling key, see WorldSimState.DiscoveredSpecies) and the source of
+    // The species variant this mob IS — the bestiary identity (discovery key,
+    // see WorldSimState.DiscoveredSpecies) and the source of
     // its recolor / loot / per-variant stat modifiers. Stamped from
     // MobDescriptor at spawn and persisted via EntitySerializer so the variant
     // identity survives chunk eviction and .hike load. The base MobData (this.

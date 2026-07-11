@@ -1,0 +1,45 @@
+[gd_resource type="Resource" script_class="BoonData" format=3 uid="uid://bdbn4p2qyawtk"]
+
+[ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_unqel"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="2_bylil"]
+[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="3_ygh2q"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="4_h25ik"]
+[ext_resource type="PackedScene" uid="uid://cd7shbrqf2xk1" path="res://scenes/fx/dash_burst_fx.tscn" id="5_ud8hc"]
+[ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="6_kevya"]
+[ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="7_ipaah"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="8_x4u3f"]
+
+[sub_resource type="Resource" id="Resource_buildup_dizzy"]
+script = ExtResource("2_bylil")
+effect = ExtResource("3_ygh2q")
+amount = 1.0
+
+[sub_resource type="Resource" id="Resource_burst_damage"]
+script = ExtResource("4_h25ik")
+knockbackDistance = 4.0
+knockbackTime = 0.3
+buildups = Array[ExtResource("2_bylil")]([SubResource("Resource_buildup_dizzy")])
+modifiers = []
+
+[sub_resource type="Resource" id="dashBurst"]
+script = ExtResource("6_kevya")
+damage = SubResource("Resource_burst_damage")
+radius = 3.0
+fx = ExtResource("5_ud8hc")
+
+[sub_resource type="Resource" id="Resource_4ob31"]
+script = ExtResource("8_x4u3f")
+icon = ExtResource("7_ipaah")
+displayName = &"Fairy Dash"
+description = "Each dash unleashes a stunning shockwave."
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = []
+dashBurst = SubResource("dashBurst")
+
+[resource]
+script = ExtResource("1_unqel")
+displayName = null
+statusEffect = SubResource("Resource_4ob31")

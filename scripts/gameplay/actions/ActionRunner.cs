@@ -217,10 +217,13 @@ public class ActionRunner
 			AbortCharging();
 			return true;
 		}
-		// Hold-to-completion profiles never commit on release. A full hold
-		// auto-fires via MaybeAutoActivate before the player can release at
-		// max, so any release that reaches here is an early one — abort it.
-		if (_action.profile != null && _action.profile.requireFullCharge)
+		// Hold-to-completion never commits on release: a full hold auto-fires via
+		// MaybeAutoActivate before the player can release at max, so any release
+		// that reaches here is an early one — abort it. Gated either profile-wide
+		// or per selected tier, so a mixed profile (lantern: tap-commit toggle
+		// tier + hold-only heal tier) aborts only when the held tier demands it.
+		if ((_action.profile != null && _action.profile.requireFullCharge)
+			|| tier.requireFullCharge)
 		{
 			AbortCharging();
 			return true;
@@ -476,6 +479,14 @@ public class ActionRunner
 		{
 			_actor.ConsumeStamina(tier.staminaCost);
 			_actor.DrainBlood(tier.bloodCost);
+			// Fuel spend for a lantern spell cast. SelectTierIndex has already
+			// gated on the tank having fuel; the spend clamps at 0 so a partial
+			// tank still pays the cast and bottoms out. A lit lantern this drains
+			// to empty is extinguished by Player.TickTorchFuel next tick.
+			if (tier.fuelCost > 0f && _action.context.primaryItem is TorchState torch)
+			{
+				torch.SpendFuel((long)(tier.fuelCost * 1000f));
+			}
 		}
 		FireChargeEndEvents();
 		StopChargeLoop();
@@ -753,6 +764,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoControllerRumble(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.ScreenFlash) != 0)
+		{
+			ItemEventHandlers.DoScreenFlash(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.Dig) != 0)
 		{
 			ItemEventHandlers.DoDig(_actor, ev, ref _action);
@@ -790,9 +805,24 @@ public class ActionRunner
 					continue;
 				}
 			}
+			if (!CanAffordFuel(action, context)) { continue; }
 			return i;
 		}
 		return -1;
+	}
+
+	// Fuel gate for ItemAction.fuelCost: a fuel-costed tier is selectable only
+	// when the driving item is a fuel-bearing consumable (a lantern) with any
+	// fuel left. The spend itself (EnterActive) clamps the tank at 0, so this is
+	// a "> 0" check, not "can afford the full cost". Tiers with no fuel cost
+	// always pass.
+	private static bool CanAffordFuel(ItemAction action, in ActionContext context)
+	{
+		if (action.fuelCost <= 0f)
+		{
+			return true;
+		}
+		return context.primaryItem is TorchState torch && torch.HasFuel;
 	}
 
 	// Same gates as SelectTierIndex but ignoring the chargeT timing filter —
@@ -817,6 +847,7 @@ public class ActionRunner
 					continue;
 				}
 			}
+			if (!CanAffordFuel(action, context)) { continue; }
 			return true;
 		}
 		return false;

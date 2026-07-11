@@ -10,7 +10,7 @@ public enum EKnowledgeCategory
     None = 0,
     Map = 1 << 0,       // fog-of-war reveal, discovered regions, or landmark markers
     Recipe = 1 << 1,
-    Bestiary = 1 << 2,  // per-species progress
+    Bestiary = 1 << 2,  // per-species discovery
     Language = 1 << 3,
     Item = 1 << 4,      // identified items
 }
@@ -31,9 +31,9 @@ public class Knowledge
     public readonly HashSet<ItemData> IdentifiedItems = new();
     public readonly HashSet<RecipeData> DiscoveredRecipes = new();
     public readonly HashSet<RegionData> DiscoveredRegions = new();
-    // Per-species bestiary progress (kill counts today). Kills accumulate here and
-    // are SUMMED across party+individual on read and on merge.
-    public readonly Dictionary<SpeciesData, MobBestiaryEntry> DiscoveredSpecies = new();
+    // Per-species bestiary discovery — the set of species this store has charted.
+    // Unioned across party+individual on read and on merge.
+    public readonly HashSet<SpeciesData> DiscoveredSpecies = new();
     // Per-language learned component bitset; a missing key = fully unknown.
     public readonly Dictionary<LanguageData, ELanguageComponents> LearnedLanguages = new();
 
@@ -48,8 +48,8 @@ public class Knowledge
     // minimap on first reveal, so an unexplored store costs nothing.
     public readonly ExplorationMask Exploration = new();
 
-    // Fold `other` into this store: union the sets, SUM species kills, OR language
-    // component bits. Used to bank a member's field knowledge into the permanent
+    // Fold `other` into this store: union the sets, OR language component bits.
+    // Used to bank a member's field knowledge into the permanent
     // party pool. Returns the categories that gained something new here, so the
     // campfire bank can announce exactly what was committed.
     public EKnowledgeCategory MergeFrom(Knowledge other)
@@ -72,22 +72,9 @@ public class Knowledge
         DiscoveredRegions.UnionWith(other.DiscoveredRegions);
         if (DiscoveredRegions.Count > regionsBefore) { changed |= EKnowledgeCategory.Map; }
 
-        foreach (KeyValuePair<SpeciesData, MobBestiaryEntry> kv in other.DiscoveredSpecies)
-        {
-            if (kv.Key == null)
-            {
-                continue;
-            }
-            bool isNew = !DiscoveredSpecies.TryGetValue(kv.Key, out MobBestiaryEntry entry);
-            if (isNew)
-            {
-                entry = new MobBestiaryEntry();
-                DiscoveredSpecies[kv.Key] = entry;
-            }
-            int addedKills = kv.Value?.Kills ?? 0;
-            if (isNew || addedKills > 0) { changed |= EKnowledgeCategory.Bestiary; }
-            entry.Kills += addedKills;
-        }
+        int speciesBefore = DiscoveredSpecies.Count;
+        DiscoveredSpecies.UnionWith(other.DiscoveredSpecies);
+        if (DiscoveredSpecies.Count > speciesBefore) { changed |= EKnowledgeCategory.Bestiary; }
         foreach (KeyValuePair<LanguageData, ELanguageComponents> kv in other.LearnedLanguages)
         {
             if (kv.Key == null)

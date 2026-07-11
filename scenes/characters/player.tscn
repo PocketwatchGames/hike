@@ -71,7 +71,7 @@ radius = 1.0
 [sub_resource type="SphereShape3D" id="SphereShape3D_attract"]
 radius = 4.0
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_audioListener", "_aimingReticle", "_corpseInteractiveBox", "_pickupAttractArea", "_liveMapMarker")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_audioListener", "_aimingReticle", "_corpseInteractiveBox", "_pickupAttractArea", "_liveMapMarker", "_lanternHealLight")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
@@ -83,6 +83,7 @@ _modelPackages = Dictionary[int, PackedScene]({
 })
 _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
+_lanternHealLight = NodePath("LanternHealLight")
 _corpseInteractiveBox = NodePath("CorpseInteractiveBox")
 _pickupAttractArea = NodePath("PickupAttractArea")
 _liveMapMarker = NodePath("LiveMapMarker")
@@ -216,6 +217,13 @@ mesh = SubResource("SphereMesh_aim_knob")
 [node name="ArcRibbon" type="MeshInstance3D" parent="AimingReticle" unique_id=911384673]
 material_override = ExtResource("25_arcdotmat")
 extra_cull_margin = 64.0
+
+[node name="LanternHealLight" type="OmniLight3D" parent="." unique_id=1151412003]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+light_color = Color(1, 0.79, 0.43, 1)
+light_energy = 0.0
+shadow_enabled = false
+omni_range = 7.0
 
 [node name="HudAnchor" type="Node3D" parent="." unique_id=1151412001]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0131006, 0)

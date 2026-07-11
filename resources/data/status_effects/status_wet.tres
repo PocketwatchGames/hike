@@ -29,7 +29,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [sub_resource type="Resource" id="m_lightning"]
 script = ExtResource("m_script")
 stat = 32
-value = 1.5
+value = 2.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]

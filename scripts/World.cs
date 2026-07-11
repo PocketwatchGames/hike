@@ -374,6 +374,9 @@ public partial class World : Node3D
         _worldState.TimeOfDay01 = WorldState.SunriseTimeOfDay01;
         _worldState.TimeOfDayAbsolute = _worldState.DayNumber + WorldState.SunriseTimeOfDay01;
         _worldState.RollDailyWeather();
+        // Spoil perishables sitting in the shared party stashes (the backpack is
+        // swept continuously by Player.TickItemExpiry).
+        _worldState.SimState?.PruneExpiredPerishables(_worldState.DayNumber);
 
         foreach (Mob mob in GetEntities<Mob>())
         {

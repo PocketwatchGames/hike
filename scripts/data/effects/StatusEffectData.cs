@@ -46,18 +46,23 @@ public enum EEffectCategory
 	Elite = 1 << 2,
 }
 
-// Forge "upgrade" slot. A non-None value marks the effect as a slot-locked,
-// mutually-exclusive upgrade: applying one evicts whatever occupies the same
-// slot (see StatusEffectController.Add). The four slots mirror the player's
-// equipment (melee weapon, ranged weapon, body armor, helmet). None (default)
-// = an ordinary, non-slotted status effect.
+// Forge "upgrade" slot ELIGIBILITY. A non-None value marks the effect as a forge
+// upgrade and lists which equipment slots it MAY be applied to. [Flags] so one
+// upgrade can suit more than one slot — a Flaming edge either weapon (Melee |
+// Ranged). A forge (which has a fixed single slot) offers only upgrades eligible
+// for its slot, then applies the chosen one to that ONE concrete slot — the applied
+// slot is runtime state on the instance (StatusEffectState.appliedUpgradeSlot), NOT
+// these flags. Slot exclusivity, weapon matching, and eviction all key off the
+// concrete applied slot, so a multi-eligible upgrade never occupies more than the
+// single slot it was granted into. The bits mirror the player's equipment. None
+// (default) = an ordinary status effect.
+[System.Flags]
 public enum EUpgradeSlot
 {
 	None = 0,
-	Melee = 1,
-	Ranged = 2,
-	Armor = 3,
-	Helmet = 4,
+	Melee = 1 << 0,
+	Ranged = 1 << 1,
+	Armor = 1 << 2,
 }
 
 // Authored data for a status effect on a Player, Mob, or item. Stat changes live as
@@ -74,10 +79,13 @@ public partial class StatusEffectData : Resource
 	// Inspector flavor text shown under the effect name on detail panels. Keep it short.
 	[Export(PropertyHint.MultilineText)] public string description = "";
 
-	// Forge upgrade slot. Non-None marks this effect as a slot-locked, exclusive
-	// "upgrade" (forges grant these): applying it evicts whatever occupies the same
-	// slot on the actor. None = an ordinary status effect. See EUpgradeSlot.
-	[Export] public EUpgradeSlot upgradeSlot = EUpgradeSlot.None;
+	// Forge upgrade slot ELIGIBILITY (which equipment slots this upgrade MAY apply to;
+	// [Flags], so Melee | Ranged = "offerable by a melee or a ranged forge"). Non-None
+	// marks this as a forge upgrade. The concrete slot it's actually applied to is
+	// chosen by the forge and stored per-instance on StatusEffectState.appliedUpgradeSlot
+	// — that's what drives exclusivity and weapon matching, not these flags. None = an
+	// ordinary status effect. See EUpgradeSlot. (Weapon-mod composition ignores this.)
+	[Export, CompactFlags] public EUpgradeSlot upgradeSlot = EUpgradeSlot.None;
 
 	// ============================ Lifecycle ============================
 

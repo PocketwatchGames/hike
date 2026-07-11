@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://pvdjikx5fazb8"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://brtbxwojsqpq4" path="res://assets/textures/status_effects/Stamina_Boost_Status.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+
+[sub_resource type="Resource" id="m_stamina"]
+script = ExtResource("3_mod")
+stat = 2097152
+value = 25.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Vigorous"
+description = "Lightened, well-balanced gear conserves your energy for the day, raising your maximum stamina until sunrise."
+upgradeSlot = 4
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = Array[ExtResource("3_mod")]([SubResource("m_stamina")])
+conditionalModifiers = []

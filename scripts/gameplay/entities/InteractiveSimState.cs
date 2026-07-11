@@ -173,15 +173,16 @@ public class ChestSimState : EntitySimState
     }
 }
 
-public class BerryTreeSimState : EntitySimState
+public class BerryTreeSimState : RegrowSimState
 {
-    // Once true the tree is bare and stays that way (no regrowth). Hurtbox
-    // disables, interactive blocks. Per-instance so worldgen can vary the
-    // payload between bushes; serialized so a half-harvested forest stays
-    // half-harvested across save/load.
-    public bool Picked;
+    // Number of berries the tree drops when picked. Per-instance so worldgen can
+    // vary the payload between bushes; serialized so a stocked bush keeps its
+    // count across save/load.
     public int BerryCount;
 
+    // Inherited RegrowDay is the harvest deadline: bare (picked) while the world
+    // day is below it, ripe again once reached. A half-harvested forest stays
+    // half-harvested across save/load.
     public BerryTreeSimState(Vector3 worldPosition, PackedScene scene, int berryCount)
         : base(worldPosition, scene)
     {
@@ -356,22 +357,23 @@ public class FireTrapSimState : EntitySimState
 }
 
 // Smithing forge (weapon/armor granting station). Distinct from the Campfire
-// cooking station — no lit state, no cook jobs.
-public class ForgeSimState : EntitySimState
+// cooking station — no lit state, no cook jobs. Inherited RegrowDay is the daily
+// cooldown deadline (stamped to DayNumber + 1 on use).
+public class ForgeSimState : RegrowSimState
 {
     // Power tier stamped onto every item the forge mints (see ItemState.level).
     public int Level;
 
-    // Day number (World.DayNumber) the forge becomes usable again; 0 = ready.
-    // Stamped to DayNumber + 1 when the player forges an item, so it re-arms at
-    // the next sleep-to-sunrise. Persisted so the cooldown survives chunk
-    // eviction and save/load.
-    public int ReactivateDay;
+    // Concrete upgrade slot this forge grants into — resolved at bake time from the
+    // spawn entry (authored, or position-derived). Fixed for the forge's lifetime;
+    // decides which upgrades it offers and which model / marker icon it shows.
+    public EUpgradeSlot Slot;
 
-    public ForgeSimState(Vector3 worldPosition, PackedScene scene, int level)
+    public ForgeSimState(Vector3 worldPosition, PackedScene scene, int level, EUpgradeSlot slot)
         : base(worldPosition, scene)
     {
         Level = level;
+        Slot = slot;
     }
 
     public override Node3D CreateEntity(World world)
@@ -385,28 +387,52 @@ public class ForgeSimState : EntitySimState
     }
 }
 
-// Healing fountain (full-heal station). Like the Forge it re-arms once per
-// in-world day; no level or minted items — just the reactivation deadline.
-public class HealingFountainSimState : EntitySimState
+// Fountain (daily refill station — health or lantern fuel; the variant is
+// carried by the scene, see Fountain.EFountainKind). Like the Forge it re-arms
+// once per in-world day; no level or minted items — just the inherited RegrowDay
+// deadline (stamped to DayNumber + 1 on use).
+public class FountainSimState : RegrowSimState
 {
-    // World day number (World.DayNumber) on/after which the fountain is usable
-    // again; 0 = ready. Stamped to the next day when the player uses it — the
-    // fountain re-arms at the next sunrise. Persisted so the cooldown survives
-    // chunk eviction and save/load.
-    public int ReactivateDay;
-
-    public HealingFountainSimState(Vector3 worldPosition, PackedScene scene)
+    public FountainSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
     }
 
     public override Node3D CreateEntity(World world)
     {
-        return HealingFountain.Create(world, this);
+        return Fountain.Create(world, this);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
     {
         PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
+    }
+}
+
+// Forageable resource node (mushroom patch, herb clump). A fixed, persistent
+// anchor that presents a pickup while ripe and re-grows it after RegrowDays. The
+// node owns nothing the player picks up directly — it spawns a transient Loot
+// (the mushroom) and re-arms via the inherited RegrowDay when that Loot is
+// collected, so Loot itself stays a dumb ephemeral pickup. Item + RegrowDays are
+// carried here (from ForageSpawnEntry) so one spawner scene serves every
+// forageable variant.
+public class ForageSpawnerSimState : RegrowSimState
+{
+    // The item the presented pickup carries (e.g. a mushroom).
+    public ItemData Item;
+
+    // In-world days from harvest until the pickup regrows.
+    public int RegrowDays;
+
+    public ForageSpawnerSimState(Vector3 worldPosition, PackedScene scene, ItemData item, int regrowDays)
+        : base(worldPosition, scene)
+    {
+        Item = item;
+        RegrowDays = regrowDays;
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return ForageSpawner.Create(world, this);
     }
 }

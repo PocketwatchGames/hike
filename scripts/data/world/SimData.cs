@@ -63,6 +63,19 @@ public partial class SimData : Resource
     // Null disables the trophy drop. See Mob.EjectLoot.
     [Export] public LootData eliteLoot;
 
+    // Status effect a mob wears while wet (swimming / caught in the rain).
+    // Shared — every mob uses the same status_wet the player does, so its
+    // Electrical-vulnerability / Fire-resistance modifiers stay consistent
+    // across mobs and player. Null = mobs never get wet. Mob wetness is a
+    // fast-draining ContinuousArm meter ("it shouldn't last") — see Mob.TickMobWet.
+    [Export] public StatusEffectData mobWetStatusEffect;
+    // Seconds of full open-sky rain exposure to soak a mob's wet meter 0 → 1.
+    [Export] public float mobWetRainSoakSeconds = 3f;
+    // Seconds for a mob out of water and rain to dry 1 → 0. Short so a mob that
+    // climbs out of a pond or leaves a squall dries off quickly rather than
+    // carrying the Electrical vulnerability around indefinitely.
+    [Export] public float mobWetDrySeconds = 4f;
+
     // Fairy-loot boons. A fairy corpse (FairyLoot) draws its candidate boons
     // from FairyBoons, composed onto the corpse's per-instance ItemState when it
     // spawns (World.SpawnLoot) so one can be applied on use and chosen by the
@@ -92,15 +105,14 @@ public partial class SimData : Resource
     [Export] public Array<StatusEffectData> forgeUpgrades = new();
 
     // Map / minimap marker icons for a forge, chosen by the slot it currently
-    // offers (sword / bow / shield / helmet). The forge marker draws one of these
-    // instead of a generic forge icon so the player can read the offered slot from
-    // the map. Null leaves the marker's default icon.
+    // offers (sword / bow / shield). The forge marker draws one of these instead of
+    // a generic forge icon so the player can read the offered slot from the map.
+    // Null leaves the marker's default icon.
     [Export] public Texture2D forgeMeleeIcon;
     [Export] public Texture2D forgeRangedIcon;
     [Export] public Texture2D forgeArmorIcon;
-    [Export] public Texture2D forgeHelmetIcon;
 
-    // The map icon for a forge offering the given upgrade slot (null if unmapped).
+    // The map icon for a forge with the given (concrete, single) upgrade slot.
     public Texture2D GetForgeSlotIcon(EUpgradeSlot slot)
     {
         return slot switch
@@ -108,10 +120,36 @@ public partial class SimData : Resource
             EUpgradeSlot.Melee => forgeMeleeIcon,
             EUpgradeSlot.Ranged => forgeRangedIcon,
             EUpgradeSlot.Armor => forgeArmorIcon,
-            EUpgradeSlot.Helmet => forgeHelmetIcon,
             _ => null,
         };
     }
+
+    [ExportGroup("Level Scaling")]
+    // Single per-level power curve driving BOTH a mob's difficulty Level and the
+    // player's forge-upgrade level (StatusEffectState.level, stamped from the forge
+    // tier). Offense and defense are SYMMETRIC by construction — offense multiplies
+    // by levelScalePerLevel^level, defense multiplies by its reciprocal
+    // levelScalePerLevel^-level — so a level-N attacker and a level-N defender
+    // exactly cancel (net 1x). Matches the weapon-item scaling (WeaponState
+    // .DamageMultiplier = 2^level): at the default 2, each level doubles a leveled
+    // attacker's outgoing damage/buildup and halves what a leveled defender takes.
+    // For the player these are slot-specific — the Melee/Ranged upgrade drives
+    // offense on that weapon, the Armor upgrade drives defense; a mob applies both
+    // from its single Level. See ItemEventHandlers.ResolveHit / Projectile (offense)
+    // and Player/Mob.ApplyResistance (defense).
+    //
+    // 2 also matches the mob health/armor Level curve (LevelMultiplier), so the
+    // default is behavior-preserving for existing mobs' outgoing damage.
+    [Export(PropertyHint.Range, "1,4,0.05")] public float levelScalePerLevel = 2f;
+
+    // Outgoing damage / buildup multiplier for a leveled attacker (>=1). Level 0
+    // (unleveled / no upgrade in the slot) is a neutral 1.
+    public float LevelOutgoingScale(int level) => level <= 0 ? 1f : Mathf.Pow(levelScalePerLevel, level);
+
+    // Incoming damage / buildup multiplier for a leveled defender — the exact
+    // reciprocal of LevelOutgoingScale, so equal levels cancel. Level 0 is a
+    // neutral 1.
+    public float LevelIncomingResist(int level) => level <= 0 ? 1f : Mathf.Pow(levelScalePerLevel, -level);
 
     // Shared interactive verbs auto-injected on any mob whose runtime
     // SimState carries a Conversation. Authored here once so adding a new

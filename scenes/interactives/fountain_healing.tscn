@@ -1,6 +1,6 @@
 [gd_scene load_steps=19 format=3]
 
-[ext_resource type="Script" uid="uid://dq0gsfedya8d3" path="res://scripts/gameplay/entities/HealingFountain.cs" id="1_fountain"]
+[ext_resource type="Script" uid="uid://dq0gsfedya8d3" path="res://scripts/gameplay/entities/Fountain.cs" id="1_fountain"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_ibox"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
