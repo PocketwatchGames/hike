@@ -20,10 +20,10 @@ projectileFx = ExtResource("4_flame")
 [resource]
 script = ExtResource("1_data")
 displayName = &"Flaming"
-upgradeSlot = 3
-durationType = 2
 description = "Sets struck targets ablaze, dealing fire damage over time."
+upgradeSlot = 3
 category = 2
+durationType = 2
 maxStack = 1
 removesOnApply = []
 modifiers = []

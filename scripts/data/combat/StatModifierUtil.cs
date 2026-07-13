@@ -48,6 +48,8 @@ public static class StatModifierUtil
 			case EStat.MaxArmor:
 			case EStat.ColdResist:
 			case EStat.HeatResist:
+			case EStat.AirJumps:
+			case EStat.WallJump:
 				return true;
 			default:
 				return false;

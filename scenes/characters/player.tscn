@@ -104,6 +104,7 @@ _slideLoopFx = Dictionary[int, PackedScene]({
 4: ExtResource("9_vwwfy")
 })
 _jumpFx = ExtResource("17_jump")
+_airJumpFx = ExtResource("17_jump")
 _landFx = ExtResource("18_land")
 _landHardFx = ExtResource("19_landhard")
 _wallJumpFootFx = ExtResource("12_5jukt")

@@ -83,6 +83,7 @@ public partial class World : Node3D
     private ThunderScheduler _thunderScheduler;
     private LightningFlasher _lightningFlasher;
     private WeatherLightningSpawner _weatherLightningSpawner;
+    private NightMobSpawner _nightMobSpawner;
     private ChunkAmbienceSpawner _chunkAmbienceSpawner;
     private Minimap _minimap;
     public Minimap Minimap => _minimap;
@@ -201,6 +202,13 @@ public partial class World : Node3D
         _weatherLightningSpawner = new WeatherLightningSpawner();
         _weatherLightningSpawner.Name = "WeatherLightningSpawner";
         AddChild(_weatherLightningSpawner);
+
+        // Ambient after-dark spawner: keeps a live population of night mobs
+        // (gellies) in dark spots around the player, denser as midnight nears.
+        // Dormant when SimData has no nightSpawnMobs wired up.
+        _nightMobSpawner = new NightMobSpawner();
+        _nightMobSpawner.Name = "NightMobSpawner";
+        AddChild(_nightMobSpawner);
 
         _chunkAmbienceSpawner = new ChunkAmbienceSpawner();
         _chunkAmbienceSpawner.Name = "ChunkAmbienceSpawner";

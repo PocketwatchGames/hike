@@ -29,7 +29,6 @@ modifiers = []
 script = ExtResource("4_chain")
 shockEffect = ExtResource("9_shocked")
 buildupPerHit = 1.4
-chainBuildupFalloff = 0.6
 dischargeDamage = SubResource("dischargeDamage")
 chainRange = 4.5
 fx = ExtResource("5_fx")

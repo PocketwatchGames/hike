@@ -3,10 +3,14 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_p6q4c"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_w17lg"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
 [ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/fx/fists_hit_creature.tscn" id="6_hitfx"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_ihkax"]
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_solidfx"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="9_hg7m0"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
@@ -23,10 +27,10 @@ impactLethalEffect = ExtResource("6_hitfx")
 
 [sub_resource type="Resource" id="Resource_action_slam"]
 script = ExtResource("3_action")
-speedMultiplierActive = 0.0
 displayName = &"Slam"
 activeDurationSeconds = 0.7
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_slam")])
+speedMultiplierActive = 0.0
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")

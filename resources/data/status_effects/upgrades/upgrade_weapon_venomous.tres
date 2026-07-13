@@ -19,12 +19,12 @@ idleFx = ExtResource("4_idle")
 [resource]
 script = ExtResource("1_data")
 displayName = &"Venomous"
-upgradeSlot = 3
-durationType = 2
 description = "Poisons struck targets, dealing damage over time that ignores armor."
+upgradeSlot = 3
 category = 2
+durationType = 2
 maxStack = 1
 removesOnApply = []
 modifiers = []
-conditionalModifiers = null
+conditionalModifiers = []
 weaponMod = SubResource("weaponMod")

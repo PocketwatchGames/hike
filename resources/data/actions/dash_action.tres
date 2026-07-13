@@ -22,7 +22,6 @@ effects = Array[ExtResource("5_effect")]([SubResource("Resource_cbxbs")])
 animName = 15
 motionForwardSpeed = 20.0
 motionDirection = 1
-languageComponents = 15
 
 [sub_resource type="Resource" id="Resource_action"]
 script = ExtResource("2_action")

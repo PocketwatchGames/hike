@@ -212,6 +212,43 @@ public partial class World
         return mob;
     }
 
+    // Transient sibling of SpawnMob: creates a live mob node WITHOUT recording
+    // its sim state in WorldState. For ambient spawners (the night gellies) that
+    // want a population computed live around the player rather than persisted —
+    // so these mobs vanish with their chunk on eviction and never accumulate or
+    // re-materialize the way a worldgen-placed mob does. `conditions` is stamped
+    // onto the sim state so the off-condition cleanup can fade them when their
+    // window ends (Night mobs at dawn). `level` raises the mob's difficulty tier
+    // (2^level health/armor/damage) but never below the descriptor's authored
+    // floor, so an ambient spawner can scale toughness (e.g. by time of night).
+    // Spawns only onto an already-resident entity chunk (whose active-entity list
+    // frees the node on eviction); returns null if the descriptor has no scene or
+    // that chunk isn't loaded — callers pass a position they've already confirmed
+    // has resident ground.
+    public Mob SpawnMobTransient(MobDescriptor descriptor, Vector3 position, ESpawnConditions conditions, int level = 0)
+    {
+        MobSimState simState = descriptor?.CreateState(position, 0f);
+        if (simState == null)
+        {
+            return null;
+        }
+        simState.SpawnConditions = conditions;
+        // CreateState already stamped the descriptor's base level; only raise it.
+        if (level > simState.Level)
+        {
+            simState.Level = level;
+        }
+
+        Vector3I coord = WorldToChunkCoord(position);
+        if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
+        {
+            return null;
+        }
+        Mob mob = Mob.Create(this, simState);
+        RegisterEntity(mob, entities, simState);
+        return mob;
+    }
+
     // Dig at `position`: uncover the nearest un-excavated buried spot within
     // `radius`, or — failing that — force the nearest burrowed/burrowing mob in
     // range to surface and notice `digger`. Returns the dig's result class so

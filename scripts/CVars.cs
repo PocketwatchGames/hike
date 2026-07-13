@@ -491,6 +491,13 @@ public static class CVars
     //   [lightning] skip: no ground at (12.3, 0.0, -6.1)
     public static CVarBool lightningLog = new CVarBool("lightning_log", false);
 
+    // When true, prints a line each NightMobSpawner spawn cycle with the current
+    // population target (which ramps toward midnight), the live count, and how
+    // many mobs it spawned. Use to verify the density ramp and that mobs are
+    // finding unlit ground to spawn on. Lines look like:
+    //   [nightspawn] target=6 current=4 spawned=2
+    public static CVarBool nightSpawnLog = new CVarBool("night_spawn_log", false);
+
     // When true, prints companion-follow / breadcrumb-rescue diagnostics:
     // BehaviorWanderFollow logs (throttled) its phase, distance-to-player,
     // chosen destination and leg speed; World.TickCompanionLeash logs each

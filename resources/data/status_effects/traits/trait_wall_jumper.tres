@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://2vfwtb2p63bc"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
+
+[sub_resource type="Resource" id="mod_walljump"]
+script = ExtResource("2_mod")
+stat = 1073741824
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Wall Jumper"
+description = "Nimble and surefooted — can kick off walls to vault back into the air."
+category = 2
+durationType = 1
+maxStack = 1
+removesOnApply = []
+modifiers = Array[ExtResource("2_mod")]([SubResource("mod_walljump")])
+conditionalModifiers = []
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

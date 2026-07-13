@@ -374,7 +374,12 @@ public partial class Player : CharacterBody3D
 			}
 			else
 			{
-				TryWallJump();
+				// Falling past coyote time: a wall jump wins if there's a wall to
+				// kick off; otherwise spend a mid-air jump if any remain.
+				if (!TryWallJump())
+				{
+					TryAirJump();
+				}
 			}
 		}
 		else if (!Input.IsActionPressed("Jump"))

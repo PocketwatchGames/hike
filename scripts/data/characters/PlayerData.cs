@@ -100,6 +100,10 @@ public partial class PlayerData : Resource
 	[Export] public float windDragXZ = 0.075f;
 	[Export] public float jumpSpeed = 18f;
 	[Export] public float jumpHoldGravityScale = 0.65f;
+	// Baseline number of mid-air ("double") jumps. 0 = no air jump. Equipment and
+	// status effects raise the live cap via the additive EStat.AirJumps modifier;
+	// Player.AirJumpsMax composes both. Air jumps refill on landing.
+	[Export] public int airJumpsMax = 0;
 
 	[ExportGroup("Sliding & Skating")]
 	// Steep-slope sliding & skating. A slide surface is any upward-facing
@@ -151,6 +155,11 @@ public partial class PlayerData : Resource
 	[Export] public float skateFriction = 8f;
 
 	[ExportGroup("Wall Jump")]
+	// Master gate for the wall jump. Off by default — the base character can't
+	// kick off walls; a wall jump press while airborne just falls through to the
+	// air-jump path (or nothing). Flip on (per-character data, or later a
+	// gear/status grant) to enable the maneuver.
+	[Export] public bool canWallJump = false;
 	// While airborne, pressing Jump probes the capsule wallJumpCheckDistance
 	// forward in the player's movement direction (or yaw when no input is
 	// held). If the hit surface is steeper than the walkable floor angle and

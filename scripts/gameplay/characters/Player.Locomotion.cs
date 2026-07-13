@@ -236,7 +236,7 @@ public partial class Player : CharacterBody3D
 
 	private bool TryWallJump()
 	{
-		if (data == null || _world == null || _waterState != EWaterState.None)
+		if (data == null || !CanWallJump || _world == null || _waterState != EWaterState.None)
 		{
 			return false;
 		}
@@ -300,6 +300,27 @@ public partial class Player : CharacterBody3D
 		PlayOneShot(EAnimation.Jump);
 		SpawnWorldEffect(_wallJumpFootFx);
 		SpawnWorldEffect(_wallJumpEffortFx);
+		return true;
+	}
+
+	// Mid-air ("double") jump. Reached from the jump input only while falling —
+	// no ground / coyote / swim jump was available and no wall jump landed. Spends
+	// one of _airJumpsRemaining (refilled to AirJumpsMax on landing) and relaunches
+	// at the standard jumpSpeed, preserving horizontal velocity. Returns false when
+	// no charges remain, so the fall continues unbroken.
+	private bool TryAirJump()
+	{
+		if (data == null || _airJumpsRemaining <= 0)
+		{
+			return false;
+		}
+		_airJumpsRemaining--;
+		Velocity = new Vector3(Velocity.X, data.jumpSpeed, Velocity.Z);
+		_grounded = false;
+		_coyoteTimeEndMs = 0;
+		_jumpHeld = true;
+		PlayOneShot(EAnimation.Jump);
+		SpawnWorldEffect(_airJumpFx);
 		return true;
 	}
 

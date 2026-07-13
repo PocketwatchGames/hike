@@ -945,6 +945,61 @@ public partial class SimData : Resource
     // since spawn conditions (time of day, weather) change slowly.
     [Export(PropertyHint.Range, "0.5,30,0.5")] public float spawnCleanupIntervalSeconds = 2f;
 
+    [ExportGroup("Night Ambient Spawn")]
+    // Composed mobs the NightMobSpawner materializes in dark spots around the
+    // player after dark, one picked at random per spawn. These are TRANSIENT
+    // (not persisted to WorldState) — the live population near the player IS the
+    // whole mechanic. Empty = the night spawner stays dormant (no cost).
+    [Export] public Array<MobDescriptor> nightSpawnMobs = new();
+
+    // Live night-mob population the spawner drives toward at the peak of night
+    // (midnight). Measured against currently-loaded night mobs near the player,
+    // so it's effectively "how many surround you at the densest". Keep modest —
+    // this is the "don't spawn too many" ceiling.
+    [Export(PropertyHint.Range, "0,120,1")] public int nightSpawnMaxPopulation = 18;
+
+    // Population as a fraction of the max already targeted the instant night
+    // falls (sunset). A small nonzero floor so dusk isn't empty; the rest of the
+    // ramp to full comes from the density curve as midnight nears. 0 = start the
+    // night empty and let it build entirely from the curve.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float nightSpawnSunsetFraction = 0.05f;
+
+    // Shapes population vs. how deep into the night it is (0 at sunset → 1 at
+    // midnight). >1 keeps early night sparse and ramps hard toward midnight (the
+    // "dense and dangerous as we approach midnight" feel); 1 = linear. The clock
+    // clamps at midnight, so the peak holds until the player sleeps to sunrise.
+    [Export(PropertyHint.Range, "0.25,6,0.05")] public float nightSpawnDensityCurve = 2.5f;
+
+    // Seconds between spawn sweeps. Each sweep tops the population up toward the
+    // current target, so a longer interval makes the build-up more gradual.
+    [Export(PropertyHint.Range, "0.5,30,0.5")] public float nightSpawnIntervalSeconds = 4f;
+
+    // Cap on new mobs spawned per sweep, so a large deficit (nightfall, or after
+    // fast-forwarding the clock) fills in over several sweeps rather than a
+    // sudden wall of enemies appearing at once.
+    [Export(PropertyHint.Range, "1,20,1")] public int nightSpawnMaxPerSweep = 3;
+
+    // Spawn ring around the player (m). Min keeps a mob from popping in within
+    // view in the player's lap; max must stay inside the loaded entity radius so
+    // the ground/collision under the spawn point actually exists.
+    [Export(PropertyHint.Range, "4,80,1")] public float nightSpawnMinRadius = 20f;
+    [Export(PropertyHint.Range, "4,120,1")] public float nightSpawnMaxRadius = 40f;
+
+    // Light gate: a candidate position spawns only where BLOCK light (torches,
+    // campfires, lanterns — peak channel, 0..1+) is at or below this. Sky light
+    // is deliberately NOT gated, so open moonlit ground and shadow both qualify
+    // while the lit circle around a fire is shunned; the night-only spawn window
+    // is what keeps them out of daylight. Low = mobs hug the dark just outside
+    // firelight. 0 = only pure block-dark spots.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float nightSpawnMaxBlockLight = 0.28f;
+
+    // Difficulty tier reached at midnight. A night mob's level ramps linearly
+    // from 0 at sunset to this at midnight (rounded), so later-night arrivals are
+    // tougher — each level is 2^level health / armor / outgoing damage and shows
+    // as level+1 HUD pips. Already-spawned mobs keep the level they arrived at;
+    // only new spawns scale up. 0 = never level up (all base tier all night).
+    [Export(PropertyHint.Range, "0,4,1")] public int nightSpawnMaxLevel = 2;
+
     [ExportGroup("Companion")]
     // The persistent companion follows the player but can fall outside the
     // loaded world if the player outruns it (no resident collision under it).

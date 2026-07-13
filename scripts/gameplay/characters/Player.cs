@@ -146,6 +146,9 @@ public partial class Player : CharacterBody3D
 	// case landHard takes its place — a heavier impact deserves dust + a
 	// harder hit.
 	[Export] private PackedScene _jumpFx;
+	// Mid-air (double) jump one-shot. Its own slot so it can diverge from the
+	// ground jump later; wired to the jump scene for now.
+	[Export] private PackedScene _airJumpFx;
 	[Export] private PackedScene _landFx;
 	[Export] private PackedScene _landHardFx;
 	// Wall jump: foot fx spawns at the player's position (particle + scuff
@@ -394,6 +397,9 @@ public partial class Player : CharacterBody3D
 	Fx _animLoopFx;
 	PackedScene _animLoopScene;
 	ulong _coyoteTimeEndMs;
+	// Mid-air jumps left before touching ground again. Refilled to AirJumpsMax
+	// every grounded tick; each air jump (see TryAirJump) spends one.
+	int _airJumpsRemaining;
 	// Ring buffer of recent grounded positions — teleport target for the
 	// stuck-in-crevice recovery below. The recovery uses the OLDEST entry
 	// so the player respawns ~0.5s back along their path, well clear of
@@ -646,6 +652,12 @@ public partial class Player : CharacterBody3D
 	public float MaxArmor => _maxArmor + ComposeStat(EStat.MaxArmor);
 	public float Stamina => _stamina;
 	public float MaxStamina => (data?.maxStamina ?? 0f) * (Member?.stamina ?? 1f) + ComposeStat(EStat.MaxStamina);
+	// Live mid-air jump cap: PlayerData baseline plus the additive AirJumps stat
+	// composed from equipment / status effects. Never negative.
+	public int AirJumpsMax => Math.Max(0, (data?.airJumpsMax ?? 0) + Mathf.RoundToInt(ComposeStat(EStat.AirJumps)));
+	// Whether the wall jump is available: the PlayerData baseline flag OR any
+	// additive WallJump stat granted by a trait / equipment / status effect.
+	public bool CanWallJump => (data?.canWallJump ?? false) || ComposeStat(EStat.WallJump) > 0f;
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	// Catch up status effects by `dt` seconds in one call. Used by the sleep
@@ -2031,6 +2043,7 @@ public partial class Player : CharacterBody3D
 			_jumpHeld = false;
 			_coyoteTimeEndMs = 0;
 			_wallJumpAirControlTimer = 0f;
+			_airJumpsRemaining = AirJumpsMax;
 			Velocity = new Vector3(Velocity.X, 0, Velocity.Z);
 		}
 

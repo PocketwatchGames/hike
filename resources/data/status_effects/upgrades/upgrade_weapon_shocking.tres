@@ -28,27 +28,25 @@ modifiers = []
 [sub_resource type="Resource" id="chainLightning"]
 script = ExtResource("3_chain")
 shockEffect = ExtResource("9_shocked")
-buildupPerHit = 1.2
-chainBuildupFalloff = 0.6
 dischargeDamage = SubResource("dischargeDamage")
 fx = ExtResource("4_fx")
 boltFx = ExtResource("7_arc")
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("5_mod")
-onHitBuildups = null
+onHitBuildups = []
 chainLightning = SubResource("chainLightning")
 idleFx = ExtResource("6_idle")
 
 [resource]
 script = ExtResource("1_data")
 displayName = &"Shocking"
-upgradeSlot = 3
-durationType = 2
 description = "Each hit charges nearby foes with electricity. Charged enemies discharge, and the arc leaps on. Wet enemies charge twice as fast."
+upgradeSlot = 3
 category = 2
+durationType = 2
 maxStack = 1
 removesOnApply = []
 modifiers = []
-conditionalModifiers = null
+conditionalModifiers = []
 weaponMod = SubResource("weaponMod")

@@ -5,18 +5,19 @@
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
+onHitBuildups = null
 knockbackBonus = 6.0
 knockbackTimeBonus = 0.3
 
 [resource]
 script = ExtResource("1_data")
 displayName = &"Knockback"
-upgradeSlot = 3
-durationType = 2
 description = "Landed attacks shove struck targets back and stagger them."
+upgradeSlot = 3
 category = 2
-modifiers = []
-duration = 0.0
+durationType = 2
 maxStack = 1
-weaponMod = SubResource("weaponMod")
 removesOnApply = []
+modifiers = []
+conditionalModifiers = null
+weaponMod = SubResource("weaponMod")

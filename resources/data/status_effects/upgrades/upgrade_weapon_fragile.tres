@@ -11,11 +11,12 @@ onHitBuildups = []
 [resource]
 script = ExtResource("1_data")
 displayName = &"Fragile"
-upgradeSlot = 2
-durationType = 2
 description = "Lobbed projectiles shatter on contact, triggering their effect where they land instead of bouncing."
+upgradeSlot = 2
 category = 2
+durationType = 2
 maxStack = 1
 removesOnApply = []
 modifiers = []
+conditionalModifiers = null
 weaponMod = SubResource("weaponMod")

@@ -35,10 +35,10 @@ metadata/_custom_type_script = "uid://fwmd5k3q8x2n"
 [resource]
 script = ExtResource("1_data")
 displayName = &"Seeking"
-upgradeSlot = 3
-durationType = 2
 description = "Each attack looses two homing missiles that chase down nearby foes."
+upgradeSlot = 3
 category = 2
+durationType = 2
 maxStack = 1
 removesOnApply = []
 modifiers = []

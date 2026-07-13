@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c7pjuf5dv31v1" path="res://scripts/gui/WeaponHud.cs" id="1_06rsg"]
 
-[node name="WeaponHud" type="BoxContainer" unique_id=150891526 node_paths=PackedStringArray("_cooldownBar", "_icon", "_ammoGroup", "_ammoProgress", "_ammoText", "_blockArmorGroup", "_blockArmorBar")]
+[node name="WeaponHud" type="BoxContainer" unique_id=150891526 node_paths=PackedStringArray("_cooldownBar", "_icon", "_ammoGroup", "_ammoProgress", "_ammoText")]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -22,8 +22,6 @@ _icon = NodePath("VBoxContainer/PanelContainer/Icon")
 _ammoGroup = NodePath("VBoxContainer/PanelContainer/AmmoContainer")
 _ammoProgress = NodePath("VBoxContainer/PanelContainer/AmmoContainer/AmmoBar")
 _ammoText = NodePath("VBoxContainer/PanelContainer/AmmoContainer/AmmoBar/Ammo")
-_blockArmorGroup = NodePath("")
-_blockArmorBar = NodePath("")
 metadata/_custom_type_script = "uid://c7pjuf5dv31v1"
 
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1947861846]
