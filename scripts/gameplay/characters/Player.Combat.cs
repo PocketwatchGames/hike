@@ -155,6 +155,9 @@ public partial class Player : CharacterBody3D
 		// per-tier canInterrupt). External interruption fires BEFORE damage
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
+		// Being hit also cancels an open boon-pick modal (fairy corpse) — a
+		// no-op when it isn't showing. Leaves the corpse unspent in the world.
+		GameClient.Current?.InterruptUpgradeSelection();
 		// Discrete hits (anything that isn't a per-frame DoT tick) snap the
 		// player out of bird's-eye view. Continuous burn / poison zones keep
 		// the overlook intact so a moment of bad air doesn't repeatedly cancel

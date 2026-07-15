@@ -23,6 +23,10 @@ public partial class World : Node3D
     public WorldState WorldState => _worldState;
     public ulong GameTimeMs => _worldState.GameTimeMs;
     public double TimeOfDayAbsolute => _worldState.TimeOfDayAbsolute;
+    // Normalized awake-day clock (0 = sunrise … 1 = midnight). Paired with
+    // DayNumber by TimeOfDay-expiring status effects, which can't use the summed
+    // TimeOfDayAbsolute alone (midnight and the next sunrise share one value).
+    public double TimeOfDay01 => _worldState.TimeOfDay01;
 
     // Fired once when the day advances at sunrise (a sleep-to-sunrise). A shared
     // day-cadence hook — forge reactivation, daily weather re-roll, permanent

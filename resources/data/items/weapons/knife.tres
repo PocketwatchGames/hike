@@ -78,18 +78,18 @@ autoActivateAtMax = false
 queueable = true
 queueWindowSeconds = 0.15
 
-[sub_resource type="Resource" id="Resource_mod_crit"]
+[sub_resource type="Resource" id="Resource_qsf28"]
 script = ExtResource("1_modifier")
 overrides = 9
-healthDamage = 3.0
+healthDamage = 9.0
 knockbackDistance = 1.0
 addBuildups = []
 
-[sub_resource type="Resource" id="Resource_mod_backstab"]
+[sub_resource type="Resource" id="Resource_v26lm"]
 script = ExtResource("1_modifier")
 trigger = 2
 overrides = 65
-healthDamage = 8.0
+healthDamage = 15.0
 armorPenetration = 1.0
 addBuildups = []
 
@@ -102,7 +102,22 @@ hitstun = 0.15
 knockbackDistance = 0.2
 knockbackTime = 0.15
 buildups = []
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_qsf28"), SubResource("Resource_v26lm")])
+
+[sub_resource type="Resource" id="Resource_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 9
+healthDamage = 9.0
+knockbackDistance = 1.0
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 65
+healthDamage = 15.0
+armorPenetration = 1.0
+addBuildups = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")

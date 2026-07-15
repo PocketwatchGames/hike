@@ -1,8 +1,9 @@
 [gd_scene format=3 uid="uid://bowf0uyhgkjdm"]
 
 [ext_resource type="Script" uid="uid://ceoliqg058pis" path="res://scripts/gui/HudText.cs" id="1_rgi1j"]
+[ext_resource type="Texture2D" uid="uid://dm207jk2fyn7j" path="res://assets/textures/gui/hud_text_blocked.png" id="2_d2riq"]
 
-[node name="HUDText" type="Control" node_paths=PackedStringArray("label")]
+[node name="HUDText" type="Control" unique_id=180010524 node_paths=PackedStringArray("label")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,14 +11,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_rgi1j")
-label = NodePath("Label")
+label = NodePath("")
 fadeDurationMs = 900
 verticalMovement = 28.0
 
-[node name="Label" type="Label" parent="."]
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1724305399]
+modulate = Color(0.375, 0.5625, 0.75, 1)
 layout_mode = 0
 offset_right = 40.0
-offset_bottom = 23.0
-theme_override_colors/font_color = Color(0.5, 0.8, 1, 1)
-theme_override_font_sizes/font_size = 28
-text = "BLOCKED!"
+offset_bottom = 40.0
+texture = ExtResource("2_d2riq")

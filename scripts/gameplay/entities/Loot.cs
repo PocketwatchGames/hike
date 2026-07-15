@@ -1,5 +1,7 @@
 using Godot;
 using Godot.Collections;
+using System;
+using System.Collections.Generic;
 
 // World pickup. The pickup model is decided at run time per (player,
 // inventory) pair: if the player already has a same-kind non-full stack and
@@ -822,6 +824,12 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return true;
 		}
+		// A boon-offering pickup (fairy corpse) opens the upgrade screen and
+		// never deposits an item, so the backpack-fit gate below doesn't apply.
+		if (OffersBoons)
+		{
+			return true;
+		}
 		// If the loot carries an item, only allow interact when there's
 		// space; otherwise the action would run to completion and silently
 		// fail. Armor/weapons can land directly in an empty equip slot, so a
@@ -873,7 +881,52 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return;
 		}
+		// A boon-offering pickup (fairy corpse) doesn't enter the inventory —
+		// interacting opens the upgrade screen and the corpse stays put until a
+		// boon is actually claimed. Only fall through to the normal deposit when
+		// the offering can't be started.
+		if (TryOfferBoons(_picker))
+		{
+			return;
+		}
 		FinalizePickup();
+	}
+
+	// True when this loot hands the player a choice of boons on interact instead
+	// of depositing an item (the fairy corpse — possibleBoons composed onto its
+	// state at spawn, see World.ComposeFairyBoons).
+	private bool OffersBoons => _simState?.Item != null && _simState.Item.possibleBoons.Count > 0;
+
+	// Open the boon-pick screen for `player` in place of an inventory deposit.
+	// The corpse is spent only if a boon is chosen — the completion callback then
+	// removes it from the world. Backing out (or taking damage, which GameClient
+	// cancels the screen for) leaves it here to try again. Returns false when
+	// this loot offers no boons or no selection UI is available, so the caller
+	// falls back to the normal pickup.
+	private bool TryOfferBoons(Player player)
+	{
+		if (!OffersBoons || player == null)
+		{
+			return false;
+		}
+		Action<List<BoonData>, Action<BoonData>> start = GameClient.Current?.startUpgradeSelection;
+		if (start == null)
+		{
+			return false;
+		}
+		var choices = new List<BoonData>(_simState.Item.possibleBoons);
+		start.Invoke(choices, chosen =>
+		{
+			// Guard against the corpse having despawned (chunk unloaded) while the
+			// modal was open — the picked boon then just doesn't land.
+			if (!GodotObject.IsInstanceValid(this) || _pickedUp)
+			{
+				return;
+			}
+			ApplyStatusEffect.ApplyBoon(player, chosen);
+			RemovePickedUp();
+		});
+		return true;
 	}
 
 	private void FinalizePickup()
@@ -886,7 +939,18 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return;
 		}
+		RemovePickedUp();
+	}
 
+	// Shared pickup teardown: latch the sim state removed, play the pickup fx +
+	// shrink/lift outro, and drop the body from the world. Deposit (or boon
+	// application) is the caller's concern — this only removes the loot.
+	private void RemovePickedUp()
+	{
+		if (_pickedUp)
+		{
+			return;
+		}
 		_pickedUp = true;
 		// Kill any magnet flight velocity so a fast-seeking pickup stops dead at
 		// the player instead of drifting on (gravity is zeroed mid-seek) under the

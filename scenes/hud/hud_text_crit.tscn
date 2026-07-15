@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://bv6kkm02f7457"]
 
 [ext_resource type="Script" uid="uid://ceoliqg058pis" path="res://scripts/gui/HudText.cs" id="1_rgi1j"]
+[ext_resource type="Texture2D" uid="uid://cwrdm8ojwb3jy" path="res://assets/textures/gui/hud_text_crit.png" id="2_508g7"]
 
 [node name="HUDText" type="Control" unique_id=2015618761 node_paths=PackedStringArray("label")]
 layout_mode = 3
@@ -12,25 +13,33 @@ anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_rgi1j")
-label = NodePath("Label")
+label = NodePath("MarginContainer/MarginContainer/Label")
 fadeDurationMs = 1500
 verticalMovement = 56.0
 
-[node name="Label" type="Label" parent="." unique_id=1499300504]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -27.5
-offset_top = -33.5
-offset_right = 27.5
-offset_bottom = 33.5
-grow_horizontal = 2
-grow_vertical = 2
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1458149120]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="TextureRect" type="TextureRect" parent="MarginContainer" unique_id=1416262716]
+modulate = Color(1, 0, 0, 1)
+layout_mode = 2
+texture = ExtResource("2_508g7")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer" unique_id=1293924717]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="Label" type="Label" parent="MarginContainer/MarginContainer" unique_id=1499300504]
+layout_mode = 2
 theme_override_colors/font_color = Color(1, 0, 0.016666412, 1)
-theme_override_font_sizes/font_size = 48
+theme_override_font_sizes/font_size = 40
 text = "35"
 horizontal_alignment = 1
 vertical_alignment = 2

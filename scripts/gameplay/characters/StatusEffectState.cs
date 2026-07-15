@@ -22,11 +22,21 @@ public class StatusEffectState
 	// (Persistent, TimeOfDay, or a paused situational timer — see PauseTimer).
 	public ulong expireTimeMs;
 
-	// Absolute time-of-day at which a TimeOfDay effect expires, in
-	// WorldState.TimeOfDayAbsolute units (the time_scale clock, NOT GameTimeMs,
-	// so "until sunrise" tracks the lighting cycle and survives fast-forward).
-	// 0 = not a TimeOfDay effect.
+	// Absolute time-of-day at which a TimeOfDay effect expires (= _expireDay +
+	// _expireTimeOfDay01), in WorldState.TimeOfDayAbsolute units. Non-zero marks
+	// a TimeOfDay effect and drives the HUD progress bar; the ACTUAL expiry test
+	// uses the (_expireDay, _expireTimeOfDay01) pair below, not this sum. 0 = not
+	// a TimeOfDay effect.
 	public double expireTimeOfDayAbsolute;
+
+	// Expiry as an explicit (DayNumber, time-of-day fraction) pair. Kept separate
+	// from the summed absolute above because the awake clock stops at midnight
+	// (tod 1.0), whose absolute (DayNumber + 1.0) numerically COLLIDES with the
+	// next day's sunrise ((DayNumber+1) + 0.0). Comparing the sum would expire an
+	// "until sunrise" boon at midnight — before the sleep-to-sunrise that is meant
+	// to end it. IsExpired compares the day explicitly to avoid that.
+	private int _expireDay;
+	private double _expireTimeOfDay01;
 
 	// Span from apply to expiry for a TimeOfDay effect (in TimeOfDayAbsolute /
 	// day units), captured at arm time so the HUD can render a 0..1 progress
@@ -69,10 +79,10 @@ public class StatusEffectState
 	// equals its slot).
 	public EUpgradeSlot appliedUpgradeSlot = EUpgradeSlot.None;
 
-	public StatusEffectState(StatusEffectData data, ulong nowMs, double nowTimeOfDayAbsolute)
+	public StatusEffectState(StatusEffectData data, ulong nowMs, int nowDay, double nowTimeOfDay01)
 	{
 		this.data = data;
-		ArmTimer(nowMs, nowTimeOfDayAbsolute);
+		ArmTimer(nowMs, nowDay, nowTimeOfDay01);
 	}
 
 	// True when this instance carries an active expiry timer of any kind (ms or
@@ -80,11 +90,15 @@ public class StatusEffectState
 	public bool IsTimed => expireTimeMs != 0 || expireTimeOfDayAbsolute != 0;
 
 	// Whether the effect has reached its expiry on whichever clock it uses.
-	public bool IsExpired(ulong nowMs, double nowTimeOfDayAbsolute)
+	// The TimeOfDay branch compares the day explicitly so midnight of day N
+	// (tod 1.0) does NOT satisfy a day-(N+1) sunrise deadline, even though the
+	// two share the same summed absolute — an "until sunrise" boon must survive
+	// the frozen midnight and end only once the sleep-to-sunrise rolls the day.
+	public bool IsExpired(ulong nowMs, int nowDay, double nowTimeOfDay01)
 	{
 		if (expireTimeOfDayAbsolute != 0)
 		{
-			return nowTimeOfDayAbsolute >= expireTimeOfDayAbsolute;
+			return nowDay > _expireDay || (nowDay == _expireDay && nowTimeOfDay01 >= _expireTimeOfDay01);
 		}
 		return expireTimeMs != 0 && nowMs >= expireTimeMs;
 	}
@@ -124,17 +138,21 @@ public class StatusEffectState
 	{
 		expireTimeMs = 0;
 		expireTimeOfDayAbsolute = 0;
+		_expireDay = 0;
+		_expireTimeOfDay01 = 0.0;
 		_timeOfDaySpan = 0.0;
 	}
 
 	// (Re)arm the expiry per data.durationType. Timed → now + duration; TimeOfDay
-	// → the next crossing of data.timeOfDayTarget; Persistent (and Timed with
-	// duration 0) → no timer, so the arming system or explicit Remove owns
-	// lifetime.
-	public void ArmTimer(ulong nowMs, double nowTimeOfDayAbsolute)
+	// → the next crossing of data.timeOfDayTarget (tracked as an explicit day +
+	// fraction, see the field comments); Persistent (and Timed with duration 0) →
+	// no timer, so the arming system or explicit Remove owns lifetime.
+	public void ArmTimer(ulong nowMs, int nowDay, double nowTimeOfDay01)
 	{
 		expireTimeMs = 0;
 		expireTimeOfDayAbsolute = 0;
+		_expireDay = 0;
+		_expireTimeOfDay01 = 0.0;
 		_timeOfDaySpan = 0.0;
 		if (data == null)
 		{
@@ -149,16 +167,13 @@ public class StatusEffectState
 				}
 				break;
 			case EDurationType.TimeOfDay:
-				double dayStart = Math.Floor(nowTimeOfDayAbsolute);
-				double nowFraction = nowTimeOfDayAbsolute - dayStart;
-				// Target later today, else the same time tomorrow. `==` picks
-				// tomorrow so an effect armed exactly at the target time lasts a
-				// full day rather than expiring instantly.
-				double targetAbsolute = data.timeOfDayTarget > nowFraction
-					? dayStart + data.timeOfDayTarget
-					: dayStart + 1.0 + data.timeOfDayTarget;
-				expireTimeOfDayAbsolute = targetAbsolute;
-				_timeOfDaySpan = targetAbsolute - nowTimeOfDayAbsolute;
+				_expireTimeOfDay01 = data.timeOfDayTarget;
+				// Target later today, else the same time tomorrow. `>` (not `>=`)
+				// sends an effect armed exactly at the target time to tomorrow so it
+				// lasts a full day rather than expiring instantly.
+				_expireDay = data.timeOfDayTarget > nowTimeOfDay01 ? nowDay : nowDay + 1;
+				expireTimeOfDayAbsolute = _expireDay + _expireTimeOfDay01;
+				_timeOfDaySpan = expireTimeOfDayAbsolute - (nowDay + nowTimeOfDay01);
 				break;
 		}
 	}

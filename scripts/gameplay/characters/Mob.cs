@@ -40,6 +40,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // One-shot death blood. Per-mob in the .tscn so each species can pick the
     // appropriate small/medium/large variant from scenes/fx/.
     [Export] private PackedScene _deathFx;
+    // One-shot burst played the moment this mob enters the world (OnSpawned).
+    // World-parented so it stays put as the mob moves off. Null on species that
+    // shouldn't announce their arrival.
+    [Export] private PackedScene _spawnFx;
     // One-shot splash on the alive→in-water transition (voxel-detected).
     [Export] private PackedScene _waterEnterSplashFx;
     // Continuous loop scenes (see Fx._loop). Parented to the mob
@@ -789,6 +793,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public void OnSpawned(World world)
     {
         world.MobSpatialHash.Add(this);
+        SpawnWorldEffect(_spawnFx);
         if (IsCompanion)
         {
             world.RegisterCompanion(this);

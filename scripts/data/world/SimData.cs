@@ -1084,6 +1084,12 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "4,80,1")] public float fairySpawnMinRadius = 12f;
     [Export(PropertyHint.Range, "4,120,1")] public float fairySpawnMaxRadius = 28f;
 
+    // Fairy level (→ HP) scales with how late in the day it spawns: the first
+    // spawnable period is level 0 and the last period is FairyMaxLevel, so a
+    // fairy met near dusk is tougher than one met mid-morning. 0 = all fairies
+    // spawn at level 0 (no scaling).
+    [Export(PropertyHint.Range, "0,20,1")] public int fairyMaxLevel = 4;
+
     [ExportGroup("Companion")]
     // The persistent companion follows the player but can fall outside the
     // loaded world if the player outruns it (no resident collision under it).

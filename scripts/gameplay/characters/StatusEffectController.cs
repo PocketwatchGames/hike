@@ -1057,7 +1057,8 @@ public class StatusEffectController
 			return null;
 		}
 		ulong now = _world?.GameTimeMs ?? 0;
-		double nowTod = _world?.TimeOfDayAbsolute ?? 0.0;
+		int nowDay = _world?.DayNumber ?? 0;
+		double nowTod01 = _world?.TimeOfDay01 ?? 0.0;
 		// Mutual-exclusion pass — drop any active states (and their charging
 		// buildup meters) listed in this effect's removesOnApply. Runs before the
 		// stack-cap branch so a same-frame re-add of `data` itself can't get
@@ -1092,12 +1093,12 @@ public class StatusEffectController
 			}
 			if (count >= data.maxStack && oldest != null)
 			{
-				oldest.ArmTimer(now, nowTod);
+				oldest.ArmTimer(now, nowDay, nowTod01);
 				SpawnStartFx(data);
 				return oldest;
 			}
 		}
-		var state = new StatusEffectState(data, now, nowTod) { level = level, appliedUpgradeSlot = appliedSlot };
+		var state = new StatusEffectState(data, now, nowDay, nowTod01) { level = level, appliedUpgradeSlot = appliedSlot };
 		_statusEffects.Add(state);
 		SpawnStartFx(data);
 		if (data.loopFx != null && _actor != null)
@@ -1287,7 +1288,8 @@ public class StatusEffectController
 	public void Tick(float dt)
 	{
 		ulong now = _world?.GameTimeMs ?? 0;
-		double nowTod = _world?.TimeOfDayAbsolute ?? 0.0;
+		int nowDay = _world?.DayNumber ?? 0;
+		double nowTod01 = _world?.TimeOfDay01 ?? 0.0;
 		// Buildup decay — runs even when _statusEffects is empty so a meter
 		// charged by one stray hit still drains back to zero. After the
 		// decay delay elapses, drop `buildupRemovalSpeed` units/sec; 0 speed
@@ -1338,7 +1340,7 @@ public class StatusEffectController
 			DamageOverTimeData dot = s.data.dot;
 			if (dot == null)
 			{
-				if (s.IsExpired(now, nowTod))
+				if (s.IsExpired(now, nowDay, nowTod01))
 				{
 					_statusEffects.RemoveAt(i);
 					EndFx(s);
@@ -1392,7 +1394,7 @@ public class StatusEffectController
 					_applyMaxHealthDelta(dot.maxHealthDrainPerSecond);
 				}
 			}
-			if (s.IsExpired(now, nowTod))
+			if (s.IsExpired(now, nowDay, nowTod01))
 			{
 				// The damage tick above may have shifted or emptied the list (a
 				// kill cascade), so `i` can no longer point at `s` — remove by

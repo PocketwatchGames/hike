@@ -13,18 +13,25 @@ public partial class PlayerStatsPanel : PanelContainer
 
 	Player _player;
 
-	// Per-data accounting reused each refresh so timer countdowns don't
-	// churn the GC. _panels is the live tracking dict — one entry per
-	// distinct StatusEffectData currently held by the player. Panels are
-	// instantiated only when a new effect appears and freed when the last
-	// instance of that data expires; the per-frame path just pushes the
-	// fresh count + progress to the existing widgets.
-	readonly Dictionary<StatusEffectData, int> _counts = new();
-	// Smallest remaining-lifetime fraction [0,1] across instances of each data
+	// Per-effect accounting reused each refresh so timer countdowns don't churn
+	// the GC. Panels are keyed by (data, applied upgrade slot), NOT data alone: a
+	// forge upgrade applied to two different weapon slots (the same Venomous .tres
+	// on both Melee and Ranged) is two independent upgrades, not a stack, so each
+	// gets its own row instead of one row with a ×2 count. Ordinary effects carry
+	// slot None, so they still group by data and stack normally. Panels are
+	// instantiated only when a new key appears and freed when its last instance
+	// expires; the per-frame path just pushes the fresh count + progress.
+	readonly Dictionary<(StatusEffectData data, EUpgradeSlot slot), int> _counts = new();
+	// Smallest remaining-lifetime fraction [0,1] across instances of each key
 	// (the one closest to expiring) — drives the panel's timer bar.
-	readonly Dictionary<StatusEffectData, float> _minProgress = new();
-	readonly Dictionary<StatusEffectData, StatusEffectInfoPanel> _panels = new();
-	readonly List<StatusEffectData> _toRemove = new();
+	readonly Dictionary<(StatusEffectData data, EUpgradeSlot slot), float> _minProgress = new();
+	readonly Dictionary<(StatusEffectData data, EUpgradeSlot slot), StatusEffectInfoPanel> _panels = new();
+	readonly List<(StatusEffectData data, EUpgradeSlot slot)> _toRemove = new();
+	// Keys in the order first seen while scanning the player's effects this frame,
+	// then partitioned into _displayOrder (upgrades first, then ordinary effects)
+	// so the container's child order matches. Both reused to avoid per-frame allocs.
+	readonly List<(StatusEffectData data, EUpgradeSlot slot)> _seenOrder = new();
+	readonly List<(StatusEffectData data, EUpgradeSlot slot)> _displayOrder = new();
 
 	// Per-frame stat snapshot. Built fresh into _currentStats, compared
 	// positionally to the live StatPanel children — same count + positions
@@ -138,9 +145,10 @@ public partial class PlayerStatsPanel : PanelContainer
 		}
 	}
 
-	// Mirrors Hud.UpdateStatusEffects: group player's effects by data,
-	// drop panels whose data is no longer held, instantiate panels for
-	// newly-appeared data, and refresh the HUD count + timer on the rest.
+	// Group the player's effects by (data, applied slot), drop panels whose key is
+	// no longer held, instantiate panels for newly-appeared keys, refresh the HUD
+	// count + timer on the rest, and order the container so forge upgrades list
+	// first (each individually, by slot) ahead of ordinary status effects.
 	void RefreshStatusEffects()
 	{
 		if (_statusEffectContainer == null || _statusEffectInfoScene == null)
@@ -150,6 +158,7 @@ public partial class PlayerStatsPanel : PanelContainer
 
 		_counts.Clear();
 		_minProgress.Clear();
+		_seenOrder.Clear();
 		ulong now = World.Current?.GameTimeMs ?? 0;
 		double nowTod = World.Current?.TimeOfDayAbsolute ?? 0.0;
 		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
@@ -160,19 +169,23 @@ public partial class PlayerStatsPanel : PanelContainer
 			{
 				continue;
 			}
-			_counts.TryGetValue(s.data, out int prev);
-			_counts[s.data] = prev + 1;
+			var key = (s.data, s.appliedUpgradeSlot);
+			if (!_counts.TryGetValue(key, out int prev))
+			{
+				_seenOrder.Add(key);
+			}
+			_counts[key] = prev + 1;
 			if (s.IsTimed)
 			{
 				float progress = s.RemainingProgress(now, nowTod);
-				if (!_minProgress.TryGetValue(s.data, out float prevProgress) || progress < prevProgress)
+				if (!_minProgress.TryGetValue(key, out float prevProgress) || progress < prevProgress)
 				{
-					_minProgress[s.data] = progress;
+					_minProgress[key] = progress;
 				}
 			}
 		}
 
-		// Drop panels whose data is no longer in the player's list.
+		// Drop panels whose key is no longer in the player's list.
 		_toRemove.Clear();
 		foreach (var kv in _panels)
 		{
@@ -187,12 +200,15 @@ public partial class PlayerStatsPanel : PanelContainer
 			_panels.Remove(_toRemove[i]);
 		}
 
-		// Add / refresh panels for currently-held effects.
-		foreach (var kv in _counts)
+		BuildDisplayOrder();
+
+		// Add / refresh panels for currently-held effects, in display order.
+		for (int i = 0; i < _displayOrder.Count; i++)
 		{
-			StatusEffectData data = kv.Key;
-			int count = kv.Value;
-			bool hasTimer = _minProgress.TryGetValue(data, out float progress);
+			var key = _displayOrder[i];
+			StatusEffectData data = key.data;
+			int count = _counts[key];
+			bool hasTimer = _minProgress.TryGetValue(key, out float progress);
 			// Continuous-state effects (currently wet) override the timer-
 			// based progress with a player-side value.
 			float? custom = _player.GetStatusEffectProgress(data);
@@ -201,16 +217,52 @@ public partial class PlayerStatsPanel : PanelContainer
 				progress = custom.Value;
 				hasTimer = true;
 			}
-			if (!_panels.TryGetValue(data, out StatusEffectInfoPanel panel))
+			if (!_panels.TryGetValue(key, out StatusEffectInfoPanel panel))
 			{
 				panel = _statusEffectInfoScene.Instantiate<StatusEffectInfoPanel>();
 				_statusEffectContainer.AddChild(panel);
-				_panels[data] = panel;
+				_panels[key] = panel;
 				panel.SetStatusEffect(data, count, progress, hasTimer);
 			}
 			else
 			{
 				panel.RefreshHud(count, progress, hasTimer);
+			}
+			// Keep the container's child order aligned with _displayOrder. MoveChild
+			// only when out of position, so the steady state (order unchanged) is free.
+			if (panel.GetIndex() != i)
+			{
+				_statusEffectContainer.MoveChild(panel, i);
+			}
+		}
+	}
+
+	// Partition this frame's first-seen keys into display order: forge upgrades
+	// first (each an individual row, ordered by applied slot bit — Melee, Ranged,
+	// Armor), then ordinary effects in the order first seen. Insertion keeps
+	// upgrades slot-sorted and both groups stable frame-to-frame (no reshuffle).
+	void BuildDisplayOrder()
+	{
+		_displayOrder.Clear();
+		for (int i = 0; i < _seenOrder.Count; i++)
+		{
+			var key = _seenOrder[i];
+			if (key.slot == EUpgradeSlot.None)
+			{
+				continue;
+			}
+			int j = 0;
+			while (j < _displayOrder.Count && (int)_displayOrder[j].slot <= (int)key.slot)
+			{
+				j++;
+			}
+			_displayOrder.Insert(j, key);
+		}
+		for (int i = 0; i < _seenOrder.Count; i++)
+		{
+			if (_seenOrder[i].slot == EUpgradeSlot.None)
+			{
+				_displayOrder.Add(_seenOrder[i]);
 			}
 		}
 	}

@@ -16,6 +16,13 @@ public partial class UpgradePanel : PanelContainer
 	[Export] private Container _statContainer;
 	[Export] private PackedScene _statScene;
 
+	// Card tint while its button holds / lacks gamepad focus. The focused card
+	// shows at full brightness; the rest dim, so the selection is obvious without
+	// a mouse. Modulate is used (not self_modulate) so the whole card dims, not
+	// just the panel background — independent of whatever theme stylebox is set.
+	[Export] private Color _focusedModulate = Colors.White;
+	[Export] private Color _unfocusedModulate = new Color(0.5f, 0.5f, 0.5f, 1f);
+
 	// Fired when this card's button is pressed; UpgradeScreen passes a closure
 	// that applies the bound effect and closes the modal.
 	Action _onChosen;
@@ -48,7 +55,11 @@ public partial class UpgradePanel : PanelContainer
 		if (_upgradeButton != null)
 		{
 			_upgradeButton.Pressed += OnUpgradePressed;
+			_upgradeButton.FocusEntered += OnFocusEntered;
+			_upgradeButton.FocusExited += OnFocusExited;
 		}
+		// Start dimmed; whichever card grabs focus brightens itself.
+		Modulate = _unfocusedModulate;
 	}
 
 	public override void _ExitTree()
@@ -56,6 +67,8 @@ public partial class UpgradePanel : PanelContainer
 		if (_upgradeButton != null)
 		{
 			_upgradeButton.Pressed -= OnUpgradePressed;
+			_upgradeButton.FocusEntered -= OnFocusEntered;
+			_upgradeButton.FocusExited -= OnFocusExited;
 		}
 	}
 
@@ -65,6 +78,28 @@ public partial class UpgradePanel : PanelContainer
 	{
 		_upgradeButton?.GrabFocus();
 	}
+
+	// Wire this card's left/right gamepad-focus neighbors to the adjacent cards
+	// (either may be null at the ends). Explicit so navigation is guaranteed and
+	// doesn't depend on Godot's geometry-based auto-neighbor resolution.
+	public void SetFocusNeighbors(UpgradePanel left, UpgradePanel right)
+	{
+		if (_upgradeButton == null)
+		{
+			return;
+		}
+		if (left?._upgradeButton != null)
+		{
+			_upgradeButton.FocusNeighborLeft = _upgradeButton.GetPathTo(left._upgradeButton);
+		}
+		if (right?._upgradeButton != null)
+		{
+			_upgradeButton.FocusNeighborRight = _upgradeButton.GetPathTo(right._upgradeButton);
+		}
+	}
+
+	void OnFocusEntered() => Modulate = _focusedModulate;
+	void OnFocusExited() => Modulate = _unfocusedModulate;
 
 	void OnUpgradePressed()
 	{

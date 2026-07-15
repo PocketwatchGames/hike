@@ -73,8 +73,9 @@ public partial class ApplyStatusEffect : ItemEffect
 
 	// Apply a boon: its status effect (if any) to the actor, and its granted
 	// item (if any) into the player's pack. Either half may be absent — gold is
-	// item-only, the dash / restore boons are effect-only.
-	static void ApplyBoon(IActionActor actor, BoonData boon)
+	// item-only, the dash / restore boons are effect-only. Public so the world
+	// pickup path (fairy corpse Loot) applies a chosen boon the same way.
+	public static void ApplyBoon(IActionActor actor, BoonData boon)
 	{
 		if (boon == null)
 		{

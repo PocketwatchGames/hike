@@ -2114,6 +2114,15 @@ public partial class GameClient : Node3D
 			FilterViableBoons(upgrades));
 	}
 
+	// Cancel an open boon-pick modal because the player was disturbed — took
+	// damage or was otherwise interrupted mid-selection. No-op when the screen
+	// isn't showing. Backs out through the same path as ui_cancel, so the
+	// offering item (fairy corpse) stays unspent in the world / pack.
+	public void InterruptUpgradeSelection()
+	{
+		upgradeScreen?.RequestCancel();
+	}
+
 	// Number of boon cards the fairy upgrade screen aims to show; the gold
 	// filler pads up to this when too few candidate boons are viable.
 	const int UpgradeChoiceCount = 3;

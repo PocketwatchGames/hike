@@ -32,7 +32,10 @@ public partial class HudText : Control
 		_world = world;
 		_camera = camera;
 		_worldPosition = worldPosition;
-		label.Text = text;
+		if (label != null)
+		{
+			label.Text = text;
+		}
 		_fadeEndGameTimeMs = fadeDurationMs + _world.GameTimeMs;
 		if (parent != null)
 		{

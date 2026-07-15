@@ -29,7 +29,7 @@ public partial class UpgradeScreen : Control
 		_onComplete = completeFunc;
 		_onCancel = onCancel;
 		ClearPanels();
-		UpgradePanel first = null;
+		var panels = new List<UpgradePanel>();
 		if (upgrades != null && _panelContainer != null && upgradePanelScene != null)
 		{
 			for (int i = 0; i < upgrades.Count; i++)
@@ -44,15 +44,23 @@ public partial class UpgradeScreen : Control
 				// Capture per-iteration so each button applies its own boon.
 				BoonData captured = upgrade;
 				panel.Init(captured, () => Choose(captured));
-				first ??= panel;
+				panels.Add(panel);
 			}
+		}
+		// Wire left/right gamepad-focus neighbors between adjacent cards (the ends
+		// have no wrap — a stick left on the first card just stays put).
+		for (int i = 0; i < panels.Count; i++)
+		{
+			UpgradePanel left = i > 0 ? panels[i - 1] : null;
+			UpgradePanel right = i < panels.Count - 1 ? panels[i + 1] : null;
+			panels[i].SetFocusNeighbors(left, right);
 		}
 		// Seed gamepad/keyboard focus on the first card so the screen is
 		// navigable without a mouse. Deferred so the freshly added button is
 		// in the tree and focusable first.
-		if (first != null)
+		if (panels.Count > 0)
 		{
-			first.CallDeferred(UpgradePanel.MethodName.GrabButtonFocus);
+			panels[0].CallDeferred(UpgradePanel.MethodName.GrabButtonFocus);
 		}
 	}
 
@@ -70,6 +78,17 @@ public partial class UpgradeScreen : Control
 		_onComplete = null;
 		_onCancel = null;
 		cb?.Invoke();
+	}
+
+	// External cancel — GameClient calls this when the player is disturbed mid-
+	// selection (takes damage / is interrupted). Same back-out path as ui_cancel:
+	// the completion callback never fires, so the offering item is left unspent.
+	public void RequestCancel()
+	{
+		if (Visible)
+		{
+			Cancel();
+		}
 	}
 
 	public override void _UnhandledInput(InputEvent e)

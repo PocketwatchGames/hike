@@ -40,6 +40,9 @@ public partial class FairySpawner : Node
     // until the fairy is placed (near-player ground is almost always available at
     // once, so this normally clears the same frame it's set).
     private bool _pendingSpawn;
+    // Level (→ HP) the pending fairy spawns at, locked in at decision time so a
+    // retry that spills into the next day-period keeps the level it was rolled for.
+    private int _pendingSpawnLevel;
     private int _spawnedToday;
     private int _killedToday;
 
@@ -114,20 +117,26 @@ public partial class FairySpawner : Node
                 if (zone != null && zone.canSpawnFairy && _rng.Randf() < zone.fairySpawnChance)
                 {
                     _pendingSpawn = true;
+                    // Scale level with how far into the day we are: period 1 (first
+                    // spawnable block) → 0, the final period → fairyMaxLevel.
+                    int lastPeriod = Mathf.Max(1, periods - 1);
+                    _pendingSpawnLevel = Mathf.RoundToInt(
+                        (float)currentPeriod / lastPeriod * data.fairyMaxLevel);
                 }
             }
         }
 
         if (_pendingSpawn && _spawnedToday < data.fairyMaxSpawnsPerDay)
         {
-            if (TrySpawnFairy(world, data, player))
+            if (TrySpawnFairy(world, data, player, _pendingSpawnLevel))
             {
                 _pendingSpawn = false;
                 _spawnedToday++;
                 if (CVars.fairySpawnLog.Value)
                 {
                     GD.Print($"[fairyspawn] spawned day={world.DayNumber} period={currentPeriod} " +
-                        $"count={_spawnedToday}/{data.fairyMaxSpawnsPerDay} killed={_killedToday}");
+                        $"count={_spawnedToday}/{data.fairyMaxSpawnsPerDay} killed={_killedToday} " +
+                        $"level={_pendingSpawnLevel}");
                 }
             }
         }
@@ -136,7 +145,7 @@ public partial class FairySpawner : Node
     // Find a reachable standable spot in the fairy spawn ring around the player and
     // materialize a transient fairy there. Returns false when no valid, resident
     // ground is available (caller keeps the pending spawn and retries next frame).
-    private bool TrySpawnFairy(World world, SimData data, Player player)
+    private bool TrySpawnFairy(World world, SimData data, Player player, int level)
     {
         MobData mob = data.fairySpawnDescriptor.mob;
         if (mob == null)
@@ -153,7 +162,7 @@ public partial class FairySpawner : Node
             return false;
         }
         Vector3 pos = _standable[_rng.RandiRange(0, _standable.Count - 1)];
-        return world.SpawnMobTransient(data.fairySpawnDescriptor, pos, ESpawnConditions.None) != null;
+        return world.SpawnMobTransient(data.fairySpawnDescriptor, pos, ESpawnConditions.None, level) != null;
     }
 
     // The authored ZoneData of the chunk under `pos` (the dominant zone there), read
