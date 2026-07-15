@@ -48,7 +48,7 @@ public partial class DamageData : Resource
 	// Chance (0..1) that the entire hit bypasses the receiver's armor pool
 	// and lands directly on health. 0 = always absorbed by armor (the legacy
 	// behavior); 1 = always bypasses. Rolled once when the HitInfo is built
-	// (HitInfo.armorPenetrationRoll) so the prediction in HurtBox.QueryHitType and the
+	// (HitInfo.armorPenetrationRoll) so the prediction in HurtBox.QueryHit and the
 	// real apply in HurtBox.Hit always agree on whether this swing penetrated armor.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float armorPenetration = 0f;
 

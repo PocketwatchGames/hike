@@ -35,28 +35,34 @@ public partial class Player : CharacterBody3D
 		_combatEngageScratch.Clear();
 	}
 
-	// Pure prediction — no state mutation. See Mob.GetHitType for the
-	// networked-play motivation.
-	private EHitResult GetHitType(HitInfo hit)
+	// Pure prediction — no state mutation. See Mob.PredictHit for the
+	// networked-play motivation. The player surfaces no crit/backstab triggers
+	// (mobs don't crit/backstab the player), so the flags are always None.
+	private HitPrediction PredictHit(HitInfo hit)
 	{
 		// Receiver-side resistance fold. ApplyResistance scales healthDamage,
 		// armor-penetration chance, blunt mult, and knockback magnitude in place using
 		// the diverse-site rules so the prediction below matches the actual
 		// apply in OnHurtBoxHit.
 		ApplyResistance(ref hit);
+		EHitResult result;
 		if (hit.healthDamage <= 0f)
 		{
-			return EHitResult.None;
+			result = EHitResult.None;
 		}
-		if (_armor > 0f && !hit.ArmorPenetrated)
+		else if (_armor > 0f && !hit.ArmorPenetrated)
 		{
-			return EHitResult.Armor;
+			result = EHitResult.Armor;
 		}
-		if (_health <= 0f)
+		else if (_health <= 0f)
 		{
-			return EHitResult.None;
+			result = EHitResult.None;
 		}
-		return hit.healthDamage >= _health ? EHitResult.Lethal : EHitResult.Health;
+		else
+		{
+			result = hit.healthDamage >= _health ? EHitResult.Lethal : EHitResult.Health;
+		}
+		return new HitPrediction(result, EDamageTriggerFlags.None);
 	}
 
 	// Fold receiver resistances onto the live hit in place. Damage tags
@@ -284,7 +290,7 @@ public partial class Player : CharacterBody3D
 			}
 			if (showNumber)
 			{
-				client?.onDamage?.Invoke(GlobalPosition, bypassShown, EHudTextType.DamageLight);
+				client?.onDamage?.Invoke(GlobalPosition, bypassShown, hit.HudDamageType());
 				client?.FlashDamage(bypassShown);
 			}
 			else if (!blocked)

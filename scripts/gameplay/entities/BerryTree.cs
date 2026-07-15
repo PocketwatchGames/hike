@@ -30,7 +30,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         if (_hurtBox != null)
         {
             _hurtBox.OnHit = OnHurtBoxHit;
-            _hurtBox.GetHitType = _ => EHitResult.Object;
+            _hurtBox.PredictHit = _ => new HitPrediction(EHitResult.Object, EDamageTriggerFlags.None);
         }
     }
 

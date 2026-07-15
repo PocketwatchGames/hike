@@ -276,6 +276,16 @@ public partial class Mob
             ref PerceptionState target = ref _simState.PerceptionTargets[0];
             target.target = _world.player;
 
+            // A hidden player (perched in a climbable tree) or the invisible cheat
+            // is wholly unperceivable — no sense registers. Gate the three sensory
+            // blocks below off it (same treatment as the symmetric burrowed-mob
+            // case, which zeroes its inputs before the tick) so their raycasts never
+            // run: every delta stays 0 and canSee stays false, so any standing
+            // perception decays and triggered resets, lastKnownPosition is never
+            // refreshed, and a triggered mob can't hold the alert or keep a fix on
+            // the player through the concealment.
+            bool unperceivable = CVars.invisible.Value || _world.player.IsHidden;
+
             // Perched fliers are an elevated lookout: vision goes omnidirectional
             // (drop the facing cone) and reaches farther (perchedVisionRangeMultiplier).
             bool perched = _perched;
@@ -285,7 +295,7 @@ public partial class Mob
             // (15) is shorter than the player's (25), so at distance / off-cone the
             // player spots the mob first; the cone + clarity decide the rest.
             float maxRange = perched ? mobData.visionRange * mobData.perchedVisionRangeMultiplier : mobData.visionRange;
-            bool inVisionRange = distanceSqToPlayer < maxRange * maxRange;
+            bool inVisionRange = !unperceivable && distanceSqToPlayer < maxRange * maxRange;
             float closeness = inVisionRange
                 ? Mathf.Clamp(1f - Mathf.Sqrt(distanceSqToPlayer) / maxRange, 0f, 1f)
                 : 0f;
@@ -395,7 +405,7 @@ public partial class Mob
             // the edge to 1 at the player. No LOS / light gate.
             float hearingDelta = 0f;
             float playerDecibels = _world.player.CurrentDecibels;
-            if (playerDecibels > 0f && mobData.hearingRange > 0f)
+            if (!unperceivable && playerDecibels > 0f && mobData.hearingRange > 0f)
             {
                 // An aquatic predator shares the water with its prey: while the
                 // player is wading/swimming its splashing carries much farther
@@ -425,7 +435,7 @@ public partial class Mob
             // threshold.
             float smellDelta = 0f;
             ScentEmitter scent = _world.player.Scent;
-            if (mobData.smellStrength > 0f && mobData.smellRange > 0f && scent != null)
+            if (!unperceivable && mobData.smellStrength > 0f && mobData.smellRange > 0f && scent != null)
             {
                 Vector3 nose = GlobalPosition + new Vector3(0f, 1.5f, 0f);
                 // Fog widens the scent radius, high wind scatters it (both
@@ -498,18 +508,6 @@ public partial class Mob
             float smellContribution = smellDelta * mobData.smellStrength;
             float perceptionDelta = visionContribution + hearingContribution + smellContribution;
 
-            // A hidden player (perched in a climbable tree) is unperceivable —
-            // same treatment as the invisible cheat and the symmetric burrowed-
-            // mob case: zero the delta so any standing perception decays and
-            // triggered resets, and drop line-of-sight so a triggered mob can't
-            // hold the alert through the concealment.
-            if (CVars.invisible.Value || _world.player.IsHidden)
-            {
-                perceptionDelta = 0f;
-                canSee = false;
-                target.canSee = false;
-            }
-
             // Debug breakdown — written every perception tick for the
             // CVars.debugMobPerception HUD overlay. Facing factor mirrors
             // the dot-power gate above; distance uses the mob's raw visionRange
@@ -576,6 +574,27 @@ public partial class Mob
                 {
                     target.triggered = false;
                 }
+            }
+
+            // Full awareness reached without ever latching `triggered` — the mob
+            // built the meter purely from hearing/smell (a clear look would have
+            // triggered it via the canSee block above). It knows something is
+            // there and roughly where, so point an investigation at the target.
+            // What the mob DOES with that is its brain's call, not ours: a prey
+            // brain wires only HasInvestigationCondition→LookAt (turn toward it),
+            // a hostile brain wires HasActionableInvestigationCondition→Investigate
+            // (path toward it). Not lookOnly — that gate is for cross-team yells;
+            // here the mob perceives the target directly. Re-issued each tick it
+            // holds so the point tracks a target it keeps hearing; once perception
+            // relaxes below the threshold the last investigation's own cancel
+            // timer ends it.
+            if (!target.triggered && target.perception >= mobData.perceptionThresholdAlert && target.pawnTarget != null)
+            {
+                Investigate(
+                    target.pawnTarget.GlobalPosition,
+                    mobData.investigateRange,
+                    (ulong)(mobData.investigateCancelTime * 1000f),
+                    (ulong)(mobData.investigatePauseTime * 1000f));
             }
         }
 

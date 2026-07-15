@@ -641,8 +641,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (_hurtBox != null)
         {
             _hurtBox.OnHit = Hit;
-            _hurtBox.GetHitType = GetHitType;
-            _hurtBox.GetHitTriggers = QueryHitTriggers;
+            _hurtBox.PredictHit = PredictHit;
             // Hit filter: ActorTeam is read per-hit so a tamed companion's
             // Friendly override (and any future runtime team change) applies.
             _hurtBox.CanHit = (hit) =>
@@ -3504,35 +3503,40 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // Pure prediction — no state mutation. Mirrors the armor/health resolution
-    // in Damage() so attackers can pick their impact effect before the damage
-    // actually lands. Splitting this from Damage keeps damage application as a
-    // one-way notification, which is the shape we want for networked play
-    // (prediction on the client, authoritative apply on the server).
-    public EHitResult GetHitType(HitInfo hit)
+    // Pure prediction — no state mutation. Folds crit/backstab once (mirroring
+    // Hit()'s swap so the impact pick sees the same values, e.g. Lethal when
+    // crit damage finishes a mob the base damage wouldn't) and mirrors Damage()'s
+    // armor/health resolution to pick the EHitResult, returning both the result
+    // and the trigger flags that actually folded in a single pass. Splitting this
+    // from Damage keeps damage application as a one-way notification, the shape we
+    // want for networked play (prediction on the client, authoritative apply on
+    // the server); the attacker uses Triggers to layer per-tier crit/backstab
+    // overlays on the base impact fx.
+    public HitPrediction PredictHit(HitInfo hit)
     {
         if (!alive || burrowed)
         {
-            return EHitResult.None;
+            return HitPrediction.None;
         }
-        // Mirror Hit()'s swap so a crit (dizzy or unaware mob) is reflected
-        // in the impact-effect pick (e.g. Lethal when crit damage finishes a
-        // mob that the regular damage wouldn't have).
-        hit = ApplyCrit(hit);
-        hit = ApplyBackstab(hit);
+        hit = ResolveTriggers(hit);
         ApplyResistance(ref hit);
         float incoming = hit.healthDamage;
+        EHitResult result;
         if (incoming <= 0f)
         {
-            return EHitResult.None;
+            result = EHitResult.None;
         }
         // An armor-penetrating hit skips armor entirely and lands on health.
         // Otherwise armor (when present) absorbs the whole hit.
-        if (armor > 0f && !hit.ArmorPenetrated)
+        else if (armor > 0f && !hit.ArmorPenetrated)
         {
-            return EHitResult.Armor;
+            result = EHitResult.Armor;
         }
-        return incoming >= health ? EHitResult.Lethal : EHitResult.Health;
+        else
+        {
+            result = incoming >= health ? EHitResult.Lethal : EHitResult.Health;
+        }
+        return new HitPrediction(result, hit.triggers);
     }
 
     public void Hit(HitInfo hit)
@@ -3548,8 +3552,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // consistently. Backstab folds on top independently — a purely positional
         // gate (no awareness requirement), so OnCrit and OnBackstab fire together
         // on an unaware backstab and OnBackstab alone on an alerted one.
-        hit = ApplyCrit(hit);
-        hit = ApplyBackstab(hit);
+        hit = ResolveTriggers(hit);
 
         // External-interrupt damage during an in-flight attack — interrupt
         // before applying damage so abortEvents fire on coherent pre-damage
@@ -3656,7 +3659,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // crit" gate (sneak attack pre-aggro) with a probabilistic vulnerable
     // roll for triggered mobs (dizzy authors vulnerable=1, so a dizzied
     // triggered mob always crits). Reads HitInfo.critRoll so the attacker's
-    // QueryHitTriggers prediction and the receiver's ApplyCrit agree on the
+    // PredictHit prediction and the receiver's ResolveTriggers agree on the
     // outcome of this swing. Composes a hypothetical base crit chance as
     // 1 - (1 - base) * (1 - vulnerable) — base is 1 for untriggered mobs
     // and 0 for triggered, leaving room to introduce per-attack critChance
@@ -3700,41 +3703,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return cosAngle >= Mathf.Cos(pd.backstabAngle);
     }
 
-    // Receiver-side trigger prediction wired into HurtBox.GetHitTriggers —
-    // the attacker reads these flags to spawn ItemAction.impactCritEffect /
-    // impactBackstabEffect alongside the base impactHealth/Lethal/Armor cue.
-    // Mirrors the conditions ApplyCrit / ApplyBackstab use; OnDizzy isn't
-    // surfaced (depends on the post-hit dizzy-buildup cross, not predictable).
-    public EDamageTriggerFlags QueryHitTriggers(HitInfo hit)
+    // Single crit/backstab test + fold — the one place these conditions are
+    // evaluated per hit. Runs each check once and folds the matching OnCrit /
+    // OnBackstab modifiers via ApplyTrigger, which records the trigger flag only
+    // when a modifier actually folds (so hit.triggers reflects an applied result,
+    // not mere eligibility). Crit is swapped first, then backstab folds on top
+    // independently — a purely positional gate (no awareness requirement), so
+    // OnCrit and OnBackstab fire together on an unaware backstab and OnBackstab
+    // alone on an alerted one. Shared by PredictHit (on a copy) and Hit (the
+    // authoritative apply); the attacker reads the resulting flags to spawn
+    // ItemAction.impactCritEffect / impactBackstabEffect on the base impact cue.
+    // OnDizzy isn't handled here (it depends on the post-hit dizzy-buildup cross,
+    // folded later in Damage's ApplyHitBuildups pass).
+    private HitInfo ResolveTriggers(HitInfo hit)
     {
-        EDamageTriggerFlags flags = EDamageTriggerFlags.None;
-        if (IsCritEligible(hit)) { flags |= EDamageTriggerFlags.Crit; }
-        if (IsBackstab(hit)) { flags |= EDamageTriggerFlags.Backstab; }
-        return flags;
-    }
-
-    // Fold the hit's OnCrit modifiers when the mob is in a crit-eligible
-    // state. Mutates the passed-in HitInfo in place via ApplyTrigger and
-    // returns it so GetHitType and Hit see the same numbers.
-    private HitInfo ApplyCrit(HitInfo hit)
-    {
-        if (IsCritEligible(hit))
-        {
-            hit.ApplyTrigger(EDamageTrigger.OnCrit);
-        }
-        return hit;
-    }
-
-    // Fold the hit's OnBackstab modifiers when the positional check passes.
-    // Independent of ApplyCrit now that backstab is awareness-agnostic: an
-    // unaware mob's backstab also crits (via IsCritEligible's !triggered), but a
-    // backstab on an alerted, non-dizzy mob folds OnBackstab only.
-    private HitInfo ApplyBackstab(HitInfo hit)
-    {
-        if (IsBackstab(hit))
-        {
-            hit.ApplyTrigger(EDamageTrigger.OnBackstab);
-        }
+        if (IsCritEligible(hit)) { hit.ApplyTrigger(EDamageTrigger.OnCrit); }
+        if (IsBackstab(hit)) { hit.ApplyTrigger(EDamageTrigger.OnBackstab); }
         return hit;
     }
 
@@ -3892,7 +3876,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // 0.5 shows no positive number on its own.
             if (Mathf.RoundToInt(totalShown) > 0)
             {
-                GameClient.Current?.onDamage?.Invoke(hudPosition, totalShown, EHudTextType.DamageLight);
+                GameClient.Current?.onDamage?.Invoke(hudPosition, totalShown, hit.HudDamageType());
             }
             else if (appliedBuildup)
             {

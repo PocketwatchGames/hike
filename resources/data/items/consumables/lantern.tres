@@ -32,6 +32,7 @@ events = Array[ExtResource("4_event")]([SubResource("Resource_event_toggle")])
 [sub_resource type="Resource" id="Resource_apply_heal"]
 script = ExtResource("5_apply")
 statusEffect = ExtResource("6_heal")
+alsoAffectsCompanion = true
 
 [sub_resource type="Resource" id="Resource_event_heal"]
 script = ExtResource("4_event")

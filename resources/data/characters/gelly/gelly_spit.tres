@@ -1,0 +1,95 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_area"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="6_damage"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/gelly_glob.tscn" id="7_proj"]
+[ext_resource type="PackedScene" path="res://scenes/fx/gelly_burst.tscn" id="8_burst"]
+[ext_resource type="PackedScene" path="res://scenes/fx/gelly_splat.tscn" id="9_splat"]
+[ext_resource type="PackedScene" path="res://scenes/fx/gelly_target_preview.tscn" id="10_preview"]
+
+[sub_resource type="Resource" id="Resource_event_windup"]
+script = ExtResource("5_event")
+type = 64
+animName = 24
+
+[sub_resource type="Resource" id="Resource_areaspec_aoe"]
+script = ExtResource("4_area")
+damageProfileKey = &"aoe"
+tickInterval = 5.0
+
+[sub_resource type="Resource" id="Resource_event_impact"]
+script = ExtResource("5_event")
+type = 81920
+cameraShakeMagnitude = 0.12
+cameraShakeDuration = 0.2
+cameraShakeRange = 18.0
+areaEffectScene = ExtResource("8_burst")
+areaRadius = 2.0
+areaDurationSeconds = 0.5
+areaIntervals = Array[ExtResource("4_area")]([SubResource("Resource_areaspec_aoe")])
+
+[sub_resource type="Resource" id="Resource_event_spit"]
+script = ExtResource("5_event")
+time = 300
+type = 8192
+impactMissEffect = ExtResource("9_splat")
+impactEnvironmentEffect = ExtResource("9_splat")
+impactHealthEffect = ExtResource("9_splat")
+impactArmorEffect = ExtResource("9_splat")
+impactLethalEffect = ExtResource("9_splat")
+projectileScene = ExtResource("7_proj")
+projectileLifetimeSeconds = 1.2
+projectileArcing = true
+projectileArcRise = 3.0
+projectileGravity = 18.0
+impactEvent = SubResource("Resource_event_impact")
+projectileFragile = true
+projectileTargetPreview = ExtResource("10_preview")
+
+[sub_resource type="Resource" id="Resource_action_spit"]
+script = ExtResource("3_action")
+displayName = &"Gelatinous Spit"
+activeDurationSeconds = 0.8
+events = Array[ExtResource("5_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_spit")])
+speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+turnLockDelaySeconds = 0.15
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_spit")])
+
+[sub_resource type="Resource" id="Resource_damage_aoe"]
+script = ExtResource("6_damage")
+tags = 65
+healthDamage = 4.0
+hitstun = 0.2
+knockbackDistance = 0.3
+knockbackTime = 0.1
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("6_damage")
+tags = 65
+healthDamage = 1.0
+hitstun = 0.1
+buildups = []
+modifiers = []
+
+[resource]
+script = ExtResource("1_weapon")
+damageProfiles = Dictionary[StringName, ExtResource("6_damage")]({
+&"aoe": SubResource("Resource_damage_aoe"),
+&"primary": SubResource("Resource_damage_primary")
+})
+actionProfile = SubResource("Resource_profile")
+priority = 1
+maxAttackRange = 10.0
+desiredAttackRange = 7.0
+cooldownSeconds = 2.5
+displayName = &"Gelatinous Spit"

@@ -770,7 +770,7 @@ public partial class Player : CharacterBody3D
 		if (_hurtBox != null)
 		{
 			_hurtBox.OnHit = OnHurtBoxHit;
-			_hurtBox.GetHitType = GetHitType;
+			_hurtBox.PredictHit = PredictHit;
 			// Hit filter: the player is on the Player side, so allied hits
 			// (a tamed companion, a friendly NPC) can't land unless friendly-fire.
 			_hurtBox.CanHit = (hit) =>

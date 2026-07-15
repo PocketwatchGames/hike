@@ -83,8 +83,8 @@ public static class ItemEventHandlers
 				// the post-damage zero). Trigger flags ride alongside so a
 				// crit/backstab swing layers its tier overlay on the best
 				// hurtbox of a multi-target swing.
-				EHitResult r = hurtBox.QueryHitType(hit);
-				EDamageTriggerFlags t = hurtBox.QueryHitTriggers(hit);
+				HitPrediction prediction = hurtBox.QueryHit(hit);
+				EHitResult r = prediction.Result;
 				hurtBox.Hit(hit);
 				if (r == EHitResult.Health || r == EHitResult.Lethal)
 				{
@@ -93,7 +93,7 @@ public static class ItemEventHandlers
 				if (HitPriority(r) > HitPriority(bestResult))
 				{
 					bestResult = r;
-					bestTriggers = t;
+					bestTriggers = prediction.Triggers;
 					impactPos = hurtBox.GlobalPosition;
 				}
 			}
@@ -288,8 +288,9 @@ public static class ItemEventHandlers
 				if (!isSelf && hurtBox.CanBeHit(hit))
 				{
 					// Query before Hit so Lethal sees pre-damage state. See DoMelee.
-					hitResult = hurtBox.QueryHitType(hit);
-					hitTriggers = hurtBox.QueryHitTriggers(hit);
+					HitPrediction prediction = hurtBox.QueryHit(hit);
+					hitResult = prediction.Result;
+					hitTriggers = prediction.Triggers;
 					hurtBox.Hit(hit);
 					hitPos = (Vector3)hurtResult["position"];
 					hitHurtBox = hurtBox;
@@ -1759,7 +1760,7 @@ public static class ItemEventHandlers
 
 	// Spawn the tier's crit / backstab overlays on top of the base impact fx.
 	// Called by Melee, Hitscan, and (via ProjectileImpact) the projectile path
-	// once a hurtbox hit lands; the receiver's HurtBox.QueryHitTriggers reports
+	// once a hurtbox hit lands; the receiver's HurtBox.QueryHit reports
 	// which trigger conditions held. Null tier or null scenes silently skip.
 	public static void SpawnTriggerOverlays(IActionActor actor, ItemAction tier, EDamageTriggerFlags triggers, Vector3 position)
 	{

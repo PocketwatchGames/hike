@@ -43,12 +43,12 @@ public struct HitInfo
 	public float blunt;
 	// Random sample in [0,1) drawn once at construction. Receivers compare
 	// it against the final `armorPenetration` (after modifiers fold) via
-	// `ArmorPenetrated` instead of re-rolling, so HurtBox.QueryHitType and
+	// `ArmorPenetrated` instead of re-rolling, so HurtBox.QueryHit and
 	// HurtBox.Hit always agree on whether the same swing penetrated armor.
 	public float armorPenetrationRoll;
 	// Random sample in [0,1) for the crit decision. Same pattern as armorPenetrationRoll
-	// — drawn once at construction so the attacker's QueryHitTriggers
-	// prediction and the receiver's Hit-time ApplyCrit agree on whether this
+	// — drawn once at construction so the attacker's QueryHit
+	// prediction and the receiver's Hit-time ResolveTriggers agree on whether this
 	// swing crits even though crit is now probabilistic (driven by the
 	// receiver's `Vulnerable` score).
 	public float critRoll;
@@ -104,6 +104,14 @@ public struct HitInfo
 	// attacker walking the receiver's tree. Defaults to Hostile when a sender
 	// doesn't set it (only matters for senders that actually gate).
 	public ETeam attackerTeam;
+	// Crit / backstab modifiers that actually folded onto this hit via
+	// ApplyTrigger. Populated receiver-side (Mob.ResolveTriggers) so a receiver
+	// can classify its floating HUD number as CRIT! / BACKSTAB! without
+	// recomputing the decision. Set only when a matching modifier was present and
+	// applied — a hit that is geometrically a crit/backstab but carries no such
+	// modifier leaves these clear, so the flag always reflects an applied result,
+	// not mere eligibility. OnDizzy has no HUD-text counterpart so isn't recorded.
+	public EDamageTriggerFlags triggers;
 	// Copy-on-first-write guard for `buildups` — the first AddBuildups fold
 	// clones the authored list before appending so the template is never mutated.
 	private bool _buildupsOwned;
@@ -114,6 +122,7 @@ public struct HitInfo
 		this.hitDirection = hitDirection;
 		this.attackerTeam = attackerTeam;
 		_buildupsOwned = false;
+		triggers = EDamageTriggerFlags.None;
 		// Roll armor penetration + crit once up-front so the prediction and the
 		// apply see the same outcome even though modifiers may shift the
 		// underlying fields between them.
@@ -167,6 +176,7 @@ public struct HitInfo
 		this.hitDirection = hitDirection;
 		this.attackerTeam = attackerTeam;
 		_buildupsOwned = false;
+		triggers = EDamageTriggerFlags.None;
 		armorPenetrationRoll = GD.Randf();
 		critRoll = GD.Randf();
 		if (template != null)
@@ -220,6 +230,11 @@ public struct HitInfo
 			DamageDataModifier mod = modifiers[i];
 			if (mod == null) { continue; }
 			if (mod.trigger != trigger) { continue; }
+			// A modifier for this trigger actually folded — record the flag from
+			// the real result so a receiver's HUD text / impact overlay reflects an
+			// applied crit/backstab rather than mere geometric eligibility.
+			if (trigger == EDamageTrigger.OnCrit) { triggers |= EDamageTriggerFlags.Crit; }
+			else if (trigger == EDamageTrigger.OnBackstab) { triggers |= EDamageTriggerFlags.Backstab; }
 			EDamageFields f = mod.overrides;
 			if ((f & EDamageFields.HealthDamage) != 0) { healthDamage = mod.healthDamage; }
 			if ((f & EDamageFields.Hitstun) != 0) { hitstun = mod.hitstun; }
@@ -232,6 +247,18 @@ public struct HitInfo
 				AddBuildups(mod.addBuildups);
 			}
 		}
+	}
+
+	// Floating-HUD classification for this hit's damage number. Backstab takes
+	// precedence over Crit (an unaware-mob backstab folds both, but BACKSTAB! is
+	// the rarer, more meaningful callout); a plain hit reads as DamageLight.
+	// Shared by the mob and player damage-received paths so both label crits and
+	// backstabs identically.
+	public EHudTextType HudDamageType()
+	{
+		if ((triggers & EDamageTriggerFlags.Backstab) != 0) { return EHudTextType.Backstab; }
+		if ((triggers & EDamageTriggerFlags.Crit) != 0) { return EHudTextType.Crit; }
+		return EHudTextType.DamageLight;
 	}
 
 	// Append effect contributions to this hit (conditional-modifier adds like a

@@ -19,7 +19,7 @@ public struct ProjectileImpact
 	public PackedScene armor;
 	public PackedScene lethal;
 	// Per-tier overlay fx layered on top of health/armor/lethal when the
-	// receiver's HurtBox.QueryHitTriggers reports the matching condition.
+	// receiver's HurtBox.QueryHit reports the matching condition.
 	// Carried by value (rather than holding the ItemAction ref) so the
 	// projectile doesn't outlive the action's runtime context.
 	public PackedScene crit;
@@ -446,8 +446,9 @@ public partial class Projectile : Node3D
 							goto AfterHurtSweep;
 						}
 						Vector3 hitPos = (Vector3)hurtResult["position"];
-						EHitResult hitResult = hurtBox.QueryHitType(hit);
-						EDamageTriggerFlags hitTriggers = hurtBox.QueryHitTriggers(hit);
+						HitPrediction prediction = hurtBox.QueryHit(hit);
+						EHitResult hitResult = prediction.Result;
+						EDamageTriggerFlags hitTriggers = prediction.Triggers;
 						hurtBox.Hit(hit);
 						GlobalPosition = hitPos;
 						// Record this creature so the shot can't strike it again as

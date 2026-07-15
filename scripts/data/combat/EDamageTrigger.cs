@@ -26,7 +26,7 @@ public enum EDamageTrigger
 }
 
 // Bitset of trigger conditions that fire on a single hit — populated by the
-// receiver (HurtBox.QueryHitTriggers) so the attacker can layer per-tier
+// receiver (HurtBox.QueryHit) so the attacker can layer per-tier
 // impact overlays (ItemAction.impactCritEffect / impactBackstabEffect) on
 // top of the base impact fx. OnDizzy isn't represented because it depends on
 // the cumulative buildup meter, which is mutated by the hit itself —

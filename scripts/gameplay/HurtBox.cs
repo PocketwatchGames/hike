@@ -4,20 +4,16 @@ using Godot;
 [GlobalClass]
 public partial class HurtBox : Area3D
 {
-    // Predict the result of a hit without applying it. Called by attackers
-    // before Hit() so the weapon can pick its impact effect locally — keeps
-    // damage application as a one-way notification, which leaves room for
-    // future networked play (the prediction runs on the client, the real
-    // damage application stays authoritative on the server).
-    public Func<HitInfo, EHitResult> GetHitType;
-
-    // Predict which damage triggers (crit, backstab, ...) would fire on this
-    // hit. Parallel to GetHitType — the attacker uses the returned flags to
-    // layer per-tier impact overlays (ItemAction.impactCritEffect /
-    // impactBackstabEffect) on top of the base impact fx. Unset on receivers
-    // that don't surface triggers (props, the player); QueryHitTriggers
-    // returns None in that case.
-    public Func<HitInfo, EDamageTriggerFlags> GetHitTriggers;
+    // Predict the result of a hit without applying it — the resolved EHitResult
+    // plus the crit/backstab flags that would fold, in one pass. Called by
+    // attackers before Hit() so the weapon can pick its base impact effect and
+    // its per-tier crit/backstab overlays (ItemAction.impactCritEffect /
+    // impactBackstabEffect) locally. Keeps damage application a one-way
+    // notification, which leaves room for future networked play (the prediction
+    // runs on the client, the real damage application stays authoritative on the
+    // server). Unset on receivers that don't resolve hits — QueryHit returns
+    // HitPrediction.None in that case.
+    public Func<HitInfo, HitPrediction> PredictHit;
 
     // Apply damage to the receiver. One-way: receiver doesn't report back.
     public Action<HitInfo> OnHit;
@@ -38,14 +34,9 @@ public partial class HurtBox : Area3D
         return CanHit == null || CanHit(hit);
     }
 
-    public EHitResult QueryHitType(HitInfo hit)
+    public HitPrediction QueryHit(HitInfo hit)
     {
-        return GetHitType != null ? GetHitType(hit) : EHitResult.None;
-    }
-
-    public EDamageTriggerFlags QueryHitTriggers(HitInfo hit)
-    {
-        return GetHitTriggers != null ? GetHitTriggers(hit) : EDamageTriggerFlags.None;
+        return PredictHit != null ? PredictHit(hit) : HitPrediction.None;
     }
 
     public void Hit(HitInfo hit)
