@@ -2060,15 +2060,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return sky01 >= (_world?.SimData?.mobWetRainSkyThreshold ?? 0.5f);
     }
 
-    // Darkness creatures (gellies) burn in direct sunlight. Rather than a bespoke
+    // Darkness creatures (slimes) burn in direct sunlight. Rather than a bespoke
     // damage path, sun exposure just feeds buildup into the shared sunburn status
     // (SimData.mobSunburnStatusEffect, the same fire DoT + flame FX a flaming
     // weapon applies) — the status controller then owns the ignite, the damage,
     // the once-per-second HUD rollup, and the burn-out. Buildup rate is the mob's
-    // sunburnBuildupPerSecond scaled by sun elevation (SkyController.SunFactor, 0
-    // at night) and open-sky exposure (GetSkyExposure01, 0 under a roof / canopy /
-    // in a cave), so it only ignites in the open by day and partial shade is
-    // slower; leaving the sun stops the fuel and the status decays out.
+    // sunburnBuildupPerSecond scaled by World.SunBurnExposure (sun elevation ×
+    // open-sky exposure — the SHARED "where the sun burns" the darkness-dwell and
+    // spawn gates also read), so it only ignites in the open by day and partial
+    // shade is slower; leaving the sun stops the fuel and the status decays out.
     private void TickSunburn(float dt)
     {
         float rate = mobData?.sunburnBuildupPerSecond ?? 0f;
@@ -2077,16 +2077,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
-        float sunFactor = SkyController.Current?.SunFactor ?? 0f;
-        if (sunFactor <= 0f)
+        float burn = _world.SunBurnExposure(GlobalPosition + Vector3.Up);
+        if (burn > 0f)
         {
-            return;
-        }
-        float sky01 = _world?.WorldState?.GetSkyExposure01(GlobalPosition + Vector3.Up) ?? 0f;
-        float delta = rate * sunFactor * sky01 * dt;
-        if (delta > 0f)
-        {
-            _statusEffects.AddBuildup(sunburn, delta);
+            _statusEffects.AddBuildup(sunburn, rate * burn * dt);
         }
     }
 

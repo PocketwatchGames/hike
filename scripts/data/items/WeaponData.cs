@@ -173,6 +173,13 @@ public partial class WeaponData : ItemData
 	// buff / battle cry from firing into an empty field. See BehaviorAttack.
 	[Export] public int minAllies = 0;
 	[Export] public float allyRange = 8f;
+	// AI treats this as a REACTIVE weapon: the mob never approaches to bring it to
+	// bear (it fires only when the target is already inside maxAttackRange) and it
+	// never drives the mob's hold/standoff distance. For a skirmisher's short-range
+	// fallback — a ranged mob's melee — so the mob kites at its ranged weapon's
+	// desiredAttackRange and only lashes out with this when the target closes into
+	// reach. Default false = an ordinary weapon the mob closes in to use.
+	[Export] public bool aiReactiveOnly = false;
 
 	[ExportGroup("Blocking")]
 	// Recharging "guard" armor that is active ONLY while the player is

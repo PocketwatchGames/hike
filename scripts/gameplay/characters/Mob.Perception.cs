@@ -342,14 +342,14 @@ public partial class Mob
                     float unlit = blind > 0f
                         ? Mathf.Clamp(1f - _world.PlayerBlockLight01 / blind, 0f, 1f)
                         : (_world.PlayerBlockLight01 <= 0f ? 1f : 0f);
-                    float gellyLight = Mathf.Max(Mathf.Pow(unlit, mobData.darknessVisionCurve), mobData.darknessSightFloor);
-                    playerLight = Mathf.Lerp(playerLight, gellyLight, mobData.darknessPerceptionWeight);
+                    float slimeLight = Mathf.Max(Mathf.Pow(unlit, mobData.darknessVisionCurve), mobData.darknessSightFloor);
+                    playerLight = Mathf.Lerp(playerLight, slimeLight, mobData.darknessPerceptionWeight);
                 }
                 float stealthTerm = Mathf.Clamp(playerLight * _world.player.visibilitySpeed * _world.player.visibilityCamouflage, 0f, 1f)
                     * _world.player.data.prominence;
                 // A triggered mob is normally locked on (ignores stealth). For a
                 // darkness creature the lock is softened by its weight, so a player
-                // who reaches the light can still slip a hunting gelly — its
+                // who reaches the light can still slip a hunting slime — its
                 // perception then drains through the usual memory window.
                 float playerStealth = target.triggered
                     ? Mathf.Lerp(1f, stealthTerm, mobData.darknessPerceptionWeight)

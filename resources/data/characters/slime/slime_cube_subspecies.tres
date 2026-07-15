@@ -2,15 +2,15 @@
 
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="1_6t5q5"]
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
-[ext_resource type="Resource" uid="uid://c8xx8isjcaxdl" path="res://resources/data/characters/gelly/gelly_cube.tres" id="2_mob"]
+[ext_resource type="Resource" uid="uid://c8xx8isjcaxdl" path="res://resources/data/characters/slime/slime_cube.tres" id="2_mob"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_ew0cg"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_wd"]
-[ext_resource type="Resource" uid="uid://f2ndl4f70s5y" path="res://resources/data/characters/gelly/gelly_slam.tres" id="4_slam"]
+[ext_resource type="Resource" uid="uid://f2ndl4f70s5y" path="res://resources/data/characters/slime/slime_slam.tres" id="4_slam"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_rqcar"]
 
 [resource]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
-displayName = &"Gelatinous Cube"
+displayName = &"Slime Cube"
 weapons = Array[ExtResource("3_wd")]([ExtResource("4_slam")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

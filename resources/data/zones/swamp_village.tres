@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ZoneData" format=3 uid="uid://c4823dvmhngig"]
+
+[ext_resource type="Resource" path="res://resources/audio/swamp_ambience.tres" id="1_6gauu"]
+[ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="2_w6w3s"]
+[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="3_dc76l"]
+
+[sub_resource type="Resource" id="Resource_weather"]
+script = ExtResource("3_dc76l")
+cloudCover = 0.75
+windSpeed = 1.5
+airTemperature = 75.0
+sunTemperature = 20.0
+humidity = 0.65
+lightningAmount = 0.0
+metadata/_custom_type_script = "uid://d25sc6n2mi728"
+
+[resource]
+script = ExtResource("2_w6w3s")
+sunColor = Color(0.8423333, 0.95, 0.627, 1)
+moonColor = Color(0.51, 0.68, 0.6346667, 1)
+skyColor = Color(0.4235, 0.54156667, 0.55, 1)
+dustColor = Color(0.4878, 0.54, 0.38340002, 1)
+waterColor = Color(0.10119999, 0.22, 0.1606, 1)
+waterOpacity = 0.75
+dustAmount = 0.15
+weather = SubResource("Resource_weather")
+ambience = ExtResource("1_6gauu")
+canSpawnFairy = true

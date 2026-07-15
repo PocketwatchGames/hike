@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
 [ext_resource type="Resource" uid="uid://1cq5ykh52tde" path="res://resources/data/characters/creatures/creature_hostile_brain.tres" id="2_brain"]
-[ext_resource type="Texture2D" uid="uid://f6bi7p5iomjp" path="res://assets/textures/portraits/gelly_cube.png" id="3_m1kuv"]
-[ext_resource type="PackedScene" uid="uid://bwvybycq0gt5j" path="res://scenes/characters/gelly_cube.tscn" id="3_scene"]
+[ext_resource type="Texture2D" uid="uid://f6bi7p5iomjp" path="res://assets/textures/portraits/slime_cube.png" id="3_m1kuv"]
+[ext_resource type="PackedScene" uid="uid://bwvybycq0gt5j" path="res://scenes/characters/slime_cube.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="5_c2ojg"]
 
@@ -55,7 +55,7 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [resource]
 script = ExtResource("1_mobdata")
-displayName = &"Gelatinous Cube"
+displayName = &"Slime Cube"
 darknessPerceptionWeight = 1.0
 dangerous = true
 canBeBackstabbed = false

@@ -6,13 +6,13 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_64pvx"]
 [ext_resource type="Resource" uid="uid://3lnulrnyn5ro" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp_mud.tres" id="5_4e0co"]
 [ext_resource type="Resource" uid="uid://dyxoe4k26a80k" path="res://resources/data/world_gen/terrain_gen/swamp_mud_kit.tres" id="6_4e0co"]
-[ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/zones/swamp.tres" id="7_vxlne"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_6p0r5"]
 [ext_resource type="Resource" uid="uid://cdm5utxowkgje" path="res://resources/data/world_gen/fixtures/swamp_mud_fixtures.tres" id="9_hermit"]
+[ext_resource type="Resource" uid="uid://4od2uivsll01" path="res://resources/data/zones/swamp_mud.tres" id="9_p15ox"]
 
 [resource]
 script = ExtResource("8_6p0r5")
-zone = ExtResource("7_vxlne")
+zone = ExtResource("9_p15ox")
 surfaceKit = ExtResource("6_4e0co")
 caveKit = ExtResource("2_p15ox")
 submergedKit = ExtResource("4_64pvx")

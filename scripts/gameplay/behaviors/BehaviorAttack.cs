@@ -110,7 +110,7 @@ public partial class BehaviorAttack : BehaviorBase
         // the profile out of vertical reach — the cooldown isn't bumped and
         // ActionRunner's rejectEffect doesn't fire every tick against a target one
         // plateau up. Fire it the instant we're inside its maxAttackRange.
-        WeaponData readyWeapon = ChooseReadyWeapon(me, time, diff.Y, canSee);
+        WeaponData readyWeapon = ChooseReadyWeapon(me, time, diff.Y, dist2d, canSee);
         // Post-cooldown behavior pause. Once a weapon clears its fixed cooldown
         // we hold one extra (authored) beat — circling the ring — before the
         // swing commits, so attacks aren't a tight cooldown loop and there's a
@@ -200,16 +200,18 @@ public partial class BehaviorAttack : BehaviorBase
         // wrong spot and never closing for an attack, which is canSee-gated).
         // Keyed off targetPos, the ring sits on the last-known spot until the
         // mob reacquires line of sight, matching where it's facing.
-        // Standoff distance splits by intent. When a weapon is ready we close to
-        // its desiredAttackRange (which sits inside maxAttackRange) so the swing
-        // actually lands; with everything on cooldown we fall back to the
-        // encircle ring to spread out and wait between swings. This split is why
-        // encircleDistance may sit at — or beyond — maxAttackRange without
-        // freezing the mob: the attack approach never holds at the ring.
+        // Standoff distance splits by intent. When a non-reactive weapon is ready
+        // we close to its desiredAttackRange (which sits inside maxAttackRange) so
+        // the swing lands; with everything on cooldown — or when the only ready
+        // weapon is reactive (a kiter's melee, which must never pull the mob in) —
+        // we hold at the ring / ranged standoff and wait. This split is why
+        // encircleDistance may sit at — or beyond — maxAttackRange without freezing
+        // the mob: the attack approach never holds at the ring.
         Vector3 standoff;
-        float standoffDistance = (ready != null)
+        float holdDistance = (_data.encircleDistance > 0f) ? _data.encircleDistance : ClosestDesiredRange(me);
+        float standoffDistance = (ready != null && !ready.aiReactiveOnly)
             ? ready.desiredAttackRange
-            : ((_data.encircleDistance > 0f) ? _data.encircleDistance : ClosestDesiredRange(me));
+            : holdDistance;
         if (slotIdx < 0)
         {
             float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
@@ -263,11 +265,13 @@ public partial class BehaviorAttack : BehaviorBase
     // allies nearby. 2D distance is deliberately NOT gated here — the caller
     // closes to the weapon's desiredAttackRange and fires once inside its
     // maxAttackRange — so a mob whose encircle ring sits outside attack range
-    // still approaches and swings. Ties break toward the earlier weapon in the
-    // list. Returns null when nothing qualifies (all on cooldown, out of
-    // vertical reach, can't see, or the mob has no weapons), in which case the
-    // mob holds at the encircle ring.
-    private WeaponData ChooseReadyWeapon(Mob me, ulong time, float diffY, bool canSee)
+    // still approaches and swings. The exception is an aiReactiveOnly weapon,
+    // which IS distance-gated here (only eligible inside its maxAttackRange) so
+    // the mob never closes for it — a kiter's reactive melee. Ties break toward
+    // the earlier weapon in the list. Returns null when nothing qualifies (all on
+    // cooldown, out of vertical reach, can't see, or the mob has no weapons), in
+    // which case the mob holds at the encircle ring.
+    private WeaponData ChooseReadyWeapon(Mob me, ulong time, float diffY, float dist2d, bool canSee)
     {
         if (!canSee)
         {
@@ -303,6 +307,13 @@ public partial class BehaviorAttack : BehaviorBase
             {
                 continue;
             }
+            // A reactive weapon is never approached for — it's eligible only once
+            // the target is already inside its reach, so a ranged kiter doesn't
+            // close to melee between shots.
+            if (w.aiReactiveOnly && dist2d > w.maxAttackRange)
+            {
+                continue;
+            }
             if (_weaponCooldownUntilMs.TryGetValue(w, out ulong until) && time < until)
             {
                 continue;
@@ -317,24 +328,40 @@ public partial class BehaviorAttack : BehaviorBase
     }
 
     // Standoff fallback when encircleDistance isn't authored: the closest desired
-    // range among the mob's weapons, so the mob closes to within reach of all of
-    // them. Defaults when the mob has no weapons authoring a range.
+    // range among the mob's NON-reactive weapons, so the mob holds within reach of
+    // the weapons it actually closes to use. Reactive weapons (a kiter's melee) are
+    // excluded so they don't collapse the hold distance onto melee range — the
+    // mob kites at its ranged weapon's range instead. Falls back to including
+    // reactive weapons only if that's all the mob has, then to the default.
     private static float ClosestDesiredRange(Mob me)
     {
         Godot.Collections.Array<WeaponData> weapons = me.Weapons;
-        float best = float.MaxValue;
+        float bestNonReactive = float.MaxValue;
+        float bestAny = float.MaxValue;
         if (weapons != null)
         {
             for (int i = 0; i < weapons.Count; i++)
             {
                 WeaponData w = weapons[i];
-                if (w != null && w.desiredAttackRange < best)
+                if (w == null)
                 {
-                    best = w.desiredAttackRange;
+                    continue;
+                }
+                if (w.desiredAttackRange < bestAny)
+                {
+                    bestAny = w.desiredAttackRange;
+                }
+                if (!w.aiReactiveOnly && w.desiredAttackRange < bestNonReactive)
+                {
+                    bestNonReactive = w.desiredAttackRange;
                 }
             }
         }
-        return best == float.MaxValue ? DefaultStandoffDistance : best;
+        if (bestNonReactive != float.MaxValue)
+        {
+            return bestNonReactive;
+        }
+        return bestAny != float.MaxValue ? bestAny : DefaultStandoffDistance;
     }
 
     protected void ReleaseSlot(Mob me)
@@ -364,7 +391,9 @@ public partial class BehaviorAttack : BehaviorBase
         }
         _allyScratch.Clear();
         hash.QueryRadius(me.GlobalPosition, radius, _allyScratch);
-        ETeam team = me.mobData.team;
+        // Runtime ActorTeam + Teams.AreAllied, mirroring DoApplyAreaStatusEffect
+        // so the ally gate counts exactly the mobs the cry will actually buff.
+        ETeam team = me.ActorTeam;
         int count = 0;
         // The crier counts itself — a goblin alone still has someone to buff
         // (itself) when minAllies = 1 is authored. Authors who don't want
@@ -380,7 +409,7 @@ public partial class BehaviorAttack : BehaviorBase
             {
                 continue;
             }
-            if (m.mobData.team == team)
+            if (Teams.AreAllied(team, m.ActorTeam))
             {
                 count++;
             }

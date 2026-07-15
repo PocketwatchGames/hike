@@ -6,13 +6,13 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_b1dty"]
 [ext_resource type="Resource" uid="uid://ge7gvocm4hnn" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp_highlands.tres" id="5_4w8xh"]
 [ext_resource type="Resource" uid="uid://csjvdcg5sawpo" path="res://resources/data/world_gen/terrain_gen/swamp_highlands_kit.tres" id="6_4w8xh"]
-[ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/zones/swamp.tres" id="7_cpg00"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_4e6x3"]
 [ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="9_ruins"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_grp"]
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="11_base"]
 [ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="12_stone"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="13_stonescene"]
+[ext_resource type="Resource" uid="uid://xbjl27pt7p61" path="res://resources/data/zones/swamp_highlands.tres" id="14_cpg00"]
 [ext_resource type="Resource" path="res://resources/data/languages/muddish.tres" id="14_lang"]
 
 [sub_resource type="Resource" id="Stone_highlands"]
@@ -37,7 +37,7 @@ metadata/_custom_type_script = "uid://dbxatq73lngxy"
 
 [resource]
 script = ExtResource("8_4e6x3")
-zone = ExtResource("7_cpg00")
+zone = ExtResource("14_cpg00")
 surfaceKit = ExtResource("6_4w8xh")
 caveKit = ExtResource("2_5sonw")
 submergedKit = ExtResource("4_b1dty")

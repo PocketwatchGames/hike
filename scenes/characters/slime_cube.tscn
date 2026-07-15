@@ -14,8 +14,8 @@
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/fx/water_enter_splash.tscn" id="14_watenter"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
-[ext_resource type="PackedScene" uid="uid://bgs5uoj10t5nx" path="res://assets/models/characters/gelly_cube/gelly_cube.fbx" id="20_gellyfbx"]
-[ext_resource type="Material" path="res://resources/materials/gelly_cube_lit.tres" id="22_gellymat"]
+[ext_resource type="PackedScene" uid="uid://bgs5uoj10t5nx" path="res://assets/models/characters/gelly_cube/gelly_cube.fbx" id="20_slimefbx"]
+[ext_resource type="Material" path="res://resources/materials/slime_cube_lit.tres" id="22_slimemat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 
@@ -58,10 +58,10 @@ metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=1501703280]
 
-[node name="GellyCubeModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=723800658]
+[node name="SlimeCubeModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=723800658]
 transform = Transform3D(2.5, 0, 0, 0, 2.5, 0, 0, 0, 2.5, 0, 0, 0)
 
-[node name="gelly_cube" parent="Visuals/MeshContainer/GellyCubeModel" unique_id=985924513 instance=ExtResource("20_gellyfbx")]
+[node name="slime_cube" parent="Visuals/MeshContainer/SlimeCubeModel" unique_id=985924513 instance=ExtResource("20_slimefbx")]
 transform = Transform3D(0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 0, 0, 0)
 
 [node name="HudAnchor" type="Node3D" parent="Visuals" unique_id=1878095919]
@@ -82,10 +82,10 @@ shape = SubResource("CapsuleShape3D_hurt")
 
 [node name="PixelSnap" type="Node" parent="." unique_id=1318493950 node_paths=PackedStringArray("_target")]
 script = ExtResource("40_pixelsnap")
-_target = NodePath("../Visuals/MeshContainer/GellyCubeModel")
+_target = NodePath("../Visuals/MeshContainer/SlimeCubeModel")
 
 [node name="ModelAnimator" type="Node" parent="." unique_id=1014119446 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("30_modelanim")
-player = NodePath("../Visuals/MeshContainer/GellyCubeModel/gelly_cube/AnimationPlayer")
-visual = NodePath("../Visuals/MeshContainer/GellyCubeModel")
-modelMaterial = ExtResource("22_gellymat")
+player = NodePath("../Visuals/MeshContainer/SlimeCubeModel/slime_cube/AnimationPlayer")
+visual = NodePath("../Visuals/MeshContainer/SlimeCubeModel")
+modelMaterial = ExtResource("22_slimemat")

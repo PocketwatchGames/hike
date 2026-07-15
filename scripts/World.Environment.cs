@@ -118,6 +118,43 @@ public partial class World
         return _worldState.GetPerceivedLightWorld(pos, inSun);
     }
 
+    // How much DIRECT SUN hits `pos` [0, 1+]: sun elevation factor (0 at night,
+    // up to 1 at noon) × open-sky exposure (0 under a roof / canopy / in a cave, 1
+    // in the open). > 0 means a sun-vulnerable mob (slime) would take sunburn here
+    // — and, crucially, this is independent of cloud/fog dimming, so a cloudy-day
+    // clearing that reads DIM to perceived-light still counts as a burn spot. The
+    // single source of truth shared by the sunburn DoT (Mob.TickSunburn), the
+    // darkness-dwell gate, and the night spawn-location gate so all three agree on
+    // where the sun burns.
+    public float SunBurnExposure(Vector3 pos)
+    {
+        float sunFactor = SkyController.Current?.SunFactor ?? 0f;
+        if (sunFactor <= 0f)
+        {
+            return 0f;
+        }
+        return sunFactor * _worldState.GetSkyExposure01(pos);
+    }
+
+    // Continuous "shade" factor [0,1] at `pos`: 1 in true shade / at night (no sun
+    // burns here), falling to 0 as direct-sun exposure reaches
+    // SimData.sunShadeFullExposure. The natural, falloff-based counterpart to the
+    // sunburn DoT — multiply it into darkness buildup and slime spawn weight so
+    // both smoothly vanish exactly where the sun starts cooking slimes (weight 0 in
+    // real sun = never placed there), rather than a hard boolean gate. Independent
+    // of cloud/fog dimming (keys on sun elevation), so a dim-but-open cloudy noon
+    // still reads as full sun and zero shade.
+    public float SunShade01(Vector3 pos)
+    {
+        float full = _worldState.SimData?.sunShadeFullExposure ?? 0.15f;
+        float exposure = SunBurnExposure(pos);
+        if (full <= 0f)
+        {
+            return exposure > 0f ? 0f : 1f;
+        }
+        return 1f - Mathf.Clamp(exposure / full, 0f, 1f);
+    }
+
     // Downward physics ray to find the ground surface under `query`: casts from
     // `heightAbove` above the point straight down to `depthBelow` below it and
     // returns the first Solid hit in `ground`. Returns false off the map / over a

@@ -4,7 +4,7 @@
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glob"]
 shading_mode = 0
-albedo_color = Color(0.32, 0.62, 0.95, 1)
+albedo_color = Color(0.9, 0.15, 0.9, 1)
 
 [sub_resource type="SphereMesh" id="SphereMesh_glob"]
 material = SubResource("StandardMaterial3D_glob")
@@ -13,7 +13,7 @@ height = 0.5
 radial_segments = 10
 rings = 6
 
-[node name="GellyGlob" type="Node3D"]
+[node name="SlimeGlob" type="Node3D"]
 script = ExtResource("1_proj")
 
 [node name="Model" type="MeshInstance3D" parent="."]

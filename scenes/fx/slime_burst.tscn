@@ -5,7 +5,7 @@
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="3_plit"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="4_puff"]
 [ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="5_fade"]
-[ext_resource type="Material" path="res://resources/materials/decal_ring_gelly.tres" id="6_ring"]
+[ext_resource type="Material" path="res://resources/materials/decal_ring_slime.tres" id="6_ring"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_zone"]
 radius = 2.0
@@ -25,14 +25,14 @@ damping_min = 0.3
 damping_max = 0.8
 scale_min = 1.2
 scale_max = 2.2
-color = Color(0.4, 0.72, 1, 1)
+color = Color(0.9, 0.2, 0.95, 1)
 color_ramp = ExtResource("5_fade")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_burst"]
 render_priority = 0
 shader = ExtResource("3_plit")
 shader_parameter/albedo_texture = ExtResource("4_puff")
-shader_parameter/albedo = Color(0.4, 0.72, 1, 0.55)
+shader_parameter/albedo = Color(0.9, 0.2, 0.95, 0.55)
 shader_parameter/emission = Color(0, 0, 0, 0)
 shader_parameter/use_vertex_color = true
 
@@ -40,7 +40,7 @@ shader_parameter/use_vertex_color = true
 material = SubResource("ShaderMaterial_burst")
 size = Vector2(0.9, 0.9)
 
-[node name="GellyBurst" type="Node3D" node_paths=PackedStringArray("_dangerZone")]
+[node name="SlimeBurst" type="Node3D" node_paths=PackedStringArray("_dangerZone")]
 script = ExtResource("1_gas")
 lifetimeSeconds = 0.5
 _dangerZone = NodePath("DamageZone")

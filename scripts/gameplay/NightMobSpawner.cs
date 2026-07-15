@@ -82,7 +82,7 @@ public partial class NightMobSpawner : Node
         float danger = Danger(world, data);
         float interval = Mathf.Lerp(data.nightSpawnSlowIntervalSeconds, data.nightSpawnIntervalSeconds, danger);
 
-        // Population cap scales with danger; below ~one gelly's worth it rounds to
+        // Population cap scales with danger; below ~one slime's worth it rounds to
         // zero and nothing spawns (a calm moonlit dusk, a lit daytime field).
         int target = Mathf.RoundToInt(data.nightSpawnMaxPopulation * danger);
         int current = CountLiveNightMobs(world, data);
@@ -145,7 +145,7 @@ public partial class NightMobSpawner : Node
         return Mathf.Max(timeDanger, world.DarknessDwell);
     }
 
-    // Dump every input that feeds gelly spawning plus the candidate `pool` size
+    // Dump every input that feeds slime spawning plus the candidate `pool` size
     // (collected by the caller), and a one-word reason nothing is spawning, so the
     // mechanic can be diagnosed. Toggle with `night_spawn_debug 1`.
     private void PrintDebug(World world, SimData data, float danger, int target, int current, float interval, int pool)
@@ -279,11 +279,21 @@ public partial class NightMobSpawner : Node
             {
                 continue;
             }
+            // Sun-shade falloff: weight is multiplied by SunShade01, which is 0
+            // wherever a slime would burn (open-sky daytime — even a dim cloudy
+            // clearing, and even a cave mouth within range), so those cells drop to
+            // weight 0 and are never picked, smoothly ramping in at dawn/dusk. Same
+            // exposure signal as the sunburn DoT.
+            float shade = world.SunShade01(sample);
+            if (shade <= 0f)
+            {
+                continue;
+            }
             // Darkness weight — darker preferred. Shadow-only reading (no raycast)
             // folds moonlight + block so caves outrank moonlit ground.
             float light = world.WorldState.GetPerceivedLightWorld(sample, sunReachesPoint: false);
             float darkness = Mathf.Clamp(1f - light, 0f, 1f);
-            float weight = Mathf.Pow(darkness, data.nightSpawnDarknessBias) + 0.0001f;
+            float weight = (Mathf.Pow(darkness, data.nightSpawnDarknessBias) + 0.0001f) * shade;
             _candidates.Add(new SpawnCandidate { Pos = _standable[k], Weight = weight });
         }
     }

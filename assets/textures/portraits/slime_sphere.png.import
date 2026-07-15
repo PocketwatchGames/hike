@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://rd8lhukcw0hw"
-path="res://.godot/imported/gelly_sphere.png-98b0e3630c08ff63163c44902fb1c2aa.ctex"
+path="res://.godot/imported/slime_sphere.png-0477f6204e0b326abcb6c4193e1ebf00.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/portraits/gelly_sphere.png"
-dest_files=["res://.godot/imported/gelly_sphere.png-98b0e3630c08ff63163c44902fb1c2aa.ctex"]
+source_file="res://assets/textures/portraits/slime_sphere.png"
+dest_files=["res://.godot/imported/slime_sphere.png-0477f6204e0b326abcb6c4193e1ebf00.ctex"]
 
 [params]
 

@@ -29,6 +29,7 @@ type = 32768
 effects = Array[ExtResource("6_effect")]([SubResource("Resource_apply_buff")])
 fx = ExtResource("8_yellfx")
 areaRadius = 8.0
+areaMaxTargets = 3
 
 [sub_resource type="Resource" id="Resource_action_cry"]
 script = ExtResource("3_action")

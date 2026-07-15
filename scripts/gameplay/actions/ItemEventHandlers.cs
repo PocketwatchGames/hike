@@ -1413,14 +1413,19 @@ public static class ItemEventHandlers
 		}
 	}
 
-	// Pulse-applies each entry in ev.effects to every alive same-team Mob
-	// inside an ev.areaRadius sphere around the actor (the source mob itself
-	// is included — a battle cry buffs the crier too). ev.fx fires once at
-	// the actor as the source-side audiovisual cue. Player-sourced cries are
-	// not authored today; the handler no-ops when the actor isn't a Mob
-	// rather than guess at "Player friendlies" semantics — flip it on by
-	// adding a Player.Team branch when a player buff is wanted.
+	// A targeted rally: pulse-applies each entry in ev.effects to the crier
+	// itself (always, for free) plus up to ev.areaMaxTargets allied Mobs picked
+	// from an ev.areaRadius sphere around the actor. Eligibility is allied
+	// (same ActorTeam side, per Teams.AreAllied) AND either the crier's own
+	// species (same base MobData) or an already-triggered mob of another species
+	// — so an idle lurker standing near a goblin warband is never rallied, but a
+	// lurker already in the fight can be. Recipients are chosen closest-first,
+	// own-species before other-species. ev.fx fires once at the actor as the
+	// source-side audiovisual cue. The handler no-ops when the actor isn't a Mob
+	// rather than guess at "Player friendlies" semantics — flip it on by adding a
+	// Player branch when a player-sourced cry is wanted.
 	private static readonly System.Collections.Generic.List<Mob> _areaBuffScratch = new();
+	private static readonly System.Collections.Generic.List<Mob> _areaBuffEligible = new();
 	public static void DoApplyAreaStatusEffect(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (ev.effects == null || ev.effects.Count == 0)
@@ -1435,6 +1440,9 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
+		// The crier always buffs itself, and it does NOT count against the ally
+		// cap — ev.areaMaxTargets bounds how many OTHERS it rallies.
+		ApplyAreaBuff(sourceMob, ev, ref action);
 		float radius = ev.areaRadius;
 		if (radius <= 0f)
 		{
@@ -1445,26 +1453,65 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		ETeam team = sourceMob.mobData.team;
+		ETeam sourceTeam = sourceMob.ActorTeam;
+		MobData sourceSpecies = sourceMob.mobData;
+		Vector3 origin = actor.ActorWorldPosition;
 		_areaBuffScratch.Clear();
-		hash.QueryRadius(actor.ActorWorldPosition, radius, _areaBuffScratch);
+		hash.QueryRadius(origin, radius, _areaBuffScratch);
+		_areaBuffEligible.Clear();
 		for (int i = 0; i < _areaBuffScratch.Count; i++)
 		{
 			Mob target = _areaBuffScratch[i];
-			if (target == null || !target.alive || target.mobData == null || target.mobData.team != team)
+			if (target == null || target == sourceMob || !target.alive || target.mobData == null)
 			{
 				continue;
 			}
-			for (int j = 0; j < ev.effects.Count; j++)
+			if (!Teams.AreAllied(sourceTeam, target.ActorTeam))
 			{
-				ItemEffect effect = ev.effects[j];
-				if (effect != null)
-				{
-					effect.Apply(target, action.context);
-				}
+				continue;
 			}
+			// Own species always qualifies; another species only while it's
+			// already engaged (triggered).
+			bool sameSpecies = target.mobData == sourceSpecies;
+			if (!sameSpecies && !target.IsTriggered)
+			{
+				continue;
+			}
+			_areaBuffEligible.Add(target);
+		}
+		// Closest-first, own species before other species.
+		_areaBuffEligible.Sort((a, b) =>
+		{
+			bool aSame = a.mobData == sourceSpecies;
+			bool bSame = b.mobData == sourceSpecies;
+			if (aSame != bSame)
+			{
+				return aSame ? -1 : 1;
+			}
+			float da = (a.GlobalPosition - origin).LengthSquared();
+			float db = (b.GlobalPosition - origin).LengthSquared();
+			return da.CompareTo(db);
+		});
+		int cap = ev.areaMaxTargets > 0 ? ev.areaMaxTargets : _areaBuffEligible.Count;
+		int applied = 0;
+		for (int i = 0; i < _areaBuffEligible.Count && applied < cap; i++, applied++)
+		{
+			ApplyAreaBuff(_areaBuffEligible[i], ev, ref action);
 		}
 		_areaBuffScratch.Clear();
+		_areaBuffEligible.Clear();
+	}
+
+	private static void ApplyAreaBuff(Mob target, ItemEvent ev, ref PlayerAction action)
+	{
+		for (int j = 0; j < ev.effects.Count; j++)
+		{
+			ItemEffect effect = ev.effects[j];
+			if (effect != null)
+			{
+				effect.Apply(target, action.context);
+			}
+		}
 	}
 
 	public static void DoDecrementStack(IActionActor actor, ItemEvent ev, ref PlayerAction action)

@@ -984,7 +984,7 @@ public partial class SimData : Resource
     // The whole mechanic runs off ONE danger scalar = max(time-of-day term,
     // darkness dwell). Both live on [0,1]; danger drives spawn rate, population
     // cap, AND level together. The player's own light is NOT a spawn input — it's
-    // the separate concealment axis (gelly vision, MobData.darkness*). See
+    // the separate concealment axis (slime vision, MobData.darkness*). See
     // World.DarknessDwell / NightMobSpawner.
 
     // Shapes the TIME term: pow(nightProgress, this), where nightProgress is 0 at
@@ -1007,6 +1007,14 @@ public partial class SimData : Resource
     // Seconds for the darkness dwell to drain to 0 in full light — how fast the
     // danger cools once the player reaches a bright/open/daylit spot.
     [Export(PropertyHint.Range, "1,120,1")] public float nightDarkFallSeconds = 15f;
+    // Direct-sun exposure (World.SunBurnExposure = sun elevation × open-sky) at
+    // which the "shade" factor hits 0 — darkness stops building and slimes stop
+    // spawning (they'd burn). Below it, shade ramps up linearly, so only deep
+    // dawn/dusk twilight (sun barely up) tolerates slimes in the open. Low so any
+    // real daytime sun fully excludes them; 0 makes it a hard on/off gate. Shared
+    // by the darkness-dwell gate and the spawn-cell weight; the sunburn DoT reads
+    // the same exposure so all three agree on where the sun burns.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float sunShadeFullExposure = 0.15f;
 
     // Spawn interval (s) at full danger (fast) and near-zero danger (slow); the
     // live interval lerps between them by danger, so the dark ramps spawns up.
@@ -1045,6 +1053,36 @@ public partial class SimData : Resource
     // / outgoing damage and shows as level+1 HUD pips. Already-spawned mobs keep
     // the level they arrived at; only new spawns scale up.
     [Export(PropertyHint.Range, "0,4,1")] public int nightSpawnMaxLevel = 4;
+
+    [ExportGroup("Fairy Ambient Spawn")]
+    // The fairy the FairySpawner materializes near the player at a few points across
+    // the day (its daytime sibling to the NightMobSpawner). Null = the fairy spawner
+    // stays dormant (no cost). WHICH zones spawn fairies — and how likely — is
+    // authored per zone on ZoneData.canSpawnFairy / fairySpawnChance, read live at
+    // the player's location. Spawns are TRANSIENT (World.SpawnMobTransient with
+    // ESpawnConditions.None), so like the night gellies they live only near the
+    // player and are never persisted.
+    [Export] public MobDescriptor fairySpawnDescriptor;
+
+    // The day (sunrise → midnight, WorldState.TimeOfDay01 in [0,1]) is split into
+    // this many equal blocks. One spawn is attempted on entering each block EXCEPT
+    // the first, so at most (fairyDayPeriods - 1) fairies are attempted per day —
+    // further capped by FairyMaxSpawnsPerDay.
+    [Export(PropertyHint.Range, "2,12,1")] public int fairyDayPeriods = 6;
+
+    // Hard ceiling on fairies spawned in a single day, regardless of how many blocks
+    // roll successfully. Counters reset on the day rollover (sleep-to-sunrise).
+    [Export(PropertyHint.Range, "1,20,1")] public int fairyMaxSpawnsPerDay = 5;
+
+    // Once the player has killed this many fairies in a day, no more spawn until the
+    // next day.
+    [Export(PropertyHint.Range, "1,20,1")] public int fairyKillStopCount = 3;
+
+    // Spawn ring around the player (m). Min keeps a fairy from popping in the
+    // player's lap; max must stay inside the loaded entity radius so the ground
+    // under the spawn point actually exists (it also sizes the nav-grid scan window).
+    [Export(PropertyHint.Range, "4,80,1")] public float fairySpawnMinRadius = 12f;
+    [Export(PropertyHint.Range, "4,120,1")] public float fairySpawnMaxRadius = 28f;
 
     [ExportGroup("Companion")]
     // The persistent companion follows the player but can fall outside the

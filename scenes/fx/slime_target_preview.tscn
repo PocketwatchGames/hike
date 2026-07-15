@@ -1,12 +1,12 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" uid="uid://xewjw2klmrwj9" path="res://scripts/gameplay/effects/GroundDecalPreview.cs" id="1_script"]
-[ext_resource type="Material" path="res://resources/materials/decal_ring_gelly.tres" id="2_mat"]
+[ext_resource type="Material" path="res://resources/materials/decal_ring_slime.tres" id="2_mat"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_preview"]
 size = Vector2(4, 4)
 
-[node name="GellyTargetPreview" type="Node3D" node_paths=PackedStringArray("_quad")]
+[node name="SlimeTargetPreview" type="Node3D" node_paths=PackedStringArray("_quad")]
 script = ExtResource("1_script")
 lifetimeSeconds = 0.9
 _quad = NodePath("Quad")

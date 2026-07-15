@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://dthjice7pvftr"]
+[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://66a6mftyd54c"]
 
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
-[ext_resource type="Resource" uid="uid://cssgellysph01" path="res://resources/data/characters/gelly/gelly_sphere_subspecies.tres" id="2_sub"]
+[ext_resource type="Resource" uid="uid://cssgellycube1" path="res://resources/data/characters/slime/slime_cube_subspecies.tres" id="2_sub"]
 
 [resource]
 script = ExtResource("1_desc")

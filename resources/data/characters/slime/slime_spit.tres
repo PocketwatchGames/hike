@@ -6,10 +6,10 @@
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_area"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="6_damage"]
-[ext_resource type="PackedScene" path="res://scenes/projectiles/gelly_glob.tscn" id="7_proj"]
-[ext_resource type="PackedScene" path="res://scenes/fx/gelly_burst.tscn" id="8_burst"]
-[ext_resource type="PackedScene" path="res://scenes/fx/gelly_splat.tscn" id="9_splat"]
-[ext_resource type="PackedScene" path="res://scenes/fx/gelly_target_preview.tscn" id="10_preview"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/slime_glob.tscn" id="7_proj"]
+[ext_resource type="PackedScene" path="res://scenes/fx/slime_burst.tscn" id="8_burst"]
+[ext_resource type="PackedScene" path="res://scenes/fx/slime_splat.tscn" id="9_splat"]
+[ext_resource type="PackedScene" path="res://scenes/fx/slime_target_preview.tscn" id="10_preview"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("5_event")
@@ -52,7 +52,7 @@ projectileTargetPreview = ExtResource("10_preview")
 
 [sub_resource type="Resource" id="Resource_action_spit"]
 script = ExtResource("3_action")
-displayName = &"Gelatinous Spit"
+displayName = &"Slime Spit"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("5_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_spit")])
 speedMultiplierActive = 0.0
@@ -92,4 +92,4 @@ priority = 1
 maxAttackRange = 10.0
 desiredAttackRange = 7.0
 cooldownSeconds = 2.5
-displayName = &"Gelatinous Spit"
+displayName = &"Slime Spit"

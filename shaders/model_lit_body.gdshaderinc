@@ -81,6 +81,15 @@ uniform vec3 color_tint : source_color = vec3(1.0, 1.0, 1.0);
 uniform vec3 emission_tint : source_color = vec3(0.0);
 uniform float emission_strength = 0.0;
 
+// Optional specular glint from the real sun DirectionalLight, for wet/glossy
+// surfaces (slimes). Default strength 0 is inert, so every other material that
+// shares this body renders exactly as before. Blinn-Phong, evaluated in
+// light(): specular_color tints the highlight, specular_shininess tightens it
+// (higher = smaller, glossier hotspot).
+uniform float specular_strength : hint_range(0.0, 8.0) = 0.0;
+uniform vec3 specular_color : source_color = vec3(1.0);
+uniform float specular_shininess : hint_range(1.0, 128.0) = 32.0;
+
 // --- Discovery presentation (instance uniforms) -----------------------------
 // Per-instance so every mesh that shares one model material can still fade /
 // silhouette independently — driven via GeometryInstance3D.SetInstanceShader
@@ -312,4 +321,13 @@ void light() {
 	float cloud = cloud_shadow_ground(world_pos, TIME);
 	float cloud_dim = 1.0 - cloud * cloud_shadow_strength;
 	DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
+
+	// Opt-in Blinn-Phong specular (inert at specular_strength 0). Sun-driven, so
+	// it shares the same shadow + cloud gate as the diffuse term.
+	if (specular_strength > 0.0) {
+		vec3 half_vec = normalize(VIEW + LIGHT);
+		float ndh = max(dot(normalize(NORMAL), half_vec), 0.0);
+		float spec = pow(ndh, specular_shininess);
+		SPECULAR_LIGHT += spec * specular_strength * specular_color * light_energy * min(ATTENUATION, cloud_dim);
+	}
 }

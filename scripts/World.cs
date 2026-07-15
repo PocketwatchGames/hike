@@ -84,6 +84,7 @@ public partial class World : Node3D
     private LightningFlasher _lightningFlasher;
     private WeatherLightningSpawner _weatherLightningSpawner;
     private NightMobSpawner _nightMobSpawner;
+    private FairySpawner _fairySpawner;
     private ChunkAmbienceSpawner _chunkAmbienceSpawner;
 
     // Darkness dwell [0,1]: how "charged" the local darkness around the player is,
@@ -96,7 +97,7 @@ public partial class World : Node3D
     private float _darknessDwell;
     public float DarknessDwell => _darknessDwell;
     // Block light at the player [0,1] (peak channel / targetLightMax), cached each
-    // Tick. Gelly vision reads this directly (the player's concealment axis, kept
+    // Tick. Slime vision reads this directly (the player's concealment axis, kept
     // separate from spawn danger): they see a moonlit or dark player well but a
     // fire/lantern-lit one poorly.
     private float _playerBlockLight01;
@@ -226,6 +227,13 @@ public partial class World : Node3D
         _nightMobSpawner.Name = "NightMobSpawner";
         AddChild(_nightMobSpawner);
 
+        // Ambient daytime spawner: puts a few fairies near the player at points
+        // across the day, in zones flagged for them. Dormant when SimData has no
+        // fairySpawnDescriptor wired up.
+        _fairySpawner = new FairySpawner();
+        _fairySpawner.Name = "FairySpawner";
+        AddChild(_fairySpawner);
+
         _chunkAmbienceSpawner = new ChunkAmbienceSpawner();
         _chunkAmbienceSpawner.Name = "ChunkAmbienceSpawner";
         AddChild(_chunkAmbienceSpawner);
@@ -329,7 +337,7 @@ public partial class World : Node3D
 
         // Block light at the player (torch/campfire/lantern), normalized the same
         // way the player's perceived-light factor is, so both live on [0,1]. Cached
-        // for gelly vision (the concealment axis).
+        // for slime vision (the concealment axis).
         float targetLightMax = data.targetLightMax > 0f ? data.targetLightMax : 0.75f;
         float block01 = 0f;
         if (_player != null)
@@ -346,10 +354,19 @@ public partial class World : Node3D
         // all lighten it); darkTarget is 1 in pitch black, 0 once the spot reaches
         // nightDarkThreshold of light. Rise/fall are separate so darkness takes a
         // while to charge up and the light clears it a bit faster.
+        //
+        // ...then scaled by the SUN-SHADE falloff so darkness never accrues where a
+        // slime would burn: an open-sky daytime clearing reads dim to perceived-
+        // light under cloud/fog, yet the sun still cooks a slime there, so SunShade01
+        // (the same exposure signal the sunburn DoT uses) smoothly pulls darkTarget
+        // toward 0 as the sun climbs. Cover / night have no sun → shade 1 → caves
+        // and the real night are unaffected.
         float total01 = _player?.visibilityLight ?? 1f;
-        float darkTarget = data.nightDarkThreshold > 0f
+        float darkFromLight = data.nightDarkThreshold > 0f
             ? Mathf.Clamp((data.nightDarkThreshold - total01) / data.nightDarkThreshold, 0f, 1f)
             : (total01 <= 0f ? 1f : 0f);
+        float shade = _player != null ? SunShade01(_player.GlobalPosition + Vector3.Up) : 1f;
+        float darkTarget = darkFromLight * shade;
         if (darkTarget > _darknessDwell)
         {
             float step = data.nightDarkRiseSeconds > 0f ? delta / data.nightDarkRiseSeconds : 1f;

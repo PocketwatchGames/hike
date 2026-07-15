@@ -499,7 +499,7 @@ public static class CVars
     public static CVarBool nightSpawnLog = new CVarBool("night_spawn_log", false);
 
     // When true, prints a full NightMobSpawner status line once a second — every
-    // input to gelly spawning (time of day, the darkness dwell + what it's easing
+    // input to slime spawning (time of day, the darkness dwell + what it's easing
     // toward, player light, the danger scalar, target vs current) PLUS a live
     // ground-probe (how many candidate points found ground, how many were dark
     // enough, and the ground-vs-player height delta) and a one-word reason nothing
@@ -514,6 +514,11 @@ public static class CVars
     // at the player. Each slab's height is its spawn Y, so it shows at a glance
     // whether the search is finding the cave floor you're on or the surface above.
     public static CVarBool nightSpawnDraw = new CVarBool("night_spawn_draw", false);
+
+    // When true, prints a line each time the ambient FairySpawner spawns a fairy —
+    // the day/period, the running daily count vs the cap, and how many fairies the
+    // player has killed today. Use to verify the day-block cadence and per-zone gate.
+    public static CVarBool fairySpawnLog = new CVarBool("fairy_spawn_log", false);
 
     // When true, prints companion-follow / breadcrumb-rescue diagnostics:
     // BehaviorWanderFollow logs (throttled) its phase, distance-to-player,

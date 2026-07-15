@@ -63,4 +63,4 @@ actionProfile = SubResource("Resource_profile")
 maxAttackRange = 6.0
 desiredAttackRange = 2.5
 cooldownSeconds = 1.3
-displayName = &"Gelatinous Slam"
+displayName = &"Slime Slam"

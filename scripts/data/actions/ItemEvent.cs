@@ -192,6 +192,14 @@ public partial class ItemEvent : Resource
 	// authored collision shape unchanged. Currently only SphereShape3D is
 	// resized — non-spherical hazards keep their scene radius.
 	[Export] public float areaRadius = 0f;
+
+	// ApplyAreaStatusEffect only: cap on how many allies a rally cry buffs. The
+	// crier always buffs itself for free and does NOT count against this — the
+	// cap bounds the OTHERS. Recipients are chosen closest-first, own species
+	// (same base MobData) before other species, and another species is eligible
+	// only while already triggered (in a fight). 0 = no cap (every eligible ally
+	// in radius). See ItemEventHandlers.DoApplyAreaStatusEffect.
+	[Export] public int areaMaxTargets = 0;
 	// Total time the hazard lives, in seconds. 0 leaves the scene's authored
 	// lifetimeSeconds in place. Total expected damage = continuous DPS *
 	// duration + sum-of-interval-DPS * duration.
@@ -419,6 +427,7 @@ public partial class ItemEvent : Resource
 				or nameof(areaContinuousKey)
 				or nameof(areaIntervals) => EItemEventType.SpawnAreaEffect,
 			nameof(areaRadius) => EItemEventType.SpawnAreaEffect | EItemEventType.ApplyAreaStatusEffect,
+			nameof(areaMaxTargets) => EItemEventType.ApplyAreaStatusEffect,
 			nameof(cameraShakeMagnitude)
 				or nameof(cameraShakeDuration)
 				or nameof(cameraShakeRange) => EItemEventType.CameraShake,

@@ -306,7 +306,7 @@ public partial class MobData : Resource
     [Export] public bool canDodge = false;
     // Whether the player can land a positional backstab on this species. True for
     // ordinary mobs with a meaningful facing; set false for radially-symmetric
-    // creatures (a gelly blob has no "back"), so a hit from behind folds no
+    // creatures (a slime blob has no "back"), so a hit from behind folds no
     // OnBackstab modifiers. Read by Mob.IsBackstab.
     [Export] public bool canBeBackstabbed = true;
     // Status effect applied to this mob the moment it spawns and never removed

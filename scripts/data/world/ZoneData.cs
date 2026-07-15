@@ -67,4 +67,13 @@ public partial class ZoneData : Resource
     // weights as the player crosses zone borders, the same way the
     // visual palette already blends.
     [Export] public ZoneAmbienceData ambience;
+
+    // Whether the ambient FairySpawner may spawn a fairy while the player stands in
+    // this zone. Off by default — turn it on for the zones (forests, glades) where
+    // fairies belong. When on, FairySpawnChance modulates how likely each of the
+    // day's spawn windows actually produces a fairy here. Read live off the chunk
+    // under the player, so it lives on the runtime-loaded ZoneData rather than the
+    // worldgen-only ZoneGenData. See FairySpawner.
+    [Export] public bool canSpawnFairy = false;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float fairySpawnChance = 1f;
 }

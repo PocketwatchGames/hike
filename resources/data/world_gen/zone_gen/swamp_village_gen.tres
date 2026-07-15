@@ -5,10 +5,10 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_swamp_kit.tres" id="3_kyxs2"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_65ay8"]
 [ext_resource type="Resource" uid="uid://d4ltgo1wkf3qg" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp_village.tres" id="5_5w857"]
-[ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/zones/swamp.tres" id="7_48tre"]
 [ext_resource type="Resource" uid="uid://ds1ldsisnfc4e" path="res://resources/data/world_gen/terrain_gen/swamp_village_kit.tres" id="7_gyyab"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_m0lsp"]
 [ext_resource type="Resource" uid="uid://cyjva4b6lpasi" path="res://resources/data/world_gen/fixtures/swamp_village_fixtures.tres" id="9_village"]
+[ext_resource type="Resource" uid="uid://c4823dvmhngig" path="res://resources/data/zones/swamp_village.tres" id="10_kyxs2"]
 [ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="10_ruins"]
 
 [sub_resource type="Resource" id="Resource_ruins"]
@@ -20,7 +20,7 @@ metadata/_custom_type_script = "uid://dbxatq73lngxy"
 
 [resource]
 script = ExtResource("8_m0lsp")
-zone = ExtResource("7_48tre")
+zone = ExtResource("10_kyxs2")
 surfaceKit = ExtResource("7_gyyab")
 caveKit = ExtResource("2_gyyab")
 submergedKit = ExtResource("4_65ay8")

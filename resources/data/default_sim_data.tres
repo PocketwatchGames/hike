@@ -30,6 +30,7 @@
 [ext_resource type="PackedScene" uid="uid://d4nf6t08w1rye" path="res://scenes/characters/elite_crown.tscn" id="16_elite_crown"]
 [ext_resource type="Resource" uid="uid://qhms7wphy46n" path="res://resources/data/items/loot/crown.tres" id="17_elite_loot"]
 [ext_resource type="Resource" uid="uid://4vmr7jaq6thd" path="res://resources/data/items/consumables/fairy_corpse.tres" id="18_fairy_loot"]
+[ext_resource type="Resource" uid="uid://cmdfairy00001" path="res://resources/data/world_gen/mob_descriptors/fairy.tres" id="60_fairy_desc"]
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="19_boondata"]
 [ext_resource type="Resource" uid="uid://bnv0qitg8gcs3" path="res://resources/data/actions/revive_action.tres" id="20_revive_action"]
 [ext_resource type="Resource" uid="uid://crbn7q3k2p8wt" path="res://resources/data/status_effects/boons/boon_restore.tres" id="21_boon_restore"]
@@ -62,8 +63,8 @@
 [ext_resource type="Resource" uid="uid://bt81x27m5jlgw" path="res://resources/data/status_effects/upgrades/upgrade_ranged_siphon.tres" id="54_up_siphon"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="55_status_wet"]
 [ext_resource type="Resource" uid="uid://gus6wigx34i0" path="res://resources/data/status_effects/upgrades/upgrade_armor_bounding.tres" id="55_up_bounding"]
-[ext_resource type="Resource" uid="uid://66a6mftyd54c" path="res://resources/data/world_gen/mob_descriptors/gelly_cube.tres" id="56_gelly_cube"]
-[ext_resource type="Resource" uid="uid://dthjice7pvftr" path="res://resources/data/world_gen/mob_descriptors/gelly_sphere.tres" id="56_gelly_sphere"]
+[ext_resource type="Resource" uid="uid://66a6mftyd54c" path="res://resources/data/world_gen/mob_descriptors/slime_cube.tres" id="56_slime_cube"]
+[ext_resource type="Resource" uid="uid://dthjice7pvftr" path="res://resources/data/world_gen/mob_descriptors/slime_sphere.tres" id="56_slime_sphere"]
 [ext_resource type="Resource" uid="uid://diat8vsx8cp1i" path="res://resources/data/status_effects/status_sunburn.tres" id="57_sunburn"]
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="56_mobdesc_script"]
 [ext_resource type="Resource" uid="uid://h0dp744tku1d2" path="res://resources/data/status_effects/well_rested.tres" id="57_wellrested"]
@@ -83,6 +84,7 @@ wellRestedCampfireFx = ExtResource("58_wellrestedfx")
 mobWetStatusEffect = ExtResource("55_status_wet")
 mobSunburnStatusEffect = ExtResource("57_sunburn")
 fairyLoot = ExtResource("18_fairy_loot")
+fairySpawnDescriptor = ExtResource("60_fairy_desc")
 fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking")])
 fairyBoonGold = ExtResource("22_boon_gold")
 forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet"), ExtResource("45_up_vampiric"), ExtResource("46_up_pierce"), ExtResource("47_up_flaming"), ExtResource("48_up_fragile"), ExtResource("49_up_knockback"), ExtResource("50_up_seeking"), ExtResource("51_up_shocking"), ExtResource("52_up_venomous"), ExtResource("53_up_vigor"), ExtResource("54_up_siphon"), ExtResource("55_up_bounding")])
@@ -110,7 +112,7 @@ nightAmbientBase = 0.05
 nightAmbientHumidityLift = 0.25
 rippleWindRef = 30.0
 canopyDensity = 0.35
-nightSpawnMobs = Array[ExtResource("56_mobdesc_script")]([ExtResource("56_gelly_cube"), ExtResource("56_gelly_sphere")])
+nightSpawnMobs = Array[ExtResource("56_mobdesc_script")]([ExtResource("56_slime_cube"), ExtResource("56_slime_sphere")])
 nightSpawnMaxLevel = 4
 footprintMaterial = ExtResource("1_atie7")
 groundShadowMaterial = ExtResource("1_mobshadow")
