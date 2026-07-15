@@ -12,4 +12,9 @@ public enum EHudTextType
 	Backstab,
 	HealLight,
 	HealHeavy,
+	// A hit that landed but did nothing — zero displayed damage and no buildup
+	// applied — renders "MISS!". Blocked is a hit the player's charged weapon
+	// guard absorbed, rendered "BLOCKED!" in light blue.
+	Miss,
+	Blocked,
 }

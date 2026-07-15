@@ -1,9 +1,32 @@
+using System.Collections.Generic;
 using Godot;
 
 // Static helpers that produce world-space goal points for behaviors to
 // hand to MobNavigator.Goto. Separated from MobNavigator so behaviors
 // can mix goal kinds (standoff, cover, retreat) without bloating the
 // navigator's API surface.
+//
+// ── Finding standable ground: which tool to use ──────────────────────────────
+// TWO families of "where can a body stand" query live in the codebase; pick by
+// whether it must work indoors/underground:
+//
+//  • NAV-GRID (this file: IsGroundStandable single-point, CollectStandableCells
+//    bulk-by-radius, CollectReachableStandableCells bulk-by-CONNECTIVITY;
+//    WalkabilityGrid.SampleColumn per-column). CPU voxel scan, multi-surface-per-
+//    column, so it finds a cave/tunnel FLOOR at the query's Y — not the terrain
+//    overhead. No physics. Use for ANY gameplay spawn/placement, especially
+//    underground. Prefer the *Reachable* variant when the player may be in a cave
+//    and unreachable-but-nearby surfaces (the ground above the tunnel) must be
+//    excluded — it floods from the player's cell so only walk-connected ground
+//    qualifies. Worldgen mob placement (MobSpawnEntry.IsSpawnPositionWalkable) and
+//    the night mob spawner (NightMobSpawner) both use this family.
+//
+//  • RAYCAST-FROM-ABOVE (private TryFindGround in WeatherLightningSpawner /
+//    LightningStrike, TryFindSurface in WindParticleManager — NOT centralized,
+//    each rolls its own downward IntersectRay). A ray from the sky hits the
+//    FIRST surface from above = the outdoor terrain top, which is WRONG under a
+//    roof/cave (it catches the mountain over the tunnel). Only acceptable for
+//    open-sky-only weather/particle effects. Do NOT copy it for mob spawning.
 public static class NavigationGoals
 {
     private const float StandoffEyeHeight = 1.5f;
@@ -91,6 +114,209 @@ public static class NavigationGoals
             return false;
         }
         return IsStandable(ws, world, profile, worldPos, out surfacePoint);
+    }
+
+    // Bulk spawn-placement query: collect every DRY standable surface point in the
+    // [minRadius, maxRadius] ring around `center`, at roughly the center's height
+    // (surface within maxSurfaceYDelta voxels of center.Y), for a body with
+    // `profile`. Fills `results` with world-space surface points; the caller
+    // applies any further gate (light, spacing) and picks among them.
+    //
+    // Enumerates every column in a nav window (sized to maxRadius, bounded by
+    // maxWindowHalfExtent) and binds each to the layer NEAREST center.Y via
+    // NearestLayer — so a tunnel resolves to its floor, and confined spaces are
+    // found exhaustively rather than by luck (random darts almost never hit a
+    // narrow tunnel). Water cells are skipped (land spawns). `grid` is caller-
+    // owned and reused across calls to avoid per-call allocation. See the class
+    // header for why this, and not a downward raycast, is the spawn-placement tool.
+    public static void CollectStandableCells(World world, in TraversalProfile profile, WalkabilityGrid grid,
+        Vector3 center, float minRadius, float maxRadius, float maxSurfaceYDelta, int maxWindowHalfExtent,
+        List<Vector3> results)
+    {
+        results.Clear();
+        WorldState ws = world?.WorldState;
+        if (ws == null || grid == null)
+        {
+            return;
+        }
+        float minR = Mathf.Max(0f, minRadius);
+        float maxR = Mathf.Max(minR, maxRadius);
+        int half = Mathf.Min(Mathf.Max(1, maxWindowHalfExtent), Mathf.CeilToInt(maxR));
+        int size = half * 2 + 1;
+        grid.Sample(ws, world, profile,
+            Mathf.FloorToInt(center.X), Mathf.FloorToInt(center.Y), Mathf.FloorToInt(center.Z), size);
+
+        float minR2 = minR * minR;
+        float maxR2 = maxR * maxR;
+        for (int j = 0; j < size; j++)
+        {
+            for (int i = 0; i < size; i++)
+            {
+                int layer = grid.NearestLayer(i, j, center.Y);
+                if (layer < 0)
+                {
+                    continue;
+                }
+                WalkabilityCell c = grid.GetLayer(i, j, layer);
+                if (c.IsWater || Mathf.Abs(c.surfaceY - center.Y) > maxSurfaceYDelta)
+                {
+                    continue;
+                }
+                Vector3 pos = grid.CellToWorld(i, j, layer);
+                float dx = pos.X - center.X;
+                float dz = pos.Z - center.Z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 >= minR2 && d2 <= maxR2)
+                {
+                    results.Add(pos);
+                }
+            }
+        }
+    }
+
+    // Scratch for CollectReachableStandableCells' flood: generation-tagged visited
+    // (avoids clearing thousands of cells per call) + a reused BFS queue. Static —
+    // navigation runs on the main thread only.
+    private static int[] _reachGen;
+    private static int _reachGeneration;
+    private static readonly Queue<int> _reachQueue = new();
+
+    // CONNECTIVITY variant of CollectStandableCells: collect only the standable
+    // spots a body can actually WALK to from `center`, by flooding the nav grid
+    // from the center's cell under the same step/fall rules the pathfinder uses.
+    // So a surface separated from the player by solid rock — the ground directly
+    // above a cave/tunnel — is excluded even though it's close in XZ, and only the
+    // connected floor the player is on (and reachable ledges) qualifies. Results
+    // are the reachable cells within [minRadius, maxRadius] of center (water
+    // skipped). Use this for spawn placement that must behave in caves/dungeons;
+    // the plain radius CollectStandableCells only suits open ground where
+    // everything at the query height is one connected surface. Cardinal 4-
+    // connectivity (enough to decide reachability of a contiguous floor).
+    public static void CollectReachableStandableCells(World world, in TraversalProfile profile, WalkabilityGrid grid,
+        Vector3 center, float minRadius, float maxRadius, int maxWindowHalfExtent, bool allowFalling, List<Vector3> results)
+    {
+        results.Clear();
+        WorldState ws = world?.WorldState;
+        if (ws == null || grid == null)
+        {
+            return;
+        }
+        float minR = Mathf.Max(0f, minRadius);
+        float maxR = Mathf.Max(minR, maxRadius);
+        int half = Mathf.Min(Mathf.Max(1, maxWindowHalfExtent), Mathf.CeilToInt(maxR));
+        int size = half * 2 + 1;
+        int cx = Mathf.FloorToInt(center.X);
+        int cz = Mathf.FloorToInt(center.Z);
+        grid.Sample(ws, world, profile, cx, Mathf.FloorToInt(center.Y), cz, size);
+
+        int layers = WalkabilityGrid.MaxColumnLayers;
+        int startI = cx - grid.OriginX;
+        int startJ = cz - grid.OriginZ;
+        if (startI < 0 || startI >= size || startJ < 0 || startJ >= size)
+        {
+            return;
+        }
+        int startLayer = grid.NearestLayer(startI, startJ, center.Y);
+        if (startLayer < 0)
+        {
+            return;
+        }
+
+        int total = size * size * layers;
+        if (_reachGen == null || _reachGen.Length < total)
+        {
+            _reachGen = new int[total];
+        }
+        _reachGeneration++;
+        _reachQueue.Clear();
+
+        int startIdx = (startJ * size + startI) * layers + startLayer;
+        _reachGen[startIdx] = _reachGeneration;
+        _reachQueue.Enqueue(startIdx);
+
+        float minR2 = minR * minR;
+        float maxR2 = maxR * maxR;
+        while (_reachQueue.Count > 0)
+        {
+            int cur = _reachQueue.Dequeue();
+            int cLayer = cur % layers;
+            int c2d = cur / layers;
+            int ci = c2d % size;
+            int cj = c2d / size;
+            WalkabilityCell cc = grid.GetLayer(ci, cj, cLayer);
+
+            if (!cc.IsWater)
+            {
+                Vector3 pos = grid.CellToWorld(ci, cj, cLayer);
+                float dx = pos.X - center.X;
+                float dz = pos.Z - center.Z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 >= minR2 && d2 <= maxR2)
+                {
+                    results.Add(pos);
+                }
+            }
+
+            // Cardinal neighbours; connect to every stacked surface the vertical
+            // rules allow (step up onto a ledge, down onto the cave floor).
+            for (int dir = 0; dir < 4; dir++)
+            {
+                int ni = ci + (dir == 0 ? 1 : (dir == 1 ? -1 : 0));
+                int nj = cj + (dir == 2 ? 1 : (dir == 3 ? -1 : 0));
+                if (ni < 0 || ni >= size || nj < 0 || nj >= size)
+                {
+                    continue;
+                }
+                int nLayers = grid.LayerCount(ni, nj);
+                for (int nLayer = 0; nLayer < nLayers; nLayer++)
+                {
+                    int nIdx = (nj * size + ni) * layers + nLayer;
+                    if (_reachGen[nIdx] == _reachGeneration)
+                    {
+                        continue;
+                    }
+                    if (!StepAllowed(profile, cc, grid.GetLayer(ni, nj, nLayer), allowFalling))
+                    {
+                        continue;
+                    }
+                    _reachGen[nIdx] = _reachGeneration;
+                    _reachQueue.Enqueue(nIdx);
+                }
+            }
+        }
+    }
+
+    // Cardinal step check between two stacked surfaces — mirrors LocalPathfinder's
+    // vertical rules: climbers/fliers move freely; otherwise up-step <= maxStep,
+    // down-step <= maxStep (or <= maxFall when falling is allowed), water gated by
+    // maxFall.
+    private static bool StepAllowed(in TraversalProfile profile, WalkabilityCell from, WalkabilityCell to, bool allowFalling)
+    {
+        if (profile.CanClimb || profile.CanFly)
+        {
+            return true;
+        }
+        int dy = to.surfaceY - from.surfaceY;
+        if (to.IsWater)
+        {
+            return !(dy < 0 && -dy > profile.maxFallHeight);
+        }
+        if (dy > profile.maxStepHeight)
+        {
+            return false;
+        }
+        if (dy < 0)
+        {
+            int drop = -dy;
+            if (drop > profile.maxStepHeight)
+            {
+                if (!allowFalling || drop > profile.maxFallHeight)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     // True if `worldPos` sits over a column with a standable surface

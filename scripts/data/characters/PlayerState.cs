@@ -109,4 +109,26 @@ public partial class PlayerState : Resource
 	// from a member who already has. Cleared for the whole party at each sunrise
 	// (GameClient handles World.OnNewDay).
 	public bool HasEatenToday;
+
+	// Runtime (not authored): days since this member was last the active
+	// (controlled) character — the "rest" counter the well-rested lottery weights
+	// by. 0 = currently or most-recently controlled (set the instant they become
+	// active in Party.SetActive). Each sunrise every living member increments and
+	// the still-controlled member is forced back to 0 (see
+	// Party.AdvanceRestAndPickWellRested), so an idle member's odds of being drawn
+	// climb the longer they sit out. Winning resets this to 1 — still eligible the
+	// next day, just with the lowest odds.
+	public int RestDays;
+
+	// Runtime (not authored): set when this member joins mid-run (Party.Add) so
+	// they win the FOLLOWING morning's well-rested lottery unconditionally — a
+	// fresh face shows up rested. Cleared the moment they win.
+	public bool ForceWellRestedNextDay;
+
+	// Runtime (not authored): true while this member holds today's "well rested"
+	// daily buff — one member is crowned each sunrise by the lottery and cleared
+	// the next. Drives both the WellRested stat buff (applied to their Player
+	// node) and the campfire glow particle (Player gates that on IsWellRested plus
+	// actually sitting at the fire).
+	public bool IsWellRested;
 }

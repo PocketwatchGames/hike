@@ -21,6 +21,15 @@ public partial class World
         return _chunkManager.IsSpawnChunkReady(spawnPosition);
     }
 
+    // True when the chunk containing `worldPos` is currently streamed in (its mesh
+    // + collision are resident). False once it has been evicted — so a caller that
+    // relies on standing on chunk collision (e.g. a frozen corpse guarding against
+    // falling through the world) can tell when its support has streamed out.
+    public bool IsChunkLoadedAt(Vector3 worldPos)
+    {
+        return _chunkManager.IsChunkLoaded(WorldToChunkCoord(worldPos));
+    }
+
     public void UpdateLighting(List<Vector3I> changedPositions)
     {
         _chunkManager.UpdateLighting(changedPositions);

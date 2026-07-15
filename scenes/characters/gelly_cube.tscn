@@ -20,14 +20,13 @@
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
-radius = 0.3
-height = 0.6
+height = 1.0
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
-radius = 0.35
-height = 0.7
+radius = 0.6
+height = 1.2
 
-[node name="Mob" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
+[node name="Mob" type="RigidBody3D" unique_id=1990599648 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "hudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")
@@ -36,7 +35,7 @@ _modelAnimator = NodePath("ModelAnimator")
 _mesh = NodePath("Visuals/MeshContainer")
 _visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
-hudAnchor = NodePath("Visuals/Node3D")
+hudAnchor = NodePath("Visuals/HudAnchor")
 hudScene = ExtResource("3_mobhud")
 _bloodDamageFx = ExtResource("12_blooddmg")
 _deathFx = ExtResource("13_deathsml")
@@ -55,36 +54,37 @@ _footprintTexture = ExtResource("8_fp")
 _footprintSize = Vector2(0.4, 0.4)
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
-[node name="Visuals" type="Node3D" parent="."]
+[node name="Visuals" type="Node3D" parent="." unique_id=1194599308]
 
-[node name="MeshContainer" type="Node3D" parent="Visuals"]
+[node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=1501703280]
 
-[node name="GellyCubeModel" type="Node3D" parent="Visuals/MeshContainer"]
+[node name="GellyCubeModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=723800658]
+transform = Transform3D(2.5, 0, 0, 0, 2.5, 0, 0, 0, 2.5, 0, 0, 0)
 
-[node name="gelly_cube" parent="Visuals/MeshContainer/GellyCubeModel" instance=ExtResource("20_gellyfbx")]
+[node name="gelly_cube" parent="Visuals/MeshContainer/GellyCubeModel" unique_id=985924513 instance=ExtResource("20_gellyfbx")]
 transform = Transform3D(0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 0, 0, 0)
 
-[node name="MovementCollision" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+[node name="HudAnchor" type="Node3D" parent="Visuals" unique_id=1878095919]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2931359, 0)
+
+[node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=53745319]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
 shape = SubResource("CapsuleShape3D_move")
 
-[node name="HurtBox" type="Area3D" parent="."]
+[node name="HurtBox" type="Area3D" parent="." unique_id=205437353]
 collision_layer = 32
 collision_mask = 0
 script = ExtResource("2_hurtbox")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=682986366]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
 shape = SubResource("CapsuleShape3D_hurt")
 
-[node name="Node3D" type="Node3D" parent="Visuals"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
-
-[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+[node name="PixelSnap" type="Node" parent="." unique_id=1318493950 node_paths=PackedStringArray("_target")]
 script = ExtResource("40_pixelsnap")
 _target = NodePath("../Visuals/MeshContainer/GellyCubeModel")
 
-[node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
+[node name="ModelAnimator" type="Node" parent="." unique_id=1014119446 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("30_modelanim")
 player = NodePath("../Visuals/MeshContainer/GellyCubeModel/gelly_cube/AnimationPlayer")
 visual = NodePath("../Visuals/MeshContainer/GellyCubeModel")

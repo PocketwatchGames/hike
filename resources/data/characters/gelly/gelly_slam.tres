@@ -16,6 +16,13 @@
 script = ExtResource("4_event")
 type = 64
 
+[sub_resource type="Resource" id="Resource_p6q4c"]
+script = ExtResource("4_event")
+time = 200
+type = 1024
+motionForwardSpeed = 14.0
+metadata/_custom_type_script = "uid://cmw4pa3roleml"
+
 [sub_resource type="Resource" id="Resource_event_slam"]
 script = ExtResource("4_event")
 time = 300
@@ -29,7 +36,7 @@ impactLethalEffect = ExtResource("6_hitfx")
 script = ExtResource("3_action")
 displayName = &"Slam"
 activeDurationSeconds = 0.7
-events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_slam")])
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_p6q4c"), SubResource("Resource_event_slam")])
 speedMultiplierActive = 0.0
 
 [sub_resource type="Resource" id="Resource_profile"]
@@ -53,6 +60,7 @@ damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
 actionProfile = SubResource("Resource_profile")
-desiredAttackRange = 1.2
+maxAttackRange = 6.0
+desiredAttackRange = 2.5
 cooldownSeconds = 1.3
 displayName = &"Gelatinous Slam"

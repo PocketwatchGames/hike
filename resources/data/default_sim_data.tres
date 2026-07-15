@@ -64,7 +64,10 @@
 [ext_resource type="Resource" uid="uid://gus6wigx34i0" path="res://resources/data/status_effects/upgrades/upgrade_armor_bounding.tres" id="55_up_bounding"]
 [ext_resource type="Resource" uid="uid://66a6mftyd54c" path="res://resources/data/world_gen/mob_descriptors/gelly_cube.tres" id="56_gelly_cube"]
 [ext_resource type="Resource" uid="uid://dthjice7pvftr" path="res://resources/data/world_gen/mob_descriptors/gelly_sphere.tres" id="56_gelly_sphere"]
+[ext_resource type="Resource" uid="uid://diat8vsx8cp1i" path="res://resources/data/status_effects/status_sunburn.tres" id="57_sunburn"]
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="56_mobdesc_script"]
+[ext_resource type="Resource" uid="uid://h0dp744tku1d2" path="res://resources/data/status_effects/well_rested.tres" id="57_wellrested"]
+[ext_resource type="PackedScene" uid="uid://0j6ek19g6xn2o" path="res://scenes/fx/well_rested_loop.tscn" id="58_wellrestedfx"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -75,7 +78,10 @@ scriptVariables = ExtResource("23_scriptvars")
 eliteStatusEffect = ExtResource("15_elite_std")
 eliteCrownScene = ExtResource("16_elite_crown")
 eliteLoot = ExtResource("17_elite_loot")
+wellRestedEffect = ExtResource("57_wellrested")
+wellRestedCampfireFx = ExtResource("58_wellrestedfx")
 mobWetStatusEffect = ExtResource("55_status_wet")
+mobSunburnStatusEffect = ExtResource("57_sunburn")
 fairyLoot = ExtResource("18_fairy_loot")
 fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking")])
 fairyBoonGold = ExtResource("22_boon_gold")

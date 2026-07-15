@@ -63,6 +63,14 @@ public class AggroTracker
         return 0f;
     }
 
+    // Drop every tracked enemy — used by a full spawn-state reset (World
+    // .ResetSpawns) so a revived/returned mob starts the next encounter
+    // with no leftover threat priority.
+    public void Clear()
+    {
+        _entries.Clear();
+    }
+
     // Bleed every entry down by ratePerSecond * delta and drop entries that have
     // decayed away or whose target has been freed / killed, so the list stays
     // bounded and never hands back a dead node.

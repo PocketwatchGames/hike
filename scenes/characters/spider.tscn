@@ -18,7 +18,7 @@
 [ext_resource type="Material" path="res://resources/materials/spider_lit.tres" id="22_spidermat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
-[ext_resource type="PackedScene" path="res://scenes/fx/spider_idle_loop.tscn" id="50_idle"]
+[ext_resource type="PackedScene" uid="uid://skjv6ciciwfo" path="res://scenes/fx/spider_idle_loop.tscn" id="50_idle"]
 [ext_resource type="Resource" path="res://resources/data/characters/spider/spider_voice.tres" id="51_voice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
@@ -28,7 +28,7 @@ radius = 1.0
 radius = 1.25
 height = 3.0
 
-[node name="Mob" type="RigidBody3D" unique_id=313612078 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
+[node name="Mob" type="RigidBody3D" unique_id=313612078 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "hudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")
@@ -37,7 +37,7 @@ _modelAnimator = NodePath("ModelAnimator")
 _mesh = NodePath("Visuals/MeshContainer")
 _visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
-hudAnchor = NodePath("Visuals/Node3D")
+hudAnchor = NodePath("Visuals/HUDNode")
 hudScene = ExtResource("3_mobhud")
 _bloodDamageFx = ExtResource("12_blooddmg")
 _deathFx = ExtResource("13_deathsml")
@@ -68,8 +68,8 @@ transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
 [node name="spider" parent="Visuals/MeshContainer/SpiderModel" unique_id=1538579628 instance=ExtResource("20_spiderfbx")]
 transform = Transform3D(0.22, 0, 0, 0, 0.22, 0, 0, 0, 0.22, 0, 0, 0)
 
-[node name="Node3D" type="Node3D" parent="Visuals" unique_id=659566053]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+[node name="HUDNode" type="Node3D" parent="Visuals" unique_id=659566053]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.036114, 0)
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1441829426]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

@@ -234,36 +234,19 @@ public partial class Player : CharacterBody3D
 			GameCamera.Current?.Shake?.AddImpulse(0.12f, 0.15f, GlobalPosition, 0f, GlobalPosition);
 		}
 
-		// Floating-number HUD feedback. Armor chip and armor-penetrated health damage
-		// both show — total = whatever the bar actually moved (capped by what
-		// armor / health had to give). DoT hits route into the per-second
-		// accumulator so a fast-ticking burn / poison zone emits one rolled-up
-		// number per second; single hits fire onDamage immediately.
-		float totalShown = blockAbsorbed + armorAbsorbed + Mathf.Max(0f, incomingDamage);
-		if (totalShown > 0f)
-		{
-			if (hit.dot)
-			{
-				_dotHud.AddDamage(totalShown);
-			}
-			else
-			{
-				GameClient client = GameClient.Current;
-				client?.onDamage?.Invoke(GlobalPosition, totalShown, EHudTextType.DamageLight);
-				client?.FlashDamage(totalShown);
-			}
-		}
-
 		// On-hit effects — immediate-apply entries land now, the rest funnel
 		// into the per-effect meter, folding any applyTrigger from a crossed
 		// threshold back onto the hit before hitstun/knockback resolution so an
 		// OnDizzy modifier can amplify those reads on the same hit that landed
 		// dizzy. Skipped when this hit was lethal (`_health` already reduced
 		// above): a dead player shouldn't accrue meters or catch fire/poison,
-		// matching the `_health > 0f` gate on the knockback reads below.
+		// matching the `_health > 0f` gate on the knockback reads below. Resolved
+		// before the HUD feedback below so a zero-damage hit that still lands
+		// buildup isn't mislabeled a "MISS!".
+		bool appliedBuildup = false;
 		if (_health > 0f)
 		{
-			_statusEffects?.ApplyHitBuildups(ref hit);
+			appliedBuildup = _statusEffects?.ApplyHitBuildups(ref hit) ?? false;
 			// On-damaged trait reactions (Thin Skinned → its "+5% damage taken"
 			// debuff). Discrete hits only — a continuous DoT tick shouldn't re-arm
 			// the debuff every physics frame; the tag filter on each effect further
@@ -271,6 +254,52 @@ public partial class Player : CharacterBody3D
 			if (!hit.dot)
 			{
 				_statusEffects?.TriggerOnDamaged(hit.tags);
+			}
+		}
+
+		// Floating HUD feedback. A hit the charged weapon guard absorbed reads
+		// "BLOCKED!" (blue); any damage that still got past the guard (armor chip +
+		// penetrated health) shows as a number alongside it — so a partial block
+		// shows both. `bypassShown` excludes the guard-absorbed slice so the number
+		// isn't double-counted with the block. MISS! is mutually exclusive with
+		// BLOCKED! — it only fires on a hit that neither blocked, dealt a visible
+		// number, nor landed any buildup. DoT hits roll into the per-second accumulator.
+		float bypassShown = armorAbsorbed + Mathf.Max(0f, incomingDamage);
+		GameClient client = GameClient.Current;
+		if (hit.dot)
+		{
+			float dotTotal = blockAbsorbed + bypassShown;
+			if (dotTotal > 0f)
+			{
+				_dotHud.AddDamage(dotTotal);
+			}
+		}
+		else
+		{
+			bool blocked = blockAbsorbed > 0f;
+			bool showNumber = Mathf.RoundToInt(bypassShown) > 0;
+			if (blocked)
+			{
+				client?.onHudText?.Invoke(GlobalPosition, Loc.Get(Loc.Keys.combat_blocked), EHudTextType.Blocked);
+			}
+			if (showNumber)
+			{
+				client?.onDamage?.Invoke(GlobalPosition, bypassShown, EHudTextType.DamageLight);
+				client?.FlashDamage(bypassShown);
+			}
+			else if (!blocked)
+			{
+				// No number and nothing blocked. A landed buildup still shows a "0"
+				// so the hit registers; an inert hit reads "MISS!". (When blocked,
+				// BLOCKED! already signals the connect, so neither fires.)
+				if (appliedBuildup)
+				{
+					client?.onHudText?.Invoke(GlobalPosition, "0", EHudTextType.DamageLight);
+				}
+				else
+				{
+					client?.onHudText?.Invoke(GlobalPosition, Loc.Get(Loc.Keys.combat_miss), EHudTextType.Miss);
+				}
 			}
 		}
 
@@ -419,6 +448,15 @@ public partial class Player : CharacterBody3D
 		}
 		_inputMove = Vector3.Zero;
 		_inputLook = Vector3.Zero;
+		// A member that died while concealed (the tree-climb bird's-eye hides the
+		// model subtree) must still leave a VISIBLE corpse so it can be found and
+		// revived — the bird's-eye fly-down that would normally restore the model
+		// never completes once the death sequence takes over. Restore it here.
+		if (_hidden)
+		{
+			_hidden = false;
+			SetModelVisible(true);
+		}
 		onDied?.Invoke(this);
 	}
 

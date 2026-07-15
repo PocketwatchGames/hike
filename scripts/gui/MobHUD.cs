@@ -370,8 +370,9 @@ public partial class MobHUD : Node2D
 			StatusEffectState s = effects[i];
 			// Only Transient effects ride the fading strip. Elite signatures show
 			// in the health-bar badge instead; Permanent quirks aren't surfaced
-			// on the mob HUD at all.
-			if (s?.data == null || s.data.icon == null || (s.data.category & EEffectCategory.Transient) == 0)
+			// on the mob HUD at all. hideOnMobHud opts a shared effect out of the
+			// mob strip specifically (Wet) while leaving its player-side icon.
+			if (s?.data == null || s.data.icon == null || s.data.hideOnMobHud || (s.data.category & EEffectCategory.Transient) == 0)
 			{
 				continue;
 			}

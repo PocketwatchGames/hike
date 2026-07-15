@@ -140,6 +140,8 @@ public partial class GameClient : Node3D
 	[Export] public PackedScene hudTextBackstabScene;
 	[Export] public PackedScene hudTextHealLightScene;
 	[Export] public PackedScene hudTextHealHeavyScene;
+	[Export] public PackedScene hudTextMissScene;
+	[Export] public PackedScene hudTextBlockedScene;
 	[ExportGroup("")]
 	[Export] public ShaderMaterial outlineMaterial;
 	// Flat-sprite outline variant. Used when ApplyHighlight is wrapping a
@@ -435,6 +437,8 @@ public partial class GameClient : Node3D
 	// idle where placed around camp. Populated by SpawnParty; used by
 	// SwitchControlTo to move control between members.
 	readonly List<Player> _partyPlayers = new();
+	// Draws the daily well-rested member each sunrise (OnNewDayWellRested).
+	readonly System.Random _wellRestedRng = new();
 	// Radius (m) of the ring that inactive party members spread around the
 	// spawn / campfire anchor.
 	[Export] float partyRingRadius = 2.5f;
@@ -584,6 +588,7 @@ public partial class GameClient : Node3D
 		_world.onMobRemoved += OnMobRemoved;
 		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
 		_world.OnNewDay += OnNewDayResetMeals;
+		_world.OnNewDay += OnNewDayWellRested;
 		sceneViewport.AddChild(_world);
 		// World.Initialize is the chunk-mesh sphere fill — fully synchronous
 		// today (~900 chunks). The bar can't tick during this; it stays
@@ -2065,6 +2070,8 @@ public partial class GameClient : Node3D
 			EHudTextType.Backstab => hudTextBackstabScene,
 			EHudTextType.HealLight => hudTextHealLightScene,
 			EHudTextType.HealHeavy => hudTextHealHeavyScene,
+			EHudTextType.Miss => hudTextMissScene,
+			EHudTextType.Blocked => hudTextBlockedScene,
 			_ => null,
 		};
 	}
@@ -2401,6 +2408,26 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	// Each sunrise, draw the day's "well rested" party member (see
+	// Party.AdvanceRestAndPickWellRested — it also ages the rest counters and
+	// clears yesterday's pick) and sync the WellRested buff onto every party
+	// Player node. The campfire glow particle follows the same per-member flag,
+	// gated on sitting at the fire (Player.UpdateWellRestedFx). Subscribed to
+	// World.OnNewDay alongside the meal reset.
+	void OnNewDayWellRested(int dayNumber)
+	{
+		Party party = _world?.WorldState?.SimState?.Party;
+		if (party == null)
+		{
+			return;
+		}
+		party.AdvanceRestAndPickWellRested(_wellRestedRng);
+		for (int i = 0; i < _partyPlayers.Count; i++)
+		{
+			_partyPlayers[i]?.RefreshWellRested();
+		}
+	}
+
 	// Give every fallen member without a deadline one day of grace: they must be
 	// revived before the NEXT sunrise (a full day past the one the party just woke
 	// at) or be destroyed. Assigned after the death time-skip, so DayNumber already
@@ -2625,6 +2652,8 @@ public partial class GameClient : Node3D
 		}
 		// The companion wakes at the player's side, fully healed and revived if it
 		// had died — regardless of where it wandered or fell during the day.
+		// (The world's spawns reset inside AdvanceTime / AdvanceToNextSunrise above,
+		// gated on time actually passing.)
 		if (_player != null)
 		{
 			_world?.Companion?.RecallToPlayer(_player.GlobalPosition);

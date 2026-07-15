@@ -355,6 +355,13 @@ public partial class Player : CharacterBody3D
 	Fx _foliageMovementLoop;
 	Fx _slideLoop;
 	Fx _dashLoop;
+	// Warm campfire glow shown while the hosted member is well-rested AND seated
+	// at the fire. Same create-on-active / Stop-and-drop lifetime as the loops
+	// above (see UpdateWellRestedFx).
+	Fx _wellRestedLoop;
+	// Live handle to the WellRested daily stat buff while the member holds it, so
+	// RefreshWellRested can remove exactly that instance when the flag clears.
+	StatusEffectState _wellRestedBuff;
 	// Tracked active slide-loop scene so per-ground-type swaps avoid
 	// recreating the Fx every tick. Same shape as _animLoopScene.
 	PackedScene _slideLoopScene;
@@ -913,6 +920,28 @@ public partial class Player : CharacterBody3D
 	// over the skipped night.
 	public void ClearTransientStatusEffects() => _statusEffects.RemoveByCategory(EEffectCategory.Transient);
 
+	// Reconcile the daily WellRested stat buff to the hosted member's flag. Called
+	// after the sunrise lottery (GameClient) and from Initialize for a member who
+	// spawns already rested. Applied to every party member's node regardless of
+	// active state — a Permanent modifier on an idle body is inert until they act,
+	// so no special-casing on the control switch. The campfire glow particle
+	// follows the same flag but is gated on sitting at the fire, so it's driven
+	// per-tick in UpdateWellRestedFx rather than here.
+	public void RefreshWellRested()
+	{
+		bool want = Member?.IsWellRested == true;
+		StatusEffectData effect = _world?.SimData?.wellRestedEffect;
+		if (want && _wellRestedBuff == null && effect != null)
+		{
+			_wellRestedBuff = AddStatusEffect(effect);
+		}
+		else if (!want && _wellRestedBuff != null)
+		{
+			RemoveStatusEffect(_wellRestedBuff);
+			_wellRestedBuff = null;
+		}
+	}
+
 
 	// How exposed to falling rain are we, in [0, 1]? 0 = sheltered (no
 	// perceptible rain, a solid roof overhead, or dense enough tree canopy);
@@ -1249,6 +1278,10 @@ public partial class Player : CharacterBody3D
 					if (trait != null) { AddStatusEffect(trait); }
 				}
 			}
+			// Grant the daily well-rested buff if this member spawns already rested
+			// (recruited mid-run, or a save restored with the flag set). The sunrise
+			// lottery drives it thereafter.
+			RefreshWellRested();
 		}
 
 		// Every character spawns with a lantern in its own dedicated slot (shared
@@ -1337,6 +1370,21 @@ public partial class Player : CharacterBody3D
 	// Deliberately minimal; the heavy controlled-player systems are skipped.
 	private void TickInactive(float dt)
 	{
+		// A corpse falls to the ground on death, then FREEZES — a dead member stops
+		// being re-simulated once it is either grounded OR its chunk has streamed
+		// out. The body is left at the death site while the survivors regroup at a
+		// distant campfire, which unloads the death-site chunk collision; a corpse
+		// still running gravity here would fall through the now-floorless world into
+		// the void, leaving its gravestone marker pointing at an empty spot. The
+		// grounded check pins a settled body against a LATER unload; the chunk-loaded
+		// check catches a body still mid-fall AT the moment its support unloads.
+		// Either way it stays where it died — findable and revivable.
+		if (_health <= 0f && (_grounded || !(_world?.IsChunkLoadedAt(GlobalPosition) ?? false)))
+		{
+			UpdateAnimation();
+			return;
+		}
+
 		Vector3 v = Velocity;
 		v.X = 0f;
 		v.Z = 0f;
@@ -1352,6 +1400,7 @@ public partial class Player : CharacterBody3D
 		MoveAndSlide();
 		_grounded = IsOnFloor();
 		UpdateAnimation();
+		UpdateWellRestedFx();
 	}
 
 	// Equip a freshly-minted item (e.g. a forged piece) into its canonical slot;
@@ -1539,7 +1588,8 @@ public partial class Player : CharacterBody3D
 		TickDirtyEffect(dt);
 		TickMuddyEffect(dt);
 		TickBodyTemperature(dt);
-		DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, GlobalPosition);
+		// The player is always on their own screen — DoT feedback never suppressed.
+		DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, GlobalPosition, showHudFeedback: true);
 		if (dotFlush.damage)
 		{
 			// Continuous damage authors no per-frame fx; its "ouch" rides on
@@ -1587,6 +1637,7 @@ public partial class Player : CharacterBody3D
 		bool foliageLoopActive = moving && _foliageCollisions.Count > 0 && _waterState == EWaterState.None;
 		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopFx, waterLoopActive);
 		UpdateLoopEffect(ref _foliageMovementLoop, _foliageMovementLoopFx, foliageLoopActive);
+		UpdateWellRestedFx();
 
 		// Dash and sprint suppress aim — the player commits to the movement
 		// burst, so look-rotation and the gamepad-stick aim fallback both

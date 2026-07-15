@@ -37,6 +37,8 @@ public static partial class Loc
 		time_of_day_midnight,
 		danger_nearby,
 		too_hurt_to_rest,
-		not_enough_health_to_revive
+		not_enough_health_to_revive,
+		combat_miss,
+		combat_blocked
 	}
 }

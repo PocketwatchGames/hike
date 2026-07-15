@@ -15,6 +15,12 @@ public class LootSimState : EntitySimState
     public bool PickedUp;
     public ItemState Item;
     public bool RequireInteract;
+    // True for loot that dropped at runtime (mob kills, dig yields, player drops)
+    // rather than authored worldgen ground loot. A full spawn-state reset
+    // (World.ResetSpawns) sweeps these so a revived encounter doesn't leave
+    // the last life's spoils lying around, while authored loot (Dropped == false)
+    // stays put. In-memory only, like RequireInteract.
+    public bool Dropped;
 
     public LootSimState(Vector3 worldPosition, ItemData data)
         : base(worldPosition, scene: null)

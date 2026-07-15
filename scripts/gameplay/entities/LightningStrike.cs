@@ -23,10 +23,11 @@ public partial class LightningStrike : Node3D
     // them without re-authoring the strike scene.
     private const string SCENE_PATH = "res://scenes/fx/lightning_strike.tscn";
 
-    // Vertical raycast envelope used to keep the wandering strike
-    // snapped to the ground each tick. Generous on both sides so
-    // small terrain steps (single-voxel ledges) and overhangs don't
-    // make the strike lose its ground sample.
+    // Vertical raycast envelope (World.TryFindGroundByRaycast) used to keep the
+    // wandering strike snapped to the ground each tick. Generous on both sides so
+    // small terrain steps (single-voxel ledges) and overhangs don't make the
+    // strike lose its ground sample. Lightning is open-sky, so the raycast surface
+    // finder is correct here.
     private const float GROUND_RAY_HEIGHT_OFFSET = 40f;
     private const float GROUND_RAY_DEPTH_OFFSET = 40f;
 
@@ -413,7 +414,7 @@ public partial class LightningStrike : Node3D
         }
 
         Vector3 candidate = GlobalPosition + dir * _data.wanderSpeedMetersPerSecond * delta;
-        if (TryFindGround(candidate, out Vector3 ground))
+        if (_world != null && _world.TryFindGroundByRaycast(candidate, out Vector3 ground, GROUND_RAY_HEIGHT_OFFSET, GROUND_RAY_DEPTH_OFFSET))
         {
             GlobalPosition = ground;
         }
@@ -480,34 +481,6 @@ public partial class LightningStrike : Node3D
             }
         }
         return found;
-    }
-
-    // Vertical ground probe used to re-snap Y after each horizontal
-    // wander step. Mirrors WeatherLightningSpawner's spawn-time
-    // version — same Environment mask, same downward sweep — just
-    // run continuously instead of once. Returns false off the map
-    // so we don't drift the strike into thin air.
-    private bool TryFindGround(Vector3 query2d, out Vector3 ground)
-    {
-        ground = default;
-        World3D world3D = _world?.GetWorld3D();
-        if (world3D == null)
-        {
-            return false;
-        }
-        Vector3 from = new Vector3(query2d.X, query2d.Y + GROUND_RAY_HEIGHT_OFFSET, query2d.Z);
-        Vector3 to = new Vector3(query2d.X, query2d.Y - GROUND_RAY_DEPTH_OFFSET, query2d.Z);
-        using var query = PhysicsRayQueryParameters3D.Create(from, to);
-        query.CollisionMask = (uint)ECollisionLayer.Solid;
-        query.CollideWithBodies = true;
-        query.CollideWithAreas = false;
-        var result = world3D.DirectSpaceState.IntersectRay(query);
-        if (result.Count == 0)
-        {
-            return false;
-        }
-        ground = (Vector3)result["position"];
-        return true;
     }
 
     // Screen flash intensity falls off linearly from

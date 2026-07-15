@@ -43,6 +43,7 @@ public partial class World
             return null;
         }
         ComposeFairyBoons(simState);
+        simState.Dropped = true;
         _worldState.AddEntity(simState);
         Loot loot = Loot.Create(this, simState, scene, impulse);
 
@@ -169,6 +170,7 @@ public partial class World
         var simState = new LootSimState(position, item.data);
         simState.Item = item;
         simState.RequireInteract = requireInteract;
+        simState.Dropped = true;
         _worldState.AddEntity(simState);
         Loot pickup = Loot.Create(this, simState, scene, impulse);
 
@@ -227,17 +229,15 @@ public partial class World
     // has resident ground.
     public Mob SpawnMobTransient(MobDescriptor descriptor, Vector3 position, ESpawnConditions conditions, int level = 0)
     {
-        MobSimState simState = descriptor?.CreateState(position, 0f);
+        // Raise the descriptor's authored floor to the ambient spawner's tier (never
+        // lower it); the resolved level scales the mob's vitals at construction.
+        int spawnLevel = descriptor != null ? Mathf.Max(descriptor.level, level) : 0;
+        MobSimState simState = descriptor?.CreateState(position, 0f, levelOverride: spawnLevel);
         if (simState == null)
         {
             return null;
         }
         simState.SpawnConditions = conditions;
-        // CreateState already stamped the descriptor's base level; only raise it.
-        if (level > simState.Level)
-        {
-            simState.Level = level;
-        }
 
         Vector3I coord = WorldToChunkCoord(position);
         if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))

@@ -63,18 +63,41 @@ public partial class SimData : Resource
     // Null disables the trophy drop. See Mob.EjectLoot.
     [Export] public LootData eliteLoot;
 
+    // Daily "well rested" buff. Each sunrise one idle party member is drawn (see
+    // Party.AdvanceRestAndPickWellRested) and wears this until the next — a small
+    // all-round boost (stamina / damage / fortitude / health). Authored once here
+    // since it's shared party-wide, mirroring eliteStatusEffect. Null = no buff.
+    [Export] public StatusEffectData wellRestedEffect;
+
+    // Warm campfire glow particle shown on the well-rested member ONLY while they
+    // sit at the fire (Player.UpdateWellRestedFx gates it) — a looping Fx scene.
+    // Kept off the status effect's own loopFx, which would show it all day. Null =
+    // no particle.
+    [Export] public PackedScene wellRestedCampfireFx;
+
     // Status effect a mob wears while wet (swimming / caught in the rain).
     // Shared — every mob uses the same status_wet the player does, so its
     // Electrical-vulnerability / Fire-resistance modifiers stay consistent
-    // across mobs and player. Null = mobs never get wet. Mob wetness is a
-    // fast-draining ContinuousArm meter ("it shouldn't last") — see Mob.TickMobWet.
+    // across mobs and player. Null = mobs never get wet. Unlike the player's
+    // ContinuousArm buildup meter, mob wetness is a hard on/off toggle keyed to
+    // the mob's current circumstance — see Mob.UpdateMobWet.
     [Export] public StatusEffectData mobWetStatusEffect;
-    // Seconds of full open-sky rain exposure to soak a mob's wet meter 0 → 1.
-    [Export] public float mobWetRainSoakSeconds = 3f;
-    // Seconds for a mob out of water and rain to dry 1 → 0. Short so a mob that
-    // climbs out of a pond or leaves a squall dries off quickly rather than
-    // carrying the Electrical vulnerability around indefinitely.
-    [Export] public float mobWetDrySeconds = 4f;
+    // Open-sky fraction (WorldState.GetSkyExposure01, 0 = fully covered, 1 = open
+    // sky) at or above which falling rain counts as reaching a mob. Below it a
+    // roof / dense canopy / cave ceiling shelters the mob and it stays dry.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float mobWetRainSkyThreshold = 0.5f;
+    // Seconds for a mob out of water / rain to drain its Wet meter 1 → 0. Mobs
+    // snap to fully wet instantly (no gradual soak like the player), then dry over
+    // this window. It doubles as the anti-flicker grace: the effect's disarm
+    // hysteresis keeps a mob wet until the meter drains past disarmThreshold, so a
+    // mob straddling a water edge (re-snapped to full each in-water tick) never
+    // blinks wet/dry. Short so mob wetness doesn't linger.
+    [Export] public float mobWetDrySeconds = 1.5f;
+    // Fire status a sun-vulnerable mob (MobData.sunburnBuildupPerSecond > 0, i.e.
+    // gellies) accrues while standing in direct sunlight — shared so every darkness
+    // creature ignites with the same fire DoT + flame FX a flaming weapon applies.
+    // Null = sunlight never ignites anything. See Mob.TickSunburn.
+    [Export] public StatusEffectData mobSunburnStatusEffect;
 
     // Fairy-loot boons. A fairy corpse (FairyLoot) draws its candidate boons
     // from FairyBoons, composed onto the corpse's per-instance ItemState when it
@@ -958,47 +981,70 @@ public partial class SimData : Resource
     // this is the "don't spawn too many" ceiling.
     [Export(PropertyHint.Range, "0,120,1")] public int nightSpawnMaxPopulation = 18;
 
-    // Population as a fraction of the max already targeted the instant night
-    // falls (sunset). A small nonzero floor so dusk isn't empty; the rest of the
-    // ramp to full comes from the density curve as midnight nears. 0 = start the
-    // night empty and let it build entirely from the curve.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float nightSpawnSunsetFraction = 0.05f;
+    // The whole mechanic runs off ONE danger scalar = max(time-of-day term,
+    // darkness dwell). Both live on [0,1]; danger drives spawn rate, population
+    // cap, AND level together. The player's own light is NOT a spawn input — it's
+    // the separate concealment axis (gelly vision, MobData.darkness*). See
+    // World.DarknessDwell / NightMobSpawner.
 
-    // Shapes population vs. how deep into the night it is (0 at sunset → 1 at
-    // midnight). >1 keeps early night sparse and ramps hard toward midnight (the
-    // "dense and dangerous as we approach midnight" feel); 1 = linear. The clock
-    // clamps at midnight, so the peak holds until the player sleeps to sunrise.
-    [Export(PropertyHint.Range, "0.25,6,0.05")] public float nightSpawnDensityCurve = 2.5f;
+    // Shapes the TIME term: pow(nightProgress, this), where nightProgress is 0 at
+    // sunset → 1 at midnight (and 0 all day, so daylight danger comes only from
+    // darkness). >1 keeps early night calm and ramps hard toward midnight; 1 =
+    // linear. The clock holds at midnight, so peak danger persists until sleep.
+    [Export(PropertyHint.Range, "0.25,6,0.05")] public float nightTimeDangerCurve = 2.5f;
 
-    // Seconds between spawn sweeps. Each sweep tops the population up toward the
-    // current target, so a longer interval makes the build-up more gradual.
+    // DARKNESS term. Total perceived light [0,1] at the player at/below which the
+    // spot counts as fully dark (dwell targets 1); it ramps linearly to 0 as light
+    // reaches this. Sits above moonlight so a moonlit area still reads partly dark
+    // (a moderate danger) while a cave/dungeon/shadow reads fully dark. Raise it to
+    // make moonlight more dangerous (smaller moonlit-vs-dark gap), lower it so only
+    // near-black counts.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float nightDarkThreshold = 0.6f;
+    // Seconds for the darkness dwell to charge from 0 to full in pitch black — the
+    // "lurking in the dark draws them" ramp. Shorter in dimmer-but-not-black spots
+    // (it only eases toward that spot's partial darkness).
+    [Export(PropertyHint.Range, "5,300,1")] public float nightDarkRiseSeconds = 90f;
+    // Seconds for the darkness dwell to drain to 0 in full light — how fast the
+    // danger cools once the player reaches a bright/open/daylit spot.
+    [Export(PropertyHint.Range, "1,120,1")] public float nightDarkFallSeconds = 15f;
+
+    // Spawn interval (s) at full danger (fast) and near-zero danger (slow); the
+    // live interval lerps between them by danger, so the dark ramps spawns up.
     [Export(PropertyHint.Range, "0.5,30,0.5")] public float nightSpawnIntervalSeconds = 4f;
+    [Export(PropertyHint.Range, "0.5,120,0.5")] public float nightSpawnSlowIntervalSeconds = 20f;
 
-    // Cap on new mobs spawned per sweep, so a large deficit (nightfall, or after
-    // fast-forwarding the clock) fills in over several sweeps rather than a
-    // sudden wall of enemies appearing at once.
+    // Cap on new mobs spawned per interval, so a large deficit (a danger spike, or
+    // after fast-forwarding the clock) fills in over several intervals rather than
+    // a sudden wall of enemies at once.
     [Export(PropertyHint.Range, "1,20,1")] public int nightSpawnMaxPerSweep = 3;
 
-    // Spawn ring around the player (m). Min keeps a mob from popping in within
-    // view in the player's lap; max must stay inside the loaded entity radius so
-    // the ground/collision under the spawn point actually exists.
-    [Export(PropertyHint.Range, "4,80,1")] public float nightSpawnMinRadius = 20f;
-    [Export(PropertyHint.Range, "4,120,1")] public float nightSpawnMaxRadius = 40f;
+    // Spawn ring around the player (m). Min keeps a mob from popping in within view
+    // in the player's lap; max must stay inside the loaded entity radius so the
+    // ground/collision under the spawn point actually exists. Max also sizes the
+    // nav-grid window scanned each cycle ((2·max+1)² columns, bounded by the code's
+    // MaxWindowHalfExtent), so keep it modest — larger costs more per scan and
+    // spawns farther off.
+    [Export(PropertyHint.Range, "4,80,1")] public float nightSpawnMinRadius = 8f;
+    [Export(PropertyHint.Range, "4,120,1")] public float nightSpawnMaxRadius = 24f;
 
-    // Light gate: a candidate position spawns only where BLOCK light (torches,
-    // campfires, lanterns — peak channel, 0..1+) is at or below this. Sky light
-    // is deliberately NOT gated, so open moonlit ground and shadow both qualify
-    // while the lit circle around a fire is shunned; the night-only spawn window
-    // is what keeps them out of daylight. Low = mobs hug the dark just outside
-    // firelight. 0 = only pure block-dark spots.
+    // Location gate: a candidate position spawns only where BLOCK light (torches,
+    // campfires, lanterns — peak channel) is at or below this, so gellies appear in
+    // the dark around the player (moonlit ground and shadow both qualify) and never
+    // inside a firelit circle. Independent of the danger scalar. Low = they hug the
+    // dark just outside firelight.
     [Export(PropertyHint.Range, "0,1,0.01")] public float nightSpawnMaxBlockLight = 0.28f;
+    // Among the valid (standable, not block-lit) spawn candidates each cycle,
+    // selection is weighted toward darker ones (lower perceived light, shadow-only
+    // reading) raised to this power — so gellies prefer deep shadow / caves over
+    // open moonlight. 0 = ignore darkness (uniform pick among valid spots); 1 =
+    // linear; higher = strongly favor the darkest candidate.
+    [Export(PropertyHint.Range, "0,6,0.05")] public float nightSpawnDarknessBias = 2f;
 
-    // Difficulty tier reached at midnight. A night mob's level ramps linearly
-    // from 0 at sunset to this at midnight (rounded), so later-night arrivals are
-    // tougher — each level is 2^level health / armor / outgoing damage and shows
-    // as level+1 HUD pips. Already-spawned mobs keep the level they arrived at;
-    // only new spawns scale up. 0 = never level up (all base tier all night).
-    [Export(PropertyHint.Range, "0,4,1")] public int nightSpawnMaxLevel = 2;
+    // Difficulty tier at full danger (midnight, or dwelling in total darkness). A
+    // spawn's level is round(danger × this) — each level is 2^level health / armor
+    // / outgoing damage and shows as level+1 HUD pips. Already-spawned mobs keep
+    // the level they arrived at; only new spawns scale up.
+    [Export(PropertyHint.Range, "0,4,1")] public int nightSpawnMaxLevel = 4;
 
     [ExportGroup("Companion")]
     // The persistent companion follows the player but can fall outside the

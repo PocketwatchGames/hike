@@ -85,6 +85,22 @@ public partial class World : Node3D
     private WeatherLightningSpawner _weatherLightningSpawner;
     private NightMobSpawner _nightMobSpawner;
     private ChunkAmbienceSpawner _chunkAmbienceSpawner;
+
+    // Darkness dwell [0,1]: how "charged" the local darkness around the player is,
+    // updated each Tick (UpdateNightDarkness). Eases up over nightDarkRiseSeconds
+    // toward how dark the spot is (total sky+block light vs nightDarkThreshold) and
+    // back down over nightDarkFallSeconds in the light — so lurking in the dark, a
+    // cave, or a dungeon draws the gellies, day or night. The night spawner maxes
+    // this against a time-of-day term for its single danger scalar. Transient; not
+    // saved.
+    private float _darknessDwell;
+    public float DarknessDwell => _darknessDwell;
+    // Block light at the player [0,1] (peak channel / targetLightMax), cached each
+    // Tick. Gelly vision reads this directly (the player's concealment axis, kept
+    // separate from spawn danger): they see a moonlit or dark player well but a
+    // fire/lantern-lit one poorly.
+    private float _playerBlockLight01;
+    public float PlayerBlockLight01 => _playerBlockLight01;
     private Minimap _minimap;
     public Minimap Minimap => _minimap;
     private HeatField _heatField;
@@ -296,7 +312,54 @@ public partial class World : Node3D
         TickCompanionRescueHistory((float)delta);
         TickCompanionLeash((float)delta);
 
+        UpdateNightDarkness((float)delta);
+
         _heatField?.Tick();
+    }
+
+    // Integrate the night-creature exposure meters from the two light channels at
+    // the player. See the meter field declarations for the split rationale.
+    private void UpdateNightDarkness(float delta)
+    {
+        SimData data = _worldState?.SimData;
+        if (data == null)
+        {
+            return;
+        }
+
+        // Block light at the player (torch/campfire/lantern), normalized the same
+        // way the player's perceived-light factor is, so both live on [0,1]. Cached
+        // for gelly vision (the concealment axis).
+        float targetLightMax = data.targetLightMax > 0f ? data.targetLightMax : 0.75f;
+        float block01 = 0f;
+        if (_player != null)
+        {
+            Vector3 p = _player.GlobalPosition;
+            _worldState.GetBlockLightWorld(Mathf.FloorToInt(p.X), Mathf.FloorToInt(p.Y), Mathf.FloorToInt(p.Z),
+                out int r, out int g, out int b);
+            block01 = Mathf.Clamp(Mathf.Max(r, Mathf.Max(g, b)) / 255f / targetLightMax, 0f, 1f);
+        }
+        _playerBlockLight01 = block01;
+
+        // Darkness dwell — eases toward how dark the spot is right now. total01 is
+        // the player's perceived light (sky + block, so daylight/moonlight AND fire
+        // all lighten it); darkTarget is 1 in pitch black, 0 once the spot reaches
+        // nightDarkThreshold of light. Rise/fall are separate so darkness takes a
+        // while to charge up and the light clears it a bit faster.
+        float total01 = _player?.visibilityLight ?? 1f;
+        float darkTarget = data.nightDarkThreshold > 0f
+            ? Mathf.Clamp((data.nightDarkThreshold - total01) / data.nightDarkThreshold, 0f, 1f)
+            : (total01 <= 0f ? 1f : 0f);
+        if (darkTarget > _darknessDwell)
+        {
+            float step = data.nightDarkRiseSeconds > 0f ? delta / data.nightDarkRiseSeconds : 1f;
+            _darknessDwell = Mathf.Min(darkTarget, _darknessDwell + step);
+        }
+        else
+        {
+            float step = data.nightDarkFallSeconds > 0f ? delta / data.nightDarkFallSeconds : 1f;
+            _darknessDwell = Mathf.Max(darkTarget, _darknessDwell - step);
+        }
     }
 
     // In-world hours in the AWAKE portion of a day (sunrise → midnight), mapped
@@ -352,6 +415,9 @@ public partial class World : Node3D
             RefreshTimeOfDayEntities();
         }
         CleanupOffConditionMobs();
+        // NOTE: a short nap deliberately does NOT reset the world's spawns — only
+        // rolling over to the next day does (see AdvanceToNextSunrise). Napping an
+        // hour shouldn't repopulate a camp the player just cleared.
         return dayLength > 0f ? advanced / dayLength * AwakeHoursPerDay : 0.0;
     }
 
@@ -395,6 +461,10 @@ public partial class World : Node3D
         RefreshTimeOfDayEntities();
         OnNewDay?.Invoke(_worldState.DayNumber);
         CleanupOffConditionMobs();
+        // A full day rolled over — reset the world's encounters to their spawn
+        // state (mobs home + full-health, killed ones revived, dropped loot/arrows
+        // swept). Covers both sleep-to-sunrise and the death day-roll.
+        ResetSpawns();
         return skippedSeconds;
     }
 

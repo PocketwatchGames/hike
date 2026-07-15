@@ -93,6 +93,14 @@ public partial class StatusEffectData : Resource
 	[ExportGroup("Lifecycle")]
 	[Export, CompactFlags] public EEffectCategory category = EEffectCategory.Transient;
 
+	// Suppress this effect's icon on the mob status strip (MobHUD) while still
+	// showing it everywhere else (the player HUD, buildup bar). For a shared
+	// effect whose mob application is ambient/circumstantial rather than a combat
+	// state worth flagging over the mob — e.g. Wet, which every mob picks up just
+	// by swimming or standing in the rain and which would otherwise clutter the
+	// HUD. Player-side display is unaffected. Default false = shows normally.
+	[Export] public bool hideOnMobHud = false;
+
 	// Resistance/scaling tags. Buildup contributions feeding this effect and the
 	// per-second `dot` tick both scale by the receiver's matching StatModifier (e.g.
 	// Fire-resistance shrinks a Fire|Damage burn). None = no scaling.

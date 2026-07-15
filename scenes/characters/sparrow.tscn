@@ -34,7 +34,7 @@ height = 0.9
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
 height = 1.5
 
-[node name="Mob" type="RigidBody3D" unique_id=1153493867 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
+[node name="Mob" type="RigidBody3D" unique_id=1153493867 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "hudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_vhwbc")
@@ -43,7 +43,7 @@ _modelAnimator = NodePath("ModelAnimator")
 _mesh = NodePath("Visuals/MeshContainer")
 _visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
-hudAnchor = NodePath("Visuals/Node3D")
+hudAnchor = NodePath("Visuals/HUDNode")
 hudScene = ExtResource("2_7n4er")
 _bloodDamageFx = ExtResource("3_b85wh")
 _deathFx = ExtResource("4_us5sg")
@@ -68,7 +68,7 @@ _footstepEffects = Dictionary[int, PackedScene]({
 _footprintTexture = ExtResource("22_smeql")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
-[node name="Visuals" type="Node3D" parent="."]
+[node name="Visuals" type="Node3D" parent="." unique_id=2072538239]
 
 [node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=1240639322]
 
@@ -78,6 +78,9 @@ metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="AnimationPlayer2" type="AnimationPlayer" parent="Visuals/MeshContainer/SparrowModel/forest_bunny" unique_id=1741754757]
 libraries/ = ExtResource("27_birdyanims")
+
+[node name="HUDNode" type="Node3D" parent="Visuals" unique_id=720373046]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1776774, 0)
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1483172412]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
@@ -91,9 +94,6 @@ script = ExtResource("25_46vmd")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=837705627]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_kk0")
-
-[node name="Node3D" type="Node3D" parent="Visuals" unique_id=720373046]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
 
 [node name="PixelSnap" type="Node" parent="." unique_id=2063083886 node_paths=PackedStringArray("_target")]
 script = ExtResource("30_pixelsnap")

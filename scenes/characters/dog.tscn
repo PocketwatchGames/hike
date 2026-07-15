@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3 uid="uid://36x3mntrleh1"]
+[gd_scene format=3 uid="uid://36x3mntrleh1"]
 
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
@@ -15,27 +15,26 @@
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/fx/water_enter_splash.tscn" id="14_watenter"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
-[ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/fx/dog_growl.tscn" id="50_growl"]
-[ext_resource type="PackedScene" uid="uid://bjxtc2ycqn5mj" path="res://scenes/fx/dog_snarl.tscn" id="51_snarl"]
-[ext_resource type="PackedScene" uid="uid://bdbl036107hwh" path="res://scenes/fx/dog_bark.tscn" id="52_bark"]
-[ext_resource type="PackedScene" uid="uid://rpo02c84xxji" path="res://scenes/fx/dog_whimper.tscn" id="53_whimper"]
-[ext_resource type="PackedScene" uid="uid://bg28hplqg8bq3" path="res://scenes/fx/dog_curious.tscn" id="54_curious"]
-[ext_resource type="Resource" uid="uid://cjnkr1uvgp4k2" path="res://resources/data/characters/dog/dog_voice.tres" id="55_voice"]
 [ext_resource type="PackedScene" uid="uid://ddoqtp8ky0mvg" path="res://assets/models/characters/dog/dog.fbx" id="28_dogfbx"]
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/dog/dog_anims.res" id="29_doganims"]
 [ext_resource type="Material" path="res://resources/materials/dog_lit.tres" id="30_dogmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="31_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
+[ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/fx/dog_growl.tscn" id="50_growl"]
+[ext_resource type="PackedScene" path="res://scenes/fx/dog_snarl.tscn" id="51_snarl"]
+[ext_resource type="PackedScene" path="res://scenes/fx/dog_bark.tscn" id="52_bark"]
+[ext_resource type="PackedScene" path="res://scenes/fx/dog_whimper.tscn" id="53_whimper"]
+[ext_resource type="PackedScene" uid="uid://bg28hplqg8bq3" path="res://scenes/fx/dog_curious.tscn" id="54_curious"]
+[ext_resource type="Resource" uid="uid://cjnkr1uvgp4k2" path="res://resources/data/characters/dog/dog_voice.tres" id="55_voice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
 radius = 0.4
 height = 0.9
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
-radius = 0.5
 height = 1.2
 
-[node name="Mob" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
+[node name="Mob" type="RigidBody3D" unique_id=915898806 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "hudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")
@@ -44,7 +43,7 @@ _modelAnimator = NodePath("ModelAnimator")
 _mesh = NodePath("Visuals/MeshContainer")
 _visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
-hudAnchor = NodePath("Visuals/Node3D")
+hudAnchor = NodePath("Visuals/HUDNode")
 hudScene = ExtResource("3_mobhud")
 _bloodDamageFx = ExtResource("12_blooddmg")
 _deathFx = ExtResource("13_deathsml")
@@ -71,50 +70,50 @@ _footprintTexture = ExtResource("8_dfn4c")
 _footprintSize = Vector2(0.35, 0.45)
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
-[node name="Visuals" type="Node3D" parent="."]
+[node name="Visuals" type="Node3D" parent="." unique_id=674154777]
 
-[node name="MeshContainer" type="Node3D" parent="Visuals"]
+[node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=1822071374]
 
-[node name="DogModel" type="Node3D" parent="Visuals/MeshContainer"]
+[node name="DogModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=896856786]
 
-[node name="dog" parent="Visuals/MeshContainer/DogModel" instance=ExtResource("28_dogfbx")]
+[node name="dog" parent="Visuals/MeshContainer/DogModel" unique_id=1914139089 instance=ExtResource("28_dogfbx")]
 transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0, 0, 0)
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="Visuals/MeshContainer/DogModel/dog"]
+[node name="AnimationPlayer2" type="AnimationPlayer" parent="Visuals/MeshContainer/DogModel/dog" unique_id=698486305]
 libraries/ = ExtResource("29_doganims")
 
-[node name="MovementCollision" type="CollisionShape3D" parent="."]
+[node name="HUDNode" type="Node3D" parent="Visuals" unique_id=1429556567]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4800514, 0)
+
+[node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=906571782]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
 shape = SubResource("CapsuleShape3D_move")
 
-[node name="HurtBox" type="Area3D" parent="."]
+[node name="HurtBox" type="Area3D" parent="." unique_id=1448528801]
 collision_layer = 32
 collision_mask = 0
 script = ExtResource("2_hurtbox")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=2030665318]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 shape = SubResource("CapsuleShape3D_hurt")
 
-[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=1746300112 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
 collision_mask = 0
 monitoring = false
 script = ExtResource("2_interactivebox")
 _interactiveNode = NodePath("..")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=183423417]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 shape = SubResource("CapsuleShape3D_hurt")
 
-[node name="Node3D" type="Node3D" parent="Visuals"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
-
-[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+[node name="PixelSnap" type="Node" parent="." unique_id=1985915401 node_paths=PackedStringArray("_target")]
 script = ExtResource("40_pixelsnap")
 _target = NodePath("../Visuals/MeshContainer/DogModel")
 
-[node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
+[node name="ModelAnimator" type="Node" parent="." unique_id=1657908810 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("31_modelanim")
 player = NodePath("../Visuals/MeshContainer/DogModel/dog/AnimationPlayer")
 visual = NodePath("../Visuals/MeshContainer/DogModel")

@@ -91,15 +91,17 @@ public partial class MobSpawnEntry : SpawnEntryData
             return;
         }
         float rotationY = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-        MobSimState state = descriptor.CreateState(position, rotationY);
+        // Layer the per-area worldgen level field (and underground bonus) onto the
+        // descriptor's authored base level, then hand the final tier to CreateState
+        // so the mob's vitals are scaled to it at construction (before this state is
+        // baked into the .hike). The constructor forces non-dangerous mobs to 0, so
+        // computing a tier here for prey / villagers is harmless.
+        int level = WorldGen.ComputeMobLevel(ws, position, descriptor.level);
+        MobSimState state = descriptor.CreateState(position, rotationY, levelOverride: level);
         if (state == null)
         {
             return;
         }
-        // Layer the per-area worldgen level field (and underground bonus) onto
-        // the descriptor's authored base level. Scales health/armor/damage by
-        // 2^Level and drives the HUD pips.
-        state.Level = WorldGen.ComputeMobLevel(ws, position, descriptor.level);
         state.SpawnConditions = spawnConditions;
         if (initialBehavior != null && (string)initialBehavior != ""
             && rng.NextDouble() < initialBehaviorChance)

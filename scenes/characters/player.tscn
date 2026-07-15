@@ -23,7 +23,7 @@
 [ext_resource type="PackedScene" uid="uid://dy7pahbiw5boy" path="res://scenes/fx/land_hard.tscn" id="19_landhard"]
 [ext_resource type="PackedScene" uid="uid://da0fmu7g5je6s" path="res://scenes/fx/water_plunge.tscn" id="20_plunge"]
 [ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/fx/player_swim_idle_loop.tscn" id="21_tread"]
-[ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="22_s1x7u"]
+[ext_resource type="Script" uid="uid://jgnbllrj442r" path="res://scripts/data/characters/VoiceData.cs" id="22_s1x7u"]
 [ext_resource type="Resource" uid="uid://dhis3te0u5ii" path="res://resources/data/characters/human/player_voice_female.tres" id="22_voicefem"]
 [ext_resource type="Resource" uid="uid://xdns0m6o8hu4" path="res://resources/data/characters/human/player_voice_male.tres" id="23_voicemale"]
 [ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
@@ -39,7 +39,7 @@
 [ext_resource type="PackedScene" uid="uid://cypanyqryd22f" path="res://scenes/characters/player_model_male.tscn" id="41_modelmale"]
 [ext_resource type="PackedScene" uid="uid://dqv7n2wk8rmpc" path="res://scenes/fx/dig_scoop.tscn" id="42_digscoop"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="43_corpsebox"]
-[ext_resource type="Script" uid="uid://ra804zm0hgk7y" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="44_livemarker"]
+[ext_resource type="Script" uid="uid://btmjrrxy7m26w" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="44_livemarker"]
 [ext_resource type="Texture2D" uid="uid://dxt67iud2lt3s" path="res://assets/textures/map_markers/grave.png" id="45_graveicon"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
@@ -48,6 +48,12 @@ height = 1.5
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_6w7gq"]
 radius = 1.0
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_corpse"]
+radius = 1.0
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_attract"]
+radius = 4.0
 
 [sub_resource type="QuadMesh" id="QuadMesh_aim_line"]
 material = ExtResource("25_aimreticle_mat")
@@ -65,17 +71,15 @@ height = 0.12
 radial_segments = 12
 rings = 6
 
-[sub_resource type="SphereShape3D" id="SphereShape3D_corpse"]
-radius = 1.0
-
-[sub_resource type="SphereShape3D" id="SphereShape3D_attract"]
-radius = 4.0
-
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_audioListener", "_aimingReticle", "_corpseInteractiveBox", "_pickupAttractArea", "_liveMapMarker", "_lanternHealLight")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("_corpseInteractiveBox", "_liveMapMarker", "interactArea", "_pickupAttractArea", "hudAnchor", "_hurtBox", "_audioListener", "_aimingReticle", "_lanternHealLight")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
+_corpseInteractiveBox = NodePath("CorpseInteractiveBox")
+_liveMapMarker = NodePath("LiveMapMarker")
 data = ExtResource("2_6eyoc")
 interactArea = NodePath("Area3D")
+_pickupAttractArea = NodePath("PickupAttractArea")
+hudAnchor = NodePath("HudAnchor")
 _hurtBox = NodePath("HurtBox")
 _modelPackages = Dictionary[int, PackedScene]({
 0: ExtResource("29_modelfem"),
@@ -84,9 +88,6 @@ _modelPackages = Dictionary[int, PackedScene]({
 _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
 _lanternHealLight = NodePath("LanternHealLight")
-_corpseInteractiveBox = NodePath("CorpseInteractiveBox")
-_pickupAttractArea = NodePath("PickupAttractArea")
-_liveMapMarker = NodePath("LiveMapMarker")
 _wetEffectData = ExtResource("26_statuswet")
 _wetClothesEffectData = ExtResource("26_statuswetclothes")
 _dirtyEffectData = ExtResource("27_statusdirty")
@@ -223,7 +224,6 @@ extra_cull_margin = 64.0
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 light_color = Color(1, 0.79, 0.43, 1)
 light_energy = 0.0
-shadow_enabled = false
 omni_range = 7.0
 
 [node name="HudAnchor" type="Node3D" parent="." unique_id=1151412001]

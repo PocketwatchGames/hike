@@ -320,10 +320,30 @@ public partial class Mob
                 // player→mob relief.
                 float dilationRelief = _simState.EyeDilation * mobData.eyeDilationVisionRelief;
                 float playerLight = Mathf.Lerp(_world.player.visibilityLight, 1f, dilationRelief);
+                // Darkness creatures (gellies) see by the ABSENCE of block light,
+                // not the normal "brighter = easier". A moonlit player reads fully
+                // (block ~0); fire/lantern light blinds them along a curve down to
+                // darknessSightFloor (kept nonzero so a hunter already on top of the
+                // player still barely tracks them into the light). Sky/moonlight
+                // never blinds them. Weight 0 leaves every other mob untouched.
+                if (mobData.darknessPerceptionWeight > 0f)
+                {
+                    float blind = mobData.darknessVisionBlindBlockLight;
+                    float unlit = blind > 0f
+                        ? Mathf.Clamp(1f - _world.PlayerBlockLight01 / blind, 0f, 1f)
+                        : (_world.PlayerBlockLight01 <= 0f ? 1f : 0f);
+                    float gellyLight = Mathf.Max(Mathf.Pow(unlit, mobData.darknessVisionCurve), mobData.darknessSightFloor);
+                    playerLight = Mathf.Lerp(playerLight, gellyLight, mobData.darknessPerceptionWeight);
+                }
+                float stealthTerm = Mathf.Clamp(playerLight * _world.player.visibilitySpeed * _world.player.visibilityCamouflage, 0f, 1f)
+                    * _world.player.data.prominence;
+                // A triggered mob is normally locked on (ignores stealth). For a
+                // darkness creature the lock is softened by its weight, so a player
+                // who reaches the light can still slip a hunting gelly — its
+                // perception then drains through the usual memory window.
                 float playerStealth = target.triggered
-                    ? 1f
-                    : Mathf.Clamp(playerLight * _world.player.visibilitySpeed * _world.player.visibilityCamouflage, 0f, 1f)
-                        * _world.player.data.prominence;
+                    ? Mathf.Lerp(1f, stealthTerm, mobData.darknessPerceptionWeight)
+                    : stealthTerm;
                 float env = PlayerPerception.VisionRangeMultiplier(_world, GlobalPosition, _world.player.GlobalPosition);
                 float clarity = facingFactor * env * playerStealth;
                 // Signal = closeness curve × clarity. minPerceptionDelta is the

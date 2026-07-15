@@ -21,7 +21,7 @@ radius = 0.3
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_hurt"]
 
-[node name="Mob" type="RigidBody3D" unique_id=1847679287 node_paths=PackedStringArray("_collisionShape", "_mesh", "_hurtBox", "HudAnchor", "_vanishFade")]
+[node name="Mob" type="RigidBody3D" unique_id=1847679287 node_paths=PackedStringArray("_collisionShape", "_mesh", "_hurtBox", "hudAnchor", "_vanishFade")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")

@@ -909,6 +909,22 @@ public class WorldState
         return entities;
     }
 
+    // Every chunk-filed entity state across the whole world. A full-world walk —
+    // intended only for infrequent world-wide operations like the day-pass spawn
+    // reset (World.ResetSpawns), never per-frame. When the world becomes streamed
+    // (a bounded resident set rather than all chunks loaded) this only sees
+    // resident chunks; revisit then if a global sweep must reach evicted chunks.
+    public IEnumerable<EntitySimState> AllChunkEntities()
+    {
+        foreach (List<EntitySimState> list in _entities.Values)
+        {
+            foreach (EntitySimState state in list)
+            {
+                yield return state;
+            }
+        }
+    }
+
     // When true, AddEntity flags added entities as PlacedAsFixture so WorldGen's
     // road pass routes around them and never clears/regrades under them. Set
     // only around WorldGen's authored fixture passes; false (the default)

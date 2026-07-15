@@ -30,6 +30,8 @@
 [ext_resource type="PackedScene" uid="uid://bv6kkm02f7457" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
 [ext_resource type="PackedScene" uid="uid://eui37eofo08x" path="res://scenes/hud/hud_text_damage_heavy.tscn" id="hud_text_damage_heavy"]
 [ext_resource type="PackedScene" uid="uid://c5d2y2vhiho8n" path="res://scenes/hud/hud_text_damage_light.tscn" id="hud_text_damage_light"]
+[ext_resource type="PackedScene" uid="uid://zq7fil7j2b9zd" path="res://scenes/hud/hud_text_damage_miss.tscn" id="hud_text_damage_miss"]
+[ext_resource type="PackedScene" uid="uid://fkcblwvp0re4e" path="res://scenes/hud/hud_text_damage_blocked.tscn" id="hud_text_damage_blocked"]
 [ext_resource type="PackedScene" uid="uid://wrdegol14u0e" path="res://scenes/hud/hud_text_heal_heavy.tscn" id="hud_text_heal_heavy"]
 [ext_resource type="PackedScene" uid="uid://daw07fd8ckjrx" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
 [ext_resource type="PackedScene" uid="uid://bajbqjuap3wxc" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
@@ -109,6 +111,8 @@ hudTextCritScene = ExtResource("hud_text_crit")
 hudTextBackstabScene = ExtResource("hud_text_backstab")
 hudTextHealLightScene = ExtResource("hud_text_heal_light")
 hudTextHealHeavyScene = ExtResource("hud_text_heal_heavy")
+hudTextMissScene = ExtResource("hud_text_damage_miss")
+hudTextBlockedScene = ExtResource("hud_text_damage_blocked")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
 screenEffects = NodePath("ScreenEffects")

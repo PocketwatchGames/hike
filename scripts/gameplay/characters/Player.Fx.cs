@@ -208,6 +208,20 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Warm campfire glow for a well-rested member — shown only while they're
+	// actually seated at the fire: any inactive member (the party gathers at camp)
+	// or the controlled member while the camp screen is open. Called from both the
+	// active and inactive tick paths so idle members (the common case) still get
+	// it. The buff itself is applied separately (RefreshWellRested); this is purely
+	// the campfire-gated visual.
+	private void UpdateWellRestedFx()
+	{
+		bool resting = Member?.IsWellRested == true
+			&& _health > 0f
+			&& (_camping || !IsActive);
+		UpdateLoopEffect(ref _wellRestedLoop, _world?.SimData?.wellRestedCampfireFx, resting);
+	}
+
 	// Slide-loop driver with per-ground-type scene selection. Resolves the
 	// current EGroundType each tick and swaps the active Fx wholesale when
 	// the surface type changes mid-slide (e.g. skating from grass onto

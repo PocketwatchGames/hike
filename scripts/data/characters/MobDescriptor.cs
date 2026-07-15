@@ -48,7 +48,13 @@ public partial class MobDescriptor : Resource
     // Null falls back to the species' base MobData.mobScene. The scene is fixed
     // at construction (EntitySimState.Scene is readonly) and serializes with the
     // mob, so an overridden rig survives chunk eviction and save/load.
-    public MobSimState CreateState(Vector3 worldPosition, float rotationY, PackedScene sceneOverride = null)
+    // `levelOverride` sets the mob's difficulty tier; null uses the descriptor's
+    // authored base `level`. WorldGen passes the per-area-bumped tier here (see
+    // MobSpawnEntry.Spawn). The level reaches the MobSimState constructor so
+    // vitals are scaled to it at creation — before the state is ever serialized —
+    // rather than patched afterward. (The constructor forces non-dangerous mobs
+    // back to level 0.)
+    public MobSimState CreateState(Vector3 worldPosition, float rotationY, PackedScene sceneOverride = null, int? levelOverride = null)
     {
         MobData mobData = species?.mob;
         PackedScene scene = sceneOverride ?? mobData?.mobScene;
@@ -56,15 +62,11 @@ public partial class MobDescriptor : Resource
         {
             return null;
         }
-        var state = new MobSimState(worldPosition, rotationY, scene, mobData);
+        var state = new MobSimState(worldPosition, rotationY, scene, mobData, levelOverride ?? level);
         // The species is the mob's bestiary identity (discovery / kill-leveling
         // key) as well as the source of its recolor / loot / stat modifiers.
         state.Species = species;
         state.Palette = species.palette;
-        // Authored base tier; WorldGen bumps this by its per-area level field at
-        // placement (MobSpawnEntry.Spawn). Left as-is for editor/runtime spawns
-        // that don't route through worldgen.
-        state.Level = level;
         if (species.weapons != null && species.weapons.Count > 0)
         {
             state.Weapons = species.weapons;

@@ -177,7 +177,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // scaled max at spawn. Outgoing DAMAGE and incoming resist are NOT here — those
     // route through the shared SimData curve (OutgoingLevelScale / IncomingLevelResist)
     // so mob and player leveling stay in lockstep. Base (Level 0) mobs get 1.
-    public float LevelMultiplier => Mathf.Pow(2f, Mathf.Max(0, Level));
+    public float LevelMultiplier => PoolLevelMultiplier(Level);
+
+    // Shared level→pool scale so the maxHealth/maxArmor properties and the
+    // spawn-time vital scaling (MobSimState's constructor) agree on 2^Level.
+    public static float PoolLevelMultiplier(int level) => Mathf.Pow(2f, Mathf.Max(0, level));
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
     // Elite marker, authored on the spawning MobDescriptor. Drives the crown,
     // shared elite buff, and crown-trophy loot; the signature effect rides
@@ -823,7 +827,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // (for voxel queries), so construct here after both are wired.
         _navigator = new MobNavigator(this);
         _runner = new ActionRunner(this);
-        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, DrainMaxHealth, incomingLevelResist: () => IncomingLevelResist);
+        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, DrainMaxHealth, incomingLevelResist: () => IncomingLevelResist, maxHealth: () => maxHealth);
         InitBehaviors();
         world.AddChild(this);
         // A mob loaded mid-burrow (from save data) needs its rigid body +
@@ -1291,6 +1295,31 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // interactable. The InteractiveBox on the mob's .tscn drives detection;
     // CanInteract / CanActorInteract gate the press itself.
     public Vector3 hudPosition => hudAnchor != null ? hudAnchor.GlobalPosition : GlobalPosition;
+
+    // Gate for floating damage / heal numbers. Suppress them for a mob the
+    // player can't actually see right now, so a number never floats over empty
+    // space or the ceiling:
+    //   - mesh not drawn (culled / faded out), or a remembered-silhouette mob
+    //     that's outside the line-of-sight window (playerCanSee false) and not
+    //     player-side — you can't see where it really is.
+    //   - above the camera's ceiling clip (an upper floor cut away by the
+    //     cutaway) — camera.Clip is +inf outdoors, so this only bites indoors.
+    public bool ShowsHudFeedback
+    {
+        get
+        {
+            if (_mesh == null || !_mesh.Visible)
+            {
+                return false;
+            }
+            if (!Teams.AreAllied(ActorTeam, ETeam.Player) && !playerCanSee)
+            {
+                return false;
+            }
+            float clip = GameClient.Current?.camera?.Clip ?? float.PositiveInfinity;
+            return hudPosition.Y < clip;
+        }
+    }
 
     // A dead tamed companion surfaces the shared revive verb instead of its
     // live actions. Gated on SimData.ReviveAction so a null authoring slot
@@ -1976,14 +2005,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // Per-physics-tick wet driver for mobs. Mirrors the player's TickWetEffect
-    // but far simpler — mobs have no armor wetness cascade and dry fast (mob
-    // wetness "shouldn't last"). Water / swimming snaps the meter to full; open-
-    // sky rain soaks it at mobWetRainSoakSeconds; otherwise it drains at
-    // mobWetDrySeconds. The shared status_wet arms via its ContinuousArm
-    // thresholds, bringing its Electrical vulnerability / Fire resistance along.
+    // Perceptible-rain floor below which the simRain noise (≈1e-7 RainIntensity)
+    // is treated as "no rain" — mirrors Player.RainPerceptibleFloor.
+    private const float MobRainPerceptibleFloor = 0.01f;
+
+    // Circumstantial wetness for mobs. Drives the SAME shared status_wet
+    // ContinuousArm meter the player does (Player.TickWetEffect) — identical
+    // arm/disarm mechanism, so the effect means the same thing on both — and
+    // differs only in the input signal: a mob is wet ONLY while its current
+    // situation makes it so (feet in water / swimming, or standing in the open
+    // under rain), and snaps to fully wet INSTANTLY rather than soaking in on a
+    // curve. Leaving the water / rain drains the meter over mobWetDrySeconds; the
+    // meter's disarm hysteresis is the anti-flicker grace, so a mob straddling a
+    // water edge (re-snapped to full each in-water tick) never blinks wet/dry.
     // Call after UpdateWaterState so _swimming reflects this tick.
-    private void TickMobWet(float dt)
+    private void UpdateMobWet(float dt)
     {
         SimData sim = _world?.SimData;
         StatusEffectData wet = sim?.mobWetStatusEffect;
@@ -1992,27 +2028,66 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         float delta;
-        if (_swimming || IsInWater())
+        if (_swimming || IsInWater() || RainedOn())
         {
-            // Snap toward fully soaked the moment any part of the mob is in water.
+            // Snap the meter to full so the effect arms this tick — mobs are
+            // instantly wet in water or rain, no gradual soak.
             delta = 1f - _statusEffects.GetBuildup(wet);
         }
         else
         {
-            // Open-sky rain soaks; a canopy / roof (sky01 → 0) shelters. Not drying
-            // while being rained on, mirroring the player's water-beats-dry order.
-            float rainIntensity = Mathf.Clamp(SkyController.Current?.Palette.RainIntensity ?? 0f, 0f, 1f);
-            float sky01 = _world?.WorldState?.GetSkyExposure01(GlobalPosition + Vector3.Up) ?? 0f;
-            float rainAccum = (rainIntensity > 0f && sim.mobWetRainSoakSeconds > 0f)
-                ? (dt / sim.mobWetRainSoakSeconds) * rainIntensity * sky01
-                : 0f;
-            delta = rainAccum > 0f
-                ? rainAccum
-                : (sim.mobWetDrySeconds > 0f ? -dt / sim.mobWetDrySeconds : 0f);
+            // Dry circumstance: drain toward 0 over mobWetDrySeconds. The disarm
+            // hysteresis releases the effect once the meter passes disarmThreshold.
+            delta = sim.mobWetDrySeconds > 0f ? -dt / sim.mobWetDrySeconds : -1f;
         }
         if (delta != 0f)
         {
             _statusEffects.AddBuildup(wet, delta);
+        }
+    }
+
+    // True when falling rain is actually reaching this mob: perceptible rain AND
+    // enough open sky overhead (a roof / dense canopy / cave ceiling shelters
+    // it). The boolean counterpart of the player's RainExposure01 gate — mob
+    // wetness is all-or-nothing, so this is a threshold rather than a ramp.
+    private bool RainedOn()
+    {
+        float rain = SkyController.Current?.Palette.RainIntensity ?? 0f;
+        if (rain < MobRainPerceptibleFloor)
+        {
+            return false;
+        }
+        float sky01 = _world?.WorldState?.GetSkyExposure01(GlobalPosition + Vector3.Up) ?? 0f;
+        return sky01 >= (_world?.SimData?.mobWetRainSkyThreshold ?? 0.5f);
+    }
+
+    // Darkness creatures (gellies) burn in direct sunlight. Rather than a bespoke
+    // damage path, sun exposure just feeds buildup into the shared sunburn status
+    // (SimData.mobSunburnStatusEffect, the same fire DoT + flame FX a flaming
+    // weapon applies) — the status controller then owns the ignite, the damage,
+    // the once-per-second HUD rollup, and the burn-out. Buildup rate is the mob's
+    // sunburnBuildupPerSecond scaled by sun elevation (SkyController.SunFactor, 0
+    // at night) and open-sky exposure (GetSkyExposure01, 0 under a roof / canopy /
+    // in a cave), so it only ignites in the open by day and partial shade is
+    // slower; leaving the sun stops the fuel and the status decays out.
+    private void TickSunburn(float dt)
+    {
+        float rate = mobData?.sunburnBuildupPerSecond ?? 0f;
+        StatusEffectData sunburn = _world?.SimData?.mobSunburnStatusEffect;
+        if (rate <= 0f || sunburn == null || !alive || _statusEffects == null)
+        {
+            return;
+        }
+        float sunFactor = SkyController.Current?.SunFactor ?? 0f;
+        if (sunFactor <= 0f)
+        {
+            return;
+        }
+        float sky01 = _world?.WorldState?.GetSkyExposure01(GlobalPosition + Vector3.Up) ?? 0f;
+        float delta = rate * sunFactor * sky01 * dt;
+        if (delta > 0f)
+        {
+            _statusEffects.AddBuildup(sunburn, delta);
         }
     }
 
@@ -2408,12 +2483,24 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
+    // Set by World.ResetSpawns before it queue-frees this mob for a full
+    // spawn-state reset. The despawn's TreeExiting fires at end of frame — AFTER
+    // the reset has already rewritten the sim state to the spawn transform — so
+    // sync-back must be suppressed or it would clobber the reset with the mob's
+    // live (drifted, wounded) position.
+    private bool _syncSuppressed;
+
+    public void SuppressSyncForReset()
+    {
+        _syncSuppressed = true;
+    }
+
     // Writes the node's current transform back into the persistent sim state so
     // that when this Mob is freed (chunk unload, save), the saved position is
     // current rather than the original spawn position.
     private void SyncToSimState()
     {
-        if (_simState == null)
+        if (_simState == null || _syncSuppressed)
         {
             return;
         }
@@ -2745,7 +2832,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 health = maxHealth;
             }
-            DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, hudPosition);
+            DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, hudPosition, ShowsHudFeedback);
             if (dotFlush.damage)
             {
                 // Continuous damage authors no per-frame fx; its "ouch" rides
@@ -2753,7 +2840,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 SpawnVoice(_voice?.hurt);
             }
             UpdateWaterState();
-            TickMobWet((float)delta);
+            UpdateMobWet((float)delta);
+            TickSunburn((float)delta);
             _exitingWater = false;
             // Engine gravity is owned by ApplyWaterPhysics while swimming —
             // disable Godot's default gravity application on this body so
@@ -3599,6 +3687,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private bool IsBackstab(HitInfo hit)
     {
         if (hit.source is not Player attacker) { return false; }
+        if (mobData is { canBeBackstabbed: false }) { return false; }
         PlayerData pd = attacker.data;
         if (pd == null) { return false; }
         Vector3 mobForward = GlobalTransform.Basis.Z;
@@ -3728,9 +3817,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // from firing an OnDizzy fold the dead mob can't use. Predicted from
         // `health - incoming` (post-armor), mirroring the health<=0 Die check
         // below, so survivors still get the full early fold.
+        bool appliedBuildup = false;
         if (health - incoming > 0f)
         {
-            _statusEffects.ApplyHitBuildups(ref hit);
+            appliedBuildup = _statusEffects.ApplyHitBuildups(ref hit);
         }
 
         // Hitstun + knockback: stack on top of any buildup handling above so a
@@ -3789,15 +3879,31 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // path in Player.OnHurtBoxHit so player + mob HUD text behaves the
         // same regardless of which actor took the hit.
         float totalShown = armorAbsorbed + Mathf.Max(0f, incoming);
-        if (totalShown > 0f)
+        if (hit.dot)
         {
-            if (hit.dot)
+            if (totalShown > 0f)
             {
                 _dotHud.AddDamage(totalShown);
             }
-            else
+        }
+        else if (ShowsHudFeedback)
+        {
+            // Round to what the number would actually read — a hit resisted below
+            // 0.5 shows no positive number on its own.
+            if (Mathf.RoundToInt(totalShown) > 0)
             {
                 GameClient.Current?.onDamage?.Invoke(hudPosition, totalShown, EHudTextType.DamageLight);
+            }
+            else if (appliedBuildup)
+            {
+                // No damage, but a status buildup landed — show a "0" so the hit
+                // still registers as connecting rather than vanishing.
+                GameClient.Current?.onHudText?.Invoke(hudPosition, "0", EHudTextType.DamageLight);
+            }
+            else
+            {
+                // The hit moved nothing — no damage, no buildup: a whiff.
+                GameClient.Current?.onHudText?.Invoke(hudPosition, Loc.Get(Loc.Keys.combat_miss), EHudTextType.Miss);
             }
         }
     }
@@ -3895,7 +4001,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // what actually moved.
         float change = health - before;
         GameClient client = GameClient.Current;
-        if (client != null)
+        if (client != null && ShowsHudFeedback)
         {
             if (change > 0f)
             {

@@ -498,6 +498,23 @@ public static class CVars
     //   [nightspawn] target=6 current=4 spawned=2
     public static CVarBool nightSpawnLog = new CVarBool("night_spawn_log", false);
 
+    // When true, prints a full NightMobSpawner status line once a second — every
+    // input to gelly spawning (time of day, the darkness dwell + what it's easing
+    // toward, player light, the danger scalar, target vs current) PLUS a live
+    // ground-probe (how many candidate points found ground, how many were dark
+    // enough, and the ground-vs-player height delta) and a one-word reason nothing
+    // is spawning. Use to diagnose "why aren't gellies appearing here?" — e.g. a
+    // large positive dyAvg means the ground ray is catching terrain above a cave
+    // instead of its floor.
+    public static CVarBool nightSpawnDebug = new CVarBool("night_spawn_debug", false);
+
+    // When true, draws the NightMobSpawner's search in-world (DebugDraw): a gray
+    // slab on every standable spot found around the player, a red→green slab on
+    // each VALID candidate (green = darker = higher spawn weight), and a cyan cross
+    // at the player. Each slab's height is its spawn Y, so it shows at a glance
+    // whether the search is finding the cave floor you're on or the surface above.
+    public static CVarBool nightSpawnDraw = new CVarBool("night_spawn_draw", false);
+
     // When true, prints companion-follow / breadcrumb-rescue diagnostics:
     // BehaviorWanderFollow logs (throttled) its phase, distance-to-player,
     // chosen destination and leg speed; World.TickCompanionLeash logs each

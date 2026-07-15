@@ -100,11 +100,86 @@ public class Party
 
 	// Append a new member to the roster (a recruited NPC). Joins as an inactive
 	// member — the active index is unchanged — so control stays with whoever the
-	// player is driving. Returns the new member's index.
+	// player is driving. Returns the new member's index. Flags them to win the
+	// next morning's well-rested lottery outright — a fresh recruit arrives rested.
 	public int Add(PlayerState member)
 	{
+		if (member != null)
+		{
+			member.ForceWellRestedNextDay = true;
+			member.RestDays = 1;
+		}
 		_members.Add(member);
 		return _members.Count - 1;
+	}
+
+	// Advance the daily rest bookkeeping and pick this day's "well rested" member.
+	// Called once per sunrise (World.OnNewDay). Clears yesterday's pick, ages every
+	// living member's rest counter (the still-controlled member stays at 0 — they're
+	// being used, so they can never be their own well-rested pick), then draws one
+	// idle member weighted by how long they've rested. A freshly recruited member
+	// (ForceWellRestedNextDay) wins outright. Returns the winner, or null if nobody
+	// was eligible (e.g. a solo party).
+	public PlayerState AdvanceRestAndPickWellRested(System.Random rng)
+	{
+		// 1. Yesterday's buff expires for everyone.
+		for (int i = 0; i < _members.Count; i++)
+		{
+			if (_members[i] != null) { _members[i].IsWellRested = false; }
+		}
+
+		// 2. Age the rest counters, then pin the controlled member back to 0.
+		for (int i = 0; i < _members.Count; i++)
+		{
+			PlayerState m = _members[i];
+			if (m != null && !m.IsDead) { m.RestDays++; }
+		}
+		if (Active != null) { Active.RestDays = 0; }
+
+		// 3. A forced (freshly recruited) member wins outright; otherwise draw from
+		//    idle living members, weighting by rest days so the longest-rested is
+		//    likeliest. The controlled member (RestDays 0) is never in the pool.
+		PlayerState winner = null;
+		for (int i = 0; i < _members.Count; i++)
+		{
+			PlayerState m = _members[i];
+			if (m != null && !m.IsDead && m.ForceWellRestedNextDay)
+			{
+				winner = m;
+				break;
+			}
+		}
+		if (winner == null)
+		{
+			int totalWeight = 0;
+			for (int i = 0; i < _members.Count; i++)
+			{
+				PlayerState m = _members[i];
+				if (m == null || m.IsDead || m.RestDays < 1) { continue; }
+				totalWeight += m.RestDays;
+			}
+			if (totalWeight > 0)
+			{
+				int roll = rng.Next(totalWeight);
+				for (int i = 0; i < _members.Count; i++)
+				{
+					PlayerState m = _members[i];
+					if (m == null || m.IsDead || m.RestDays < 1) { continue; }
+					roll -= m.RestDays;
+					if (roll < 0) { winner = m; break; }
+				}
+			}
+		}
+
+		// 4. Crown the winner: rested today, and reset to 1 so they can still be
+		//    drawn tomorrow, just with the lowest odds.
+		if (winner != null)
+		{
+			winner.IsWellRested = true;
+			winner.RestDays = 1;
+			winner.ForceWellRestedNextDay = false;
+		}
+		return winner;
 	}
 
 	// Bank the active member's provisional field knowledge into the permanent
@@ -134,6 +209,9 @@ public class Party
 			return false;
 		}
 		_activeIndex = index;
+		// Taking control counts as "using" this member — reset their rest counter
+		// so the well-rested lottery treats them as freshly used, even mid-day.
+		if (_members[index] != null) { _members[index].RestDays = 0; }
 		return true;
 	}
 }

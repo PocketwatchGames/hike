@@ -113,6 +113,41 @@ public partial class MobData : Resource
     // PARTIAL by design (0.35 = at full dilation darkness costs 65% of normal).
     // 0 = off (mob perception unaffected by dilation).
     [Export(PropertyHint.Range, "0,1,0.01")] public float eyeDilationVisionRelief = 0.35f;
+    // Darkness-creature vision (gellies). How much this mob's sight of the player
+    // is driven by the ABSENCE of block light at the player (World.PlayerBlockLight01,
+    // shaped by darknessVisionBlindBlockLight / darknessVisionCurve) INSTEAD of the
+    // normal "how lit is the player" term — an inversion: a normal mob sees a lit
+    // player better, a darkness creature sees a player in the open night (moonlit
+    // or dark) well and a fire/lantern-lit player barely at all. 0 = normal vision
+    // (default, every existing mob); 1 = fully darkness-driven. Blended by this
+    // weight, and it also softens the triggered lock-on so a player reaching
+    // firelight can slip a hunting darkness creature (its perception then decays
+    // via memory).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float darknessPerceptionWeight = 0f;
+    // Floor under the darkness-driven sight term so a darkness creature that has
+    // ALREADY closed on the player still barely perceives them even in full light
+    // (rather than going instantly blind) — the player must break contact and
+    // wait out its memory to fully lose it. Only matters when
+    // darknessPerceptionWeight > 0.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float darknessSightFloor = 0.12f;
+    // Block-light level [0,1] at the player at/above which a darkness creature is
+    // fully blinded (down to darknessSightFloor). Below it, sight ramps back up as
+    // the fire/lantern dims; moonlight (no block light) never blinds. Only used
+    // when darknessPerceptionWeight > 0.
+    [Export(PropertyHint.Range, "0.05,1,0.01")] public float darknessVisionBlindBlockLight = 0.4f;
+    // Shapes how block light between 0 and darknessVisionBlindBlockLight erodes
+    // sight. >1 keeps a darkness creature seeing well until the player is close to
+    // real firelight then drops off fast; <1 dims it with even a little block
+    // light. Only used when darknessPerceptionWeight > 0.
+    [Export(PropertyHint.Range, "0.25,4,0.05")] public float darknessVisionCurve = 1.5f;
+    // How fast DIRECT SUNLIGHT builds the sunburn status (SimData.mobSunburnStatusEffect)
+    // on this mob, in buildup/second at full exposure — scaled down by sun
+    // elevation (0 at night) and open-sky exposure (0 under a roof / canopy / in a
+    // cave). Once buildup arms, the shared fire DoT does the rest (and re-fuels
+    // while the mob stays in the sun). The hard counter that lets a player flee a
+    // dark cave into daylight and watch pursuers ignite. 0.5 ≈ catches fire after
+    // 2s of open noon sun. 0 = not sun-vulnerable (default, every normal mob).
+    [Export(PropertyHint.Range, "0,4,0.05")] public float sunburnBuildupPerSecond = 0f;
     // Smell reach in meters. The mob walks the target's ScentEmitter.Crumbs
     // each perception tick; a crumb contributes when it's within smellRange
     // AND a physics raycast from the mob's nose to the crumb is unblocked.
@@ -269,6 +304,11 @@ public partial class MobData : Resource
     // dodge tuning (distance / cooldown) still lives on the brain's
     // DodgeBehaviorData.
     [Export] public bool canDodge = false;
+    // Whether the player can land a positional backstab on this species. True for
+    // ordinary mobs with a meaningful facing; set false for radially-symmetric
+    // creatures (a gelly blob has no "back"), so a hit from behind folds no
+    // OnBackstab modifiers. Read by Mob.IsBackstab.
+    [Export] public bool canBeBackstabbed = true;
     // Status effect applied to this mob the moment it spawns and never removed
     // by the spawn path — the home for an intrinsic, lifelong effect. A summoned
     // minion authors its self-expiry here: a StatusEffectData with

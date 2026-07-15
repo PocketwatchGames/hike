@@ -296,14 +296,16 @@ public class MobSimState : EntitySimState
     // penalty on seeing the player. Not serialized; re-converges in ~seconds.
     public float EyeDilation;
 
-    public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData)
-        : this(worldPosition, rotationY, worldPosition, rotationY, scene, mobData)
+    public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData, int level = 0)
+        : this(worldPosition, rotationY, worldPosition, rotationY, scene, mobData, level)
     {
     }
 
     // Full constructor used by the deserializer so a mob restored from disk
     // keeps its authored spawn transform even if its current position has drifted.
-    public MobSimState(Vector3 worldPosition, float rotationY, Vector3 spawnPosition, float spawnRotationY, PackedScene scene, MobData mobData)
+    // `level` is the mob's difficulty tier, known at spawn — the deserializer
+    // passes 0 and overwrites Level/Health/Armor with the persisted values after.
+    public MobSimState(Vector3 worldPosition, float rotationY, Vector3 spawnPosition, float spawnRotationY, PackedScene scene, MobData mobData, int level = 0)
         : base(worldPosition, scene)
     {
         RotationY = rotationY;
@@ -311,13 +313,22 @@ public class MobSimState : EntitySimState
         SpawnRotationY = spawnRotationY;
         MobData = mobData;
         Alive = true;
-        // Base vitals. The authoritative max — folding inherent MobData.modifiers
-        // plus any elite status effects added at spawn — is finalized in
-        // Mob.Initialize once those modifiers are all in place. A mob restored
-        // from save (RestoredFromSave) keeps its persisted Health/MaxHealth/Armor.
+        // Only combat threats carry a difficulty tier; prey / villagers /
+        // companions are always level 0. Enforced here — the single point every
+        // fresh spawn's level flows through — so no caller can leave a
+        // non-dangerous mob leveled (which would scale its vitals and light HUD pips).
+        Level = mobData.dangerous ? Mathf.Max(0, level) : 0;
+        // Vitals at their level-scaled max. MaxHealth stays the unscaled drainable
+        // base (the maxHealth/maxArmor properties re-apply the 2^Level pool
+        // multiplier on read); Health/Armor are stored already scaled so they
+        // agree with those properties even for a mob baked into a .hike straight
+        // from worldgen and reloaded as RestoredFromSave (which skips
+        // Mob.Initialize's vitals finalize). Inherent MobData.modifiers and elite
+        // status effects fold in later, in that finalize, for a fresh live spawn.
+        float mult = Mob.PoolLevelMultiplier(Level);
         MaxHealth = mobData.maxHealth;
-        Health = mobData.maxHealth;
-        Armor = mobData.maxArmor;
+        Health = mobData.maxHealth * mult;
+        Armor = mobData.maxArmor * mult;
         PlayerPerception = 0f;
         DiscoveryState = EPlayerPerceptionState.Hidden;
         MemoryTimeMs = 0;
@@ -345,5 +356,59 @@ public class MobSimState : EntitySimState
             return null;
         }
         return Mob.Create(world, this);
+    }
+
+    // Returns this mob to its authored spawn condition so a fresh node
+    // re-materializes at the spawn post, full health, unaware — as if the chunk
+    // had just loaded. Driven by World.ResetSpawns when time passes (sleep / death).
+    // Restores the transform, revives, and clears all combat/awareness runtime
+    // state; vitals refill on the next Mob.Initialize because RestoredFromSave is
+    // cleared here (so a killed or half-dead mob comes back at its full level/
+    // elite-scaled max). Deliberately preserves identity and progression the reset
+    // shouldn't undo — taming, loyalty, gifts, inventory, level, elite, species.
+    public void ResetToSpawn()
+    {
+        WorldPosition = SpawnPosition;
+        RotationY = SpawnRotationY;
+        Alive = true;
+        // Force the next spawn down the fresh-spawn path so it refills vitals to
+        // the composed (level/elite-scaled) max rather than keeping the persisted
+        // wounded pool.
+        RestoredFromSave = false;
+
+        // Awareness / perception back to unseen-and-unaware.
+        PlayerPerception = 0f;
+        MemoryTimeMs = 0;
+        VisibleTimeMs = 0;
+        DiscoveryState = EPlayerPerceptionState.Hidden;
+        Investigation = null;
+        Yelled = false;
+        SuspendAITimeMs = 0;
+        ThreatPerception = default;
+        for (int i = 0; i < PerceptionTargets.Length; i++)
+        {
+            PerceptionTargets[i] = default;
+        }
+        Aggro.Clear();
+        DamagedByPlayer = false;
+
+        // Flinch / knockback / applied-motion transients.
+        HitstunTime = 0f;
+        KnockbackTime = 0f;
+        KnockbackVelocity = Vector3.Zero;
+        MotionTime = 0f;
+        MotionVelocity = Vector3.Zero;
+        MotionFreezeGravity = false;
+
+        // Burrow / flight.
+        Burrowing = false;
+        Burrowed = false;
+        BurrowTimeMs = 0;
+        Airborne = false;
+
+        // Armor recharge bookkeeping (the armor pool itself refills at spawn).
+        ArmorRecharging = false;
+        ArmorDepleted = false;
+        ArmorRechargeStartMs = 0;
     }
 }

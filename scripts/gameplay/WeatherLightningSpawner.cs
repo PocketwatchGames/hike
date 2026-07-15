@@ -20,9 +20,10 @@ using Godot;
 [GlobalClass]
 public partial class WeatherLightningSpawner : Node
 {
-    // Strike position uses a ray cast from this height above the
-    // player down through the random spawn point. Generous enough to
-    // clear any sky-island geometry the player might be standing on.
+    // Strike position ray span (World.TryFindGroundByRaycast) — cast from this far
+    // above the spawn point down through it. Generous enough to clear any sky-
+    // island geometry the player might be standing on. Lightning is open-sky
+    // weather, so the raycast surface finder is the right tool here.
     private const float GROUND_RAY_HEIGHT_OFFSET = 80f;
     private const float GROUND_RAY_DEPTH_OFFSET = 80f;
 
@@ -91,7 +92,7 @@ public partial class WeatherLightningSpawner : Node
         Vector2 offset = new Vector2(Mathf.Cos(yaw), Mathf.Sin(yaw)) * r;
         Vector3 query2d = playerPos + new Vector3(offset.X, 0f, offset.Y);
 
-        if (!TryFindGround(query2d, out Vector3 groundPos))
+        if (!world.TryFindGroundByRaycast(query2d, out Vector3 groundPos, GROUND_RAY_HEIGHT_OFFSET, GROUND_RAY_DEPTH_OFFSET))
         {
             if (CVars.lightningLog.Value)
             {
@@ -104,36 +105,6 @@ public partial class WeatherLightningSpawner : Node
         {
             GD.Print($"[lightning] FIRE at ({groundPos.X:F1}, {groundPos.Y:F1}, {groundPos.Z:F1}) (intensity={intensity:F3})");
         }
-    }
-
-    // Vertical raycast through the candidate XZ position, returning
-    // the first Environment hit. Origin is high above the player's
-    // current Y so the cast clears any overhead geometry the player
-    // happens to be standing on.
-    private bool TryFindGround(Vector3 query2d, out Vector3 ground)
-    {
-        ground = default;
-        // World extends Node3D, so it carries the physics world; the
-        // spawner is a plain Node and has none of its own. World.Current
-        // is already validated by the calling _Process path.
-        World3D world3D = World.Current?.GetWorld3D();
-        if (world3D == null)
-        {
-            return false;
-        }
-        Vector3 from = query2d + new Vector3(0f, GROUND_RAY_HEIGHT_OFFSET, 0f);
-        Vector3 to = query2d + new Vector3(0f, -GROUND_RAY_DEPTH_OFFSET, 0f);
-        using var query = PhysicsRayQueryParameters3D.Create(from, to);
-        query.CollisionMask = (uint)ECollisionLayer.Solid;
-        query.CollideWithBodies = true;
-        query.CollideWithAreas = false;
-        var result = world3D.DirectSpaceState.IntersectRay(query);
-        if (result.Count == 0)
-        {
-            return false;
-        }
-        ground = (Vector3)result["position"];
-        return true;
     }
 
     // Exponentially-jittered interval around the intensity-blended

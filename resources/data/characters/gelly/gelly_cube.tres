@@ -56,7 +56,10 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 [resource]
 script = ExtResource("1_mobdata")
 displayName = &"Gelatinous Cube"
+darknessPerceptionWeight = 1.0
 dangerous = true
+canBeBackstabbed = false
+sunburnBuildupPerSecond = 0.5
 modifiers = null
 brain = ExtResource("2_brain")
 bestiaryPortrait = ExtResource("3_m1kuv")

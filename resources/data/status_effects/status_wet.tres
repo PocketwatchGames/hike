@@ -36,6 +36,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 script = ExtResource("1_data")
 icon = ExtResource("1_l86d8")
 displayName = &"Wet"
+hideOnMobHud = true
 maxStack = 1
 buildupBehavior = 1
 startFx = ExtResource("3_startfx")

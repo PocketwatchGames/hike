@@ -608,8 +608,14 @@ public static class SharedWalkabilityCache
         public int Qx;
         public int Qy;
         public int Qz;
+        // Requested half-extent MUST be part of the key: an entry sized for a
+        // small request (a mob's 16-cell window) cannot serve a larger one (the
+        // spawner's 24+), and Sample would copy a wider sub-window than the source
+        // holds — negative source index / garbage. Different extents get their own
+        // entries; same-extent callers still share.
+        public int Half;
         public TraversalProfile Profile;
-        public bool Equals(Key o) => Qx == o.Qx && Qy == o.Qy && Qz == o.Qz && Profile.Equals(o.Profile);
+        public bool Equals(Key o) => Qx == o.Qx && Qy == o.Qy && Qz == o.Qz && Half == o.Half && Profile.Equals(o.Profile);
         public override bool Equals(object obj) => obj is Key k && Equals(k);
         public override int GetHashCode()
         {
@@ -618,6 +624,7 @@ public static class SharedWalkabilityCache
                 int h = Qx * 73856093;
                 h ^= Qy * 19349663;
                 h ^= Qz * 83492791;
+                h ^= Half * 26183;
                 h ^= Profile.GetHashCode();
                 return h;
             }
@@ -649,7 +656,7 @@ public static class SharedWalkabilityCache
         int qx = centerX >> 2;
         int qy = centerY >> 2;
         int qz = centerZ >> 2;
-        var key = new Key { Qx = qx, Qy = qy, Qz = qz, Profile = profile };
+        var key = new Key { Qx = qx, Qy = qy, Qz = qz, Half = requestedHalfExtent, Profile = profile };
         ulong now = Godot.Time.GetTicksMsec();
         if (_cache.TryGetValue(key, out Entry hit))
         {

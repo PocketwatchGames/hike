@@ -34,3 +34,5 @@ time_of_day_midnight	midnight
 danger_nearby	Danger Nearby
 too_hurt_to_rest	Too Hurt to Rest
 not_enough_health_to_revive	Not Enough Health
+combat_miss	MISS!
+combat_blocked	BLOCKED!

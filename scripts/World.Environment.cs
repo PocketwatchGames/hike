@@ -117,4 +117,38 @@ public partial class World
         bool inSun = !checkDirectionalShadow || IsPointInDirectionalSun(pos);
         return _worldState.GetPerceivedLightWorld(pos, inSun);
     }
+
+    // Downward physics ray to find the ground surface under `query`: casts from
+    // `heightAbove` above the point straight down to `depthBelow` below it and
+    // returns the first Solid hit in `ground`. Returns false off the map / over a
+    // gap (no hit) so callers can skip.
+    //
+    // This is the OUTDOOR surface finder: a ray from the sky returns the FIRST
+    // surface from above = the terrain top, which is WRONG under a roof / in a
+    // cave (it catches the overhead terrain, not the floor you're standing on).
+    // Use it ONLY for open-sky-only effects (weather strikes, particle placement).
+    // For any spawn / placement that must also work indoors use the nav-grid family
+    // instead — NavigationGoals.CollectStandableCells / WalkabilityGrid.SampleColumn.
+    public bool TryFindGroundByRaycast(Vector3 query, out Vector3 ground, float heightAbove = 40f, float depthBelow = 40f)
+    {
+        ground = default;
+        World3D world3D = GetWorld3D();
+        if (world3D == null)
+        {
+            return false;
+        }
+        Vector3 from = new Vector3(query.X, query.Y + heightAbove, query.Z);
+        Vector3 to = new Vector3(query.X, query.Y - depthBelow, query.Z);
+        using var rayQuery = PhysicsRayQueryParameters3D.Create(from, to);
+        rayQuery.CollisionMask = (uint)ECollisionLayer.Solid;
+        rayQuery.CollideWithBodies = true;
+        rayQuery.CollideWithAreas = false;
+        var result = world3D.DirectSpaceState.IntersectRay(rayQuery);
+        if (result.Count == 0)
+        {
+            return false;
+        }
+        ground = (Vector3)result["position"];
+        return true;
+    }
 }

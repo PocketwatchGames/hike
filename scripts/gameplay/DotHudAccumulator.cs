@@ -51,7 +51,12 @@ public class DotHudAccumulator
 		}
 	}
 
-	public DotHudFlush Tick(ulong nowMs, Vector3 position)
+	// `showHudFeedback` is sampled at flush time (once per interval): when false
+	// the pending rollup is still drained (so nothing dumps over empty space when
+	// the actor later comes back into view) but spawns no floating number and
+	// reports no flush — so the receiver-side "ouch" / damage-flash stays silent
+	// for a mob the player can't currently see. Always true for the player.
+	public DotHudFlush Tick(ulong nowMs, Vector3 position, bool showHudFeedback)
 	{
 		DotHudFlush flush = default;
 		// Arm the flush deadline on the first tick after construction (or
@@ -72,18 +77,24 @@ public class DotHudAccumulator
 			bool damageStale = nowMs - _lastDamageMs >= FlushIntervalMs;
 			if (_damage >= 1f || (_damage > 0f && damageStale))
 			{
-				client.onDamage?.Invoke(position, _damage, EHudTextType.DamageLight);
-				flush.damageAmount = _damage;
+				if (showHudFeedback)
+				{
+					client.onDamage?.Invoke(position, _damage, EHudTextType.DamageLight);
+					flush.damageAmount = _damage;
+					flush.damage = true;
+				}
 				_damage = 0f;
-				flush.damage = true;
 			}
 			bool healStale = nowMs - _lastHealMs >= FlushIntervalMs;
 			if (_heal >= 1f || (_heal > 0f && healStale))
 			{
-				client.onHeal?.Invoke(position, _heal, EHudTextType.HealLight);
-				flush.healAmount = _heal;
+				if (showHudFeedback)
+				{
+					client.onHeal?.Invoke(position, _heal, EHudTextType.HealLight);
+					flush.healAmount = _heal;
+					flush.heal = true;
+				}
 				_heal = 0f;
-				flush.heal = true;
 			}
 		}
 		_nextFlushMs = nowMs + FlushIntervalMs;

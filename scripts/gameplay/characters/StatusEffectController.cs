@@ -61,6 +61,10 @@ public class StatusEffectController
 	// cached scalar) because the level can change mid-life (a forge visit swaps the
 	// Armor upgrade).
 	readonly Func<float> _incomingLevelResist;
+	// Live current-max-health accessor, for DamageOverTimeData.fractionMaxHealthPerSecond
+	// (percentage-of-max DoTs like sunburn). Null on actors that don't model it
+	// (the player, items) → percent DoTs are inert there.
+	readonly Func<float> _maxHealth;
 	readonly List<StatusEffectState> _statusEffects = new();
 	readonly Dictionary<StatusEffectData, BuildupState> _buildups = new();
 	// Rendered-visibility gate for every loop fx, driven by the owning actor
@@ -76,7 +80,7 @@ public class StatusEffectController
 	// fx at and no health to chip away. `world` may also be null; the meter
 	// machinery falls back to a zero game-time which is fine for ContinuousArm
 	// (it doesn't read time) and degrades gracefully for ThresholdCross decay.
-	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null, Func<ETraitCondition, float, bool> conditionActive = null, Func<float> incomingLevelResist = null)
+	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null, Func<ETraitCondition, float, bool> conditionActive = null, Func<float> incomingLevelResist = null, Func<float> maxHealth = null)
 	{
 		_actor = actor;
 		_world = world;
@@ -85,6 +89,7 @@ public class StatusEffectController
 		_applyMaxHealthDelta = applyMaxHealthDelta;
 		_conditionActive = conditionActive;
 		_incomingLevelResist = incomingLevelResist;
+		_maxHealth = maxHealth;
 	}
 
 	public bool Contains(StatusEffectState state) => state != null && _statusEffects.Contains(state);
@@ -120,7 +125,7 @@ public class StatusEffectController
 			for (int i = 0; i < _statusEffects.Count; i++)
 			{
 				StatusEffectState s = _statusEffects[i];
-				if (s?.data?.dot != null && s.data.dot.damagePerSecond > 0f)
+				if (s?.data?.dot != null && (s.data.dot.damagePerSecond > 0f || s.data.dot.fractionMaxHealthPerSecond > 0f))
 				{
 					return true;
 				}
@@ -675,12 +680,17 @@ public class StatusEffectController
 	// resolution and the hitstun/knockback reads so an OnDizzy modifier can
 	// amplify those reads on the same hit that landed dizzy. Passed by ref
 	// because ApplyTrigger mutates the struct in-place; by value would discard it.
-	public void ApplyHitBuildups(ref HitInfo hit)
+	// Returns whether the hit deposited any buildup — an immediate-apply effect
+	// landed, or a meter entry contributed a positive amount. Callers use this to
+	// tell an inert "MISS!" hit (zero damage AND no buildup) from one that chipped
+	// a status meter without visible damage.
+	public bool ApplyHitBuildups(ref HitInfo hit)
 	{
 		if (hit.buildups == null)
 		{
-			return;
+			return false;
 		}
+		bool appliedAny = false;
 		for (int i = 0; i < hit.buildups.Count; i++)
 		{
 			StatusEffectBuildup entry = hit.buildups[i];
@@ -694,6 +704,7 @@ public class StatusEffectController
 			if (entry.applyImmediately)
 			{
 				Add(entry.effect);
+				appliedAny = true;
 				continue;
 			}
 			// Buildup contributions are tagged by the receiving effect, not
@@ -703,12 +714,21 @@ public class StatusEffectController
 			// multiplier (untagged buildups take no resistance scaling).
 			// Only combat-delivered buildup routes through here — ambient meters
 			// (rain Wet) call AddBuildup directly and are intentionally untouched.
-			bool applied = AddCombatBuildup(entry.effect, entry.amount * hit.buildupAmountMultiplier);
+			float amount = entry.amount * hit.buildupAmountMultiplier;
+			// A positive contribution reaches the meter (resistance may still
+			// scale it down inside AddCombatBuildup, but the hit did land buildup),
+			// so it's not a miss even when this tick doesn't cross the threshold.
+			if (amount > 0f)
+			{
+				appliedAny = true;
+			}
+			bool applied = AddCombatBuildup(entry.effect, amount);
 			if (applied && entry.effect.applyTrigger != EDamageTrigger.None)
 			{
 				hit.ApplyTrigger(entry.effect.applyTrigger);
 			}
 		}
+		return appliedAny;
 	}
 
 	// Land one combat-delivered buildup contribution, folding the receiver's
@@ -1329,7 +1349,7 @@ public class StatusEffectController
 			while (s.tickAccumulator >= 1f)
 			{
 				s.tickAccumulator -= 1f;
-				if (dot.damagePerSecond != 0f && _applyHealthDelta != null)
+				if (_applyHealthDelta != null)
 				{
 					// Damage ticks (positive damagePerSecond) scale by the
 					// actor's full resistance to the effect's tags so a
@@ -1350,7 +1370,18 @@ public class StatusEffectController
 						// covers burn/poison ticks, not just the landing blow.
 						dps *= resistance * (_incomingLevelResist?.Invoke() ?? 1f);
 					}
-					_applyHealthDelta(-dps, dot.armorPenetration);
+					// Percentage-of-max-health damage (sunburn), added on top and
+					// deliberately UNSCALED by resistance/level so the melt time is
+					// the same regardless of the health pool. armorPenetration still
+					// controls the armor split.
+					if (dot.fractionMaxHealthPerSecond > 0f && _maxHealth != null)
+					{
+						dps += _maxHealth() * dot.fractionMaxHealthPerSecond;
+					}
+					if (dps != 0f)
+					{
+						_applyHealthDelta(-dps, dot.armorPenetration);
+					}
 				}
 				// Max-health decay (withering / summon self-expiry). Separate
 				// channel from the damage path above so it surfaces no DoT

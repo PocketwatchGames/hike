@@ -192,4 +192,105 @@ public partial class World
             }
         }
     }
+
+    // Full reset of the world's mobs to their authored spawn state, without
+    // touching the voxel/chunk streaming — the world snaps back to a pristine set
+    // of encounters. Gated on ROLLING OVER TO A NEW DAY: driven only from
+    // AdvanceToNextSunrise, which fires on sleep-to-sunrise and on the death "sleep
+    // off the fallen member" day-roll (GameClient.OnDeathBlackout). A short nap
+    // (AdvanceTime) and a pure teleport both leave spawns untouched. Mobs return to
+    // their spawn posts at full health, unaware, and any the player had killed revive.
+    //
+    // The reset is WORLD-WIDE, not just the loaded chunks: a mob that chased the
+    // player clear across the map and died at the far side has a persisted state
+    // that has drifted far from its post, and it must return home too — so we walk
+    // every persisted mob, not only the resident ones. Live nodes exist only in
+    // loaded chunks, so only those are despawned + re-streamed to pick up the reset;
+    // unloaded states are reset in place and spawn pristine whenever they reload.
+    //
+    // The persistent companion is exempt (it's not chunk-owned and is recalled to
+    // the player separately), as are runtime-tamed mobs (taming is progression, not
+    // an encounter to reset). Transient night-spawn gellies aren't recorded in
+    // WorldState, so they simply vanish with the reload and don't return.
+    //
+    // Ordering matters: sync-back is suppressed on the live nodes first, then the
+    // persisted states are reset, then the nodes are queue-freed and re-streamed.
+    // The despawn's end-of-frame TreeExiting would otherwise clobber the reset
+    // transform with each mob's live position (see Mob.SuppressSyncForReset). The
+    // re-streamed nodes trickle in over the next few frames via DrainSpawnQueue —
+    // every caller holds a black overlay across the swap, so the pop-in is hidden.
+    public void ResetSpawns()
+    {
+        if (_worldState == null)
+        {
+            return;
+        }
+
+        // 1. Suppress sync-back on every resettable live (loaded) mob so the queued
+        //    despawn below can't overwrite the spawn-state reset with a live transform.
+        foreach (Mob mob in GetEntities<Mob>())
+        {
+            if (mob == _companion || mob.SimState == null || mob.SimState.Tamed)
+            {
+                continue;
+            }
+            mob.SuppressSyncForReset();
+        }
+
+        // 2. Despawn the loaded nodes (queue-freed; transient night mobs are gone
+        //    for good since they have no persisted state to re-stream from).
+        //    Snapshot the coords — UnloadChunkEntities mutates _activeEntities.
+        List<Vector3I> coords = new(_activeEntities.Keys);
+        foreach (Vector3I coord in coords)
+        {
+            UnloadChunkEntities(coord);
+        }
+
+        // 3. Reset EVERY persisted mob (loaded and unloaded) to its spawn state, and
+        //    collect the loot to purge (loaded nodes were freed in step 2; dropping
+        //    the state stops them re-streaming). Two purge kinds: runtime-dropped
+        //    loot (mob kills, dig yields, player drops), and outstanding arrows —
+        //    those also refund their ammo to the source weapon so the reset area's
+        //    spent shafts vanish and quivers refill. Authored ground loot (Dropped ==
+        //    false) and forage pickups (transient, spawner-owned, not in WorldState)
+        //    re-stream normally. Collect-then-remove because RemoveEntity mutates the
+        //    buckets AllChunkEntities walks.
+        List<EntitySimState> lootToPurge = new();
+        List<ArrowLootSimState> arrowsToRecover = new();
+        foreach (EntitySimState state in _worldState.AllChunkEntities())
+        {
+            if (state is MobSimState mobState && !mobState.Tamed)
+            {
+                mobState.ResetToSpawn();
+            }
+            else if (state is ArrowLootSimState arrow)
+            {
+                arrowsToRecover.Add(arrow);
+            }
+            else if (state is LootSimState loot && loot.Dropped)
+            {
+                lootToPurge.Add(state);
+            }
+        }
+        foreach (ArrowLootSimState arrow in arrowsToRecover)
+        {
+            // Silent bookkeeping recovery — a loaded arrow's node is already being
+            // freed by step 2's despawn, so skip the pickup outro: bump ammo +
+            // untrack from the source weapon, then drop the state so it doesn't
+            // re-stream. Unloaded arrows have no node and are handled identically.
+            arrow.PickedUp = true;
+            arrow.OnRemovedFromWorld();
+            _worldState.RemoveEntity(arrow);
+        }
+        foreach (EntitySimState loot in lootToPurge)
+        {
+            _worldState.RemoveEntity(loot);
+        }
+
+        // 4. Re-stream the loaded chunks — fresh nodes spawn at the reset spawn posts.
+        foreach (Vector3I coord in coords)
+        {
+            LoadChunkEntities(coord);
+        }
+    }
 }

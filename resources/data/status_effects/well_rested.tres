@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://jy11bcghauj"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
+
+[sub_resource type="Resource" id="mod_damage"]
+script = ExtResource("2_mod")
+stat = 2048
+value = 1.05
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="mod_fortitude"]
+script = ExtResource("2_mod")
+stat = 268435456
+value = 0.95
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="mod_health"]
+script = ExtResource("2_mod")
+stat = 67108864
+value = 5.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="mod_stamina"]
+script = ExtResource("2_mod")
+stat = 2097152
+value = 5.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Well Rested"
+description = "A good night's rest by the fire — a touch more stamina, grit, and vigor, and hitting a little harder all day."
+category = 2
+durationType = 1
+maxStack = 1
+removesOnApply = []
+modifiers = Array[ExtResource("2_mod")]([SubResource("mod_damage"), SubResource("mod_fortitude"), SubResource("mod_health"), SubResource("mod_stamina")])
+conditionalModifiers = []
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"
