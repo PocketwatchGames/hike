@@ -33,6 +33,7 @@ caveNoiseFrequency = 0.04
 grassThreshold = 0.5
 mobLevelMin = 1
 mobLevelMax = 2
+forgeCount = 2
 forgeLevelMax = 1
 surfaceEntities = ExtResource("5_ycgd3")
 caveEntities = ExtResource("13_cave")

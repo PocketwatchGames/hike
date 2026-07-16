@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://ciwyx38tkut18" path="res://scripts/gui/StatusEffectInfoPanel.cs" id="1_5j7ly"]
 [ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="2_cejcy"]
 [ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_je4xg"]
+[ext_resource type="Texture2D" uid="uid://c724fln4nwxjb" path="res://assets/textures/gui/mob_hud_level_star.png" id="3_star"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_je4xg"]
 content_margin_left = 0.0
@@ -16,7 +17,7 @@ corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 corner_detail = 5
 
-[node name="StatusEffectInfoPanel" type="PanelContainer" unique_id=626564021 node_paths=PackedStringArray("_nameLabel", "_statusEffectHud", "_statContainer", "_descriptionLabel")]
+[node name="StatusEffectInfoPanel" type="PanelContainer" unique_id=626564021 node_paths=PackedStringArray("_nameLabel", "_statusEffectHud", "_statContainer", "_descriptionLabel", "_levelStarsContainer", "_levelStars")]
 offset_right = 97.0
 offset_bottom = 46.0
 size_flags_horizontal = 3
@@ -27,6 +28,8 @@ _statusEffectHud = NodePath("MarginContainer/HFlowContainer/PanelContainer/Margi
 _statPanelScene = ExtResource("2_cejcy")
 _statContainer = NodePath("MarginContainer/HFlowContainer")
 _descriptionLabel = NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/DescriptionLabel")
+_levelStarsContainer = NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars")
+_levelStars = [NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars/Star1"), NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars/Star2"), NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars/Star3"), NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars/Star4"), NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars/Star5")]
 metadata/_custom_type_script = "uid://ciwyx38tkut18"
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=2134354237]
@@ -66,6 +69,46 @@ theme_override_constants/separation = -5
 layout_mode = 2
 text = "Name"
 vertical_alignment = 1
+
+[node name="LevelStars" type="HBoxContainer" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="Star1" type="TextureRect" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars"]
+custom_minimum_size = Vector2(14, 14)
+layout_mode = 2
+texture = ExtResource("3_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star2" type="TextureRect" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars"]
+custom_minimum_size = Vector2(14, 14)
+layout_mode = 2
+texture = ExtResource("3_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star3" type="TextureRect" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars"]
+custom_minimum_size = Vector2(14, 14)
+layout_mode = 2
+texture = ExtResource("3_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star4" type="TextureRect" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars"]
+custom_minimum_size = Vector2(14, 14)
+layout_mode = 2
+texture = ExtResource("3_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star5" type="TextureRect" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/LevelStars"]
+custom_minimum_size = Vector2(14, 14)
+layout_mode = 2
+texture = ExtResource("3_star")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="DescriptionLabel" type="Label" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer" unique_id=437531246]
 visible = false

@@ -151,7 +151,11 @@ public partial class GroundShadowScatter : Node3D
                 {
                     continue;
                 }
-                Vector3 pos = mob.GlobalPosition;
+                // RememberedPosition, not the live body: a discovered-but-out-of-LOS
+                // mob is drawn as a frozen memory silhouette pinned at its last-seen
+                // spot while it keeps simulating elsewhere. The blob must sit under
+                // the silhouette the player sees, not drift off with the invisible body.
+                Vector3 pos = mob.RememberedPosition;
                 float dx = pos.X - playerPos.X;
                 float dz = pos.Z - playerPos.Z;
                 if (dx * dx + dz * dz > cullSq)

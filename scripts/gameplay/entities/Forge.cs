@@ -89,6 +89,23 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         {
             _world.OnNewDay -= HandleNewDay;
         }
+        if (_discoverable != null)
+        {
+            _discoverable.OnStateChanged -= HandleDiscoveryChanged;
+        }
+    }
+
+    // True until a Discoverable is wired and reports Hidden — an unwired forge is
+    // treated as always visible.
+    private bool IsDiscovered => _discoverable == null || _discoverable.IsDiscovered;
+
+    // The floating model + pedestals dither in with discovery via the Discoverable
+    // mesh fade; the orb light isn't a mesh, so gate it here too — relight (or
+    // snuff) when discovery flips, honoring the current ready state, so its glow
+    // doesn't reveal the forge before the player perceives it.
+    private void HandleDiscoveryChanged(EPlayerPerceptionState state)
+    {
+        _light?.SetActive(_visualReady && IsDiscovered, true);
     }
 
     // Wall-clock spin + bob only — a purely presentational hover, so it stays
@@ -221,7 +238,8 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
             return;
         }
         _visualReady = ready;
-        _light?.SetActive(ready, fade);
+        // Light stays dark until discovered even while ready (see HandleDiscoveryChanged).
+        _light?.SetActive(ready && IsDiscovered, fade);
         ApplyModelMaterial(ready);
     }
 
@@ -263,7 +281,8 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         int level = _simState?.Level ?? 0;
         EUpgradeSlot slot = OfferedSlot;
         StatusEffectData replacing = player.ActiveUpgrade(slot);
-        gc.OpenForgeScreen(offered, replacing, level, () =>
+        int replacingLevel = player.ActiveUpgradeLevel(slot);
+        gc.OpenForgeScreen(offered, replacing, level, replacingLevel, () =>
         {
             player.AddStatusEffect(offered, level, slot);
             BeginCooldown();
@@ -309,6 +328,11 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         instance.RefreshOffer();
         instance.ApplyReadyVisual(instance.CanInteract(), fade: false);
         world.OnNewDay += instance.HandleNewDay;
+        // Relight the orb once the player discovers the forge (starts Hidden).
+        if (instance._discoverable != null)
+        {
+            instance._discoverable.OnStateChanged += instance.HandleDiscoveryChanged;
+        }
         return instance;
     }
 }

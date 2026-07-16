@@ -6,7 +6,7 @@
 [ext_resource type="Resource" uid="uid://c3262urh41m8s" path="res://resources/data/world_gen/zone_gen/swamp_village_gen.tres" id="17_se4m7"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="18_8e3k4"]
 [ext_resource type="Resource" uid="uid://chlk1f4ns5cwh" path="res://resources/data/world_gen/zone_gen/swamp_mud_gen.tres" id="18_se4m7"]
-[ext_resource type="Resource" uid="uid://wwpw4grvh0vs" path="res://resources/data/world_gen/zone_gen/swamp_gen.tres" id="21_1tdd7"]
+[ext_resource type="Resource" uid="uid://tlfjf7x0adof" path="res://resources/data/world_gen/zone_gen/swamp_fire_gen.tres" id="21_d6mxe"]
 [ext_resource type="Script" uid="uid://bk2smsd8gwalq" path="res://scripts/data/worldgen/WorldGenData.cs" id="23_7umo2"]
 [ext_resource type="Script" uid="uid://c247odltr1n2o" path="res://scripts/data/worldgen/PlacedZone.cs" id="30_placed"]
 [ext_resource type="Script" uid="uid://cfywh1bfbi04v" path="res://scripts/data/worldgen/EverywhereBounds.cs" id="31_everywhere"]
@@ -126,7 +126,7 @@ metadata/_custom_type_script = "uid://4ht0mfp58w5f8"
 
 [sub_resource type="Resource" id="Placed_swamp"]
 script = ExtResource("30_placed")
-zoneGen = ExtResource("21_1tdd7")
+zoneGen = ExtResource("21_d6mxe")
 bounds = SubResource("Bounds_swamp")
 metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 
@@ -183,3 +183,4 @@ healingFountainCount = 3
 manaFountain = ExtResource("64_mana")
 manaFountainCount = 3
 startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]
+zoneLevelNoiseFrequency = 0.1

@@ -270,12 +270,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // cleaned up on this account.
     public ESpawnConditions spawnConditions => _simState.SpawnConditions;
     public MobData mobData => _simState.MobData;
-    // Grounding-shadow blob strength for GroundShadowScatter, on the same gate as
-    // the real cast shadow: the mobShadows CVar AND the discovery-visibility
-    // fade (_visibility). So a remembered-silhouette / undiscovered mob projects
-    // no grounding blob that would betray its hidden position, and the blob
-    // fades in with the body. Zero when MobData.groundShadowRadius is 0.
-    public float GroundShadowAlpha => CVars.mobShadows.Value ? _visibility : 0f;
+    // Grounding-shadow blob strength for GroundShadowScatter. A contact shadow
+    // belongs to a physically-present, actively-seen body — so gate it on the
+    // mobShadows CVar, the discovery fade-in (_visibility), AND the inverse of the
+    // memory-silhouette ramp (1 - _silhouette). As a mob leaves line of sight and
+    // converts to a pinned "last seen here" silhouette the blob fades out with it,
+    // rather than lingering as a shadow on the ground near the player (the top-down
+    // stain projector covers a radius around the player regardless of camera facing,
+    // so a pinned silhouette can leave the frame while its blob stays on visible
+    // ground). Zero when MobData.groundShadowRadius is 0.
+    public float GroundShadowAlpha => CVars.mobShadows.Value ? _visibility * (1f - _silhouette) : 0f;
     // The persistent sim state backing this mob. Exposed so World's companion
     // chunk-unload rescue can re-file the state under a new chunk (see
     // World.RescueCompanion / WorldState.MoveEntityToChunk).

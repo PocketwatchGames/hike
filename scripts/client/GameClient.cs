@@ -2128,12 +2128,14 @@ public partial class GameClient : Node3D
 	const int UpgradeChoiceCount = 3;
 
 	// Narrow the fairy corpse's candidate boons to the ones worth offering right
-	// now, then pad to three cards with the gold filler when too few remain.
-	// Keeps a restorative boon off the screen at full health and a lasting buff
-	// off the screen when already active (see IsBoonViable), so the player never
-	// burns a corpse on a no-op pick. The gold filler comes from SimData and is
-	// added at most once — it's deliberately absent from the random pool, so it
-	// only ever appears here as consolation, never as a random roll.
+	// now, then pad up to the corpse's choice count with the gold filler when too
+	// few remain. The random roll already happened at spawn (World.ComposeFairyBoons
+	// picks a fixed subset of the pool), so this only drops the boons that would be
+	// a no-op right now — a restorative boon at full health, a lasting buff already
+	// active (see IsBoonViable) — so the player never burns a corpse on a no-op
+	// pick. The gold filler comes from SimData and is added at most once — it's
+	// deliberately absent from the random pool, so it only ever appears here as
+	// consolation, never as a random roll.
 	List<BoonData> FilterViableBoons(List<BoonData> candidates)
 	{
 		var viable = new List<BoonData>();
@@ -2148,8 +2150,9 @@ public partial class GameClient : Node3D
 				}
 			}
 		}
+		int target = _world?.SimData?.fairyBoonChoiceCount ?? UpgradeChoiceCount;
 		BoonData gold = _world?.SimData?.fairyBoonGold;
-		if (viable.Count < UpgradeChoiceCount && gold != null && !viable.Contains(gold))
+		if (viable.Count < target && gold != null && !viable.Contains(gold))
 		{
 			viable.Add(gold);
 		}
@@ -2231,11 +2234,12 @@ public partial class GameClient : Node3D
 
 	// Forge upgrade offer. A Forge interaction calls this with the single offered
 	// upgrade, whatever it would replace in that slot (null if the slot is empty),
-	// the forge's level, and an accept callback that applies it. Mirrors the
-	// upgrade-screen gating (input suppressed, HUD hidden, mouse freed) but always
-	// returns straight to gameplay on close — the forge is used from the world,
-	// never nested inside another modal.
-	public void OpenForgeScreen(StatusEffectData offered, StatusEffectData replacing, int level, Action onAccept)
+	// the forge's level (the offered upgrade's tier), the replaced upgrade's tier,
+	// and an accept callback that applies it. Mirrors the upgrade-screen gating
+	// (input suppressed, HUD hidden, mouse freed) but always returns straight to
+	// gameplay on close — the forge is used from the world, never nested inside
+	// another modal.
+	public void OpenForgeScreen(StatusEffectData offered, StatusEffectData replacing, int level, int replacingLevel, Action onAccept)
 	{
 		if (forgeScreen == null)
 		{
@@ -2255,7 +2259,8 @@ public partial class GameClient : Node3D
 			CloseForgeScreen,
 			offered,
 			replacing,
-			level);
+			level,
+			replacingLevel);
 	}
 
 	void CloseForgeScreen()

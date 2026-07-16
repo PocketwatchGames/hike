@@ -119,6 +119,13 @@ public partial class SimData : Resource
     // however many viable boons remain).
     [Export] public BoonData fairyBoonGold;
 
+    // Number of boons a fairy corpse offers on the upgrade screen. The corpse
+    // rolls a random subset of FairyBoons this size when it spawns
+    // (World.ComposeFairyBoons) — a fixed offering, so reopening the pick screen
+    // shows the same choices — and the gold filler pads back up to this count
+    // when too few of the rolled boons are viable at pick time.
+    [Export] public int fairyBoonChoiceCount = 3;
+
     // Upgrade pool a Forge draws its single offered upgrade from. Each entry is a
     // slot-locked StatusEffectData (upgradeSlot != None) applied at the forge's
     // level and expiring at the next sunrise (author with durationType TimeOfDay).

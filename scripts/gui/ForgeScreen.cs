@@ -4,7 +4,8 @@ using Godot;
 // "Forge an upgrade" modal. Opened by GameClient when the player uses a forge.
 // Shows a single offered upgrade on the right (via StatusEffectInfoPanel) and the
 // upgrade it would replace in that slot on the left (or an "empty slot" note when
-// the slot is free), plus the forge's level as a row of stars. The player accepts
+// the slot is free). Each panel surfaces its own tier as a row of stars — the
+// offer at the forge's level, the replaced upgrade at its own. The player accepts
 // (ui_accept) or backs out (ui_cancel); GameClient owns visibility and the input /
 // HUD / mouse gating. This class is purely the view + accept/cancel plumbing.
 [GlobalClass]
@@ -16,8 +17,6 @@ public partial class ForgeScreen : Control
     [Export] private StatusEffectInfoPanel _offeredPanel;
     // Shown on the left when the slot is empty (nothing to replace).
     [Export] private Control _replacingEmptyLabel;
-    // Up to five star pips lit to the forge's level.
-    [Export] private Godot.Collections.Array<TextureRect> _levelStars = new();
 
     // Invoked when the player accepts the offered upgrade; GameClient applies it
     // and closes the screen.
@@ -25,7 +24,9 @@ public partial class ForgeScreen : Control
     // Invoked instead when the player backs out.
     Action _onCancel;
 
-    public void Init(Action acceptFunc, Action onCancel, StatusEffectData offered, StatusEffectData replacing, int level)
+    // `level` is the offered upgrade's tier (the forge's level); `replacingLevel`
+    // is the tier of the upgrade currently in the slot (ignored when none).
+    public void Init(Action acceptFunc, Action onCancel, StatusEffectData offered, StatusEffectData replacing, int level, int replacingLevel)
     {
         _onAccept = acceptFunc;
         _onCancel = onCancel;
@@ -33,6 +34,7 @@ public partial class ForgeScreen : Control
         if (_offeredPanel != null && offered != null)
         {
             _offeredPanel.SetStatusEffect(offered);
+            _offeredPanel.SetLevel(level);
         }
 
         bool hasReplacing = replacing != null;
@@ -42,19 +44,12 @@ public partial class ForgeScreen : Control
             if (hasReplacing)
             {
                 _replacingPanel.SetStatusEffect(replacing);
+                _replacingPanel.SetLevel(replacingLevel);
             }
         }
         if (_replacingEmptyLabel != null)
         {
             _replacingEmptyLabel.Visible = !hasReplacing;
-        }
-
-        for (int i = 0; i < _levelStars.Count; i++)
-        {
-            if (_levelStars[i] != null)
-            {
-                _levelStars[i].Visible = i < level;
-            }
         }
     }
 

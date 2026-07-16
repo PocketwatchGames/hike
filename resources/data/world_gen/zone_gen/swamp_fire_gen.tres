@@ -1,0 +1,70 @@
+[gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://tlfjf7x0adof"]
+
+[ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="1_1xuj7"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="2_qsxp7"]
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="3_e22q0"]
+[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="4_07fvj"]
+[ext_resource type="Script" uid="uid://c0bcoj5vlqohu" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="5_uuxri"]
+[ext_resource type="Resource" path="res://resources/data/languages/muddish.tres" id="6_760on"]
+[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="7_7h4wj"]
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="8_1auku"]
+[ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="9_sy5th"]
+[ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="10_gny2s"]
+[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="11_dk2qw"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_swamp_kit.tres" id="12_vw5yw"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="13_5miyb"]
+[ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="14_08puj"]
+[ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_gen/terrain_gen/marsh_kit.tres" id="15_e12v7"]
+[ext_resource type="Resource" uid="uid://cwvam7wm5c6ql" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="16_bxt8m"]
+[ext_resource type="Resource" uid="uid://c8lt1k3vpx7di" path="res://resources/data/zones/swamp_fire.tres" id="17_1xuj7"]
+
+[sub_resource type="Resource" id="Campfire_swamp"]
+script = ExtResource("5_uuxri")
+scene = ExtResource("4_07fvj")
+placeAtAnchor = true
+metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
+
+[sub_resource type="Resource" id="Stone_swamp"]
+script = ExtResource("8_1auku")
+scene = ExtResource("7_7h4wj")
+language = ExtResource("6_760on")
+text = "Muddish runs slow and deep, as the marsh does. Sit a while. Read. The first words will come to you."
+components = 4
+metadata/_custom_type_script = "uid://d3c3iycy3trkp"
+
+[sub_resource type="Resource" id="Fixtures_swamp"]
+script = ExtResource("9_sy5th")
+scatterRadius = 4.0
+entries = Array[ExtResource("3_e22q0")]([SubResource("Campfire_swamp"), SubResource("Stone_swamp")])
+metadata/_custom_type_script = "uid://ci23e7ltpsb6o"
+
+[sub_resource type="Resource" id="Resource_ruins"]
+script = ExtResource("10_gny2s")
+squareMetersPerSpawn = 1500.0
+confinementMinFraction = 0.15
+brokenness = 0.4
+metadata/_custom_type_script = "uid://dbxatq73lngxy"
+
+[resource]
+script = ExtResource("11_dk2qw")
+zone = ExtResource("17_1xuj7")
+surfaceKit = ExtResource("15_e12v7")
+caveKit = ExtResource("2_qsxp7")
+submergedKit = ExtResource("13_5miyb")
+shoreKit = ExtResource("12_vw5yw")
+elevationRange = 4.0
+pathThreshold = 0.1
+pathBlendBand = 0.05
+tunnelThreshold = 0.0
+caveNoiseFrequency = 0.04
+caveThreshold = 1.0
+grassThreshold = 0.5
+mobLevelMax = 1
+forgeCount = 4
+forgeLevelMax = 1
+surfaceEntities = ExtResource("14_08puj")
+caveEntities = ExtResource("1_1xuj7")
+waterEntities = ExtResource("16_bxt8m")
+fixtures = SubResource("Fixtures_swamp")
+ruins = SubResource("Resource_ruins")
+pointsOfInterest = PackedStringArray("swamp_hollow")

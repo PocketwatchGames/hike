@@ -879,6 +879,10 @@ public partial class Player : CharacterBody3D
 	// if empty. Read by the forge to show what a new upgrade would replace.
 	public StatusEffectData ActiveUpgrade(EUpgradeSlot slot) => _statusEffects.ActiveUpgrade(slot);
 
+	// Tier of the upgrade currently occupying `slot` (0 if empty). Read by the forge
+	// to show what level the upgrade being replaced sits at.
+	public int ActiveUpgradeLevel(EUpgradeSlot slot) => _statusEffects.ActiveUpgradeLevel(slot);
+
 	// Fire the one-shot apply-time payloads on `data`. Cleanse before heal so a
 	// poison tick can't shave the freshly-restored HP.
 	void ApplyInstantPayloads(StatusEffectData data)

@@ -27,6 +27,10 @@ public static class WaterRipples
         // sky dome is in frame (e.g. a perspective/wider-FOV preset), so a
         // starved cold worldgen spams uniform_set_create the moment sky renders.
         "res://assets/textures/skybox/starfield_placeholder.tres",
+        // Melee weapon-smear streak (weapon_smear.tres). First bound when a swing
+        // FX spawns mid-session; a CPU-pegged worldgen starves the noise worker,
+        // so early swings spam uniform_set_create (binding 1) until it lands.
+        "res://assets/textures/effects/smear_streak_placeholder.tres",
     };
 
     public static async Task EnsureReady(Node ctx)

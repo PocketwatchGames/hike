@@ -1,15 +1,18 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3]
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://d2bdls7tsxyuj"]
 
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_area"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_yluws"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="6_damage"]
 [ext_resource type="PackedScene" path="res://scenes/projectiles/slime_glob.tscn" id="7_proj"]
 [ext_resource type="PackedScene" path="res://scenes/fx/slime_burst.tscn" id="8_burst"]
 [ext_resource type="PackedScene" path="res://scenes/fx/slime_splat.tscn" id="9_splat"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_v3sfw"]
 [ext_resource type="PackedScene" path="res://scenes/fx/slime_target_preview.tscn" id="10_preview"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_vmvbc"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("5_event")

@@ -11,6 +11,10 @@ public partial class StatusEffectInfoPanel : PanelContainer
 	[Export] private StatusEffectHud _statusEffectHud;
 	[Export] private PackedScene _statPanelScene;
 	[Export] private Control _statContainer;
+	// Optional star-pip row for a forge upgrade's tier. Hidden until SetLevel is
+	// called (the forge is the only caller); other panels leave it collapsed.
+	[Export] private Control _levelStarsContainer;
+	[Export] private Godot.Collections.Array<TextureRect> _levelStars = new();
 	// Optional multiline description label. Populated from
 	// StatusEffectData.description when wired in the scene; left null in
 	// scenes that just want the icon + stat rows. Hidden when the effect
@@ -26,6 +30,24 @@ public partial class StatusEffectInfoPanel : PanelContainer
 	}
 
 	public StatusEffectData Data { get; private set; }
+
+	// Reveal the star row and light `level` of the pips (0 = none visible, same
+	// convention as the forge). Only meaningful for slotted forge upgrades; panels
+	// that never call this keep the row collapsed. No-op if the stars aren't wired.
+	public void SetLevel(int level)
+	{
+		if (_levelStarsContainer != null)
+		{
+			_levelStarsContainer.Visible = true;
+		}
+		for (int i = 0; i < _levelStars.Count; i++)
+		{
+			if (_levelStars[i] != null)
+			{
+				_levelStars[i].Visible = i < level;
+			}
+		}
+	}
 
 	// Per-frame refresh path. Only the embedded HUD's count + timer change
 	// over time — the stat row is purely authored data, so we skip the

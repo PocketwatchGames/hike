@@ -8,17 +8,15 @@
 
 [sub_resource type="Resource" id="dot"]
 script = ExtResource("5_dot")
-damagePerSecond = 0.0
 fractionMaxHealthPerSecond = 0.05
-armorPenetration = 1.0
 
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("4_icon")
 displayName = &"Sunburn"
 tags = 3
-maxStack = 1
 duration = 5.0
+maxStack = 1
 buildupRemovalDelay = 2.0
 buildupRemovalSpeed = 0.5
 startFx = ExtResource("2_startfx")

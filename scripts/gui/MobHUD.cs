@@ -269,21 +269,22 @@ public partial class MobHUD : Node2D
 
 		bool anyBarVisible = _discoveryBar.Visible || _perceptionBar.Visible || _healthBar.Visible;
 
-		// Level pips (dangerous mobs only) show only alongside another HUD
-		// element — any perception/health/discovery bar or a live status icon —
-		// so they never float over the mob on their own. Set here (after bar
-		// visibility resolves) rather than at the fade tail so they track the
-		// logical bar state, not the fade-out.
+		// Level pips (dangerous mobs only) surface the mob's threat rating, so they
+		// stay hidden until the mob is fully Discovered — while the perception
+		// bubble is still growing (Detected) the player hasn't identified it yet.
+		// Even then they show only alongside another HUD element (any bar or a live
+		// status icon) so they never float over the mob on their own. Set here
+		// (after bar visibility resolves) so they track the logical bar state, not
+		// the fade-out.
+		bool fullyDiscovered = _mob.playerPerceptionState == EPlayerPerceptionState.Discovered
+			|| _mob.playerPerceptionState == EPlayerPerceptionState.CorpseDiscovered;
 		if (_levelContainer != null)
 		{
-			_levelContainer.Visible = _showLevelPips && perceivedOnScreen && (anyBarVisible || statusStripShowing);
-			// Match the circle's steady display scale so the arc rides its edge. Use
-			// the target scale (Detected → PerceptionScale, else hudScale), not the
-			// animating _curScale, so the pips stay full-size instead of riding the
-			// fade — and stay non-zero when only the status strip is up (no bar).
-			float pipScale = _mob.playerPerceptionState == EPlayerPerceptionState.Detected
-				? PerceptionScale
-				: (_mob.mobData?.hudScale ?? 1f);
+			_levelContainer.Visible = _showLevelPips && perceivedOnScreen && fullyDiscovered && (anyBarVisible || statusStripShowing);
+			// Match the circle's steady display scale so the arc rides its edge. Once
+			// Discovered the circle sits at hudScale; use that (not the animating
+			// _curScale) so the pips stay full-size instead of riding the fade.
+			float pipScale = _mob.mobData?.hudScale ?? 1f;
 			_levelContainer.Scale = new Vector2(pipScale, pipScale);
 		}
 

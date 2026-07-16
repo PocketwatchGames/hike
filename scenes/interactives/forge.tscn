@@ -126,19 +126,19 @@ shape = SubResource("BoxShape3D_block")
 script = ExtResource("8_disc")
 discoveredThreshold = 0.1
 hudScale = 0.5
-_fadeMeshRoot = NodePath("../ForgeVisual")
+_fadeMeshRoot = NodePath("..")
 _interactBox = NodePath("../InteractiveBox")
 
 [node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("10_meshhl")
-_collectFrom = NodePath("../ForgeVisual")
+_collectFrom = NodePath("..")
 
 [node name="HUDNode" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.9, 0)
 
 [node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_meshRoots", "_discoverable")]
 script = ExtResource("13_xray")
-_meshRoots = [NodePath("../ForgeVisual")]
+_meshRoots = [NodePath("../ForgeVisual"), NodePath("../SlotModels")]
 _discoverable = NodePath("../Discoverable")
 
 [node name="MapMarker" type="Node3D" parent="." node_paths=PackedStringArray("_discoverable")]

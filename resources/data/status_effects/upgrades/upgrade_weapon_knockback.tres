@@ -5,7 +5,7 @@
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
-onHitBuildups = null
+onHitBuildups = []
 knockbackBonus = 6.0
 knockbackTimeBonus = 0.3
 
@@ -19,5 +19,5 @@ durationType = 2
 maxStack = 1
 removesOnApply = []
 modifiers = []
-conditionalModifiers = null
+conditionalModifiers = []
 weaponMod = SubResource("weaponMod")

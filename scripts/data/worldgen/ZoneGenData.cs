@@ -130,6 +130,14 @@ public partial class ZoneGenData : Resource
     [Export(PropertyHint.Range, "0,4,1")] public int mobLevelMin = 0;
     [Export(PropertyHint.Range, "0,4,1")] public int mobLevelMax = 3;
 
+    // How many smithing forges WorldGen scatters into this zone (each on its
+    // own rejection-sampled flat column within the zone's bounds). Drives
+    // PlaceZoneForges directly — a large zone (e.g. an EverywhereBounds base
+    // zone spanning the whole map) needs several to not feel empty, while the
+    // spawn/village zone typically sets this to 0. The forge scene itself is
+    // authored once on WorldGenData.forge; this only controls the count.
+    [Export(PropertyHint.Range, "0,10,1")] public int forgeCount = 1;
+
     // Forge power band for this zone, sampled the same way but from an
     // INDEPENDENT noise field (see WorldGen.ComputeForgeLevel), so a zone's
     // forges and monsters vary in difficulty separately. Drives the forge's

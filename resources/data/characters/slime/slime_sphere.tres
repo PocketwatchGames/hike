@@ -56,11 +56,11 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 [resource]
 script = ExtResource("1_mobdata")
 displayName = &"Slime Sphere"
-dangerous = true
-canBeBackstabbed = false
 darknessPerceptionWeight = 1.0
 sunburnBuildupPerSecond = 0.5
+dangerous = true
 modifiers = null
+canBeBackstabbed = false
 brain = ExtResource("2_brain")
 bestiaryPortrait = ExtResource("3_cb7ji")
 animations = Dictionary[int, ExtResource("4_animdata")]({

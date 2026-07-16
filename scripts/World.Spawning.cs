@@ -106,12 +106,26 @@ public partial class World
         {
             return;
         }
+        // Roll the corpse's fixed offering now: a random subset of the pool sized
+        // to SimData.fairyBoonChoiceCount, chosen once at spawn so reopening the
+        // pick screen shows the same choices rather than a fresh roll each time.
+        var pool = new List<BoonData>();
         foreach (BoonData boon in simData.fairyBoons)
         {
             if (boon != null)
             {
-                state.possibleBoons.Add(boon);
+                pool.Add(boon);
             }
+        }
+        // Partial Fisher-Yates: swap a random remaining entry to the front on each
+        // pass and take it, until we've drawn fairyBoonChoiceCount (or the pool is
+        // exhausted).
+        int keep = Math.Min(simData.fairyBoonChoiceCount, pool.Count);
+        for (int i = 0; i < keep; i++)
+        {
+            int j = i + (int)(GD.Randi() % (uint)(pool.Count - i));
+            (pool[i], pool[j]) = (pool[j], pool[i]);
+            state.possibleBoons.Add(pool[i]);
         }
     }
 

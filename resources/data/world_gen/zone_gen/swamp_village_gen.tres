@@ -33,6 +33,7 @@ tunnelThreshold = 0.0
 caveNoiseFrequency = 0.04
 grassThreshold = 0.5
 mobLevelMax = 0
+forgeCount = 0
 forgeLevelMax = 0
 surfaceEntities = ExtResource("5_5w857")
 caveEntities = ExtResource("1_5w857")

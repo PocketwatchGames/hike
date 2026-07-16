@@ -10,10 +10,10 @@
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
-[ext_resource type="PackedScene" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
 [ext_resource type="PackedScene" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
-[ext_resource type="Script" uid="uid://fplnhal49qx0f" path="res://scripts/gui/ScreenFade.cs" id="42_screenfade"]
 [ext_resource type="PackedScene" uid="uid://blq0cn2x7hpke" path="res://scenes/gui/camp_screen.tscn" id="40_30f04"]
+[ext_resource type="PackedScene" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
+[ext_resource type="Script" uid="uid://bt6ru7ovpj28n" path="res://scripts/gui/ScreenFade.cs" id="42_screenfade"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://assets/audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
 [ext_resource type="Script" uid="uid://bjcyjqjs04viu" path="res://scripts/client/BirdsEyeController.cs" id="birds_eye_script"]
@@ -28,10 +28,10 @@
 [ext_resource type="Material" uid="uid://bodv5gd4psxkh" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
 [ext_resource type="PackedScene" uid="uid://cuyfeo5we7vxp" path="res://scenes/hud/hud_text_backstab.tscn" id="hud_text_backstab"]
 [ext_resource type="PackedScene" uid="uid://bv6kkm02f7457" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
+[ext_resource type="PackedScene" uid="uid://bowf0uyhgkjdm" path="res://scenes/hud/hud_text_damage_blocked.tscn" id="hud_text_damage_blocked"]
 [ext_resource type="PackedScene" uid="uid://eui37eofo08x" path="res://scenes/hud/hud_text_damage_heavy.tscn" id="hud_text_damage_heavy"]
 [ext_resource type="PackedScene" uid="uid://c5d2y2vhiho8n" path="res://scenes/hud/hud_text_damage_light.tscn" id="hud_text_damage_light"]
-[ext_resource type="PackedScene" uid="uid://zq7fil7j2b9zd" path="res://scenes/hud/hud_text_damage_miss.tscn" id="hud_text_damage_miss"]
-[ext_resource type="PackedScene" uid="uid://fkcblwvp0re4e" path="res://scenes/hud/hud_text_damage_blocked.tscn" id="hud_text_damage_blocked"]
+[ext_resource type="PackedScene" uid="uid://ckq6yao1n31gr" path="res://scenes/hud/hud_text_damage_miss.tscn" id="hud_text_damage_miss"]
 [ext_resource type="PackedScene" uid="uid://wrdegol14u0e" path="res://scenes/hud/hud_text_heal_heavy.tscn" id="hud_text_heal_heavy"]
 [ext_resource type="PackedScene" uid="uid://daw07fd8ckjrx" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
 [ext_resource type="PackedScene" uid="uid://bajbqjuap3wxc" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
@@ -86,6 +86,7 @@ volumetric_fog_sky_affect = 0.0
 
 [node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
+mobLevelColors = PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0.48000002, 1, 0.48, 0, 0, 1, 0.49866652, 0, 0.68, 1)
 camera = NodePath("SceneViewport/MainCamera")
 flyCamera = NodePath("FlyCamera")
 hud = NodePath("GUICanvas/HUD")
@@ -141,8 +142,6 @@ heartbeatAudio = NodePath("../HeartbeatAudio")
 [node name="BirdsEye" type="Node" parent="." unique_id=205299913 node_paths=PackedStringArray("camera", "windAudio", "swooshAudio")]
 script = ExtResource("birds_eye_script")
 camera = NodePath("../SceneViewport/MainCamera")
-altitude = 10.0
-sizeMultiplier = 2.0
 transitionSeconds = 1.0
 windAudio = NodePath("../BirdsEyeWindAudio")
 swooshAudio = NodePath("../BirdsEyeSwooshAudio")
@@ -240,8 +239,8 @@ mesh = SubResource("QuadMesh_fog")
 environment = SubResource("Environment_scene")
 
 [node name="SunLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209991]
-transform = Transform3D(0.70710695, -0.6123723, 0.35355324, 0, 0.49999997, 0.86602545, -0.7071065, -0.61237264, 0.35355347, 0, 0, 0)
-light_angular_distance = 4.2
+transform = Transform3D(0.9824063, 0.13033769, -0.13375247, 0, 0.71619004, 0.6979053, 0.18675554, -0.6856267, 0.7035897, 0, 0, 0)
+light_angular_distance = 4.6323805
 light_bake_mode = 0
 light_cull_mask = 11
 shadow_enabled = true
@@ -256,7 +255,7 @@ sky_mode = 1
 transform = Transform3D(-0.58920443, -0.20912163, 0.780452, 0, 0.9659258, 0.25881886, -0.8079838, 0.15249734, -0.5691274, 0, 0, 0)
 visible = false
 light_energy = 0.37500018
-light_angular_distance = 4.2
+light_angular_distance = 4.6323805
 light_bake_mode = 0
 light_cull_mask = 11
 shadow_enabled = true
@@ -409,7 +408,7 @@ visible = false
 [node name="UpgradeScreen" parent="GUICanvas" unique_id=1337731579 instance=ExtResource("27_upgrade")]
 visible = false
 
-[node name="ForgeScreen" parent="GUICanvas" instance=ExtResource("41_forge")]
+[node name="ForgeScreen" parent="GUICanvas" unique_id=2068254674 instance=ExtResource("41_forge")]
 visible = false
 
 [node name="CampScreen" parent="GUICanvas" unique_id=1625914699 instance=ExtResource("40_30f04")]
@@ -465,10 +464,10 @@ layer = 16
 
 [node name="SleepOverlay" parent="SleepCanvas" unique_id=1377417289 instance=ExtResource("28_sleep")]
 
-[node name="FadeCanvas" type="CanvasLayer" parent="."]
+[node name="FadeCanvas" type="CanvasLayer" parent="." unique_id=829276955]
 layer = 17
 
-[node name="ScreenFade" type="Control" parent="FadeCanvas" node_paths=PackedStringArray("overlay")]
+[node name="ScreenFade" type="Control" parent="FadeCanvas" unique_id=1565695940 node_paths=PackedStringArray("overlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -479,7 +478,7 @@ mouse_filter = 2
 script = ExtResource("42_screenfade")
 overlay = NodePath("Overlay")
 
-[node name="Overlay" type="ColorRect" parent="FadeCanvas/ScreenFade"]
+[node name="Overlay" type="ColorRect" parent="FadeCanvas/ScreenFade" unique_id=195731912]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

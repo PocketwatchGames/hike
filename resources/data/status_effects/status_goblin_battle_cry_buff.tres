@@ -6,18 +6,6 @@
 [ext_resource type="PackedScene" path="res://scenes/fx/status_battle_cry_loop.tscn" id="4_loopfx"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
-[sub_resource type="Resource" id="m_movespeed"]
-script = ExtResource("m_script")
-stat = 4096
-value = 1.3
-metadata/_custom_type_script = "uid://bovyciaikopwb"
-
-[sub_resource type="Resource" id="m_animspeed"]
-script = ExtResource("m_script")
-stat = 8192
-value = 1.3
-metadata/_custom_type_script = "uid://bovyciaikopwb"
-
 [sub_resource type="Resource" id="m_outgoing"]
 script = ExtResource("m_script")
 stat = 2048
@@ -33,5 +21,5 @@ maxStack = 1
 startFx = ExtResource("3_startfx")
 loopFx = ExtResource("4_loopfx")
 removesOnApply = []
-modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed"), SubResource("m_outgoing")])
+modifiers = Array[ExtResource("m_script")]([SubResource("m_outgoing")])
 conditionalModifiers = []
