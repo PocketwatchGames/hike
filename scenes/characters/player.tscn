@@ -23,7 +23,7 @@
 [ext_resource type="PackedScene" uid="uid://dy7pahbiw5boy" path="res://scenes/fx/land_hard.tscn" id="19_landhard"]
 [ext_resource type="PackedScene" uid="uid://da0fmu7g5je6s" path="res://scenes/fx/water_plunge.tscn" id="20_plunge"]
 [ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/fx/player_swim_idle_loop.tscn" id="21_tread"]
-[ext_resource type="Script" uid="uid://jgnbllrj442r" path="res://scripts/data/characters/VoiceData.cs" id="22_s1x7u"]
+[ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="22_s1x7u"]
 [ext_resource type="Resource" uid="uid://dhis3te0u5ii" path="res://resources/data/characters/human/player_voice_female.tres" id="22_voicefem"]
 [ext_resource type="Resource" uid="uid://xdns0m6o8hu4" path="res://resources/data/characters/human/player_voice_male.tres" id="23_voicemale"]
 [ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
@@ -39,7 +39,7 @@
 [ext_resource type="PackedScene" uid="uid://cypanyqryd22f" path="res://scenes/characters/player_model_male.tscn" id="41_modelmale"]
 [ext_resource type="PackedScene" uid="uid://dqv7n2wk8rmpc" path="res://scenes/fx/dig_scoop.tscn" id="42_digscoop"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="43_corpsebox"]
-[ext_resource type="Script" uid="uid://btmjrrxy7m26w" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="44_livemarker"]
+[ext_resource type="Script" uid="uid://ra804zm0hgk7y" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="44_livemarker"]
 [ext_resource type="Texture2D" uid="uid://dxt67iud2lt3s" path="res://assets/textures/map_markers/grave.png" id="45_graveicon"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]

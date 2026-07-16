@@ -194,20 +194,32 @@ public class StatusEffectController
 		}
 	}
 
-	// True when any active weapon mod reaching charge tier `chargeIndex` sets
-	// projectilesDetonateOnContact (the "Fragile" mod).
-	public bool ProjectilesDetonateOnContact(int chargeIndex)
+	// Invoke `fold` for every weapon mod that applies at charge tier `chargeIndex`:
+	// this actor's own composed mods that reach the tier (ModReachesCharge), plus the
+	// wielder's slot-matching forge upgrade mods (never charge-scoped). The single
+	// walk behind every WeaponMod* read below. Pass allCharges: true to skip the tier
+	// gate — the idle-fx visual rides the weapon at rest, independent of tier.
+	private void ForEachWeaponMod(int chargeIndex, System.Action<WeaponModData> fold, bool allCharges = false)
 	{
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			StatusEffectState s = _statusEffects[i];
-			if (s?.data?.weaponMod?.projectilesDetonateOnContact == true && ModReachesCharge(s, chargeIndex))
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod == null || (!allCharges && !ModReachesCharge(s, chargeIndex)))
 			{
-				return true;
+				continue;
 			}
+			fold(mod);
 		}
+		ForEachWielderUpgradeMod(fold);
+	}
+
+	// True when any active weapon mod reaching charge tier `chargeIndex` sets
+	// projectilesDetonateOnContact (the "Fragile" mod).
+	public bool ProjectilesDetonateOnContact(int chargeIndex)
+	{
 		bool detonate = false;
-		ForEachWielderUpgradeMod(mod => detonate |= mod.projectilesDetonateOnContact);
+		ForEachWeaponMod(chargeIndex, mod => detonate |= mod.projectilesDetonateOnContact);
 		return detonate;
 	}
 
@@ -216,16 +228,7 @@ public class StatusEffectController
 	public int ProjectilePierceCount(int chargeIndex)
 	{
 		int max = 0;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectState s = _statusEffects[i];
-			WeaponModData mod = s?.data?.weaponMod;
-			if (mod != null && mod.projectilePierceCount > max && ModReachesCharge(s, chargeIndex))
-			{
-				max = mod.projectilePierceCount;
-			}
-		}
-		ForEachWielderUpgradeMod(mod => { if (mod.projectilePierceCount > max) { max = mod.projectilePierceCount; } });
+		ForEachWeaponMod(chargeIndex, mod => { if (mod.projectilePierceCount > max) { max = mod.projectilePierceCount; } });
 		return max;
 	}
 
@@ -235,16 +238,7 @@ public class StatusEffectController
 	public float Vampiric(int chargeIndex)
 	{
 		float max = 0f;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectState s = _statusEffects[i];
-			WeaponModData mod = s?.data?.weaponMod;
-			if (mod != null && mod.vampiric > max && ModReachesCharge(s, chargeIndex))
-			{
-				max = mod.vampiric;
-			}
-		}
-		ForEachWielderUpgradeMod(mod => { if (mod.vampiric > max) { max = mod.vampiric; } });
+		ForEachWeaponMod(chargeIndex, mod => { if (mod.vampiric > max) { max = mod.vampiric; } });
 		return max;
 	}
 
@@ -254,16 +248,7 @@ public class StatusEffectController
 	public float StaminaOnHit(int chargeIndex)
 	{
 		float max = 0f;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectState s = _statusEffects[i];
-			WeaponModData mod = s?.data?.weaponMod;
-			if (mod != null && mod.staminaOnHit > max && ModReachesCharge(s, chargeIndex))
-			{
-				max = mod.staminaOnHit;
-			}
-		}
-		ForEachWielderUpgradeMod(mod => { if (mod.staminaOnHit > max) { max = mod.staminaOnHit; } });
+		ForEachWeaponMod(chargeIndex, mod => { if (mod.staminaOnHit > max) { max = mod.staminaOnHit; } });
 		return max;
 	}
 
@@ -274,21 +259,7 @@ public class StatusEffectController
 	public Godot.Collections.Array<StatusEffectBuildup> WeaponModOnHitBuildups(int chargeIndex)
 	{
 		Godot.Collections.Array<StatusEffectBuildup> result = null;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectState s = _statusEffects[i];
-			Godot.Collections.Array<StatusEffectBuildup> onHit = s?.data?.weaponMod?.onHitBuildups;
-			if (onHit == null || onHit.Count == 0 || !ModReachesCharge(s, chargeIndex))
-			{
-				continue;
-			}
-			result ??= new Godot.Collections.Array<StatusEffectBuildup>();
-			for (int j = 0; j < onHit.Count; j++)
-			{
-				result.Add(onHit[j]);
-			}
-		}
-		ForEachWielderUpgradeMod(mod =>
+		ForEachWeaponMod(chargeIndex, mod =>
 		{
 			Godot.Collections.Array<StatusEffectBuildup> onHit = mod.onHitBuildups;
 			if (onHit == null || onHit.Count == 0)
@@ -310,18 +281,7 @@ public class StatusEffectController
 	public Godot.Collections.Array<ChainLightningData> WeaponModChainLightning(int chargeIndex)
 	{
 		Godot.Collections.Array<ChainLightningData> result = null;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectState s = _statusEffects[i];
-			ChainLightningData chain = s?.data?.weaponMod?.chainLightning;
-			if (chain == null || !ModReachesCharge(s, chargeIndex))
-			{
-				continue;
-			}
-			result ??= new Godot.Collections.Array<ChainLightningData>();
-			result.Add(chain);
-		}
-		ForEachWielderUpgradeMod(mod =>
+		ForEachWeaponMod(chargeIndex, mod =>
 		{
 			if (mod.chainLightning == null)
 			{
@@ -339,16 +299,7 @@ public class StatusEffectController
 	public float WeaponModKnockbackBonus(int chargeIndex)
 	{
 		float sum = 0f;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectState s = _statusEffects[i];
-			WeaponModData mod = s?.data?.weaponMod;
-			if (mod != null && mod.knockbackBonus != 0f && ModReachesCharge(s, chargeIndex))
-			{
-				sum += mod.knockbackBonus;
-			}
-		}
-		ForEachWielderUpgradeMod(mod => sum += mod.knockbackBonus);
+		ForEachWeaponMod(chargeIndex, mod => sum += mod.knockbackBonus);
 		return sum;
 	}
 
@@ -357,16 +308,7 @@ public class StatusEffectController
 	public float WeaponModKnockbackTimeBonus(int chargeIndex)
 	{
 		float sum = 0f;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectState s = _statusEffects[i];
-			WeaponModData mod = s?.data?.weaponMod;
-			if (mod != null && mod.knockbackTimeBonus != 0f && ModReachesCharge(s, chargeIndex))
-			{
-				sum += mod.knockbackTimeBonus;
-			}
-		}
-		ForEachWielderUpgradeMod(mod => sum += mod.knockbackTimeBonus);
+		ForEachWeaponMod(chargeIndex, mod => sum += mod.knockbackTimeBonus);
 		return sum;
 	}
 
@@ -377,17 +319,7 @@ public class StatusEffectController
 	public Godot.Collections.Array<PackedScene> WeaponModIdleFx()
 	{
 		Godot.Collections.Array<PackedScene> result = null;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			PackedScene fx = _statusEffects[i]?.data?.weaponMod?.idleFx;
-			if (fx == null)
-			{
-				continue;
-			}
-			result ??= new Godot.Collections.Array<PackedScene>();
-			result.Add(fx);
-		}
-		ForEachWielderUpgradeMod(mod =>
+		ForEachWeaponMod(0, mod =>
 		{
 			if (mod.idleFx == null)
 			{
@@ -395,7 +327,7 @@ public class StatusEffectController
 			}
 			result ??= new Godot.Collections.Array<PackedScene>();
 			result.Add(mod.idleFx);
-		});
+		}, allCharges: true);
 		return result;
 	}
 
@@ -406,18 +338,7 @@ public class StatusEffectController
 	public Godot.Collections.Array<PackedScene> WeaponModProjectileFx(int chargeIndex)
 	{
 		Godot.Collections.Array<PackedScene> result = null;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectState s = _statusEffects[i];
-			PackedScene fx = s?.data?.weaponMod?.projectileFx;
-			if (fx == null || !ModReachesCharge(s, chargeIndex))
-			{
-				continue;
-			}
-			result ??= new Godot.Collections.Array<PackedScene>();
-			result.Add(fx);
-		}
-		ForEachWielderUpgradeMod(mod =>
+		ForEachWeaponMod(chargeIndex, mod =>
 		{
 			if (mod.projectileFx == null)
 			{
@@ -438,18 +359,7 @@ public class StatusEffectController
 	public Godot.Collections.Array<ItemEvent> WeaponModOnAttackEvents(int chargeIndex, EWeaponModAttackTrigger trigger)
 	{
 		Godot.Collections.Array<ItemEvent> result = null;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectState s = _statusEffects[i];
-			WeaponModData mod = s?.data?.weaponMod;
-			if (mod?.onAttackEvent == null || (mod.onAttackTrigger & trigger) == 0 || !ModReachesCharge(s, chargeIndex))
-			{
-				continue;
-			}
-			result ??= new Godot.Collections.Array<ItemEvent>();
-			result.Add(mod.onAttackEvent);
-		}
-		ForEachWielderUpgradeMod(mod =>
+		ForEachWeaponMod(chargeIndex, mod =>
 		{
 			if (mod.onAttackEvent == null || (mod.onAttackTrigger & trigger) == 0)
 			{

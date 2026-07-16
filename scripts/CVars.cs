@@ -1354,6 +1354,18 @@ public static class CVars
         WorldGen.DumpDebug(Godot.ProjectSettings.GlobalizePath("user://worldgen_debug"));
     });
 
+// When true, Main skips the main menu and launches straight into a new game
+    // (the standard-new-game path — respects `world_file` if set, else the
+    // default WorldGenData). Intended for headless / automated runs; pair with
+    // `--headless` and, for an unattended playthrough, `autoplay`.
+    public static CVarBool autostart = new CVarBool("autostart", false);
+
+    // When true, Main spawns a HeadlessBot that drives the player with
+    // synthesized input (wander + occasional jump/attack), so a headless run
+    // exercises movement, chunk streaming, and combat without a human at the
+    // controls. No effect until a game is actually running.
+    public static CVarBool autoplay = new CVarBool("autoplay", false);
+
 // Path to a packed world file (`.hike`). When non-empty at game start,
     // Main loads the world from this path instead of running WorldGen.
     public static CVarString worldFile = new CVarString("world_file", ""); // user://world.hike

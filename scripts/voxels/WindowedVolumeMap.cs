@@ -127,8 +127,11 @@ public abstract class WindowedVolumeMap
 
         _chunkScratch = new byte[cellsPerChunk * cellsPerChunk * cellsPerChunk * bytesPerPixel];
 
+        // Null under the headless dummy renderer (no RenderingDevice). These
+        // maps are visual-only, so every GPU op below no-ops in that case and
+        // the sim runs unaffected.
         _rd = RenderingServer.GetRenderingDevice();
-        _stagingRid = CreateStagingTexture();
+        _stagingRid = _rd != null ? CreateStagingTexture() : default;
         _texture = new Texture3Drd();
     }
 
@@ -139,6 +142,7 @@ public abstract class WindowedVolumeMap
     // the subclass is fully constructed.
     protected void InitialEncodeAndUpload(WorldState world)
     {
+        if (_rd == null) { return; }
         byte[] full = new byte[_width * _height * _depth * _bytesPerPixel];
         SeedDefault(full);
 
@@ -220,6 +224,9 @@ public abstract class WindowedVolumeMap
     // on arrival.
     public void Flush(WorldState world)
     {
+        // Headless (no RenderingDevice): drop dirty chunks without touching the
+        // GPU so the set doesn't grow unbounded as the window recenters.
+        if (_rd == null) { _dirtyChunks.Clear(); return; }
         if (_dirtyChunks.Count == 0) { return; }
 
         _processedScratch.Clear();

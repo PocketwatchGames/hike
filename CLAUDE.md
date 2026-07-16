@@ -24,6 +24,19 @@ dotnet build hike.sln
 - Godot.NET.Sdk 4.6.0 (Jolt Physics engine)
 - No test framework is configured; testing is done through manual play
 
+### Running Headless (Automated Play)
+
+The full game can run end-to-end with no window (dummy renderer) for smoke-testing and CI:
+
+```bash
+Godot ... --path . --headless -- "autostart 1" "autoplay 1"
+```
+
+- Every engine arg **after `--`** is run as a console command (`Main._Ready` → `CVarRegistry.ProcessCommand`), so any cvar can be set at launch without a persistent `cvars.txt` — CLI wins over the config file.
+- `autostart` skips the main menu and launches a new game (respects `world_file` if set, else the default `WorldGenData`). `autoplay` spawns a `HeadlessBot` ([scripts/client/HeadlessBot.cs](scripts/client/HeadlessBot.cs)) that drives the player via synthesized global `Input` actions (wander + jump/dash/melee).
+- The sim is renderer-independent (gameplay reads CPU `WorldState` arrays; volume maps are visual-only and no-op when `RenderingServer.GetRenderingDevice()` is null under the dummy renderer). SubViewport passes render nothing headless but don't crash. `ChunkMesh … GroundTint … tile_array` warnings under headless are **benign** (texture-array CPU readback is unavailable, so authored tints are kept).
+- **`--quit-after N` counts FRAMES, not seconds.** Headless spins frames far faster than wall-clock worldgen completes, so a small frame cap quits mid-generation — use a wall-clock timeout (or a large frame budget) when you need the world to finish loading.
+
 ### Worktree Setup
 
 Git worktrees don't include gitignored generated files. After creating a new worktree, copy these from the main repo before building:

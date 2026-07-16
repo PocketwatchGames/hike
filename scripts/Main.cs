@@ -48,6 +48,14 @@ public partial class Main : Node
 	{
 		CVarRegistry.Init();
 		CVarRegistry.ExecFile(ProjectSettings.GlobalizePath("res://cvars.txt"));
+		// Each engine arg after `--` is run as a console command, so cvars can be
+		// set at launch without a persistent cvars.txt — e.g.
+		// `Godot ... -- "autostart 1" "autoplay 1"`. Runs after the config file so
+		// command-line overrides win.
+		foreach (string arg in OS.GetCmdlineUserArgs())
+		{
+			CVarRegistry.ProcessCommand(arg);
+		}
 		AudioVolume.ApplyAll();
 		Loc.Init(CVars.language.Value);
 		AddChild(new ConsoleUI());
@@ -63,6 +71,21 @@ public partial class Main : Node
 			WorldGen.Generate(defaultWorldGenData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE);
 			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(debugDumpDir));
 			GetTree().Quit();
+			return;
+		}
+
+		// Headless / automated path: skip the menu and launch a new game
+		// immediately via the menu's own standard-new-game path (reuses all the
+		// existing NewGame wiring — StartMainMenu instantiates and connects the
+		// menu, NewGameStandard emits OnNewGame → NewGame, which frees the menu).
+		if (CVars.autostart.Value)
+		{
+			StartMainMenu();
+			(_currentScreen as GuiMainMenu).NewGameStandard();
+			if (CVars.autoplay.Value)
+			{
+				AddChild(new HeadlessBot());
+			}
 			return;
 		}
 
