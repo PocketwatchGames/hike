@@ -14,6 +14,7 @@
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_continuous"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="14_3pg55"]
 [ext_resource type="Script" uid="uid://bnwcak8yxdu2q" path="res://scripts/gameplay/WarmthZone.cs" id="17_warmth"]
+[ext_resource type="Script" uid="uid://cfl7jgnj40oc6" path="res://scripts/gameplay/SafetyZone.cs" id="33_safety"]
 [ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="20_light"]
 [ext_resource type="Texture2D" uid="uid://ba2akoi7qnnje" path="res://assets/textures/interactions/sleep.png" id="30_sleep"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="21_burning"]
@@ -74,7 +75,10 @@ radius = 0.75
 [sub_resource type="SphereShape3D" id="SphereShape3D_warmth"]
 radius = 5.0
 
-[node name="Campfire" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_glowModel", "_light", "_hudNode", "_damageZone", "_warmthZone")]
+[sub_resource type="SphereShape3D" id="SphereShape3D_safety"]
+radius = 8.0
+
+[node name="Campfire" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_glowModel", "_light", "_hudNode", "_damageZone", "_warmthZone", "_safetyZone")]
 script = ExtResource("1_5bkwe")
 _glowModel = NodePath("Model/SM_Prop_Camp_Fireplace_01")
 _litMaterial = ExtResource("26_lit")
@@ -83,6 +87,7 @@ _light = NodePath("StationaryLight")
 _hudNode = NodePath("HUDNode")
 _damageZone = NodePath("DamageZone")
 _warmthZone = NodePath("WarmthZone")
+_safetyZone = NodePath("SafetyZone")
 _litActions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_campfire_action_camp")])
 _unlitActions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_campfire_action_light")])
 _lightOnEffectScene = ExtResource("2_q0pgg")
@@ -125,6 +130,15 @@ metadata/_custom_type_script = "uid://bnwcak8yxdu2q"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="WarmthZone" unique_id=1700000002]
 shape = SubResource("SphereShape3D_warmth")
+
+[node name="SafetyZone" type="Area3D" parent="." unique_id=1700000003]
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("33_safety")
+metadata/_custom_type_script = "uid://cfl7jgnj40oc6"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SafetyZone" unique_id=1700000004]
+shape = SubResource("SphereShape3D_safety")
 
 [node name="Model" type="Node3D" parent="." unique_id=1042645394]
 transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)

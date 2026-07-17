@@ -78,7 +78,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_lanternHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_selectConsumableButtonHint", "_lanternHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_itemWheel", "_itemSlots", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_lanternHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_lanternHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -95,7 +95,6 @@ _lanternHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginC
 _weaponLeftButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeftHint")
 _weaponRightButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRightHint")
 _consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/ConsumableHint")
-_selectConsumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/SelectConsumableHint")
 _lanternHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer4/LanternHint")
 _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StatusEffects")
 _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
@@ -116,8 +115,6 @@ _buttonHintMap = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxC
 _weatherDay = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather/WeatherDay")
 _weatherNight = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather/WeatherNight")
 _weatherContainer = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather")
-_itemWheel = NodePath("ScreenMarginContainer/ItemWheel")
-_itemSlots = [NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot1"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot2"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot3"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot4")]
 _lightningFlashOverlay = NodePath("LightningFlashOverlay")
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
@@ -260,10 +257,6 @@ layout_mode = 2
 [node name="ConsumableHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer" unique_id=1815689833 instance=ExtResource("3_ueg55")]
 layout_mode = 2
 
-[node name="SelectConsumableHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer" unique_id=959365210 instance=ExtResource("3_ueg55")]
-layout_mode = 2
-size_flags_vertical = 0
-
 [node name="BottomRight" type="MarginContainer" parent="ScreenMarginContainer" unique_id=1191100021]
 layout_mode = 2
 size_flags_horizontal = 8
@@ -398,6 +391,7 @@ custom_minimum_size = Vector2(400, 400)
 layout_mode = 2
 
 [node name="ItemWheel" type="MarginContainer" parent="ScreenMarginContainer" unique_id=366444203]
+visible = false
 custom_minimum_size = Vector2(400, 400)
 layout_mode = 2
 size_flags_horizontal = 4

@@ -294,6 +294,29 @@ public static class StatList
 		}
 	}
 
+	// Level-derived combat scaling for a forge upgrade of tier `level` applied to
+	// the concrete `slot`. Offense slots (Melee/Ranged) surface the outgoing
+	// damage+buildup multiplier; the Armor slot surfaces incoming damage reduction.
+	// Both come from the shared SimData curve (see LevelOutgoingScale /
+	// LevelIncomingResist). Level 0 (neutral ×1) and non-upgrade slots yield nothing.
+	public static IEnumerable<(string name, string value)> UpgradeLevelInfo(int level, EUpgradeSlot slot)
+	{
+		SimData sim = World.Current?.SimData;
+		if (level <= 0 || sim == null)
+		{
+			yield break;
+		}
+		Dictionary<EStatName, string> names = GameClient.Current.statNames;
+		if (slot == EUpgradeSlot.Armor)
+		{
+			yield return (names[EStatName.DamageReduction], StatFormat.Percent(1f - sim.LevelIncomingResist(level)));
+		}
+		else if (slot == EUpgradeSlot.Melee || slot == EUpgradeSlot.Ranged)
+		{
+			yield return (names[EStatName.DamageScale], StatFormat.Multiplier(sim.LevelOutgoingScale(level)));
+		}
+	}
+
 	// Map an EStat (modifier-target / hit-tag value) onto the matching UI
 	// label key. Values that don't have a UI label return EStatName.Damage
 	// as a fallback — currently every EStat value has a mirrored EStatName

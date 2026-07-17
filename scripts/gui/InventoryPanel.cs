@@ -134,7 +134,7 @@ public partial class InventoryPanel : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged -= OnInventoryChanged;
-			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+			_inventory.onConsumableChanged -= OnConsumableChanged;
 			_inventory.onChanged -= OnInventoryGenericChanged;
 		}
 	}
@@ -151,7 +151,7 @@ public partial class InventoryPanel : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged -= OnInventoryChanged;
-			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+			_inventory.onConsumableChanged -= OnConsumableChanged;
 			_inventory.onChanged -= OnInventoryGenericChanged;
 		}
 		_player = player;
@@ -159,7 +159,7 @@ public partial class InventoryPanel : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged += OnInventoryChanged;
-			_inventory.onActiveConsumableChanged += OnActiveConsumableChanged;
+			_inventory.onConsumableChanged += OnConsumableChanged;
 			// Generic pulse fires for stack-count mutations (e.g. consumable
 			// Use's DecrementStack event) that the slot signals don't cover.
 			_inventory.onChanged += OnInventoryGenericChanged;
@@ -186,7 +186,7 @@ public partial class InventoryPanel : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged -= OnInventoryChanged;
-			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+			_inventory.onConsumableChanged -= OnConsumableChanged;
 			_inventory.onChanged -= OnInventoryGenericChanged;
 		}
 		_inventory = null;
@@ -222,7 +222,7 @@ public partial class InventoryPanel : Control
 	}
 
 	void OnInventoryChanged(EInventorySlot _) => RefreshAll();
-	void OnActiveConsumableChanged(int _) => RefreshAll();
+	void OnConsumableChanged() => RefreshAll();
 	void OnInventoryGenericChanged() => RefreshAll();
 
 	public void RefreshAll()
@@ -239,10 +239,12 @@ public partial class InventoryPanel : Control
 
 		if (_consumablePanels != null)
 		{
-			IReadOnlyList<ItemState> slots = _inventory.ConsumableSlots;
+			// The single consumable slot now holds the attuned alchemy spell's cast
+			// instance (shown in the first panel); any further panels stay empty.
+			ItemState attuned = _inventory.GetActiveConsumable();
 			for (int i = 0; i < _consumablePanels.Count; i++)
 			{
-				_consumablePanels[i]?.SetItem(i < slots.Count ? slots[i] : null);
+				_consumablePanels[i]?.SetItem(i == 0 ? attuned : null);
 			}
 		}
 		if (_backpackPanels != null)

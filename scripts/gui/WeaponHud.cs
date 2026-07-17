@@ -16,10 +16,24 @@ public partial class WeaponHud : BoxContainer
 
 	ItemState _item;
 
+	// Externally-supplied count to show in the ammo readout, overriding the
+	// weapon-ammo / stackCount logic. Used for an attuned alchemy spell, whose
+	// "ammo" is a dynamic castable-count derived from the party reagent pool
+	// (Player.GetSpellAmmo) rather than anything on the ItemState. Negative =
+	// no override (fall back to the normal counter).
+	int _countOverride = -1;
+
 	public void SetItem(ItemState item)
 	{
 		_item = item;
 		Refresh(0, false);
+	}
+
+	// Set (>= 0) or clear (< 0) the count-override for this widget. The HUD pushes
+	// the live spell ammo here each frame for the consumable slot.
+	public void SetCountOverride(int count)
+	{
+		_countOverride = count;
 	}
 
 	public void Tick(ulong nowMs, bool charging)
@@ -47,6 +61,15 @@ public partial class WeaponHud : BoxContainer
 
 	void UpdateCounter(ulong nowMs)
 	{
+		// Attuned-spell castable count (pushed by the HUD each frame) wins over the
+		// weapon-ammo / stackCount readouts.
+		if (_countOverride >= 0)
+		{
+			_ammoGroup.Visible = true;
+			_ammoText.Text = _countOverride.ToString();
+			_ammoProgress.Value = 0;
+			return;
+		}
 		if (_item is WeaponState weapon && weapon.data is WeaponData weaponData && weaponData.maxAmmo > 0)
 		{
 			_ammoGroup.Visible = true;
@@ -87,11 +110,11 @@ public partial class WeaponHud : BoxContainer
 		// A fuel-limited lantern repurposes the cooldown bar as a fuel gauge —
 		// always shown, tracking the remaining burn budget as a fraction rather
 		// than a cooldown countdown.
-		if (_item is TorchState torch && torch.data is TorchData torchData && torchData.HasLimitedFuel)
+		if (_item is LanternState lantern && lantern.data is LanternData lanternData && lanternData.HasLimitedFuel)
 		{
 			_cooldownBar.MinValue = 0;
 			_cooldownBar.MaxValue = 1;
-			_cooldownBar.Value = (double)torch.FuelRemainingMs / torchData.BurnTimeMs;
+			_cooldownBar.Value = (double)lantern.FuelRemainingMs / lanternData.BurnTimeMs;
 			_cooldownBar.Visible = true;
 			return;
 		}

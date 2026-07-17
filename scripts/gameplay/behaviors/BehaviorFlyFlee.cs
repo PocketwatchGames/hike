@@ -27,6 +27,10 @@ public partial class BehaviorFlyFlee : BehaviorBase
         _destination = null;
         _targetPerch = null;
         _pathTimeoutMs = 0;
+        // Arm the shared reaction clock IncomingProjectileCondition checks (same
+        // channel the grounded dodge uses) so a volley can't re-flee this bird
+        // every tick. Timed from takeoff, like the dodge — no wait for landing.
+        me.ReactionReadyMs = time + (ulong)(_data.reactionCooldownSeconds * 1000f);
         // Take off from any perch we were resting on so the body can move.
         me.LeavePerch();
     }

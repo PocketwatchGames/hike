@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="AbilityTellData" format=3]
+
+[ext_resource type="Script" uid="uid://c4kn0o501583m" path="res://scripts/data/characters/AbilityTellData.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+accentColor = Color(0.82, 0.83, 0.78, 1)
+strength = 0.42
+priority = 1
+metadata/_custom_type_script = "uid://c4kn0o501583m"

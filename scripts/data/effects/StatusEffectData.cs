@@ -76,6 +76,12 @@ public partial class StatusEffectData : Resource
 {
 	[Export] public Texture2D icon;
 	[Export] public StringName displayName;
+	// Ability tell: the shared accent color a mob with this as an intrinsic
+	// species effect (e.g. Venomous) stamps onto its body at spawn, so it reads
+	// as "does this" regardless of region. Null = no tell. Only consulted for a
+	// mob's intrinsic SpeciesData.statusEffects, not for transient combat states.
+	// See AbilityTellData / ModelAnimator.ApplyPalette.
+	[Export] public AbilityTellData abilityTell;
 	// Inspector flavor text shown under the effect name on detail panels. Keep it short.
 	[Export(PropertyHint.MultilineText)] public string description = "";
 
@@ -173,6 +179,10 @@ public partial class StatusEffectData : Resource
 	// Fraction of the actor's max health restored on apply. 0 (default) = no heal.
 	[ExportGroup("On Apply")]
 	[Export(PropertyHint.Range, "0,1,0.01")] public float instantHealPercent = 0f;
+
+	// Flat stamina points restored on apply, clamped to the actor's MaxStamina.
+	// Player-only — mobs have no stamina pool, so it's a no-op there. 0 = none.
+	[Export(PropertyHint.Range, "0,100,1,or_greater")] public float instantStaminaRestore = 0f;
 
 	// Status effects removed from the actor on apply — douse relationships (Wet removes
 	// Burning) and cleanse blessings (Restore). Also zeroes the matching buildup meter.

@@ -23,7 +23,6 @@ public partial class Hud : Control
 	[Export] ButtonHint _weaponLeftButtonHint;
 	[Export] ButtonHint _weaponRightButtonHint;
 	[Export] ButtonHint _consumableButtonHint;
-	[Export] ButtonHint _selectConsumableButtonHint;
 	[Export] ButtonHint _lanternHint;
 	// Persistent strip parent — usually an HBoxContainer above the health bar.
 	[Export] Control _statusEffectContainer;
@@ -79,8 +78,6 @@ public partial class Hud : Control
 	// icon away; fading back in is quick so it reappears promptly in the open.
 	[Export] float _weatherCaveFadeOutSeconds = 10f;
 	[Export] float _weatherCaveFadeInSeconds = 1f;
-	[Export] Control _itemWheel;
-	[Export] Godot.Collections.Array<ItemSlotPanel> _itemSlots;
 	// Full-screen white overlay flashed by TriggerLightningFlash. Sits
 	// on top of every other HUD layer; mouse_filter = Ignore so it
 	// never eats clicks. Alpha is driven each frame by _lightningFlashAlpha;
@@ -94,29 +91,6 @@ public partial class Hud : Control
 	float _lightningFlashFadeRate;
 	Player _player;
 	Inventory _inventory;
-	// Consumable quick-select wheel. The four belt slots are laid out on a
-	// compass in hud.tscn (slot 0 top, 1 right, 2 bottom, 3 left); the right
-	// stick picks the nearest filled slot. Open state + current highlight are
-	// driven from Player via ShowItemWheel / UpdateItemWheelHighlight /
-	// CloseItemWheelAndGetSelection.
-	bool _itemWheelOpen;
-	int _itemWheelHighlight = -1;
-	// Minimum stick deflection before the wheel re-evaluates which slot the
-	// stick points at — below this the highlight holds steady.
-	const float ItemWheelStickDeadzone = 0.4f;
-	// Screen-space directions of the four belt slots, matching the compass
-	// layout authored in hud.tscn (Y points down to match the right stick's
-	// LookDown-positive axis).
-	static readonly Vector2[] ItemWheelSlotDirections =
-	{
-		new Vector2(0f, -1f),  // slot 0 — top
-		new Vector2(1f, 0f),   // slot 1 — right
-		new Vector2(0f, 1f),   // slot 2 — bottom
-		new Vector2(-1f, 0f),  // slot 3 — left
-	};
-	// Dim tint applied to the non-highlighted belt slots so the current pick
-	// reads as the bright one.
-	static readonly Color ItemWheelDimColor = new Color(0.5f, 0.5f, 0.5f, 0.7f);
 	// FIFO of pending region banners. Chained region crossings can fire in a
 	// row; we serialize them so each gets its full visible window. The
 	// in-flight flag gates DispatchNext so the banner's onDone callback is the
@@ -248,8 +222,6 @@ public partial class Hud : Control
 		_consumableButtonHint.SetHint("UseItem", string.Empty);
 		// Consumable quick-select: gamepad shows the wheel button
 		// (ConsumableCycleRight); keyboard shows the direct hotbar key range.
-		_selectConsumableButtonHint.SetHint("ConsumableCycleRight", string.Empty);
-		_selectConsumableButtonHint.GlyphOverrideKeyboard = "1-4";
 		_lanternHint.SetHint("Lantern", string.Empty);
 		_buttonHintTurnLeft.SetHint("CameraLeft", string.Empty);
 		_buttonHintTurnRight.SetHint("CameraRight", string.Empty);
@@ -258,10 +230,6 @@ public partial class Hud : Control
 		if (_signpostPanel != null)
 		{
 			_signpostPanel.Visible = false;
-		}
-		if (_itemWheel != null)
-		{
-			_itemWheel.Visible = false;
 		}
 		LoadWeatherTextures();
 	}
@@ -322,7 +290,7 @@ public partial class Hud : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged -= OnInventorySlotChanged;
-			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+			_inventory.onConsumableChanged -= OnConsumableChanged;
 		}
 	}
 
@@ -442,7 +410,7 @@ public partial class Hud : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged -= OnInventorySlotChanged;
-			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+			_inventory.onConsumableChanged -= OnConsumableChanged;
 		}
 		OnPlayerSpawned(player);
 	}
@@ -452,7 +420,7 @@ public partial class Hud : Control
 		_player = player;
 		_inventory = player.Inventory;
 		_inventory.onSlotChanged += OnInventorySlotChanged;
-		_inventory.onActiveConsumableChanged += OnActiveConsumableChanged;
+		_inventory.onConsumableChanged += OnConsumableChanged;
 		RefreshSlot(EInventorySlot.WeaponMelee);
 		RefreshSlot(EInventorySlot.WeaponRanged);
 		RefreshSlot(EInventorySlot.Equipment);
@@ -477,7 +445,7 @@ public partial class Hud : Control
 		RefreshSlot(slot);
 	}
 
-	void OnActiveConsumableChanged(int index)
+	void OnConsumableChanged()
 	{
 		RefreshSlot(EInventorySlot.Equipment);
 	}
@@ -503,121 +471,6 @@ public partial class Hud : Control
 				_lanternHud.SetItem(item);
 				_lanternHint.Visible = item != null;
 				break;
-		}
-	}
-
-	// Open the consumable wheel: fill each belt slot from the player's
-	// consumable hotbar, hide empty slots, and seed the highlight on the
-	// currently-active consumable so a release with no stick input keeps it.
-	public void ShowItemWheel()
-	{
-		if (_itemWheel == null || _itemSlots == null || _inventory == null)
-		{
-			return;
-		}
-		IReadOnlyList<ItemState> slots = _inventory.ConsumableSlots;
-		for (int i = 0; i < _itemSlots.Count; i++)
-		{
-			ItemSlotPanel panel = _itemSlots[i];
-			if (panel == null)
-			{
-				continue;
-			}
-			ItemState item = i < slots.Count ? slots[i] : null;
-			panel.SetItem(item);
-			panel.Visible = item != null;
-		}
-		_itemWheelOpen = true;
-		_itemWheel.Visible = true;
-		_itemWheelHighlight = IsSlotFilled(_inventory.ActiveConsumableIndex)
-			? _inventory.ActiveConsumableIndex
-			: FirstFilledSlot();
-		ApplyItemWheelHighlight();
-	}
-
-	// Re-point the highlight at the filled slot whose compass direction best
-	// matches the right-stick deflection. A centered stick (below the
-	// deadzone) leaves the current highlight untouched.
-	public void UpdateItemWheelHighlight(Vector2 stick)
-	{
-		if (!_itemWheelOpen)
-		{
-			return;
-		}
-		if (stick.LengthSquared() < ItemWheelStickDeadzone * ItemWheelStickDeadzone)
-		{
-			return;
-		}
-		Vector2 dir = stick.Normalized();
-		int best = -1;
-		float bestDot = -2f;
-		int count = Mathf.Min(_itemSlots.Count, ItemWheelSlotDirections.Length);
-		for (int i = 0; i < count; i++)
-		{
-			if (!IsSlotFilled(i))
-			{
-				continue;
-			}
-			float dot = dir.Dot(ItemWheelSlotDirections[i]);
-			if (dot > bestDot)
-			{
-				bestDot = dot;
-				best = i;
-			}
-		}
-		if (best >= 0 && best != _itemWheelHighlight)
-		{
-			_itemWheelHighlight = best;
-			ApplyItemWheelHighlight();
-		}
-	}
-
-	// Hide the wheel and report the highlighted consumable slot index (or -1
-	// if nothing was highlighted). Player uses the return value to select.
-	public int CloseItemWheelAndGetSelection()
-	{
-		int selected = _itemWheelHighlight;
-		_itemWheelOpen = false;
-		_itemWheelHighlight = -1;
-		if (_itemWheel != null)
-		{
-			_itemWheel.Visible = false;
-		}
-		return selected;
-	}
-
-	// A belt slot is "filled" iff it exists and holds an item — empty slots
-	// are hidden and skipped by both highlighting and selection.
-	bool IsSlotFilled(int index)
-	{
-		return index >= 0 && index < _itemSlots.Count
-			&& _itemSlots[index] != null && _itemSlots[index].Item != null;
-	}
-
-	int FirstFilledSlot()
-	{
-		for (int i = 0; i < _itemSlots.Count; i++)
-		{
-			if (IsSlotFilled(i))
-			{
-				return i;
-			}
-		}
-		return -1;
-	}
-
-	// Emphasize the highlighted belt slot — full white on the pick, dimmed on
-	// the rest — so the player sees which consumable a release will select.
-	void ApplyItemWheelHighlight()
-	{
-		for (int i = 0; i < _itemSlots.Count; i++)
-		{
-			ItemSlotPanel panel = _itemSlots[i];
-			if (panel == null || !panel.Visible)
-			{
-				continue;
-			}
-			panel.Modulate = i == _itemWheelHighlight ? Colors.White : ItemWheelDimColor;
 		}
 	}
 
@@ -672,6 +525,10 @@ public partial class Hud : Control
 		ulong now = gameClient.World?.GameTimeMs ?? 0;
 		_weaponLeftHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponMelee));
 		_weaponRightHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponRanged));
+		// The attuned spell's "ammo" is the live castable-count from the party
+		// reagent pool; push it as a count-override (negative clears it when nothing
+		// is attuned, falling back to the normal counter for any other consumable).
+		_consumableHud.SetCountOverride(_inventory?.AttunedSpell != null ? _player.GetSpellAmmo() : -1);
 		_consumableHud.Tick(now, IsSlotCharging(EInventorySlot.Equipment));
 		_lanternHud.Tick(now, false);
 
@@ -909,11 +766,14 @@ public partial class Hud : Control
 	// (Minimap.ComputeVisibleRevealRadiusMeters, dimmed by time-of-day light +
 	// night vision and scaled by vision stats) × viewRevealMargin, so the view
 	// sits just inside what's charted and zooms in as night falls / out with a
-	// vision buff. Indoor mode divides by indoorZoom so corridors read closer.
+	// vision buff. The margined view radius is then floored at minViewRadiusMeters
+	// (the true on-screen radius floor — so max zoom-in matches the screen edge)
+	// before indoor mode divides by indoorZoom to let corridors read closer.
 	// Damp-lerps toward the target so the transitions glide.
 	float UpdateMinimapViewRadius(Minimap minimap)
 	{
 		float target = minimap.ComputeVisibleRevealRadiusMeters() * minimap.viewRevealMargin;
+		target = Mathf.Max(target, minimap.minViewRadiusMeters);
 		if (minimap.Mode == Minimap.EMinimapMode.Indoor && minimap.indoorZoom > 0f)
 		{
 			target /= minimap.indoorZoom;

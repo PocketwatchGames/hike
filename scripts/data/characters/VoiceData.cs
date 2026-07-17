@@ -24,10 +24,6 @@ public partial class VoiceData : Resource
 	[Export] public PackedScene hurt;
 	// Death cry layered over the death splat on the killing blow.
 	[Export] public PackedScene death;
-	// Vocalization on being revived (a companion brought back from death) —
-	// layered over the action's shared revive cue. Null for voices that never
-	// revive.
-	[Export] public PackedScene revive;
 	// Alert shout spawned when the actor yells (mob aggro acquisition / first
 	// hit). Players have none; left null for voices that never yell.
 	[Export] public PackedScene yell;

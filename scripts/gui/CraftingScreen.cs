@@ -401,11 +401,8 @@ public partial class CraftingScreen : Control
 			RefreshMaterials();
 			return;
 		}
-		Inventory inv = _player?.Inventory;
-		if (state.data.Category == EItemCategory.Equipment && inv != null && inv.TryAddEquipmentToHotbar(state))
-		{
-			return;
-		}
+		// Non-material output goes to the party equipment stash — there is no
+		// consumable hotbar to deliver into anymore.
 		ItemStash.Add(EquipmentStash, state);
 	}
 

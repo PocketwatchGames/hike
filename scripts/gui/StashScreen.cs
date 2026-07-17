@@ -130,9 +130,10 @@ public partial class StashScreen : Control
 			case EItemCategory.Helmet:
 				return inv.TryEquip(item, item.data.EquipSlotKind);
 			case EItemCategory.Equipment:
-				// First empty hotbar slot; if the bar is full, displace slot 0 (its
-				// occupant returns to the stash).
-				return inv.TryAddEquipmentToHotbar(item) || inv.TryEquipToConsumableSlot(item, 0);
+				// The single consumable slot is the attuned alchemy spell (set at the
+				// alchemy campfire screen), not a stash-equip target — Equipment-category
+				// items (cooked dishes, etc.) stay in the stash.
+				return false;
 			default:
 				return false;
 		}
@@ -146,24 +147,10 @@ public partial class StashScreen : Control
 		_itemInfoPanelStash?.SetItem(null);
 	}
 
-	// Tap an equipped item → only the Equipment hotbar can be sent back to the
-	// stash; weapons / armor / helmets are permanent until replaced.
+	// Tap an equipped item → nothing here is stashable now: weapons / armor /
+	// helmets are permanent until replaced, and the Equipment "slot" is the attuned
+	// alchemy spell (managed at the alchemy campfire screen, not sent to the stash).
 	void OnInventoryPrimaryTap(ItemSlotPanel panel, ItemState item)
 	{
-		if (item == null || _playerInventory == null || _player?.Inventory == null)
-		{
-			return;
-		}
-		EInventorySlot slot = _playerInventory.GetEquipSlotKind(panel);
-		if (slot != EInventorySlot.Equipment)
-		{
-			return;
-		}
-		// TryRemoveFromConsumableSlot pushes the item into the party equipment
-		// stash for us; just repaint the list.
-		if (_player.Inventory.TryRemoveFromConsumableSlot(item))
-		{
-			RefreshStash();
-		}
 	}
 }

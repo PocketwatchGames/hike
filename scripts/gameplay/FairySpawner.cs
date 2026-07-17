@@ -20,6 +20,10 @@ using Godot;
 // the off-condition cleanup ignores) — like the night gellies they live only near
 // the player and vanish with their chunk, never persisted. Dormant (no cost) when
 // SimData has no fairySpawnDescriptor.
+//
+// Each fairy also has a bounded lifetime (SimData.fairyLifetimeDayFraction of the
+// awake day). Once a fairy outlives it, ReapExpired despawns it — but only while it
+// isn't currently drawn for the player, so it never blinks out on screen.
 [GlobalClass]
 public partial class FairySpawner : Node
 {
@@ -45,6 +49,15 @@ public partial class FairySpawner : Node
     private int _pendingSpawnLevel;
     private int _spawnedToday;
     private int _killedToday;
+
+    // Live spawned fairies paired with the GameTimeMs deadline at which their
+    // lifetime lapses. Once lapsed a fairy is despawned, but only while it is not
+    // currently visible to the player (checked each frame). The deadline rides the
+    // sim clock (not TimeOfDay01, which clamps at the midnight hold), so a fairy's
+    // life keeps counting down through the night rather than freezing until the
+    // player sleeps. Transient fairies that vanish on their own (fled/killed/
+    // chunk-unloaded) drop out as their node dies.
+    private readonly List<(Mob mob, ulong expireMs)> _living = new();
 
     // The GameClient whose onMobKilled we're currently subscribed to (for kill
     // tracking). Re-bound if it changes; unsubscribed on exit.
@@ -91,6 +104,10 @@ public partial class FairySpawner : Node
             _killedToday = 0;
         }
 
+        // Retire fairies that have outlived their lifetime (runs regardless of the
+        // per-day spawn budget below).
+        ReapExpired(world);
+
         // Once the player has killed enough, the day's fairies are done.
         if (_killedToday >= data.fairyKillStopCount)
         {
@@ -128,10 +145,16 @@ public partial class FairySpawner : Node
 
         if (_pendingSpawn && _spawnedToday < data.fairyMaxSpawnsPerDay)
         {
-            if (TrySpawnFairy(world, data, player, _pendingSpawnLevel))
+            Mob spawned = TrySpawnFairy(world, data, player, _pendingSpawnLevel);
+            if (spawned != null)
             {
                 _pendingSpawn = false;
                 _spawnedToday++;
+                // Lifetime = a fraction of a day's worth of clock, converted to a
+                // GameTimeMs deadline so it keeps ticking through the midnight hold.
+                float dayLengthSec = Mathf.Max(1f, data.dayLengthSeconds);
+                ulong lifetimeMs = (ulong)(Mathf.Max(0.001f, data.fairyLifetimeDayFraction) * dayLengthSec * 1000f);
+                _living.Add((spawned, world.GameTimeMs + lifetimeMs));
                 if (CVars.fairySpawnLog.Value)
                 {
                     GD.Print($"[fairyspawn] spawned day={world.DayNumber} period={currentPeriod} " +
@@ -143,14 +166,15 @@ public partial class FairySpawner : Node
     }
 
     // Find a reachable standable spot in the fairy spawn ring around the player and
-    // materialize a transient fairy there. Returns false when no valid, resident
-    // ground is available (caller keeps the pending spawn and retries next frame).
-    private bool TrySpawnFairy(World world, SimData data, Player player, int level)
+    // materialize a transient fairy there. Returns the spawned Mob, or null when no
+    // valid, resident ground is available (caller keeps the pending spawn and retries
+    // next frame).
+    private Mob TrySpawnFairy(World world, SimData data, Player player, int level)
     {
         MobData mob = data.fairySpawnDescriptor.mob;
         if (mob == null)
         {
-            return false;
+            return null;
         }
         // Reachability flood (not a radius scan) so the spawn lands on ground the
         // player could actually walk to — same placement path the night spawner uses.
@@ -159,10 +183,44 @@ public partial class FairySpawner : Node
             MaxWindowHalfExtent, allowFalling: false, _standable);
         if (_standable.Count == 0)
         {
-            return false;
+            return null;
         }
         Vector3 pos = _standable[_rng.RandiRange(0, _standable.Count - 1)];
-        return world.SpawnMobTransient(data.fairySpawnDescriptor, pos, ESpawnConditions.None, level) != null;
+        return world.SpawnMobTransient(data.fairySpawnDescriptor, pos, ESpawnConditions.None, level);
+    }
+
+    // Despawn fairies whose lifetime has lapsed, but only while they aren't being
+    // drawn for the player, so one never blinks out on screen. Also prunes fairies
+    // that already left on their own (fled, killed, chunk-unloaded).
+    private void ReapExpired(World world)
+    {
+        if (_living.Count == 0)
+        {
+            return;
+        }
+        ulong now = world.GameTimeMs;
+        for (int i = _living.Count - 1; i >= 0; i--)
+        {
+            Mob mob = _living[i].mob;
+            if (mob == null || !GodotObject.IsInstanceValid(mob) || !mob.alive)
+            {
+                _living.RemoveAtSwap(i);
+                continue;
+            }
+            if (now < _living[i].expireMs)
+            {
+                continue;
+            }
+            if (!mob.IsPerceivedByPlayer)
+            {
+                if (CVars.fairySpawnLog.Value)
+                {
+                    GD.Print($"[fairyspawn] lifetime despawn day={world.DayNumber} living={_living.Count - 1}");
+                }
+                mob.Despawn();
+                _living.RemoveAtSwap(i);
+            }
+        }
     }
 
     // The authored ZoneData of the chunk under `pos` (the dominant zone there), read

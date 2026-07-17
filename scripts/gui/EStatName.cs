@@ -40,6 +40,10 @@ public enum EStatName
 	Ranged,
 	Melee,
 	OutgoingDamage,
+	// Level-derived forge-upgrade scaling: outgoing damage+buildup multiplier
+	// (offense slots) and incoming damage reduction (Armor slot).
+	DamageScale,
+	DamageReduction,
 	AnimSpeed,
 	FootprintAlpha,
 	FootprintDuration,

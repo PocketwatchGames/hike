@@ -1530,7 +1530,18 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		Inventory inv = (actor is Player player) ? player.Inventory : null;
+		Player castPlayer = actor as Player;
+		Inventory inv = castPlayer?.Inventory;
+		// Alchemy spell cast: the attuned cast instance is not a stack. Casting
+		// spends one cast's worth of reagents from the party pool (backpack + stash)
+		// and the instance persists — it is never removed, so this returns before
+		// the identify/decrement/remove path below.
+		if (inv != null && inv.AttunedSpell != null && item == inv.GetActiveConsumable())
+		{
+			castPlayer.SpendReagents(inv.AttunedSpell.reagents);
+			inv.NotifyChanged();
+			return;
+		}
 		// Reveal the item's real name on first successful use. Decrement is
 		// the canonical "actually consumed" hook — only consumables flow
 		// through here, and only ones whose timeline reached this event.
@@ -1570,9 +1581,10 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		// A fuel-empty torch can't be relit — it only comes back after a campfire
-		// recharge. Refuse the light half of the toggle; dousing is always allowed.
-		if (!consumable.isActive && consumable is TorchState torch && !torch.HasFuel)
+		// A fuel-empty lantern can't be relit — fuel only comes back at a sunrise,
+		// on respawn, or at a fountain. Refuse the light half of the toggle;
+		// dousing is always allowed.
+		if (!consumable.isActive && consumable is LanternState lantern && !lantern.HasFuel)
 		{
 			return;
 		}

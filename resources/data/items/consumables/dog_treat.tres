@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="SpellData" format=3 uid="uid://b44abhhllyl02"]
+
+[ext_resource type="Script" uid="uid://byi5eqt4vd0wb" path="res://scripts/data/items/SpellData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_ipqh2"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_effect_base"]
+[ext_resource type="Script" uid="uid://bn12om2hvdb8j" path="res://scripts/data/effects/SummonPetEffect.cs" id="6_summon"]
+[ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_gen/mob_descriptors/dog.tres" id="7_dog"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_kkkob"]
+[ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="8_inv"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="9_input"]
+[ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="10_meat"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="11_gold"]
+
+[sub_resource type="Resource" id="Resource_summon_effect"]
+script = ExtResource("6_summon")
+pet = ExtResource("7_dog")
+
+[sub_resource type="Resource" id="Resource_event_summon"]
+script = ExtResource("4_event")
+type = 8
+effects = Array[ExtResource("5_effect_base")]([SubResource("Resource_summon_effect")])
+
+[sub_resource type="Resource" id="Resource_action"]
+script = ExtResource("3_action")
+displayName = &"Summon Dog"
+chargeTime = 1.5
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_summon")])
+speedMultiplierCharging = 0.6
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action")])
+requireFullCharge = true
+
+[sub_resource type="Resource" id="Resource_reagent_meat"]
+script = ExtResource("9_input")
+item = ExtResource("10_meat")
+count = 3
+
+[sub_resource type="Resource" id="Resource_reagent_gold"]
+script = ExtResource("9_input")
+item = ExtResource("11_gold")
+count = 2
+
+[resource]
+script = ExtResource("1_consumable")
+reagents = Array[ExtResource("9_input")]([SubResource("Resource_reagent_meat"), SubResource("Resource_reagent_gold")])
+actionProfile = SubResource("Resource_profile")
+displayName = &"Dog Treat"
+description = "A savory treat that calls your loyal dog to your side. Hold to summon it — or, while it's near, to send it away."
+maxStack = 5
+value = 15
+inventorySprite = ExtResource("8_inv")

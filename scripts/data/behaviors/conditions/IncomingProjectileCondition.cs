@@ -6,8 +6,10 @@ using Godot;
 // bolting to a new perch when shot at (Perch -> FlyFlee).
 //
 // The two use-sites differ only in their gates, all authored here:
-//   - requireTriggered: the attacker must already be in combat (default);
-//     the skittish perched bird leaves this off so a surprise shot still works.
+//   - requireTriggered: the mob must already be aware of the target (combat-
+//     triggered) to react (default) — a mob can't dodge a shot from a threat
+//     it hasn't noticed. Applies to the perched bird too: it flees a shot only
+//     once it's alerted to the shooter.
 //   - requireFacingTarget: the attacker may only react to shots it could see
 //     coming — it must be facing the player within facingToleranceDegrees; the
 //     perched bird (omnidirectional lookout) leaves this off.

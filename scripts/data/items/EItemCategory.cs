@@ -19,6 +19,6 @@ public enum EItemCategory
 	// into the firing weapon. Neither backpack material nor an equip slot.
 	Ammo,
 	// The player's lantern — its own dedicated equip slot, kept out of the
-	// Equipment hotbar. TorchData items resolve to this.
+	// Equipment hotbar. LanternData items resolve to this.
 	Lantern,
 }

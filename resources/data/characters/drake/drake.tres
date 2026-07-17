@@ -5,6 +5,8 @@
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="3_jslau"]
 [ext_resource type="PackedScene" uid="uid://d7io852kxo0f" path="res://scenes/characters/drake.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
+[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="5_recolor"]
+[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="6_palette"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
 script = ExtResource("4_animdata")
@@ -44,6 +46,18 @@ script = ExtResource("4_animdata")
 name = &"run"
 affectedBySpeedMultiplier = true
 
+[sub_resource type="Resource" id="Resource_base_entry"]
+script = ExtResource("5_recolor")
+meshNames = PackedStringArray("Body", "Head_Hair", "Head_Fur", "Neck_fur", "Back_fur", "Leg_fur", "Tail_fur", "Wings_fur")
+color = Color(0.5, 0.5, 0.52, 1)
+amount = 0.62
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="Resource_base_palette"]
+script = ExtResource("6_palette")
+recolors = [SubResource("Resource_base_entry")]
+metadata/_custom_type_script = "uid://cicvni6fvcssx"
+
 [resource]
 script = ExtResource("1_mob")
 displayName = &"Drake"
@@ -68,6 +82,7 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 })
 hudScale = 0.6
 mobScene = ExtResource("3_scene")
+palette = SubResource("Resource_base_palette")
 levelColorMeshNames = PackedStringArray("Eyes", "Feathers")
 movement = 87
 triggersTraps = false

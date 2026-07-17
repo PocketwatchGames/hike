@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://b7m3krxn4qpfv"]
+[gd_resource type="Resource" script_class="SpellData" format=3 uid="uid://b7m3krxn4qpfv"]
 
-[ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://byi5eqt4vd0wb" path="res://scripts/data/items/SpellData.cs" id="1_consumable"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_c78jy"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
@@ -10,6 +10,9 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
 [ext_resource type="Texture2D" uid="uid://cg3gcmvmdke8e" path="res://assets/textures/items/Potion_green.png" id="7_inv"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/fx/drink_loop.tscn" id="9_drinkfx"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="10_input"]
+[ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="11_blue"]
+[ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="12_purple"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")
@@ -38,8 +41,19 @@ chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged"
 chargeEvents = Array[ExtResource("4_event")]([SubResource("Resource_event_anim")])
 requireFullCharge = true
 
+[sub_resource type="Resource" id="Resource_reagent_blue"]
+script = ExtResource("10_input")
+item = ExtResource("11_blue")
+count = 2
+
+[sub_resource type="Resource" id="Resource_reagent_purple"]
+script = ExtResource("10_input")
+item = ExtResource("12_purple")
+count = 2
+
 [resource]
 script = ExtResource("1_consumable")
+reagents = Array[ExtResource("10_input")]([SubResource("Resource_reagent_blue"), SubResource("Resource_reagent_purple")])
 actionProfile = SubResource("Resource_profile")
 displayName = &"Cure Poison Potion"
 unidentifiedDisplayName = &"Unknown Potion"

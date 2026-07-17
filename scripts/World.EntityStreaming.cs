@@ -875,4 +875,50 @@ public partial class World
     {
         return _hazardCells.IsBlocked(wx, wy, wz);
     }
+
+    // Active safety-zone footprints as flat XZ discs (Y-independent, so one disc
+    // covers undulating village ground without a per-voxel band). Registered by
+    // SafetyZone nodes on activate, removed on deactivate / exit. WalkabilityGrid
+    // tags cells inside them CellFlags.SafeZone; only a hostile mob's pathfinder
+    // routes around them (MobNavigator.AvoidsSafeZones) so villagers, companions,
+    // and the player's allies move through freely. Kept as a small list — a world
+    // has only a handful of zones, so the per-cell scan during grid sampling is
+    // cheap. Keyed by owner so a toggled/streamed zone removes exactly its disc.
+    private readonly List<(Node owner, float x, float z, float radiusSq)> _safeZones = new();
+
+    public void RegisterSafeZone(Node owner, Vector3 center, float radius)
+    {
+        if (owner == null || radius <= 0f)
+        {
+            return;
+        }
+        UnregisterSafeZone(owner);
+        _safeZones.Add((owner, center.X, center.Z, radius * radius));
+    }
+
+    public void UnregisterSafeZone(Node owner)
+    {
+        for (int i = _safeZones.Count - 1; i >= 0; i--)
+        {
+            if (_safeZones[i].owner == owner)
+            {
+                _safeZones.RemoveAt(i);
+            }
+        }
+    }
+
+    public bool IsInSafeZone(float wx, float wz)
+    {
+        for (int i = 0; i < _safeZones.Count; i++)
+        {
+            (_, float x, float z, float radiusSq) = _safeZones[i];
+            float dx = wx - x;
+            float dz = wz - z;
+            if (dx * dx + dz * dz <= radiusSq)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -5,7 +5,7 @@ using Godot.Collections;
 // each holding an ItemState or null), the master recipe list from SimData,
 // and the forge type performing the cook, returns the best matching recipe.
 // Match rules:
-//   * recipe.forgeType must equal the supplied forgeType — recipes are
+//   * recipe.campfireType must equal the supplied campfireType — recipes are
 //     scoped to a station (e.g. cooking-only recipes never match at a
 //     smelter).
 //   * Every authored ingredient must satisfy the provided count being inside
@@ -41,7 +41,7 @@ public static class Cooking
 		public ItemData OutputItem => recipe?.outputItem;
 	}
 
-	public static MatchResult TryMatch(IReadOnlyList<ItemState> inputs, Array<RecipeData> recipes, ECampfireType forgeType)
+	public static MatchResult TryMatch(IReadOnlyList<ItemState> inputs, Array<RecipeData> recipes, ECampfireType campfireType)
 	{
 		if (inputs == null || recipes == null || recipes.Count == 0)
 		{
@@ -77,7 +77,7 @@ public static class Cooking
 		for (int r = 0; r < recipes.Count; r++)
 		{
 			RecipeData recipe = recipes[r];
-			if (!Matches(recipe, totals, suppliedKinds, forgeType))
+			if (!Matches(recipe, totals, suppliedKinds, campfireType))
 			{
 				continue;
 			}
@@ -92,13 +92,13 @@ public static class Cooking
 		return bestRecipe != null ? new MatchResult(bestRecipe) : default;
 	}
 
-	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds, ECampfireType forgeType)
+	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds, ECampfireType campfireType)
 	{
 		if (recipe?.inputs == null || recipe.inputs.Count == 0)
 		{
 			return false;
 		}
-		if (recipe.forgeType != forgeType)
+		if (recipe.campfireType != campfireType)
 		{
 			return false;
 		}
@@ -153,6 +153,26 @@ public static class Cooking
 		return false;
 	}
 
+	// True when a supplied stack's item satisfies a reagent/ingredient item —
+	// i.e. the reagent is the stack's item or any of its ancestors. Same identity
+	// rule the matcher uses; exposed so reagent spending (Player.SpendReagents)
+	// deducts from the right stacks.
+	public static bool Satisfies(ItemData stackItem, ItemData reagentItem)
+	{
+		if (stackItem == null || reagentItem == null)
+		{
+			return false;
+		}
+		foreach (ItemData d in Chain(stackItem))
+		{
+			if (d == reagentItem)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	// Walks an item's parent chain, the item itself first, guarding against
 	// authoring cycles.
 	static System.Collections.Generic.IEnumerable<ItemData> Chain(ItemData item)
@@ -176,6 +196,47 @@ public static class Cooking
 			if (ri != null) { total += ri.range; }
 		}
 		return total;
+	}
+
+	// How many times a flat reagent cost can be paid from `pool` — the alchemy
+	// spell "ammo". For each reagent, the affordable count is floor(available /
+	// count); the spell can be cast the minimum of those across all reagents.
+	// Availability sums the stackCount of every pool stack whose item (up its
+	// parent chain) matches the reagent, so a reagent naming a parent species
+	// meat is paid by any descendant — the same identity rule TryMatch uses.
+	// Empty / null reagents (or a null pool) yields 0: nothing to attune costs.
+	public static int CountAffordable(IReadOnlyList<RecipeInput> reagents, System.Collections.Generic.IEnumerable<ItemState> pool)
+	{
+		if (reagents == null || reagents.Count == 0 || pool == null)
+		{
+			return 0;
+		}
+		// Sum available amounts, credited up the parent chain like TryMatch.
+		var totals = new System.Collections.Generic.Dictionary<ItemData, int>();
+		foreach (ItemState s in pool)
+		{
+			if (s?.data == null || s.stackCount <= 0)
+			{
+				continue;
+			}
+			foreach (ItemData kind in Chain(s.data))
+			{
+				totals.TryGetValue(kind, out int existing);
+				totals[kind] = existing + s.stackCount;
+			}
+		}
+		int affordable = int.MaxValue;
+		for (int i = 0; i < reagents.Count; i++)
+		{
+			RecipeInput r = reagents[i];
+			if (r?.item == null || r.count <= 0)
+			{
+				continue;
+			}
+			totals.TryGetValue(r.item, out int have);
+			affordable = System.Math.Min(affordable, have / r.count);
+		}
+		return affordable == int.MaxValue ? 0 : affordable;
 	}
 
 	// Record discovery via the WorldSimState bus so the announcement

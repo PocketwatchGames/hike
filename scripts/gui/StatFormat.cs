@@ -90,6 +90,13 @@ public static class StatFormat
 		return deltaPct > 0 ? "+" + deltaPct + "%" : deltaPct + "%";
 	}
 
+	// Renders a combat scale as a leading-cross multiplier ("×4", "×2.5"). Used
+	// for the level-derived outgoing damage/buildup scaling on forge upgrades.
+	public static string Multiplier(float scale)
+	{
+		return "×" + Number(scale);
+	}
+
 	// Renders a number with an explicit '+' on positive values. Used for
 	// additive bonuses (resistance / camouflage / stamina bonus) where the
 	// direction (boost vs penalty) is the player-facing meaning.

@@ -7,7 +7,6 @@
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_dtyym"]
 [ext_resource type="Resource" uid="uid://dxknbtj4qcfvy" path="res://resources/data/items/armor/cloth_armor.tres" id="6_56gee"]
 [ext_resource type="Resource" uid="uid://d3xp3psvbwcie" path="res://resources/data/items/weapons/knife.tres" id="6_knife"]
-[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="7_potion"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="8_56gee"]
 [ext_resource type="Resource" uid="uid://ccifgrtmdxnba" path="res://resources/data/status_effects/traits/trait_empathetic.tres" id="9_empath"]
 [ext_resource type="Resource" uid="uid://2vfwtb2p63bc" path="res://resources/data/status_effects/traits/trait_wall_jumper.tres" id="10_walljump"]
@@ -55,6 +54,5 @@ fortitude = 1.1
 perception = 0.8
 stealth = 0.9
 equippedInventory = [SubResource("Resource_club"), SubResource("Resource_6hrq3"), SubResource("Resource_dmm2p")]
-startingConsumables = [ExtResource("7_potion")]
 traits = Array[ExtResource("8_56gee")]([ExtResource("9_empath"), ExtResource("10_walljump")])
 metadata/_custom_type_script = "uid://b1rjovy8825fh"

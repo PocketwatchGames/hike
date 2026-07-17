@@ -25,6 +25,10 @@ public partial class PlayerStatsPanel : PanelContainer
 	// Smallest remaining-lifetime fraction [0,1] across instances of each key
 	// (the one closest to expiring) — drives the panel's timer bar.
 	readonly Dictionary<(StatusEffectData data, EUpgradeSlot slot), float> _minProgress = new();
+	// Upgrade tier per key, captured during the scan so a newly-created panel can
+	// show the level pips + level-scaling rows. Only meaningful for upgrade keys
+	// (slot != None); the level is immutable per instance, so set-once at creation.
+	readonly Dictionary<(StatusEffectData data, EUpgradeSlot slot), int> _levels = new();
 	readonly Dictionary<(StatusEffectData data, EUpgradeSlot slot), StatusEffectInfoPanel> _panels = new();
 	readonly List<(StatusEffectData data, EUpgradeSlot slot)> _toRemove = new();
 	// Keys in the order first seen while scanning the player's effects this frame,
@@ -158,6 +162,7 @@ public partial class PlayerStatsPanel : PanelContainer
 
 		_counts.Clear();
 		_minProgress.Clear();
+		_levels.Clear();
 		_seenOrder.Clear();
 		ulong now = World.Current?.GameTimeMs ?? 0;
 		double nowTod = World.Current?.TimeOfDayAbsolute ?? 0.0;
@@ -175,6 +180,10 @@ public partial class PlayerStatsPanel : PanelContainer
 				_seenOrder.Add(key);
 			}
 			_counts[key] = prev + 1;
+			if (s.appliedUpgradeSlot != EUpgradeSlot.None)
+			{
+				_levels[key] = s.level;
+			}
 			if (s.IsTimed)
 			{
 				float progress = s.RemainingProgress(now, nowTod);
@@ -222,7 +231,8 @@ public partial class PlayerStatsPanel : PanelContainer
 				panel = _statusEffectInfoScene.Instantiate<StatusEffectInfoPanel>();
 				_statusEffectContainer.AddChild(panel);
 				_panels[key] = panel;
-				panel.SetStatusEffect(data, count, progress, hasTimer);
+				_levels.TryGetValue(key, out int level);
+				panel.SetStatusEffect(data, count, progress, hasTimer, 0f, level, key.slot);
 			}
 			else
 			{

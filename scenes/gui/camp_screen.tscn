@@ -2,11 +2,11 @@
 
 [ext_resource type="Script" uid="uid://d6oa42x0d3w2" path="res://scripts/gui/CampScreen.cs" id="1_camp"]
 [ext_resource type="PackedScene" uid="uid://bfjaekwc2fo4t" path="res://scenes/gui/sleep_screen.tscn" id="2_sleep"]
-[ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="3_cook"]
 [ext_resource type="PackedScene" uid="uid://8pc5dagm262w" path="res://scenes/gui/party_screen.tscn" id="3_wnj6t"]
+[ext_resource type="PackedScene" uid="uid://btduonbqcpurl" path="res://scenes/gui/spell_selection_screen.tscn" id="4_woe8m"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_hint"]
 
-[node name="CampScreen" type="Control" unique_id=924238542 node_paths=PackedStringArray("_sleepScreen", "_partyScreen", "_cookingScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_sleepTab", "_cookTab", "_partyTab")]
+[node name="CampScreen" type="Control" unique_id=924238542 node_paths=PackedStringArray("_sleepScreen", "_partyScreen", "_spellSelectionScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_sleepTab", "_spellsTab", "_partyTab")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -16,11 +16,11 @@ grow_vertical = 2
 script = ExtResource("1_camp")
 _sleepScreen = NodePath("MarginContainer2/SleepScreen")
 _partyScreen = NodePath("MarginContainer2/PartyScreen")
-_cookingScreen = NodePath("MarginContainer2/CookingScreen")
+_spellSelectionScreen = NodePath("MarginContainer2/SpellSelectionScreen")
 _tabLeftButtonHint = NodePath("MarginContainer/HBoxContainer/TabLeft")
 _tabRightButtonHint = NodePath("MarginContainer/HBoxContainer/TabRight")
 _sleepTab = NodePath("MarginContainer/HBoxContainer/SleepTab")
-_cookTab = NodePath("MarginContainer/HBoxContainer/CookTab")
+_spellsTab = NodePath("MarginContainer/HBoxContainer/SpellsTab")
 _partyTab = NodePath("MarginContainer/HBoxContainer/PartyTab")
 
 [node name="MarginContainer2" type="MarginContainer" parent="." unique_id=1059497977]
@@ -42,7 +42,7 @@ layout_mode = 2
 visible = false
 layout_mode = 2
 
-[node name="CookingScreen" parent="MarginContainer2" unique_id=199928144 instance=ExtResource("3_cook")]
+[node name="SpellSelectionScreen" parent="MarginContainer2" unique_id=1391817300 instance=ExtResource("4_woe8m")]
 visible = false
 layout_mode = 2
 
@@ -86,17 +86,17 @@ theme_override_constants/margin_right = 10
 layout_mode = 2
 text = "Party"
 
-[node name="CookTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=1797562863]
+[node name="SpellsTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=1797562863]
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/CookTab" unique_id=1420692127]
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/SpellsTab" unique_id=1420692127]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_right = 10
 
-[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/CookTab/MarginContainer" unique_id=925969656]
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/SpellsTab/MarginContainer" unique_id=925969656]
 layout_mode = 2
-text = "Cook"
+text = "Spells"
 
 [node name="TabRight" parent="MarginContainer/HBoxContainer" unique_id=1059281483 instance=ExtResource("5_hint")]
 layout_mode = 2

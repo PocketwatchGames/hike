@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://btduonbqcpurl"]
+
+[ext_resource type="Script" uid="uid://b33xqlv5ia8b7" path="res://scripts/gui/SpellSelectionScreen.cs" id="1_ytbkn"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_y4xol"]
+[ext_resource type="PackedScene" uid="uid://cxnyim15u74u8" path="res://scenes/gui/spell_selection_panel.tscn" id="3_ytbkn"]
+[ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_c78m6"]
+
+[node name="SpellSelectionScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_spellPanel", "_backpackPanel")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ytbkn")
+_spellPanel = NodePath("MarginContainer/HBoxContainer/SpellContainer/SpellSelectionPanel")
+_backpackPanel = NodePath("MarginContainer/HBoxContainer/BackpackPanel")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767524930]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=1245740980]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("2_y4xol")]
+layout_mode = 2
+ActionName = "Equip"
+
+[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("2_y4xol")]
+layout_mode = 2
+ActionName = "Drop"
+InputAction = "X"
+
+[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("2_y4xol")]
+layout_mode = 2
+ActionName = "Use"
+InputAction = "Y"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=270012993]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 100
+
+[node name="SpellContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1380523122]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+
+[node name="SpellSelectionPanel" parent="MarginContainer/HBoxContainer/SpellContainer" unique_id=1417314439 instance=ExtResource("3_ytbkn")]
+layout_mode = 2
+
+[node name="BackpackPanel" parent="MarginContainer/HBoxContainer" unique_id=1913399409 instance=ExtResource("4_c78m6")]
+layout_mode = 2

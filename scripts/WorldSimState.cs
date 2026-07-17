@@ -134,6 +134,11 @@ public class WorldSimState
     // VisibilityChanged path.
     public event Action<SpeciesData> onSpeciesDiscovered;
 
+    // Fired the first time an alchemy spell is learned. GameClient subscribes to
+    // forward an announcement; the alchemy screen refreshes through its own
+    // VisibilityChanged path.
+    public event Action<SpellData> onSpellLearned;
+
     // The two knowledge stores the facade reads/writes. Banked = permanent party
     // pool; Active = the currently-controlled member's provisional field store
     // (null when there's no roster yet, e.g. very early boot). Writes target
@@ -203,6 +208,52 @@ public class WorldSimState
         }
         store.IdentifiedItems.Add(data);
         onItemIdentified?.Invoke(data);
+        return true;
+    }
+
+    // A spell is attunable at the alchemy screen once LEARNED (recorded into a
+    // Knowledge store's KnownSpells, e.g. via a SpellTeachable in
+    // WorldGenData.initialKnowledge or a spell scroll). This is the single "known"
+    // axis for spells — deliberately NOT item-identification: a spell is cast, not
+    // found and identified as a physical item, so learning is the only gate.
+    public bool IsSpellKnown(SpellData spell)
+    {
+        if (spell == null)
+        {
+            return false;
+        }
+        return (Banked?.KnownSpells.Contains(spell) ?? false)
+            || (Active?.KnownSpells.Contains(spell) ?? false);
+    }
+
+    // Records a spell as learned in the active member's store and fires
+    // onSpellLearned. Returns true only on first learn. Because a spell's name IS
+    // its output name (no separate identification step), this also silently
+    // identifies the spell item so the alchemy screen reads with the real name
+    // instead of the "Unknown Potion" placeholder — mirroring DiscoverRecipe's
+    // identifyOutput, and without a redundant "Item Identified" banner.
+    public bool LearnSpell(SpellData spell)
+    {
+        if (spell == null)
+        {
+            return false;
+        }
+        Knowledge store = Active;
+        if (store == null)
+        {
+            return false;
+        }
+        if (!string.IsNullOrEmpty(spell.unidentifiedDisplayName.ToString())
+            && !IdentifiedInStores(spell))
+        {
+            store.IdentifiedItems.Add(spell);
+        }
+        if (IsSpellKnown(spell))
+        {
+            return false;
+        }
+        store.KnownSpells.Add(spell);
+        onSpellLearned?.Invoke(spell);
         return true;
     }
 

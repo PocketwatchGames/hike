@@ -43,6 +43,10 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
     [Export] private Node3D _hudNode;
     [Export] private DamageZone _damageZone;
     [Export] private WarmthZone _warmthZone;
+    // Small "safe" bubble around a lit fire: aggressive mobs break off and
+    // wander away while the player stands in it (see SafetyZone). Toggled with
+    // the flame — a doused fire offers no safety.
+    [Export] private SafetyZone _safetyZone;
     // Actions shown while the forge is lit — the Camp entry (Cook / Sleep / Stash).
     [Export] private Godot.Collections.Array<InteractiveAction> _litActions = new();
     // Actions shown while the forge is unlit — typically a single Light entry.
@@ -51,8 +55,8 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
     [Export] private PackedScene _lightOffEffectScene;
     [Export] private PackedScene _lightLoopEffectScene;
     // Recipe scope for this station — Cooking.TryMatch only considers
-    // recipes whose forgeType matches.
-    [Export] private ECampfireType _forgeType;
+    // recipes whose campfireType matches.
+    [Export] private ECampfireType _campfireType;
     // How long (seconds) a single cook job takes.
     [Export] private float _forgeTimeSeconds = 1.5f;
     // Health restored per in-world hour slept while resting at this fire
@@ -79,7 +83,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
     public CampfireJob ActiveCampfireJob => _simState?.ActiveCampfireJob;
     public ItemState[] CampfireSlots => _simState?.CampfireSlots;
     public bool IsLit => _active;
-    public ECampfireType CampfireType => _forgeType;
+    public ECampfireType CampfireType => _campfireType;
 
     private static readonly StringName AnimOn = "on";
     private static readonly StringName AnimOff = "off";
@@ -167,6 +171,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         _light.SetActive(_active);
         _damageZone?.SetActive(_active);
         _warmthZone?.SetActive(_active);
+        _safetyZone?.SetActive(_active);
 
         PackedScene oneShot = _active ? _lightOnEffectScene : _lightOffEffectScene;
         if (oneShot != null)
@@ -405,6 +410,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         instance._light.SetActive(instance._active, fade: false);
         instance._damageZone?.SetActive(instance._active);
         instance._warmthZone?.SetActive(instance._active);
+        instance._safetyZone?.SetActive(instance._active);
         instance.UpdateLoopEffect();
 
         // Only tick while a cook job is running. A forge spawned mid-cook

@@ -28,6 +28,11 @@ public struct WalkabilityCell
     // a per-query decision the pathfinder makes via its avoidHazards flag, so
     // wander routes around it while a mob chasing the player still walks in.
     public bool IsHazard => (flags & CellFlags.Hazard) != 0;
+    // The cell sits inside an active safety zone (village, lit campfire). Like
+    // Hazard it's informational; only a hostile mob's pathfinder avoids it (per
+    // MobNavigator.AvoidsSafeZones), so mobs don't chase into a sanctuary while
+    // villagers and allies path through freely.
+    public bool IsSafeZone => (flags & CellFlags.SafeZone) != 0;
 }
 
 [System.Flags]
@@ -38,6 +43,7 @@ public enum CellFlags : byte
     Water = 1 << 1,       // The standable surface is a water column (wading/swimming)
     OutOfBounds = 1 << 2, // Column is in an unloaded chunk; pathfinder must not cross
     Hazard = 1 << 3,      // Inside a damaging prop's danger zone (see World hazard grid)
+    SafeZone = 1 << 4,    // Inside an active safety zone (see World safe-zone registry)
 }
 
 // Per-mob movement traits, derived from MobData. Held as a struct so it can
@@ -443,6 +449,13 @@ public class WalkabilityGrid
                     }
                 }
 
+                // Safety-zone footprint (flat XZ disc, Y-independent). Tagged
+                // here mob-agnostically; only a hostile profile's pathfinder
+                // routes around it.
+                CellFlags safeFlag = (world != null && world.IsInSafeZone(wx + 0.5f, wz + 0.5f))
+                    ? CellFlags.SafeZone
+                    : CellFlags.None;
+
                 // Fold the ground block's speed multiplier into the cell cost as
                 // its inverse — a slow block (mud, deep sand) costs more to cross
                 // so routes prefer faster footing (roads, packed ground), the
@@ -458,7 +471,7 @@ public class WalkabilityGrid
 
                 WalkabilityCell wc = default;
                 wc.surfaceY = (short)wy;
-                wc.flags = CellFlags.Walkable | hazardFlag;
+                wc.flags = CellFlags.Walkable | hazardFlag | safeFlag;
                 wc.cost = wallCost * blockSpeedCost;
                 cells[baseIdx + found] = wc;
                 lastSurfaceY = wy;

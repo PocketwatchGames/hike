@@ -359,9 +359,18 @@ public partial class ModelAnimator : Node
         }
     }
 
-    // Apply a mob's biome-variant palette at spawn. Null = leave the authored
-    // textures untouched (the common case).
+    // Apply a mob's base palette at spawn. Null = leave the authored textures
+    // untouched (the common case).
     public void ApplyPalette(MobPalette palette)
+    {
+        ApplyPalette(palette, null);
+    }
+
+    // As above, but shift every entry's color toward the ability tell's accent
+    // first (see AbilityTellData) — so the species keeps its base identity while
+    // its standout ability reads as a consistent accent, independent of region.
+    // Null tell = the plain base palette.
+    public void ApplyPalette(MobPalette palette, AbilityTellData tell)
     {
         if (palette?.recolors == null)
         {
@@ -371,7 +380,8 @@ public partial class ModelAnimator : Node
         {
             if (entry != null)
             {
-                SetMeshRecolor(entry.meshNames, entry.color, entry.amount);
+                Color color = tell != null ? entry.color.Lerp(tell.accentColor, tell.strength) : entry.color;
+                SetMeshRecolor(entry.meshNames, color, entry.amount);
             }
         }
     }

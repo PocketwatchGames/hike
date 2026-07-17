@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="7_impact"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_mu4ee"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="9_ghxws"]
+[ext_resource type="Resource" path="res://resources/data/characters/ability_tells/ability_tell_lightning.tres" id="14_tell"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
@@ -61,3 +62,4 @@ maxVerticalAttackRange = 8.0
 desiredAttackRange = 10.0
 cooldownSeconds = 3.5
 displayName = &"Drake Lightning Breath"
+abilityTell = ExtResource("14_tell")

@@ -16,6 +16,7 @@
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_opuky"]
 [ext_resource type="PackedScene" path="res://scenes/fx/venom_target_preview.tscn" id="11_preview"]
 [ext_resource type="PackedScene" uid="uid://dsgde212y3j3m" path="res://scenes/fx/spider_spit.tscn" id="12_spit"]
+[ext_resource type="Resource" path="res://resources/data/characters/ability_tells/ability_tell_venom.tres" id="13_tell"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
@@ -104,3 +105,4 @@ maxAttackRange = 10.0
 desiredAttackRange = 7.0
 cooldownSeconds = 2.5
 displayName = &"Spider Venom"
+abilityTell = ExtResource("13_tell")

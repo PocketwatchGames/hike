@@ -1,6 +1,10 @@
 [gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://bhodwg1042kim"]
 
+[ext_resource type="Script" uid="uid://419ghc0cftgeg" path="res://scripts/data/teaching/SpellTeachable.cs" id="3_spellteach"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]
+[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="7_cure"]
+[ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/consumables/dog_treat.tres" id="7_dogtreat"]
+[ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/consumables/stamina_potion.tres" id="7_qvw7n"]
 [ext_resource type="Resource" uid="uid://bbelkvnbtjkl6" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="15_7nyke"]
 [ext_resource type="Resource" uid="uid://c2slw3bih2n7x" path="res://resources/data/world_gen/zone_gen/swamp_highlands_gen.tres" id="17_hnhxf"]
 [ext_resource type="Resource" uid="uid://c3262urh41m8s" path="res://resources/data/world_gen/zone_gen/swamp_village_gen.tres" id="17_se4m7"]
@@ -26,6 +30,21 @@
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="62_forge"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
+
+[sub_resource type="Resource" id="Resource_know_cure"]
+script = ExtResource("3_spellteach")
+spell = ExtResource("7_cure")
+metadata/_custom_type_script = "uid://419ghc0cftgeg"
+
+[sub_resource type="Resource" id="Resource_know_dogtreat"]
+script = ExtResource("3_spellteach")
+spell = ExtResource("7_dogtreat")
+metadata/_custom_type_script = "uid://419ghc0cftgeg"
+
+[sub_resource type="Resource" id="Resource_trfk2"]
+script = ExtResource("3_spellteach")
+spell = ExtResource("7_qvw7n")
+metadata/_custom_type_script = "uid://419ghc0cftgeg"
 
 [sub_resource type="Resource" id="Sign_swamp"]
 script = ExtResource("52_sign")
@@ -183,4 +202,5 @@ healingFountainCount = 3
 manaFountain = ExtResource("64_mana")
 manaFountainCount = 3
 startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]
+initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_cure"), SubResource("Resource_know_dogtreat"), SubResource("Resource_trfk2")])
 zoneLevelNoiseFrequency = 0.1

@@ -260,18 +260,6 @@ public partial class MobData : Resource
     // BehaviorAttack.
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
-    // Health a tamed companion is restored to when the player revives its
-    // corpse (the Revive interactive — see Mob.Revive). An absolute value, not
-    // a fraction: a companion comes back wounded at the authored amount and is
-    // clamped to [1, maxHealth] so a revive never lands dead or over-full.
-    // Only consulted for revivable mobs (tameLoyalty > 0).
-    [Export] public float reviveHealth = 1f;
-    // Player health spent to revive this companion's corpse (the Revive
-    // interactive). The revive is refused at press when the player can't afford
-    // it (ReviveBloodRequirement) and the cost is drained as blood — drained
-    // health that regenerates over time — on completion. 0 = free revive. Only
-    // consulted for revivable mobs (tameLoyalty > 0).
-    [Export] public float reviveHealthCost = 0f;
     [Export] public float armorRechargeDelay = 6f;
     // Seconds for the armor pool to refill from empty to full maxArmor. The
     // per-tick rate is derived as maxArmor / armorRechargeTime, so a mob whose

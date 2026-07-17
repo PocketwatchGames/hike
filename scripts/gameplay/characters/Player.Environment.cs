@@ -34,6 +34,34 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// True while the player stands inside any active safety zone (a starting
+	// area, a lit campfire). Read by mob AI (TargetSafeCondition, the gated
+	// AggroAcquiredCondition): aggressive mobs break off their attack to stare
+	// and then wander away instead of engaging, and won't re-aggro until the
+	// player steps back out. SafetyZone calls Enter/ExitSafetyZone on overlap.
+	public bool IsSafe => _safeZoneCount > 0;
+
+	public void EnterSafetyZone(SafetyZone zone)
+	{
+		_safeZoneCount++;
+		if (CVars.safetyDebug.Value)
+		{
+			GD.Print($"[safety] player entered zone, count={_safeZoneCount} IsSafe={IsSafe}");
+		}
+	}
+
+	public void ExitSafetyZone(SafetyZone zone)
+	{
+		if (_safeZoneCount > 0)
+		{
+			_safeZoneCount--;
+		}
+		if (CVars.safetyDebug.Value)
+		{
+			GD.Print($"[safety] player exited zone, count={_safeZoneCount} IsSafe={IsSafe}");
+		}
+	}
+
 	// Per-physics-tick wet driver. Routes environmental wetness signals into
 	// the player's Wet buildup meter (the controller arms / disarms via
 	// armThreshold / disarmThreshold), AND ticks the same signals through

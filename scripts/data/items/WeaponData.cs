@@ -12,6 +12,12 @@ public partial class WeaponData : ItemData
 	// having to walk the profile.
 	[Export] public int maxAmmo = 0;
 
+	// Ability tell: the shared accent color this weapon stamps onto its wielder
+	// at spawn, so any mob carrying it reads as "does this" regardless of region
+	// (a torch goblin and a fire drake both reference the fire tell). Null = this
+	// weapon contributes no tell. See AbilityTellData / ModelAnimator.ApplyPalette.
+	[Export] public AbilityTellData abilityTell;
+
 	// Single source of truth for handedness: true = this weapon equips to the
 	// right-hand (ranged) slot, false = the left-hand (melee) slot. Handedness
 	// is exclusive — equip / auto-equip / select-mode swap all read CanonicalSlot

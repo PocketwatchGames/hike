@@ -313,7 +313,7 @@ public partial class CookingPanel : MarginContainer
 	// come back disabled; the click handler swaps slot contents in-place
 	// against the recipe target rather than draining and re-adding, so
 	// items already in the right slots don't visibly flash.
-	public void RefreshRecipes(Array<RecipeData> allRecipes, WorldSimState worldSim, System.Collections.Generic.IEnumerable<ItemState> available, ECampfireType forgeType)
+	public void RefreshRecipes(Array<RecipeData> allRecipes, WorldSimState worldSim, System.Collections.Generic.IEnumerable<ItemState> available, ECampfireType campfireType)
 	{
 		if (_recipeButtonContainer == null)
 		{
@@ -342,7 +342,7 @@ public partial class CookingPanel : MarginContainer
 			for (int i = 0; i < allRecipes.Count; i++)
 			{
 				RecipeData recipe = allRecipes[i];
-				if (recipe == null || recipe.forgeType != forgeType || recipe.inputs == null)
+				if (recipe == null || recipe.campfireType != campfireType || recipe.inputs == null)
 				{
 					continue;
 				}

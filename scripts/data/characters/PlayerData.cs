@@ -327,13 +327,12 @@ public partial class PlayerData : Resource
 	// inventory_panel.tscn — every data slot has to be visible, or items can
 	// land in an un-rendered slot and appear to vanish.
 	[Export] public int backpackCapacity = 12;
-	[Export] public int consumableSlotCount = 3;
 
 	// The lantern every character spawns carrying, seeded into the dedicated
 	// Lantern slot (never the Equipment hotbar). Shared across all party members
 	// since PlayerData is the common base tuning. Null = characters spawn without
 	// a lantern.
-	[Export] public TorchData startingLantern;
+	[Export] public LanternData startingLantern;
 
 	[ExportGroup("Combat")]
 	[Export] public float maxHealth = 100f;
@@ -514,13 +513,13 @@ public partial class PlayerData : Resource
 	// SkyExposure is the non-leaky vertical field, so a cave mouth's sideways
 	// light leak never registers as rain exposure.
 	[Export(PropertyHint.Range, "0.01,1,0.01")] public float rainShelterSkyThreshold = 0.5f;
-	// A carried torch is doused when the rain the player is actually exposed to
+	// A carried lantern is doused when the rain the player is actually exposed to
 	// (RainIntensity, gated by the same shelter ramp as wetness) reaches this
 	// strength — "heavy rain". Swimming douses unconditionally. Dousing is
 	// one-way: the player must relight manually once dry / out of the water, it
 	// never auto-relights when conditions ease. 1.0 disables rain dousing
 	// (only a full downpour would ever hit it).
-	[Export(PropertyHint.Range, "0.01,1,0.01")] public float torchDouseRainThreshold = 0.6f;
+	[Export(PropertyHint.Range, "0.01,1,0.01")] public float lanternDouseRainThreshold = 0.6f;
 	// Wind accelerates drying via evaporation. SampleWindSpeed already
 	// zeroes out under overhead cover, so this only contributes outdoors.
 	// Default 0.1 means the dry rate doubles at 10 m/s of wind and triples

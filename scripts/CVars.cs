@@ -48,6 +48,11 @@ public static class CVars
     // and why) so dynamic-music issues can be diagnosed from console.
     public static CVarBool musicDebug = new CVarBool("music_debug", false);
 
+    // Logs safety-zone events — player enter/exit of a zone (IsSafe flips) and
+    // mob Retreat behavior entries — so pacify / disengage issues can be
+    // diagnosed from console.
+    public static CVarBool safetyDebug = new CVarBool("safety_debug", false);
+
     // When true, draws the off-screen cap-mask SubViewport texture as a
     // fullscreen overlay so you can see exactly what the cap shader is
     // sampling. White pixels = "cap should draw here", black = "no cap".

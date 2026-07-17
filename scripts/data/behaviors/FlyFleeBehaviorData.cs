@@ -23,5 +23,10 @@ public partial class FlyFleeBehaviorData : BehaviorData
     // perch became unreachable) and land where we are.
     [Export] public float pathTimeoutSeconds = 5f;
 
+    // Minimum gap between flees, written to Mob.ReactionReadyMs on takeoff so the
+    // shared IncomingProjectileCondition can't re-flee this bird every tick while
+    // a volley arrives. Same reaction clock the grounded dodge uses.
+    [Export] public float reactionCooldownSeconds = 2.5f;
+
     public override BehaviorBase CreateRuntime() => new BehaviorFlyFlee(this);
 }

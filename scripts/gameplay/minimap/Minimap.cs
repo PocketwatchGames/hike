@@ -34,9 +34,15 @@ public partial class Minimap : Node3D
     // by vision stats) times this margin, so the view sits just inside what's
     // charted. ~0.85 ≈ the old fixed zoom in daylight; 1 = flush with the edge.
     [Export(PropertyHint.Range, "0.3,1,0.01")] public float viewRevealMargin = 0.85f;
-    // Floor for the adaptive view radius (meters) so night / no vision never
-    // zooms the map down to a dot.
-    [Export(PropertyHint.Range, "2,64,1")] public float minViewRadiusMeters = 10f;
+    // Floor for the adaptive view radius (meters) — the most the map ever zooms
+    // IN (it zooms out farther when conditions are clear). This is the actual
+    // on-screen minimap radius floor: the Hud floors the post-viewRevealMargin
+    // view radius against it (not the pre-margin reveal distance). Set to the
+    // world distance from screen center to a horizontal screen edge at the
+    // standard orthographic camera on a 16:9 display, so at max zoom the minimap
+    // disk reaches about as far as the player can see on screen. Camera ortho
+    // Size (vertical world extent) = 20 → horizontal = 20·16/9 = 35.6 m → half ≈ 17.8.
+    [Export(PropertyHint.Range, "2,64,0.1")] public float minViewRadiusMeters = 17.8f;
     // Extra indoor zoom-in factor — the view radius is divided by this in indoor
     // mode so corridors read closer. Presentation only; doesn't affect reveal.
     [Export(PropertyHint.Range, "1,8,0.25")] public float indoorZoom = 2f;
@@ -983,9 +989,10 @@ public partial class Minimap : Node3D
 
     // The reveal distance the player can currently chart, for the adaptive minimap
     // zoom: the max reveal radius (already vision-stat scaled) dimmed by the global
-    // time-of-day sun brightness and by the local painted fog at the player,
-    // floored by minViewRadiusMeters so night / thick fog never collapse the zoom
-    // to a dot.
+    // time-of-day sun brightness and by the local painted fog at the player. NOT
+    // floored here — the Hud applies viewRevealMargin and then floors the resulting
+    // view radius at minViewRadiusMeters, so the floor bounds the true on-screen
+    // radius rather than this pre-margin reveal distance.
     public float ComputeVisibleRevealRadiusMeters()
     {
         float radius = ComputeRevealRadius() * DaylightFactor01();
@@ -1009,7 +1016,7 @@ public partial class Minimap : Node3D
                 radius = Mathf.Min(radius, losFogFullBlockMeters / fog01);
             }
         }
-        return Mathf.Max(radius, minViewRadiusMeters);
+        return radius;
     }
 
     // Global time-of-day sun/moon brightness in [0,1] — SkyController's blended

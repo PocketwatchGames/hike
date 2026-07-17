@@ -99,7 +99,7 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
                 player.Heal(player.MaxHealth * _healFraction);
                 break;
             case EFountainKind.LanternFuel:
-                player.RefuelCarriedTorches();
+                player.RefuelLantern();
                 break;
         }
         BeginCooldown();

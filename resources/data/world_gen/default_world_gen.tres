@@ -7,13 +7,15 @@
 [ext_resource type="Resource" uid="uid://dhg7c42lgnit2" path="res://resources/data/world_gen/zone_gen/hub_gen.tres" id="2_zone_hub"]
 [ext_resource type="Resource" uid="uid://wwpw4glsf0vs" path="res://resources/data/world_gen/zone_gen/mountain_gen.tres" id="2_zone_mountain"]
 [ext_resource type="Resource" uid="uid://wwpw4grvh0vs" path="res://resources/data/world_gen/zone_gen/swamp_gen.tres" id="2_zone_swamp"]
-[ext_resource type="Script" uid="uid://bglfc6qt5onq3" path="res://scripts/data/teaching/ItemTeachable.cs" id="3_itemteach"]
+[ext_resource type="Script" uid="uid://419ghc0cftgeg" path="res://scripts/data/teaching/SpellTeachable.cs" id="3_spellteach"]
 [ext_resource type="Resource" uid="uid://c0mthwo8voc3w" path="res://resources/data/world_gen/region_gen/region_gen_desert.tres" id="3_region_desert"]
 [ext_resource type="Resource" uid="uid://d2rxg8txuelf0" path="res://resources/data/world_gen/region_gen/region_gen_forest.tres" id="3_region_forest"]
 [ext_resource type="Resource" uid="uid://dql8txwkuxpdg" path="res://resources/data/world_gen/region_gen/region_gen_mountain.tres" id="3_region_mountain"]
 [ext_resource type="Resource" uid="uid://bbelkvnbtjkl6" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="3_region_swamp"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]
-[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="7_potion"]
+[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="7_cure"]
+[ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/consumables/dog_treat.tres" id="7_dogtreat"]
+[ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/consumables/stamina_potion.tres" id="7_ky243"]
 [ext_resource type="Script" uid="uid://c247odltr1n2o" path="res://scripts/data/worldgen/PlacedZone.cs" id="40_placed"]
 [ext_resource type="Script" uid="uid://bfgfv0y5b388o" path="res://scripts/data/worldgen/QuadrantBounds.cs" id="41_quadrant"]
 [ext_resource type="Script" uid="uid://4fakyxlqthf4" path="res://scripts/data/worldgen/BoxBounds.cs" id="42_box"]
@@ -32,10 +34,20 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
 
-[sub_resource type="Resource" id="Resource_know_potion"]
-script = ExtResource("3_itemteach")
-item = ExtResource("7_potion")
-metadata/_custom_type_script = "uid://bglfc6qt5onq3"
+[sub_resource type="Resource" id="Resource_know_cure"]
+script = ExtResource("3_spellteach")
+spell = ExtResource("7_cure")
+metadata/_custom_type_script = "uid://419ghc0cftgeg"
+
+[sub_resource type="Resource" id="Resource_know_dogtreat"]
+script = ExtResource("3_spellteach")
+spell = ExtResource("7_dogtreat")
+metadata/_custom_type_script = "uid://419ghc0cftgeg"
+
+[sub_resource type="Resource" id="Resource_1pd0y"]
+script = ExtResource("3_spellteach")
+spell = ExtResource("7_ky243")
+metadata/_custom_type_script = "uid://419ghc0cftgeg"
 
 [sub_resource type="Resource" id="Sign_crossroads"]
 script = ExtResource("52_sign")
@@ -234,4 +246,4 @@ healingFountainCount = 3
 manaFountain = ExtResource("64_mana")
 manaFountainCount = 3
 startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]
-initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_potion")])
+initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_cure"), SubResource("Resource_know_dogtreat"), SubResource("Resource_1pd0y")])

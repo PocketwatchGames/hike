@@ -523,6 +523,11 @@ public partial class Player : CharacterBody3D
 	// is standing inside. Added to the GameClient-sampled environmental
 	// temperature when computing bodyTemperature drift each tick.
 	float _warmthBonus;
+	// Count of overlapping active safety zones (starting areas, lit campfires).
+	// > 0 marks the player "safe": aggressive mobs break off, stare, and wander
+	// away rather than attacking (see IsSafe). Counter (not bool) so overlapping
+	// zones don't release the player when they leave just one.
+	int _safeZoneCount;
 	// Smoothed perceived temperature in degrees F. Drifts toward the sampled
 	// environment + warmth bonus at PlayerData.temperatureAcclimationSpeed
 	// so a brief gust through a cold patch doesn't trigger Cold.
@@ -723,16 +728,6 @@ public partial class Player : CharacterBody3D
 	// context_button_hold_time cvar (authored in seconds).
 	float ContextButtonHoldMs => CVars.contextButtonHoldTime.Value * 1000f;
 
-	// Consumable quick-select wheel. Holding ConsumableCycleRight past
-	// ContextButtonHoldMs opens the HUD item wheel; the right stick then
-	// highlights a belt slot and release selects it. A tap (release before the
-	// threshold) falls back to cycling to the next consumable. Times on the sim
-	// clock to match the InteractHold hold-to-open gesture above.
-	bool _consumableWheelPressActive;
-	ulong _consumableWheelPressStartMs;
-	bool _consumableWheelOpen;
-
-
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
 	// Mouse positional-aim cursor delta (world XZ, meters), accumulated across
@@ -891,6 +886,10 @@ public partial class Player : CharacterBody3D
 		{
 			Heal(MaxHealth * data.instantHealPercent);
 		}
+		if (data.instantStaminaRestore > 0f)
+		{
+			RestoreStamina(data.instantStaminaRestore);
+		}
 	}
 
 	// Drop a single unit of `item` into the backpack, merging into an existing
@@ -1017,9 +1016,107 @@ public partial class Player : CharacterBody3D
 		RefreshCarriedTorchVisual();
 	}
 
-	private void OnActiveConsumableChanged(int _)
+	private void OnConsumableChanged()
 	{
 		RefreshCarriedTorchVisual();
+	}
+
+	// ---- Alchemy spell reagents --------------------------------------------
+
+	// The reagent pool an attuned spell draws from: the player's carried backpack
+	// materials plus the shared party material stash (no physical chest — the
+	// stash is always logically reachable). Backpack first so on-hand reagents are
+	// spent before the banked stash. Read-only; used for the castable-count.
+	public System.Collections.Generic.IEnumerable<ItemState> CombinedMaterialPool()
+	{
+		if (_inventory != null)
+		{
+			IReadOnlyList<ItemState> backpack = _inventory.Backpack;
+			for (int i = 0; i < backpack.Count; i++)
+			{
+				ItemState s = backpack[i];
+				if (s?.data != null && s.data.IsMaterial && s.stackCount > 0)
+				{
+					yield return s;
+				}
+			}
+		}
+		System.Collections.Generic.List<ItemState> stash = _world?.WorldState?.SimState?.PartyMaterialStash;
+		if (stash != null)
+		{
+			for (int i = 0; i < stash.Count; i++)
+			{
+				ItemState s = stash[i];
+				if (s?.data != null && s.stackCount > 0)
+				{
+					yield return s;
+				}
+			}
+		}
+	}
+
+	// How many casts the currently attuned spell can afford from the combined
+	// reagent pool — the spell slot's dynamic "ammo". 0 when nothing is attuned.
+	public int GetSpellAmmo()
+	{
+		SpellData spell = _inventory?.AttunedSpell;
+		return spell == null ? 0 : Cooking.CountAffordable(spell.reagents, CombinedMaterialPool());
+	}
+
+	// Spend one cast's worth of reagents from the pool, backpack-first then the
+	// party stash. Returns false (spending nothing) if the pool can't cover the
+	// full cost — the cast is gated on GetSpellAmmo upstream, so this is a
+	// backstop. Called from the cast timeline's consume event.
+	public bool SpendReagents(IReadOnlyList<RecipeInput> reagents)
+	{
+		if (reagents == null || reagents.Count == 0)
+		{
+			return false;
+		}
+		if (Cooking.CountAffordable(reagents, CombinedMaterialPool()) <= 0)
+		{
+			return false;
+		}
+		for (int i = 0; i < reagents.Count; i++)
+		{
+			RecipeInput r = reagents[i];
+			if (r?.item == null || r.count <= 0)
+			{
+				continue;
+			}
+			int need = r.count - _inventory.SpendMaterial(r.item, r.count);
+			if (need > 0)
+			{
+				SpendFromMaterialStash(r.item, need);
+			}
+		}
+		return true;
+	}
+
+	// Deduct up to `count` of a reagent from the shared party material stash,
+	// matching up the item's parent chain and pruning emptied stacks.
+	private void SpendFromMaterialStash(ItemData reagentItem, int count)
+	{
+		System.Collections.Generic.List<ItemState> stash = _world?.WorldState?.SimState?.PartyMaterialStash;
+		if (stash == null || reagentItem == null || count <= 0)
+		{
+			return;
+		}
+		for (int i = stash.Count - 1; i >= 0 && count > 0; i--)
+		{
+			ItemState s = stash[i];
+			if (s?.data == null || s.stackCount <= 0 || !Cooking.Satisfies(s.data, reagentItem))
+			{
+				continue;
+			}
+			int take = Math.Min(count, s.stackCount);
+			s.stackCount -= take;
+			count -= take;
+			if (s.stackCount <= 0)
+			{
+				stash.RemoveAt(i);
+			}
+		}
 	}
 
 	// See RefreshCarriedLight. The light rides the held torch (HeldTorch.movingLightScene),
@@ -1031,24 +1128,24 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		ItemState active = _inventory?.GetActiveConsumable();
-		if (active?.data is TorchData activeTorch)
+		if (active?.data is LanternData activeLantern)
 		{
-			// Selected torch: held in hand (HeldItemVisual stows it on the back on
+			// Selected lantern: held in hand (HeldItemVisual stows it on the back on
 			// its own if a weapon / item is also drawn), lit per its active state.
 			bool lit = active is ConsumableState cs && cs.isActive;
-			_heldVisual.SetTorch(activeTorch.heldTorchScene, inHand: true);
+			_heldVisual.SetTorch(activeLantern.heldLanternScene, inHand: true);
 			_heldVisual.SetTorchLit(lit, this);
 			return;
 		}
-		// No torch selected — a lit torch in any other slot stays visible (stowed)
+		// No lantern selected — a lit lantern in any other slot stays visible (stowed)
 		// and lighting.
-		TorchData litTorch = FindLitTorch();
-		_heldVisual.SetTorch(litTorch?.heldTorchScene, inHand: false);
-		_heldVisual.SetTorchLit(litTorch != null, this);
+		LanternData litLantern = FindLitLantern();
+		_heldVisual.SetTorch(litLantern?.heldLanternScene, inHand: false);
+		_heldVisual.SetTorchLit(litLantern != null, this);
 	}
 
-	// First lit (isActive) torch consumable anywhere in inventory, or null.
-	private TorchData FindLitTorch()
+	// First lit (isActive) lantern consumable anywhere in inventory, or null.
+	private LanternData FindLitLantern()
 	{
 		if (_inventory == null)
 		{
@@ -1056,25 +1153,25 @@ public partial class Player : CharacterBody3D
 		}
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			if (item is ConsumableState cs && cs.isActive && cs.data is TorchData td)
+			if (item is ConsumableState cs && cs.isActive && cs.data is LanternData ld)
 			{
-				return td;
+				return ld;
 			}
 		}
 		return null;
 	}
 
 	// Environment-driven counterpart to the manual ToggleMovingLight douse:
-	// a carried torch can't survive being plunged underwater or stand up to
+	// a carried lantern can't survive being plunged underwater or stand up to
 	// heavy rain, so swimming (over the head) or rain past the douse threshold
-	// clears every active carried torch and reconciles the MovingLight (which
+	// clears every active carried lantern and reconciles the MovingLight (which
 	// fires its authored off-cue). Mirrors DoToggleMovingLight's douse half but
 	// is one-way — isActive is only ever set false here, so the flame never
 	// auto-relights when conditions ease; the player relights manually. Wading
-	// in shallows keeps a torch lit (only EWaterState.Swimming counts).
+	// in shallows keeps a lantern lit (only EWaterState.Swimming counts).
 	// Idempotent: once cleared, the next tick finds nothing active, so running
 	// every physics frame is a no-op.
-	private void DouseCarriedTorches()
+	private void DouseCarriedLantern()
 	{
 		if (_inventory == null || data == null) { return; }
 
@@ -1085,7 +1182,7 @@ public partial class Player : CharacterBody3D
 			// overhead-shelter ramp, so > 0 means the player is genuinely being
 			// rained on; only then does raw intensity decide "heavy enough".
 			float rainIntensity = SkyController.Current?.Palette.RainIntensity ?? 0f;
-			douse = RainExposure01() > 0f && rainIntensity >= data.torchDouseRainThreshold;
+			douse = RainExposure01() > 0f && rainIntensity >= data.lanternDouseRainThreshold;
 		}
 		if (!douse) { return; }
 
@@ -1093,13 +1190,13 @@ public partial class Player : CharacterBody3D
 		PackedScene douseFx = null;
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			if (item is ConsumableState cs && cs.isActive && cs.data is TorchData torch)
+			if (item is ConsumableState cs && cs.isActive && cs.data is LanternData lantern)
 			{
 				cs.isActive = false;
 				dousedAny = true;
 				// Fire one wet-douse cue per event (the player only carries one
-				// visible light), from the first doused torch that authors one.
-				douseFx ??= torch.douseEffectScene;
+				// visible light), from the first doused lantern that authors one.
+				douseFx ??= lantern.douseEffectScene;
 			}
 		}
 		if (dousedAny)
@@ -1112,21 +1209,22 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Sim-clock timestamp of the last torch-fuel drain, so TickTorchFuel spends
+	// Sim-clock timestamp of the last lantern-fuel drain, so TickLanternFuel spends
 	// exactly the elapsed sim time each frame (frame-rate independent, slows
 	// under slow-mo). Reset to 0 = "first tick, nothing to spend yet".
-	private ulong _lastTorchFuelTickMs;
+	private ulong _lastLanternFuelTickMs;
 
-	// Burns down the fuel of every lit carried torch on the sim clock; a torch
-	// whose tank empties this tick is extinguished (and won't relight until a
-	// campfire recharge — see DoToggleMovingLight's HasFuel gate). Unlimited
-	// torches (burnTimeSeconds <= 0) never drain, so this is a no-op for them.
-	private void TickTorchFuel()
+	// Burns down the fuel of every lit carried lantern on the sim clock; a lantern
+	// whose tank empties this tick is extinguished (and won't relight until it's
+	// refueled at sunrise/respawn/a fountain — see DoToggleMovingLight's HasFuel
+	// gate). Unlimited lanterns (burnTimeSeconds <= 0) never drain, so this is a
+	// no-op for them.
+	private void TickLanternFuel()
 	{
 		if (_inventory == null) { return; }
 		ulong now = _world?.GameTimeMs ?? 0;
-		ulong last = _lastTorchFuelTickMs;
-		_lastTorchFuelTickMs = now;
+		ulong last = _lastLanternFuelTickMs;
+		_lastLanternFuelTickMs = now;
 		if (last == 0 || now <= last) { return; }
 		long elapsedMs = (long)(now - last);
 
@@ -1134,14 +1232,14 @@ public partial class Player : CharacterBody3D
 		PackedScene douseFx = null;
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			// Extinguish a lit torch when its tank empties — either drained by this
+			// Extinguish a lit lantern when its tank empties — either drained by this
 			// tick's burn (BurnFuel true) or already at 0 from a discrete spell-cast
 			// spend (SpendFuel) since the last tick (!HasFuel).
-			if (item is TorchState ts && ts.isActive && (ts.BurnFuel(elapsedMs) || !ts.HasFuel))
+			if (item is LanternState lantern && lantern.isActive && (lantern.BurnFuel(elapsedMs) || !lantern.HasFuel))
 			{
-				ts.isActive = false;
+				lantern.isActive = false;
 				extinguishedAny = true;
-				douseFx ??= (ts.data as TorchData)?.douseEffectScene;
+				douseFx ??= (lantern.data as LanternData)?.douseEffectScene;
 			}
 		}
 		if (extinguishedAny)
@@ -1154,17 +1252,19 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Refill every carried torch's fuel to full — the campfire recharge. Called
-	// when the player camps (GameClient.EnterCampWithFade). Refuels torches in
-	// any slot whether lit or not, so a fire is topped off before you set out.
-	public void RefuelCarriedTorches()
+	// Refill every carried lantern's fuel to full. Called at each sunrise
+	// (GameClient.OnNewDayRefuelLanterns), on respawn, and at a fountain
+	// (Fountain LanternFuel) — NOT when merely visiting a campfire. Refuels
+	// lanterns in any slot whether lit or not, so it's topped off before you
+	// set out.
+	public void RefuelLantern()
 	{
 		if (_inventory == null) { return; }
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			if (item is TorchState ts)
+			if (item is LanternState lantern)
 			{
-				ts.Refuel();
+				lantern.Refuel();
 			}
 		}
 	}
@@ -1194,7 +1294,7 @@ public partial class Player : CharacterBody3D
 		_inventory.onChanged += RefreshCarriedLight;
 		// Selecting a different consumable swaps what's shown in hand, so the
 		// held-torch prop has to refresh even when the inventory contents don't.
-		_inventory.onActiveConsumableChanged += OnActiveConsumableChanged;
+		_inventory.onConsumableChanged += OnConsumableChanged;
 		_runner = new ActionRunner(this);
 		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, conditionActive: EvaluateTraitCondition, incomingLevelResist: () => IncomingLevelResist);
 		_scent = new ScentEmitter(this, world, data.scentStrength, data.scentDecayRate,
@@ -1241,18 +1341,6 @@ public partial class Player : CharacterBody3D
 						TryAutoEquipFromBackpack(state);
 						remaining -= n;
 					}
-				}
-			}
-			if (member.startingConsumables != null)
-			{
-				foreach (ConsumableData cd in member.startingConsumables)
-				{
-					if (cd == null) { continue; }
-					ItemState item = cd.CreateState();
-					item.stackCount = cd.maxStack;
-					// Equipment can't enter the material backpack — seed it straight
-					// into the hotbar (overflow past 3 slots is dropped).
-					_inventory.TryAddEquipmentToHotbar(item);
 				}
 			}
 			if (member.startingInventory != null)
@@ -1587,8 +1675,8 @@ public partial class Player : CharacterBody3D
 		_statusEffects.TickMovementTrail(this, IsDashing || IsSprinting, GlobalPosition, dt);
 		UpdateNightVisionShaderGlobal();
 		TickWetEffect(dt);
-		DouseCarriedTorches();
-		TickTorchFuel();
+		DouseCarriedLantern();
+		TickLanternFuel();
 		TickDirtyEffect(dt);
 		TickMuddyEffect(dt);
 		TickBodyTemperature(dt);

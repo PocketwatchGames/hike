@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using Godot;
 
 // Everything the player carries: the singular equip slots (helmet / armor /
-// melee / ranged weapon / lantern), the 3-slot Equipment hotbar (potions / food —
-// EItemCategory.Equipment), and the material-only backpack. The backpack holds
+// melee / ranged weapon / lantern), the single attuned alchemy-spell slot, and
+// the material-only backpack. The backpack holds
 // ONLY materials; weapons / armor / equipment never enter it. Displacing a piece
 // out of an equip slot (equip-over) sends it to the world-scope party equipment
 // stash (WorldSimState.PartyEquipmentStash), not back to the backpack. Weapons /
@@ -23,9 +23,9 @@ public class Inventory
 	// Backpack.Count is the array length (== backpackCapacity).
 	private readonly ItemState[] _backpack;
 
-	// Equip slot pointers — null means empty. Each pointer is also present in
-	// _items via _backpack OR via _consumableSlots (for consumables) when
-	// equipped. To enumerate every item the player owns, use EnumerateAll().
+	// Equip slot pointers — null means empty. To enumerate every item the player
+	// owns, use EnumerateAll(). (The attuned spell's cast instance is separate —
+	// see _castInstance below — and is not an owned item.)
 	private ItemState _helmet;
 	private ItemState _armor;
 	private WeaponState _weaponMelee;
@@ -36,13 +36,17 @@ public class Inventory
 	// and its lit state lights the player like any carried torch.
 	private ItemState _lantern;
 
-	// Consumable hotbar — fixed-size, indexed by activeConsumableIndex. Empty
-	// slots hold null. Sized from PlayerData.consumableSlotCount at construction.
-	private readonly ItemState[] _consumableSlots;
-	private int _activeConsumableIndex = -1;
+	// The single attuned alchemy spell (slot identity) and its persistent cast
+	// instance — a ConsumableState built from the spell via CreateState(), rebuilt
+	// only when the attunement changes so toggle state (SummonedPet / isActive)
+	// survives across casts. Null when nothing is attuned. The spell's "ammo" is
+	// not a stackCount — it's how many casts the party reagent pool currently
+	// affords (Player.GetSpellAmmo).
+	private SpellData _attunedSpell;
+	private ConsumableState _castInstance;
 
 	public Action<EInventorySlot> onSlotChanged;
-	public Action<int> onActiveConsumableChanged;
+	public Action onConsumableChanged;
 	// Generic "something in the inventory changed" pulse. Fires for slot
 	// equips, stack-count mutations from runner events (DoDecrementStack),
 	// and any other path that doesn't fit the slot/consumable callbacks
@@ -72,15 +76,14 @@ public class Inventory
 			return c;
 		}
 	}
-	public int ConsumableSlotCount => _consumableSlots.Length;
-	public int ActiveConsumableIndex => _activeConsumableIndex;
+	// The alchemy spell currently attuned to the single consumable slot, or null.
+	public SpellData AttunedSpell => _attunedSpell;
 
 	public Inventory(Player owner, PlayerData data)
 	{
 		_owner = owner;
 		_data = data;
 		_backpack = new ItemState[Math.Max(0, data.backpackCapacity)];
-		_consumableSlots = new ItemState[Math.Max(0, data.consumableSlotCount)];
 	}
 
 	// Find the first null backpack slot — used by Add operations to "append"
@@ -125,6 +128,40 @@ public class Inventory
 		if (idx < 0) { return false; }
 		_backpack[idx] = null;
 		return true;
+	}
+
+	// Spend up to `count` units of a reagent from the backpack, matching by the
+	// item's parent chain (a reagent naming goblin_meat draws from any goblin
+	// subspecies meat). Emptied stacks free their slot. Returns how many units
+	// were actually spent (may be < count if the backpack ran short — the caller
+	// covers the remainder from the party stash). Used by the alchemy cast path.
+	public int SpendMaterial(ItemData reagentItem, int count)
+	{
+		if (reagentItem == null || count <= 0)
+		{
+			return 0;
+		}
+		int spent = 0;
+		for (int i = 0; i < _backpack.Length && spent < count; i++)
+		{
+			ItemState s = _backpack[i];
+			if (s?.data == null || s.stackCount <= 0 || !Cooking.Satisfies(s.data, reagentItem))
+			{
+				continue;
+			}
+			int take = Math.Min(count - spent, s.stackCount);
+			s.stackCount -= take;
+			spent += take;
+			if (s.stackCount <= 0)
+			{
+				_backpack[i] = null;
+			}
+		}
+		if (spent > 0)
+		{
+			onChanged?.Invoke();
+		}
+		return spent;
 	}
 
 	// Add an item to the player's inventory. For stackables, fills existing
@@ -306,23 +343,6 @@ public class Inventory
 			NotifySlot(equippedSlot.Value);
 		}
 
-		for (int i = 0; i < _consumableSlots.Length; i++)
-		{
-			if (_consumableSlots[i] == item)
-			{
-				if (_activeConsumableIndex == i && item is ConsumableState cs)
-				{
-					cs.OnUnequipped(_owner);
-				}
-				_consumableSlots[i] = null;
-				if (_activeConsumableIndex == i)
-				{
-					_activeConsumableIndex = -1;
-					onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
-				}
-			}
-		}
-
 		RemoveFromBackpack(item);
 		onChanged?.Invoke();
 	}
@@ -353,8 +373,8 @@ public class Inventory
 
 	// Equip `item` into one of the SINGULAR slots (helmet / armor / melee /
 	// ranged weapon). Any current occupant is displaced to the party equipment
-	// stash. The Equipment hotbar is
-	// index-addressed — use TryEquipToConsumableSlot for it. The caller owns the
+	// stash. The Equipment "slot" is the attuned spell — use AttuneSpell for it.
+	// The caller owns the
 	// source: if `item` came from the equipment stash, remove it there on success.
 	// Caller must ensure the item's category matches the slot.
 	public bool TryEquip(ItemState item, EInventorySlot slot)
@@ -386,25 +406,20 @@ public class Inventory
 	}
 
 	// Weapons / armor / helmets can't be unequipped — they only change by being
-	// replaced. Equipment returns the ACTIVE hotbar item to the party equipment
-	// stash. (To pull a specific hotbar item, use TryRemoveFromConsumableSlot.)
+	// replaced. The Equipment "slot" is the attuned spell; clearing it unattunes.
 	public bool TryUnequip(EInventorySlot slot)
 	{
 		if (slot != EInventorySlot.Equipment)
 		{
 			return false;
 		}
-		ItemState prev = GetActiveConsumable();
-		if (prev == null)
-		{
-			return true;
-		}
-		return TryRemoveFromConsumableSlot(prev);
+		ClearAttunement();
+		return true;
 	}
 
 	// Swap items between two equip slots (e.g., WeaponLeft ↔ WeaponRight).
-	// Either side may be empty. Consumable slots are NOT supported here — use
-	// TryMoveToConsumableSlot which is index-aware. Caller is responsible for
+	// Either side may be empty. The Equipment (attuned-spell) slot is NOT
+	// supported here — use AttuneSpell. Caller is responsible for
 	// kind compatibility (matching TryEquip's convention) — armor head ↔ body
 	// is meaningless because armor pieces are tied to one armorSlot, but
 	// weapons fit either WeaponLeft or WeaponRight.
@@ -481,174 +496,58 @@ public class Inventory
 		onChanged?.Invoke();
 	}
 
+	// The runtime cast instance of the attuned spell (the runner's primaryItem /
+	// the Equipment "slot" occupant), or null when nothing is attuned. Named
+	// GetActiveConsumable for continuity with the equip-slot read path.
 	public ItemState GetActiveConsumable()
 	{
-		if (_activeConsumableIndex < 0 || _activeConsumableIndex >= _consumableSlots.Length)
-		{
-			return null;
-		}
-		return _consumableSlots[_activeConsumableIndex];
+		return _castInstance;
 	}
 
-	// Move a consumable from the backpack into the first empty consumable slot.
-	// Returns false if no empty slot or the item isn't in the backpack.
-	public bool TryMoveToConsumableSlot(ItemState item)
+	// Attune `spell` to the single consumable slot: build its persistent cast
+	// instance (a ConsumableState via CreateState) and fire the equip hook. Passing
+	// null (or ClearAttunement) unattunes and fires the outgoing spell's unequip
+	// hook. Re-attuning the same spell rebuilds the instance, dropping any live
+	// toggle state (e.g. desummons a pet) — call only on a genuine change.
+	public void AttuneSpell(SpellData spell)
 	{
-		if (item == null || !(item is ConsumableState))
+		if (_castInstance is ConsumableState prevCs)
 		{
-			return false;
+			prevCs.OnUnequipped(_owner);
 		}
-		int srcIdx = IndexOfInBackpack(item);
-		if (srcIdx < 0)
+		_attunedSpell = spell;
+		_castInstance = spell?.CreateState() as ConsumableState;
+		if (_castInstance != null)
 		{
-			return false;
+			_castInstance.OnEquipped(_owner);
 		}
-		for (int i = 0; i < _consumableSlots.Length; i++)
-		{
-			if (_consumableSlots[i] == null)
-			{
-				_backpack[srcIdx] = null;
-				_consumableSlots[i] = item;
-				if (_activeConsumableIndex == -1)
-				{
-					SetActiveConsumableIndex(i);
-				}
-				onChanged?.Invoke();
-				return true;
-			}
-		}
-		return false;
-	}
-
-	// Move a consumable into a specific hotbar slot. Item may live in the
-	// backpack OR in a different consumable slot. If the target slot is
-	// occupied, the previous occupant goes to where `item` came from (a clean
-	// swap with no backpack detour for slot ↔ slot moves; backpack ↔ slot
-	// puts the displaced item back into the backpack). Used by select-mode
-	// UIs that target specific hotbar positions.
-	public bool TryMoveToConsumableSlot(ItemState item, int targetIndex)
-	{
-		if (item == null || !(item is ConsumableState))
-		{
-			return false;
-		}
-		if (targetIndex < 0 || targetIndex >= _consumableSlots.Length)
-		{
-			return false;
-		}
-		int sourceIndex = -1;
-		for (int i = 0; i < _consumableSlots.Length; i++)
-		{
-			if (_consumableSlots[i] == item)
-			{
-				sourceIndex = i;
-				break;
-			}
-		}
-		int sourceBackpackIndex = sourceIndex < 0 ? IndexOfInBackpack(item) : -1;
-		bool fromBackpack = sourceBackpackIndex >= 0;
-		if (!fromBackpack && sourceIndex < 0)
-		{
-			return false;
-		}
-		if (sourceIndex == targetIndex)
-		{
-			return true;
-		}
-		ItemState prev = _consumableSlots[targetIndex];
-		// Source-to-destination swap. Active-consumable index follows the
-		// item that was active so the hotbar selection feels stable across
-		// reorders.
-		bool itemWasActive = sourceIndex >= 0 && _activeConsumableIndex == sourceIndex;
-		bool prevWasActive = _activeConsumableIndex == targetIndex;
-		if (fromBackpack)
-		{
-			_backpack[sourceBackpackIndex] = null;
-			_consumableSlots[targetIndex] = item;
-			if (prev != null)
-			{
-				// Displaced consumable lands in the slot the moved item
-				// vacated, preserving the player's grid layout.
-				_backpack[sourceBackpackIndex] = prev;
-				if (prevWasActive && prev is ConsumableState prevCs)
-				{
-					prevCs.OnUnequipped(_owner);
-				}
-			}
-			if (_activeConsumableIndex == targetIndex && prev != null)
-			{
-				_activeConsumableIndex = -1;
-				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
-			}
-			if (_activeConsumableIndex == -1)
-			{
-				SetActiveConsumableIndex(targetIndex);
-			}
-		}
-		else
-		{
-			_consumableSlots[targetIndex] = item;
-			_consumableSlots[sourceIndex] = prev;
-			if (itemWasActive)
-			{
-				// Active follows the item that the player was wielding.
-				_activeConsumableIndex = targetIndex;
-				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
-			}
-			else if (prevWasActive)
-			{
-				_activeConsumableIndex = sourceIndex;
-				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
-			}
-		}
+		onConsumableChanged?.Invoke();
 		onChanged?.Invoke();
-		return true;
 	}
 
-	// Place a fresh ItemState (typically split off another stack via partial-
-	// stack move) into the consumable slot at `targetIndex`. If the slot already
-	// holds a same-kind stack, merges into it up to maxStackSize and returns
-	// the units placed; otherwise requires the slot to be empty and places the
-	// fresh stack. Returns the number of units actually placed (0 = refused).
-	public int TryAddToConsumableSlot(ItemState fresh, int targetIndex)
+	// Clear the attuned spell (empty the consumable slot).
+	public void ClearAttunement()
 	{
-		if (fresh == null || fresh.data == null || fresh.stackCount <= 0)
+		if (_attunedSpell == null && _castInstance == null)
 		{
-			return 0;
+			return;
 		}
-		if (!(fresh is ConsumableState))
+		AttuneSpell(null);
+	}
+
+	// Carry the attuned spell to another inventory (a deliberate campfire character
+	// switch), so the quick-cast slot travels with control. The destination rebuilds
+	// its own cast instance from the spell; this inventory is left unattuned. No-op
+	// onto self or a null destination.
+	public void TransferAttunementTo(Inventory dest)
+	{
+		if (dest == null || dest == this || _attunedSpell == null)
 		{
-			return 0;
+			return;
 		}
-		MarkAcquired(fresh);
-		if (targetIndex < 0 || targetIndex >= _consumableSlots.Length)
-		{
-			return 0;
-		}
-		ItemState existing = _consumableSlots[targetIndex];
-		if (existing == null)
-		{
-			_consumableSlots[targetIndex] = fresh;
-			if (_activeConsumableIndex == -1)
-			{
-				SetActiveConsumableIndex(targetIndex);
-			}
-			onChanged?.Invoke();
-			return fresh.stackCount;
-		}
-		if (existing.CanStackWith(fresh) && fresh.data.IsStackable)
-		{
-			int space = existing.RemainingStackSpace();
-			int moved = Math.Min(space, fresh.stackCount);
-			if (moved <= 0)
-			{
-				return 0;
-			}
-			existing.stackCount += moved;
-			onChanged?.Invoke();
-			return moved;
-		}
-		return 0;
+		SpellData spell = _attunedSpell;
+		ClearAttunement();
+		dest.AttuneSpell(spell);
 	}
 
 	// Swap two backpack slots. The slots may be empty (null) — moving an
@@ -771,208 +670,6 @@ public class Inventory
 		return incoming.stackCount;
 	}
 
-	// Pull an equipment item out of the hotbar and return it to the party
-	// equipment stash (equipment can't go to the material backpack). Used by the
-	// stash screen's unequip path.
-	public bool TryRemoveFromConsumableSlot(ItemState item)
-	{
-		if (item == null)
-		{
-			return false;
-		}
-		for (int i = 0; i < _consumableSlots.Length; i++)
-		{
-			if (_consumableSlots[i] != item)
-			{
-				continue;
-			}
-			if (_activeConsumableIndex == i && item is ConsumableState cs)
-			{
-				cs.OnUnequipped(_owner);
-			}
-			_consumableSlots[i] = null;
-			if (_activeConsumableIndex == i)
-			{
-				_activeConsumableIndex = -1;
-				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
-			}
-			PushToEquipmentStash(item);
-			onChanged?.Invoke();
-			return true;
-		}
-		return false;
-	}
-
-	// Equip an externally-sourced equipment item (from the party equipment stash)
-	// into hotbar slot `index`. Any current occupant is displaced to the stash.
-	// The caller removes `item` from the stash
-	// list on success. Returns false if the item isn't equipment or the index is
-	// out of range.
-	public bool TryEquipToConsumableSlot(ItemState item, int index)
-	{
-		if (item is not ConsumableState || index < 0 || index >= _consumableSlots.Length)
-		{
-			return false;
-		}
-		MarkAcquired(item);
-		ItemState prev = _consumableSlots[index];
-		if (prev == item)
-		{
-			return true;
-		}
-		bool prevWasActive = _activeConsumableIndex == index;
-		if (prev != null)
-		{
-			if (prevWasActive && prev is ConsumableState prevCs)
-			{
-				prevCs.OnUnequipped(_owner);
-			}
-			PushToEquipmentStash(prev);
-		}
-		_consumableSlots[index] = item;
-		if (_activeConsumableIndex == -1)
-		{
-			SetActiveConsumableIndex(index);
-		}
-		else if (prevWasActive && item is ConsumableState newCs)
-		{
-			// The active slot's occupant changed in place — fire the incoming
-			// item's equip hook (SetActiveConsumableIndex no-ops on same index).
-			newCs.OnEquipped(_owner);
-		}
-		onChanged?.Invoke();
-		return true;
-	}
-
-	// Place an equipment item into the first empty hotbar slot without displacing
-	// anything. Returns false if every slot is occupied. Used for starting-loadout
-	// seeding and cooking-output delivery (equipment can't sit in the backpack).
-	public bool TryAddEquipmentToHotbar(ItemState item)
-	{
-		if (item is not ConsumableState)
-		{
-			return false;
-		}
-		for (int i = 0; i < _consumableSlots.Length; i++)
-		{
-			if (_consumableSlots[i] == null)
-			{
-				return TryEquipToConsumableSlot(item, i);
-			}
-		}
-		return false;
-	}
-
-	// Move the whole consumable belt (potions / food / torches) into another
-	// inventory, preserving slot positions. Any item already on the destination
-	// belt is displaced to the party equipment stash (the normal equip-over path).
-	// Used when the player deliberately switches which party member they control
-	// at a campfire, so the quick-use belt travels with them. Ephemeral items keep
-	// their expiry. No-op onto self or a null destination.
-	public void TransferBeltTo(Inventory dest)
-	{
-		if (dest == null || dest == this)
-		{
-			return;
-		}
-		bool moved = false;
-		for (int i = 0; i < _consumableSlots.Length; i++)
-		{
-			ItemState item = _consumableSlots[i];
-			if (item == null)
-			{
-				continue;
-			}
-			// Detach from this belt WITHOUT routing to the stash (it's re-placed on
-			// the destination belt below). Unequip the active occupant so its hook
-			// fires on the character losing it.
-			if (_activeConsumableIndex == i && item is ConsumableState cs)
-			{
-				cs.OnUnequipped(_owner);
-			}
-			_consumableSlots[i] = null;
-			// Same slot on the destination; its prior occupant (the incoming
-			// character's own belt item) is displaced to the equipment stash. If the
-			// destination can't take it (mismatched slot count), stash it rather than
-			// orphan it.
-			if (!dest.TryEquipToConsumableSlot(item, i))
-			{
-				PushToEquipmentStash(item);
-			}
-			moved = true;
-		}
-		if (moved)
-		{
-			_activeConsumableIndex = -1;
-			onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
-			onChanged?.Invoke();
-		}
-	}
-
-	// Directly select a consumable slot by index. Empty slots and out-of-range
-	// indices are no-ops so a hotbar key bound past the configured slot count
-	// just does nothing rather than wiping the active selection.
-	public void SelectConsumable(int index)
-	{
-		if (index < 0 || index >= _consumableSlots.Length)
-		{
-			return;
-		}
-		if (_consumableSlots[index] == null)
-		{
-			return;
-		}
-		SetActiveConsumableIndex(index);
-	}
-
-	// Cycle active consumable left/right with wrapping. Skips empty slots.
-	// No-op if no consumables exist at all.
-	public void CycleConsumable(int direction)
-	{
-		if (_consumableSlots.Length == 0)
-		{
-			return;
-		}
-		if (direction == 0)
-		{
-			return;
-		}
-
-		int n = _consumableSlots.Length;
-		int start = _activeConsumableIndex < 0 ? -1 : _activeConsumableIndex;
-		for (int step = 1; step <= n; step++)
-		{
-			int candidate = ((start + direction * step) % n + n) % n;
-			if (_consumableSlots[candidate] != null)
-			{
-				SetActiveConsumableIndex(candidate);
-				return;
-			}
-		}
-		// All slots empty — make sure we end up in -1.
-		SetActiveConsumableIndex(-1);
-	}
-
-	private void SetActiveConsumableIndex(int newIndex)
-	{
-		if (newIndex == _activeConsumableIndex)
-		{
-			return;
-		}
-		ItemState prev = GetActiveConsumable();
-		if (prev is ConsumableState prevCs)
-		{
-			prevCs.OnUnequipped(_owner);
-		}
-		_activeConsumableIndex = newIndex;
-		ItemState next = GetActiveConsumable();
-		if (next is ConsumableState nextCs)
-		{
-			nextCs.OnEquipped(_owner);
-		}
-		onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
-	}
-
 	public bool IsEquipped(ItemState item)
 	{
 		return GetEquippedSlot(item).HasValue;
@@ -1023,13 +720,9 @@ public class Inventory
 		{
 			if (_backpack[i] != null) { yield return _backpack[i]; }
 		}
-		for (int i = 0; i < _consumableSlots.Length; i++)
-		{
-			if (_consumableSlots[i] != null)
-			{
-				yield return _consumableSlots[i];
-			}
-		}
+		// The attuned spell's cast instance is a synthetic execution vehicle, not
+		// an owned/stackable item, so it is deliberately NOT enumerated here (no
+		// spoilage, wetness, or arrow-reclaim applies to it).
 		if (_helmet != null) { yield return _helmet; }
 		if (_armor != null) { yield return _armor; }
 		// Weapons live in equip-slot pointers only; they're not duplicated in the
@@ -1084,7 +777,6 @@ public class Inventory
 	// is the array length (backpackCapacity), NOT the non-null occupancy —
 	// use BackpackCount for that.
 	public IReadOnlyList<ItemState> Backpack => _backpack;
-	public IReadOnlyList<ItemState> ConsumableSlots => _consumableSlots;
 
 	private void SetSlot(EInventorySlot slot, ItemState item)
 	{

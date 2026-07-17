@@ -16,6 +16,7 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="11_wd"]
 [ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="12_cry"]
 [ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="13_claw"]
+[ext_resource type="Resource" path="res://resources/data/characters/ability_tells/ability_tell_venom.tres" id="14_tell"]
 
 [sub_resource type="Resource" id="Desc_loot_meat"]
 script = ExtResource("9_desc")
@@ -60,13 +61,13 @@ removesOnApply = []
 modifiers = []
 conditionalModifiers = []
 weaponMod = SubResource("Resource_venom_mod")
+abilityTell = ExtResource("14_tell")
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"
 
 [resource]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Swamp Goblin"
-palette = SubResource("Resource_ihwyg")
 statusEffects = Array[ExtResource("4_sedata")]([SubResource("Resource_venom_effect")])
 weapons = Array[ExtResource("11_wd")]([ExtResource("12_cry"), ExtResource("13_claw")])
 loot = Array[ExtResource("8_lootcount")]([SubResource("Resource_loot_meat")])

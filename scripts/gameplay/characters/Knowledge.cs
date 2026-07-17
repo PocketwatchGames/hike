@@ -13,6 +13,7 @@ public enum EKnowledgeCategory
     Bestiary = 1 << 2,  // per-species discovery
     Language = 1 << 3,
     Item = 1 << 4,      // identified items
+    Spell = 1 << 5,     // learned alchemy spells
 }
 
 // A store of "learned" knowledge — identified items, discovered recipes, revealed
@@ -30,6 +31,10 @@ public class Knowledge
 {
     public readonly HashSet<ItemData> IdentifiedItems = new();
     public readonly HashSet<RecipeData> DiscoveredRecipes = new();
+    // Learned alchemy spells — the single "known" axis for the spell list (a spell
+    // is cast, never identified as a physical item, so it has no separate output-
+    // identification step the way a cooked recipe does). Gates SpellSelectionPanel.
+    public readonly HashSet<SpellData> KnownSpells = new();
     public readonly HashSet<RegionData> DiscoveredRegions = new();
     // Per-species bestiary discovery — the set of species this store has charted.
     // Unioned across party+individual on read and on merge.
@@ -67,6 +72,10 @@ public class Knowledge
         int recipesBefore = DiscoveredRecipes.Count;
         DiscoveredRecipes.UnionWith(other.DiscoveredRecipes);
         if (DiscoveredRecipes.Count > recipesBefore) { changed |= EKnowledgeCategory.Recipe; }
+
+        int spellsBefore = KnownSpells.Count;
+        KnownSpells.UnionWith(other.KnownSpells);
+        if (KnownSpells.Count > spellsBefore) { changed |= EKnowledgeCategory.Spell; }
 
         int regionsBefore = DiscoveredRegions.Count;
         DiscoveredRegions.UnionWith(other.DiscoveredRegions);
@@ -121,6 +130,7 @@ public class Knowledge
     {
         IdentifiedItems.Clear();
         DiscoveredRecipes.Clear();
+        KnownSpells.Clear();
         DiscoveredRegions.Clear();
         DiscoveredSpecies.Clear();
         LearnedLanguages.Clear();

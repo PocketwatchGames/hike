@@ -29,6 +29,13 @@ public partial class SimData : Resource
     // RecipeData reference. Adding a recipe = adding it here.
     [Export] public Array<RecipeData> recipes = new();
 
+    // Master alchemy-spell library. The alchemy campfire screen iterates this to
+    // list the spells the player can attune, filtered to those currently known
+    // (WorldSimState.IsSpellKnown → Knowledge.KnownSpells). Each SpellData owns its
+    // reagent cost; which spells start known is authored on
+    // WorldGenData.initialKnowledge (SpellTeachable). Adding a spell = adding it here.
+    [Export] public Array<SpellData> spells = new();
+
     // Master mob-type library — one entry per bestiary PAGE. BestiaryScreen
     // iterates this list for stable page ordering, then groups the player's
     // discovered species (WorldSimState.DiscoveredSpecies) under the matching
@@ -98,6 +105,12 @@ public partial class SimData : Resource
     // creature ignites with the same fire DoT + flame FX a flaming weapon applies.
     // Null = sunlight never ignites anything. See Mob.TickSunburn.
     [Export] public StatusEffectData mobSunburnStatusEffect;
+
+    // Anti-cheese for safety zones: while the player stands in any safety zone
+    // (Player.IsSafe), every wounded hostile regenerates this fraction of its
+    // max health per second toward full, so the player can't pop in and out of
+    // a zone to whittle a tough enemy down. 0 disables. See Mob.TickSafeZoneHeal.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float safeZoneEnemyHealFractionPerSecond = 0.1f;
 
     // Fairy-loot boons. A fairy corpse (FairyLoot) draws its candidate boons
     // from FairyBoons, composed onto the corpse's per-instance ItemState when it
@@ -192,20 +205,10 @@ public partial class SimData : Resource
     [Export] public InteractiveAction giveItemAction;
     [Export] public InteractiveAction tradeAction;
 
-    // Shared interactive verb auto-injected on any dead tamed companion's
-    // corpse (see Mob.CanRevive) so reviving doesn't require per-species
-    // authoring — give a mob a positive MobData.tameLoyalty and it becomes
-    // revivable once tamed and killed. Authored once here as a 3-second
-    // hold whose OpenInteractive completion event calls Mob.Complete →
-    // Revive(). Null disables companion revival entirely. The health a
-    // companion comes back with is per-species (MobData.reviveHealth).
-    [Export] public InteractiveAction reviveAction;
-
     // Shared interactive verb surfaced on a fallen party member's body (see
-    // Player corpse interactive). Reviving a party member is free (no blood
-    // cost, unlike reviveAction) — walk up and interact; the completion event's
-    // fx plays and the member respawns at the campfire. Null disables party
-    // revival.
+    // Player corpse interactive). Reviving a party member — walk up and
+    // interact; the completion event's fx plays and the member respawns at the
+    // campfire. Null disables party revival.
     [Export] public InteractiveAction partyReviveAction;
 
     // Grammar's contribution to TextScrambler.ComputeComprehension. Final
@@ -1096,6 +1099,14 @@ public partial class SimData : Resource
     // fairy met near dusk is tougher than one met mid-morning. 0 = all fairies
     // spawn at level 0 (no scaling).
     [Export(PropertyHint.Range, "0,20,1")] public int fairyMaxLevel = 4;
+
+    // How long a spawned fairy lives, as a fraction of a day's length
+    // (dayLengthSeconds). Once a fairy has lived past this it despawns — but only
+    // while it is not currently visible to the player, so it never pops out of
+    // sight mid-frame. Measured on the sim clock, so the countdown keeps running
+    // through the midnight hold rather than freezing until the player sleeps.
+    // 0.2 ≈ a fifth of a day.
+    [Export(PropertyHint.Range, "0.02,1,0.01")] public float fairyLifetimeDayFraction = 0.2f;
 
     [ExportGroup("Companion")]
     // The persistent companion follows the player but can fall outside the

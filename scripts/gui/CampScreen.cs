@@ -26,11 +26,11 @@ public partial class CampScreen : Control
 
 	[Export] SleepScreen _sleepScreen;
 	[Export] PartyScreen _partyScreen;
-	[Export] CookingScreen _cookingScreen;
+	[Export] SpellSelectionScreen _spellSelectionScreen;
 	[Export] ButtonHint _tabLeftButtonHint;
 	[Export] ButtonHint _tabRightButtonHint;
 	[Export] Control _sleepTab;
-	[Export] Control _cookTab;
+	[Export] Control _spellsTab;
 	[Export] Control _partyTab;
 
 	GameClient _gameClient;
@@ -57,16 +57,27 @@ public partial class CampScreen : Control
 	// anything else: the forced death select or a fresh day's wake.
 	bool SelectionLocked => _partySelectMode || _mustSelectCharacter;
 
-	// The roster's active member has already eaten their one cooked meal today, so
-	// there's nothing left to cook — the Cook tab is withheld. Reads the roster
-	// (not _player.Member) so a just-made Select-Character pick is reflected before
-	// control transfers on camp close.
-	bool ActiveMemberHasEaten
+	// Any alchemy spell is known — the Spells tab is only offered when there's at
+	// least one spell to attune (otherwise the tab is empty). Walks SimData.spells
+	// against the active member's knowledge (WorldSimState.IsSpellKnown).
+	bool AnySpellKnown
 	{
 		get
 		{
-			PlayerState active = _player?.World?.WorldState?.SimState?.Party?.Active;
-			return active != null && active.HasEatenToday;
+			SimData simData = _player?.World?.SimData;
+			WorldSimState worldSim = _player?.World?.WorldState?.SimState;
+			if (simData?.spells == null || worldSim == null)
+			{
+				return false;
+			}
+			for (int i = 0; i < simData.spells.Count; i++)
+			{
+				if (worldSim.IsSpellKnown(simData.spells[i]))
+				{
+					return true;
+				}
+			}
+			return false;
 		}
 	}
 
@@ -143,20 +154,20 @@ public partial class CampScreen : Control
 	{
 		bool full = !SelectionLocked;
 		if (_sleepTab != null) { _sleepTab.Visible = full; }
-		if (_cookTab != null) { _cookTab.Visible = full && !ActiveMemberHasEaten; }
+		if (_spellsTab != null) { _spellsTab.Visible = full && AnySpellKnown; }
 		if (_partyTab != null) { _partyTab.Visible = full; }
 		if (_tabLeftButtonHint != null) { _tabLeftButtonHint.Visible = full; }
 		if (_tabRightButtonHint != null) { _tabRightButtonHint.Visible = full; }
 	}
 
-	// Whether a tab can currently be opened. Cook is unavailable once the active
-	// member has eaten today; the others are always available (SelectionLocked is
-	// gated separately in CycleTab).
+	// Whether a tab can currently be opened. The Spells tab (ECampTab.Cook) is
+	// offered only when at least one spell is known; the others are always available
+	// (SelectionLocked is gated separately in CycleTab).
 	bool IsTabAvailable(ECampTab tab)
 	{
 		if (tab == ECampTab.Cook)
 		{
-			return !ActiveMemberHasEaten;
+			return AnySpellKnown;
 		}
 		return true;
 	}
@@ -226,7 +237,7 @@ public partial class CampScreen : Control
 			case ECampTab.Cook:
 				// A completed cook leaves camp (see OnDishCooked); so does pressing
 				// the primary button with nothing loaded ("Continue" → Close).
-				_cookingScreen?.Open(_player, _forge, onCooked: OnDishCooked, onContinue: Close);
+				_spellSelectionScreen?.Open(_player, _forge, onCooked: OnDishCooked, onContinue: Close);
 				break;
 		}
 	}
@@ -260,7 +271,7 @@ public partial class CampScreen : Control
 				_partyScreen?.Close();
 				break;
 			case ECampTab.Cook:
-				_cookingScreen?.Close();
+				_spellSelectionScreen?.Close();
 				break;
 		}
 	}
@@ -335,7 +346,7 @@ public partial class CampScreen : Control
 		_partySelectMode = false;
 		_mustSelectCharacter = false;
 		UpdateTabVisibility();
-		if (ActiveMemberHasEaten)
+		if (!AnySpellKnown)
 		{
 			Close();
 			return;
@@ -408,7 +419,7 @@ public partial class CampScreen : Control
 	void UpdateTabHighlight()
 	{
 		SetTabActive(_sleepTab, _curTab == ECampTab.Sleep);
-		SetTabActive(_cookTab, _curTab == ECampTab.Cook);
+		SetTabActive(_spellsTab, _curTab == ECampTab.Cook);
 		SetTabActive(_partyTab, _curTab == ECampTab.Party);
 	}
 

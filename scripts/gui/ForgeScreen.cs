@@ -25,16 +25,17 @@ public partial class ForgeScreen : Control
     Action _onCancel;
 
     // `level` is the offered upgrade's tier (the forge's level); `replacingLevel`
-    // is the tier of the upgrade currently in the slot (ignored when none).
-    public void Init(Action acceptFunc, Action onCancel, StatusEffectData offered, StatusEffectData replacing, int level, int replacingLevel)
+    // is the tier of the upgrade currently in the slot (ignored when none). Both
+    // panels apply to the same concrete `slot`, which picks the offense vs defense
+    // scaling shown for each tier.
+    public void Init(Action acceptFunc, Action onCancel, StatusEffectData offered, StatusEffectData replacing, int level, int replacingLevel, EUpgradeSlot slot)
     {
         _onAccept = acceptFunc;
         _onCancel = onCancel;
 
         if (_offeredPanel != null && offered != null)
         {
-            _offeredPanel.SetStatusEffect(offered);
-            _offeredPanel.SetLevel(level);
+            _offeredPanel.SetStatusEffect(offered, 1, 0f, false, 0f, level, slot);
         }
 
         bool hasReplacing = replacing != null;
@@ -43,8 +44,7 @@ public partial class ForgeScreen : Control
             _replacingPanel.Visible = hasReplacing;
             if (hasReplacing)
             {
-                _replacingPanel.SetStatusEffect(replacing);
-                _replacingPanel.SetLevel(replacingLevel);
+                _replacingPanel.SetStatusEffect(replacing, 1, 0f, false, 0f, replacingLevel, slot);
             }
         }
         if (_replacingEmptyLabel != null)

@@ -166,6 +166,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // when the buff expires and this shrinks.
     public float maxHealth => (_simState.MaxHealth + ComposeStat(EStat.MaxHealth)) * LevelMultiplier;
     public float health { get => _simState.Health; set => _simState.Health = value; }
+    // Sim-clock (GameTimeMs) of the most recent damaging hit. Transient runtime
+    // state — behaviors read it to react to being attacked (BehaviorRetreat
+    // skips its stare and bolts; HurtWhileTargetSafeCondition routes an
+    // idle/wandering mob into Retreat when sniped from a safety zone).
+    public ulong LastDamagedMs { get; private set; }
     // Live cap — base armor plus any MaxArmor stat modifier from active status
     // effects (e.g. Stoneskin), so a buff applied mid-life raises the recharge
     // ceiling and the HUD bar immediately. TickArmor clamps current armor down
@@ -238,6 +243,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // vulnerable=1 so a dizzied mob always crits on a triggered hit.
     public float vulnerable => _statusEffects?.Vulnerable ?? 0f;
     public EPlayerPerceptionState playerPerceptionState { get => _simState.DiscoveryState; set => _simState.DiscoveryState = value; }
+    // Sim-side test for "the player currently sees this mob": discovered with
+    // unexpired perception memory (the same test IsThreateningPlayer uses). A
+    // gameplay rule, not a render-fade check — safe to gate world-state decisions
+    // (e.g. despawning a mob only while it is out of the player's sight).
+    public bool IsPerceivedByPlayer => _simState.DiscoveryState == EPlayerPerceptionState.Discovered
+        && _simState.MemoryTimeMs > _world.GameTimeMs;
     // True when this mob is an active threat to the player: alive, dangerous, and
     // on a team hostile to the player, AND either triggered (it has noticed the
     // player and gone on combat alert) or currently visible to the player. Read
@@ -671,9 +682,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (_modelAnimator != null)
         {
             _modelAnimator.SetActive(true);
-            // Biome-variant recolor: one model, many palettes (null = untouched).
-            // The descriptor's per-instance override wins; else the species default.
-            _modelAnimator.ApplyPalette(_simState.Palette ?? mobData?.palette);
+            // Base recolor + ability tell: one model, many looks. The base
+            // palette gives the species its identity (descriptor override wins,
+            // else the species/mob default); the ability tell then shifts it
+            // toward a shared accent for the mob's standout ability, so color
+            // keys on what the mob DOES, not the region it spawned in. Null tell
+            // (no telling ability) = the plain base palette.
+            AbilityTellData tell = AbilityTellData.Select(_simState.Weapons, _simState.StatusEffects);
+            _modelAnimator.ApplyPalette(_simState.Palette ?? mobData?.palette, tell);
             // Level tell: tint the species' designated accent mesh(es) — eyes,
             // armor — with the shared per-level color so a mob's difficulty tier
             // reads at a glance, consistently across species. Layered on top of the
@@ -1329,18 +1345,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // A dead tamed companion surfaces the shared revive verb instead of its
-    // live actions. Gated on SimData.ReviveAction so a null authoring slot
-    // disables revival cleanly (CanInteract falls through to the live path,
-    // which is already false for a corpse).
-    private bool CanRevive => !alive && IsCompanion && _world?.SimData?.reviveAction != null;
-
     public bool CanInteract()
     {
-        if (CanRevive)
-        {
-            return true;
-        }
         if (!alive || burrowed || burrowing)
         {
             return false;
@@ -1357,23 +1363,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // merged array per HUD refresh — neither input mutates at runtime.
     private Godot.Collections.Array<InteractiveAction> _resolvedActions;
     private bool _resolvedActionsBuilt;
-    private Godot.Collections.Array<InteractiveAction> _reviveActions;
 
-    // Resolves the action list for the mob's current state. A dead companion
-    // returns the single shared revive verb; a live mob returns its authored
-    // actions merged with any conversation verbs. GetActions and Complete both
-    // route through here so the index Complete receives indexes the same list
+    // Resolves the action list for the mob's current state: its authored actions
+    // merged with any conversation verbs. GetActions and Complete both route
+    // through here so the index Complete receives indexes the same list
     // GetActions surfaced to the player.
     private Godot.Collections.Array<InteractiveAction> ResolveActions()
     {
-        if (CanRevive)
-        {
-            if (_reviveActions == null)
-            {
-                _reviveActions = new Godot.Collections.Array<InteractiveAction> { _world.SimData.reviveAction };
-            }
-            return _reviveActions;
-        }
         if (!_resolvedActionsBuilt)
         {
             _resolvedActionsBuilt = true;
@@ -1443,9 +1439,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 break;
             case EActionVerb.Trade:
                 OpenMerchantScreen(trade: true, onClose: null);
-                break;
-            case EActionVerb.Revive:
-                PerformPlayerRevive();
                 break;
         }
     }
@@ -2091,6 +2084,34 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             _statusEffects.AddBuildup(sunburn, rate * burn * dt);
         }
+    }
+
+    // Anti-cheese: while the player stands in a safety zone, every wounded
+    // hostile regenerates toward full so the player can't dart in and out of a
+    // zone to whittle a tough enemy down over multiple pop-ins. Applies to any
+    // live, non-player-allied dangerous mob (not just ones aware of the player).
+    // Scaled by CVars.timeScale so slow-mo doesn't accelerate the regen relative
+    // to the sim clock, matching TickDirtyEffect's convention.
+    private void TickSafeZoneHeal(float dt)
+    {
+        if (!alive || mobData == null || !mobData.dangerous)
+        {
+            return;
+        }
+        if (health >= maxHealth || Teams.AreAllied(ActorTeam, ETeam.Player))
+        {
+            return;
+        }
+        if (_world?.player?.IsSafe != true)
+        {
+            return;
+        }
+        float rate = _world.SimData?.safeZoneEnemyHealFractionPerSecond ?? 0f;
+        if (rate <= 0f)
+        {
+            return;
+        }
+        health = Mathf.Min(maxHealth, health + rate * maxHealth * dt * CVars.timeScale.Value);
     }
 
     // Mirrors Player.ApplyWaterPhysics but applies forces as impulses
@@ -2844,6 +2865,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             UpdateWaterState();
             UpdateMobWet((float)delta);
             TickSunburn((float)delta);
+            TickSafeZoneHeal((float)delta);
             _exitingWater = false;
             // Engine gravity is owned by ApplyWaterPhysics while swimming —
             // disable Godot's default gravity application on this body so
@@ -3727,6 +3749,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void Damage(HitInfo hit)
     {
+        // Stamp the hit time for behaviors that react to being attacked
+        // (BehaviorRetreat / HurtWhileTargetSafeCondition). Any hit reaching
+        // here counts, including armor-only ones — a shot is a shot.
+        LastDamagedMs = _world?.GameTimeMs ?? 0;
         // Bestiary kill credit: any damaging hit sourced from the player
         // latches the flag, even when armor soaks the payload. Status-
         // effect ticks and trap damage don't pass through here, so they
@@ -4266,81 +4292,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // Player health cost to revive this corpse, read by ReviveBloodRequirement
-    // (press-time affordability gate) and PerformPlayerRevive (the spend). 0
-    // when unauthored or no data.
-    public float ReviveHealthCost => mobData?.reviveHealthCost ?? 0f;
-
-    // Player-driven revive (the Revive interactive verb's completion). Spends
-    // the player's blood by reviveHealthCost, then restores the corpse.
-    // ReviveBloodRequirement already gated affordability at press, but the 3s
-    // channel can change the player's health (a hostile striking mid-revive),
-    // so re-check here — a now-unaffordable revive fizzles without draining or
-    // reviving. RecallForSleep calls Revive() directly, bypassing the cost.
-    private void PerformPlayerRevive()
-    {
-        float cost = ReviveHealthCost;
-        if (cost > 0f)
-        {
-            Player player = GameClient.Current?.Player;
-            if (player == null || !player.HasBlood(cost))
-            {
-                return;
-            }
-            player.DrainBlood(cost);
-        }
-        Revive();
-    }
-
-    // Bring a dead companion back to life — the resolution of the Revive
-    // interactive verb (see Complete). Undoes the state changes Die() made:
-    // restores the alive flag, the live collision layers (so the body moves
-    // and is targetable again), AxisLockAngularY, and health. The revive
-    // audiovisual cue is the InteractiveAction's completion-event fx; this
-    // method only touches gameplay state. AI resumes on its own — every AI /
-    // movement gate keys off `alive` per tick, so flipping it is enough.
-    private void Revive()
-    {
-        if (alive)
-        {
-            return;
-        }
-        alive = true;
-        // Mirror _Ready's live layer setup (and the auto-freeze live branch):
-        // back onto Mob / the live mask, hurtbox back onto HurtBox so attacks
-        // and the player's targeting see it as a live mob again.
-        CollisionLayer = (uint)ECollisionLayer.Mob;
-        CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
-        if (_hurtBox != null)
-        {
-            _hurtBox.CollisionLayer = (uint)ECollisionLayer.HurtBox;
-        }
-        AxisLockAngularY = true;
-        // Die() may have left the corpse pinned by the auto-freeze; unfreeze so
-        // it stands and the per-tick freeze logic re-evaluates from a live state.
-        Freeze = false;
-        _simState.Health = Mathf.Clamp(mobData?.reviveHealth ?? maxHealth, 1f, maxHealth);
-        // The corpse read as CorpseDiscovered; a revived companion is a live,
-        // known mob again.
-        _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
-        // Release the Die one-shot so UpdateAnimation resumes the live
-        // idle/locomotion loop instead of holding the death pose.
-        _oneShotAnim = null;
-        // Per-species "back to life" vocalization (a happy bark), layered over
-        // the action's shared revive cue. Fired here so every revive path —
-        // player interactive and dead-companion recall — voices it.
-        SpawnVoice(_voice?.revive);
-    }
-
-    // Recall the companion to the player's side: revived if it died, healed to
-    // full, and teleported in — regardless of where it wandered or fell. Used by
-    // both the sleep time-skip and player respawn (free of the revive blood cost,
-    // unlike the Revive interactive).
+    // Recall the companion to the player's side: teleported in and healed to
+    // full, regardless of where it wandered or fell. Used by both the sleep
+    // time-skip and player respawn. A companion that DIED is not brought back —
+    // it despawns for good rather than returning with the player, so death is
+    // permanent.
     public void RecallToPlayer(Vector3 worldPos)
     {
         if (!alive)
         {
-            Revive();
+            Despawn();
+            return;
         }
         Teleport(worldPos);
         health = maxHealth;

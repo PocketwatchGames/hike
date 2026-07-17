@@ -4,13 +4,10 @@
 [ext_resource type="Material" uid="uid://dhl426xulqxbf" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
 [ext_resource type="Material" uid="uid://vyod0jnbvh8p" path="res://resources/materials/ground_shadow_blob.tres" id="1_mobshadow"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="3_recipe_script"]
-[ext_resource type="Resource" uid="uid://cjvf30nl7ddfv" path="res://resources/data/recipes/recipe_health_potion.tres" id="4_recipe_hp"]
-[ext_resource type="Resource" uid="uid://c5j2h8n4q3pwt" path="res://resources/data/recipes/recipe_health_potion_superior.tres" id="4_recipe_hp_hi"]
 [ext_resource type="Resource" uid="uid://drcp4n7p2q8wt" path="res://resources/data/recipes/recipe_grilled_kun_kun.tres" id="5_recipe_gkk"]
 [ext_resource type="Resource" uid="uid://hhoifpqftj6f" path="res://resources/data/recipes/recipe_succulent_grilled_desert_kun_kun.tres" id="5_skk_desert"]
 [ext_resource type="Resource" uid="uid://ckrmlqck5qjhs" path="res://resources/data/recipes/recipe_succulent_grilled_forest_kun_kun.tres" id="5_skk_forest"]
 [ext_resource type="Resource" uid="uid://beee3uqck5ab2" path="res://resources/data/recipes/recipe_succulent_grilled_mountain_kun_kun.tres" id="5_skk_mountain"]
-[ext_resource type="Resource" uid="uid://c5j8tk2pnawhx" path="res://resources/data/recipes/recipe_cure_poison_potion.tres" id="6_recipe_cure"]
 [ext_resource type="Resource" uid="uid://drg5p3n4q2wxt" path="res://resources/data/recipes/recipe_grilled_goblin.tres" id="6_recipe_gg"]
 [ext_resource type="Resource" uid="uid://bdbn4p2qyawtk" path="res://resources/data/status_effects/boons/boon_dash.tres" id="6_rmw2s"]
 [ext_resource type="Resource" uid="uid://b8fpwap1qmhnc" path="res://resources/data/recipes/recipe_succulent_grilled_desert_goblin.tres" id="6_sgg_desert"]
@@ -30,9 +27,7 @@
 [ext_resource type="PackedScene" uid="uid://d4nf6t08w1rye" path="res://scenes/characters/elite_crown.tscn" id="16_elite_crown"]
 [ext_resource type="Resource" uid="uid://qhms7wphy46n" path="res://resources/data/items/loot/crown.tres" id="17_elite_loot"]
 [ext_resource type="Resource" uid="uid://4vmr7jaq6thd" path="res://resources/data/items/consumables/fairy_corpse.tres" id="18_fairy_loot"]
-[ext_resource type="Resource" uid="uid://cmdfairy00001" path="res://resources/data/world_gen/mob_descriptors/fairy.tres" id="60_fairy_desc"]
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="19_boondata"]
-[ext_resource type="Resource" uid="uid://bnv0qitg8gcs3" path="res://resources/data/actions/revive_action.tres" id="20_revive_action"]
 [ext_resource type="Resource" uid="uid://crbn7q3k2p8wt" path="res://resources/data/status_effects/boons/boon_restore.tres" id="21_boon_restore"]
 [ext_resource type="Resource" uid="uid://dgbn5q3p8wrx2" path="res://resources/data/status_effects/boons/boon_gold.tres" id="22_boon_gold"]
 [ext_resource type="Resource" uid="uid://bbsdqlnqddipm" path="res://resources/data/script_variables/script_variables.tres" id="23_scriptvars"]
@@ -63,17 +58,24 @@
 [ext_resource type="Resource" uid="uid://bt81x27m5jlgw" path="res://resources/data/status_effects/upgrades/upgrade_ranged_siphon.tres" id="54_up_siphon"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="55_status_wet"]
 [ext_resource type="Resource" uid="uid://gus6wigx34i0" path="res://resources/data/status_effects/upgrades/upgrade_armor_bounding.tres" id="55_up_bounding"]
+[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="56_mobdesc_script"]
 [ext_resource type="Resource" uid="uid://66a6mftyd54c" path="res://resources/data/world_gen/mob_descriptors/slime_cube.tres" id="56_slime_cube"]
 [ext_resource type="Resource" uid="uid://dthjice7pvftr" path="res://resources/data/world_gen/mob_descriptors/slime_sphere.tres" id="56_slime_sphere"]
 [ext_resource type="Resource" uid="uid://diat8vsx8cp1i" path="res://resources/data/status_effects/status_sunburn.tres" id="57_sunburn"]
-[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="56_mobdesc_script"]
-[ext_resource type="Resource" uid="uid://h0dp744tku1d2" path="res://resources/data/status_effects/well_rested.tres" id="57_wellrested"]
-[ext_resource type="PackedScene" uid="uid://0j6ek19g6xn2o" path="res://scenes/fx/well_rested_loop.tscn" id="58_wellrestedfx"]
+[ext_resource type="Resource" uid="uid://jy11bcghauj" path="res://resources/data/status_effects/well_rested.tres" id="57_wellrested"]
+[ext_resource type="PackedScene" uid="uid://cdp51pqxsqfi3" path="res://scenes/fx/well_rested_loop.tscn" id="58_wellrestedfx"]
+[ext_resource type="Resource" uid="uid://cmdfairy00001" path="res://resources/data/world_gen/mob_descriptors/fairy.tres" id="60_fairy_desc"]
+[ext_resource type="Script" uid="uid://byi5eqt4vd0wb" path="res://scripts/data/items/SpellData.cs" id="70_spell_script"]
+[ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/consumables/dog_treat.tres" id="71_spell_dog_treat"]
+[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="72_spell_health_potion"]
+[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="73_spell_cure_poison"]
+[ext_resource type="Resource" path="res://resources/data/items/consumables/stamina_potion.tres" id="74_spell_stamina"]
 
 [resource]
 script = ExtResource("1_1meao")
 gravity = 50.0
-recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp_hi"), ExtResource("4_recipe_hp"), ExtResource("5_skk_forest"), ExtResource("5_skk_desert"), ExtResource("5_skk_mountain"), ExtResource("5_recipe_gkk"), ExtResource("6_sgg_forest"), ExtResource("6_sgg_desert"), ExtResource("6_sgg_mountain"), ExtResource("6_sgg_swamp"), ExtResource("6_recipe_gg"), ExtResource("6_recipe_cure")])
+recipes = Array[ExtResource("3_recipe_script")]([ExtResource("5_skk_forest"), ExtResource("5_skk_desert"), ExtResource("5_skk_mountain"), ExtResource("5_recipe_gkk"), ExtResource("6_sgg_forest"), ExtResource("6_sgg_desert"), ExtResource("6_sgg_mountain"), ExtResource("6_sgg_swamp"), ExtResource("6_recipe_gg")])
+spells = Array[ExtResource("70_spell_script")]([ExtResource("71_spell_dog_treat"), ExtResource("72_spell_health_potion"), ExtResource("73_spell_cure_poison"), ExtResource("74_spell_stamina")])
 mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager"), ExtResource("24_mob_spider"), ExtResource("25_mob_sparrow"), ExtResource("26_mob_dog")])
 scriptVariables = ExtResource("23_scriptvars")
 eliteStatusEffect = ExtResource("15_elite_std")
@@ -84,7 +86,6 @@ wellRestedCampfireFx = ExtResource("58_wellrestedfx")
 mobWetStatusEffect = ExtResource("55_status_wet")
 mobSunburnStatusEffect = ExtResource("57_sunburn")
 fairyLoot = ExtResource("18_fairy_loot")
-fairySpawnDescriptor = ExtResource("60_fairy_desc")
 fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking")])
 fairyBoonGold = ExtResource("22_boon_gold")
 forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet"), ExtResource("45_up_vampiric"), ExtResource("46_up_pierce"), ExtResource("47_up_flaming"), ExtResource("48_up_fragile"), ExtResource("49_up_knockback"), ExtResource("50_up_seeking"), ExtResource("51_up_shocking"), ExtResource("52_up_venomous"), ExtResource("53_up_vigor"), ExtResource("54_up_siphon"), ExtResource("55_up_bounding")])
@@ -93,7 +94,6 @@ forgeRangedIcon = ExtResource("42_icon_ranged")
 forgeArmorIcon = ExtResource("43_icon_armor")
 talkAction = ExtResource("13_talk_action")
 giveItemAction = ExtResource("14_give_action")
-reviveAction = ExtResource("20_revive_action")
 partyReviveAction = ExtResource("30_party_revive")
 sunMaxElevationDegrees = 65.0
 sunsetAngleDegrees = 25.0
@@ -113,7 +113,7 @@ nightAmbientHumidityLift = 0.25
 rippleWindRef = 30.0
 canopyDensity = 0.35
 nightSpawnMobs = Array[ExtResource("56_mobdesc_script")]([ExtResource("56_slime_cube"), ExtResource("56_slime_sphere")])
-nightSpawnMaxLevel = 4
+fairySpawnDescriptor = ExtResource("60_fairy_desc")
 footprintMaterial = ExtResource("1_atie7")
 groundShadowMaterial = ExtResource("1_mobshadow")
 playerShadowRadius = 0.65

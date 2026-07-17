@@ -27,6 +27,5 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Forest Spider"
-palette = SubResource("palette")
 weapons = Array[ExtResource("5_wd")]([ExtResource("6_bite"), ExtResource("7_web")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

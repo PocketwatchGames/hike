@@ -482,10 +482,10 @@ public class ActionRunner
 			// Fuel spend for a lantern spell cast. SelectTierIndex has already
 			// gated on the tank having fuel; the spend clamps at 0 so a partial
 			// tank still pays the cast and bottoms out. A lit lantern this drains
-			// to empty is extinguished by Player.TickTorchFuel next tick.
-			if (tier.fuelCost > 0f && _action.context.primaryItem is TorchState torch)
+			// to empty is extinguished by Player.TickLanternFuel next tick.
+			if (tier.fuelCost > 0f && _action.context.primaryItem is LanternState lantern)
 			{
-				torch.SpendFuel((long)(tier.fuelCost * 1000f));
+				lantern.SpendFuel((long)(tier.fuelCost * 1000f));
 			}
 		}
 		FireChargeEndEvents();
@@ -822,7 +822,7 @@ public class ActionRunner
 		{
 			return true;
 		}
-		return context.primaryItem is TorchState torch && torch.HasFuel;
+		return context.primaryItem is LanternState lantern && lantern.HasFuel;
 	}
 
 	// Same gates as SelectTierIndex but ignoring the chargeT timing filter —

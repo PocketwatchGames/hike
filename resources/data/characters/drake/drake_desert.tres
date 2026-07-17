@@ -36,6 +36,5 @@ recolors = [SubResource("Resource_recolor")]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Desert Drake"
-palette = SubResource("Resource_palette")
 weapons = Array[ExtResource("8_wd")]([ExtResource("9_fire"), ExtResource("10_bite")])
 loot = Array[ExtResource("5_lootcount")]([SubResource("Resource_loot_meat")])

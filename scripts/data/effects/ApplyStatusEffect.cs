@@ -14,11 +14,6 @@ public partial class ApplyStatusEffect : ItemEffect
 	// rather than baked into the action data.
 	[Export] public StatusEffectData statusEffect;
 
-	// When the player triggers this effect, also apply it to their active
-	// companion (the lantern's healing spell mends the pet too). Only the fixed
-	// `statusEffect` path spreads — chosen boons stay with whoever earned them.
-	[Export] public bool alsoAffectsCompanion;
-
 	public override void Apply(IActionActor actor, in ActionContext context)
 	{
 		// Fixed effect — apply it straight away, no choice involved. Consumption
@@ -27,14 +22,6 @@ public partial class ApplyStatusEffect : ItemEffect
 		if (statusEffect != null)
 		{
 			ApplyEffectToActor(actor, statusEffect);
-			if (alsoAffectsCompanion && actor is Player)
-			{
-				Mob companion = World.Current?.Companion;
-				if (companion != null && companion.alive)
-				{
-					companion.AddStatusEffect(statusEffect);
-				}
-			}
 			return;
 		}
 

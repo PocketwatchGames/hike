@@ -113,6 +113,14 @@ public class MobNavigator
     // rules the navigator itself paths by.
     public TraversalProfile Profile => _profile;
 
+    // Hostile mobs route around safety zones (village, lit campfire) so they
+    // don't chase the player into a sanctuary. Keyed off the LIVE team so a
+    // tamed companion (ActorTeam flips to Friendly) and non-dangerous villagers
+    // path through freely — the keep-out applies only to mobs that would attack
+    // the player. Cheap enough to read per-query; team/danger rarely change.
+    private bool AvoidsSafeZones =>
+        _mob.mobData?.dangerous == true && !Teams.AreAllied(_mob.ActorTeam, ETeam.Player);
+
     // Read-only access for debug visualisation. The list is mutated each
     // repath so the debug drawer must walk it within a single frame and
     // not retain it across frames.
@@ -467,6 +475,10 @@ public class MobNavigator
             {
                 return false;
             }
+            if (AvoidsSafeZones && c.IsSafeZone)
+            {
+                return false;
+            }
             if (!_profile.CanClimb && !_profile.CanFly && Mathf.Abs(c.surfaceY - curSurfaceY) > _profile.maxStepHeight)
             {
                 return false;
@@ -561,7 +573,7 @@ public class MobNavigator
             goal = _grid.CellToWorld(gi, gj, _grid.NearestLayer(gi, gj, _goal.Y));
         }
 
-        var path = _pathfinder.Find(_grid, _profile, start, goal, _allowFalling, _avoidHazards);
+        var path = _pathfinder.Find(_grid, _profile, start, goal, _allowFalling, _avoidHazards, AvoidsSafeZones);
         if (path == null || path.Count == 0)
         {
             // A* either rejected the start cell (mob standing on something

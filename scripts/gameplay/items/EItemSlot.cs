@@ -10,7 +10,7 @@ public enum EInventorySlot
 	WeaponMelee,
 	WeaponRanged,
 	Equipment,
-	// Dedicated single slot for the player's lantern — a TorchData carried by
+	// Dedicated single slot for the player's lantern — a LanternData carried by
 	// every character, toggled with the Lantern input and never allowed into the
 	// Equipment hotbar.
 	Lantern,

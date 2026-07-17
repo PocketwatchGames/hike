@@ -23,6 +23,8 @@
 [ext_resource type="PackedScene" path="res://scenes/characters/friendly_villager_female.tscn" id="17_villager_f"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="18_palette"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="19_recolor"]
+[ext_resource type="Script" uid="uid://pfjwm48icbnys" path="res://scripts/data/spawn/SafetyZoneSpawnEntry.cs" id="20_safetyentry"]
+[ext_resource type="PackedScene" uid="uid://cppetcwunu7o8" path="res://scenes/interactives/safety_zone.tscn" id="21_safetyscene"]
 
 [sub_resource type="Resource" id="StoneRing"]
 script = ExtResource("5_ring")
@@ -34,6 +36,13 @@ script = ExtResource("4_camp")
 scene = ExtResource("9_campscene")
 placeAtAnchor = true
 metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
+
+[sub_resource type="Resource" id="SafetyZone_center"]
+script = ExtResource("20_safetyentry")
+scene = ExtResource("21_safetyscene")
+placeAtAnchor = true
+minSpacing = 0.0
+metadata/_custom_type_script = "uid://pfjwm48icbnys"
 
 [sub_resource type="Resource" id="V1_top"]
 script = ExtResource("19_recolor")
@@ -211,4 +220,4 @@ metadata/_custom_type_script = "uid://b7gskt20b7441"
 [resource]
 script = ExtResource("2_group")
 scatterRadius = 8.0
-entries = Array[ExtResource("1_base")]([SubResource("StoneRing"), SubResource("Campfire_center"), SubResource("Villager_1"), SubResource("Villager_2"), SubResource("Villager_3"), SubResource("Villager_4"), SubResource("Villager_5"), SubResource("Dog"), SubResource("Well")])
+entries = Array[ExtResource("1_base")]([SubResource("StoneRing"), SubResource("Campfire_center"), SubResource("SafetyZone_center"), SubResource("Villager_1"), SubResource("Villager_2"), SubResource("Villager_3"), SubResource("Villager_4"), SubResource("Villager_5"), SubResource("Dog"), SubResource("Well")])

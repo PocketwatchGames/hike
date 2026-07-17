@@ -865,9 +865,11 @@ public partial class MerchantScreen : Control
 		}
 		if (sourceBackpack)
 		{
+			// The Equipment slot is the attuned alchemy spell (set at the alchemy
+			// campfire screen, not here) — not a drop target for carried items.
 			if (destEquip == EInventorySlot.Equipment)
 			{
-				return inv.TryMoveToConsumableSlot(_selectedItem, _playerInventory.GetConsumableIndex(dest));
+				return false;
 			}
 			if (InventoryScreen.EquipCompatible(destEquip, _selectedItem))
 			{
@@ -877,15 +879,16 @@ public partial class MerchantScreen : Control
 		}
 		if (destBackpack)
 		{
+			// The attuned spell can't be moved out to the backpack.
 			if (sourceEquip == EInventorySlot.Equipment)
 			{
-				return inv.TryRemoveFromConsumableSlot(_selectedItem);
+				return false;
 			}
 			return inv.TryUnequip(sourceEquip);
 		}
-		if (sourceEquip == EInventorySlot.Equipment && destEquip == EInventorySlot.Equipment)
+		if (sourceEquip == EInventorySlot.Equipment || destEquip == EInventorySlot.Equipment)
 		{
-			return inv.TryMoveToConsumableSlot(_selectedItem, _playerInventory.GetConsumableIndex(dest));
+			return false;
 		}
 		if (InventoryScreen.CanSwapEquipSlots(sourceEquip, destEquip, _selectedItem, inv))
 		{

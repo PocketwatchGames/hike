@@ -504,6 +504,7 @@ public partial class Player : CharacterBody3D
 		_bodyTemperature = _world?.SampleAirTemperature(position) ?? 70f;
 		_warmthZoneCount = 0;
 		_warmthBonus = 0f;
+		_safeZoneCount = 0;
 		_health = MaxHealth;
 		_armor = MaxArmor;
 		_stamina = MaxStamina;

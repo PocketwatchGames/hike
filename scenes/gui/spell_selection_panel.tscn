@@ -1,0 +1,79 @@
+[gd_scene format=3 uid="uid://cxnyim15u74u8"]
+
+[ext_resource type="Script" path="res://scripts/gui/SpellSelectionPanel.cs" id="1_qpl2i"]
+[ext_resource type="PackedScene" uid="uid://dn1uamwxkqjal" path="res://scenes/gui/recipe_button.tscn" id="2_b47tj"]
+[ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="3_6ojip"]
+[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="4_1mvx2"]
+
+[node name="SpellSelectionPanel" type="MarginContainer" unique_id=1417314439 node_paths=PackedStringArray("_spellButtonContainer", "_noSpellsLabel", "_itemInfoPanel", "_reagentSlots")]
+script = ExtResource("1_qpl2i")
+_spellButtonContainer = NodePath("VBoxContainer/RecipePanel/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer")
+_noSpellsLabel = NodePath("VBoxContainer/RecipePanel/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/Label")
+_spellButtonScene = ExtResource("2_b47tj")
+_itemInfoPanel = NodePath("VBoxContainer/ItemInfoPanel")
+_reagentSlots = [NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel"), NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel2"), NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel3")]
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1266152002]
+layout_mode = 2
+theme_override_constants/separation = 30
+
+[node name="ItemInfoPanel" parent="VBoxContainer" unique_id=638608018 instance=ExtResource("3_6ojip")]
+layout_mode = 2
+
+[node name="PanelContainer2" type="PanelContainer" parent="VBoxContainer" unique_id=852907329]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/PanelContainer2" unique_id=312902797]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/PanelContainer2/MarginContainer" unique_id=1750031372]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=1043861830]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="ItemSlotPanel" parent="VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer" unique_id=982744505 instance=ExtResource("4_1mvx2")]
+layout_mode = 2
+
+[node name="ItemSlotPanel2" parent="VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1620069658 instance=ExtResource("4_1mvx2")]
+layout_mode = 2
+
+[node name="ItemSlotPanel3" parent="VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer" unique_id=461025509 instance=ExtResource("4_1mvx2")]
+layout_mode = 2
+
+[node name="RecipePanel" type="PanelContainer" parent="VBoxContainer" unique_id=1187067588]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/RecipePanel" unique_id=1545942635]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/RecipePanel/MarginContainer" unique_id=2059488693]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Label" type="Label" parent="VBoxContainer/RecipePanel/MarginContainer/VBoxContainer" unique_id=831592116]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Spells"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="VBoxContainer/RecipePanel/MarginContainer/VBoxContainer" unique_id=1437862569]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/RecipePanel/MarginContainer/VBoxContainer/PanelContainer" unique_id=629051581]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/RecipePanel/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer" unique_id=2045509577]
+layout_mode = 2
+text = "No Spells Learned!"
+horizontal_alignment = 1

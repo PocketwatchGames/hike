@@ -65,7 +65,7 @@ public class LocalPathfinder
     // Scratch path-cell list. Caller copies out before calling Find again.
     private readonly List<int> _scratch = new();
 
-    public List<Vector3> Find(WalkabilityGrid grid, in TraversalProfile profile, Vector3 startWorld, Vector3 goalWorld, bool allowFalling, bool avoidHazards)
+    public List<Vector3> Find(WalkabilityGrid grid, in TraversalProfile profile, Vector3 startWorld, Vector3 goalWorld, bool allowFalling, bool avoidHazards, bool avoidSafeZones = false)
     {
         int size = grid.Size;
         int layers = WalkabilityGrid.MaxColumnLayers;
@@ -167,6 +167,14 @@ public class LocalPathfinder
                         // cells are gated here, so a mob standing in one can
                         // still path out.
                         if (avoidHazards && n.IsHazard)
+                        {
+                            continue;
+                        }
+
+                        // Safety-zone avoidance (hostile mobs only, per the
+                        // caller). Same start-cell exemption — a mob that
+                        // begins inside a zone can still path its way out.
+                        if (avoidSafeZones && n.IsSafeZone)
                         {
                             continue;
                         }

@@ -117,60 +117,6 @@ public partial class Player : CharacterBody3D
 		_mouseAimWorldDelta = Vector3.Zero;
 	}
 
-	// Consumable quick-select wheel input. A tap of ConsumableCycleRight cycles
-	// to the next consumable (on release); holding past ConsumableWheelHoldMs
-	// opens the HUD item wheel instead, where the right stick highlights a belt
-	// slot and release selects it. Runs after the right-stick look block in
-	// ProcessInput so it can claim the stick (zeroing _inputLook) for wheel
-	// navigation while the wheel is open.
-	void HandleConsumableWheelInput()
-	{
-		Hud hud = Hud.Current;
-		ulong now = _world?.GameTimeMs ?? 0;
-
-		if (Input.IsActionJustPressed("ConsumableCycleRight"))
-		{
-			_consumableWheelPressActive = true;
-			_consumableWheelPressStartMs = now;
-		}
-
-		if (_consumableWheelPressActive && Input.IsActionPressed("ConsumableCycleRight"))
-		{
-			if (!_consumableWheelOpen && now - _consumableWheelPressStartMs >= ContextButtonHoldMs)
-			{
-				_consumableWheelOpen = true;
-				hud?.ShowItemWheel();
-			}
-			if (_consumableWheelOpen && hud != null)
-			{
-				Vector2 stick = new(
-					Input.GetActionStrength("LookRight") - Input.GetActionStrength("LookLeft"),
-					Input.GetActionStrength("LookDown") - Input.GetActionStrength("LookUp"));
-				hud.UpdateItemWheelHighlight(stick);
-				// The right stick drives the wheel, not character facing, while
-				// the wheel is open.
-				_inputLook = Vector3.Zero;
-			}
-		}
-
-		if (_consumableWheelPressActive && Input.IsActionJustReleased("ConsumableCycleRight"))
-		{
-			_consumableWheelPressActive = false;
-			if (_consumableWheelOpen)
-			{
-				int index = hud?.CloseItemWheelAndGetSelection() ?? -1;
-				if (index >= 0)
-				{
-					_inventory?.SelectConsumable(index);
-				}
-				_consumableWheelOpen = false;
-			}
-			else
-			{
-				_inventory?.CycleConsumable(+1);
-			}
-		}
-	}
 
 	public void ProcessInput(float cameraYaw)
 	{
@@ -290,24 +236,6 @@ public partial class Player : CharacterBody3D
 			_sneaking = false;
 		}
 
-		if (Input.IsActionJustPressed("ConsumableCycleLeft"))
-		{
-			_inventory?.CycleConsumable(-1);
-		}
-		HandleConsumableWheelInput();
-		if (Input.IsActionJustPressed("ConsumableSelect1"))
-		{
-			_inventory?.SelectConsumable(0);
-		}
-		if (Input.IsActionJustPressed("ConsumableSelect2"))
-		{
-			_inventory?.SelectConsumable(1);
-		}
-		if (Input.IsActionJustPressed("ConsumableSelect3"))
-		{
-			_inventory?.SelectConsumable(2);
-		}
-
 		// Sneak is a toggle. Pressing also doubles as the player-initiated
 		// abort key while a runner action is in flight (charging always
 		// cancels; Active cancels only if the selected tier opts in via
@@ -316,12 +244,6 @@ public partial class Player : CharacterBody3D
 		if (Input.IsActionJustPressed("Sneak"))
 		{
 			_sneaking = !_sneaking;
-		}
-
-		// Toggle the active companion between following and staying put.
-		if (Input.IsActionJustPressed("CompanionToggleStay"))
-		{
-			_world?.Companion?.ToggleStayCommand();
 		}
 
 		if (Input.IsActionJustPressed("UseItem"))

@@ -39,7 +39,6 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Mountain Torchbearer"
-palette = SubResource("Resource_18has")
 weapons = Array[ExtResource("9_wd")]([ExtResource("10_cry"), ExtResource("11_torch")])
 loot = Array[ExtResource("6_lootcount")]([SubResource("Resource_loot_meat")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

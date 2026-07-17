@@ -508,11 +508,8 @@ public partial class CookingScreen : Control
 			RefreshMaterials();
 			return;
 		}
-		Inventory inv = _player?.Inventory;
-		if (state.data.Category == EItemCategory.Equipment && inv != null && inv.TryAddEquipmentToHotbar(state))
-		{
-			return;
-		}
+		// Non-material output (a cooked dish not eaten on the spot) goes to the party
+		// equipment stash — there is no consumable hotbar to deliver into anymore.
 		ItemStash.Add(EquipmentStash, state);
 	}
 

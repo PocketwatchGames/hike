@@ -48,6 +48,8 @@ public partial class GameClient : Node3D
 		{ EStatName.Ranged, "Ranged" },
 		{ EStatName.Melee, "Melee" },
 		{ EStatName.OutgoingDamage, "Outgoing Damage" },
+		{ EStatName.DamageScale, "Damage & Buildup" },
+		{ EStatName.DamageReduction, "Damage Reduction" },
 		{ EStatName.AnimSpeed, "Animation Speed" },
 		{ EStatName.FootprintAlpha, "Footprint Alpha" },
 		{ EStatName.FootprintDuration, "Footprint Duration" },
@@ -589,6 +591,7 @@ public partial class GameClient : Node3D
 		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
 		_world.OnNewDay += OnNewDayResetMeals;
 		_world.OnNewDay += OnNewDayWellRested;
+		_world.OnNewDay += OnNewDayRefuelLanterns;
 		sceneViewport.AddChild(_world);
 		// World.Initialize is the chunk-mesh sphere fill — fully synchronous
 		// today (~900 chunks). The bar can't tick during this; it stays
@@ -610,6 +613,7 @@ public partial class GameClient : Node3D
 			sim.onItemIdentified += OnSimItemIdentified;
 			sim.onRecipeDiscovered += OnSimRecipeDiscovered;
 			sim.onSpeciesDiscovered += OnSimSpeciesDiscovered;
+			sim.onSpellLearned += OnSimSpellLearned;
 		}
 		onMobKilled += OnMobKilled;
 
@@ -789,13 +793,14 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// Cinematic camp entry from lighting a campfire: fade to black, and while the
-	// screen is fully black light the fire, bank the party's field knowledge, and
-	// open the camp screen directly. Anything the bank newly commits to the party
-	// pool is announced to the event log, which sits on a canvas above the camp
-	// screen so the notices read on top of it. Input is gated for the whole
-	// transition; campScreen.Open keeps it gated once open and campScreen.Close
-	// releases it. Falls back to opening immediately if no fade overlay is wired.
+	// Camp entry from the campfire interact (Campfire.Complete). The gameplay
+	// effects — lighting the fire and banking the active member's field knowledge
+	// / stashing carried materials (NotifyCampedAt) — run NOW, at the moment the
+	// camp action completes; they are NOT gated on the fade, so an interrupted or
+	// unwired fade can never leave the sim half-camped. The fade is purely
+	// cosmetic: it hides the party gather / camera reframe and then opens the camp
+	// screen. Input is gated for the whole transition; campScreen.Open keeps it
+	// gated once open and campScreen.Close releases it.
 	public void EnterCampWithFade(Campfire forge)
 	{
 		if (forge == null || campScreen == null || _player == null)
@@ -803,27 +808,18 @@ public partial class GameClient : Node3D
 			return;
 		}
 		InputSuppressed = true;
-		void OnBlack()
-		{
-			forge.Light();
-			// Arrival: light the fire and bank the active member's field knowledge
-			// into the party pool, then open camp directly. The map reveal is armed
-			// but NOT shown here — it plays the next time the player opens the map.
-			// Knowledge that newly landed in the pool is announced (on top of the
-			// camp screen) inside NotifyCampedAt.
-			NotifyCampedAt(forge.GlobalPosition);
-			// Camping tops off every carried torch/lantern — the campfire is the
-			// only way spent fuel comes back.
-			_player.RefuelCarriedTorches();
-			campScreen.Open(_player, forge);
-		}
+		forge.Light();
+		// The map reveal is armed but NOT shown here — it plays the next time the
+		// player opens the map. Knowledge that newly landed in the pool is announced
+		// (on top of the camp screen) inside NotifyCampedAt.
+		NotifyCampedAt(forge.GlobalPosition);
 		if (campFade != null && !campFade.Busy)
 		{
-			campFade.Play(OnBlack);
+			campFade.Play(() => campScreen.Open(_player, forge));
 		}
 		else
 		{
-			OnBlack();
+			campScreen.Open(_player, forge);
 		}
 	}
 
@@ -873,6 +869,10 @@ public partial class GameClient : Node3D
 		if (banked.HasFlag(EKnowledgeCategory.Recipe))
 		{
 			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Recipe Logged" });
+		}
+		if (banked.HasFlag(EKnowledgeCategory.Spell))
+		{
+			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Spell Logged" });
 		}
 		if (banked.HasFlag(EKnowledgeCategory.Bestiary))
 		{
@@ -1015,10 +1015,10 @@ public partial class GameClient : Node3D
 	// member is already controlled. Called on camp exit after a Select-Character
 	// choice, and by SwitchControlTo for the immediate debug switch.
 	//
-	// transferBelt: on a deliberate campfire character switch the quick-use
-	// consumable belt travels with the player (moves from the outgoing member to
-	// the incoming one). Left false for the death-respawn switch, where each
-	// survivor keeps their own belt.
+	// transferBelt: on a deliberate campfire character switch the attuned alchemy
+	// spell travels with the player (moves from the outgoing member to the incoming
+	// one). Left false for the death-respawn switch, where each survivor keeps their
+	// own attunement.
 	public void SyncControlToActive(bool transferBelt = false)
 	{
 		Party party = _world?.WorldState?.SimState?.Party;
@@ -1041,10 +1041,10 @@ public partial class GameClient : Node3D
 		{
 			UnsubscribePlayerEvents(outgoing);
 			outgoing.SetActive(false);
-			// Carry the belt to the new character before the HUD rebinds to it.
+			// Carry the attuned spell to the new character before the HUD rebinds.
 			if (transferBelt)
 			{
-				outgoing.Inventory?.TransferBeltTo(target.Inventory);
+				outgoing.Inventory?.TransferAttunementTo(target.Inventory);
 			}
 		}
 		SubscribePlayerEvents(target);
@@ -1110,6 +1110,20 @@ public partial class GameClient : Node3D
 			title = "Recipe Discovered",
 			subtitle = name,
 			icon = output?.inventorySprite,
+		});
+	}
+
+	void OnSimSpellLearned(SpellData spell)
+	{
+		if (spell == null) { return; }
+		WorldSimState sim = _world?.WorldState?.SimState;
+		string name = sim != null ? sim.GetItemDisplayName(spell) : spell.displayName.ToString();
+		Announce(new Announcement
+		{
+			type = EAnnouncementType.Recipe,
+			title = "Spell Learned",
+			subtitle = name,
+			icon = spell.inventorySprite,
 		});
 	}
 
@@ -1874,12 +1888,34 @@ public partial class GameClient : Node3D
 
 	void OnPlayerHighlightChanged(Node3D node)
 	{
-		RemoveHighlight();
-		if (node != null)
-		{
-			ApplyHighlight(node);
-		}
+		UpdateHighlightOutline();
 		UpdateInteractHUD();
+	}
+
+	// Currently outlined interactive, so UpdateHighlightOutline can skip the
+	// reparent/shader churn when the meaningful target is unchanged.
+	Node3D _outlinedNode;
+
+	// Outline whichever interactive is currently meaningful — the one being used
+	// (CurInteractive) if any, else the proximity highlight — so a solid or
+	// sprite interactive stays ringed for the whole interaction, not just until
+	// the press that starts it (which clears the highlight). Mirrors
+	// UpdateInteractHUD's target selection.
+	void UpdateHighlightOutline()
+	{
+		Node3D target = (_player?.IsBirdsEye ?? false)
+			? null
+			: (_player?.CurInteractive ?? _player?.HighlightInteractive) as Node3D;
+		if (target == _outlinedNode)
+		{
+			return;
+		}
+		RemoveHighlight();
+		if (target != null)
+		{
+			ApplyHighlight(target);
+			_outlinedNode = target;
+		}
 	}
 
 	// Single source of truth for spawning/freeing the InteractHUD. Called
@@ -1983,6 +2019,7 @@ public partial class GameClient : Node3D
 		}
 		_highlightOverlay.Visible = false;
 		_highlightOverlay.Reparent(sceneViewport, false);
+		_outlinedNode = null;
 	}
 
 	// Depth-first scan for the first InteractiveMeshHighlight under `node` — the
@@ -2235,11 +2272,12 @@ public partial class GameClient : Node3D
 	// Forge upgrade offer. A Forge interaction calls this with the single offered
 	// upgrade, whatever it would replace in that slot (null if the slot is empty),
 	// the forge's level (the offered upgrade's tier), the replaced upgrade's tier,
+	// the concrete slot both apply to (drives the offense/defense scaling shown),
 	// and an accept callback that applies it. Mirrors the upgrade-screen gating
 	// (input suppressed, HUD hidden, mouse freed) but always returns straight to
 	// gameplay on close — the forge is used from the world, never nested inside
 	// another modal.
-	public void OpenForgeScreen(StatusEffectData offered, StatusEffectData replacing, int level, int replacingLevel, Action onAccept)
+	public void OpenForgeScreen(StatusEffectData offered, StatusEffectData replacing, int level, int replacingLevel, EUpgradeSlot slot, Action onAccept)
 	{
 		if (forgeScreen == null)
 		{
@@ -2260,7 +2298,8 @@ public partial class GameClient : Node3D
 			offered,
 			replacing,
 			level,
-			replacingLevel);
+			replacingLevel,
+			slot);
 	}
 
 	void CloseForgeScreen()
@@ -2276,6 +2315,7 @@ public partial class GameClient : Node3D
 
 	void OnPlayerInteractChanged(IInteractive interactive)
 	{
+		UpdateHighlightOutline();
 		UpdateInteractHUD();
 	}
 
@@ -2442,6 +2482,18 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	// Top off every party member's carried torches/lanterns each sunrise.
+	// Subscribed to World.OnNewDay, the only day-advance path — covers both the
+	// camp sleep-to-sunrise and the death time-skip. A fountain is the only other
+	// way spent lantern fuel comes back (visiting a campfire deliberately doesn't).
+	void OnNewDayRefuelLanterns(int dayNumber)
+	{
+		for (int i = 0; i < _partyPlayers.Count; i++)
+		{
+			_partyPlayers[i]?.RefuelLantern();
+		}
+	}
+
 	// Give every fallen member without a deadline one day of grace: they must be
 	// revived before the NEXT sunrise (a full day past the one the party just woke
 	// at) or be destroyed. Assigned after the death time-skip, so DayNumber already
@@ -2558,10 +2610,13 @@ public partial class GameClient : Node3D
 			return;
 		}
 		_player.Respawn(_spawnPosition);
+		// Respawning refills carried lanterns like a fresh day (this path doesn't
+		// roll the day itself, so OnNewDayRefuelLanterns won't fire).
+		_player.RefuelLantern();
 		camera.SetInitialPosition(_spawnPosition);
 
-		// The companion respawns alongside the player at full health — revived if
-		// it had died, and relocated to the spawn point from wherever it was.
+		// A surviving companion relocates to the spawn point at full health; one
+		// that died stays dead and despawns (see Mob.RecallToPlayer).
 		_world?.Companion?.RecallToPlayer(_spawnPosition);
 
 		// Ease back to real time + the resting zoom. The ease-out plays under the
@@ -2664,8 +2719,9 @@ public partial class GameClient : Node3D
 				_player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours));
 			}
 		}
-		// The companion wakes at the player's side, fully healed and revived if it
-		// had died — regardless of where it wandered or fell during the day.
+		// A surviving companion wakes at the player's side, fully healed,
+		// regardless of where it wandered during the day; one that died stays
+		// dead and despawns (see Mob.RecallToPlayer).
 		// (The world's spawns reset inside AdvanceTime / AdvanceToNextSunrise above,
 		// gated on time actually passing.)
 		if (_player != null)

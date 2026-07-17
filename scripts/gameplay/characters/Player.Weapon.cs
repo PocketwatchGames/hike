@@ -259,6 +259,14 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return;
 		}
+		// Recipe-backed alchemy spell: refuse the cast when the party reagent pool
+		// can't afford it (the analog of a weapon's ammo gate). Only gate spells that
+		// actually cost reagents — a reagentless spell casts freely.
+		SpellData attuned = _inventory.AttunedSpell;
+		if (attuned != null && attuned.reagents.Count > 0 && GetSpellAmmo() <= 0)
+		{
+			return;
+		}
 
 		var context = new ActionContext
 		{

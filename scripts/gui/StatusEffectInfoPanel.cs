@@ -11,8 +11,8 @@ public partial class StatusEffectInfoPanel : PanelContainer
 	[Export] private StatusEffectHud _statusEffectHud;
 	[Export] private PackedScene _statPanelScene;
 	[Export] private Control _statContainer;
-	// Optional star-pip row for a forge upgrade's tier. Hidden until SetLevel is
-	// called (the forge is the only caller); other panels leave it collapsed.
+	// Optional star-pip row for a forge upgrade's tier. Shown only when
+	// SetStatusEffect is given a non-zero upgradeLevel; other panels leave it collapsed.
 	[Export] private Control _levelStarsContainer;
 	[Export] private Godot.Collections.Array<TextureRect> _levelStars = new();
 	// Optional multiline description label. Populated from
@@ -31,20 +31,19 @@ public partial class StatusEffectInfoPanel : PanelContainer
 
 	public StatusEffectData Data { get; private set; }
 
-	// Reveal the star row and light `level` of the pips (0 = none visible, same
-	// convention as the forge). Only meaningful for slotted forge upgrades; panels
-	// that never call this keep the row collapsed. No-op if the stars aren't wired.
-	public void SetLevel(int level)
+	// Light `upgradeLevel` of the star pips and reveal the row (hidden at level 0).
+	// Only slotted forge upgrades pass a level; ordinary effects leave it collapsed.
+	void UpdateLevelStars(int upgradeLevel)
 	{
 		if (_levelStarsContainer != null)
 		{
-			_levelStarsContainer.Visible = true;
+			_levelStarsContainer.Visible = upgradeLevel > 0;
 		}
 		for (int i = 0; i < _levelStars.Count; i++)
 		{
 			if (_levelStars[i] != null)
 			{
-				_levelStars[i].Visible = i < level;
+				_levelStars[i].Visible = i < upgradeLevel;
 			}
 		}
 	}
@@ -65,7 +64,11 @@ public partial class StatusEffectInfoPanel : PanelContainer
 
 	// `count` / `removalProgress` / `hasTimer` drive the embedded
 	// StatusEffectHud — see Hud.UpdateStatusEffects for the grouping math.
-	public void SetStatusEffect(StatusEffectData effect, int count, float removalProgress, bool hasTimer, float buildupProgress = 0f)
+	// `upgradeLevel` / `upgradeSlot` are set only for slotted forge upgrades: they
+	// light the tier pips and append the level-derived combat-scaling rows (outgoing
+	// damage+buildup for a weapon slot, damage reduction for Armor). Defaults leave
+	// the pips hidden and add no extra rows, so ordinary-effect callers are unchanged.
+	public void SetStatusEffect(StatusEffectData effect, int count, float removalProgress, bool hasTimer, float buildupProgress = 0f, int upgradeLevel = 0, EUpgradeSlot upgradeSlot = EUpgradeSlot.None)
 	{
 		if (effect == null)
 		{
@@ -87,6 +90,7 @@ public partial class StatusEffectInfoPanel : PanelContainer
 			_descriptionLabel.Text = desc;
 			_descriptionLabel.Visible = desc.Length > 0;
 		}
+		UpdateLevelStars(upgradeLevel);
 		if (_statContainer == null || _statPanelScene == null)
 		{
 			return;
@@ -102,6 +106,12 @@ public partial class StatusEffectInfoPanel : PanelContainer
 			}
 		}
 		foreach (var (name, value) in StatList.StatusEffectInfo(effect))
+		{
+			StatPanel stat = _statPanelScene.Instantiate<StatPanel>();
+			_statContainer.AddChild(stat);
+			stat.SetText(name, value);
+		}
+		foreach (var (name, value) in StatList.UpgradeLevelInfo(upgradeLevel, upgradeSlot))
 		{
 			StatPanel stat = _statPanelScene.Instantiate<StatPanel>();
 			_statContainer.AddChild(stat);

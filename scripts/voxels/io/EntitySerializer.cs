@@ -30,6 +30,7 @@ public static class EntitySerializer
         Forge = 18,
         Fountain = 19,
         ForageSpawner = 20,
+        SafetyZone = 21,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -388,6 +389,12 @@ public static class EntitySerializer
                 WriteResource(w, forage.Item);
                 w.Write(forage.RegrowDays);
                 w.Write(forage.RegrowDay);
+                break;
+
+            case SafetyZoneSimState safety:
+                w.Write((byte)Tag.SafetyZone);
+                WriteVec3(w, safety.WorldPosition);
+                WriteScene(w, safety.Scene);
                 break;
 
             default:
@@ -750,6 +757,12 @@ public static class EntitySerializer
                 var forage = new ForageSpawnerSimState(pos, scene, item, regrowDays);
                 forage.RegrowDay = regrowDay;
                 return forage;
+            }
+            case Tag.SafetyZone:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                return new SafetyZoneSimState(pos, scene);
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

@@ -1,24 +1,23 @@
 using Godot;
 
 [GlobalClass]
-public partial class TorchData : ConsumableData
+public partial class LanternData : ConsumableData
 {
-	// One-shot steam/sizzle cue spawned on the player when this torch is doused
+	// One-shot steam/sizzle cue spawned on the player when the lantern is doused
 	// by the environment (heavy rain / swimming) rather than snuffed by hand.
-	// Layers on top of the torch light's normal off-cue so a water douse reads
+	// Layers on top of the lantern light's normal off-cue so a water douse reads
 	// distinctly wet. Optional — null falls back to just the off-cue.
 	[Export] public PackedScene douseEffectScene;
-	// The visible torch prop (a HeldTorch scene) shown while this torch is carried
-	// lit. The HeldTorch scene also carries its own world light (its
+	// The visible lantern prop (a HeldTorch scene) shown while the lantern is
+	// carried lit. The scene also carries its own world light (its
 	// movingLightScene), so this one reference brings both the prop and its light.
-	// Lit/unlit visual, flame fx, and the light are driven by isActive. Shared
-	// with the mob held torch.
-	[Export] public PackedScene heldTorchScene;
+	// Lit/unlit visual, flame fx, and the light are driven by isActive.
+	[Export] public PackedScene heldLanternScene;
 
-	// How long (seconds of lit time) this torch may burn before its fuel is
+	// How long (seconds of lit time) the lantern may burn before its fuel is
 	// spent — it then extinguishes and refuses to relight until recharged at a
-	// campfire (Player.RefuelCarriedTorches). Only counts down while lit, on the
-	// sim clock. 0 (or less) = burns forever, the old always-on behavior.
+	// sunrise, on respawn, or at a fountain (Player.RefuelLantern). Only counts
+	// down while lit, on the sim clock. 0 (or less) = burns forever.
 	[Export] public float burnTimeSeconds = 0f;
 
 	public bool HasLimitedFuel => burnTimeSeconds > 0f;
@@ -31,6 +30,6 @@ public partial class TorchData : ConsumableData
 
 	public override ItemState CreateState()
 	{
-		return new TorchState(this);
+		return new LanternState(this);
 	}
 }

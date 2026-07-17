@@ -282,7 +282,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         EUpgradeSlot slot = OfferedSlot;
         StatusEffectData replacing = player.ActiveUpgrade(slot);
         int replacingLevel = player.ActiveUpgradeLevel(slot);
-        gc.OpenForgeScreen(offered, replacing, level, replacingLevel, () =>
+        gc.OpenForgeScreen(offered, replacing, level, replacingLevel, slot, () =>
         {
             player.AddStatusEffect(offered, level, slot);
             BeginCooldown();

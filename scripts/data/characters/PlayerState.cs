@@ -66,10 +66,6 @@ public partial class PlayerState : Resource
 	// in the backpack.
 	[Export] public ItemCount[] equippedInventory = System.Array.Empty<ItemCount>();
 
-	// Items pushed into consumable hotbar slots in order. Each is created at
-	// maxStack.
-	[Export] public ConsumableData[] startingConsumables = System.Array.Empty<ConsumableData>();
-
 	// Items added to the backpack at spawn. Each entry's count is split into
 	// maxStack-sized stacks. No equip / hotbar placement.
 	[Export] public ItemCount[] startingInventory = System.Array.Empty<ItemCount>();
