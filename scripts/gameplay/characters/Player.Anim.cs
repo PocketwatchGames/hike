@@ -401,6 +401,9 @@ public partial class Player : CharacterBody3D
 		{
 			itemModel = _runner.Current.context.primaryItem?.data?.heldModel;
 		}
+		// A self-action's tool prop (the shovel during Dig) has no backing item, so it
+		// comes from the player-held scene instead of primaryItem.heldModel.
+		itemModel ??= ActiveInteractionHeldModel;
 		_heldVisual.SetActiveItem(itemModel);
 
 		// While aiming, draw the equipped ranged weapon so the bow is in hand

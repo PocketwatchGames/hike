@@ -133,6 +133,14 @@ public partial class Player : CharacterBody3D
 		InteractMenuOpen = false;
 		InteractHoldProgress = 0f;
 		_interactPressActive = false;
+		// If this menu was the no-highlight self-action menu, drop the request and
+		// refresh so GameClient frees the menu-only HUD (unless a self-action just
+		// started, in which case _curInteractive keeps the HUD alive for its progress).
+		if (_selfMenuRequested)
+		{
+			_selfMenuRequested = false;
+			onInteractChanged?.Invoke(_curInteractive);
+		}
 	}
 	// HUD progress fill while the runner is driving an interactive action.
 	// Reads directly off the in-flight PlayerAction so the bar reflects what

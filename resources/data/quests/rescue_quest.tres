@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="RescueQuestData" format=3 uid="uid://buwh9zjfqgtky"]
+
+[ext_resource type="Script" uid="uid://dbfh17jsob6ff" path="res://scripts/data/quests/RescueQuestData.cs" id="1_rescue"]
+
+[resource]
+script = ExtResource("1_rescue")
+textKey = &"quest_rescue"
+progressDisplay = 0

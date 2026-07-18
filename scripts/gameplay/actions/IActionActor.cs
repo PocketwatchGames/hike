@@ -38,6 +38,15 @@ public interface IActionActor
 	bool HasBlood(float amount);
 	void DrainBlood(float amount);
 
+	// Reagent-cost gate for InteractiveAction.reagents, paid from the actor's
+	// material pool. HasReagents is a non-mutating peek at press time (refuse an
+	// interaction the actor can't afford the ingredients for); SpendReagents deducts
+	// one cost's worth at natural completion and returns whether it spent. The player
+	// draws from its backpack + the party stash — the same pool alchemy spells cast
+	// from; mobs no-op (they never run reagent-costed interactives).
+	bool HasReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents);
+	bool SpendReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents);
+
 	// Physical-state queries read by ActorStateRequirement. Players forward
 	// to the live walk/swim state; mobs return sane defaults (grounded, dry)
 	// until mob locomotion grows the equivalent state machines.

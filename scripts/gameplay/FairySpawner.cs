@@ -59,21 +59,28 @@ public partial class FairySpawner : Node
     // chunk-unloaded) drop out as their node dies.
     private readonly List<(Mob mob, ulong expireMs)> _living = new();
 
-    // The GameClient whose onMobKilled we're currently subscribed to (for kill
-    // tracking). Re-bound if it changes; unsubscribed on exit.
-    private GameClient _subscribedClient;
+    // The World whose onMobKilled we track kills through. Bound in _Ready (this
+    // node is created by World.Initialize after World.Current is set) and dropped
+    // in _ExitTree — no re-bind needed since a FairySpawner lives and dies with
+    // its World.
+    private World _subscribedWorld;
 
     public override void _Ready()
     {
         _rng.Randomize();
+        _subscribedWorld = World.Current;
+        if (_subscribedWorld != null)
+        {
+            _subscribedWorld.onMobKilled += OnMobKilled;
+        }
     }
 
     public override void _ExitTree()
     {
-        if (_subscribedClient != null)
+        if (_subscribedWorld != null)
         {
-            _subscribedClient.onMobKilled -= OnMobKilled;
-            _subscribedClient = null;
+            _subscribedWorld.onMobKilled -= OnMobKilled;
+            _subscribedWorld = null;
         }
     }
 
@@ -91,7 +98,6 @@ public partial class FairySpawner : Node
         {
             return;
         }
-        EnsureKillSubscription();
 
         // Reset the per-day budget on the day rollover (World.AdvanceToNextSunrise
         // bumps DayNumber). Also seeds _lastDayNumber on the first frame.
@@ -243,26 +249,6 @@ public partial class FairySpawner : Node
         }
         int zi = chunk.ZoneIndex;
         return (zi >= 0 && zi < ws.Zones.Length) ? ws.Zones[zi].Data : null;
-    }
-
-    // Kill tracking rides GameClient.onMobKilled (fired from Mob.Die). GameClient may
-    // not exist yet when this node is created, so bind lazily and re-bind if it swaps.
-    private void EnsureKillSubscription()
-    {
-        GameClient gc = GameClient.Current;
-        if (gc == _subscribedClient)
-        {
-            return;
-        }
-        if (_subscribedClient != null)
-        {
-            _subscribedClient.onMobKilled -= OnMobKilled;
-        }
-        _subscribedClient = gc;
-        if (gc != null)
-        {
-            gc.onMobKilled += OnMobKilled;
-        }
     }
 
     // Count a player kill of a fairy toward the day's kill-stop threshold. Matches by

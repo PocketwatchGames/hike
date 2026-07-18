@@ -44,6 +44,23 @@ public partial class InteractiveAction : Resource
 	// events fire on the same tick (cheap "pick up the loot" with no animation).
 	[Export] public float durationSeconds = 0f;
 
+	// Pooled ingredient cost, paid from the party material pool (backpack +
+	// party stash) exactly like an alchemy spell's cast cost (SpellData.reagents).
+	// The action can't START unless the pool covers the full cost, and one cost's
+	// worth is SPENT when the action completes naturally — an aborted or interrupted
+	// action pays nothing (it skips EndActive). Reagent identity matches up the
+	// ItemData.parent chain, so a cost naming a parent species-meat is paid by any
+	// descendant, same as a recipe. Distinct from a HasReagentRequirement, which
+	// gates on a specific tool carried in the backpack (a lockpick) spent via a
+	// ConsumeFromInventory event — these reagents are fungible, pooled, and consumed
+	// automatically on completion. Empty = free (no ingredient gate).
+	[Export] public Array<RecipeInput> reagents = new();
+
+	// Event-log line shown when a press is refused because the pool can't afford
+	// `reagents` (e.g. "Not enough ingredients"). Empty = the refusal prints no
+	// message (the rejectEffect Fx still plays). Mirrors ActionRequirement.rejectMessage.
+	[Export] public StringName insufficientReagentsMessage = "";
+
 	// Per-action gates (e.g. HasReagentRequirement for lockpicks). The
 	// action is only selectable when all evaluate true. Same evaluator
 	// type as ItemAction.requirements so existing requirement subclasses
@@ -63,4 +80,17 @@ public partial class InteractiveAction : Resource
 	// Cancel the action if the actor takes damage during it. No tier-level
 	// canInterrupt — interactives have a single phase.
 	[Export] public bool interruptOnDamage = true;
+
+	// Cancel the action the moment the player supplies any movement input. Pairs
+	// with locksMovement = false to make a ritual the player can walk out of
+	// (Pray fades to black over its duration but bolts you awake if you move).
+	// Distinct from interruptOnDamage — this is a voluntary bail, not a hit.
+	[Export] public bool cancelOnMove = false;
+
+	// Fade the screen to black over the action's duration, tracking interact
+	// progress (0 → 1 across durationSeconds), and unwind on cancel/interrupt.
+	// The world-swap that a completion effect performs (teleport, camp) then
+	// happens behind a fully-black curtain. Driven client-side by GameClient off
+	// the in-flight action; purely presentational.
+	[Export] public bool fadeToBlack = false;
 }

@@ -95,6 +95,7 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_weapon")
+abilityTell = ExtResource("13_tell")
 damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"aoe": SubResource("Resource_damage_aoe"),
 &"primary": SubResource("Resource_damage_primary")
@@ -105,4 +106,3 @@ maxAttackRange = 10.0
 desiredAttackRange = 7.0
 cooldownSeconds = 2.5
 displayName = &"Web Spitter"
-abilityTell = ExtResource("13_tell")

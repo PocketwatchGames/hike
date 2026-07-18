@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="WorldScriptData" format=3 uid="uid://4typxmliw5702"]
+
+[ext_resource type="Script" uid="uid://cpck4x65at916" path="res://scripts/data/worldgen/WorldScriptData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://buwh9zjfqgtky" path="res://resources/data/quests/rescue_quest.tres" id="2_rescue"]
+[ext_resource type="Resource" uid="uid://1ibortkocv6hq" path="res://resources/data/quests/return_to_camp.tres" id="3_return"]
+
+[resource]
+script = ExtResource("1_script")
+rescueQuest = ExtResource("2_rescue")
+returnToCampQuest = ExtResource("3_return")

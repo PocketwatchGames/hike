@@ -1538,8 +1538,8 @@ public static class ItemEventHandlers
 		// the identify/decrement/remove path below.
 		if (inv != null && inv.AttunedSpell != null && item == inv.GetActiveConsumable())
 		{
+			// SpendReagents notifies the inventory itself on a successful spend.
 			castPlayer.SpendReagents(inv.AttunedSpell.reagents);
-			inv.NotifyChanged();
 			return;
 		}
 		// Reveal the item's real name on first successful use. Decrement is

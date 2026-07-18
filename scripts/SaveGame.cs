@@ -12,7 +12,8 @@ public static class SaveGame
 	//   v1: header only.
 	//   v2: + player status-effect buildup section.
 	//   v3: + scripting-variable bank (quest flags / world state).
-	private const int SAVE_VERSION = 3;
+	//   v4: + active quest log (Rescue / hunt / Return to Camp / language).
+	private const int SAVE_VERSION = 4;
 
 	public static void Save(string filePath)
 	{
@@ -43,6 +44,17 @@ public static class SaveGame
 		{
 			w.Write(0);
 		}
+
+		// --- Quest log (v4+) ---
+		QuestLog questLog = World.Current?.WorldState?.SimState?.QuestLog;
+		if (questLog != null)
+		{
+			questLog.Serialize(w);
+		}
+		else
+		{
+			w.Write(0);
+		}
 	}
 
 	public static void Load(string filePath)
@@ -68,6 +80,12 @@ public static class SaveGame
 		if (version >= 3)
 		{
 			World.Current?.WorldState?.SimState?.ScriptVars?.Deserialize(r);
+		}
+
+		// --- Quest log (v4+) ---
+		if (version >= 4)
+		{
+			World.Current?.WorldState?.SimState?.QuestLog?.Deserialize(r);
 		}
 	}
 

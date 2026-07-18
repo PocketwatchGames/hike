@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://bhodwg1042kim"]
 
-[ext_resource type="Script" uid="uid://419ghc0cftgeg" path="res://scripts/data/teaching/SpellTeachable.cs" id="3_spellteach"]
+[ext_resource type="Script" uid="uid://c0fdcxkkhfb23" path="res://scripts/data/teaching/SpellTeachable.cs" id="3_spellteach"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]
 [ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="7_cure"]
 [ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/consumables/dog_treat.tres" id="7_dogtreat"]

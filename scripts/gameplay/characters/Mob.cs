@@ -1170,6 +1170,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool HasBlood(float amount) => true;
     public void DrainBlood(float amount) { }
 
+    // Mobs never run reagent-costed interactives (those are player-only), so the
+    // ingredient gate always passes and the spend has nothing to deduct from.
+    public bool HasReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents) => true;
+    public bool SpendReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents) => false;
+
     // Mob locomotion has no airborne distinction yet, so IsGrounded is a
     // stable default. IsSwimming reflects the real water state (_swimming,
     // set in UpdateWaterState) so ActorStateRequirement.forbidSwimming gates
@@ -4238,6 +4243,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // sim state intact). GameClient bridges this into bestiary kill
         // credit when DamagedByPlayer is set.
         GameClient.Current?.NotifyMobKilled(_simState.Species, _simState.DamagedByPlayer);
+        // Sim-side kill signal for quest counters (World.onMobKilled) — kept
+        // separate from the client bridge above so quests don't depend on GameClient.
+        _world?.NotifyMobKilled(_simState.Species, _simState.DamagedByPlayer);
         // End combat immediately if this was the last perceived threat (vs the
         // run-away grace). Routed here with the live instance + time because
         // NotifyMobKilled only carries the species.

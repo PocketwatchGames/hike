@@ -49,4 +49,12 @@ public enum EActionVerb
 	// Interact with a camp — opens the camp screen. Authored on campfire
 	// interactives.
 	Camp,
+	// Pray — a player self-action (no world interactive) that fades to black and
+	// returns the player home to their campfire the next morning. See
+	// PrayReturnHomeEffect / Player.SelfActions.
+	Pray,
+	// Dig at the player's feet — a player self-action mirroring the shovel's dig
+	// (same Dig event / radius / result effects), gated on being grounded and out
+	// of danger. The player's held-shovel scene is shown in-hand while it runs.
+	Dig,
 }

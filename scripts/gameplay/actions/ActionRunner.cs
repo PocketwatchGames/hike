@@ -183,6 +183,16 @@ public class ActionRunner
 			AnnounceInteractiveRejection(action, context);
 			return false;
 		}
+		// Pooled ingredient gate: like a weapon's ammo, refuse the press when the
+		// actor's material pool can't cover the full cost. Checked after requirements
+		// so a hard gate (danger nearby) still owns the reject message when both fail.
+		// The paired spend fires from EndActive on natural completion only.
+		if (action.reagents.Count > 0 && !_actor.HasReagents(action.reagents))
+		{
+			ItemEventHandlers.SpawnOnActor(_actor, action.rejectEffect);
+			AnnounceReagentRejection(action);
+			return false;
+		}
 		ulong now = _actor.GameTimeMs;
 		_action = new PlayerAction
 		{
@@ -538,6 +548,14 @@ public class ActionRunner
 		// already handles the swing's impact moment.
 		if (_action.interactiveAction != null)
 		{
+			// Spend the pooled reagent cost on natural completion only — aborts and
+			// interrupts skip EndActive, so a cancelled interaction costs nothing
+			// (mirrors a weapon's charge-abort not debiting). Affordability was gated
+			// at press, so HasReagents already passed for this action.
+			if (_action.interactiveAction.reagents.Count > 0)
+			{
+				_actor.SpendReagents(_action.interactiveAction.reagents);
+			}
 			FireEventList(_action.interactiveAction.completionEvents);
 		}
 
@@ -936,6 +954,27 @@ public class ActionRunner
 			});
 			return;
 		}
+	}
+
+	// Surface the interactive's insufficientReagentsMessage to the event log when a
+	// press is refused for lack of ingredients. Same player-only destination and
+	// silent-when-unauthored behavior as AnnounceInteractiveRejection.
+	private void AnnounceReagentRejection(InteractiveAction action)
+	{
+		if (string.IsNullOrEmpty(action.insufficientReagentsMessage.ToString()))
+		{
+			return;
+		}
+		string msg = Loc.Get(action.insufficientReagentsMessage);
+		if (string.IsNullOrEmpty(msg))
+		{
+			return;
+		}
+		GameClient.Current?.Announce(new Announcement
+		{
+			type = EAnnouncementType.Notice,
+			title = msg,
+		});
 	}
 
 	private static int IndexOf(ItemActionProfile profile, ItemAction tier)

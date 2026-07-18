@@ -14,9 +14,12 @@
 [ext_resource type="Script" uid="uid://b8actinv3wq5n" path="res://scripts/data/behaviors/conditions/HasActionableInvestigationCondition.cs" id="14_actionable"]
 [ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="15_lookat"]
 [ext_resource type="Script" uid="uid://bugs6hed1gail" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="16_threat"]
-[ext_resource type="Script" uid="uid://2xuvc47jd7ckm" path="res://scripts/data/behaviors/conditions/TargetSafeCondition.cs" id="17_targetsafe"]
+[ext_resource type="Script" uid="uid://v0r7qrrfr7aa" path="res://scripts/data/behaviors/conditions/TargetSafeCondition.cs" id="17_targetsafe"]
 [ext_resource type="Script" uid="uid://cv14ma5vsatj3" path="res://scripts/data/behaviors/RetreatBehaviorData.cs" id="18_retreat"]
 [ext_resource type="Script" uid="uid://byt80ru3gmup4" path="res://scripts/data/behaviors/conditions/HurtWhileTargetSafeCondition.cs" id="19_hurtsafe"]
+
+[sub_resource type="Resource" id="Resource_idle"]
+script = ExtResource("3_idle")
 
 [sub_resource type="Resource" id="Resource_cond_hurt_safe"]
 script = ExtResource("19_hurtsafe")
@@ -25,14 +28,6 @@ script = ExtResource("19_hurtsafe")
 script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_hurt_safe")
 destination = &"Retreat"
-
-[sub_resource type="Resource" id="Resource_wander_to_retreat"]
-script = ExtResource("4_transition")
-condition = SubResource("Resource_cond_hurt_safe")
-destination = &"Retreat"
-
-[sub_resource type="Resource" id="Resource_idle"]
-script = ExtResource("3_idle")
 
 [sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
 script = ExtResource("6_aggro_acquired")
@@ -76,14 +71,6 @@ transitions = [SubResource("Resource_idle_to_retreat"), SubResource("Resource_id
 [sub_resource type="Resource" id="Resource_attack"]
 script = ExtResource("5_attack")
 
-[sub_resource type="Resource" id="Resource_cond_aggro_lost"]
-script = ExtResource("7_aggro_lost")
-
-[sub_resource type="Resource" id="Resource_attack_to_idle"]
-script = ExtResource("4_transition")
-condition = SubResource("Resource_cond_aggro_lost")
-destination = &"Idle"
-
 [sub_resource type="Resource" id="Resource_cond_target_safe"]
 script = ExtResource("17_targetsafe")
 
@@ -91,6 +78,14 @@ script = ExtResource("17_targetsafe")
 script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_target_safe")
 destination = &"Retreat"
+
+[sub_resource type="Resource" id="Resource_cond_aggro_lost"]
+script = ExtResource("7_aggro_lost")
+
+[sub_resource type="Resource" id="Resource_attack_to_idle"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_lost")
+destination = &"Idle"
 
 [sub_resource type="Resource" id="Resource_attack_node"]
 script = ExtResource("2_node")
@@ -114,6 +109,11 @@ transitions = [SubResource("Resource_retreat_to_attack")]
 
 [sub_resource type="Resource" id="Resource_wander"]
 script = ExtResource("8_wander")
+
+[sub_resource type="Resource" id="Resource_wander_to_retreat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_hurt_safe")
+destination = &"Retreat"
 
 [sub_resource type="Resource" id="Resource_wander_to_attack"]
 script = ExtResource("4_transition")

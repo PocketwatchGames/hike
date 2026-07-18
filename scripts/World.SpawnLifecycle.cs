@@ -149,6 +149,20 @@ public partial class World
     // a goblin caught out at dawn keeps hunting until then. Non-night entities
     // override ShouldSpawn => true unconditionally and are unaffected. Called
     // from Tick on day↔night transitions.
+    // Apply a day<->night transition: latch the new state, refresh time-gated
+    // entities, and fire OnNightfall on the rising (dusk) edge so quests and
+    // other systems can react without polling. Shared by the process poll and
+    // the AdvanceTime skip.
+    private void ApplyNightEdge(bool isNight)
+    {
+        _wasNight = isNight;
+        RefreshTimeOfDayEntities();
+        if (isNight)
+        {
+            OnNightfall?.Invoke();
+        }
+    }
+
     private void RefreshTimeOfDayEntities()
     {
         // Don't let a gated mob materialize right on top of the player when

@@ -10,30 +10,27 @@
 [ext_resource type="Script" uid="uid://j3ks8lpiy8np" path="res://scripts/data/behaviors/DodgeBehaviorData.cs" id="8_dodge"]
 [ext_resource type="Script" uid="uid://6hv6e7g1pnbe" path="res://scripts/data/behaviors/conditions/IncomingProjectileCondition.cs" id="9_incoming"]
 [ext_resource type="Script" uid="uid://cv14ma5vsatj3" path="res://scripts/data/behaviors/RetreatBehaviorData.cs" id="10_retreat"]
-[ext_resource type="Script" uid="uid://2xuvc47jd7ckm" path="res://scripts/data/behaviors/conditions/TargetSafeCondition.cs" id="11_targetsafe"]
+[ext_resource type="Script" uid="uid://v0r7qrrfr7aa" path="res://scripts/data/behaviors/conditions/TargetSafeCondition.cs" id="11_targetsafe"]
 [ext_resource type="Script" uid="uid://byt80ru3gmup4" path="res://scripts/data/behaviors/conditions/HurtWhileTargetSafeCondition.cs" id="12_hurtsafe"]
 
 [sub_resource type="Resource" id="Resource_patrol"]
 script = ExtResource("4_patrol")
 
-[sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
-script = ExtResource("6_aggro_acquired")
-
-[sub_resource type="Resource" id="Resource_cond_target_safe"]
-script = ExtResource("11_targetsafe")
-
 [sub_resource type="Resource" id="Resource_cond_hurt_safe"]
 script = ExtResource("12_hurtsafe")
-
-[sub_resource type="Resource" id="Resource_patrol_to_attack"]
-script = ExtResource("3_transition")
-condition = SubResource("Resource_cond_aggro_acquired")
-destination = &"Attack"
 
 [sub_resource type="Resource" id="Resource_patrol_to_retreat"]
 script = ExtResource("3_transition")
 condition = SubResource("Resource_cond_hurt_safe")
 destination = &"Retreat"
+
+[sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
+script = ExtResource("6_aggro_acquired")
+
+[sub_resource type="Resource" id="Resource_patrol_to_attack"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Attack"
 
 [sub_resource type="Resource" id="Resource_patrol_node"]
 script = ExtResource("2_node")
@@ -48,6 +45,14 @@ approachRange = 35.0
 encircleSlotCount = 6
 encircleDistance = 7.0
 attackFacingToleranceDegrees = 60.0
+
+[sub_resource type="Resource" id="Resource_cond_target_safe"]
+script = ExtResource("11_targetsafe")
+
+[sub_resource type="Resource" id="Resource_attack_to_retreat"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_target_safe")
+destination = &"Retreat"
 
 [sub_resource type="Resource" id="Resource_cond_incoming"]
 script = ExtResource("9_incoming")
@@ -66,11 +71,6 @@ script = ExtResource("7_aggro_lost")
 script = ExtResource("3_transition")
 condition = SubResource("Resource_cond_aggro_lost")
 destination = &"Patrol"
-
-[sub_resource type="Resource" id="Resource_attack_to_retreat"]
-script = ExtResource("3_transition")
-condition = SubResource("Resource_cond_target_safe")
-destination = &"Retreat"
 
 [sub_resource type="Resource" id="Resource_attack_node"]
 script = ExtResource("2_node")

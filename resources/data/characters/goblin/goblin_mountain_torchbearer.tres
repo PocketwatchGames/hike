@@ -2,8 +2,6 @@
 
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="2_mob"]
-[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_qj4m5"]
-[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="3_yikcu"]
 [ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="4_ed2xh"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="6_4hnjn"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="6_lootcount"]
@@ -23,17 +21,6 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 script = ExtResource("6_lootcount")
 descriptor = SubResource("Desc_loot_meat")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Resource_ykwmj"]
-script = ExtResource("2_qj4m5")
-color = Color(0.9, 0.66899997, 0.40499997, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Resource_18has"]
-script = ExtResource("3_yikcu")
-recolors = [SubResource("Resource_ykwmj")]
-metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("1_sub")

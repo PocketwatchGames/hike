@@ -52,6 +52,7 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_weapon")
+abilityTell = ExtResource("14_tell")
 damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
@@ -62,4 +63,3 @@ maxVerticalAttackRange = 8.0
 desiredAttackRange = 10.0
 cooldownSeconds = 3.5
 displayName = &"Drake Lightning Breath"
-abilityTell = ExtResource("14_tell")

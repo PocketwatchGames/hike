@@ -34,13 +34,33 @@ public partial class InteractHUD : Node2D
 	[Export] private float _pipArcRadius = 20f;
 	[Export(PropertyHint.Range, "0,90")] private float _pipArcSpacingDegrees = 32f;
 
+	// Icon/button tint applied to an action whose pooled ingredient cost
+	// (InteractiveAction.reagents) the player can't currently afford — a muted red
+	// that reads as "blocked" before the press is refused. Composes with the HUD's
+	// preview/committed Modulate. Actions with no reagent cost are never tinted.
+	[Export] private Color _unaffordableTint = new Color(1f, 0.45f, 0.45f, 0.6f);
+
 	Camera3D _camera;
 	Player _player;
 	IInteractive _interactive;
 	Array<InteractiveAction> _actions;
+	// The merged option list (world actions + player self-actions) captured when the
+	// options modal opens; drives the option buttons and the focused-option icon.
+	// Null while the modal is closed.
+	Array<InteractiveAction> _menuActions;
 	bool _modalOpen;
 	int _modalFocusedIndex = -1;
 	int _interactLevel;
+
+	// This HUD fronts the player's self-action menu (opened with nothing highlighted),
+	// not a world interactive — it has no persistent prompt and auto-opens its modal.
+	bool IsSelfMenu => _player != null && ReferenceEquals(_interactive, _player.SelfInteractive);
+
+	// Total entries the options modal would show: this interactive's own actions plus
+	// the always-available self-actions (unless this IS the self menu, which already
+	// lists them). Drives the hold-to-open affordance so a single-action world
+	// interactive still offers the hold path to reach the self-actions.
+	int MenuCount() => (_actions?.Count ?? 0) + (IsSelfMenu ? 0 : _player?.SelfActions?.Count ?? 0);
 
 	public IInteractive Interactive => _interactive;
 	public bool ModalOpen => _modalOpen;
@@ -70,6 +90,14 @@ public partial class InteractHUD : Node2D
 		RefreshActions();
 		SetupLevelPips();
 		Update();
+		// The self-action menu has no persistent prompt — it exists only to show the
+		// options list, so pop the modal immediately (deferred so we're in the tree).
+		// Skip when a self-action is already in flight: this HUD instance was respawned
+		// just to show the running action's progress ring, not to reopen the menu.
+		if (IsSelfMenu && _player.CurInteractive == null)
+		{
+			CallDeferred(MethodName.OpenModal);
+		}
 	}
 
 	// Light one pip per level (fixed at spawn — an interactive's level is
@@ -140,7 +168,7 @@ public partial class InteractHUD : Node2D
 	void RefreshActions()
 	{
 		_actions = _interactive.GetActions(_player);
-		bool hasMultiple = _actions != null && _actions.Count > 1;
+		bool hasMultiple = !IsSelfMenu && MenuCount() > 1;
 		if (_holdContainer != null)
 		{
 			_holdContainer.Visible = hasMultiple && _player.CurInteractive == null;
@@ -161,27 +189,34 @@ public partial class InteractHUD : Node2D
 		InteractiveAction action = GetActiveAction();
 		_icon.Texture = action?.icon;
 		_icon.Visible = action?.icon != null;
+		// Tint the icon when the action's ingredient cost can't be met, so the block
+		// reads before the press (which the runner's reagent gate refuses anyway).
+		_icon.SelfModulate = CanAfford(action) ? Colors.White : _unaffordableTint;
+	}
+
+	// True when the action has no ingredient cost or the player's material pool
+	// (backpack + party stash) can currently cover it. Mirrors the runner's press
+	// gate (Player.HasReagents) so the visual and the refusal agree.
+	bool CanAfford(InteractiveAction action)
+	{
+		return action == null || action.reagents.Count == 0 || _player.HasReagents(action.reagents);
 	}
 
 	InteractiveAction GetActiveAction()
 	{
+		// While the modal is open the focused option indexes the MERGED list (world +
+		// self), so the big icon can preview a self-action too; otherwise the persistent
+		// prompt tracks this interactive's own action at the committed/default index.
+		if (_modalOpen && _modalFocusedIndex >= 0)
+		{
+			Array<InteractiveAction> menu = _menuActions;
+			return (menu != null && _modalFocusedIndex < menu.Count) ? menu[_modalFocusedIndex] : null;
+		}
 		if (_actions == null || _actions.Count == 0)
 		{
 			return null;
 		}
-		int idx;
-		if (_modalOpen && _modalFocusedIndex >= 0)
-		{
-			idx = _modalFocusedIndex;
-		}
-		else if (_player.CurInteractive == _interactive)
-		{
-			idx = _player.CurInteractiveActionIndex;
-		}
-		else
-		{
-			idx = 0;
-		}
+		int idx = _player.CurInteractive == _interactive ? _player.CurInteractiveActionIndex : 0;
 		if (idx < 0 || idx >= _actions.Count)
 		{
 			return null;
@@ -220,7 +255,7 @@ public partial class InteractHUD : Node2D
 		if (!ReferenceEquals(latest, _actions))
 		{
 			_actions = latest;
-			bool hasMultiple = _actions != null && _actions.Count > 1;
+			bool hasMultiple = !IsSelfMenu && MenuCount() > 1;
 			if (_holdContainer != null && !_modalOpen)
 			{
 				_holdContainer.Visible = hasMultiple && _player.CurInteractive == null;
@@ -243,7 +278,7 @@ public partial class InteractHUD : Node2D
 
 		if (!_modalOpen)
 		{
-			bool hasMultiple = _actions != null && _actions.Count > 1;
+			bool hasMultiple = !IsSelfMenu && MenuCount() > 1;
 			if (_holdContainer != null)
 			{
 				_holdContainer.Visible = hasMultiple && _player.CurInteractive == null;
@@ -306,10 +341,14 @@ public partial class InteractHUD : Node2D
 		{
 			child.QueueFree();
 		}
+		// The options list is the MERGED menu: this interactive's actions followed by
+		// the player's always-available self-actions (Pray, ...). Captured here so the
+		// focused-option icon and the selection routing agree on indices.
+		_menuActions = _player.GetMenuActions(_interactive);
 		Button firstButton = null;
-		for (int i = 0; i < _actions.Count; i++)
+		for (int i = 0; i < _menuActions.Count; i++)
 		{
-			InteractiveAction action = _actions[i];
+			InteractiveAction action = _menuActions[i];
 			if (action == null)
 			{
 				continue;
@@ -317,6 +356,12 @@ public partial class InteractHUD : Node2D
 			Button btn = _interactOptionScene.Instantiate<Button>();
 			string label = action.displayName.ToString();
 			btn.Text = string.IsNullOrEmpty(label) ? action.verb.ToString() : label;
+			// Dim (but leave selectable) an option the player can't afford — picking
+			// it still fires the runner's reject cue + "not enough ingredients" line.
+			if (!CanAfford(action))
+			{
+				btn.Modulate = _unaffordableTint;
+			}
 			int idx = i;
 			btn.Pressed += () => OnOptionSelected(idx);
 			btn.FocusEntered += () => _modalFocusedIndex = idx;
@@ -335,9 +380,11 @@ public partial class InteractHUD : Node2D
 		IInteractive interactive = _interactive;
 		Player player = _player;
 		CloseModal();
+		// Route through the merged menu: TryStartMenuAction sends the first worldCount
+		// indices to the world interactive and the rest to a self-action.
 		if (interactive != null && player != null && interactive.CanActorInteract(player))
 		{
-			player.TryStartInteractiveAction(interactive, index);
+			player.TryStartMenuAction(interactive, index);
 		}
 	}
 
@@ -349,6 +396,7 @@ public partial class InteractHUD : Node2D
 		}
 		_modalOpen = false;
 		_modalFocusedIndex = -1;
+		_menuActions = null;
 		if (_interactOptionsParent != null)
 		{
 			_interactOptionsParent.Visible = false;
@@ -360,7 +408,7 @@ public partial class InteractHUD : Node2D
 				child.QueueFree();
 			}
 		}
-		bool hasMultiple = _actions != null && _actions.Count > 1;
+		bool hasMultiple = !IsSelfMenu && MenuCount() > 1;
 		if (_holdContainer != null)
 		{
 			_holdContainer.Visible = hasMultiple && _player.CurInteractive == null;

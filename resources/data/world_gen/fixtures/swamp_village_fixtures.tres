@@ -23,7 +23,7 @@
 [ext_resource type="PackedScene" path="res://scenes/characters/friendly_villager_female.tscn" id="17_villager_f"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="18_palette"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="19_recolor"]
-[ext_resource type="Script" uid="uid://pfjwm48icbnys" path="res://scripts/data/spawn/SafetyZoneSpawnEntry.cs" id="20_safetyentry"]
+[ext_resource type="Script" uid="uid://dtcbuyhqmo1pi" path="res://scripts/data/spawn/SafetyZoneSpawnEntry.cs" id="20_safetyentry"]
 [ext_resource type="PackedScene" uid="uid://cppetcwunu7o8" path="res://scenes/interactives/safety_zone.tscn" id="21_safetyscene"]
 
 [sub_resource type="Resource" id="StoneRing"]
@@ -40,8 +40,8 @@ metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
 [sub_resource type="Resource" id="SafetyZone_center"]
 script = ExtResource("20_safetyentry")
 scene = ExtResource("21_safetyscene")
-placeAtAnchor = true
 minSpacing = 0.0
+placeAtAnchor = true
 metadata/_custom_type_script = "uid://pfjwm48icbnys"
 
 [sub_resource type="Resource" id="V1_top"]

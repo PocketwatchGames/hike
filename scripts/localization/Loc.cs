@@ -103,12 +103,23 @@ public static partial class Loc
 
 	public static string Format(Keys key, params object[] args)
 	{
-		string text = Get(key);
+		return Substitute(Get(key), args);
+	}
+
+	// String-keyed Format for content-driven sites that store loc keys as
+	// authored data (e.g. QuestData.textKey's "%0" placeholder). Escape hatch
+	// mirroring Get(StringName) — prefer the typed Keys overload at code sites.
+	public static string Format(StringName key, params object[] args)
+	{
+		return Substitute(Get(key), args);
+	}
+
+	static string Substitute(string text, object[] args)
+	{
 		for (int i = 0; i < args.Length; i++)
 		{
 			text = text.Replace($"%{i}", args[i]?.ToString() ?? "");
 		}
-
 		return text;
 	}
 }

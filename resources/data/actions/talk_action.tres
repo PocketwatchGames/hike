@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_qnonr"]
 [ext_resource type="Texture2D" uid="uid://dm4sjbwpduw2t" path="res://assets/textures/interactions/talk.png" id="3_icon"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_ejv2f"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="5_p63k7"]
 
 [sub_resource type="Resource" id="Resource_event_talk"]
 script = ExtResource("2_event")

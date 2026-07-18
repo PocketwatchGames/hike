@@ -7,6 +7,10 @@ public class WorldState
     public readonly Vector3I Min;
     public readonly Vector3I Max;
     public SimData SimData;
+    // This world's authored scripted content (quests). Set at load from
+    // WorldGenData.scriptData (GameClient.Init); null on a world with none, or on
+    // a .hike load (the file format doesn't bake it yet). Read by World.Quests.
+    public WorldScriptData ScriptData;
 
     // Zones present in this world. Populated by WorldGen (or the disk
     // loader) at world creation; each ChunkState.ZoneIndex picks one of

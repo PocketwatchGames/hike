@@ -41,6 +41,18 @@
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="43_corpsebox"]
 [ext_resource type="Script" uid="uid://ra804zm0hgk7y" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="44_livemarker"]
 [ext_resource type="Texture2D" uid="uid://dxt67iud2lt3s" path="res://assets/textures/map_markers/grave.png" id="45_graveicon"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="50_iaction"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="51_ievent"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="52_areq"]
+[ext_resource type="Script" uid="uid://b7kq3xn2v9wdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="53_nodanger"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="54_ieffect"]
+[ext_resource type="Script" uid="uid://c5n1cy40gvp4n" path="res://scripts/data/effects/PrayReturnHomeEffect.cs" id="55_prayeffect"]
+[ext_resource type="PackedScene" uid="uid://cvoui2mg0oxau" path="res://scenes/fx/interact_reject.tscn" id="56_reject"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="57_actorstate"]
+[ext_resource type="PackedScene" uid="uid://cqn7thwp82vd4" path="res://scenes/fx/dig_nothing.tscn" id="58_dignothing"]
+[ext_resource type="PackedScene" uid="uid://dk3mwwarq2n1x" path="res://scenes/fx/dig_common.tscn" id="59_digcommon"]
+[ext_resource type="PackedScene" uid="uid://b8tr05wq4mkpv" path="res://scenes/fx/dig_treasure.tscn" id="60_digtreasure"]
+[ext_resource type="PackedScene" uid="uid://cwk3rn8qv2tba" path="res://scenes/items/held/shovel_held.tscn" id="61_shovelheld"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -70,6 +82,62 @@ radius = 0.06
 height = 0.12
 radial_segments = 12
 rings = 6
+
+[sub_resource type="Resource" id="Resource_pray_effect"]
+script = ExtResource("55_prayeffect")
+
+[sub_resource type="Resource" id="Resource_pray_event"]
+script = ExtResource("51_ievent")
+type = 8
+effects = Array[ExtResource("54_ieffect")]([SubResource("Resource_pray_effect")])
+
+[sub_resource type="Resource" id="Resource_pray_req_nodanger"]
+script = ExtResource("53_nodanger")
+rejectMessage = &"danger_nearby"
+
+[sub_resource type="Resource" id="Resource_pray_action"]
+script = ExtResource("50_iaction")
+verb = 11
+displayName = &"Pray"
+completionEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_pray_event")])
+durationSeconds = 3.0
+requirements = Array[ExtResource("52_areq")]([SubResource("Resource_pray_req_nodanger")])
+rejectEffect = ExtResource("56_reject")
+cancelOnMove = true
+fadeToBlack = true
+
+[sub_resource type="Resource" id="Resource_dig_event_anim"]
+script = ExtResource("51_ievent")
+type = 64
+animName = 36
+
+[sub_resource type="Resource" id="Resource_dig_event_dig"]
+script = ExtResource("51_ievent")
+type = 131072
+digRadius = 2.0
+digReach = 0.0
+digNothingEffect = ExtResource("58_dignothing")
+digCommonEffect = ExtResource("59_digcommon")
+digTreasureEffect = ExtResource("60_digtreasure")
+
+[sub_resource type="Resource" id="Resource_dig_req_nodanger"]
+script = ExtResource("53_nodanger")
+rejectMessage = &"danger_nearby"
+
+[sub_resource type="Resource" id="Resource_dig_req_grounded"]
+script = ExtResource("57_actorstate")
+requireGrounded = true
+
+[sub_resource type="Resource" id="Resource_dig_action"]
+script = ExtResource("50_iaction")
+verb = 12
+displayName = &"Dig"
+interactEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_dig_event_anim")])
+completionEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_dig_event_dig")])
+durationSeconds = 2.5
+requirements = Array[ExtResource("52_areq")]([SubResource("Resource_dig_req_nodanger"), SubResource("Resource_dig_req_grounded")])
+rejectEffect = ExtResource("56_reject")
+locksMovement = true
 
 [node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("_corpseInteractiveBox", "_liveMapMarker", "interactArea", "_pickupAttractArea", "hudAnchor", "_hurtBox", "_audioListener", "_aimingReticle", "_lanternHealLight")]
 floor_max_angle = 1.0471976
@@ -135,6 +203,8 @@ _wadeRippleStrength = 0.05
 _digDirtFx = ExtResource("42_digscoop")
 _footprintTexture = ExtResource("8_5jukt")
 _footprintSize = Vector2(0.4, 0.6)
+_selfActions = Array[ExtResource("50_iaction")]([SubResource("Resource_pray_action"), SubResource("Resource_dig_action")])
+_digToolHeldScene = ExtResource("61_shovelheld")
 
 [node name="AudioListener3D" type="AudioListener3D" parent="." unique_id=1649569787]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

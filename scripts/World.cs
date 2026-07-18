@@ -34,6 +34,24 @@ public partial class World : Node3D
     // each poll the clock. Passes the new DayNumber.
     public event Action<int> OnNewDay;
 
+    // Fired on the day->night (dusk) edge, so systems can react to nightfall
+    // without polling the clock. Drives the "Return to Camp" quest trigger.
+    public event Action OnNightfall;
+
+    // Fired the moment a mob dies, with the per-instance DamagedByPlayer flag —
+    // the SIM-side kill signal (quest kill counters). Distinct from
+    // GameClient.onMobKilled, which drives the client bestiary / combat bridges,
+    // so sim reactors don't depend on the client. Both fire from Mob.Die.
+    public event Action<SpeciesData, bool> onMobKilled;
+    public void NotifyMobKilled(SpeciesData species, bool damagedByPlayer)
+    {
+        if (species == null)
+        {
+            return;
+        }
+        onMobKilled?.Invoke(species, damagedByPlayer);
+    }
+
     // Explicit whole-day counter, only advanced by AdvanceToNextSunrise (the day
     // cycle no longer rolls over on its own — it pauses at midnight until sleep).
     // Dawn-expiring deadlines compare against this (there is no wall-clock sunrise
@@ -157,6 +175,9 @@ public partial class World : Node3D
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
         _wasNight = WorldState.IsNight(worldState.TimeOfDay01);
         _fadeProbe = new FoliageCutawayProbe(worldState);
+
+        // "Return to Camp" is added on the dusk edge; sleeping to sunrise clears it.
+        OnNightfall += AddReturnToCampQuest;
 
         // Set Current BEFORE constructing children that may dereference it.
         // ChunkManager.Initialize triggers synchronous chunk builds which call
@@ -301,8 +322,7 @@ public partial class World : Node3D
         bool isNight = WorldState.IsNight(_worldState.TimeOfDay01);
         if (isNight != _wasNight)
         {
-            _wasNight = isNight;
-            RefreshTimeOfDayEntities();
+            ApplyNightEdge(isNight);
         }
 
         // Complement to RefreshTimeOfDayEntities: periodically despawn loaded
@@ -327,6 +347,12 @@ public partial class World : Node3D
         UpdateNightDarkness((float)delta);
 
         _heatField?.Tick();
+
+        // Retire any fallen member whose revive deadline the day cycle just passed
+        // (client frees the body via onPartyMemberExpired), before quests tick so a
+        // same-frame retirement fails that member's rescue quest this frame.
+        CheckReviveDeadlines();
+        TickQuests();
     }
 
     // Integrate the night-creature exposure meters from the two light channels at
@@ -432,8 +458,7 @@ public partial class World : Node3D
         bool isNight = WorldState.IsNight(_worldState.TimeOfDay01);
         if (isNight != wasNight)
         {
-            _wasNight = isNight;
-            RefreshTimeOfDayEntities();
+            ApplyNightEdge(isNight);
         }
         CleanupOffConditionMobs();
         // NOTE: a short nap deliberately does NOT reset the world's spawns — only

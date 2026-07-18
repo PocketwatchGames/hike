@@ -783,6 +783,7 @@ public partial class Player : CharacterBody3D
 		}
 
 		_aimingReticle?.Initialize(this);
+		InitSelfActions();
 	}
 
 
@@ -1063,6 +1064,18 @@ public partial class Player : CharacterBody3D
 		return spell == null ? 0 : Cooking.CountAffordable(spell.reagents, CombinedMaterialPool());
 	}
 
+	// IActionActor — non-mutating peek used to gate a reagent-costed interactive
+	// (InteractiveAction.reagents) at press. An empty cost is trivially affordable;
+	// otherwise the combined backpack + party-stash pool must cover one full cost.
+	public bool HasReagents(IReadOnlyList<RecipeInput> reagents)
+	{
+		if (reagents == null || reagents.Count == 0)
+		{
+			return true;
+		}
+		return Cooking.CountAffordable(reagents, CombinedMaterialPool()) > 0;
+	}
+
 	// Spend one cast's worth of reagents from the pool, backpack-first then the
 	// party stash. Returns false (spending nothing) if the pool can't cover the
 	// full cost — the cast is gated on GetSpellAmmo upstream, so this is a
@@ -1090,6 +1103,10 @@ public partial class Player : CharacterBody3D
 				SpendFromMaterialStash(r.item, need);
 			}
 		}
+		// Refresh any inventory-backed UI (backpack rows, spell ammo, forge counts)
+		// now that pool stacks changed. Callers used to fire this themselves; folding
+		// it in keeps every spend path — spell cast and interactive completion — in sync.
+		_inventory?.NotifyChanged();
 		return true;
 	}
 

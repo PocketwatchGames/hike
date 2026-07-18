@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bk2smsd8gwalq" path="res://scripts/data/worldgen/WorldGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="2_sim"]
+[ext_resource type="Resource" uid="uid://4typxmliw5702" path="res://resources/data/world_gen/default_world_script.tres" id="60_worldscript"]
 [ext_resource type="Resource" uid="uid://wwpw4gcdk0vs" path="res://resources/data/world_gen/zone_gen/desert_gen.tres" id="2_zone_desert"]
 [ext_resource type="Resource" uid="uid://wwpw4geql0vs" path="res://resources/data/world_gen/zone_gen/forest_gen.tres" id="2_zone_forest"]
 [ext_resource type="Resource" uid="uid://dhg7c42lgnit2" path="res://resources/data/world_gen/zone_gen/hub_gen.tres" id="2_zone_hub"]
@@ -236,6 +237,7 @@ metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 [resource]
 script = ExtResource("1_script")
 simData = ExtResource("2_sim")
+scriptData = ExtResource("60_worldscript")
 zones = [SubResource("Placed_mountain"), SubResource("Placed_desert"), SubResource("Placed_swamp"), SubResource("Placed_forest"), SubResource("Placed_hub")]
 regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), ExtResource("3_region_swamp"), ExtResource("3_region_forest")]
 pointsOfInterestPlacements = [SubResource("Poi_crossroads"), SubResource("Poi_mountain"), SubResource("Poi_desert"), SubResource("Poi_swamp"), SubResource("Poi_forest")]

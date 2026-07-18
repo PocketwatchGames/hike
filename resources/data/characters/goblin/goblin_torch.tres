@@ -71,6 +71,7 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_weapon")
+abilityTell = ExtResource("14_tell")
 damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
@@ -79,4 +80,3 @@ maxAttackRange = 5.0
 desiredAttackRange = 3.0
 displayName = &"Goblin Torch"
 heldModel = ExtResource("11_held")
-abilityTell = ExtResource("14_tell")

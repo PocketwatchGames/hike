@@ -39,6 +39,10 @@ public static partial class Loc
 		too_hurt_to_rest,
 		not_enough_health_to_revive,
 		combat_miss,
-		combat_blocked
+		combat_blocked,
+		quest_rescue,
+		quest_kunkun_hunt,
+		quest_return_to_camp,
+		quest_learn_vyeshal
 	}
 }

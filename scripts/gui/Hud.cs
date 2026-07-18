@@ -32,6 +32,8 @@ public partial class Hud : Control
 	// StatusEffectIcons) inherit the position automatically.
 	[Export] Control _statusEffectNotificationAnchor;
 	[Export] HudEventLog _eventLog;
+	[Export] Control _questContainer;
+	[Export] PackedScene _questItemScene;
 	[Export] ProgressBar _healthBar;
 	// Layered UNDERNEATH _healthBar (placed earlier in the scene tree) with
 	// a transparent background and value = (Health + DrainedHealth) / MaxHealth,
@@ -91,6 +93,11 @@ public partial class Hud : Control
 	float _lightningFlashFadeRate;
 	Player _player;
 	Inventory _inventory;
+	// Quest surfacing (view only — the quest lifecycle is sim-driven in World).
+	// Bound to WorldSimState.QuestLog on player spawn; one QuestItem widget per
+	// active quest, refreshed each frame so counters / countdowns stay live.
+	readonly Dictionary<QuestState, QuestItem> _questWidgets = new();
+	QuestLog _questLog;
 	// FIFO of pending region banners. Chained region crossings can fire in a
 	// row; we serialize them so each gets its full visible window. The
 	// in-flight flag gates DispatchNext so the banner's onDone callback is the
@@ -292,6 +299,7 @@ public partial class Hud : Control
 			_inventory.onSlotChanged -= OnInventorySlotChanged;
 			_inventory.onConsumableChanged -= OnConsumableChanged;
 		}
+		UnbindQuests();
 	}
 
 	// Per-frame decay of the lightning flash overlay's alpha. Runs
@@ -438,6 +446,66 @@ public partial class Hud : Control
 				_seenStatusEffects.Add(data);
 			}
 		}
+
+		BindQuests();
+	}
+
+	// (Re)bind to the world's quest log and rebuild widgets. Called on spawn and
+	// on every party-switch rebind — the log is world-scope (same instance across
+	// members), so we rebuild from its current contents and re-subscribe. Handles
+	// quests seeded before this bind (rebuilt from Quests) as well as later
+	// add/remove.
+	void BindQuests()
+	{
+		UnbindQuests();
+		_questLog = gameClient?.World?.WorldState?.SimState?.QuestLog;
+		if (_questLog == null)
+		{
+			return;
+		}
+		foreach (QuestState quest in _questLog.Quests)
+		{
+			AddQuestWidget(quest);
+		}
+		_questLog.onQuestAdded += AddQuestWidget;
+		_questLog.onQuestRemoved += RemoveQuestWidget;
+	}
+
+	void UnbindQuests()
+	{
+		if (_questLog != null)
+		{
+			_questLog.onQuestAdded -= AddQuestWidget;
+			_questLog.onQuestRemoved -= RemoveQuestWidget;
+			_questLog = null;
+		}
+		foreach (QuestItem item in _questWidgets.Values)
+		{
+			item.QueueFree();
+		}
+		_questWidgets.Clear();
+	}
+
+	void AddQuestWidget(QuestState quest)
+	{
+		if (quest == null || _questContainer == null || _questItemScene == null
+			|| _questWidgets.ContainsKey(quest))
+		{
+			return;
+		}
+		QuestItem item = _questItemScene.Instantiate<QuestItem>();
+		_questContainer.AddChild(item);
+		item.Bind(quest);
+		_questWidgets[quest] = item;
+	}
+
+	void RemoveQuestWidget(QuestState quest)
+	{
+		if (quest != null && _questWidgets.TryGetValue(quest, out QuestItem item))
+		{
+			item.QueueFree();
+			_questWidgets.Remove(quest);
+		}
 	}
 
 	void OnInventorySlotChanged(EInventorySlot slot)
@@ -546,6 +614,13 @@ public partial class Hud : Control
 
 		UpdateMinimap();
 		UpdateWeatherWidget(delta);
+
+		// Keep quest rows current (live counters / countdowns). The sim owns
+		// add/remove; here we just re-render each active quest's display.
+		foreach (KeyValuePair<QuestState, QuestItem> kv in _questWidgets)
+		{
+			kv.Value.Refresh(kv.Key.GetDisplay(now));
+		}
 	}
 
 	// Drive the clock-face weather widget: container rotation, the day→night icon

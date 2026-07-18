@@ -111,6 +111,21 @@ public partial class ScreenFade : Control
 		}
 	}
 
+	// Drive the black overlay directly from an external progress source (the Pray
+	// ritual's fade tracking its interact hold), instead of the timed Play() cycle.
+	// No-op while an auto Play() cycle owns the overlay, so the two never fight.
+	// Shows/hides the ColorRect with the alpha so t=0 leaves nothing on screen.
+	public void SetManualDarkness(float t)
+	{
+		if (_state != EState.Idle)
+		{
+			return;
+		}
+		t = Mathf.Clamp(t, 0f, 1f);
+		Visible = t > 0f;
+		SetAlpha(t);
+	}
+
 	void SetAlpha(float a)
 	{
 		if (overlay == null)

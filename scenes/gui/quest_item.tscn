@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://2uhqrphkgsot"]
+
+[ext_resource type="Script" uid="uid://cy3kxv6l1bqwl" path="res://scripts/gui/QuestItem.cs" id="1_0ukbj"]
+[ext_resource type="Texture2D" uid="uid://ci5kswtk3206n" path="res://assets/textures/gui/item_button_pressed.png" id="1_jg5oc"]
+
+[node name="QuestItem" type="HBoxContainer" unique_id=835904964 node_paths=PackedStringArray("_questLabel", "_icon")]
+theme_override_constants/separation = 10
+script = ExtResource("1_0ukbj")
+_questLabel = NodePath("Label")
+_icon = NodePath("TextureRect")
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1872149059]
+layout_mode = 2
+texture = ExtResource("1_jg5oc")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="." unique_id=1313048798]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Rescue Misha!"

@@ -23,6 +23,10 @@ public partial class Player : CharacterBody3D
 		_mouseAimWorldDelta += new Vector3(deltaScreen.X, 0, deltaScreen.Y).Rotated(Vector3.Up, cameraYaw);
 	}
 
+	// Squared move-input magnitude above which a cancelOnMove ritual bails. Small
+	// enough that any deliberate step cancels, above resting stick drift.
+	const float MoveCancelThresholdSq = 0.04f;
+
 	void HandleInteractInput()
 	{
 		if (InteractMenuOpen)
@@ -39,15 +43,20 @@ public partial class Player : CharacterBody3D
 			}
 			if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
 			{
-				Godot.Collections.Array<InteractiveAction> actions = _highlightInteractive.GetActions(this);
-				if (actions != null && actions.Count > 1)
+				// Count the merged menu (world actions + always-available self-actions):
+				// a tap runs the world DEFAULT, a hold opens the menu where the self-
+				// actions live. With self-actions present the menu is always multi-entry,
+				// so a highlighted interactive always offers the hold-to-menu path.
+				int menuCount = _highlightInteractive.GetActions(this)?.Count ?? 0;
+				menuCount += _selfActions?.Count ?? 0;
+				if (menuCount > 1)
 				{
 					_interactPressActive = true;
 					_interactHoldStartMs = now;
 					InteractHoldProgress = 0f;
 					return;
 				}
-				if (actions != null && actions.Count == 1)
+				if (menuCount == 1)
 				{
 					if (TryStartInteractiveAction(_highlightInteractive))
 					{
@@ -55,7 +64,11 @@ public partial class Player : CharacterBody3D
 						onHighlightChanged?.Invoke(null);
 					}
 				}
+				return;
 			}
+			// Nothing highlighted: pressing interact opens the self-action menu (Pray,
+			// ...). Never auto-runs — the menu always comes up for a non-default action.
+			RequestSelfMenu();
 		}
 		if (_interactPressActive)
 		{
@@ -216,6 +229,16 @@ public partial class Player : CharacterBody3D
 		// onInteractMenuOpenRequested. Single-action interactives still run
 		// on JustPressed so the snappy feel is preserved.
 		HandleInteractInput();
+
+		// Voluntary bail from a cancelOnMove ritual (Pray): the moment the player
+		// feeds movement input, abort it — the fade unwinds and no completion effect
+		// fires. Distinct from locksMovement (Pray doesn't lock) and interruptOnDamage.
+		if (_inputMove.LengthSquared() > MoveCancelThresholdSq
+			&& _runner != null && _runner.IsBusy
+			&& (_runner.Current.interactiveAction?.cancelOnMove ?? false))
+		{
+			CancelInteract();
+		}
 
 		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee") || Input.IsActionJustPressed("AttackContextSensitive") || Input.IsActionJustPressed("Dash"))
 		{

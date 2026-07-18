@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ReturnToCampQuestData" format=3 uid="uid://1ibortkocv6hq"]
+
+[ext_resource type="Script" uid="uid://dufctnqpyiyoa" path="res://scripts/data/quests/ReturnToCampQuestData.cs" id="1_return"]
+
+[resource]
+script = ExtResource("1_return")
+textKey = &"quest_return_to_camp"
+progressDisplay = 0

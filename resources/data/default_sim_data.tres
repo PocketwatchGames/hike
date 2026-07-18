@@ -69,7 +69,7 @@
 [ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/consumables/dog_treat.tres" id="71_spell_dog_treat"]
 [ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="72_spell_health_potion"]
 [ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="73_spell_cure_poison"]
-[ext_resource type="Resource" path="res://resources/data/items/consumables/stamina_potion.tres" id="74_spell_stamina"]
+[ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/consumables/stamina_potion.tres" id="74_spell_stamina"]
 
 [resource]
 script = ExtResource("1_1meao")

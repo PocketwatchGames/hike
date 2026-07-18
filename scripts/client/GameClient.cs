@@ -463,6 +463,10 @@ public partial class GameClient : Node3D
 	// player camps somewhere new (CampScreen.Open → NotifyCampedAt). On a party
 	// member's death the survivors gather here and the fade-in frames it.
 	Vector3 _lastCampfirePosition;
+	// The Campfire node the party last camped at, so the Pray self-action can wake
+	// the player into a full camp screen there. May be null (never camped, or the
+	// node was streamed out) — callers fall back to _lastCampfirePosition.
+	Campfire _lastCampfire;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
@@ -563,6 +567,13 @@ public partial class GameClient : Node3D
 		_lastCampfirePosition = playerPosition;
 		_playerScene = playerScene;
 		_worldGenData = worldGenData;
+		// Bind this world's authored scripted content (quests) onto the runtime
+		// sim state — the single point that has both the gen template and the
+		// WorldState, for the WorldGen and .hike-load paths alike.
+		if (worldState != null)
+		{
+			worldState.ScriptData = worldGenData?.scriptData;
+		}
 		onHudText += OnHudTextRequested;
 		onDamage += OnDamageRequested;
 		onHeal += OnHealRequested;
@@ -592,6 +603,8 @@ public partial class GameClient : Node3D
 		_world.OnNewDay += OnNewDayResetMeals;
 		_world.OnNewDay += OnNewDayWellRested;
 		_world.OnNewDay += OnNewDayRefuelLanterns;
+		// World detects revive-deadline expiry (sim); we free the corpse node (client).
+		_world.onPartyMemberExpired += OnPartyMemberExpired;
 		sceneViewport.AddChild(_world);
 		// World.Initialize is the chunk-mesh sphere fill — fully synchronous
 		// today (~900 chunks). The bar can't tick during this; it stays
@@ -809,6 +822,9 @@ public partial class GameClient : Node3D
 		}
 		InputSuppressed = true;
 		forge.Light();
+		// Remember the campfire node so Pray can wake the player into a full camp
+		// screen here later (position alone can't reopen the cook/craft tabs).
+		_lastCampfire = forge;
 		// The map reveal is armed but NOT shown here — it plays the next time the
 		// player opens the map. Knowledge that newly landed in the pool is announced
 		// (on top of the camp screen) inside NotifyCampedAt.
@@ -1356,8 +1372,6 @@ public partial class GameClient : Node3D
 			return;
 		}
 		_world.Tick(deltaTime);
-		// Retire any fallen member whose revive deadline the day cycle just passed.
-		CheckReviveDeadlines();
 		Combat?.Tick(_world.GameTimeMs);
 		UpdateRegion(deltaTime);
 		UpdateDebugSkyLight(deltaTime);
@@ -1378,6 +1392,13 @@ public partial class GameClient : Node3D
 			// _inputMove every frame regardless of who last wrote it.
 			_player.ClearInput();
 		}
+
+		// Drive the fade-to-black for a fadeToBlack interactive action (Pray) off its
+		// live interact progress, unwinding to clear the instant the action ends or is
+		// cancelled. Runs regardless of InputSuppressed so the curtain still clears once
+		// the completion effect opens the camp screen. campFade doubles as the overlay
+		// (idle whenever a real camp fade isn't running, so SetManualDarkness owns it).
+		campFade?.SetManualDarkness(_player.CurrentInteractiveFadesToBlack ? _player.ClientInteractProgress : 0f);
 
 		// Recenter the virtual aim cursor when not aiming so each new aim
 		// session starts centered. Gated on IsAiming so a mid-charge release
@@ -1925,10 +1946,14 @@ public partial class GameClient : Node3D
 	// is currently meaningful.
 	void UpdateInteractHUD()
 	{
-		// No interact prompt during the bird's-eye overview shot.
+		// No interact prompt during the bird's-eye overview shot. Falls back to the
+		// player's self-interactive when the player has pressed interact with nothing
+		// highlighted (SelfMenuRequested) — that spawns the HUD purely so its options
+		// modal can list the always-available self-actions (Pray, ...).
 		IInteractive target = (_player?.IsBirdsEye ?? false)
 			? null
-			: _player?.CurInteractive ?? _player?.HighlightInteractive;
+			: _player?.CurInteractive ?? _player?.HighlightInteractive
+				?? (_player != null && _player.SelfMenuRequested ? _player.SelfInteractive : null);
 		if (_interactHUD != null && _interactHUD.Interactive != target)
 		{
 			_interactHUD.QueueFree();
@@ -2433,8 +2458,8 @@ public partial class GameClient : Node3D
 		// fallen member their one-day revive grace and destroy anyone whose
 		// deadline the skip just passed.
 		_world?.AdvanceToNextSunrise();
-		AssignReviveDeadlines();
-		CheckReviveDeadlines();
+		_world?.AssignReviveDeadlines();
+		_world?.CheckReviveDeadlines();
 		GatherPartyAt(_lastCampfirePosition);
 		camera?.SetInitialPosition(_lastCampfirePosition);
 		slowMotion?.Release();
@@ -2494,56 +2519,27 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// Give every fallen member without a deadline one day of grace: they must be
-	// revived before the NEXT sunrise (a full day past the one the party just woke
-	// at) or be destroyed. Assigned after the death time-skip, so DayNumber already
-	// sits on the wake-up day.
-	void AssignReviveDeadlines()
+	// World detected this fallen member's revive deadline lapsed (World.CheckReviveDeadlines
+	// fires onPartyMemberExpired). Free the corpse body node and drop the roster entry,
+	// kept index-aligned with the sim Party. The Player node is GameClient's to own — which
+	// is why this teardown lives here while the timing decision lives in the sim. Only dead
+	// members are ever reported, so the controlled member is never destroyed.
+	void OnPartyMemberExpired(PlayerState member)
 	{
-		Party party = _world?.WorldState?.SimState?.Party;
-		if (party == null || _world == null)
+		if (member == null)
 		{
 			return;
 		}
-		int deadlineDay = _world.DayNumber + 1;
-		for (int i = 0; i < party.Count; i++)
+		int index = -1;
+		for (int i = 0; i < _partyPlayers.Count; i++)
 		{
-			PlayerState m = party[i];
-			if (m != null && m.IsDead && m.ReviveByDay <= 0)
+			if (_partyPlayers[i]?.Member == member)
 			{
-				m.ReviveByDay = deadlineDay;
+				index = i;
+				break;
 			}
 		}
-	}
-
-	// Destroy any fallen member whose revive deadline the clock has reached — the
-	// body is removed and they leave the party for good. Called after the death
-	// time-skip and every frame (natural day passage), so a corpse left un-revived
-	// past its second sunrise is lost.
-	void CheckReviveDeadlines()
-	{
-		Party party = _world?.WorldState?.SimState?.Party;
-		if (party == null || _world == null)
-		{
-			return;
-		}
-		int today = _world.DayNumber;
-		for (int i = party.Count - 1; i >= 0; i--)
-		{
-			PlayerState m = party[i];
-			if (m != null && m.IsDead && m.ReviveByDay > 0 && today >= m.ReviveByDay)
-			{
-				DestroyPartyMember(i);
-			}
-		}
-	}
-
-	// Remove a fallen member permanently: free the corpse body and drop the roster
-	// entry (kept index-aligned with _partyPlayers). Only ever called on dead
-	// members, so the controlled member is never destroyed.
-	void DestroyPartyMember(int index)
-	{
-		if (index < 0 || index >= _partyPlayers.Count)
+		if (index < 0)
 		{
 			return;
 		}
@@ -2747,6 +2743,42 @@ public partial class GameClient : Node3D
 		{
 			InputSuppressed = false;
 		}
+	}
+
+	// Resolution of the Pray self-action (PrayReturnHomeEffect, fired once the
+	// screen is fully black). Sends the player home to their last campfire and wakes
+	// them into the camp screen the next morning. Every state change here reuses the
+	// existing camp/sleep path — the sleep-to-sunrise trio (advance the day, clear
+	// transient effects, full-heal, exactly as PerformSleepAdvance's toSunrise branch)
+	// plus the ordinary camp-screen open. The ONE deliberate omission is banking:
+	// unlike EnterCampWithFade this never calls NotifyCampedAt, so the field knowledge
+	// and materials the player gathered are NOT committed — that's the cost of the
+	// free trip home.
+	public void PrayReturnHome()
+	{
+		if (_player == null || _world == null)
+		{
+			return;
+		}
+		_player.TeleportTo(_lastCampfirePosition);
+		// Sleep-to-sunrise: the night passes, enchantments (transient effects) reset,
+		// and the player wakes healed — the same three calls the camp sleep makes.
+		_world.AdvanceToNextSunrise();
+		if (!_player.IsDead)
+		{
+			_player.ClearTransientStatusEffects();
+			_player.Heal(_player.MaxHealth);
+		}
+		_player.RefuelLantern();
+		// A surviving companion wakes at the campfire, mirroring the sleep/respawn paths.
+		_world.Companion?.RecallToPlayer(_lastCampfirePosition);
+		camera?.SetInitialPosition(_lastCampfirePosition);
+		// Open the camp screen without banking. The home campfire node is used when it
+		// is still resident (full cook/craft); otherwise fall back to a position-only
+		// camp, exactly as the death gather does.
+		Campfire forge = (_lastCampfire != null && IsInstanceValid(_lastCampfire)) ? _lastCampfire : null;
+		forge?.Light();
+		campScreen?.Open(_player, forge);
 	}
 
 	public void Save()

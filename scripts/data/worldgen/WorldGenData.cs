@@ -6,6 +6,12 @@ public partial class WorldGenData : Resource
 {
     [Export] public SimData simData;
 
+    // This world's authored scripted content — quests today, scripted events
+    // later. Threaded onto WorldState.ScriptData at load (GameClient.Init).
+    // Separate from SimData, which is generic cross-session content. Null = no
+    // scripted content in this world.
+    [Export] public WorldScriptData scriptData;
+
     // Per-zone placement list. Each PlacedZone pairs a reusable ZoneGenData
     // template with the ZoneBounds describing where it goes in THIS world; the
     // index in this array becomes the ChunkState.ZoneIndex stamped on each

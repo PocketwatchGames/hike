@@ -14,6 +14,7 @@
 [ext_resource type="Texture2D" uid="uid://dqyckjku6gox3" path="res://assets/textures/weather/night_cold_cloudy.png" id="9_is1ux"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="11_1hqqq"]
 [ext_resource type="PackedScene" path="res://scenes/gui/region_banner.tscn" id="13_is1ux"]
+[ext_resource type="PackedScene" uid="uid://2uhqrphkgsot" path="res://scenes/gui/quest_item.tscn" id="13_o8nis"]
 [ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_drain_bg"]
@@ -78,7 +79,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_lanternHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_lanternHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_lanternHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_lanternHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -98,6 +99,8 @@ _consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContain
 _lanternHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer4/LanternHint")
 _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StatusEffects")
 _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
+_questContainer = NodePath("ScreenMarginContainer/UpperLeft/QuestContainer")
+_questItemScene = ExtResource("13_o8nis")
 _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
 _drainedHealthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/DrainedHealthBar")
 _armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar/ArmorBar")
@@ -445,6 +448,14 @@ offset_top = -40.0
 offset_right = 80.0
 offset_bottom = 40.0
 grow_vertical = 2
+
+[node name="UpperLeft" type="MarginContainer" parent="ScreenMarginContainer" unique_id=853136875]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="QuestContainer" type="VBoxContainer" parent="ScreenMarginContainer/UpperLeft" unique_id=1630968885]
+layout_mode = 2
 
 [node name="StatusEffectNotificationAnchor" type="Control" parent="." unique_id=1924019998]
 layout_mode = 1
