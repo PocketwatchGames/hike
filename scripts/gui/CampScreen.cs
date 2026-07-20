@@ -1,65 +1,82 @@
 using Godot;
-using System;
 using System.Collections.Generic;
 
-// Modal camp hub, opened from a lit campfire (Campfire → EActionVerb.Camp). Mirrors
-// AlmanacScreen: it owns the input gate (GameClient.InputSuppressed), hides the
-// in-game HUD, releases the mouse, and cycles Sleep / Cook / Stash tabs with
-// TabLeft / TabRight. While open the player is concealed from mobs and plays the
-// SitIdle pose (Player.EnterCamp / ExitCamp). ui_cancel closes the whole screen.
+// Modal camp hub, opened from a lit campfire (Campfire → EActionVerb.Camp). It
+// owns the input gate (GameClient.InputSuppressed), hides the in-game HUD,
+// releases the mouse, and while open conceals the player from mobs and plays the
+// SitIdle pose (Player.EnterCamp / ExitCamp).
 //
-// Unlike AlmanacScreen's read-only sub-screens, the cooking and stash tabs are
-// data-bound per open: Cook attaches to the campfire's Campfire, Stash to the
-// party equipment stash (SimState.PartyEquipmentStash, reachable from any
-// campfire).
-// Each sub-screen is driven via its Open()/Close() — they no longer own any
-// global gating of their own; this screen is the single owner.
+// Layout: a persistent status panel (top-right) always reads out the chosen
+// character + their attuned spell, over a swappable body that is one of four
+// views — the CampRoot button hub, or the Sleep / Select-Character / Select-Spell
+// sub-screens. The hub buttons switch the body; ui_cancel backs a sub-screen out
+// to the hub, or (from the hub) leaves camp.
+//
+// Leaving is gated until a character has been chosen this camp: on a fresh camp,
+// after a night's rest, and after a death there is no chosen character (the panel
+// reads "No character selected", Leave Camp is disabled), so the player must pick
+// before heading out.
 [GlobalClass]
 public partial class CampScreen : Control
 {
-	public enum ECampTab
+	// The swappable body view; the persistent chosen-character/spell panel sits
+	// over whichever of these is showing.
+	enum ECampView
 	{
+		Root,
 		Sleep,
 		Party,
-		Cook,
+		Spell,
 	}
 
 	[Export] SleepScreen _sleepScreen;
 	[Export] PartyScreen _partyScreen;
+	[Export] Control _campRoot;
 	[Export] SpellSelectionScreen _spellSelectionScreen;
-	[Export] ButtonHint _tabLeftButtonHint;
-	[Export] ButtonHint _tabRightButtonHint;
-	[Export] Control _sleepTab;
-	[Export] Control _spellsTab;
-	[Export] Control _partyTab;
+	// CampRoot hub buttons.
+	[Export] Button _sleepButton;
+	[Export] Button _characterButton;
+	[Export] Button _spellButton;
+	[Export] Button _leaveButton;
+	// Persistent chosen-character readout.
+	[Export] Label _chosenName;
+	[Export] TextureRect _chosenPortrait;
+	[Export] TextureRect _chosenArmor;
+	[Export] TextureRect _chosenMelee;
+	[Export] TextureRect _chosenRanged;
+	[Export] Label _chosenStatus;
+	// Persistent chosen-spell readout.
+	[Export] Label _noSpellLabel;
+	[Export] Control _noSpellPanel;
+	[Export] ItemInfoPanel _chosenSpellPanel;
 
 	GameClient _gameClient;
 	Player _player;
 	Campfire _forge;
-	ECampTab _curTab;
-	bool _open;
-	// Forced death party-select: only the party tab is available and tab cycling
-	// is locked, so the player picks a surviving member to control.
-	bool _partySelectMode;
 	// The campfire this camp is anchored to — used to re-gather the party when the
-	// controlled member changes via the Select-Character tab.
+	// controlled member changes via the Select-Character screen.
 	Vector3 _campfirePosition;
-	// Set when the in-flight sleep is a full rest to sunrise (not a 1-hour nap) so
-	// the wake handler can advance to the Party tab.
+	ECampView _view;
+	bool _open;
+	// A character has been picked this camp. Cleared on open, after a death, and
+	// after a night's rest — the panel reads "No character selected" and Leave Camp
+	// stays disabled until the player chooses.
+	bool _characterChosen;
+	// Forced death Select-Character: the controlled character is a corpse, so the
+	// pick transfers control immediately (not deferred to camp close) and backing
+	// out of the party view is disallowed until a survivor is chosen.
+	bool _deathSelect;
+	// Set while a sleep-to-sunrise skip is in flight so the wake handler knows to
+	// reset the character / spell choice for the new day.
 	bool _pendingSleepToSunrise;
-	// The player owes a character choice (just woke to a new day). Like the death
-	// party-select it pins the screen to the Party tab — no cooking, no backing
-	// out — until a member is picked, but on pick it proceeds to the Cook tab
-	// rather than confirming a death respawn.
-	bool _mustSelectCharacter;
+	// The last spell the player attuned this run — used to pre-highlight their
+	// previous pick on the Select-Spell screen after a night's rest clears the
+	// active attunement.
+	SpellData _lastChosenSpell;
 
-	// Any state that forces the player to pick a controlled member before doing
-	// anything else: the forced death select or a fresh day's wake.
-	bool SelectionLocked => _partySelectMode || _mustSelectCharacter;
-
-	// Any alchemy spell is known — the Spells tab is only offered when there's at
-	// least one spell to attune (otherwise the tab is empty). Walks SimData.spells
-	// against the active member's knowledge (SimState.IsSpellKnown).
+	// Any alchemy spell is known — the Select-Spell button is only enabled when
+	// there's at least one spell to attune. Walks SimData.spells against the active
+	// member's knowledge (SimState.IsSpellKnown).
 	bool AnySpellKnown
 	{
 		get
@@ -83,9 +100,19 @@ public partial class CampScreen : Control
 
 	public override void _Ready()
 	{
-		_tabLeftButtonHint?.SetHint("TabLeft", string.Empty);
-		_tabRightButtonHint?.SetHint("TabRight", string.Empty);
 		Visible = false;
+		if (_sleepButton != null) { _sleepButton.Pressed += OnSleepButton; }
+		if (_characterButton != null) { _characterButton.Pressed += OnCharacterButton; }
+		if (_spellButton != null) { _spellButton.Pressed += OnSpellButton; }
+		if (_leaveButton != null) { _leaveButton.Pressed += OnLeaveButton; }
+	}
+
+	public override void _ExitTree()
+	{
+		if (_sleepButton != null) { _sleepButton.Pressed -= OnSleepButton; }
+		if (_characterButton != null) { _characterButton.Pressed -= OnCharacterButton; }
+		if (_spellButton != null) { _spellButton.Pressed -= OnSpellButton; }
+		if (_leaveButton != null) { _leaveButton.Pressed -= OnLeaveButton; }
 	}
 
 	public void Open(Player player, Campfire forge)
@@ -94,19 +121,18 @@ public partial class CampScreen : Control
 		// survivors here). The arrival bank / material transfer is done up front by
 		// GameClient.EnterCampWithFade before this screen opens.
 		OpenInternal(player, forge, forge?.GlobalPosition ?? player?.GlobalPosition ?? Vector3.Zero,
-			ECampTab.Sleep, partySelectMode: false);
+			deathSelect: false);
 	}
 
-	// Forced Select-Character screen after a party member's death: opens at the
-	// last campfire locked to the party tab (no sleep/cook/stash), so the player
-	// picks a surviving member to control. Driven by GameClient.OpenDeathPartySelect.
+	// Forced Select-Character screen after a party member's death: opens at the last
+	// campfire straight into the party view, locked there until the player picks a
+	// surviving member to control. Driven by GameClient.OpenDeathPartySelect.
 	public void OpenPartySelect(Player controlledSurvivor, Vector3 campfirePosition)
 	{
-		OpenInternal(controlledSurvivor, null, campfirePosition,
-			ECampTab.Party, partySelectMode: true);
+		OpenInternal(controlledSurvivor, null, campfirePosition, deathSelect: true);
 	}
 
-	void OpenInternal(Player player, Campfire forge, Vector3 campfirePosition, ECampTab startTab, bool partySelectMode)
+	void OpenInternal(Player player, Campfire forge, Vector3 campfirePosition, bool deathSelect)
 	{
 		if (_open)
 		{
@@ -114,9 +140,9 @@ public partial class CampScreen : Control
 		}
 		_player = player;
 		_forge = forge;
-		_partySelectMode = partySelectMode;
-		_mustSelectCharacter = false;
 		_campfirePosition = campfirePosition;
+		_deathSelect = deathSelect;
+		_characterChosen = false;
 		_gameClient = GameClient.Current;
 		if (_gameClient != null)
 		{
@@ -130,46 +156,41 @@ public partial class CampScreen : Control
 		_player?.ClearInteractive();
 		_player?.EnterCamp();
 		MusicManager.Instance?.SetCamping(true);
-		// Seat the living party around the fire (the death party-select gathers
-		// itself once the player picks a survivor, so skip it there).
-		if (!_partySelectMode) { _gameClient?.GatherPartyAt(campfirePosition); }
+		// Seat the living party around the fire (the death select gathers itself once
+		// the player picks a survivor, so skip it there).
+		if (!deathSelect) { _gameClient?.GatherPartyAt(campfirePosition); }
 		// Lower-pitch zoomed-in framing focused on the campfire (with a transition
 		// blur) and hold the day/night clock while resting.
 		_gameClient?.camera?.SetCampMode(true, campfirePosition);
 		if (_player?.Sim != null) { _player.Sim.TimeOfDayFrozen = true; }
-		// Party-select mode shows only the party tab (the player must pick, not rest).
-		UpdateTabVisibility();
 		_open = true;
 		Visible = true;
-		// Open the start tab even though _curTab may already equal it — there is
-		// no active sub-screen yet, so force the bind.
-		_curTab = startTab;
-		OpenTab(startTab);
+		// Start from the hub, then let the guided flow force the required picks.
+		_view = ECampView.Root;
+		AdvanceGuidedFlow();
 	}
 
-	// Hide the non-party tab chips whenever the player owes a character choice
-	// (forced death select or a fresh day's wake). The Cook chip is additionally
-	// withheld once the active member has eaten their meal for the day.
-	void UpdateTabVisibility()
+	// Guided arrival flow: force the required picks in order — choose a character,
+	// then (if none is attuned) choose a spell — before landing on the hub with Leave
+	// Camp focused. Re-run after each pick and on a new day's wake; manual ui_cancel /
+	// almanac return go straight to the hub without re-triggering it.
+	void AdvanceGuidedFlow()
 	{
-		bool full = !SelectionLocked;
-		if (_sleepTab != null) { _sleepTab.Visible = full; }
-		if (_spellsTab != null) { _spellsTab.Visible = full && AnySpellKnown; }
-		if (_partyTab != null) { _partyTab.Visible = full; }
-		if (_tabLeftButtonHint != null) { _tabLeftButtonHint.Visible = full; }
-		if (_tabRightButtonHint != null) { _tabRightButtonHint.Visible = full; }
-	}
-
-	// Whether a tab can currently be opened. The Spells tab (ECampTab.Cook) is
-	// offered only when at least one spell is known; the others are always available
-	// (SelectionLocked is gated separately in CycleTab).
-	bool IsTabAvailable(ECampTab tab)
-	{
-		if (tab == ECampTab.Cook)
+		RefreshChosenPanel();
+		if (!_characterChosen)
 		{
-			return AnySpellKnown;
+			ShowView(ECampView.Party);
+			return;
 		}
-		return true;
+		if (AnySpellKnown && ChosenPlayer()?.Inventory?.AttunedSpell == null)
+		{
+			ShowView(ECampView.Spell);
+			return;
+		}
+		// Everything chosen — land on the hub and focus Leave Camp (queued after
+		// OpenView(Root)'s default focus so it wins) so a confirm press heads out.
+		ShowView(ECampView.Root);
+		_leaveButton?.CallDeferred(Control.MethodName.GrabFocus);
 	}
 
 	public void Close()
@@ -178,7 +199,7 @@ public partial class CampScreen : Control
 		{
 			return;
 		}
-		CloseTab(_curTab);
+		HideView(_view);
 		_open = false;
 		Visible = false;
 		_player?.ExitCamp();
@@ -191,64 +212,101 @@ public partial class CampScreen : Control
 			_gameClient.InputSuppressed = false;
 			if (_gameClient.hud != null) { _gameClient.hud.Visible = true; }
 		}
-		// Apply any Select-Character choice made this camp: control transfers to
-		// the member the roster now marks active (no-op if unchanged). Runs after
-		// camp teardown so it repoints the follow camera / HUD to the new member.
-		// A deliberate switch carries the consumable belt to the new character; the
-		// death-respawn switch (OnDeathBlackout / OnPartyMemberConfirmed) does not.
+		// Apply the Select-Character choice: control transfers to the roster's active
+		// member (no-op if unchanged). Runs after camp teardown so it repoints the
+		// follow camera / HUD to the new member. A deliberate switch carries the
+		// attuned spell to the new character; the death-respawn switch (handled in
+		// OnCharacterChosen) already transferred control.
 		_gameClient?.SyncControlToActive(transferBelt: true);
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 		_player = null;
 		_forge = null;
-		// Restore the full tab set for the next (normal) camp.
-		_partySelectMode = false;
-		_mustSelectCharacter = false;
-		UpdateTabVisibility();
+		_deathSelect = false;
+		_characterChosen = false;
 	}
 
-	// Switch to a tab: tear down the current sub-screen, bind the new one. The
-	// previously-active tab's Close() runs its own cleanup (cooking returns idle
-	// inputs to the bag; stash drops any pending selection).
-	void ShowTab(ECampTab tab)
+	// Switch the body view: tear down the current sub-screen (its Close() runs its
+	// own cleanup), bind the new one.
+	void ShowView(ECampView view)
 	{
-		if (tab == _curTab)
+		HideView(_view);
+		_view = view;
+		OpenView(view);
+	}
+
+	void HideView(ECampView view)
+	{
+		switch (view)
 		{
-			return;
+			case ECampView.Root:
+				if (_campRoot != null) { _campRoot.Visible = false; }
+				break;
+			case ECampView.Sleep:
+				_sleepScreen?.Close();
+				break;
+			case ECampView.Party:
+				_partyScreen?.Close();
+				break;
+			case ECampView.Spell:
+				_spellSelectionScreen?.Close();
+				break;
 		}
-		CloseTab(_curTab);
-		OpenTab(tab);
 	}
 
-	void OpenTab(ECampTab tab)
+	void OpenView(ECampView view)
 	{
-		_curTab = tab;
-		UpdateTabHighlight();
-		switch (tab)
+		switch (view)
 		{
-			case ECampTab.Sleep:
+			case ECampView.Root:
+				if (_campRoot != null) { _campRoot.Visible = true; }
+				RefreshChosenPanel();
+				UpdateHubButtons();
+				_sleepButton?.CallDeferred(Control.MethodName.GrabFocus);
+				break;
+			case ECampView.Sleep:
 				_sleepScreen?.Open(_player, _forge?.HealFractionPerHour ?? 0f, RequestSleep);
 				break;
-			case ECampTab.Party:
-				// In the forced death select, choosing a member confirms + closes; in
-				// normal camp, selecting marks the member active (the control switch
-				// still defers to camp close) and advances to the Cook tab.
-				_partyScreen?.Open(_gameClient, _partySelectMode ? OnPartyMemberConfirmed : OnPartyMemberSelected);
+			case ECampView.Party:
+				// Selecting marks the roster's active member (control transfers on camp
+				// close, or immediately in the death select) and returns to the hub.
+				_partyScreen?.Open(_gameClient, OnCharacterChosen);
 				break;
-			case ECampTab.Cook:
-				// A completed cook leaves camp (see OnDishCooked); so does pressing
-				// the primary button with nothing loaded ("Continue" → Close).
-				_spellSelectionScreen?.Open(_player, _forge, onCooked: OnDishCooked, onContinue: Close);
+			case ECampView.Spell:
+				// Attunes onto the chosen character so the panel and the attunement
+				// agree even before the on-close control transfer.
+				_spellSelectionScreen?.Open(ChosenPlayer(), _forge, OnSpellChosen, PreferredSpell());
 				break;
 		}
 	}
 
-	// Forced death party-select: choosing a member commits the pick — control
-	// transfers to the chosen survivor now (the controlled character is a corpse, so
-	// unlike the normal-camp select this can't defer to camp close) and the party
-	// re-gathers so they sit at the fire — then proceed like any post-select.
-	void OnPartyMemberConfirmed()
+	void OnSleepButton() { ShowView(ECampView.Sleep); }
+	void OnCharacterButton() { ShowView(ECampView.Party); }
+	void OnSpellButton() { if (AnySpellKnown) { ShowView(ECampView.Spell); } }
+	void OnLeaveButton() { TryLeave(); }
+
+	// Leave camp — gated on a chosen character (the Leave button is disabled and
+	// ui_cancel from the hub is a no-op until then).
+	void TryLeave()
 	{
-		if (_gameClient != null)
+		if (_characterChosen)
+		{
+			Close();
+		}
+	}
+
+	void UpdateHubButtons()
+	{
+		if (_spellButton != null) { _spellButton.Disabled = !AnySpellKnown; }
+		if (_leaveButton != null) { _leaveButton.Disabled = !_characterChosen; }
+	}
+
+	// PartyScreen pick callback. Marks the character chosen for this camp; if the
+	// controlled character was a corpse (death select) control transfers to the pick
+	// now (the corpse can't stay controlled), otherwise it defers to camp close.
+	// Returns to the hub.
+	void OnCharacterChosen()
+	{
+		if (_deathSelect && _gameClient != null)
 		{
 			_player?.ExitCamp();
 			_gameClient.SyncControlToActive();
@@ -257,34 +315,33 @@ public partial class CampScreen : Control
 			_gameClient.GatherPartyAt(_campfirePosition);
 			_gameClient.camera?.SetCampMode(true, _campfirePosition);
 		}
-		ProceedAfterSelection();
+		_deathSelect = false;
+		_characterChosen = true;
+		// Continue the flow — if no spell is attuned yet, straight to the spell screen.
+		AdvanceGuidedFlow();
 	}
 
-	void CloseTab(ECampTab tab)
+	// SpellSelectionScreen pick callback: the spell was attuned on that screen.
+	// Remember it as the previous pick and advance the flow (which now lands on the
+	// hub with Leave Camp focused).
+	void OnSpellChosen()
 	{
-		switch (tab)
-		{
-			case ECampTab.Sleep:
-				_sleepScreen?.Close();
-				break;
-			case ECampTab.Party:
-				_partyScreen?.Close();
-				break;
-			case ECampTab.Cook:
-				_spellSelectionScreen?.Close();
-				break;
-		}
+		SpellData attuned = ChosenPlayer()?.Inventory?.AttunedSpell;
+		if (attuned != null) { _lastChosenSpell = attuned; }
+		AdvanceGuidedFlow();
 	}
 
-	List<ItemState> EquipmentStash()
+	// Spell to pre-highlight on the Select-Spell screen: the live attunement if any,
+	// else the previous pick (which a night's rest clears from the live slot).
+	SpellData PreferredSpell()
 	{
-		return _player?.Sim?.WorldState?.SimState?.PartyEquipmentStash;
+		return ChosenPlayer()?.Inventory?.AttunedSpell ?? _lastChosenSpell;
 	}
 
 	// SleepScreen callback: hide the camp UI but keep the player in camp state
 	// (concealed, SitIdle, camp music, input gated) through the sleep fade + skip.
-	// RestoreFromSleep re-shows the UI on a clean wake; OnPlayerDied tears it down
-	// if a DoT kills the player mid-skip.
+	// RestoreFromSleep re-shows the UI on a clean wake; OnPlayerDied tears it down if
+	// a DoT kills the player mid-skip.
 	void RequestSleep(double hours, double healFractionPerHour, bool toSunrise)
 	{
 		// Sleep-to-sunrise ignores `hours`; a nap needs a positive duration.
@@ -298,11 +355,10 @@ public partial class CampScreen : Control
 	}
 
 	// Wake callback from GameClient.EndSleep: the input gate was handed back to us
-	// rather than released, so the player is still camping. Re-show the UI and
-	// re-open the active tab so its state refreshes (health/time changed during
-	// the skip) and focus is restored. A full rest to sunrise advances to the Party
-	// tab (a new day banks campfire knowledge / invites a roster review); a 1-hour
-	// nap stays on Sleep.
+	// rather than released, so the player is still camping. A full rest to sunrise is
+	// a new day — the active character + attuned spell reset, so the player must
+	// re-pick (back to the hub, Leave disabled); a 1-hour nap keeps the current
+	// choice and just re-binds the sleep view so its health / time readout refreshes.
 	void RestoreFromSleep()
 	{
 		if (!_open)
@@ -311,59 +367,97 @@ public partial class CampScreen : Control
 		}
 		Visible = true;
 		Input.MouseMode = Input.MouseModeEnum.Visible;
-		ECampTab wakeTab = _pendingSleepToSunrise ? ECampTab.Party : _curTab;
 		if (_pendingSleepToSunrise)
 		{
-			// New day: pin to the Party tab until the player (re)picks who they
-			// control, hiding the other tab chips like the death select does.
-			_mustSelectCharacter = true;
-			UpdateTabVisibility();
-		}
-		_pendingSleepToSunrise = false;
-		// Tear down the outgoing tab before binding the new one (OpenTab alone
-		// doesn't close the previous sub-screen); a same-tab wake re-binds in place.
-		if (wakeTab != _curTab)
-		{
-			CloseTab(_curTab);
-		}
-		OpenTab(wakeTab);
-	}
-
-	// Normal-camp Select-Character callback: the pick marks the roster's active
-	// member (the control switch still defers to camp close). No control-transfer
-	// prologue is needed — the controlled character is alive.
-	void OnPartyMemberSelected()
-	{
-		ProceedAfterSelection();
-	}
-
-	// Shared tail for both Select-Character callbacks: drop any selection lock,
-	// refresh tab visibility, then move to the Cook tab so the active member can
-	// cook their meal — or close straight out if they've already eaten today (there's
-	// nothing left to do at camp), transferring control to the pick on the way out.
-	void ProceedAfterSelection()
-	{
-		_partySelectMode = false;
-		_mustSelectCharacter = false;
-		UpdateTabVisibility();
-		if (!AnySpellKnown)
-		{
-			Close();
+			_pendingSleepToSunrise = false;
+			// Remember the cleared attunement so the Select-Spell screen can
+			// pre-highlight it, then reset both choices for the new day.
+			SpellData attuned = _player?.Inventory?.AttunedSpell;
+			if (attuned != null) { _lastChosenSpell = attuned; }
+			_player?.Inventory?.AttuneSpell(null);
+			_characterChosen = false;
+			// New day: re-run the guided flow (character → spell → Leave Camp).
+			AdvanceGuidedFlow();
 			return;
 		}
-		ShowTab(ECampTab.Cook);
+		ShowView(_view);
 	}
 
-	// CookingScreen callback: a dish finished cooking — leave camp.
-	void OnDishCooked()
+	// The character the panel represents — the roster's active member's Player
+	// (index-aligned with PartyPlayers). Falls back to the controlled player.
+	Player ChosenPlayer()
 	{
-		Close();
+		if (_gameClient == null)
+		{
+			return _player;
+		}
+		IReadOnlyList<Player> players = _gameClient.PartyPlayers;
+		int idx = _gameClient.ActivePartyIndex;
+		if (players != null && idx >= 0 && idx < players.Count)
+		{
+			return players[idx];
+		}
+		return _player;
+	}
+
+	void RefreshChosenPanel()
+	{
+		Player chosen = _characterChosen ? ChosenPlayer() : null;
+		if (_chosenName != null)
+		{
+			_chosenName.Text = chosen != null ? chosen.PlayerName : "No character selected";
+		}
+		Inventory inv = chosen?.Inventory;
+		SetIcon(_chosenArmor, inv?.GetEquipped(EInventorySlot.Armor)?.data?.inventorySprite);
+		SetIcon(_chosenMelee, inv?.GetEquipped(EInventorySlot.WeaponMelee)?.data?.inventorySprite);
+		SetIcon(_chosenRanged, inv?.GetEquipped(EInventorySlot.WeaponRanged)?.data?.inventorySprite);
+		// No portrait art for player characters yet — keep the slot blank.
+		if (_chosenPortrait != null) { _chosenPortrait.Visible = false; }
+		if (_chosenStatus != null)
+		{
+			_chosenStatus.Text = (chosen?.Member?.IsWellRested ?? false) ? "Well Rested" : string.Empty;
+		}
+		RefreshChosenSpell(chosen);
+	}
+
+	void RefreshChosenSpell(Player chosen)
+	{
+		SpellData spell = chosen?.Inventory?.AttunedSpell;
+		if (_chosenSpellPanel != null)
+		{
+			if (spell != null)
+			{
+				ItemState state = spell.CreateState();
+				state.stackCount = 1;
+				_chosenSpellPanel.SetItem(state);
+			}
+			else
+			{
+				_chosenSpellPanel.SetItem(null);
+			}
+		}
+		// The "no spell selected" placeholder — hidden once a spell is chosen, since
+		// the panel above already shows its name and details.
+		if (_noSpellPanel != null)
+		{
+			_noSpellPanel.Visible = spell == null;
+			_noSpellLabel.Text = "no spell selected";
+		}
+	}
+
+	static void SetIcon(TextureRect rect, Texture2D texture)
+	{
+		if (rect != null)
+		{
+			rect.Texture = texture;
+			rect.Visible = texture != null;
+		}
 	}
 
 	// Open the almanac (world map / inventory / bestiary / recipes) over the camp
-	// screen, keeping the player camped. The almanac owns input gating while up;
-	// hide the camp UI (but stay _open) so our _UnhandledInput steps aside and the
-	// almanac handles Map / ui_cancel. Closing it invokes ReturnFromAlmanac.
+	// screen, keeping the player camped. The almanac owns input gating while up; hide
+	// the camp UI (but stay _open) so our _UnhandledInput steps aside and the almanac
+	// handles Map / ui_cancel. Closing it invokes ReturnFromAlmanac.
 	void OpenAlmanac()
 	{
 		if (!_open || _gameClient?.almanacScreen == null || _gameClient.almanacScreen.Visible)
@@ -376,7 +470,7 @@ public partial class CampScreen : Control
 
 	// Almanac closed (via its own ui_cancel/Map) — it released the input gate and
 	// re-showed the HUD on the way out, so re-establish the camp gate, re-show the
-	// camp UI, and re-bind the active tab to restore focus.
+	// camp UI, and re-bind the active view to restore focus.
 	void ReturnFromAlmanac()
 	{
 		if (!_open)
@@ -390,7 +484,7 @@ public partial class CampScreen : Control
 		}
 		Input.MouseMode = Input.MouseModeEnum.Visible;
 		Visible = true;
-		OpenTab(_curTab);
+		OpenView(_view);
 	}
 
 	// A DoT killed the player while camping (open or mid-sleep). The death / respawn
@@ -402,6 +496,7 @@ public partial class CampScreen : Control
 		{
 			return;
 		}
+		HideView(_view);
 		_open = false;
 		Visible = false;
 		_player?.ExitCamp();
@@ -416,49 +511,12 @@ public partial class CampScreen : Control
 		_forge = null;
 	}
 
-	void UpdateTabHighlight()
-	{
-		SetTabActive(_sleepTab, _curTab == ECampTab.Sleep);
-		SetTabActive(_spellsTab, _curTab == ECampTab.Cook);
-		SetTabActive(_partyTab, _curTab == ECampTab.Party);
-	}
-
-	static void SetTabActive(Control tab, bool active)
-	{
-		if (tab != null)
-		{
-			tab.Modulate = active ? Colors.White : new Color(0.5f, 0.5f, 0.5f);
-		}
-	}
-
-	void CycleTab(int direction)
-	{
-		// Pinned to the party tab while the player owes a character choice.
-		if (SelectionLocked)
-		{
-			return;
-		}
-		// Step in `direction` past any unavailable tab (Cook once the active member
-		// has eaten), landing on the next openable one.
-		int count = Enum.GetValues<ECampTab>().Length;
-		int next = (int)_curTab;
-		for (int step = 0; step < count; step++)
-		{
-			next = ((next + direction) % count + count) % count;
-			if (IsTabAvailable((ECampTab)next))
-			{
-				ShowTab((ECampTab)next);
-				return;
-			}
-		}
-	}
-
 	// The Map action (back/Tab) opens the almanac. Handled in _Input rather than
-	// _UnhandledInput because its Tab keybind is also Godot's ui_focus_next: the
-	// GUI focus system consumes Tab during the GUI phase, before unhandled input
-	// runs, so it would move control focus instead of reaching us. _Input runs
-	// ahead of that. Only fires while the camp screen is the foreground modal
-	// (Visible is false while the almanac is layered over it).
+	// _UnhandledInput because its Tab keybind is also Godot's ui_focus_next: the GUI
+	// focus system consumes Tab during the GUI phase, before unhandled input runs, so
+	// it would move control focus instead of reaching us. _Input runs ahead of that.
+	// Only fires while the camp screen is the foreground modal (Visible is false
+	// while the almanac is layered over it).
 	public override void _Input(InputEvent e)
 	{
 		if (!_open || !Visible)
@@ -479,30 +537,24 @@ public partial class CampScreen : Control
 		{
 			return;
 		}
-		// Sub-screens (children) see _UnhandledInput first and consume ui_cancel
-		// while they have an in-flight selection / count picker; a clean ui_cancel
-		// falls through to here and closes the whole screen.
+		// Sub-screens (children) see _UnhandledInput first and consume ui_cancel while
+		// they have an in-flight selection; a clean ui_cancel falls through to here.
 		if (e.IsActionPressed("ui_cancel"))
 		{
-			// While a character choice is owed (death select or a fresh day) there's
-			// no committed active member — the player must pick, so backing out is
-			// disallowed.
-			if (!SelectionLocked)
+			if (_view != ECampView.Root)
 			{
-				Close();
+				// Back out of a sub-screen to the hub — unless a death select still
+				// owes a survivor pick (there's no committed character to leave with).
+				if (!(_view == ECampView.Party && _deathSelect))
+				{
+					ShowView(ECampView.Root);
+				}
 			}
-			GetViewport().SetInputAsHandled();
-			return;
-		}
-		if (e.IsActionPressed("TabLeft"))
-		{
-			CycleTab(-1);
-			GetViewport().SetInputAsHandled();
-			return;
-		}
-		if (e.IsActionPressed("TabRight"))
-		{
-			CycleTab(1);
+			else
+			{
+				// From the hub, ui_cancel leaves camp — gated on a chosen character.
+				TryLeave();
+			}
 			GetViewport().SetInputAsHandled();
 		}
 	}

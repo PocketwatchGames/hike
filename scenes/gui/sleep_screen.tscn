@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://ciy17kjchyh8v" path="res://scripts/gui/SleepScreen.cs" id="1_sleep"]
 
-[node name="SleepScreen" type="Control" unique_id=615977979 node_paths=PackedStringArray("_oneHourButton", "_sixHourButton", "_untilHealedButton", "_untilSunButton")]
+[node name="SleepScreen" type="Control" unique_id=615977979 node_paths=PackedStringArray("_oneHourButton", "_untilSunButton")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,14 +11,15 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_sleep")
 _oneHourButton = NodePath("HBoxContainer/MarginContainer/VBoxContainer/Button")
-_sixHourButton = NodePath("")
-_untilHealedButton = NodePath("")
 _untilSunButton = NodePath("HBoxContainer/MarginContainer/VBoxContainer/Button4")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1209401613]
-layout_mode = 0
-offset_right = 1920.0
-offset_bottom = 1080.0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 alignment = 1
 
 [node name="MarginContainer" type="MarginContainer" parent="HBoxContainer" unique_id=61994767]

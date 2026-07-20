@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_wawlv"]
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="5_vc0ui"]
 
-[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_backpackPanel")]
+[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_spellPanel", "_backpackPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,6 +17,7 @@ script = ExtResource("1_7a5n3")
 _statsPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/PlayerStats")
 _meleePanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/MeleePanel")
 _rangedPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/RangedPanel")
+_spellPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/SpellPanel")
 _backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/BackpackPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=2000139086]
@@ -85,7 +86,10 @@ size_flags_vertical = 4
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=508680546]
 layout_mode = 2
 
-[node name="MeleePanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=638608018 instance=ExtResource("4_j245h")]
+[node name="SpellPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=638608018 instance=ExtResource("4_j245h")]
+layout_mode = 2
+
+[node name="MeleePanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=2122417689 instance=ExtResource("4_j245h")]
 layout_mode = 2
 _showDetails = false
 

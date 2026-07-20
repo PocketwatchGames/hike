@@ -12,6 +12,7 @@ public partial class InventoryScreen : Control
 	[Export] private PlayerStatsPanel _statsPanel;
 	[Export] private ItemInfoPanel _meleePanel;
 	[Export] private ItemInfoPanel _rangedPanel;
+	[Export] private ItemInfoPanel _spellPanel;
 	[Export] private BackpackPanel _backpackPanel;
 
 	GameClient _gameClient;
@@ -53,6 +54,9 @@ public partial class InventoryScreen : Control
 		Inventory inv = _player?.Inventory;
 		_meleePanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponMelee), forceIdentified: true);
 		_rangedPanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponRanged), forceIdentified: true);
+		// The attuned alchemy spell (the active consumable); its SpellData reagents
+		// surface as the panel's Required Reagents row. Hidden when nothing is attuned.
+		_spellPanel?.SetItem(inv?.GetEquipped(EInventorySlot.Equipment), forceIdentified: true);
 		_backpackPanel?.Refresh(inv?.Backpack);
 	}
 

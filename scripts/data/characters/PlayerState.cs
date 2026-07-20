@@ -46,14 +46,12 @@ public partial class PlayerState : Resource
 	//   perception       — sharpens the player's own senses (Vision + Hearing).
 	//   stealth          — quiets the player's emissions (Noise + Scent); higher = stealthier.
 	//   fortitude        — resists incoming combat status buildup (via EStat.FortitudeResistance); higher = more resistant.
-	//   charisma         — reserved for a future dialogue system; currently unused.
 	[Export] public float health = 1f;
 	[Export] public float stamina = 1f;
 	[Export] public float fortitude = 1f;
 	[Export] public float strength = 1f;
 	[Export] public float perception = 1f;
 	[Export] public float stealth = 1f;
-	[Export] public float charisma = 1f;
 
 	[ExportGroup("Starting Equipment")]
 	// This member's starting loadout. Moved off WorldGenData (it was a shared

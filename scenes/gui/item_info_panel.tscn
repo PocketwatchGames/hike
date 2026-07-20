@@ -5,8 +5,9 @@
 [ext_resource type="PackedScene" uid="uid://dhdl6e3d0bqna" path="res://scenes/gui/item_action_panel.tscn" id="2_p0emx"]
 [ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="3_iaocb"]
 [ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="4_t78nj"]
+[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="6_t8nb6"]
 
-[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_levelLabel", "_actionPanelContainer", "_statContainer", "_statusContainer")]
+[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_levelLabel", "_actionPanelContainer", "_statContainer", "_statusContainer", "_reagentsRoot", "_reagentSlots")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -21,6 +22,8 @@ _statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
 _statScene = ExtResource("3_iaocb")
 _statusContainer = NodePath("MarginContainer/VBoxContainer/StatusEffectContainer")
 _statusScene = ExtResource("4_t78nj")
+_reagentsRoot = NodePath("MarginContainer/VBoxContainer/MarginContainer")
+_reagentSlots = [NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel"), NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel2"), NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel3")]
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=281920321]
 layout_mode = 2
@@ -78,6 +81,30 @@ theme_override_font_sizes/font_size = 20
 autowrap_mode = 3
 
 [node name="StatusEffectContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=237535431]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer" unique_id=1120290116]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MarginContainer" unique_id=614767035]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer" unique_id=2125606067]
+layout_mode = 2
+text = "Required Reagents"
+horizontal_alignment = 1
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer" unique_id=1226961258]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="ItemSlotPanel" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=982744505 instance=ExtResource("6_t8nb6")]
+layout_mode = 2
+
+[node name="ItemSlotPanel2" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=106910560 instance=ExtResource("6_t8nb6")]
+layout_mode = 2
+
+[node name="ItemSlotPanel3" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=1712010456 instance=ExtResource("6_t8nb6")]
 layout_mode = 2
 
 [node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=405509744]

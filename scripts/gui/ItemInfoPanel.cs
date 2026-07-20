@@ -21,11 +21,18 @@ public partial class ItemInfoPanel : PanelContainer
 	// stat rows (damage, range, cost) are suppressed. The party screen uses
 	// this for a compact at-a-glance readout.
 	[Export] private bool _showDetails = true;
+	[Export] Control _reagentsRoot;
+	[Export] Godot.Collections.Array<ItemSlotPanel> _reagentSlots;
 
 	// forceIdentified overrides the world's identification gate so the item's
 	// stats/description always show — the forge picker uses it so a freshly
 	// minted piece reads in full before the player commits to it.
-	public void SetItem(ItemState item, bool forceIdentified = false)
+	//
+	// reagents, when supplied, are the required ingredients shown in the "Required
+	// Reagents" row — a recipe's `inputs` for a crafting preview. Left null, the row
+	// falls back to the item's own use cost when it's an alchemy spell
+	// (SpellData.reagents), and hides entirely for anything else.
+	public void SetItem(ItemState item, bool forceIdentified = false, IReadOnlyList<RecipeInput> reagents = null)
 	{
 		ItemData data = item?.data;
 		if (data == null)
@@ -57,7 +64,45 @@ public partial class ItemInfoPanel : PanelContainer
 		RebuildItemStats(item, identified);
 		RebuildStatusEffects(item);
 		RebuildActionPanels(item, identified);
+		// An explicit list (a crafting recipe's inputs) wins; otherwise a spell shows
+		// its own cast cost. Only spells carry reagents on the item, so the auto path
+		// never leaks an unidentified consumable's recipe.
+		RebuildReagents(reagents ?? (data as SpellData)?.reagents);
 		Visible = true;
+	}
+
+	// Fill the "Required Reagents" slots — one authored ItemSlotPanel per entry at its
+	// required count; extra slots are cleared. The whole row (_reagentsRoot) hides
+	// when there are no reagents to show.
+	private void RebuildReagents(IReadOnlyList<RecipeInput> reagents)
+	{
+		if (_reagentsRoot != null)
+		{
+			_reagentsRoot.Visible = reagents != null && reagents.Count > 0;
+		}
+		if (_reagentSlots == null)
+		{
+			return;
+		}
+		for (int i = 0; i < _reagentSlots.Count; i++)
+		{
+			ItemSlotPanel slot = _reagentSlots[i];
+			if (slot == null)
+			{
+				continue;
+			}
+			ItemState reagent = null;
+			if (reagents != null && i < reagents.Count)
+			{
+				RecipeInput ri = reagents[i];
+				if (ri?.item != null && ri.count > 0)
+				{
+					reagent = ri.item.CreateState();
+					reagent.stackCount = ri.count;
+				}
+			}
+			slot.SetItem(reagent);
+		}
 	}
 
 	// One StatusEffectInfoPanel per armed effect on the item. Reuses the

@@ -21,10 +21,6 @@ public partial class SpellSelectionPanel : MarginContainer
 	[Export] private Label _noSpellsLabel;
 	[Export] private PackedScene _spellButtonScene;
 	[Export] private ItemInfoPanel _itemInfoPanel;
-	// Reagent-cost readout for the focused spell — one authored ItemSlotPanel per
-	// reagent, filled with the reagent item at its required count. Extra slots (more
-	// than the spell has reagents) are cleared.
-	[Export] private Array<ItemSlotPanel> _reagentSlots;
 
 	// A spell button was clicked — the screen attunes it.
 	public System.Action<SpellData> onSpellSelected;
@@ -152,28 +148,18 @@ public partial class SpellSelectionPanel : MarginContainer
 			}
 		}
 
-		if (_reagentSlots != null)
+	}
+
+	// Focus the button for `spell` if it exists and is visible; returns false when
+	// it isn't in the list (caller falls back to the first available button).
+	public bool GrabFocusFor(SpellData spell)
+	{
+		if (spell != null && _spellButtons.TryGetValue(spell, out Button button) && button != null && button.Visible)
 		{
-			for (int i = 0; i < _reagentSlots.Count; i++)
-			{
-				ItemSlotPanel slot = _reagentSlots[i];
-				if (slot == null)
-				{
-					continue;
-				}
-				ItemState reagent = null;
-				if (spell?.reagents != null && i < spell.reagents.Count)
-				{
-					RecipeInput ri = spell.reagents[i];
-					if (ri?.item != null && ri.count > 0)
-					{
-						reagent = ri.item.CreateState();
-						reagent.stackCount = ri.count;
-					}
-				}
-				slot.SetItem(reagent);
-			}
+			button.GrabFocus();
+			return true;
 		}
+		return false;
 	}
 
 	// Focus the first spell button so gamepad / keyboard has a starting point.

@@ -14,7 +14,7 @@ _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
 _statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
 _statScene = ExtResource("3_stat0")
 _statusEffectInfoScene = ExtResource("2_4k1ay")
-_statusEffectContainer = NodePath("MarginContainer/VBoxContainer")
+_statusEffectContainer = NodePath("MarginContainer/VBoxContainer/StatusEffects")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1586675629]
 layout_mode = 2
@@ -36,4 +36,7 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 
 [node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=121515440]
+layout_mode = 2
+
+[node name="StatusEffects" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=1458540231]
 layout_mode = 2
