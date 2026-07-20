@@ -53,5 +53,4 @@ public enum EStatName
 	Strength,
 	Perception,
 	Stealth,
-	Charisma,
 }

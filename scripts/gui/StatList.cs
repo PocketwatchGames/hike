@@ -425,7 +425,6 @@ public static class StatList
 			yield return (names[EStatName.Perception], StatFormat.Number(member.perception));
 			yield return (names[EStatName.Stealth], StatFormat.Number(member.stealth));
 			yield return (names[EStatName.Fortitude], StatFormat.Number(member.fortitude));
-			yield return (names[EStatName.Charisma], StatFormat.Number(member.charisma));
 		}
 
 		float speed = player.SpeedMultiplier;
