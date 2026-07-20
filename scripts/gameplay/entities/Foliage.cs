@@ -28,7 +28,7 @@ public partial class Foliage : Area3D, IWorldEntity
 		Visible = ((CVarBool)cvar).Value;
 	}
 
-	public void OnSpawned(World world) { }
+	public void OnSpawned(Sim sim) { }
 
 	private void OnBodyEntered(Node3D body)
 	{
@@ -54,12 +54,12 @@ public partial class Foliage : Area3D, IWorldEntity
 		}
 	}
 
-	public static Foliage Create(World world, PropSimState data)
+	public static Foliage Create(Sim sim, PropSimState data)
 	{
 		var instance = data.Scene.Instantiate<Foliage>();
 		instance.Position = data.WorldPosition;
 		instance.Rotation = new Vector3(0f, data.RotationY, 0f);
-		world.AddChild(instance);
+		sim.AddChild(instance);
 		return instance;
 	}
 }

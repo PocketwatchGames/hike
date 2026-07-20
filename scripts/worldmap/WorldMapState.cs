@@ -164,7 +164,7 @@ public class WorldMapState
         WorldState = ws;
         StampColumns(new Rect2I(0, 0, Data.ImageWidth, Data.ImageHeight), null);
 
-        // Scatter props/interactives into the fresh WorldState (World is null
+        // Scatter props/interactives into the fresh WorldState (Sim is null
         // here, so this only adds sim states — the painter's initial entity
         // load spawns the nodes).
         RescatterColumns(new Rect2I(0, 0, Data.ImageWidth, Data.ImageHeight));

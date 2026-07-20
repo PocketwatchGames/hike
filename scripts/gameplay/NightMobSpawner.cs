@@ -16,12 +16,12 @@ using Godot;
 // fresh full interval rather than firing off an already-elapsed timer.
 //
 // Spawns are TRANSIENT — created straight into the chunk's active-entity list
-// via World.SpawnMobTransient, NOT recorded in WorldState. So they cost nothing
+// via Sim.SpawnMobTransient, NOT recorded in WorldState. So they cost nothing
 // to persist, vanish with their chunk when the player moves on, and never
 // re-materialize: the population near the player is recomputed live each sweep
 // rather than accumulated across the whole map. Each carries
 // ESpawnConditions.Night so the existing off-condition cleanup fades any
-// stragglers once dawn breaks (World.CleanupOffConditionMobs).
+// stragglers once dawn breaks (Sim.CleanupOffConditionMobs).
 //
 // Dormant (no cost) when SimData.nightSpawnMobs is empty or it isn't night.
 [GlobalClass]
@@ -63,13 +63,13 @@ public partial class NightMobSpawner : Node
 
     public override void _Process(double delta)
     {
-        World world = World.Current;
-        SimData data = world?.SimData;
-        if (world == null || data == null || data.nightSpawnMobs == null || data.nightSpawnMobs.Count == 0)
+        Sim sim = Sim.Current;
+        SimData data = sim?.SimData;
+        if (sim == null || data == null || data.nightSpawnMobs == null || data.nightSpawnMobs.Count == 0)
         {
             return;
         }
-        Player player = world.player;
+        Player player = sim.player;
         if (player == null)
         {
             return;
@@ -79,13 +79,13 @@ public partial class NightMobSpawner : Node
         // by day, ramping sunset → midnight) and the local darkness dwell (a cave /
         // dungeon / shadow charging up, day or night). This IS the max the design
         // wants — midnight OR deep dark is dangerous, both together no more so.
-        float danger = Danger(world, data);
+        float danger = Danger(sim, data);
         float interval = Mathf.Lerp(data.nightSpawnSlowIntervalSeconds, data.nightSpawnIntervalSeconds, danger);
 
         // Population cap scales with danger; below ~one slime's worth it rounds to
         // zero and nothing spawns (a calm moonlit dusk, a lit daytime field).
         int target = Mathf.RoundToInt(data.nightSpawnMaxPopulation * danger);
-        int current = CountLiveNightMobs(world, data);
+        int current = CountLiveNightMobs(sim, data);
 
         // Periodic diagnostics — the status dump (night_spawn_debug) and/or the
         // in-world overlay of every valid spawn spot (night_spawn_draw). Both run
@@ -101,11 +101,11 @@ public partial class NightMobSpawner : Node
                 MobData probeMob = data.nightSpawnMobs.Count > 0 ? data.nightSpawnMobs[0]?.mob : null;
                 if (probeMob != null)
                 {
-                    CollectSpawnCandidates(world, data, new TraversalProfile(probeMob), player.GlobalPosition);
+                    CollectSpawnCandidates(sim, data, new TraversalProfile(probeMob), player.GlobalPosition);
                 }
                 if (CVars.nightSpawnDebug.Value)
                 {
-                    PrintDebug(world, data, danger, target, current, interval, probeMob != null ? _candidates.Count : 0);
+                    PrintDebug(sim, data, danger, target, current, interval, probeMob != null ? _candidates.Count : 0);
                 }
                 if (CVars.nightSpawnDraw.Value)
                 {
@@ -130,31 +130,31 @@ public partial class NightMobSpawner : Node
             return;
         }
         _timeUntilNext = interval;
-        Spawn(world, data, player, target, current, danger);
+        Spawn(sim, data, player, target, current, danger);
     }
 
     // Danger [0,1] = max(time-of-day term, darkness dwell). The time term is
     // pow(nightProgress, curve): 0 all day (nightProgress clamps to 0 before
-    // sunset), ramping to 1 at midnight. The darkness dwell (World.DarknessDwell)
+    // sunset), ramping to 1 at midnight. The darkness dwell (Sim.DarknessDwell)
     // supplies danger in dark places regardless of the hour.
-    private static float Danger(World world, SimData data)
+    private static float Danger(Sim sim, SimData data)
     {
-        float t = (float)((world.WorldState.TimeOfDay01 - WorldState.SunsetTimeOfDay01)
+        float t = (float)((sim.WorldState.TimeOfDay01 - WorldState.SunsetTimeOfDay01)
             / (WorldState.MidnightTimeOfDay01 - WorldState.SunsetTimeOfDay01));
         float timeDanger = Mathf.Pow(Mathf.Clamp(t, 0f, 1f), data.nightTimeDangerCurve);
-        return Mathf.Max(timeDanger, world.DarknessDwell);
+        return Mathf.Max(timeDanger, sim.DarknessDwell);
     }
 
     // Dump every input that feeds slime spawning plus the candidate `pool` size
     // (collected by the caller), and a one-word reason nothing is spawning, so the
     // mechanic can be diagnosed. Toggle with `night_spawn_debug 1`.
-    private void PrintDebug(World world, SimData data, float danger, int target, int current, float interval, int pool)
+    private void PrintDebug(Sim sim, SimData data, float danger, int target, int current, float interval, int pool)
     {
-        double tod = world.WorldState.TimeOfDay01;
+        double tod = sim.WorldState.TimeOfDay01;
         float t = (float)((tod - WorldState.SunsetTimeOfDay01)
             / (WorldState.MidnightTimeOfDay01 - WorldState.SunsetTimeOfDay01));
         float timeDanger = Mathf.Pow(Mathf.Clamp(t, 0f, 1f), data.nightTimeDangerCurve);
-        float total01 = world.player?.visibilityLight ?? 1f;
+        float total01 = sim.player?.visibilityLight ?? 1f;
         float darkTarget = data.nightDarkThreshold > 0f
             ? Mathf.Clamp((data.nightDarkThreshold - total01) / data.nightDarkThreshold, 0f, 1f)
             : (total01 <= 0f ? 1f : 0f);
@@ -181,8 +181,8 @@ public partial class NightMobSpawner : Node
 
         GD.Print(
             $"[nightspawn] tod={tod:F3} night={WorldState.IsNight(tod)} timeTerm={timeDanger:F2} " +
-            $"visLight={total01:F2} block={world.PlayerBlockLight01:F2} darkTarget={darkTarget:F2} " +
-            $"dwell={world.DarknessDwell:F2} danger={danger:F2} | target={target} current={current} " +
+            $"visLight={total01:F2} block={sim.PlayerBlockLight01:F2} darkTarget={darkTarget:F2} " +
+            $"dwell={sim.DarknessDwell:F2} danger={danger:F2} | target={target} current={current} " +
             $"interval={interval:F1} timer={_timeUntilNext:F1} | standable={_standable.Count} pool={pool} | {reason}");
     }
 
@@ -221,7 +221,7 @@ public partial class NightMobSpawner : Node
     // level is round(danger × nightSpawnMaxLevel) — midnight and deep darkness both
     // drive it toward the max, so a moonlit dusk spawns weak gellies and a pitch-
     // black midnight spawns level-max ones.
-    private void Spawn(World world, SimData data, Player player, int target, int current, float danger)
+    private void Spawn(Sim sim, SimData data, Player player, int target, int current, float danger)
     {
         int toSpawn = Mathf.Min(target - current, data.nightSpawnMaxPerSweep);
         int level = Mathf.RoundToInt(danger * data.nightSpawnMaxLevel);
@@ -237,7 +237,7 @@ public partial class NightMobSpawner : Node
         {
             return;
         }
-        CollectSpawnCandidates(world, data, new TraversalProfile(sampleMob), playerPos);
+        CollectSpawnCandidates(sim, data, new TraversalProfile(sampleMob), playerPos);
 
         int spawned = 0;
         for (int i = 0; i < toSpawn && _candidates.Count > 0; i++)
@@ -246,7 +246,7 @@ public partial class NightMobSpawner : Node
             Vector3 pos = _candidates[idx].Pos;
             _candidates.RemoveAtSwap(idx); // place without replacement so two don't stack on one cell
             MobDescriptor descriptor = data.nightSpawnMobs[_rng.RandiRange(0, data.nightSpawnMobs.Count - 1)];
-            if (world.SpawnMobTransient(descriptor, pos, ESpawnConditions.Night, level) != null)
+            if (sim.SpawnMobTransient(descriptor, pos, ESpawnConditions.Night, level) != null)
             {
                 spawned++;
             }
@@ -254,7 +254,7 @@ public partial class NightMobSpawner : Node
 
         if (CVars.nightSpawnLog.Value)
         {
-            GD.Print($"[nightspawn] danger={danger:F2} dwell={world.DarknessDwell:F2} block={world.PlayerBlockLight01:F2} target={target} current={current} pool={_candidates.Count + spawned} spawned={spawned} level={level}");
+            GD.Print($"[nightspawn] danger={danger:F2} dwell={sim.DarknessDwell:F2} block={sim.PlayerBlockLight01:F2} target={target} current={current} pool={_candidates.Count + spawned} spawned={spawned} level={level}");
         }
     }
 
@@ -263,19 +263,19 @@ public partial class NightMobSpawner : Node
     // the night-spawn-specific gate/weight: drop block-lit spots and tag each
     // survivor with a darkness weight so the pick favors deep shadow / caves over
     // moonlit ground.
-    private void CollectSpawnCandidates(World world, SimData data, in TraversalProfile profile, Vector3 playerPos)
+    private void CollectSpawnCandidates(Sim sim, SimData data, in TraversalProfile profile, Vector3 playerPos)
     {
         // Reachability flood, NOT a radius scan: only ground the player could walk
         // to qualifies, so the surface directly above a cave (close in XZ but
         // through solid rock) is excluded and can't dominate the pick.
-        NavigationGoals.CollectReachableStandableCells(world, profile, _grid, playerPos,
+        NavigationGoals.CollectReachableStandableCells(sim, profile, _grid, playerPos,
             data.nightSpawnMinRadius, data.nightSpawnMaxRadius, MaxWindowHalfExtent, allowFalling: false, _standable);
 
         _candidates.Clear();
         for (int k = 0; k < _standable.Count; k++)
         {
             Vector3 sample = _standable[k] + Vector3.Up * LightSampleHeight;
-            if (BlockLightAt(world, sample) > data.nightSpawnMaxBlockLight)
+            if (BlockLightAt(sim, sample) > data.nightSpawnMaxBlockLight)
             {
                 continue;
             }
@@ -284,14 +284,14 @@ public partial class NightMobSpawner : Node
             // clearing, and even a cave mouth within range), so those cells drop to
             // weight 0 and are never picked, smoothly ramping in at dawn/dusk. Same
             // exposure signal as the sunburn DoT.
-            float shade = world.SunShade01(sample);
+            float shade = sim.SunShade01(sample);
             if (shade <= 0f)
             {
                 continue;
             }
             // Darkness weight — darker preferred. Shadow-only reading (no raycast)
             // folds moonlight + block so caves outrank moonlit ground.
-            float light = world.WorldState.GetPerceivedLightWorld(sample, sunReachesPoint: false);
+            float light = sim.WorldState.GetPerceivedLightWorld(sample, sunReachesPoint: false);
             float darkness = Mathf.Clamp(1f - light, 0f, 1f);
             float weight = (Mathf.Pow(darkness, data.nightSpawnDarknessBias) + 0.0001f) * shade;
             _candidates.Add(new SpawnCandidate { Pos = _standable[k], Weight = weight });
@@ -323,10 +323,10 @@ public partial class NightMobSpawner : Node
     // manages. Loaded mobs are all near the player, so this is effectively the
     // local population — the whole budget of the mechanic. Recomputed each sweep
     // so it self-corrects as mobs die, are killed, or evict behind the player.
-    private int CountLiveNightMobs(World world, SimData data)
+    private int CountLiveNightMobs(Sim sim, SimData data)
     {
         int count = 0;
-        foreach (Mob mob in world.GetEntities<Mob>())
+        foreach (Mob mob in sim.GetEntities<Mob>())
         {
             if (mob.alive && IsNightSpecies(data, mob))
             {
@@ -357,12 +357,12 @@ public partial class NightMobSpawner : Node
     // / lantern contribution only, excluding sky and moonlight. Mirrors the
     // `block` term in WorldState.GetPerceivedLightWorld. A direct lightmap lookup,
     // no raycast.
-    private static float BlockLightAt(World world, Vector3 pos)
+    private static float BlockLightAt(Sim sim, Vector3 pos)
     {
         int wx = Mathf.FloorToInt(pos.X);
         int wy = Mathf.FloorToInt(pos.Y);
         int wz = Mathf.FloorToInt(pos.Z);
-        world.WorldState.GetBlockLightWorld(wx, wy, wz, out int r, out int g, out int b);
+        sim.WorldState.GetBlockLightWorld(wx, wy, wz, out int r, out int g, out int b);
         return Mathf.Max(r, Mathf.Max(g, b)) / 255f;
     }
 }

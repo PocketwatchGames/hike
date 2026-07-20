@@ -3,7 +3,7 @@ using Godot.Collections;
 using System.Collections.Generic;
 
 // The spell list for the alchemy campfire screen (Spells tab). One button per
-// KNOWN spell (SimData.spells filtered by WorldSimState.IsSpellKnown), each
+// KNOWN spell (SimData.spells filtered by SimState.IsSpellKnown), each
 // labeled with the spell name and how many casts the party reagent pool currently
 // affords (Cooking.CountAffordable). Selecting a button attunes that spell to the
 // player's single consumable slot; SpellSelectionScreen owns the player/campfire
@@ -41,7 +41,7 @@ public partial class SpellSelectionPanel : MarginContainer
 	// Rebuild the list: one button per known spell, labeled with its live castable
 	// count from `pool`; the attuned spell is marked. Buttons are never disabled —
 	// any known spell can be attuned even with no reagents on hand.
-	public void RefreshSpells(Array<SpellData> spells, WorldSimState worldSim, IEnumerable<ItemState> pool, SpellData attuned)
+	public void RefreshSpells(Array<SpellData> spells, SimState worldSim, IEnumerable<ItemState> pool, SpellData attuned)
 	{
 		if (_spellButtonContainer == null)
 		{

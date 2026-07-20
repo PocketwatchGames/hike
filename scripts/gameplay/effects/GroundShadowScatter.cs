@@ -56,8 +56,8 @@ public partial class GroundShadowScatter : Node3D
     public override void _Process(double delta)
     {
         using var _prof = Profiler.Sample("GroundShadowScatter.Process");
-        World world = World.Current;
-        Player player = world?.player;
+        Sim sim = Sim.Current;
+        Player player = sim?.player;
         if (_initFailed || player == null)
         {
             return;
@@ -79,15 +79,15 @@ public partial class GroundShadowScatter : Node3D
             return;
         }
 
-        SimData sim = world.SimData;
-        WorldState ws = world.WorldState;
+        SimData simData = sim.SimData;
+        WorldState ws = sim.WorldState;
         Vector3 playerPos = player.GlobalPosition;
         float cullSq = CullRadius * CullRadius;
 
         // Global daylight-fade inputs (per-entity sky exposure is folded in below).
         float dirShadow = SkyController.Current?.DirectionalShadowStrength ?? 0f;
-        float daylightFade = sim?.groundShadowDaylightFade ?? 1f;
-        float mobMaster = sim?.mobShadowAlpha ?? 0f;
+        float daylightFade = simData?.groundShadowDaylightFade ?? 1f;
+        float mobMaster = simData?.mobShadowAlpha ?? 0f;
         bool mobShadows = CVars.mobShadows.Value;
 
         // InstanceCount is allocated once at Capacity (in TryInit); the live count
@@ -131,11 +131,11 @@ public partial class GroundShadowScatter : Node3D
 
         // The player always casts a blob (no discovery gate); it's the projector
         // center, so never distance-culled.
-        Emit(playerPos, sim?.playerShadowRadius ?? 0f, 1f);
+        Emit(playerPos, simData?.playerShadowRadius ?? 0f, 1f);
 
         if (mobShadows && mobMaster > 0f)
         {
-            foreach (Mob mob in world.GetEntities<Mob>())
+            foreach (Mob mob in sim.GetEntities<Mob>())
             {
                 if (count >= Capacity)
                 {
@@ -180,7 +180,7 @@ public partial class GroundShadowScatter : Node3D
 
     private bool TryInit()
     {
-        Material material = World.Current?.SimData?.groundShadowMaterial;
+        Material material = Sim.Current?.SimData?.groundShadowMaterial;
         if (material == null)
         {
             GD.PushError("GroundShadowScatter: SimData.groundShadowMaterial is not set — grounding shadows disabled.");

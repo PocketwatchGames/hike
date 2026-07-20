@@ -103,9 +103,9 @@ public partial class ArrowStuck : Node3D, IWeaponArrow
         _sourceWeapon = null;
         _data = null;
         weapon?.DetachArrow(this);
-        if (weapon != null && data != null && World.Current != null)
+        if (weapon != null && data != null && Sim.Current != null)
         {
-            World.Current.SpawnArrowLoot(worldPos, impulse, data, weapon);
+            Sim.Current.SpawnArrowLoot(worldPos, impulse, data, weapon);
         }
         QueueFree();
     }

@@ -110,7 +110,7 @@ public partial class GroundStainProjector : Node3D
             return;
         }
 
-        Vector3 focal = World.Current?.player?.GlobalPosition ?? Vector3.Zero;
+        Vector3 focal = Sim.Current?.player?.GlobalPosition ?? Vector3.Zero;
 
         // Snap the focal point to this projector's own texel grid in world XZ.
         // The RT is low-res (~16 cm/texel), so a continuously-moving orthographic

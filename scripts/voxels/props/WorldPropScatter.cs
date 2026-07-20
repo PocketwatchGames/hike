@@ -17,7 +17,7 @@ using Godot;
 // call per pass.
 //
 // Lifecycle:
-//   - World owns one instance, created in World.Initialize.
+//   - Sim owns one instance, created in Sim.Initialize.
 //   - Each MultimeshPropSprite calls Register(...) in _Ready and
 //     Unregister(...) in _ExitTree. The sprite supplies its own per-instance
 //     state (transform, terrain normal, align, atlas region/size), since it

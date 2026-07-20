@@ -7,11 +7,11 @@ public partial class Well : Node3D, IInteractive, IWorldEntity
     [Export] private Node3D _hudNode;
 
     private WellSimState _interactiveState;
-    private World _world;
+    private Sim _world;
 
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public bool CanInteract()
     {
@@ -33,13 +33,13 @@ public partial class Well : Node3D, IInteractive, IWorldEntity
     // mutate here.
     public void Complete(int actionIndex) { }
 
-    public static Well Create(World world, WellSimState data)
+    public static Well Create(Sim sim, WellSimState data)
     {
         var instance = data.Scene.Instantiate<Well>();
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
-        instance._world = world;
-        world.AddChild(instance);
+        instance._world = sim;
+        sim.AddChild(instance);
         return instance;
     }
 }

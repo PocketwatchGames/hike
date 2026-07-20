@@ -7,7 +7,7 @@ using Godot;
 // the material-only backpack. The backpack holds
 // ONLY materials; weapons / armor / equipment never enter it. Displacing a piece
 // out of an equip slot (equip-over) sends it to the world-scope party equipment
-// stash (WorldSimState.PartyEquipmentStash), not back to the backpack. Weapons /
+// stash (SimState.PartyEquipmentStash), not back to the backpack. Weapons /
 // armor / helmets can't be unequipped or dropped once worn — they change only by
 // being replaced.
 public class Inventory
@@ -173,7 +173,7 @@ public class Inventory
 	// The world-scope party equipment stash — where displaced weapons / armor /
 	// equipment go when equipped over. Null before the player has a live world
 	// (never during normal play).
-	private List<ItemState> PartyEquipmentStash => _owner?.World?.WorldState?.SimState?.PartyEquipmentStash;
+	private List<ItemState> PartyEquipmentStash => _owner?.Sim?.WorldState?.SimState?.PartyEquipmentStash;
 
 	// Hand a displaced equip-slot piece to the party equipment stash, merging
 	// stackable equipment into an existing stack when possible. A weapon forfeits
@@ -266,7 +266,7 @@ public class Inventory
 		item.touched = true;
 		if (item.removeOnDay == 0 && item.data != null && item.data.spoilDays > 0)
 		{
-			item.removeOnDay = (_owner?.World?.DayNumber ?? 0) + item.data.spoilDays;
+			item.removeOnDay = (_owner?.Sim?.DayNumber ?? 0) + item.data.spoilDays;
 		}
 	}
 
@@ -285,7 +285,7 @@ public class Inventory
 		// A fresh pickup lands with this spoil deadline; only same-deadline stacks
 		// can absorb it (ItemState.CanStackWith), so partial space in a different
 		// spoil cohort must not count toward "fits".
-		int freshRemoveDay = data.spoilDays > 0 ? (_owner?.World?.DayNumber ?? 0) + data.spoilDays : 0;
+		int freshRemoveDay = data.spoilDays > 0 ? (_owner?.Sim?.DayNumber ?? 0) + data.spoilDays : 0;
 		if (data.IsStackable)
 		{
 			foreach (ItemState existing in EnumerateAll())
@@ -492,7 +492,7 @@ public class Inventory
 		// Player drops latch into interact-only mode so the loot doesn't
 		// immediately auto-pickup back into the inventory the next time the
 		// player steps on it.
-		_owner.World?.DropItem(dropped, pos, impulse, requireInteract: true);
+		_owner.Sim?.DropItem(dropped, pos, impulse, requireInteract: true);
 		onChanged?.Invoke();
 	}
 

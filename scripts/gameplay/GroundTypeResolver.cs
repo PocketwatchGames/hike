@@ -27,7 +27,7 @@ public static class GroundTypeResolver
     // (overlay → terrain flat tile → base type top face). Returns null when the
     // world is unavailable or the column under `worldPos` is empty. Shared by
     // the footstep ground-type query above and the shovel's bare-ground dig
-    // yield (World.TryDig reads block.DigItem).
+    // yield (Sim.TryDig reads block.DigItem).
     public static BlockData ResolveBlock(WorldState ws, Vector3 worldPos)
     {
         if (ws == null)

@@ -15,21 +15,21 @@ public partial class HudText : Control
 	// Total pixels the number drifts upward over its lifetime, eased on t².
 	[Export] public float verticalMovement = 32f;
 
-	World _world;
+	Sim _world;
 	Camera3D _camera;
 	Vector3 _worldPosition;
 	ulong _fadeEndGameTimeMs;
 
 
-	public static void Create(PackedScene scene, World world, Camera3D camera, Vector3 worldPosition, string text, Node parent)
+	public static void Create(PackedScene scene, Sim sim, Camera3D camera, Vector3 worldPosition, string text, Node parent)
 	{
 		var hudText = scene.Instantiate<HudText>();
-		hudText.Init(world, camera, worldPosition, text, parent);
+		hudText.Init(sim, camera, worldPosition, text, parent);
 	}
 
-	void Init(World world, Camera3D camera, Vector3 worldPosition, string text, Node parent)
+	void Init(Sim sim, Camera3D camera, Vector3 worldPosition, string text, Node parent)
 	{
-		_world = world;
+		_world = sim;
 		_camera = camera;
 		_worldPosition = worldPosition;
 		if (label != null)

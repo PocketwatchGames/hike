@@ -27,7 +27,7 @@ public partial class ClimbableTree : Node3D, IInteractive, IWorldEntity
     // be reverted exactly. Empty when not currently highlighted.
     private readonly System.Collections.Generic.List<(FoliageMultiMesh mesh, Color a, Color b)> _stashedLeafTints = new();
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public bool CanInteract()
     {
@@ -116,11 +116,11 @@ public partial class ClimbableTree : Node3D, IInteractive, IWorldEntity
         }
     }
 
-    public static ClimbableTree Create(World world, ClimbableTreeSimState data)
+    public static ClimbableTree Create(Sim sim, ClimbableTreeSimState data)
     {
         var instance = data.Scene.Instantiate<ClimbableTree>();
         instance.Position = data.WorldPosition;
-        world.AddChild(instance);
+        sim.AddChild(instance);
         return instance;
     }
 }

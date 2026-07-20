@@ -39,7 +39,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // once the player has found it — see ShouldShowXray.
     private bool _opened;
     private ChestSimState _interactiveState;
-    private World _world;
+    private Sim _world;
 
     public ChestSimState SimState => _interactiveState;
 
@@ -56,7 +56,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     {
     }
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public bool CanInteract()
     {
@@ -169,13 +169,13 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         );
     }
 
-    public static Chest Create(World world, ChestSimState data)
+    public static Chest Create(Sim sim, ChestSimState data)
     {
         var instance = data.Scene.Instantiate<Chest>();
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
-        instance._world = world;
-        world.AddChild(instance);
+        instance._world = sim;
+        sim.AddChild(instance);
 
         instance._open = !data.Active;
         instance.UpdateVisuals(false);

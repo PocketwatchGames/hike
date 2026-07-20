@@ -44,7 +44,7 @@ public partial class HeatField : Node3D
 	private byte[] _buffer;
 	private Image _image;
 	private ImageTexture _texture;
-	private World _world;
+	private Sim _world;
 
 	private readonly HashSet<WarmthZone> _activeZones = new();
 
@@ -62,9 +62,9 @@ public partial class HeatField : Node3D
 		ShaderGlobals.Register("heat_field_size", RenderingServer.GlobalShaderParameterType.Float, sizeMeters);
 	}
 
-	public void Initialize(World world)
+	public void Initialize(Sim sim)
 	{
-		_world = world;
+		_world = sim;
 	}
 
 	public void RegisterZone(WarmthZone zone)
@@ -100,7 +100,7 @@ public partial class HeatField : Node3D
 		if (enabled)
 		{
 			float ambientRange = Mathf.Max(ambientFullF - ambientStartF, 0.001f);
-			float airTempF = World.Current?.SampleAirTemperature(playerPos) ?? ambientStartF;
+			float airTempF = Sim.Current?.SampleAirTemperature(playerPos) ?? ambientStartF;
 			baseline = Mathf.Clamp((airTempF - ambientStartF) / ambientRange, 0f, 1f);
 		}
 

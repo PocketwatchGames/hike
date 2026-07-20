@@ -25,7 +25,7 @@ public class MapMarkerRecord
     public StringName DisplayName;
     // Two-state appearance (campfire lit/unlit): when true the maps pick
     // ActiveModulate vs IconModulate by the live host state (see
-    // WorldSimState.IsMarkerActive), read at render time — the ACTIVE state itself
+    // SimState.IsMarkerActive), read at render time — the ACTIVE state itself
     // is never stored here, only the two tints and whether the marker has states.
     public bool HasActiveState;
     public Color IconModulate = Colors.White;

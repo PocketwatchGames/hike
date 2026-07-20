@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 
-// Distant rolling-thunder scheduler. Runs as a child of World (spawned
+// Distant rolling-thunder scheduler. Runs as a child of Sim (spawned
 // alongside AmbienceController). Every frame it samples
 // AmbienceController.Current.State.LightningIntensity, looks up the
 // mean inter-strike interval from ThunderSchedulerData.intervalCurve,
@@ -56,7 +56,7 @@ public partial class ThunderScheduler : Node
         Current = this;
         _rng.Randomize();
 
-        WorldState ws = World.Current?.WorldState;
+        WorldState ws = Sim.Current?.WorldState;
         _data = ws?.SimData?.thunderScheduler;
         if (_data == null || _data.streams == null || _data.streams.Length == 0)
         {

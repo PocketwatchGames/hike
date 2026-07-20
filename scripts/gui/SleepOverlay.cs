@@ -4,7 +4,7 @@ using Godot;
 // DeathScreen fade pattern but is purely visual and self-driving: fade to black,
 // run the world time-skip while opaque, then fade back in. If a status effect
 // kills the player during the skip, the player wakes "at the appropriate time"
-// — the skip already stopped at the moment of death (World.AdvanceTime) — and
+// — the skip already stopped at the moment of death (Sim.AdvanceTime) — and
 // this overlay hands the screen to the DeathScreen rather than fading back in.
 //
 // Unlike DeathScreen this does NOT touch the audio buses: doing so would let the

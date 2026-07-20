@@ -39,8 +39,8 @@ public partial class DebugDrawRenderer : Node3D
     private ImmediateMesh _mesh;
     private StandardMaterial3D _material;
 
-    // Lazy-creates the singleton renderer as a child of World.Current the
-    // first time anything tries to draw. If World.Current isn't ready
+    // Lazy-creates the singleton renderer as a child of Sim.Current the
+    // first time anything tries to draw. If Sim.Current isn't ready
     // (e.g. main menu / pre-game), the call is a silent no-op so calling
     // DebugDraw outside a running game doesn't throw.
     public static DebugDrawRenderer EnsureInstance()
@@ -49,7 +49,7 @@ public partial class DebugDrawRenderer : Node3D
         {
             return _instance;
         }
-        World w = World.Current;
+        Sim w = Sim.Current;
         if (w == null)
         {
             return null;

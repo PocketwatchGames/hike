@@ -5,7 +5,7 @@ using Godot;
 // Lookup ("give me mobs within R of this point") visits the cells that
 // could possibly contain hits and walks their member lists. At swarm
 // densities (100+ mobs) this is the difference between O(N) per-mob
-// neighbor queries — what World.GetEntities<Mob>() would give us — and
+// neighbor queries — what Sim.GetEntities<Mob>() would give us — and
 // effectively O(K) where K is the average mob density per cell.
 //
 // The hash is XZ-only because separation, encircle, and most gameplay

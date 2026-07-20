@@ -5,7 +5,7 @@ using Godot;
 // (WorldState). Live on World, not the client, because the sim (Player
 // thermal/wetness, perception, scent) is the primary consumer; the debug
 // `temp` CVar reads the breakdown too. See World.cs for the file split.
-public partial class World
+public partial class Sim
 {
     // Sample wind speed in m/s at `worldPos`. Returns 0 when the voxel sun
     // BFS reports no skylight at all — a stand-in for "the player is in a

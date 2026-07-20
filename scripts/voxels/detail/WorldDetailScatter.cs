@@ -9,7 +9,7 @@ using Godot;
 // DetailEntry actually scattered in the loaded set).
 //
 // Lifecycle:
-//   - World owns a single instance via World.Initialize.
+//   - Sim owns a single instance via Sim.Initialize.
 //   - ChunkMesh.Build computes its instance contributions (via
 //     ChunkDetailScatter.Compute) and posts them to SetChunk(coord, ...).
 //   - On chunk eviction, ChunkMesh._ExitTree calls RemoveChunk(coord).

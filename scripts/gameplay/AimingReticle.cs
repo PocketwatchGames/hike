@@ -1021,7 +1021,7 @@ public partial class AimingReticle : Node3D
 	{
 		catchR = 0f;
 		foot = default;
-		MobSpatialHash hash = World.Current?.MobSpatialHash;
+		MobSpatialHash hash = Sim.Current?.MobSpatialHash;
 		if (hash == null)
 		{
 			return null;
@@ -1615,9 +1615,9 @@ public partial class AimingReticle : Node3D
 	// the shader on its flat path so nothing regresses.
 	void UpdateGroundUndulation(Vector3 cursorWorld)
 	{
-		World world = World.Current;
-		WorldState voxels = world?.WorldState;
-		if (!_undulationEnabled || _groundMaterial == null || voxels == null || world.player == null)
+		Sim sim = Sim.Current;
+		WorldState voxels = sim?.WorldState;
+		if (!_undulationEnabled || _groundMaterial == null || voxels == null || sim.player == null)
 		{
 			_groundMaterial?.SetShaderParameter("reticle_undulate", 0f);
 			_undulationValid = false;
@@ -1639,7 +1639,7 @@ public partial class AimingReticle : Node3D
 		// below resolves to the floor (scan down) — a single top-down query can't
 		// do both (it would catch a cave roof). Targeting refinement comes later;
 		// this is purely the ring's vertical profile.
-		float anchorY = world.player.GlobalPosition.Y;
+		float anchorY = sim.player.GlobalPosition.Y;
 		int anchorVoxelY = Mathf.FloorToInt(anchorY);
 
 		// The patch mapping is world-stable, so always keep the shader pointed at

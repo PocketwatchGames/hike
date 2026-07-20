@@ -159,8 +159,8 @@ public partial class HomingMissile : Projectile
 	private void AcquireTarget()
 	{
 		_target = null;
-		World world = World.Current;
-		if (world == null)
+		Sim sim = Sim.Current;
+		if (sim == null)
 		{
 			return;
 		}
@@ -190,7 +190,7 @@ public partial class HomingMissile : Projectile
 			}
 		}
 
-		Player player = world.player;
+		Player player = sim.player;
 		if (player != null && IsEnemy(ETeam.Player))
 		{
 			Consider(player, player.AimCenter);
@@ -198,7 +198,7 @@ public partial class HomingMissile : Projectile
 
 		_scratch ??= new List<Mob>(32);
 		_scratch.Clear();
-		world.MobSpatialHash?.QueryRadius(origin, retargetRadiusMeters, _scratch);
+		sim.MobSpatialHash?.QueryRadius(origin, retargetRadiusMeters, _scratch);
 		for (int i = 0; i < _scratch.Count; i++)
 		{
 			Mob m = _scratch[i];

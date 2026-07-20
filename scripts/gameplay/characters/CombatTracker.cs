@@ -5,7 +5,7 @@ using Godot;
 // Aggregates per-mob combat reports into a single "is the player in combat"
 // state and raises edge events (onCombatBegin / onCombatEnd) on GameClient for
 // music and any other client-side reaction. Owned by GameClient, ticked each
-// frame after World.Tick. Distinct from AIOutput.inCombat (a mob's own
+// frame after Sim.Tick. Distinct from AIOutput.inCombat (a mob's own
 // awareness, used for AI-tick LOD): combat here keys off the PLAYER perceiving
 // a dangerous enemy that is actively attacking.
 //

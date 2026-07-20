@@ -25,7 +25,7 @@ public static class CVars
     // player or the player is already dead.
     public static CVar die = new CVar("die", (cvar) =>
     {
-        Player player = World.Current?.player;
+        Player player = Sim.Current?.player;
         if (player == null)
         {
             Godot.GD.PushWarning("die: no active player.");
@@ -161,7 +161,7 @@ public static class CVars
     //   2 = visualize fog_map density sampled at surface
     public static CVarInt fogDebug = new CVarInt("fog_debug", 0, (cvar) =>
     {
-        World.Current?.SetFogDebugMode(((CVarInt)cvar).Value);
+        Sim.Current?.SetFogDebugMode(((CVarInt)cvar).Value);
     });
 
     // Gates AUTHORED voxel fog contribution only (fog_map). Dust + shafts
@@ -169,7 +169,7 @@ public static class CVars
     // and block-light accumulation which are independent of the fog_map.
     public static CVarBool fogEnabled = new CVarBool("fog_enabled", true, (cvar) =>
     {
-        World.Current?.SetFogEnabled(((CVarBool)cvar).Value);
+        Sim.Current?.SetFogEnabled(((CVarBool)cvar).Value);
     });
 
     // Master kill-switch for the ENTIRE volumetric fog pass — haze, shafts,
@@ -179,7 +179,7 @@ public static class CVars
     // much of the frame budget the fog pass accounts for.
     public static CVarBool fogVolumetricEnabled = new CVarBool("fog_volumetric", true, (cvar) =>
     {
-        World.Current?.SetFogVolumetricEnabled(((CVarBool)cvar).Value);
+        Sim.Current?.SetFogVolumetricEnabled(((CVarBool)cvar).Value);
     });
 
     // Disable just the sun-shaft inscatter contribution while leaving
@@ -234,14 +234,14 @@ public static class CVars
     // player. Bypasses the spawner's cadence and intensity floor so
     // you can hit-test the strike entity end-to-end (warning,
     // flash, screen overlay, radial damage) without waiting for a
-    // storm to roll in. Uses World.Current.SimData.weatherLightning
+    // storm to roll in. Uses Sim.Current.SimData.weatherLightning
     // — wire it in the resource for this to do anything.
     public static CVar strikeLightning = new CVar("strike_lightning", (cvar) =>
     {
-        World world = World.Current;
-        Player player = world?.player;
-        LightningData data = world?.SimData?.weatherLightning;
-        if (world == null || player == null || data == null)
+        Sim sim = Sim.Current;
+        Player player = sim?.player;
+        LightningData data = sim?.SimData?.weatherLightning;
+        if (sim == null || player == null || data == null)
         {
             Godot.GD.PushWarning("strike_lightning: need a running world, player, and SimData.weatherLightning");
             return;
@@ -256,9 +256,9 @@ public static class CVars
         Godot.Vector3 to = query2d + new Godot.Vector3(0f, -80f, 0f);
         using var rayQuery = Godot.PhysicsRayQueryParameters3D.Create(from, to);
         rayQuery.CollisionMask = (uint)ECollisionLayer.Solid;
-        var result = world.GetWorld3D().DirectSpaceState.IntersectRay(rayQuery);
+        var result = sim.GetWorld3D().DirectSpaceState.IntersectRay(rayQuery);
         Godot.Vector3 strikePos = result.Count > 0 ? (Godot.Vector3)result["position"] : query2d;
-        LightningStrike.Create(world, strikePos, data);
+        LightningStrike.Create(sim, strikePos, data);
     });
 
     // Debug: dump the current weather state plus the variance prev/cur/next
@@ -267,7 +267,7 @@ public static class CVars
     // is low simCloud, low simRain, or a fair lightningVariance roll.
     public static CVar weatherProbe = new CVar("weather", (cvar) =>
     {
-        WorldState ws = World.Current?.WorldState;
+        WorldState ws = Sim.Current?.WorldState;
         SkyController sky = SkyController.Current;
         if (ws == null || sky == null)
         {
@@ -276,8 +276,8 @@ public static class CVars
         }
         WeatherData w = sky.Weather;
         ZoneData zone = sky.Zone;
-        SimData sim = ws.SimData;
-        if (w == null || sim == null)
+        SimData simData = ws.SimData;
+        if (w == null || simData == null)
         {
             Godot.GD.Print("weather: world/sim not initialized.");
             return;
@@ -286,21 +286,21 @@ public static class CVars
         float tod = (float)ws.TimeOfDay01;
         // The diurnal curve is authored in orbit phase (noon = 0.5), so remap.
         float orbitPhase = (float)WorldState.OrbitPhase01(tod);
-        float diurnal = WeatherSimulation.DiurnalCurve(orbitPhase, sim);
-        float diurnalSlope = WeatherSimulation.DiurnalCurveSlope(orbitPhase, sim);
+        float diurnal = WeatherSimulation.DiurnalCurve(orbitPhase, simData);
+        float diurnalSlope = WeatherSimulation.DiurnalCurveSlope(orbitPhase, simData);
         float coolingRate = Godot.Mathf.Max(0f, -diurnalSlope);
 
         // Three storm-mode gates — match WeatherSimulation.Apply.
-        float wetGate = Godot.Mathf.SmoothStep(sim.lightningCloudThreshold, 1f, w.cloudCover)
-            * Godot.Mathf.SmoothStep(sim.lightningRainThreshold, 1f, w.rainAmount);
-        float dryGate = Godot.Mathf.SmoothStep(sim.dryLightningCloudThreshold, 1f, w.cloudCover)
-            * (1f - Godot.Mathf.SmoothStep(0f, sim.dryLightningHumidityMax, w.humidity))
-            * Godot.Mathf.SmoothStep(sim.dryLightningTempMin, sim.dryLightningTempMax, w.airTemperature);
+        float wetGate = Godot.Mathf.SmoothStep(simData.lightningCloudThreshold, 1f, w.cloudCover)
+            * Godot.Mathf.SmoothStep(simData.lightningRainThreshold, 1f, w.rainAmount);
+        float dryGate = Godot.Mathf.SmoothStep(simData.dryLightningCloudThreshold, 1f, w.cloudCover)
+            * (1f - Godot.Mathf.SmoothStep(0f, simData.dryLightningHumidityMax, w.humidity))
+            * Godot.Mathf.SmoothStep(simData.dryLightningTempMin, simData.dryLightningTempMax, w.airTemperature);
         // Elevation: use blended ZoneState if available.
         float elev = SkyController.Current?.ZoneState.Elevation ?? 0f;
-        float orographicGate = Godot.Mathf.SmoothStep(sim.orographicLightningCloudThreshold, 1f, w.cloudCover)
-            * Godot.Mathf.SmoothStep(sim.orographicLightningWindMin, sim.orographicLightningWindMax, w.windSpeed)
-            * Godot.Mathf.SmoothStep(sim.orographicLightningElevationMin, 1f, elev);
+        float orographicGate = Godot.Mathf.SmoothStep(simData.orographicLightningCloudThreshold, 1f, w.cloudCover)
+            * Godot.Mathf.SmoothStep(simData.orographicLightningWindMin, simData.orographicLightningWindMax, w.windSpeed)
+            * Godot.Mathf.SmoothStep(simData.orographicLightningElevationMin, 1f, elev);
         float gateAny = Godot.Mathf.Max(wetGate, Godot.Mathf.Max(dryGate, orographicGate));
         string winner = wetGate >= dryGate && wetGate >= orographicGate ? "WET"
             : dryGate >= orographicGate ? "DRY" : "OROGRAPHIC";
@@ -326,8 +326,8 @@ public static class CVars
         // (sun-side only, never drops at night), so this shows whether
         // night fog is rendering at full daytime density.
         DerivedPalette pal = sky.Palette;
-        float fogIntensityReference = sim.fogIntensityReference;
-        float fogIntensityFloor = sim.fogIntensityFloor;
+        float fogIntensityReference = simData.fogIntensityReference;
+        float fogIntensityFloor = simData.fogIntensityFloor;
         // Reconstruct the CURRENT phase scale exactly as WeatherDerivation does.
         float curFactor = Godot.Mathf.SmoothStep(0f, fogIntensityReference, pal.PrimaryIntensity);
         float curPhaseScale = Godot.Mathf.Lerp(fogIntensityFloor, 1f, curFactor);
@@ -342,7 +342,7 @@ public static class CVars
         // Sample authored fog_map around the player to see if painted volumes
         // (not ambient haze) are the source of the murk here.
         int maxAuthoredFog = 0;
-        Player probePlayer = World.Current?.player;
+        Player probePlayer = Sim.Current?.player;
         if (probePlayer != null)
         {
             Godot.Vector3 pp = probePlayer.GlobalPosition;
@@ -396,7 +396,7 @@ public static class CVars
     // setting via console jumps the sun/moon orbit immediately within the day.
     public static CVarFloat timeOfDay = new CVarFloat("time_of_day", 0.05f, (cvar) =>
     {
-        WorldState ws = World.Current?.WorldState;
+        WorldState ws = Sim.Current?.WorldState;
         if (ws == null) { return; }
         double v = System.Math.Clamp((double)((CVarFloat)cvar).Value, 0.0, 1.0);
         ws.TimeOfDay01 = v;
@@ -527,7 +527,7 @@ public static class CVars
 
     // When true, prints companion-follow / breadcrumb-rescue diagnostics:
     // BehaviorWanderFollow logs (throttled) its phase, distance-to-player,
-    // chosen destination and leg speed; World.TickCompanionLeash logs each
+    // chosen destination and leg speed; Sim.TickCompanionLeash logs each
     // time the pet goes non-resident and whether a rescue crumb was found.
     // Use to diagnose the dog getting left behind / failing to catch up.
     public static CVarBool companionDebug = new CVarBool("companion_debug", false);
@@ -765,12 +765,12 @@ public static class CVars
     // in-game console after walking around to see counts rise/fall.
     public static CVar propsStats = new CVar("props_stats", (cvar) =>
     {
-        if (World.Current == null || World.Current.PropScatter == null)
+        if (Sim.Current == null || Sim.Current.PropScatter == null)
         {
             Godot.GD.Print("props_stats: no active world.");
             return;
         }
-        Godot.GD.Print(World.Current.PropScatter.FormatStats());
+        Godot.GD.Print(Sim.Current.PropScatter.FormatStats());
     });
 
     // details_visible 0 → every per-chunk detail-sprite scatter
@@ -1240,16 +1240,16 @@ public static class CVars
     // sunlight (or is being lit by lateral BFS through some opening).
     public static CVar lightProbe = new CVar("light_probe", (cvar) =>
     {
-        if (World.Current == null || World.Current.player == null)
+        if (Sim.Current == null || Sim.Current.player == null)
         {
             Godot.GD.Print("light_probe: no active world / player.");
             return;
         }
-        Godot.Vector3 p = World.Current.player.GlobalPosition;
+        Godot.Vector3 p = Sim.Current.player.GlobalPosition;
         int px = Godot.Mathf.FloorToInt(p.X);
         int py = Godot.Mathf.FloorToInt(p.Y);
         int pz = Godot.Mathf.FloorToInt(p.Z);
-        WorldState ws = World.Current.WorldState;
+        WorldState ws = Sim.Current.WorldState;
         Godot.GD.Print($"light_probe at ({px},{py},{pz}):");
         for (int dy = 0; dy <= 5; dy++)
         {
@@ -1267,16 +1267,16 @@ public static class CVars
     // supposedly-sealed cave.
     public static CVar lightLeak = new CVar("light_leak", (cvar) =>
     {
-        if (World.Current == null || World.Current.player == null)
+        if (Sim.Current == null || Sim.Current.player == null)
         {
             Godot.GD.Print("light_leak: no active world / player.");
             return;
         }
-        Godot.Vector3 p = World.Current.player.GlobalPosition;
+        Godot.Vector3 p = Sim.Current.player.GlobalPosition;
         int px = Godot.Mathf.FloorToInt(p.X);
         int py = Godot.Mathf.FloorToInt(p.Y);
         int pz = Godot.Mathf.FloorToInt(p.Z);
-        WorldState ws = World.Current.WorldState;
+        WorldState ws = Sim.Current.WorldState;
         const int RADIUS = 15;
         int playerSun = ws.GetSunlightWorld(px, py, pz);
         Godot.GD.Print($"light_leak around ({px},{py},{pz}) playerSun={playerSun}: scanning air at y={py} with sun > player.sun, sorted by distance");
@@ -1311,7 +1311,7 @@ public static class CVars
     // weather / sun-shading / fog interactions match the gameplay sample.
     public static CVar tempProbe = new CVar("temp", (cvar) =>
     {
-        if (World.Current == null || World.Current.player == null)
+        if (Sim.Current == null || Sim.Current.player == null)
         {
             Godot.GD.Print("temp: no active world / player.");
             return;
@@ -1322,8 +1322,8 @@ public static class CVars
             Godot.GD.Print("temp: no active GameClient.");
             return;
         }
-        Godot.Vector3 p = World.Current.player.GlobalPosition;
-        World.AirTemperatureSample s = World.Current.SampleAirTemperatureBreakdown(p);
+        Godot.Vector3 p = Sim.Current.player.GlobalPosition;
+        Sim.AirTemperatureSample s = Sim.Current.SampleAirTemperatureBreakdown(p);
         Godot.GD.Print(
             $"temp at ({p.X:F1}, {p.Y:F1}, {p.Z:F1}): {s.Total:F1}°F\n" +
             $"  air        = {s.air:F1}°F\n" +
@@ -1334,13 +1334,13 @@ public static class CVars
     // Prints the player's current world position and chunk coord.
     public static CVar whereAmI = new CVar("where", (cvar) =>
     {
-        if (World.Current == null || World.Current.player == null)
+        if (Sim.Current == null || Sim.Current.player == null)
         {
             Godot.GD.Print("where: no active world / player.");
             return;
         }
-        Godot.Vector3 p = World.Current.player.GlobalPosition;
-        Godot.Vector3I c = World.WorldToChunkCoord(p);
+        Godot.Vector3 p = Sim.Current.player.GlobalPosition;
+        Godot.Vector3I c = Sim.WorldToChunkCoord(p);
         Godot.GD.Print($"player pos=({p.X:F1}, {p.Y:F1}, {p.Z:F1})  chunk=({c.X}, {c.Y}, {c.Z})");
     });
 
@@ -1386,14 +1386,14 @@ public static class CVars
         {
             return;
         }
-        if (World.Current == null)
+        if (Sim.Current == null)
         {
             Godot.GD.PrintErr("world_export: no active world (start a game first).");
             return;
         }
         try
         {
-            WorldFile.Write(path, World.Current.WorldState);
+            WorldFile.Write(path, Sim.Current.WorldState);
             Godot.GD.Print($"world_export: wrote {path}");
         }
         catch (System.Exception e)

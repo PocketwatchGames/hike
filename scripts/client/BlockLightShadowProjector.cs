@@ -145,7 +145,7 @@ public partial class BlockLightShadowProjector : Node3D
             return;
         }
 
-        Vector3 playerPos = World.Current?.player?.GlobalPosition ?? Vector3.Zero;
+        Vector3 playerPos = Sim.Current?.player?.GlobalPosition ?? Vector3.Zero;
         Vector3 focal = playerPos;
 
         camera.GlobalPosition = focal - _projectorDir * CAMERA_HEIGHT;

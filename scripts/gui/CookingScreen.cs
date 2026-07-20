@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 // Cook tab of the camp screen. Left = the forge's cooking slots + commit button
 // (CookingPanel); center = the party MATERIAL stash (BackpackPanel over
-// WorldSimState.PartyMaterialStash), the ingredient source. Materials the party
+// SimState.PartyMaterialStash), the ingredient source. Materials the party
 // carried in are drained into that stash on camping (GameClient.NotifyCampedAt),
 // so cooking always pulls from it, never from a carried backpack.
 //
@@ -162,8 +162,8 @@ public partial class CookingScreen : Control
 
 	// ---- Party stash accessors --------------------------------------------
 
-	List<ItemState> MaterialStash => _player?.World?.WorldState?.SimState?.PartyMaterialStash;
-	List<ItemState> EquipmentStash => _player?.World?.WorldState?.SimState?.PartyEquipmentStash;
+	List<ItemState> MaterialStash => _player?.Sim?.WorldState?.SimState?.PartyMaterialStash;
+	List<ItemState> EquipmentStash => _player?.Sim?.WorldState?.SimState?.PartyEquipmentStash;
 
 	void RefreshMaterials()
 	{
@@ -202,8 +202,8 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		SimData simData = _player.World?.SimData;
-		WorldSimState worldSim = _player.World?.WorldState?.SimState;
+		SimData simData = _player.Sim?.SimData;
+		SimState worldSim = _player.Sim?.WorldState?.SimState;
 		if (simData == null)
 		{
 			return;
@@ -378,7 +378,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		SimData simData = _player.World?.SimData;
+		SimData simData = _player.Sim?.SimData;
 		if (simData == null)
 		{
 			return;
@@ -482,7 +482,7 @@ public partial class CookingScreen : Control
 			DeliverOutput(state);
 		}
 
-		WorldSimState worldSim = _player.World?.WorldState?.SimState;
+		SimState worldSim = _player.Sim?.WorldState?.SimState;
 		string outputName = worldSim != null
 			? worldSim.GetItemDisplayName(completion.output)
 			: completion.output.displayName.ToString();

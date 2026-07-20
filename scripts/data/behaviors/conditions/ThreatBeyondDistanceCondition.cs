@@ -13,7 +13,7 @@ public partial class ThreatBeyondDistanceCondition : BehaviorTransitionData
 
     public override bool Evaluate(Mob me, ref PerceptionState targetPerception)
     {
-        Player player = targetPerception.pawnTarget ?? me.World?.player;
+        Player player = targetPerception.pawnTarget ?? me.Sim?.player;
         if (player == null)
         {
             return false;

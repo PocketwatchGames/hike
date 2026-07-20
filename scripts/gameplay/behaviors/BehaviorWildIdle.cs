@@ -38,7 +38,7 @@ public partial class BehaviorWildIdle : BehaviorBase
 
         // "Knows about the player": player-perception has reached at least the
         // wary tier. Below that the dog hasn't noticed them — stay quiet and still.
-        Player player = me.World?.player;
+        Player player = me.Sim?.player;
         bool aware = player != null && me.mobData != null
             && targetPerception.perception >= me.mobData.perceptionThresholdWary;
         if (!aware)

@@ -2,7 +2,7 @@ using Godot;
 
 // One quest's HUD row. Pure view: bound to a runtime QuestState by the Hud,
 // which drives Refresh each frame so counters / countdowns stay live. The quest
-// lifecycle itself is sim-driven (World.Quests) — this only renders it.
+// lifecycle itself is sim-driven (Sim.Quests) — this only renders it.
 public partial class QuestItem : HBoxContainer
 {
     [Export] Label _questLabel;

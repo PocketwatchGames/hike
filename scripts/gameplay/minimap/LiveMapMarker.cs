@@ -30,11 +30,11 @@ public partial class LiveMapMarker : Node3D
     public Color Modulate => modulate;
     public Vector3 WorldPosition => GlobalPosition;
 
-    private World _world;
+    private Sim _world;
 
     public override void _Ready()
     {
-        _world = World.Current;
+        _world = Sim.Current;
         if (_world != null)
         {
             _world.RegisterLiveMapMarker(this);

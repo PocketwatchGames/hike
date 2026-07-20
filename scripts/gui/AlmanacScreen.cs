@@ -107,7 +107,7 @@ public partial class AlmanacScreen : Control
 		// sweep that camp entry deliberately held back. No-op when nothing is armed.
 		if (tab == EAlmanacTab.WorldMap)
 		{
-			_gameClient?.World?.Minimap?.StartBankedReveal();
+			_gameClient?.Sim?.Minimap?.StartBankedReveal();
 		}
 	}
 

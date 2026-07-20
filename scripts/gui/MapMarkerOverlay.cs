@@ -76,7 +76,7 @@ public partial class MapMarkerOverlay : Control
         {
             return;
         }
-        WorldSimState sim = _gameClient?.World?.WorldState?.SimState;
+        SimState sim = _gameClient?.Sim?.WorldState?.SimState;
         if (sim == null)
         {
             return;
@@ -95,7 +95,7 @@ public partial class MapMarkerOverlay : Control
         float radiusSq = _viewRadiusMeters * _viewRadiusMeters;
         // World-map icons fade in with their ground during the campfire reveal
         // sweep; the minimap (provisional) overlay is never gated.
-        Minimap minimap = IncludeProvisional ? null : _gameClient?.World?.Minimap;
+        Minimap minimap = IncludeProvisional ? null : _gameClient?.Sim?.Minimap;
         System.Collections.Generic.IEnumerable<MapMarkerRecord> markers =
             IncludeProvisional ? sim.EnumerateMarkers() : sim.EnumerateWorldMapMarkers();
         foreach (MapMarkerRecord record in markers)
@@ -154,13 +154,13 @@ public partial class MapMarkerOverlay : Control
     // the discovered-Knowledge stores the static markers above come from.
     private void DrawLiveMarkers(Vector2 center, Vector2 panel, float diameter, float radiusSq, float counterRot)
     {
-        World world = _gameClient?.World;
-        if (world == null)
+        Sim sim = _gameClient?.Sim;
+        if (sim == null)
         {
             return;
         }
         float half = IconSize * 0.5f;
-        System.Collections.Generic.IReadOnlyList<LiveMapMarker> markers = world.LiveMapMarkers;
+        System.Collections.Generic.IReadOnlyList<LiveMapMarker> markers = sim.LiveMapMarkers;
         for (int i = 0; i < markers.Count; i++)
         {
             LiveMapMarker marker = markers[i];
@@ -199,7 +199,7 @@ public partial class MapMarkerOverlay : Control
     // active state (lit/unlit), read from `sim` each draw.
     // revealAlpha (0..1) fades the icon in with its ground during the camp reveal
     // sweep — 1 outside the animation, so normal display is unaffected.
-    private void DrawMarker(MapMarkerRecord record, WorldSimState sim, float revealAlpha)
+    private void DrawMarker(MapMarkerRecord record, SimState sim, float revealAlpha)
     {
         if (revealAlpha <= 0f)
         {
@@ -225,7 +225,7 @@ public partial class MapMarkerOverlay : Control
         if (identified && sim.TryGetForgeMarker(record.WorldPosition, out ForgeMarkerInfo forge))
         {
             forgeLevel = forge.Level;
-            SimData simData = World.Current?.SimData;
+            SimData simData = Sim.Current?.SimData;
             if (simData != null)
             {
                 Texture2D slotIcon = simData.GetForgeSlotIcon(forge.Slot);

@@ -13,6 +13,6 @@ public partial class ScriptVarTransition : BehaviorTransitionData
 
     public override bool Evaluate(Mob me, ref PerceptionState targetPerception)
     {
-        return ScriptVarOps.Compare(me?.World?.WorldState?.SimState?.ScriptVars, variable, op, operand);
+        return ScriptVarOps.Compare(me?.Sim?.WorldState?.SimState?.ScriptVars, variable, op, operand);
     }
 }

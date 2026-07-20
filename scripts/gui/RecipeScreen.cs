@@ -2,7 +2,7 @@ using Godot;
 using Godot.Collections;
 
 // Recipe tab rendered inside AlmanacScreen. Lists every recipe the player
-// has discovered this run (WorldSimState.DiscoveredRecipes) — one row per
+// has discovered this run (SimState.DiscoveredRecipes) — one row per
 // discovered recipe. Standard and high-quality variants of the same dish
 // are separate RecipeData files, so each appears as its own row when
 // learned. Focusing a row populates the item info panel with the output
@@ -60,8 +60,8 @@ public partial class RecipeScreen : Control
 			}
 		}
 
-		SimData simData = _gameClient?.World?.SimData;
-		WorldSimState worldSim = _gameClient?.World?.WorldState?.SimState;
+		SimData simData = _gameClient?.Sim?.SimData;
+		SimState worldSim = _gameClient?.Sim?.WorldState?.SimState;
 		Button firstButton = null;
 		RecipeData firstRecipe = null;
 		if (simData != null && worldSim != null && simData.recipes != null)
@@ -119,7 +119,7 @@ public partial class RecipeScreen : Control
 		{
 			return null;
 		}
-		WorldSimState worldSim = _gameClient?.World?.WorldState?.SimState;
+		SimState worldSim = _gameClient?.Sim?.WorldState?.SimState;
 		button.Text = worldSim != null
 			? worldSim.GetItemDisplayName(output)
 			: output.displayName.ToString();

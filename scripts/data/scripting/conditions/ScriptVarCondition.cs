@@ -18,6 +18,6 @@ public partial class ScriptVarCondition : ConversationCondition
 
     public override bool Evaluate(ConversationContext ctx)
     {
-        return ScriptVarOps.Compare(ctx.world?.WorldState?.SimState?.ScriptVars, variable, op, operand);
+        return ScriptVarOps.Compare(ctx.sim?.WorldState?.SimState?.ScriptVars, variable, op, operand);
     }
 }

@@ -11,8 +11,8 @@ public class SafetyZoneSimState : EntitySimState
     {
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return SafetyZone.Create(world, this);
+        return SafetyZone.Create(sim, this);
     }
 }

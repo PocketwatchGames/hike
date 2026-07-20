@@ -4,7 +4,7 @@ using System.Collections.Generic;
 // of the permanent weapon mods composed onto it (see ItemDescriptor) — e.g. a
 // bomb carrying the Fragile mod and a Lightning mod reads "Fragile bomb of
 // Lightning". Read-side only: a pure function of the item's live status effects,
-// mutating nothing. WorldSimState.GetItemDisplayName routes identified items
+// mutating nothing. SimState.GetItemDisplayName routes identified items
 // through here; unidentified items skip it so affixes don't leak the reveal.
 //
 // Grammar across languages lives in the loc templates, NOT in this code: each

@@ -70,7 +70,7 @@ public partial class BehaviorWanderFollow : BehaviorBase
         _sniffUntilMs = 0;
         _curioTarget = null;
         _curioWoofPending = false;
-        Player master = me.World?.player;
+        Player master = me.Sim?.player;
         _playerAnchor = master?.GlobalPosition ?? me.GlobalPosition;
         _playerAnchorMs = time;
 
@@ -99,7 +99,7 @@ public partial class BehaviorWanderFollow : BehaviorBase
             _nextWhimperMs = time + (ulong)(Mathf.Max(0f, _data.whimperCooldownSeconds) * 1000f);
         }
 
-        Player master = me.World?.player;
+        Player master = me.Sim?.player;
         if (master == null)
         {
             output.speed = 0f;

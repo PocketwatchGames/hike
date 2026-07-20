@@ -3,21 +3,21 @@ using Godot;
 
 // Central hub for all world simulation. The class is split across several
 // partial files by concern:
-//   World.cs                 — this file: lifecycle/orchestration + owned sub-objects
-//   World.EntityStreaming.cs — chunk-driven entity load/unload + the spawn queue
-//   World.SpawnLifecycle.cs  — spawn-condition gating + day/night refresh + cleanup
-//   World.Spawning.cs        — loot / drop / footprint spawn factories
-//   World.Environment.cs     — weather + voxel-light sampling queries
-//   World.Chunks.cs          — thin delegation to ChunkManager (lighting, fog, coords)
-// A few self-contained pieces live as their own classes that World owns:
+//   Sim.cs                 — this file: lifecycle/orchestration + owned sub-objects
+//   Sim.EntityStreaming.cs — chunk-driven entity load/unload + the spawn queue
+//   Sim.SpawnLifecycle.cs  — spawn-condition gating + day/night refresh + cleanup
+//   Sim.Spawning.cs        — loot / drop / footprint spawn factories
+//   Sim.Environment.cs     — weather + voxel-light sampling queries
+//   Sim.Chunks.cs          — thin delegation to ChunkManager (lighting, fog, coords)
+// A few self-contained pieces live as their own classes that Sim owns:
 //   FoliageCutawayProbe, PathBlockerGrid, and the static WorldBoundary helper.
-public partial class World : Node3D
+public partial class Sim : Node3D
 {
     // Reference to the active world, used by static contexts (CVars, etc.)
     // that need to reach into the running game without a node-tree lookup.
     // Set in Initialize, cleared on tree exit. Only one game world is active
     // at a time so a single static slot is sufficient.
-    public static World Current { get; private set; }
+    public static Sim Current { get; private set; }
 
     public SimData SimData => _worldState.SimData;
     public WorldState WorldState => _worldState;
@@ -148,7 +148,7 @@ public partial class World : Node3D
 
     // Batched renderer for transient footprint ground marks — one MultiMesh
     // per actor footprint texture, owning its own per-print lifetime fade and
-    // mob-print discovery gate. World.SpawnFootprint routes prints to it.
+    // mob-print discovery gate. Sim.SpawnFootprint routes prints to it.
     public FootprintScatter FootprintScatter => _footprintScatter;
 
     public Player player => _player;
@@ -181,7 +181,7 @@ public partial class World : Node3D
 
         // Set Current BEFORE constructing children that may dereference it.
         // ChunkManager.Initialize triggers synchronous chunk builds which call
-        // World.Current?.DetailScatter?.SetChunk — if Current is still null
+        // Sim.Current?.DetailScatter?.SetChunk — if Current is still null
         // those scatter posts are silently dropped and the initial chunk
         // load's detail sprites never appear.
         Current = this;
@@ -306,7 +306,7 @@ public partial class World : Node3D
 
         // Advance normalized time-of-day toward midnight, CLAMPING there —
         // the celestial cycle pauses at midnight and only a sleep advances to
-        // the next day's sunrise (World.AdvanceToNextSunrise). time_scale lets
+        // the next day's sunrise (Sim.AdvanceToNextSunrise). time_scale lets
         // the player fast-forward the cycle without disturbing GameTimeMs (which
         // drives cooldowns and AI timers that should stay at real speed).
         // Frozen while the player rests at a camp (CampScreen sets the flag).

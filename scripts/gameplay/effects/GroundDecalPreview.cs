@@ -3,7 +3,7 @@ using Godot;
 // Flat ground decal that announces an incoming arced attack's landing point,
 // then fades out and frees itself. Spawned by ItemEventHandlers when an arced
 // projectile carrying a projectileTargetPreview launches (a mob's lobbed
-// attack), parented to the World at the predicted landing point.
+// attack), parented to the Sim at the predicted landing point.
 //
 // Its child quad must live on the ground-stain layer (layer 5,
 // GroundStainProjector.STAIN_PROXY_LAYER_MASK) with an unshaded, alpha-blended

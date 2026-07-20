@@ -4,7 +4,7 @@ public partial class GameCamera : Camera3D
 {
 	// `new` intentionally hides Camera3D.Current (an instance bool indicating
 	// the active rendering camera) — we want the singleton-style "Current"
-	// the rest of the codebase uses (World.Current, GameClient.Current, ...).
+	// the rest of the codebase uses (Sim.Current, GameClient.Current, ...).
 	public static new GameCamera Current { get; private set; }
 
 	[Export] public float pitchDegrees = -65;

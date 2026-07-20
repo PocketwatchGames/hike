@@ -5,8 +5,8 @@ using Godot;
 // the same actor texture collapses into a single MultiMesh draw — one shared
 // per-texture material, no per-print Node or _Process.
 //
-// Structural sibling of WorldPropScatter — World owns one, created in
-// World.Initialize — but where WorldPropScatter batches static props that
+// Structural sibling of WorldPropScatter — Sim owns one, created in
+// Sim.Initialize — but where WorldPropScatter batches static props that
 // register/unregister handles, footprints are transient and animated, so
 // this class owns the per-instance lifetime simulation itself:
 //   - lifetime fade (alpha ramps to 0 over the print's duration, then the
@@ -78,7 +78,7 @@ public partial class FootprintScatter : Node3D
 
     private readonly Dictionary<Texture2D, Bucket> _buckets = new();
 
-    // Lay down a print. Called from World.SpawnFootprint (which the
+    // Lay down a print. Called from Sim.SpawnFootprint (which the
     // FootprintEmitter routes player/mob footsteps through). CPU-only — the
     // instance is uploaded to the GPU on the next _Process.
     public void Spawn(Texture2D texture, Vector2 size, Color tint, Vector3 position, float yaw, float durationSeconds, bool gated)
@@ -124,7 +124,7 @@ public partial class FootprintScatter : Node3D
             Transform = transform,
             Position = position,
             Tint = new Color(tintLinear.R, tintLinear.G, tintLinear.B, tint.A),
-            SpawnTimeMs = World.Current?.GameTimeMs ?? 0,
+            SpawnTimeMs = Sim.Current?.GameTimeMs ?? 0,
             DurationSeconds = Mathf.Max(0.1f, durationSeconds),
             Gated = gated,
             DiscoveryAlpha = gated ? 0f : 1f,
@@ -142,9 +142,9 @@ public partial class FootprintScatter : Node3D
     public override void _Process(double delta)
     {
         using var _prof = Profiler.Sample("FootprintScatter.Process");
-        World world = World.Current;
-        SimData sim = world?.SimData;
-        ulong now = world?.GameTimeMs ?? 0;
+        Sim sim = Sim.Current;
+        SimData simData = sim?.SimData;
+        ulong now = sim?.GameTimeMs ?? 0;
         float dt = (float)delta;
 
         foreach (Bucket bucket in _buckets.Values)
@@ -185,9 +185,9 @@ public partial class FootprintScatter : Node3D
                 ulong age = now - slot.SpawnTimeMs;
                 float lifetimeAlpha = Mathf.Max(0f, 1f - (age * 0.001f / slot.DurationSeconds));
 
-                if (slot.Gated && world != null)
+                if (slot.Gated && sim != null)
                 {
-                    UpdateDiscovery(world, sim, ref slot, dt);
+                    UpdateDiscovery(sim, simData, ref slot, dt);
                 }
 
                 bucket.Mm.SetInstanceTransform(s, slot.Transform);
@@ -207,7 +207,7 @@ public partial class FootprintScatter : Node3D
     // Advance the mob-print discovery gate: tick perception at ~10Hz until the
     // print is Discovered (monotonic — discovery is permanent for the print's
     // lifetime), then ease the fade-in alpha toward the target.
-    private static void UpdateDiscovery(World world, SimData sim, ref Slot slot, float dt)
+    private static void UpdateDiscovery(Sim sim, SimData simData, ref Slot slot, float dt)
     {
         if (slot.Perception.state != EPlayerPerceptionState.Discovered)
         {
@@ -217,26 +217,26 @@ public partial class FootprintScatter : Node3D
                 float tickDelta = slot.Perception.tickAccumulator;
                 slot.Perception.tickAccumulator = 0f;
 
-                float threshold = sim?.footprintDiscoveryThreshold ?? 1f;
+                float threshold = simData?.footprintDiscoveryThreshold ?? 1f;
                 var inputs = new PerceptionInputs
                 {
-                    prominence = sim?.footprintDiscoveryProminence ?? 0.3f,
+                    prominence = simData?.footprintDiscoveryProminence ?? 0.3f,
                     rangeScale = 1f,
                     // No Detected phase / HUD for prints — the visual keys on
                     // Discovered, so collapse Detected onto the same threshold.
                     detectedThreshold = threshold,
                     discoveredThreshold = threshold,
-                    lightSampleHeight = sim?.footprintDiscoveryLightSampleHeight ?? 0.05f,
+                    lightSampleHeight = simData?.footprintDiscoveryLightSampleHeight ?? 0.05f,
                     losRayHeight = 0f,
                     // Light already encodes "behind a wall / in the dark", and a
                     // per-print raycast across many prints would dominate.
                     skipLineOfSight = true,
                 };
-                PlayerPerception.Tick(world, slot.Position, in inputs, ref slot.Perception, tickDelta, out _);
+                PlayerPerception.Tick(sim, slot.Position, in inputs, ref slot.Perception, tickDelta, out _);
             }
         }
 
-        float fadeSeconds = sim?.footprintDiscoveryFadeSeconds ?? 0.4f;
+        float fadeSeconds = simData?.footprintDiscoveryFadeSeconds ?? 0.4f;
         float target = slot.Perception.state == EPlayerPerceptionState.Discovered ? 1f : 0f;
         if (slot.DiscoveryAlpha != target)
         {
@@ -268,7 +268,7 @@ public partial class FootprintScatter : Node3D
             return existing;
         }
 
-        Material template = World.Current?.SimData?.footprintMaterial;
+        Material template = Sim.Current?.SimData?.footprintMaterial;
         if (template == null)
         {
             GD.PushError("FootprintScatter: SimData.FootprintMaterial is not set — cannot render footprints.");

@@ -1,6 +1,6 @@
 using Godot;
 
-// Teaches an alchemy spell — records it into WorldSimState.KnownSpells so it
+// Teaches an alchemy spell — records it into SimState.KnownSpells so it
 // shows up on the alchemy campfire screen (and can be attuned) before the player
 // has ever cast it. LearnSpell also silently identifies the spell so the button
 // reads with its real name instead of "Unknown Potion".
@@ -24,7 +24,7 @@ public partial class SpellTeachable : TeachableConcept
         {
             return false;
         }
-        WorldSimState sim = player.World?.WorldState?.SimState;
+        SimState sim = player.Sim?.WorldState?.SimState;
         return sim != null && sim.LearnSpell(spell);
     }
 
@@ -34,6 +34,6 @@ public partial class SpellTeachable : TeachableConcept
         {
             return false;
         }
-        return player?.World?.WorldState?.SimState?.IsSpellKnown(spell) ?? false;
+        return player?.Sim?.WorldState?.SimState?.IsSpellKnown(spell) ?? false;
     }
 }

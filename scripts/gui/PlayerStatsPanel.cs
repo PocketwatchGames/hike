@@ -164,8 +164,8 @@ public partial class PlayerStatsPanel : PanelContainer
 		_minProgress.Clear();
 		_levels.Clear();
 		_seenOrder.Clear();
-		ulong now = World.Current?.GameTimeMs ?? 0;
-		double nowTod = World.Current?.TimeOfDayAbsolute ?? 0.0;
+		ulong now = Sim.Current?.GameTimeMs ?? 0;
+		double nowTod = Sim.Current?.TimeOfDayAbsolute ?? 0.0;
 		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{

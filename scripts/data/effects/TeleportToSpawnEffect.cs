@@ -14,7 +14,7 @@ public partial class TeleportToSpawnEffect : ItemEffect
 		{
 			return;
 		}
-		WorldState worldState = player.World?.WorldState;
+		WorldState worldState = player.Sim?.WorldState;
 		if (worldState == null)
 		{
 			return;

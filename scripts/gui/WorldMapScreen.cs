@@ -18,7 +18,7 @@ using Godot;
 // region's centroid (WorldState.RegionCentroidsXZ) using the same UV math
 // the shader uses, so labels stay locked to their region as the panel
 // resizes. A label only shows if its region has been entered at least
-// once — see WorldSimState.DiscoveredRegions.
+// once — see SimState.DiscoveredRegions.
 //
 // No mouse interaction — every Control here keeps mouse_filter = Ignore.
 [GlobalClass]
@@ -76,7 +76,7 @@ public partial class WorldMapScreen : Control
 		{
 			return;
 		}
-		Minimap minimap = _gameClient?.World?.Minimap;
+		Minimap minimap = _gameClient?.Sim?.Minimap;
 		if (minimap == null || mapTexture == null)
 		{
 			return;
@@ -146,7 +146,7 @@ public partial class WorldMapScreen : Control
 		{
 			return;
 		}
-		WorldState ws = _gameClient?.World?.WorldState;
+		WorldState ws = _gameClient?.Sim?.WorldState;
 		if (ws == null)
 		{
 			return;

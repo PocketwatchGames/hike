@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Godot;
 
-// The run's active quests, owned by WorldSimState so they persist with the rest
+// The run's active quests, owned by SimState so they persist with the rest
 // of player progression (SaveGame v4). GameClient ticks the log each frame and
 // feeds it triggers (death -> Rescue, nightfall -> Return to Camp); the HUD
 // subscribes to onQuestAdded / onQuestRemoved to surface widgets. Quests

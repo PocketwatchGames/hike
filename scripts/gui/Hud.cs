@@ -94,7 +94,7 @@ public partial class Hud : Control
 	Player _player;
 	Inventory _inventory;
 	// Quest surfacing (view only — the quest lifecycle is sim-driven in World).
-	// Bound to WorldSimState.QuestLog on player spawn; one QuestItem widget per
+	// Bound to SimState.QuestLog on player spawn; one QuestItem widget per
 	// active quest, refreshed each frame so counters / countdowns stay live.
 	readonly Dictionary<QuestState, QuestItem> _questWidgets = new();
 	QuestLog _questLog;
@@ -458,7 +458,7 @@ public partial class Hud : Control
 	void BindQuests()
 	{
 		UnbindQuests();
-		_questLog = gameClient?.World?.WorldState?.SimState?.QuestLog;
+		_questLog = gameClient?.Sim?.WorldState?.SimState?.QuestLog;
 		if (_questLog == null)
 		{
 			return;
@@ -590,7 +590,7 @@ public partial class Hud : Control
 		_staminaBar.Visible = maxStamina > 0f;
 		_staminaBar.Value = maxStamina > 0f ? _player.Stamina / maxStamina : 0f;
 
-		ulong now = gameClient.World?.GameTimeMs ?? 0;
+		ulong now = gameClient.Sim?.GameTimeMs ?? 0;
 		_weaponLeftHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponMelee));
 		_weaponRightHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponRanged));
 		// The attuned spell's "ammo" is the live castable-count from the party
@@ -640,15 +640,15 @@ public partial class Hud : Control
 		{
 			return;
 		}
-		WorldState ws = gameClient?.World?.WorldState;
-		SimData sim = ws?.SimData;
-		if (ws == null || sim == null)
+		WorldState ws = gameClient?.Sim?.WorldState;
+		SimData simData = ws?.SimData;
+		if (ws == null || simData == null)
 		{
 			return;
 		}
 
 		float tod = (float)ws.TimeOfDay01;
-		float halfWidth = sim.varianceCrossfadeHalfWidth01;
+		float halfWidth = simData.varianceCrossfadeHalfWidth01;
 		float sunsetStart = (float)WorldState.SunsetTimeOfDay01 - halfWidth;
 		float sunsetEnd = (float)WorldState.SunsetTimeOfDay01 + halfWidth;
 		float sunriseFadeEnd = 2f * halfWidth;
@@ -700,9 +700,9 @@ public partial class Hud : Control
 		// trough. Both slots are rolled at sunrise (WorldState.RollDailyWeather),
 		// so the whole day — and tonight — is known up front with no phase
 		// bookkeeping. Slope 0: the icon shows the steady-state plateau.
-		WeatherSimulation.ApplyAtDiurnal(_forecastDayPeak, _forecastZone, elevation, sim,
+		WeatherSimulation.ApplyAtDiurnal(_forecastDayPeak, _forecastZone, elevation, simData,
 			diurnal: 1f, ws.DayWeatherVariance, 0f, ws.DayHumidityVariance, ws.DayCloudVariance, ws.DayLightningVariance);
-		WeatherSimulation.ApplyAtDiurnal(_forecastNightTrough, _forecastZone, elevation, sim,
+		WeatherSimulation.ApplyAtDiurnal(_forecastNightTrough, _forecastZone, elevation, simData,
 			diurnal: 0f, ws.NightWeatherVariance, 0f, ws.NightHumidityVariance, ws.NightCloudVariance, ws.NightLightningVariance);
 
 		PlayerData pd = _player?.data;
@@ -787,7 +787,7 @@ public partial class Hud : Control
 	// and slice crossings.
 	void UpdateMinimap()
 	{
-		Minimap minimap = gameClient.World?.Minimap;
+		Minimap minimap = gameClient.Sim?.Minimap;
 		if (minimap == null || _minimapTexture == null)
 		{
 			return;
@@ -903,7 +903,7 @@ public partial class Hud : Control
 		_statusEffectMinProgress.Clear();
 		_statusEffectsThisTick.Clear();
 
-		double nowTod = World.Current?.TimeOfDayAbsolute ?? 0.0;
+		double nowTod = Sim.Current?.TimeOfDayAbsolute ?? 0.0;
 		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{

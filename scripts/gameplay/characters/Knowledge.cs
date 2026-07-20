@@ -22,7 +22,7 @@ public enum EKnowledgeCategory
 // PROVISIONAL per-member pool (PlayerState.Knowledge) holding what the currently
 // active character has learned in the field since the last campfire "bank".
 //
-// Reads combine the two (see WorldSimState / Player): away from a campfire, "do
+// Reads combine the two (see SimState / Player): away from a campfire, "do
 // we know X?" is party ∪ active-member. Banking (Party.BankActive, fired when the
 // player camps) folds the active member's store into the party pool via MergeFrom
 // and then Clears it. Plain class (like Party) — runtime state SaveGame persists

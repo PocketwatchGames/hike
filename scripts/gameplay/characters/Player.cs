@@ -294,7 +294,7 @@ public partial class Player : CharacterBody3D
 
 
 
-	World _world;
+	Sim _world;
 	IInteractive _curInteractive;
 	// Companion to _curInteractive — names which entry in the interactive's
 	// GetActions() list the player has committed to. Future radial-menu UI
@@ -612,7 +612,7 @@ public partial class Player : CharacterBody3D
 	// their water.
 	public bool IsInWater => _waterState != EWaterState.None;
 	public bool HasDamagingStatusEffect => _statusEffects?.HasDamagingEffect ?? false;
-	public World World => _world;
+	public Sim Sim => _world;
 	public Inventory Inventory => _inventory;
 	// The active member's roster knowledge store (provisional field knowledge),
 	// or null before the roster exists. Language learning writes here and combines
@@ -673,7 +673,7 @@ public partial class Player : CharacterBody3D
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	// Catch up status effects by `dt` seconds in one call. Used by the sleep
-	// time-skip (World.AdvanceTime) to integrate DoT, expire timed/time-of-day
+	// time-skip (Sim.AdvanceTime) to integrate DoT, expire timed/time-of-day
 	// effects, and drain buildup meters over a skipped span. Identical to the
 	// per-frame path so there's no separate catch-up logic to drift.
 	public void TickStatusEffects(float dt) => _statusEffects?.Tick(dt);
@@ -987,7 +987,7 @@ public partial class Player : CharacterBody3D
 		{
 			return 0f;
 		}
-		WorldState ws = World.Current?.WorldState;
+		WorldState ws = Sim.Current?.WorldState;
 		if (ws == null)
 		{
 			return 0f;
@@ -1286,9 +1286,9 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	public void Initialize(World world, WorldGenData worldGenData, PlayerState member, Vector3 position, Vector3 rotation)
+	public void Initialize(Sim sim, WorldGenData worldGenData, PlayerState member, Vector3 position, Vector3 rotation)
 	{
-		_world = world;
+		_world = sim;
 		Member = member;
 		// Grave marker (authored into player.tscn) self-registers; gate its draw
 		// on this party member being dead.
@@ -1313,8 +1313,8 @@ public partial class Player : CharacterBody3D
 		// held-torch prop has to refresh even when the inventory contents don't.
 		_inventory.onConsumableChanged += OnConsumableChanged;
 		_runner = new ActionRunner(this);
-		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, conditionActive: EvaluateTraitCondition, incomingLevelResist: () => IncomingLevelResist);
-		_scent = new ScentEmitter(this, world, data.scentStrength, data.scentDecayRate,
+		_statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeMaskMul, conditionActive: EvaluateTraitCondition, incomingLevelResist: () => IncomingLevelResist);
+		_scent = new ScentEmitter(this, sim, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
 

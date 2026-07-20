@@ -145,7 +145,7 @@ public class MobSimState : EntitySimState
     // scaled vitals stay consistent across chunk eviction and save/load.
     public int Level;
     // The species variant this mob IS — the bestiary identity (discovery key,
-    // see WorldSimState.DiscoveredSpecies) and the source of
+    // see SimState.DiscoveredSpecies) and the source of
     // its recolor / loot / per-variant stat modifiers. Stamped from
     // MobDescriptor at spawn and persisted via EntitySerializer so the variant
     // identity survives chunk eviction and .hike load. The base MobData (this.
@@ -336,31 +336,31 @@ public class MobSimState : EntitySimState
         LightSampleAccumulator = (float)GD.RandRange(0.0, LightSampleInterval);
     }
 
-    public override bool ShouldSpawn(World world)
+    public override bool ShouldSpawn(Sim sim)
     {
         if (!Alive)
         {
             return false;
         }
-        if (!world.SpawnConditionsMet(SpawnConditions))
+        if (!sim.SpawnConditionsMet(SpawnConditions))
         {
             return false;
         }
         return true;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        if (!ShouldSpawn(world))
+        if (!ShouldSpawn(sim))
         {
             return null;
         }
-        return Mob.Create(world, this);
+        return Mob.Create(sim, this);
     }
 
     // Returns this mob to its authored spawn condition so a fresh node
     // re-materializes at the spawn post, full health, unaware — as if the chunk
-    // had just loaded. Driven by World.ResetSpawns when time passes (sleep / death).
+    // had just loaded. Driven by Sim.ResetSpawns when time passes (sleep / death).
     // Restores the transform, revives, and clears all combat/awareness runtime
     // state; vitals refill on the next Mob.Initialize because RestoredFromSave is
     // cleared here (so a killed or half-dead mob comes back at its full level/

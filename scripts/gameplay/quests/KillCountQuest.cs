@@ -13,17 +13,17 @@ public class KillCountQuest : QuestState
 
     public override void OnStart()
     {
-        if (World.Current != null)
+        if (Sim.Current != null)
         {
-            World.Current.onMobKilled += OnMobKilled;
+            Sim.Current.onMobKilled += OnMobKilled;
         }
     }
 
     public override void OnEnd()
     {
-        if (World.Current != null)
+        if (Sim.Current != null)
         {
-            World.Current.onMobKilled -= OnMobKilled;
+            Sim.Current.onMobKilled -= OnMobKilled;
         }
     }
 

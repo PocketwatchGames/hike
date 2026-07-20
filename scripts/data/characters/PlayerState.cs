@@ -78,7 +78,7 @@ public partial class PlayerState : Resource
 	// Runtime (not authored): this member's PROVISIONAL individual knowledge —
 	// items/recipes/species/regions/languages learned in the field while this
 	// character was active, not yet banked into the shared party pool. Combined
-	// with Party.Knowledge on every "do we know X?" read (see WorldSimState /
+	// with Party.Knowledge on every "do we know X?" read (see SimState /
 	// Player) and folded into the party pool when the player camps
 	// (Party.BankActive). Survives death/revive because it lives here on the
 	// PlayerState; lost only when the member is permanently destroyed. Field
@@ -93,7 +93,7 @@ public partial class PlayerState : Resource
 	// because the runtime Party is a fresh clone of the templates.
 	public bool IsDead;
 
-	// Runtime (not authored): the World.DayNumber by which a fallen member must be
+	// Runtime (not authored): the Sim.DayNumber by which a fallen member must be
 	// revived. Set to the day AFTER the one they wake at (one full day of grace);
 	// once DayNumber reaches it un-revived (i.e. the party sleeps to that sunrise),
 	// the member is destroyed permanently. 0 = no pending deadline (alive, or not
@@ -103,7 +103,7 @@ public partial class PlayerState : Resource
 	// Runtime (not authored): true once this member has eaten a cooked dish today.
 	// Each character may cook and eat once per day; the camp Cook tab is withheld
 	// from a member who already has. Cleared for the whole party at each sunrise
-	// (GameClient handles World.OnNewDay).
+	// (GameClient handles Sim.OnNewDay).
 	public bool HasEatenToday;
 
 	// Runtime (not authored): days since this member was last the active

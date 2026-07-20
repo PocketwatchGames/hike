@@ -20,10 +20,10 @@ public partial class NoCeilingRequirement : ActionRequirement
 
 	public override bool Evaluate(IActionActor actor, in ActionContext context)
 	{
-		WorldState ws = World.Current?.WorldState;
+		WorldState ws = Sim.Current?.WorldState;
 		if (ws == null)
 		{
-			// World not loaded — fail closed so the action doesn't fire from
+			// Sim not loaded — fail closed so the action doesn't fire from
 			// a half-initialised state. Same conservative default as the
 			// other requirement subclasses' null branches.
 			return false;

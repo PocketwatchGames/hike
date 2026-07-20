@@ -252,7 +252,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // True when this mob is an active threat to the player: alive, dangerous, and
     // on a team hostile to the player, AND either triggered (it has noticed the
     // player and gone on combat alert) or currently visible to the player. Read
-    // by World.IsDangerPresent to forbid "safe" actions like cooking while a
+    // by Sim.IsDangerPresent to forbid "safe" actions like cooking while a
     // threat is around. Mirrors the discovery test in the visibility update —
     // Discovered with unexpired memory — so a dangerous mob the player has just
     // seen (even if it ducked behind cover) still counts.
@@ -276,7 +276,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
     // Circumstances this mob required to spawn (see ESpawnConditions). Read by
-    // World.CleanupOffConditionMobs to despawn a mob whose conditions have
+    // Sim.CleanupOffConditionMobs to despawn a mob whose conditions have
     // lapsed once the player is far and unaware. None = unconditional, never
     // cleaned up on this account.
     public ESpawnConditions spawnConditions => _simState.SpawnConditions;
@@ -291,9 +291,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // so a pinned silhouette can leave the frame while its blob stays on visible
     // ground). Zero when MobData.groundShadowRadius is 0.
     public float GroundShadowAlpha => CVars.mobShadows.Value ? _visibility * (1f - _silhouette) : 0f;
-    // The persistent sim state backing this mob. Exposed so World's companion
+    // The persistent sim state backing this mob. Exposed so Sim's companion
     // chunk-unload rescue can re-file the state under a new chunk (see
-    // World.RescueCompanion / WorldState.MoveEntityToChunk).
+    // Sim.RescueCompanion / WorldState.MoveEntityToChunk).
     public MobSimState SimState => _simState;
     // Per-instance language override (set by WorldGen / world files) takes
     // precedence over MobData.language. Mirrors SpeakDialogue's resolution
@@ -443,14 +443,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private ModelAnimator _animator;
 
     private MobSimState _simState;
-    World _world;
-    public World World => _world;
+    Sim _world;
+    public Sim Sim => _world;
 
     // Navigation controller — owns this mob's pathfinding/steering intent.
     // Behaviors call _navigator.Goto/Wander/Stop; the navigator writes
     // output.pathTarget at the bottom of TickAI. Lazily created the first
     // time TickAI runs after Initialize so it's available before the first
-    // Behavior.Run call (mobData and World are required for construction).
+    // Behavior.Run call (mobData and Sim are required for construction).
     private MobNavigator _navigator;
     public MobNavigator Navigator => _navigator;
 
@@ -470,7 +470,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
     // Catch up status effects by `dt` seconds in one call — the sleep
-    // time-skip (World.AdvanceTime) bulk-ticks every loaded mob over the
+    // time-skip (Sim.AdvanceTime) bulk-ticks every loaded mob over the
     // skipped span. Same path as the per-frame tick, just one coarse step.
     public void TickStatusEffects(float dt) => _statusEffects?.Tick(dt);
 
@@ -638,10 +638,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // forever in place.
     private ulong _intentStuckStartMs;
 
-    public static Mob Create(World world, MobSimState data)
+    public static Mob Create(Sim sim, MobSimState data)
     {
         var instance = data.Scene.Instantiate<Mob>();
-        instance.Initialize(world, data);
+        instance.Initialize(sim, data);
         return instance;
     }
 
@@ -810,13 +810,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         FootprintEmitter.Emit(_world, pos, GlobalRotation.Y, ground, _footprintTexture, _footprintSize, fpAlphaMul, fpDurMul, gated: !perceivedAtEmit);
     }
 
-    public void OnSpawned(World world)
+    public void OnSpawned(Sim sim)
     {
-        world.MobSpatialHash.Add(this);
+        sim.MobSpatialHash.Add(this);
         SpawnWorldEffect(_spawnFx);
         if (IsCompanion)
         {
-            world.RegisterCompanion(this);
+            sim.RegisterCompanion(this);
         }
         // The live map marker (authored into NPC scenes) self-registers; gate its
         // draw on a living, un-recruited mob that carries a conversation.
@@ -827,23 +827,23 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         TreeExiting += () =>
         {
             SyncToSimState();
-            world.MobSpatialHash.Remove(this);
+            sim.MobSpatialHash.Remove(this);
             if (IsCompanion)
             {
-                world.UnregisterCompanion(this);
+                sim.UnregisterCompanion(this);
             }
             // Release any encircle slot held against any target so the
             // ring doesn't keep a dead mob occupying a slot for the rest
             // of the encounter.
-            world.EncircleAllocator.ReleaseSlot(this);
-            world.onMobRemoved?.Invoke(this);
+            sim.EncircleAllocator.ReleaseSlot(this);
+            sim.onMobRemoved?.Invoke(this);
         };
-        world.onMobSpawned?.Invoke(this);
+        sim.onMobSpawned?.Invoke(this);
     }
 
-    public void Initialize(World world, MobSimState simState)
+    public void Initialize(Sim sim, MobSimState simState)
     {
-        _world = world;
+        _world = sim;
         _simState = simState;
         Position = simState.WorldPosition;
         Rotation = new Vector3(0, simState.RotationY, 0);
@@ -851,9 +851,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // (for voxel queries), so construct here after both are wired.
         _navigator = new MobNavigator(this);
         _runner = new ActionRunner(this);
-        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, DrainMaxHealth, incomingLevelResist: () => IncomingLevelResist, maxHealth: () => maxHealth);
+        _statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeMaskMul, DrainMaxHealth, incomingLevelResist: () => IncomingLevelResist, maxHealth: () => maxHealth);
         InitBehaviors();
-        world.AddChild(this);
+        sim.AddChild(this);
         // A mob loaded mid-burrow (from save data) needs its rigid body +
         // collision layer to match — _Ready (run during AddChild above)
         // applied the default Mob/Env|Player setup, and SimState is the
@@ -1379,19 +1379,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             _resolvedActionsBuilt = true;
             bool hasConversation = _simState?.Conversation != null;
-            SimData sim = _world?.SimData;
-            if (hasConversation && sim != null)
+            SimData simData = _world?.SimData;
+            if (hasConversation && simData != null)
             {
                 _resolvedActions = new Godot.Collections.Array<InteractiveAction>();
-                if (sim.talkAction != null)
+                if (simData.talkAction != null)
                 {
-                    _resolvedActions.Add(sim.talkAction);
+                    _resolvedActions.Add(simData.talkAction);
                 }
                 // Trade replaces Give on merchants; the two are mutually
                 // exclusive so the player only sees one shop verb per mob.
                 InteractiveAction shopAction = _simState != null && _simState.WillTrade
-                    ? sim.tradeAction
-                    : sim.giveItemAction;
+                    ? simData.tradeAction
+                    : simData.giveItemAction;
                 if (shopAction != null)
                 {
                     _resolvedActions.Add(shopAction);
@@ -1627,7 +1627,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Makes this mob the player's companion: effective team flips to Friendly
-    // (Mob.ActorTeam reads _simState.Tamed) and it registers as World's command
+    // (Mob.ActorTeam reads _simState.Tamed) and it registers as Sim's command
     // target. Used by MaybeTame at runtime; the starter pet spawns with Tamed
     // already set and registers via OnSpawned instead.
     public void Tame()
@@ -1659,7 +1659,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         LanguageData spokenLanguage = _simState?.Language ?? mobData?.language;
         ConversationContext ctx = new ConversationContext
         {
-            world = _world,
+            sim = _world,
             player = GameClient.Current?.Player,
             speaker = this,
             speakerLanguage = spokenLanguage,
@@ -2027,8 +2027,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Call after UpdateWaterState so _swimming reflects this tick.
     private void UpdateMobWet(float dt)
     {
-        SimData sim = _world?.SimData;
-        StatusEffectData wet = sim?.mobWetStatusEffect;
+        SimData simData = _world?.SimData;
+        StatusEffectData wet = simData?.mobWetStatusEffect;
         if (wet == null)
         {
             return;
@@ -2044,7 +2044,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             // Dry circumstance: drain toward 0 over mobWetDrySeconds. The disarm
             // hysteresis releases the effect once the meter passes disarmThreshold.
-            delta = sim.mobWetDrySeconds > 0f ? -dt / sim.mobWetDrySeconds : -1f;
+            delta = simData.mobWetDrySeconds > 0f ? -dt / simData.mobWetDrySeconds : -1f;
         }
         if (delta != 0f)
         {
@@ -2072,7 +2072,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // (SimData.mobSunburnStatusEffect, the same fire DoT + flame FX a flaming
     // weapon applies) — the status controller then owns the ignite, the damage,
     // the once-per-second HUD rollup, and the burn-out. Buildup rate is the mob's
-    // sunburnBuildupPerSecond scaled by World.SunBurnExposure (sun elevation ×
+    // sunburnBuildupPerSecond scaled by Sim.SunBurnExposure (sun elevation ×
     // open-sky exposure — the SHARED "where the sun burns" the darkness-dwell and
     // spawn gates also read), so it only ignites in the open by day and partial
     // shade is slower; leaving the sun stops the fuel and the status decays out.
@@ -2489,7 +2489,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Relocate the body to a new world position in one shot: zero the velocity
     // so the physics engine doesn't carry momentum across the jump, move the
     // node, and write the new position straight into the persistent sim state.
-    // Used by the companion chunk-unload rescue (World.RescueCompanion) to move
+    // Used by the companion chunk-unload rescue (Sim.RescueCompanion) to move
     // a pet that would otherwise be destroyed with its evicting chunk. Mirrors
     // the perch-claim teleport pattern (LinearVelocity zero + GlobalPosition set).
     //
@@ -2511,7 +2511,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // Set by World.ResetSpawns before it queue-frees this mob for a full
+    // Set by Sim.ResetSpawns before it queue-frees this mob for a full
     // spawn-state reset. The despawn's TreeExiting fires at end of frame — AFTER
     // the reset has already rewritten the sim state to the spawn transform — so
     // sync-back must be suppressed or it would clobber the reset with the mob's
@@ -4477,7 +4477,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         base._ExitTree();
     }
 
-    // Dug up by the player's shovel (World.TryDig). Latches full awareness of
+    // Dug up by the player's shovel (Sim.TryDig). Latches full awareness of
     // the digger onto the primary perception slot — same edge the hit handler
     // writes. For a burrowed mob this makes its Burrow behavior fail its
     // out-of-range gate and transition to attack/chase, which drops

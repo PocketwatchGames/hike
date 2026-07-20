@@ -25,27 +25,27 @@ public partial class SimData : Resource
 
     // Master recipe library. CookingScreen iterates this list to match the
     // current cooking inputs against an authored recipe. Discovery for any
-    // hit is recorded in WorldSimState.DiscoveredRecipes keyed by the same
+    // hit is recorded in SimState.DiscoveredRecipes keyed by the same
     // RecipeData reference. Adding a recipe = adding it here.
     [Export] public Array<RecipeData> recipes = new();
 
     // Master alchemy-spell library. The alchemy campfire screen iterates this to
     // list the spells the player can attune, filtered to those currently known
-    // (WorldSimState.IsSpellKnown → Knowledge.KnownSpells). Each SpellData owns its
+    // (SimState.IsSpellKnown → Knowledge.KnownSpells). Each SpellData owns its
     // reagent cost; which spells start known is authored on
     // WorldGenData.initialKnowledge (SpellTeachable). Adding a spell = adding it here.
     [Export] public Array<SpellData> spells = new();
 
     // Master mob-type library — one entry per bestiary PAGE. BestiaryScreen
     // iterates this list for stable page ordering, then groups the player's
-    // discovered species (WorldSimState.DiscoveredSpecies) under the matching
+    // discovered species (SimState.DiscoveredSpecies) under the matching
     // page by SpeciesData.mob. Authored order here controls page order rather
     // than discovery order. Adding a new mob type = adding its base MobData here
     // so its species can appear in the bestiary once spotted.
     [Export] public Array<MobData> mobs = new();
 
     // Central registry of named scripting variables (quest flags, world
-    // state). Seeded into WorldSimState.ScriptVars at world creation so
+    // state). Seeded into SimState.ScriptVars at world creation so
     // ScriptVarCondition / ScriptVarTransition / SetScriptVarAction can branch
     // conversations and behaviors by name. Null = no variables in this world.
     [Export] public ScriptVariableRegistry scriptVariables;
@@ -114,7 +114,7 @@ public partial class SimData : Resource
 
     // Fairy-loot boons. A fairy corpse (FairyLoot) draws its candidate boons
     // from FairyBoons, composed onto the corpse's per-instance ItemState when it
-    // spawns (World.SpawnLoot) so one can be applied on use and chosen by the
+    // spawns (Sim.SpawnLoot) so one can be applied on use and chosen by the
     // player. Centralized here — rather than on the loot entry in the fairy's
     // .tres — so the boon pool is tuned in one place, mirroring the Elite
     // loot/effect pairing above. Empty list (or null FairyLoot) = the corpse
@@ -134,7 +134,7 @@ public partial class SimData : Resource
 
     // Number of boons a fairy corpse offers on the upgrade screen. The corpse
     // rolls a random subset of FairyBoons this size when it spawns
-    // (World.ComposeFairyBoons) — a fixed offering, so reopening the pick screen
+    // (Sim.ComposeFairyBoons) — a fixed offering, so reopening the pick screen
     // shows the same choices — and the gold filler pads back up to this count
     // when too few of the rolled boons are viable at pick time.
     [Export] public int fairyBoonChoiceCount = 3;
@@ -829,13 +829,13 @@ public partial class SimData : Resource
     // gating only runs at chunk activation (which streams around the player),
     // this is the right gameplay read. The lighter sibling of
     // HeavyRainSpawnThreshold — Clear suppresses on any meaningful rain, while
-    // NotHeavyRain only suppresses in a real downpour. See World.SpawnConditionsMet.
+    // NotHeavyRain only suppresses in a real downpour. See Sim.SpawnConditionsMet.
     [Export(PropertyHint.Range, "0,1,0.01")] public float rainSpawnThreshold = 0.2f;
     // Blended rainAmount (0..1) at or above which weather counts as "heavy
     // rain" for spawn gating: mobs/chests flagged ESpawnConditions.NotHeavyRain
     // refuse to spawn once rain reaches this. Distinct from the lighter Clear
     // gate (any meaningful rain) — heavy rain only suppresses spawns in a real
-    // downpour. See World.SpawnConditionsMet.
+    // downpour. See Sim.SpawnConditionsMet.
     [Export(PropertyHint.Range, "0,1,0.01")] public float heavyRainSpawnThreshold = 0.6f;
 
     // rainWeight at cloudCover=0 (scattered thin cloud). Light drizzle.
@@ -957,7 +957,7 @@ public partial class SimData : Resource
     // refresh. A mob skipped for being too close stays in its persistent sim
     // state and spawns later — when the player walks off and its chunk evicts +
     // reloads, or at the next nightfall once the player has moved away. See
-    // World.RefreshTimeOfDayEntities.
+    // Sim.RefreshTimeOfDayEntities.
     [Export(PropertyHint.Range, "0,100,1")] public float spawnMinDistanceFromPlayer = 24f;
 
     [ExportGroup("Spawn Cleanup")]
@@ -966,7 +966,7 @@ public partial class SimData : Resource
     // raining) is despawned back to its persistent sim state — but only once
     // it's far enough away, the player has lost track of it, and it isn't
     // hunting the player. Cleared mobs respawn naturally when their conditions
-    // come back and their chunk is active. See World.CleanupOffConditionMobs.
+    // come back and their chunk is active. See Sim.CleanupOffConditionMobs.
     //
     // Distance (m) from the player beyond which an off-condition mob becomes
     // eligible for cleanup. Must comfortably exceed view distance so the
@@ -995,7 +995,7 @@ public partial class SimData : Resource
     // darkness dwell). Both live on [0,1]; danger drives spawn rate, population
     // cap, AND level together. The player's own light is NOT a spawn input — it's
     // the separate concealment axis (slime vision, MobData.darkness*). See
-    // World.DarknessDwell / NightMobSpawner.
+    // Sim.DarknessDwell / NightMobSpawner.
 
     // Shapes the TIME term: pow(nightProgress, this), where nightProgress is 0 at
     // sunset → 1 at midnight (and 0 all day, so daylight danger comes only from
@@ -1017,7 +1017,7 @@ public partial class SimData : Resource
     // Seconds for the darkness dwell to drain to 0 in full light — how fast the
     // danger cools once the player reaches a bright/open/daylit spot.
     [Export(PropertyHint.Range, "1,120,1")] public float nightDarkFallSeconds = 15f;
-    // Direct-sun exposure (World.SunBurnExposure = sun elevation × open-sky) at
+    // Direct-sun exposure (Sim.SunBurnExposure = sun elevation × open-sky) at
     // which the "shade" factor hits 0 — darkness stops building and slimes stop
     // spawning (they'd burn). Below it, shade ramps up linearly, so only deep
     // dawn/dusk twilight (sun barely up) tolerates slimes in the open. Low so any
@@ -1069,7 +1069,7 @@ public partial class SimData : Resource
     // the day (its daytime sibling to the NightMobSpawner). Null = the fairy spawner
     // stays dormant (no cost). WHICH zones spawn fairies — and how likely — is
     // authored per zone on ZoneData.canSpawnFairy / fairySpawnChance, read live at
-    // the player's location. Spawns are TRANSIENT (World.SpawnMobTransient with
+    // the player's location. Spawns are TRANSIENT (Sim.SpawnMobTransient with
     // ESpawnConditions.None), so like the night gellies they live only near the
     // player and are never persisted.
     [Export] public MobDescriptor fairySpawnDescriptor;
@@ -1111,7 +1111,7 @@ public partial class SimData : Resource
     [ExportGroup("Companion")]
     // The persistent companion follows the player but can fall outside the
     // loaded world if the player outruns it (no resident collision under it).
-    // World's per-frame leash (World.TickCompanionLeash) then snaps it onto one
+    // Sim's per-frame leash (Sim.TickCompanionLeash) then snaps it onto one
     // of the player's recent footsteps instead of letting it fall through. These
     // two knobs size that breadcrumb trail: a sample is recorded every
     // CompanionRescueSampleSeconds and the last CompanionRescueHistoryCount

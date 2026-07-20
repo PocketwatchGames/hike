@@ -28,13 +28,13 @@ public partial class WarmthZone : Area3D
 		BodyExited += OnBodyExited;
 		if (_active)
 		{
-			World.Current?.HeatField?.RegisterZone(this);
+			Sim.Current?.HeatField?.RegisterZone(this);
 		}
 	}
 
 	public override void _ExitTree()
 	{
-		World.Current?.HeatField?.UnregisterZone(this);
+		Sim.Current?.HeatField?.UnregisterZone(this);
 	}
 
 	public void SetActive(bool active)
@@ -44,7 +44,7 @@ public partial class WarmthZone : Area3D
 			return;
 		}
 		_active = active;
-		HeatField hf = World.Current?.HeatField;
+		HeatField hf = Sim.Current?.HeatField;
 		if (_active)
 		{
 			hf?.RegisterZone(this);

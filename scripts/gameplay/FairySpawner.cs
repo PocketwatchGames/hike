@@ -14,9 +14,9 @@ using Godot;
 // decides whether a fairy actually appears. At most SimData.fairyMaxSpawnsPerDay
 // spawn in a day, and once the player has killed SimData.fairyKillStopCount of them
 // no more spawn until the next day. All per-day counters reset on the day rollover
-// (detected by World.DayNumber changing).
+// (detected by Sim.DayNumber changing).
 //
-// Spawns are TRANSIENT (World.SpawnMobTransient with ESpawnConditions.None — which
+// Spawns are TRANSIENT (Sim.SpawnMobTransient with ESpawnConditions.None — which
 // the off-condition cleanup ignores) — like the night gellies they live only near
 // the player and vanish with their chunk, never persisted. Dormant (no cost) when
 // SimData has no fairySpawnDescriptor.
@@ -60,15 +60,15 @@ public partial class FairySpawner : Node
     private readonly List<(Mob mob, ulong expireMs)> _living = new();
 
     // The World whose onMobKilled we track kills through. Bound in _Ready (this
-    // node is created by World.Initialize after World.Current is set) and dropped
+    // node is created by Sim.Initialize after Sim.Current is set) and dropped
     // in _ExitTree — no re-bind needed since a FairySpawner lives and dies with
     // its World.
-    private World _subscribedWorld;
+    private Sim _subscribedWorld;
 
     public override void _Ready()
     {
         _rng.Randomize();
-        _subscribedWorld = World.Current;
+        _subscribedWorld = Sim.Current;
         if (_subscribedWorld != null)
         {
             _subscribedWorld.onMobKilled += OnMobKilled;
@@ -86,24 +86,24 @@ public partial class FairySpawner : Node
 
     public override void _Process(double delta)
     {
-        World world = World.Current;
-        SimData data = world?.SimData;
+        Sim sim = Sim.Current;
+        SimData data = sim?.SimData;
         // Dormant unless a fairy is wired up (and its descriptor resolves a species).
-        if (world == null || data == null || data.fairySpawnDescriptor?.species == null)
+        if (sim == null || data == null || data.fairySpawnDescriptor?.species == null)
         {
             return;
         }
-        Player player = world.player;
+        Player player = sim.player;
         if (player == null)
         {
             return;
         }
 
-        // Reset the per-day budget on the day rollover (World.AdvanceToNextSunrise
+        // Reset the per-day budget on the day rollover (Sim.AdvanceToNextSunrise
         // bumps DayNumber). Also seeds _lastDayNumber on the first frame.
-        if (world.DayNumber != _lastDayNumber)
+        if (sim.DayNumber != _lastDayNumber)
         {
-            _lastDayNumber = world.DayNumber;
+            _lastDayNumber = sim.DayNumber;
             _decidedPeriod = 0;
             _pendingSpawn = false;
             _spawnedToday = 0;
@@ -112,7 +112,7 @@ public partial class FairySpawner : Node
 
         // Retire fairies that have outlived their lifetime (runs regardless of the
         // per-day spawn budget below).
-        ReapExpired(world);
+        ReapExpired(sim);
 
         // Once the player has killed enough, the day's fairies are done.
         if (_killedToday >= data.fairyKillStopCount)
@@ -124,7 +124,7 @@ public partial class FairySpawner : Node
         // (midnight) so the final block covers up to midnight.
         int periods = Mathf.Max(1, data.fairyDayPeriods);
         int currentPeriod = Mathf.Clamp(
-            Mathf.FloorToInt((float)world.WorldState.TimeOfDay01 * periods), 0, periods - 1);
+            Mathf.FloorToInt((float)sim.WorldState.TimeOfDay01 * periods), 0, periods - 1);
 
         // Crossing into a new block makes one spawn decision for it. Skipped blocks
         // (fast time_scale) collapse into a single decision — fine for an ambient
@@ -134,7 +134,7 @@ public partial class FairySpawner : Node
             _decidedPeriod = currentPeriod;
             if (_spawnedToday < data.fairyMaxSpawnsPerDay)
             {
-                ZoneData zone = DominantZoneData(world, player.GlobalPosition);
+                ZoneData zone = DominantZoneData(sim, player.GlobalPosition);
                 // No fairy in a zone that forbids them (skip this window entirely),
                 // else roll the zone's chance.
                 if (zone != null && zone.canSpawnFairy && _rng.Randf() < zone.fairySpawnChance)
@@ -151,7 +151,7 @@ public partial class FairySpawner : Node
 
         if (_pendingSpawn && _spawnedToday < data.fairyMaxSpawnsPerDay)
         {
-            Mob spawned = TrySpawnFairy(world, data, player, _pendingSpawnLevel);
+            Mob spawned = TrySpawnFairy(sim, data, player, _pendingSpawnLevel);
             if (spawned != null)
             {
                 _pendingSpawn = false;
@@ -160,10 +160,10 @@ public partial class FairySpawner : Node
                 // GameTimeMs deadline so it keeps ticking through the midnight hold.
                 float dayLengthSec = Mathf.Max(1f, data.dayLengthSeconds);
                 ulong lifetimeMs = (ulong)(Mathf.Max(0.001f, data.fairyLifetimeDayFraction) * dayLengthSec * 1000f);
-                _living.Add((spawned, world.GameTimeMs + lifetimeMs));
+                _living.Add((spawned, sim.GameTimeMs + lifetimeMs));
                 if (CVars.fairySpawnLog.Value)
                 {
-                    GD.Print($"[fairyspawn] spawned day={world.DayNumber} period={currentPeriod} " +
+                    GD.Print($"[fairyspawn] spawned day={sim.DayNumber} period={currentPeriod} " +
                         $"count={_spawnedToday}/{data.fairyMaxSpawnsPerDay} killed={_killedToday} " +
                         $"level={_pendingSpawnLevel}");
                 }
@@ -175,7 +175,7 @@ public partial class FairySpawner : Node
     // materialize a transient fairy there. Returns the spawned Mob, or null when no
     // valid, resident ground is available (caller keeps the pending spawn and retries
     // next frame).
-    private Mob TrySpawnFairy(World world, SimData data, Player player, int level)
+    private Mob TrySpawnFairy(Sim sim, SimData data, Player player, int level)
     {
         MobData mob = data.fairySpawnDescriptor.mob;
         if (mob == null)
@@ -184,7 +184,7 @@ public partial class FairySpawner : Node
         }
         // Reachability flood (not a radius scan) so the spawn lands on ground the
         // player could actually walk to — same placement path the night spawner uses.
-        NavigationGoals.CollectReachableStandableCells(world, new TraversalProfile(mob), _grid,
+        NavigationGoals.CollectReachableStandableCells(sim, new TraversalProfile(mob), _grid,
             player.GlobalPosition, data.fairySpawnMinRadius, data.fairySpawnMaxRadius,
             MaxWindowHalfExtent, allowFalling: false, _standable);
         if (_standable.Count == 0)
@@ -192,19 +192,19 @@ public partial class FairySpawner : Node
             return null;
         }
         Vector3 pos = _standable[_rng.RandiRange(0, _standable.Count - 1)];
-        return world.SpawnMobTransient(data.fairySpawnDescriptor, pos, ESpawnConditions.None, level);
+        return sim.SpawnMobTransient(data.fairySpawnDescriptor, pos, ESpawnConditions.None, level);
     }
 
     // Despawn fairies whose lifetime has lapsed, but only while they aren't being
     // drawn for the player, so one never blinks out on screen. Also prunes fairies
     // that already left on their own (fled, killed, chunk-unloaded).
-    private void ReapExpired(World world)
+    private void ReapExpired(Sim sim)
     {
         if (_living.Count == 0)
         {
             return;
         }
-        ulong now = world.GameTimeMs;
+        ulong now = sim.GameTimeMs;
         for (int i = _living.Count - 1; i >= 0; i--)
         {
             Mob mob = _living[i].mob;
@@ -221,7 +221,7 @@ public partial class FairySpawner : Node
             {
                 if (CVars.fairySpawnLog.Value)
                 {
-                    GD.Print($"[fairyspawn] lifetime despawn day={world.DayNumber} living={_living.Count - 1}");
+                    GD.Print($"[fairyspawn] lifetime despawn day={sim.DayNumber} living={_living.Count - 1}");
                 }
                 mob.Despawn();
                 _living.RemoveAtSwap(i);
@@ -232,9 +232,9 @@ public partial class FairySpawner : Node
     // The authored ZoneData of the chunk under `pos` (the dominant zone there), read
     // straight off the loaded chunk rather than the blended sample so the per-zone
     // fairy flags come through unblended. Null when no zone data is loaded there.
-    private static ZoneData DominantZoneData(World world, Vector3 pos)
+    private static ZoneData DominantZoneData(Sim sim, Vector3 pos)
     {
-        WorldState ws = world.WorldState;
+        WorldState ws = sim.WorldState;
         if (ws?.Zones == null || ws.Zones.Length == 0)
         {
             return null;
@@ -259,7 +259,7 @@ public partial class FairySpawner : Node
         {
             return;
         }
-        SpeciesData fairySpecies = World.Current?.SimData?.fairySpawnDescriptor?.species;
+        SpeciesData fairySpecies = Sim.Current?.SimData?.fairySpawnDescriptor?.species;
         if (fairySpecies != null && species == fairySpecies)
         {
             _killedToday++;

@@ -4,7 +4,7 @@ using Godot;
 // The player's roster of characters. One member is "active" (the character the
 // player currently controls, driving the single controlled Player node); the
 // rest are inactive party members that spawn around camp. Lives on
-// WorldSimState (worldState.SimState.Party), a sibling of the party stashes, so
+// SimState (worldState.SimState.Party), a sibling of the party stashes, so
 // it's world-scope run state that SaveGame will persist.
 //
 // Members are runtime PlayerState instances — built once at game start by
@@ -114,7 +114,7 @@ public class Party
 	}
 
 	// Advance the daily rest bookkeeping and pick this day's "well rested" member.
-	// Called once per sunrise (World.OnNewDay). Clears yesterday's pick, ages every
+	// Called once per sunrise (Sim.OnNewDay). Clears yesterday's pick, ages every
 	// living member's rest counter (the still-controlled member stays at 0 — they're
 	// being used, so they can never be their own well-rested pick), then draws one
 	// idle member weighted by how long they've rested. A freshly recruited member

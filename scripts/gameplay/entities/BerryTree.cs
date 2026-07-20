@@ -19,7 +19,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private BerryTreeSimState _interactiveState;
-    private World _world;
+    private Sim _world;
 
     // Bare while the world day is below the regrow deadline; ripe once reached.
     private bool IsRipe => _interactiveState == null
@@ -58,7 +58,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         Pick();
     }
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public bool CanInteract()
     {
@@ -125,16 +125,16 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         }
     }
 
-    public static BerryTree Create(World world, BerryTreeSimState data)
+    public static BerryTree Create(Sim sim, BerryTreeSimState data)
     {
         var instance = data.Scene.Instantiate<BerryTree>();
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
-        instance._world = world;
-        world.AddChild(instance);
+        instance._world = sim;
+        sim.AddChild(instance);
 
         instance.ApplyRipeState(instance.IsRipe);
-        world.OnNewDay += instance.HandleNewDay;
+        sim.OnNewDay += instance.HandleNewDay;
 
         return instance;
     }

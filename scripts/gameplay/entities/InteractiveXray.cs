@@ -192,12 +192,12 @@ public partial class InteractiveXray : Node3D
     // pay the cheapest possible "no" and skip the raycast.
     private float Probe()
     {
-        World world = World.Current;
-        if (world == null || world.player == null)
+        Sim sim = Sim.Current;
+        if (sim == null || sim.player == null)
         {
             return 0f;
         }
-        Player player = world.player;
+        Player player = sim.player;
         Vector3 origin = GlobalPosition;
         float distSq = (origin - player.GlobalPosition).LengthSquared();
         if (distSq > xrayRange * xrayRange)

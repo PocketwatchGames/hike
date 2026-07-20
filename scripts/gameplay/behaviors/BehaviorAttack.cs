@@ -184,8 +184,8 @@ public partial class BehaviorAttack : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
-        World world = me.World;
-        EncircleSlotAllocator allocator = world?.EncircleAllocator;
+        Sim sim = me.Sim;
+        EncircleSlotAllocator allocator = sim?.EncircleAllocator;
         int slotIdx = allocator?.LeaseSlot(me, target, Mathf.Max(1, _data.encircleSlotCount)) ?? -1;
         _slotTarget = (slotIdx >= 0) ? target : null;
 
@@ -215,12 +215,12 @@ public partial class BehaviorAttack : BehaviorBase
         if (slotIdx < 0)
         {
             float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
-            standoff = NavigationGoals.PickStandoffPoint(world, me.Navigator.Profile, targetPos, standoffDistance, angleToTarget);
+            standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, angleToTarget);
         }
         else
         {
             float slotAngle = EncircleSlotAllocator.SlotAngle(slotIdx, _data.encircleSlotCount);
-            standoff = NavigationGoals.PickStandoffPoint(world, me.Navigator.Profile, targetPos, standoffDistance, slotAngle);
+            standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, slotAngle);
         }
         me.Navigator.Goto(standoff, allowFalling: true, avoidHazards: false);
         return new BehaviorOutput(EBehaviorResult.Running);
@@ -370,7 +370,7 @@ public partial class BehaviorAttack : BehaviorBase
         {
             return;
         }
-        me.World?.EncircleAllocator?.ReleaseSlot(me);
+        me.Sim?.EncircleAllocator?.ReleaseSlot(me);
         _slotTarget = null;
     }
 
@@ -384,7 +384,7 @@ public partial class BehaviorAttack : BehaviorBase
         {
             return 0;
         }
-        MobSpatialHash hash = me.World?.MobSpatialHash;
+        MobSpatialHash hash = me.Sim?.MobSpatialHash;
         if (hash == null)
         {
             return 0;

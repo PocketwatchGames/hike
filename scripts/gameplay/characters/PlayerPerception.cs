@@ -90,7 +90,7 @@ public static class PlayerPerception
     private const float PlayerEyeHeight = 1.5f;
 
     public static PerceptionTickResult Tick(
-        World world,
+        Sim sim,
         Vector3 targetPos,
         in PerceptionInputs inputs,
         ref PerceivedByPlayerState state,
@@ -99,7 +99,7 @@ public static class PlayerPerception
     {
         var result = new PerceptionTickResult();
         debug = default;
-        if (world == null || world.player == null)
+        if (sim == null || sim.player == null)
         {
             return result;
         }
@@ -111,13 +111,13 @@ public static class PlayerPerception
         // before calling this. State transitions below are write-once
         // monotonic, so re-running the math on a Discovered target is
         // harmless.
-        Player player = world.player;
+        Player player = sim.player;
         PlayerData pd = player.data;
         if (pd == null)
         {
             return result;
         }
-        float targetLightMax = world.SimData?.targetLightMax ?? 0.75f;
+        float targetLightMax = sim.SimData?.targetLightMax ?? 0.75f;
 
         EPlayerPerceptionState prevState = state.state;
         Vector3 toTarget = targetPos - player.GlobalPosition;
@@ -149,7 +149,7 @@ public static class PlayerPerception
 
         if (inRange)
         {
-            float lightAtTarget = world.GetPerceivedLight(targetPos + new Vector3(0f, inputs.lightSampleHeight, 0f));
+            float lightAtTarget = sim.GetPerceivedLight(targetPos + new Vector3(0f, inputs.lightSampleHeight, 0f));
             float lightFactor = targetLightMax > 0f ? Mathf.Clamp(lightAtTarget / targetLightMax, 0f, 1f) : 0f;
             // Night vision lifts the darkness-suppression term toward full
             // brightness: relief is the fraction of the darkness penalty the
@@ -188,7 +188,7 @@ public static class PlayerPerception
             // reduction. >1 = murkier sooner (a little fog/dusk already bites);
             // 1 = linear. Full darkness still drives clarity to 0 (lightFactor 0 →
             // mLight 0), preserving the zero-light invariant.
-            SimData sim = world.SimData;
+            SimData simData = sim.SimData;
             // Fog obscures the whole sightline, so average its density at both ends
             // rather than only at the player — a mob standing in a low-lying fog
             // bank then reads as obscured even when the player is in clear air (and
@@ -200,13 +200,13 @@ public static class PlayerPerception
             // fog the renderer shows (fog_map × fog_density). Without this the dense
             // authored fog_map would blind perception at midday even though the fog
             // has visibly burned off.
-            float fog = 0.5f * (FogFraction(world, player.GlobalPosition) + FogFraction(world, targetPos))
-                * world.CurrentFogAmount();
-            float rain = world.CurrentRainAmount();
+            float fog = 0.5f * (FogFraction(sim, player.GlobalPosition) + FogFraction(sim, targetPos))
+                * sim.CurrentFogAmount();
+            float rain = sim.CurrentRainAmount();
             float bite = 1f / Mathf.Max(0.01f, pd.clarityPower);
             float mLight = 1f - Mathf.Pow(1f - lightFactor, bite);
-            float mFog = sim != null ? 1f - sim.fogVisionReduction * Mathf.Pow(fog, bite) : 1f;
-            float mRain = sim != null ? 1f - sim.rainVisionReduction * Mathf.Pow(rain, bite) : 1f;
+            float mFog = simData != null ? 1f - simData.fogVisionReduction * Mathf.Pow(fog, bite) : 1f;
+            float mRain = simData != null ? 1f - simData.rainVisionReduction * Mathf.Pow(rain, bite) : 1f;
             float clarity = Mathf.Max(0f, mLight * mFog * mRain) * inputs.prominence;
             // Signal = closeness curve × clarity. perceptionMinimum is the floor:
             // below it the target can't register even with a perfectly clear line,
@@ -257,7 +257,7 @@ public static class PlayerPerception
         {
             // Wind masks sound, fog carries it — sampled at the listener (player).
             float maxAudibleDistance = inputs.decibels * pd.hearingRange
-                * HearingRangeMultiplier(world, player.GlobalPosition);
+                * HearingRangeMultiplier(sim, player.GlobalPosition);
             if (distSq < maxAudibleDistance * maxAudibleDistance)
             {
                 hearingDelta = Mathf.Pow(1f - Mathf.Sqrt(distSq) / maxAudibleDistance, pd.hearingRangePower);
@@ -358,27 +358,27 @@ public static class PlayerPerception
     // (which already zeroes out underground / under cover) over the authored
     // PerceptionWindReference, clamped. Public so MobAI can sample it once
     // for the per-crumb smell directionality instead of per crumb.
-    public static float WindFraction(World world, Vector3 pos)
+    public static float WindFraction(Sim sim, Vector3 pos)
     {
-        SimData sim = world?.SimData;
-        if (sim == null)
+        SimData simData = sim?.SimData;
+        if (simData == null)
         {
             return 0f;
         }
-        float windSpeed = world.SampleWindSpeed(pos);
+        float windSpeed = sim.SampleWindSpeed(pos);
         if (windSpeed <= 0f)
         {
             return 0f;
         }
-        return Mathf.Clamp(windSpeed / Mathf.Max(0.001f, sim.perceptionWindReference), 0f, 1f);
+        return Mathf.Clamp(windSpeed / Mathf.Max(0.001f, simData.perceptionWindReference), 0f, 1f);
     }
 
     // Normalized fog density [0,1] at a world position. Single-voxel sample
     // (same as AmbienceController) — fog is regionally smooth, so trilinear
     // filtering would buy nothing here.
-    private static float FogFraction(World world, Vector3 pos)
+    private static float FogFraction(Sim sim, Vector3 pos)
     {
-        WorldState ws = world?.WorldState;
+        WorldState ws = sim?.WorldState;
         if (ws == null)
         {
             return 0f;
@@ -393,49 +393,49 @@ public static class PlayerPerception
     // the same fog whichever direction it's perceived). Rain is the global blended
     // amount. (player→mob applies its own clarityPower-shaped fog inline; this is
     // the linear mob→player / mob→mob path.)
-    public static float VisionRangeMultiplier(World world, Vector3 perceiverPos, Vector3 targetPos)
+    public static float VisionRangeMultiplier(Sim sim, Vector3 perceiverPos, Vector3 targetPos)
     {
-        SimData sim = world?.SimData;
-        if (sim == null)
+        SimData simData = sim?.SimData;
+        if (simData == null)
         {
             return 1f;
         }
         // Static per-voxel fog field (where fog pools), scaled by the live diurnal
         // CurrentFogAmount so the obscurant tracks the VISIBLE fog the renderer
         // shows (fog burns off at midday) rather than the always-dense fog_map.
-        float fog = 0.5f * (FogFraction(world, perceiverPos) + FogFraction(world, targetPos))
-            * world.CurrentFogAmount();
-        float rain = world.CurrentRainAmount();
-        return Mathf.Max(0f, (1f - sim.fogVisionReduction * fog) * (1f - sim.rainVisionReduction * rain));
+        float fog = 0.5f * (FogFraction(sim, perceiverPos) + FogFraction(sim, targetPos))
+            * sim.CurrentFogAmount();
+        float rain = sim.CurrentRainAmount();
+        return Mathf.Max(0f, (1f - simData.fogVisionReduction * fog) * (1f - simData.rainVisionReduction * rain));
     }
 
     // Hearing-range multiplier at the listener: wind masks sound (turbulent
     // air scatters it) while still, damp fog carries it farther.
-    public static float HearingRangeMultiplier(World world, Vector3 listenerPos)
+    public static float HearingRangeMultiplier(Sim sim, Vector3 listenerPos)
     {
-        SimData sim = world?.SimData;
-        if (sim == null)
+        SimData simData = sim?.SimData;
+        if (simData == null)
         {
             return 1f;
         }
-        float wind = WindFraction(world, listenerPos);
-        float fog = FogFraction(world, listenerPos);
-        return Mathf.Max(0f, (1f - sim.hearingWindSuppression * wind) * (1f + sim.fogHearingBoost * fog));
+        float wind = WindFraction(sim, listenerPos);
+        float fog = FogFraction(sim, listenerPos);
+        return Mathf.Max(0f, (1f - simData.hearingWindSuppression * wind) * (1f + simData.fogHearingBoost * fog));
     }
 
     // Non-directional smell-range multiplier at the nose: humid fog holds
     // scent (widens reach) while high wind scatters it (shrinks reach). The
     // downwind/upwind directional term is per-source and applied by MobAI.
-    public static float SmellRangeMultiplier(World world, Vector3 nosePos)
+    public static float SmellRangeMultiplier(Sim sim, Vector3 nosePos)
     {
-        SimData sim = world?.SimData;
-        if (sim == null)
+        SimData simData = sim?.SimData;
+        if (simData == null)
         {
             return 1f;
         }
-        float wind = WindFraction(world, nosePos);
-        float fog = FogFraction(world, nosePos);
-        return Mathf.Max(0f, (1f - sim.smellWindDisruption * wind) * (1f + sim.fogSmellBoost * fog));
+        float wind = WindFraction(sim, nosePos);
+        float fog = FogFraction(sim, nosePos);
+        return Mathf.Max(0f, (1f - simData.smellWindDisruption * wind) * (1f + simData.fogSmellBoost * fog));
     }
 
     // Force-promote a target to Discovered. Used when a trap triggers — the

@@ -6,7 +6,7 @@ using Godot;
 // entities at the sunset edge (RefreshTimeOfDayEntities), and despawning
 // off-condition mobs once the encounter goes cold (CleanupOffConditionMobs).
 // See World.cs for the file split.
-public partial class World
+public partial class Sim
 {
     // Tracks the previous night state so Tick can detect the moment tod
     // crosses sunset and spawn SpawnAtNight entities on already-active
@@ -92,7 +92,7 @@ public partial class World
         {
             return;
         }
-        using var _prof = Profiler.Sample("World.CleanupOffConditionMobs");
+        using var _prof = Profiler.Sample("Sim.CleanupOffConditionMobs");
         float distance = _worldState.SimData?.spawnCleanupDistance ?? 50f;
         float distanceSq = distance * distance;
         Vector3 playerPos = _player.GlobalPosition;

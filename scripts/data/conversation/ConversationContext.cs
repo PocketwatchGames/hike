@@ -4,7 +4,7 @@
 // it cares about.
 public struct ConversationContext
 {
-    public World world;
+    public Sim sim;
     public Player player;
     // The entity the player is talking to (typically a Mob). Loosely typed
     // because there's no shared base class for talkable entities yet — the

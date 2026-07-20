@@ -21,7 +21,7 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
 
     private SignpostSimState _interactiveState;
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public bool CanInteract() => true;
     public bool CanActorInteract(Player player) => CanInteract();
@@ -48,7 +48,7 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         }
     }
 
-    public static Signpost Create(World world, SignpostSimState data)
+    public static Signpost Create(Sim sim, SignpostSimState data)
     {
         var instance = data.Scene.Instantiate<Signpost>();
         instance.Position = data.WorldPosition;
@@ -61,7 +61,7 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         {
             instance._language = data.Language;
         }
-        world.AddChild(instance);
+        sim.AddChild(instance);
         return instance;
     }
 }

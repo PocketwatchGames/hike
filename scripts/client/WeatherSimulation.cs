@@ -50,10 +50,10 @@ public static class WeatherSimulation
     // plateaus rather than popping at the boundary. Slope is exactly
     // zero on both plateaus, which is what kills coolingRate while the
     // day weather is "at peak."
-    public static float DiurnalCurve(float timeOfDay01, SimData sim)
+    public static float DiurnalCurve(float timeOfDay01, SimData simData)
     {
-        float peak = sim?.diurnalPeak01 ?? 0.5f;
-        float halfWidth = Mathf.Clamp(sim?.diurnalPlateauHalfWidth ?? 0.125f, 0f, 0.249f);
+        float peak = simData?.diurnalPeak01 ?? 0.5f;
+        float halfWidth = Mathf.Clamp(simData?.diurnalPlateauHalfWidth ?? 0.125f, 0f, 0.249f);
         // Signed distance from the day-plateau center in normalized
         // time, wrapped to [-0.5, 0.5). Negative = before peak
         // (warming), positive = after peak (cooling).
@@ -73,10 +73,10 @@ public static class WeatherSimulation
     // Positive across the warming ramp, negative across the cooling
     // ramp; coolingRate = max(0, -slope) is therefore strictly positive
     // only inside [day-plateau-end, night-plateau-start].
-    public static float DiurnalCurveSlope(float timeOfDay01, SimData sim)
+    public static float DiurnalCurveSlope(float timeOfDay01, SimData simData)
     {
-        float peak = sim?.diurnalPeak01 ?? 0.5f;
-        float halfWidth = Mathf.Clamp(sim?.diurnalPlateauHalfWidth ?? 0.125f, 0f, 0.249f);
+        float peak = simData?.diurnalPeak01 ?? 0.5f;
+        float halfWidth = Mathf.Clamp(simData?.diurnalPlateauHalfWidth ?? 0.125f, 0f, 0.249f);
         float dt = Mathf.PosMod(timeOfDay01 - peak + 0.5f, 1f) - 0.5f;
         float ad = Mathf.Abs(dt);
         if (ad <= halfWidth) { return 0f; }
@@ -100,9 +100,9 @@ public static class WeatherSimulation
     // shape), so the wind "frontal kick" reads a frame-rate-independent signal.
     // Sunrise has NO crossfade — the night→day handover happened while the player
     // slept, so a fresh day simply starts at the day slot.
-    public static float SunsetBlend(float timeOfDay01, SimData sim, out float slopeShape)
+    public static float SunsetBlend(float timeOfDay01, SimData simData, out float slopeShape)
     {
-        float hw = Mathf.Max(sim?.varianceCrossfadeHalfWidth01 ?? 0.05f, 1e-4f);
+        float hw = Mathf.Max(simData?.varianceCrossfadeHalfWidth01 ?? 0.05f, 1e-4f);
         float a0 = (float)WorldState.SunsetTimeOfDay01 - hw;
         float a1 = (float)WorldState.SunsetTimeOfDay01 + hw;
         float blend = Mathf.SmoothStep(a0, a1, timeOfDay01);
@@ -128,10 +128,10 @@ public static class WeatherSimulation
     // slope (day→night delta × shape) for the wind transient — nonzero only at
     // sunset. Channels are decoupled so a humid front needn't coincide with a
     // temperature swing; humidity/cloud effects are wind-gated in Apply.
-    public static void UpdateVariance(WorldState ws, SimData sim)
+    public static void UpdateVariance(WorldState ws, SimData simData)
     {
-        if (ws == null || sim == null) { return; }
-        float blend = SunsetBlend((float)ws.TimeOfDay01, sim, out float slopeShape);
+        if (ws == null || simData == null) { return; }
+        float blend = SunsetBlend((float)ws.TimeOfDay01, simData, out float slopeShape);
         ws.WeatherVariance = Mathf.Lerp(ws.DayWeatherVariance, ws.NightWeatherVariance, blend);
         ws.HumidityVariance = Mathf.Lerp(ws.DayHumidityVariance, ws.NightHumidityVariance, blend);
         ws.CloudVariance = Mathf.Lerp(ws.DayCloudVariance, ws.NightCloudVariance, blend);
@@ -148,16 +148,16 @@ public static class WeatherSimulation
     // ZoneState.Elevation, since it now lives off the authored
     // ZoneData) as static forcing. Writes the simulated current
     // value for every weather channel.
-    public static void Apply(WeatherData weather, ZoneData zone, float elevation, WorldState ws, SimData sim)
+    public static void Apply(WeatherData weather, ZoneData zone, float elevation, WorldState ws, SimData simData)
     {
         if (ws == null)
         {
-            Apply(weather, zone, elevation, sim, 0.5f,
+            Apply(weather, zone, elevation, simData, 0.5f,
                 0.5f, 0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f);
             return;
         }
         float tod = (float)ws.TimeOfDay01;
-        float hw = Mathf.Max(sim?.varianceCrossfadeHalfWidth01 ?? 0.05f, 1e-4f);
+        float hw = Mathf.Max(simData?.varianceCrossfadeHalfWidth01 ?? 0.05f, 1e-4f);
         // Destination = the slot we're settling INTO: the day slot before the
         // sunset window opens, the night slot once it has — so the storm gate
         // (destinationLightningAmount) reads the stable target rather than a
@@ -170,7 +170,7 @@ public static class WeatherSimulation
         // The inner overload's timeOfDay01 feeds only DiurnalCurve, which is
         // authored in orbit-phase (peak at noon = 0.5), so pass the remapped
         // phase rather than the raw awake-day tod.
-        Apply(weather, zone, elevation, sim, (float)WorldState.OrbitPhase01(tod),
+        Apply(weather, zone, elevation, simData, (float)WorldState.OrbitPhase01(tod),
             ws.WeatherVariance, ws.WeatherVarianceSlope,
             ws.HumidityVariance, ws.CloudVariance, ws.LightningVariance,
             destWeather, destHumidity, destCloud, destLightning);
@@ -184,7 +184,7 @@ public static class WeatherSimulation
     // term (per-day-fraction signed derivative of the SmoothStep), which
     // only matters while a handover is actually crossing, not for a
     // steady-state preview at peak/trough.
-    public static void Apply(WeatherData weather, ZoneData zone, float elevation, SimData sim,
+    public static void Apply(WeatherData weather, ZoneData zone, float elevation, SimData simData,
         float timeOfDay01,
         float weatherVariance, float weatherVarianceSlope,
         float humidityVariance, float cloudVariance,
@@ -193,7 +193,7 @@ public static class WeatherSimulation
         float destHumidityVariance, float destCloudVariance,
         float destLightningVariance)
     {
-        if (weather == null || sim == null) { return; }
+        if (weather == null || simData == null) { return; }
         elevation = Mathf.Clamp(elevation, 0f, 1f);
 
         // FOUR Compute calls: peak/trough × displayed/destination.
@@ -225,12 +225,12 @@ public static class WeatherSimulation
         // WeatherData. ApplyAtDiurnal (HUD forecast) and the variance
         // values being predictable from WorldState mean nothing here
         // is performance-critical or approximate.
-        ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
+        ComputeChannelValuesAtDiurnal(weather, zone, elevation, simData,
             diurnal: 1f,
             weatherVariance, weatherVarianceSlope, humidityVariance, cloudVariance, lightningVariance,
             out float peakHumidity, out float peakTemp, out float peakWind,
             out float peakCloud, out float peakRain, out float peakLightning, out float peakDust);
-        ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
+        ComputeChannelValuesAtDiurnal(weather, zone, elevation, simData,
             diurnal: 0f,
             weatherVariance, weatherVarianceSlope, humidityVariance, cloudVariance, lightningVariance,
             out float troughHumidity, out float troughTemp, out float troughWind,
@@ -243,16 +243,16 @@ public static class WeatherSimulation
         // cloud/rain/wind-gated lightning amount once the chain
         // settles, not an approximation that mixes in-flight cloud
         // with settled lightning.
-        ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
+        ComputeChannelValuesAtDiurnal(weather, zone, elevation, simData,
             diurnal: 1f,
             destWeatherVariance, 0f, destHumidityVariance, destCloudVariance, destLightningVariance,
             out _, out _, out _, out _, out _, out float peakDestLightning, out _);
-        ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
+        ComputeChannelValuesAtDiurnal(weather, zone, elevation, simData,
             diurnal: 0f,
             destWeatherVariance, 0f, destHumidityVariance, destCloudVariance, destLightningVariance,
             out _, out _, out _, out _, out _, out float troughDestLightning, out _);
 
-        float diurnal = DiurnalCurve(timeOfDay01, sim);   // 0 = night plateau, 1 = day plateau
+        float diurnal = DiurnalCurve(timeOfDay01, simData);   // 0 = night plateau, 1 = day plateau
         weather.humidity = Mathf.Lerp(troughHumidity, peakHumidity, diurnal);
         weather.airTemperature = Mathf.Lerp(troughTemp, peakTemp, diurnal);
         weather.windSpeed = Mathf.Lerp(troughWind, peakWind, diurnal);
@@ -282,7 +282,7 @@ public static class WeatherSimulation
     // simply omitted here. Variance multipliers can push outputs above the
     // authored zone maxes — that's variance doing its job; the final
     // saturation cap is at the absolute 0..1 range.
-    private static void ComputeChannelValuesAtDiurnal(WeatherData weather, ZoneData zone, float elevation, SimData sim,
+    private static void ComputeChannelValuesAtDiurnal(WeatherData weather, ZoneData zone, float elevation, SimData simData,
         float diurnal,
         float weatherVariance, float weatherVarianceSlope,
         float humidityVariance, float cloudVariance,
@@ -305,24 +305,24 @@ public static class WeatherSimulation
         // (cold air is closer to saturation) and LOWEST at the day plateau.
         float humidityFromTempScale = Mathf.Clamp(tempMax / 104f, 0f, 1f); // ~0..1 over 0..104F
         float baseHumidityCeiling = humidityMax
-            * (1f - elevation * sim.humidityFromElevation)
-            * (1f - humidityFromTempScale * sim.humidityFromMaxTemp);
+            * (1f - elevation * simData.humidityFromElevation)
+            * (1f - humidityFromTempScale * simData.humidityFromMaxTemp);
         float baselineHumidity = Mathf.Clamp(
-            baseHumidityCeiling * Mathf.Lerp(1f, coolDiurnal, sim.humidityDiurnalDepth),
+            baseHumidityCeiling * Mathf.Lerp(1f, coolDiurnal, simData.humidityDiurnalDepth),
             0f, 1f);
 
         // Baseline temperature. Humid air damps the day↔night swing.
-        float tempSwing = sim.tempDiurnalDepth * (1f - baselineHumidity * sim.tempHumidityDamping);
-        float tempEnvelope = tempMax * (1f - elevation * sim.tempFromElevation);
+        float tempSwing = simData.tempDiurnalDepth * (1f - baselineHumidity * simData.tempHumidityDamping);
+        float tempEnvelope = tempMax * (1f - elevation * simData.tempFromElevation);
         float baselineTemp = tempEnvelope * (1f - tempSwing) + tempEnvelope * tempSwing * diurnal;
 
         // Baseline wind. NO cooling-rate forcing term — at plateaus the
         // diurnal slope is zero, so that contribution is zero by
         // construction. WindDiurnalDepth still scales between plateaus.
-        float windDiurnalScale = Mathf.Lerp(1f - sim.windDiurnalDepth, 1f, diurnal);
+        float windDiurnalScale = Mathf.Lerp(1f - simData.windDiurnalDepth, 1f, diurnal);
         float baselineWind = Mathf.Max(0f, windMax
             * windDiurnalScale
-            * (1f + elevation * sim.windFromElevation));
+            * (1f + elevation * simData.windFromElevation));
 
         // Variance perturbation. The variance crossfade |slope| frontal
         // kick on wind is preserved here — that slope is the VARIANCE
@@ -336,19 +336,19 @@ public static class WeatherSimulation
         // kick. Variance can legitimately push above baseline; only the
         // absolute zero floor is enforced.
         simWind = Mathf.Max(0f, baselineWind
-            * (1f - varianceCenter * 2f * sim.windVarianceK)
-            * (1f + absVarianceDelta * sim.windVarianceDeltaK));
+            * (1f - varianceCenter * 2f * simData.windVarianceK)
+            * (1f + absVarianceDelta * simData.windVarianceDeltaK));
 
         simTemp = baselineTemp
-            * (1f + varianceCenter * 2f * sim.tempVarianceK)
-            * (1f - absVarianceDelta * sim.tempVarianceDeltaK);
+            * (1f + varianceCenter * 2f * simData.tempVarianceK)
+            * (1f - absVarianceDelta * simData.tempVarianceDeltaK);
 
         // Humidity and cloud variance effects are wind-gated (advection).
-        float windGate = Mathf.Clamp(simWind / Mathf.Max(sim.advectedVarianceWindRef, 1e-3f), 0f, 1f);
+        float windGate = Mathf.Clamp(simWind / Mathf.Max(simData.advectedVarianceWindRef, 1e-3f), 0f, 1f);
         float humidityVarianceCenter = Mathf.Clamp(humidityVariance, 0f, 1f) - 0.5f;
         float cloudVarianceCenter = Mathf.Clamp(cloudVariance, 0f, 1f) - 0.5f;
         simHumidity = Mathf.Clamp(
-            baselineHumidity * (1f - humidityVarianceCenter * 2f * sim.humidityVarianceK * windGate),
+            baselineHumidity * (1f - humidityVarianceCenter * 2f * simData.humidityVarianceK * windGate),
             0f, 1f);
 
         // Cloud is the sum of STRATIFORM (authored, system-driven) and
@@ -359,30 +359,30 @@ public static class WeatherSimulation
         // overcast. Variance perturbs the stratiform channel only;
         // convective is pure physics from the simulated humidity.
         float windFraction = windMax > 1e-3f ? Mathf.Clamp(baselineWind / Mathf.Max(windMax, 1e-3f), 0f, 2f) : 0f;
-        float stratiformBaseline = cloudMax * (1f + (windFraction - 1f) * sim.cloudFromWind);
-        float stratiformCloud = stratiformBaseline * (1f - cloudVarianceCenter * 2f * sim.cloudVarianceK * windGate);
-        float convectiveCloud = simHumidity * diurnal * sim.convectiveStrength;
+        float stratiformBaseline = cloudMax * (1f + (windFraction - 1f) * simData.cloudFromWind);
+        float stratiformCloud = stratiformBaseline * (1f - cloudVarianceCenter * 2f * simData.cloudVarianceK * windGate);
+        float convectiveCloud = simHumidity * diurnal * simData.convectiveStrength;
         simCloud = Mathf.Clamp(stratiformCloud + convectiveCloud, 0f, 1f);
 
         // Rain: pure cloud-gate × authored max. No coolingRate boost —
         // removing it eliminates the in-ramp spike. Rain saturates at 1.0
         // when conditions fully meet the threshold.
-        float rainCloudGate = Mathf.SmoothStep(sim.rainCloudThreshold, 1f, simCloud);
-        float rainSignal = rainCloudGate * sim.rainFromCloudCover;
+        float rainCloudGate = Mathf.SmoothStep(simData.rainCloudThreshold, 1f, simCloud);
+        float rainSignal = rainCloudGate * simData.rainFromCloudCover;
         simRain = Mathf.Clamp(rainMax * rainSignal, 0f, 1f);
 
         // Lightning: three storm-mode gates, max-merged. Same as before.
         float lightningWetGate =
-            Mathf.SmoothStep(sim.lightningCloudThreshold, 1f, simCloud)
-            * Mathf.SmoothStep(sim.lightningRainThreshold, 1f, simRain);
+            Mathf.SmoothStep(simData.lightningCloudThreshold, 1f, simCloud)
+            * Mathf.SmoothStep(simData.lightningRainThreshold, 1f, simRain);
         float lightningDryGate =
-            Mathf.SmoothStep(sim.dryLightningCloudThreshold, 1f, simCloud)
-            * (1f - Mathf.SmoothStep(0f, sim.dryLightningHumidityMax, simHumidity))
-            * Mathf.SmoothStep(sim.dryLightningTempMin, sim.dryLightningTempMax, simTemp);
+            Mathf.SmoothStep(simData.dryLightningCloudThreshold, 1f, simCloud)
+            * (1f - Mathf.SmoothStep(0f, simData.dryLightningHumidityMax, simHumidity))
+            * Mathf.SmoothStep(simData.dryLightningTempMin, simData.dryLightningTempMax, simTemp);
         float lightningOrographicGate =
-            Mathf.SmoothStep(sim.orographicLightningCloudThreshold, 1f, simCloud)
-            * Mathf.SmoothStep(sim.orographicLightningWindMin, sim.orographicLightningWindMax, simWind)
-            * Mathf.SmoothStep(sim.orographicLightningElevationMin, 1f, elevation);
+            Mathf.SmoothStep(simData.orographicLightningCloudThreshold, 1f, simCloud)
+            * Mathf.SmoothStep(simData.orographicLightningWindMin, simData.orographicLightningWindMax, simWind)
+            * Mathf.SmoothStep(simData.orographicLightningElevationMin, 1f, elevation);
         float lightningGateAny = Mathf.Max(lightningWetGate,
             Mathf.Max(lightningDryGate, lightningOrographicGate));
         float lightningVarianceFactor = Mathf.Clamp(lightningVariance, 0f, 1f);
@@ -392,11 +392,11 @@ public static class WeatherSimulation
 
         // Dust: wind-lifted, elevation/warmth-boosted, humidity/rain-suppressed.
         float windLift = windMax > 1e-3f ? Mathf.Clamp(simWind / windMax, 0f, 2f) : 0f;
-        float dustSignal = windLift * sim.dustFromWind
-            * (1f + elevation * sim.dustFromElevation)
-            * (1f + diurnal * sim.dustFromWarmth);
-        float dustSuppress = (1f - simHumidity * sim.dustHumiditySuppression)
-            * (1f - simRain * sim.dustRainSuppression);
+        float dustSignal = windLift * simData.dustFromWind
+            * (1f + elevation * simData.dustFromElevation)
+            * (1f + diurnal * simData.dustFromWarmth);
+        float dustSuppress = (1f - simHumidity * simData.dustHumiditySuppression)
+            * (1f - simRain * simData.dustRainSuppression);
         simDust = Mathf.Clamp(dustMax * dustSignal * dustSuppress, 0f, 1f);
     }
 
@@ -406,19 +406,19 @@ public static class WeatherSimulation
     // it can read the day-plateau and night-plateau weather directly
     // without paying for the lerp (and without showing a value that
     // moves through the diurnal ramps).
-    public static void ApplyAtDiurnal(WeatherData weather, ZoneData zone, float elevation, SimData sim,
+    public static void ApplyAtDiurnal(WeatherData weather, ZoneData zone, float elevation, SimData simData,
         float diurnal,
         float weatherVariance, float weatherVarianceSlope,
         float humidityVariance, float cloudVariance, float lightningVariance)
     {
-        if (weather == null || sim == null) { return; }
+        if (weather == null || simData == null) { return; }
         elevation = Mathf.Clamp(elevation, 0f, 1f);
         // Forecast path: caller selected a single variance set (cur or
         // next) for the plateau they want to forecast — there's no
         // "displayed vs destination" distinction here. `weather.lightningAmount`
         // gets the forecast value; `destinationLightningAmount` is left
         // untouched (the HUD doesn't consume it).
-        ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
+        ComputeChannelValuesAtDiurnal(weather, zone, elevation, simData,
             diurnal, weatherVariance, weatherVarianceSlope, humidityVariance, cloudVariance, lightningVariance,
             out float h, out float t, out float w, out float c, out float r, out float l, out float d);
         weather.humidity = h;

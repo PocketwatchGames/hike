@@ -5,7 +5,7 @@ using Godot;
 //
 // Fx.Create parents the spawned node to the supplied `parent` and frees
 // it once all child CpuParticles3D stop emitting. To keep the puff put in
-// world space rather than tracking the actor, callers pass World (or any
+// world space rather than tracking the actor, callers pass Sim (or any
 // world-space root) as parent and GlobalPosition as the position.
 public static class FootstepEmitter
 {

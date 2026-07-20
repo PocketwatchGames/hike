@@ -5,7 +5,7 @@ using Godot;
 // spawn-chunk readiness, voxel lighting / light sources, fog toggles, and mesh
 // rebuilds. World is the single public face callers reach; the actual work
 // lives on ChunkManager. See World.cs for the file split.
-public partial class World
+public partial class Sim
 {
     public static Vector3I WorldToChunkCoord(Vector3 worldPos)
     {

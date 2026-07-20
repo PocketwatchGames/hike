@@ -11,7 +11,7 @@ public partial class MasterTooFarCondition : BehaviorTransitionData
 
     public override bool Evaluate(Mob me, ref PerceptionState targetPerception)
     {
-        Player master = me.World?.player;
+        Player master = me.Sim?.player;
         if (master == null)
         {
             return true;

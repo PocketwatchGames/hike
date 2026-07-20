@@ -177,7 +177,7 @@ public partial class GameClient : Node3D
 
 	[ExportGroup("Subsystems")]
 	// Authored as embedded child scenes in game.tscn — their tuning lives on
-	// the Minimap / HeatField nodes, not here. World references and initializes
+	// the Minimap / HeatField nodes, not here. Sim references and initializes
 	// them rather than creating them.
 	[Export] public Minimap minimap;
 	[Export] public HeatField heatField;
@@ -186,7 +186,7 @@ public partial class GameClient : Node3D
 	// Cutaway tube radius around the camera→player capsule axis. The
 	// effective radius pushed to the shader lerps between 0 (no cutaway)
 	// and this value based on whether the CPU probe
-	// (World.IsFadeVolumeOccluded) finds any fade-eligible cluster on the
+	// (Sim.IsFadeVolumeOccluded) finds any fade-eligible cluster on the
 	// camera→player line. So the effect is fully off in open terrain — no
 	// invisible always-on fade tube nipping at nearby foliage — and ramps
 	// to this size when the player walks behind canopy. Same value gates
@@ -336,7 +336,7 @@ public partial class GameClient : Node3D
 	// Gate that drops announcements at the source. Used during spawn-time
 	// knowledge seeding and (future) save-load rehydration so the banner
 	// queue doesn't pop for every initially-known item, recipe, region,
-	// or language. The downstream discovery events on WorldSimState /
+	// or language. The downstream discovery events on SimState /
 	// Player still fire — only the visual announcement is suppressed.
 	public bool SuppressAnnouncements;
 	public void Announce(Announcement a)
@@ -400,7 +400,7 @@ public partial class GameClient : Node3D
 	// Single gate that any input-consuming modal (map, inventory, etc.)
 	// flips when it opens and clears when it closes. Players sees this and
 	// skips ProcessInput; _UnhandledInput sees it and drops gameplay input.
-	// World.Tick keeps running regardless so the runner can still advance a
+	// Sim.Tick keeps running regardless so the runner can still advance a
 	// consumable-use action started from the inventory screen.
 	//
 	// Setting to false is *deferred to end of _Process* rather than applied
@@ -431,10 +431,10 @@ public partial class GameClient : Node3D
 		}
 	}
 	public Player Player => _player;
-	public World World => _world;
+	public Sim Sim => _world;
 
 	Player _player;
-	// The party's Player nodes, index-aligned with WorldSimState.Party.Members.
+	// The party's Player nodes, index-aligned with SimState.Party.Members.
 	// One is active (== _player, controlled); the rest are inactive members that
 	// idle where placed around camp. Populated by SpawnParty; used by
 	// SwitchControlTo to move control between members.
@@ -444,7 +444,7 @@ public partial class GameClient : Node3D
 	// Radius (m) of the ring that inactive party members spread around the
 	// spawn / campfire anchor.
 	[Export] float partyRingRadius = 2.5f;
-	World _world;
+	Sim _world;
 	// Held from Init so party members recruited mid-run (RecruitToParty) can be
 	// spawned as Player nodes the same way SpawnParty builds the starting roster.
 	PackedScene _playerScene;
@@ -499,7 +499,7 @@ public partial class GameClient : Node3D
 	// presentation, so they run on real time — the slow-mo death cam's
 	// Engine.TimeScale must not stretch flash decays or the death heartbeat
 	// (which is synced to the death-screen fade). The sim still gets the scaled
-	// _Process delta via World.Tick.
+	// _Process delta via Sim.Tick.
 	ulong _screenFxLastRealMs;
 
 	// World → screen-pixel projection for the HUD layers. Forwards to the
@@ -586,7 +586,7 @@ public partial class GameClient : Node3D
 		InputSuppressed = true;
 
 		var phaseSw = Stopwatch.StartNew();
-		_world = new World();
+		_world = new Sim();
 		Combat = new CombatTracker(combatExitGraceSeconds);
 		Combat.onCombatBegin = () => onCombatBegin?.Invoke();
 		Combat.onCombatEnd = () =>
@@ -603,10 +603,10 @@ public partial class GameClient : Node3D
 		_world.OnNewDay += OnNewDayResetMeals;
 		_world.OnNewDay += OnNewDayWellRested;
 		_world.OnNewDay += OnNewDayRefuelLanterns;
-		// World detects revive-deadline expiry (sim); we free the corpse node (client).
+		// Sim detects revive-deadline expiry (sim); we free the corpse node (client).
 		_world.onPartyMemberExpired += OnPartyMemberExpired;
 		sceneViewport.AddChild(_world);
-		// World.Initialize is the chunk-mesh sphere fill — fully synchronous
+		// Sim.Initialize is the chunk-mesh sphere fill — fully synchronous
 		// today (~900 chunks). The bar can't tick during this; it stays
 		// frozen at 0.6 → 0.75 across the single hitch. Threading the
 		// chunk fill (see voxels/CLAUDE.md) would make this smooth.
@@ -620,7 +620,7 @@ public partial class GameClient : Node3D
 		// individual GameClient if we ever support hot-swapping the client;
 		// no unsubscribe needed today because GameClient and WorldState are
 		// torn down together.
-		WorldSimState sim = worldState?.SimState;
+		SimState sim = worldState?.SimState;
 		if (sim != null)
 		{
 			sim.onItemIdentified += OnSimItemIdentified;
@@ -720,7 +720,7 @@ public partial class GameClient : Node3D
 		// Hand the entity drain back to the steady in-game cadence and
 		// enqueue the outer shell of chunks — those entities trickle in
 		// over the next few seconds while the player is getting oriented.
-		_world.MaxEntitiesPerFrame = World.DEFAULT_MAX_ENTITIES_PER_FRAME;
+		_world.MaxEntitiesPerFrame = Sim.DEFAULT_MAX_ENTITIES_PER_FRAME;
 		_world.ExpandToFullEntityRadius();
 
 		// Begin the loading screen fade. LoadingScreen owns the timer and
@@ -1101,7 +1101,7 @@ public partial class GameClient : Node3D
 	void OnSimItemIdentified(ItemData data)
 	{
 		if (data == null) { return; }
-		WorldSimState sim = _world?.WorldState?.SimState;
+		SimState sim = _world?.WorldState?.SimState;
 		string name = sim != null ? sim.GetItemDisplayName(data) : data.displayName.ToString();
 		Announce(new Announcement
 		{
@@ -1116,7 +1116,7 @@ public partial class GameClient : Node3D
 	{
 		if (recipe == null) { return; }
 		ItemData output = recipe.outputItem;
-		WorldSimState sim = _world?.WorldState?.SimState;
+		SimState sim = _world?.WorldState?.SimState;
 		string name = output == null
 			? string.Empty
 			: (sim != null ? sim.GetItemDisplayName(output) : output.displayName.ToString());
@@ -1132,7 +1132,7 @@ public partial class GameClient : Node3D
 	void OnSimSpellLearned(SpellData spell)
 	{
 		if (spell == null) { return; }
-		WorldSimState sim = _world?.WorldState?.SimState;
+		SimState sim = _world?.WorldState?.SimState;
 		string name = sim != null ? sim.GetItemDisplayName(spell) : spell.displayName.ToString();
 		Announce(new Announcement
 		{
@@ -1286,10 +1286,10 @@ public partial class GameClient : Node3D
 			//           small cutaway, a thicket opens the full radius.
 			//   Wide  → minimum (held while still inside the forest neighborhood).
 			//   None  → 0     (no nearby cover — drift to off).
-			World world = World.Current;
+			Sim sim = Sim.Current;
 			int nearbyPropCount = 0;
-			FadeProbeResult probeResult = world != null
-				? world.FadeProbe.Probe(cameraWorld, feet, head, tightProbeRadius, wideProbeRadius, foliagePlayerFadeProbeRange, out nearbyPropCount)
+			FadeProbeResult probeResult = sim != null
+				? sim.FadeProbe.Probe(cameraWorld, feet, head, tightProbeRadius, wideProbeRadius, foliagePlayerFadeProbeRange, out nearbyPropCount)
 				: FadeProbeResult.None;
 
 			float target;
@@ -1379,7 +1379,7 @@ public partial class GameClient : Node3D
 		if (!InputSuppressed)
 		{
 			// Any modal that wants to block gameplay input flips
-			// InputSuppressed in its Open(); World.Tick keeps running so a
+			// InputSuppressed in its Open(); Sim.Tick keeps running so a
 			// consumable-use action started from the inventory screen can
 			// still advance through the runner.
 			_player.ProcessInput(camera.Yaw);
@@ -1657,7 +1657,7 @@ public partial class GameClient : Node3D
 
 	static RegionData SampleRegion(Vector3 playerPos, WorldState ws)
 	{
-		ChunkState chunk = ws.GetChunk(World.WorldToChunkCoord(playerPos));
+		ChunkState chunk = ws.GetChunk(Sim.WorldToChunkCoord(playerPos));
 		if (chunk == null) { return null; }
 		if (ws.Regions == null || chunk.RegionIndex >= ws.Regions.Length) { return null; }
 		return ws.Regions[chunk.RegionIndex].Data;
@@ -2191,7 +2191,7 @@ public partial class GameClient : Node3D
 
 	// Narrow the fairy corpse's candidate boons to the ones worth offering right
 	// now, then pad up to the corpse's choice count with the gold filler when too
-	// few remain. The random roll already happened at spawn (World.ComposeFairyBoons
+	// few remain. The random roll already happened at spawn (Sim.ComposeFairyBoons
 	// picks a fixed subset of the pool), so this only drops the boons that would be
 	// a no-op right now — a restorative boon at full health, a lasting buff already
 	// active (see IsBoonViable) — so the player never burns a corpse on a no-op
@@ -2467,8 +2467,8 @@ public partial class GameClient : Node3D
 	}
 
 	// A fresh day clears every member's "eaten today" flag so each character may
-	// cook and eat once again. Subscribed to World.OnNewDay, the only day-advance
-	// path (World.AdvanceToNextSunrise) — covers both the camp sleep-to-sunrise and
+	// cook and eat once again. Subscribed to Sim.OnNewDay, the only day-advance
+	// path (Sim.AdvanceToNextSunrise) — covers both the camp sleep-to-sunrise and
 	// the death time-skip.
 	void OnNewDayResetMeals(int dayNumber)
 	{
@@ -2492,7 +2492,7 @@ public partial class GameClient : Node3D
 	// clears yesterday's pick) and sync the WellRested buff onto every party
 	// Player node. The campfire glow particle follows the same per-member flag,
 	// gated on sitting at the fire (Player.UpdateWellRestedFx). Subscribed to
-	// World.OnNewDay alongside the meal reset.
+	// Sim.OnNewDay alongside the meal reset.
 	void OnNewDayWellRested(int dayNumber)
 	{
 		Party party = _world?.WorldState?.SimState?.Party;
@@ -2508,7 +2508,7 @@ public partial class GameClient : Node3D
 	}
 
 	// Top off every party member's carried torches/lanterns each sunrise.
-	// Subscribed to World.OnNewDay, the only day-advance path — covers both the
+	// Subscribed to Sim.OnNewDay, the only day-advance path — covers both the
 	// camp sleep-to-sunrise and the death time-skip. A fountain is the only other
 	// way spent lantern fuel comes back (visiting a campfire deliberately doesn't).
 	void OnNewDayRefuelLanterns(int dayNumber)
@@ -2519,7 +2519,7 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// World detected this fallen member's revive deadline lapsed (World.CheckReviveDeadlines
+	// Sim detected this fallen member's revive deadline lapsed (Sim.CheckReviveDeadlines
 	// fires onPartyMemberExpired). Free the corpse body node and drop the roster entry,
 	// kept index-aligned with the sim Party. The Player node is GameClient's to own — which
 	// is why this teardown lives here while the timing decision lives in the sim. Only dead

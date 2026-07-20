@@ -49,15 +49,15 @@ public static class NavGridDebug
     private static readonly Color HazardColor = new(1f, 0.2f, 1f);
     private static readonly Color RejectColor = new(1f, 0.2f, 0.2f);
 
-    public static void Draw(World world, Vector3 playerPos)
+    public static void Draw(Sim sim, Vector3 playerPos)
     {
-        WorldState ws = world?.WorldState;
+        WorldState ws = sim?.WorldState;
         if (ws == null)
         {
             return;
         }
 
-        TraversalProfile profile = ProfileForNearestMob(world, playerPos);
+        TraversalProfile profile = ProfileForNearestMob(sim, playerPos);
 
         int anchorX = Mathf.FloorToInt(playerPos.X);
         int anchorY = Mathf.FloorToInt(playerPos.Y);
@@ -72,7 +72,7 @@ public static class NavGridDebug
             {
                 int wx = anchorX + dx;
                 int wz = anchorZ + dz;
-                WalkabilityGrid.SampleColumn(ws, world, profile, wx, anchorY, wz, column, 0);
+                WalkabilityGrid.SampleColumn(ws, sim, profile, wx, anchorY, wz, column, 0);
                 if ((column[0].flags & CellFlags.OutOfBounds) != 0)
                 {
                     continue;
@@ -106,11 +106,11 @@ public static class NavGridDebug
     // Nearest loaded mob's profile, or the default ground walker if none. The
     // companion following the player is normally the nearest, which is exactly
     // the mob a designer is debugging.
-    private static TraversalProfile ProfileForNearestMob(World world, Vector3 playerPos)
+    private static TraversalProfile ProfileForNearestMob(Sim sim, Vector3 playerPos)
     {
         Mob nearest = null;
         float bestSq = float.MaxValue;
-        foreach (Mob mob in world.GetEntities<Mob>())
+        foreach (Mob mob in sim.GetEntities<Mob>())
         {
             float dSq = mob.GlobalPosition.DistanceSquaredTo(playerPos);
             if (dSq < bestSq)

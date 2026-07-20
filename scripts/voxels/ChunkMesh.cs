@@ -340,7 +340,7 @@ public partial class ChunkMesh : Node3D
         // World may already be torn down on game shutdown — guard accordingly.
         if (_scatterPosted)
         {
-            World.Current?.DetailScatter?.RemoveChunk(_scatteredChunkCoord);
+            Sim.Current?.DetailScatter?.RemoveChunk(_scatteredChunkCoord);
             _scatterPosted = false;
         }
     }
@@ -426,7 +426,7 @@ public partial class ChunkMesh : Node3D
             {
                 scatterContrib = ChunkDetailScatter.Compute(data, getVoxel, getTerrainId, _activeDetailGroups, _activeTerrains);
             }
-            World.Current?.DetailScatter?.SetChunk(data.ChunkCoord, scatterContrib);
+            Sim.Current?.DetailScatter?.SetChunk(data.ChunkCoord, scatterContrib);
             _scatterPosted = scatterContrib != null;
         }
 

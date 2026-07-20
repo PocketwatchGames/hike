@@ -5,7 +5,7 @@ using System.Collections.Generic;
 // members. Detection lives here (it's pure sim state — PlayerState.IsDead /
 // ReviveByDay against DayNumber); the client only tears down the corpse's Player
 // NODE in response to onPartyMemberExpired, since those nodes are GameClient's.
-public partial class World
+public partial class Sim
 {
     // Fired for each fallen member whose revive deadline the clock has reached.
     // GameClient frees the corpse body node and drops the roster entry. Passes the

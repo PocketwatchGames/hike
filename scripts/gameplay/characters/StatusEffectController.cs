@@ -28,7 +28,7 @@ public class StatusEffectController
 	}
 
 	readonly Node3D _actor;
-	readonly World _world;
+	readonly Sim _world;
 	// (signed health delta, armor penetration in [0, 1]). ArmorPenetration is
 	// meaningful only for the damage path (delta < 0): it splits the chunk
 	// between armor chip and direct HP loss. Heals (delta > 0) ignore it.
@@ -80,10 +80,10 @@ public class StatusEffectController
 	// fx at and no health to chip away. `world` may also be null; the meter
 	// machinery falls back to a zero game-time which is fine for ContinuousArm
 	// (it doesn't read time) and degrades gracefully for ThresholdCross decay.
-	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null, Func<ETraitCondition, float, bool> conditionActive = null, Func<float> incomingLevelResist = null, Func<float> maxHealth = null)
+	public StatusEffectController(Node3D actor, Sim sim, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null, Func<ETraitCondition, float, bool> conditionActive = null, Func<float> incomingLevelResist = null, Func<float> maxHealth = null)
 	{
 		_actor = actor;
-		_world = world;
+		_world = sim;
 		_applyHealthDelta = applyHealthDelta;
 		_composeMaskMul = composeMaskMul;
 		_applyMaxHealthDelta = applyMaxHealthDelta;

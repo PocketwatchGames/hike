@@ -13,7 +13,7 @@ using Godot;
 // water, shoreline) get filled in by the density-sampling pass at a
 // slower jittered cadence — that pass writes back into State directly.
 //
-// The listener is the player's world position. World.Current.player is
+// The listener is the player's world position. Sim.Current.player is
 // the source of truth; the controller no-ops when no player is up
 // (loading, main menu) so the State struct stays at safe defaults.
 [GlobalClass]
@@ -79,7 +79,7 @@ public partial class AmbienceController : Node3D
     public override void _Process(double delta)
     {
         using var _prof = Profiler.Sample("AmbienceController.Process");
-        World w = World.Current;
+        Sim w = Sim.Current;
         if (w == null) { return; }
         WorldState ws = w.WorldState;
         if (ws == null) { return; }
@@ -409,7 +409,7 @@ public partial class AmbienceController : Node3D
         // Biome id = ZoneIndex of the listener's chunk. Unloaded chunk
         // (impossible at the listener, but defensive) returns -1 so
         // consumers can fall back to a "no biome" default.
-        Vector3I cc = World.WorldToChunkCoord(listenerPos);
+        Vector3I cc = Sim.WorldToChunkCoord(listenerPos);
         ChunkState chunk = ws.GetChunk(cc);
         _state.BiomeId = chunk != null ? chunk.ZoneIndex : -1;
     }

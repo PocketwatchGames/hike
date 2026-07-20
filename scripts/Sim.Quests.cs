@@ -1,19 +1,19 @@
 using Godot.Collections;
 
 // Sim-side driver for the quest system. Quests are simulation state (they live
-// on WorldSimState.QuestLog and persist with the save); World owns their whole
+// on SimState.QuestLog and persist with the save); Sim owns their whole
 // lifecycle — seeding, trigger-spawning, and per-tick evaluation — so the client
 // only ever reads the log to render widgets. See scripts/gameplay/quests/.
-public partial class World
+public partial class Sim
 {
     // Starting quests are seeded once, the first tick the party exists (it's
-    // built after World.Initialize). A save-load fills the log from disk instead,
+    // built after Sim.Initialize). A save-load fills the log from disk instead,
     // so seeding is skipped when the log already has entries.
     bool _questsSeeded;
 
     void TickQuests()
     {
-        WorldSimState sim = _worldState?.SimState;
+        SimState sim = _worldState?.SimState;
         if (sim == null)
         {
             return;
@@ -51,7 +51,7 @@ public partial class World
 
     // A fallen member with no active rescue quest gets one — polled from the sim
     // roster (PlayerState.IsDead) rather than a client death event.
-    void SpawnRescueQuests(WorldSimState sim, QuestLog log)
+    void SpawnRescueQuests(SimState sim, QuestLog log)
     {
         QuestData rescueData = _worldState?.ScriptData?.rescueQuest;
         Party party = sim.Party;

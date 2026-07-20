@@ -58,7 +58,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     [Export] private float _spinDegreesPerSecond = 45f;
 
     private ForgeSimState _simState;
-    private World _world;
+    private Sim _world;
     private bool _visualReady = true;
     private float _pivotBaseY;
     private float _bobTime;
@@ -73,7 +73,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     // level-0 forge shows no pips.
     public int InteractLevel => _simState?.Level ?? 0;
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public override void _Ready()
     {
@@ -138,7 +138,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     // streaming / reload and changes only when the forge re-arms.
     private void RefreshOffer()
     {
-        int today = World.Current?.DayNumber ?? 0;
+        int today = Sim.Current?.DayNumber ?? 0;
         _offeredUpgrade = _simState == null
             ? null
             : ForgeOffer.Resolve(_world?.SimData?.forgeUpgrades, _simState.WorldPosition, today, _simState.RegrowDay, _simState.Slot);
@@ -247,7 +247,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     {
         // Inert until the day advances past the reactivation day (stamped to the
         // next sleep-to-sunrise on use). 0 = ready.
-        int today = World.Current?.DayNumber ?? 0;
+        int today = Sim.Current?.DayNumber ?? 0;
         return _simState == null || today >= _simState.RegrowDay;
     }
 
@@ -295,7 +295,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        _simState.RegrowDay = (World.Current?.DayNumber ?? 0) + 1;
+        _simState.RegrowDay = (Sim.Current?.DayNumber ?? 0) + 1;
         // Keep the map-marker tint cache current so the icon dims immediately and
         // stays dim while this chunk is unloaded.
         _world?.WorldState?.SimState?.SetForgeReactivate(_simState.WorldPosition, _simState.RegrowDay, _simState.Level, _simState.Slot);
@@ -305,29 +305,29 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         ApplyReadyVisual(false);
     }
 
-    public static Forge Create(World world, ForgeSimState data)
+    public static Forge Create(Sim sim, ForgeSimState data)
     {
         var instance = data.Scene.Instantiate<Forge>();
         instance.Position = data.WorldPosition;
         instance._simState = data;
-        instance._world = world;
+        instance._world = sim;
         var lightPos = new Vector3I(
             Mathf.FloorToInt(data.WorldPosition.X),
             Mathf.FloorToInt(data.WorldPosition.Y) + instance._orbLightHeight,
             Mathf.FloorToInt(data.WorldPosition.Z)
         );
-        instance._light?.Initialize(world.WorldState, world, lightPos);
+        instance._light?.Initialize(sim.WorldState, sim, lightPos);
         // Register this forge's cooldown deadline so its map marker tints
         // ready/inert even while the chunk is unloaded (mirrors LitCampfire).
-        world.WorldState?.SimState?.SetForgeReactivate(data.WorldPosition, data.RegrowDay, data.Level, data.Slot);
-        world.AddChild(instance);
+        sim.WorldState?.SimState?.SetForgeReactivate(data.WorldPosition, data.RegrowDay, data.Level, data.Slot);
+        sim.AddChild(instance);
         // Pick the pedestal for this forge's tier (bigger station at higher levels).
         instance.ApplyLevelPedestal();
         // Resolve the offered upgrade + model, then snap to the ready/inert state
         // (no fade on stream-in) and relight on the sunrise rollover.
         instance.RefreshOffer();
         instance.ApplyReadyVisual(instance.CanInteract(), fade: false);
-        world.OnNewDay += instance.HandleNewDay;
+        sim.OnNewDay += instance.HandleNewDay;
         // Relight the orb once the player discovers the forge (starts Hidden).
         if (instance._discoverable != null)
         {

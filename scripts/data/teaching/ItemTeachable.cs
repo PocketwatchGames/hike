@@ -1,6 +1,6 @@
 using Godot;
 
-// Reveals an item's real name via WorldSimState.IdentifyItem. Used as the
+// Reveals an item's real name via SimState.IdentifyItem. Used as the
 // "I know this item" entry in WorldGenData.initialKnowledge (so the
 // starting health potion reads as itself, not "Unknown Potion"), and as
 // the concept payload on identification scrolls / NPC rewards that just
@@ -21,7 +21,7 @@ public partial class ItemTeachable : TeachableConcept
         {
             return false;
         }
-        WorldSimState sim = player.World?.WorldState?.SimState;
+        SimState sim = player.Sim?.WorldState?.SimState;
         return sim != null && sim.IdentifyItem(item);
     }
 
@@ -33,7 +33,7 @@ public partial class ItemTeachable : TeachableConcept
         }
         // IsItemIdentified returns true for items with no placeholder name; guard
         // so a no-op teach doesn't read as "known" and dim a marker prematurely.
-        WorldSimState sim = player?.World?.WorldState?.SimState;
+        SimState sim = player?.Sim?.WorldState?.SimState;
         return sim != null && sim.IsItemIdentified(item);
     }
 }

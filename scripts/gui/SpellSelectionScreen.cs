@@ -86,14 +86,14 @@ public partial class SpellSelectionScreen : Control
 		{
 			return;
 		}
-		SimData simData = _player.World?.SimData;
-		WorldSimState worldSim = _player.World?.WorldState?.SimState;
+		SimData simData = _player.Sim?.SimData;
+		SimState worldSim = _player.Sim?.WorldState?.SimState;
 		var pool = new List<ItemState>(_player.CombinedMaterialPool());
 		_spellPanel?.RefreshSpells(simData?.spells, worldSim, pool, _player.Inventory?.AttunedSpell);
 		_backpackPanel?.Refresh(MaterialStash);
 	}
 
-	List<ItemState> MaterialStash => _player?.World?.WorldState?.SimState?.PartyMaterialStash;
+	List<ItemState> MaterialStash => _player?.Sim?.WorldState?.SimState?.PartyMaterialStash;
 
 	void ApplyInitialFocus()
 	{

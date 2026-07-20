@@ -31,11 +31,11 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
     [Export(PropertyHint.Range, "0,1,0.05")] private float _healFraction = 1f;
 
     private FountainSimState _simState;
-    private World _world;
+    private Sim _world;
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public override void _ExitTree()
     {
@@ -64,7 +64,7 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
     {
         // Inert until the world day reaches the reactivation day (stamped to the
         // next day on use, so the fountain re-arms at sunrise). 0 = ready.
-        int today = World.Current?.DayNumber ?? 0;
+        int today = Sim.Current?.DayNumber ?? 0;
         return _simState == null || today >= _simState.RegrowDay;
     }
 
@@ -111,22 +111,22 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        _simState.RegrowDay = (World.Current?.DayNumber ?? 0) + 1;
+        _simState.RegrowDay = (Sim.Current?.DayNumber ?? 0) + 1;
         // Hide the water immediately; HandleNewDay restores it at the next sunrise.
         ApplyReadyVisual(false);
     }
 
-    public static Fountain Create(World world, FountainSimState data)
+    public static Fountain Create(Sim sim, FountainSimState data)
     {
         var instance = data.Scene.Instantiate<Fountain>();
         instance.Position = data.WorldPosition;
         instance._simState = data;
-        instance._world = world;
-        world.AddChild(instance);
+        instance._world = sim;
+        sim.AddChild(instance);
         // Snap the water to the spawned ready/inert state (no fade on stream-in),
         // then re-show on the sunrise rollover rather than polling each frame.
         instance.ApplyReadyVisual(instance.CanInteract());
-        world.OnNewDay += instance.HandleNewDay;
+        sim.OnNewDay += instance.HandleNewDay;
         return instance;
     }
 }

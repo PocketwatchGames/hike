@@ -268,13 +268,13 @@ public static class LightEngine
     public static BlockLightTuning ResolveTuning(WorldState world, float distance, float falloff, float brightness)
     {
         using var _prof = Profiler.Sample("LightEngine.ResolveTuning");
-        SimData sim = world.SimData;
+        SimData simData = world.SimData;
         float dist = Math.Max(0.5f, distance);
         float fall = Math.Max(0.05f, falloff);
         float bright = Math.Max(0f, brightness);
 
         float lambda = dist / Mathf.Pow(Mathf.Log(1f / FLOOD_CUTOFF), 1f / fall);
-        int radius = Math.Clamp(Mathf.CeilToInt(dist) + 2, MIN_FLOOD_RADIUS, sim.blockLightMaxDistance);
+        int radius = Math.Clamp(Mathf.CeilToInt(dist) + 2, MIN_FLOOD_RADIUS, simData.blockLightMaxDistance);
 
         float windowR = Mathf.Max(1f, radius - 2f);
         float windowFloor = FalloffWeight(windowR, lambda, fall);
@@ -306,10 +306,10 @@ public static class LightEngine
         cells.Clear();
         if (!IsOpen(world, position.X, position.Y, position.Z)) { return; }
 
-        SimData sim = world.SimData;
+        SimData simData = world.SimData;
         int maxDist = floodRadius;
-        float fogExtinction = sim.blockLightFogExtinction;
-        float canopyExtinction = sim.blockLightCanopyExtinction;
+        float fogExtinction = simData.blockLightFogExtinction;
+        float canopyExtinction = simData.blockLightCanopyExtinction;
 
         int dim = maxDist * 2 + 1;
         int total = dim * dim * dim;

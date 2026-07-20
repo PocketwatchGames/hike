@@ -20,7 +20,7 @@ public partial class LootSpawnEntry : SpawnEntryData
         // per-instance data to compose (mods or ephemeral) — plain drops leave
         // Item null on the sim state and synthesize a fresh state at pickup
         // (cheaper, matches the world-loot default). Mirrors the fairy-loot
-        // composition path in World.SpawnLoot.
+        // composition path in Sim.SpawnLoot.
         if (item.NeedsComposedState)
         {
             simState.Item = item.CreateState();

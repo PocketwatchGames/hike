@@ -9,7 +9,7 @@ using Godot;
 //
 // This is the unit of bestiary identity: a runtime mob IS-A species
 // (MobSimState.Species), and discovery / kill-leveling key on it (see
-// WorldSimState.DiscoveredSpecies). The base MobData (reached via `mob`) is the
+// SimState.DiscoveredSpecies). The base MobData (reached via `mob`) is the
 // shared template AND the bestiary "page" that groups a type's species; this
 // SpeciesData is one "row" on that page. A MobDescriptor HAS-A SpeciesData plus
 // its own elite override (the species-side analog of EliteMobDescriptor). A

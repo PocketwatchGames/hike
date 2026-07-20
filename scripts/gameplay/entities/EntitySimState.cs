@@ -20,7 +20,7 @@ public abstract class EntitySimState
 
     // Returns null if this sim state should not materialize an entity right now
     // (e.g. picked up loot, dead mob).
-    public abstract Node3D CreateEntity(World world);
+    public abstract Node3D CreateEntity(Sim sim);
 
     // True if a node should be CREATED for this state right now. This is a
     // spawn gate only — not a presence gate. World checks it when loading a
@@ -28,7 +28,7 @@ public abstract class EntitySimState
     // entities can appear without a chunk reload. Once a node exists it
     // stays alive until the chunk evicts (or gameplay frees it); World
     // does not despawn it just because ShouldSpawn flips back to false.
-    public virtual bool ShouldSpawn(World world) => true;
+    public virtual bool ShouldSpawn(Sim sim) => true;
 
     // Live node reference, set by World when the entity is materialized and
     // cleared via TreeExiting when it leaves the scene. Used by the
@@ -54,7 +54,7 @@ public abstract class EntitySimState
     // is still walkable (a chasing mob can be lured across it) — it's only
     // routed-around by wander/normal pathing, whereas a path-blocker cell is
     // impassable to everyone. World refcounts the disc of cells this radius
-    // covers into its hazard grid on spawn (see World.RegisterEntity).
+    // covers into its hazard grid on spawn (see Sim.RegisterEntity).
     public float HazardRadius;
 
     // True if this is natural surface scenery a road should avoid and clear:

@@ -1,6 +1,6 @@
 using Godot;
 
-// Teaches a recipe — adds it to WorldSimState.DiscoveredRecipes so it
+// Teaches a recipe — adds it to SimState.DiscoveredRecipes so it
 // shows up in the cookbook / forge UI before the player has ever cooked
 // it, AND identifies the recipe's output item so the cookbook button
 // reads with its real name instead of "Unknown Food".
@@ -26,7 +26,7 @@ public partial class RecipeTeachable : TeachableConcept
         {
             return false;
         }
-        WorldSimState sim = player.World?.WorldState?.SimState;
+        SimState sim = player.Sim?.WorldState?.SimState;
         if (sim == null)
         {
             return false;
@@ -43,6 +43,6 @@ public partial class RecipeTeachable : TeachableConcept
         {
             return false;
         }
-        return player?.World?.WorldState?.SimState?.IsRecipeDiscovered(recipe) ?? false;
+        return player?.Sim?.WorldState?.SimState?.IsRecipeDiscovered(recipe) ?? false;
     }
 }

@@ -694,7 +694,7 @@ public partial class LitSprite : SpriteBase
     // Null if no water is within search depth in any of the rings.
     private float? FindWaterSurfaceY(Vector3 world)
     {
-        WorldState ws = World.Current?.WorldState;
+        WorldState ws = Sim.Current?.WorldState;
         if (ws == null)
         {
             return null;

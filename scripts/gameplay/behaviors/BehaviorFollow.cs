@@ -20,7 +20,7 @@ public partial class BehaviorFollow : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
-        Player master = me.World?.player;
+        Player master = me.Sim?.player;
         if (master == null)
         {
             output.speed = 0f;

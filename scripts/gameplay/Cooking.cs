@@ -239,9 +239,9 @@ public static class Cooking
 		return affordable == int.MaxValue ? 0 : affordable;
 	}
 
-	// Record discovery via the WorldSimState bus so the announcement
+	// Record discovery via the SimState bus so the announcement
 	// pipeline picks up the first-time discovery.
-	public static void RecordDiscovery(WorldSimState sim, in MatchResult match)
+	public static void RecordDiscovery(SimState sim, in MatchResult match)
 	{
 		if (sim == null || !match.IsValid)
 		{

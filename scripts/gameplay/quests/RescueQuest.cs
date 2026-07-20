@@ -26,7 +26,7 @@ public class RescueQuest : QuestState
 
     public PlayerState TargetMember => Resolve();
 
-    static Party Party => World.Current?.WorldState?.SimState?.Party;
+    static Party Party => Sim.Current?.WorldState?.SimState?.Party;
 
     PlayerState Resolve()
     {

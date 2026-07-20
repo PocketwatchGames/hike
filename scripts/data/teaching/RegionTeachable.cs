@@ -1,6 +1,6 @@
 using Godot;
 
-// Reveals a named map region — adds it to WorldSimState.DiscoveredRegions so
+// Reveals a named map region — adds it to SimState.DiscoveredRegions so
 // its label shows on the world map before the player has physically entered
 // the region. The on-entry banner / loot table hooks are still owned by
 // GameClient.UpdateRegion; this concept only seeds the "I know this place
@@ -21,7 +21,7 @@ public partial class RegionTeachable : TeachableConcept
         {
             return false;
         }
-        WorldSimState sim = player.World?.WorldState?.SimState;
+        SimState sim = player.Sim?.WorldState?.SimState;
         if (sim == null)
         {
             return false;
@@ -35,6 +35,6 @@ public partial class RegionTeachable : TeachableConcept
         {
             return false;
         }
-        return player?.World?.WorldState?.SimState?.IsRegionDiscovered(region) ?? false;
+        return player?.Sim?.WorldState?.SimState?.IsRegionDiscovered(region) ?? false;
     }
 }

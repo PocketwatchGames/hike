@@ -20,7 +20,7 @@ using Godot;
 // fade bands, etc.) — weather / zone-driven visuals come from the
 // palette.
 //
-// [Tool] makes this run in the editor. When no World/Player exists, it
+// [Tool] makes this run in the editor. When no Sim/Player exists, it
 // falls back to `previewZone` so inspector edits produce live sky
 // previews without entering the game.
 [Tool]
@@ -34,7 +34,7 @@ public partial class SkyController : Node3D
     public static SkyController Current { get; private set; }
 
     [ExportGroup("Preview")]
-    // Editor / pre-World fallback zone. Used for live sky preview
+    // Editor / pre-Sim fallback zone. Used for live sky preview
     // when no WorldState / player exists (pure inspector tweaking). At
     // runtime the world's zones take over via ZoneBlend.
     [Export] public ZoneData previewZone;
@@ -734,7 +734,7 @@ public partial class SkyController : Node3D
 
     // Normalized time-of-day used by UpdateSunAndMoon this frame. Cached
     // here so Apply() can compute time-based disk fades without repeating
-    // the same World/editor fallback lookup.
+    // the same Sim/editor fallback lookup.
     private double _timeOfDay01 = 0.5;
 
     // Current blended zone + weather (runtime). In editor mode these
@@ -1025,15 +1025,15 @@ public partial class SkyController : Node3D
     {
         using var _prof = Profiler.Sample("SkyController.Process");
         // Blend zones → (_blendedZone, _blendedWeather). In editor or
-        // before the World is up, fall back to previewZone.
+        // before the Sim is up, fall back to previewZone.
         ZoneData currentZone = _blendedZone;
         WeatherData currentWeather = _blendedWeather;
-        SimData sim = World.Current?.WorldState?.SimData;
+        SimData simData = Sim.Current?.WorldState?.SimData;
 
-        if (!Engine.IsEditorHint() && sim != null && _blendedZone != null && _blendedWeather != null)
+        if (!Engine.IsEditorHint() && simData != null && _blendedZone != null && _blendedWeather != null)
         {
-            Vector3 playerPos = World.Current.player?.GlobalPosition ?? Vector3.Zero;
-            WorldState ws = World.Current.WorldState;
+            Vector3 playerPos = Sim.Current.player?.GlobalPosition ?? Vector3.Zero;
+            WorldState ws = Sim.Current.WorldState;
             ZoneBlend.Sample(playerPos, ws, _blendedZone, _blendedWeather,
                 out _blendedWindDirection, out _blendedElevation);
 
@@ -1045,8 +1045,8 @@ public partial class SkyController : Node3D
             // sees the simulated weather, not the zone max).
             if (ws != null)
             {
-                WeatherSimulation.UpdateVariance(ws, sim);
-                WeatherSimulation.Apply(_blendedWeather, _blendedZone, _blendedElevation, ws, sim);
+                WeatherSimulation.UpdateVariance(ws, simData);
+                WeatherSimulation.Apply(_blendedWeather, _blendedZone, _blendedElevation, ws, simData);
                 // Publish the blended wind direction to WorldState so
                 // gameplay consumers (RainEffect, physics) see a single
                 // authoritative current wind. Other weather variables
@@ -1066,15 +1066,15 @@ public partial class SkyController : Node3D
 
         // Derive. A null zone/weather still produces a palette with
         // fallback values so editor preview works without wiring.
-        _palette = WeatherDerivation.Derive(currentZone, currentWeather, _sunElevationDegrees, (float)_timeOfDay01, sim);
+        _palette = WeatherDerivation.Derive(currentZone, currentWeather, _sunElevationDegrees, (float)_timeOfDay01, simData);
 
         // Advance lingering surface wetness from the post-Derive inputs
         // (palette.Fog is computed inside Derive). Runs only when a real
         // WorldState exists — preview zone wetness has nothing to drive.
-        WorldState wetnessWs = World.Current?.WorldState;
-        if (wetnessWs != null && sim != null)
+        WorldState wetnessWs = Sim.Current?.WorldState;
+        if (wetnessWs != null && simData != null)
         {
-            UpdateWetness(wetnessWs, currentWeather, _palette.Fog, sim, (float)delta);
+            UpdateWetness(wetnessWs, currentWeather, _palette.Fog, simData, (float)delta);
         }
 
         // Integrate scroll offsets using the CURRENT (blended) weather
@@ -1215,9 +1215,9 @@ public partial class SkyController : Node3D
     private void UpdateSunAndMoon()
     {
         double todAwake;
-        if (!Engine.IsEditorHint() && World.Current?.WorldState != null)
+        if (!Engine.IsEditorHint() && Sim.Current?.WorldState != null)
         {
-            todAwake = World.Current.WorldState.TimeOfDay01;
+            todAwake = Sim.Current.WorldState.TimeOfDay01;
         }
         else
         {
@@ -1233,10 +1233,10 @@ public partial class SkyController : Node3D
         double t = WorldState.OrbitPhase01(todAwake);
         _timeOfDay01 = t;
 
-        SimData sim = World.Current?.WorldState?.SimData;
-        float sunMaxElev = sim?.sunMaxElevationDegrees ?? 60f;
-        float noonAzimuth = sim?.noonAzimuthDegrees ?? 45f;
-        float sunsetAngle = sim?.sunsetAngleDegrees ?? 15f;
+        SimData simData = Sim.Current?.WorldState?.SimData;
+        float sunMaxElev = simData?.sunMaxElevationDegrees ?? 60f;
+        float noonAzimuth = simData?.noonAzimuthDegrees ?? 45f;
+        float sunsetAngle = simData?.sunsetAngleDegrees ?? 15f;
 
         // Shared orbit basis. noonDir is the sun-at-noon direction on the
         // celestial sphere (azimuth + max elevation); eastDir is horizontal
@@ -1311,9 +1311,9 @@ public partial class SkyController : Node3D
         OrientLight(sunLight, sunLightDir);
         OrientLight(moonLight, moonLightDir);
 
-        if (!Engine.IsEditorHint() && World.Current?.WorldState != null)
+        if (!Engine.IsEditorHint() && Sim.Current?.WorldState != null)
         {
-            World.Current.WorldState.ShadowLightDirection = _primaryLightDir;
+            Sim.Current.WorldState.ShadowLightDirection = _primaryLightDir;
         }
     }
 
@@ -1330,8 +1330,8 @@ public partial class SkyController : Node3D
         float effNightIntensity = _palette.NightPrimaryIntensity;
         CurrentPrimaryIntensity = Mathf.Lerp(effDayIntensity, effNightIntensity, _palette.NightT);
 
-        SimData sim = World.Current?.WorldState?.SimData;
-        float sunsetAngle = sim?.sunsetAngleDegrees ?? 10f;
+        SimData simData = Sim.Current?.WorldState?.SimData;
+        float sunsetAngle = simData?.sunsetAngleDegrees ?? 10f;
 
         // DirectionalLight3D energy crossfade — keyed off each body's
         // REMAPPED light-direction elevation (clamped at sunsetAngle
@@ -1406,14 +1406,14 @@ public partial class SkyController : Node3D
         // when the sky is clear (overcast diffuses it away). The moon's variant
         // is weighted down by NightPrimaryIntensity so its shadow reads weaker,
         // leaving night blobs mostly intact.
-        float sinShadowMaxElev = Mathf.Max(Mathf.Sin(Mathf.DegToRad(sim?.sunMaxElevationDegrees ?? 60f)), 1e-4f);
+        float sinShadowMaxElev = Mathf.Max(Mathf.Sin(Mathf.DegToRad(simData?.sunMaxElevationDegrees ?? 60f)), 1e-4f);
         float sunElevSharp = Mathf.Clamp(Mathf.Sin(Mathf.DegToRad(_sunElevationDegrees)) / sinShadowMaxElev, 0f, 1f);
         float shadowElevSharp = _sunIsPrimary ? sunElevSharp : moonEnergyFactor * _palette.NightPrimaryIntensity;
         float shadowClarity = 1f - Mathf.Clamp(Weather?.cloudCover ?? 0f, 0f, 1f);
         DirectionalShadowStrength = Mathf.Clamp(shadowElevSharp * shadowClarity, 0f, 1f);
 
         // _nightT for disk glow fade. Same formula as WeatherDerivation.PhaseWeights.
-        float colorRange = Mathf.Max(sim?.sunsetColorRangeDegrees ?? 10f, 0.01f);
+        float colorRange = Mathf.Max(simData?.sunsetColorRangeDegrees ?? 10f, 0.01f);
         float dayNightThreshold = sunsetAngle + colorRange;
         float nightT = 1f - Mathf.SmoothStep(-dayNightThreshold, dayNightThreshold, _sunElevationDegrees);
 
@@ -1427,7 +1427,7 @@ public partial class SkyController : Node3D
         // (the disk is invisible there anyway via the shader's sun_up gate).
         // Humidity and dust then attenuate multiplicatively — thicker air
         // scatters the disk softer regardless of time-of-day.
-        float sunMaxElevRad = Mathf.DegToRad(sim?.sunMaxElevationDegrees ?? 60f);
+        float sunMaxElevRad = Mathf.DegToRad(simData?.sunMaxElevationDegrees ?? 60f);
         float sinMaxElev = Mathf.Max(Mathf.Sin(sunMaxElevRad), 1e-4f);
         float sunPhaseT = Mathf.Clamp(Mathf.Sin(Mathf.DegToRad(_sunElevationDegrees)) / sinMaxElev, 0f, 1f);
         float humidityForDisk = Weather?.humidity ?? 0f;
@@ -1443,7 +1443,7 @@ public partial class SkyController : Node3D
         // the moon. fadeTod is clamped to half the active window (0.25
         // of a day) so very long fade times produce a triangular peak
         // rather than overlapping past 1.
-        float dayLengthSec = Mathf.Max(sim?.dayLengthSeconds ?? 600f, 0.01f);
+        float dayLengthSec = Mathf.Max(simData?.dayLengthSeconds ?? 600f, 0.01f);
         float fadeTod = Mathf.Clamp(sunDiskFadeTime / dayLengthSec, 0f, 0.25f);
         float sunDiskFade = ComputeDiskFade(_timeOfDay01, 0.25, 0.75, fadeTod);
         float moonDiskFade = ComputeDiskFade(_timeOfDay01, 0.75, 1.25, fadeTod);
@@ -1496,7 +1496,7 @@ public partial class SkyController : Node3D
         // authored cloudShadowStrength is unchanged.
         float flashShadowMask = 1f - Mathf.Clamp(flashIntensity, 0f, 1f);
         RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength * flashShadowMask);
-        RenderingServer.GlobalShaderParameterSet("wetness_level", World.Current?.WorldState?.WetnessLevel ?? 0f);
+        RenderingServer.GlobalShaderParameterSet("wetness_level", Sim.Current?.WorldState?.WetnessLevel ?? 0f);
         RenderingServer.GlobalShaderParameterSet("wet_spec_strength", wetSpecStrength);
         RenderingServer.GlobalShaderParameterSet("wet_albedo_floor", wetAlbedoFloor);
         RenderingServer.GlobalShaderParameterSet("wet_reflect_strength", wetReflectStrength);
@@ -1592,7 +1592,7 @@ public partial class SkyController : Node3D
         // ripple cells at higher wind (longer-wavelength waves); negative
         // shrinks them. Formula divides the UV multiplier so the cell size
         // in world units grows with the response factor.
-        SimData sim2 = World.Current?.WorldState?.SimData;
+        SimData sim2 = Sim.Current?.WorldState?.SimData;
         float rippleWindRef = sim2?.rippleWindRef ?? 10f;
         float windFrac = Mathf.Clamp((Weather?.windSpeed ?? 0f) / Mathf.Max(rippleWindRef, 0.1f), 0f, 1f);
         float scaleShift = 1f / Mathf.Max(1f + rippleScaleWindResponse * windFrac, 0.1f);
@@ -1774,7 +1774,7 @@ public partial class SkyController : Node3D
         float washCloudCover = weather?.cloudCover ?? 0f;
         float washDust = weather?.dustAmount ?? 0.1f;
         float washHumidity = weather?.humidity ?? 0.5f;
-        float washDustFromHumidity = sim?.dustFromHumidity ?? 0.5f;
+        float washDustFromHumidity = simData?.dustFromHumidity ?? 0.5f;
         float washEffDust = Mathf.Clamp(washDust + washHumidity * washDustFromHumidity, 0f, 1f);
         float washCover = shaftWashBaseline + shaftWashCloudGain * washCloudCover * washCloudCover;
         float washIntensity = Mathf.Min(shaftWashMax, washEffDust * washCover);
@@ -1821,7 +1821,7 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("dust_density", _palette.DustDensity);
             fogMaterial.SetShaderParameter("dust_band_height", dustBandHeight);
 
-            float playerY = World.Current?.player?.GlobalPosition.Y ?? float.NaN;
+            float playerY = Sim.Current?.player?.GlobalPosition.Y ?? float.NaN;
             float ceiling = float.IsNaN(playerY) ? -1e20f : playerY + dustBandHeight;
             fogMaterial.SetShaderParameter("dust_reference_y", ceiling);
             fogMaterial.SetShaderParameter("dust_noise_strength", dustNoiseStrength);
@@ -1938,9 +1938,9 @@ public partial class SkyController : Node3D
     // (DayLengthSeconds + time_scale aware) so pacing tracks the in-world
     // clock. Uses the post-Derive `fog` value (palette.Fog) so the visible
     // fog and the wetness it implies stay coupled.
-    private void UpdateWetness(WorldState ws, WeatherData weather, float fog, SimData sim, float dt)
+    private void UpdateWetness(WorldState ws, WeatherData weather, float fog, SimData simData, float dt)
     {
-        if (ws == null || sim == null || dt <= 0f) { return; }
+        if (ws == null || simData == null || dt <= 0f) { return; }
         float rain = Mathf.Clamp(weather?.rainAmount ?? 0f, 0f, 1f);
         float humidity = Mathf.Clamp(weather?.humidity ?? 0f, 0f, 1f);
         float fogClamped = Mathf.Clamp(fog, 0f, 1f);
@@ -1949,7 +1949,7 @@ public partial class SkyController : Node3D
             Mathf.Max(fogClamped * wetnessFromFog, humidity * wetnessFromHumidity));
         target = Mathf.Clamp(target, 0f, 1f);
         // 24 game-hours * 60 game-min = 1440 game-min/day.
-        float dayLength = Mathf.Max(sim.dayLengthSeconds, 1f);
+        float dayLength = Mathf.Max(simData.dayLengthSeconds, 1f);
         float gameMinPerRealSec = (1440f / dayLength) * CVars.timeScale.Value;
         float dtGameMin = dt * gameMinPerRealSec;
         float halfLifeGameMin = Mathf.Max(wetnessHalfLifeGameMinutes, 1e-3f);

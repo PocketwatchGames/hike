@@ -237,7 +237,7 @@ public partial class RainEffect : Node3D
     // _fallProcRuntime in place rather than re-duplicating each frame.
     private void UpdateWindDrivenRainDirection()
     {
-        WorldState ws = World.Current?.WorldState;
+        WorldState ws = Sim.Current?.WorldState;
         SkyController sky = SkyController.Current;
         WeatherData weather = sky?.Weather;
         if (ws == null || sky == null || weather == null) { return; }
@@ -288,9 +288,9 @@ public partial class RainEffect : Node3D
     {
         using var _prof = Profiler.Sample("RainEffect.Process");
         float dt = (float)delta;
-        World world = World.Current;
-        WorldState ws = world?.WorldState;
-        bool worldReady = world != null && ws != null && world.player != null;
+        Sim sim = Sim.Current;
+        WorldState ws = sim?.WorldState;
+        bool worldReady = sim != null && ws != null && sim.player != null;
 
         // Anchor the emitter above the PLAYER, not the camera. The iso camera sits
         // ~65m above the player; parenting rain to the camera means emission happens
@@ -300,7 +300,7 @@ public partial class RainEffect : Node3D
         // the emission box sits a fixed distance above the player.
         if (worldReady)
         {
-            Vector3 pp = world.player.GlobalPosition;
+            Vector3 pp = sim.player.GlobalPosition;
             GlobalPosition = new Vector3(pp.X, pp.Y + AnchorHeightAbovePlayer, pp.Z);
         }
         // Kill any inherited rotation from the pitched camera so the emission box
@@ -332,7 +332,7 @@ public partial class RainEffect : Node3D
         {
             _splashBudget += _intensity * splashesPerSecond * dt;
             int spawnsThisFrame = 0;
-            Vector3 playerPos = world.player.GlobalPosition;
+            Vector3 playerPos = sim.player.GlobalPosition;
 
             while (_splashBudget >= 1f && spawnsThisFrame < maxSplashesPerFrame)
             {

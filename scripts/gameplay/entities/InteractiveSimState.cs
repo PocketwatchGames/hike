@@ -12,9 +12,9 @@ public class DoorSimState : EntitySimState
         RotationY = rotationY;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Door.Create(world, this);
+        return Door.Create(sim, this);
     }
 }
 
@@ -33,9 +33,9 @@ public class TorchSimState : EntitySimState
     {
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Torch.Create(world, this);
+        return Torch.Create(sim, this);
     }
 }
 
@@ -74,16 +74,16 @@ public class CampfireSimState : EntitySimState
     {
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Campfire.Create(world, this);
+        return Campfire.Create(sim, this);
     }
 }
 
 // Active cook job — recipe + timer + output preview. Owned by
 // CampfireSimState; the forge's runtime entity ticks the timer. Discovery
 // flags aren't tracked here — Campfire.CompleteCampfireJob computes them against
-// the live WorldSimState at the moment the cook actually finishes, so a
+// the live SimState at the moment the cook actually finishes, so a
 // cancelled cook doesn't leak credit and an offscreen completion still
 // records correctly.
 public class CampfireJob
@@ -149,22 +149,22 @@ public class ChestSimState : EntitySimState
     {
     }
 
-    public override bool ShouldSpawn(World world)
+    public override bool ShouldSpawn(Sim sim)
     {
-        if (!world.SpawnConditionsMet(SpawnConditions))
+        if (!sim.SpawnConditionsMet(SpawnConditions))
         {
             return false;
         }
         return true;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        if (!ShouldSpawn(world))
+        if (!ShouldSpawn(sim))
         {
             return null;
         }
-        return Chest.Create(world, this);
+        return Chest.Create(sim, this);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
@@ -191,9 +191,9 @@ public class BerryTreeSimState : RegrowSimState
 
     public override bool IsRoadObstacle => true;
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return BerryTree.Create(world, this);
+        return BerryTree.Create(sim, this);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
@@ -215,9 +215,9 @@ public class TrapSimState : EntitySimState
     {
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Trap.Create(world, this);
+        return Trap.Create(sim, this);
     }
 }
 
@@ -236,9 +236,9 @@ public class SignpostSimState : EntitySimState
         Language = language;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Signpost.Create(world, this);
+        return Signpost.Create(sim, this);
     }
 }
 
@@ -267,9 +267,9 @@ public class KnowledgeStoneSimState : EntitySimState
         Concepts = concepts;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return KnowledgeStone.Create(world, this);
+        return KnowledgeStone.Create(sim, this);
     }
 }
 
@@ -280,9 +280,9 @@ public class WellSimState : EntitySimState
     {
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Well.Create(world, this);
+        return Well.Create(sim, this);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
@@ -300,9 +300,9 @@ public class TentSimState : EntitySimState
     {
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Tent.Create(world, this);
+        return Tent.Create(sim, this);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
@@ -323,9 +323,9 @@ public class ClimbableTreeSimState : EntitySimState
     {
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return ClimbableTree.Create(world, this);
+        return ClimbableTree.Create(sim, this);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
@@ -350,9 +350,9 @@ public class FireTrapSimState : EntitySimState
     {
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return FireTrap.Create(world, this);
+        return FireTrap.Create(sim, this);
     }
 }
 
@@ -376,9 +376,9 @@ public class ForgeSimState : RegrowSimState
         Slot = slot;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Forge.Create(world, this);
+        return Forge.Create(sim, this);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
@@ -398,9 +398,9 @@ public class FountainSimState : RegrowSimState
     {
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Fountain.Create(world, this);
+        return Fountain.Create(sim, this);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
@@ -431,8 +431,8 @@ public class ForageSpawnerSimState : RegrowSimState
         RegrowDays = regrowDays;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return ForageSpawner.Create(world, this);
+        return ForageSpawner.Create(sim, this);
     }
 }

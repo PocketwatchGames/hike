@@ -447,8 +447,8 @@ public partial class Mob
                 // (wind is global, so a sample per crumb would be wasteful).
                 // smellWindBias scales the dot-product deviation: 0 in dead
                 // calm (no directionality), up to 1 at PerceptionWindReference.
-                SimData sim = _world.SimData;
-                float smellWindBias = sim != null ? PlayerPerception.WindFraction(_world, nose) : 0f;
+                SimData simData = _world.SimData;
+                float smellWindBias = simData != null ? PlayerPerception.WindFraction(_world, nose) : 0f;
                 Vector3 windDir3 = _world.WorldState.WindDirection;
                 Vector2 windDir = new Vector2(windDir3.X, windDir3.Z);
                 bool hasWind = smellWindBias > 0f && windDir.LengthSquared() > 0.000001f;
@@ -477,7 +477,7 @@ public partial class Mob
                         if (toNose.LengthSquared() > 0.000001f)
                         {
                             float alignment = toNose.Normalized().Dot(windDir);
-                            float coeff = alignment >= 0f ? sim.smellDownwindBoost : sim.smellUpwindReduction;
+                            float coeff = alignment >= 0f ? simData.smellDownwindBoost : simData.smellUpwindReduction;
                             potential *= Mathf.Max(0f, 1f + coeff * alignment * smellWindBias);
                         }
                     }
@@ -621,7 +621,7 @@ public partial class Mob
         }
     }
 
-    // Receive a discrete noise impulse (see World.CreateNoiseEvent). Reuses the
+    // Receive a discrete noise impulse (see Sim.CreateNoiseEvent). Reuses the
     // exact hearing math the per-tick movement-noise contribution uses — audible
     // distance = decibels * hearingRange (wind/fog adjusted), falling off with
     // the authored hearingRangePower curve — but applies it as a one-shot

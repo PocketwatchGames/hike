@@ -105,8 +105,8 @@ public partial class MovingLight : Node3D
         }
         if (!_registered) { return; }
 
-        World world = World.Current;
-        if (world == null) { return; }
+        Sim sim = Sim.Current;
+        if (sim == null) { return; }
 
         Vector3 pos = SourcePosition;
         Vector3I voxel = new Vector3I(
@@ -124,15 +124,15 @@ public partial class MovingLight : Node3D
             // its chunk isn't resident yet), keep the previous field/deposit
             // rather than blanking the light. Don't advance _lastVoxel — retry
             // the recompute next frame until we land in an open voxel again.
-            if (LightEngine.CanEmitFrom(world.WorldState, voxel))
+            if (LightEngine.CanEmitFrom(sim.WorldState, voxel))
             {
                 _lastVoxel = voxel;
                 using (Profiler.Sample("MovingLight.FloodRecompute"))
                 {
-                    _tuning = LightEngine.ResolveTuning(world.WorldState, distance, falloff, brightness);
-                    LightEngine.ComputeFloodField(world.WorldState, voxel, _tuning.FloodRadius, _cells);
+                    _tuning = LightEngine.ResolveTuning(sim.WorldState, distance, falloff, brightness);
+                    LightEngine.ComputeFloodField(sim.WorldState, voxel, _tuning.FloodRadius, _cells);
                 }
-                Reshade(world.WorldState, pos);
+                Reshade(sim.WorldState, pos);
                 _lastShadeSub = sub;
             }
         }
@@ -142,7 +142,7 @@ public partial class MovingLight : Node3D
         // (and its chunk re-dirty + LightMap upload) buys sub-voxel smoothness that
         // isn't visible at distance. The crossing path above still updates the
         // field, so a culled light snaps cleanly when it next changes voxel.
-        else if (WithinReshadeRange(world))
+        else if (WithinReshadeRange(sim))
         {
             const float SHADE_MOTION_THRESHOLD = 1f / 16f;
             if (Mathf.Abs(sub.X - _lastShadeSub.X) >= SHADE_MOTION_THRESHOLD
@@ -152,7 +152,7 @@ public partial class MovingLight : Node3D
                 _lastShadeSub = sub;
                 using (Profiler.Sample("MovingLight.Reshade"))
                 {
-                    Reshade(world.WorldState, pos);
+                    Reshade(sim.WorldState, pos);
                 }
             }
         }
@@ -171,11 +171,11 @@ public partial class MovingLight : Node3D
                     // Far lights hold steady — re-deposit only near the player,
                     // where flicker is visible. Carried torches sit at distance ~0
                     // so they always flicker.
-                    float amp = WithinFlickerRange(world) ? (float)GD.RandRange(flickerMin, flickerMax) : 1f;
+                    float amp = WithinFlickerRange(sim) ? (float)GD.RandRange(flickerMin, flickerMax) : 1f;
                     if (amp != _flickerAmp)
                     {
                         _flickerAmp = amp;
-                        UpdateAmplitude(world.WorldState);
+                        UpdateAmplitude(sim.WorldState);
                     }
                 }
             }
@@ -189,7 +189,7 @@ public partial class MovingLight : Node3D
             float dur = _fadeTarget > _fade ? fadeInDuration : fadeOutDuration;
             float step = dur > 0f ? (float)delta / dur : 1f;
             _fade = Mathf.MoveToward(_fade, _fadeTarget, step);
-            UpdateAmplitude(world.WorldState);
+            UpdateAmplitude(sim.WorldState);
         }
         if (_deactivating && _fade <= 0f)
         {
@@ -197,19 +197,19 @@ public partial class MovingLight : Node3D
         }
     }
 
-    private bool WithinFlickerRange(World world)
+    private bool WithinFlickerRange(Sim sim)
     {
-        Player p = world.player;
+        Player p = sim.player;
         if (p == null) { return true; }
-        float cull = world.WorldState.SimData.blockLightFlickerCullDistance;
+        float cull = sim.WorldState.SimData.blockLightFlickerCullDistance;
         return (p.GlobalPosition - GlobalPosition).LengthSquared() <= cull * cull;
     }
 
-    private bool WithinReshadeRange(World world)
+    private bool WithinReshadeRange(Sim sim)
     {
-        Player p = world.player;
+        Player p = sim.player;
         if (p == null) { return true; }
-        float cull = world.WorldState.SimData.blockLightMovingReshadeCullDistance;
+        float cull = sim.WorldState.SimData.blockLightMovingReshadeCullDistance;
         return (p.GlobalPosition - GlobalPosition).LengthSquared() <= cull * cull;
     }
 
@@ -221,8 +221,8 @@ public partial class MovingLight : Node3D
 
     public void Activate()
     {
-        World world = World.Current;
-        if (world == null) { return; }
+        Sim sim = Sim.Current;
+        if (sim == null) { return; }
 
         // Re-activated while still registered (toggled back on mid fade-out):
         // reverse the envelope toward full and keep the existing field/deposit.
@@ -257,9 +257,9 @@ public partial class MovingLight : Node3D
         _fadeTarget = 1f;
         _amplitude = 0f;
         _flickerTimer = 0f;
-        _tuning = LightEngine.ResolveTuning(world.WorldState, distance, falloff, brightness);
-        LightEngine.ComputeFloodField(world.WorldState, voxel, _tuning.FloodRadius, _cells);
-        Reshade(world.WorldState, pos);
+        _tuning = LightEngine.ResolveTuning(sim.WorldState, distance, falloff, brightness);
+        LightEngine.ComputeFloodField(sim.WorldState, voxel, _tuning.FloodRadius, _cells);
+        Reshade(sim.WorldState, pos);
         _lastShadeSub = new Vector3(pos.X - voxel.X, pos.Y - voxel.Y, pos.Z - voxel.Z);
 
         if (lightOnEffectScene != null)
@@ -333,10 +333,10 @@ public partial class MovingLight : Node3D
     private void Cleanup()
     {
         if (!_registered) { return; }
-        World world = World.Current;
-        if (world != null)
+        Sim sim = Sim.Current;
+        if (sim != null)
         {
-            RemoveCurrentDeposit(world.WorldState);
+            RemoveCurrentDeposit(sim.WorldState);
         }
         _currentDeposit.Clear();
         _registered = false;

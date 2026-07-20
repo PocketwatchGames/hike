@@ -9,7 +9,7 @@ public class WorldState
     public SimData SimData;
     // This world's authored scripted content (quests). Set at load from
     // WorldGenData.scriptData (GameClient.Init); null on a world with none, or on
-    // a .hike load (the file format doesn't bake it yet). Read by World.Quests.
+    // a .hike load (the file format doesn't bake it yet). Read by Sim.Quests.
     public WorldScriptData ScriptData;
 
     // Zones present in this world. Populated by WorldGen (or the disk
@@ -48,18 +48,18 @@ public class WorldState
     // entity property — discovered regions today, quest progress and world
     // flags later. Lives here so the save layer can serialize one cohesive
     // bag of player-progression state alongside the chunk delta layer.
-    public WorldSimState SimState = new();
+    public SimState SimState = new();
 
-    // Persistent simulation clock in milliseconds. Advanced by World.Tick while
+    // Persistent simulation clock in milliseconds. Advanced by Sim.Tick while
     // unpaused; serialized with the rest of the world state so cooldowns,
     // AI timers, etc. survive save/load.
     public ulong GameTimeMs;
 
     // Normalized time-of-day of the AWAKE portion of a day, in [0, 1]:
     // 0 = sunrise, 1/3 = noon, 2/3 = sunset, 1 = midnight. Advanced by
-    // World.Tick scaled by SimData.DayLengthSeconds and the time_scale CVar,
+    // Sim.Tick scaled by SimData.DayLengthSeconds and the time_scale CVar,
     // and CLAMPED at 1 (midnight) — the celestial cycle pauses there and only
-    // a sleep advances to the next day's sunrise (see World.AdvanceToNextSunrise).
+    // a sleep advances to the next day's sunrise (see Sim.AdvanceToNextSunrise).
     // The pre-dawn gap (midnight → sunrise) is elided; you sleep through it.
     // SkyController remaps this to the orbit phase (0.25 + 0.75·tod) to drive
     // the sun/moon arc. Seeded from SimData.InitialTimeOfDay at world creation.
@@ -86,7 +86,7 @@ public class WorldState
     public static double OrbitPhase01(double timeOfDay01) => 0.25 + 0.75 * timeOfDay01;
 
     // Explicit whole-day counter. Starts at 0 and is incremented ONLY by the
-    // sleep-to-sunrise path (World.AdvanceToNextSunrise) — the day cycle no
+    // sleep-to-sunrise path (Sim.AdvanceToNextSunrise) — the day cycle no
     // longer rolls over on its own, so this can't be derived from the clock.
     // Dawn-expiring deadlines (time-limited items, forge cooldown) compare against
     // this rather than projecting a wall-clock sunrise (there is no such time
@@ -101,7 +101,7 @@ public class WorldState
 
     // Sun direction (unit vector, the direction light travels). Written by
     // SkyController each frame from TimeOfDay01; read by
-    // World.IsPointInDirectionalSun for the gameplay shadow-reach raycast.
+    // Sim.IsPointInDirectionalSun for the gameplay shadow-reach raycast.
     // During night this holds the moon's light direction (the primary source
     // at night) so shadow-reach queries still make sense.
     public Vector3 ShadowLightDirection = new Vector3(-0.215f, -0.819f, -0.532f).Normalized();
@@ -118,7 +118,7 @@ public class WorldState
 
     // Per-day weather variance, in [0, 1]. 0 = stormy / unstable (cool),
     // 1 = fair / stable (warm). Each awake day pre-rolls TWO weather states
-    // at sunrise (World.RollDailyWeather, on OnNewDay): a DAY slot (active
+    // at sunrise (Sim.RollDailyWeather, on OnNewDay): a DAY slot (active
     // sunrise → sunset) and a NIGHT slot (active sunset → midnight), with a
     // crossfade between them across the sunset window. Four independent
     // channels each: WeatherVariance drives temperature (+wind transient via
@@ -214,7 +214,7 @@ public class WorldState
         TimeOfDayAbsolute = DayNumber + TimeOfDay01;
         WeatherRng.Randomize();
         // Roll the first day's day + night weather slots. Subsequent days
-        // re-roll on the sleep-to-sunrise (World fires OnNewDay → RollDailyWeather).
+        // re-roll on the sleep-to-sunrise (Sim fires OnNewDay → RollDailyWeather).
         RollDailyWeather();
         WeatherVariance = DayWeatherVariance;
         HumidityVariance = DayHumidityVariance;
@@ -223,7 +223,7 @@ public class WorldState
     }
 
     // Pre-roll a fresh DAY and NIGHT weather slot from WeatherRng. Called at
-    // world creation and on every sleep-to-sunrise (World.AdvanceToNextSunrise).
+    // world creation and on every sleep-to-sunrise (Sim.AdvanceToNextSunrise).
     // Both slots are determined here so the HUD can forecast the whole day up
     // front and the sunset crossfade has a fixed target.
     public void RollDailyWeather()
@@ -915,7 +915,7 @@ public class WorldState
 
     // Every chunk-filed entity state across the whole world. A full-world walk —
     // intended only for infrequent world-wide operations like the day-pass spawn
-    // reset (World.ResetSpawns), never per-frame. When the world becomes streamed
+    // reset (Sim.ResetSpawns), never per-frame. When the world becomes streamed
     // (a bounded resident set rather than all chunks loaded) this only sees
     // resident chunks; revisit then if a global sweep must reach evicted chunks.
     public IEnumerable<EntitySimState> AllChunkEntities()
@@ -941,7 +941,7 @@ public class WorldState
         {
             entity.PlacedAsFixture = true;
         }
-        Vector3I coord = World.WorldToChunkCoord(entity.WorldPosition);
+        Vector3I coord = Sim.WorldToChunkCoord(entity.WorldPosition);
         if (!_entities.TryGetValue(coord, out List<EntitySimState> entities))
         {
             entities = new List<EntitySimState>();
@@ -952,7 +952,7 @@ public class WorldState
 
     public bool RemoveEntity(EntitySimState entity)
     {
-        Vector3I coord = World.WorldToChunkCoord(entity.WorldPosition);
+        Vector3I coord = Sim.WorldToChunkCoord(entity.WorldPosition);
         if (_entities.TryGetValue(coord, out List<EntitySimState> entities))
         {
             return entities.Remove(entity);
@@ -965,7 +965,7 @@ public class WorldState
     // once at startup, never despawned by chunk eviction, and serialized in the
     // world file's global section rather than inside a chunk blob. A mob starts
     // life chunk-streamed (in _entities) and is moved here by PromoteToPersistent
-    // the moment it's tamed (see World.PromoteCompanionToPersistent).
+    // the moment it's tamed (see Sim.PromoteCompanionToPersistent).
     private readonly List<EntitySimState> _persistentEntities = new();
     public IReadOnlyList<EntitySimState> PersistentEntities => _persistentEntities;
 
@@ -1046,7 +1046,7 @@ public class WorldState
         {
             return false;
         }
-        Vector3I centerCoord = World.WorldToChunkCoord(position);
+        Vector3I centerCoord = Sim.WorldToChunkCoord(position);
         float r2 = radius * radius;
         for (int dx = -1; dx <= 1; dx++)
         {
@@ -1078,7 +1078,7 @@ public class WorldState
     // candidate near a chunk seam still sees a hazard just across it.
     public bool HasHazardSpawnConflict(Vector3 position)
     {
-        Vector3I centerCoord = World.WorldToChunkCoord(position);
+        Vector3I centerCoord = Sim.WorldToChunkCoord(position);
         for (int dx = -1; dx <= 1; dx++)
         {
             for (int dy = -1; dy <= 1; dy++)
@@ -1114,7 +1114,7 @@ public class WorldState
         {
             return false;
         }
-        Vector3I centerCoord = World.WorldToChunkCoord(position);
+        Vector3I centerCoord = Sim.WorldToChunkCoord(position);
         float r2 = radius * radius;
         for (int dx = -1; dx <= 1; dx++)
         {

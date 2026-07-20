@@ -333,13 +333,13 @@ public class MobNavigator
     // distance is filtered out so a mob 8m below me on a different floor
     // doesn't push my path sideways.
     //
-    // The query goes through World's spatial hash (cell ≈ 4m), so for a
+    // The query goes through Sim's spatial hash (cell ≈ 4m), so for a
     // separation kernel of ~1m the call touches at most 9 cells and
     // typically just 1. At 100-mob density that's a handful of comparisons
     // per mob per frame.
     private Vector3 ApplySeparation(Vector3 mobPos, Vector3 steerTarget)
     {
-        World w = _mob.World;
+        Sim w = _mob.Sim;
         if (w == null)
         {
             return steerTarget;
@@ -496,7 +496,7 @@ public class MobNavigator
     private void RefreshGrid()
     {
         Vector3 origin = _mob.GlobalPosition;
-        World w = _mob.World;
+        Sim w = _mob.Sim;
         WorldState ws = w?.WorldState;
         if (ws == null)
         {

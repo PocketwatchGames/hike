@@ -5,8 +5,8 @@ using Godot;
 // World — spawn factories for transient, non-streamed entities created on
 // demand by gameplay (loot drops, recovered arrows, player-dropped items,
 // footprint decals). Distinct from the chunk-driven streaming in
-// World.EntityStreaming.cs. See World.cs for the file split.
-public partial class World
+// Sim.EntityStreaming.cs. See World.cs for the file split.
+public partial class Sim
 {
     public Loot SpawnLoot(Vector3 position, Vector3 impulse, ItemData item)
     {

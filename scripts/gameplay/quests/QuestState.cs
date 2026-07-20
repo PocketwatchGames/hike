@@ -41,7 +41,7 @@ public abstract class QuestState
     }
 
     // Subscribe to the events this quest watches (via the GameClient.Current /
-    // World.Current singletons). Called by QuestLog.Add and after a load
+    // Sim.Current singletons). Called by QuestLog.Add and after a load
     // restore. Poll-driven quests can leave it empty.
     public virtual void OnStart() { }
 

@@ -5,7 +5,7 @@ using Godot;
 // World — chunk-driven entity streaming: the desired-chunk set, the spawn
 // queue + per-frame drain budget, chunk load/unload reactions, and the shared
 // per-cell path-blocker grid. See World.cs for the file split.
-public partial class World
+public partial class Sim
 {
     // Spherical radius (in chunks) for spawning entities around the player. Must be
     // <= ChunkManager.NEARBY_RADIUS so chunk collision is guaranteed to exist when
@@ -266,7 +266,7 @@ public partial class World
 
     // Accumulates delta and records the player's position into the companion
     // breadcrumb trail once per CompanionRescueSampleSeconds. Driven from
-    // World.Tick (so it freezes while paused). The trail is capped at
+    // Sim.Tick (so it freezes while paused). The trail is capped at
     // CompanionRescueHistoryCount, dropping the oldest crumb past the cap.
     // TickCompanionLeash relocates a stranded following pet onto the oldest crumb.
     public void TickCompanionRescueHistory(float delta)
@@ -496,7 +496,7 @@ public partial class World
 
     private void LoadEntitiesForChunk(Vector3I coord)
     {
-        using var _prof = Profiler.Sample("World.LoadChunkEntities");
+        using var _prof = Profiler.Sample("Sim.LoadChunkEntities");
         // Register the chunk in _activeEntities immediately, even though
         // entities will trickle in over the next several frames via
         // DrainSpawnQueue. Keeps OnChunkLoaded / SyncEntitiesToDesired
@@ -522,7 +522,7 @@ public partial class World
 
     private void DrainSpawnQueue()
     {
-        using var _prof = Profiler.Sample("World.DrainSpawnQueue");
+        using var _prof = Profiler.Sample("Sim.DrainSpawnQueue");
         int spawned = 0;
         int budget = MaxEntitiesPerFrame;
         while (spawned < budget && _spawnQueue.Count > 0)

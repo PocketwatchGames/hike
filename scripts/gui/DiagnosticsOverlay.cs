@@ -272,7 +272,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
     // Slope debug readout. "floor" tracks the current standing surface;
     // "lastWall" sticks until cleared so a quick run-into-and-back shows the
     // hit angle even after the contact ends. Age is wall-clock seconds since
-    // the last hit, sourced from World.GameTimeMs so the value is in sync
+    // the last hit, sourced from Sim.GameTimeMs so the value is in sync
     // with the [slope] log lines.
     private void AppendSlopeSection(System.Text.StringBuilder sb)
     {
@@ -290,7 +290,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
             sb.Append("lastWall : none\n");
             return;
         }
-        ulong nowMs = World.Current?.GameTimeMs ?? 0;
+        ulong nowMs = Sim.Current?.GameTimeMs ?? 0;
         double ageSec = nowMs > Player.DebugLastWallHitMs
             ? (nowMs - Player.DebugLastWallHitMs) / 1000.0
             : 0.0;

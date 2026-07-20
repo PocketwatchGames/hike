@@ -39,7 +39,7 @@ public partial class RideableVehicle : CharacterBody3D, IInteractive, IWorldEnti
     // _rider.MountMoveInput for steering intent.
     protected Player _rider;
 
-    protected World _world;
+    protected Sim _world;
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
@@ -64,9 +64,9 @@ public partial class RideableVehicle : CharacterBody3D, IInteractive, IWorldEnti
         _modelAnimator?.SetActive(true);
     }
 
-    public virtual void OnSpawned(World world)
+    public virtual void OnSpawned(Sim sim)
     {
-        _world = world;
+        _world = sim;
     }
 
     public bool CanInteract()

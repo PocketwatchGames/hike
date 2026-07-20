@@ -56,7 +56,7 @@ public partial class BehaviorFlyFlee : BehaviorBase
         if (!_destination.HasValue)
         {
             Vector3 fleeDir = ComputeFleeDir(me, ref targetPerception);
-            Perch perch = me.World?.Perches.FindFleePerch(
+            Perch perch = me.Sim?.Perches.FindFleePerch(
                 me.GlobalPosition, fleeDir, _data.minPerchRange, _data.maxPerchRange, _data.perchConeDot);
             if (perch != null && perch.TryClaim(me))
             {

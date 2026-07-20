@@ -32,7 +32,7 @@ public partial class StationaryLight : Node3D
     [Export(PropertyHint.Range, "0,5,0.05")] private float _fadeOutDuration = 0.5f;
 
     private WorldState _worldData;
-    private World _world;
+    private Sim _world;
     private Vector3I _baseWorldPos;
     private bool _active = true;
     private LightSource _source;
@@ -54,10 +54,10 @@ public partial class StationaryLight : Node3D
         SetProcess(false);
     }
 
-    public void Initialize(WorldState worldData, World world, Vector3I baseWorldPos)
+    public void Initialize(WorldState worldData, Sim sim, Vector3I baseWorldPos)
     {
         _worldData = worldData;
-        _world = world;
+        _world = sim;
         _baseWorldPos = baseWorldPos;
         _source = new LightSource
         {

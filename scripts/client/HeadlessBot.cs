@@ -52,7 +52,7 @@ public partial class HeadlessBot : Node
             _pendingRelease = null;
         }
 
-        Player player = World.Current?.player;
+        Player player = Sim.Current?.player;
         if (player == null)
         {
             ClearMove();

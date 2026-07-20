@@ -67,14 +67,14 @@ public partial class ChunkAmbienceSpawner : Node3D
         if (Current == this) { Current = null; }
     }
 
-    // Called by World once its ChunkManager events are wired and the
+    // Called by Sim once its ChunkManager events are wired and the
     // WorldState is ready. Late-binding rather than _Ready because
-    // World.ChunkManager isn't constructed until World.Initialize runs.
-    public void Bind(World world)
+    // Sim.ChunkManager isn't constructed until Sim.Initialize runs.
+    public void Bind(Sim sim)
     {
-        if (world == null || world.ChunkManager == null) { return; }
-        world.ChunkManager.onChunkLoaded += OnChunkLoaded;
-        world.ChunkManager.onChunkUnloaded += OnChunkUnloaded;
+        if (sim == null || sim.ChunkManager == null) { return; }
+        sim.ChunkManager.onChunkLoaded += OnChunkLoaded;
+        sim.ChunkManager.onChunkUnloaded += OnChunkUnloaded;
     }
 
     public override void _Process(double delta)
@@ -84,7 +84,7 @@ public partial class ChunkAmbienceSpawner : Node3D
         if (_sweepAccumSec < SWEEP_INTERVAL_SEC) { return; }
         _sweepAccumSec = 0.0;
 
-        World w = World.Current;
+        Sim w = Sim.Current;
         if (w == null || w.player == null) { return; }
         Vector3 listenerPos = w.player.GlobalPosition;
         float tod = (float)(w.WorldState?.TimeOfDay01 ?? 0.5);
@@ -94,7 +94,7 @@ public partial class ChunkAmbienceSpawner : Node3D
 
     private void OnChunkLoaded(Vector3I coord)
     {
-        World w = World.Current;
+        Sim w = Sim.Current;
         WorldState ws = w?.WorldState;
         if (ws == null) { return; }
         ChunkState chunk = ws.GetChunk(coord);

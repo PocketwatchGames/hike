@@ -49,7 +49,7 @@ public partial class BehaviorDogAttack : BehaviorAttack
         // while still too far and freeze the dog), and resume attacking once back in
         // range. The threat-cleared edge still takes us home promptly if the fight
         // ends mid-return.
-        Player master = me.World?.player;
+        Player master = me.Sim?.player;
         if (_data.masterBreakoffDistance > 0f && master != null
             && me.GlobalPosition.DistanceSquaredTo(master.GlobalPosition) > _data.masterBreakoffDistance * _data.masterBreakoffDistance)
         {

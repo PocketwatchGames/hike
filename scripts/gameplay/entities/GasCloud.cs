@@ -85,17 +85,17 @@ public partial class GasCloud : Node3D
         {
             return;
         }
-        World world = World.Current;
-        if (world == null)
+        Sim sim = Sim.Current;
+        if (sim == null)
         {
             return;
         }
         if (!_armed)
         {
-            _expireTimeMs = world.GameTimeMs + (ulong)(lifetimeSeconds * 1000f);
+            _expireTimeMs = sim.GameTimeMs + (ulong)(lifetimeSeconds * 1000f);
             _armed = true;
         }
-        if (world.GameTimeMs >= _expireTimeMs)
+        if (sim.GameTimeMs >= _expireTimeMs)
         {
             Expire();
         }

@@ -35,7 +35,7 @@ public partial class SafetyZone : Area3D
 
     public override void _ExitTree()
     {
-        World.Current?.UnregisterSafeZone(this);
+        Sim.Current?.UnregisterSafeZone(this);
     }
 
     // Register this zone's footprint so hostile mobs route around it
@@ -44,12 +44,12 @@ public partial class SafetyZone : Area3D
     // player-overlap trigger uses — so the nav keep-out matches the safe area.
     private void RegisterNavAvoidance()
     {
-        World world = World.Current;
-        if (world == null)
+        Sim sim = Sim.Current;
+        if (sim == null)
         {
             return;
         }
-        world.RegisterSafeZone(this, GlobalPosition, GetFootprintRadius());
+        sim.RegisterSafeZone(this, GlobalPosition, GetFootprintRadius());
     }
 
     private float GetFootprintRadius()
@@ -83,7 +83,7 @@ public partial class SafetyZone : Area3D
         }
         else
         {
-            World.Current?.UnregisterSafeZone(this);
+            Sim.Current?.UnregisterSafeZone(this);
         }
         for (int i = 0; i < _overlapping.Count; i++)
         {
@@ -131,11 +131,11 @@ public partial class SafetyZone : Area3D
 
     // Standalone worldgen entity path (SafetyZoneSimState.CreateEntity). The
     // scene's CollisionShape3D defines the zone's footprint; it spawns active.
-    public static SafetyZone Create(World world, SafetyZoneSimState data)
+    public static SafetyZone Create(Sim sim, SafetyZoneSimState data)
     {
         var instance = data.Scene.Instantiate<SafetyZone>();
         instance.Position = data.WorldPosition;
-        world.AddChild(instance);
+        sim.AddChild(instance);
         return instance;
     }
 }

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 // (SimData.Mobs order controls page order): the left list is type buttons, and
 // selecting one fills the right panel with the type's name/portrait plus one
 // BestiarySpeciesPanel per discovered species of that type (grouped from
-// WorldSimState.DiscoveredSpecies by SpeciesData.mob). A type only gets a page
+// SimState.DiscoveredSpecies by SpeciesData.mob). A type only gets a page
 // once at least one of its species is discovered.
 //
 // View only — species are discovered by perceiving a mob past
@@ -75,8 +75,8 @@ public partial class BestiaryScreen : Control
 			}
 		}
 
-		SimData simData = _gameClient?.World?.SimData;
-		WorldSimState worldSim = _gameClient?.World?.WorldState?.SimState;
+		SimData simData = _gameClient?.Sim?.SimData;
+		SimState worldSim = _gameClient?.Sim?.WorldState?.SimState;
 		Button firstButton = null;
 		MobData firstType = null;
 		Button focusButton = null;
@@ -206,7 +206,7 @@ public partial class BestiaryScreen : Control
 				child.QueueFree();
 			}
 		}
-		WorldSimState worldSim = _gameClient?.World?.WorldState?.SimState;
+		SimState worldSim = _gameClient?.Sim?.WorldState?.SimState;
 		if (type == null || worldSim == null || _mobSpeciesScene == null)
 		{
 			return;
@@ -219,7 +219,7 @@ public partial class BestiaryScreen : Control
 		}
 	}
 
-	static bool TypeHasDiscoveredSpecies(WorldSimState worldSim, MobData type)
+	static bool TypeHasDiscoveredSpecies(SimState worldSim, MobData type)
 	{
 		foreach (SpeciesData species in worldSim.EnumerateBestiary())
 		{
@@ -233,7 +233,7 @@ public partial class BestiaryScreen : Control
 
 	// Discovered species of one type, ordered by display label so rows are
 	// stable across opens rather than tracking dictionary iteration order.
-	static List<SpeciesData> DiscoveredSpeciesForType(WorldSimState worldSim, MobData type)
+	static List<SpeciesData> DiscoveredSpeciesForType(SimState worldSim, MobData type)
 	{
 		var list = new List<SpeciesData>();
 		foreach (SpeciesData species in worldSim.EnumerateBestiary())

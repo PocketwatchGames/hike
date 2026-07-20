@@ -2,7 +2,7 @@ using Godot;
 using System.Collections.Generic;
 
 // Stash tab of the camp screen. Left = the party equipment stash
-// (WorldSimState.PartyEquipmentStash, a BackpackPanel over that list); right =
+// (SimState.PartyEquipmentStash, a BackpackPanel over that list); right =
 // the controlled member's equip slots (InventoryPanel). Tap a stash item to
 // equip it into its category slot — a piece already worn there is displaced back
 // into the stash. Tap an equipped EQUIPMENT hotbar item to send it back to the
@@ -10,7 +10,7 @@ using System.Collections.Generic;
 // being replaced), so tapping them is a no-op.
 //
 // Mutations land directly on the shared PartyEquipmentStash list (the live
-// WorldSimState store), so they persist across chunk eviction and save/load.
+// SimState store), so they persist across chunk eviction and save/load.
 [GlobalClass]
 public partial class StashScreen : Control
 {

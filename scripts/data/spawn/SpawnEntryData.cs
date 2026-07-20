@@ -97,7 +97,7 @@ public partial class SpawnEntryData : Resource
     // only spawns where its profile could actually stand and path. Default
     // true (the voxel air-over-solid + flat/lateral gates suffice for static
     // props); MobSpawnEntry overrides to require a navgrid-walkable column.
-    // Runs at worldgen with no World node, so path-blocker cells aren't
+    // Runs at worldgen with no Sim node, so path-blocker cells aren't
     // consulted here (entity overlap is already covered by MinSpacing).
     public virtual bool IsSpawnPositionWalkable(WorldState ws, Vector3 position) => true;
 

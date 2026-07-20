@@ -155,7 +155,7 @@ public partial class Mob
         // same fresh-state guarantees that every later re-entry will. World
         // time isn't always meaningful at Initialize (the sim clock starts
         // ticking once GameClient runs), so 0 is fine — behaviors that need
-        // a real timestamp can read me.World.GameTimeMs themselves.
+        // a real timestamp can read me.Sim.GameTimeMs themselves.
         if (_curBehavior != null && _behaviors.TryGetValue(_curBehavior, out BehaviorBase startB) && startB != null)
         {
             startB.OnEnter(this, 0);

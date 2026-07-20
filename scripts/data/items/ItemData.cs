@@ -8,11 +8,11 @@ public partial class ItemData : Resource
 	// "unknown food", "unknown potion"). Empty = the item is always shown by
 	// its real displayName. Identification fires the first time the player
 	// uses the item (ItemEventHandlers.DoDecrementStack); the discovered set
-	// lives in WorldSimState.IdentifiedItems and is keyed by this resource,
+	// lives in SimState.IdentifiedItems and is keyed by this resource,
 	// so every recipe and inventory stack of the same ItemData reveals at
 	// once. Items the player starts the run already knowing are seeded on
 	// spawn via WorldGenData.initialKnowledge (ItemTeachable entries). See
-	// WorldSimState.GetItemDisplayName for the read-side.
+	// SimState.GetItemDisplayName for the read-side.
 	[Export] public StringName unidentifiedDisplayName = "";
 	// Inspector multiline flavor text. Shown on the inventory screen's
 	// ItemInfoPanel when an item is highlighted. Plain string (not localized)
@@ -24,7 +24,7 @@ public partial class ItemData : Resource
 	// sits (backpack, party stash). 0 = never spoils (the default). Perishables
 	// (meat, mushrooms) set this; on acquisition the deadline is stamped onto
 	// ItemState.removeOnDay (DayNumber + spoilDays), which the backpack prune
-	// (Player.TickItemExpiry), the stash prune (WorldSimState.PruneExpiredPerishables),
+	// (Player.TickItemExpiry), the stash prune (SimState.PruneExpiredPerishables),
 	// and dropped Loot all honor. Stacks only merge with a matching removeOnDay
 	// (ItemState.CanStackWith), so a fresh batch never resets an older one.
 	[Export(PropertyHint.Range, "0,60,1,or_greater")] public int spoilDays;

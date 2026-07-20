@@ -19,9 +19,9 @@ public enum FadeProbeResult
 
 // Per-frame CPU probe that classifies the camera→player capsule volume against
 // nearby fade-eligible foliage clusters, driving the ceiling/canopy cutaway in
-// GameClient. Lives apart from World — it's a camera/render concern that only
-// needs read access to the entity buckets — and is owned by World (exposed as
-// World.FadeProbe) so it shares the one live entity index.
+// GameClient. Lives apart from Sim — it's a camera/render concern that only
+// needs read access to the entity buckets — and is owned by Sim (exposed as
+// Sim.FadeProbe) so it shares the one live entity index.
 public class FoliageCutawayProbe
 {
     private readonly WorldState _worldState;

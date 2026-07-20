@@ -88,7 +88,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
     private static readonly StringName AnimOn = "on";
     private static readonly StringName AnimOff = "off";
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public bool CanInteract()
     {
@@ -182,13 +182,13 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
     }
 
     // Extinguish the world's one other lit campfire so exactly one burns at a
-    // time. Only WorldSimState.LitCampfire can be lit, so there's just the one
+    // time. Only SimState.LitCampfire can be lit, so there's just the one
     // to douse — no scan. Its runtime node douses in full (visuals/light/zones)
     // when the chunk is loaded; when it's unloaded we clear the sim state's
     // Active bit so it stays dark the next time it streams in.
     private void DouseOtherCampfires()
     {
-        WorldSimState worldSim = World.Current?.WorldState?.SimState;
+        SimState worldSim = Sim.Current?.WorldState?.SimState;
         if (worldSim == null)
         {
             return;
@@ -215,7 +215,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        ulong now = World.Current?.GameTimeMs ?? 0;
+        ulong now = Sim.Current?.GameTimeMs ?? 0;
         if (now >= job.endTimeMs)
         {
             CompleteCampfireJob();
@@ -250,7 +250,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
             outputItem = output,
             remainingSeconds = _forgeTimeSeconds,
             totalSeconds = _forgeTimeSeconds,
-            endTimeMs = (World.Current?.GameTimeMs ?? 0) + (ulong)(_forgeTimeSeconds * 1000f),
+            endTimeMs = (Sim.Current?.GameTimeMs ?? 0) + (ulong)(_forgeTimeSeconds * 1000f),
         };
         SetPhysicsProcess(true);
         onCampfireJobChanged?.Invoke(_simState.ActiveCampfireJob);
@@ -283,7 +283,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        WorldSimState worldSim = World.Current?.WorldState?.SimState;
+        SimState worldSim = Sim.Current?.WorldState?.SimState;
         bool wasNewDiscovery = job.recipe != null && (worldSim == null || !worldSim.IsRecipeDiscovered(job.recipe));
         Cooking.RecordDiscovery(worldSim, new Cooking.MatchResult(job.recipe));
 
@@ -311,8 +311,8 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         {
             // Offscreen completion — spawn the produced item as loot at the
             // forge. Light upward impulse so it doesn't intersect the mesh.
-            World world = World.Current;
-            world?.SpawnLoot(GlobalPosition + Vector3.Up, Vector3.Up * 2f, completion.output);
+            Sim sim = Sim.Current;
+            sim?.SpawnLoot(GlobalPosition + Vector3.Up, Vector3.Up * 2f, completion.output);
         }
     }
 
@@ -380,7 +380,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         }
     }
 
-    public static Campfire Create(World world, CampfireSimState data)
+    public static Campfire Create(Sim sim, CampfireSimState data)
     {
         var instance = data.Scene.Instantiate<Campfire>();
         instance.Position = data.WorldPosition;
@@ -390,8 +390,8 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
             Mathf.FloorToInt(data.WorldPosition.Y),
             Mathf.FloorToInt(data.WorldPosition.Z)
         );
-        instance._light.Initialize(world.WorldState, world, baseWorldPos);
-        world.AddChild(instance);
+        instance._light.Initialize(sim.WorldState, sim, baseWorldPos);
+        sim.AddChild(instance);
 
         instance._active = data.Active;
         // A campfire that streams in lit is the world's one active fire — cache
@@ -399,7 +399,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         // since unloaded (see DouseOtherCampfires).
         if (instance._active)
         {
-            WorldSimState worldSim = world.WorldState?.SimState;
+            SimState worldSim = sim.WorldState?.SimState;
             if (worldSim != null)
             {
                 worldSim.LitCampfire = data;

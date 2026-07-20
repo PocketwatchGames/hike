@@ -10,7 +10,7 @@ public class ItemState
 	public ulong cooldownExpireMs;
 	public ulong cooldownDurationMs;
 
-	// Day number (World.DayNumber) on which this item is destroyed wherever it
+	// Day number (Sim.DayNumber) on which this item is destroyed wherever it
 	// lives — backpack, hotbar, or an equipped slot. 0 = no scheduled removal
 	// (the default). A time-limited drop (e.g. the fairy corpse) stamps this to a
 	// future day directly, so it vanishes at the next sleep-to-sunrise (there is no

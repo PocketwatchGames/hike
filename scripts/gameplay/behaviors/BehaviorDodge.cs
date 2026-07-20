@@ -95,7 +95,7 @@ public partial class BehaviorDodge : BehaviorBase
         // The shot we're evading — its velocity gives the line to clear. May be
         // null if it has already passed in the tick since the transition fired;
         // fall back to "anything sideways beats backward" via a null shot dir.
-        Projectile threat = me.World?.Projectiles?.FindIncoming(
+        Projectile threat = me.Sim?.Projectiles?.FindIncoming(
             me.GlobalPosition, me.mobData.clearanceRadius + _data.dashDistance, me.ActorTeam, _data.threatLeadTime);
         Vector3 shotDir = Vector3.Zero;
         if (threat != null)
@@ -118,7 +118,7 @@ public partial class BehaviorDodge : BehaviorBase
             if (!flying)
             {
                 Vector3 landing = me.GlobalPosition + dir * _data.dashDistance;
-                if (!NavigationGoals.IsGroundStandable(me.World, me.Navigator.Profile, landing, out _))
+                if (!NavigationGoals.IsGroundStandable(me.Sim, me.Navigator.Profile, landing, out _))
                 {
                     continue;
                 }

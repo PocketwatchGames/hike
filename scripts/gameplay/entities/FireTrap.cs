@@ -74,7 +74,7 @@ public partial class FireTrap : Node3D, IWorldEntity
         }
     }
 
-    public void OnSpawned(World world)
+    public void OnSpawned(Sim sim)
     {
     }
 
@@ -147,7 +147,7 @@ public partial class FireTrap : Node3D, IWorldEntity
         StartIdleLoop();
     }
 
-    public static FireTrap Create(World world, FireTrapSimState data)
+    public static FireTrap Create(Sim sim, FireTrapSimState data)
     {
         var instance = data.Scene.Instantiate<FireTrap>();
         instance.Position = data.WorldPosition;
@@ -159,8 +159,8 @@ public partial class FireTrap : Node3D, IWorldEntity
             Mathf.FloorToInt(data.WorldPosition.Y) + 1,
             Mathf.FloorToInt(data.WorldPosition.Z)
         );
-        instance._light?.Initialize(world.WorldState, world, baseWorldPos);
-        world.AddChild(instance);
+        instance._light?.Initialize(sim.WorldState, sim, baseWorldPos);
+        sim.AddChild(instance);
         return instance;
     }
 }

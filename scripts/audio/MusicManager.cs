@@ -268,7 +268,7 @@ public partial class MusicManager : Node
     private void PollTimeOfDay()
     {
         if (_game == null) { return; }
-        WorldState ws = World.Current?.WorldState;
+        WorldState ws = Sim.Current?.WorldState;
         if (ws == null) { return; }
 
         double t = ws.TimeOfDay01;
@@ -297,7 +297,7 @@ public partial class MusicManager : Node
 
     private EMusicPiece CurrentPhase()
     {
-        return PhaseCue(World.Current?.WorldState?.TimeOfDay01 ?? 0.0);
+        return PhaseCue(Sim.Current?.WorldState?.TimeOfDay01 ?? 0.0);
     }
 
     private EMusicPiece PhaseCue(double tod)

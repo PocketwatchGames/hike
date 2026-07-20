@@ -4,7 +4,7 @@ using Godot;
 // clump). While ripe it presents a transient Loot pickup at its position; when
 // that pickup is collected it goes inert until RegrowDays later (tracked on the
 // inherited RegrowDay deadline of its sim state). Re-arming is event-driven off
-// World.OnNewDay — the same daily-station pattern as Fountain/Forge — so a
+// Sim.OnNewDay — the same daily-station pattern as Fountain/Forge — so a
 // harvested patch regrows at the sunrise its deadline passes.
 //
 // The spawner keeps Loot dumb: the mushroom is a plain transient Loot (with the
@@ -16,12 +16,12 @@ using Godot;
 public partial class ForageSpawner : Node3D, IWorldEntity
 {
     private ForageSpawnerSimState _simState;
-    private World _world;
+    private Sim _world;
     // The pickup currently presented, if any. Null / freed once harvested or
     // streamed out; PresentIfRipe re-creates it.
     private Loot _liveMushroom;
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public override void _ExitTree()
     {
@@ -59,15 +59,15 @@ public partial class ForageSpawner : Node3D, IWorldEntity
         _liveMushroom = _world.SpawnForageLoot(_simState.Item, _simState.WorldPosition, _simState);
     }
 
-    public static ForageSpawner Create(World world, ForageSpawnerSimState data)
+    public static ForageSpawner Create(Sim sim, ForageSpawnerSimState data)
     {
         var instance = data.Scene.Instantiate<ForageSpawner>();
         instance.Position = data.WorldPosition;
         instance._simState = data;
-        instance._world = world;
-        world.AddChild(instance);
+        instance._world = sim;
+        sim.AddChild(instance);
         instance.PresentIfRipe();
-        world.OnNewDay += instance.HandleNewDay;
+        sim.OnNewDay += instance.HandleNewDay;
         return instance;
     }
 }

@@ -21,7 +21,7 @@ public class ScentEmitter
     }
 
     private readonly Node3D _owner;
-    private readonly World _world;
+    private readonly Sim _world;
     private readonly List<Breadcrumb> _crumbs = new();
 
     private readonly float _decayRate;
@@ -40,7 +40,7 @@ public class ScentEmitter
 
     public ScentEmitter(
         Node3D owner,
-        World world,
+        Sim sim,
         float initialStrength,
         float decayRate,
         float stampIntervalSeconds,
@@ -48,7 +48,7 @@ public class ScentEmitter
         int maxCrumbs)
     {
         _owner = owner;
-        _world = world;
+        _world = sim;
         Strength = initialStrength;
         _decayRate = Mathf.Max(decayRate, 0.0001f);
         _stampIntervalSeconds = Mathf.Max(stampIntervalSeconds, 0f);
@@ -56,7 +56,7 @@ public class ScentEmitter
         _maxCrumbs = Mathf.Max(maxCrumbs, 1);
 
         _lastStampPos = owner != null ? owner.GlobalPosition : Vector3.Zero;
-        _lastStampMs = world?.GameTimeMs ?? 0;
+        _lastStampMs = sim?.GameTimeMs ?? 0;
     }
 
     public void Tick(float dt)

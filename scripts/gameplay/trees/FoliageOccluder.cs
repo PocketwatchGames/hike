@@ -8,7 +8,7 @@ using Godot;
 // ellipsoid's authored half-extents in the same local frame. CastsSunShadow
 // and FadesWhenOccludingPlayer mirror the matching FoliageCluster fields —
 // captured here so the per-cluster flags survive caching, letting CPU
-// probes (FoliageStamper for canopy attenuation, World.IsFadeVolumeOccluded
+// probes (FoliageStamper for canopy attenuation, Sim.IsFadeVolumeOccluded
 // for the player-occlusion cutaway expansion) iterate prop occluders
 // without re-walking live scene nodes per frame.
 public struct FoliageOccluder

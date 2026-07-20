@@ -6,7 +6,7 @@ using Godot;
 public partial class ChunkManager : Node3D
 {
     // Always-loaded sphere around the player. Sized to cover the camera's reach so
-    // world-space entity spawning (World.ENTITY_LOAD_RADIUS) can rely on chunks
+    // world-space entity spawning (Sim.ENTITY_LOAD_RADIUS) can rely on chunks
     // being present regardless of camera angle — rotating the camera must not be
     // able to reveal un-spawned mobs/props.
     private const int NEARBY_RADIUS = 6;
@@ -175,7 +175,7 @@ public partial class ChunkManager : Node3D
     public void Initialize(WorldState worldData, Vector3 spawnPosition, Camera3D camera, ShaderMaterial fogMaterial, Func<Vector3> getPlayerPosition)
     {
         _worldData = worldData;
-        _lastPlayerChunkCoord = World.WorldToChunkCoord(spawnPosition);
+        _lastPlayerChunkCoord = Sim.WorldToChunkCoord(spawnPosition);
         _lightMap = new LightMap(worldData, _lastPlayerChunkCoord, LIGHT_WINDOW_DIAMETER_CHUNKS);
         _skyExposureMap = new SkyExposureMap(worldData, _lastPlayerChunkCoord, LIGHT_WINDOW_DIAMETER_CHUNKS);
         _fogMap = new FogMap(worldData, _lastPlayerChunkCoord, LIGHT_WINDOW_DIAMETER_CHUNKS);
@@ -336,7 +336,7 @@ public partial class ChunkManager : Node3D
 
     public bool IsSpawnChunkReady(Vector3 spawnPosition)
     {
-        Vector3I coord = World.WorldToChunkCoord(spawnPosition);
+        Vector3I coord = Sim.WorldToChunkCoord(spawnPosition);
         return _loadedChunks.TryGetValue(coord, out ChunkMesh chunk) && chunk.CollisionReady;
     }
 
@@ -350,7 +350,7 @@ public partial class ChunkManager : Node3D
         }
 
         Vector3I prevPlayerChunk = _lastPlayerChunkCoord;
-        _lastPlayerChunkCoord = World.WorldToChunkCoord(_getPlayerPosition());
+        _lastPlayerChunkCoord = Sim.WorldToChunkCoord(_getPlayerPosition());
         if (_lastPlayerChunkCoord != prevPlayerChunk)
         {
             // Slide the toroidal volume-map windows to follow the player. Only
@@ -555,7 +555,7 @@ public partial class ChunkManager : Node3D
     {
         UpdateLighting(changedPositions);
 
-        Vector3I center = World.WorldToChunkCoord(worldPos);
+        Vector3I center = Sim.WorldToChunkCoord(worldPos);
         foreach (Vector3I coord in _loadedChunks.Keys)
         {
             if (Math.Abs(coord.X - center.X) <= 1 && Math.Abs(coord.Y - center.Y) <= 1 && Math.Abs(coord.Z - center.Z) <= 1)

@@ -2,7 +2,7 @@ using Godot;
 
 // Runtime node for a buried-item spot. Renders the optional surface hint (or
 // dirt mound once dug) under a model anchor and exposes Dig(), called by
-// World.TryDig when the player's shovel reaches it. Digging rolls and spawns
+// Sim.TryDig when the player's shovel reaches it. Digging rolls and spawns
 // the spot's payload through the normal worldgen spawn path (reused verbatim),
 // fires the dig effect, and swaps the visual to the dirt mound. Unlike Chest /
 // Loot this is not an IInteractive: there is no walk-up prompt because a
@@ -16,22 +16,22 @@ public partial class BuriedSpot : Node3D, IWorldEntity
     [Export] private Node3D _modelAnchor;
 
     private BuriedSpotSimState _state;
-    private World _world;
+    private Sim _world;
     private Node _visual;
 
     public BuriedSpotData Data => _state?.Data;
     public bool Excavated => _state != null && _state.Excavated;
     public EDigResult ResultClass => Data != null ? Data.resultClass : EDigResult.Common;
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
-    public static BuriedSpot Create(World world, BuriedSpotSimState state)
+    public static BuriedSpot Create(Sim sim, BuriedSpotSimState state)
     {
         var instance = state.Scene.Instantiate<BuriedSpot>();
         instance.Position = state.WorldPosition;
         instance._state = state;
-        instance._world = world;
-        world.AddChild(instance);
+        instance._world = sim;
+        sim.AddChild(instance);
         instance.UpdateVisual();
         return instance;
     }

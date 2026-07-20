@@ -114,9 +114,9 @@ public partial class WindParticleManager : Node3D
     {
         float dt = (float)delta;
         SkyController sky = SkyController.Current;
-        World world = World.Current;
-        WorldState ws = world?.WorldState;
-        Node3D player = world?.player;
+        Sim sim = Sim.Current;
+        WorldState ws = sim?.WorldState;
+        Node3D player = sim?.player;
         if (sky?.Weather == null || ws == null || player == null)
         {
             DebugLog(dt, "world not ready (sky/worldstate/player null)");

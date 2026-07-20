@@ -16,8 +16,8 @@ public class BoatSimState : EntitySimState
         RotationY = rotationY;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
-        return Boat.Create(world, this);
+        return Boat.Create(sim, this);
     }
 }

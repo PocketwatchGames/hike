@@ -19,7 +19,7 @@ using Godot;
 // (gated on the combined set), reads union party + active member, so every
 // existing call site keeps working while knowledge gained in the field is
 // provisional until banked.
-public class WorldSimState
+public class SimState
 {
     // Party equipment stash — the shared store of weapons / armor / helmets /
     // equipment the party reaches from the Stash tab of any campfire's camp screen
@@ -35,7 +35,7 @@ public class WorldSimState
     // Drop any stashed item whose spoil deadline (ItemState.removeOnDay) has been
     // reached — perishables (meat, mushrooms) vanish from the shared party stashes
     // at the sunrise their day arrives, mirroring the backpack sweep in
-    // Player.TickItemExpiry. Called from World.AdvanceToNextSunrise on the day
+    // Player.TickItemExpiry. Called from Sim.AdvanceToNextSunrise on the day
     // rollover. The equipment stash is swept too for symmetry; equipment never
     // sets removeOnDay, so it's a no-op there.
     public void PruneExpiredPerishables(int dayNumber)
@@ -496,7 +496,7 @@ public class WorldSimState
         }
         if (ForgeMarkers.TryGetValue(key, out ForgeMarkerInfo forge))
         {
-            return (World.Current?.DayNumber ?? 0) >= forge.ReactivateDay;
+            return (Sim.Current?.DayNumber ?? 0) >= forge.ReactivateDay;
         }
         // Knowledge stone: active (bright) while the party still has something to
         // learn from it; inactive (dim) once every concept it teaches is known in
@@ -517,7 +517,7 @@ public class WorldSimState
         {
             return false;
         }
-        Player player = World.Current?.player;
+        Player player = Sim.Current?.player;
         foreach (TeachableConcept concept in concepts)
         {
             if (concept != null && !concept.IsKnown(player))

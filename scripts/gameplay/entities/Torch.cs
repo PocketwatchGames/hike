@@ -38,7 +38,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
     // Torch.Create runs UpdateVisuals after applying AutoLightAtNight, so
     // any deviation from the authored state gets pushed there.
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public bool CanInteract()
     {
@@ -97,7 +97,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         _animator.Play(_active ? AnimOn : AnimOff);
     }
 
-    public static Torch Create(World world, TorchSimState data)
+    public static Torch Create(Sim sim, TorchSimState data)
     {
         var instance = data.Scene.Instantiate<Torch>();
         instance.Position = data.WorldPosition;
@@ -107,12 +107,12 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
             Mathf.FloorToInt(data.WorldPosition.Y),
             Mathf.FloorToInt(data.WorldPosition.Z)
         );
-        instance._light.Initialize(world.WorldState, world, baseWorldPos);
-        world.AddChild(instance);
+        instance._light.Initialize(sim.WorldState, sim, baseWorldPos);
+        sim.AddChild(instance);
 
         if (data.AutoLightAtNight)
         {
-            data.Active = WorldState.IsNight(world.WorldState.TimeOfDay01);
+            data.Active = WorldState.IsNight(sim.WorldState.TimeOfDay01);
         }
         instance._active = data.Active;
         instance.UpdateVisuals();

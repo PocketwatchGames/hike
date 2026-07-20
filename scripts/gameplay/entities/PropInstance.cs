@@ -8,14 +8,14 @@ public partial class PropInstance : Node3D, IWorldEntity
     // perched vision, and flight pass through), while a genuinely solid prop
     // would use a plain StaticBody3D on Environment. No per-prop toggle.
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
-    public static PropInstance Create(World world, PropSimState data)
+    public static PropInstance Create(Sim sim, PropSimState data)
     {
         var instance = data.Scene.Instantiate<PropInstance>();
         instance.Position = data.WorldPosition;
         instance.Rotation = new Vector3(0f, data.RotationY, 0f);
-        world.AddChild(instance);
+        sim.AddChild(instance);
         return instance;
     }
 

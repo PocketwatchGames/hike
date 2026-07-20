@@ -1,7 +1,7 @@
 using Godot;
 
 // Static immediate-mode debug-line API. Forwards into a single
-// DebugDrawRenderer instance hung off World.Current. Every call queues
+// DebugDrawRenderer instance hung off Sim.Current. Every call queues
 // line segments that get rendered at the next _Process tick; pass a
 // non-zero `lifetime` to keep a shape on screen across frames (useful
 // for one-shot events like a hit registration that you don't want to

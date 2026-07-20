@@ -17,11 +17,11 @@ public partial class Tent : Node3D, IInteractive, IWorldEntity
     [Export(PropertyHint.Range, "0,1,0.01")] private float _healFractionPerHour = 0.2f;
 
     private TentSimState _interactiveState;
-    private World _world;
+    private Sim _world;
 
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public bool CanInteract()
     {
@@ -45,13 +45,13 @@ public partial class Tent : Node3D, IInteractive, IWorldEntity
         GameClient.Current?.BeginSleep(_sleepHours, _healFractionPerHour);
     }
 
-    public static Tent Create(World world, TentSimState data)
+    public static Tent Create(Sim sim, TentSimState data)
     {
         var instance = data.Scene.Instantiate<Tent>();
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
-        instance._world = world;
-        world.AddChild(instance);
+        instance._world = sim;
+        sim.AddChild(instance);
         return instance;
     }
 }

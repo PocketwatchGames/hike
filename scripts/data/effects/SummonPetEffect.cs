@@ -24,8 +24,8 @@ public partial class SummonPetEffect : ItemEffect
 		{
 			return;
 		}
-		World world = World.Current;
-		if (world == null)
+		Sim sim = Sim.Current;
+		if (sim == null)
 		{
 			return;
 		}
@@ -49,7 +49,7 @@ public partial class SummonPetEffect : ItemEffect
 		}
 
 		// No pet (or the tracked one was dead): summon a fresh tamed pet.
-		Mob summoned = world.SpawnMob(pet, ItemEventHandlers.ResolveAimPoint(actor));
+		Mob summoned = sim.SpawnMob(pet, ItemEventHandlers.ResolveAimPoint(actor));
 		if (summoned == null)
 		{
 			return;

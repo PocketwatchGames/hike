@@ -18,7 +18,7 @@ using Godot;
 //
 // Runtime: in _Ready, the sprite snapshots its per-instance state
 // (transform, terrain normal if AlignToTerrain > 0, atlas region/size),
-// registers with World.Current.PropScatter, then hides itself
+// registers with Sim.Current.PropScatter, then hides itself
 // (Visible=false on the Sprite3D mesh). The shared MultiMesh in
 // WorldPropScatter draws all instances of the same (texture, forward
 // offset, pass) bucket in one call. _ExitTree unregisters.
@@ -127,10 +127,10 @@ public partial class MultimeshPropSprite : Sprite3D
         // No editor-mode guard needed: this script isn't [Tool], so _Ready
         // only fires at runtime. (Defensive check kept off because in-editor
         // _Ready calls would catch us before WorldPropScatter exists.)
-        _scatter = World.Current?.PropScatter;
+        _scatter = Sim.Current?.PropScatter;
         if (_scatter == null)
         {
-            GD.PushWarning($"MultimeshPropSprite '{Name}' loaded with no World.Current.PropScatter — rendering as a regular Sprite3D fallback.");
+            GD.PushWarning($"MultimeshPropSprite '{Name}' loaded with no Sim.Current.PropScatter — rendering as a regular Sprite3D fallback.");
             return;
         }
 
@@ -267,7 +267,7 @@ public partial class MultimeshPropSprite : Sprite3D
     // exactly once per spawn.
     private float? FindWaterSurfaceY(Vector3 world)
     {
-        WorldState ws = World.Current?.WorldState;
+        WorldState ws = Sim.Current?.WorldState;
         if (ws == null)
         {
             return null;
@@ -315,7 +315,7 @@ public partial class MultimeshPropSprite : Sprite3D
     // found water in a neighboring column instead of directly under.
     private float FindLakeFloorY(Vector3 sourceWorld, float waterY)
     {
-        WorldState ws = World.Current?.WorldState;
+        WorldState ws = Sim.Current?.WorldState;
         if (ws == null)
         {
             return waterY - WaterReflectionSearchDepth;

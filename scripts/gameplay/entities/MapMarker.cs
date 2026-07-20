@@ -12,7 +12,7 @@ using Godot;
 // Proximity mode — Identified once the player is within identifyRadius. Perception
 // mode chains to a sibling Discoverable; Interaction mode waits for the host to
 // call Identify(). All discovery is recorded into the two-tier party Knowledge
-// (active member's store now, banked at the next campfire) via WorldSimState.
+// (active member's store now, banked at the next campfire) via SimState.
 [GlobalClass]
 public partial class MapMarker : Node3D
 {
@@ -35,7 +35,7 @@ public partial class MapMarker : Node3D
     // Two-state (active/inactive) appearance driven by LIVE host state — currently
     // the campfire's lit/unlit. When true the maps tint the Identified icon by
     // activeModulate while the host is active, iconModulate otherwise. The state is
-    // read live (WorldSimState.IsMarkerActive) so it updates even when the host's
+    // read live (SimState.IsMarkerActive) so it updates even when the host's
     // chunk is unloaded. Leave false for single-state markers.
     [Export] public bool hasActiveState = false;
     // Tint on the Identified icon in the inactive (default) state; White = untinted.
@@ -54,11 +54,11 @@ public partial class MapMarker : Node3D
     public Color ActiveModulate => activeModulate;
     public Vector3 WorldPosition => GlobalPosition;
 
-    private World _world;
+    private Sim _world;
 
     public override void _Ready()
     {
-        _world = World.Current;
+        _world = Sim.Current;
         if (_world != null)
         {
             _world.onMapMarkerSpawned?.Invoke(this);

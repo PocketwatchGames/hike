@@ -42,12 +42,12 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
 
     private KnowledgeStoneSimState _simState;
 
-    public void OnSpawned(World world)
+    public void OnSpawned(Sim sim)
     {
         // Register what this stone teaches so its map marker can dim once the
-        // party has learned all of it (WorldSimState.IsMarkerActive). Keyed by the
+        // party has learned all of it (SimState.IsMarkerActive). Keyed by the
         // stone's position, which matches the sibling MapMarker's (no local offset).
-        world?.WorldState?.SimState?.SetKnowledgeStoneConcepts(GlobalPosition, _concepts);
+        sim?.WorldState?.SimState?.SetKnowledgeStoneConcepts(GlobalPosition, _concepts);
         if (_ambientLoopEffect != null)
         {
             Fx.Create(_ambientLoopEffect, this, Vector3.Zero);
@@ -102,7 +102,7 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
         hud.ShowSignpost(display, this);
     }
 
-    public static KnowledgeStone Create(World world, KnowledgeStoneSimState data)
+    public static KnowledgeStone Create(Sim sim, KnowledgeStoneSimState data)
     {
         var instance = data.Scene.Instantiate<KnowledgeStone>();
         instance.Position = data.WorldPosition;
@@ -125,7 +125,7 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
         {
             instance._concepts = data.Concepts;
         }
-        world.AddChild(instance);
+        sim.AddChild(instance);
         return instance;
     }
 }

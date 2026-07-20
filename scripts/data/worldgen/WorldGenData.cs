@@ -132,7 +132,7 @@ public partial class WorldGenData : Resource
     // The party the run begins with. Each PlayerState is one playable character
     // (identity + appearance + stat sheet + its own starting loadout + traits);
     // the first entry is the initially-controlled member. GameClient.Init clones
-    // these templates into the runtime WorldSimState.Party at game start. This
+    // these templates into the runtime SimState.Party at game start. This
     // replaces the old single CharacterCreationState + the shared per-world
     // loadout (starting gear is now per-character, on PlayerState).
     [Export] public PlayerState[] startingParty = System.Array.Empty<PlayerState>();

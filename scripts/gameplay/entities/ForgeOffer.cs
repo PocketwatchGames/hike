@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-// Always-resident map cache entry for one forge (see WorldSimState.ForgeMarkers).
+// Always-resident map cache entry for one forge (see SimState.ForgeMarkers).
 // Carries just enough to draw the marker while the forge's chunk is unloaded.
 public readonly struct ForgeMarkerInfo
 {

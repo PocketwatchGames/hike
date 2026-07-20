@@ -19,7 +19,7 @@ public partial class WindEmitterSource : Node3D
     public override void _Ready()
     {
         // Manager may not exist yet during a headless/editor load; null-safe
-        // like MultimeshPropSprite guarding on World.Current.PropScatter.
+        // like MultimeshPropSprite guarding on Sim.Current.PropScatter.
         WindParticleManager.Current?.RegisterSource(this);
     }
 

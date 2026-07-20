@@ -23,7 +23,7 @@ public partial class LightningStrike : Node3D
     // them without re-authoring the strike scene.
     private const string SCENE_PATH = "res://scenes/fx/lightning_strike.tscn";
 
-    // Vertical raycast envelope (World.TryFindGroundByRaycast) used to keep the
+    // Vertical raycast envelope (Sim.TryFindGroundByRaycast) used to keep the
     // wandering strike snapped to the ground each tick. Generous on both sides so
     // small terrain steps (single-voxel ledges) and overhangs don't make the
     // strike lose its ground sample. Lightning is open-sky, so the raycast surface
@@ -48,7 +48,7 @@ public partial class LightningStrike : Node3D
     [Export(PropertyHint.Range, "5,120,1")] private float _boltHeight = 40f;
 
     private LightningData _data;
-    private World _world;
+    private Sim _world;
     private float _phaseTimer;
     // GameTimeMs the warning phase fires the strike at (sim clock, so the
     // telegraph timing slows under slow-mo and is frame-rate independent). The
@@ -81,9 +81,9 @@ public partial class LightningStrike : Node3D
     // (flash + damage + screen flash + bolt visible), then fades and
     // frees. Returns null if data is missing or the scene fails to
     // load — strikes are best-effort, never a hard error.
-    public static LightningStrike Create(World world, Vector3 position, LightningData data)
+    public static LightningStrike Create(Sim sim, Vector3 position, LightningData data)
     {
-        if (world == null || data == null)
+        if (sim == null || data == null)
         {
             return null;
         }
@@ -95,8 +95,8 @@ public partial class LightningStrike : Node3D
         }
         var strike = scene.Instantiate<LightningStrike>();
         strike._data = data;
-        strike._world = world;
-        world.AddChild(strike);
+        strike._world = sim;
+        sim.AddChild(strike);
         strike.GlobalPosition = position;
         return strike;
     }

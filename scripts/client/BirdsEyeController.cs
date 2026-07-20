@@ -197,7 +197,7 @@ public partial class BirdsEyeController : Node
 			// radius is sized from the apex visible footprint so the backdrop
 			// reaches the screen corners even at extreme zoom (otherwise the
 			// reveal — clamped to the loaded frontier — leaves a foggy ring).
-			World.Current?.ChunkManager?.BeginOverlook(ComputeOverlookGroundRadius());
+			Sim.Current?.ChunkManager?.BeginOverlook(ComputeOverlookGroundRadius());
 			_revealRadius = -1f;
 			camera.ManualClipMode = true;
 			// Force the indoor cutaway off so the camera can see the world from
@@ -396,7 +396,7 @@ public partial class BirdsEyeController : Node
 		// haze. The radius eases out toward the frontier but is clamped to never
 		// exceed it (a chunk that isn't resident is never revealed); the soft
 		// edge (overlook_reveal_softness) feathers the boundary.
-		ChunkManager chunkManager = World.Current?.ChunkManager;
+		ChunkManager chunkManager = Sim.Current?.ChunkManager;
 		if (chunkManager != null)
 		{
 			float frontier = chunkManager.OverlookLoadedRadiusWorld;
@@ -478,7 +478,7 @@ public partial class BirdsEyeController : Node
 			camera.ManualClipMode = false;
 			// Drop the panorama streaming profile (its backdrop ring unloads as
 			// the desired set shrinks) and disable the fog curtain.
-			World.Current?.ChunkManager?.EndOverlook();
+			Sim.Current?.ChunkManager?.EndOverlook();
 			RenderingServer.GlobalShaderParameterSet("overlook_reveal_radius", 1e20f);
 			_revealRadius = -1f;
 			if (SkyController.Current != null)

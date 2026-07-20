@@ -43,7 +43,7 @@ public static class NavigationGoals
     // position with a clear shot" use case. Pass false for melee
     // standoff where line-of-sight isn't required at the slot itself.
     public static Vector3 PickStandoffPoint(
-        World world,
+        Sim sim,
         in TraversalProfile profile,
         Vector3 targetPos,
         float distance,
@@ -52,11 +52,11 @@ public static class NavigationGoals
         int sweepAttempts = 5,
         float sweepStepDegrees = 22.5f)
     {
-        if (world == null || distance <= 0f)
+        if (sim == null || distance <= 0f)
         {
             return targetPos;
         }
-        WorldState ws = world.WorldState;
+        WorldState ws = sim.WorldState;
         if (ws == null)
         {
             return targetPos;
@@ -74,7 +74,7 @@ public static class NavigationGoals
             float angle = slotAngle + offsetSlots * stepRad;
             Vector3 candidate = targetPos + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * distance;
 
-            if (!IsStandable(ws, world, profile, candidate, out Vector3 surfacePoint))
+            if (!IsStandable(ws, sim, profile, candidate, out Vector3 surfacePoint))
             {
                 continue;
             }
@@ -83,11 +83,11 @@ public static class NavigationGoals
             // the same Y. A player shove sends the mob backwards along this
             // axis, so without this check the encircle ring places mobs
             // exactly where they can be punted off a ledge.
-            if (!HasStableBacking(ws, world, profile, surfacePoint, targetPos))
+            if (!HasStableBacking(ws, sim, profile, surfacePoint, targetPos))
             {
                 continue;
             }
-            if (requireLineOfSight && !HasLineOfSight(world, surfacePoint, targetPos))
+            if (requireLineOfSight && !HasLineOfSight(sim, surfacePoint, targetPos))
             {
                 continue;
             }
@@ -105,15 +105,15 @@ public static class NavigationGoals
     // to confirm a sideways/back dash lands on valid ground (not a cliff edge or
     // wall) before committing. Fetches WorldState off `world`; false when either
     // is missing.
-    public static bool IsGroundStandable(World world, in TraversalProfile profile, Vector3 worldPos, out Vector3 surfacePoint)
+    public static bool IsGroundStandable(Sim sim, in TraversalProfile profile, Vector3 worldPos, out Vector3 surfacePoint)
     {
         surfacePoint = worldPos;
-        WorldState ws = world?.WorldState;
+        WorldState ws = sim?.WorldState;
         if (ws == null)
         {
             return false;
         }
-        return IsStandable(ws, world, profile, worldPos, out surfacePoint);
+        return IsStandable(ws, sim, profile, worldPos, out surfacePoint);
     }
 
     // Bulk spawn-placement query: collect every DRY standable surface point in the
@@ -129,12 +129,12 @@ public static class NavigationGoals
     // narrow tunnel). Water cells are skipped (land spawns). `grid` is caller-
     // owned and reused across calls to avoid per-call allocation. See the class
     // header for why this, and not a downward raycast, is the spawn-placement tool.
-    public static void CollectStandableCells(World world, in TraversalProfile profile, WalkabilityGrid grid,
+    public static void CollectStandableCells(Sim sim, in TraversalProfile profile, WalkabilityGrid grid,
         Vector3 center, float minRadius, float maxRadius, float maxSurfaceYDelta, int maxWindowHalfExtent,
         List<Vector3> results)
     {
         results.Clear();
-        WorldState ws = world?.WorldState;
+        WorldState ws = sim?.WorldState;
         if (ws == null || grid == null)
         {
             return;
@@ -143,7 +143,7 @@ public static class NavigationGoals
         float maxR = Mathf.Max(minR, maxRadius);
         int half = Mathf.Min(Mathf.Max(1, maxWindowHalfExtent), Mathf.CeilToInt(maxR));
         int size = half * 2 + 1;
-        grid.Sample(ws, world, profile,
+        grid.Sample(ws, sim, profile,
             Mathf.FloorToInt(center.X), Mathf.FloorToInt(center.Y), Mathf.FloorToInt(center.Z), size);
 
         float minR2 = minR * minR;
@@ -192,11 +192,11 @@ public static class NavigationGoals
     // the plain radius CollectStandableCells only suits open ground where
     // everything at the query height is one connected surface. Cardinal 4-
     // connectivity (enough to decide reachability of a contiguous floor).
-    public static void CollectReachableStandableCells(World world, in TraversalProfile profile, WalkabilityGrid grid,
+    public static void CollectReachableStandableCells(Sim sim, in TraversalProfile profile, WalkabilityGrid grid,
         Vector3 center, float minRadius, float maxRadius, int maxWindowHalfExtent, bool allowFalling, List<Vector3> results)
     {
         results.Clear();
-        WorldState ws = world?.WorldState;
+        WorldState ws = sim?.WorldState;
         if (ws == null || grid == null)
         {
             return;
@@ -207,7 +207,7 @@ public static class NavigationGoals
         int size = half * 2 + 1;
         int cx = Mathf.FloorToInt(center.X);
         int cz = Mathf.FloorToInt(center.Z);
-        grid.Sample(ws, world, profile, cx, Mathf.FloorToInt(center.Y), cz, size);
+        grid.Sample(ws, sim, profile, cx, Mathf.FloorToInt(center.Y), cz, size);
 
         int layers = WalkabilityGrid.MaxColumnLayers;
         int startI = cx - grid.OriginX;
@@ -323,7 +323,7 @@ public static class NavigationGoals
     // within a couple voxels of the requested Y. Snaps the returned
     // `surfacePoint` to that surface so callers can hand the navigator a
     // point that's actually on the ground rather than mid-air.
-    private static bool IsStandable(WorldState ws, World world, in TraversalProfile profile, Vector3 worldPos, out Vector3 surfacePoint)
+    private static bool IsStandable(WorldState ws, Sim sim, in TraversalProfile profile, Vector3 worldPos, out Vector3 surfacePoint)
     {
         surfacePoint = worldPos;
         int verticalClearance = profile.verticalClearance;
@@ -388,12 +388,12 @@ public static class NavigationGoals
             }
             // Mirror WalkabilityGrid's entity-blocker rejection so standoff
             // slots can't land on a cell occupied by a tree or chest.
-            if (world != null)
+            if (sim != null)
             {
                 bool entityBlocked = false;
                 for (int h = 0; h < verticalClearance; h++)
                 {
-                    if (world.IsPathBlocked(wx, wy + h, wz))
+                    if (sim.IsPathBlocked(wx, wy + h, wz))
                     {
                         entityBlocked = true;
                         break;
@@ -414,7 +414,7 @@ public static class NavigationGoals
     // is also a standable surface within ±1 voxel of slotSurface.Y. Used to
     // reject ring slots that sit at the literal edge of a cliff — the
     // mob arrives, idles, and the player walks into it and shoves it over.
-    private static bool HasStableBacking(WorldState ws, World world, in TraversalProfile profile, Vector3 slotSurface, Vector3 targetPos)
+    private static bool HasStableBacking(WorldState ws, Sim sim, in TraversalProfile profile, Vector3 slotSurface, Vector3 targetPos)
     {
         Vector3 awayXZ = new Vector3(slotSurface.X - targetPos.X, 0f, slotSurface.Z - targetPos.Z);
         float len = awayXZ.Length();
@@ -423,7 +423,7 @@ public static class NavigationGoals
             return true;
         }
         Vector3 backCell = slotSurface + (awayXZ / len);
-        if (!IsStandable(ws, world, profile, backCell, out Vector3 backSurface))
+        if (!IsStandable(ws, sim, profile, backCell, out Vector3 backSurface))
         {
             return false;
         }
@@ -436,14 +436,14 @@ public static class NavigationGoals
     // Environment-only line-of-sight raycast at eye height. Mirrors the
     // LOS check in BehaviorInvestigate / UpdatePerception so all three
     // systems agree on what counts as visible.
-    private static bool HasLineOfSight(World world, Vector3 from, Vector3 to)
+    private static bool HasLineOfSight(Sim sim, Vector3 from, Vector3 to)
     {
         Vector3 a = from + new Vector3(0f, StandoffEyeHeight, 0f);
         Vector3 b = to + new Vector3(0f, StandoffEyeHeight, 0f);
         using var query = PhysicsRayQueryParameters3D.Create(a, b, (uint)ECollisionLayer.Solid);
         query.CollideWithAreas = false;
         query.CollideWithBodies = true;
-        var result = world.GetWorld3D().DirectSpaceState.IntersectRay(query);
+        var result = sim.GetWorld3D().DirectSpaceState.IntersectRay(query);
         return result.Count == 0;
     }
 }

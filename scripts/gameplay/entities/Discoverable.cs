@@ -83,7 +83,7 @@ public partial class Discoverable : Node3D
     private float _visibility;
 
     private PerceivedByPlayerState _state;
-    private World _world;
+    private Sim _world;
     // MeshInstance3D descendants of _fadeMeshRoot, gathered once at _Ready.
     private readonly List<MeshInstance3D> _fadeMeshes = new();
 
@@ -107,7 +107,7 @@ public partial class Discoverable : Node3D
     public override void _Ready()
     {
         _state.tickAccumulator = (float)GD.RandRange(0.0, PlayerPerception.TickInterval);
-        _world = World.Current;
+        _world = Sim.Current;
         if (_world != null)
         {
             _world.onDiscoverableSpawned?.Invoke(this);

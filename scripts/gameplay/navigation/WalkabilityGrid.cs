@@ -188,7 +188,7 @@ public class WalkabilityGrid
     // origin column. Pass `world` to also reject cells occupied by
     // path-blocking entities (trees, chests); pass null to skip that check
     // for callers that only care about the voxel grid.
-    public void Sample(WorldState ws, World world, in TraversalProfile profile, int worldX, int worldY, int worldZ, int size)
+    public void Sample(WorldState ws, Sim sim, in TraversalProfile profile, int worldX, int worldY, int worldZ, int size)
     {
         using var _profSample = Profiler.Sample("WalkabilityGrid.Sample");
         if ((size & 1) == 0)
@@ -217,7 +217,7 @@ public class WalkabilityGrid
         // quantum per profile per chunk eviction, instead of one per mob
         // per repath.
         SharedWalkabilityCache.Entry entry = SharedWalkabilityCache.GetOrSample(
-            ws, world, profile, worldX, worldY, worldZ, half);
+            ws, sim, profile, worldX, worldY, worldZ, half);
         int offsetI = _originX - entry.OriginX;
         int offsetJ = _originZ - entry.OriginZ;
         int srcSize = entry.Size;
@@ -301,7 +301,7 @@ public class WalkabilityGrid
     // resolves to the wall top, not the trench beside it — while lower slots
     // capture the cave floor / underside of an overhang so A* can path onto
     // them.
-    internal static void SampleColumn(WorldState ws, World world, in TraversalProfile profile, int wx, int anchorY, int wz, WalkabilityCell[] cells, int baseIdx)
+    internal static void SampleColumn(WorldState ws, Sim sim, in TraversalProfile profile, int wx, int anchorY, int wz, WalkabilityCell[] cells, int baseIdx)
     {
         using var _profCol = Profiler.Sample("WalkabilityGrid.SampleColumn");
 
@@ -413,11 +413,11 @@ public class WalkabilityGrid
             }
             // Reject if a path-blocking entity (tree, chest) occupies a cell
             // the mob would stand in.
-            if (!blocked && world != null)
+            if (!blocked && sim != null)
             {
                 for (int h = 0; h < profile.verticalClearance; h++)
                 {
-                    if (world.IsPathBlocked(wx, wy + h, wz))
+                    if (sim.IsPathBlocked(wx, wy + h, wz))
                     {
                         blocked = true;
                         break;
@@ -437,11 +437,11 @@ public class WalkabilityGrid
                 // surface is still walkable, just flagged so wander/normal
                 // pathing can route around it. Same band as the blocker check.
                 CellFlags hazardFlag = CellFlags.None;
-                if (world != null)
+                if (sim != null)
                 {
                     for (int h = 0; h < profile.verticalClearance; h++)
                     {
-                        if (world.IsHazard(wx, wy + h, wz))
+                        if (sim.IsHazard(wx, wy + h, wz))
                         {
                             hazardFlag = CellFlags.Hazard;
                             break;
@@ -452,7 +452,7 @@ public class WalkabilityGrid
                 // Safety-zone footprint (flat XZ disc, Y-independent). Tagged
                 // here mob-agnostically; only a hostile profile's pathfinder
                 // routes around it.
-                CellFlags safeFlag = (world != null && world.IsInSafeZone(wx + 0.5f, wz + 0.5f))
+                CellFlags safeFlag = (sim != null && sim.IsInSafeZone(wx + 0.5f, wz + 0.5f))
                     ? CellFlags.SafeZone
                     : CellFlags.None;
 
@@ -660,7 +660,7 @@ public static class SharedWalkabilityCache
         _missesThisWindow = 0;
     }
 
-    public static Entry GetOrSample(WorldState ws, World world, in TraversalProfile profile,
+    public static Entry GetOrSample(WorldState ws, Sim sim, in TraversalProfile profile,
         int centerX, int centerY, int centerZ, int requestedHalfExtent)
     {
         // Quantize using arithmetic shift (handles negative coords correctly).
@@ -711,7 +711,7 @@ public static class SharedWalkabilityCache
             {
                 int wx = entry.OriginX + i;
                 int wz = entry.OriginZ + j;
-                WalkabilityGrid.SampleColumn(ws, world, profile, wx, anchorY, wz,
+                WalkabilityGrid.SampleColumn(ws, sim, profile, wx, anchorY, wz,
                     entry.Cells, (j * cacheSize + i) * WalkabilityGrid.MaxColumnLayers);
             }
         }

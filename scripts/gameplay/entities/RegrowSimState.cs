@@ -5,10 +5,10 @@ using Godot;
 // and multi-day station: fountains and forges (re-arm next sunrise, +1 day),
 // berry trees and forage spawners (regrow after an authored number of days).
 //
-// `RegrowDay` is a `World.DayNumber` value: the day on/after which the entity is
+// `RegrowDay` is a `Sim.DayNumber` value: the day on/after which the entity is
 // available again. 0 = ready now. Stamp it to `DayNumber + N` on use; the entity
 // re-arms at the next sunrise the deadline has passed (nodes subscribe to
-// `World.OnNewDay` to flip their ready/inert visual in place). Persisted so the
+// `Sim.OnNewDay` to flip their ready/inert visual in place). Persisted so the
 // cooldown survives chunk eviction and save/load.
 public abstract class RegrowSimState : EntitySimState
 {

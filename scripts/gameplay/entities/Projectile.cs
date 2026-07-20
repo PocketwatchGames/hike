@@ -164,12 +164,12 @@ public partial class Projectile : Node3D
 	// (QueueFree) or chunk evict drops it cleanly — mirrors Perch.
 	public override void _Ready()
 	{
-		World.Current?.Projectiles?.Add(this);
+		Sim.Current?.Projectiles?.Add(this);
 	}
 
 	public override void _ExitTree()
 	{
-		World.Current?.Projectiles?.Remove(this);
+		Sim.Current?.Projectiles?.Remove(this);
 	}
 
 	public static Projectile Launch(
@@ -654,7 +654,7 @@ public partial class Projectile : Node3D
 
 		WeaponState weapon = _impact.sourceWeapon;
 		ArrowLootData arrowLootData = _impact.arrowLootData;
-		if (weapon == null || arrowLootData == null || World.Current == null)
+		if (weapon == null || arrowLootData == null || Sim.Current == null)
 		{
 			return;
 		}
@@ -665,7 +665,7 @@ public partial class Projectile : Node3D
 		}
 		else
 		{
-			World.Current.SpawnArrowLoot(position, ItemEventHandlers.BuildArrowEjectImpulse(), arrowLootData, weapon);
+			Sim.Current.SpawnArrowLoot(position, ItemEventHandlers.BuildArrowEjectImpulse(), arrowLootData, weapon);
 		}
 	}
 }

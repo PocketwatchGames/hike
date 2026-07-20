@@ -59,7 +59,7 @@ public partial class BlockData : Resource
     [Export] public EGroundType groundType = EGroundType.Grass;
 
     // Material scooped up when the player digs a bare hole in this block —
-    // i.e. the shovel finds no buried spot or burrowed mob (see World.TryDig).
+    // i.e. the shovel finds no buried spot or burrowed mob (see Sim.TryDig).
     // Marsh yields mud; most blocks leave this null (digging bare ground comes
     // up empty). The item is dropped as loose loot at the dig point and the
     // shovel reports a Common find. Resolved through GroundTypeResolver, so

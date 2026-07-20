@@ -114,7 +114,7 @@ public partial class MobData : Resource
     // 0 = off (mob perception unaffected by dilation).
     [Export(PropertyHint.Range, "0,1,0.01")] public float eyeDilationVisionRelief = 0.35f;
     // Darkness-creature vision (gellies). How much this mob's sight of the player
-    // is driven by the ABSENCE of block light at the player (World.PlayerBlockLight01,
+    // is driven by the ABSENCE of block light at the player (Sim.PlayerBlockLight01,
     // shaped by darknessVisionBlindBlockLight / darknessVisionCurve) INSTEAD of the
     // normal "how lit is the player" term — an inversion: a normal mob sees a lit
     // player better, a darkness creature sees a player in the open night (moonlit
@@ -335,7 +335,7 @@ public partial class MobData : Resource
     // drizzle into real rain. 1 = never suppressed by rain (the default; the
     // loop plays in any weather). 0.2 ≈ "quiet in anything more than a
     // drizzle". Same rainAmount signal the spawn gate reads
-    // (World.CurrentRainAmount).
+    // (Sim.CurrentRainAmount).
     [Export(PropertyHint.Range, "0,1,0.01")] public float idleLoopMaxRain = 1f;
     // How this mob responds when it hears another mob's Yell vocalization (the
     // receiver-side of the alarm). Range is the Euclidean tolerance around the

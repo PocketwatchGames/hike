@@ -26,7 +26,7 @@ public partial class Trap : Node3D, IInteractive, IWorldEntity
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
     private TrapSimState _simState;
-    private World _world;
+    private Sim _world;
     private bool _disarmed;
 
     public override void _Ready()
@@ -42,9 +42,9 @@ public partial class Trap : Node3D, IInteractive, IWorldEntity
         UpdateInteractEnabled();
     }
 
-    public void OnSpawned(World world)
+    public void OnSpawned(Sim sim)
     {
-        _world = world;
+        _world = sim;
     }
 
     private void OnDiscoveryStateChanged(EPlayerPerceptionState state)
@@ -110,14 +110,14 @@ public partial class Trap : Node3D, IInteractive, IWorldEntity
         _interactBox.Monitoring = enabled;
     }
 
-    public static Trap Create(World world, TrapSimState data)
+    public static Trap Create(Sim sim, TrapSimState data)
     {
         var instance = data.Scene.Instantiate<Trap>();
         instance.Position = data.WorldPosition;
         instance._simState = data;
-        instance._world = world;
+        instance._world = sim;
         instance._disarmed = data.Disarmed;
-        world.AddChild(instance);
+        sim.AddChild(instance);
         return instance;
     }
 }

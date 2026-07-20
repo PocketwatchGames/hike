@@ -301,19 +301,19 @@ public static class StatList
 	// LevelIncomingResist). Level 0 (neutral ×1) and non-upgrade slots yield nothing.
 	public static IEnumerable<(string name, string value)> UpgradeLevelInfo(int level, EUpgradeSlot slot)
 	{
-		SimData sim = World.Current?.SimData;
-		if (level <= 0 || sim == null)
+		SimData simData = Sim.Current?.SimData;
+		if (level <= 0 || simData == null)
 		{
 			yield break;
 		}
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
 		if (slot == EUpgradeSlot.Armor)
 		{
-			yield return (names[EStatName.DamageReduction], StatFormat.Percent(1f - sim.LevelIncomingResist(level)));
+			yield return (names[EStatName.DamageReduction], StatFormat.Percent(1f - simData.LevelIncomingResist(level)));
 		}
 		else if (slot == EUpgradeSlot.Melee || slot == EUpgradeSlot.Ranged)
 		{
-			yield return (names[EStatName.DamageScale], StatFormat.Multiplier(sim.LevelOutgoingScale(level)));
+			yield return (names[EStatName.DamageScale], StatFormat.Multiplier(simData.LevelOutgoingScale(level)));
 		}
 	}
 

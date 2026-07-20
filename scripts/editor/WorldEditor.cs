@@ -12,7 +12,7 @@ public partial class WorldEditor : Node3D
 
     // Live editor instance, exposed for console-driven subscene commands
     // (subscene_corner / subscene_save / subscene_stamp). Mirrors the
-    // World.Current pattern used by world_export and friends. Cleared in
+    // Sim.Current pattern used by world_export and friends. Cleared in
     // _ExitTree so a CVar fired after the editor closes no-ops gracefully.
     public static WorldEditor Current;
 
@@ -32,7 +32,7 @@ public partial class WorldEditor : Node3D
         "PlayerSpawn", "Tree", "TallGrass", "Loot", "Chest", "Torch", "Door", "SpikeTrap", "Goblin", "KunKun", "ClimbableTree",
     };
 
-    private World _world;
+    private Sim _world;
     private WorldState _worldState;
     private Vector3 _cursorPosition;
     private float _clipY = float.PositiveInfinity;
@@ -91,7 +91,7 @@ public partial class WorldEditor : Node3D
         }
         GD.Print($"[Editor] Non-empty chunks: {nonEmptyChunks}, has voxels: {totalVoxels > 0}");
 
-        _world = new World();
+        _world = new Sim();
         AddChild(_world);
         GD.Print("[Editor] World added to tree");
 
@@ -432,7 +432,7 @@ public partial class WorldEditor : Node3D
         Node3D node = simState.CreateEntity(_world);
         if (node != null)
         {
-            Vector3I coord = World.WorldToChunkCoord(position);
+            Vector3I coord = Sim.WorldToChunkCoord(position);
             if (!_world.ActiveEntities.ContainsKey(coord))
             {
                 // The chunk may not have an active entity list yet; force one via
@@ -536,7 +536,7 @@ public partial class WorldEditor : Node3D
 
     private void DeleteNearestEntity(Vector3 position)
     {
-        Vector3I centerChunk = World.WorldToChunkCoord(position);
+        Vector3I centerChunk = Sim.WorldToChunkCoord(position);
         float bestDist = 4f; // max search radius squared = 2^2
         EntitySimState bestSim = null;
         Vector3I bestChunk = default;
@@ -876,7 +876,7 @@ public partial class WorldEditor : Node3D
                     anchor.X - sub.Anchor.X,
                     anchor.Y - sub.Anchor.Y,
                     anchor.Z - sub.Anchor.Z);
-                entityChunks.Add(World.WorldToChunkCoord(worldPos));
+                entityChunks.Add(Sim.WorldToChunkCoord(worldPos));
             }
         }
 

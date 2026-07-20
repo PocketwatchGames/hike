@@ -27,12 +27,12 @@ public class BuriedSpotSimState : EntitySimState
         Data = data;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
         if (Data == null)
         {
             return null;
         }
-        return BuriedSpot.Create(world, this);
+        return BuriedSpot.Create(sim, this);
     }
 }

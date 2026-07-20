@@ -4,11 +4,11 @@ using System.IO;
 using Godot;
 
 // Runtime store for the central bank of named scripting variables — quest
-// progress, world flags (boss defeated), counters. Owned by WorldSimState
+// progress, world flags (boss defeated), counters. Owned by SimState
 // (worldState.SimState.ScriptVars), so it serializes with the rest of the
 // run-spanning player progression and is reachable from gameplay via
-// World.WorldState.SimState.ScriptVars (a behavior predicate gets there
-// through Mob.World; a conversation through ConversationContext.world).
+// Sim.WorldState.SimState.ScriptVars (a behavior predicate gets there
+// through Mob.World; a conversation through ConversationContext.sim).
 //
 // Values are keyed by the variable's authored StringName Id. Bool and Int
 // alike are stored as a single long (bool = value != 0); the declared type

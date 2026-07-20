@@ -1316,14 +1316,14 @@ public partial class MerchantScreen : Control
 
 	void DropAtMerchant(ItemState item)
 	{
-		if (item == null || _merchant == null || _player?.World == null)
+		if (item == null || _merchant == null || _player?.Sim == null)
 		{
 			return;
 		}
 		Vector3 basePos = _merchant.GlobalPosition + Vector3.Up * 0.5f;
 		Vector3 offset = new Vector3((GD.Randf() - 0.5f) * 0.6f, 0f, (GD.Randf() - 0.5f) * 0.6f);
 		Vector3 impulse = new Vector3((GD.Randf() - 0.5f) * 2f, 1.5f, (GD.Randf() - 0.5f) * 2f);
-		_player.World.DropItem(item, basePos + offset, impulse, requireInteract: true);
+		_player.Sim.DropItem(item, basePos + offset, impulse, requireInteract: true);
 	}
 
 	// -------------------------------------------------------------------
@@ -1464,7 +1464,7 @@ public partial class MerchantScreen : Control
 			{
 				ItemState overflow = staged.data.CreateState();
 				overflow.stackCount = initial - added;
-				_player.World?.DropItem(
+				_player.Sim?.DropItem(
 					overflow,
 					_player.GlobalPosition + Vector3.Up * 0.5f,
 					Vector3.Up * 1.5f,

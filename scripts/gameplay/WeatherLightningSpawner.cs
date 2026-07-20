@@ -20,7 +20,7 @@ using Godot;
 [GlobalClass]
 public partial class WeatherLightningSpawner : Node
 {
-    // Strike position ray span (World.TryFindGroundByRaycast) — cast from this far
+    // Strike position ray span (Sim.TryFindGroundByRaycast) — cast from this far
     // above the spawn point down through it. Generous enough to clear any sky-
     // island geometry the player might be standing on. Lightning is open-sky
     // weather, so the raycast surface finder is the right tool here.
@@ -40,7 +40,7 @@ public partial class WeatherLightningSpawner : Node
 
     public override void _Process(double delta)
     {
-        LightningData data = World.Current?.SimData?.weatherLightning;
+        LightningData data = Sim.Current?.SimData?.weatherLightning;
         if (data == null)
         {
             return;
@@ -76,8 +76,8 @@ public partial class WeatherLightningSpawner : Node
 
     private void TrySpawnStrike(LightningData data, float intensity)
     {
-        World world = World.Current;
-        Player player = world?.player;
+        Sim sim = Sim.Current;
+        Player player = sim?.player;
         if (player == null)
         {
             return;
@@ -92,7 +92,7 @@ public partial class WeatherLightningSpawner : Node
         Vector2 offset = new Vector2(Mathf.Cos(yaw), Mathf.Sin(yaw)) * r;
         Vector3 query2d = playerPos + new Vector3(offset.X, 0f, offset.Y);
 
-        if (!world.TryFindGroundByRaycast(query2d, out Vector3 groundPos, GROUND_RAY_HEIGHT_OFFSET, GROUND_RAY_DEPTH_OFFSET))
+        if (!sim.TryFindGroundByRaycast(query2d, out Vector3 groundPos, GROUND_RAY_HEIGHT_OFFSET, GROUND_RAY_DEPTH_OFFSET))
         {
             if (CVars.lightningLog.Value)
             {
@@ -100,7 +100,7 @@ public partial class WeatherLightningSpawner : Node
             }
             return;
         }
-        LightningStrike.Create(world, groundPos, data);
+        LightningStrike.Create(sim, groundPos, data);
         if (CVars.lightningLog.Value)
         {
             GD.Print($"[lightning] FIRE at ({groundPos.X:F1}, {groundPos.Y:F1}, {groundPos.Z:F1}) (intensity={intensity:F3})");

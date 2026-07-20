@@ -17,6 +17,6 @@ public partial class SetScriptVarAction : ConversationAction
 
     public override void Execute(ConversationContext ctx)
     {
-        ScriptVarOps.Apply(ctx.world?.WorldState?.SimState?.ScriptVars, variable, op, operand);
+        ScriptVarOps.Apply(ctx.sim?.WorldState?.SimState?.ScriptVars, variable, op, operand);
     }
 }

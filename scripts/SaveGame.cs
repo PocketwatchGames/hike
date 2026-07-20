@@ -28,14 +28,14 @@ public static class SaveGame
 		// included — the buildup meter is the only piece serialized today.
 		// Item-side controllers (per-armor wetness) likewise wait for an
 		// inventory section to land.
-		Player player = World.Current?.player;
+		Player player = Sim.Current?.player;
 		var playerBuildups = player != null
 			? player.EnumerateStatusBuildupsForSave().ToList()
 			: new List<(StatusEffectData data, float amount)>();
 		WriteBuildupSection(w, playerBuildups);
 
 		// --- Scripting variables (v3+) ---
-		ScriptVariableBank bank = World.Current?.WorldState?.SimState?.ScriptVars;
+		ScriptVariableBank bank = Sim.Current?.WorldState?.SimState?.ScriptVars;
 		if (bank != null)
 		{
 			bank.Serialize(w);
@@ -46,7 +46,7 @@ public static class SaveGame
 		}
 
 		// --- Quest log (v4+) ---
-		QuestLog questLog = World.Current?.WorldState?.SimState?.QuestLog;
+		QuestLog questLog = Sim.Current?.WorldState?.SimState?.QuestLog;
 		if (questLog != null)
 		{
 			questLog.Serialize(w);
@@ -73,19 +73,19 @@ public static class SaveGame
 		if (version >= 2)
 		{
 			var playerBuildups = ReadBuildupSection(r);
-			World.Current?.player?.RestoreStatusBuildups(playerBuildups);
+			Sim.Current?.player?.RestoreStatusBuildups(playerBuildups);
 		}
 
 		// --- Scripting variables (v3+) ---
 		if (version >= 3)
 		{
-			World.Current?.WorldState?.SimState?.ScriptVars?.Deserialize(r);
+			Sim.Current?.WorldState?.SimState?.ScriptVars?.Deserialize(r);
 		}
 
 		// --- Quest log (v4+) ---
 		if (version >= 4)
 		{
-			World.Current?.WorldState?.SimState?.QuestLog?.Deserialize(r);
+			Sim.Current?.WorldState?.SimState?.QuestLog?.Deserialize(r);
 		}
 	}
 

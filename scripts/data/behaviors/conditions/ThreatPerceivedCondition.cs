@@ -42,13 +42,13 @@ public partial class ThreatPerceivedCondition : BehaviorTransitionData
         {
             return !met;
         }
-        if (requirePlayerCombat && !(me.World?.player?.CombatEngaged ?? false))
+        if (requirePlayerCombat && !(me.Sim?.player?.CombatEngaged ?? false))
         {
             return false;
         }
         if (maxPlayerDistance > 0f)
         {
-            Player master = me.World?.player;
+            Player master = me.Sim?.player;
             if (master == null
                 || me.GlobalPosition.DistanceSquaredTo(master.GlobalPosition) > maxPlayerDistance * maxPlayerDistance)
             {

@@ -40,11 +40,11 @@ public partial class Perch : Node3D
 
     public override void _Ready()
     {
-        World.Current?.Perches.Add(this);
+        Sim.Current?.Perches.Add(this);
     }
 
     public override void _ExitTree()
     {
-        World.Current?.Perches.Remove(this);
+        Sim.Current?.Perches.Remove(this);
     }
 }

@@ -10,7 +10,7 @@ public class LearnLanguageQuest : QuestState
 
     int LearnedCount()
     {
-        Party party = World.Current?.WorldState?.SimState?.Party;
+        Party party = Sim.Current?.WorldState?.SimState?.Party;
         LanguageData lang = Config?.language;
         if (party == null || lang == null)
         {

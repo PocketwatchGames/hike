@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 
-// Coordinator for the minimap. Lives as a child of World, subscribes to
+// Coordinator for the minimap. Lives as a child of Sim, subscribes to
 // chunk lifecycle events, drives data → texture updates and exploration
 // reveal, and exposes the palette LUT textures + uniforms the HUD needs to
 // render.
@@ -93,7 +93,7 @@ public partial class Minimap : Node3D
     // across this band rather than snapping on as the threshold passes their noise value.
     [Export(PropertyHint.Range, "0.01,0.5,0.01")] public float bankRevealEdgeSoftness = 0.15f;
 
-    private World _world;
+    private Sim _world;
     private MinimapTextures _textures;
     private MinimapSliceAtlas _sliceAtlas;
     private MinimapFoliageColors _foliageColors;
@@ -585,27 +585,27 @@ public partial class Minimap : Node3D
         return (h & 0xFFFFFF) / (float)0x1000000;
     }
 
-    public void Initialize(World world)
+    public void Initialize(Sim sim)
     {
-        _world = world;
+        _world = sim;
         _foliageColors = foliageColors;
 
-        _textures = new MinimapTextures(world.WorldState);
-        _sliceAtlas = new MinimapSliceAtlas(world.WorldState);
+        _textures = new MinimapTextures(sim.WorldState);
+        _sliceAtlas = new MinimapSliceAtlas(sim.WorldState);
         _surfaceCells = new MinimapData.SurfaceCell[MinimapData.OutdoorPixelsPerChunkSq];
         _sliceCells = new MinimapData.SliceCell[MinimapData.IndoorPixelsPerChunkSq];
 
         _tileLutTexture = BuildTileLutTexture(BlockCatalog.Active, wallSlotColor);
         _foliageLutTexture = BuildFoliageLutTexture(_foliageColors);
 
-        world.ChunkManager.onChunkLoaded += OnChunkLoaded;
-        world.onChunkEntitiesLoaded += OnChunkEntitiesLoaded;
-        world.onMapMarkerSpawned += OnMapMarkerSpawned;
-        world.onMapMarkerRemoved += OnMapMarkerRemoved;
+        sim.ChunkManager.onChunkLoaded += OnChunkLoaded;
+        sim.onChunkEntitiesLoaded += OnChunkEntitiesLoaded;
+        sim.onMapMarkerSpawned += OnMapMarkerSpawned;
+        sim.onMapMarkerRemoved += OnMapMarkerRemoved;
 
         // Catch up on chunks that loaded before we subscribed (typical when
         // Initialize runs after WorldGen has populated the world synchronously).
-        foreach (var kv in world.WorldState._chunks)
+        foreach (var kv in sim.WorldState._chunks)
         {
             OnChunkLoaded(kv.Key);
         }
@@ -850,7 +850,7 @@ public partial class Minimap : Node3D
         {
             return;
         }
-        WorldSimState sim = _world?.WorldState?.SimState;
+        SimState sim = _world?.WorldState?.SimState;
         if (sim == null)
         {
             return;

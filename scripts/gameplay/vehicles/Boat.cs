@@ -182,13 +182,13 @@ public partial class Boat : RideableVehicle
         return false;
     }
 
-    public static Boat Create(World world, BoatSimState data)
+    public static Boat Create(Sim sim, BoatSimState data)
     {
         var instance = data.Scene.Instantiate<Boat>();
         instance.Position = data.WorldPosition;
         instance.RotationDegrees = new Vector3(0f, Mathf.RadToDeg(data.RotationY), 0f);
-        instance._world = world;
-        world.AddChild(instance);
+        instance._world = sim;
+        sim.AddChild(instance);
         return instance;
     }
 }

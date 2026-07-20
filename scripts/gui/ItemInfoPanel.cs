@@ -33,7 +33,7 @@ public partial class ItemInfoPanel : PanelContainer
 			Visible = false;
 			return;
 		}
-		WorldSimState worldSim = World.Current?.WorldState?.SimState;
+		SimState worldSim = Sim.Current?.WorldState?.SimState;
 		bool identified = forceIdentified || worldSim == null || worldSim.IsItemIdentified(data);
 		if (_nameLabel != null)
 		{
@@ -109,8 +109,8 @@ public partial class ItemInfoPanel : PanelContainer
 			}
 			else if (state.IsTimed)
 			{
-				ulong now = World.Current?.GameTimeMs ?? 0;
-				double nowTod = World.Current?.TimeOfDayAbsolute ?? 0.0;
+				ulong now = Sim.Current?.GameTimeMs ?? 0;
+				double nowTod = Sim.Current?.TimeOfDayAbsolute ?? 0.0;
 				progress = state.RemainingProgress(now, nowTod);
 				hasTimer = true;
 				buildup = 0f;

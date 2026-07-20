@@ -45,7 +45,7 @@ public static class ThreatScan
         {
             return null;
         }
-        MobSpatialHash hash = me.World?.MobSpatialHash;
+        MobSpatialHash hash = me.Sim?.MobSpatialHash;
         if (hash == null)
         {
             return null;

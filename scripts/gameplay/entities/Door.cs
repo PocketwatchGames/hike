@@ -23,7 +23,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     private bool _open;
     private DoorSimState _interactiveState;
     private WorldState _worldData;
-    private World _world;
+    private Sim _world;
     private Vector3I _baseWorldPos;
 
     public override void _Ready()
@@ -39,7 +39,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     {
     }
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(Sim sim) { }
 
     public bool CanInteract()
     {
@@ -84,20 +84,20 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         _world.RebuildNearbyChunkMeshes(GlobalPosition, changed);
     }
 
-    public static Door Create(World world, DoorSimState data)
+    public static Door Create(Sim sim, DoorSimState data)
     {
         var instance = data.Scene.Instantiate<Door>();
         instance.Position = data.WorldPosition;
         instance.RotationDegrees = new Vector3(0, Mathf.RadToDeg(data.RotationY), 0);
         instance._interactiveState = data;
-        instance._worldData = world.WorldState;
-        instance._world = world;
+        instance._worldData = sim.WorldState;
+        instance._world = sim;
         instance._baseWorldPos = new Vector3I(
             Mathf.FloorToInt(data.WorldPosition.X),
             Mathf.FloorToInt(data.WorldPosition.Y),
             Mathf.FloorToInt(data.WorldPosition.Z)
         );
-        world.AddChild(instance);
+        sim.AddChild(instance);
 
         instance._open = !data.Active;
         instance._blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = instance._open;

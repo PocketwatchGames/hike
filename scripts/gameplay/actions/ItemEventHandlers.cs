@@ -321,8 +321,8 @@ public static class ItemEventHandlers
 		// arrowLootData reference (currently the bow) AND on tiers that flag
 		// useAmmo — a non-ammo tier on the same weapon (e.g. a melee-bash
 		// with a bow) skips the drop. Other hitscan sources (mob attacks,
-		// traps) leave arrowLootData null and fire-and-forget. World.Current
-		// is the active game world — used here rather than threading a World
+		// traps) leave arrowLootData null and fire-and-forget. Sim.Current
+		// is the active game world — used here rather than threading a Sim
 		// through IActionActor since the hitscan handler already targets the
 		// player's running game.
 		//
@@ -334,7 +334,7 @@ public static class ItemEventHandlers
 		if (action.context.primaryItem is WeaponState shootingWeapon
 			&& shootingWeapon.data?.arrowLootData != null
 			&& action.selectedTier?.useAmmo == true
-			&& World.Current != null)
+			&& Sim.Current != null)
 		{
 			Mob targetMob = hitResult != EHitResult.None ? FindOwningMob(hitHurtBox) : null;
 			if (targetMob != null && targetMob.alive)
@@ -349,7 +349,7 @@ public static class ItemEventHandlers
 				// "freshly dropped" read. The launch also kicks the bob
 				// animation in Loot.Settle on rest (the AnimationPlayer
 				// branch keys on _initialImpulse != Vector3.Zero).
-				World.Current.SpawnArrowLoot(hitPos, BuildArrowEjectImpulse(), shootingWeapon.data.arrowLootData, shootingWeapon);
+				Sim.Current.SpawnArrowLoot(hitPos, BuildArrowEjectImpulse(), shootingWeapon.data.arrowLootData, shootingWeapon);
 			}
 		}
 
@@ -462,7 +462,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		Node fxHost = (Node)World.Current ?? attacker.AttackerNode?.GetParent();
+		Node fxHost = (Node)Sim.Current ?? attacker.AttackerNode?.GetParent();
 		Rid? selfHurtBox = attacker.SelfHurtBoxRid;
 		var struck = new System.Collections.Generic.HashSet<ulong>();
 		var sphere = new SphereShape3D { Radius = data.chainRange };
@@ -990,12 +990,12 @@ public static class ItemEventHandlers
 	}
 
 	// Drop an arced shot's landing telegraph: instantiate the preview decal at
-	// the landing point, parented to the World so it outlives the firing actor,
+	// the landing point, parented to the Sim so it outlives the firing actor,
 	// and arm its self-fade to roughly the lob's flight time. No-op if the scene
 	// isn't a GroundDecalPreview.
 	private static void SpawnArcTelegraph(PackedScene scene, Vector3 position, Node parent, float lifetimeSeconds)
 	{
-		Node host = (Node)World.Current ?? parent;
+		Node host = (Node)Sim.Current ?? parent;
 		if (scene == null || host == null)
 		{
 			return;
@@ -1126,7 +1126,7 @@ public static class ItemEventHandlers
 		if (ev == null) { return; }
 		if ((ev.type & EItemEventType.SpawnAreaEffect) != 0 && ev.areaEffectScene != null)
 		{
-			Node host = (Node)World.Current ?? parent;
+			Node host = (Node)Sim.Current ?? parent;
 			if (host != null)
 			{
 				Node3D instance = ev.areaEffectScene.Instantiate<Node3D>();
@@ -1161,7 +1161,7 @@ public static class ItemEventHandlers
 	}
 
 	// Spawns ev.areaEffectScene at the player's aim cursor (when valid) or
-	// the actor's feet otherwise. The scene is parented to the World so it
+	// the actor's feet otherwise. The scene is parented to the Sim so it
 	// outlives the actor and stays put as the actor keeps moving. Used for
 	// positional-aim AoEs (rain of arrows, fire patch, etc.) whose lifetime
 	// and damage ticking live on the spawned scene itself.
@@ -1176,7 +1176,7 @@ public static class ItemEventHandlers
 		{
 			position = player.AimingReticle.AimWorldPosition;
 		}
-		Node parent = (Node)World.Current ?? actor.AttackerNode?.GetParent();
+		Node parent = (Node)Sim.Current ?? actor.AttackerNode?.GetParent();
 		if (parent == null)
 		{
 			return;
@@ -1212,12 +1212,12 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		World world = World.Current;
-		if (world == null)
+		Sim sim = Sim.Current;
+		if (sim == null)
 		{
 			return;
 		}
-		Mob minion = world.SpawnMob(ev.minionData, ResolveAimPoint(actor));
+		Mob minion = sim.SpawnMob(ev.minionData, ResolveAimPoint(actor));
 		if (minion != null)
 		{
 			weapon.AddMinion(minion);
@@ -1249,7 +1249,7 @@ public static class ItemEventHandlers
 		{
 			return null;
 		}
-		Node parent = (Node)World.Current ?? actor.AttackerNode?.GetParent();
+		Node parent = (Node)Sim.Current ?? actor.AttackerNode?.GetParent();
 		if (parent == null)
 		{
 			return null;
@@ -1346,7 +1346,7 @@ public static class ItemEventHandlers
 	}
 
 	// Digs at the player's aim cursor (positional-aim tiers) or a short reach
-	// in front of the actor (directional / no cursor). Routes to World.TryDig,
+	// in front of the actor (directional / no cursor). Routes to Sim.TryDig,
 	// which uncovers the nearest buried-item spot in range — or, failing that,
 	// forces the nearest burrowed mob to the surface. Only the player digs;
 	// mob actors have no shovel.
@@ -1356,8 +1356,8 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		World world = World.Current;
-		if (world == null)
+		Sim sim = Sim.Current;
+		if (sim == null)
 		{
 			return;
 		}
@@ -1372,7 +1372,7 @@ public static class ItemEventHandlers
 			forward.Y = 0f;
 			center = player.ActorWorldPosition + forward.Normalized() * ev.digReach;
 		}
-		EDigResult result = world.TryDig(center, ev.digRadius, player);
+		EDigResult result = sim.TryDig(center, ev.digRadius, player);
 		PackedScene effect = result switch
 		{
 			EDigResult.Treasure => ev.digTreasureEffect,
@@ -1381,7 +1381,7 @@ public static class ItemEventHandlers
 		};
 		if (effect != null)
 		{
-			Node parent = (Node)World.Current ?? player.AttackerNode?.GetParent();
+			Node parent = (Node)Sim.Current ?? player.AttackerNode?.GetParent();
 			if (parent != null)
 			{
 				Fx.Create(effect, parent, center);
@@ -1448,7 +1448,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		MobSpatialHash hash = sourceMob.World?.MobSpatialHash;
+		MobSpatialHash hash = sourceMob.Sim?.MobSpatialHash;
 		if (hash == null)
 		{
 			return;
@@ -1546,10 +1546,10 @@ public static class ItemEventHandlers
 		// the canonical "actually consumed" hook — only consumables flow
 		// through here, and only ones whose timeline reached this event.
 		// Identification is shared across all stacks/recipes of the same
-		// ItemData; the read-side (WorldSimState.GetItemDisplayName) picks it
+		// ItemData; the read-side (SimState.GetItemDisplayName) picks it
 		// up immediately so the inventory row, recipe button, and cook
 		// announcement all reveal in lockstep.
-		if (actor is Player identifyingPlayer && identifyingPlayer.World?.WorldState?.SimState?.IdentifyItem(item.data) == true)
+		if (actor is Player identifyingPlayer && identifyingPlayer.Sim?.WorldState?.SimState?.IdentifyItem(item.data) == true)
 		{
 			inv?.NotifyChanged();
 		}

@@ -230,7 +230,7 @@ public partial class ItemEvent : Resource
 	[Export] public float digRadius = 1.5f;
 	[Export] public float digReach = 1.5f;
 	// Dig completion effects, picked by the dig's result class (see
-	// World.TryDig / EDigResult). One-shot Fx spawned at the dig point: a sad
+	// Sim.TryDig / EDigResult). One-shot Fx spawned at the dig point: a sad
 	// puff when the hole comes up empty, a modest burst for a common find
 	// (carrot / loot), a celebratory one for treasure. Any may be null.
 	[Export] public PackedScene digNothingEffect;

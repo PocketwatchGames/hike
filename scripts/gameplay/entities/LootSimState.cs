@@ -17,7 +17,7 @@ public class LootSimState : EntitySimState
     public bool RequireInteract;
     // True for loot that dropped at runtime (mob kills, dig yields, player drops)
     // rather than authored worldgen ground loot. A full spawn-state reset
-    // (World.ResetSpawns) sweeps these so a revived encounter doesn't leave
+    // (Sim.ResetSpawns) sweeps these so a revived encounter doesn't leave
     // the last life's spoils lying around, while authored loot (Dropped == false)
     // stays put. In-memory only, like RequireInteract.
     public bool Dropped;
@@ -28,7 +28,7 @@ public class LootSimState : EntitySimState
         Data = data;
     }
 
-    public override Node3D CreateEntity(World world)
+    public override Node3D CreateEntity(Sim sim)
     {
         if (PickedUp)
         {
@@ -40,7 +40,7 @@ public class LootSimState : EntitySimState
         {
             return null;
         }
-        return Loot.Create(world, this, scene);
+        return Loot.Create(sim, this, scene);
     }
 
     // Overrides for the per-loot-kind pickup contract — base implementation

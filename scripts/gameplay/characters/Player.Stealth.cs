@@ -93,7 +93,7 @@ public partial class Player : CharacterBody3D
 		_hidden = true;
 		_climbedTree = tree;
 		// Mark this as the currently-climbed tree so its map marker draws in its
-		// active (red) tint (WorldSimState.IsMarkerActive). Cleared on descent.
+		// active (red) tint (SimState.IsMarkerActive). Cleared on descent.
 		if (tree != null && _world?.WorldState?.SimState != null)
 		{
 			_world.WorldState.SimState.ActiveClimbTreePosition = tree.GlobalPosition;

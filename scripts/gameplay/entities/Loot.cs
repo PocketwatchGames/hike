@@ -78,7 +78,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private LootSimState _simState;
 	private bool _pickedUp;
 	private bool _removed;
-	private World _world;
+	private Sim _world;
 	private Vector3 _initialImpulse;
 	private Player _picker;
 	private bool _playSpawnEffects;
@@ -894,7 +894,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 
 	// True when this loot hands the player a choice of boons on interact instead
 	// of depositing an item (the fairy corpse — possibleBoons composed onto its
-	// state at spawn, see World.ComposeFairyBoons).
+	// state at spawn, see Sim.ComposeFairyBoons).
 	private bool OffersBoons => _simState?.Item != null && _simState.Item.possibleBoons.Count > 0;
 
 	// Open the boon-pick screen for `player` in place of an inventory deposit.
@@ -1038,7 +1038,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		QueueFree();
 	}
 
-	public void OnSpawned(World world)
+	public void OnSpawned(Sim sim)
 	{
 		if (_playSpawnEffects && _spawnEffectScene != null)
 		{
@@ -1046,12 +1046,12 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 	}
 
-	public static Loot Create(World world, LootSimState data, PackedScene scene, Vector3 impulse = default)
+	public static Loot Create(Sim sim, LootSimState data, PackedScene scene, Vector3 impulse = default)
 	{
 		var instance = scene.Instantiate<Loot>();
 		instance.Position = data.WorldPosition;
 		instance._simState = data;
-		instance._world = world;
+		instance._world = sim;
 		instance._initialImpulse = impulse;
 		instance._playSpawnEffects = true;
 		ItemData itemData = data.Item?.data ?? data.Data;
@@ -1086,7 +1086,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 				instance._sprite.Texture = texture;
 			}
 		}
-		world.AddChild(instance);
+		sim.AddChild(instance);
 		return instance;
 	}
 

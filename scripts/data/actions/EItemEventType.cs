@@ -73,7 +73,7 @@ public enum EItemEventType
 	// attached to environmental hazards.
 	CameraShake = 1 << 16,
 	// Digs at the actor's aim point (or a short reach in front when no aim
-	// cursor is active). Routes to World.TryDig, which excavates the nearest
+	// cursor is active). Routes to Sim.TryDig, which excavates the nearest
 	// buried-item spot in range — or, failing that, forces the nearest
 	// burrowed mob to surface. The shovel consumable authors this on its Use
 	// timeline alongside DecrementStack. See ev.digRadius.

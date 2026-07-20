@@ -41,8 +41,8 @@ public partial class IncomingProjectileCondition : BehaviorTransitionData
 
     public override bool Evaluate(Mob me, ref PerceptionState targetPerception)
     {
-        World world = me.World;
-        if (world == null || me.mobData == null)
+        Sim sim = me.Sim;
+        if (sim == null || me.mobData == null)
         {
             return false;
         }
@@ -61,7 +61,7 @@ public partial class IncomingProjectileCondition : BehaviorTransitionData
         }
         // Reaction cooldown — set by the behavior we transition into so the mob
         // can't re-dodge on the very next tick while shots keep coming.
-        if (world.GameTimeMs < me.ReactionReadyMs)
+        if (sim.GameTimeMs < me.ReactionReadyMs)
         {
             return false;
         }
@@ -74,7 +74,7 @@ public partial class IncomingProjectileCondition : BehaviorTransitionData
             return false;
         }
         float radius = me.mobData.clearanceRadius + detectRadiusBonus;
-        return world.Projectiles.FindIncoming(me.GlobalPosition, radius, me.ActorTeam, leadTime) != null;
+        return sim.Projectiles.FindIncoming(me.GlobalPosition, radius, me.ActorTeam, leadTime) != null;
     }
 
     // True when the mob's forward axis points within facingToleranceDegrees of

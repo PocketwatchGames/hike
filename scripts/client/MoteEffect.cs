@@ -186,8 +186,8 @@ public partial class MoteEffect : Node3D
         float dt = (float)delta;
         _moteTime += dt;
 
-        World world = World.Current;
-        bool worldReady = world != null && world.player != null;
+        Sim sim = Sim.Current;
+        bool worldReady = sim != null && sim.player != null;
 
         // Anchor the emission column on the PLAYER (not the camera, which sits
         // ~65 m above) so motes populate the visible near-ground air. The node
@@ -197,10 +197,10 @@ public partial class MoteEffect : Node3D
         Vector3 windDrift = Vector3.Zero;
         if (worldReady)
         {
-            Vector3 pp = world.player.GlobalPosition;
+            Vector3 pp = sim.player.GlobalPosition;
             GlobalPosition = new Vector3(pp.X, pp.Y + anchorHeightAbovePlayer, pp.Z);
 
-            WorldState ws = world.WorldState;
+            WorldState ws = sim.WorldState;
             if (ws != null && windInfluence > 0f)
             {
                 Vector3 windVel = ws.GetWindVelocityWorld(
@@ -267,7 +267,7 @@ public partial class MoteEffect : Node3D
             MoteMatRuntime.SetShaderParameter("shaft_occlusion_soft", shaftOcclusionSoft);
             MoteMatRuntime.SetShaderParameter("near_ground_height", nearGroundHeight);
             MoteMatRuntime.SetShaderParameter("mote_time", _moteTime);
-            float groundY = worldReady ? world.player.GlobalPosition.Y : 0f;
+            float groundY = worldReady ? sim.player.GlobalPosition.Y : 0f;
             MoteMatRuntime.SetShaderParameter("ground_reference_y", groundY);
         }
     }

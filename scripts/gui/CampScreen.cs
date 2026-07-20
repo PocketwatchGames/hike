@@ -10,7 +10,7 @@ using System.Collections.Generic;
 //
 // Unlike AlmanacScreen's read-only sub-screens, the cooking and stash tabs are
 // data-bound per open: Cook attaches to the campfire's Campfire, Stash to the
-// party equipment stash (WorldSimState.PartyEquipmentStash, reachable from any
+// party equipment stash (SimState.PartyEquipmentStash, reachable from any
 // campfire).
 // Each sub-screen is driven via its Open()/Close() — they no longer own any
 // global gating of their own; this screen is the single owner.
@@ -59,13 +59,13 @@ public partial class CampScreen : Control
 
 	// Any alchemy spell is known — the Spells tab is only offered when there's at
 	// least one spell to attune (otherwise the tab is empty). Walks SimData.spells
-	// against the active member's knowledge (WorldSimState.IsSpellKnown).
+	// against the active member's knowledge (SimState.IsSpellKnown).
 	bool AnySpellKnown
 	{
 		get
 		{
-			SimData simData = _player?.World?.SimData;
-			WorldSimState worldSim = _player?.World?.WorldState?.SimState;
+			SimData simData = _player?.Sim?.SimData;
+			SimState worldSim = _player?.Sim?.WorldState?.SimState;
 			if (simData?.spells == null || worldSim == null)
 			{
 				return false;
@@ -136,7 +136,7 @@ public partial class CampScreen : Control
 		// Lower-pitch zoomed-in framing focused on the campfire (with a transition
 		// blur) and hold the day/night clock while resting.
 		_gameClient?.camera?.SetCampMode(true, campfirePosition);
-		if (_player?.World != null) { _player.World.TimeOfDayFrozen = true; }
+		if (_player?.Sim != null) { _player.Sim.TimeOfDayFrozen = true; }
 		// Party-select mode shows only the party tab (the player must pick, not rest).
 		UpdateTabVisibility();
 		_open = true;
@@ -184,7 +184,7 @@ public partial class CampScreen : Control
 		_player?.ExitCamp();
 		MusicManager.Instance?.SetCamping(false);
 		_gameClient?.camera?.SetCampMode(false);
-		if (_player?.World != null) { _player.World.TimeOfDayFrozen = false; }
+		if (_player?.Sim != null) { _player.Sim.TimeOfDayFrozen = false; }
 		if (_gameClient != null)
 		{
 			_gameClient.onPlayerDied -= OnPlayerDied;
@@ -278,7 +278,7 @@ public partial class CampScreen : Control
 
 	List<ItemState> EquipmentStash()
 	{
-		return _player?.World?.WorldState?.SimState?.PartyEquipmentStash;
+		return _player?.Sim?.WorldState?.SimState?.PartyEquipmentStash;
 	}
 
 	// SleepScreen callback: hide the camp UI but keep the player in camp state
@@ -407,7 +407,7 @@ public partial class CampScreen : Control
 		_player?.ExitCamp();
 		MusicManager.Instance?.SetCamping(false);
 		_gameClient?.camera?.SetCampMode(false);
-		if (_player?.World != null) { _player.World.TimeOfDayFrozen = false; }
+		if (_player?.Sim != null) { _player.Sim.TimeOfDayFrozen = false; }
 		if (_gameClient != null)
 		{
 			_gameClient.onPlayerDied -= OnPlayerDied;
