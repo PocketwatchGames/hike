@@ -439,8 +439,6 @@ public partial class GameClient : Node3D
 	// idle where placed around camp. Populated by SpawnParty; used by
 	// SwitchControlTo to move control between members.
 	readonly List<Player> _partyPlayers = new();
-	// Draws the daily well-rested member each sunrise (OnNewDayWellRested).
-	readonly System.Random _wellRestedRng = new();
 	// Radius (m) of the ring that inactive party members spread around the
 	// spawn / campfire anchor.
 	[Export] float partyRingRadius = 2.5f;
@@ -567,13 +565,6 @@ public partial class GameClient : Node3D
 		_lastCampfirePosition = playerPosition;
 		_playerScene = playerScene;
 		_worldGenData = worldGenData;
-		// Bind this world's authored scripted content (quests) onto the runtime
-		// sim state — the single point that has both the gen template and the
-		// WorldState, for the WorldGen and .hike-load paths alike.
-		if (worldState != null)
-		{
-			worldState.ScriptData = worldGenData?.scriptData;
-		}
 		onHudText += OnHudTextRequested;
 		onDamage += OnDamageRequested;
 		onHeal += OnHealRequested;
@@ -600,10 +591,11 @@ public partial class GameClient : Node3D
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
 		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
-		_world.OnNewDay += OnNewDayResetMeals;
-		_world.OnNewDay += OnNewDayWellRested;
-		_world.OnNewDay += OnNewDayRefuelLanterns;
-		// Sim detects revive-deadline expiry (sim); we free the corpse node (client).
+		// Sim rolls the roster day (meal reset + well-rested lottery) inside
+		// AdvanceToNextSunrise; the client only re-applies the per-member NODE effects.
+		_world.OnNewDay += OnNewDayRefreshNodes;
+		// Sim detects revive-deadline expiry and drops the roster entry; we free the
+		// corpse node (those Player nodes are GameClient's).
 		_world.onPartyMemberExpired += OnPartyMemberExpired;
 		sceneViewport.AddChild(_world);
 		// Sim.Initialize is the chunk-mesh sphere fill — fully synchronous
@@ -611,6 +603,9 @@ public partial class GameClient : Node3D
 		// frozen at 0.6 → 0.75 across the single hitch. Threading the
 		// chunk fill (see voxels/CLAUDE.md) would make this smooth.
 		_world.Initialize(worldState, playerPosition, camera, fogMaterial, () => _player?.GlobalPosition ?? playerPosition);
+		// Bind this world's authored scripted content (quests) onto the runtime sim
+		// state, now that Sim holds the WorldState (WorldGen and .hike-load paths alike).
+		_world.BindScriptData(worldGenData?.scriptData);
 		GD.Print($"[Load] Building world (chunk-mesh fill): {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
 		loadingScreen?.SetProgress(0.75f, "Spawning...");
@@ -637,14 +632,10 @@ public partial class GameClient : Node3D
 		GD.Print($"[Load] Spawn-ready wait: {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
 
-		// Build the party roster once from the authored templates. Guard on an
-		// existing roster so a future disk-load / SaveGame path that already
-		// carries a party doesn't rebuild or double-spawn it.
-		if (sim != null && sim.Party == null)
-		{
-			sim.Party = Party.FromTemplates(worldGenData?.startingParty);
-		}
-		Party party = sim?.Party ?? Party.FromTemplates(worldGenData?.startingParty);
+		// Sim builds the roster once from the authored templates (idempotent, so a
+		// future disk-load carrying a party isn't rebuilt); we spawn a Player node
+		// per member below.
+		Party party = _world.EnsureParty(worldGenData?.startingParty);
 
 		// Spawn every member as a Player node: the active member at the spawn
 		// anchor (controlled), the rest evenly ringed around it and inactive
@@ -782,18 +773,15 @@ public partial class GameClient : Node3D
 	// confirm to re-center the newly-controlled member.
 	public void GatherPartyAt(Vector3 anchor)
 	{
-		Party party = _world?.WorldState?.SimState?.Party;
-		if (party == null) { return; }
 		int ringCount = 0;
-		for (int i = 0; i < _partyPlayers.Count; i++)
+		foreach (Player p in _partyPlayers)
 		{
-			if (party.IsAlive(i) && _partyPlayers[i] != null && _partyPlayers[i] != _player) { ringCount++; }
+			if (IsLiving(p) && p != _player) { ringCount++; }
 		}
 		int slot = 0;
-		for (int i = 0; i < _partyPlayers.Count; i++)
+		foreach (Player p in _partyPlayers)
 		{
-			Player p = _partyPlayers[i];
-			if (p == null || !party.IsAlive(i)) { continue; }
+			if (!IsLiving(p)) { continue; }
 			if (p == _player)
 			{
 				p.TeleportTo(anchor);
@@ -804,6 +792,24 @@ public partial class GameClient : Node3D
 				slot++;
 			}
 		}
+	}
+
+	// A spawned, living party node (its member isn't fallen). A dead member's Player
+	// node lingers where it fell as the revivable corpse, so gather/ring math skips it.
+	// Aliveness reads the node's own PlayerState, so no roster-index alignment is assumed.
+	static bool IsLiving(Player p) => p != null && p.Member is { IsDead: false };
+
+	// The Player node hosting a given roster member, or null. Identity lookup — used
+	// where control follows the roster's active member without assuming _partyPlayers
+	// stays index-aligned with it.
+	Player PlayerFor(PlayerState member)
+	{
+		if (member == null) { return null; }
+		foreach (Player p in _partyPlayers)
+		{
+			if (p != null && p.Member == member) { return p; }
+		}
+		return null;
 	}
 
 	// Camp entry from the campfire interact (Campfire.Complete). The gameplay
@@ -854,11 +860,12 @@ public partial class GameClient : Node3D
 		{
 			minimap.CaptureBankedRevealBaseline();
 		}
-		// Returning to a campfire banks the active member's provisional field
-		// knowledge into the permanent party pool (the "commit" in the two-tier
-		// knowledge model). The returned flags say which categories gained new
-		// knowledge, so we can announce exactly what was recorded.
-		EKnowledgeCategory banked = _world?.WorldState?.SimState?.BankActiveKnowledge() ?? EKnowledgeCategory.None;
+		// Returning to a campfire commits the camp: Sim banks the active member's
+		// provisional field knowledge into the permanent party pool (the "commit" in the
+		// two-tier knowledge model) and drains their carried materials into the shared
+		// stash. The returned flags say which knowledge categories gained, so we can
+		// announce exactly what was recorded.
+		EKnowledgeCategory banked = _world?.CommitCamp() ?? EKnowledgeCategory.None;
 		AnnounceBankedKnowledge(banked);
 		// Fold the freshly-banked reveal into the party pool display (the minimap,
 		// which shows party ∪ active, updates now), then ARM the world-map reveal
@@ -868,7 +875,6 @@ public partial class GameClient : Node3D
 		// (see AlmanacScreen.ShowTab) — so the map isn't updated on entering camp.
 		minimap?.RebuildExplorationDisplay();
 		minimap?.PrepareBankedReveal();
-		TransferCarriedMaterialsToStash();
 	}
 
 	// Announce a HUD line for each category of knowledge freshly banked into the
@@ -900,24 +906,6 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// On camping, the controlled member's carried materials drain into the shared
-	// party material stash (cooking pulls ingredients from there). Merges into
-	// existing stacks. Equipment / weapons / armor stay on the member — only the
-	// material backpack empties.
-	void TransferCarriedMaterialsToStash()
-	{
-		Inventory inv = _player?.Inventory;
-		List<ItemState> stash = _world?.WorldState?.SimState?.PartyMaterialStash;
-		if (inv == null || stash == null)
-		{
-			return;
-		}
-		foreach (ItemState material in inv.DrainBackpack())
-		{
-			ItemStash.Add(stash, material);
-		}
-	}
-
 	// Recruit a talkable NPC into the party (fired by a RecruitToPartyAction in
 	// the mob's conversation). Deep-clones the mob's authored party-member
 	// template into a new roster member, spawns that member as an inactive Player
@@ -929,17 +917,18 @@ public partial class GameClient : Node3D
 	// its conversation can't fire this twice.
 	public bool RecruitToParty(Mob mob)
 	{
-		PlayerState template = mob?.RecruitTemplate;
-		Party party = _world?.WorldState?.SimState?.Party;
-		if (template == null || party == null || _playerScene == null)
+		if (mob?.RecruitTemplate == null || _playerScene == null)
 		{
 			return false;
 		}
-
-		// Clone so the roster member is independent of the authored .tres (their
-		// vitals / inventory evolve per-run), matching Party.FromTemplates.
-		var member = (PlayerState)template.Duplicate(true);
-		party.Add(member);
+		// Sim clones the template into a new inactive roster member; we spawn the
+		// matching Player node on the campfire ring. Appending to both in the same
+		// order keeps _partyPlayers index-aligned with the roster.
+		PlayerState member = _world?.RecruitMember(mob.RecruitTemplate);
+		if (member == null)
+		{
+			return false;
+		}
 
 		// Place on the campfire ring alongside the other standing members. Sized to
 		// the inactive count including the newcomer; the existing members keep their
@@ -951,7 +940,6 @@ public partial class GameClient : Node3D
 		}
 		Vector3 pos = RingPosition(_lastCampfirePosition, inactiveBefore, inactiveBefore + 1);
 		Player p = SpawnPartyMember(member, _playerScene, _worldGenData, pos, active: false);
-		// Party.Add appended, so a plain Add keeps _partyPlayers index-aligned.
 		_partyPlayers.Add(p);
 
 		// Drop the player's highlight/current interactive if it still points at the
@@ -1013,17 +1001,13 @@ public partial class GameClient : Node3D
 	// a Select-Character pick and the control transfer (camp close); falls back to
 	// the controlled member's index if there's no party.
 	public int ActivePartyIndex =>
-		_world?.WorldState?.SimState?.Party?.ActiveIndex ?? _partyPlayers.IndexOf(_player);
+		_world?.Party?.ActiveIndex ?? _partyPlayers.IndexOf(_player);
 
 	// Mark a party member as active in the roster (data only). Control transfers
 	// on the next SyncControlToActive — the camp Select-Character screen calls
 	// this on Select and defers the transfer to camp exit. Returns true if the
 	// active member actually changed.
-	public bool SetPartyActive(int index)
-	{
-		Party party = _world?.WorldState?.SimState?.Party;
-		return party != null && party.SetActive(index);
-	}
+	public bool SetPartyActive(int index) => _world?.SetPartyActive(index) ?? false;
 
 	// Hand control — input, camera, World.player, HUD, audio listener — to
 	// whichever member the roster currently marks active. The previously-
@@ -1037,17 +1021,9 @@ public partial class GameClient : Node3D
 	// own attunement.
 	public void SyncControlToActive(bool transferBelt = false)
 	{
-		Party party = _world?.WorldState?.SimState?.Party;
-		if (party == null)
-		{
-			return;
-		}
-		int index = party.ActiveIndex;
-		if (index < 0 || index >= _partyPlayers.Count)
-		{
-			return;
-		}
-		Player target = _partyPlayers[index];
+		// Follow the roster's active member by identity, not index — no assumption that
+		// _partyPlayers stays aligned with the roster.
+		Player target = PlayerFor(_world?.Party?.Active);
 		if (target == null || target == _player)
 		{
 			return;
@@ -1090,12 +1066,12 @@ public partial class GameClient : Node3D
 	// member. No-op for a solo party.
 	public void SwitchToNextPartyMember()
 	{
-		Party party = _world?.WorldState?.SimState?.Party;
-		if (party == null || _partyPlayers.Count <= 1)
+		int active = _world?.Party?.ActiveIndex ?? -1;
+		if (active < 0 || _partyPlayers.Count <= 1)
 		{
 			return;
 		}
-		SwitchControlTo((party.ActiveIndex + 1) % _partyPlayers.Count);
+		SwitchControlTo((active + 1) % _partyPlayers.Count);
 	}
 
 	void OnSimItemIdentified(ItemData data)
@@ -1149,7 +1125,7 @@ public partial class GameClient : Node3D
 		// A player-credited kill charts the species in the bestiary if it wasn't
 		// already discovered by perception. DiscoverSpecies handles the
 		// appearsInBestiary / already-known guards and fires the announcement.
-		_world?.WorldState?.SimState?.DiscoverSpecies(species);
+		_world?.DiscoverSpecies(species);
 	}
 
 	void OnSimSpeciesDiscovered(SpeciesData species)
@@ -1602,7 +1578,7 @@ public partial class GameClient : Node3D
 			_currentRegionEnterPos = playerPos;
 			_pendingRegion = null;
 			_pendingRegionElapsed = 0f;
-			ws.SimState.DiscoverRegion(CurrentRegion);
+			_world?.DiscoverRegion(CurrentRegion);
 			Announce(new Announcement
 			{
 				type = EAnnouncementType.Region,
@@ -1740,7 +1716,7 @@ public partial class GameClient : Node3D
 		// rewinds the display to the baseline so the delta fades in on top.
 		minimap?.CaptureBankedRevealBaseline();
 		minimap?.SnapshotFieldRevealToWorldMap();
-		_world?.WorldState?.SimState?.SnapshotWorldMapReveal();
+		_world?.SnapshotWorldMapReveal();
 		minimap?.PrepareBankedReveal();
 		// Opening the almanac to the world map fires the armed sweep (AlmanacScreen
 		// .ShowTab → StartBankedReveal). The map opens instantly (no fade-to-black),
@@ -2412,15 +2388,14 @@ public partial class GameClient : Node3D
 		// dies — snap framing intent back to the player for the death cam.
 		camera?.ClearFocus();
 
-		// The fallen member's body stays where it died as a revivable corpse: mark
-		// it dead, make it an inactive (dead-pose) standing body, and enable its
-		// revive interactive so a surviving member can bring it back.
-		Party party = _world?.WorldState?.SimState?.Party;
-		if (player?.Member != null) { player.Member.IsDead = true; }
+		// The fallen member's body stays where it died as a revivable corpse: Sim marks
+		// the member dead; we make its node an inactive (dead-pose) standing body and
+		// enable its revive interactive so a surviving member can bring it back.
+		_world?.MarkMemberDead(player?.Member);
 		player?.SetActive(false);
 		player?.SetCorpseInteractable(true);
 
-		bool anySurvivors = party != null && party.AliveCount > 0;
+		bool anySurvivors = (_world?.Party?.AliveCount ?? 0) > 0;
 		if (deathScreen != null)
 		{
 			deathScreen.Show(this, anySurvivors
@@ -2444,109 +2419,55 @@ public partial class GameClient : Node3D
 	// campfire, and frame it. The dead member's body is left behind as a corpse.
 	public void OnDeathBlackout()
 	{
-		Party party = _world?.WorldState?.SimState?.Party;
-		int alive = party?.FirstAliveIndex() ?? -1;
+		int alive = _world?.Party?.FirstAliveIndex() ?? -1;
 		if (alive < 0)
 		{
 			return;
 		}
-		// Hand control to a living member FIRST — AdvanceTime early-outs on a dead
-		// _player, so a survivor must be driving before we skip time.
-		party.SetActive(alive);
+		// Hand control to a living member FIRST — the death time-skip early-outs on a
+		// dead controlled member, so a survivor must be driving before we roll the day.
+		_world.SetPartyActive(alive);
 		SyncControlToActive();
-		// "Sleep off" the death: advance to the next sunrise, then give the newly-
-		// fallen member their one-day revive grace and destroy anyone whose
-		// deadline the skip just passed.
-		_world?.AdvanceToNextSunrise();
-		_world?.AssignReviveDeadlines();
-		_world?.CheckReviveDeadlines();
+		// "Sleep off" the death: Sim advances to the next sunrise, grants the newly-
+		// fallen member their one-day revive grace, and retires anyone whose deadline
+		// the skip just passed.
+		_world.ResolveDeathDayRoll();
 		GatherPartyAt(_lastCampfirePosition);
 		camera?.SetInitialPosition(_lastCampfirePosition);
 		slowMotion?.Release();
 		screenEffects?.ResetOnRespawn();
 	}
 
-	// A fresh day clears every member's "eaten today" flag so each character may
-	// cook and eat once again. Subscribed to Sim.OnNewDay, the only day-advance
-	// path (Sim.AdvanceToNextSunrise) — covers both the camp sleep-to-sunrise and
-	// the death time-skip.
-	void OnNewDayResetMeals(int dayNumber)
+	// Each sunrise Sim rolls the roster (meal reset + well-rested lottery, in
+	// Sim.AdvanceToNextSunrise); the client re-applies the resulting per-member NODE
+	// effects: the WellRested stat buff (the campfire glow follows the same flag,
+	// gated on sitting at the fire in Player.UpdateWellRestedFx) and a top-off of
+	// every carried lantern. A fountain is the only other refuel — a campfire
+	// deliberately isn't. Subscribed to Sim.OnNewDay, the only day-advance path, so
+	// this covers both the camp sleep-to-sunrise and the death time-skip.
+	void OnNewDayRefreshNodes(int dayNumber)
 	{
-		Party party = _world?.WorldState?.SimState?.Party;
-		if (party == null)
-		{
-			return;
-		}
-		for (int i = 0; i < party.Count; i++)
-		{
-			PlayerState m = party[i];
-			if (m != null)
-			{
-				m.HasEatenToday = false;
-			}
-		}
-	}
-
-	// Each sunrise, draw the day's "well rested" party member (see
-	// Party.AdvanceRestAndPickWellRested — it also ages the rest counters and
-	// clears yesterday's pick) and sync the WellRested buff onto every party
-	// Player node. The campfire glow particle follows the same per-member flag,
-	// gated on sitting at the fire (Player.UpdateWellRestedFx). Subscribed to
-	// Sim.OnNewDay alongside the meal reset.
-	void OnNewDayWellRested(int dayNumber)
-	{
-		Party party = _world?.WorldState?.SimState?.Party;
-		if (party == null)
-		{
-			return;
-		}
-		party.AdvanceRestAndPickWellRested(_wellRestedRng);
 		for (int i = 0; i < _partyPlayers.Count; i++)
 		{
 			_partyPlayers[i]?.RefreshWellRested();
-		}
-	}
-
-	// Top off every party member's carried torches/lanterns each sunrise.
-	// Subscribed to Sim.OnNewDay, the only day-advance path — covers both the
-	// camp sleep-to-sunrise and the death time-skip. A fountain is the only other
-	// way spent lantern fuel comes back (visiting a campfire deliberately doesn't).
-	void OnNewDayRefuelLanterns(int dayNumber)
-	{
-		for (int i = 0; i < _partyPlayers.Count; i++)
-		{
 			_partyPlayers[i]?.RefuelLantern();
 		}
 	}
 
-	// Sim detected this fallen member's revive deadline lapsed (Sim.CheckReviveDeadlines
-	// fires onPartyMemberExpired). Free the corpse body node and drop the roster entry,
-	// kept index-aligned with the sim Party. The Player node is GameClient's to own — which
-	// is why this teardown lives here while the timing decision lives in the sim. Only dead
-	// members are ever reported, so the controlled member is never destroyed.
+	// Sim retired this fallen member (its revive deadline lapsed) and already dropped
+	// it from the roster; we free the matching corpse Player node. Resolved by member
+	// identity — the node still carries its Member reference after the roster removal —
+	// so no roster-index alignment is assumed. Only dead members are ever reported, so
+	// the controlled member is never destroyed.
 	void OnPartyMemberExpired(PlayerState member)
 	{
-		if (member == null)
+		Player corpse = PlayerFor(member);
+		if (corpse == null)
 		{
 			return;
 		}
-		int index = -1;
-		for (int i = 0; i < _partyPlayers.Count; i++)
-		{
-			if (_partyPlayers[i]?.Member == member)
-			{
-				index = i;
-				break;
-			}
-		}
-		if (index < 0)
-		{
-			return;
-		}
-		Player corpse = _partyPlayers[index];
-		_partyPlayers.RemoveAt(index);
-		_world?.WorldState?.SimState?.Party?.RemoveAt(index);
-		corpse?.QueueFree();
+		_partyPlayers.Remove(corpse);
+		corpse.QueueFree();
 	}
 
 	// Called by DeathScreen after the fade-in reveals the campfire (party-select
@@ -2576,18 +2497,14 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		// Recover the fallen member's un-banked field knowledge into the reviving
-		// (active) player's provisional store. MergeFrom folds in the map reveal too, so the
-		// minimap display is recomposed to surface it immediately.
-		PlayerState reviver = _player?.Member;
-		if (reviver != null && reviver != corpse.Member)
+		// Sim restores the member: it folds the fallen member's un-banked field
+		// knowledge back into the reviving (active) member's provisional store and
+		// clears the death flags. MergeFrom folds in the map reveal too, so recompose
+		// the minimap display to surface it immediately when any knowledge moved.
+		if (_world?.ReviveMember(_player?.Member, corpse.Member) == true)
 		{
-			reviver.Knowledge.MergeFrom(corpse.Member.Knowledge);
-			corpse.Member.Knowledge.Clear();
 			_world.Minimap?.RebuildExplorationDisplay();
 		}
-		corpse.Member.IsDead = false;
-		corpse.Member.ReviveByDay = 0;
 		corpse.SetCorpseInteractable(false);
 		corpse.Respawn(_lastCampfirePosition);
 		corpse.SetActive(false);
@@ -2605,15 +2522,12 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		_player.Respawn(_spawnPosition);
-		// Respawning refills carried lanterns like a fresh day (this path doesn't
-		// roll the day itself, so OnNewDayRefuelLanterns won't fire).
-		_player.RefuelLantern();
+		// Sim resets the controlled member's pools/effects, teleports them to spawn,
+		// refills their lanterns (this path doesn't roll the day, so the sunrise refuel
+		// won't fire), and recalls a surviving companion to the spawn point at full
+		// health (one that died stays dead). We snap the camera and ease slow-mo back.
+		_world?.RespawnControlledPlayer(_spawnPosition);
 		camera.SetInitialPosition(_spawnPosition);
-
-		// A surviving companion relocates to the spawn point at full health; one
-		// that died stays dead and despawns (see Mob.RecallToPlayer).
-		_world?.Companion?.RecallToPlayer(_spawnPosition);
 
 		// Ease back to real time + the resting zoom. The ease-out plays under the
 		// DeathScreen fade-in (revealing from black).
@@ -2691,39 +2605,11 @@ public partial class GameClient : Node3D
 	// death-cam happen behind the curtain).
 	public void PerformSleepAdvance(double hours, double healFractionPerHour)
 	{
-		if (_sleepToSunrise)
-		{
-			// Sleep to sunrise: advance the day (loaded mobs catch up, but the
-			// player is NOT integrated), then clear the player's active status
-			// effects and full-heal — a DoT can never chip or kill them in their
-			// sleep, and they wake refreshed at the new day.
-			_world?.AdvanceToNextSunrise();
-			if (_player != null && !_player.IsDead)
-			{
-				_player.ClearTransientStatusEffects();
-				_player.Heal(_player.MaxHealth);
-			}
-		}
-		else
-		{
-			_world?.AdvanceTime(hours);
-			// Rest heals after the time-skip's status effects resolve, so a DoT
-			// that ran during the skip is applied first — and a player the skip
-			// killed is not revived by the rest heal.
-			if (_player != null && !_player.IsDead)
-			{
-				_player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours));
-			}
-		}
-		// A surviving companion wakes at the player's side, fully healed,
-		// regardless of where it wandered during the day; one that died stays
-		// dead and despawns (see Mob.RecallToPlayer).
-		// (The world's spawns reset inside AdvanceTime / AdvanceToNextSunrise above,
-		// gated on time actually passing.)
-		if (_player != null)
-		{
-			_world?.Companion?.RecallToPlayer(_player.GlobalPosition);
-		}
+		// Sim runs the whole skip behind the fade: to-sunrise rolls the day and
+		// full-heals (a DoT can't kill the sleeper); a nap integrates effects over the
+		// hours then heals a fraction; either way a surviving companion wakes at the
+		// player's side and the world's spawns reset (gated on time actually passing).
+		_world?.PerformSleepAdvance(hours, healFractionPerHour, _sleepToSunrise);
 	}
 
 	// Called by SleepOverlay when a clean wake's fade-in completes. A modal-driven
@@ -2760,18 +2646,11 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		_player.TeleportTo(_lastCampfirePosition);
-		// Sleep-to-sunrise: the night passes, enchantments (transient effects) reset,
-		// and the player wakes healed — the same three calls the camp sleep makes.
-		_world.AdvanceToNextSunrise();
-		if (!_player.IsDead)
-		{
-			_player.ClearTransientStatusEffects();
-			_player.Heal(_player.MaxHealth);
-		}
-		_player.RefuelLantern();
-		// A surviving companion wakes at the campfire, mirroring the sleep/respawn paths.
-		_world.Companion?.RecallToPlayer(_lastCampfirePosition);
+		// Sim sends the player home: teleport to the campfire, sleep to sunrise (reset
+		// transient effects + full-heal), refuel lanterns, and recall a surviving
+		// companion — the same restore the camp sleep makes, but deliberately WITHOUT
+		// banking (the cost of the free trip). We reframe the camera + open the camp.
+		_world.ReturnHomeToSunrise(_lastCampfirePosition);
 		camera?.SetInitialPosition(_lastCampfirePosition);
 		// Open the camp screen without banking. The home campfire node is used when it
 		// is still resident (full cook/craft); otherwise fall back to a position-only

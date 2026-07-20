@@ -505,6 +505,12 @@ public partial class Sim : Node3D
 
         _wasNight = WorldState.IsNight(_worldState.TimeOfDay01);
         RefreshTimeOfDayEntities();
+        // Roster day-roll: clear yesterday's meals and draw the day's well-rested
+        // member BEFORE OnNewDay fires, so the client's node-refresh subscriber
+        // (well-rested buff + lantern refuel) reads the updated PlayerState flags.
+        Party party = _worldState?.SimState?.Party;
+        party?.ResetMealsForNewDay();
+        party?.AdvanceRestAndPickWellRested(_wellRestedRng);
         OnNewDay?.Invoke(_worldState.DayNumber);
         CleanupOffConditionMobs();
         // A full day rolled over — reset the world's encounters to their spawn

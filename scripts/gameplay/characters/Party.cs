@@ -80,6 +80,26 @@ public class Party
 	public PlayerState this[int index] =>
 		index >= 0 && index < _members.Count ? _members[index] : null;
 
+	// Remove a member by reference (their un-revived body expired). Resolves to the
+	// index form so the active-index shift is handled identically — the caller
+	// (Sim.CheckReviveDeadlines) holds the PlayerState, not an index, so roster
+	// shifts between detection and removal can't misfire.
+	public void Remove(PlayerState member)
+	{
+		int i = _members.IndexOf(member);
+		if (i >= 0) { RemoveAt(i); }
+	}
+
+	// Clear every member's "eaten today" flag at sunrise so each character may cook
+	// and eat once again. Called from Sim's day roll (Sim.AdvanceToNextSunrise).
+	public void ResetMealsForNewDay()
+	{
+		for (int i = 0; i < _members.Count; i++)
+		{
+			if (_members[i] != null) { _members[i].HasEatenToday = false; }
+		}
+	}
+
 	// Build a runtime party by DEEP-cloning each authored template so the live
 	// roster is independent of the .tres (a member's vitals / inventory evolve
 	// per-run). Null / empty templates are skipped; a party with no valid member
