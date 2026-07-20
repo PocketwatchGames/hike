@@ -2013,13 +2013,19 @@ public partial class GameClient : Node3D
 
 	void RemoveHighlight()
 	{
-		if (_meshHighlight != null)
+		// The previously-highlighted interactive may have despawned or streamed out
+		// since we cached these — a freed Godot node isn't null (its wrapper survives
+		// and throws on access), so gate teardown on IsInstanceValid, not a null check.
+		if (IsInstanceValid(_meshHighlight))
 		{
 			_meshHighlight.SetSelected(false);
-			_meshHighlight = null;
 		}
-		_highlightOverlay.Visible = false;
-		_highlightOverlay.Reparent(sceneViewport, false);
+		_meshHighlight = null;
+		if (IsInstanceValid(_highlightOverlay))
+		{
+			_highlightOverlay.Visible = false;
+			_highlightOverlay.Reparent(sceneViewport, false);
+		}
 		_outlinedNode = null;
 	}
 

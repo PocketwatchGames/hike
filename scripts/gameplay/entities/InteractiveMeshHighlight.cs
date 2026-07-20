@@ -91,7 +91,11 @@ public partial class InteractiveMeshHighlight : Node3D
         }
         foreach (MeshInstance3D m in _targets)
         {
-            if (m == null)
+            // A freed mesh (its interactive despawned / streamed out while highlighted)
+            // is NOT null in C# — the wrapper survives and throws ObjectDisposedException
+            // on any Godot property access — so validity, not a null check, is what
+            // guards the .Layers write when clearing a selection.
+            if (!IsInstanceValid(m))
             {
                 continue;
             }
