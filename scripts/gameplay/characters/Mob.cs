@@ -3789,13 +3789,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Armor handling. Bypass-aware split: a portion of `incoming` skips
         // armor entirely (discrete `ArmorPenetrated` = full bypass; continuous
         // `armorBypassFraction` = partial), the rest is "absorbable" and
-        // piles onto the armor chip scaled by `1 + hit.blunt`. Overflow
-        // doesn't bleed into health on the absorbed portion — only the
-        // pre-resolved bypass lands. The recharge window resets on any
-        // absorbable hit that touches armor, including blows that land while
-        // armor is already depleted (a sustained beating keeps the recover
-        // window from starting). A pure-penetration hit (armorPenetration=1,
-        // etc.) never touches armor and so doesn't extend the window.
+        // piles onto the armor chip scaled by `1 + hit.blunt`. Armor that
+        // SURVIVES the chip soaks the whole absorbable slice — none through,
+        // only the pre-resolved bypass lands. But the blow that BREAKS the
+        // armor (chip >= remaining armor) shatters it and provides no
+        // protection: the full hit (absorbable + bypass) lands on health. The
+        // recharge window resets on any absorbable hit that touches armor,
+        // including blows that land while armor is already depleted (a
+        // sustained beating keeps the recover window from starting). A
+        // pure-penetration hit (armorPenetration=1, etc.) never touches armor
+        // and so doesn't extend the window.
         float bypassFraction = hit.ArmorPenetrated ? 1f : hit.armorBypassFraction;
         float bypassed = incoming * bypassFraction;
         float absorbable = incoming - bypassed;
@@ -3803,11 +3806,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (absorbable > 0f && armor > 0f)
         {
             float armorDamage = absorbable * (1f + hit.blunt);
-            float armorBefore = armor;
-            armor = Mathf.Max(0f, armor - armorDamage);
-            armorAbsorbed = armorBefore - armor;
-            RefreshArmorRecharge(armor > 0f);
-            incoming = bypassed;
+            if (armorDamage < armor)
+            {
+                // Armor survives: soaks the whole absorbable slice.
+                armorAbsorbed = armorDamage;
+                armor -= armorDamage;
+                RefreshArmorRecharge(true);
+                incoming = bypassed;
+            }
+            else
+            {
+                // Breaking blow: armor shatters and stops nothing — the full
+                // hit lands on health (incoming left at bypassed + absorbable).
+                armor = 0f;
+                RefreshArmorRecharge(false);
+            }
         }
         else if (absorbable > 0f && maxArmor > 0f)
         {

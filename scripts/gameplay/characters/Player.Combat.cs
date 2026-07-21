@@ -146,11 +146,10 @@ public partial class Player : CharacterBody3D
 			NotifyCombatEngaged();
 		}
 
-		// Capture the charging weapon's guard BEFORE TryInterrupt — a weapon
-		// authored to interrupt-on-damage would otherwise leave Charging here
-		// and the hit that ended the charge wouldn't be blocked. The guard was
-		// up when the hit landed, so it catches this one and then drops.
-		WeaponState blockWeapon = GetChargingBlockWeapon();
+		// Capture the sneaking guard BEFORE `_sneaking = false` below — being
+		// hit breaks sneak, but the guard was up when the hit landed, so it
+		// catches this one and then drops.
+		WeaponState blockWeapon = GetSneakBlockWeapon();
 		// Damage may interrupt an in-flight action (gated by profile +
 		// per-tier canInterrupt). External interruption fires BEFORE damage
 		// is applied so abortEvents can run on coherent pre-damage state.
@@ -172,40 +171,52 @@ public partial class Player : CharacterBody3D
 		// Armor handling. Bypass-aware split: a portion of `incomingDamage`
 		// skips armor entirely (discrete `ArmorPenetrated` = full bypass; continuous
 		// `armorBypassFraction` = partial), the rest is "absorbable" and
-		// piles onto the armor chip scaled by `1 + hit.blunt`. Overflow
-		// doesn't bleed into health on the absorbed portion — only the
-		// pre-resolved bypass lands. The recharge window resets on any
-		// absorbable hit that touches armor, including blows that land while
-		// armor is already depleted (a sustained beating keeps the recover
-		// window from starting). A pure-penetration hit (armorPenetration=1,
-		// etc.) never touches armor and so doesn't extend the window.
+		// piles onto the armor chip scaled by `1 + hit.blunt`. Armor that
+		// SURVIVES the chip soaks the whole absorbable slice — none through,
+		// only the pre-resolved bypass lands. But the blow that BREAKS the
+		// armor (chip >= remaining armor) shatters it and provides no
+		// protection: the full hit (absorbable + bypass) lands on health. The
+		// recharge window resets on any absorbable hit that touches armor,
+		// including blows that land while armor is already depleted (a
+		// sustained beating keeps the recover window from starting). A
+		// pure-penetration hit (armorPenetration=1, etc.) never touches armor
+		// and so doesn't extend the window.
 		float bypassFraction = hit.ArmorPenetrated ? 1f : hit.armorBypassFraction;
 		float bypassed = incomingDamage * bypassFraction;
 		float absorbable = incomingDamage - bypassed;
 		// Weapon block armor takes the absorbable slice FIRST while the player
-		// is charging a guard-bearing weapon — the held charge doubles as a
-		// shield. When the guard eats the slice, only the pre-resolved bypass
-		// continues past it (matching the central-armor "overflow doesn't
-		// bleed" rule below). AbsorbWeaponBlock also re-arms the weapon's
-		// recharge delay on any guard-touching hit, even at zero guard.
+		// is sneaking with a guard-bearing melee weapon — the sneak crouch
+		// doubles as a shield. When the guard eats the slice, only the
+		// pre-resolved bypass continues past it (matching the central-armor
+		// "overflow doesn't bleed" rule below). AbsorbWeaponBlock also re-arms
+		// the weapon's recharge delay on any guard-touching hit, even at zero guard.
 		float blockAbsorbed = AbsorbWeaponBlock(blockWeapon, ref absorbable, hit.blunt);
 		if (blockAbsorbed > 0f)
 		{
 			incomingDamage = bypassed;
-			// Guard reaction one-shot, played over the held charge pose (resolves
-			// the wielded weapon's Block override; no-op if it authors none). The
-			// blocking weapon is the one being charged, i.e. the wielded weapon.
-			PlayOneShot(EAnimation.Block, overridesCharge: true);
+			// Guard reaction one-shot over the sneak pose (resolves the wielded
+			// weapon's Block override; no-op if it authors none).
+			PlayOneShot(EAnimation.Block);
 		}
 		float armorAbsorbed = 0f;
 		if (absorbable > 0f && _armor > 0f)
 		{
 			float armorDamage = absorbable * (1f + hit.blunt);
-			float armorBefore = _armor;
-			_armor = Mathf.Max(0f, _armor - armorDamage);
-			armorAbsorbed = armorBefore - _armor;
-			RefreshArmorRecharge(_armor > 0f);
-			incomingDamage = bypassed;
+			if (armorDamage < _armor)
+			{
+				// Armor survives: soaks the whole absorbable slice.
+				armorAbsorbed = armorDamage;
+				_armor -= armorDamage;
+				RefreshArmorRecharge(true);
+				incomingDamage = bypassed;
+			}
+			else
+			{
+				// Breaking blow: armor shatters and stops nothing — the full
+				// hit lands on health (incomingDamage left at bypassed + absorbable).
+				_armor = 0f;
+				RefreshArmorRecharge(false);
+			}
 		}
 		else if (absorbable > 0f && MaxArmor > 0f)
 		{
@@ -375,13 +386,13 @@ public partial class Player : CharacterBody3D
 			float p = Mathf.Clamp(armorPenetration, 0f, 1f);
 			float bypassed = damage * p;
 			float absorbable = damage - bypassed;
-			// Charging guard soaks the absorbable slice before central armor.
+			// Sneaking guard soaks the absorbable slice before central armor.
 			// A DoT that chips the guard (burn) re-arms its recharge delay; one
 			// that bypasses it (poison, absorbable==0) leaves it alone, same as
 			// central armor. Blunt isn't modeled on status ticks, so the chip is
-			// unscaled here. Status ticks don't interrupt actions, so querying
-			// the guard at the call site is safe (no TryInterrupt ordering concern).
-			AbsorbWeaponBlock(GetChargingBlockWeapon(), ref absorbable, 0f);
+			// unscaled here. Status ticks don't break sneak, so the guard stays
+			// up across a burn/poison zone while the player keeps sneaking.
+			AbsorbWeaponBlock(GetSneakBlockWeapon(), ref absorbable, 0f);
 			// A DoT that bypasses armor (poison / heal, armorPenetration=1) has
 			// armorDamage==0 and never enters here, so it can't stall recovery.
 			// One that chips armor (burn, armorPenetration<1) refreshes the

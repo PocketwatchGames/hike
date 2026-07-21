@@ -162,18 +162,20 @@ public partial class ItemAction : Resource
 	[Export] public float chargedRangeScale = 1f;
 	[Export] public float chargedAccuracyScale = 1f;
 
-	// Movement-speed multipliers the actor retains while this is the selected
-	// tier, split by phase and mutually exclusive (only one phase is live at a
-	// time). 1 (default) = full speed; 0 = fully rooted. `speedMultiplierCharging`
-	// applies during Charging (a heavy club / ranged draw slows the player; a
-	// drinking consumable roots at 0). `speedMultiplierActive` applies during
-	// Active (the swing / strike / dart) and replaces the old per-profile
-	// `locksMovement` — mob attacks set it to 0 to own the body through windup,
-	// strike, and recovery. NOTE: the "is movement locked" boolean
-	// (ActionRunner.LocksMovement, consumed by mob path-skip, footstep
-	// suppression, and the charge-anim override) is derived as multiplier <= 0,
-	// so a near-zero value (e.g. 0.01) slows but does NOT count as locked.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float speedMultiplierCharging = 1f;
+	// Movement constraints the actor retains while this is the selected tier,
+	// split by phase and mutually exclusive (only one phase is live at a time).
+	// `maxSpeedCharging` caps the player's move speed at a named gait during
+	// Charging (Stationary = a drinking consumable roots at 0; Sneak = a heavy
+	// club / ranged draw crawl; Sprint = effectively unrestricted). It's a
+	// ceiling applied as a min against the computed speed, never a speed-up.
+	// `speedMultiplierActive` is a MULTIPLIER (1 = full speed, 0 = fully rooted)
+	// applied during Active (the swing / strike / dart) — mob attacks set it to
+	// 0 to own the body through windup, strike, and recovery. NOTE: the "is
+	// movement locked" boolean (ActionRunner.LocksMovement, consumed by mob
+	// path-skip, footstep suppression, and the charge-anim override) is true
+	// while charging only when maxSpeedCharging == Stationary, and while Active
+	// when speedMultiplierActive <= 0.
+	[Export] public EChargeSpeedCap maxSpeedCharging = EChargeSpeedCap.Sprint;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float speedMultiplierActive = 1f;
 
 	// Turn-speed multipliers the actor retains while this is the selected tier,

@@ -322,17 +322,18 @@ public partial class Player : CharacterBody3D
 	}
 
 	// The weapon whose block-armor guard is currently live — non-null only
-	// while the player is charging a weapon that carries a block pool. The
-	// guard is "active" (absorbs damage) only during the Charging phase; it
-	// still recharges between charges (TickBlockArmor) so it's topped up for
-	// the next one.
-	private WeaponState GetChargingBlockWeapon()
+	// while the player is sneaking and the equipped melee weapon carries a
+	// block pool. Sneaking is a defensive crouch that doubles as a guard
+	// stance; the guard "active" (absorbs damage) only while sneaking, but
+	// still recharges between crouches (TickBlockArmor) so it's topped up for
+	// the next block.
+	private WeaponState GetSneakBlockWeapon()
 	{
-		if (_runner == null || !_runner.IsBusy || _runner.Phase != EActionPhase.Charging)
+		if (!_sneaking)
 		{
 			return null;
 		}
-		if (_runner.Current.context.primaryItem is WeaponState weapon
+		if (_inventory?.GetEquipped(EInventorySlot.WeaponMelee) is WeaponState weapon
 			&& weapon.data != null && weapon.data.blockArmor > 0f)
 		{
 			return weapon;
@@ -341,16 +342,20 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Routes the armor-touchable slice of an incoming hit through the charging
-	// weapon's guard before the player's central armor. While the guard has
-	// any charge it eats the WHOLE absorbable slice (zeroing `absorbable` so
-	// the central-armor block downstream sees nothing) and reports how much
-	// the pool actually lost for HUD feedback. The guard recharge follows the
-	// same rule as central armor: any guard-touchable hit (absorbable > 0)
-	// resets the recharge delay — even one that lands while the pool is already
-	// empty — while a fully-bypassing hit (poison / armor-penetrating,
-	// absorbable == 0) never touches the guard and so leaves its recovery
-	// alone. The guard only engages while its weapon is being charged (null
-	// weapon no-ops here), so a player not actively guarding never resets it.
+	// weapon's guard before the player's central armor. A guard that SURVIVES
+	// the chip eats the WHOLE absorbable slice (zeroing `absorbable` so the
+	// central-armor block downstream sees nothing) and reports how much the
+	// pool lost for HUD feedback. The blow that BREAKS the guard (chip >=
+	// remaining charge) shatters it and stops nothing — `absorbable` is left
+	// intact so the full slice cascades to central armor / health, and the
+	// return is 0 (no "BLOCKED!" on a broken guard). Mirrors the central-armor
+	// shatter rule. The guard recharge follows the same rule as central armor:
+	// any guard-touchable hit (absorbable > 0) resets the recharge delay — even
+	// one that lands while the pool is already empty — while a fully-bypassing
+	// hit (poison / armor-penetrating, absorbable == 0) never touches the guard
+	// and so leaves its recovery alone. The guard only engages while the player
+	// is sneaking (null weapon no-ops here), so a player not actively guarding
+	// never resets it.
 	private float AbsorbWeaponBlock(WeaponState weapon, ref float absorbable, float blunt)
 	{
 		if (weapon == null || absorbable <= 0f)
@@ -364,10 +369,17 @@ public partial class Player : CharacterBody3D
 			return 0f;
 		}
 		float blockDamage = absorbable * (1f + blunt);
-		float before = weapon.blockArmor;
-		weapon.blockArmor = Mathf.Max(0f, before - blockDamage);
-		absorbable = 0f;
-		return before - weapon.blockArmor;
+		if (blockDamage < weapon.blockArmor)
+		{
+			// Guard survives: soaks the whole absorbable slice.
+			weapon.blockArmor -= blockDamage;
+			absorbable = 0f;
+			return blockDamage;
+		}
+		// Breaking blow: guard shatters and stops nothing — the absorbable
+		// slice passes through untouched, so leave it for central armor.
+		weapon.blockArmor = 0f;
+		return 0f;
 	}
 
 	// Per-tick recharge of every equipped weapon's block-armor guard. Mirrors

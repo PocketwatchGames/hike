@@ -511,6 +511,10 @@ public partial class Sim : Node3D
         Party party = _worldState?.SimState?.Party;
         party?.ResetMealsForNewDay();
         party?.AdvanceRestAndPickWellRested(_wellRestedRng);
+        // A new day resets the camp's leader + spell pick (the spell attunement is
+        // cleared per-member in the client's OnNewDay node-refresh), so the next camp
+        // forces a fresh choice.
+        party?.RequireLeaderChoice();
         OnNewDay?.Invoke(_worldState.DayNumber);
         CleanupOffConditionMobs();
         // A full day rolled over — reset the world's encounters to their spawn

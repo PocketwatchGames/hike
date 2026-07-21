@@ -12,10 +12,11 @@ using System.Collections.Generic;
 // sub-screens. The hub buttons switch the body; ui_cancel backs a sub-screen out
 // to the hub, or (from the hub) leaves camp.
 //
-// Leaving is gated until a character has been chosen this camp: on a fresh camp,
-// after a night's rest, and after a death there is no chosen character (the panel
-// reads "No character selected", Leave Camp is disabled), so the player must pick
-// before heading out.
+// Leaving is gated only when the selection was reset and not yet re-made: after a
+// night's rest and after a death there is no chosen character (the panel reads "No
+// character selected", Leave Camp is disabled), so the player must pick before
+// heading out. A plain campfire visit keeps the character + spell chosen last time,
+// so the player can back out immediately without re-picking.
 [GlobalClass]
 public partial class CampScreen : Control
 {
@@ -63,21 +64,25 @@ public partial class CampScreen : Control
 	Vector3 _campfirePosition;
 	ECampView _view;
 	bool _open;
-	// A character has been picked this camp. Cleared on open, after a death, and
-	// after a night's rest — the panel reads "No character selected" and Leave Camp
-	// stays disabled until the player chooses.
+	// A character is committed for this camp — gates Leave Camp. Seeded from the sim's
+	// per-day leader pick (SimParty.IsLeaderChosenToday): a plain visit inherits the
+	// standing choice, but a death or a new day (the sim reset the pick) leaves it false
+	// so the panel reads "No character selected" and Leave stays disabled until the
+	// player chooses.
 	bool _characterChosen;
 	// Forced death Select-Character: the controlled character is a corpse, so the
 	// pick transfers control immediately (not deferred to camp close) and backing
 	// out of the party view is disallowed until a survivor is chosen.
 	bool _deathSelect;
-	// Set while a sleep-to-sunrise skip is in flight so the wake handler knows to
-	// reset the character / spell choice for the new day.
-	bool _pendingSleepToSunrise;
 	// The last spell the player attuned this run — used to pre-highlight their
 	// previous pick on the Select-Spell screen after a night's rest clears the
 	// active attunement.
 	SpellData _lastChosenSpell;
+
+	// The sim-side party roster — source of the per-day leader pick (IsLeaderChosenToday,
+	// reset by the day-roll in Sim.RequireLeaderChoice). The reset lives in sim so it
+	// tracks the day-roll events (sleep / respawn / pray), not this UI.
+	Party SimParty => _player?.Sim?.WorldState?.SimState?.Party;
 
 	// Any alchemy spell is known — the Select-Spell button is only enabled when
 	// there's at least one spell to attune. Walks SimData.spells against the active
@@ -147,7 +152,10 @@ public partial class CampScreen : Control
 		_forge = forge;
 		_campfirePosition = campfirePosition;
 		_deathSelect = deathSelect;
-		_characterChosen = false;
+		// A plain campfire visit keeps whoever is controlled + their attuned spell; only
+		// a new day (Sim.RequireLeaderChoice) or a death resets the pick. The death
+		// select always forces a survivor pick.
+		_characterChosen = !deathSelect && (SimParty?.IsLeaderChosenToday ?? true);
 		_gameClient = GameClient.Current;
 		if (_gameClient != null)
 		{
@@ -170,9 +178,19 @@ public partial class CampScreen : Control
 		if (_player?.Sim != null) { _player.Sim.TimeOfDayFrozen = true; }
 		_open = true;
 		Visible = true;
-		// Start from the hub, then let the guided flow force the required picks.
 		_view = ECampView.Root;
-		AdvanceGuidedFlow();
+		if (_characterChosen)
+		{
+			// Plain visit, selection intact: land on the hub with Leave Camp focused so
+			// the player can back out immediately.
+			ShowView(ECampView.Root);
+			_leaveButton?.CallDeferred(Control.MethodName.GrabFocus);
+		}
+		else
+		{
+			// New day or death reset the pick: run the guided flow to force it.
+			AdvanceGuidedFlow();
+		}
 	}
 
 	// Guided arrival flow: force the required picks in order — choose a character,
@@ -312,6 +330,9 @@ public partial class CampScreen : Control
 	// Returns to the hub.
 	void OnCharacterChosen()
 	{
+		// A pick made during the forced flow (nobody committed yet) continues on to the
+		// spell step; a manual mid-camp switch just returns to the hub.
+		bool wasGuided = !_characterChosen;
 		if (_deathSelect && _gameClient != null)
 		{
 			_player?.ExitCamp();
@@ -323,8 +344,18 @@ public partial class CampScreen : Control
 		}
 		_deathSelect = false;
 		_characterChosen = true;
-		// Continue the flow — if no spell is attuned yet, straight to the spell screen.
-		AdvanceGuidedFlow();
+		SimParty?.MarkLeaderChosen();
+		if (wasGuided)
+		{
+			// Forced flow continues — if no spell is attuned yet, straight to the spell screen.
+			AdvanceGuidedFlow();
+		}
+		else
+		{
+			// Manual switch during a plain camp — back to the hub, don't force a spell pick.
+			ShowView(ECampView.Root);
+			_leaveButton?.CallDeferred(Control.MethodName.GrabFocus);
+		}
 	}
 
 	// SpellSelectionScreen pick callback: the spell was attuned on that screen.
@@ -356,15 +387,15 @@ public partial class CampScreen : Control
 			return;
 		}
 		Visible = false;
-		_pendingSleepToSunrise = toSunrise;
 		_gameClient?.BeginSleepFromCamp(hours, healFractionPerHour, RestoreFromSleep, toSunrise);
 	}
 
 	// Wake callback from GameClient.EndSleep: the input gate was handed back to us
-	// rather than released, so the player is still camping. A full rest to sunrise is
-	// a new day — the active character + attuned spell reset, so the player must
-	// re-pick (back to the hub, Leave disabled); a 1-hour nap keeps the current
-	// choice and just re-binds the sleep view so its health / time readout refreshes.
+	// rather than released, so the player is still camping. A rest to sunrise rolled the
+	// day, so the sim reset the leader + spell pick (Sim.RequireLeaderChoice + the
+	// client's OnNewDay attunement clear) — the player must re-pick (guided flow, Leave
+	// disabled). A 1-hour nap rolls nothing, so the choice stands and we just re-bind the
+	// sleep view to refresh its health / time readout.
 	void RestoreFromSleep()
 	{
 		if (!_open)
@@ -373,16 +404,9 @@ public partial class CampScreen : Control
 		}
 		Visible = true;
 		Input.MouseMode = Input.MouseModeEnum.Visible;
-		if (_pendingSleepToSunrise)
+		_characterChosen = SimParty?.IsLeaderChosenToday ?? _characterChosen;
+		if (!_characterChosen)
 		{
-			_pendingSleepToSunrise = false;
-			// Remember the cleared attunement so the Select-Spell screen can
-			// pre-highlight it, then reset both choices for the new day.
-			SpellData attuned = _player?.Inventory?.AttunedSpell;
-			if (attuned != null) { _lastChosenSpell = attuned; }
-			_player?.Inventory?.AttuneSpell(null);
-			_characterChosen = false;
-			// New day: re-run the guided flow (character → spell → Leave Camp).
 			AdvanceGuidedFlow();
 			return;
 		}

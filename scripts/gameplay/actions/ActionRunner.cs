@@ -60,11 +60,11 @@ public class ActionRunner
 			return ComputeChargeT(_action.profile, _action.selectedTier, _action.selectedTierIndex, elapsed);
 		}
 	}
-	// Movement-speed multiplier the in-flight action imposes on the actor THIS
-	// phase: the selected tier's speedMultiplierCharging while Charging, its
-	// speedMultiplierActive while Active (1 = unaffected, 0 = fully rooted).
-	// Charging and Active are mutually exclusive so only one ever applies.
-	// Interactives have no charge tiers — they carry their own boolean lock.
+	// Movement-speed MULTIPLIER the in-flight action imposes on the actor THIS
+	// phase (1 = unaffected, 0 = fully rooted). Only the Active phase and
+	// interactives use a multiplier; the Charging phase instead exposes a named
+	// speed CAP via ChargeSpeedCap (applied by the player as a min), so this
+	// returns 1 while Charging. Charging and Active are mutually exclusive.
 	public float MovementSpeedMultiplier
 	{
 		get
@@ -84,18 +84,38 @@ public class ActionRunner
 			}
 			return _action.phase switch
 			{
-				EActionPhase.Charging => tier.speedMultiplierCharging,
 				EActionPhase.Active => tier.speedMultiplierActive,
 				_ => 1f,
 			};
 		}
 	}
 
-	// True when the current action fully roots the actor this phase. Derived
-	// from MovementSpeedMultiplier, so a partial slowdown (e.g. a 0.4 club
-	// charge) does NOT count as locked — only a 0 multiplier does. Consumed by
+	// Named speed ceiling the selected tier imposes while Charging, or null in
+	// every other state (idle, Active, interactive). The player maps this gait
+	// to a concrete m/s (from its PlayerData speed table) and clamps its
+	// computed move speed down to it — a cap, never a speed-up. Mobs ignore the
+	// value and only read it through LocksMovement.
+	public EChargeSpeedCap? ChargeSpeedCap
+	{
+		get
+		{
+			if (!_action.IsBusy || _action.interactiveAction != null)
+			{
+				return null;
+			}
+			if (_action.phase != EActionPhase.Charging)
+			{
+				return null;
+			}
+			return _action.selectedTier?.maxSpeedCharging;
+		}
+	}
+
+	// True when the current action fully roots the actor this phase — a 0 Active
+	// multiplier, an interactive lock, or a Stationary charge cap. A partial
+	// slowdown (e.g. a Sneak charge cap) does NOT count as locked. Consumed by
 	// mob path-skip, footstep suppression, and the consumable charge-anim pose.
-	public bool LocksMovement => MovementSpeedMultiplier <= 0f;
+	public bool LocksMovement => MovementSpeedMultiplier <= 0f || ChargeSpeedCap == EChargeSpeedCap.Stationary;
 
 	// Turn-speed multiplier the in-flight action imposes this phase, parallel to
 	// MovementSpeedMultiplier: the selected tier's turnSpeedMultiplierCharging

@@ -15,6 +15,16 @@ public class Party
 	readonly List<PlayerState> _members = new();
 	int _activeIndex;
 
+	// Whether the day's leader has been committed at a campfire. The day-roll
+	// (Sim.AdvanceToNextSunrise: sleep-to-sunrise, the death "sleep off", pray-home)
+	// clears it via RequireLeaderChoice, so the next camp forces a fresh pick; the
+	// camp commits it with MarkLeaderChosen. A plain same-day campfire visit leaves it
+	// set, so the player can back out without re-picking. Starts true — a new game
+	// already controls its starting member.
+	public bool IsLeaderChosenToday { get; private set; } = true;
+	public void RequireLeaderChoice() { IsLeaderChosenToday = false; }
+	public void MarkLeaderChosen() { IsLeaderChosenToday = true; }
+
 	// The permanent, party-shared knowledge pool (identified items, discovered
 	// recipes/species/regions, learned languages). The active member accrues field
 	// knowledge into their own PlayerState.Knowledge; BankActive folds it in here

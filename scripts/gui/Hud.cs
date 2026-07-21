@@ -52,7 +52,7 @@ public partial class Hud : Control
 	// value = (Armor + blockArmor) / (MaxArmor + blockCapacity), so the bright
 	// armor fill paints over [0, Armor] and only the [Armor, Armor + blockArmor]
 	// guard segment shows past it. Tinted dark grey while dormant and dark blue
-	// while charging (the only state in which block armor actually absorbs).
+	// while sneaking (the only state in which block armor actually absorbs).
 	[Export] ProgressBar _blockArmorBar;
 	[Export] ProgressBar _staminaBar;
 	[Export] HudSignpostPanel _signpostPanel;
@@ -210,9 +210,9 @@ public partial class Hud : Control
 	const float CaveFadeSunlightFull = 0.25f;
 	// Tints for the block-armor extension underlay. The fill stylebox is
 	// white so these multiply straight through: dark grey while the guard is
-	// dormant, dark blue while the weapon is charging and the pool is live.
+	// dormant, dark blue while the player is sneaking and the pool is live.
 	static readonly Color BlockArmorIdleColor = new Color(0.45f, 0.45f, 0.45f, 1f);
-	static readonly Color BlockArmorChargingColor = new Color(0.15f, 0.3f, 0.7f, 1f);
+	static readonly Color BlockArmorActiveColor = new Color(0.15f, 0.3f, 0.7f, 1f);
 
 	public override void _Ready()
 	{
@@ -1061,8 +1061,7 @@ public partial class Hud : Control
 	}
 
 	// Whether the player is actively charging the weapon equipped in `slot`.
-	// Drives the per-slot guard gauge's full-opacity vs. faint-ghost state —
-	// the weapon's block armor is only active while that weapon is charging.
+	// Drives each WeaponHud's charge-gauge fill for its slot.
 	bool IsSlotCharging(EInventorySlot slot)
 	{
 		if (_player?.Runner == null || !_player.Runner.IsBusy)
@@ -1076,19 +1075,18 @@ public partial class Hud : Control
 		return _player.Runner.Current.context.sourceSlot == slot;
 	}
 
-	// Drive the block-armor extension underlay. The pool shown is the weapon
-	// currently being charged (the only weapon whose guard is live); when
-	// nothing is charging we fall back to an equipped weapon's pool so the
-	// reserve still reads as a dormant grey extension. Hidden entirely when no
-	// equipped weapon carries block armor. Units are kept in lockstep with the
-	// armor bar's units-per-pixel by sizing against the same MaxArmor=100 cap.
+	// Drive the block-armor extension underlay. The pool shown is the equipped
+	// melee weapon's guard — live (blue) while the player sneaks, a dormant
+	// grey reserve otherwise. Hidden entirely when the melee weapon carries no
+	// block armor. Units are kept in lockstep with the armor bar's
+	// units-per-pixel by sizing against the same MaxArmor=100 cap.
 	void UpdateBlockArmorExtension(float maxArmor)
 	{
 		if (_blockArmorBar == null)
 		{
 			return;
 		}
-		WeaponState weapon = SelectBlockArmorWeapon(out bool charging);
+		WeaponState weapon = SelectBlockArmorWeapon(out bool active);
 		float capacity = weapon?.data?.blockArmor ?? 0f;
 		float total = maxArmor + capacity;
 		if (weapon == null || capacity <= 0f || total <= 0f)
@@ -1103,40 +1101,24 @@ public partial class Hud : Control
 		Vector2 size = _blockArmorBar.CustomMinimumSize;
 		size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(total, 100f) / 100f;
 		_blockArmorBar.CustomMinimumSize = size;
-		_blockArmorBar.Modulate = charging ? BlockArmorChargingColor : BlockArmorIdleColor;
+		_blockArmorBar.Modulate = active ? BlockArmorActiveColor : BlockArmorIdleColor;
 	}
 
 	// Picks the weapon whose block-armor pool the extension represents: the
-	// charging weapon takes priority (its guard is the one actually absorbing),
-	// otherwise the first equipped weapon that carries block armor so the
-	// dormant reserve still shows. `charging` reports whether the returned
-	// weapon is the one being charged, which drives the grey/blue tint.
-	WeaponState SelectBlockArmorWeapon(out bool charging)
+	// equipped melee weapon, the only slot whose guard is live. Its reserve
+	// shows as a dormant grey extension while stood, tinting blue while the
+	// guard is live. `active` reports whether the guard is currently absorbing
+	// — i.e. the player is sneaking — which drives the grey/blue tint.
+	WeaponState SelectBlockArmorWeapon(out bool active)
 	{
-		charging = false;
-		WeaponState left = _inventory?.GetEquipped(EInventorySlot.WeaponMelee) as WeaponState;
-		WeaponState right = _inventory?.GetEquipped(EInventorySlot.WeaponRanged) as WeaponState;
-		bool leftHas = left?.data != null && left.data.blockArmor > 0f;
-		bool rightHas = right?.data != null && right.data.blockArmor > 0f;
-		if (leftHas && IsSlotCharging(EInventorySlot.WeaponMelee))
+		active = false;
+		WeaponState melee = _inventory?.GetEquipped(EInventorySlot.WeaponMelee) as WeaponState;
+		if (melee?.data == null || melee.data.blockArmor <= 0f)
 		{
-			charging = true;
-			return left;
+			return null;
 		}
-		if (rightHas && IsSlotCharging(EInventorySlot.WeaponRanged))
-		{
-			charging = true;
-			return right;
-		}
-		if (leftHas)
-		{
-			return left;
-		}
-		if (rightHas)
-		{
-			return right;
-		}
-		return null;
+		active = _player != null && _player.IsSneaking;
+		return melee;
 	}
 
 	// Charge fill across the current tier's hold window. With per-tier

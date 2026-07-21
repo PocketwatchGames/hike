@@ -52,7 +52,7 @@ chargeTime = 1.3
 requireFullCharge = true
 fuelCost = 60.0
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_heal")])
-speedMultiplierCharging = 0.0
+maxSpeedCharging = 0
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")

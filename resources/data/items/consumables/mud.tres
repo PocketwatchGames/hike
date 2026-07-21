@@ -29,7 +29,7 @@ effects = Array[ExtResource("7_effect")]([SubResource("Resource_apply_muddy")])
 script = ExtResource("3_charged")
 chargeTime = 1.0
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_apply_decrement")])
-speedMultiplierCharging = 0.0
+maxSpeedCharging = 0
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")

@@ -23,7 +23,7 @@ firstLearnEffect = ExtResource("4_learnfx")
 script = ExtResource("2_charged")
 chargeTime = 1.5
 events = Array[ExtResource("3_event")]([SubResource("Resource_scroll_event_learn")])
-speedMultiplierCharging = 0.0
+maxSpeedCharging = 0
 chargeLoopEffect = ExtResource("6_readfx")
 
 [resource]

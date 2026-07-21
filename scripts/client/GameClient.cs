@@ -2448,14 +2448,17 @@ public partial class GameClient : Node3D
 	// effects: the WellRested stat buff (the campfire glow follows the same flag,
 	// gated on sitting at the fire in Player.UpdateWellRestedFx) and a top-off of
 	// every carried lantern. A fountain is the only other refuel — a campfire
-	// deliberately isn't. Subscribed to Sim.OnNewDay, the only day-advance path, so
-	// this covers both the camp sleep-to-sunrise and the death time-skip.
+	// deliberately isn't. It also clears every member's attuned spell — a new day
+	// resets the camp spell pick (the leader pick resets in Sim.RequireLeaderChoice),
+	// so the next camp re-attunes. Subscribed to Sim.OnNewDay, the only day-advance
+	// path, so this covers the camp sleep-to-sunrise, the death time-skip, and pray.
 	void OnNewDayRefreshNodes(int dayNumber)
 	{
 		for (int i = 0; i < _partyPlayers.Count; i++)
 		{
 			_partyPlayers[i]?.RefreshWellRested();
 			_partyPlayers[i]?.RefuelLantern();
+			_partyPlayers[i]?.Inventory?.ClearAttunement();
 		}
 	}
 

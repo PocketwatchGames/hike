@@ -30,7 +30,7 @@ effects = Array[ExtResource("2_qvsyu")]([SubResource("Resource_apply_heal")])
 script = ExtResource("3_smk86")
 chargeTime = 1.5
 events = Array[ExtResource("1_gdqt6")]([SubResource("Resource_event_apply_decrement")])
-speedMultiplierCharging = 0.0
+maxSpeedCharging = 0
 chargeLoopEffect = ExtResource("11_drinkfx")
 
 [sub_resource type="Resource" id="Resource_profile"]

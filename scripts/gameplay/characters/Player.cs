@@ -1635,6 +1635,20 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Maps a charge-tier speed cap to the concrete gait speed from the player's
+	// speed table. The Charging phase clamps move speed down to this value.
+	private static float ChargeSpeedCapToSpeed(EChargeSpeedCap cap, PlayerData data)
+	{
+		return cap switch
+		{
+			EChargeSpeedCap.Stationary => 0f,
+			EChargeSpeedCap.Sneak => data.sneakSpeed,
+			EChargeSpeedCap.Run => data.moveSpeed,
+			EChargeSpeedCap.Sprint => data.sprintSpeed,
+			_ => data.sprintSpeed,
+		};
+	}
+
 
 
 
@@ -1804,13 +1818,19 @@ public partial class Player : CharacterBody3D
 		}
 		float statusMoveMul = _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
 		speed *= statusMoveMul;
-		// An in-flight action scales movement by its current phase's multiplier:
-		// the held tier's charge slowdown (heavy club / ranged draw) while
-		// Charging, its active-phase root (drinking, dash, mob strike) while
-		// Active. 1 when idle, so this is a no-op outside an action.
+		// An in-flight action constrains movement per phase: the Active phase
+		// scales by its multiplier (drinking, dash, mob strike); the Charging
+		// phase instead caps speed at the tier's named gait (heavy club / ranged
+		// draw crawl), applied as a min so it only ever slows the player. Both
+		// are no-ops when idle.
 		if (_runner != null)
 		{
 			speed *= _runner.MovementSpeedMultiplier;
+			EChargeSpeedCap? chargeCap = _runner.ChargeSpeedCap;
+			if (chargeCap.HasValue)
+			{
+				speed = Mathf.Min(speed, ChargeSpeedCapToSpeed(chargeCap.Value, data));
+			}
 		}
 		// Anim retiming is gated to movement-loop anims only — see
 		// UpdateAnimation, which writes effectSpeedMultiplier per-frame based
