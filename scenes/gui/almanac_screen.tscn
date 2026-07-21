@@ -5,9 +5,9 @@
 [ext_resource type="PackedScene" uid="uid://c8wmscn8tx5y2" path="res://scenes/gui/world_map_screen.tscn" id="3_bxxtj"]
 [ext_resource type="PackedScene" uid="uid://dmddv683wptoh" path="res://scenes/gui/bestiary_screen.tscn" id="4_7d2n1"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_idb3r"]
-[ext_resource type="PackedScene" uid="uid://c0s173tq07vqh" path="res://scenes/gui/recipe_screen.tscn" id="5_7ewlq"]
+[ext_resource type="PackedScene" uid="uid://c0s173tq07vqh" path="res://scenes/gui/spell_screen.tscn" id="5_7ewlq"]
 
-[node name="AlmanacScreen" type="Control" unique_id=1182491772 node_paths=PackedStringArray("_inventoryScreen", "_worldMapScreen", "_bestiaryScreen", "_recipeScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_inventoryTab", "_worldMapTab", "_bestiaryTab", "_recipeTab")]
+[node name="AlmanacScreen" type="Control" unique_id=1182491772 node_paths=PackedStringArray("_inventoryScreen", "_worldMapScreen", "_bestiaryScreen", "_spellScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_inventoryTab", "_worldMapTab", "_bestiaryTab", "_spellTab")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -18,13 +18,13 @@ script = ExtResource("1_enyfv")
 _inventoryScreen = NodePath("MarginContainer2/InventoryScreen")
 _worldMapScreen = NodePath("MarginContainer2/WorldMapScreen")
 _bestiaryScreen = NodePath("MarginContainer2/BestiaryScreen")
-_recipeScreen = NodePath("MarginContainer2/RecipeScreen")
+_spellScreen = NodePath("MarginContainer2/SpellScreen")
 _tabLeftButtonHint = NodePath("MarginContainer/HBoxContainer/TabLeft")
 _tabRightButtonHint = NodePath("MarginContainer/HBoxContainer/TabRight")
 _inventoryTab = NodePath("MarginContainer/HBoxContainer/InventoryTab")
 _worldMapTab = NodePath("MarginContainer/HBoxContainer/WorldMapTab")
 _bestiaryTab = NodePath("MarginContainer/HBoxContainer/BestiaryTab")
-_recipeTab = NodePath("MarginContainer/HBoxContainer/RecipeTab")
+_spellTab = NodePath("MarginContainer/HBoxContainer/SpellTab")
 
 [node name="MarginContainer2" type="MarginContainer" parent="." unique_id=1471085455]
 layout_mode = 1
@@ -50,7 +50,8 @@ layout_mode = 2
 visible = false
 layout_mode = 2
 
-[node name="RecipeScreen" parent="MarginContainer2" unique_id=1756643681 instance=ExtResource("5_7ewlq")]
+[node name="SpellScreen" parent="MarginContainer2" unique_id=1756643681 instance=ExtResource("5_7ewlq")]
+visible = false
 layout_mode = 2
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1825680303]
@@ -105,17 +106,17 @@ theme_override_constants/margin_right = 10
 layout_mode = 2
 text = "Bestiary"
 
-[node name="RecipeTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=711631382]
+[node name="SpellTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=711631382]
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/RecipeTab" unique_id=267697363]
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/SpellTab" unique_id=267697363]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_right = 10
 
-[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/RecipeTab/MarginContainer" unique_id=1759403611]
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/SpellTab/MarginContainer" unique_id=1759403611]
 layout_mode = 2
-text = "Recipes"
+text = "Spells"
 
 [node name="TabRight" parent="MarginContainer/HBoxContainer" unique_id=143488523 instance=ExtResource("4_idb3r")]
 layout_mode = 2

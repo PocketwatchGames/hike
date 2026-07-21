@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://btduonbqcpurl" path="res://scenes/gui/spell_selection_screen.tscn" id="4_woe8m"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_woe8m"]
 
-[node name="CampScreen" type="Control" unique_id=924238542 node_paths=PackedStringArray("_sleepScreen", "_partyScreen", "_campRoot", "_spellSelectionScreen", "_sleepButton", "_characterButton", "_spellButton", "_leaveButton", "_chosenName", "_chosenPortrait", "_chosenArmor", "_chosenMelee", "_chosenRanged", "_chosenStatus", "_chosenSpellPanel")]
+[node name="CampScreen" type="Control" unique_id=924238542 node_paths=PackedStringArray("_sleepScreen", "_partyScreen", "_campRoot", "_spellSelectionScreen", "_sleepButton", "_characterButton", "_spellButton", "_leaveButton", "_chosenName", "_chosenPortrait", "_chosenArmor", "_chosenMelee", "_chosenRanged", "_chosenStatus", "_chosenSpellPanel", "_playerChosenPanel", "_spellChosenPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -29,6 +29,8 @@ _chosenMelee = NodePath("MarginContainer2/MarginContainer/VBoxContainer/PlayerCh
 _chosenRanged = NodePath("MarginContainer2/MarginContainer/VBoxContainer/PlayerChosen/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Ranged")
 _chosenStatus = NodePath("MarginContainer2/MarginContainer/VBoxContainer/PlayerChosen/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Status")
 _chosenSpellPanel = NodePath("MarginContainer2/MarginContainer/VBoxContainer/SpellChosen/ItemInfoPanel")
+_playerChosenPanel = NodePath("MarginContainer2/MarginContainer/VBoxContainer/PlayerChosen")
+_spellChosenPanel = NodePath("MarginContainer2/MarginContainer/VBoxContainer/SpellChosen")
 
 [node name="MarginContainer2" type="MarginContainer" parent="." unique_id=1059497977]
 layout_mode = 1

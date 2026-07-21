@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_wawlv"]
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="5_vc0ui"]
 
-[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_spellPanel", "_backpackPanel")]
+[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_armorPanel", "_rangedPanel", "_spellPanel", "_backpackPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -15,10 +15,11 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_7a5n3")
 _statsPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/PlayerStats")
-_meleePanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/MeleePanel")
-_rangedPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/RangedPanel")
+_meleePanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/MeleePanel")
+_armorPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/ArmorPanel")
+_rangedPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/RangedPanel")
 _spellPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/SpellPanel")
-_backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/BackpackPanel")
+_backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/BackpackPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=2000139086]
 layout_mode = 1
@@ -72,10 +73,21 @@ layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="BackpackPanel" parent="MarginContainer/HBoxContainer/MarginContainer3" unique_id=1913399409 instance=ExtResource("5_vc0ui")]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer3" unique_id=902816152]
 layout_mode = 2
-size_flags_horizontal = 6
-size_flags_vertical = 4
+
+[node name="ArmorPanel" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=638608018 node_paths=PackedStringArray("_reagentSlots") instance=ExtResource("4_j245h")]
+layout_mode = 2
+_showDetails = false
+_reagentSlots = [NodePath("../MeleePanel/MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel"), NodePath("../MeleePanel/MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel2"), NodePath("../MeleePanel/MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel3")]
+
+[node name="MeleePanel" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=2122417689 instance=ExtResource("4_j245h")]
+layout_mode = 2
+_showDetails = false
+
+[node name="RangedPanel" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=393433198 instance=ExtResource("4_j245h")]
+layout_mode = 2
+_showDetails = false
 
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1484389953]
 custom_minimum_size = Vector2(500, 0)
@@ -86,13 +98,10 @@ size_flags_vertical = 4
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=508680546]
 layout_mode = 2
 
-[node name="SpellPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=638608018 instance=ExtResource("4_j245h")]
+[node name="SpellPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=238001155 instance=ExtResource("4_j245h")]
 layout_mode = 2
 
-[node name="MeleePanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=2122417689 instance=ExtResource("4_j245h")]
+[node name="BackpackPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1913399409 instance=ExtResource("5_vc0ui")]
 layout_mode = 2
-_showDetails = false
-
-[node name="RangedPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=393433198 instance=ExtResource("4_j245h")]
-layout_mode = 2
-_showDetails = false
+size_flags_horizontal = 6
+size_flags_vertical = 4

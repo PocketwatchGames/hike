@@ -5,7 +5,7 @@
 
 [node name="UpgradePanel" type="PanelContainer" unique_id=591619912 node_paths=PackedStringArray("_titleLabel", "_descriptionLabel", "_iconTextureRect", "_upgradeButton", "_statContainer")]
 clip_contents = true
-custom_minimum_size = Vector2(400, 0)
+custom_minimum_size = Vector2(500, 0)
 script = ExtResource("1_v8mrt")
 _titleLabel = NodePath("MarginContainer/VBoxContainer/Label2")
 _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Label")
@@ -15,6 +15,7 @@ _statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
 _statScene = ExtResource("2_dvp55")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=297935947]
+clip_contents = true
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10

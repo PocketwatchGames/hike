@@ -49,6 +49,11 @@ public partial class CampScreen : Control
 	[Export] Label _noSpellLabel;
 	[Export] Control _noSpellPanel;
 	[Export] ItemInfoPanel _chosenSpellPanel;
+	// The two persistent readout blocks, hidden on the sub-screen that already
+	// shows that info: the character block hides on Select-Character; the spell
+	// block hides on Select-Character and Select-Spell.
+	[Export] Control _playerChosenPanel;
+	[Export] Control _spellChosenPanel;
 
 	GameClient _gameClient;
 	Player _player;
@@ -255,6 +260,7 @@ public partial class CampScreen : Control
 
 	void OpenView(ECampView view)
 	{
+		UpdateChosenPanelVisibility();
 		switch (view)
 		{
 			case ECampView.Root:
@@ -398,6 +404,21 @@ public partial class CampScreen : Control
 			return players[idx];
 		}
 		return _player;
+	}
+
+	// Hide the persistent readouts on the sub-screen that already presents that
+	// info: the character block on Select-Character, the spell block on
+	// Select-Character and Select-Spell. Visible on the hub and Sleep views.
+	void UpdateChosenPanelVisibility()
+	{
+		if (_playerChosenPanel != null)
+		{
+			_playerChosenPanel.Visible = _view != ECampView.Party;
+		}
+		if (_spellChosenPanel != null)
+		{
+			_spellChosenPanel.Visible = _view != ECampView.Party && _view != ECampView.Spell;
+		}
 	}
 
 	void RefreshChosenPanel()

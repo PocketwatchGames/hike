@@ -5,7 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_71ahm"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="4_4sh65"]
 
-[node name="PartyScreen" type="Control" unique_id=1486344868 node_paths=PackedStringArray("_playerStatsPanel", "_meleePanel", "_rangedPanel", "_buttonHintSelect")]
+[node name="PartyScreen" type="Control" unique_id=1486344868 node_paths=PackedStringArray("_playerStatsPanel", "_armorPanel", "_meleePanel", "_rangedPanel", "_buttonHintSelect")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -14,6 +14,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_h2ykk")
 _playerStatsPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/PlayerStats")
+_armorPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/ArmorPanel")
 _meleePanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/MeleePanel")
 _rangedPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/RangedPanel")
 _buttonHintSelect = NodePath("MarginContainer/ButtonHints/ButtonHintA")
@@ -79,7 +80,12 @@ layout_mode = 2
 layout_mode = 2
 alignment = 1
 
-[node name="MeleePanel" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=638608018 instance=ExtResource("4_4sh65")]
+[node name="ArmorPanel" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=638608018 node_paths=PackedStringArray("_reagentSlots") instance=ExtResource("4_4sh65")]
+layout_mode = 2
+_showDetails = false
+_reagentSlots = [NodePath("../MeleePanel/MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel"), NodePath("../MeleePanel/MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel2"), NodePath("../MeleePanel/MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel3")]
+
+[node name="MeleePanel" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=1943048996 instance=ExtResource("4_4sh65")]
 layout_mode = 2
 _showDetails = false
 

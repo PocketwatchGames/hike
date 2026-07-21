@@ -10,7 +10,6 @@ public partial class ItemInfoPanel : PanelContainer
 	[Export] private Label _nameLabel;
 	[Export] private Label _descriptionLabel;
 	[Export] private TextureRect _icon;
-	[Export] private Label _levelLabel;
 	[Export] private PackedScene _actionPanel;
 	[Export] private Control _actionPanelContainer;
 	[Export] private Control _statContainer;
@@ -60,7 +59,6 @@ public partial class ItemInfoPanel : PanelContainer
 		{
 			_icon.Texture = data.inventorySprite;
 		}
-		UpdateLevelDisplay(item);
 		RebuildItemStats(item, identified);
 		RebuildStatusEffects(item);
 		RebuildActionPanels(item, identified);
@@ -266,18 +264,4 @@ public partial class ItemInfoPanel : PanelContainer
 		}
 	}
 
-	private void UpdateLevelDisplay(ItemState item)
-	{
-		// Levels are composed, not earned. Only leveled gear advertises its tier —
-		// base (level 0) gear stays unlabeled.
-		bool showLevel = item.level != 0;
-		if (_levelLabel != null)
-		{
-			_levelLabel.Visible = showLevel;
-			if (showLevel)
-			{
-				_levelLabel.Text = $"Level {item.level}";
-			}
-		}
-	}
 }

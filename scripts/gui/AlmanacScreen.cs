@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-// Modal wrapper that owns the Inventory / World Map / Bestiary / Recipe
+// Modal wrapper that owns the Inventory / World Map / Bestiary / Spell
 // tabs. While open it gates gameplay input (GameClient.InputSuppressed),
 // hides the in-game HUD, and releases the mouse. TabLeft / TabRight cycle
 // the active tab in enum order (with wrap-around); ui_cancel closes the
@@ -14,18 +14,18 @@ public partial class AlmanacScreen : Control
 		WorldMap,
 		Inventory,
 		Bestiary,
-		Recipe
+		Spell
 	}
 	[Export] InventoryScreen _inventoryScreen;
 	[Export] WorldMapScreen _worldMapScreen;
 	[Export] BestiaryScreen _bestiaryScreen;
-	[Export] RecipeScreen _recipeScreen;
+	[Export] SpellScreen _spellScreen;
 	[Export] ButtonHint _tabLeftButtonHint;
 	[Export] ButtonHint _tabRightButtonHint;
 	[Export] Control _inventoryTab;
 	[Export] Control _worldMapTab;
 	[Export] Control _bestiaryTab;
-	[Export] Control _recipeTab;
+	[Export] Control _spellTab;
 
 	GameClient _gameClient;
 	Action _onClose;
@@ -36,7 +36,7 @@ public partial class AlmanacScreen : Control
 		UpdateTab(_inventoryScreen, _inventoryTab, false);
 		UpdateTab(_worldMapScreen, _worldMapTab, false);
 		UpdateTab(_bestiaryScreen, _bestiaryTab, false);
-		UpdateTab(_recipeScreen, _recipeTab, false);
+		UpdateTab(_spellScreen, _spellTab, false);
 
 		_tabLeftButtonHint?.SetHint("TabLeft", string.Empty);
 		_tabRightButtonHint?.SetHint("TabRight", string.Empty);
@@ -54,7 +54,7 @@ public partial class AlmanacScreen : Control
 		_inventoryScreen?.Initialize(gameClient);
 		_worldMapScreen?.Initialize(gameClient);
 		_bestiaryScreen?.Initialize(gameClient);
-		_recipeScreen?.Initialize(gameClient);
+		_spellScreen?.Initialize(gameClient);
 		// Per-open focus hint, consumed by the target sub-screen's next
 		// Rebuild. Only the Bestiary tab uses it today; other tabs can
 		// add their own typed focus params here if needed without changing
@@ -83,7 +83,7 @@ public partial class AlmanacScreen : Control
 		UpdateTab(_inventoryScreen, _inventoryTab, false);
 		UpdateTab(_worldMapScreen, _worldMapTab, false);
 		UpdateTab(_bestiaryScreen, _bestiaryTab, false);
-		UpdateTab(_recipeScreen, _recipeTab, false);
+		UpdateTab(_spellScreen, _spellTab, false);
 		if (_gameClient != null)
 		{
 			_gameClient.InputSuppressed = false;
@@ -101,7 +101,7 @@ public partial class AlmanacScreen : Control
 		UpdateTab(_inventoryScreen, _inventoryTab, tab == EAlmanacTab.Inventory);
 		UpdateTab(_worldMapScreen, _worldMapTab, tab == EAlmanacTab.WorldMap);
 		UpdateTab(_bestiaryScreen, _bestiaryTab, tab == EAlmanacTab.Bestiary);
-		UpdateTab(_recipeScreen, _recipeTab, tab == EAlmanacTab.Recipe);
+		UpdateTab(_spellScreen, _spellTab, tab == EAlmanacTab.Spell);
 		// Opening (or cycling to) the world map plays any reveal armed by the last
 		// campfire bank / bird's-eye lift — the deferred "chart what you learned"
 		// sweep that camp entry deliberately held back. No-op when nothing is armed.
