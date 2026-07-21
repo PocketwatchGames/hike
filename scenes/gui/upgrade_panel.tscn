@@ -43,7 +43,9 @@ offset_bottom = 64.0
 layout_mode = 2
 
 [node name="Label" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1568564946]
+custom_minimum_size = Vector2(480, 0)
 layout_mode = 2
+autowrap_mode = 3
 
 [node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=1086822114]
 layout_mode = 2

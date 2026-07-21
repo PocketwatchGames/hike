@@ -259,12 +259,20 @@ public partial class Player : CharacterBody3D
 			_sneaking = false;
 		}
 
-		// Sneak is a toggle. Pressing also doubles as the player-initiated
-		// abort key while a runner action is in flight (charging always
-		// cancels; Active cancels only if the selected tier opts in via
-		// canAbort). A successful abort consumes the press — the player
+		// Sneak input model is player-selectable (CVars.sneakHold). Hold-to-sneak
+		// mirrors the button: while held the player sneaks whenever they can, and
+		// stands the instant it's released — the overt-action breaks above still
+		// drop sneak momentarily, but it re-latches next frame if the button is
+		// still down. Toggle mode flips on each press; a press there also doubles
+		// as the player-initiated abort key while a runner action is in flight
+		// (charging always cancels; Active cancels only if the selected tier opts
+		// in via canAbort). A successful abort consumes the press — the player
 		// wanted to bail out of the attack, not also flip into sneak.
-		if (Input.IsActionJustPressed("Sneak"))
+		if (CVars.sneakHold.Value)
+		{
+			_sneaking = Input.IsActionPressed("Sneak");
+		}
+		else if (Input.IsActionJustPressed("Sneak"))
 		{
 			_sneaking = !_sneaking;
 		}

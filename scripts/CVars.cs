@@ -133,6 +133,11 @@ public static class CVars
     // lock — exactly as before the assist existed. Gamepad locking is unaffected.
     public static CVarBool mouseTargetLock = new CVarBool("mouse_target_lock", true);
 
+    // Sneak input model. False (default) = toggle: a press flips sneak on/off.
+    // True = hold-to-sneak: the player sneaks whenever the Sneak button is held
+    // (and they otherwise can), and stands the moment it's released.
+    public static CVarBool sneakHold = new CVarBool("sneak_hold", true);
+
     // Hold duration (seconds) shared by the context-button hold gestures:
     // holding Interact past this opens a multi-action interactive's options
     // menu (a shorter tap runs the default action), and holding
