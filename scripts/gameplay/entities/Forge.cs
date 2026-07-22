@@ -69,9 +69,9 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
-    // Star pips on the interact HUD reflect the forge's power tier (0-4); a
-    // level-0 forge shows no pips.
-    public int InteractLevel => _simState?.Level ?? 0;
+    // Star pips on the interact HUD reflect the forge's power tier: tier 0-4
+    // shows 1-5 pips, matching the forge screen's star row.
+    public int InteractLevel => (_simState?.Level ?? 0) + 1;
 
     public void OnSpawned(Sim sim) { }
 

@@ -31,19 +31,22 @@ public partial class StatusEffectInfoPanel : PanelContainer
 
 	public StatusEffectData Data { get; private set; }
 
-	// Light `upgradeLevel` of the star pips and reveal the row (hidden at level 0).
-	// Only slotted forge upgrades pass a level; ordinary effects leave it collapsed.
-	void UpdateLevelStars(int upgradeLevel)
+	// Forge upgrades (a concrete `upgradeSlot`) always show their tier as
+	// `upgradeLevel + 1` stars (tier 0..4 → 1..5); ordinary effects (slot None)
+	// keep the row collapsed.
+	void UpdateLevelStars(int upgradeLevel, EUpgradeSlot upgradeSlot)
 	{
+		bool isUpgrade = upgradeSlot != EUpgradeSlot.None;
 		if (_levelStarsContainer != null)
 		{
-			_levelStarsContainer.Visible = upgradeLevel > 0;
+			_levelStarsContainer.Visible = isUpgrade;
 		}
+		int starCount = isUpgrade ? upgradeLevel + 1 : 0;
 		for (int i = 0; i < _levelStars.Count; i++)
 		{
 			if (_levelStars[i] != null)
 			{
-				_levelStars[i].Visible = i < upgradeLevel;
+				_levelStars[i].Visible = i < starCount;
 			}
 		}
 	}
@@ -64,10 +67,11 @@ public partial class StatusEffectInfoPanel : PanelContainer
 
 	// `count` / `removalProgress` / `hasTimer` drive the embedded
 	// StatusEffectHud — see Hud.UpdateStatusEffects for the grouping math.
-	// `upgradeLevel` / `upgradeSlot` are set only for slotted forge upgrades: they
-	// light the tier pips and append the level-derived combat-scaling rows (outgoing
-	// damage+buildup for a weapon slot, damage reduction for Armor). Defaults leave
-	// the pips hidden and add no extra rows, so ordinary-effect callers are unchanged.
+	// `upgradeLevel` / `upgradeSlot` are set only for slotted forge upgrades: a
+	// concrete slot shows the tier as `upgradeLevel + 1` stars and appends the
+	// level-derived combat-scaling rows (outgoing damage+buildup for a weapon slot,
+	// damage reduction for Armor). The default None slot leaves the pips hidden and
+	// adds no extra rows, so ordinary-effect callers are unchanged.
 	public void SetStatusEffect(StatusEffectData effect, int count, float removalProgress, bool hasTimer, float buildupProgress = 0f, int upgradeLevel = 0, EUpgradeSlot upgradeSlot = EUpgradeSlot.None)
 	{
 		if (effect == null)
@@ -90,7 +94,7 @@ public partial class StatusEffectInfoPanel : PanelContainer
 			_descriptionLabel.Text = desc;
 			_descriptionLabel.Visible = desc.Length > 0;
 		}
-		UpdateLevelStars(upgradeLevel);
+		UpdateLevelStars(upgradeLevel, upgradeSlot);
 		if (_statContainer == null || _statPanelScene == null)
 		{
 			return;

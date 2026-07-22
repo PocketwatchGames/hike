@@ -221,9 +221,11 @@ public partial class MapMarkerOverlay : Control
         // position, identical to the in-world floating model, so map and world agree)
         // and stamp its level. Resolvable while the chunk is unloaded — the slot is a
         // pure function of position and the level rides the always-resident forge cache.
+        bool isForge = false;
         int forgeLevel = 0;
         if (identified && sim.TryGetForgeMarker(record.WorldPosition, out ForgeMarkerInfo forge))
         {
+            isForge = true;
             forgeLevel = forge.Level;
             SimData simData = Sim.Current?.SimData;
             if (simData != null)
@@ -239,9 +241,11 @@ public partial class MapMarkerOverlay : Control
         if (tex != null)
         {
             DrawTextureRect(tex, new Rect2(-half, -half, IconSize, IconSize), false, modulate);
-            if (forgeLevel > 0)
+            // 1-based display so the badge number matches the star counts on the
+            // interact HUD and forge screen (tier 0-4 → 1-5).
+            if (isForge)
             {
-                DrawLevelBadge(forgeLevel, half, revealAlpha);
+                DrawLevelBadge(forgeLevel + 1, half, revealAlpha);
             }
             return;
         }
