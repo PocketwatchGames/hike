@@ -9,7 +9,6 @@
 [sub_resource type="Resource" id="m_stamina"]
 script = ExtResource("m_script")
 stat = 2097152
-value = 1.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]

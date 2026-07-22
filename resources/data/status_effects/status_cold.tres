@@ -9,14 +9,8 @@
 
 [sub_resource type="Resource" id="m_movespeed"]
 script = ExtResource("m_script")
-stat = 4096
-value = 0.75
-metadata/_custom_type_script = "uid://bovyciaikopwb"
-
-[sub_resource type="Resource" id="m_animspeed"]
-script = ExtResource("m_script")
-stat = 8192
-value = 0.75
+stat = 1
+value = 2.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
@@ -29,5 +23,5 @@ startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 loopFx = ExtResource("5_loopfx")
 removesOnApply = []
-modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed")])
+modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed")])
 conditionalModifiers = []

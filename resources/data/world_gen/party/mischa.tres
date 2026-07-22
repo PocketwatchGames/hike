@@ -44,7 +44,6 @@ metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 script = ExtResource("1_playerstate")
 characterName = "Mischa"
 health = 1.4
-stamina = 4.0
 fortitude = 0.9
 strength = 1.1
 stealth = 0.8

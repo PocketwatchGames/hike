@@ -7,7 +7,6 @@
 [sub_resource type="Resource" id="mod_stam"]
 script = ExtResource("2_mod")
 stat = 2097152
-value = 1.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="cond_fallen"]
