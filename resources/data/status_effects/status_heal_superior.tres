@@ -9,7 +9,7 @@
 
 [sub_resource type="Resource" id="dot"]
 script = ExtResource("6_dot")
-damagePerSecond = -60.0
+damagePerSecond = -100.0
 
 [resource]
 script = ExtResource("1_data")
