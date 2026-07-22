@@ -7,7 +7,7 @@
 [sub_resource type="Resource" id="m_health"]
 script = ExtResource("2_r7pts")
 stat = 67108864
-value = 3.0
+value = 30.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]

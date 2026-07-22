@@ -3,7 +3,7 @@ using Godot;
 [GlobalClass]
 public partial class HealEffect : ItemEffect
 {
-	[Export] public float amount = 25f;
+	[Export] public float amount = 250f;
 	[Export] public PackedScene effectScene;
 
 	public override void Apply(IActionActor actor, in ActionContext context)

@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://blmj70p54o01u" path="res://scenes/hud/conversation_panel.tscn" id="4_dialogue"]
 [ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
 [ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/interactives/tall_grass_01.png" id="5_gbuxp"]
+[ext_resource type="PackedScene" uid="uid://cfdavtb761i5m" path="res://scenes/gui/stamina_bar.tscn" id="6_552pg"]
 [ext_resource type="Material" uid="uid://dmnmapmatlr1a" path="res://resources/materials/minimap.tres" id="6_minimap_mat"]
 [ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="7_ggjrh"]
 [ext_resource type="Texture2D" uid="uid://dbdfb2i05edbk" path="res://assets/textures/weather/day_cold_clear.png" id="8_6101d"]
@@ -67,19 +68,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stam0"]
-content_margin_left = 2.0
-content_margin_top = 2.0
-content_margin_right = 2.0
-content_margin_bottom = 2.0
-bg_color = Color(0.2, 0.85, 0.3, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-corner_detail = 6
-
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_lanternHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_lanternHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_lanternHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_lanternHint", "_staminaContainer", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -97,6 +86,8 @@ _weaponLeftButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContain
 _weaponRightButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRightHint")
 _consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/ConsumableHint")
 _lanternHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer4/LanternHint")
+_staminaContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StaminaMarginContainer/StaminaBoxContainer")
+_staminaBarScene = ExtResource("6_552pg")
 _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StatusEffects")
 _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _questContainer = NodePath("ScreenMarginContainer/UpperLeft/QuestContainer")
@@ -105,7 +96,6 @@ _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginCo
 _drainedHealthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/DrainedHealthBar")
 _armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar/ArmorBar")
 _blockArmorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar/BlockArmorBar")
-_staminaBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StaminaMarginContainer/StaminaBar")
 _signpostPanel = NodePath("HudSignpostPanel")
 _dialoguePanel = NodePath("DialoguePanel")
 _regionBanner = NodePath("RegionBanner")
@@ -155,7 +145,6 @@ layout_mode = 2
 [node name="DrainedHealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=1068856624]
 custom_minimum_size = Vector2(250, 25)
 layout_mode = 2
-size_flags_horizontal = 4
 mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_drain")
@@ -166,7 +155,6 @@ show_percentage = false
 [node name="HealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=1068856623]
 custom_minimum_size = Vector2(250, 25)
 layout_mode = 2
-size_flags_horizontal = 4
 theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
 max_value = 1.0
 step = 0.001
@@ -200,18 +188,11 @@ show_percentage = false
 [node name="StaminaMarginContainer" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=565732423]
 layout_mode = 2
 
-[node name="StaminaBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/StaminaMarginContainer" unique_id=181068373]
-custom_minimum_size = Vector2(250, 12)
+[node name="StaminaBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/StaminaMarginContainer" unique_id=900266894]
 layout_mode = 2
-size_flags_horizontal = 4
-theme_override_styles/fill = SubResource("StyleBoxFlat_stam0")
-max_value = 1.0
-value = 1.0
-show_percentage = false
 
 [node name="MarginContainer2" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=1536408953]
 layout_mode = 2
-theme_override_constants/margin_left = 30
 
 [node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2" unique_id=1243331728]
 layout_mode = 2

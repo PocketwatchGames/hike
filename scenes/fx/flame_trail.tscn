@@ -15,7 +15,7 @@ amount = 0.5
 [sub_resource type="Resource" id="Resource_trail_continuous"]
 script = ExtResource("3_continuous")
 tags = 3
-healthDamage = 8.0
+healthDamage = 80.0
 armorPenetration = 0.75
 buildups = Array[ExtResource("4_buildup")]([SubResource("Resource_trail_burning_buildup")])
 

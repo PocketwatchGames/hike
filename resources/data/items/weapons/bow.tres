@@ -13,11 +13,9 @@
 [ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/fx/bow_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/fx/bow_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/fx/bow_hit_solid.tscn" id="7_hitsolid"]
-[ext_resource type="PackedScene" uid="uid://c0vvhpnc8yctn" path="res://scenes/fx/bow_attack_heavy.tscn" id="8_atkheavy"]
 [ext_resource type="PackedScene" uid="uid://c0vvltsw3yctn" path="res://scenes/fx/bow_attack_light.tscn" id="8_atklight"]
 [ext_resource type="PackedScene" uid="uid://c2jrhpmsq2rtn" path="res://scenes/fx/bow_charge_head.tscn" id="8_chghead"]
-[ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/fx/bow_charge_loop.tscn" id="8_chgloop"]
-[ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/fx/bow_charge_tail.tscn" id="8_chgtail"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_jf0yv"]
 [ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="15_tnjmy"]
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="17_kwtcm"]
@@ -50,78 +48,31 @@ useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_snap")])
 requirements = Array[ExtResource("4_1lc6q")]([SubResource("Resource_req_no_swim")])
 chargedRangeScale = 2.0
+chargedSpeedMax = 1
 speedMultiplierActive = 0.5
 chargeStartEffect = ExtResource("8_chghead")
 releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
 
-[sub_resource type="Resource" id="Resource_event_full"]
-script = ExtResource("3_event")
-type = 9284
-animName = 20
-damageProfileKey = &"heavy"
-motionForwardSpeed = -10.0
-impactEnvironmentEffect = ExtResource("7_hitsolid")
-impactHealthEffect = ExtResource("7_hitcreature")
-impactArmorEffect = ExtResource("7_hitsolid")
-impactLethalEffect = ExtResource("7_hitkill")
-projectileScene = ExtResource("18_arrowscene")
-projectileSpeed = 48.0
-projectileLifetimeSeconds = 0.25
-
-[sub_resource type="Resource" id="Resource_charged_full"]
-script = ExtResource("4_charged")
-displayName = &"Snipe"
-activeDurationSeconds = 0.25
-cooldownSeconds = 0.25
-bloodCost = 10.0
-useAmmo = true
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_full")])
-requirements = Array[ExtResource("4_1lc6q")]([SubResource("Resource_req_no_swim")])
-maxSpeedCharging = 1
-speedMultiplierActive = 0.0
-chargeStartEffect = ExtResource("8_chgtail")
-chargeLoopEffect = ExtResource("8_chgloop")
-releaseEffect = ExtResource("8_atkheavy")
-impactCritEffect = ExtResource("7_hitkill")
-impactBackstabEffect = ExtResource("7_hitcreature")
-
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
-chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_snap"), SubResource("Resource_charged_full")])
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_snap")])
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
 
-[sub_resource type="Resource" id="Resource_sx562"]
-script = ExtResource("1_modifier")
-overrides = 1
-healthDamage = 5.0
-addBuildups = []
-metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
-
-[sub_resource type="Resource" id="Resource_oap68"]
-script = ExtResource("1_damage")
-tags = 1105
-healthDamage = 3.0
-armorPenetration = 1.0
-hitstun = 0.25
-knockbackDistance = 1.5
-knockbackTime = 0.25
-buildups = []
-modifiers = Array[Object]([SubResource("Resource_sx562")])
-metadata/_custom_type_script = "uid://dvmit3ddkahg8"
-
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")
-overrides = 1
-healthDamage = 5.0
+overrides = 512
+damageMultiplier = 3.0
 addBuildups = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
 tags = 65
-healthDamage = 3.0
+healthDamage = 30.0
+critChance = 0.1
+damageVariance = 0.25
 hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
@@ -135,7 +86,6 @@ rightHandSlot = true
 arrowLootData = ExtResource("17_arrow")
 ammoRechargeSeconds = 6.0
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
-&"heavy": SubResource("Resource_oap68"),
 &"primary": SubResource("Resource_damage")
 })
 pitchRangeDegrees = 85.0

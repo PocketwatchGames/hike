@@ -8,7 +8,7 @@
 [sub_resource type="Resource" id="mod_armor"]
 script = ExtResource("3_mod")
 stat = 134217728
-value = 15.0
+value = 150.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="se_stoneskin"]

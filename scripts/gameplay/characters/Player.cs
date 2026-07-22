@@ -686,13 +686,16 @@ public partial class Player : CharacterBody3D
 	}
 	public ActionRunner Runner => _runner;
 	public float Health => _health;
-	// Base pool = PlayerData baseline scaled by the hosted member's health/stamina
+	// Base pool = PlayerData baseline scaled by the hosted member's health
 	// multiplier (1 when no member), then flat Max* stat modifiers add on top.
 	public float MaxHealth => (data?.maxHealth ?? 100f) * (Member?.health ?? 1f) + ComposeStat(EStat.MaxHealth);
 	public float Armor => _armor;
 	public float MaxArmor => _maxArmor + ComposeStat(EStat.MaxArmor);
 	public float Stamina => _stamina;
-	public float MaxStamina => (data?.maxStamina ?? 0f) * (Member?.stamina ?? 1f) + ComposeStat(EStat.MaxStamina);
+	// Stamina base is the member's flat unit count (PlayerState.stamina), not a
+	// multiplier — PlayerData.maxStamina only serves memberless spawns. Flat
+	// MaxStamina modifiers (armor, status effects) add whole units on top.
+	public float MaxStamina => (Member?.stamina ?? data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina);
 	// Live mid-air jump cap: PlayerData baseline plus the additive AirJumps stat
 	// composed from equipment / status effects. Never negative.
 	public int AirJumpsMax => Math.Max(0, (data?.airJumpsMax ?? 0) + Mathf.RoundToInt(ComposeStat(EStat.AirJumps)));

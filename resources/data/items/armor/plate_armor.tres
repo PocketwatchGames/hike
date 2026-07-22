@@ -22,10 +22,16 @@ stat = 2
 value = 0.7
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
+[sub_resource type="Resource" id="m_stamina"]
+script = ExtResource("m_script")
+stat = 2097152
+value = -2.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
 [resource]
 script = ExtResource("2_armor")
-maxArmor = 60.0
-modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_speed"), SubResource("m_fire")])
+maxArmor = 600.0
+modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_speed"), SubResource("m_fire"), SubResource("m_stamina")])
 wornMeshNamesFemale = PackedStringArray("F_Knight_Top", "F_Knight_Bottom", "F_Knight_Pauldrons", "F_Knight_Skirt")
 wornMeshNamesMale = PackedStringArray("M_Knight_Top", "M_Knight_Bottom", "M_Knight_Pauldrons")
 displayName = &"Plate Armor"

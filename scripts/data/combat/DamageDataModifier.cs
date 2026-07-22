@@ -34,6 +34,10 @@ public partial class DamageDataModifier : Resource
 	}
 
 	[Export] public float healthDamage;
+	// Relative alternative to the absolute healthDamage replacement above:
+	// scales the live hit's damage (health, plus the armor chip / aggro that
+	// derive from it) — the natural authoring for "crits deal 3× damage".
+	[Export] public float damageMultiplier = 1f;
 	[Export] public float hitstun;
 	[Export] public float knockbackDistance;
 	[Export] public float knockbackTime;
@@ -59,6 +63,7 @@ public partial class DamageDataModifier : Resource
 		return fieldName switch
 		{
 			nameof(healthDamage) => EDamageFields.HealthDamage,
+			nameof(damageMultiplier) => EDamageFields.DamageMultiplier,
 			nameof(hitstun) => EDamageFields.Hitstun,
 			nameof(knockbackDistance) => EDamageFields.KnockbackDistance,
 			nameof(knockbackTime) => EDamageFields.KnockbackTime,

@@ -18,7 +18,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("2_bvjtb")
-maxArmor = 20.0
+maxArmor = 200.0
 modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("Resource_bvjtb")])
 wornMeshNamesFemale = PackedStringArray("F_Fighter_Top", "F_Fighter_Bottom")
 wornMeshNamesMale = PackedStringArray("M_Fighter_Top", "M_Fighter_Bottom")

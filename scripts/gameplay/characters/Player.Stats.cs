@@ -373,6 +373,21 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Effective parry cap for `weapon`: the authored maxParryDamage scaled by
+	// the same per-level multipliers the weapon's own hits enjoy — its composed
+	// item level (DamageMultiplier, 2^level) and the Melee forge upgrade's
+	// shared curve (OutgoingLevelScale) — so an upgraded weapon deflects
+	// proportionally bigger blows, keeping parry viable against higher-level
+	// mobs whose damage rides the same curve.
+	private float EffectiveMaxParryDamage(WeaponState weapon)
+	{
+		if (weapon?.data == null || weapon.data.maxParryDamage <= 0f)
+		{
+			return 0f;
+		}
+		return weapon.data.maxParryDamage * weapon.DamageMultiplier * OutgoingLevelScale(EInventorySlot.WeaponMelee);
+	}
+
 	// Whether `weapon`'s guard is off its recharge cooldown and so free to
 	// parry. blockArmorRechargeStartMs is the game-time at which the guard's
 	// recharge may resume — pushed into the future by every guard-touching hit

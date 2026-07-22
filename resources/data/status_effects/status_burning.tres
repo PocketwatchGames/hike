@@ -8,7 +8,7 @@
 
 [sub_resource type="Resource" id="dot"]
 script = ExtResource("5_dot")
-damagePerSecond = 2.0
+damagePerSecond = 20.0
 armorPenetration = 0.75
 
 [resource]

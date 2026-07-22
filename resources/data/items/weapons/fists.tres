@@ -11,7 +11,6 @@
 [ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/fx/fists_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://g2qnx2aoo0cy" path="res://scenes/fx/fists_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_hitsolid"]
-[ext_resource type="PackedScene" uid="uid://g2gnagaooy8y" path="res://scenes/fx/fists_attack_heavy.tscn" id="8_atkheavy"]
 [ext_resource type="PackedScene" uid="uid://l2a2i3yh3emq" path="res://scenes/fx/fists_attack_light.tscn" id="8_atklight"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_5mj5i"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
@@ -60,56 +59,33 @@ releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
 
-[sub_resource type="Resource" id="Resource_event_heavy"]
-script = ExtResource("3_event")
-type = 65601
-range = 2.7
-nearWidth = 0.6
-farWidth = 3.0
-animName = 20
-cameraShakeMagnitude = 0.18
-impactEnvironmentEffect = ExtResource("7_hitsolid")
-impactHealthEffect = ExtResource("7_hitcreature")
-impactArmorEffect = ExtResource("7_hitsolid")
-impactLethalEffect = ExtResource("7_hitkill")
-
-[sub_resource type="Resource" id="Resource_charged_heavy"]
-script = ExtResource("4_charged")
-activeDurationSeconds = 0.25
-cooldownSeconds = 0.35
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
-requirements = Array[ExtResource("9_5mj5i")]([SubResource("Resource_req_no_swim")])
-maxSpeedCharging = 2
-speedMultiplierActive = 0.0
-releaseEffect = ExtResource("8_atkheavy")
-impactCritEffect = ExtResource("7_hitkill")
-impactBackstabEffect = ExtResource("7_hitcreature")
-
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
-chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_light"), SubResource("Resource_charged_heavy")])
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_light")])
 autoActivateAtMax = false
 queueable = true
 queueWindowSeconds = 0.25
 
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")
-overrides = 9
-healthDamage = 3.0
+overrides = 520
+damageMultiplier = 3.0
 knockbackDistance = 2.0
 addBuildups = []
 
 [sub_resource type="Resource" id="Resource_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
-overrides = 1
-healthDamage = 4.0
+overrides = 512
+damageMultiplier = 3.0
 addBuildups = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
 tags = 1157
-healthDamage = 2.0
+healthDamage = 20.0
+critChance = 0.1
+damageVariance = 0.25
 blunt = 0.2
 hitstun = 0.2
 knockbackDistance = 0.3

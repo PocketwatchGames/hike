@@ -17,7 +17,7 @@
 
 [sub_resource type="Resource" id="Resource_firetrap_damage"]
 script = ExtResource("3_damage")
-healthDamage = 8.0
+healthDamage = 80.0
 statusEffects = []
 buildups = []
 modifiers = []
@@ -37,7 +37,7 @@ amount = 0.4
 
 [sub_resource type="Resource" id="Resource_firetrap_continuous"]
 script = ExtResource("3_continuous")
-healthDamage = 16.0
+healthDamage = 160.0
 armorPenetration = 0.75
 buildups = Array[ExtResource("3_buildup")]([SubResource("Resource_firetrap_burning_buildup")])
 

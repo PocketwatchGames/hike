@@ -18,13 +18,13 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [sub_resource type="Resource" id="mod_health"]
 script = ExtResource("2_mod")
 stat = 67108864
-value = 5.0
+value = 50.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="mod_stamina"]
 script = ExtResource("2_mod")
 stat = 2097152
-value = 5.0
+value = 1.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]

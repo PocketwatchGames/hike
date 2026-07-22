@@ -59,10 +59,11 @@ public partial class WeaponModData : Resource
 	[ExportGroup("Lifesteal")]
 	[Export(PropertyHint.Range, "0,1,0.01")] public float vampiric = 0f;
 
-	// Flat stamina points refunded to the attacker on each landed hit, independent
-	// of the damage dealt. The "ranged" stamina-recharge upgrade. Player-only —
-	// mobs have no stamina pool, so their RestoreStamina is a no-op. 0 = none.
-	[Export(PropertyHint.Range, "0,100,1,or_greater")] public float staminaOnHit = 0f;
+	// Flat stamina units refunded to the attacker on each landed hit (1 unit =
+	// 1 dash), independent of the damage dealt. The "ranged" stamina-recharge
+	// upgrade. Player-only — mobs have no stamina pool, so their RestoreStamina
+	// is a no-op. 0 = none.
+	[Export(PropertyHint.Range, "0,2,0.1,or_greater")] public float staminaOnHit = 0f;
 
 	// Effects every landed attack adds to the struck target, on top of whatever
 	// the weapon's own DamageData.buildups author. Each entry either feeds a

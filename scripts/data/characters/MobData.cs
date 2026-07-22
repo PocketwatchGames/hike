@@ -174,7 +174,7 @@ public partial class MobData : Resource
     // how fast that focus fades once an attacker stops dealing damage, letting
     // the mob fall back to picking its target by perception / proximity. Higher
     // = more fickle focus; 0 = aggro never decays (a grudge held until death).
-    [Export] public float aggroReductionSpeed = 5f;
+    [Export] public float aggroReductionSpeed = 50f;
 
     [ExportGroup("Perceivability")]
     // How the player sees this mob — fed into PlayerPerception.Tick. Movement
@@ -258,7 +258,7 @@ public partial class MobData : Resource
     // distinct species sharing this MobData). MobDescriptor.CreateState stamps it
     // onto MobSimState.Weapons; Mob.Weapons reads it from there. See SpeciesData /
     // BehaviorAttack.
-    [Export] public float maxHealth = 10f;
+    [Export] public float maxHealth = 100f;
     [Export] public float maxArmor = 0f;
     [Export] public float armorRechargeDelay = 6f;
     // Seconds for the armor pool to refill from empty to full maxArmor. The

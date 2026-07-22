@@ -59,7 +59,12 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			}
 			if ((ev.type & EItemEventType.Projectile) != 0 && ev.projectileScene != null)
 			{
-				return ev.projectileSpeed * ev.projectileLifetimeSeconds * rangeScale;
+				// Arced lobs author reach directly (projectileMaxRange, speed
+				// ignored); flat flight derives it as speed × lifetime.
+				float baseRange = ev.projectileArcing
+					? ev.projectileMaxRange
+					: ev.projectileSpeed * ev.projectileLifetimeSeconds;
+				return baseRange * rangeScale;
 			}
 			if ((ev.type & EItemEventType.Melee) != 0)
 			{

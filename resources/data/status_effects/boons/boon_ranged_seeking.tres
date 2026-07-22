@@ -31,7 +31,7 @@ metadata/_custom_type_script = "uid://cmw4pa3roleml"
 [sub_resource type="Resource" id="projectileDamage"]
 script = ExtResource("5_damage")
 tags = 577
-healthDamage = 3.0
+healthDamage = 30.0
 buildups = []
 modifiers = []
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"

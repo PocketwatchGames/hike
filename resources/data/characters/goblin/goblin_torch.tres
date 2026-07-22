@@ -61,7 +61,7 @@ amount = 0.5
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")
 tags = 1157
-healthDamage = 8.0
+healthDamage = 80.0
 blunt = 0.5
 hitstun = 0.3
 knockbackDistance = 1.0

@@ -169,8 +169,11 @@ public partial class ItemAction : Resource
 	//
 	// `chargedRangeScale` MULTIPLIES the event's base range as `chargeT`
 	// runs 0 → 1: at chargeT=0 the range is base; at chargeT=1 it's
-	// `base * chargedRangeScale`. 1.0 (default) = no within-tier ramp; the
-	// tier fires at its event's authored range regardless of hold length.
+	// `base * chargedRangeScale`. For arced (thrown) projectiles the scaled
+	// range is `projectileMaxRange` — the throw's horizontal reach (and with
+	// it the launch speed, reach / lifetime) grows as the hold charges. 1.0
+	// (default) = no within-tier ramp; the tier fires at its event's authored
+	// range regardless of hold length.
 	// `chargedAccuracyScale` DIVIDES `accuracySpread01` as `chargeT` runs
 	// 0 → 1: at chargeT=0 spread = accuracySpread01; at chargeT=1 spread
 	// = `accuracySpread01 / chargedAccuracyScale`. 1.0 (default) = no
@@ -182,18 +185,26 @@ public partial class ItemAction : Resource
 
 	// Movement constraints the actor retains while this is the selected tier,
 	// split by phase and mutually exclusive (only one phase is live at a time).
-	// `maxSpeedCharging` caps the player's move speed at a named gait during
-	// Charging (Stationary = a drinking consumable roots at 0; Sneak = a heavy
-	// club / ranged draw crawl; Sprint = effectively unrestricted). It's a
-	// ceiling applied as a min against the computed speed, never a speed-up.
+	// `maxSpeedCharging` caps the player's move speed at a named gait for the
+	// ENTIRE Charging phase, press through release (Stationary = a drinking
+	// consumable roots at 0; Sneak = the summoner's channel crawl; Sprint =
+	// effectively unrestricted). `chargedSpeedMax` is the same kind of cap but
+	// engages only once THIS tier is fully charged — its own chargeTime window
+	// complete, the hold sitting at max — so the bow draws at full speed and
+	// drops to a Sneak crawl only at full draw. A chargeTime = 0 tier counts as
+	// fully charged from the moment it's selected. When both are authored the
+	// lower gait wins while fully charged. Both are ceilings applied as a min
+	// against the computed speed, never a speed-up.
 	// `speedMultiplierActive` is a MULTIPLIER (1 = full speed, 0 = fully rooted)
 	// applied during Active (the swing / strike / dart) — mob attacks set it to
 	// 0 to own the body through windup, strike, and recovery. NOTE: the "is
 	// movement locked" boolean (ActionRunner.LocksMovement, consumed by mob
 	// path-skip, footstep suppression, and the charge-anim override) is true
-	// while charging only when maxSpeedCharging == Stationary, and while Active
-	// when speedMultiplierActive <= 0.
+	// while charging only when the EFFECTIVE cap (including an engaged
+	// chargedSpeedMax) is Stationary, and while Active when
+	// speedMultiplierActive <= 0.
 	[Export] public EChargeSpeedCap maxSpeedCharging = EChargeSpeedCap.Sprint;
+	[Export] public EChargeSpeedCap chargedSpeedMax = EChargeSpeedCap.Sprint;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float speedMultiplierActive = 1f;
 
 	// Turn-speed multipliers the actor retains while this is the selected tier,

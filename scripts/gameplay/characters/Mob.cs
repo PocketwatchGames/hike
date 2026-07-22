@@ -3686,30 +3686,29 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Crit decision — combines an unconditional "untriggered mob is always
-    // crit" gate (sneak attack pre-aggro) with a probabilistic vulnerable
-    // roll for triggered mobs (dizzy authors vulnerable=1, so a dizzied
-    // triggered mob always crits). Reads HitInfo.critRoll so the attacker's
-    // PredictHit prediction and the receiver's ResolveTriggers agree on the
-    // outcome of this swing. Composes a hypothetical base crit chance as
-    // 1 - (1 - base) * (1 - vulnerable) — base is 1 for untriggered mobs
-    // and 0 for triggered, leaving room to introduce per-attack critChance
-    // later without changing the formula.
+    // crit" gate (sneak attack pre-aggro) with a probabilistic roll for
+    // triggered mobs: the attack's own base chance (DamageData.critChance,
+    // carried on the hit) composed with this mob's vulnerable score as
+    // independent probabilities, 1 - (1 - critChance) * (1 - vulnerable) —
+    // dizzy authors vulnerable=1, so a dizzied triggered mob always crits.
+    // Reads HitInfo.critRoll so the attacker's PredictHit prediction and the
+    // receiver's ResolveTriggers agree on the outcome of this swing.
     private bool IsCritEligible(HitInfo hit)
     {
         if (!triggered)
         {
             return true;
         }
-        float v = vulnerable;
-        if (v >= 1f)
+        float chance = 1f - (1f - Mathf.Clamp(hit.critChance, 0f, 1f)) * (1f - vulnerable);
+        if (chance >= 1f)
         {
             return true;
         }
-        if (v <= 0f)
+        if (chance <= 0f)
         {
             return false;
         }
-        return hit.critRoll < v;
+        return hit.critRoll < chance;
     }
 
     // Backstab geometry — the attacker is the player and attacked from within

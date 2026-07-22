@@ -5,7 +5,7 @@
 
 [sub_resource type="Resource" id="dot"]
 script = ExtResource("2_dot")
-maxHealthDrainPerSecond = 1.0
+maxHealthDrainPerSecond = 10.0
 
 [resource]
 script = ExtResource("1_data")

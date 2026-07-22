@@ -6,7 +6,7 @@
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("3_mod")
-staminaOnHit = 10.0
+staminaOnHit = 1.0
 onHitBuildups = []
 
 [resource]

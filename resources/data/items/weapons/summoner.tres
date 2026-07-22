@@ -33,7 +33,7 @@ script = ExtResource("4_action")
 displayName = &"Summon"
 chargeTime = 3.0
 activeDurationSeconds = 0.5
-bloodCost = 20.0
+bloodCost = 200.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_summon_event")])
 requirements = Array[ExtResource("6_fcrvo")]([SubResource("Resource_req_no_swim")])
 aimType = 1
@@ -41,7 +41,7 @@ positionalAreaRadius = 2.5
 maxSpeedCharging = 1
 speedMultiplierActive = 0.0
 channelZoneScene = ExtResource("7_channel")
-channelBloodCostPerSecond = 4.0
+channelBloodCostPerSecond = 40.0
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("6_profile")

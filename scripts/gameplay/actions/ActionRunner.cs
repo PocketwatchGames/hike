@@ -91,10 +91,12 @@ public class ActionRunner
 	}
 
 	// Named speed ceiling the selected tier imposes while Charging, or null in
-	// every other state (idle, Active, interactive). The player maps this gait
-	// to a concrete m/s (from its PlayerData speed table) and clamps its
-	// computed move speed down to it — a cap, never a speed-up. Mobs ignore the
-	// value and only read it through LocksMovement.
+	// every other state (idle, Active, interactive). `maxSpeedCharging` applies
+	// for the whole phase; `chargedSpeedMax` joins in (lower gait wins) once the
+	// selected tier is fully charged. The player maps this gait to a concrete
+	// m/s (from its PlayerData speed table) and clamps its computed move speed
+	// down to it — a cap, never a speed-up. Mobs ignore the value and only read
+	// it through LocksMovement.
 	public EChargeSpeedCap? ChargeSpeedCap
 	{
 		get
@@ -107,8 +109,33 @@ public class ActionRunner
 			{
 				return null;
 			}
-			return _action.selectedTier?.maxSpeedCharging;
+			ItemAction tier = _action.selectedTier;
+			if (tier == null)
+			{
+				return null;
+			}
+			EChargeSpeedCap cap = tier.maxSpeedCharging;
+			if (tier.chargedSpeedMax < cap && IsSelectedTierFullyCharged())
+			{
+				cap = tier.chargedSpeedMax;
+			}
+			return cap;
 		}
+	}
+
+	// True while Charging once the selected tier's own charge window is
+	// complete (the hold is sitting at max for this tier). A chargeTime = 0
+	// tier counts as fully charged the moment it's selected.
+	private bool IsSelectedTierFullyCharged()
+	{
+		ItemAction tier = _action.selectedTier;
+		if (tier == null)
+		{
+			return false;
+		}
+		float elapsed = (_actor.GameTimeMs - _action.pressMs) / 1000f;
+		float tierStart = ItemActionProfile.GetTierStartTime(_action.profile, _action.selectedTierIndex, tier.comboIndex);
+		return elapsed >= tierStart + tier.chargeTime;
 	}
 
 	// True when the current action fully roots the actor this phase — a 0 Active
@@ -521,7 +548,6 @@ public class ActionRunner
 		FireChargeEndEvents();
 		StopChargeLoop();
 		StopChannelZone();
-		ItemEventHandlers.SpawnOnActor(_actor, tier?.releaseEffect);
 		float chargeElapsed = (now - _action.pressMs) / 1000f;
 		_action.phase = EActionPhase.Active;
 		_action.selectedTier = tier;
@@ -551,6 +577,12 @@ public class ActionRunner
 			_action.repeatIndex = next;
 			swing = tier.GetRepeat(next);
 		}
+
+		// Release fx (the swing's swoosh one-shot) — a repeat swing's override
+		// wins so a finisher can carry its own cue; else the tier's shared one.
+		// Spawned after swing resolution, unlike the charge-teardown fx above,
+		// precisely so the override can swap it.
+		ItemEventHandlers.SpawnOnActor(_actor, swing != null && swing.releaseEffect != null ? swing.releaseEffect : tier?.releaseEffect);
 
 		// Effective cooldown: a repeat swing's override wins when set (>= 0),
 		// else the tier's own cooldownSeconds. cooldownSeconds is the RECOVERY
@@ -770,7 +802,20 @@ public class ActionRunner
 		EItemEventType t = ev.type;
 		if ((t & EItemEventType.PlayAnim) != 0)
 		{
-			_actor.PlayAnim(ev.animName);
+			// Per-swing anim override: a repeat swing authoring animName != None
+			// replaces the anim of every PlayAnim event in its Active timeline
+			// (charge-phase / ready events keep the authored anim — repeatIndex
+			// is only meaningful once Active).
+			EAnimation anim = ev.animName;
+			if (_action.phase == EActionPhase.Active)
+			{
+				ActionRepeatOverride swing = _action.selectedTier?.GetRepeat(_action.repeatIndex);
+				if (swing != null && swing.animName != EAnimation.None)
+				{
+					anim = swing.animName;
+				}
+			}
+			_actor.PlayAnim(anim);
 		}
 		if ((t & EItemEventType.ApplyStatusEffect) != 0)
 		{

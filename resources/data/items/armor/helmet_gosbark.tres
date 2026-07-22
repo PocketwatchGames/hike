@@ -5,7 +5,7 @@
 
 [resource]
 script = ExtResource("1_armor")
-maxArmor = 18.0
+maxArmor = 180.0
 armorSlot = 1
 displayName = &"Gosbark Helm"
 description = "Thick bark-plated headgear that turns aside heavy blows."

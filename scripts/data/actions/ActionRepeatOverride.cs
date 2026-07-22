@@ -28,4 +28,15 @@ public partial class ActionRepeatOverride : Resource
 	// finisher can carry a longer recovery than the quick lead-in swings while
 	// the plain swings share one authored value.
 	[Export] public float cooldownSeconds = -1f;
+
+	// Anim slot for THIS swing: replaces the animName of every PlayAnim event
+	// in the base tier's Active timeline (the per-weapon clip still resolves
+	// through WeaponData.animSet, so e.g. Attack2 on a finisher plays that
+	// weapon's heavy clip). None (default) keeps the base event's anim.
+	[Export] public EAnimation animName = EAnimation.None;
+
+	// Release fx for THIS swing: replaces the base tier's releaseEffect at
+	// activation (the swing's swoosh/voice one-shot). Null (default) keeps the
+	// base tier's.
+	[Export] public PackedScene releaseEffect;
 }

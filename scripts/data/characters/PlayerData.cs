@@ -174,7 +174,7 @@ public partial class PlayerData : Resource
 	// gated on _stamina > 0 at press time (the press is rejected outright if
 	// already exhausted), then deducted unconditionally — allowed to drive
 	// stamina negative so chained wall jumps eat into the recharge runway.
-	[Export] public float wallJumpStaminaCost = 15f;
+	[Export] public float wallJumpStaminaCost = 1f;
 	// Air-control blend window after a wall jump. During this many seconds the
 	// airborne input-velocity rebuild lerps from the kick velocity (t=0) to the
 	// input-driven velocity (t=1) instead of snapping each tick, so the arc
@@ -335,7 +335,7 @@ public partial class PlayerData : Resource
 	[Export] public LanternData startingLantern;
 
 	[ExportGroup("Combat")]
-	[Export] public float maxHealth = 100f;
+	[Export] public float maxHealth = 1000f;
 
 	// Fallback melee weapon used by the melee attack when the WeaponLeft slot is
 	// empty — the player's bare-handed punch/kick. Authored as an ordinary
@@ -394,15 +394,18 @@ public partial class PlayerData : Resource
 	// same start time, after which the whole accumulated pool drains at
 	// the flat rate.
 	[Export] public float bloodRegenDelay = 3f;
-	[Export] public float bloodRegenSpeed = 10f;
+	[Export] public float bloodRegenSpeed = 100f;
 
 	[ExportGroup("Stamina")]
-	// Stamina drains as the player performs effortful actions and refills on
-	// its own. After any spend, recharge is gated for `staminaRechargeDelay`
-	// seconds; once it begins, the bar refills from 0 to maxStamina over
+	// Stamina is denominated in dash units — 1 stamina = 1 dash — and the HUD
+	// draws one pip per unit, so maxStamina and every MaxStamina modifier
+	// (armor, status effects) should be authored in whole units. Stamina
+	// drains as the player performs effortful actions and refills on its own.
+	// After any spend, recharge is gated for `staminaRechargeDelay` seconds;
+	// once it begins, the pool refills from 0 to maxStamina over
 	// `staminaRechargeTime` seconds (a flat rate, so partial spends refill
 	// proportionally faster).
-	[Export] public float maxStamina = 100f;
+	[Export] public float maxStamina = 3f;
 	[Export] public float staminaRechargeDelay = 1.5f;
 	[Export] public float staminaRechargeTime = 3f;
 
@@ -418,7 +421,7 @@ public partial class PlayerData : Resource
 	// item (so ItemAction.cooldownSeconds doesn't apply). dashMaxFallSpeed
 	// prevents using dash to halt a long fall: pressing Dash while falling
 	// faster than this is dropped silently.
-	[Export] public float dashStaminaCost = 25f;
+	[Export] public float dashStaminaCost = 1f;
 	[Export] public float dashCooldown = 0.35f;
 	[Export] public float dashMaxFallSpeed = 8f;
 	// Underwater speed scalar applied to the dash event's motionForwardSpeed. 1.0
@@ -439,7 +442,7 @@ public partial class PlayerData : Resource
 	// depleted stamina drops to moveSpeed but still arms the recharge delay,
 	// so the player can't refill while gripping the sprint button.
 	[Export] public float sprintSpeed = 12f;
-	[Export] public float sprintStaminaDrainPerSecond = 15f;
+	[Export] public float sprintStaminaDrainPerSecond = 0.6f;
 	// Sprint speed while swimming. Used by the dash-exit clamp when the
 	// player ends a dash in water; the moving swim anim (SwimSprint) is
 	// authored separately and selected by _sprinting alone.
@@ -455,7 +458,7 @@ public partial class PlayerData : Resource
 	// Stamina is allowed to go negative — movement is never gated on it, but
 	// each tick of swim drain re-arms the recharge delay so the bar can't
 	// refill until the player stops swimming or stops giving move input.
-	[Export] public float swimStaminaDrainPerSecond = 10f;
+	[Export] public float swimStaminaDrainPerSecond = 0.4f;
 
 	[ExportGroup("Mob Push")]
 	// Multiplier on the player's horizontal speed used as the *cap* on a

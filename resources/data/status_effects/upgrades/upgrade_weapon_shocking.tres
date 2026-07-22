@@ -20,7 +20,7 @@ metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
 [sub_resource type="Resource" id="dischargeDamage"]
 script = ExtResource("2_damage")
 tags = 33
-healthDamage = 8.0
+healthDamage = 80.0
 hitstun = 0.15
 buildups = Array[ExtResource("8_buildup")]([SubResource("dizzyBuildup")])
 modifiers = []

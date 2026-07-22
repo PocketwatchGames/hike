@@ -12,7 +12,7 @@ amount = 0.12
 [resource]
 script = ExtResource("1_damage")
 tags = 1057
-healthDamage = 50.0
+healthDamage = 500.0
 hitstun = 0.5
 knockbackDistance = 6.0
 knockbackTime = 0.35

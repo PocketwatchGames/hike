@@ -12,7 +12,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_armor")
-maxArmor = 4.0
+maxArmor = 40.0
 armorSlot = 1
 modifiers = Array[ExtResource("m_script")]([SubResource("m_nightvision")])
 displayName = &"Glimp Visor"

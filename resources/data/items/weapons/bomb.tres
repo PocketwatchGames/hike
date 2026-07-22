@@ -8,8 +8,8 @@
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="5_areaspec"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="6_profile"]
 [ext_resource type="PackedScene" uid="uid://bm0bprojvl3ka" path="res://scenes/projectiles/bomb_projectile.tscn" id="7_proj"]
-[ext_resource type="PackedScene" uid="uid://bm0xpllarge02" path="res://scenes/fx/bomb_explosion_large.tscn" id="8b_explosion_large"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_7xwph"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="8_68y43"]
 [ext_resource type="PackedScene" uid="uid://bm0xpmaaoe20c" path="res://scenes/fx/bomb_explosion.tscn" id="8_explosion"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="8_state"]
 [ext_resource type="PackedScene" uid="uid://bm0thrwfx02d" path="res://scenes/fx/bomb_throw.tscn" id="9_throw"]
@@ -40,7 +40,7 @@ animName = 37
 projectileScene = ExtResource("7_proj")
 projectileArcing = true
 projectileGravity = 20.0
-projectileMaxRange = 9.0
+projectileMaxRange = 3.0
 projectileBounciness = 0.35
 impactEvent = SubResource("Resource_impact_small")
 
@@ -58,66 +58,24 @@ useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_proj_small")])
 requirements = Array[ExtResource("8_7xwph")]([SubResource("Resource_req_no_swim")])
 aimType = 2
+positionalRange = 5.0
 positionalAreaRadius = 1.0
-maxSpeedCharging = 0
+chargedRangeScale = 3.0
+chargedSpeedMax = 1
 speedMultiplierActive = 0.5
-releaseEffect = ExtResource("9_throw")
-
-[sub_resource type="Resource" id="Resource_impact_large"]
-script = ExtResource("3_event")
-type = 81920
-cameraShakeMagnitude = 0.38
-cameraShakeDuration = 0.4
-cameraShakeRange = 42.0
-areaEffectScene = ExtResource("8b_explosion_large")
-areaRadius = 2.5
-areaDurationSeconds = 1.2
-areaIntervals = Array[ExtResource("5_areaspec")]([SubResource("Resource_areaspec_blast")])
-
-[sub_resource type="Resource" id="Resource_proj_large"]
-script = ExtResource("3_event")
-type = 8260
-animName = 37
-projectileScene = ExtResource("7_proj")
-projectileArcing = true
-projectileGravity = 20.0
-projectileMaxRange = 9.0
-impactEvent = SubResource("Resource_impact_large")
-
-[sub_resource type="Resource" id="Resource_tier_heavy"]
-script = ExtResource("4_action")
-displayName = &"Heavy Bomb"
-activeDurationSeconds = 0.5
-cooldownSeconds = 0.5
-useAmmo = true
-events = Array[ExtResource("3_event")]([SubResource("Resource_proj_large")])
-requirements = Array[ExtResource("8_7xwph")]([SubResource("Resource_req_no_swim")])
-aimType = 2
-positionalAreaRadius = 2.5
-maxSpeedCharging = 1
-speedMultiplierActive = 0.0
 releaseEffect = ExtResource("9_throw")
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("6_profile")
-chargedActions = Array[ExtResource("4_action")]([SubResource("Resource_tier_toss"), SubResource("Resource_tier_heavy")])
+chargedActions = Array[ExtResource("4_action")]([SubResource("Resource_tier_toss")])
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
-
-[sub_resource type="Resource" id="Resource_damage_explosion"]
-script = ExtResource("1_damage")
-tags = 1031
-healthDamage = 8.0
-hitstun = 0.3
-knockbackDistance = 3.0
-knockbackTime = 0.3
-buildups = []
-modifiers = []
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("1_damage")
 tags = 1
-healthDamage = 1.0
+healthDamage = 10.0
+damageVariance = 0.25
 buildups = []
 modifiers = []
 
@@ -127,7 +85,6 @@ maxAmmo = 3
 rightHandSlot = true
 ammoRechargeSeconds = 6.0
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
-&"explosion": SubResource("Resource_damage_explosion"),
 &"primary": SubResource("Resource_damage_primary")
 })
 actionProfile = SubResource("Resource_profile")

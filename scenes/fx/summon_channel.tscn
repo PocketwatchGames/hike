@@ -7,7 +7,7 @@
 
 [sub_resource type="Resource" id="Resource_summon_continuous"]
 script = ExtResource("3_continuous")
-healthDamage = 6.0
+healthDamage = 60.0
 armorPenetration = 0.75
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_summon_zone"]

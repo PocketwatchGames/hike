@@ -211,21 +211,29 @@ public partial class WeaponData : ItemData
 	// (default) = the weapon can't parry (it only passively blocks). Measured
 	// against the sim clock (GameTimeMs), so it slows uniformly under slow-mo.
 	[Export] public int parryTimeMs = 0;
-	// The largest single hit a parry can fully negate. A blow whose (post-
-	// resistance) damage is at or under this is deflected outright — no health,
-	// armor, buildup, hitstun, or knockback lands — and the attacker takes the
-	// parryDamageProfileKey counter. A bigger blow can't be parried and falls
-	// through to the passive block below. Independent of blockArmor, so a weapon
-	// that barely blocks (a knife, blockArmor = 0) can still parry hard. A parry
-	// is only available while the guard is off its recharge cooldown, and lands
-	// re-arm that delay (see Player.SpendParryGuard) so parries can't be spammed
-	// — this is the "interacts with block recharge" coupling. 0 = no parry.
+	// The largest single hit a parry can fully negate, at level 0. A blow whose
+	// (post-resistance) damage is at or under the cap is deflected outright — no
+	// health, armor, buildup, hitstun, or knockback lands — and the attacker
+	// takes the parryDamageProfileKey counter. A bigger blow can't be parried and
+	// falls through to the passive block below. The live cap scales with the same
+	// per-level multipliers as the weapon's damage output — composed item level
+	// and the Melee forge upgrade's curve (Player.EffectiveMaxParryDamage) — so
+	// parry keeps pace with level-scaled mob damage. Independent of blockArmor,
+	// so a weapon that barely blocks (a knife, blockArmor = 0) can still parry
+	// hard. A parry is only available while the guard is off its recharge
+	// cooldown, and lands re-arm that delay (see Player.SpendParryGuard) so
+	// parries can't be spammed — this is the "interacts with block recharge"
+	// coupling. 0 = no parry.
 	[Export] public float maxParryDamage = 0f;
 	// Damage profile (key into damageProfiles) dealt back to the attacker on a
 	// successful parry. Empty / unmapped = no counter-strike (the blow is still
 	// negated, it just deals no damage back). Only a melee attacker — a Mob
 	// dealing the parried blow — is countered.
 	[Export] public StringName parryDamageProfileKey = new StringName();
+	// One-shot Fx spawned at the player on a successful parry (the clang +
+	// shake). Per-weapon so a knife's deflection can read differently from a
+	// club's. Null = no fx (the PARRIED! HUD text still shows).
+	[Export] public PackedScene parryEffect;
 
 	public override ItemState CreateState()
 	{

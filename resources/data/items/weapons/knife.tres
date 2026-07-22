@@ -12,20 +12,16 @@
 [ext_resource type="PackedScene" uid="uid://g2qnx2aoo0cy" path="res://scenes/fx/fists_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_hitsolid"]
 [ext_resource type="PackedScene" uid="uid://g2gnagaooy8y" path="res://scenes/fx/fists_attack_heavy.tscn" id="8_atkheavy"]
-[ext_resource type="PackedScene" uid="uid://l2a2i3yh3emq" path="res://scenes/fx/fists_attack_light.tscn" id="8_atklight"]
+[ext_resource type="PackedScene" path="res://scenes/fx/knife_attack_light.tscn" id="8_atklight"]
 [ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="8_lqdfk"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
-[ext_resource type="Resource" uid="uid://43fu3vtfud0d" path="res://resources/data/items/weapons/knife_charged_attack_melee_event1.tres" id="10_74twt"]
-[ext_resource type="Resource" uid="uid://dbvs03beygksr" path="res://resources/data/items/weapons/knife_charged_attack_melee_event2.tres" id="11_lqdfk"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_continuous"]
-[ext_resource type="Resource" uid="uid://cfshpu0exj2p1" path="res://resources/data/items/weapons/knife_charged_attack_melee_event3.tres" id="12_qsf28"]
-[ext_resource type="Resource" uid="uid://r5ci866r1b52" path="res://resources/data/items/weapons/knife_charged_attack_melee_event4.tres" id="13_v26lm"]
-[ext_resource type="Resource" uid="uid://u1llss410jav" path="res://resources/data/items/weapons/knife_charged_attack_melee_event5.tres" id="14_0ohaa"]
 [ext_resource type="Texture2D" uid="uid://e1r7kjk5qyau" path="res://assets/textures/items/Knife.png" id="15_sprite"]
 [ext_resource type="PackedScene" uid="uid://ce444jxc8syqg" path="res://scenes/items/held/knife_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://ctqy5r6q3jmsx" path="res://resources/data/characters/human/anim_sets/knife.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
+[ext_resource type="PackedScene" path="res://scenes/fx/parry.tscn" id="22_parryfx"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
@@ -58,6 +54,7 @@ metadata/_custom_type_script = "uid://mdffi1hq8u6y"
 script = ExtResource("21_repeat")
 damageMultiplier = 4.0
 cooldownSeconds = 1.2
+releaseEffect = ExtResource("8_atkheavy")
 metadata/_custom_type_script = "uid://mdffi1hq8u6y"
 
 [sub_resource type="Resource" id="Resource_req_no_swim"]
@@ -73,63 +70,24 @@ events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
 comboWindowMs = 500
 repeatActionOverrides = Array[ExtResource("21_repeat")]([SubResource("Resource_knife_swing1"), SubResource("Resource_knife_swing2"), SubResource("Resource_knife_swing3"), SubResource("Resource_knife_swing4"), SubResource("Resource_knife_swing5")])
 requirements = Array[ExtResource("9_req")]([SubResource("Resource_req_no_swim")])
-maxSpeedCharging = 2
+chargedSpeedMax = 2
 speedMultiplierActive = 0.0
 releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitkill")
 
-[sub_resource type="Resource" id="Resource_charged_heavy"]
-script = ExtResource("4_charged")
-displayName = &"Flurry"
-activeDurationSeconds = 1.0
-cooldownSeconds = 0.25
-bloodCost = 10.0
-events = Array[ExtResource("3_event")]([ExtResource("10_74twt"), ExtResource("11_lqdfk"), ExtResource("12_qsf28"), ExtResource("13_v26lm"), ExtResource("14_0ohaa")])
-requirements = Array[ExtResource("9_req")]([SubResource("Resource_req_no_swim")])
-maxSpeedCharging = 1
-speedMultiplierActive = 0.0
-releaseEffect = ExtResource("8_atkheavy")
-impactCritEffect = ExtResource("7_hitkill")
-impactBackstabEffect = ExtResource("7_hitkill")
-
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
-chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_light"), SubResource("Resource_charged_heavy")])
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_light")])
 autoActivateAtMax = false
 queueable = true
 queueWindowSeconds = 0.25
 
-[sub_resource type="Resource" id="Resource_qsf28"]
-script = ExtResource("1_modifier")
-overrides = 9
-healthDamage = 9.0
-knockbackDistance = 1.0
-addBuildups = []
-
-[sub_resource type="Resource" id="Resource_v26lm"]
-script = ExtResource("1_modifier")
-trigger = 2
-overrides = 65
-healthDamage = 15.0
-armorPenetration = 1.0
-addBuildups = []
-
-[sub_resource type="Resource" id="Resource_damage_heavy"]
-script = ExtResource("1_damage")
-tags = 129
-healthDamage = 3.0
-armorPenetration = 0.5
-hitstun = 0.15
-knockbackDistance = 0.2
-knockbackTime = 0.15
-buildups = []
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_qsf28"), SubResource("Resource_v26lm")])
-
 [sub_resource type="Resource" id="Resource_parry"]
 script = ExtResource("1_damage")
 tags = 129
-healthDamage = 8.0
+healthDamage = 80.0
+damageVariance = 0.25
 hitstun = 0.4
 knockbackDistance = 2.0
 knockbackTime = 0.2
@@ -138,23 +96,26 @@ modifiers = []
 
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")
-overrides = 9
-healthDamage = 9.0
+overrides = 520
+damageMultiplier = 3.0
 knockbackDistance = 1.0
 addBuildups = []
 
 [sub_resource type="Resource" id="Resource_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
-overrides = 65
-healthDamage = 15.0
+overrides = 576
+damageMultiplier = 5.0
 armorPenetration = 1.0
 addBuildups = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
 tags = 129
-healthDamage = 3.0
+healthDamage = 30.0
+armorPenetration = 0.2
+critChance = 0.1
+damageVariance = 0.25
 hitstun = 0.15
 knockbackDistance = 0.2
 knockbackTime = 0.15
@@ -164,15 +125,15 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 [resource]
 script = ExtResource("2_weapon")
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
-&"heavy": SubResource("Resource_damage_heavy"),
 &"parry": SubResource("Resource_parry"),
 &"primary": SubResource("Resource_damage")
 })
 actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
 parryTimeMs = 300
-maxParryDamage = 15.0
+maxParryDamage = 150.0
 parryDamageProfileKey = &"parry"
+parryEffect = ExtResource("22_parryfx")
 displayName = &"Knife"
 description = "A light, fast blade. Devastating when struck from behind."
 value = 60

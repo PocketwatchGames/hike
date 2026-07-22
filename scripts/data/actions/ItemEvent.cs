@@ -250,9 +250,9 @@ public partial class ItemEvent : Resource
 	[Export] public float projectileSpeed = 25f;
 	// Hard cap on flight time before the projectile despawns; the reticle
 	// derives effective range as projectileSpeed * projectileLifetimeSeconds.
-	// When projectileArcing is true, this is the EXACT flight time — the
-	// projectile despawns at the cursor at exactly this many seconds after
-	// launch, and projectileSpeed is ignored (velocity is solved for).
+	// When projectileArcing is true, this is the FUSE — the lob detonates this
+	// many seconds after launch — and with projectileMaxRange it sets the
+	// horizontal launch speed (maxRange / lifetime); projectileSpeed is ignored.
 	[Export] public float projectileLifetimeSeconds = 1f;
 	// How many creatures this projectile passes THROUGH before it stops. 0
 	// (default) is a normal shot: it stops on the first creature it hits. 1 means
@@ -270,13 +270,13 @@ public partial class ItemEvent : Resource
 	// swing, a shotgun blast). Ignored for arced lobs (they reuse the single
 	// solved launch velocity). 1 (default) = a single shot.
 	[Export] public int projectileCount = 1;
-	// Arcing projectile: a fixed-shape, COLLISION-RESPECTING lob. The firing tier
-	// uses Arced aim, whose reticle builds the trajectory (see
-	// AimingReticle.UpdateArced) and publishes the launch velocity DoProjectile
-	// fires, so the thrown object traces the previewed arc. The hump rises
-	// projectileArcRise meters under projectileGravity (vertical), with horizontal
-	// speed = aimDistance / projectileLifetimeSeconds scaled within projectileMaxRange
-	// (the aim disk); it bounces (projectileBounciness / projectileFriction) off
+	// Arcing projectile: a fixed-shape, COLLISION-RESPECTING lob. The hump rises
+	// projectileArcRise meters under projectileGravity (vertical) and covers
+	// projectileMaxRange (charge-scaled) horizontally over the fuse — horizontal
+	// launch speed = maxRange / projectileLifetimeSeconds. The player's Arced aim
+	// steers only the facing; the reticle (AimingReticle.UpdateArced) simulates
+	// the identical hump, so the ribbon preview and the real throw agree by
+	// construction. It bounces (projectileBounciness / projectileFriction) off
 	// solids until projectileLifetimeSeconds — the fuse — where it detonates and
 	// fires `impactEvent`. projectileSpeed is ignored. Use for thrown explosives.
 	private bool _projectileArcing;
@@ -301,13 +301,13 @@ public partial class ItemEvent : Resource
 	// projectileArcing is false.
 	[Export] public float projectileArcRise = 1.25f;
 	[Export] public float projectileGravity = 14f;
-	// Arced (lobbed) projectiles: maximum HORIZONTAL (XZ) throw distance — the aim
-	// disk radius, and the XZ distance covered over projectileLifetimeSeconds at
-	// full aim. Horizontal launch speed = aimDistance / lifetime (aimDistance ≤
-	// this), so the reach scales with the fuse and is decoupled from gravity/rise
-	// (the vertical arc and the horizontal reach are set independently — the throw
-	// is NOT assumed to land when it returns to the player's foot level). Ignored
-	// when projectileArcing is false.
+	// Arced (lobbed) projectiles: the throw's HORIZONTAL (XZ) reach — the XZ
+	// distance covered over projectileLifetimeSeconds (horizontal launch speed =
+	// this / lifetime, scaled by the firing tier's chargedRangeScale ramp).
+	// Decoupled from gravity/rise (the vertical hump and the horizontal reach are
+	// authored independently — the throw is NOT assumed to land when it returns
+	// to the thrower's foot level). Mob throws shorten to land on their target
+	// when it's inside reach. Ignored when projectileArcing is false.
 	[Export] public float projectileMaxRange = 10f;
 	// Arced projectiles bounce off solids they hit before the fuse expires.
 	// projectileBounciness is the NORMAL restitution (fraction of the into-surface

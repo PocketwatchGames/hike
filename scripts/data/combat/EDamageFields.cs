@@ -32,4 +32,9 @@ public enum EDamageFields
 	// (a backstab that dumps a large dizzy-buildup chunk on top of the base
 	// per-hit buildup, or an immediate-apply effect on crit).
 	AddBuildups = 1 << 8,
+	// MULTIPLIES the live hit's healthDamage instead of replacing it — and since
+	// armor chip and aggro derive from healthDamage, every kind of damage the
+	// hit deals scales with it. Folds after a HealthDamage replacement when a
+	// modifier authors both.
+	DamageMultiplier = 1 << 9,
 }

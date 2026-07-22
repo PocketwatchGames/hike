@@ -37,17 +37,19 @@ public partial class PlayerState : Resource
 	[Export] public int hairStyle;
 
 	[ExportGroup("Stats")]
-	// The character sheet — per-member multipliers around 1.0 (1 = the
-	// PlayerData baseline), folded into the shared stat-compose pipeline when
+	// The character sheet, folded into the shared stat-compose pipeline when
 	// this member is the hosted Player (see Player.MemberStat / MaxHealth /
-	// MaxStamina and ItemEventHandlers.ResolveHit):
-	//   health / stamina — scale the member's max HP / stamina pools.
+	// MaxStamina and ItemEventHandlers.ResolveHit). All are multipliers around
+	// 1.0 (1 = the PlayerData baseline) EXCEPT stamina, which is a flat base:
+	//   health           — scales the member's max HP pool.
+	//   stamina          — base max stamina in whole dash units (1 unit = 1 dash);
+	//                      replaces PlayerData.maxStamina for this member.
 	//   strength         — scales melee-swing damage only (ranged/thrown unaffected).
 	//   perception       — sharpens the player's own senses (Vision + Hearing).
 	//   stealth          — quiets the player's emissions (Noise + Scent); higher = stealthier.
 	//   fortitude        — resists incoming combat status buildup (via EStat.FortitudeResistance); higher = more resistant.
 	[Export] public float health = 1f;
-	[Export] public float stamina = 1f;
+	[Export(PropertyHint.Range, "0,10,1")] public float stamina = 3f;
 	[Export] public float fortitude = 1f;
 	[Export] public float strength = 1f;
 	[Export] public float perception = 1f;

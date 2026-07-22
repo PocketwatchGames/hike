@@ -52,6 +52,24 @@ public partial class DamageData : Resource
 	// real apply in HurtBox.Hit always agree on whether this swing penetrated armor.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float armorPenetration = 0f;
 
+	// Chance (0..1) this hit crits a combat-triggered receiver, composed with the
+	// receiver's Vulnerable score as independent probabilities —
+	// 1 - (1 - critChance) * (1 - vulnerable) — against the pre-rolled
+	// HitInfo.critRoll (see Mob.IsCritEligible). An untriggered (unaware) receiver
+	// always crits regardless. 0 = only vulnerability / sneak attacks crit. The
+	// crit's payload is a DamageDataModifier in `modifiers` with trigger OnCrit —
+	// without one, an eligible crit changes nothing.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float critChance = 0f;
+
+	// Uniform per-hit damage variance: healthDamage rolls a multiplier in
+	// [1 - damageVariance, 1 + damageVariance] once at HitInfo construction, so
+	// every downstream reader (QueryHit prediction, armor chip, aggro) sees the
+	// same varied value. 0.25 = ±25%. A HealthDamage-replacing modifier
+	// overwrites the varied value (replacement is absolute); DamageMultiplier
+	// folds on top of it. Continuous (per-frame DoT) hits ignore variance — a
+	// fresh roll per physics frame would just add noise to the DoT rollup.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float damageVariance = 0f;
+
 	// Multiplier on the healthDamage chip dealt to the receiver's armor pool —
 	// final armor chip is `healthDamage * (1 + blunt)`, clamped to remaining
 	// armor. 0 = baseline (chip == healthDamage); 1 = doubles the chip. Has

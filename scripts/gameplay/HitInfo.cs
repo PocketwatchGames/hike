@@ -52,6 +52,11 @@ public struct HitInfo
 	// swing crits even though crit is now probabilistic (driven by the
 	// receiver's `Vulnerable` score).
 	public float critRoll;
+	// Attack-side base crit chance carried from DamageData.critChance; the
+	// receiver composes it with its Vulnerable score before comparing critRoll
+	// (Mob.IsCritEligible). Continuous (per-frame DoT) hits leave it 0 — they
+	// carry no modifiers, so a crit could never fold anything.
+	public float critChance;
 	// Fraction of healthDamage that bypasses armor and lands directly on
 	// health, with the remainder routed through armor chip. Set by the
 	// continuous-damage path (ContinuousDamageData.armorPenetration) — spreads
@@ -132,12 +137,15 @@ public struct HitInfo
 		if (template != null)
 		{
 			tags = template.tags;
-			healthDamage = template.healthDamage;
+			// Roll the authored ±variance here, once per hit — downstream readers
+			// (prediction, armor chip, aggro) all see the same varied value.
+			healthDamage = template.healthDamage * (1f + template.damageVariance * (GD.Randf() * 2f - 1f));
 			aggroMultiplier = template.aggroMultiplier;
 			hitstun = template.hitstun;
 			knockbackDistance = template.knockbackDistance;
 			knockbackTime = template.knockbackTime;
 			armorPenetration = template.armorPenetration;
+			critChance = template.critChance;
 			blunt = template.blunt;
 			buildups = template.buildups;
 			modifiers = template.modifiers;
@@ -153,6 +161,7 @@ public struct HitInfo
 			knockbackDistance = 0f;
 			knockbackTime = 0f;
 			armorPenetration = 0f;
+			critChance = 0f;
 			blunt = 0f;
 			buildups = null;
 			modifiers = null;
@@ -203,6 +212,7 @@ public struct HitInfo
 		knockbackDistance = 0f;
 		knockbackTime = 0f;
 		armorPenetration = 0f;
+		critChance = 0f;
 		modifiers = null;
 		dot = true;
 		friendlyFire = false;
@@ -237,6 +247,7 @@ public struct HitInfo
 			else if (trigger == EDamageTrigger.OnBackstab) { triggers |= EDamageTriggerFlags.Backstab; }
 			EDamageFields f = mod.overrides;
 			if ((f & EDamageFields.HealthDamage) != 0) { healthDamage = mod.healthDamage; }
+			if ((f & EDamageFields.DamageMultiplier) != 0) { healthDamage *= mod.damageMultiplier; }
 			if ((f & EDamageFields.Hitstun) != 0) { hitstun = mod.hitstun; }
 			if ((f & EDamageFields.KnockbackDistance) != 0) { knockbackDistance = mod.knockbackDistance; }
 			if ((f & EDamageFields.KnockbackTime) != 0) { knockbackTime = mod.knockbackTime; }

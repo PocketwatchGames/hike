@@ -180,9 +180,10 @@ public partial class StatusEffectData : Resource
 	[ExportGroup("On Apply")]
 	[Export(PropertyHint.Range, "0,1,0.01")] public float instantHealPercent = 0f;
 
-	// Flat stamina points restored on apply, clamped to the actor's MaxStamina.
-	// Player-only — mobs have no stamina pool, so it's a no-op there. 0 = none.
-	[Export(PropertyHint.Range, "0,100,1,or_greater")] public float instantStaminaRestore = 0f;
+	// Flat stamina units restored on apply (1 unit = 1 dash), clamped to the
+	// actor's MaxStamina. Player-only — mobs have no stamina pool, so it's a
+	// no-op there. 0 = none.
+	[Export(PropertyHint.Range, "0,5,0.5,or_greater")] public float instantStaminaRestore = 0f;
 
 	// Status effects removed from the actor on apply — douse relationships (Wet removes
 	// Burning) and cleanse blessings (Restore). Also zeroes the matching buildup meter.

@@ -6,7 +6,7 @@
 script = ExtResource("1_data")
 displayName = &"Invigorated"
 instantaneous = true
-instantStaminaRestore = 100.0
+instantStaminaRestore = 3.0
 removesOnApply = []
 modifiers = []
 conditionalModifiers = []

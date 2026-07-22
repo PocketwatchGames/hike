@@ -21,7 +21,11 @@ public static class StatList
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
 		if (damage.healthDamage > 0f)
 		{
-			yield return (names[EStatName.Damage], StatFormat.Number(damage.healthDamage));
+			yield return (names[EStatName.Damage], DamageRange(damage));
+		}
+		if (damage.critChance > 0f)
+		{
+			yield return (names[EStatName.CritChance], StatFormat.Percent(damage.critChance));
 		}
 		if (damage.armorPenetration > 0f)
 		{
@@ -172,7 +176,11 @@ public static class StatList
 		}
 		else if ((damageEvent.type & EItemEventType.Projectile) != 0)
 		{
-			float baseRange = damageEvent.projectileSpeed * damageEvent.projectileLifetimeSeconds;
+			// Arced lobs author reach directly (projectileMaxRange, speed ignored);
+			// flat flight derives it as speed × lifetime.
+			float baseRange = damageEvent.projectileArcing
+				? damageEvent.projectileMaxRange
+				: damageEvent.projectileSpeed * damageEvent.projectileLifetimeSeconds;
 			if (baseRange > 0f)
 			{
 				yield return (names[EStatName.Range], StatFormat.MeterSpan(baseRange, scale));
@@ -182,10 +190,12 @@ public static class StatList
 
 	// AoE "where can you place it?" range. Distinct from damage-event
 	// range (which is how far the hit reaches) — Target Range is how far
-	// the player can pick the AoE's center.
+	// the player can pick the AoE's center. Positional tiers only: Arced
+	// throws have no placeable target (reach rides the Range stat) and
+	// Directional tiers ignore positionalRange entirely.
 	public static IEnumerable<(string name, string value)> TargetRange(ItemAction action)
 	{
-		if (action == null || action.positionalRange <= 0f)
+		if (action == null || action.aimType != EAimType.Positional || action.positionalRange <= 0f)
 		{
 			yield break;
 		}
@@ -224,6 +234,17 @@ public static class StatList
 		}
 	}
 
+	// "30" for a fixed hit, "23-38" when the damage rolls ±variance per hit.
+	static string DamageRange(DamageData damage)
+	{
+		if (damage.damageVariance <= 0f)
+		{
+			return StatFormat.Number(damage.healthDamage);
+		}
+		return StatFormat.Number(damage.healthDamage * (1f - damage.damageVariance)) + "-"
+			+ StatFormat.Number(damage.healthDamage * (1f + damage.damageVariance));
+	}
+
 	// Conditional damage layer (On Crit / On Dizzy / On Backstab). Only the
 	// fields the modifier's `overrides` mask selects are emitted; the rest
 	// flow through from the base damage at runtime.
@@ -237,6 +258,10 @@ public static class StatList
 		if ((mod.overrides & EDamageFields.HealthDamage) != 0 && mod.healthDamage > 0f)
 		{
 			yield return (names[EStatName.Damage], StatFormat.Number(mod.healthDamage));
+		}
+		if ((mod.overrides & EDamageFields.DamageMultiplier) != 0 && mod.damageMultiplier != 1f)
+		{
+			yield return (names[EStatName.Damage], StatFormat.Multiplier(mod.damageMultiplier));
 		}
 		if ((mod.overrides & EDamageFields.ArmorPenetration) != 0 && mod.armorPenetration > 0f)
 		{

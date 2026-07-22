@@ -24,6 +24,8 @@ public partial class Hud : Control
 	[Export] ButtonHint _weaponRightButtonHint;
 	[Export] ButtonHint _consumableButtonHint;
 	[Export] ButtonHint _lanternHint;
+	[Export] Control _staminaContainer;
+	[Export] PackedScene _staminaBarScene;
 	// Persistent strip parent — usually an HBoxContainer above the health bar.
 	[Export] Control _statusEffectContainer;
 	// Screen-space anchor for the transient over-the-player notification.
@@ -54,7 +56,6 @@ public partial class Hud : Control
 	// guard segment shows past it. Tinted dark grey while dormant and dark blue
 	// while sneaking (the only state in which block armor actually absorbs).
 	[Export] ProgressBar _blockArmorBar;
-	[Export] ProgressBar _staminaBar;
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
@@ -93,6 +94,10 @@ public partial class Hud : Control
 	float _lightningFlashFadeRate;
 	Player _player;
 	Inventory _inventory;
+	// One pip per unit of max stamina (1 unit = 1 dash), instanced from
+	// _staminaBarScene into _staminaContainer. Filled left to right, so the
+	// recharging unit reads as a partial fill on the first non-full pip.
+	readonly List<ProgressBar> _staminaBars = new();
 	// Quest surfacing (view only — the quest lifecycle is sim-driven in World).
 	// Bound to SimState.QuestLog on player spawn; one QuestItem widget per
 	// active quest, refreshed each frame so counters / countdowns stay live.
@@ -213,6 +218,10 @@ public partial class Hud : Control
 	// dormant, dark blue while the player is sneaking and the pool is live.
 	static readonly Color BlockArmorIdleColor = new Color(0.45f, 0.45f, 0.45f, 1f);
 	static readonly Color BlockArmorActiveColor = new Color(0.15f, 0.3f, 0.7f, 1f);
+
+	// Armor points that render at the full health-bar width; smaller pools
+	// draw proportionally shorter bars, larger ones cap at this.
+	const float FullBarArmor = 1000f;
 
 	public override void _Ready()
 	{
@@ -570,25 +579,21 @@ public partial class Hud : Control
 		_armorBar.MaxValue = 1;
 		_armorBar.Visible = maxArmor > 0f;
 		_armorBar.Value = maxArmor > 0f ? _player.Armor / maxArmor : 0f;
-		// Physically shrink the bar when maxArmor < 100 so a weak piece of
-		// armor reads as a shorter bar (even when fully charged), without
-		// disturbing the 0..1 fill ratio. Caps at the health bar's width
-		// when maxArmor reaches 100 — heavier armor reads as "full HP
-		// bar's worth of protection" rather than overflowing past it.
+		// Physically shrink the bar when maxArmor < FullBarArmor so a weak
+		// piece of armor reads as a shorter bar (even when fully charged),
+		// without disturbing the 0..1 fill ratio. Caps at the health bar's
+		// width when maxArmor reaches FullBarArmor — heavier armor reads as
+		// "full HP bar's worth of protection" rather than overflowing past it.
 		if (maxArmor > 0f)
 		{
 			Vector2 size = _armorBar.CustomMinimumSize;
-			size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(maxArmor, 100f) / 100f;
+			size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(maxArmor, FullBarArmor) / FullBarArmor;
 			_armorBar.CustomMinimumSize = size;
 		}
 
 		UpdateBlockArmorExtension(maxArmor);
 
-		float maxStamina = _player.MaxStamina;
-		_staminaBar.MinValue = 0;
-		_staminaBar.MaxValue = 1;
-		_staminaBar.Visible = maxStamina > 0f;
-		_staminaBar.Value = maxStamina > 0f ? _player.Stamina / maxStamina : 0f;
+		UpdateStaminaPips();
 
 		ulong now = gameClient.Sim?.GameTimeMs ?? 0;
 		_weaponLeftHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponMelee));
@@ -620,6 +625,37 @@ public partial class Hud : Control
 		foreach (KeyValuePair<QuestState, QuestItem> kv in _questWidgets)
 		{
 			kv.Value.Refresh(kv.Key.GetDisplay(now));
+		}
+	}
+
+	// Sync the pip row against MaxStamina (armor and status effects change it in
+	// whole units) and fill pips left to right from current stamina — full pips
+	// first, then the fractional remainder on the next pip. Negative stamina
+	// (dash/wall-jump overdraw) just reads as an empty row.
+	void UpdateStaminaPips()
+	{
+		if (_staminaContainer == null || _staminaBarScene == null)
+		{
+			return;
+		}
+		int units = Mathf.Max(0, Mathf.RoundToInt(_player.MaxStamina));
+		while (_staminaBars.Count < units)
+		{
+			ProgressBar bar = _staminaBarScene.Instantiate<ProgressBar>();
+			_staminaContainer.AddChild(bar);
+			_staminaBars.Add(bar);
+		}
+		while (_staminaBars.Count > units)
+		{
+			ProgressBar bar = _staminaBars[^1];
+			_staminaBars.RemoveAt(_staminaBars.Count - 1);
+			bar.QueueFree();
+		}
+		_staminaContainer.Visible = units > 0;
+		float stamina = _player.Stamina;
+		for (int i = 0; i < _staminaBars.Count; i++)
+		{
+			_staminaBars[i].Value = Mathf.Clamp(stamina - i, 0f, 1f);
 		}
 	}
 
@@ -1099,7 +1135,7 @@ public partial class Hud : Control
 		_blockArmorBar.MaxValue = 1;
 		_blockArmorBar.Value = (_player.Armor + weapon.blockArmor) / total;
 		Vector2 size = _blockArmorBar.CustomMinimumSize;
-		size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(total, 100f) / 100f;
+		size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(total, FullBarArmor) / FullBarArmor;
 		_blockArmorBar.CustomMinimumSize = size;
 		_blockArmorBar.Modulate = active ? BlockArmorActiveColor : BlockArmorIdleColor;
 	}

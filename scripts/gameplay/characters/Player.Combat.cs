@@ -194,7 +194,9 @@ public partial class Player : CharacterBody3D
 		// Parry: a well-timed, rechargeable deflection of a mob's melee blow.
 		// Within the window opened when the crouch began, if the guard is off its
 		// recharge cooldown and the whole blow is no larger than the weapon's
-		// maxParryDamage, the hit is fully negated — the downstream armor / health /
+		// level-scaled parry cap (EffectiveMaxParryDamage — authored maxParryDamage
+		// grown by item level + forge upgrade), the hit is fully negated — the
+		// downstream armor / health /
 		// buildup / hitstun / knockback are all skipped — and the attacker is
 		// counter-struck. Only a discrete hit from a Mob qualifies (no DoT ticks,
 		// traps, or projectiles). Independent of the pool size, so a knife with no
@@ -204,7 +206,7 @@ public partial class Player : CharacterBody3D
 		if (blockWeapon != null && !hit.dot && hit.source is Mob
 			&& _parryDeadlineMs > 0 && (_world?.GameTimeMs ?? 0) < _parryDeadlineMs
 			&& IsGuardReadyToParry(blockWeapon)
-			&& incomingDamage <= blockWeapon.data.maxParryDamage)
+			&& incomingDamage <= EffectiveMaxParryDamage(blockWeapon))
 		{
 			parried = true;
 			absorbable = 0f;
@@ -214,6 +216,8 @@ public partial class Player : CharacterBody3D
 			// Parry reaction one-shot over the sneak pose (resolves the wielded
 			// weapon's Block override; no-op if it authors none).
 			PlayOneShot(EAnimation.Block);
+			// The weapon's parry cue (clang + shake), fired at the deflection.
+			SpawnWorldEffect(blockWeapon.data.parryEffect);
 		}
 		// Passive block guard takes the absorbable slice while the player is
 		// sneaking with a guard-bearing melee weapon — the sneak crouch doubles as
@@ -422,7 +426,15 @@ public partial class Player : CharacterBody3D
 		}
 		Vector3 dir = mob.GlobalPosition - GlobalPosition;
 		dir.Y = 0f;
-		mob.Hit(new HitInfo(damage, this, dir, ETeam.Player));
+		var parryHit = new HitInfo(damage, this, dir, ETeam.Player);
+		// The riposte scales like any other hit from this weapon — composed item
+		// level and the Melee forge upgrade's curve fold into damage, the upgrade
+		// curve alone into buildups — mirroring ResolveHit / DoProjectile, which
+		// this direct mob.Hit path bypasses.
+		float levelScale = OutgoingLevelScale(EInventorySlot.WeaponMelee);
+		parryHit.healthDamage *= weapon.DamageMultiplier * levelScale;
+		parryHit.buildupAmountMultiplier = levelScale;
+		mob.Hit(parryHit);
 	}
 
 	// Signed HP delta from a status-effect tick. Positive heals, negative

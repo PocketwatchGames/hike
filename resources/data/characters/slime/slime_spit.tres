@@ -69,7 +69,7 @@ chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_sp
 [sub_resource type="Resource" id="Resource_damage_aoe"]
 script = ExtResource("6_damage")
 tags = 65
-healthDamage = 4.0
+healthDamage = 40.0
 hitstun = 0.2
 knockbackDistance = 0.3
 knockbackTime = 0.1
@@ -79,7 +79,7 @@ modifiers = []
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("6_damage")
 tags = 65
-healthDamage = 1.0
+healthDamage = 10.0
 hitstun = 0.1
 buildups = []
 modifiers = []
