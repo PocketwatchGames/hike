@@ -1,0 +1,70 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://cbxbb1vr653eo" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_01.wav" id="2_wh01"]
+[ext_resource type="AudioStream" uid="uid://c6hljhitxuouw" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_02.wav" id="2_wh02"]
+[ext_resource type="AudioStream" uid="uid://dh3bghpyja2gg" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_03.wav" id="2_wh03"]
+[ext_resource type="AudioStream" uid="uid://dblp07h5lvivk" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_04.wav" id="2_wh04"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="3_particle_lit"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="4_fade"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_glints"]
+color_ramp = ExtResource("4_fade")
+emission_shape = 1
+emission_sphere_radius = 0.4
+direction = Vector3(0, 1, 0)
+spread = 40.0
+initial_velocity_min = 0.8
+initial_velocity_max = 1.6
+gravity = Vector3(0, 0.4, 0)
+damping_min = 1.0
+damping_max = 2.0
+scale_min = 0.5
+scale_max = 1.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_glints"]
+render_priority = 0
+shader = ExtResource("3_particle_lit")
+shader_parameter/albedo = Color(0.7, 0.85, 1, 0.9)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_glints"]
+material = SubResource("ShaderMaterial_glints")
+size = Vector2(0.05, 0.05)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_blockstart"]
+playback_mode = 1
+random_pitch = 1.06
+random_volume_offset_db = 1.0
+streams_count = 4
+stream_0/stream = ExtResource("2_wh01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_wh02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_wh03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_wh04")
+stream_3/weight = 1.0
+
+[node name="BlockStart" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Glints" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+emitting = false
+amount = 16
+lifetime = 0.5
+one_shot = true
+explosiveness = 0.9
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_glints")
+draw_pass_1 = SubResource("QuadMesh_glints")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_blockstart")
+unit_size = 2.0
+max_distance = 10.0
+pitch_scale = 0.85
+volume_db = -14.0
+bus = &"World3D"

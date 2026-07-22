@@ -366,10 +366,36 @@ public partial class Player : CharacterBody3D
 	private void BeginSneakBlock()
 	{
 		_parryDeadlineMs = 0;
+		// Guard-up cue, only when the crouch raises a live guard — a crouch
+		// inside the re-engage cooldown (or with no guarding weapon) stays
+		// silent so the cue reliably means "the block is up".
+		if (GetSneakBlockWeapon() != null)
+		{
+			SpawnWorldEffect(_blockStartFx);
+		}
 		if (_inventory?.GetEquipped(EInventorySlot.WeaponMelee) is WeaponState weapon
 			&& WeaponCanParry(weapon.data))
 		{
 			_parryDeadlineMs = (_world?.GameTimeMs ?? 0) + (ulong)weapon.data.parryTimeMs;
+		}
+	}
+
+	// Fires the subtle "too late to parry" cue on the tick the parry window
+	// elapses, consuming the deadline so it's a one-shot (a successful parry
+	// zeroed it already). Silent when the guard isn't up at expiry — the player
+	// stood mid-window, or crouched during the re-engage cooldown and the
+	// guard never rose.
+	private void TickParryWindow()
+	{
+		if (_parryDeadlineMs == 0 || (_world?.GameTimeMs ?? 0) < _parryDeadlineMs)
+		{
+			return;
+		}
+		bool guardUp = GetSneakBlockWeapon() != null;
+		_parryDeadlineMs = 0;
+		if (guardUp)
+		{
+			SpawnWorldEffect(_parryWindowEndFx);
 		}
 	}
 

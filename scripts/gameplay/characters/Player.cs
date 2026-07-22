@@ -176,6 +176,12 @@ public partial class Player : CharacterBody3D
 	[Export] private PackedScene _armorDepletedFx;
 	[Export] private PackedScene _armorRechargeStartFx;
 	[Export] private PackedScene _armorRecoverStartFx;
+	// Sneak-block guard cues. blockStart plays on the crouch that actually
+	// raises a live guard (skipped while the re-engage cooldown holds it down);
+	// parryWindowEnd plays when the parry window elapses with the guard still
+	// up — together they bracket the parry window as a subtle timing tell.
+	[Export] private PackedScene _blockStartFx;
+	[Export] private PackedScene _parryWindowEndFx;
 	// Per-anim-state loops. UpdateAnimation maps the picked loopAnim down to
 	// one of these scenes; only one (or none) is active at a time. Slots can
 	// be left null in the .tscn — the actor falls silent for that state,
@@ -348,8 +354,8 @@ public partial class Player : CharacterBody3D
 	// Sim-clock (GameTimeMs) deadline of the current sneak-block's parry window;
 	// a clean block before it elapses counter-strikes the attacker. 0 = no open
 	// window. Set on the rising edge of sneak (BeginSneakBlock), consumed by a
-	// successful parry in OnHurtBoxHit. A stale value is harmless — the parry
-	// path also requires the player to be actively sneak-blocking.
+	// successful parry in OnHurtBoxHit or by expiry in TickParryWindow (which
+	// fires the window-closed cue if the guard is still up).
 	ulong _parryDeadlineMs;
 	// Sim-clock (GameTimeMs) time before which the guard can't block or parry
 	// again after the player stopped blocking. Armed on the falling edge of
@@ -1723,6 +1729,7 @@ public partial class Player : CharacterBody3D
 		UpdateSprintState();
 		TickArmor(dt);
 		TickBlockArmor(dt);
+		TickParryWindow();
 		TickAmmoRecharge(_world?.GameTimeMs ?? 0);
 		TickItemExpiry();
 		TickStamina(dt);

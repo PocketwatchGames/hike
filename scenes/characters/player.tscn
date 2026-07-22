@@ -53,6 +53,8 @@
 [ext_resource type="PackedScene" uid="uid://dk3mwwarq2n1x" path="res://scenes/fx/dig_common.tscn" id="59_digcommon"]
 [ext_resource type="PackedScene" uid="uid://b8tr05wq4mkpv" path="res://scenes/fx/dig_treasure.tscn" id="60_digtreasure"]
 [ext_resource type="PackedScene" uid="uid://cwk3rn8qv2tba" path="res://scenes/items/held/shovel_held.tscn" id="61_shovelheld"]
+[ext_resource type="PackedScene" path="res://scenes/fx/block_start.tscn" id="62_blockstart"]
+[ext_resource type="PackedScene" path="res://scenes/fx/parry_window_end.tscn" id="63_parrywinend"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -184,6 +186,8 @@ _voices = Dictionary[int, ExtResource("22_s1x7u")]({
 1: ExtResource("23_voicemale")
 })
 _armorDepletedFx = ExtResource("16_vwwfy")
+_blockStartFx = ExtResource("62_blockstart")
+_parryWindowEndFx = ExtResource("63_parrywinend")
 _swimIdleLoopFx = ExtResource("21_tread")
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("11_footstep_grass"),
