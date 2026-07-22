@@ -137,10 +137,10 @@ public partial class ItemAction : Resource
 
 	// Positional aim only: maximum horizontal distance of the aim cursor
 	// from the player, in world meters. The cursor is clamped to a disk of
-	// this radius and its sweep speed scales with this value so any
-	// positional tier (short or long reach) sweeps edge-to-center in a
-	// consistent wall time. Authored per-tier — a charged AoE on a long-
-	// range bow can still target close to the caster, and a thrown-
+	// this radius; its sweep speed is a constant world rate (the reticle's
+	// _gamepadPositionalCursorSpeed), so a short-reach tier sweeps its disk
+	// faster edge-to-edge than a long one. Authored per-tier — a charged AoE
+	// on a long-range bow can still target close to the caster, and a thrown-
 	// explosive on a melee weapon defines its own reach independently of
 	// the weapon's melee range. Ignored for Directional tiers (their reach
 	// comes from the event's hitscan / projectile / melee distance).
@@ -170,8 +170,8 @@ public partial class ItemAction : Resource
 	// `chargedRangeScale` MULTIPLIES the event's base range as `chargeT`
 	// runs 0 → 1: at chargeT=0 the range is base; at chargeT=1 it's
 	// `base * chargedRangeScale`. For arced (thrown) projectiles the scaled
-	// range is `projectileMaxRange` — the throw's horizontal reach (and with
-	// it the launch speed, reach / lifetime) grows as the hold charges. 1.0
+	// range is `projectileMaxRange` — the aim disk and the throw's max reach
+	// (and max launch speed, reach / lifetime) grow as the hold charges. 1.0
 	// (default) = no within-tier ramp; the tier fires at its event's authored
 	// range regardless of hold length.
 	// `chargedAccuracyScale` DIVIDES `accuracySpread01` as `chargeT` runs

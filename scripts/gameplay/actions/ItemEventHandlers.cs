@@ -740,11 +740,11 @@ public static class ItemEventHandlers
 		{
 			// lifetime is the FUSE; the hump's shape/feel is the (shorter) arc
 			// duration, so the lob keeps falling/bouncing past its landing. The
-			// launch velocity is a fixed-shape hump along the actor's facing (or,
-			// for a mob, toward its aim target) — see TrySolveArcLaunch.
+			// launch velocity lands the lob on the reticle cursor (player) or the
+			// aim target (mob) — see TrySolveArcLaunch.
 			lifetime = ev.projectileLifetimeSeconds;
-			// Charge ramp scales the throw's horizontal reach (and with it the
-			// horizontal launch speed, reach / fuse).
+			// Charge ramp scales the throw's max horizontal reach (and with it the
+			// max launch speed, reach / fuse).
 			float arcRangeScale = ItemAction.SampleRangeScale(tier, action.chargeT);
 			if (!TrySolveArcLaunch(actor, ev, action.context, origin, arcRangeScale, out velocity, out gravity, out Vector3 landing))
 			{
@@ -925,14 +925,14 @@ public static class ItemEventHandlers
 
 	// Solve an arced lob's launch velocity (and report the predicted landing
 	// point for telegraphs). The hump is fixed-shape: vertical = rise under
-	// gravity, horizontal launch speed = (projectileMaxRange × rangeScale) /
-	// fuse. A targeted throw (mob attacks set ActionContext.target) takes the
-	// target's bearing and shortens to land ON the target when it's inside
-	// reach; an untargeted throw (the player's aimed throw) flies the full
-	// reach along the body's horizontal facing — the exact hump the reticle
-	// previews (AimingReticle.SolveArcForward uses the same formula), so no
+	// gravity; horizontal lands ON the aim point over the fuse — launch speed
+	// = aimDistance / fuse, with aimDistance capped at the charge-scaled reach
+	// (projectileMaxRange × rangeScale, the single authored range). A targeted
+	// throw (mob attacks set ActionContext.target) aims at the target's body
+	// center; the player's throw aims at the reticle cursor — the identical
+	// formula the reticle previews (AimingReticle.SolveArcToCursor), so no
 	// solved velocity needs to pass between the reticle and the throw. Returns
-	// false when the arc can't be built (bad tuning, or no facing to fire along).
+	// false when the arc can't be built (bad tuning, or no aim source).
 	private static bool TrySolveArcLaunch(IActionActor actor, ItemEvent ev, in ActionContext context,
 		Vector3 origin, float rangeScale, out Vector3 velocity, out float gravity, out Vector3 landing)
 	{
@@ -947,35 +947,35 @@ public static class ItemEventHandlers
 		gravity = ev.projectileGravity;
 		float launchVy = AimingReticle.ArcLaunchVerticalSpeed(ev.projectileArcRise, gravity);
 		float reach = ev.projectileMaxRange * rangeScale;
-		Vector3 bearing;
+		Vector3 aimPoint;
 		float landingY = origin.Y;
 		if (context.target is IAimTarget aim && GodotObject.IsInstanceValid(context.target))
 		{
 			// Lob toward the target's body center, landing on it when inside reach.
-			Vector3 target = aim.AimCenter;
-			float dx = target.X - origin.X;
-			float dz = target.Z - origin.Z;
-			float rawDist = Mathf.Sqrt(dx * dx + dz * dz);
-			bearing = rawDist > 1e-4f ? new Vector3(dx, 0f, dz) / rawDist : Vector3.Forward;
-			reach = Mathf.Min(rawDist, reach);
+			aimPoint = aim.AimCenter;
 			// Anchor the telegraph at the target's foot height under the throw's
 			// XZ endpoint (the target stands on the ground the lob falls toward).
 			landingY = context.target.GlobalPosition.Y;
 		}
+		else if (actor is Player player && player.AimingReticle != null
+			&& player.AimingReticle.HasAimWorldPosition)
+		{
+			// The player's aimed throw lands on the reticle cursor.
+			aimPoint = player.AimingReticle.AimWorldPosition;
+		}
 		else
 		{
-			// Untargeted: full reach along the horizontal facing (ActorForward
-			// folds auto-aim pitch; the hump's vertical shape is authored).
-			Vector3 f = actor.ActorForward;
-			float fLen = Mathf.Sqrt(f.X * f.X + f.Z * f.Z);
-			if (fLen <= 1e-4f)
-			{
-				return false;
-			}
-			bearing = new Vector3(f.X / fLen, 0f, f.Z / fLen);
+			return false;
 		}
-		velocity = bearing * (reach / fuse) + Vector3.Up * launchVy;
-		landing = new Vector3(origin.X + bearing.X * reach, landingY, origin.Z + bearing.Z * reach);
+		float dx = aimPoint.X - origin.X;
+		float dz = aimPoint.Z - origin.Z;
+		float rawDist = Mathf.Sqrt(dx * dx + dz * dz);
+		Vector3 bearing = rawDist > 1e-4f ? new Vector3(dx, 0f, dz) / rawDist : Vector3.Forward;
+		// A lock / cursor persisting past reach still throws only to reach, in the
+		// aim point's bearing — the arc falls short rather than stretching.
+		float horizDist = Mathf.Min(rawDist, reach);
+		velocity = bearing * (horizDist / fuse) + Vector3.Up * launchVy;
+		landing = new Vector3(origin.X + bearing.X * horizDist, landingY, origin.Z + bearing.Z * horizDist);
 		return true;
 	}
 

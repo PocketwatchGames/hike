@@ -106,12 +106,12 @@ public partial class AimingReticle : Node3D
 	// column's surface height. Bounds the per-frame voxel reads.
 	[Export(PropertyHint.Range, "4,64,1")] private int _undulationMaxScanVoxels = 24;
 
-	// Positional cursor sweep speed — GAMEPAD only — as a fraction of the active
-	// tier's range per second, scaled by the analog stick deflection (half-pushed
-	// stick = half speed; velocity, not a ramp). At full deflection the cursor covers
-	// range * _gamepadPositionalSpeedFraction m/s. Mouse aim ignores this — it adds a
-	// world-unit motion delta straight to the cursor (range-independent).
-	[Export(PropertyHint.Range, "0.1,8,0.1")] private float _gamepadPositionalSpeedFraction = 2f;
+	// Positional cursor sweep speed — GAMEPAD only — in WORLD METERS PER SECOND
+	// at full stick deflection (half-pushed stick = half speed; velocity, not a
+	// ramp). Constant across weapons regardless of tier range, so a short-reach
+	// bomb sweeps its small disk quickly instead of crawling. Mouse aim ignores
+	// this — it adds a world-unit motion delta straight to the cursor.
+	[Export(PropertyHint.Range, "1,100,1")] private float _gamepadPositionalCursorSpeed = 30f;
 	// How long a gamepad positional cursor lingers after aim stops before it
 	// resets. The cursor stays visible and fades to zero across this window;
 	// moving the aim stick or firing the ranged weapon refills it. A follow-up
@@ -242,10 +242,11 @@ public partial class AimingReticle : Node3D
 	// window; reaching _gamepadPositionalPersistSeconds resets the cursor.
 	float _persistTimer;
 	// Character-relative XZ offset of the cursor from the player, captured each
-	// active gamepad positional frame. The persistence window re-derives the
-	// world cursor from this + the current player position each frame, so a
-	// held cursor follows the player around instead of staying pinned in world
-	// space (character-relative persistence).
+	// ground-aim frame (PublishPositionalFrame). Both the active gamepad update
+	// (UpdateGroundAim) and the persistence window re-derive the world cursor
+	// from this + the current player position each frame, so the cursor follows
+	// the player around instead of staying pinned in world space
+	// (character-relative aiming).
 	Vector2 _persistOffset;
 
 	// GAMEPAD positional target-snap state.
@@ -319,10 +320,10 @@ public partial class AimingReticle : Node3D
 	const float ArcSimSurfaceOffset = 0.03f;
 	const float ArcSettleSpeed = 0.5f;
 
-	// World position currently being aimed at — the ground circle anchor
-	// (Positional cursor, or an Arced throw's predicted end point). Read by
-	// positional fire handlers (AoE drop target) at activation. Always check
-	// HasAimWorldPosition first; the value is stale when false.
+	// World position currently being aimed at — the ground circle anchor.
+	// Read by positional fire handlers (AoE drop target, throw destination)
+	// at activation. Always check HasAimWorldPosition first; the value is
+	// stale when false.
 	public Vector3 AimWorldPosition => _cursorWorldPos;
 	public bool HasAimWorldPosition => _cursorValid;
 
@@ -471,10 +472,13 @@ public partial class AimingReticle : Node3D
 					? Mathf.Max(0f, 1f - _persistTimer / _gamepadPositionalPersistSeconds)
 					: 0f;
 				Vector3 chestWorld = pp + Vector3.Up * _aimHeight;
-				// Re-drop the held cursor onto the ground (a lock has already pinned
-				// + dropped it onto the feet), then publish. Only Positional aim
-				// enters this window — Arced is facing-driven and never persists.
-				if (!lockedOnMob)
+				// Resolve arc / ground-Y the same way the active update does (a lock has
+				// already pinned + dropped the cursor onto the feet), then publish.
+				if (_lastAimType == EAimType.Arced)
+				{
+					SolveArcToCursor(chestWorld, _lastPositionalRange);
+				}
+				else if (!lockedOnMob)
 				{
 					DropCursorToGround(chestWorld);
 				}
@@ -579,55 +583,24 @@ public partial class AimingReticle : Node3D
 		EAimType aimType = ResolveActiveAimType();
 		float maxRange = ResolveActiveAimRange();
 
-		// Mode flip: leaving Positional for a facing-driven mode (Directional /
-		// Arced) needs the body to face the cursor first so ActorForward this
-		// frame reflects the previously-aimed direction. Entering Positional
-		// needs no explicit seed — the cursor already sits at the last ground
-		// point from the previous tick.
-		if (_cursorValid && aimType != EAimType.Positional && _lastAimType == EAimType.Positional)
+		// Mode flip: on Pos → Dir the body needs to face the cursor first so
+		// ActorForward this frame reflects the previously-aimed direction.
+		// Dir → Pos needs no explicit seed — the cursor already sits at the
+		// last directional ground point from the previous tick.
+		if (_cursorValid && aimType == EAimType.Directional && _lastAimType != EAimType.Directional)
 		{
 			_player.SnapAimYawToward(_cursorWorldPos);
 		}
 
-		if (aimType == EAimType.Arced)
-		{
-			UpdateArced(maxRange, dt);
-		}
-		else if (aimType == EAimType.Directional)
+		if (aimType == EAimType.Directional)
 		{
 			UpdateDirectional(maxRange, dt);
 		}
 		else
 		{
-			UpdateGroundAim(aim, maxRange, dt);
+			UpdateGroundAim(aim, aimType, maxRange, dt);
 		}
 		_lastAimType = aimType;
-	}
-
-	// Arced (thrown) aim: facing-driven like Directional — the aim stick / mouse
-	// steers the body, and the throw flies a fixed-shape hump along the facing
-	// whose horizontal reach is `maxRange` (the charge-scaled projectileMaxRange,
-	// via ResolveActiveAimRange). The ribbon previews the exact trajectory
-	// (bounces included), ending where the throw ends — it alone is the
-	// telegraph; arced draws no ground ring or forward beam.
-	void UpdateArced(float maxRange, float dt)
-	{
-		_positionalPersist = false;
-		_ringPinned = false;
-		Vector3 playerPos = _player.GlobalPosition;
-		// Origin matches DoProjectile's launch (ActorWorldPosition + 1m) so the
-		// previewed hump and the real throw share a starting point.
-		Vector3 chestWorld = playerPos + Vector3.Up * _aimHeight;
-		// Horizontal bearing off the body facing (ActorForward folds auto-aim
-		// pitch; the hump's vertical shape is authored, so only yaw matters).
-		Vector3 bearing = HorizontalBearing(chestWorld, chestWorld + _player.ActorForward.Normalized());
-		SolveArcForward(chestWorld, bearing, maxRange, out Vector3 landing);
-		// Cursor = the predicted end point: the seed for a Positional tier
-		// taking over on a mid-charge mode flip (the ribbon alone renders the
-		// telegraph — arced draws no ground ring).
-		_cursorWorldPos = landing;
-		_cursorValid = true;
-		PublishPositionalFrame(EAimType.Arced, engaged: false, _groundRingOuterRadius, positionalRadius: 0f, playerPos, dt);
 	}
 
 	void UpdateDirectional(float maxRange, float dt)
@@ -709,14 +682,34 @@ public partial class AimingReticle : Node3D
 		RenderReticle(EAimType.Directional, lineLength, clippedAtSurface, mobTargeted, mobTargetOuter, positionalRadius: 0f, dt: dt);
 	}
 
-	// Ground-target (Positional) aim: a free cursor picking an AoE drop point.
-	// Gamepad gets target snap (hover ring + ease-to-lock, following the mob);
-	// mouse keeps the free cursor.
-	void UpdateGroundAim(AimInput aim, float maxRange, float dt)
+	// Ground-target aim. Positional = an AoE drop point; Arced = a thrown-bomb
+	// target (the cursor picks the landing point inside the charge-scaled reach
+	// disk). They share everything but arc-solve vs AoE-radius, so they run
+	// through one path. Gamepad gets target snap (hover ring + ease-to-lock,
+	// following the mob); mouse keeps the free cursor.
+	void UpdateGroundAim(AimInput aim, EAimType aimType, float maxRange, float dt)
 	{
+		bool arced = aimType == EAimType.Arced;
 		_lastPositionalRange = maxRange;
 		Vector3 playerPos = _player.GlobalPosition;
 		Vector3 chestWorld = playerPos + Vector3.Up * _aimHeight;
+
+		// Character-relative cursor (gamepad): re-derive the free cursor from the
+		// player-relative offset captured last frame (PublishPositionalFrame) so
+		// it rides with the player — the stick steers an offset around the
+		// character, not a pinned world point. A held lock skips this (the lock
+		// cursor tracks its mob), and a Dir → Pos flip keeps the directional
+		// ground point (no offset was captured for it).
+		if (aim.Device == InputDevice.EDevice.Gamepad && _cursorValid && !_positionalLocked
+			&& _lastAimType != EAimType.Directional)
+		{
+			_cursorWorldPos.X = playerPos.X + _persistOffset.X;
+			_cursorWorldPos.Z = playerPos.Z + _persistOffset.Y;
+			if (_freeCursorValid)
+			{
+				_freeCursorXZ = new Vector2(_cursorWorldPos.X, _cursorWorldPos.Z);
+			}
+		}
 
 		// Both devices snap / lock identically; only the cursor advance differs (the
 		// stick's rate vs the mouse's world-unit delta), handled inside. Mouse locking
@@ -731,19 +724,46 @@ public partial class AimingReticle : Node3D
 		{
 			ResetPositionalSnap();
 			AdvanceGroundCursorXZ(aim, playerPos, chestWorld, maxRange, dt);
-			DropCursorToGround(chestWorld);
+			if (!arced)
+			{
+				DropCursorToGround(chestWorld);
+			}
 			engaged = false;
 		}
 
 		// Face the body toward the cursor so the sprite / ActorForward point at the
-		// drop target.
+		// throw / drop target.
 		_player.SnapAimYawToward(_cursorWorldPos);
 
-		// AoE footprint radius for the active tier — fed to the ring-radius lerp.
-		ItemAction tier = ResolveActiveTier(out _);
-		float positionalRadius = Mathf.Max(0f, tier?.positionalAreaRadius ?? _groundRingOuterRadius);
+		float positionalRadius = 0f;
+		if (arced)
+		{
+			SolveArcToCursor(chestWorld, maxRange);
+		}
+		else
+		{
+			// AoE footprint radius for the active tier — fed to the ring-radius lerp.
+			ItemAction tier = ResolveActiveTier(out _);
+			positionalRadius = Mathf.Max(0f, tier?.positionalAreaRadius ?? _groundRingOuterRadius);
+		}
 
-		PublishPositionalFrame(EAimType.Positional, engaged, engagedRing, positionalRadius, playerPos, dt);
+		PublishPositionalFrame(aimType, engaged, engagedRing, positionalRadius, playerPos, dt);
+	}
+
+	// Arced solve toward the current cursor: the throw lands ON the cursor —
+	// bearing toward it, horizontal distance capped at `maxReach` (the charge-
+	// scaled projectileMaxRange). A lock allowed to persist past reach still
+	// throws only to reach, in the locked enemy's bearing — the arc falls short
+	// rather than stretching; the red ring stays on the enemy. Origin matches
+	// DoProjectile's launch (ActorWorldPosition + 1m) so the previewed hump and
+	// the real throw share a starting point.
+	void SolveArcToCursor(Vector3 chestWorld, float maxReach)
+	{
+		Vector3 bearing = HorizontalBearing(chestWorld, _cursorWorldPos);
+		float dx = _cursorWorldPos.X - chestWorld.X;
+		float dz = _cursorWorldPos.Z - chestWorld.Z;
+		float dist = Mathf.Min(Mathf.Sqrt(dx * dx + dz * dz), maxReach);
+		SolveArcForward(chestWorld, bearing, dist);
 	}
 
 	// Shared tail for ground-target frames (active update AND the persistence window):
@@ -844,9 +864,9 @@ public partial class AimingReticle : Node3D
 				brokeOut = deflection >= _positionalLockBreakDeflection;
 				if (!brokeOut)
 				{
-					if (deflection > 0f && maxRange > 0f)
+					if (deflection > 0f)
 					{
-						float scale = maxRange * _gamepadPositionalSpeedFraction * dt;
+						float scale = _gamepadPositionalCursorSpeed * dt;
 						_lockCursorXZ += new Vector2(aim.Value.X * scale, aim.Value.Y * scale);
 					}
 					float easeK = (1f - Mathf.Exp(-dt * _positionalLockEaseSpeed)) * (1f - Mathf.Min(1f, deflection));
@@ -1142,19 +1162,19 @@ public partial class AimingReticle : Node3D
 		// different rules:
 		//
 		//  • Gamepad: the right stick is a RATE input — cursor velocity is the raw
-		//    deflection scaled by range, at range * _gamepadPositionalSpeedFraction
-		//    m/s at full deflection. Keeps moving while the stick is held.
+		//    deflection at a constant _gamepadPositionalCursorSpeed m/s at full
+		//    deflection, independent of tier range. Keeps moving while held.
 		//  • Mouse: aim.Value is the world-unit cursor DELTA accumulated since the
-		//    last frame (range-independent) — add it straight. Moves only when the
-		//    mouse moves; range only clamps (below).
+		//    last frame — add it straight. Moves only when the mouse moves; range
+		//    only clamps (below).
 		if (aim.Device == InputDevice.EDevice.Gamepad)
 		{
 			// Gamepad cursors persist after aim-off (see _Process); mouse cursors
 			// recenter, so only this path opts into persistence.
 			_positionalPersist = true;
-			if (aim.Value.LengthSquared() > 0f && maxRange > 0f)
+			if (aim.Value.LengthSquared() > 0f)
 			{
-				float scale = maxRange * _gamepadPositionalSpeedFraction * dt;
+				float scale = _gamepadPositionalCursorSpeed * dt;
 				_cursorWorldPos.X += aim.Value.X * scale;
 				_cursorWorldPos.Z += aim.Value.Y * scale;
 			}
@@ -1192,17 +1212,15 @@ public partial class AimingReticle : Node3D
 
 	// Build the arced throw from `origin` along `bearing`: a fixed-shape hump that
 	// rises by the event's rise under its gravity, with horizontal speed set to
-	// cover `horizDist` (the charge-scaled projectileMaxRange) over the fuse —
-	// the same formula as ItemEventHandlers.TrySolveArcLaunch, so the preview and
-	// the real throw agree by construction. Simulates the FULL path — gravity plus
-	// bounces (restitution / friction), matching the projectile — over the fuse
-	// into _arcPoints, so the ribbon predicts the whole trajectory through its
-	// bounces to where it comes to rest / detonates. `landing` is the simulated
-	// end point (the ground-ring anchor); falls back to `origin` when the active
-	// tier has no arced projectile event (ribbon cleared).
-	void SolveArcForward(Vector3 origin, Vector3 bearing, float horizDist, out Vector3 landing)
+	// cover `horizDist` over the fuse — the same formula as
+	// ItemEventHandlers.TrySolveArcLaunch, so the preview and the real throw agree
+	// by construction. Simulates the FULL path — gravity plus bounces (restitution
+	// / friction), matching the projectile — over the fuse into _arcPoints, so the
+	// ribbon predicts the whole trajectory through its bounces to where it comes
+	// to rest / detonates. No-op (ribbon cleared) when the active tier has no
+	// arced projectile event.
+	void SolveArcForward(Vector3 origin, Vector3 bearing, float horizDist)
 	{
-		landing = origin;
 		_arcPoints.Clear();
 
 		ItemEvent arc = FindArcEvent();
@@ -1291,9 +1309,6 @@ public partial class AimingReticle : Node3D
 				break;
 			}
 		}
-		// The ring anchors where the throw actually ends — the first solid hit for
-		// fragile lobs, else where the sim settled / the fuse ran out.
-		landing = _arcPoints[_arcPoints.Count - 1];
 	}
 
 	// Unit horizontal (XZ) direction from origin toward target; +Z fallback when
@@ -1354,7 +1369,7 @@ public partial class AimingReticle : Node3D
 		{
 			targetOuter = mobTargetOuter;
 		}
-		else if (aimType == EAimType.Positional)
+		else if (aimType == EAimType.Positional || aimType == EAimType.Arced)
 		{
 			targetOuter = positionalRadius;
 		}
@@ -1379,10 +1394,10 @@ public partial class AimingReticle : Node3D
 
 		if (_groundCircle != null)
 		{
-			if (aimType == EAimType.Arced)
+			if (aimType == EAimType.Arced && !mobTargeted)
 			{
-				// Arced aim is visualized by the dotted hump alone — its end point
-				// IS the landing, so a ground ring there would be redundant.
+				// Free Arced aim is visualized by the dotted hump alone — no ground
+				// ring. A locked target still draws the red ring under the mob.
 				_groundCircle.Visible = false;
 			}
 			else
