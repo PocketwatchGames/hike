@@ -333,28 +333,86 @@ public partial class Player : CharacterBody3D
 		{
 			return null;
 		}
+		// Re-engage cooldown after stopping a block: the guard is down (no soak,
+		// no parry) even while re-crouched until it elapses.
+		if ((_world?.GameTimeMs ?? 0) < _blockCooldownEndMs)
+		{
+			return null;
+		}
+		// A "guard" is a melee weapon that can either soak damage passively
+		// (blockArmor) or parry (maxParryDamage). Either qualifies, so a knife
+		// with no passive block still guards for the sake of the parry.
 		if (_inventory?.GetEquipped(EInventorySlot.WeaponMelee) is WeaponState weapon
-			&& weapon.data != null && weapon.data.blockArmor > 0f)
+			&& weapon.data != null
+			&& (weapon.data.blockArmor > 0f || WeaponCanParry(weapon.data)))
 		{
 			return weapon;
 		}
 		return null;
 	}
 
+	// A weapon parries only if it authors both a window (parryTimeMs) and a
+	// non-zero negation cap (maxParryDamage).
+	private static bool WeaponCanParry(WeaponData data)
+	{
+		return data != null && data.parryTimeMs > 0 && data.maxParryDamage > 0f;
+	}
+
+	// Opens the parry window on the frame a sneak-block begins (rising edge of
+	// _sneaking, from ProcessInput). A parry-capable melee weapon arms a
+	// GameTimeMs deadline; a well-timed block before it elapses fully negates
+	// the blow and counter-strikes (OnHurtBoxHit → TryParry). A weapon that only
+	// blocks passively leaves the window closed — it soaks but never parries.
+	private void BeginSneakBlock()
+	{
+		_parryDeadlineMs = 0;
+		if (_inventory?.GetEquipped(EInventorySlot.WeaponMelee) is WeaponState weapon
+			&& WeaponCanParry(weapon.data))
+		{
+			_parryDeadlineMs = (_world?.GameTimeMs ?? 0) + (ulong)weapon.data.parryTimeMs;
+		}
+	}
+
+	// Whether `weapon`'s guard is off its recharge cooldown and so free to
+	// parry. blockArmorRechargeStartMs is the game-time at which the guard's
+	// recharge may resume — pushed into the future by every guard-touching hit
+	// and by each parry (SpendParryGuard) — so the parry is gated by the same
+	// delay the passive pool recharges on. A weapon never hit yet has the
+	// timestamp at 0 (in the past), so its first parry is immediately available.
+	private bool IsGuardReadyToParry(WeaponState weapon)
+	{
+		return weapon != null && (_world?.GameTimeMs ?? 0) >= weapon.blockArmorRechargeStartMs;
+	}
+
+	// Consume the guard on a successful parry: re-arm the block recharge delay so
+	// the next parry (and the passive pool's own recharge) waits out
+	// blockArmorRechargeDelay. This is the whole coupling to the block system —
+	// the parry spends no pool amount (it negated the hit itself, not via the
+	// pool), only the guard's readiness.
+	private void SpendParryGuard(WeaponState weapon)
+	{
+		if (weapon?.data == null)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		weapon.blockArmorRechargeStartMs = now + (ulong)(weapon.data.blockArmorRechargeDelay * 1000f);
+	}
+
 	// Routes the armor-touchable slice of an incoming hit through the charging
-	// weapon's guard before the player's central armor. A guard that SURVIVES
-	// the chip eats the WHOLE absorbable slice (zeroing `absorbable` so the
-	// central-armor block downstream sees nothing) and reports how much the
-	// pool lost for HUD feedback. The blow that BREAKS the guard (chip >=
-	// remaining charge) shatters it and stops nothing — `absorbable` is left
-	// intact so the full slice cascades to central armor / health, and the
-	// return is 0 (no "BLOCKED!" on a broken guard). Mirrors the central-armor
-	// shatter rule. The guard recharge follows the same rule as central armor:
-	// any guard-touchable hit (absorbable > 0) resets the recharge delay — even
-	// one that lands while the pool is already empty — while a fully-bypassing
-	// hit (poison / armor-penetrating, absorbable == 0) never touches the guard
-	// and so leaves its recovery alone. The guard only engages while the player
-	// is sneaking (null weapon no-ops here), so a player not actively guarding
+	// weapon's guard before the player's central armor. Overflow model: the
+	// guard absorbs up to its remaining charge and passes only the UNABSORBED
+	// OVERFLOW on to central armor — it never re-applies the whole slice
+	// downstream, so a partial block genuinely reduces what armor/health take.
+	// `absorbable` is lowered by the absorbed damage-equivalent (0 if the guard
+	// soaked it all) and the return is the pool amount consumed (> 0 whenever
+	// the guard stopped anything, so the caller shows "BLOCKED!" on any partial
+	// block). The guard recharge follows the same rule as central armor: any
+	// guard-touchable hit (absorbable > 0) resets the recharge delay — even one
+	// that lands while the pool is already empty — while a fully-bypassing hit
+	// (poison / armor-penetrating, absorbable == 0) never touches the guard and
+	// so leaves its recovery alone. The guard only engages while the player is
+	// sneaking (null weapon no-ops here), so a player not actively guarding
 	// never resets it.
 	private float AbsorbWeaponBlock(WeaponState weapon, ref float absorbable, float blunt)
 	{
@@ -369,17 +427,21 @@ public partial class Player : CharacterBody3D
 			return 0f;
 		}
 		float blockDamage = absorbable * (1f + blunt);
-		if (blockDamage < weapon.blockArmor)
+		if (blockDamage <= weapon.blockArmor)
 		{
-			// Guard survives: soaks the whole absorbable slice.
+			// Guard soaks the whole slice.
 			weapon.blockArmor -= blockDamage;
 			absorbable = 0f;
 			return blockDamage;
 		}
-		// Breaking blow: guard shatters and stops nothing — the absorbable
-		// slice passes through untouched, so leave it for central armor.
+		// Guard depletes: it absorbs what it can and only the overflow
+		// continues. Convert the consumed pool back to damage units (undo the
+		// blunt multiplier) so the leftover `absorbable` is the true damage
+		// that got past the guard.
+		float absorbed = weapon.blockArmor;
+		absorbable -= absorbed / (1f + blunt);
 		weapon.blockArmor = 0f;
-		return 0f;
+		return absorbed;
 	}
 
 	// Per-tick recharge of every equipped weapon's block-armor guard. Mirrors

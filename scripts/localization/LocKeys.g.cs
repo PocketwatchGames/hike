@@ -40,6 +40,7 @@ public static partial class Loc
 		not_enough_health_to_revive,
 		combat_miss,
 		combat_blocked,
+		combat_parried,
 		quest_rescue,
 		quest_kunkun_hunt,
 		quest_return_to_camp,

@@ -37,6 +37,7 @@ swimJumpSpeed = 16.0
 startingLantern = ExtResource("9_lantern")
 unarmedWeapon = ExtResource("8_fists")
 modifiers = Array[Object]([])
+weaponQueueWindowSeconds = 0.25
 armorRechargeDelay = 5.0
 bloodRegenSpeed = 1.0
 dashActionProfile = ExtResource("6_dash")

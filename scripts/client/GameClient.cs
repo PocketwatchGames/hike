@@ -143,6 +143,7 @@ public partial class GameClient : Node3D
 	[Export] public PackedScene hudTextHealHeavyScene;
 	[Export] public PackedScene hudTextMissScene;
 	[Export] public PackedScene hudTextBlockedScene;
+	[Export] public PackedScene hudTextParriedScene;
 	[ExportGroup("")]
 	[Export] public ShaderMaterial outlineMaterial;
 	// Flat-sprite outline variant. Used when ApplyHighlight is wrapping a
@@ -2115,6 +2116,7 @@ public partial class GameClient : Node3D
 			EHudTextType.HealHeavy => hudTextHealHeavyScene,
 			EHudTextType.Miss => hudTextMissScene,
 			EHudTextType.Blocked => hudTextBlockedScene,
+			EHudTextType.Parried => hudTextParriedScene,
 			_ => null,
 		};
 	}

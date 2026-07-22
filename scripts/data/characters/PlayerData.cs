@@ -362,6 +362,21 @@ public partial class PlayerData : Resource
 	// whenever the angle check passes. ~45° (Pi/4) is the default.
 	[Export] public float backstabAngle = 0.785f;
 
+	// Queued-attack input window: a completed tap (press AND release) that
+	// lands while the pressed weapon can't yet fire (runner busy, or that
+	// weapon cooling) is banked and auto-fired at readiness, provided the
+	// release falls within this many seconds of the weapon becoming ready
+	// (Player.WeaponReadyTimeMs). Player-wide input feel, deliberately NOT
+	// per-weapon data — every weapon queues with the same responsiveness.
+	[Export] public float weaponQueueWindowSeconds = 0.2f;
+
+	// Cooldown (seconds) after the player STOPS sneak-blocking before the guard
+	// can block or parry again — keyed off releasing the block, not off being
+	// hit, so it stops flicker-blocking / instant re-crouch spam. Re-crouching
+	// inside this window still assumes the pose but neither soaks nor parries
+	// until it elapses. See Player.GetSneakBlockWeapon.
+	[Export] public float blockReengageCooldown = 0.5f;
+
 	[ExportGroup("Armor")]
 	[Export] public float armorRechargeDelay = 3f;
 	// Seconds for armor to refill from empty to full (the equipped MaxArmor).

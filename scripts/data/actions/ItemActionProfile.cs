@@ -56,8 +56,12 @@ public partial class ItemActionProfile : Resource
 	// by ItemAction.canInterrupt instead.
 	[Export] public bool interruptOnDamage = true;
 
-	// The runner queues an in-flight press if Active is within
-	// queueWindowSeconds of ending and the profile is queueable.
+	// Runner-side queue only: TryStart while Active queues the press when it
+	// lands within queueWindowSeconds of Active ending. NOTE the player's input
+	// layer never reaches this (it banks can't-fire-yet presses itself, gated
+	// by PlayerData.weaponQueueWindowSeconds — deliberately player-wide input
+	// feel, not per-weapon data), so these fields only matter for direct
+	// TryStart callers (mob AI).
 	[Export] public bool queueable = false;
 	[Export] public float queueWindowSeconds = 0.2f;
 

@@ -531,24 +531,65 @@ public class ActionRunner
 		_action.lastEventIndex = -1;
 		_action.chargeT = ComputeChargeT(_action.profile, tier, _action.selectedTierIndex, chargeElapsed);
 
-		// Combo bookkeeping (weapon-driving tiers only). The activated tier's
-		// comboIndex becomes the weapon's current chain position. comboWindowMs
-		// is the time after this action ends during which the next press will
-		// target `comboIndex + 1`; zero terminates the chain here.
-		if (_action.context.primaryItem is WeaponState weapon)
+		// Combo bookkeeping (weapon-driving tiers only). For a repeating tier,
+		// repeatIndex walks its per-swing override list while the repeat window
+		// stays open, wrapping to 0 after the final swing; the resolved swing's
+		// cooldown override (if any) feeds both the item cooldown and the window.
+		// A non-repeat tier (a charged finisher) closes the repeat window so the
+		// next basic press restarts at swing 0. The tier-chain comboIndex window
+		// is tracked separately below and is unaffected either way.
+		WeaponState weapon = _action.context.primaryItem as WeaponState;
+		ActionRepeatOverride swing = null;
+		if (weapon != null && tier.RepeatCount > 0)
 		{
-			weapon.comboIndex = tier.comboIndex;
-			weapon.comboExpireMs = now + (ulong)(tier.activeDurationSeconds * 1000f) + (ulong)(tier.cooldownSeconds * 1000f) + tier.comboWindowMs;
+			int next = now < weapon.repeatExpireMs ? weapon.repeatIndex + 1 : 0;
+			if (next >= tier.RepeatCount)
+			{
+				next = 0;
+			}
+			weapon.repeatIndex = next;
+			_action.repeatIndex = next;
+			swing = tier.GetRepeat(next);
 		}
 
-		// Apply per-item cooldown. Duration is also stored so HUDs can render
+		// Effective cooldown: a repeat swing's override wins when set (>= 0),
+		// else the tier's own cooldownSeconds. cooldownSeconds is the RECOVERY
+		// tail after the swing, so the full attack cycle — activation until the
+		// item can fire again — is active + cooldown (`cycleMs`). The combo
+		// windows below hang off the same cycle so a longer-recovery finisher
+		// also holds the chain open longer.
+		float cooldownSeconds = swing != null && swing.cooldownSeconds >= 0f ? swing.cooldownSeconds : tier.cooldownSeconds;
+		ulong cycleMs = (ulong)(tier.activeDurationSeconds * 1000f) + (ulong)(cooldownSeconds * 1000f);
+
+		if (weapon != null)
+		{
+			// Tier-chain window (comboIndex): the activated tier's comboIndex
+			// becomes the weapon's chain position; comboWindowMs holds it open for
+			// the next `comboIndex + 1` press. Unchanged by the repeat system.
+			weapon.comboIndex = tier.comboIndex;
+			weapon.comboExpireMs = now + cycleMs + tier.comboWindowMs;
+			// Repeat window (repeatIndex): only a repeating tier holds it open; a
+			// non-repeat tier closes it so the next combo starts fresh at swing 0.
+			if (tier.RepeatCount > 0)
+			{
+				weapon.repeatExpireMs = now + cycleMs + tier.comboWindowMs;
+			}
+			else
+			{
+				weapon.repeatIndex = 0;
+				weapon.repeatExpireMs = 0;
+			}
+		}
+
+		// Apply the per-item cooldown as the full cycle, so cooldownExpireMs is
+		// the moment the item can genuinely fire again and the HUD bar spans
+		// activation → ready. Duration is also stored so HUDs can render
 		// progress without re-reading the tier (which is unreachable once the
 		// runner advances past Active).
 		if (_action.context.primaryItem != null)
 		{
-			ulong cooldownMs = (ulong)(tier.cooldownSeconds * 1000f);
-			_action.context.primaryItem.cooldownExpireMs = now + cooldownMs;
-			_action.context.primaryItem.cooldownDurationMs = cooldownMs;
+			_action.context.primaryItem.cooldownExpireMs = now + cycleMs;
+			_action.context.primaryItem.cooldownDurationMs = cycleMs;
 		}
 
 		// Fire any t=0 active events on entry. The walker handles t>0 in Tick.

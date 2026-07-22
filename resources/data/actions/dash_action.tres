@@ -9,6 +9,7 @@
 [ext_resource type="Resource" uid="uid://ghi3ms3aq1lb" path="res://resources/data/status_effects/status_invulnerable.tres" id="6_invuln"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_myocs"]
 [ext_resource type="PackedScene" uid="uid://br5x8h2qkvr3m" path="res://scenes/fx/dash_start.tscn" id="7_dashfx"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="8_kf713"]
 
 [sub_resource type="Resource" id="Resource_cbxbs"]
 script = ExtResource("4_apply")

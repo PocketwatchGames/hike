@@ -5,9 +5,10 @@ using Godot.Collections;
 // press; each tier holds for its own `chargeTime` before the next tier in
 // `chargedActions` (same comboIndex) takes over. On activation (release, or
 // autoActivateAtMax when the final tier's window completes), the runner
-// enters Active and walks `events` over `activeDurationSeconds`. The
-// action's cooldownSeconds is written to the driving item's cooldownExpireMs
-// at activation, gating re-firing of that specific item.
+// enters Active and walks `events` over `activeDurationSeconds`. At
+// activation the full attack cycle (activeDurationSeconds + cooldownSeconds)
+// is written to the driving item's cooldownExpireMs, gating re-firing of that
+// specific item until the swing AND its recovery tail have both elapsed.
 [GlobalClass]
 public partial class ItemAction : Resource
 {
@@ -42,8 +43,13 @@ public partial class ItemAction : Resource
 	// Active exits the same tick.
 	[Export] public float activeDurationSeconds = 0f;
 
-	// Cooldown applied to the driving item after activation. Independent
-	// per-item (a weapon's cooldown doesn't block other items).
+	// Recovery tail after the swing: the time from the END of the Active phase
+	// until the item can fire again. The full attack cycle is therefore
+	// activeDurationSeconds + cooldownSeconds, and that sum is what EnterActive
+	// writes to the driving item's cooldownExpireMs (activation-anchored), so
+	// the HUD cooldown bar spans the whole cycle. 0 = no gate beyond the swing
+	// itself. Independent per-item (a weapon's cooldown doesn't block other
+	// items).
 	[Export] public float cooldownSeconds = 0f;
 
 	// Resource costs — direct fields rather than ActionRequirement subclasses
@@ -91,6 +97,18 @@ public partial class ItemAction : Resource
 	// for the next press; 0 means the chain terminates here.
 	[Export] public int comboIndex = 0;
 	[Export] public ulong comboWindowMs = 0;
+
+	// Repeat-swing combo (the lightweight alternative to authoring one tier per
+	// combo step). When non-empty, a single press activates this tier and the
+	// driving WeaponState.repeatIndex walks these entries — one per press — while
+	// the combo window (comboExpireMs, extended each swing by comboWindowMs) stays
+	// open, wrapping to 0 after the final entry. The array length IS the combo
+	// length and the index IS the swing number; each entry layers per-swing tweaks
+	// (damage, cooldown) over this base tier, so a default entry just replays the
+	// base swing. Empty (default) = a normal single-shot tier with no repeat chain.
+	// Activating any tier whose list is empty (a charged finisher) resets the
+	// weapon's repeat cursor to 0, as does getting hit.
+	[Export] public Array<ActionRepeatOverride> repeatActionOverrides = new();
 
 	// Per-tier non-resource gates (weapon level, language known, etc.).
 	// Resource costs (stamina, blood, ammo) live on dedicated fields above
@@ -264,5 +282,20 @@ public partial class ItemAction : Resource
 		float divisor = Mathf.Lerp(1f, tier.chargedAccuracyScale, Mathf.Clamp(chargeT, 0f, 1f));
 		if (divisor <= 0f) { return tier.accuracySpread01; }
 		return tier.accuracySpread01 / divisor;
+	}
+
+	// Number of swings in this tier's repeat combo (0 = not a repeat tier).
+	public int RepeatCount => repeatActionOverrides?.Count ?? 0;
+
+	// Per-swing override for the given repeat index, or null when the tier has no
+	// repeat combo or the index is out of range (both resolve to "use the base
+	// swing unchanged").
+	public ActionRepeatOverride GetRepeat(int index)
+	{
+		if (repeatActionOverrides == null || index < 0 || index >= repeatActionOverrides.Count)
+		{
+			return null;
+		}
+		return repeatActionOverrides[index];
 	}
 }

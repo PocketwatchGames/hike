@@ -37,5 +37,10 @@ public struct PlayerAction
 	// whose comboIndex matches this value.
 	public int targetComboIndex;
 
+	// Repeat-swing cursor resolved at activation for a repeating tier
+	// (ItemAction.repeatActionOverrides); indexes the override that scales this
+	// swing's damage/cooldown. 0 for non-repeat tiers.
+	public int repeatIndex;
+
 	public bool IsBusy => phase != EActionPhase.Ready;
 }

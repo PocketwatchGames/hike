@@ -314,20 +314,49 @@ public partial class Player : CharacterBody3D
 	// Latched at AttackContextSensitive press time so the release routes to
 	// the same weapon slot even if the player releases Aim mid-attack.
 	EInventorySlot? _contextSensitiveAttackSlot;
-	// Press received while the weapon's cooldown is still ticking. Each tick
-	// ProcessInput re-checks: button no longer held → discard; cooldown now
-	// elapsed and runner free → convert to a real start. Lets the player hold
-	// the button through the tail of the cooldown to chain attacks without
-	// frame-perfect timing. The action-name is stored alongside the slot so
-	// the polling check can re-read the input the player is actually holding.
+	// Press received while the weapon couldn't fire yet — the runner was busy
+	// (an attack cycle, a consumable, an interactive) or the weapon was still
+	// cooling. Each tick ProcessInput re-checks: still held + runner free +
+	// cooldown elapsed → convert to a real start; released → bank as a queued
+	// tap if inside the queue window of the weapon becoming ready, else
+	// discard. Lets the player hold or mash through the tail of an attack
+	// cycle to chain without frame-perfect timing. The action-name is stored
+	// alongside the slot so the polling check can re-read the input the player
+	// is actually holding.
 	EInventorySlot? _pendingWeaponPressSlot;
 	string _pendingWeaponPressActionName;
+	// Queued input — at most ONE banked follow-up action, newest press wins.
+	// Either a completed attack tap (slot + action name, banked when press AND
+	// release land while the weapon can't yet fire, released within
+	// PlayerData.weaponQueueWindowSeconds of it becoming ready) or a dash
+	// (banked when pressed inside the same window of a committed swing
+	// ending). ProcessInput fires the banked input the moment the runner and
+	// the relevant cooldown allow. Cancelled by any other overt button, a
+	// fresh attack press, getting hit, or death — see ClearQueuedInput sites.
+	EInventorySlot? _queuedWeaponTapSlot;
+	string _queuedWeaponTapActionName;
+	bool _queuedDash;
 	readonly List<IInteractive> _interactiveCollisions = new();
 	readonly List<Foliage> _foliageCollisions = new();
 	float _terrainSpeed = 1f;
 	bool _grounded;
 	bool _aiming;
 	bool _sneaking;
+	// Rising-edge tracker for _sneaking, read once per ProcessInput to detect
+	// the frame a sneak-block begins (opens the parry window).
+	bool _wasSneaking;
+	// Sim-clock (GameTimeMs) deadline of the current sneak-block's parry window;
+	// a clean block before it elapses counter-strikes the attacker. 0 = no open
+	// window. Set on the rising edge of sneak (BeginSneakBlock), consumed by a
+	// successful parry in OnHurtBoxHit. A stale value is harmless — the parry
+	// path also requires the player to be actively sneak-blocking.
+	ulong _parryDeadlineMs;
+	// Sim-clock (GameTimeMs) time before which the guard can't block or parry
+	// again after the player stopped blocking. Armed on the falling edge of
+	// sneak (ProcessInput) with PlayerData.blockReengageCooldown; gates
+	// GetSneakBlockWeapon so a re-crouch inside the window neither soaks nor
+	// parries.
+	ulong _blockCooldownEndMs;
 	// Active while Dash is held past the initial dash burst with move input
 	// and positive stamina. Drains stamina continuously and rearms the
 	// recharge delay each tick. Blocks aim, ends on Dash release / stamina

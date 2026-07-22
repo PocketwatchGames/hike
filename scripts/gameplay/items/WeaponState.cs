@@ -8,12 +8,31 @@ public class WeaponState : ItemState
 	// arms it the frame ammo drops below max and re-arms after each refill.
 	public ulong ammoRechargeReadyMs;
 
-	// Combo runtime — set to the activated ItemAction's comboIndex on each
-	// activation. comboExpireMs is when the chain breaks if not extended; the
-	// ActionRunner uses (now < comboExpireMs) at press time to target
-	// `comboIndex + 1` instead of restarting at 0.
+	// Combo runtime. Two independent chains, each with its own position + window
+	// (when the next press lands before the window, the chain continues; after
+	// it, the chain restarts at 0). Kept separate so activating one doesn't
+	// spuriously advance the other:
+	//   comboIndex  / comboExpireMs  — tier-chain (author one ItemAction tier per
+	//                 step); ActionRunner targets `comboIndex + 1` while open.
+	//   repeatIndex / repeatExpireMs — repeat-swing cursor within a single
+	//                 repeating tier (ItemAction.repeatActionOverrides); advances
+	//                 one swing per press while open, wraps to 0 after the last.
+	// Set at activation in ActionRunner.EnterActive; cleared by ResetCombo()
+	// (getting hit). A non-repeat tier firing closes the repeat window on its own.
 	public int comboIndex;
 	public ulong comboExpireMs;
+	public int repeatIndex;
+	public ulong repeatExpireMs;
+
+	// Break both combo chains immediately — the next press starts fresh at
+	// swing 0. Called when the wielder is hit.
+	public void ResetCombo()
+	{
+		comboIndex = 0;
+		comboExpireMs = 0;
+		repeatIndex = 0;
+		repeatExpireMs = 0;
+	}
 
 	// Composed level (ItemState.level) doubles this weapon's outgoing health
 	// damage per level (2^level, so level 0 = ×1). Applied at hit resolution on

@@ -110,6 +110,15 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Break the combo chain on every weapon the player wields, so getting hit
+	// resets it regardless of which slot is mid-combo (or if unarmed).
+	private void ResetWeaponCombos()
+	{
+		_inventory?.GetWeapon(EInventorySlot.WeaponMelee)?.ResetCombo();
+		_inventory?.GetWeapon(EInventorySlot.WeaponRanged)?.ResetCombo();
+		_unarmedWeapon?.ResetCombo();
+	}
+
 	private void OnHurtBoxHit(HitInfo hit)
 	{
 		if (CVars.invulnerable.Value)
@@ -154,6 +163,11 @@ public partial class Player : CharacterBody3D
 		// per-tier canInterrupt). External interruption fires BEFORE damage
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
+		// A landed hit breaks any in-progress attack combo — the next swing
+		// starts fresh at the lead-in (see WeaponState.ResetCombo) — and drops
+		// any queued follow-up tap.
+		ResetWeaponCombos();
+		ClearQueuedInput();
 		// Being hit also cancels an open boon-pick modal (fairy corpse) — a
 		// no-op when it isn't showing. Leaves the corpse unspent in the world.
 		GameClient.Current?.InterruptUpgradeSelection();
@@ -168,63 +182,93 @@ public partial class Player : CharacterBody3D
 			RequestEndBirdsEye();
 		}
 		_sneaking = false;
-		// Armor handling. Bypass-aware split: a portion of `incomingDamage`
-		// skips armor entirely (discrete `ArmorPenetrated` = full bypass; continuous
-		// `armorBypassFraction` = partial), the rest is "absorbable" and
-		// piles onto the armor chip scaled by `1 + hit.blunt`. Armor that
-		// SURVIVES the chip soaks the whole absorbable slice — none through,
-		// only the pre-resolved bypass lands. But the blow that BREAKS the
-		// armor (chip >= remaining armor) shatters it and provides no
-		// protection: the full hit (absorbable + bypass) lands on health. The
-		// recharge window resets on any absorbable hit that touches armor,
-		// including blows that land while armor is already depleted (a
-		// sustained beating keeps the recover window from starting). A
-		// pure-penetration hit (armorPenetration=1, etc.) never touches armor
-		// and so doesn't extend the window.
+		// Layered damage resolution. Bypass-aware split first: a portion of
+		// `incomingDamage` skips armor entirely (discrete `ArmorPenetrated` =
+		// full bypass; continuous `armorBypassFraction` = partial), the rest is
+		// "absorbable" and runs the guard → central-armor layers below. Each
+		// layer lowers `absorbable`; whatever is left plus the bypass lands on
+		// health at the end.
 		float bypassFraction = hit.ArmorPenetrated ? 1f : hit.armorBypassFraction;
 		float bypassed = incomingDamage * bypassFraction;
 		float absorbable = incomingDamage - bypassed;
-		// Weapon block armor takes the absorbable slice FIRST while the player
-		// is sneaking with a guard-bearing melee weapon — the sneak crouch
-		// doubles as a shield. When the guard eats the slice, only the
-		// pre-resolved bypass continues past it (matching the central-armor
-		// "overflow doesn't bleed" rule below). AbsorbWeaponBlock also re-arms
-		// the weapon's recharge delay on any guard-touching hit, even at zero guard.
-		float blockAbsorbed = AbsorbWeaponBlock(blockWeapon, ref absorbable, hit.blunt);
-		if (blockAbsorbed > 0f)
+		// Parry: a well-timed, rechargeable deflection of a mob's melee blow.
+		// Within the window opened when the crouch began, if the guard is off its
+		// recharge cooldown and the whole blow is no larger than the weapon's
+		// maxParryDamage, the hit is fully negated — the downstream armor / health /
+		// buildup / hitstun / knockback are all skipped — and the attacker is
+		// counter-struck. Only a discrete hit from a Mob qualifies (no DoT ticks,
+		// traps, or projectiles). Independent of the pool size, so a knife with no
+		// passive block still parries; a successful parry re-arms the block recharge
+		// delay (SpendParryGuard) so parries can't be spammed.
+		bool parried = false;
+		if (blockWeapon != null && !hit.dot && hit.source is Mob
+			&& _parryDeadlineMs > 0 && (_world?.GameTimeMs ?? 0) < _parryDeadlineMs
+			&& IsGuardReadyToParry(blockWeapon)
+			&& incomingDamage <= blockWeapon.data.maxParryDamage)
 		{
-			incomingDamage = bypassed;
-			// Guard reaction one-shot over the sneak pose (resolves the wielded
+			parried = true;
+			absorbable = 0f;
+			bypassed = 0f;
+			SpendParryGuard(blockWeapon);
+			TryParry(blockWeapon, hit.source);
+			// Parry reaction one-shot over the sneak pose (resolves the wielded
 			// weapon's Block override; no-op if it authors none).
 			PlayOneShot(EAnimation.Block);
 		}
+		// Passive block guard takes the absorbable slice while the player is
+		// sneaking with a guard-bearing melee weapon — the sneak crouch doubles as
+		// a shield. Overflow model: the guard absorbs up to its charge and passes
+		// only the unabsorbed overflow to central armor (not the whole slice).
+		// AbsorbWeaponBlock also re-arms the weapon's recharge delay on any
+		// guard-touching hit, even at zero guard. Skipped on a parry (the blow was
+		// already fully negated above).
+		float blockAbsorbed = 0f;
+		if (!parried)
+		{
+			blockAbsorbed = AbsorbWeaponBlock(blockWeapon, ref absorbable, hit.blunt);
+			if (blockAbsorbed > 0f)
+			{
+				// Guard reaction one-shot over the sneak pose (resolves the wielded
+				// weapon's Block override; no-op if it authors none).
+				PlayOneShot(EAnimation.Block);
+			}
+		}
+		// Central armor chips at (1 + blunt) on whatever survived the guard.
+		// Armor that SURVIVES the chip soaks the whole remaining slice (none
+		// through); the blow that BREAKS it (chip >= remaining armor) shatters
+		// it and provides no protection — the remaining slice lands on health.
+		// The recharge window resets on any absorbable hit that touches armor,
+		// including blows that land while armor is already depleted (a sustained
+		// beating keeps the recover window from starting).
 		float armorAbsorbed = 0f;
 		if (absorbable > 0f && _armor > 0f)
 		{
 			float armorDamage = absorbable * (1f + hit.blunt);
 			if (armorDamage < _armor)
 			{
-				// Armor survives: soaks the whole absorbable slice.
+				// Armor survives: soaks the whole remaining slice.
 				armorAbsorbed = armorDamage;
 				_armor -= armorDamage;
 				RefreshArmorRecharge(true);
-				incomingDamage = bypassed;
+				absorbable = 0f;
 			}
 			else
 			{
-				// Breaking blow: armor shatters and stops nothing — the full
-				// hit lands on health (incomingDamage left at bypassed + absorbable).
+				// Breaking blow: armor shatters and stops nothing — the
+				// remaining slice lands on health (absorbable left intact).
 				_armor = 0f;
 				RefreshArmorRecharge(false);
 			}
 		}
 		else if (absorbable > 0f && MaxArmor > 0f)
 		{
-			// Armor already depleted but the player has armor capacity: the hit
-			// lands fully on health (incomingDamage unchanged), yet we push the
-			// recover window out so repeated blows don't let armor refill.
+			// Armor already depleted but the player has armor capacity: the
+			// slice lands on health, yet we push the recover window out so
+			// repeated blows don't let armor refill.
 			RefreshArmorRecharge(false);
 		}
+		// Health takes the pre-resolved bypass plus whatever no layer absorbed.
+		incomingDamage = bypassed + absorbable;
 
 		bool wasAlive = _health > 0f;
 		_health = Mathf.Max(0f, _health - incomingDamage);
@@ -264,7 +308,7 @@ public partial class Player : CharacterBody3D
 		// before the HUD feedback below so a zero-damage hit that still lands
 		// buildup isn't mislabeled a "MISS!".
 		bool appliedBuildup = false;
-		if (_health > 0f)
+		if (_health > 0f && !parried)
 		{
 			appliedBuildup = _statusEffects?.ApplyHitBuildups(ref hit) ?? false;
 			// On-damaged trait reactions (Thin Skinned → its "+5% damage taken"
@@ -293,6 +337,11 @@ public partial class Player : CharacterBody3D
 			{
 				_dotHud.AddDamage(dotTotal);
 			}
+		}
+		else if (parried)
+		{
+			// A parry fully negated the blow — its own callout, no number/MISS.
+			client?.onHudText?.Invoke(GlobalPosition, Loc.Get(Loc.Keys.combat_parried), EHudTextType.Parried);
 		}
 		else
 		{
@@ -328,12 +377,12 @@ public partial class Player : CharacterBody3D
 		// sender via HitInfo.hitDirection; a zero direction drops knockback
 		// entirely regardless of distance. Death overrides the hitstun anim
 		// because the Die one-shot above latches first.
-		if (hit.hitstun > 0f && _health > 0f)
+		if (hit.hitstun > 0f && _health > 0f && !parried)
 		{
 			_hitstunTime = Mathf.Max(_hitstunTime, hit.hitstun);
 			PlayOneShot(EAnimation.Hitstun);
 		}
-		if (hit.knockbackDistance > 0f && hit.knockbackTime > 0f && hit.hitDirection != Vector3.Zero && _health > 0f)
+		if (hit.knockbackDistance > 0f && hit.knockbackTime > 0f && hit.hitDirection != Vector3.Zero && _health > 0f && !parried)
 		{
 			Vector3 dir = hit.hitDirection;
 			dir.Y = 0f;
@@ -350,6 +399,30 @@ public partial class Player : CharacterBody3D
 				_knockbackTime = Mathf.Max(_knockbackTime, hit.knockbackTime);
 			}
 		}
+	}
+
+	// Deliver the parry counter-strike after a clean, well-timed sneak-block:
+	// hit the attacker back with the blocking weapon's parryDamageProfileKey
+	// profile. Only a melee attacker — the Mob that dealt the blocked blow — is
+	// countered; a projectile / hazard source is left alone. No-op if the weapon
+	// authors no parry profile (empty / unmapped key). Closes the window so the
+	// counter fires once per crouch (the hit that triggered it also drops sneak,
+	// so re-crouching is what reopens it).
+	private void TryParry(WeaponState weapon, Node attacker)
+	{
+		_parryDeadlineMs = 0;
+		if (weapon?.data == null || attacker is not Mob mob || !mob.alive)
+		{
+			return;
+		}
+		DamageData damage = weapon.data.GetDamage(weapon.data.parryDamageProfileKey);
+		if (damage == null)
+		{
+			return;
+		}
+		Vector3 dir = mob.GlobalPosition - GlobalPosition;
+		dir.Y = 0f;
+		mob.Hit(new HitInfo(damage, this, dir, ETeam.Player));
 	}
 
 	// Signed HP delta from a status-effect tick. Positive heals, negative
@@ -449,6 +522,7 @@ public partial class Player : CharacterBody3D
 		_pendingWeaponPressSlot = null;
 		_pendingWeaponPressActionName = null;
 		_contextSensitiveAttackSlot = null;
+		ClearQueuedInput();
 		_dashTimeRemaining = 0f;
 		_sprinting = false;
 		_sneaking = false;

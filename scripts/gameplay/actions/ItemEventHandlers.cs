@@ -1767,6 +1767,14 @@ public static class ItemEventHandlers
 		{
 			// Composed weapon level doubles outgoing damage per level (2^level).
 			hit.healthDamage *= weapon2.DamageMultiplier;
+			// Per-swing repeat-combo multiplier (a final-swing haymaker, etc.).
+			// Resolved at activation into action.repeatIndex; null / 1 for
+			// non-repeat swings leaves the damage unchanged.
+			ActionRepeatOverride swing = action.selectedTier?.GetRepeat(action.repeatIndex);
+			if (swing != null && swing.damageMultiplier != 1f)
+			{
+				hit.healthDamage *= swing.damageMultiplier;
+			}
 			int chargeIndex = FindChargeIndex(weapon2, action.selectedTier);
 			hit.AddBuildups(weapon2.statusEffects.WeaponModOnHitBuildups(chargeIndex));
 			hit.knockbackDistance += weapon2.statusEffects.WeaponModKnockbackBonus(chargeIndex);

@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kburi"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="5_apply"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="5_q3g2c"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_uo8nj"]
 [ext_resource type="Resource" uid="uid://td4nk2wwtqxx" path="res://resources/data/status_effects/status_heal.tres" id="6_heal"]
 [ext_resource type="Texture2D" uid="uid://dit6x3xeay3qq" path="res://assets/textures/items/BasicLantern.png" id="7_sprite"]

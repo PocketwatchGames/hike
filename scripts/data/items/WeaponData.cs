@@ -205,6 +205,28 @@ public partial class WeaponData : ItemData
 	// recharges.
 	[Export] public float blockArmorRechargeTime = 0.5f;
 
+	// Parry window: milliseconds after a sneak-block begins during which a
+	// well-timed block PARRIES — fully negating the blow and counter-striking
+	// the attacker — rather than merely soaking it into the guard pool. 0
+	// (default) = the weapon can't parry (it only passively blocks). Measured
+	// against the sim clock (GameTimeMs), so it slows uniformly under slow-mo.
+	[Export] public int parryTimeMs = 0;
+	// The largest single hit a parry can fully negate. A blow whose (post-
+	// resistance) damage is at or under this is deflected outright — no health,
+	// armor, buildup, hitstun, or knockback lands — and the attacker takes the
+	// parryDamageProfileKey counter. A bigger blow can't be parried and falls
+	// through to the passive block below. Independent of blockArmor, so a weapon
+	// that barely blocks (a knife, blockArmor = 0) can still parry hard. A parry
+	// is only available while the guard is off its recharge cooldown, and lands
+	// re-arm that delay (see Player.SpendParryGuard) so parries can't be spammed
+	// — this is the "interacts with block recharge" coupling. 0 = no parry.
+	[Export] public float maxParryDamage = 0f;
+	// Damage profile (key into damageProfiles) dealt back to the attacker on a
+	// successful parry. Empty / unmapped = no counter-strike (the blow is still
+	// negated, it just deals no damage back). Only a melee attacker — a Mob
+	// dealing the parried blow — is countered.
+	[Export] public StringName parryDamageProfileKey = new StringName();
+
 	public override ItemState CreateState()
 	{
 		return new WeaponState(this);

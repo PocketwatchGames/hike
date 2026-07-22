@@ -10,6 +10,13 @@ Pressed via input or AI request.
 
 - `ItemActionProfile` (`scripts/data/actions/ItemActionProfile.cs`): one profile per slot. Holds an `Array<ItemAction> chargedActions` (the tiers), profile-level `chargeEvents` / `chargeEndEvents` / `abortEvents`, and behavioral flags (`autoActivateAtMax`, `locksMovement`, `interruptOnDamage`, `queueable`/`queueWindowSeconds`).
 - `ItemAction` (`scripts/data/actions/ItemAction.cs`): one charge tier within a profile. Carries `chargeTime`, `activeDurationSeconds`, `cooldownSeconds`, `events` (Active timeline), `readyEvents` (announce reaching this tier), combo position (`comboIndex` / `comboWindowMs`), `requirements`, abort/interrupt policy (`canAbort` / `canInterrupt`), per-tier charge curves, and per-tier charge fx (`chargeStartEffect`, `chargeLoopEffect`, `chargeCancelEffect`, `releaseEffect`).
+
+### Combos: two independent mechanisms
+
+Both ride a per-weapon "press again before the window lapses" chain (`WeaponState`), reset when the wielder is hit (`Player.ResetWeaponCombos`), and coexist on one profile:
+
+- **Tier-chain** (`ItemAction.comboIndex` / `comboWindowMs`, `WeaponState.comboIndex` / `comboExpireMs`): author *one full `ItemAction` tier per combo step*. `ActionRunner.ResolveTargetComboIndex` targets `previousComboIndex + 1` while the window is open, and tier selection filters to that index. Maximal flexibility (each step is a wholly different attack); heaviest authoring.
+- **Repeat-swing** (`ItemAction.repeatActionOverrides` : `Array<ActionRepeatOverride>`, `WeaponState.repeatIndex` / `repeatExpireMs`): author *one* tier; its `repeatActionOverrides` array length IS the combo length and index IS the swing number. `EnterActive` walks `repeatIndex` through the list per press (wrapping to 0 after the last), and each `ActionRepeatOverride` layers per-swing `damageMultiplier` (applied in `ResolveHit`) + `cooldownSeconds` over the base tier. Activating a tier with an empty list (a charged finisher) closes the repeat window so the next basic press restarts at swing 0. Light authoring for the common "same swing N times, finisher is beefier" case (club = 3 swings, knife = 5). Per-swing anim/fx overrides land on `ActionRepeatOverride` in a later pass.
 - Profiles are referenced from `WeaponData.actionProfile`, `ConsumableData.actionProfile`, and `AttackBehaviorData.actionProfile`.
 
 ## Interactive actions (chest, door, torch, loot)

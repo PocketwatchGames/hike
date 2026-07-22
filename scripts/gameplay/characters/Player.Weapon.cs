@@ -74,8 +74,9 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// ApplyMotion / ApplyStatusEffect / PlayAnim / fx events drive the motion,
 	// i-frames, animation, and AV cues. Cooldown lives on the player rather
 	// than on an item because dash isn't an inventory entry. Weapon-Active
-	// blocks dash (committed swing); weapon-Charging and interactive-Active
-	// are interrupted so the player can dash out of a draw or out of a
+	// blocks dash (committed swing) — though a press near the swing's end
+	// banks as the queued input instead; weapon-Charging and interactive-
+	// Active are interrupted so the player can dash out of a draw or out of a
 	// chest-open prompt.
 	void TryStartDash()
 	{
@@ -88,6 +89,33 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			return;
 		}
 		ulong now = _world?.GameTimeMs ?? 0;
+		// Committed weapon swing (Active phase with a weapon profile): dash can't
+		// cut in, but a press inside the queue window of the swing (and the
+		// dash's own cooldown) ending banks it as the queued input — fired by
+		// ProcessInput the moment the runner frees, replacing any queued attack
+		// tap (newest input wins). Earlier presses simply drop. Checked before
+		// the cooldown / fall gates: readiness folds the dash cooldown in, and
+		// the fall gate re-evaluates at fire time.
+		if (_runner.IsBusy
+			&& _runner.Phase == EActionPhase.Active
+			&& _runner.Current.profile != null
+			&& _runner.Current.interactiveAction == null)
+		{
+			ulong readyMs = _runner.Current.endMs > _dashCooldownEndMs ? _runner.Current.endMs : _dashCooldownEndMs;
+			if (data != null && readyMs <= now + (ulong)(data.weaponQueueWindowSeconds * 1000f))
+			{
+				ClearQueuedInput();
+				// Also drop any pending (still-held) attack press — it PREDATES this
+				// dash press, and leaving it latched lets its upcoming release bank a
+				// queued tap that out-races the dash at the fire blocks (tap fires
+				// first and its clear eats the dash). Newest input wins means the
+				// dash beats the older attack press, not just older banked inputs.
+				_pendingWeaponPressSlot = null;
+				_pendingWeaponPressActionName = null;
+				_queuedDash = true;
+			}
+			return;
+		}
 		if (now < _dashCooldownEndMs)
 		{
 			return;
@@ -99,18 +127,10 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return;
 		}
-		// Block dash during a committed weapon swing (Active phase with a
-		// weapon profile). Other runner states (Charging, interactive Active)
-		// abort cleanly to make room for the dash.
+		// Other busy runner states (Charging, interactive Active) abort cleanly
+		// to make room for the dash.
 		if (_runner.IsBusy)
 		{
-			bool weaponActive = _runner.Phase == EActionPhase.Active
-				&& _runner.Current.profile != null
-				&& _runner.Current.interactiveAction == null;
-			if (weaponActive)
-			{
-				return;
-			}
 			_runner.TryAbort();
 		}
 		var context = new ActionContext();
@@ -150,14 +170,51 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		return null;
 	}
 
+	// Drop the banked queued input — attack tap and dash alike (see
+	// _queuedWeaponTapSlot / _queuedDash). Called whenever something supersedes
+	// it: a fresh attack press (any slot), another overt button, getting hit,
+	// or death.
+	void ClearQueuedInput()
+	{
+		_queuedWeaponTapSlot = null;
+		_queuedWeaponTapActionName = null;
+		_queuedDash = false;
+	}
+
+	// Earliest game-time at which a press on `weapon` could actually start: the
+	// later of its own cooldown ending and the runner's current action finishing.
+	// Unknowable while the runner is Charging (the player decides when to
+	// release), so that returns MaxValue — a tap banked then can't promise a
+	// bounded wait and fails the queue-window check.
+	ulong WeaponReadyTimeMs(WeaponState weapon)
+	{
+		ulong ready = weapon?.cooldownExpireMs ?? 0;
+		if (_runner != null && _runner.IsBusy)
+		{
+			if (_runner.Phase == EActionPhase.Charging)
+			{
+				return ulong.MaxValue;
+			}
+			if (_runner.Current.endMs > ready)
+			{
+				ready = _runner.Current.endMs;
+			}
+		}
+		return ready;
+	}
+
 	void TryStartWeaponAction(EInventorySlot slot, string actionName)
 	{
+		// A fresh press supersedes any banked queued tap — the newest input wins,
+		// whether it's the same weapon (this press re-banks on release if it also
+		// lands mid-cooldown) or a different one.
+		ClearQueuedInput();
 		// Committing to an attack always wins over an in-flight movement burst —
 		// cancel any active dash and end sprint before the gate. After the
-		// cancel the runner is free (dash tier has canAbort=true), so the
-		// IsBusy check below only rejects when ANOTHER action is in flight.
+		// cancel the runner is free (dash tier has canAbort=true), so IsBusy
+		// below is true only when ANOTHER action is in flight.
 		CancelDashAndSprint();
-		if (_runner == null || _runner.IsBusy)
+		if (_runner == null)
 		{
 			return;
 		}
@@ -175,14 +232,21 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			return;
 		}
 
-		// Pre-cooldown press: latch and let ProcessInput's polling fire it when
-		// cooldown ends, provided the player is still holding the button.
+		// Can't-start-yet press: the runner is busy (an attack's Active phase, a
+		// consumable, an interactive) or this weapon is still cooling — latch as
+		// a pending press instead of dropping it. ProcessInput's polling either
+		// converts it to a real start when the runner frees and the cooldown ends
+		// (button still held), or banks it as a queued tap (released inside the
+		// queue window of the weapon becoming ready — see WeaponReadyTimeMs).
 		// Charging only begins at conversion time, not at the original press —
-		// keeping the chargeT timeline anchored to cooldown-end (not press-time)
+		// keeping the chargeT timeline anchored to ready-time (not press-time)
 		// is what the runner expects, and lets the player hold through the tail
-		// of the cooldown without burning charge time on the inactive window.
+		// of the previous cycle without burning charge time on the inactive
+		// window. Banking while busy is what makes fast mashing land on light
+		// attacks whose whole cycle is Active (cooldown 0), and lets a press on
+		// the OTHER weapon queue a swap that fires the moment this one finishes.
 		ulong now = _world?.GameTimeMs ?? 0;
-		if (weapon.cooldownExpireMs > now)
+		if (_runner.IsBusy || weapon.cooldownExpireMs > now)
 		{
 			_pendingWeaponPressSlot = slot;
 			_pendingWeaponPressActionName = actionName;
