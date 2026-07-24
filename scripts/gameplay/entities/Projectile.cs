@@ -58,6 +58,13 @@ public partial class Projectile : Node3D
 	// surface it just bounced off.
 	private const float BounceSurfaceOffset = 0.03f;
 
+	// Radius (world units) of the grounding-shadow blob this projectile drops
+	// straight down onto the terrain below it (GroundShadowScatter grows and
+	// softens it with altitude, like a flier's). Authored on the projectile
+	// scene; 0 (default) = no blob, so arrows/bolts skip it and only bulky
+	// spherical shots (drake/spider globs) opt in.
+	[Export] public float groundShadowRadius = 0f;
+
 	private DamageData _damageData;
 	// Who fired this projectile. Goes into HitInfo.source so the receiver
 	// (mob, player) sees the attacker for retaliation / aggro / etc. Protected

@@ -370,7 +370,12 @@ public partial class MobData : Resource
     [Export] public float voiceDecibels = 3f;
 
     [ExportGroup("AI")]
-    [Export] public StringName defaultBehavior = "Idle";
+    // Optional per-species override for the brain's idleBehavior — the behavior the
+    // mob starts in and returns to when the current one completes. Empty = use the
+    // brain's own idleBehavior. Lets one shared brain (e.g. goblin_brain) resolve to
+    // a different resting behavior per species (the lurker reuses goblin_brain but
+    // rests in Wander). Never author a literal here that the brain lacks a node for.
+    [Export] public StringName defaultBehavior;
     [Export] public BrainData brain;
 
     [ExportGroup("Bestiary")]

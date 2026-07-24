@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_n2olu"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
-[ext_resource type="Resource" uid="uid://c2h2ti4r8qe07" path="res://resources/data/status_effects/status_slowed.tres" id="7_slowed"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/status_webbed.tres" id="7_webbed"]
 [ext_resource type="PackedScene" path="res://scenes/projectiles/web_glob.tscn" id="8_proj"]
 [ext_resource type="PackedScene" path="res://scenes/fx/web_splat.tscn" id="9_splat"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="10_4wxxt"]
@@ -35,7 +35,8 @@ cameraShakeDuration = 0.2
 cameraShakeRange = 18.0
 areaEffectScene = ExtResource("10_burst")
 areaRadius = 2.0
-areaDurationSeconds = 1.0
+areaDurationSeconds = 7.0
+areaContinuousKey = &"web"
 areaIntervals = Array[ExtResource("3_area")]([SubResource("Resource_areaspec_aoe")])
 
 [sub_resource type="Resource" id="Resource_event_spit"]
@@ -70,19 +71,21 @@ releaseEffect = ExtResource("12_spit")
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_spit")])
 
-[sub_resource type="Resource" id="Resource_slowed_buildup"]
+[sub_resource type="Resource" id="Resource_webbed_buildup"]
 script = ExtResource("6_buildup")
-effect = ExtResource("7_slowed")
-amount = 0.5
+effect = ExtResource("7_webbed")
+amount = 6.0
+
+[sub_resource type="Resource" id="Resource_web_continuous"]
+script = ExtResource("12_mdbnn")
+buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_webbed_buildup")])
 
 [sub_resource type="Resource" id="Resource_damage_aoe"]
 script = ExtResource("5_damage")
 tags = 65
 healthDamage = 30.0
 hitstun = 0.2
-knockbackDistance = 0.3
-knockbackTime = 0.1
-buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_slowed_buildup")])
+buildups = []
 modifiers = []
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
@@ -99,6 +102,9 @@ abilityTell = ExtResource("13_tell")
 damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"aoe": SubResource("Resource_damage_aoe"),
 &"primary": SubResource("Resource_damage_primary")
+})
+continuousProfiles = Dictionary[StringName, ExtResource("12_mdbnn")]({
+&"web": SubResource("Resource_web_continuous")
 })
 actionProfile = SubResource("Resource_profile")
 priority = 1

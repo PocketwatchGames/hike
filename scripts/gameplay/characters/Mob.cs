@@ -290,7 +290,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // order so dialogue and any other UI surface (merchant screen, etc.)
     // agree on which language to scramble against.
     public LanguageData SpokenLanguage => _simState?.Language ?? mobData?.language;
-    public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
+    // Resting behavior the mob starts in and returns to when the current one
+    // completes. Instance override (InitialBehavior) wins, then the per-species
+    // MobData.defaultBehavior, then the brain's idleBehavior — each falling through
+    // when empty. InitBehaviors seeds the same value so start and return-to agree.
+    public StringName defaultBehavior
+    {
+        get
+        {
+            if (!IsEmptyName(_simState?.InitialBehavior)) { return _simState.InitialBehavior; }
+            if (!IsEmptyName(mobData?.defaultBehavior)) { return mobData.defaultBehavior; }
+            return mobData?.brain?.idleBehavior;
+        }
+    }
+
+    private static bool IsEmptyName(StringName n) => n == null || n.ToString().Length == 0;
     // True when this mob is the player's companion/pet (drives the follow/stay
     // brain and World companion tracking). Companion-ness IS being tamed: a mob
     // becomes a companion the moment its loyalty crosses MobData.tameLoyalty

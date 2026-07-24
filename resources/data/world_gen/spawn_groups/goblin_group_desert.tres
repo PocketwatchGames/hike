@@ -3,7 +3,6 @@
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_oxdew"]
 [ext_resource type="Resource" uid="uid://c2bah8fqjr86q" path="res://resources/data/world_gen/mob_descriptors/goblin_desert_torchbearer.tres" id="4_3ofq4"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="5_k7525"]
-[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="6_uvsbk"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="7_udeir"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="8_3f36l"]
 [ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="8_3ofq4"]
@@ -18,13 +17,6 @@ initialBehavior = null
 clusterCountMin = 2
 clusterCountMax = 3
 spawnConditions = 2
-
-[sub_resource type="Resource" id="Resource_chest_loot_mushrooms"]
-script = ExtResource("7_udeir")
-item = ExtResource("6_uvsbk")
-count = 0
-countRange = 1
-metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [sub_resource type="Resource" id="Resource_lh7ja"]
 script = ExtResource("7_udeir")
@@ -43,7 +35,7 @@ metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 [sub_resource type="Resource" id="Resource_chest_entry"]
 script = ExtResource("9_lvrwy")
 scene = ExtResource("8_3f36l")
-lootItems = [SubResource("Resource_chest_loot_mushrooms"), SubResource("Resource_lh7ja"), SubResource("Resource_udeir")]
+lootItems = [SubResource("Resource_lh7ja"), SubResource("Resource_udeir")]
 spawnConditions = 2
 
 [resource]

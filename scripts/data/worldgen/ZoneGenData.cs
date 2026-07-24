@@ -162,6 +162,25 @@ public partial class ZoneGenData : Resource
     [Export] public SpawnListData shoreEntities;
     [Export] public SpawnListData waterEntities;
 
+    // Zone-unique chest loot, in two distribution modes:
+    //
+    // perChestLoot — rolled INDEPENDENTLY at every chest in this zone (cave
+    // chests and camp-group chests alike), appended to each chest's own
+    // lootItems. Use for common filler that should vary chest-to-chest (a
+    // health potion, some coins). Threaded to ChestSpawnEntry at spawn time via
+    // SpawnContext, so each chest gets its own roll.
+    //
+    // distributedLoot — a set TOTAL quantity spread ACROSS the zone's chests as
+    // a whole: each entry's rolled count is the number of copies placed into
+    // randomly chosen chests (one per chest, round-robin, wrapping only if the
+    // total exceeds the chest count), NOT a per-chest amount. Use for
+    // important / quest items that should appear a fixed number of times in the
+    // zone rather than in every chest (a region recipe cookbook). Resolved in a
+    // post-generation pass (WorldGen.DistributeZoneLoot) once all chests exist;
+    // a zone with no chests simply doesn't place its distributed loot.
+    [Export] public ItemCountRange[] perChestLoot = System.Array.Empty<ItemCountRange>();
+    [Export] public ItemCountRange[] distributedLoot = System.Array.Empty<ItemCountRange>();
+
     // One-off landmark cluster placed ONCE per zone at the zone's anchor
     // (vs the SurfaceEntities density scan), e.g. a "home" campfire. The anchor
     // comes from this zone's ZoneBounds (see PlacedZone): box/circle bounds

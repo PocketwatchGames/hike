@@ -74,7 +74,7 @@ public partial class ItemEvent : Resource
 	// types ignore the field, so the default (Attack=0) is harmless on them.
 	[Export] public EAnimation animName;
 
-	// ToggleMovingLight: no extra fields. Handler flips ConsumableState.isActive
+	// ToggleMovingLight: no extra fields. Handler flips LanternState.isActive
 	// on the action's primaryItem and attaches/detaches a MovingLight.
 
 	// OpenInteractive: handler calls Complete() on context.primaryInteractive

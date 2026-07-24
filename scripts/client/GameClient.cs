@@ -100,6 +100,23 @@ public partial class GameClient : Node3D
 		return colors[Mathf.Clamp(level, 0, colors.Length - 1)];
 	}
 
+	[ExportGroup("Grounding Shadows")]
+	// Airborne casters — fliers and shadow-casting projectiles — drop their
+	// grounding-shadow blob straight onto the terrain below (not at body height)
+	// and always keep it on regardless of daylight (their real directional
+	// shadow lands off to the side, so the blob is the only cue for where they
+	// hover). The blob also grows and softens with height, reading like a real
+	// contact shadow spreading and fading with distance: at airShadowReferenceHeight
+	// meters up it reaches airShadowMaxGrowth× its ground diameter and
+	// airShadowMinAlpha× its ground alpha, lerping linearly from the on-ground
+	// values and clamping past the reference. At height 0 it's identical to a
+	// grounded blob. (The blob material / darkness / daylight-fade knobs live on
+	// SimData; these are purely the airborne presentation.)
+	[Export(PropertyHint.Range, "1,40,0.5")] public float airShadowReferenceHeight = 12f;
+	[Export(PropertyHint.Range, "1,5,0.05")] public float airShadowMaxGrowth = 2.5f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float airShadowMinAlpha = 0.35f;
+	[ExportGroup("")]
+
 	[Export] public GameCamera camera;
 	// Debug free-fly camera (WASD + right-drag), gated by the `debugFlyCam`
 	// CVar. GameClient ticks it in _Process and forwards mouse-motion in _Input.
@@ -2486,7 +2503,11 @@ public partial class GameClient : Node3D
 	{
 		if (campScreen != null)
 		{
-			campScreen.OpenPartySelect(_player, _lastCampfirePosition);
+			// Bind the home campfire node when it's still resident so cooking/crafting
+			// work straight from the death select; fall back to a position-only camp
+			// (no forge) when it was streamed out, exactly as ReturnHomeToSunrise does.
+			Campfire forge = (_lastCampfire != null && IsInstanceValid(_lastCampfire)) ? _lastCampfire : null;
+			campScreen.OpenPartySelect(_player, forge, _lastCampfirePosition);
 		}
 		else
 		{

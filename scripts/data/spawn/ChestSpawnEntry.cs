@@ -26,10 +26,25 @@ public partial class ChestSpawnEntry : SpawnEntryData
             : scene;
         var chest = new ChestSimState(position, chestScene)
         {
-            LootItems = Resolve(lootItems, rng),
+            // This chest's own authored loot, plus any zone-unique drops for the
+            // zone it spawned in (ZoneGenData.zoneLoot, threaded via SpawnContext)
+            // — so a region's signature loot rides every chest without forking the
+            // shared chest / spawn-group resources.
+            LootItems = Combine(Resolve(lootItems, rng), Resolve(context?.ZonePerChestLoot, rng)),
             SpawnConditions = spawnConditions,
         };
         ws.AddEntity(chest);
+    }
+
+    // Concatenate two already-rolled loot arrays; either may be null/empty.
+    private static ItemCount[] Combine(ItemCount[] a, ItemCount[] b)
+    {
+        if (a == null || a.Length == 0) { return b; }
+        if (b == null || b.Length == 0) { return a; }
+        var merged = new ItemCount[a.Length + b.Length];
+        a.CopyTo(merged, 0);
+        b.CopyTo(merged, a.Length);
+        return merged;
     }
 
     // Roll every authored range into a concrete ItemCount. Shared with

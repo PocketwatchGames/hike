@@ -447,7 +447,7 @@ public partial class MerchantScreen : Control
 
 	static bool CanUseItem(ItemState item)
 	{
-		return item is ConsumableState consumable && consumable.data?.actionProfile != null;
+		return item?.data is IUsableItem usable && usable.ActionProfile != null;
 	}
 
 	// What ui_accept will do on the currently-focused slot during select mode.
@@ -1562,12 +1562,12 @@ public partial class MerchantScreen : Control
 
 	void OnInventoryTertiaryPressed(ItemSlotPanel panel, ItemState item)
 	{
-		if (InSelectMode || item is not ConsumableState consumable || _player == null)
+		if (InSelectMode || item?.data is not IUsableItem usable || _player == null)
 		{
 			return;
 		}
-		ConsumableData data = consumable.data;
-		if (data?.actionProfile == null)
+		ItemActionProfile profile = usable.ActionProfile;
+		if (profile == null)
 		{
 			return;
 		}
@@ -1576,7 +1576,7 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
-		runner.TryStart(data.actionProfile, new ActionContext
+		runner.TryStart(profile, new ActionContext
 		{
 			verb = EActionVerb.Use,
 			primaryItem = item,

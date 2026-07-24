@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 // Batched renderer for grounding-shadow blobs — the player's plus every
@@ -32,6 +33,13 @@ public partial class GroundShadowScatter : Node3D
     // Lift the quad just off the ground so it sits inside the projector frustum
     // without z-fighting the terrain (matches the footprint quads).
     private const float QuadHeightOffset = 0.05f;
+
+    // Voxels scanned straight down from an airborne caster to find the terrain
+    // its blob lands on. Deep enough to cover a drake cresting a tall rise or a
+    // shot arcing high over a valley; on the rare miss (nothing solid within
+    // range, e.g. over open water or a chasm) the blob falls back to the caster's
+    // own height at ground size — harmless.
+    private const int GroundScanDown = 64;
 
     // Upload ceiling for one frame. Far above any plausible count of
     // shadow-casting mobs inside CullRadius; a backstop against a runaway world,
@@ -99,14 +107,21 @@ public partial class GroundShadowScatter : Node3D
         // Writes one blob instance at the next free slot, folding in the daylight
         // fade by sampling sky exposure at the blob's ground position. Captures
         // `count` (a local; local functions may mutate captured locals).
-        void Emit(Vector3 pos, float radius, float baseAlpha)
+        // ignoreDaylightFade keeps the blob at full strength regardless of sun:
+        // a flier's real directional shadow lands far from the body, so its
+        // contact blob must stay on always to ground it under the ortho camera.
+        void Emit(Vector3 pos, float radius, float baseAlpha, bool ignoreDaylightFade = false)
         {
             if (count >= Capacity || radius <= 0f || baseAlpha <= 0f)
             {
                 return;
             }
-            float skyExp = ws?.GetSkyExposure01(pos) ?? 1f;
-            float envFactor = 1f - daylightFade * Mathf.Clamp(dirShadow * skyExp, 0f, 1f);
+            float envFactor = 1f;
+            if (!ignoreDaylightFade)
+            {
+                float skyExp = ws?.GetSkyExposure01(pos) ?? 1f;
+                envFactor = 1f - daylightFade * Mathf.Clamp(dirShadow * skyExp, 0f, 1f);
+            }
             float alpha = baseAlpha * envFactor;
             if (alpha <= 0f)
             {
@@ -127,6 +142,31 @@ public partial class GroundShadowScatter : Node3D
             // conversion (see FootprintScatter's tint note).
             _mm.SetInstanceColor(count, new Color(1f, 1f, 1f, alpha < 1f ? alpha : 1f));
             count++;
+        }
+
+        // Airborne-blob presentation lives on GameClient (client-side visual
+        // tuning), not SimData. Fall back to no-growth/no-fade if it's absent.
+        GameClient gc = GameClient.Current;
+        float airRefHeight = gc?.airShadowReferenceHeight ?? 12f;
+        float airMaxGrowth = gc?.airShadowMaxGrowth ?? 1f;
+        float airMinAlpha = gc?.airShadowMinAlpha ?? 1f;
+
+        // Airborne caster (flier / projectile): drop the blob onto the terrain
+        // below the body, grow + soften it with altitude, and keep it lit in all
+        // daylight. At height 0 this is identical to a grounded Emit.
+        void EmitAirborne(Vector3 pos, float radius, float baseAlpha)
+        {
+            float groundY = pos.Y;
+            float altitude = 0f;
+            if (TryGroundBelow(ws, pos, out float g))
+            {
+                groundY = g;
+                altitude = Mathf.Max(0f, pos.Y - g);
+            }
+            float t = airRefHeight > 0f ? Mathf.Clamp(altitude / airRefHeight, 0f, 1f) : 0f;
+            float radiusScaled = radius * Mathf.Lerp(1f, airMaxGrowth, t);
+            float alphaScaled = baseAlpha * Mathf.Lerp(1f, airMinAlpha, t);
+            Emit(new Vector3(pos.X, groundY, pos.Z), radiusScaled, alphaScaled, ignoreDaylightFade: true);
         }
 
         // The player always casts a blob (no discovery gate); it's the projector
@@ -162,7 +202,47 @@ public partial class GroundShadowScatter : Node3D
                 {
                     continue;
                 }
-                Emit(pos, data.groundShadowRadius, baseAlpha);
+                // Fliers project their blob to the ground and keep it on in all
+                // light — it's the primary cue for where an airborne mob hovers
+                // under the ortho camera. Grounded mobs take the plain path.
+                if (data.CanFly)
+                {
+                    EmitAirborne(pos, data.groundShadowRadius, baseAlpha);
+                }
+                else
+                {
+                    Emit(pos, data.groundShadowRadius, baseAlpha);
+                }
+            }
+
+            // Shadow-casting projectiles (drake/spider globs) — no discovery
+            // gate; an in-flight shot is always visible, so the blob is on
+            // whenever the projectile carries a radius. Reuses the mob master +
+            // toggle since these are mob attacks.
+            ProjectileRegistry projectiles = sim.Projectiles;
+            if (projectiles != null)
+            {
+                IReadOnlyList<Projectile> shots = projectiles.All;
+                for (int i = 0; i < shots.Count; i++)
+                {
+                    if (count >= Capacity)
+                    {
+                        break;
+                    }
+                    Projectile proj = shots[i];
+                    if (proj == null || !GodotObject.IsInstanceValid(proj) || proj.groundShadowRadius <= 0f)
+                    {
+                        continue;
+                    }
+                    Vector3 pos = proj.GlobalPosition;
+                    float dx = pos.X - playerPos.X;
+                    float dz = pos.Z - playerPos.Z;
+                    if (dx * dx + dz * dz > cullSq)
+                    {
+                        continue;
+                    }
+                    EmitAirborne(pos, proj.groundShadowRadius, mobMaster);
+                }
             }
         }
 
@@ -176,6 +256,31 @@ public partial class GroundShadowScatter : Node3D
         _mmi.CustomAabb = new Aabb(
             new Vector3(playerPos.X - CullRadius, playerPos.Y - CullRadius, playerPos.Z - CullRadius),
             new Vector3(CullRadius * 2f, CullRadius * 2f, CullRadius * 2f));
+    }
+
+    // First solid voxel below `pos` (top face Y), scanning down GroundScanDown
+    // voxels. Returns false — leaving groundY untouched — when nothing solid is
+    // found in range.
+    private static bool TryGroundBelow(WorldState ws, Vector3 pos, out float groundY)
+    {
+        groundY = 0f;
+        if (ws == null)
+        {
+            return false;
+        }
+        int wx = Mathf.FloorToInt(pos.X);
+        int wz = Mathf.FloorToInt(pos.Z);
+        int top = Mathf.FloorToInt(pos.Y);
+        int bottom = top - GroundScanDown;
+        for (int y = top; y >= bottom; y--)
+        {
+            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, y, wz)))
+            {
+                groundY = y + 1f;
+                return true;
+            }
+        }
+        return false;
     }
 
     private bool TryInit()

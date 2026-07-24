@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" uid="uid://0p7zsad3dejuq" path="res://scripts/data/items/ConsumableData.cs" id="1_potion"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
+[ext_resource type="Script" uid="uid://o972prh5tgbv5" path="res://scripts/data/effects/RefillLanternOilEffect.cs" id="3_oil"]
+[ext_resource type="Texture2D" uid="uid://bnp0ij4c4qp71" path="res://assets/textures/items/Potion_black.png" id="4_icon"]
+
+[sub_resource type="Resource" id="Effect_refill_oil"]
+script = ExtResource("3_oil")
+refillFraction = 0.5
+
+[resource]
+script = ExtResource("1_potion")
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_refill_oil")])
+displayName = &"Lantern Oil"
+unidentifiedDisplayName = &"Unknown Flask"
+description = "A flask of lamp oil. Pour it in to refill a portion of your lantern."
+value = 8
+inventorySprite = ExtResource("4_icon")

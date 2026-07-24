@@ -841,6 +841,12 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return true;
 		}
+		// An apply-on-pickup item (potion drunk, scroll read) runs its effect on
+		// interact and never deposits, so the backpack-fit gate doesn't apply.
+		if (AppliesOnPickup)
+		{
+			return true;
+		}
 		// If the loot carries an item, only allow interact when there's
 		// space; otherwise the action would run to completion and silently
 		// fail. Armor/weapons can land directly in an empty equip slot, so a
@@ -900,6 +906,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return;
 		}
+		// An apply-on-pickup item (potion / scroll) drinks/reads on the spot
+		// instead of depositing — like the boon path, this never enters the
+		// inventory.
+		if (TryApplyOnPickup(_picker))
+		{
+			return;
+		}
 		FinalizePickup();
 	}
 
@@ -907,6 +920,15 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	// of depositing an item (the fairy corpse — possibleBoons composed onto its
 	// state at spawn, see Sim.ComposeFairyBoons).
 	private bool OffersBoons => _simState?.Item != null && _simState.Item.possibleBoons.Count > 0;
+
+	// The apply-on-pickup payload carried by this loot (potion / scroll), or
+	// null. Resolved off the composed Item if present, else the raw Data for
+	// world-spawned loot that carries no pre-built state.
+	private IApplyOnPickup PickupPayload => (_simState?.Item?.data ?? _simState?.Data) as IApplyOnPickup;
+
+	// True when interacting drinks/reads the item on the spot instead of
+	// depositing it (see IApplyOnPickup).
+	private bool AppliesOnPickup => PickupPayload != null;
 
 	// Open the boon-pick screen for `player` in place of an inventory deposit.
 	// The corpse is spent only if a boon is chosen — the completion callback then
@@ -937,6 +959,26 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			ApplyStatusEffect.ApplyBoon(player, chosen);
 			RemovePickedUp();
 		});
+		return true;
+	}
+
+	// Apply an apply-on-pickup item's payload (potion drunk, scroll read) to
+	// `player` in place of an inventory deposit, then remove the loot. Returns
+	// false when this loot carries no such payload so the caller falls back to
+	// the normal deposit. Mirrors TryOfferBoons — the item never enters the
+	// inventory. The payload decides whether the pickup is spent (removed) or
+	// left in place to retry.
+	private bool TryApplyOnPickup(Player player)
+	{
+		IApplyOnPickup payload = PickupPayload;
+		if (payload == null || player == null)
+		{
+			return false;
+		}
+		if (payload.ApplyOnPickup(player))
+		{
+			RemovePickedUp();
+		}
 		return true;
 	}
 

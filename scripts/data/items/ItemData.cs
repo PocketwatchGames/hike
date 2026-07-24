@@ -82,7 +82,8 @@ public partial class ItemData : Resource
 	public EItemCategory Category => categoryOverride != EItemCategory.None ? categoryOverride : ComputeCategory();
 
 	// Per-subclass default category. Base items (loot, meat, ingredients) are
-	// Material; WeaponData / ArmorData / ConsumableData / ArrowLootData override.
+	// Material; WeaponData / ArmorData / SpellData / LanternData / ConsumableData /
+	// ArrowLootData override.
 	protected virtual EItemCategory ComputeCategory() => EItemCategory.Material;
 
 	// Materials are the only items the carried backpack holds; everything else

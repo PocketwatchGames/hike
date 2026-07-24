@@ -59,6 +59,7 @@
 [ext_resource type="Resource" uid="uid://b7vq2kx6n4ufd" path="res://resources/data/status_effects/upgrades/upgrade_vampiric.tres" id="45_up_vampiric"]
 [ext_resource type="Resource" uid="uid://cw61wtmhdekq0" path="res://resources/data/status_effects/upgrades/upgrade_weapon_charged_pierce.tres" id="46_up_pierce"]
 [ext_resource type="Resource" uid="uid://dq4mw8k2vx7nb" path="res://resources/data/status_effects/upgrades/upgrade_weapon_flaming.tres" id="47_up_flaming"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/upgrades/upgrade_weapon_frost.tres" id="47_up_frost"]
 [ext_resource type="Resource" uid="uid://dw3fg1rqxn2va" path="res://resources/data/status_effects/upgrades/upgrade_weapon_fragile.tres" id="48_up_fragile"]
 [ext_resource type="Resource" uid="uid://c4kb8wq2vn6xr" path="res://resources/data/status_effects/upgrades/upgrade_weapon_knockback.tres" id="49_up_knockback"]
 [ext_resource type="Resource" uid="uid://bxwk3pkwmbaws" path="res://resources/data/status_effects/upgrades/upgrade_weapon_seeking.tres" id="50_up_seeking"]
@@ -76,16 +77,15 @@
 [ext_resource type="PackedScene" uid="uid://cdp51pqxsqfi3" path="res://scenes/fx/well_rested_loop.tscn" id="58_wellrestedfx"]
 [ext_resource type="Resource" uid="uid://cmdfairy00001" path="res://resources/data/world_gen/mob_descriptors/fairy.tres" id="60_fairy_desc"]
 [ext_resource type="Script" uid="uid://byi5eqt4vd0wb" path="res://scripts/data/items/SpellData.cs" id="70_spell_script"]
-[ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/consumables/dog_treat.tres" id="71_spell_dog_treat"]
-[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="72_spell_health_potion"]
-[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="73_spell_cure_poison"]
-[ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/consumables/stamina_potion.tres" id="74_spell_stamina"]
+[ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/spells/dog_treat.tres" id="71_spell_dog_treat"]
+[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/spells/divine_cleanse.tres" id="73_spell_cure_poison"]
+[ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/spells/smelling_salts.tres" id="74_spell_stamina"]
 
 [resource]
 script = ExtResource("1_1meao")
 gravity = 50.0
 recipes = Array[ExtResource("3_recipe_script")]([ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg"), ExtResource("80_gr_drake"), ExtResource("81_gr_spider"), ExtResource("82_gr_sparrow"), ExtResource("83_gr_lurker"), ExtResource("84_st_gob_h"), ExtResource("85_st_gob_e"), ExtResource("86_st_kk_s"), ExtResource("87_st_kk_k"), ExtResource("88_st_spr_k"), ExtResource("89_st_spr_e"), ExtResource("90_st_drk_s"), ExtResource("91_st_drk_f"), ExtResource("92_st_lur_s"), ExtResource("93_st_lur_f"), ExtResource("94_st_spd_s"), ExtResource("95_st_spd_h")])
-spells = Array[ExtResource("70_spell_script")]([ExtResource("71_spell_dog_treat"), ExtResource("72_spell_health_potion"), ExtResource("73_spell_cure_poison"), ExtResource("74_spell_stamina")])
+spells = Array[ExtResource("70_spell_script")]([ExtResource("71_spell_dog_treat"), ExtResource("73_spell_cure_poison"), ExtResource("74_spell_stamina")])
 mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager"), ExtResource("24_mob_spider"), ExtResource("25_mob_sparrow"), ExtResource("26_mob_dog")])
 scriptVariables = ExtResource("23_scriptvars")
 eliteStatusEffect = ExtResource("15_elite_std")
@@ -98,7 +98,7 @@ mobSunburnStatusEffect = ExtResource("57_sunburn")
 fairyLoot = ExtResource("18_fairy_loot")
 fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking"), ExtResource("29_boon_night_vision")])
 fairyBoonGold = ExtResource("22_boon_gold")
-forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet"), ExtResource("45_up_vampiric"), ExtResource("46_up_pierce"), ExtResource("47_up_flaming"), ExtResource("48_up_fragile"), ExtResource("49_up_knockback"), ExtResource("50_up_seeking"), ExtResource("51_up_shocking"), ExtResource("52_up_venomous"), ExtResource("53_up_vigor"), ExtResource("54_up_siphon"), ExtResource("55_up_bounding")])
+forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet"), ExtResource("45_up_vampiric"), ExtResource("46_up_pierce"), ExtResource("47_up_flaming"), ExtResource("47_up_frost"), ExtResource("48_up_fragile"), ExtResource("49_up_knockback"), ExtResource("50_up_seeking"), ExtResource("51_up_shocking"), ExtResource("52_up_venomous"), ExtResource("53_up_vigor"), ExtResource("54_up_siphon"), ExtResource("55_up_bounding")])
 forgeMeleeIcon = ExtResource("41_icon_melee")
 forgeRangedIcon = ExtResource("42_icon_ranged")
 forgeArmorIcon = ExtResource("43_icon_armor")

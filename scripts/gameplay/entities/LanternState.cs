@@ -1,14 +1,16 @@
 // Carryable-lantern runtime state. Distinct from TorchSimState, which is the
-// world-placed torch prop. A LanternState lives in the player's consumable bag;
-// when the carried lantern's isActive is true, the player emits a MovingLight
-// regardless of which consumable slot it sits in (active hotbar slot or
-// otherwise). Only the explicit ToggleMovingLight event handler — bound to
-// the lantern's Use action — changes isActive. Slot switches, drops, and
-// pickups leave it untouched, so a lit lantern stays lit until the player
-// turns it off.
-public class LanternState : ConsumableState
+// world-placed torch prop. A LanternState lives in the player's Lantern slot;
+// when its isActive is true the player emits a MovingLight regardless of slot.
+// Only the explicit ToggleMovingLight event handler — bound to the lantern's
+// Use action — changes isActive. Slot switches, drops, and pickups leave it
+// untouched, so a lit lantern stays lit until the player turns it off.
+public class LanternState : ItemState
 {
+	public override LanternData data => _lanternData;
 	private readonly LanternData _lanternData;
+
+	// Lit/unlit toggle — the carried lantern emits light while true.
+	public bool isActive;
 
 	// Remaining burn budget, in sim-ms. Counts down only while lit
 	// (Player.TickLanternFuel) and is refilled to full at each sunrise, on respawn,

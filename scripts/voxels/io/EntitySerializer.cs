@@ -877,7 +877,7 @@ public static class EntitySerializer
     // The stack's units are stored as spoil cohorts — a count and each cohort's
     // (units, removeOnDay) pair — so per-batch spoilage survives save/load; then
     // cooldownExpireMs, cooldownDurationMs, touched, whole-item removeOnDay, level.
-    // Polymorphic subclass fields (WeaponState.ammo, ConsumableState.isActive) are
+    // Polymorphic subclass fields (WeaponState.ammo, LanternState.isActive) are
     // not preserved — items round-trip through ItemData.CreateState() which resets
     // them to authored defaults. Extend this when player Inventory persistence
     // lands and subclass state needs to survive save/load.

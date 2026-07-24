@@ -229,43 +229,54 @@ public partial class MobHUD : Node2D
 		bool playerSide = Teams.AreAllied(hudTeam, ETeam.Player);
 		// Health bar shows only when injured (health or armor below max).
 		bool injured = _mob.health < _mob.maxHealth || _mob.armor < _mob.maxArmor;
-		if (playerSide)
-		{
-			// A tamed companion is "ours" — there's no stalk/discovery framing,
-			// so it never shows the perception or discovery bars. Its health bar
-			// stays on screen whenever it's alive and wounded, regardless of
-			// perception state or line of sight, so the player can always see a
-			// hurt pet's health.
-			_discoveryBar.Visible = false;
-			_perceptionBar.Visible = false;
-			_healthBar.Visible = _mob.alive && !_mob.burrowed && injured;
-			_armorBar.Visible = _healthBar.Visible && _mob.armor > 0;
-		}
-		else if (!stateHidden)
+
+		// Perception + discovery bars are the stealth framing: they only apply to
+		// a not-yet-triggered enemy/prey that the player has at least Detected.
+		// Player-side and fully-hidden mobs show neither.
+		if (!playerSide && !stateHidden)
 		{
 			_discoveryBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
-			// Hostiles and prey both surface the stealth (perception) and health
-			// bars — you stalk both. Other teams (neutral) show neither.
+			// Hostiles and prey both surface the stealth (perception) bar — you
+			// stalk both. Other teams (neutral) show none.
 			bool combatOrPrey = hudTeam == ETeam.Hostile || hudTeam == ETeam.Prey;
 			_perceptionBar.Visible = combatOrPrey && _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
-			// Hostiles reveal the health bar once engaged (triggered); prey reveal
-			// it whenever wounded, so you can track a hurt animal you're hunting.
-			// Other teams don't show one.
-			bool healthEligible = hudTeam switch
-			{
-				ETeam.Hostile => _mob.triggered,
-				ETeam.Prey => true,
-				_ => false,
-			};
-			_healthBar.Visible = healthEligible && !_discoveryBar.Visible && !_mob.burrowed && injured;
-			_armorBar.Visible = _healthBar.Visible && _mob.armor > 0;
 		}
 		else
 		{
 			_discoveryBar.Visible = false;
 			_perceptionBar.Visible = false;
-			_healthBar.Visible = false;
 		}
+
+		// Health bar is decoupled from the stealth/aggro framing: a wounded mob
+		// the player can currently see shows its health so damage always reads —
+		// even from an AoE that never "triggers" the mob (a bomb's DamageZone hit
+		// is sourced from the zone, not the player, so it doesn't set triggered).
+		//   - player-side companions: whenever alive + wounded (always tracked).
+		//   - hostiles: while the player can see them, or while triggered so the
+		//     bar persists through brief LOS breaks in a fight.
+		//   - prey: while visible, or while at least Detected (hunt tracking).
+		//   - other teams (neutral): never.
+		bool healthEligible;
+		if (playerSide)
+		{
+			healthEligible = true;
+		}
+		else if (hudTeam == ETeam.Hostile)
+		{
+			healthEligible = _mob.playerCanSee || _mob.triggered;
+		}
+		else if (hudTeam == ETeam.Prey)
+		{
+			healthEligible = _mob.playerCanSee || !stateHidden;
+		}
+		else
+		{
+			healthEligible = false;
+		}
+		// Suppressed under the discovery bar (they share the same on-screen slot).
+		_healthBar.Visible = healthEligible && injured && _mob.alive
+			&& !_mob.burrowed && !_discoveryBar.Visible;
+		_armorBar.Visible = _healthBar.Visible && _mob.armor > 0;
 
 		bool anyBarVisible = _discoveryBar.Visible || _perceptionBar.Visible || _healthBar.Visible;
 

@@ -17,6 +17,77 @@
 [ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="20_stone"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="21_stonescene"]
 [ext_resource type="Resource" path="res://resources/data/languages/muddish.tres" id="22_lang"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="sc0"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_grilled_sparrow.tres" id="sc1"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_grilled_lurker.tres" id="sc2"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_grilled_spider.tres" id="sc3"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_goblin_stamina.tres" id="sc4"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_sparrow_stamina.tres" id="sc5"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_lurker_stealth.tres" id="sc6"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="sc7"]
+[ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
+[ext_resource type="Resource" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
+
+[sub_resource type="Resource" id="Dist0"]
+script = ExtResource("90_countrange")
+item = ExtResource("sc0")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Dist1"]
+script = ExtResource("90_countrange")
+item = ExtResource("sc1")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Dist2"]
+script = ExtResource("90_countrange")
+item = ExtResource("sc2")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Dist3"]
+script = ExtResource("90_countrange")
+item = ExtResource("sc3")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Dist4"]
+script = ExtResource("90_countrange")
+item = ExtResource("sc4")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Dist5"]
+script = ExtResource("90_countrange")
+item = ExtResource("sc5")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Dist6"]
+script = ExtResource("90_countrange")
+item = ExtResource("sc6")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Dist7"]
+script = ExtResource("90_countrange")
+item = ExtResource("sc7")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="PerChest_health"]
+script = ExtResource("90_countrange")
+item = ExtResource("92_health")
+count = 0
+countRange = 1
+
+[sub_resource type="Resource" id="PerChest_oil"]
+script = ExtResource("90_countrange")
+item = ExtResource("93_oil")
+count = 0
+countRange = 1
 
 [sub_resource type="Resource" id="Campfire_swamp"]
 script = ExtResource("18_camp")
@@ -64,6 +135,8 @@ forgeCount = 2
 forgeLevelMax = 1
 surfaceEntities = ExtResource("11_surface")
 caveEntities = ExtResource("12_cave")
+perChestLoot = Array[ExtResource("90_countrange")]([SubResource("PerChest_health"), SubResource("PerChest_oil")])
+distributedLoot = Array[ExtResource("90_countrange")]([SubResource("Dist0"), SubResource("Dist1"), SubResource("Dist2"), SubResource("Dist3"), SubResource("Dist4"), SubResource("Dist5"), SubResource("Dist6"), SubResource("Dist7")])
 waterEntities = ExtResource("14_water")
 fixtures = SubResource("Fixtures_swamp")
 ruins = SubResource("Resource_ruins")

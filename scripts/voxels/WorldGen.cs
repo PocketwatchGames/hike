@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 33;
+    public const int WORLDGEN_VERSION = 36;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -322,6 +322,8 @@ public static class WorldGen
     // Independent of MOBLEVEL so a zone's forge tier and monster tier vary
     // across the world separately rather than tracking one shared field.
     private const int SEED_SALT_FORGELEVEL = 0x15;
+    // Post-gen distribution of ZoneGenData.distributedLoot across a zone's chests.
+    private const int SEED_SALT_ZONELOOT = 0x16;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -668,9 +670,123 @@ public static class WorldGen
         // dungeon/castle ambience wins over the inferred Outdoor/Cave tag.
         ApplySubsceneEnvOverrides(ws, stampedSubscenes);
 
+        // Spread each zone's distributedLoot across its chests. Runs last so it
+        // sees every chest already placed (cave, camp, fixture, subscene).
+        DistributeZoneLoot(ws, genData.ZoneGens, worldSeed);
+
         _lastHeightMap = heightMap;
         _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.plateauStep));
         return ws;
+    }
+
+    // Spread each zone's ZoneGenData.distributedLoot across that zone's chests.
+    // Unlike perChestLoot (rolled independently at each chest), a distributedLoot
+    // entry's rolled count is a TOTAL number of copies dealt out across the
+    // zone's chests round-robin — distinct chests until the total exceeds the
+    // chest count, then wrapping. For important / quest items that should appear a
+    // fixed number of times per zone (a region recipe cookbook). A zone with no
+    // chests places nothing. Deterministic: chests are stable-sorted by position
+    // and shuffled with a per-zone seeded RNG, so the deal is independent of
+    // entity iteration order.
+    private static void DistributeZoneLoot(WorldState ws, ZoneGenData[] zones, int worldSeed)
+    {
+        if (ws == null || zones == null || zones.Length == 0)
+        {
+            return;
+        }
+
+        // Group every placed chest by its dominant zone.
+        var chestsByZone = new Dictionary<int, List<ChestSimState>>();
+        foreach (EntitySimState e in ws.AllChunkEntities())
+        {
+            if (e is not ChestSimState chest)
+            {
+                continue;
+            }
+            int wx = Mathf.FloorToInt(chest.WorldPosition.X);
+            int wz = Mathf.FloorToInt(chest.WorldPosition.Z);
+            int zi = DominantZoneIndex(wx, wz, zones);
+            if (zi < 0)
+            {
+                continue;
+            }
+            if (!chestsByZone.TryGetValue(zi, out List<ChestSimState> bucket))
+            {
+                bucket = new List<ChestSimState>();
+                chestsByZone[zi] = bucket;
+            }
+            bucket.Add(chest);
+        }
+
+        for (int zi = 0; zi < zones.Length; zi++)
+        {
+            ItemCountRange[] distributed = zones[zi]?.distributedLoot;
+            if (distributed == null || distributed.Length == 0)
+            {
+                continue;
+            }
+            if (!chestsByZone.TryGetValue(zi, out List<ChestSimState> chests) || chests.Count == 0)
+            {
+                continue; // no chests in this zone — distributed loot isn't placed
+            }
+
+            // Stable order, then a seeded shuffle so the deal is deterministic
+            // regardless of the Dictionary's chunk iteration order.
+            chests.Sort(CompareChestByPosition);
+            var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_ZONELOOT), zi, 0));
+            for (int i = chests.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (chests[i], chests[j]) = (chests[j], chests[i]);
+            }
+
+            // Deal every entry's copies round-robin from one running cursor, so
+            // multiple distributed items also spread across different chests.
+            int cursor = 0;
+            foreach (ItemCountRange entry in distributed)
+            {
+                if (entry?.item == null)
+                {
+                    continue;
+                }
+                int total = entry.Resolve(rng).count;
+                for (int k = 0; k < total; k++)
+                {
+                    ChestSimState chest = chests[cursor % chests.Count];
+                    cursor++;
+                    AppendChestLoot(chest, new ItemCount
+                    {
+                        descriptor = new ItemDescriptor { item = entry.item },
+                        count = 1,
+                    });
+                }
+            }
+        }
+    }
+
+    private static int CompareChestByPosition(ChestSimState a, ChestSimState b)
+    {
+        int c = a.WorldPosition.X.CompareTo(b.WorldPosition.X);
+        if (c != 0) { return c; }
+        c = a.WorldPosition.Z.CompareTo(b.WorldPosition.Z);
+        if (c != 0) { return c; }
+        return a.WorldPosition.Y.CompareTo(b.WorldPosition.Y);
+    }
+
+    // Append one rolled ItemCount to a chest's ejection recipe (LootItems may be
+    // null for a chest authored with no base loot).
+    private static void AppendChestLoot(ChestSimState chest, ItemCount item)
+    {
+        ItemCount[] existing = chest.LootItems;
+        if (existing == null || existing.Length == 0)
+        {
+            chest.LootItems = new[] { item };
+            return;
+        }
+        var merged = new ItemCount[existing.Length + 1];
+        existing.CopyTo(merged, 0);
+        merged[existing.Length] = item;
+        chest.LootItems = merged;
     }
 
     // Per-run noise channels, built once at the top of Generate from the
@@ -3885,6 +4001,10 @@ public static class WorldGen
                         if (idx >= 0) { spawnZone = zonesArr[idx]; }
                     }
                     if (spawnZone?.surfaceEntities?.entries == null) { continue; }
+                    // Carry this column's per-chest zone loot to any chest placed
+                    // here (a camp-group chest forwards the context to its
+                    // sub-entries). Distributed loot is applied in a later pass.
+                    surfaceContext.ZonePerChestLoot = spawnZone.perChestLoot;
                     foreach (SpawnEntryData entry in spawnZone.surfaceEntities.entries)
                     {
                         if (entry == null) { continue; }
@@ -3987,6 +4107,11 @@ public static class WorldGen
         int CAVE_CEILING_PROBE = genData.caveCeilingProbe;
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        // Reused across cave cells; its ZoneChestLoot is repointed per cell to the
+        // resolved zone so a cave chest picks up that zone's unique drops. The
+        // scatter samplers stay null — cave cells are pre-validated, so leaf
+        // entries place at the anchor exactly as they did with a null context.
+        var caveContext = new SpawnContext();
         for (int localX = 0; localX < ChunkState.SIZE; localX++)
         {
             for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
@@ -4032,6 +4157,7 @@ public static class WorldGen
                     {
                         continue;
                     }
+                    caveContext.ZonePerChestLoot = rg.perChestLoot;
                     var pos = new Vector3(wx + 0.5f, wy, wz + 0.5f);
                     foreach (SpawnEntryData entry in rg.caveEntities.entries)
                     {
@@ -4039,7 +4165,7 @@ public static class WorldGen
                         bool isMob = entry is MobSpawnEntry;
                         if (isMob ? skipMobs : skipInteractives) { continue; }
                         if (!entry.RollAreaChance(rng)) { continue; }
-                        entry.TrySpawn(ws, pos, rng, null);
+                        entry.TrySpawn(ws, pos, rng, caveContext);
                     }
                 }
             }

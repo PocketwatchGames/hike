@@ -460,7 +460,7 @@ public partial class InventoryPanel : Control
 					return armor.armorSlot == EInventorySlot.Helmet ? _armorHeadPanel : _armorBodyPanel;
 				case WeaponData weapon:
 					return weapon.CanonicalSlot == EInventorySlot.WeaponRanged ? _weaponRightPanel : _weaponLeftPanel;
-				case ConsumableData:
+				case SpellData:
 					return FindFirstEmptyConsumablePanel() ?? (_consumablePanels?.Count > 0 ? _consumablePanels[0] : null);
 			}
 			return null;

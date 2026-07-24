@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" uid="uid://c0fdcxkkhfb23" path="res://scripts/data/teaching/SpellTeachable.cs" id="3_spellteach"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]
-[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="7_cure"]
-[ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/consumables/dog_treat.tres" id="7_dogtreat"]
-[ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/consumables/stamina_potion.tres" id="7_qvw7n"]
+[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/spells/divine_cleanse.tres" id="7_cure"]
+[ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/spells/dog_treat.tres" id="7_dogtreat"]
+[ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/spells/smelling_salts.tres" id="7_qvw7n"]
 [ext_resource type="Resource" uid="uid://bbelkvnbtjkl6" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="15_7nyke"]
 [ext_resource type="Resource" uid="uid://c2slw3bih2n7x" path="res://resources/data/world_gen/zone_gen/swamp_highlands_gen.tres" id="17_hnhxf"]
 [ext_resource type="Resource" uid="uid://c3262urh41m8s" path="res://resources/data/world_gen/zone_gen/swamp_village_gen.tres" id="17_se4m7"]

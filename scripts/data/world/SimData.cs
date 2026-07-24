@@ -119,7 +119,10 @@ public partial class SimData : Resource
     // .tres — so the boon pool is tuned in one place, mirroring the Elite
     // loot/effect pairing above. Empty list (or null FairyLoot) = the corpse
     // bestows nothing.
-    [Export] public ConsumableData fairyLoot;
+    // Apply-on-pickup loot (ConsumableData) — the fairy's boon-pick runs on world
+    // pickup via Loot.OffersBoons (possibleBoons composed in Sim.ComposeFairyBoons),
+    // so this only needs to be an ItemData, not a consumable.
+    [Export] public ItemData fairyLoot;
     [Export] public Array<BoonData> fairyBoons = new();
 
     // Filler boon for the fairy upgrade screen. The screen only offers boons

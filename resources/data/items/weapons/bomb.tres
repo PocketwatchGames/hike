@@ -19,7 +19,6 @@
 
 [sub_resource type="Resource" id="Resource_areaspec_blast"]
 script = ExtResource("5_areaspec")
-damageProfileKey = &"explosion"
 tickInterval = 5.0
 
 [sub_resource type="Resource" id="Resource_impact_small"]
@@ -29,7 +28,7 @@ cameraShakeMagnitude = 0.22
 cameraShakeDuration = 0.3
 cameraShakeRange = 30.0
 areaEffectScene = ExtResource("8_explosion")
-areaRadius = 1.0
+areaRadius = 3.0
 areaDurationSeconds = 1.2
 areaIntervals = Array[ExtResource("5_areaspec")]([SubResource("Resource_areaspec_blast")])
 
@@ -59,7 +58,7 @@ events = Array[ExtResource("3_event")]([SubResource("Resource_proj_small")])
 requirements = Array[ExtResource("8_7xwph")]([SubResource("Resource_req_no_swim")])
 aimType = 2
 positionalRange = 5.0
-positionalAreaRadius = 1.0
+positionalAreaRadius = 3.0
 chargedRangeScale = 3.0
 chargedSpeedMax = 1
 speedMultiplierActive = 0.5
@@ -73,9 +72,12 @@ queueWindowSeconds = 0.0
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("1_damage")
-tags = 1
-healthDamage = 10.0
+tags = 1031
+healthDamage = 20.0
 damageVariance = 0.25
+hitstun = 0.3
+knockbackDistance = 3.0
+knockbackTime = 0.3
 buildups = []
 modifiers = []
 

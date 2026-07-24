@@ -4,8 +4,9 @@
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
 [ext_resource type="PackedScene" uid="uid://bm0blastfx7k2" path="res://scenes/fx/bomb_blast_fx.tscn" id="3_blast"]
 
-[sub_resource type="SphereShape3D" id="SphereShape3D_bombzone"]
-radius = 1.0
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_bombzone"]
+radius = 3.0
+height = 8.0
 
 [node name="BombExplosion" type="Node3D" node_paths=PackedStringArray("_dangerZone")]
 script = ExtResource("1_gas")
@@ -16,11 +17,12 @@ _dangerZone = NodePath("DamageZone")
 collision_layer = 0
 collision_mask = 32
 script = ExtResource("2_dz")
+requireLineOfSight = true
 _shape = NodePath("CollisionShape3D")
 metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
-shape = SubResource("SphereShape3D_bombzone")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0, 0)
+shape = SubResource("CylinderShape3D_bombzone")
 
 [node name="Blast" parent="." instance=ExtResource("3_blast")]

@@ -53,6 +53,18 @@ public partial class DamageZone : Area3D
     // the player or allies.
     [Export] public bool friendlyFire = true;
 
+    // When true, a hurtbox is only damaged if an unobstructed line exists from
+    // the zone center to the target — solid terrain/props block the hit, so a
+    // tall blast can't reach enemies through a wall or an intervening floor.
+    // Opt-in: environmental clouds meant to seep around corners leave it false.
+    // Evaluated per-hit (not just on enter) so it re-checks as targets move.
+    [Export] public bool requireLineOfSight = false;
+
+    // Height above the zone origin the LOS ray starts from, so a blast resting
+    // on the ground doesn't begin inside the floor voxel and self-block every
+    // target. Only consulted when requireLineOfSight is true.
+    [Export(PropertyHint.Range, "0,3,0.1,or_greater")] public float losOriginHeight = 0.5f;
+
     private readonly List<HurtBox> _hurtBoxes = new();
     private float[] _intervalTimers;
     private HitInfo[] _intervalHits;
@@ -85,15 +97,26 @@ public partial class DamageZone : Area3D
         {
             damageIntervals = newIntervals;
         }
-        if (radius > 0f && _shape?.Shape is SphereShape3D sphere)
+        if (radius > 0f && _shape != null)
         {
             // Duplicate before resizing — Godot shares Shape3D resources
             // across instances of the same .tscn, so an in-place radius
             // change would bleed into every other live AoE that used the
-            // same scene.
-            SphereShape3D copy = (SphereShape3D)sphere.Duplicate();
-            copy.Radius = radius;
-            _shape.Shape = copy;
+            // same scene. Only the radius is overridden; a cylinder keeps its
+            // authored height (the vertical reach that lets a ground blast
+            // catch airborne targets).
+            if (_shape.Shape is SphereShape3D sphere)
+            {
+                SphereShape3D copy = (SphereShape3D)sphere.Duplicate();
+                copy.Radius = radius;
+                _shape.Shape = copy;
+            }
+            else if (_shape.Shape is CylinderShape3D cylinder)
+            {
+                CylinderShape3D copy = (CylinderShape3D)cylinder.Duplicate();
+                copy.Radius = radius;
+                _shape.Shape = copy;
+            }
         }
     }
 
@@ -243,14 +266,39 @@ public partial class DamageZone : Area3D
     }
 
     // Apply a hit only if the receiver's HurtBox.CanHit filter accepts it
-    // (team allegiance etc.). The hazard's gate lives here, per tick, against
-    // the actual HitInfo — there is no enter-time team filter.
-    private static void TryHit(HurtBox hb, in HitInfo hit)
+    // (team allegiance etc.) and — when requireLineOfSight is set — nothing
+    // solid occludes the target. The hazard's gate lives here, per tick,
+    // against the actual HitInfo — there is no enter-time team filter.
+    private void TryHit(HurtBox hb, in HitInfo hit)
     {
-        if (hb.CanBeHit(hit))
+        if (!hb.CanBeHit(hit))
         {
-            hb.Hit(hit);
+            return;
         }
+        if (requireLineOfSight && !HasLineOfSight(hb))
+        {
+            return;
+        }
+        hb.Hit(hit);
+    }
+
+    // Raycast from the zone center to the target's hurtbox; blocked by solid
+    // terrain/props so a blast can't reach through walls or floors. Mirrors the
+    // perception LOS query (ECollisionLayer.Solid, bodies only). Areas are
+    // ignored so the HurtBox areas themselves don't register as occluders.
+    private bool HasLineOfSight(HurtBox hb)
+    {
+        World3D world = GetWorld3D();
+        if (world == null)
+        {
+            return true;
+        }
+        Vector3 from = GlobalPosition + Vector3.Up * losOriginHeight;
+        Vector3 to = hb.GlobalPosition;
+        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
+        query.CollideWithAreas = false;
+        query.CollideWithBodies = true;
+        return world.DirectSpaceState.IntersectRay(query).Count == 0;
     }
 
     private void OnAreaExited(Area3D area)

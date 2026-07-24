@@ -550,9 +550,8 @@ public static class StatList
 	// StatusEffectInfoPanel-style row per StatusEffectData with the
 	// authored duration as the value). Unknown ItemEffect subclasses are
 	// silently skipped; the panel surfaces meaningful outcomes only.
-	public static IEnumerable<(string name, string value)> ConsumableStats(ConsumableState consumable)
+	public static IEnumerable<(string name, string value)> ConsumableStats(ItemActionProfile profile)
 	{
-		ItemActionProfile profile = consumable?.data?.actionProfile;
 		if (profile?.chargedActions == null)
 		{
 			yield break;

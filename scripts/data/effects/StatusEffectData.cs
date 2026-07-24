@@ -154,6 +154,14 @@ public partial class StatusEffectData : Resource
 	// instead of stacking. 1 makes re-applying just extend the timer (consumables, Wet).
 	[Export] public int maxStack = 99;
 
+	// For an effect designed to pile many stacks (Webbed — each stack multiplies
+	// MoveSpeed so lingering ramps to a near-stop), fire startFx/loopFx only for the
+	// FIRST live stack, not once per stack or per timer-refresh. Without this a
+	// 6-stack slow spawns 6 start puffs and 6 overlapping loops. The HUD already
+	// dedupes by data (one icon + count), so only the fx needs the guard. Default
+	// false = every Add spawns its fx as usual.
+	[Export] public bool suppressStackFx = false;
+
 	// When true, fire the On Apply payloads then keep NO lingering state (a one-shot
 	// blessing). False (default): added normally; modifiers / dot / duration apply over time.
 	[Export] public bool instantaneous = false;

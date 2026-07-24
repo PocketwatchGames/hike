@@ -11,6 +11,11 @@ public class ProjectileRegistry
 {
     private readonly List<Projectile> _projectiles = new();
 
+    // Live view for consumers that scan every airborne shot (e.g. the
+    // grounding-shadow blobs). Backed directly by the list — read-only, don't
+    // mutate during a foreach.
+    public IReadOnlyList<Projectile> All => _projectiles;
+
     public void Add(Projectile p)
     {
         if (p != null && !_projectiles.Contains(p))

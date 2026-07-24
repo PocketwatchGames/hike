@@ -1192,7 +1192,7 @@ public partial class Player : CharacterBody3D
 		{
 			// Selected lantern: held in hand (HeldItemVisual stows it on the back on
 			// its own if a weapon / item is also drawn), lit per its active state.
-			bool lit = active is ConsumableState cs && cs.isActive;
+			bool lit = active is LanternState cs && cs.isActive;
 			_heldVisual.SetTorch(activeLantern.heldLanternScene, inHand: true);
 			_heldVisual.SetTorchLit(lit, this);
 			return;
@@ -1213,9 +1213,9 @@ public partial class Player : CharacterBody3D
 		}
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			if (item is ConsumableState cs && cs.isActive && cs.data is LanternData ld)
+			if (item is LanternState cs && cs.isActive)
 			{
-				return ld;
+				return cs.data;
 			}
 		}
 		return null;
@@ -1250,13 +1250,13 @@ public partial class Player : CharacterBody3D
 		PackedScene douseFx = null;
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			if (item is ConsumableState cs && cs.isActive && cs.data is LanternData lantern)
+			if (item is LanternState cs && cs.isActive)
 			{
 				cs.isActive = false;
 				dousedAny = true;
 				// Fire one wet-douse cue per event (the player only carries one
 				// visible light), from the first doused lantern that authors one.
-				douseFx ??= lantern.douseEffectScene;
+				douseFx ??= cs.data.douseEffectScene;
 			}
 		}
 		if (dousedAny)

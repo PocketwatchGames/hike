@@ -16,6 +16,7 @@ rings = 6
 
 [node name="VenomGlob" type="Node3D" unique_id=1144777067]
 script = ExtResource("1_proj")
+groundShadowRadius = 0.35
 
 [node name="Model" type="MeshInstance3D" parent="." unique_id=740554032]
 mesh = SubResource("SphereMesh_glob")

@@ -95,7 +95,7 @@ public partial class Mob
 
     // Called from Mob.Initialize after _simState is set. Walks the mob's BrainData,
     // creates a runtime BehaviorBase per node, validates that every transition
-    // target names a real node, and sets the current behavior to idleBehavior.
+    // target names a real node, and seeds the current behavior (see defaultBehavior).
     private void InitBehaviors()
     {
         _behaviors.Clear();
@@ -148,15 +148,12 @@ public partial class Mob
             }
         }
 
-        StringName initial = _simState.InitialBehavior;
-        if (initial != null && _behaviors.ContainsKey(initial))
-        {
-            _curBehavior = initial;
-        }
-        else
-        {
-            _curBehavior = brain.idleBehavior;
-        }
+        // Same resolution the completion path uses (InitialBehavior > species
+        // defaultBehavior > brain idleBehavior), so a mob starts in exactly the
+        // behavior it will return to. Fall back to brain.idleBehavior if the
+        // resolved name isn't a real node.
+        StringName initial = defaultBehavior;
+        _curBehavior = (initial != null && _behaviors.ContainsKey(initial)) ? initial : brain.idleBehavior;
         // Fire OnEnter for the starting behavior so its first tick sees the
         // same fresh-state guarantees that every later re-entry will. World
         // time isn't always meaningful at Initialize (the sim clock starts

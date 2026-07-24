@@ -988,6 +988,10 @@ public class StatusEffectController
 		ulong now = _world?.GameTimeMs ?? 0;
 		int nowDay = _world?.DayNumber ?? 0;
 		double nowTod01 = _world?.TimeOfDay01 ?? 0.0;
+		// suppressStackFx: a many-stack effect (Webbed) fires its start/loop fx only
+		// on the first stack. Computed before the add so it's true for every later
+		// stack or timer-refresh while at least one instance is already live.
+		bool suppressFx = data.suppressStackFx && HasActive(data);
 		// Mutual-exclusion pass — drop any active states (and their charging
 		// buildup meters) listed in this effect's removesOnApply. Runs before the
 		// stack-cap branch so a same-frame re-add of `data` itself can't get
@@ -1023,14 +1027,20 @@ public class StatusEffectController
 			if (count >= data.maxStack && oldest != null)
 			{
 				oldest.ArmTimer(now, nowDay, nowTod01);
-				SpawnStartFx(data);
+				if (!suppressFx)
+				{
+					SpawnStartFx(data);
+				}
 				return oldest;
 			}
 		}
 		var state = new StatusEffectState(data, now, nowDay, nowTod01) { level = level, appliedUpgradeSlot = appliedSlot };
 		_statusEffects.Add(state);
-		SpawnStartFx(data);
-		if (data.loopFx != null && _actor != null)
+		if (!suppressFx)
+		{
+			SpawnStartFx(data);
+		}
+		if (!suppressFx && data.loopFx != null && _actor != null)
 		{
 			state.loopInstance = Fx.Create(data.loopFx, _actor, Vector3.Zero);
 			// Match the body's current cull state so an effect applied to an

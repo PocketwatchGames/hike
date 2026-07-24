@@ -121,7 +121,8 @@ public partial class CampScreen : Control
 		}
 	}
 
-	// Cooking needs a bound campfire (the death select opens without one).
+	// Cooking needs a bound campfire. The death select binds the home campfire node
+	// when it's resident, but still opens forge-less when it was streamed out.
 	bool CanCook => _forge != null;
 
 	public override void _Ready()
@@ -154,10 +155,12 @@ public partial class CampScreen : Control
 
 	// Forced Select-Character screen after a party member's death: opens at the last
 	// campfire straight into the party view, locked there until the player picks a
-	// surviving member to control. Driven by GameClient.OpenDeathPartySelect.
-	public void OpenPartySelect(Player controlledSurvivor, Vector3 campfirePosition)
+	// surviving member to control. Driven by GameClient.OpenDeathPartySelect, which
+	// binds the home campfire node when it's still resident (null when streamed out)
+	// so cooking is available without leaving and re-entering camp.
+	public void OpenPartySelect(Player controlledSurvivor, Campfire forge, Vector3 campfirePosition)
 	{
-		OpenInternal(controlledSurvivor, null, campfirePosition, deathSelect: true);
+		OpenInternal(controlledSurvivor, forge, campfirePosition, deathSelect: true);
 	}
 
 	void OpenInternal(Player player, Campfire forge, Vector3 campfirePosition, bool deathSelect)

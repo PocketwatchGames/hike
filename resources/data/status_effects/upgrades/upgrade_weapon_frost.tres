@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+[ext_resource type="Resource" uid="uid://c2h2ti4r8qe07" path="res://resources/data/status_effects/status_slowed.tres" id="3_slowed"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="4_buildup"]
+[ext_resource type="PackedScene" path="res://scenes/fx/weapon_frost_drip_loop.tscn" id="5_frostfx"]
+
+[sub_resource type="Resource" id="buildup_slowed"]
+script = ExtResource("4_buildup")
+effect = ExtResource("3_slowed")
+amount = 0.5
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("2_mod")
+onHitBuildups = Array[ExtResource("4_buildup")]([SubResource("buildup_slowed")])
+idleFx = ExtResource("5_frostfx")
+projectileFx = ExtResource("5_frostfx")
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Frost"
+description = "Chills struck targets, slowing their movement and actions."
+upgradeSlot = 3
+category = 2
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = []
+weaponMod = SubResource("weaponMod")

@@ -37,13 +37,13 @@ public class Inventory
 	private ItemState _lantern;
 
 	// The single attuned alchemy spell (slot identity) and its persistent cast
-	// instance — a ConsumableState built from the spell via CreateState(), rebuilt
+	// instance — a SpellState built from the spell via CreateState(), rebuilt
 	// only when the attunement changes so toggle state (SummonedPet / isActive)
 	// survives across casts. Null when nothing is attuned. The spell's "ammo" is
 	// not a stackCount — it's how many casts the party reagent pool currently
 	// affords (Player.GetSpellAmmo).
 	private SpellData _attunedSpell;
-	private ConsumableState _castInstance;
+	private SpellState _castInstance;
 
 	public Action<EInventorySlot> onSlotChanged;
 	public Action onConsumableChanged;
@@ -474,7 +474,7 @@ public class Inventory
 			// That way the dropped Loot lands on the ground unlit, the player's
 			// carried light reconciles to off if this was their only lit torch,
 			// and picking the pile up later doesn't auto-light it again.
-			if (item is ConsumableState cs)
+			if (item is LanternState cs)
 			{
 				cs.isActive = false;
 			}
@@ -501,18 +501,18 @@ public class Inventory
 	}
 
 	// Attune `spell` to the single consumable slot: build its persistent cast
-	// instance (a ConsumableState via CreateState) and fire the equip hook. Passing
+	// instance (a SpellState via CreateState) and fire the equip hook. Passing
 	// null (or ClearAttunement) unattunes and fires the outgoing spell's unequip
 	// hook. Re-attuning the same spell rebuilds the instance, dropping any live
 	// toggle state (e.g. desummons a pet) — call only on a genuine change.
 	public void AttuneSpell(SpellData spell)
 	{
-		if (_castInstance is ConsumableState prevCs)
+		if (_castInstance != null)
 		{
-			prevCs.OnUnequipped(_owner);
+			_castInstance.OnUnequipped(_owner);
 		}
 		_attunedSpell = spell;
-		_castInstance = spell?.CreateState() as ConsumableState;
+		_castInstance = spell?.CreateState() as SpellState;
 		if (_castInstance != null)
 		{
 			_castInstance.OnEquipped(_owner);

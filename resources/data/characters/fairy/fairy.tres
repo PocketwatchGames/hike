@@ -23,3 +23,6 @@ despawnOnDeath = true
 triggersTraps = false
 maxSpeed = 6.0
 turnSpeed = 8.0
+movement = 23
+hoverHeight = 1.0
+flySpeed = 6.0

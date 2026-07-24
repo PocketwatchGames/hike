@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ScrollData" format=3]
+
+[ext_resource type="Script" uid="uid://b8udvxvx1n3ug" path="res://scripts/data/items/ScrollData.cs" id="1_scroll"]
+[ext_resource type="Script" uid="uid://ca8oyj6ah0hdq" path="res://scripts/data/teaching/RecipeTeachable.cs" id="2_teach"]
+[ext_resource type="Resource" path="res://resources/data/recipes/recipe_stew_drake_damage.tres" id="3_recipe"]
+[ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="4_icon"]
+
+[sub_resource type="Resource" id="Concept"]
+script = ExtResource("2_teach")
+recipe = ExtResource("3_recipe")
+
+[resource]
+script = ExtResource("1_scroll")
+concept = SubResource("Concept")
+unidentifiedDisplayName = &"Unknown Recipe"
+description = "A weathered cooking note."
+inventorySprite = ExtResource("4_icon")

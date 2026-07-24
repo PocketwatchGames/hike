@@ -190,8 +190,12 @@ public partial class ItemInfoPanel : PanelContainer
 			case ArmorState armor:
 				AddStats(StatList.ArmorStats(armor));
 				break;
-			case ConsumableState consumable:
-				AddStats(StatList.ConsumableStats(consumable));
+			case SpellState:
+			case LanternState:
+				if (item.data is IUsableItem usable)
+				{
+					AddStats(StatList.ConsumableStats(usable.ActionProfile));
+				}
 				break;
 		}
 	}

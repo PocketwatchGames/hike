@@ -4,7 +4,6 @@
 [ext_resource type="Script" uid="uid://5rhnpp2tplumf" path="res://scripts/data/teaching/LanguageTeachable.cs" id="2_language_teachable"]
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="3_vyeshal"]
 [ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="4_8k1vg"]
-[ext_resource type="Resource" uid="uid://bql4dlf6cycp7" path="res://resources/data/items/scrolls/scroll_action_profile.tres" id="4_profile"]
 [ext_resource type="PackedScene" uid="uid://bscrollheld001x" path="res://scenes/items/held/scroll_held.tscn" id="7_held"]
 
 [sub_resource type="Resource" id="Resource_concept_vocab1"]
@@ -15,7 +14,6 @@ components = 4
 [resource]
 script = ExtResource("1_scroll")
 concept = SubResource("Resource_concept_vocab1")
-actionProfile = ExtResource("4_profile")
 description = "A glossary covering the first third of Vyeshal vocabulary."
 inventorySprite = ExtResource("4_8k1vg")
 heldModel = ExtResource("7_held")

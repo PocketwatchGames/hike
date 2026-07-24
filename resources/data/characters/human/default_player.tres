@@ -6,7 +6,7 @@
 [ext_resource type="Resource" uid="uid://b5x8h2qkvr3wm" path="res://resources/data/actions/dash_action.tres" id="6_dash"]
 [ext_resource type="Resource" uid="uid://ct4ntwjta4pai" path="res://resources/data/characters/human/anim_sets/unarmed.tres" id="7_unarmed"]
 [ext_resource type="Resource" uid="uid://b8nf3qkxr7m2p" path="res://resources/data/items/weapons/fists.tres" id="8_fists"]
-[ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/consumables/lantern.tres" id="9_lantern"]
+[ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/weapons/lantern.tres" id="9_lantern"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="10_outfit_script"]
 [ext_resource type="Resource" path="res://resources/data/characters/outfits/mage.tres" id="11_outfit_mage"]
 [ext_resource type="Resource" path="res://resources/data/characters/outfits/fighter.tres" id="12_outfit_fighter"]

@@ -1,6 +1,8 @@
 [gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://dp601slikqhh"]
 
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="1_rqujo"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="1_descitem"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/spider_legs.tres" id="1_legs"]
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
 [ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="2_mob"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="3_entry"]
@@ -23,9 +25,21 @@ script = ExtResource("4_palette")
 recolors = [SubResource("entry_body")]
 metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
+[sub_resource type="Resource" id="Desc_loot_legs"]
+script = ExtResource("1_descitem")
+item = ExtResource("1_legs")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_loot_legs"]
+script = ExtResource("1_rqujo")
+descriptor = SubResource("Desc_loot_legs")
+count = 2
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
 [resource]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Desert Spider"
 weapons = Array[ExtResource("5_wd")]([ExtResource("6_bite"), ExtResource("7_venom")])
+loot = Array[ExtResource("1_rqujo")]([SubResource("Resource_loot_legs")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

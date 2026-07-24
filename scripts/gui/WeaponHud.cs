@@ -51,9 +51,9 @@ public partial class WeaponHud : BoxContainer
 
 	void UpdateIcon()
 	{
-		if (_item is ConsumableState consumable && consumable.isActive && consumable.data is ConsumableData cd && cd.activeSprite != null)
+		if (_item is LanternState lantern && lantern.isActive && lantern.data.activeSprite != null)
 		{
-			_icon.Texture = cd.activeSprite;
+			_icon.Texture = lantern.data.activeSprite;
 			return;
 		}
 		_icon.Texture = _item?.data?.inventorySprite;

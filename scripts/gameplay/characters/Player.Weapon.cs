@@ -319,11 +319,11 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			return;
 		}
 		ItemState item = _inventory?.GetActiveConsumable();
-		if (item == null || item.data is not ConsumableData consumableData)
+		if (item == null || item.data is not SpellData spell)
 		{
 			return;
 		}
-		ItemActionProfile profile = consumableData.actionProfile;
+		ItemActionProfile profile = spell.actionProfile;
 		if (profile == null)
 		{
 			return;
@@ -372,7 +372,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			return;
 		}
 		ItemState item = _inventory?.GetEquipped(EInventorySlot.Lantern);
-		if (item?.data is not ConsumableData lanternData || lanternData.actionProfile == null)
+		if (item?.data is not LanternData lanternData || lanternData.actionProfile == null)
 		{
 			return;
 		}

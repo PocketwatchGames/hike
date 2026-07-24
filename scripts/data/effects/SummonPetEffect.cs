@@ -1,7 +1,7 @@
 using Godot;
 
 // Toggle-summons a persistent, tamed pet (the dog) from a reusable consumable.
-// The summoned mob is tracked on the triggering ConsumableState so a later Use
+// The summoned mob is tracked on the triggering SpellState so a later Use
 // can find it: a live pet is desummoned, a dead one is cleared and re-summoned,
 // and no pet at all is summoned fresh. Player-only; needs a loaded chunk to
 // spawn into. Mirrors DoSummonMinion's spawn but owns lifetime on the item, not
@@ -20,7 +20,7 @@ public partial class SummonPetEffect : ItemEffect
 		}
 		// Lifetime is tracked on the item, so this effect only makes sense on a
 		// consumable — a mob or a weapon triggering it is a no-op.
-		if (context.primaryItem is not ConsumableState consumable)
+		if (context.primaryItem is not SpellState consumable)
 		{
 			return;
 		}

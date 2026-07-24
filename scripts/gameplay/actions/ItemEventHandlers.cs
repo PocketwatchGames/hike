@@ -1567,18 +1567,18 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		if (action.context.primaryItem is not ConsumableState consumable)
+		if (action.context.primaryItem is not LanternState lantern)
 		{
 			return;
 		}
 		// A fuel-empty lantern can't be relit — fuel only comes back at a sunrise,
 		// on respawn, or at a fountain. Refuse the light half of the toggle;
 		// dousing is always allowed.
-		if (!consumable.isActive && consumable is LanternState lantern && !lantern.HasFuel)
+		if (!lantern.isActive && !lantern.HasFuel)
 		{
 			return;
 		}
-		consumable.isActive = !consumable.isActive;
+		lantern.isActive = !lantern.isActive;
 		player.RefreshCarriedLight();
 	}
 
@@ -1637,13 +1637,11 @@ public static class ItemEventHandlers
 	// set, region discovery set, ...). First-learn fx gates on concept.Teach
 	// returning true, matching DoLearnLanguage's silent-on-re-teach contract.
 	//
-	// Concept resolution prefers the event-authored ref (`ev.concept`); when
-	// that's null, falls back to the consuming item's concept if it's a
-	// ScrollData. This lets every scroll variant share a single action
-	// profile — the profile fires a concept-less LearnConcept event and the
-	// handler pulls the specific concept off the scroll being used, keeping
-	// ScrollData.concept the single source of truth for both the displayed
-	// name and the granted concept.
+	// The concept is the event-authored ref (`ev.concept`). Scrolls no longer
+	// route through here — a found scroll teaches its concept directly on
+	// world-pickup (ScrollData.ApplyOnPickup) — so this handler serves only
+	// sources that author a LearnConcept event with an explicit concept (NPC
+	// dialogue, future teaching interactives).
 	public static void DoLearnConcept(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (actor is not Player player)
@@ -1651,10 +1649,6 @@ public static class ItemEventHandlers
 			return;
 		}
 		TeachableConcept concept = ev.concept;
-		if (concept == null && action.context.primaryItem?.data is ScrollData scroll)
-		{
-			concept = scroll.concept;
-		}
 		if (concept == null)
 		{
 			return;

@@ -34,6 +34,15 @@ public sealed class SpawnContext
     // an entry sets RequireFlatTerrain.
     public Func<int, int, bool> IsFlatColumn;
 
+    // Per-chest zone loot for the zone this pass is placing into — appended to
+    // any chest spawned this pass (cave-pocket or camp-group), on top of the
+    // chest entry's own lootItems, rolled independently at each chest. Set per
+    // column/cell from the resolved ZoneGenData.perChestLoot; every entry type
+    // except ChestSpawnEntry ignores it. Null/empty = no per-chest zone drops.
+    // (ZoneGenData.distributedLoot is handled separately in a post-gen pass, not
+    // through this context.)
+    public ItemCountRange[] ZonePerChestLoot;
+
     // Pick a position within `radius` of `anchor` that satisfies all the
     // entry's placement gates: column validity (IsValidColumn), flat
     // terrain if required (IsFlatColumn + entry.RequireFlatTerrain), and
