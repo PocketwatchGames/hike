@@ -150,7 +150,7 @@ public partial class ItemInfoPanel : PanelContainer
 				hasTimer = true;
 				buildup = 0f;
 			}
-			else if (state.IsTimed)
+			else if (state.ShowsCountdownBar)
 			{
 				ulong now = Sim.Current?.GameTimeMs ?? 0;
 				double nowTod = Sim.Current?.TimeOfDayAbsolute ?? 0.0;

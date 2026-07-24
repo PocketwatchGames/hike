@@ -195,7 +195,7 @@ public partial class PlayerStatsPanel : PanelContainer
 			{
 				_levels[key] = s.level;
 			}
-			if (s.IsTimed)
+			if (s.ShowsCountdownBar)
 			{
 				float progress = s.RemainingProgress(now, nowTod);
 				if (!_minProgress.TryGetValue(key, out float prevProgress) || progress < prevProgress)

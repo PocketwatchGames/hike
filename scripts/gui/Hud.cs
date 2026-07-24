@@ -970,7 +970,7 @@ public partial class Hud : Control
 			}
 			_statusEffectCounts.TryGetValue(s.data, out int prevCount);
 			_statusEffectCounts[s.data] = prevCount + 1;
-			if (s.IsTimed)
+			if (s.ShowsCountdownBar)
 			{
 				float progress = s.RemainingProgress(now, nowTod);
 				if (!_statusEffectMinProgress.TryGetValue(s.data, out float prevProgress)

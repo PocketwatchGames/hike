@@ -53,6 +53,10 @@ public static class StatFormat
 				return Loc.Format(Loc.Keys.status_duration_until, TimeOfDayLabel(effect.timeOfDayTarget));
 			case EDurationType.Timed:
 				return effect.duration > 0f ? Seconds(effect.duration) : string.Empty;
+			// Sustained (hot/cold) treats `duration` as a post-source grace window, not a
+			// lifetime — read as persistent, so no numeric duration row.
+			case EDurationType.Sustained:
+				return string.Empty;
 			default:
 				return string.Empty;
 		}

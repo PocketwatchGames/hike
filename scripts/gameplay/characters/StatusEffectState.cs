@@ -89,6 +89,14 @@ public class StatusEffectState
 	// time-of-day). False for Persistent effects and paused situational timers.
 	public bool IsTimed => expireTimeMs != 0 || expireTimeOfDayAbsolute != 0;
 
+	// Whether the HUD should render a shrinking countdown bar. True only for a
+	// plain Timed ms-expiry. A TimeOfDay ("until sunrise") effect is gated on the
+	// player choosing to sleep, not on the wall clock — the awake clock freezes at
+	// midnight and only the sleep-to-sunrise ends it — so a bar tracking the clock
+	// would drain to empty while the effect is still active. We render those (and
+	// paused/persistent effects) as persistent instead: icon only, no bar.
+	public bool ShowsCountdownBar => expireTimeMs != 0;
+
 	// Whether the effect has reached its expiry on whichever clock it uses.
 	// The TimeOfDay branch compares the day explicitly so midnight of day N
 	// (tod 1.0) does NOT satisfy a day-(N+1) sunrise deadline, even though the
@@ -160,7 +168,11 @@ public class StatusEffectState
 		}
 		switch (data.durationType)
 		{
+			// Sustained arms the same grace ms-timer as Timed. While the sustaining
+			// condition holds the external system (temperature) calls PauseTimer each
+			// tick; this arm runs only once the condition clears, counting down the grace.
 			case EDurationType.Timed:
+			case EDurationType.Sustained:
 				if (data.duration > 0f)
 				{
 					expireTimeMs = nowMs + (ulong)(data.duration * 1000f);

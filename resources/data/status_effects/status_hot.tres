@@ -16,6 +16,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Hot"
+durationType = 3
 duration = 5.0
 maxStack = 1
 startFx = ExtResource("3_startfx")

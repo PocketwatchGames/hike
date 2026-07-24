@@ -22,6 +22,13 @@ public enum EBuildupBehavior
 //   TimeOfDay  — expires at the next occurrence of `timeOfDayTarget`
 //                (0 = sunrise), so a boon can last "until sunrise" regardless
 //                of how long that is (the sleep-to-sunrise crosses it).
+//   Sustained  — kept alive by an ongoing external condition that pauses the
+//                timer while it holds (body temperature in a hot/cold zone).
+//                `duration` is the grace window the effect lingers AFTER the
+//                condition clears, not its lifetime — so it reads as persistent
+//                on info panels but still shows the real grace countdown once
+//                released. Timer mechanics match Timed; the difference is that
+//                the seconds field is a post-source grace, not a fixed lifetime.
 // Timed is value 0 so existing effects authored before this field (no stored
 // durationType) keep their seconds-based behavior.
 public enum EDurationType
@@ -29,6 +36,7 @@ public enum EDurationType
 	Timed = 0,
 	Persistent = 1,
 	TimeOfDay = 2,
+	Sustained = 3,
 }
 
 // Presentation + lifetime bucket. Author one or more bits; [Flags] so clear ops can
@@ -130,8 +138,9 @@ public partial class StatusEffectData : Resource
 	// How this effect's lifetime ends (Timed / Persistent / TimeOfDay). See EDurationType.
 	[Export] public EDurationType durationType = EDurationType.Timed;
 
-	// Timed only: seconds the effect lasts. 0 = the arming system owns lifetime (e.g.
-	// Wet lives off the wetness meter; others arm a timer via StatusEffectState.ArmTimer).
+	// Timed / Sustained: seconds the effect lasts. For Timed, seconds after apply (0 =
+	// the arming system owns lifetime, e.g. Wet lives off the wetness meter). For
+	// Sustained, the grace window it lingers after the sustaining condition clears.
 	[Export] public float duration;
 
 	// TimeOfDay only: normalized time-of-day the effect expires at on the awake
@@ -267,7 +276,7 @@ public partial class StatusEffectData : Resource
 			nameof(buildupRemovalSpeed) => isContinuous,
 			nameof(clearBuildupOnApply) => isContinuous,
 			nameof(applyTrigger) => isContinuous,
-			nameof(duration) => isContinuous || durationType != EDurationType.Timed,
+			nameof(duration) => isContinuous || (durationType != EDurationType.Timed && durationType != EDurationType.Sustained),
 			nameof(timeOfDayTarget) => durationType != EDurationType.TimeOfDay,
 			nameof(armThreshold) => !isContinuous,
 			nameof(disarmThreshold) => !isContinuous,
