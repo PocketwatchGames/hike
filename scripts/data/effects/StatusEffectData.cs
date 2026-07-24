@@ -31,12 +31,16 @@ public enum EDurationType
 	TimeOfDay = 2,
 }
 
-// Presentation + lifetime bucket. Author one bit; [Flags] so clear ops can target a
-// mask. HUD routes by category: only Transient shows in the mob status strip; the
-// first Elite effect rides the elite badge.
+// Presentation + lifetime bucket. Author one or more bits; [Flags] so clear ops can
+// target a mask. HUD routes by category: only Transient shows in the mob status strip;
+// the first Elite effect rides the elite badge.
 //   Transient — ordinary timed / buildup combat states (default).
 //   Permanent — long-term quirks / afflictions (no HUD strip yet).
 //   Elite     — elite signature aura (badge only).
+//   Meal      — granted by eating a cooked recipe. At most one per character (eating
+//               again clears the previous via RemoveByCategory); the camp screen's
+//               meal readout shows the active one. Combine with Transient so it still
+//               displays on the normal HUD (e.g. Transient | Meal).
 [System.Flags]
 public enum EEffectCategory
 {
@@ -44,6 +48,7 @@ public enum EEffectCategory
 	Transient = 1 << 0,
 	Permanent = 1 << 1,
 	Elite = 1 << 2,
+	Meal = 1 << 3,
 }
 
 // Forge "upgrade" slot ELIGIBILITY. A non-None value marks the effect as a forge
@@ -95,7 +100,7 @@ public partial class StatusEffectData : Resource
 
 	// ============================ Lifecycle ============================
 
-	// Presentation + lifetime bucket — author one bit. See EEffectCategory.
+	// Presentation + lifetime bucket — author one or more bits. See EEffectCategory.
 	[ExportGroup("Lifecycle")]
 	[Export, CompactFlags] public EEffectCategory category = EEffectCategory.Transient;
 

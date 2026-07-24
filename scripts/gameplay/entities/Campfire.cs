@@ -13,19 +13,10 @@ using Godot;
 //
 // Interact verb dispatch:
 //   * EActionVerb.Camp on a lit forge → opens the CampScreen, whose Cook tab
-//     binds to this forge. That tab drives StartCampfireJob / CancelCampfireJob and
-//     reads CampfireSlots / ActiveCampfireJob each frame.
+//     binds to this forge and reads/writes CampfireSlots (experimentation
+//     inputs). Cooking is instant — no job timer; eating a recipe applies its
+//     status effect to the chosen character immediately (see CookingScreen).
 //   * Light → lights the flame (and douses all others).
-//
-// Cook-job lifecycle:
-//   * StartCampfireJob seeds the timer; items stay in CampfireSlots so a Cancel
-//     leaves the inputs intact.
-//   * _PhysicsProcess completes the job when the sim clock passes its
-//     GameTimeMs deadline; CompleteCampfireJob drains the slots and routes the output either
-//     through deliveryCallback (set by the bound CookingScreen) or
-//     spawns Loot at the forge for the player to find later.
-//   * Going out (SetLit(false), i.e. another fire being lit) cancels any active
-//     job — items stay in slots for the player to reclaim by relighting.
 [GlobalClass]
 public partial class Campfire : Node3D, IInteractive, IWorldEntity
 {
@@ -57,8 +48,6 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
     // Recipe scope for this station — Cooking.TryMatch only considers
     // recipes whose campfireType matches.
     [Export] private ECampfireType _campfireType;
-    // How long (seconds) a single cook job takes.
-    [Export] private float _forgeTimeSeconds = 1.5f;
     // Health restored per in-world hour slept while resting at this fire
     // (fraction of max). The camp screen's Sleep tab reads it for every rest
     // duration — a future bed could set a higher rate than a plain campfire.
@@ -70,17 +59,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
     private CampfireSimState _simState;
     private Fx _loopEffect;
 
-    // CookingScreen subscribes when bound so the forge can hand off a
-    // completed output to the player's inventory instead of dropping it.
-    // Null = nobody listening; the forge spawns the loot itself.
-    public Action<CampfireCompletion> deliveryCallback;
-    // Fires every Tick the active cook job advances, plus once with `null`
-    // when the job ends (complete OR cancelled). Lets the cooking screen
-    // refresh its progress bar without polling state itself.
-    public Action<CampfireJob> onCampfireJobChanged;
-
     public CampfireSimState SimState => _simState;
-    public CampfireJob ActiveCampfireJob => _simState?.ActiveCampfireJob;
     public ItemState[] CampfireSlots => _simState?.CampfireSlots;
     public bool IsLit => _active;
     public ECampfireType CampfireType => _campfireType;
@@ -143,10 +122,9 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         SetLit(true);
     }
 
-    // Toggle helper. Updates visuals, zones, fx, and cancels any in-flight
-    // cook job when the flame goes out — items stay in CampfireSlots for
-    // the player to reclaim on relight. Lighting this fire douses every other
-    // campfire so only one is ever lit at a time.
+    // Toggle helper. Updates visuals, zones, and fx — items stay in
+    // CampfireSlots for the player to reclaim on relight. Lighting this fire
+    // douses every other campfire so only one is ever lit at a time.
     private void SetLit(bool lit)
     {
         if (_active == lit)
@@ -161,10 +139,6 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         if (_active)
         {
             DouseOtherCampfires();
-        }
-        else
-        {
-            CancelCampfireJob();
         }
 
         UpdateVisuals();
@@ -206,114 +180,6 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
             }
         }
         worldSim.LitCampfire = _simState;
-    }
-
-    public override void _PhysicsProcess(double delta)
-    {
-        CampfireJob job = _simState?.ActiveCampfireJob;
-        if (job == null)
-        {
-            return;
-        }
-        ulong now = Sim.Current?.GameTimeMs ?? 0;
-        if (now >= job.endTimeMs)
-        {
-            CompleteCampfireJob();
-        }
-        else
-        {
-            // Derive remainingSeconds from the deadline for the cooking screen's
-            // progress bar; the deadline (sim clock) is authoritative.
-            job.remainingSeconds = (job.endTimeMs - now) / 1000f;
-            onCampfireJobChanged?.Invoke(job);
-        }
-    }
-
-    // Begin a cook job. Caller has already verified the slots match the
-    // recipe via Cooking.TryMatch. Items remain in CampfireSlots until
-    // completion — Cancel restores access without consuming anything.
-    // Discovery is NOT credited here: it lands in CompleteCampfireJob so a
-    // cancelled cook never marks the recipe as learned.
-    public void StartCampfireJob(RecipeData recipe, ItemData output)
-    {
-        if (_simState == null || recipe == null || output == null)
-        {
-            return;
-        }
-        if (_simState.ActiveCampfireJob != null)
-        {
-            return;
-        }
-        _simState.ActiveCampfireJob = new CampfireJob
-        {
-            recipe = recipe,
-            outputItem = output,
-            remainingSeconds = _forgeTimeSeconds,
-            totalSeconds = _forgeTimeSeconds,
-            endTimeMs = (Sim.Current?.GameTimeMs ?? 0) + (ulong)(_forgeTimeSeconds * 1000f),
-        };
-        SetPhysicsProcess(true);
-        onCampfireJobChanged?.Invoke(_simState.ActiveCampfireJob);
-    }
-
-    // Cancel any in-flight job. Items in CampfireSlots stay put — cancel is
-    // an opt-out, not a destructive operation. Safe to call when no job is
-    // active.
-    public void CancelCampfireJob()
-    {
-        if (_simState == null || _simState.ActiveCampfireJob == null)
-        {
-            return;
-        }
-        _simState.ActiveCampfireJob = null;
-        SetPhysicsProcess(false);
-        onCampfireJobChanged?.Invoke(null);
-    }
-
-    // Job ran to completion: record discovery, drain slots, and deliver
-    // the output. Discovery runs directly here (not via the bound screen)
-    // so an offscreen completion still credits the recipe. If a
-    // CookingScreen is bound (deliveryCallback set), it takes the output
-    // and decides between inventory and drop. Otherwise the forge spawns
-    // the loot at its position for the player to walk back to.
-    private void CompleteCampfireJob()
-    {
-        CampfireJob job = _simState?.ActiveCampfireJob;
-        if (job == null)
-        {
-            return;
-        }
-        SimState worldSim = Sim.Current?.WorldState?.SimState;
-        bool wasNewDiscovery = job.recipe != null && (worldSim == null || !worldSim.IsRecipeDiscovered(job.recipe));
-        Cooking.RecordDiscovery(worldSim, new Cooking.MatchResult(job.recipe));
-
-        if (_simState.CampfireSlots != null)
-        {
-            for (int i = 0; i < _simState.CampfireSlots.Length; i++)
-            {
-                _simState.CampfireSlots[i] = null;
-            }
-        }
-        var completion = new CampfireCompletion
-        {
-            output = job.outputItem,
-            wasNewDiscovery = wasNewDiscovery,
-        };
-        _simState.ActiveCampfireJob = null;
-        SetPhysicsProcess(false);
-        onCampfireJobChanged?.Invoke(null);
-
-        if (deliveryCallback != null)
-        {
-            deliveryCallback.Invoke(completion);
-        }
-        else if (completion.output != null)
-        {
-            // Offscreen completion — spawn the produced item as loot at the
-            // forge. Light upward impulse so it doesn't intersect the mesh.
-            Sim sim = Sim.Current;
-            sim?.SpawnLoot(GlobalPosition + Vector3.Up, Vector3.Up * 2f, completion.output);
-        }
     }
 
     private void UpdateLoopEffect()
@@ -413,21 +279,6 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
         instance._safetyZone?.SetActive(instance._active);
         instance.UpdateLoopEffect();
 
-        // Only tick while a cook job is running. A forge spawned mid-cook
-        // (restored from sim state) starts ticking; an idle one does nothing
-        // per frame until StartCampfireJob re-enables it.
-        instance.SetPhysicsProcess(data.ActiveCampfireJob != null);
-
         return instance;
     }
-}
-
-// Bundled completion info — the produced item plus a "first time" flag.
-// The forge's deliveryCallback hands one of these to the bound CookingScreen
-// so the in-screen announcement can read "New Recipe Discovered" vs
-// "Cooking Complete" without re-querying state.
-public struct CampfireCompletion
-{
-    public ItemData output;
-    public bool wasNewDiscovery;
 }

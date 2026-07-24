@@ -4,7 +4,9 @@
 [ext_resource type="Resource" path="res://resources/data/items/loot/kun_kun_forest_meat.tres" id="2_meat"]
 [ext_resource type="Resource" uid="uid://c7napd2qkx8vt" path="res://resources/data/items/loot/berry_purple.tres" id="3_berry"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="4_recipe"]
-[ext_resource type="Resource" uid="uid://doi37qqb4ks14" path="res://resources/data/items/consumables/succulent_grilled_forest_kun_kun.tres" id="5_output"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_effect_script"]
+[ext_resource type="Resource" uid="uid://dwfsk5p3n2qr7" path="res://resources/data/status_effects/status_well_fed_superior.tres" id="6_status"]
+[ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="7_icon"]
 
 [sub_resource type="Resource" id="Resource_input_meat"]
 script = ExtResource("1_input")
@@ -20,6 +22,9 @@ metadata/_custom_type_script = "uid://64jki9zhf4p5i"
 
 [resource]
 script = ExtResource("4_recipe")
-outputItem = ExtResource("5_output")
+displayName = &"Forest-Style Grilled Kun-Kun"
+description = "Kun-kun roasted with forest berries — twice as filling."
+icon = ExtResource("7_icon")
+statusEffects = Array[ExtResource("5_effect_script")]([ExtResource("6_status")])
 inputs = Array[ExtResource("1_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_berry")])
 priority = 1

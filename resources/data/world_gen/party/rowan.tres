@@ -5,8 +5,9 @@
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="3_itemcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="4_desc"]
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_dtyym"]
-[ext_resource type="Resource" uid="uid://dxknbtj4qcfvy" path="res://resources/data/items/armor/cloth_armor.tres" id="6_56gee"]
 [ext_resource type="Resource" uid="uid://d3xp3psvbwcie" path="res://resources/data/items/weapons/knife.tres" id="6_knife"]
+[ext_resource type="Texture2D" uid="uid://xbn8ns80jnq6" path="res://assets/textures/items/BasicCloak.png" id="11_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="12_statmod"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="8_56gee"]
 [ext_resource type="Resource" uid="uid://ccifgrtmdxnba" path="res://resources/data/status_effects/traits/trait_empathetic.tres" id="9_empath"]
 [ext_resource type="Resource" uid="uid://2vfwtb2p63bc" path="res://resources/data/status_effects/traits/trait_wall_jumper.tres" id="10_walljump"]
@@ -31,15 +32,17 @@ script = ExtResource("3_itemcount")
 descriptor = SubResource("Resource_d8r11")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
-[sub_resource type="Resource" id="Resource_3n8rm"]
-script = ExtResource("4_desc")
-item = ExtResource("6_56gee")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+[sub_resource type="Resource" id="m_speed"]
+script = ExtResource("12_statmod")
+stat = 4096
+value = 1.05
+metadata/_custom_type_script = "uid://bovyciaikopwb"
 
-[sub_resource type="Resource" id="Resource_dmm2p"]
-script = ExtResource("3_itemcount")
-descriptor = SubResource("Resource_3n8rm")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+[sub_resource type="Resource" id="m_noise"]
+script = ExtResource("12_statmod")
+stat = 65536
+value = 0.8
+metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_playerstate")
@@ -52,6 +55,10 @@ health = 1.2
 fortitude = 1.1
 perception = 0.8
 stealth = 0.9
-equippedInventory = [SubResource("Resource_club"), SubResource("Resource_6hrq3"), SubResource("Resource_dmm2p")]
+icon = ExtResource("11_icon")
+maxArmor = 50.0
+modifiers = Array[ExtResource("12_statmod")]([SubResource("m_speed"), SubResource("m_noise")])
+outfit = &"mage"
+equippedInventory = [SubResource("Resource_club"), SubResource("Resource_6hrq3")]
 traits = Array[ExtResource("8_56gee")]([ExtResource("9_empath"), ExtResource("10_walljump")])
 metadata/_custom_type_script = "uid://b1rjovy8825fh"

@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="BoonData" format=3]
+
+[ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_boon"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_se"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+[ext_resource type="Texture2D" uid="uid://daofpxmj2ar30" path="res://assets/textures/status_effects/Icon36.png" id="4_icon"]
+
+[sub_resource type="Resource" id="mod_nightvision"]
+script = ExtResource("3_mod")
+stat = 33554432
+value = 1.85
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="se_night_vision"]
+script = ExtResource("2_se")
+icon = ExtResource("4_icon")
+displayName = &"Night Sight"
+description = "A fairy's blessing — the darkness thins before your eyes, granting sight in deepest night until daybreak."
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = [SubResource("mod_nightvision")]
+conditionalModifiers = []
+
+[resource]
+script = ExtResource("1_boon")
+displayName = null
+statusEffect = SubResource("se_night_vision")

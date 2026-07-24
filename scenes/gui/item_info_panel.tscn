@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="4_t78nj"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="6_t8nb6"]
 
-[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_levelLabel", "_actionPanelContainer", "_statContainer", "_statusContainer", "_reagentsRoot", "_reagentSlots")]
+[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_actionPanelContainer", "_statContainer", "_statusContainer", "_reagentsRoot", "_reagentSlots")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -15,7 +15,6 @@ script = ExtResource("1_55ro3")
 _nameLabel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Name")
 _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
 _icon = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Icon")
-_levelLabel = NodePath("")
 _actionPanel = ExtResource("2_p0emx")
 _actionPanelContainer = NodePath("MarginContainer/VBoxContainer")
 _statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
@@ -64,26 +63,36 @@ layout_mode = 2
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer" unique_id=1120290116]
 layout_mode = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MarginContainer" unique_id=614767035]
+[node name="VBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MarginContainer" unique_id=181545141]
 layout_mode = 2
+size_flags_vertical = 8
+alignment = 2
 
 [node name="Label" type="Label" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer" unique_id=2125606067]
 layout_mode = 2
-text = "Required Reagents"
+size_flags_vertical = 8
+text = "Required:"
 horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer" unique_id=1226961258]
 layout_mode = 2
 size_flags_horizontal = 4
 
 [node name="ItemSlotPanel" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=982744505 instance=ExtResource("6_t8nb6")]
+custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
+size_flags_vertical = 8
 
 [node name="ItemSlotPanel2" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=106910560 instance=ExtResource("6_t8nb6")]
+custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
+size_flags_vertical = 8
 
 [node name="ItemSlotPanel3" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=1712010456 instance=ExtResource("6_t8nb6")]
+custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
+size_flags_vertical = 8
 
 [node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=405509744]
 layout_mode = 2

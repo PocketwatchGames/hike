@@ -593,6 +593,23 @@ public partial class PlayerData : Resource
 	[Export(PropertyHint.Range, "0.5,600,0.5,or_greater")] public float muddyDrySeconds = 30f;
 
 	[ExportGroup("Appearance")]
+	// Central outfit registry: every named outfit's rig mesh sets, keyed by the
+	// StringName that PlayerState.outfit (the class look) and ArmorData.outfit
+	// (worn armor) reference. Mesh names are authored once here — no character
+	// or item carries raw rig part names.
+	[Export] public Godot.Collections.Dictionary<StringName, OutfitData> outfits = new();
+
+	// Registry lookup. Null for a missing / empty key — the compositor then
+	// falls back to the bare body / styled hair.
+	public OutfitData GetOutfit(StringName key)
+	{
+		if (outfits == null || key == null || key.IsEmpty)
+		{
+			return null;
+		}
+		return outfits.TryGetValue(key, out OutfitData outfit) ? outfit : null;
+	}
+
 	// Palettes the character's modular look is picked from. PlayerState
 	// stores the chosen INDEX into each (skinTone / hairColor / hairStyle), so a
 	// spawn / character-creation choice is a small int and the menu of options

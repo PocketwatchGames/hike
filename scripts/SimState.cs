@@ -71,6 +71,47 @@ public class SimState
     // and this reference is re-established as the lit campfire streams in.
     public CampfireSimState LitCampfire;
 
+    // Spend one full `inputs` cost from the party material stash. All-or-nothing:
+    // returns false (spending nothing) when the stash can't cover the cost.
+    // Matches reagents up each stack's ItemData.parent chain, the same identity
+    // rule Cooking.TryMatch / CountAffordable use.
+    public bool TrySpendMaterials(IReadOnlyList<RecipeInput> inputs)
+    {
+        if (inputs == null || inputs.Count == 0)
+        {
+            return false;
+        }
+        if (Cooking.CountAffordable(inputs, PartyMaterialStash) <= 0)
+        {
+            return false;
+        }
+        for (int i = 0; i < inputs.Count; i++)
+        {
+            RecipeInput r = inputs[i];
+            if (r?.item == null || r.count <= 0)
+            {
+                continue;
+            }
+            int need = r.count;
+            for (int s = PartyMaterialStash.Count - 1; s >= 0 && need > 0; s--)
+            {
+                ItemState stack = PartyMaterialStash[s];
+                if (stack?.data == null || stack.stackCount <= 0 || !Cooking.Satisfies(stack.data, r.item))
+                {
+                    continue;
+                }
+                int take = Math.Min(need, stack.stackCount);
+                stack.stackCount -= take;
+                need -= take;
+                if (stack.stackCount <= 0)
+                {
+                    PartyMaterialStash.RemoveAt(s);
+                }
+            }
+        }
+        return true;
+    }
+
     // World position of the climbable tree the player is currently perched in, or
     // null when not climbing. Drives the active (red) tint on that tree's map
     // marker (IsMarkerActive). Runtime-only; set/cleared by Player.EnterClimbableTree
@@ -275,34 +316,19 @@ public class SimState
     }
 
     // Records a discovery and fires onRecipeDiscovered. Returns true on first
-    // discovery; subsequent calls for the same recipe are silent. Pass
-    // identifyOutput=true to also identify the recipe's output item silently (no
-    // onItemIdentified) before the recipe banner fires — used by scrolls / NPC
-    // teaching so the recipe banner reads with the real name instead of "Unknown
-    // Food" and no redundant "Item Identified" banner follows. Returns true if
-    // either the recipe or the output was newly recorded.
-    public bool DiscoverRecipe(RecipeData recipe, bool identifyOutput = false)
+    // discovery; subsequent calls for the same recipe are silent. Recipes have
+    // no identification phase — a recipe is either undiscovered (shown nowhere)
+    // or discovered under its real name.
+    public bool DiscoverRecipe(RecipeData recipe)
     {
         if (recipe == null)
         {
             return false;
         }
         Knowledge store = Active;
-        if (store == null)
+        if (store == null || IsRecipeDiscovered(recipe))
         {
             return false;
-        }
-        bool identified = false;
-        if (identifyOutput && recipe.outputItem != null
-            && !string.IsNullOrEmpty(recipe.outputItem.unidentifiedDisplayName.ToString())
-            && !IdentifiedInStores(recipe.outputItem))
-        {
-            store.IdentifiedItems.Add(recipe.outputItem);
-            identified = true;
-        }
-        if (IsRecipeDiscovered(recipe))
-        {
-            return identified;
         }
         store.DiscoveredRecipes.Add(recipe);
         onRecipeDiscovered?.Invoke(recipe);

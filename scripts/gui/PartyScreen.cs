@@ -13,7 +13,6 @@ using System.Collections.Generic;
 public partial class PartyScreen : Control
 {
 	[Export] PlayerStatsPanel _playerStatsPanel;
-	[Export] ItemInfoPanel _armorPanel;
 	[Export] ItemInfoPanel _meleePanel;
 	[Export] ItemInfoPanel _rangedPanel;
 	[Export] ButtonHint _buttonHintSelect;
@@ -169,7 +168,6 @@ public partial class PartyScreen : Control
 		member?.SetHighlighted(true);
 		_playerStatsPanel?.SetPlayer(member);
 		Inventory inv = member?.Inventory;
-		_armorPanel?.SetItem(inv?.GetEquipped(EInventorySlot.Armor), forceIdentified: true);
 		_meleePanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponMelee), forceIdentified: true);
 		_rangedPanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponRanged), forceIdentified: true);
 	}

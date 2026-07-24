@@ -1,20 +1,23 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cfgrdp0ehape4"]
 
 [ext_resource type="Texture2D" uid="uid://c0bxf8os6dn5x" path="res://assets/textures/status_effects/skull.png" id="1_5gph6"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_264vf"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_flu34"]
-[ext_resource type="Script" uid="uid://bdot7k5n1xqa" path="res://scripts/data/effects/payloads/DamageOverTimeData.cs" id="3_dot"]
 
-[sub_resource type="Resource" id="dot"]
-script = ExtResource("3_dot")
-damagePerSecond = 10.0
+[sub_resource type="Resource" id="Resource_3l2yc"]
+script = ExtResource("2_264vf")
+stat = 67108864
+value = 0.8
+metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("2_flu34")
 icon = ExtResource("1_5gph6")
 displayName = &"Poisoned"
+category = 9
 tags = 257
-duration = 30.0
+durationType = 2
+maxStack = 1
 removesOnApply = []
-modifiers = []
+modifiers = [SubResource("Resource_3l2yc")]
 conditionalModifiers = []
-dot = SubResource("dot")

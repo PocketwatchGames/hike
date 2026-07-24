@@ -48,13 +48,10 @@ public partial class Hud : Control
 	// lockstep — so the visible tail shrinks cleanly as drain heals back.
 	[Export] ProgressBar _drainedHealthBar;
 	[Export] ProgressBar _armorBar;
-	// Weapon block-armor guard pool drawn as a dark extension past the right
-	// end of _armorBar — same additive-underlay trick as _drainedHealthBar:
-	// layered UNDERNEATH _armorBar with a transparent background and
-	// value = (Armor + blockArmor) / (MaxArmor + blockCapacity), so the bright
-	// armor fill paints over [0, Armor] and only the [Armor, Armor + blockArmor]
-	// guard segment shows past it. Tinted dark grey while dormant and dark blue
-	// while sneaking (the only state in which block armor actually absorbs).
+	// The melee weapon's block-guard pool, drawn as its own row above the
+	// health/armor row. Tinted dark grey while dormant, dark blue while
+	// sneaking (the only state in which block armor actually absorbs), and
+	// bright blue while the parry window is open.
 	[Export] ProgressBar _blockArmorBar;
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
@@ -213,15 +210,26 @@ public partial class Hud : Control
 	// still shows weather; a proper cave drops it cleanly.
 	const float CaveFadeSunlightFloor = 0.0f;
 	const float CaveFadeSunlightFull = 0.25f;
-	// Tints for the block-armor extension underlay. The fill stylebox is
-	// white so these multiply straight through: dark grey while the guard is
-	// dormant, dark blue while the player is sneaking and the pool is live.
+	// Tints for the block-guard bar. The fill stylebox is white so these
+	// multiply straight through: grey while the guard is dormant, saturated
+	// blue while the player is sneaking and the pool is live, near-white cyan
+	// while the parry window is still open so its close is a readable timing
+	// tell. Keep the three visibly far apart — on a 15px bar a dark navy is
+	// indistinguishable from the dormant grey.
 	static readonly Color BlockArmorIdleColor = new Color(0.45f, 0.45f, 0.45f, 1f);
-	static readonly Color BlockArmorActiveColor = new Color(0.15f, 0.3f, 0.7f, 1f);
+	static readonly Color BlockArmorActiveColor = new Color(0.2f, 0.5f, 1f, 1f);
+	static readonly Color BlockArmorParryColor = new Color(0.65f, 0.9f, 1f, 1f);
 
-	// Armor points that render at the full health-bar width; smaller pools
-	// draw proportionally shorter bars, larger ones cap at this.
-	const float FullBarArmor = 1000f;
+	// Horizontal scale of the vitals bars: pixels of bar width per point of
+	// the stat, so a bigger max reads as a physically longer bar (a health
+	// buff or an armor equip visibly grows it). Health and armor share the
+	// same 1000-points-per-full-bar calibration (PlayerData.maxHealth defaults
+	// to 1000, the same damage units armor absorbs in), but stay separately
+	// tunable since armor chips at (1 + blunt) per damage point. Stamina needs
+	// no scale here: its pip row is already one pip per unit.
+	// Defaults: 1000 points = 250px.
+	[Export(PropertyHint.Range, "0.01,5,0.01")] float _pixelsPerHealthPoint = 0.25f;
+	[Export(PropertyHint.Range, "0.01,5,0.01")] float _pixelsPerArmorPoint = 0.25f;
 
 	public override void _Ready()
 	{
@@ -564,6 +572,10 @@ public partial class Hud : Control
 		_healthBar.MinValue = 0;
 		_healthBar.MaxValue = 1;
 		_healthBar.Value = maxHealth > 0f ? _player.Health / maxHealth : 0f;
+		// Bar length tracks the stat. The drained underlay spans the same
+		// 0..MaxHealth range as the health bar, so it always shares its width.
+		SetBarWidth(_healthBar, maxHealth * _pixelsPerHealthPoint);
+		SetBarWidth(_drainedHealthBar, maxHealth * _pixelsPerHealthPoint);
 
 		if (_drainedHealthBar != null)
 		{
@@ -579,19 +591,9 @@ public partial class Hud : Control
 		_armorBar.MaxValue = 1;
 		_armorBar.Visible = maxArmor > 0f;
 		_armorBar.Value = maxArmor > 0f ? _player.Armor / maxArmor : 0f;
-		// Physically shrink the bar when maxArmor < FullBarArmor so a weak
-		// piece of armor reads as a shorter bar (even when fully charged),
-		// without disturbing the 0..1 fill ratio. Caps at the health bar's
-		// width when maxArmor reaches FullBarArmor — heavier armor reads as
-		// "full HP bar's worth of protection" rather than overflowing past it.
-		if (maxArmor > 0f)
-		{
-			Vector2 size = _armorBar.CustomMinimumSize;
-			size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(maxArmor, FullBarArmor) / FullBarArmor;
-			_armorBar.CustomMinimumSize = size;
-		}
+		SetBarWidth(_armorBar, maxArmor * _pixelsPerArmorPoint);
 
-		UpdateBlockArmorExtension(maxArmor);
+		UpdateBlockArmorBar();
 
 		UpdateStaminaPips();
 
@@ -625,6 +627,24 @@ public partial class Hud : Control
 		foreach (KeyValuePair<QuestState, QuestItem> kv in _questWidgets)
 		{
 			kv.Value.Refresh(kv.Key.GetDisplay(now));
+		}
+	}
+
+	// Sets a bar's minimum width in pixels (stat × pixels-per-point). Works for
+	// both layouts in play: the container-driven health/drained pair (min size
+	// feeds the MarginContainer) and the free-floating armor bars (a Control's
+	// size is clamped up to its minimum; their authored offsets are 0).
+	static void SetBarWidth(ProgressBar bar, float width)
+	{
+		if (bar == null)
+		{
+			return;
+		}
+		Vector2 size = bar.CustomMinimumSize;
+		if (!Mathf.IsEqualApprox(size.X, width))
+		{
+			size.X = width;
+			bar.CustomMinimumSize = size;
 		}
 	}
 
@@ -1111,12 +1131,12 @@ public partial class Hud : Control
 		return _player.Runner.Current.context.sourceSlot == slot;
 	}
 
-	// Drive the block-armor extension underlay. The pool shown is the equipped
-	// melee weapon's guard — live (blue) while the player sneaks, a dormant
-	// grey reserve otherwise. Hidden entirely when the melee weapon carries no
-	// block armor. Units are kept in lockstep with the armor bar's
-	// units-per-pixel by sizing against the same MaxArmor=100 cap.
-	void UpdateBlockArmorExtension(float maxArmor)
+	// Drive the block-guard bar. The pool shown is the equipped melee weapon's
+	// guard — live (blue) while the player sneaks, a dormant grey reserve
+	// otherwise. Hidden entirely when the melee weapon carries no block armor.
+	// Sized on the same pixels-per-armor-point scale as the armor bar so guard
+	// and armor capacities read in the same visual units.
+	void UpdateBlockArmorBar()
 	{
 		if (_blockArmorBar == null)
 		{
@@ -1124,8 +1144,7 @@ public partial class Hud : Control
 		}
 		WeaponState weapon = SelectBlockArmorWeapon(out bool active);
 		float capacity = weapon?.data?.blockArmor ?? 0f;
-		float total = maxArmor + capacity;
-		if (weapon == null || capacity <= 0f || total <= 0f)
+		if (weapon == null || capacity <= 0f)
 		{
 			_blockArmorBar.Visible = false;
 			return;
@@ -1133,11 +1152,20 @@ public partial class Hud : Control
 		_blockArmorBar.Visible = true;
 		_blockArmorBar.MinValue = 0;
 		_blockArmorBar.MaxValue = 1;
-		_blockArmorBar.Value = (_player.Armor + weapon.blockArmor) / total;
-		Vector2 size = _blockArmorBar.CustomMinimumSize;
-		size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(total, FullBarArmor) / FullBarArmor;
-		_blockArmorBar.CustomMinimumSize = size;
-		_blockArmorBar.Modulate = active ? BlockArmorActiveColor : BlockArmorIdleColor;
+		_blockArmorBar.Value = weapon.blockArmor / capacity;
+		SetBarWidth(_blockArmorBar, capacity * _pixelsPerArmorPoint);
+		// Parry window outranks the plain guard tint: the bar reads bright blue
+		// for the opening beat of the crouch, then settles to the block blue.
+		Color tint = BlockArmorIdleColor;
+		if (_player.IsParryWindowActive)
+		{
+			tint = BlockArmorParryColor;
+		}
+		else if (active)
+		{
+			tint = BlockArmorActiveColor;
+		}
+		_blockArmorBar.Modulate = tint;
 	}
 
 	// Picks the weapon whose block-armor pool the extension represents: the

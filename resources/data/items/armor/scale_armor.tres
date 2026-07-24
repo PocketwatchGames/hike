@@ -24,10 +24,9 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("2_armor")
-maxArmor = 450.0
+maxArmor = 200.0
 modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_speed"), SubResource("m_stamina")])
-wornMeshNamesFemale = PackedStringArray("F_Hunter_Top", "F_Hunter_Bottom")
-wornMeshNamesMale = PackedStringArray("M_Hunter_Top", "M_Hunter_Bottom")
+outfit = &"hunter"
 displayName = &"Scale Armor"
 description = "Overlapping metal scales spread the force of a blow — heavier than mail, and it shows in the stride."
 value = 90

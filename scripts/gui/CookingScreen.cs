@@ -2,16 +2,20 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// Cook tab of the camp screen. Left = the forge's cooking slots + commit button
-// (CookingPanel); center = the party MATERIAL stash (BackpackPanel over
+// Cook tab of the camp screen. Left = the forge's experimentation slots + commit
+// button (CookingPanel); center = the party MATERIAL stash (BackpackPanel over
 // SimState.PartyMaterialStash), the ingredient source. Materials the party
 // carried in are drained into that stash on camping (GameClient.NotifyCampedAt),
 // so cooking always pulls from it, never from a carried backpack.
 //
-// Tap a material to move one unit into the cooking slots; tap a cooking slot to
-// send one back. The cooked dish (Equipment) is delivered to the party equipment
-// stash or a free hotbar slot — never the material backpack. CampScreen owns the
-// global gating; this screen binds to the forge + stash and toggles visibility.
+// Cooking is INSTANT and per-character — there is no cook job or timer. Eating a
+// meal applies its recipe's status effect to the chosen character (replacing any
+// prior meal) and returns to the camp hub (onMealChosen). Two paths eat:
+//   * Recipe list: tapping a discovered, affordable recipe spends its reagents
+//     from the stash and eats it.
+//   * Experimentation: tap materials into the slots and press Cook — the slot
+//     contents are consumed instantly. A valid match discovers the recipe and
+//     eats it; a failed mix is just wasted ("Yuck").
 [GlobalClass]
 public partial class CookingScreen : Control
 {
@@ -30,12 +34,9 @@ public partial class CookingScreen : Control
 	const string PrimaryHintAction = "ui_select";
 
 	Action _onClose;
-	// Fires once a cook job completes and its output is delivered (CampScreen uses
-	// it to leave camp). Distinct from _onClose, which fires on tab teardown.
-	Action _onCooked;
-	// Fires when the player presses the primary button with the slots empty —
-	// nothing to cook, so "Continue" out of camp. CampScreen wires it to Close.
-	Action _onContinue;
+	// Fires when the chosen character eats a meal (recipe picked, or a successful
+	// experimental cook). CampScreen returns to the hub in response.
+	Action _onMealChosen;
 	Player _player;
 	Campfire _forge;
 
@@ -56,7 +57,6 @@ public partial class CookingScreen : Control
 			_cookingPanel.onPrimaryTap += OnCookingRemoveTap;
 			_cookingPanel.onFocusedItemChanged += OnCookingFocusChanged;
 			_cookingPanel.onCookPressed += OnCookCommit;
-			_cookingPanel.onCancelPressed += OnCookCancel;
 			_cookingPanel.onRecipeSelected += OnRecipeSelected;
 		}
 		_itemInfoPanel?.SetItem(null);
@@ -78,7 +78,6 @@ public partial class CookingScreen : Control
 			_cookingPanel.onPrimaryTap -= OnCookingRemoveTap;
 			_cookingPanel.onFocusedItemChanged -= OnCookingFocusChanged;
 			_cookingPanel.onCookPressed -= OnCookCommit;
-			_cookingPanel.onCancelPressed -= OnCookCancel;
 			_cookingPanel.onRecipeSelected -= OnRecipeSelected;
 		}
 	}
@@ -88,7 +87,7 @@ public partial class CookingScreen : Control
 		_player = player;
 	}
 
-	public void Open(Player player, Campfire forge = null, Action onClose = null, Action onCooked = null, Action onContinue = null)
+	public void Open(Player player, Campfire forge = null, Action onClose = null, Action onMealChosen = null)
 	{
 		if (player != null)
 		{
@@ -96,8 +95,7 @@ public partial class CookingScreen : Control
 		}
 		_forge = forge;
 		_onClose = onClose;
-		_onCooked = onCooked;
-		_onContinue = onContinue;
+		_onMealChosen = onMealChosen;
 		_cookingPanel?.HideAnnouncement();
 		Visible = true;
 		// Auto-highlight priority: a recipe the party can currently cook, else the
@@ -110,7 +108,7 @@ public partial class CookingScreen : Control
 
 	// Choose the initial keyboard/gamepad focus when the tab opens, in priority
 	// order: a recipe the party can currently cook, otherwise the first available
-	// ingredient, otherwise the Cook / Continue button.
+	// ingredient, otherwise the Cook button.
 	void ApplyInitialFocus()
 	{
 		if (!Visible)
@@ -136,11 +134,10 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		ReturnInputsIfIdle();
-		DetachFromCampfire();
+		ReturnInputs();
+		_forge = null;
 		Visible = false;
-		_onCooked = null;
-		_onContinue = null;
+		_onMealChosen = null;
 		Action cb = _onClose;
 		_onClose = null;
 		cb?.Invoke();
@@ -150,8 +147,12 @@ public partial class CookingScreen : Control
 	{
 		if (Visible)
 		{
-			AttachToCampfire();
+			if (_forge != null)
+			{
+				_cookingPanel?.Bind(_forge.CampfireSlots);
+			}
 			RefreshMaterials();
+			RefreshRecipeList();
 			UpdatePrimaryHint();
 		}
 		else
@@ -162,38 +163,12 @@ public partial class CookingScreen : Control
 
 	// ---- Party stash accessors --------------------------------------------
 
-	List<ItemState> MaterialStash => _player?.Sim?.WorldState?.SimState?.PartyMaterialStash;
-	List<ItemState> EquipmentStash => _player?.Sim?.WorldState?.SimState?.PartyEquipmentStash;
+	SimState WorldSim => _player?.Sim?.WorldState?.SimState;
+	List<ItemState> MaterialStash => WorldSim?.PartyMaterialStash;
 
 	void RefreshMaterials()
 	{
 		_backpackPanel?.Refresh(MaterialStash);
-	}
-
-	// ---- Forge binding -----------------------------------------------------
-
-	void AttachToCampfire()
-	{
-		if (_forge == null || _cookingPanel == null)
-		{
-			return;
-		}
-		_cookingPanel.Bind(_forge.CampfireSlots);
-		_forge.deliveryCallback = OnCookOutputDelivered;
-		_forge.onCampfireJobChanged += OnCampfireJobChanged;
-		OnCampfireJobChanged(_forge.ActiveCampfireJob);
-		RefreshRecipeList();
-	}
-
-	void DetachFromCampfire()
-	{
-		if (_forge == null)
-		{
-			return;
-		}
-		_forge.deliveryCallback = null;
-		_forge.onCampfireJobChanged -= OnCampfireJobChanged;
-		_forge = null;
 	}
 
 	void RefreshRecipeList()
@@ -203,7 +178,7 @@ public partial class CookingScreen : Control
 			return;
 		}
 		SimData simData = _player.Sim?.SimData;
-		SimState worldSim = _player.Sim?.WorldState?.SimState;
+		SimState worldSim = WorldSim;
 		if (simData == null)
 		{
 			return;
@@ -228,7 +203,7 @@ public partial class CookingScreen : Control
 	void CookMaterial(int index, int count)
 	{
 		List<ItemState> stash = MaterialStash;
-		if (stash == null || index < 0 || index >= stash.Count || _cookingPanel == null || IsCooking)
+		if (stash == null || index < 0 || index >= stash.Count || _cookingPanel == null)
 		{
 			return;
 		}
@@ -262,7 +237,7 @@ public partial class CookingScreen : Control
 
 	void OnCookingRemoveTap(int index, ItemSlotPanel panel, ItemState item)
 	{
-		if (_cookingPanel == null || IsCooking)
+		if (_cookingPanel == null)
 		{
 			return;
 		}
@@ -277,104 +252,32 @@ public partial class CookingScreen : Control
 		UpdatePrimaryHint();
 	}
 
-	// Reconcile the cooking slots to a clicked recipe: keep what's already right,
-	// return the excess to the material stash, and pull any deficit from it.
+	// Recipe list tap: eat this discovered recipe now — pay its reagents from the
+	// stash and apply its effect to the chosen character — then return to the hub.
+	// An unaffordable recipe's button is disabled upstream, so a spend that still
+	// fails here just declines silently.
 	void OnRecipeSelected(RecipeData recipe)
 	{
-		if (recipe?.inputs == null || _cookingPanel == null || _forge == null || IsCooking)
+		SimState worldSim = WorldSim;
+		if (recipe == null || worldSim == null || !worldSim.IsRecipeDiscovered(recipe))
 		{
 			return;
 		}
-		var remaining = new Dictionary<ItemData, int>();
-		foreach (RecipeInput input in recipe.inputs)
-		{
-			if (input?.item != null && input.count > 0)
-			{
-				remaining[input.item] = input.count;
-			}
-		}
-		IReadOnlyList<ItemState> slots = _cookingPanel.Inputs;
-		for (int i = 0; i < slots.Count; i++)
-		{
-			ItemState s = slots[i];
-			if (s?.data == null || s.stackCount <= 0)
-			{
-				continue;
-			}
-			remaining.TryGetValue(s.data, out int wanted);
-			int keep = Mathf.Min(s.stackCount, wanted);
-			int excess = s.stackCount - keep;
-			if (excess > 0)
-			{
-				ItemState removed = _cookingPanel.TryRemove(i, excess);
-				ItemStash.Add(MaterialStash, removed);
-			}
-			if (wanted > 0)
-			{
-				remaining[s.data] = wanted - keep;
-			}
-		}
-		foreach (var kv in remaining)
-		{
-			if (kv.Value > 0)
-			{
-				LoadIngredientFromStash(kv.Key, kv.Value);
-			}
-		}
-		RefreshMaterials();
-		RefreshRecipeList();
-		UpdatePrimaryHint();
-	}
-
-	// Move up to `amount` units of `itemKind` from the material stash into the
-	// cooking slots. Smallest stacks first so partials consolidate.
-	void LoadIngredientFromStash(ItemData itemKind, int amount)
-	{
-		List<ItemState> stash = MaterialStash;
-		if (itemKind == null || amount <= 0 || _cookingPanel == null || stash == null)
+		if (!worldSim.TrySpendMaterials(recipe.inputs))
 		{
 			return;
 		}
-		var donors = new List<ItemState>();
-		foreach (ItemState s in stash)
-		{
-			if (s?.data == itemKind && s.stackCount > 0)
-			{
-				donors.Add(s);
-			}
-		}
-		donors.Sort((a, b) => a.stackCount.CompareTo(b.stackCount));
-		for (int i = 0; i < donors.Count && amount > 0; i++)
-		{
-			ItemState s = donors[i];
-			int take = Mathf.Min(amount, s.stackCount);
-			int placed = _cookingPanel.TryAdd(s, take);
-			if (placed <= 0)
-			{
-				break;
-			}
-			s.stackCount -= placed;
-			amount -= placed;
-			if (s.stackCount <= 0)
-			{
-				stash.Remove(s);
-			}
-		}
+		EatMeal(recipe);
 	}
 
 	// ---- Cook button -------------------------------------------------------
 
-	bool IsCooking => _forge != null && _forge.ActiveCampfireJob != null;
-
+	// Instant experimentation cook: the loaded slot contents are consumed either
+	// way. A valid match discovers the recipe (no separate "unidentified" phase)
+	// AND eats it, returning to the hub; a failed mix is wasted ("Yuck") and stays.
 	void OnCookCommit()
 	{
-		if (_cookingPanel == null || _player == null || _forge == null || IsCooking)
-		{
-			return;
-		}
-		// One cooked meal per character per day. Backstop — CampScreen already
-		// withholds the Cook tab from a fed member, so this is normally unreachable.
-		if (_player.Member != null && _player.Member.HasEatenToday)
+		if (_cookingPanel == null || _player == null || _forge == null)
 		{
 			return;
 		}
@@ -383,58 +286,58 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		IReadOnlyList<ItemState> inputs = _cookingPanel.Inputs;
-		bool anyInputs = false;
-		for (int i = 0; i < inputs.Count; i++)
+		if (!HasAnyInput())
 		{
-			if (inputs[i] != null && inputs[i].stackCount > 0) { anyInputs = true; break; }
-		}
-		if (!anyInputs)
-		{
-			// Nothing loaded — the primary button reads "Continue"; leave camp.
-			_onContinue?.Invoke();
+			// Nothing loaded — the button does nothing (leaving camp is ui_cancel).
 			return;
 		}
-		Cooking.MatchResult match = Cooking.TryMatch(inputs, simData.recipes, _forge.CampfireType);
-		if (!match.IsValid)
+		Cooking.MatchResult match = Cooking.TryMatch(_cookingPanel.Inputs, simData.recipes, _forge.CampfireType);
+		SimState worldSim = WorldSim;
+		_cookingPanel.DrainInputs();
+		if (!match.IsValid || worldSim == null)
 		{
-			_cookingPanel.DrainInputs();
 			_cookingPanel.ShowAnnouncement("Cooking failed: Yuck!", null);
+			UpdatePrimaryHint();
 			return;
 		}
-		_forge.StartCampfireJob(match.recipe, match.OutputItem);
-	}
-
-	void OnCookCancel()
-	{
-		_forge?.CancelCampfireJob();
-	}
-
-	void OnCampfireJobChanged(CampfireJob job)
-	{
-		if (_cookingPanel != null)
+		if (worldSim.DiscoverRecipe(match.recipe))
 		{
-			float progress = job?.Progress01 ?? 0f;
-			_cookingPanel.SetCookingActive(job != null, progress);
-			if (job == null)
+			// Learned AT the campfire, so commit it to the shared party pool right away
+			// (the same bank a camp visit does) — campfire knowledge is party knowledge,
+			// visible to every character. Discovery otherwise lands only in the active
+			// member's provisional store.
+			worldSim.BankActiveKnowledge();
+		}
+		EatMeal(match.recipe);
+	}
+
+	// Apply a recipe's meal effect to the chosen character (replacing any prior
+	// meal) and hand back to CampScreen, which returns to the hub. Reagents are
+	// already spent by the caller. Meal effects are marked EEffectCategory.Meal, so
+	// RemoveMealStatusEffects clears whatever they last ate before the new one lands.
+	void EatMeal(RecipeData recipe)
+	{
+		if (recipe?.statusEffects != null && _player != null)
+		{
+			_player.RemoveMealStatusEffects();
+			foreach (StatusEffectData effect in recipe.statusEffects)
 			{
-				_cookingPanel.Refresh();
+				if (effect != null)
+				{
+					_player.AddStatusEffect(effect);
+				}
 			}
 		}
-		UpdatePrimaryHint();
+		_onMealChosen?.Invoke();
 	}
 
-	// Reflect the primary (A) action on the commit button and its hint. While a
-	// cook is in flight the button is "Cancel"; idle it flips between "Cook"
-	// (ingredients loaded) and "Continue" (empty slots — a press leaves camp).
+	// The primary (A) action only ever cooks the loaded ingredients; it's
+	// disabled with the slots empty (leaving camp is ui_cancel, not this button).
 	void UpdatePrimaryHint()
 	{
-		string label = IsCooking ? "Cancel" : (HasAnyInput() ? "Cook" : "Continue");
-		_buttonHintPrimary?.SetHint(PrimaryHintAction, label);
-		if (!IsCooking)
-		{
-			_cookingPanel?.SetIdleLabel(HasAnyInput() ? "Cook!" : "Continue");
-		}
+		bool canCook = HasAnyInput();
+		_buttonHintPrimary?.SetHint(PrimaryHintAction, "Cook");
+		_cookingPanel?.SetCookEnabled(canCook);
 	}
 
 	bool HasAnyInput()
@@ -454,70 +357,11 @@ public partial class CookingScreen : Control
 		return false;
 	}
 
-	// Delivered on cook completion while this screen is bound. Cooked dishes are
-	// eaten the instant they come off the fire — the cook consumes the output and
-	// its effects apply immediately, rather than stocking the inventory. A
-	// non-consumable output (or a busy action runner) falls back to delivery:
-	// Equipment goes to a free hotbar slot or the party equipment stash, a
-	// material output to the material stash.
-	void OnCookOutputDelivered(CampfireCompletion completion)
+	// Pull the experimentation slots back into the material stash on close so
+	// nothing is silently lost.
+	void ReturnInputs()
 	{
-		if (completion.output == null || _player == null)
-		{
-			return;
-		}
-		ItemState state = completion.output.CreateState();
-		state.stackCount = 1;
-		if (_player.TryConsumeImmediately(state))
-		{
-			// The cook ate what they made — spend their one meal for the day (the
-			// camp Cook tab is withheld from a fed member until the next sunrise).
-			if (_player.Member != null)
-			{
-				_player.Member.HasEatenToday = true;
-			}
-		}
-		else
-		{
-			DeliverOutput(state);
-		}
-
-		SimState worldSim = _player.Sim?.WorldState?.SimState;
-		string outputName = worldSim != null
-			? worldSim.GetItemDisplayName(completion.output)
-			: completion.output.displayName.ToString();
-		string text = completion.wasNewDiscovery
-			? $"New Recipe Discovered: {outputName}"
-			: $"Cooking Complete: {outputName}";
-		_cookingPanel?.ShowAnnouncement(text, completion.output.inventorySprite);
-		RefreshRecipeList();
-		// A dish came off the fire — hand back to CampScreen (leaves camp). Last, so
-		// the screen's own bookkeeping finishes before any re-entrant teardown.
-		_onCooked?.Invoke();
-	}
-
-	void DeliverOutput(ItemState state)
-	{
-		if (state?.data == null)
-		{
-			return;
-		}
-		if (state.data.IsMaterial)
-		{
-			ItemStash.Add(MaterialStash, state);
-			RefreshMaterials();
-			return;
-		}
-		// Non-material output (a cooked dish not eaten on the spot) goes to the party
-		// equipment stash — there is no consumable hotbar to deliver into anymore.
-		ItemStash.Add(EquipmentStash, state);
-	}
-
-	// Pull the cooking slots back into the material stash — only when no cook is
-	// in flight (mid-cook slots are consumed by the running job).
-	void ReturnInputsIfIdle()
-	{
-		if (_cookingPanel == null || _forge == null || IsCooking)
+		if (_cookingPanel == null || _forge == null)
 		{
 			return;
 		}

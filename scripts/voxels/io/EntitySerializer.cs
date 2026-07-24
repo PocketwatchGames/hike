@@ -242,10 +242,9 @@ public static class EntitySerializer
                 WriteVec3(w, campfire.WorldPosition);
                 WriteScene(w, campfire.Scene);
                 w.Write(campfire.Active);
-                // Transient cooking state (CampfireSlots, ActiveCampfireJob) is
-                // not serialized — open jobs are abandoned and slot
-                // contents reset on world reload. Persisting them would
-                // need stable ItemData refs and recipe wire IDs first.
+                // Transient cooking state (CampfireSlots) is not serialized —
+                // experimentation slot contents reset on world reload.
+                // Persisting them would need stable ItemData refs first.
                 break;
 
             case TorchSimState torch:

@@ -2,19 +2,17 @@ using Godot;
 using Godot.Collections;
 using System.Collections.Generic;
 
-// The grid of cooking input slots, progress bar, and Cook / Cancel commit
+// The grid of experimentation input slots and the Cook / Continue commit
 // button. Like InventoryPanel this script owns only slot/focus/input
-// plumbing — the persistent backing store (the campfire's TorchSimState
+// plumbing — the persistent backing store (the campfire's CampfireSimState
 // CampfireSlots array) lives outside, and the verb behavior (recipe match,
-// item routing, completion delivery) lives in CookingScreen. The screen
-// hands us the slot array on Bind and drives the in-progress UI state via
-// SetCookingProgress / SetCookingActive each frame.
+// reagent spending, pot state) lives in CookingScreen. The screen hands us
+// the slot array on Bind.
 [GlobalClass]
 public partial class CookingPanel : MarginContainer
 {
 	[Export] private Array<ItemSlotPanel> _itemInputs;
 	[Export] private Button _cookButton;
-	[Export] private ProgressBar _cookingProgress;
 	[Export] private Control _announcementContainer;
 	[Export] private Label _announcementLabel;
 	[Export] private TextureRect _announcementIcon;
@@ -43,15 +41,12 @@ public partial class CookingPanel : MarginContainer
 	public System.Action<int, ItemSlotPanel, ItemState> onPrimaryTap;
 	public System.Action<int, ItemSlotPanel, ItemState> onPrimaryHoldComplete;
 
-	// Cook button pressed — fires onCookPressed in idle mode (start a cook
-	// job) and onCancelPressed while a job is in flight (the button label
-	// flips to "Cancel" via SetCookingActive).
+	// Cook button pressed (instant experimentation cook, or Continue when the
+	// slots are empty — the screen decides by its own input state).
 	public System.Action onCookPressed;
-	public System.Action onCancelPressed;
 
-	// A recipe button in the right-hand list was clicked. Screen handles
-	// the item routing (return slot contents to inventory, then load the
-	// recipe's ingredients from inventory into slots).
+	// A recipe button in the right-hand list was clicked. Screen handles the
+	// reagent spend + pot update.
 	public System.Action<RecipeData> onRecipeSelected;
 
 	public ButtonHint ButtonHintPrimary { get; set; }
@@ -62,7 +57,6 @@ public partial class CookingPanel : MarginContainer
 	public ItemSlotPanel FocusedPanel => _focused;
 	public int FocusedIndex => _focused != null && _itemInputs != null ? _itemInputs.IndexOf(_focused) : -1;
 	public bool HoldLocked { get; set; }
-	public bool IsCooking => _cookingActive;
 
 	const float HoldSeconds = 0.5f;
 
@@ -77,12 +71,6 @@ public partial class CookingPanel : MarginContainer
 	float _primaryHold;
 	bool _primaryHoldFired;
 	bool _active;
-	// Mirrors the screen's "a cook is in flight" state — drives the button
-	// label and routes the press to onCancelPressed vs onCookPressed.
-	bool _cookingActive;
-	// Label shown on the commit button while idle. The screen swaps this to
-	// "Continue" when the slots are empty (a press then just leaves camp).
-	string _idleLabel = "Cook!";
 	// Auto-hide countdown for the announcement banner. 0 = hidden / not
 	// counting; positive = currently showing and ticking down each frame.
 	float _announcementRemaining;
@@ -108,13 +96,6 @@ public partial class CookingPanel : MarginContainer
 		{
 			_cookButton.Pressed += OnCookButtonPressed;
 			_cookButton.Text = "Cook!";
-		}
-		if (_cookingProgress != null)
-		{
-			_cookingProgress.MinValue = 0;
-			_cookingProgress.MaxValue = 1;
-			_cookingProgress.Value = 0;
-			_cookingProgress.Visible = false;
 		}
 		HideAnnouncement();
 	}
@@ -183,7 +164,6 @@ public partial class CookingPanel : MarginContainer
 				panel?.SetItem(null);
 			}
 		}
-		SetCookingActive(false, 0f);
 		_lastFocusedItem = null;
 	}
 
@@ -308,32 +288,15 @@ public partial class CookingPanel : MarginContainer
 	// filters to those that (a) match this forge's type and (b) the player
 	// has discovered, and reconciles one Button per discovered recipe.
 	// Diff-based — existing buttons stay alive across refreshes so focus
-	// held on a recipe button survives an inventory mutation. Buttons whose
-	// ingredient demand can't be met by inventory + currently-loaded slots
-	// come back disabled; the click handler swaps slot contents in-place
-	// against the recipe target rather than draining and re-adding, so
-	// items already in the right slots don't visibly flash.
-	public void RefreshRecipes(Array<RecipeData> allRecipes, SimState worldSim, System.Collections.Generic.IEnumerable<ItemState> available, ECampfireType campfireType)
+	// held on a recipe button survives an inventory mutation. A button is
+	// disabled when the party stash can't pay the recipe's reagent cost
+	// (selecting a recipe spends from the stash on the spot, so the slots'
+	// experimental contents don't count).
+	public void RefreshRecipes(Array<RecipeData> allRecipes, SimState worldSim, System.Collections.Generic.IReadOnlyList<ItemState> stash, ECampfireType campfireType)
 	{
 		if (_recipeButtonContainer == null)
 		{
 			return;
-		}
-
-		var combined = new System.Collections.Generic.Dictionary<ItemData, int>();
-		if (available != null)
-		{
-			foreach (ItemState s in available)
-			{
-				AccumulateInto(combined, s);
-			}
-		}
-		if (_slots != null)
-		{
-			for (int i = 0; i < _slots.Length; i++)
-			{
-				AccumulateInto(combined, _slots[i]);
-			}
 		}
 
 		var desired = new System.Collections.Generic.HashSet<RecipeData>();
@@ -346,11 +309,7 @@ public partial class CookingPanel : MarginContainer
 				{
 					continue;
 				}
-				if (!worldSim.IsRecipeDiscovered(recipe))
-				{
-					continue;
-				}
-				if (recipe.outputItem != null)
+				if (worldSim.IsRecipeDiscovered(recipe))
 				{
 					desired.Add(recipe);
 				}
@@ -375,11 +334,8 @@ public partial class CookingPanel : MarginContainer
 			toFree?.QueueFree();
 		}
 
-		// Create missing buttons; refresh the Disabled flag AND the Text on
-		// every entry — Text needs to re-evaluate because the output may
-		// have just been identified (placeholder → real name), which fires
-		// via Inventory.onChanged → RefreshRecipeList → here while the
-		// cooking screen is still open.
+		// Create missing buttons; refresh the Disabled flag on every entry
+		// against the current stash contents.
 		foreach (RecipeData recipe in desired)
 		{
 			if (!_recipeButtons.TryGetValue(recipe, out Button button))
@@ -392,14 +348,7 @@ public partial class CookingPanel : MarginContainer
 			}
 			if (button != null)
 			{
-				button.Disabled = !HasIngredients(recipe, combined);
-				ItemData output = recipe.outputItem;
-				if (output != null)
-				{
-					button.Text = worldSim != null
-						? worldSim.GetItemDisplayName(output)
-						: output.displayName.ToString();
-				}
+				button.Disabled = Cooking.CountAffordable(recipe.inputs, stash) <= 0;
 			}
 		}
 
@@ -409,24 +358,9 @@ public partial class CookingPanel : MarginContainer
 		}
 	}
 
-	static void AccumulateInto(System.Collections.Generic.Dictionary<ItemData, int> totals, ItemState s)
-	{
-		if (s?.data == null || s.stackCount <= 0)
-		{
-			return;
-		}
-		totals.TryGetValue(s.data, out int existing);
-		totals[s.data] = existing + s.stackCount;
-	}
-
 	Button CreateRecipeButton(RecipeData recipe)
 	{
 		if (_recipeButtonScene == null || _recipeButtonContainer == null)
-		{
-			return null;
-		}
-		ItemData output = recipe.outputItem;
-		if (output == null)
 		{
 			return null;
 		}
@@ -435,73 +369,23 @@ public partial class CookingPanel : MarginContainer
 		{
 			return null;
 		}
-		// Text is set by the caller (RefreshRecipes) on every refresh so the
-		// label re-evaluates against the current identification state.
-		button.Icon = output.inventorySprite;
+		button.Text = recipe.displayName.ToString();
+		button.Icon = recipe.icon;
 		RecipeData captured = recipe;
 		button.Pressed += () => onRecipeSelected?.Invoke(captured);
 		_recipeButtonContainer.AddChild(button);
 		return button;
 	}
 
-	// Loads the recipe's exact authored count for each ingredient — the
-	// matcher already accepts anything in [count - range, count + range],
-	// so the target count is always a valid match. Optional ingredients
-	// (count <= 0) don't need to be present, so they don't count toward
-	// "have enough".
-	static bool HasIngredients(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> combined)
+	// Set the commit button's label. The screen uses this to flip between
+	// "Cook!" (ingredients loaded) and "Continue" (slots empty).
+	// Enable/disable the commit button — the screen disables it when the
+	// slots are empty (there's nothing to cook, and the button never leaves camp).
+	public void SetCookEnabled(bool enabled)
 	{
-		if (recipe?.inputs == null)
-		{
-			return false;
-		}
-		for (int i = 0; i < recipe.inputs.Count; i++)
-		{
-			RecipeInput input = recipe.inputs[i];
-			if (input?.item == null)
-			{
-				return false;
-			}
-			int needed = input.count;
-			if (needed <= 0)
-			{
-				continue;
-			}
-			combined.TryGetValue(input.item, out int available);
-			if (available < needed)
-			{
-				return false;
-			}
-		}
-		return true;
-	}
-
-	// Drives the commit button label + progress bar from the screen each
-	// frame: idle = "Cook!" + progress hidden, cooking = "Cancel" + bar
-	// visible at `progress` (0..1).
-	public void SetCookingActive(bool active, float progress)
-	{
-		_cookingActive = active;
 		if (_cookButton != null)
 		{
-			_cookButton.Text = active ? "Cancel" : _idleLabel;
-		}
-		if (_cookingProgress != null)
-		{
-			_cookingProgress.Visible = active;
-			_cookingProgress.Value = Mathf.Clamp(progress, 0f, 1f);
-		}
-	}
-
-	// Set the commit button's idle label (applied only while no cook is in
-	// flight — a running job keeps the "Cancel" label). The screen uses this to
-	// flip between "Cook!" (ingredients loaded) and "Continue" (slots empty).
-	public void SetIdleLabel(string label)
-	{
-		_idleLabel = string.IsNullOrEmpty(label) ? "Cook!" : label;
-		if (!_cookingActive && _cookButton != null)
-		{
-			_cookButton.Text = _idleLabel;
+			_cookButton.Disabled = !enabled;
 		}
 	}
 
@@ -525,11 +409,6 @@ public partial class CookingPanel : MarginContainer
 
 	void OnPanelButtonDown(ItemSlotPanel panel)
 	{
-		// Mid-cook the inputs are frozen — ignore button presses on slots.
-		if (_cookingActive)
-		{
-			return;
-		}
 		_primaryPressed = panel;
 		_primaryHold = 0f;
 		_primaryHoldFired = false;
@@ -544,7 +423,7 @@ public partial class CookingPanel : MarginContainer
 		bool fired = _primaryHoldFired;
 		_primaryHold = 0f;
 		_primaryHoldFired = false;
-		if (fired || HoldLocked || !_active || _cookingActive)
+		if (fired || HoldLocked || !_active)
 		{
 			return;
 		}
@@ -566,23 +445,16 @@ public partial class CookingPanel : MarginContainer
 		{
 			return;
 		}
-		if (_cookingActive)
-		{
-			onCancelPressed?.Invoke();
-		}
-		else
-		{
-			onCookPressed?.Invoke();
-		}
+		onCookPressed?.Invoke();
 	}
 
 	public override void _Process(double delta)
 	{
 		float dt = (float)delta;
-		// Announcement auto-hide ticks independently of _active / cooking
-		// state so the banner can finish its fade even after a screen
-		// close-and-reopen, but Unbind() / Open() reset it explicitly so
-		// stale text doesn't survive into a new session.
+		// Announcement auto-hide ticks independently of _active so the banner
+		// can finish its fade even after a screen close-and-reopen, but
+		// Unbind() / Open() reset it explicitly so stale text doesn't survive
+		// into a new session.
 		if (_announcementRemaining > 0f)
 		{
 			_announcementRemaining -= dt;
@@ -591,7 +463,7 @@ public partial class CookingPanel : MarginContainer
 				HideAnnouncement();
 			}
 		}
-		if (!_active || _cookingActive)
+		if (!_active)
 		{
 			return;
 		}

@@ -7,6 +7,13 @@
 [ext_resource type="Resource" uid="uid://ct4ntwjta4pai" path="res://resources/data/characters/human/anim_sets/unarmed.tres" id="7_unarmed"]
 [ext_resource type="Resource" uid="uid://b8nf3qkxr7m2p" path="res://resources/data/items/weapons/fists.tres" id="8_fists"]
 [ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/consumables/lantern.tres" id="9_lantern"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="10_outfit_script"]
+[ext_resource type="Resource" path="res://resources/data/characters/outfits/mage.tres" id="11_outfit_mage"]
+[ext_resource type="Resource" path="res://resources/data/characters/outfits/fighter.tres" id="12_outfit_fighter"]
+[ext_resource type="Resource" path="res://resources/data/characters/outfits/hunter.tres" id="13_outfit_hunter"]
+[ext_resource type="Resource" path="res://resources/data/characters/outfits/knight.tres" id="14_outfit_knight"]
+[ext_resource type="Resource" path="res://resources/data/characters/outfits/swordsman.tres" id="15_outfit_swordsman"]
+[ext_resource type="Resource" path="res://resources/data/characters/outfits/archer.tres" id="16_outfit_archer"]
 
 [resource]
 script = ExtResource("1_mknwc")
@@ -49,3 +56,11 @@ hotStatus = ExtResource("5_hot")
 wetnessDrySeconds = 60.0
 dryRateHumidityDamping = 0.8
 wetnessArmorCascadeRate = 0.1
+outfits = Dictionary[StringName, ExtResource("10_outfit_script")]({
+&"archer": ExtResource("16_outfit_archer"),
+&"fighter": ExtResource("12_outfit_fighter"),
+&"hunter": ExtResource("13_outfit_hunter"),
+&"knight": ExtResource("14_outfit_knight"),
+&"mage": ExtResource("11_outfit_mage"),
+&"swordsman": ExtResource("15_outfit_swordsman")
+})

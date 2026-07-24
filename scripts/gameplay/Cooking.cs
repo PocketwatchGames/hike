@@ -38,7 +38,6 @@ public static class Cooking
 			this.recipe = recipe;
 		}
 		public bool IsValid => recipe != null;
-		public ItemData OutputItem => recipe?.outputItem;
 	}
 
 	public static MatchResult TryMatch(IReadOnlyList<ItemState> inputs, Array<RecipeData> recipes, ECampfireType campfireType)
@@ -237,16 +236,5 @@ public static class Cooking
 			affordable = System.Math.Min(affordable, have / r.count);
 		}
 		return affordable == int.MaxValue ? 0 : affordable;
-	}
-
-	// Record discovery via the SimState bus so the announcement
-	// pipeline picks up the first-time discovery.
-	public static void RecordDiscovery(SimState sim, in MatchResult match)
-	{
-		if (sim == null || !match.IsValid)
-		{
-			return;
-		}
-		sim.DiscoverRecipe(match.recipe);
 	}
 }

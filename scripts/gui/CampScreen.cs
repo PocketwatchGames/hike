@@ -28,21 +28,24 @@ public partial class CampScreen : Control
 		Sleep,
 		Party,
 		Spell,
+		Cook,
 	}
 
 	[Export] SleepScreen _sleepScreen;
 	[Export] PartyScreen _partyScreen;
 	[Export] Control _campRoot;
 	[Export] SpellSelectionScreen _spellSelectionScreen;
+	[Export] CookingScreen _cookingScreen;
 	// CampRoot hub buttons.
 	[Export] Button _sleepButton;
 	[Export] Button _characterButton;
 	[Export] Button _spellButton;
+	[Export] Button _cookButton;
 	[Export] Button _leaveButton;
 	// Persistent chosen-character readout.
 	[Export] Label _chosenName;
 	[Export] TextureRect _chosenPortrait;
-	[Export] TextureRect _chosenArmor;
+	[Export] TextureRect _chosenClass;
 	[Export] TextureRect _chosenMelee;
 	[Export] TextureRect _chosenRanged;
 	[Export] Label _chosenStatus;
@@ -50,11 +53,16 @@ public partial class CampScreen : Control
 	[Export] Label _noSpellLabel;
 	[Export] Control _noSpellPanel;
 	[Export] ItemInfoPanel _chosenSpellPanel;
-	// The two persistent readout blocks, hidden on the sub-screen that already
+	// The persistent readout blocks, hidden on the sub-screen that already
 	// shows that info: the character block hides on Select-Character; the spell
 	// block hides on Select-Character and Select-Spell.
 	[Export] Control _playerChosenPanel;
 	[Export] Control _spellChosenPanel;
+	// Persistent per-character meal readout (lower right): the active food status
+	// effect the chosen character ate today. The whole block hides when they have
+	// no active meal (see RefreshCookpotPanel).
+	[Export] Control _cookpotChosenPanel;
+	[Export] StatusEffectInfoPanel _cookpotInfoPanel;
 
 	GameClient _gameClient;
 	Player _player;
@@ -78,6 +86,11 @@ public partial class CampScreen : Control
 	// previous pick on the Select-Spell screen after a night's rest clears the
 	// active attunement.
 	SpellData _lastChosenSpell;
+	// One-shot: the guided arrival flow still owes its meal step (offer the cook
+	// screen once, after the character + spell picks). Set when a guided flow starts,
+	// cleared when the meal step is shown so eating/backing out lands on the hub
+	// rather than re-offering the cook screen.
+	bool _guidedMealPending;
 
 	// The sim-side party roster — source of the per-day leader pick (IsLeaderChosenToday,
 	// reset by the day-roll in Sim.RequireLeaderChoice). The reset lives in sim so it
@@ -108,12 +121,16 @@ public partial class CampScreen : Control
 		}
 	}
 
+	// Cooking needs a bound campfire (the death select opens without one).
+	bool CanCook => _forge != null;
+
 	public override void _Ready()
 	{
 		Visible = false;
 		if (_sleepButton != null) { _sleepButton.Pressed += OnSleepButton; }
 		if (_characterButton != null) { _characterButton.Pressed += OnCharacterButton; }
 		if (_spellButton != null) { _spellButton.Pressed += OnSpellButton; }
+		if (_cookButton != null) { _cookButton.Pressed += OnCookButton; }
 		if (_leaveButton != null) { _leaveButton.Pressed += OnLeaveButton; }
 	}
 
@@ -122,6 +139,7 @@ public partial class CampScreen : Control
 		if (_sleepButton != null) { _sleepButton.Pressed -= OnSleepButton; }
 		if (_characterButton != null) { _characterButton.Pressed -= OnCharacterButton; }
 		if (_spellButton != null) { _spellButton.Pressed -= OnSpellButton; }
+		if (_cookButton != null) { _cookButton.Pressed -= OnCookButton; }
 		if (_leaveButton != null) { _leaveButton.Pressed -= OnLeaveButton; }
 	}
 
@@ -189,14 +207,17 @@ public partial class CampScreen : Control
 		else
 		{
 			// New day or death reset the pick: run the guided flow to force it.
+			_guidedMealPending = true;
 			AdvanceGuidedFlow();
 		}
 	}
 
-	// Guided arrival flow: force the required picks in order — choose a character,
-	// then (if none is attuned) choose a spell — before landing on the hub with Leave
-	// Camp focused. Re-run after each pick and on a new day's wake; manual ui_cancel /
-	// almanac return go straight to the hub without re-triggering it.
+	// Guided flow: prompt for whatever's missing, in order — choose a character, then
+	// (if none is attuned) choose a spell, then (if none is eaten) offer the cook screen
+	// once — before landing on the hub with Leave Camp focused. Each step is skipped when
+	// already settled, so it drives both the start-of-day arrival and a mid-camp switch to
+	// a member lacking a spell/meal. Re-run after each pick and on a new day's wake; manual
+	// ui_cancel / almanac return go straight to the hub without re-triggering it.
 	void AdvanceGuidedFlow()
 	{
 		RefreshChosenPanel();
@@ -208,6 +229,15 @@ public partial class CampScreen : Control
 		if (AnySpellKnown && ChosenPlayer()?.Inventory?.AttunedSpell == null)
 		{
 			ShowView(ECampView.Spell);
+			return;
+		}
+		// Character + spell settled — offer the meal step once for a member who hasn't
+		// eaten today (a lit forge is required to cook). Eating or backing out lands on
+		// the hub; the one-shot guard keeps a decline from re-opening it.
+		if (_guidedMealPending && CanCook && ChosenPlayer()?.ActiveMealEffect == null)
+		{
+			_guidedMealPending = false;
+			ShowView(ECampView.Cook);
 			return;
 		}
 		// Everything chosen — land on the hub and focus Leave Camp (queued after
@@ -273,6 +303,9 @@ public partial class CampScreen : Control
 			case ECampView.Spell:
 				_spellSelectionScreen?.Close();
 				break;
+			case ECampView.Cook:
+				_cookingScreen?.Close();
+				break;
 		}
 	}
 
@@ -300,13 +333,29 @@ public partial class CampScreen : Control
 				// agree even before the on-close control transfer.
 				_spellSelectionScreen?.Open(ChosenPlayer(), _forge, OnSpellChosen, PreferredSpell());
 				break;
+			case ECampView.Cook:
+				// Eating a meal (picking a recipe, or a successful experimental cook)
+				// applies its effect to the chosen character and returns to the hub;
+				// the cook button only cooks the loaded ingredients, and ui_cancel
+				// backs out to the hub.
+				_cookingScreen?.Open(ChosenPlayer(), _forge, onMealChosen: OnMealChosen);
+				break;
 		}
 	}
 
 	void OnSleepButton() { ShowView(ECampView.Sleep); }
 	void OnCharacterButton() { ShowView(ECampView.Party); }
 	void OnSpellButton() { if (AnySpellKnown) { ShowView(ECampView.Spell); } }
+	void OnCookButton() { if (CanCook) { ShowView(ECampView.Cook); } }
 	void OnLeaveButton() { TryLeave(); }
+
+	// CookingScreen callback: the chosen character ate a meal (its effect is already
+	// applied). Return to the hub with Leave Camp focused so a confirm heads out.
+	void OnMealChosen()
+	{
+		ShowView(ECampView.Root);
+		_leaveButton?.CallDeferred(Control.MethodName.GrabFocus);
+	}
 
 	// Leave camp — gated on a chosen character (the Leave button is disabled and
 	// ui_cancel from the hub is a no-op until then).
@@ -321,18 +370,16 @@ public partial class CampScreen : Control
 	void UpdateHubButtons()
 	{
 		if (_spellButton != null) { _spellButton.Disabled = !AnySpellKnown; }
+		if (_cookButton != null) { _cookButton.Disabled = !CanCook; }
 		if (_leaveButton != null) { _leaveButton.Disabled = !_characterChosen; }
 	}
 
 	// PartyScreen pick callback. Marks the character chosen for this camp; if the
 	// controlled character was a corpse (death select) control transfers to the pick
 	// now (the corpse can't stay controlled), otherwise it defers to camp close.
-	// Returns to the hub.
+	// Runs the guided flow for the pick (see below).
 	void OnCharacterChosen()
 	{
-		// A pick made during the forced flow (nobody committed yet) continues on to the
-		// spell step; a manual mid-camp switch just returns to the hub.
-		bool wasGuided = !_characterChosen;
 		if (_deathSelect && _gameClient != null)
 		{
 			_player?.ExitCamp();
@@ -345,17 +392,19 @@ public partial class CampScreen : Control
 		_deathSelect = false;
 		_characterChosen = true;
 		SimParty?.MarkLeaderChosen();
-		if (wasGuided)
-		{
-			// Forced flow continues — if no spell is attuned yet, straight to the spell screen.
-			AdvanceGuidedFlow();
-		}
-		else
-		{
-			// Manual switch during a plain camp — back to the hub, don't force a spell pick.
-			ShowView(ECampView.Root);
-			_leaveButton?.CallDeferred(Control.MethodName.GrabFocus);
-		}
+		// Selecting a member AT the campfire commits their provisional field knowledge to
+		// the shared party pool — the same bank a camp visit does. Knowledge is shared by
+		// banking at the campfire, not by unioning the just-selected member's provisional
+		// store into reads, so what one character learned is available to whoever the
+		// player switches to next. (Banks Party.Active, which the pick just set.)
+		_player?.Sim?.WorldState?.SimState?.BankActiveKnowledge();
+		// Whether this was the forced arrival flow or a manual mid-camp switch, run the
+		// guided flow for the newly-chosen character: a member without an attuned spell /
+		// eaten meal is prompted for the missing one(s) before landing on the hub — the
+		// same steps as the start-of-day flow. AdvanceGuidedFlow skips whatever's already
+		// settled, so a fully-equipped switch just lands on the hub with Leave focused.
+		_guidedMealPending = true;
+		AdvanceGuidedFlow();
 	}
 
 	// SpellSelectionScreen pick callback: the spell was attuned on that screen.
@@ -407,6 +456,7 @@ public partial class CampScreen : Control
 		_characterChosen = SimParty?.IsLeaderChosenToday ?? _characterChosen;
 		if (!_characterChosen)
 		{
+			_guidedMealPending = true;
 			AdvanceGuidedFlow();
 			return;
 		}
@@ -431,8 +481,11 @@ public partial class CampScreen : Control
 	}
 
 	// Hide the persistent readouts on the sub-screen that already presents that
-	// info: the character block on Select-Character, the spell block on
-	// Select-Character and Select-Spell. Visible on the hub and Sleep views.
+	// info: the character block on Select-Character; the spell block on
+	// Select-Character and Select-Spell (which shows its own picker). The spell stays
+	// visible on Cook so the attuned spell reads alongside the recipe list. The meal
+	// block's own visibility (RefreshCookpotPanel) also factors the view in, so just
+	// refresh it here.
 	void UpdateChosenPanelVisibility()
 	{
 		if (_playerChosenPanel != null)
@@ -443,6 +496,7 @@ public partial class CampScreen : Control
 		{
 			_spellChosenPanel.Visible = _view != ECampView.Party && _view != ECampView.Spell;
 		}
+		RefreshCookpotPanel();
 	}
 
 	void RefreshChosenPanel()
@@ -453,7 +507,7 @@ public partial class CampScreen : Control
 			_chosenName.Text = chosen != null ? chosen.PlayerName : "No character selected";
 		}
 		Inventory inv = chosen?.Inventory;
-		SetIcon(_chosenArmor, inv?.GetEquipped(EInventorySlot.Armor)?.data?.inventorySprite);
+		SetIcon(_chosenClass, chosen?.Member?.icon);
 		SetIcon(_chosenMelee, inv?.GetEquipped(EInventorySlot.WeaponMelee)?.data?.inventorySprite);
 		SetIcon(_chosenRanged, inv?.GetEquipped(EInventorySlot.WeaponRanged)?.data?.inventorySprite);
 		// No portrait art for player characters yet — keep the slot blank.
@@ -463,6 +517,28 @@ public partial class CampScreen : Control
 			_chosenStatus.Text = (chosen?.Member?.IsWellRested ?? false) ? "Well Rested" : string.Empty;
 		}
 		RefreshChosenSpell(chosen);
+		RefreshCookpotPanel();
+	}
+
+	// The persistent meal readout shows the chosen character's active food status
+	// effect (the recipe they last ate today, EEffectCategory.Meal). Shown only once
+	// a character is committed AND they have an active meal effect — a character who
+	// hasn't eaten today (the effect expired at sunrise, or they never ate) hides the
+	// whole block. Also hidden on the Select-Character view (like the other readouts).
+	void RefreshCookpotPanel()
+	{
+		StatusEffectData meal = _characterChosen ? ChosenPlayer()?.ActiveMealEffect : null;
+		bool show = meal != null && _view != ECampView.Party;
+		if (_cookpotChosenPanel != null)
+		{
+			_cookpotChosenPanel.Visible = show;
+		}
+		// StatusEffectInfoPanel.SetStatusEffect is a no-op on null (keeps its last
+		// content), so only push when there's a meal — the block is hidden otherwise.
+		if (show && _cookpotInfoPanel != null)
+		{
+			_cookpotInfoPanel.SetStatusEffect(meal);
+		}
 	}
 
 	void RefreshChosenSpell(Player chosen)

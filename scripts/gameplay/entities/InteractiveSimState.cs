@@ -57,17 +57,10 @@ public class CampfireSimState : EntitySimState
     // campfire). Lighting one douses all others so only one is ever Active.
     public bool Active = false;
 
-    // Persistent cooking inputs. Campfire reads/writes through this array so
-    // contents survive CookingScreen open/close; idle-close returns them
-    // to the player's inventory, mid-cook close leaves them for the active
-    // job to consume.
+    // Persistent experimentation inputs. Campfire reads/writes through this
+    // array so contents survive CookingScreen open/close; closing the screen
+    // returns them to the party material stash.
     public ItemState[] CampfireSlots = new ItemState[CampfireSlotCount];
-
-    // Non-null while a cook job is in flight. Campfire._PhysicsProcess ticks
-    // remainingSeconds; on completion the slots are drained and the output
-    // is delivered through the bound CookingScreen (if any) or spawned as
-    // Loot at the forge's position.
-    public CampfireJob ActiveCampfireJob;
 
     public CampfireSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
@@ -77,37 +70,6 @@ public class CampfireSimState : EntitySimState
     public override Node3D CreateEntity(Sim sim)
     {
         return Campfire.Create(sim, this);
-    }
-}
-
-// Active cook job — recipe + timer + output preview. Owned by
-// CampfireSimState; the forge's runtime entity ticks the timer. Discovery
-// flags aren't tracked here — Campfire.CompleteCampfireJob computes them against
-// the live SimState at the moment the cook actually finishes, so a
-// cancelled cook doesn't leak credit and an offscreen completion still
-// records correctly.
-public class CampfireJob
-{
-    public RecipeData recipe;
-    public ItemData outputItem;
-    // Authoritative completion deadline on the sim clock (GameTimeMs).
-    // remainingSeconds is derived from it each tick purely for the cooking
-    // screen's progress bar.
-    public ulong endTimeMs;
-    public float remainingSeconds;
-    public float totalSeconds;
-
-    public float Progress01
-    {
-        get
-        {
-            if (totalSeconds <= 0f)
-            {
-                return 0f;
-            }
-            float elapsed = totalSeconds - remainingSeconds;
-            return Godot.Mathf.Clamp(elapsed / totalSeconds, 0f, 1f);
-        }
     }
 }
 

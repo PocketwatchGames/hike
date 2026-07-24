@@ -147,6 +147,6 @@ displayName = &"Forge"
 identifyMode = 1
 icon = ExtResource("15_mapicon")
 hasActiveState = true
-iconModulate = Color(0, 0, 0, 1)
+iconModulate = Color(0.3, 0.3, 0.3, 0.5)
 activeModulate = Color(0.5, 0.1, 1, 1)
 _discoverable = NodePath("../Discoverable")

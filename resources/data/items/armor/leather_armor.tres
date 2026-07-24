@@ -18,10 +18,9 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("2_bvjtb")
-maxArmor = 200.0
+maxArmor = 100.0
 modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("Resource_bvjtb")])
-wornMeshNamesFemale = PackedStringArray("F_Fighter_Top", "F_Fighter_Bottom")
-wornMeshNamesMale = PackedStringArray("M_Fighter_Top", "M_Fighter_Bottom")
+outfit = &"fighter"
 displayName = &"Leather Armor"
 description = "Protects against nicks and scratches."
 value = 25

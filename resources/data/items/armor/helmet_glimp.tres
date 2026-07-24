@@ -15,6 +15,7 @@ script = ExtResource("1_armor")
 maxArmor = 40.0
 armorSlot = 1
 modifiers = Array[ExtResource("m_script")]([SubResource("m_nightvision")])
+outfit = null
 displayName = &"Glimp Visor"
 description = "Luminous lenses pierce the gloom, granting sight in near-total darkness."
 value = 40

@@ -99,5 +99,5 @@ script = ExtResource("13_mapmarker")
 displayName = &"Knowledge Stone"
 icon = ExtResource("14_mapicon")
 hasActiveState = true
-iconModulate = Color(0.5, 0.5, 0.5, 0.6)
+iconModulate = Color(0.3, 0.3, 0.3, 0.5)
 activeModulate = Color(1, 1, 1, 1)

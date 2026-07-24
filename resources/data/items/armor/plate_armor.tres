@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ArmorData" format=3]
+[gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://bihoc0gmx5g3m"]
 
 [ext_resource type="Texture2D" uid="uid://bihqgais5fhrf" path="res://assets/textures/items/BonesteelArmor.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
@@ -30,10 +30,9 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("2_armor")
-maxArmor = 600.0
+maxArmor = 300.0
 modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_speed"), SubResource("m_fire"), SubResource("m_stamina")])
-wornMeshNamesFemale = PackedStringArray("F_Knight_Top", "F_Knight_Bottom", "F_Knight_Pauldrons", "F_Knight_Skirt")
-wornMeshNamesMale = PackedStringArray("M_Knight_Top", "M_Knight_Bottom", "M_Knight_Pauldrons")
+outfit = &"knight"
 displayName = &"Plate Armor"
 description = "A full harness of shaped steel — the best protection coin can buy, if you can bear the weight."
 value = 150

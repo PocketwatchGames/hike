@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="OutfitData" format=3]
+
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="1_outfit"]
+
+[resource]
+script = ExtResource("1_outfit")
+bodyMeshNamesFemale = PackedStringArray("F_Knight_Top", "F_Knight_Bottom", "F_Knight_Pauldrons", "F_Knight_Skirt")
+bodyMeshNamesMale = PackedStringArray("M_Knight_Top", "M_Knight_Bottom", "M_Knight_Pauldrons")

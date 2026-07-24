@@ -1,9 +1,7 @@
 using Godot;
 
 // Teaches a recipe — adds it to SimState.DiscoveredRecipes so it
-// shows up in the cookbook / forge UI before the player has ever cooked
-// it, AND identifies the recipe's output item so the cookbook button
-// reads with its real name instead of "Unknown Food".
+// shows up in the cookbook / forge UI before the player has ever cooked it.
 //
 // Standard and high-quality variants of a dish are separate RecipeData
 // files, so a "scroll of grilled kun kun" teaches the
@@ -17,7 +15,7 @@ public partial class RecipeTeachable : TeachableConcept
 
     public override string GetDisplayName()
     {
-        return recipe?.outputItem != null ? recipe.outputItem.displayName.ToString() : string.Empty;
+        return recipe?.displayName.ToString() ?? string.Empty;
     }
 
     public override bool Teach(Player player)
@@ -31,10 +29,7 @@ public partial class RecipeTeachable : TeachableConcept
         {
             return false;
         }
-        // identifyOutput=true silently identifies the output item before
-        // the recipe banner fires, so the banner reads with the real name
-        // (no separate redundant "Item Identified" banner follows).
-        return sim.DiscoverRecipe(recipe, identifyOutput: true);
+        return sim.DiscoverRecipe(recipe);
     }
 
     public override bool IsKnown(Player player)

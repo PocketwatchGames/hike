@@ -158,7 +158,7 @@ damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 })
 actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
-blockArmor = 100.0
+blockArmor = 250.0
 blockArmorRechargeDelay = 2.0
 parryTimeMs = 350
 maxParryDamage = 300.0

@@ -24,10 +24,9 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("2_armor")
-maxArmor = 350.0
+maxArmor = 150.0
 modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_noise"), SubResource("m_stamina")])
-wornMeshNamesFemale = PackedStringArray("F_Swordsman_Top", "F_Swordsman_Bottom")
-wornMeshNamesMale = PackedStringArray("M_Swordsman_Top", "M_Swordsman_Bottom")
+outfit = &"swordsman"
 displayName = &"Chainmail"
 description = "Interlocking steel rings turn a blade's edge, though the links jingle with every step."
 value = 60

@@ -18,26 +18,12 @@ public partial class ArmorData : ItemData
 	//   { Fire,          0.5 } — fire-warded plate (halves fire damage)
 	[Export] public Godot.Collections.Array<StatModifier> modifiers;
 
-	// Names of the MeshInstance3D parts this piece shows on the player's 3D
-	// model while equipped, replacing that slot's bare-body default — a body
-	// piece names its torso+legs outfit meshes, a head piece its helmet/hood.
-	// Player.UpdateArmorVisual composites these per slot; empty = the slot falls
-	// back to the bare body (no visual change on equip).
-	//
-	// Split by gender because the two rigs prefix their parts differently (Female
-	// F_, Male M_) and the outfits don't map by a simple prefix swap (the Male
-	// Mage has no cape, the Male Knight no skirt), so each set names its own rig's
-	// meshes. GetWornMeshNames resolves the live gender; an empty set for a gender
-	// leaves that rig on its bare body (author both to dress both bodies).
-	[Export] public string[] wornMeshNamesFemale = System.Array.Empty<string>();
-	[Export] public string[] wornMeshNamesMale = System.Array.Empty<string>();
-
-	// The worn-mesh set for the spawned body type. Empty when this piece isn't
-	// authored for that gender — the compositor then keeps the bare body.
-	public string[] GetWornMeshNames(EGender gender)
-	{
-		return gender == EGender.Male ? wornMeshNamesMale : wornMeshNamesFemale;
-	}
+	// The outfit shown on the player's 3D model while this piece is equipped —
+	// a key into PlayerData.outfits, the central mesh-name registry. A body
+	// piece draws the outfit's body meshes, a head piece its head meshes; empty
+	// = no visual change on equip (the slot falls back to the class outfit /
+	// bare body).
+	[Export] public StringName outfit;
 
 	public override ItemState CreateState()
 	{

@@ -10,6 +10,7 @@ public partial class PlayerStatsPanel : PanelContainer
 	[Export] private PackedScene _statScene;
 	[Export] private PackedScene _statusEffectInfoScene;
 	[Export] private Control _statusEffectContainer;
+	[Export] private TextureRect _playerClassIcon;
 
 	Player _player;
 
@@ -52,11 +53,21 @@ public partial class PlayerStatsPanel : PanelContainer
 			ClearStatPanels();
 			return;
 		}
-		// Name is fixed for the run, so set it once here rather than every
-		// per-frame Refresh.
+		// Name / class / icon are fixed for the run, so set them once here rather
+		// than every per-frame Refresh.
 		if (_nameLabel != null)
 		{
 			_nameLabel.Text = player.PlayerName;
+		}
+		PlayerState member = player.Member;
+		if (_descriptionLabel != null)
+		{
+			_descriptionLabel.Text = member?.characterClass ?? string.Empty;
+		}
+		if (_playerClassIcon != null)
+		{
+			_playerClassIcon.Texture = member?.icon;
+			_playerClassIcon.Visible = member?.icon != null;
 		}
 		Refresh();
 	}

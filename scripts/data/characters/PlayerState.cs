@@ -20,6 +20,7 @@ public partial class PlayerState : Resource
 	// rather than localized (names aren't translated). Blank falls back to the
 	// Player's default name.
 	[Export] public string characterName = "Wyatt Anderson";
+	[Export] public string characterClass = "Adventurer";
 
 	// Body type this member spawns as. Selects which base character model
 	// renders (Player.Initialize looks it up in the player scene's per-gender
@@ -35,6 +36,12 @@ public partial class PlayerState : Resource
 	[Export] public int skinTone;
 	[Export] public int hairColor;
 	[Export] public int hairStyle;
+	// Class icon, shown wherever the member's class is presented.
+	[Export] public Texture2D icon;
+	// The class outfit shown on the 3D model — a key into PlayerData.outfits,
+	// the central mesh-name registry. Covers body and (optionally) head; empty
+	// = bare body. Equipped armor with its own outfit still overrides per slot.
+	[Export] public StringName outfit;
 
 	[ExportGroup("Stats")]
 	// The character sheet, folded into the shared stat-compose pipeline when
@@ -49,13 +56,25 @@ public partial class PlayerState : Resource
 	//   stealth          — quiets the player's emissions (Noise + Scent); higher = stealthier.
 	//   fortitude        — resists incoming combat status buildup (via EStat.FortitudeResistance); higher = more resistant.
 	[Export] public float health = 1f;
+	// Innate max-armor pool granted by the class. Summed with any equipped
+	// armor in Player.RecalculateMaxArmor.
+	[Export] public float maxArmor;
 	[Export(PropertyHint.Range, "0,10,1")] public float stamina = 3f;
 	[Export] public float fortitude = 1f;
 	[Export] public float strength = 1f;
 	[Export] public float perception = 1f;
 	[Export] public float stealth = 1f;
 
-	[ExportGroup("Starting Equipment")]
+	// Passive stat modifications, folded into every stat compose alongside
+	// PlayerData, equipped-armor, and status-effect modifiers (see
+	// ArmorData.modifiers for authoring examples).
+	[Export] public Array<StatModifier> modifiers;
+
+	// Passive status effects intrinsic to this character (perks / afflictions),
+	// applied to the Player when this member is spawned / becomes controlled.
+	[Export] public Array<StatusEffectData> traits = new();
+
+	[ExportGroup("Inventory")]
 	// This member's starting loadout. Moved off WorldGenData (it was a shared
 	// single-character loadout) so each party member carries their own gear.
 	// Player.Initialize seeds these into the member's inventory at spawn.
@@ -69,11 +88,6 @@ public partial class PlayerState : Resource
 	// Items added to the backpack at spawn. Each entry's count is split into
 	// maxStack-sized stacks. No equip / hotbar placement.
 	[Export] public ItemCount[] startingInventory = System.Array.Empty<ItemCount>();
-
-	[ExportGroup("Traits")]
-	// Passive status effects intrinsic to this character (perks / afflictions),
-	// applied to the Player when this member is spawned / becomes controlled.
-	[Export] public Array<StatusEffectData> traits = new();
 
 	// Runtime (not authored): this member's PROVISIONAL individual knowledge —
 	// items/recipes/species/regions/languages learned in the field while this
@@ -99,12 +113,6 @@ public partial class PlayerState : Resource
 	// the member is destroyed permanently. 0 = no pending deadline (alive, or not
 	// yet assigned).
 	public int ReviveByDay;
-
-	// Runtime (not authored): true once this member has eaten a cooked dish today.
-	// Each character may cook and eat once per day; the camp Cook tab is withheld
-	// from a member who already has. Cleared for the whole party at each sunrise
-	// (GameClient handles Sim.OnNewDay).
-	public bool HasEatenToday;
 
 	// Runtime (not authored): days since this member was last the active
 	// (controlled) character — the "rest" counter the well-rested lottery weights

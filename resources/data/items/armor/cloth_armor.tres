@@ -18,10 +18,9 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("2_armor")
-maxArmor = 80.0
+maxArmor = 50.0
 modifiers = Array[ExtResource("m_script")]([SubResource("m_speed"), SubResource("m_noise")])
-wornMeshNamesFemale = PackedStringArray("F_Mage_Top", "F_Mage_Bottom", "F_Mage_Cape")
-wornMeshNamesMale = PackedStringArray("M_Warlock_Top", "M_Warlock_Bottom", "M_Warlock_Cape")
+outfit = &"mage"
 displayName = &"Cloth Armor"
 description = "Little more than layered robes — light and quiet, but it stops nothing."
 value = 10

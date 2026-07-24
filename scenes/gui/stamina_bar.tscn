@@ -14,7 +14,7 @@ corner_detail = 6
 
 [node name="StaminaBar" type="ProgressBar" unique_id=1330991845]
 custom_minimum_size = Vector2(0, 12)
-size_flags_horizontal = 3
+size_flags_horizontal = 0
 theme_override_styles/fill = SubResource("StyleBoxFlat_stam0")
 max_value = 1.0
 value = 1.0

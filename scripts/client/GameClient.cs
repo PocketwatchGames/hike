@@ -1092,17 +1092,12 @@ public partial class GameClient : Node3D
 	void OnSimRecipeDiscovered(RecipeData recipe)
 	{
 		if (recipe == null) { return; }
-		ItemData output = recipe.outputItem;
-		SimState sim = _world?.WorldState?.SimState;
-		string name = output == null
-			? string.Empty
-			: (sim != null ? sim.GetItemDisplayName(output) : output.displayName.ToString());
 		Announce(new Announcement
 		{
 			type = EAnnouncementType.Recipe,
 			title = "Recipe Discovered",
-			subtitle = name,
-			icon = output?.inventorySprite,
+			subtitle = recipe.displayName.ToString(),
+			icon = recipe.icon,
 		});
 	}
 

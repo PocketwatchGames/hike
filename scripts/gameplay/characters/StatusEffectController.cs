@@ -548,6 +548,25 @@ public class StatusEffectController
 		}
 	}
 
+	// The character's currently-active meal effect (EEffectCategory.Meal), or null.
+	// At most one is active at a time (a new meal clears the prior via
+	// RemoveByCategory(Meal)), so the first match is the meal.
+	public StatusEffectData ActiveMealEffect
+	{
+		get
+		{
+			for (int i = 0; i < _statusEffects.Count; i++)
+			{
+				StatusEffectData data = _statusEffects[i]?.data;
+				if (data != null && (data.category & EEffectCategory.Meal) != 0)
+				{
+					return data;
+				}
+			}
+			return null;
+		}
+	}
+
 	// Current buildup meter for `data` in [0, 1+). Returns 0 when no
 	// contribution has landed (no entry allocated yet). Read-only — HUD /
 	// debug overlays use this.

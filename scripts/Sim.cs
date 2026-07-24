@@ -505,11 +505,10 @@ public partial class Sim : Node3D
 
         _wasNight = WorldState.IsNight(_worldState.TimeOfDay01);
         RefreshTimeOfDayEntities();
-        // Roster day-roll: clear yesterday's meals and draw the day's well-rested
-        // member BEFORE OnNewDay fires, so the client's node-refresh subscriber
-        // (well-rested buff + lantern refuel) reads the updated PlayerState flags.
+        // Roster day-roll: draw the day's well-rested member BEFORE OnNewDay
+        // fires, so the client's node-refresh subscriber (well-rested buff +
+        // lantern refuel) reads the updated PlayerState flags.
         Party party = _worldState?.SimState?.Party;
-        party?.ResetMealsForNewDay();
         party?.AdvanceRestAndPickWellRested(_wellRestedRng);
         // A new day resets the camp's leader + spell pick (the spell attunement is
         // cleared per-member in the client's OnNewDay node-refresh), so the next camp

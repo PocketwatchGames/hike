@@ -20,6 +20,18 @@
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_drain_bg"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_blockarmor"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+corner_detail = 6
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_drain"]
 content_margin_left = 2.0
 content_margin_top = 2.0
@@ -38,18 +50,6 @@ content_margin_top = 2.0
 content_margin_right = 2.0
 content_margin_bottom = 2.0
 bg_color = Color(1, 0, 0, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-corner_detail = 6
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_blockarmor"]
-content_margin_left = 2.0
-content_margin_top = 2.0
-content_margin_right = 2.0
-content_margin_bottom = 2.0
-bg_color = Color(1, 1, 1, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
@@ -92,10 +92,10 @@ _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContai
 _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _questContainer = NodePath("ScreenMarginContainer/UpperLeft/QuestContainer")
 _questItemScene = ExtResource("13_o8nis")
-_healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
-_drainedHealthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/DrainedHealthBar")
-_armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar/ArmorBar")
-_blockArmorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar/BlockArmorBar")
+_healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/MarginContainer/HealthBar")
+_drainedHealthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/MarginContainer/DrainedHealthBar")
+_armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/ArmorBar")
+_blockArmorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/BlockArmorBar")
 _signpostPanel = NodePath("HudSignpostPanel")
 _dialoguePanel = NodePath("DialoguePanel")
 _regionBanner = NodePath("RegionBanner")
@@ -109,6 +109,8 @@ _weatherDay = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/
 _weatherNight = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather/WeatherNight")
 _weatherContainer = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather")
 _lightningFlashOverlay = NodePath("LightningFlashOverlay")
+_pixelsPerHealthPoint = 0.2
+_pixelsPerArmorPoint = 0.2
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
 layout_mode = 1
@@ -139,33 +141,9 @@ layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="MarginContainer" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=565732422]
-layout_mode = 2
-
-[node name="DrainedHealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=1068856624]
-custom_minimum_size = Vector2(250, 25)
-layout_mode = 2
-mouse_filter = 2
-theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
-theme_override_styles/fill = SubResource("StyleBoxFlat_drain")
-max_value = 1.0
-step = 0.001
-show_percentage = false
-
-[node name="HealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=1068856623]
-custom_minimum_size = Vector2(250, 25)
-layout_mode = 2
-theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
-max_value = 1.0
-step = 0.001
-value = 0.5
-show_percentage = false
-
-[node name="BlockArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar" unique_id=181068374]
+[node name="BlockArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=181068374]
 custom_minimum_size = Vector2(50, 15)
-layout_mode = 0
-offset_right = 50.0
-offset_bottom = 15.0
+layout_mode = 2
 size_flags_horizontal = 0
 mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
@@ -174,11 +152,38 @@ max_value = 1.0
 step = 0.001
 show_percentage = false
 
-[node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar" unique_id=181068372]
-custom_minimum_size = Vector2(50, 15)
-layout_mode = 0
-offset_right = 50.0
-offset_bottom = 15.0
+[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=1359460102]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer" unique_id=565732422]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="DrainedHealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/MarginContainer" unique_id=1068856624]
+custom_minimum_size = Vector2(250, 25)
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_drain")
+max_value = 1.0
+step = 0.001
+show_percentage = false
+
+[node name="HealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/MarginContainer" unique_id=1068856623]
+custom_minimum_size = Vector2(250, 25)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
+max_value = 1.0
+step = 0.001
+value = 0.5
+show_percentage = false
+
+[node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer" unique_id=181068372]
+custom_minimum_size = Vector2(50, 25)
+layout_mode = 2
 size_flags_horizontal = 0
 theme_override_styles/fill = SubResource("StyleBoxFlat_2pnwd")
 max_value = 1.0
@@ -189,7 +194,9 @@ show_percentage = false
 layout_mode = 2
 
 [node name="StaminaBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/StaminaMarginContainer" unique_id=900266894]
+custom_minimum_size = Vector2(0, 15)
 layout_mode = 2
+size_flags_horizontal = 0
 
 [node name="MarginContainer2" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=1536408953]
 layout_mode = 2

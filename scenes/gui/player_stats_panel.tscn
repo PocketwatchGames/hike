@@ -3,18 +3,20 @@
 [ext_resource type="Script" uid="uid://fboixafnubck" path="res://scripts/gui/PlayerStatsPanel.cs" id="1_sqdid"]
 [ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="2_4k1ay"]
 [ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="3_stat0"]
+[ext_resource type="Texture2D" uid="uid://whcsmapxod45" path="res://assets/textures/items/Armor.png" id="4_1r6lq"]
 
-[node name="PlayerStats" type="PanelContainer" unique_id=1646474992 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_statContainer", "_statusEffectContainer")]
+[node name="PlayerStats" type="PanelContainer" unique_id=1646474992 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_statContainer", "_statusEffectContainer", "_playerClassIcon")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_sqdid")
-_nameLabel = NodePath("MarginContainer/VBoxContainer/Name")
-_descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
+_nameLabel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Name")
+_descriptionLabel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Description")
 _statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
 _statScene = ExtResource("3_stat0")
 _statusEffectInfoScene = ExtResource("2_4k1ay")
 _statusEffectContainer = NodePath("MarginContainer/VBoxContainer/StatusEffects")
+_playerClassIcon = NodePath("MarginContainer/VBoxContainer/HBoxContainer/TextureRect")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1586675629]
 layout_mode = 2
@@ -26,12 +28,24 @@ theme_override_constants/margin_bottom = 15
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1242458261]
 layout_mode = 2
 
-[node name="Name" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1977607553]
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=1884915257]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="MarginContainer/VBoxContainer/HBoxContainer" unique_id=846322636]
+layout_mode = 2
+texture = ExtResource("4_1r6lq")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer" unique_id=1977515231]
+layout_mode = 2
+
+[node name="Name" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer" unique_id=1977607553]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Wyatt Anderson"
 
-[node name="Description" type="Label" parent="MarginContainer/VBoxContainer" unique_id=121515439]
+[node name="Description" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer" unique_id=121515439]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 

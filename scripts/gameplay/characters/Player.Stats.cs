@@ -76,13 +76,14 @@ public partial class Player : CharacterBody3D
 		_health = Mathf.Min(MaxHealth, _health + refund);
 	}
 
-	// Sums maxArmor across every equipped armor slot. Current armor is capped
-	// at the new max — unequipping a piece can only shrink the available pool,
-	// it never grants free armor. Increases leave the current value alone so
-	// the recharge logic owns the climb back up to the new max.
+	// Sums the hosted member's innate class armor with maxArmor across every
+	// equipped armor slot. Current armor is capped at the new max — unequipping
+	// a piece can only shrink the available pool, it never grants free armor.
+	// Increases leave the current value alone so the recharge logic owns the
+	// climb back up to the new max.
 	private void RecalculateMaxArmor()
 	{
-		float total = 0f;
+		float total = Member?.maxArmor ?? 0f;
 		if (_inventory != null)
 		{
 			AccumulateArmor(EInventorySlot.Helmet, ref total);
@@ -103,18 +104,22 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Compose a single stat across inherent PlayerData modifiers, equipped
-	// armor modifiers, and active status-effect modifiers. Seeds with the
-	// stat's neutral identity (1 for multiplicative, 0 for additive) and
-	// folds each source. Multiplicative for most stats, additive for the
-	// four additive ones (Camouflage / MaxStamina / ColdResist / HeatResist)
-	// per StatModifierUtil.IsAdditive.
+	// Compose a single stat across inherent PlayerData modifiers, the hosted
+	// member's class modifiers, equipped armor modifiers, and active
+	// status-effect modifiers. Seeds with the stat's neutral identity (1 for
+	// multiplicative, 0 for additive) and folds each source. Multiplicative for
+	// most stats, additive for the four additive ones (Camouflage / MaxStamina /
+	// ColdResist / HeatResist) per StatModifierUtil.IsAdditive.
 	public float ComposeStat(EStat stat)
 	{
 		float value = StatModifierUtil.NeutralValue(stat);
 		if (data?.modifiers != null)
 		{
 			value = StatModifierUtil.Fold(stat, data.modifiers, value);
+		}
+		if (Member?.modifiers != null)
+		{
+			value = StatModifierUtil.Fold(stat, Member.modifiers, value);
 		}
 		value = AccumulateArmorStat(EInventorySlot.Helmet, stat, value);
 		value = AccumulateArmorStat(EInventorySlot.Armor, stat, value);
@@ -165,6 +170,10 @@ public partial class Player : CharacterBody3D
 		if (data?.modifiers != null)
 		{
 			product = StatModifierUtil.FoldMask(mask, data.modifiers, product);
+		}
+		if (Member?.modifiers != null)
+		{
+			product = StatModifierUtil.FoldMask(mask, Member.modifiers, product);
 		}
 		product = AccumulateArmorMask(EInventorySlot.Helmet, mask, product);
 		product = AccumulateArmorMask(EInventorySlot.Armor, mask, product);
@@ -349,6 +358,23 @@ public partial class Player : CharacterBody3D
 			return weapon;
 		}
 		return null;
+	}
+
+	// True while a well-timed parry would deflect an incoming blow: the sneak
+	// guard is up, the crouch's parry window is still open, and the guard is off
+	// its recharge cooldown — the same gate OnHurtBoxHit checks (minus the
+	// per-hit damage cap). Read by the HUD to tint the block bar during the window.
+	public bool IsParryWindowActive
+	{
+		get
+		{
+			if (_parryDeadlineMs == 0 || (_world?.GameTimeMs ?? 0) >= _parryDeadlineMs)
+			{
+				return false;
+			}
+			WeaponState guard = GetSneakBlockWeapon();
+			return guard != null && IsGuardReadyToParry(guard);
+		}
 	}
 
 	// A weapon parries only if it authors both a window (parryTimeMs) and a

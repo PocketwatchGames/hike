@@ -37,6 +37,7 @@
 [ext_resource type="Resource" uid="uid://cl34ccsehfsfi" path="res://resources/data/status_effects/boons/boon_stoneskin.tres" id="27_boon_stoneskin"]
 [ext_resource type="Resource" uid="uid://d37luqaiw0bcx" path="res://resources/data/status_effects/boons/boon_seeking.tres" id="28_boon_seeking"]
 [ext_resource type="Resource" uid="uid://3jjnm78vuj6c" path="res://resources/data/status_effects/boons/boon_ranged_seeking.tres" id="29_boon_ranged_seeking"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/boons/boon_night_vision.tres" id="29_boon_night_vision"]
 [ext_resource type="Resource" uid="uid://c3jy0q0qdvu5v" path="res://resources/data/actions/party_revive_action.tres" id="30_party_revive"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="37_statuseffect_script"]
 [ext_resource type="Resource" uid="uid://x2ypc0w32g55" path="res://resources/data/status_effects/upgrades/upgrade_melee_honed.tres" id="37_up_melee"]
@@ -86,7 +87,7 @@ wellRestedCampfireFx = ExtResource("58_wellrestedfx")
 mobWetStatusEffect = ExtResource("55_status_wet")
 mobSunburnStatusEffect = ExtResource("57_sunburn")
 fairyLoot = ExtResource("18_fairy_loot")
-fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking")])
+fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking"), ExtResource("29_boon_night_vision")])
 fairyBoonGold = ExtResource("22_boon_gold")
 forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet"), ExtResource("45_up_vampiric"), ExtResource("46_up_pierce"), ExtResource("47_up_flaming"), ExtResource("48_up_fragile"), ExtResource("49_up_knockback"), ExtResource("50_up_seeking"), ExtResource("51_up_shocking"), ExtResource("52_up_venomous"), ExtResource("53_up_vigor"), ExtResource("54_up_siphon"), ExtResource("55_up_bounding")])
 forgeMeleeIcon = ExtResource("41_icon_melee")

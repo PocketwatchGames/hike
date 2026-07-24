@@ -55,7 +55,7 @@ public partial class Player : CharacterBody3D
 	private PlayerModelPackage _modelPackageInstance;
 	private ModelAnimator _animator;
 	// The spawned body type, resolved from the hosted member in Initialize. Drives
-	// the gender-specific worn-armor mesh set (ArmorData.GetWornMeshNames).
+	// which gender's mesh set an outfit resolves to (OutfitData.GetBodyMeshNames).
 	private EGender _gender = EGender.Female;
 	// The visual root of the live model subtree — toggled by SetModelVisible for
 	// hide / birds-eye.
@@ -961,6 +961,12 @@ public partial class Player : CharacterBody3D
 	// rest, which clears afflictions and full-heals rather than integrating a DoT
 	// over the skipped night.
 	public void ClearTransientStatusEffects() => _statusEffects.RemoveByCategory(EEffectCategory.Transient);
+
+	// Meal effects (EEffectCategory.Meal) — the buff/affliction from the last cooked
+	// recipe eaten. The camp cook screen clears the prior meal before applying a new
+	// one, and reads the active one for its per-character meal readout.
+	public void RemoveMealStatusEffects() => _statusEffects?.RemoveByCategory(EEffectCategory.Meal);
+	public StatusEffectData ActiveMealEffect => _statusEffects?.ActiveMealEffect;
 
 	// Reconcile the daily WellRested stat buff to the hosted member's flag. Called
 	// after the sunrise lottery (GameClient) and from Initialize for a member who

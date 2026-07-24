@@ -5,11 +5,10 @@
 [ext_resource type="PackedScene" uid="uid://dn1uamwxkqjal" path="res://scenes/gui/recipe_button.tscn" id="2_ajy2t"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="3_8rtqv"]
 
-[node name="CookingPanel" type="MarginContainer" unique_id=1417314439 node_paths=PackedStringArray("_itemInputs", "_cookButton", "_cookingProgress", "_announcementContainer", "_announcementLabel", "_announcementIcon", "_recipeButtonContainer", "_noReceipesLabel")]
+[node name="CookingPanel" type="MarginContainer" unique_id=1417314439 node_paths=PackedStringArray("_itemInputs", "_cookButton", "_announcementContainer", "_announcementLabel", "_announcementIcon", "_recipeButtonContainer", "_noReceipesLabel")]
 script = ExtResource("1_tclfs")
 _itemInputs = [NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel"), NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel2"), NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel3")]
 _cookButton = NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/MarginContainer/MarginContainer/Button")
-_cookingProgress = NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/MarginContainer/MarginContainer/ProgressBar")
 _announcementContainer = NodePath("VBoxContainer/MarginContainer/PanelContainer")
 _announcementLabel = NodePath("VBoxContainer/MarginContainer/PanelContainer/MarginContainer/HBoxContainer/Label")
 _announcementIcon = NodePath("VBoxContainer/MarginContainer/PanelContainer/MarginContainer/HBoxContainer/TextureRect")
@@ -90,11 +89,6 @@ custom_minimum_size = Vector2(200, 60)
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Cook!"
-
-[node name="ProgressBar" type="ProgressBar" parent="VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/MarginContainer/MarginContainer" unique_id=957336013]
-layout_mode = 2
-size_flags_vertical = 1
-show_percentage = false
 
 [node name="RecipePanel" type="PanelContainer" parent="VBoxContainer" unique_id=1187067588]
 layout_mode = 2
