@@ -251,6 +251,12 @@ public partial class MobData : Resource
     // ItemTagPreference; rules compose multiplicatively in author order.
     [Export] public Godot.Collections.Array<ItemTagPreference> itemPreferences = new();
     [Export] public bool dangerous = false;
+    // This mob is afraid of a lit campfire (slimes). Interactive danger gates
+    // that respect wards (see IMobWard / Campfire.WardsOff) ignore this mob, so a
+    // player can light / camp at a fire it's scared of even while it's nearby —
+    // lighting the fire then drives it off via the safety zone. Purely a danger-
+    // gate exception; it does not by itself make the mob flee.
+    [Export] public bool fearsCampfire = false;
 
     [ExportGroup("Combat")]
     // NOTE: a mob's weapon loadout is NOT a base-template trait — it lives on the

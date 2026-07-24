@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
 [ext_resource type="Resource" uid="uid://dwgxgxbii2arl" path="res://resources/data/status_effects/status_goblin_battle_cry_buff.tres" id="7_buff"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_64efa"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="8_qhjrv"]
 [ext_resource type="PackedScene" uid="uid://b85f6kpli8b0k" path="res://scenes/fx/goblin_yell.tscn" id="8_yellfx"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_qhjrv"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="11_jav2o"]

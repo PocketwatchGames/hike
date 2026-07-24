@@ -337,6 +337,8 @@ public partial class Sim : Node3D
             CleanupOffConditionMobs();
         }
 
+        DebugDangerScan(delta);
+
         // Record the player's path, then leash the persistent companion: a
         // following pet that fell outside the loaded world snaps onto a recent
         // off-screen footstep; a stay-commanded one freezes until its chunk

@@ -1543,8 +1543,8 @@ public static class ItemEventHandlers
 		{
 			inv?.NotifyChanged();
 		}
-		item.stackCount--;
-		// We mutated stackCount directly — Inventory has no other way to
+		item.Consume(1);
+		// We mutated the stack directly — Inventory has no other way to
 		// learn that an item changed under it. Fire its onChanged signal so
 		// any listening UI (e.g. the inventory screen's stack badge) can
 		// refresh without polling.
@@ -1682,8 +1682,7 @@ public static class ItemEventHandlers
 			{
 				continue;
 			}
-			int take = System.Math.Min(remaining, item.stackCount);
-			item.stackCount -= take;
+			int take = item.Consume(remaining);
 			remaining -= take;
 			if (item.stackCount <= 0 && player?.Inventory != null)
 			{

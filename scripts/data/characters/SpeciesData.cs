@@ -64,9 +64,8 @@ public partial class SpeciesData : Resource
     [Export] public Godot.Collections.Array<WeaponData> weapons = new();
 
     // Loot ejected from the mob's body when it dies (was a MobData field; lives
-    // here so each zone variant drops its own spoils — e.g. a forest kun-kun
-    // drops kun_kun_forest_meat, a desert one kun_kun_desert_meat, both parented
-    // to the shared kun_kun_meat so "needs kun-kun meat" recipes still match).
+    // here so each zone variant sets its own spoils — all kun-kun variants drop
+    // the shared kun_kun_meat, all goblins goblin_meat, etc.).
     // Each entry spawns `count` Loot instances of its descriptor, fired outward
     // on the same upward arc chests use. MobDescriptor.CreateState stamps this
     // onto MobSimState.Loot (read by Mob.EjectLoot); empty = no drops.

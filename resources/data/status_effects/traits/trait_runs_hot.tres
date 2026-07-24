@@ -18,7 +18,7 @@ metadata/_custom_type_script = "uid://eok50kekxv5ds"
 [resource]
 script = ExtResource("1_data")
 displayName = &"Runs Hot"
-description = "Fights fiercest when spent — deals double damage while stamina is below 25%."
+description = "200% damage while stamina is below 25%."
 category = 2
 durationType = 1
 maxStack = 1

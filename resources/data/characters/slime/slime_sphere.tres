@@ -59,6 +59,7 @@ displayName = &"Slime Sphere"
 darknessPerceptionWeight = 1.0
 sunburnBuildupPerSecond = 0.5
 dangerous = true
+fearsCampfire = true
 modifiers = null
 canBeBackstabbed = false
 brain = ExtResource("2_brain")

@@ -575,7 +575,14 @@ public partial class Player : CharacterBody3D
 		System.Collections.Generic.List<ItemState> expired = null;
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			if (item.removeOnDay != 0 && today >= item.removeOnDay)
+			// Prune spoiled food cohorts in place — a half-spoiled pile loses only
+			// its old batch and survives on its fresher ones. The whole item is
+			// pulled only when its last cohort is gone, or when a non-food timed
+			// drop (removeOnDay lifespan, e.g. a fairy corpse) reaches its day.
+			item.PruneExpired(today);
+			bool emptied = item.stackCount <= 0;
+			bool lifespanElapsed = item.removeOnDay != 0 && today >= item.removeOnDay;
+			if (emptied || lifespanElapsed)
 			{
 				(expired ??= new System.Collections.Generic.List<ItemState>()).Add(item);
 			}

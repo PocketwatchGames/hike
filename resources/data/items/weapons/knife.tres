@@ -85,8 +85,9 @@ queueWindowSeconds = 0.25
 
 [sub_resource type="Resource" id="Resource_parry"]
 script = ExtResource("1_damage")
-tags = 129
+tags = 145
 healthDamage = 80.0
+armorPenetration = 1.0
 damageVariance = 0.25
 hitstun = 0.4
 knockbackDistance = 2.0
@@ -135,7 +136,7 @@ maxParryDamage = 150.0
 parryDamageProfileKey = &"parry"
 parryEffect = ExtResource("22_parryfx")
 displayName = &"Knife"
-description = "A light, fast blade. Devastating when struck from behind."
+description = "A light, fast blade. Extra damage from behind."
 value = 60
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("17_held")

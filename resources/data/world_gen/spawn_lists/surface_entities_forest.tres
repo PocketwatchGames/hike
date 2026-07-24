@@ -10,7 +10,9 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/kun_kun_forest.tres" id="7_kunkun_data"]
 [ext_resource type="Resource" uid="uid://bptefqcxldi3l" path="res://resources/data/world_gen/spawn_groups/goblin_group_forest.tres" id="10_av785"]
 [ext_resource type="PackedScene" uid="uid://23ids5pfkxv0" path="res://scenes/interactives/berry_tree.tscn" id="11_berry_scene"]
-[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="12_loot_data"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_green.tres" id="m_green"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/sparrow_forest.tres" id="12_u4h7o"]
 [ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="13_well_entry"]
 [ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="14_well_scene"]
@@ -40,11 +42,23 @@ initialBehavior = &"Wander"
 initialBehaviorChance = 0.33
 squareMetersPerSpawn = 200.0
 
-[sub_resource type="Resource" id="Resource_loot"]
+[sub_resource type="Resource" id="Resource_m_green"]
 script = ExtResource("3_forage_entry")
 scene = ExtResource("21_forage_scene")
-item = ExtResource("12_loot_data")
-squareMetersPerSpawn = 200.0
+item = ExtResource("m_green")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_m_red"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("21_forage_scene")
+item = ExtResource("m_red")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_m_white"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("21_forage_scene")
+item = ExtResource("m_white")
+squareMetersPerSpawn = 300.0
 
 [sub_resource type="Resource" id="Resource_berry"]
 script = ExtResource("5_berry_entry")
@@ -81,4 +95,4 @@ squareMetersPerSpawn = 800.0
 
 [resource]
 script = ExtResource("1_list")
-entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("10_av785"), SubResource("Resource_berry"), SubResource("Resource_well"), SubResource("Resource_638lp"), SubResource("Resource_climbtree"), SubResource("Resource_spider")])
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_m_green"), SubResource("Resource_m_red"), SubResource("Resource_m_white"), ExtResource("10_av785"), SubResource("Resource_berry"), SubResource("Resource_well"), SubResource("Resource_638lp"), SubResource("Resource_climbtree"), SubResource("Resource_spider")])

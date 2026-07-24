@@ -9,6 +9,8 @@ using Godot;
 [GlobalClass]
 public partial class DogWaryBehaviorData : BehaviorData
 {
+    public DogWaryBehaviorData() { behaviorFlags = EBehaviorFlags.Engaging; }
+
     // Seconds between wary vocalizations (bark or growl). The first fires on entry.
     [Export] public float growlIntervalSeconds = 2.5f;
 

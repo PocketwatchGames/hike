@@ -53,6 +53,12 @@ public static class CVars
     // diagnosed from console.
     public static CVarBool safetyDebug = new CVarBool("safety_debug", false);
 
+    // Periodically logs each dangerous hostile near the player with the factors
+    // the interactive danger gate reads (Sim.IsDangerNear) — distance, behavior,
+    // composed EBehaviorFlags, IsEngaging, and clear-line-to-player — so a stuck
+    // "Danger Nearby" with nothing on screen can be traced to the exact mob.
+    public static CVarBool dangerDebug = new CVarBool("danger_debug", false);
+
     // When true, draws the off-screen cap-mask SubViewport texture as a
     // fullscreen overlay so you can see exactly what the cap shader is
     // sampling. White pixels = "cap should draw here", black = "no cap".

@@ -69,9 +69,10 @@ public partial class BehaviorAttack : BehaviorBase
 
         // We have a target and are engaging it — this tick counts as combat for
         // the player-facing CombatTracker (gated downstream by the mob being
-        // dangerous and player-perceived). Set after the transition / no-target
-        // early-outs so leaving the attack state doesn't read as combat.
-        output.combatBehavior = true;
+        // dangerous and player-perceived). Composed on top of the behavior's
+        // Engaging base; set after the transition / no-target early-outs so
+        // leaving the attack state doesn't read as combat.
+        output.behaviorFlags |= EBehaviorFlags.Attacking;
         // Target changed since last tick — release the old slot before we
         // request a new one against the new target.
         if (_slotTarget != null && _slotTarget != target)

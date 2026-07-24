@@ -5,14 +5,14 @@
 
 [sub_resource type="Resource" id="mod_dmg"]
 script = ExtResource("2_mod")
-stat = 1
+stat = 2048
 value = 1.05
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_data")
 displayName = &"Exposed"
-description = "A fresh wound has left you vulnerable — incoming damage is increased."
+description = "+5% Damage"
 duration = 5.0
 maxStack = 1
 removesOnApply = []

@@ -12,6 +12,9 @@ public partial class ItemInfoPanel : PanelContainer
 	[Export] private TextureRect _icon;
 	[Export] private PackedScene _actionPanel;
 	[Export] private Control _actionPanelContainer;
+	// Titled sub-panel (header + stat rows) for the weapon's Parry counter-strike,
+	// the same widget the per-action Crit / Backstab contexts use.
+	[Export] private PackedScene _contextPanelScene;
 	[Export] private Control _statContainer;
 	[Export] private PackedScene _statScene;
 	[Export] private Control _statusContainer;
@@ -96,7 +99,7 @@ public partial class ItemInfoPanel : PanelContainer
 				if (ri?.item != null && ri.count > 0)
 				{
 					reagent = ri.item.CreateState();
-					reagent.stackCount = ri.count;
+					reagent.SetCount(ri.count);
 				}
 			}
 			slot.SetItem(reagent);
@@ -182,6 +185,7 @@ public partial class ItemInfoPanel : PanelContainer
 		{
 			case WeaponState weapon:
 				AddStats(StatList.Ammo(weapon));
+				AddStats(StatList.WeaponDefense(weapon.data));
 				break;
 			case ArmorState armor:
 				AddStats(StatList.ArmorStats(armor));
@@ -232,9 +236,9 @@ public partial class ItemInfoPanel : PanelContainer
 		}
 		foreach (Node child in _actionPanelContainer.GetChildren())
 		{
-			if (child is ItemActionPanel existing)
+			if (child is ItemActionPanel || child is ItemActionContextPanel)
 			{
-				existing.QueueFree();
+				child.QueueFree();
 			}
 		}
 		if (!identified || _actionPanel == null)
@@ -262,6 +266,22 @@ public partial class ItemInfoPanel : PanelContainer
 			_actionPanelContainer.AddChild(panel);
 			panel.SetAction(action, data, i, _showDetails);
 		}
+		BuildParryContext(data);
+	}
+
+	// The weapon's Parry counter-strike, shown as its own titled context panel
+	// (like the per-action Crit / Backstab contexts) rather than a flat stat row —
+	// its riders (armor pen, knockback, Dizzy) only apply on a successful parry.
+	// No-op when the weapon can't parry or the context widget isn't wired.
+	private void BuildParryContext(WeaponData weapon)
+	{
+		DamageData counter = StatList.ParryCounter(weapon);
+		if (counter == null)
+		{
+			return;
+		}
+		ItemActionContextPanel.Populate(_contextPanelScene, _actionPanelContainer,
+			GameClient.Current.statNames[EStatName.Parry], StatList.BaseDamage(counter));
 	}
 
 }

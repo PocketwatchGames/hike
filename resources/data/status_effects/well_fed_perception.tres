@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://o3u3kejjr03c" path="res://assets/textures/status_effects/candy.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_well_fed_start.tscn" id="4_startfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_well_fed_end.tscn" id="5_endfx"]
+
+[sub_resource type="Resource" id="mod_health"]
+script = ExtResource("3_mod")
+stat = 67108864
+value = 100.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="mod_vision"]
+script = ExtResource("3_mod")
+stat = 16384
+value = 1.25
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="mod_hearing"]
+script = ExtResource("3_mod")
+stat = 32768
+value = 1.25
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Well Fed & Perception"
+description = "+100 Health and +25% sight and hearing until sunrise."
+category = 9
+durationType = 2
+maxStack = 1
+startFx = ExtResource("4_startfx")
+endFx = ExtResource("5_endfx")
+removesOnApply = []
+modifiers = [SubResource("mod_health"), SubResource("mod_vision"), SubResource("mod_hearing")]
+conditionalModifiers = []

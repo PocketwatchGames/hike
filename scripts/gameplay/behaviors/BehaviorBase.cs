@@ -4,6 +4,10 @@ public partial class BehaviorBase
 {
     protected BehaviorNode behaviorNode { get; private set; }
 
+    // Authored resting stance for this node, seeded into AIOutput.behaviorFlags
+    // each tick before Run so a behavior can compose extra bits on top of it.
+    public EBehaviorFlags BaseFlags => behaviorNode?.data?.behaviorFlags ?? EBehaviorFlags.None;
+
     public void Init(BehaviorNode node)
     {
         behaviorNode = node;

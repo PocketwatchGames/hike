@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_5s1fk"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="3_hm38d"]
 [ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="5_blue"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
 [ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="8_ffi6x"]
 [ext_resource type="PackedScene" uid="uid://clba532cprsy" path="res://scenes/interactives/fire_trap.tscn" id="10_3qw2q"]
 [ext_resource type="Script" uid="uid://dy4evm7tom40j" path="res://scripts/data/spawn/FireTrapSpawnEntry.cs" id="11_lthrm"]
@@ -36,7 +38,19 @@ spawnConditions = 9
 script = ExtResource("8_ffi6x")
 scene = ExtResource("40_forage_scene")
 item = ExtResource("5_blue")
-squareMetersPerSpawn = 200.0
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_m_black"]
+script = ExtResource("8_ffi6x")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_black")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_m_white"]
+script = ExtResource("8_ffi6x")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_white")
+squareMetersPerSpawn = 300.0
 
 [sub_resource type="Resource" id="Resource_firetrap"]
 script = ExtResource("11_lthrm")
@@ -45,4 +59,4 @@ squareMetersPerSpawn = 250.0
 
 [resource]
 script = ExtResource("13_ep0wb")
-entries = Array[ExtResource("1_5s1fk")]([SubResource("Resource_drake"), SubResource("Resource_spider"), SubResource("Resource_sparrow"), SubResource("Resource_blue"), SubResource("Resource_firetrap")])
+entries = Array[ExtResource("1_5s1fk")]([SubResource("Resource_drake"), SubResource("Resource_spider"), SubResource("Resource_sparrow"), SubResource("Resource_blue"), SubResource("Resource_m_black"), SubResource("Resource_m_white"), SubResource("Resource_firetrap")])

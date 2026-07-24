@@ -549,7 +549,7 @@ public partial class CampScreen : Control
 			if (spell != null)
 			{
 				ItemState state = spell.CreateState();
-				state.stackCount = 1;
+				state.SetCount(1);
 				_chosenSpellPanel.SetItem(state);
 			}
 			else

@@ -244,37 +244,27 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float vulnerable => _statusEffects?.Vulnerable ?? 0f;
     public EPlayerPerceptionState playerPerceptionState { get => _simState.DiscoveryState; set => _simState.DiscoveryState = value; }
     // Sim-side test for "the player currently sees this mob": discovered with
-    // unexpired perception memory (the same test IsThreateningPlayer uses). A
-    // gameplay rule, not a render-fade check — safe to gate world-state decisions
-    // (e.g. despawning a mob only while it is out of the player's sight).
+    // unexpired perception memory. A gameplay rule, not a render-fade check —
+    // safe to gate world-state decisions (e.g. despawning a mob only while it is
+    // out of the player's sight).
     public bool IsPerceivedByPlayer => _simState.DiscoveryState == EPlayerPerceptionState.Discovered
         && _simState.MemoryTimeMs > _world.GameTimeMs;
-    // True when this mob is an active threat to the player: alive, dangerous, and
-    // on a team hostile to the player, AND either triggered (it has noticed the
-    // player and gone on combat alert) or currently visible to the player. Read
-    // by Sim.IsDangerPresent to forbid "safe" actions like cooking while a
-    // threat is around. Mirrors the discovery test in the visibility update —
-    // Discovered with unexpired memory — so a dangerous mob the player has just
-    // seen (even if it ducked behind cover) still counts.
-    public bool IsThreateningPlayer
-    {
-        get
-        {
-            if (!alive || mobData == null || !mobData.dangerous)
-            {
-                return false;
-            }
-            if (Teams.AreAllied(ActorTeam, ETeam.Player))
-            {
-                return false;
-            }
-            PerceptionState[] targets = _simState.PerceptionTargets;
-            bool triggered = targets != null && targets.Length > 0 && targets[0].triggered;
-            bool visibleToPlayer = _simState.DiscoveryState == EPlayerPerceptionState.Discovered
-                && _simState.MemoryTimeMs > _world.GameTimeMs;
-            return triggered || visibleToPlayer;
-        }
-    }
+    // A dangerous mob on a team hostile to the player and still alive — the base
+    // filter for "could this thing hurt the player." Whether it actually gates an
+    // interaction is decided per-object by the danger scan (Sim.IsDangerNear),
+    // which adds proximity, line-of-sight, and engagement (see IsEngaging).
+    public bool IsDangerousHostile => alive && mobData != null && mobData.dangerous
+        && !Teams.AreAllied(ActorTeam, ETeam.Player);
+    // Composed behavior stance from the last AI tick (authored base + runtime
+    // bits). See EBehaviorFlags.
+    public EBehaviorFlags CurrentBehaviorFlags => _simState?.CurrentBehaviorFlags ?? EBehaviorFlags.None;
+    // True when the mob's current behavior is an engaged/pursuing posture (Attack,
+    // Investigate, Wary, …) as opposed to fleeing or idle. Deliberately behavior-
+    // driven, not perception-driven: a mob hunting the player behind cover still
+    // counts; one you merely glimpsed once and that never reacted does not. This
+    // replaces the old triggered/memory-latch danger test, which flagged a
+    // long-remembered stationary mob as a threat from across the map.
+    public bool IsEngaging => (CurrentBehaviorFlags & EBehaviorFlags.Engaging) != 0;
     // Circumstances this mob required to spawn (see ESpawnConditions). Read by
     // Sim.CleanupOffConditionMobs to despawn a mob whose conditions have
     // lapsed once the player is far and unaware. None = unconditional, never
@@ -431,6 +421,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         get => _simState.PerceptionTargets[0].triggered;
         set => _simState.PerceptionTargets[0].triggered = value;
     }
+    // Whether this mob currently has line-of-sight to the player on its own
+    // perception slot (mob→player). Distinct from playerCanSee, which is the
+    // player→mob direction. Diagnostics-only accessor (danger_debug).
+    public bool CanSeePlayer => _simState.PerceptionTargets[0].canSee;
 
     // Per-mob per-frame perception breakdowns for the debug HUD overlay.
     // Written each perception tick from UpdatePerception; consumed by

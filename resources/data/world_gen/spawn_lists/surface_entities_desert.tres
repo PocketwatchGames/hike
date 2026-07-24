@@ -13,6 +13,11 @@
 [ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="12_trap_scene"]
 [ext_resource type="Resource" uid="uid://odyn6nbdj05j" path="res://resources/data/world_gen/mob_descriptors/spider_desert.tres" id="20_spider"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/drake_desert.tres" id="21_drake_desert"]
+[ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="30_forage_entry"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/forage_spawner.tscn" id="31_forage_scene"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_orange.tres" id="m_orange"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="m_gold"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("3_3y2ux")
@@ -59,6 +64,24 @@ descriptor = ExtResource("21_drake_desert")
 initialBehavior = null
 squareMetersPerSpawn = 800.0
 
+[sub_resource type="Resource" id="Resource_m_orange"]
+script = ExtResource("30_forage_entry")
+scene = ExtResource("31_forage_scene")
+item = ExtResource("m_orange")
+squareMetersPerSpawn = 350.0
+
+[sub_resource type="Resource" id="Resource_m_gold"]
+script = ExtResource("30_forage_entry")
+scene = ExtResource("31_forage_scene")
+item = ExtResource("m_gold")
+squareMetersPerSpawn = 350.0
+
+[sub_resource type="Resource" id="Resource_m_red"]
+script = ExtResource("30_forage_entry")
+scene = ExtResource("31_forage_scene")
+item = ExtResource("m_red")
+squareMetersPerSpawn = 350.0
+
 [resource]
 script = ExtResource("8_88i6m")
-entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap"), SubResource("Resource_spider"), SubResource("Resource_drake")])
+entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap"), SubResource("Resource_spider"), SubResource("Resource_drake"), SubResource("Resource_m_orange"), SubResource("Resource_m_gold"), SubResource("Resource_m_red")])

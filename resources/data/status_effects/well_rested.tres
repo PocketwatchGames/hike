@@ -24,13 +24,11 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [sub_resource type="Resource" id="mod_stamina"]
 script = ExtResource("2_mod")
 stat = 2097152
-value = 1.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_data")
 displayName = &"Well Rested"
-description = "A good night's rest by the fire — a touch more stamina, grit, and vigor, and hitting a little harder all day."
 category = 2
 durationType = 1
 maxStack = 1

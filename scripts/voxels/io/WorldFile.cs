@@ -135,7 +135,11 @@ public static class WorldFile
     //      RegrowDays + RegrowDay — a persistent anchor that regrows scattered
     //      pickups (mushrooms). Forge/Fountain fields renamed to RegrowDay (same
     //      int wire, no layout change).
-    public const uint VERSION = 30;
+    // v31: ItemState wire format stores spoil cohorts instead of one stackCount +
+    //      removeOnDay pair — a cohort count followed by each (units, removeOnDay)
+    //      so per-batch food spoilage persists. A same-kind stack now shows as one
+    //      inventory pile regardless of acquisition day and consumes oldest-first.
+    public const uint VERSION = 31;
 
     public struct IndexEntry
     {

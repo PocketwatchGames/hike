@@ -18,6 +18,8 @@ public partial class GameClient : Node3D
 		{ EStatName.Blunt, "Blunt" },
 		{ EStatName.Dizzy, "Dizzy" },
 		{ EStatName.Knockback, "Knockback" },
+		{ EStatName.Block, "Block" },
+		{ EStatName.Parry, "Parry" },
 		{ EStatName.BloodCost, "Blood Cost" },
 		{ EStatName.StaminaCost, "Stamina Cost" },
 		{ EStatName.Cooldown, "Cooldown" },

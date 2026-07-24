@@ -7,7 +7,7 @@
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Shocked"
-description = "Electrical charge builds on the target. When it crosses the threshold it discharges — a jolt of damage, and the arc leaps to the next foe."
+description = "Builds charge; at the threshold it discharges for damage and arcs to the next foe."
 tags = 32
 category = 1
 durationType = 0

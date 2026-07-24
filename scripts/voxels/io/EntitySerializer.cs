@@ -873,13 +873,14 @@ public static class EntitySerializer
         return effects;
     }
 
-    // ItemState wire format: ItemData resource path + the base ItemState fields
-    // (stackCount, cooldownExpireMs, cooldownDurationMs, touched, removeOnDay,
-    // level). Polymorphic subclass fields (WeaponState.ammo,
-    // ConsumableState.isActive) are not preserved — items round-trip through
-    // ItemData.CreateState() which resets them to authored defaults. Extend
-    // this when player Inventory persistence lands and subclass state needs
-    // to survive save/load.
+    // ItemState wire format: ItemData resource path + the base ItemState fields.
+    // The stack's units are stored as spoil cohorts — a count and each cohort's
+    // (units, removeOnDay) pair — so per-batch spoilage survives save/load; then
+    // cooldownExpireMs, cooldownDurationMs, touched, whole-item removeOnDay, level.
+    // Polymorphic subclass fields (WeaponState.ammo, ConsumableState.isActive) are
+    // not preserved — items round-trip through ItemData.CreateState() which resets
+    // them to authored defaults. Extend this when player Inventory persistence
+    // lands and subclass state needs to survive save/load.
     private static void WriteItemState(BinaryWriter w, ItemState item)
     {
         if (item == null || item.data == null)
@@ -888,7 +889,13 @@ public static class EntitySerializer
             return;
         }
         w.Write(item.data.ResourcePath);
-        w.Write(item.stackCount);
+        w.Write(item.CohortCount);
+        for (int i = 0; i < item.CohortCount; i++)
+        {
+            item.GetCohort(i, out int count, out int removeOnDay);
+            w.Write(count);
+            w.Write(removeOnDay);
+        }
         w.Write(item.cooldownExpireMs);
         w.Write(item.cooldownDurationMs);
         w.Write(item.touched);
@@ -908,7 +915,12 @@ public static class EntitySerializer
         // was written — a missing item silently drops the slot, but the
         // following entries still parse correctly.
         ItemData data = GD.Load<ItemData>(path);
-        int stackCount = r.ReadInt32();
+        int cohortCount = r.ReadInt32();
+        var cohorts = new (int count, int removeOnDay)[System.Math.Max(0, cohortCount)];
+        for (int i = 0; i < cohortCount; i++)
+        {
+            cohorts[i] = (r.ReadInt32(), r.ReadInt32());
+        }
         ulong cooldownExpireMs = r.ReadUInt64();
         ulong cooldownDurationMs = r.ReadUInt64();
         bool touched = r.ReadBoolean();
@@ -919,7 +931,13 @@ public static class EntitySerializer
             return null;
         }
         ItemState state = data.CreateState();
-        state.stackCount = stackCount;
+        // Rebuild the ledger from the persisted cohorts (AddUnits merges same-day
+        // entries, so the stack matches what was written).
+        state.ClearCohorts();
+        for (int i = 0; i < cohorts.Length; i++)
+        {
+            state.AddUnits(cohorts[i].count, cohorts[i].removeOnDay);
+        }
         state.cooldownExpireMs = cooldownExpireMs;
         state.cooldownDurationMs = cooldownDurationMs;
         state.touched = touched;

@@ -10,7 +10,7 @@ Per-mob hierarchical state machine driven by polymorphic Resource data.
 
 - `BrainData` (`scripts/data/BrainData.cs`) — `idleBehavior` (StringName) + `Array<BehaviorNode> behaviors`. One brain per mob type, referenced from `MobData.brain`.
 - `BehaviorNode` — `name` (StringName, per-brain instance id), `data` (`BehaviorData` subclass), `Array<BehaviorNodeTransition> transitions`.
-- `BehaviorData` (base, `scripts/data/BehaviorData.cs`) — abstract per-behavior tuning. Subclasses live in `scripts/data/behaviors/` (e.g. `IdleBehaviorData`, `AttackBehaviorData`). Override `CreateRuntime()` to return a fresh `BehaviorBase` instance bound to this data.
+- `BehaviorData` (base, `scripts/data/BehaviorData.cs`) — abstract per-behavior tuning. Subclasses live in `scripts/data/behaviors/` (e.g. `IdleBehaviorData`, `AttackBehaviorData`). Override `CreateRuntime()` to return a fresh `BehaviorBase` instance bound to this data. Also carries `behaviorFlags` (`EBehaviorFlags`, a `[Flags]` bitmask) — the behavior's resting *stance*: `Engaging` (Attack/Investigate/Wary/Dodge/aerial-attack), `Disengaging` (Flee/Retreat/escape), or `None` (idle/wander/look/follow). It's authored `[Export]` but each subclass sets its own correct default in its constructor, so authors never touch it and existing brains pick it up on next save. Consumed by the interactive danger gate (`Sim.IsDangerNear` reads `Mob.IsEngaging`) — a fleeing mob is not danger, a hunting one is even behind cover.
 - `BehaviorNodeTransition` — `condition` (`BehaviorTransitionData` subclass) + `destination` (StringName naming a sibling node).
 - `BehaviorTransitionData` (base, `scripts/data/BehaviorTransitionData.cs`) — abstract transition predicate. Subclasses live in `scripts/data/behaviors/conditions/` (e.g. `AggroAcquiredCondition`). Override `Evaluate(Mob, ref PerceptionState)`.
 
@@ -36,8 +36,8 @@ Perception answers *who is this mob aware of*; **aggro** answers *which engaged 
 
 ## Adding a new behavior
 
-1. Create `FooBehaviorData : BehaviorData` in `scripts/data/behaviors/` with `[Export]` tuning fields and `CreateRuntime() => new BehaviorFoo(this)`.
-2. Create `BehaviorFoo : BehaviorBase` in `scripts/gameplay/behaviors/`. Constructor takes the data; `Run` calls `TryTransitions` first, then writes to `AIOutput`.
+1. Create `FooBehaviorData : BehaviorData` in `scripts/data/behaviors/` with `[Export]` tuning fields and `CreateRuntime() => new BehaviorFoo(this)`. **If the behavior is an engaged/pursuing or a fleeing stance, set `behaviorFlags` in its constructor** (`Engaging` / `Disengaging`); leave it unset (`None`) for neutral idle/wander behaviors. This is what the interactive danger gate keys off — a new attack-like behavior that forgets it won't register as danger.
+2. Create `BehaviorFoo : BehaviorBase` in `scripts/gameplay/behaviors/`. Constructor takes the data; `Run` calls `TryTransitions` first, then writes to `AIOutput`. Mob seeds `AIOutput.behaviorFlags` from the running node's `behaviorFlags` each tick; a behavior may `|=` extra bits it alone knows at runtime (see `BehaviorAttack` adding `Attacking` mid-swing, which feeds the CombatTracker). Mob caches the composed value on `MobSimState.CurrentBehaviorFlags` for out-of-tick readers (danger, despawn).
 3. Add a `BehaviorNode` to the brain `.tres` with a unique `name`, the new data subclass, and any transitions.
 
 ## Adding a new transition condition

@@ -1,30 +1,29 @@
-[gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://ckrmlqck5qjhs"]
+[gd_resource type="Resource" script_class="RecipeData" format=3]
 
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="1_input"]
-[ext_resource type="Resource" path="res://resources/data/items/loot/kun_kun_forest_meat.tres" id="2_meat"]
-[ext_resource type="Resource" uid="uid://c7napd2qkx8vt" path="res://resources/data/items/loot/berry_purple.tres" id="3_berry"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/lurker_meat.tres" id="2_meat"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_black.tres" id="3_mushroom"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="4_recipe"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_effect_script"]
-[ext_resource type="Resource" uid="uid://dwfsk5p3n2qr7" path="res://resources/data/status_effects/status_well_fed_superior.tres" id="6_status"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/well_fed_stealth.tres" id="6_status"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="7_icon"]
 
 [sub_resource type="Resource" id="Resource_input_meat"]
 script = ExtResource("1_input")
 item = ExtResource("2_meat")
-count = 3
+count = 2
 metadata/_custom_type_script = "uid://64jki9zhf4p5i"
 
-[sub_resource type="Resource" id="Resource_input_berry"]
+[sub_resource type="Resource" id="Resource_input_mushroom"]
 script = ExtResource("1_input")
-item = ExtResource("3_berry")
-count = 2
+item = ExtResource("3_mushroom")
+count = 1
 metadata/_custom_type_script = "uid://64jki9zhf4p5i"
 
 [resource]
 script = ExtResource("4_recipe")
-displayName = &"Forest-Style Grilled Kun-Kun"
-description = "Kun-kun roasted with forest berries — twice as filling."
+displayName = &"Shadowy Lurker Stew"
+description = "Lurker meat and black mushrooms. Muffles your presence."
 icon = ExtResource("7_icon")
 statusEffects = Array[ExtResource("5_effect_script")]([ExtResource("6_status")])
-inputs = Array[ExtResource("1_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_berry")])
-priority = 1
+inputs = Array[ExtResource("1_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_mushroom")])

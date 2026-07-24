@@ -3,6 +3,8 @@ using Godot;
 [GlobalClass]
 public partial class FleeBehaviorData : BehaviorData
 {
+    public FleeBehaviorData() { behaviorFlags = EBehaviorFlags.Disengaging; }
+
     // Radius of the candidate flee point around the mob. Picked via a random
     // angle biased roughly away from the threat.
     [Export] public float fleeRange = 10f;

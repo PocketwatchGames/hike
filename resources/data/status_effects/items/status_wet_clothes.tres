@@ -7,8 +7,8 @@
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Wet"
-description = "This garment is soaked. While worn, it slowly transfers wetness to the wearer's skin."
-modifiers = []
 maxStack = 1
 buildupBehavior = 1
 removesOnApply = []
+modifiers = []
+conditionalModifiers = null

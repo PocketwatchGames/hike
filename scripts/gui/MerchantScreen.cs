@@ -1005,7 +1005,7 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
-		item.stackCount -= placed;
+		item.Consume(placed);
 		if (item.stackCount <= 0)
 		{
 			_player.Inventory.Remove(item);
@@ -1028,7 +1028,7 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
-		item.stackCount -= placed;
+		item.Consume(placed);
 		if (item.stackCount <= 0)
 		{
 			_merchantItems.RemoveAt(slotIndex);
@@ -1049,13 +1049,13 @@ public partial class MerchantScreen : Control
 		}
 		int requested = Mathf.Min(amount, item.stackCount);
 		ItemState toReturn = item.data.CreateState();
-		toReturn.stackCount = requested;
+		toReturn.SetCount(requested);
 		int added = _player.Inventory.TryAdd(toReturn);
 		if (added <= 0)
 		{
 			return;
 		}
-		item.stackCount -= added;
+		item.Consume(added);
 		if (item.stackCount <= 0)
 		{
 			_giveItems.RemoveAt(slotIndex);
@@ -1076,7 +1076,7 @@ public partial class MerchantScreen : Control
 		}
 		int requested = Mathf.Min(amount, item.stackCount);
 		AddToStagingList(_merchantItems, item.data, requested, _merchantInventorySlotPanels?.Count ?? 0);
-		item.stackCount -= requested;
+		item.Consume(requested);
 		if (item.stackCount <= 0)
 		{
 			_getItems.RemoveAt(slotIndex);
@@ -1105,7 +1105,9 @@ public partial class MerchantScreen : Control
 					continue;
 				}
 				int moved = Mathf.Min(space, amount);
-				existing.stackCount += moved;
+				// Trade staging lists are keyed by ItemData only (spoil-agnostic);
+				// the real inventory/merchant decrement happens oldest-first.
+				existing.AddUnits(moved, 0);
 				amount -= moved;
 				if (amount <= 0)
 				{
@@ -1116,7 +1118,7 @@ public partial class MerchantScreen : Control
 		if (amount > 0 && list.Count < slotCap)
 		{
 			ItemState fresh = data.CreateState();
-			fresh.stackCount = amount;
+			fresh.SetCount(amount);
 			list.Add(fresh);
 			amount = 0;
 		}
@@ -1217,7 +1219,7 @@ public partial class MerchantScreen : Control
 			if (added < initial)
 			{
 				ItemState overflow = received.data.CreateState();
-				overflow.stackCount = initial - added;
+				overflow.SetCount(initial - added);
 				DropAtMerchant(overflow);
 			}
 		}
@@ -1260,7 +1262,7 @@ public partial class MerchantScreen : Control
 				continue;
 			}
 			ItemState split = stack.data.CreateState();
-			split.stackCount = units;
+			split.SetCount(units);
 			accepted.Add(split);
 			loyaltyGained += _merchant.PerUnitValue(stack.data) * units;
 			if (units >= stack.stackCount)
@@ -1269,7 +1271,7 @@ public partial class MerchantScreen : Control
 			}
 			else
 			{
-				stack.stackCount -= units;
+				stack.Consume(units);
 				anyLeftover = true;
 			}
 		}
@@ -1289,13 +1291,13 @@ public partial class MerchantScreen : Control
 			if (gift.item != null)
 			{
 				ItemState state = gift.item.CreateState();
-				state.stackCount = Mathf.Max(1, gift.count);
+				state.SetCount(Mathf.Max(1, gift.count));
 				int initial = state.stackCount;
 				int added = _player.Inventory?.TryAdd(state) ?? 0;
 				if (added < initial)
 				{
 					ItemState overflow = gift.item.CreateState();
-					overflow.stackCount = initial - added;
+					overflow.SetCount(initial - added);
 					DropAtMerchant(overflow);
 				}
 				gc?.Announce(new Announcement
@@ -1349,7 +1351,7 @@ public partial class MerchantScreen : Control
 			if (entry == null || entry.secret) { continue; }
 			if (entry.item?.data == null || entry.item.stackCount <= 0) { continue; }
 			ItemState snapshot = entry.item.data.CreateState();
-			snapshot.stackCount = entry.item.stackCount;
+			snapshot.SetCount(entry.item.stackCount);
 			_merchantItems.Add(snapshot);
 			_merchantSourceByData[entry.item.data] = entry;
 		}
@@ -1395,14 +1397,14 @@ public partial class MerchantScreen : Control
 						continue;
 					}
 					int moved = Mathf.Min(space, remaining);
-					entry.item.stackCount += moved;
+					entry.item.AddUnits(moved, 0);
 					remaining -= moved;
 				}
 			}
 			if (remaining > 0)
 			{
 				ItemState fresh = taken.data.CreateState();
-				fresh.stackCount = remaining;
+				fresh.SetCount(remaining);
 				_merchant.Inventory.Add(new MobInventoryItem
 				{
 					item = fresh,
@@ -1434,7 +1436,7 @@ public partial class MerchantScreen : Control
 			remaining.TryGetValue(kv.Key, out int total);
 			if (total > 0)
 			{
-				entry.item.stackCount = total;
+				entry.item.SetCount(total);
 			}
 			else
 			{
@@ -1463,7 +1465,7 @@ public partial class MerchantScreen : Control
 			if (added < initial)
 			{
 				ItemState overflow = staged.data.CreateState();
-				overflow.stackCount = initial - added;
+				overflow.SetCount(initial - added);
 				_player.Sim?.DropItem(
 					overflow,
 					_player.GlobalPosition + Vector3.Up * 0.5f,

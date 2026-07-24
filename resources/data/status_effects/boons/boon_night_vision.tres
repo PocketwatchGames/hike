@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BoonData" format=3]
+[gd_resource type="Resource" script_class="BoonData" format=3 uid="uid://d0g2rl1qf7pcn"]
 
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_boon"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_se"]
@@ -15,7 +15,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 script = ExtResource("2_se")
 icon = ExtResource("4_icon")
 displayName = &"Night Sight"
-description = "A fairy's blessing — the darkness thins before your eyes, granting sight in deepest night until daybreak."
+description = "Bonus perception in dark conditions."
 durationType = 2
 maxStack = 1
 removesOnApply = []

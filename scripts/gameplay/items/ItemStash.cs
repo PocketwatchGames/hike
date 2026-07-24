@@ -26,9 +26,7 @@ public static class ItemStash
 				{
 					continue;
 				}
-				int moved = System.Math.Min(space, item.stackCount);
-				existing.stackCount += moved;
-				item.stackCount -= moved;
+				item.TransferTo(existing, space);
 				if (item.stackCount <= 0)
 				{
 					return;

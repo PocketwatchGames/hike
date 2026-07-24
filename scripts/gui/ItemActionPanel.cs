@@ -122,17 +122,7 @@ public partial class ItemActionPanel : PanelContainer
 
 	private void BuildModifierContext(DamageDataModifier mod)
 	{
-		if (_actionContextScene == null || _actionContextContainer == null)
-		{
-			return;
-		}
-		ItemActionContextPanel panel = _actionContextScene.Instantiate<ItemActionContextPanel>();
-		_actionContextContainer.AddChild(panel);
-		panel.SetHeader(GameClient.Current.damageTriggerLabels[mod.trigger]);
-		panel.ClearStats();
-		foreach (var (name, value) in StatList.DamageModifier(mod))
-		{
-			panel.AddStat(name, value);
-		}
+		ItemActionContextPanel.Populate(_actionContextScene, _actionContextContainer,
+			GameClient.Current.damageTriggerLabels[mod.trigger], StatList.DamageModifier(mod));
 	}
 }

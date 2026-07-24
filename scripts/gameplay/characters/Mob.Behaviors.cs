@@ -16,11 +16,13 @@ public struct AIOutput
 //    public Actor target;
     public float pathSuccessDistance;
     public bool inCombat;
-    // Set true by combat behaviors (BehaviorAttack) when actively engaging a
-    // target. Distinct from inCombat above (mob-awareness, used for AI-tick
-    // LOD): this drives the player-facing CombatTracker via
-    // Mob.ReportPlayerCombat.
-    public bool combatBehavior;
+    // What the mob's current behavior expresses this tick (see EBehaviorFlags).
+    // Seeded from the running behavior's authored BaseFlags at the top of each
+    // behavior run; a behavior may OR in extra bits (e.g. BehaviorAttack adds
+    // Attacking mid-swing). Mob caches the composed value on
+    // MobSimState.CurrentBehaviorFlags after the run for out-of-tick queries
+    // (danger checks, despawn) and reads the Attacking bit for the CombatTracker.
+    public EBehaviorFlags behaviorFlags;
     public bool burrow;
     // Flying mobs (MobData.CanFly) only: when true, the mob is airborne this
     // tick — physics disables gravity and runs ApplyFlightPhysics (hover +
@@ -86,6 +88,10 @@ public partial class Mob
 //    private Vector3? _fleePosition;
     private StringName _curBehavior;
     private readonly System.Collections.Generic.Dictionary<StringName, BehaviorBase> _behaviors = new();
+
+    // Current behavior node name — diagnostics only (e.g. danger_debug).
+    // Empty until InitBehaviors runs.
+    public StringName CurrentBehaviorName => _curBehavior;
 
     // Called from Mob.Initialize after _simState is set. Walks the mob's BrainData,
     // creates a runtime BehaviorBase per node, validates that every transition
@@ -207,6 +213,10 @@ public partial class Mob
         if (!triggered && _simState.SuspendAITimeMs > time)
         {
             output.suspended = true;
+            // Suspended mobs are idle/neutral by definition (the suspend gate is
+            // !triggered). Clear the cached stance so a mob can't hold a stale
+            // Engaging while frozen, which would keep it counting as danger.
+            _simState.CurrentBehaviorFlags = EBehaviorFlags.None;
             return;
         }
 
@@ -224,6 +234,10 @@ public partial class Mob
         {
             if (_curBehavior != null && _behaviors.TryGetValue(_curBehavior, out BehaviorBase b) && b != null)
             {
+                // Seed the authored resting stance for whichever behavior actually
+                // runs this pass (re-seeded per hop so a mid-tick transition picks
+                // up the new behavior's flags); the behavior may OR in extra bits.
+                output.behaviorFlags = b.BaseFlags;
                 BehaviorOutput behaviorOutput;
                 using (Profiler.Sample("Mob.BehaviorRun"))
                 {
@@ -260,14 +274,14 @@ public partial class Mob
 
         output.inCombat = maxPerception > 0 && mobData != null && mobData.dangerous;
 
-        // output.combatBehavior is set by the combat behaviors themselves during
-        // the Run loop above (BehaviorAttack), not here — Mob._PhysicsProcess
-        // combines it with dangerous + player-perception to feed the
-        // CombatTracker (see ReportPlayerCombat).
+        // Cache the composed stance (authored base + any bits the behavior added,
+        // e.g. Attacking) for out-of-tick readers: the interactive danger gate,
+        // despawn eligibility, and ReportPlayerCombat's CombatTracker feed.
+        _simState.CurrentBehaviorFlags = output.behaviorFlags;
     }
 
     // Feed the player-facing CombatTracker each tick. Only a dangerous hostile
-    // the player currently perceives reports; `combatBehavior` says it's in an
+    // the player currently perceives reports; the Attacking bit says it's in an
     // attack behavior right now. Dead mobs don't report (a fresh corpse you can
     // still see mustn't keep combat alive) — Mob.Die routes the kill through
     // CombatTracker.OnMobDied for the instant-end-on-kill rule.
@@ -276,7 +290,8 @@ public partial class Mob
         if (!alive || mobData == null || !mobData.dangerous) { return; }
         if (!playerCanSee) { return; }
         if (Teams.AreAllied(ActorTeam, ETeam.Player)) { return; }
-        GameClient.Current?.Combat?.Report(this, output.combatBehavior, _world.GameTimeMs);
+        bool attacking = (output.behaviorFlags & EBehaviorFlags.Attacking) != 0;
+        GameClient.Current?.Combat?.Report(this, attacking, _world.GameTimeMs);
     }
 
     private void StartBehavior(StringName behaviorName)

@@ -13,7 +13,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [resource]
 script = ExtResource("1_data")
 displayName = &"Thin Skinned"
-description = "You hit a little harder, but pain lingers — for a few seconds after taking physical damage you're more vulnerable to it."
+description = "+5% damage for 5 seconds after taking damage."
 category = 2
 durationType = 1
 maxStack = 1

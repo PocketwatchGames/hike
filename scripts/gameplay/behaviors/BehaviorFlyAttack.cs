@@ -43,9 +43,9 @@ public partial class BehaviorFlyAttack : BehaviorAttack
         output.airborne = true;
 
         // No engaged target this tick (lost sight between ticks): hold the
-        // default cruise hover until the behavior transitions out. combatBehavior
-        // is the base's "has a real target" signal.
-        if (!output.combatBehavior)
+        // default cruise hover until the behavior transitions out. The base sets
+        // the Attacking bit only when it has a real target.
+        if ((output.behaviorFlags & EBehaviorFlags.Attacking) == 0)
         {
             return result;
         }

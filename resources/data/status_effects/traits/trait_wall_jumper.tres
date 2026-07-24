@@ -11,7 +11,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [resource]
 script = ExtResource("1_data")
 displayName = &"Wall Jumper"
-description = "Nimble and surefooted — can kick off walls to vault back into the air."
+description = "Can jump off walls."
 category = 2
 durationType = 1
 maxStack = 1

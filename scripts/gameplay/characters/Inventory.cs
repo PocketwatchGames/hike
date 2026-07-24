@@ -149,8 +149,7 @@ public class Inventory
 			{
 				continue;
 			}
-			int take = Math.Min(count - spent, s.stackCount);
-			s.stackCount -= take;
+			int take = s.Consume(count - spent);
 			spent += take;
 			if (s.stackCount <= 0)
 			{
@@ -215,7 +214,9 @@ public class Inventory
 
 		if (item.data.IsStackable)
 		{
-			// Fill partial stacks of the same kind anywhere in inventory.
+			// Fill partial stacks of the same kind anywhere in inventory. TransferTo
+			// folds the incoming units into each existing stack oldest-first,
+			// preserving their (already-stamped) spoil days as cohorts.
 			foreach (ItemState existing in EnumerateAll())
 			{
 				if (item.stackCount <= 0)
@@ -231,16 +232,14 @@ public class Inventory
 				{
 					continue;
 				}
-				int moved = Math.Min(space, item.stackCount);
-				existing.stackCount += moved;
-				item.stackCount -= moved;
+				item.TransferTo(existing, space);
 			}
 		}
 
-		// Anything left lands in the first empty backpack slot.
+		// Anything left lands in the first empty backpack slot — the ref is stored
+		// carrying its remaining cohorts, so merged + appended == initialStack.
 		if (item.stackCount > 0 && AppendToBackpack(item))
 		{
-			item.stackCount = initialStack;  // not actually consumed; full ref stored
 			onChanged?.Invoke();
 			return initialStack;
 		}
@@ -264,9 +263,12 @@ public class Inventory
 			return;
 		}
 		item.touched = true;
-		if (item.removeOnDay == 0 && item.data != null && item.data.spoilDays > 0)
+		if (item.data != null && item.data.spoilDays > 0)
 		{
-			item.removeOnDay = (_owner?.Sim?.DayNumber ?? 0) + item.data.spoilDays;
+			// Start the spoil clock on any not-yet-dated units. Already-dated
+			// cohorts (older units merged in earlier) keep their own deadline, so
+			// re-acquiring a partly-aged stack never resets it.
+			item.StampSpoilDay((_owner?.Sim?.DayNumber ?? 0) + item.data.spoilDays);
 		}
 	}
 
@@ -282,15 +284,13 @@ public class Inventory
 			return false;
 		}
 		int remaining = count;
-		// A fresh pickup lands with this spoil deadline; only same-deadline stacks
-		// can absorb it (ItemState.CanStackWith), so partial space in a different
-		// spoil cohort must not count toward "fits".
-		int freshRemoveDay = data.spoilDays > 0 ? (_owner?.Sim?.DayNumber ?? 0) + data.spoilDays : 0;
+		// Same-kind stacks always absorb a pickup now (differing spoil days coexist
+		// as cohorts), so every partial stack of this kind counts toward "fits".
 		if (data.IsStackable)
 		{
 			foreach (ItemState existing in EnumerateAll())
 			{
-				if (existing.data != data || existing.removeOnDay != freshRemoveDay)
+				if (existing.data != data)
 				{
 					continue;
 				}
@@ -462,14 +462,10 @@ public class Inventory
 		ItemState dropped;
 		if (stackCount.HasValue && item.data != null && item.data.IsStackable && stackCount.Value < item.stackCount)
 		{
-			int amount = Math.Max(1, stackCount.Value);
-			item.stackCount -= amount;
-			dropped = new ItemState(item.data);
-			dropped.stackCount = amount;
-			dropped.touched = item.touched;
-			// A split keeps the parent's spoil deadline — dropping half a stack
-			// must not reset (or start) its clock.
-			dropped.removeOnDay = item.removeOnDay;
+			// SplitOff carves the dropped units oldest-first and carries their real
+			// spoil cohorts (plus touched/level) — dropping half a stack neither
+			// resets nor starts a clock.
+			dropped = item.SplitOff(Math.Max(1, stackCount.Value));
 		}
 		else
 		{
@@ -578,25 +574,20 @@ public class Inventory
 		int moved = 0;
 		if (target == null)
 		{
-			// Empty slot — place a fresh stack of up to `amount` units.
+			// Empty slot — carve off a fresh stack of up to `amount` units
+			// (SplitOff shrinks the source and carries its spoil cohorts).
 			int take = Math.Min(amount, source.stackCount);
 			if (take <= 0) { return 0; }
-			ItemState fresh = source.data.CreateState();
-			fresh.stackCount = take;
-			fresh.touched = source.touched;
-			fresh.removeOnDay = source.removeOnDay;
-			_backpack[targetIndex] = fresh;
+			_backpack[targetIndex] = source.SplitOff(take);
 			moved = take;
 		}
 		else
 		{
 			if (!target.CanStackWith(source)) { return 0; }
 			int space = target.RemainingStackSpace();
-			moved = Math.Min(space, Math.Min(amount, source.stackCount));
+			moved = source.TransferTo(target, Math.Min(space, amount));
 			if (moved <= 0) { return 0; }
-			target.stackCount += moved;
 		}
-		source.stackCount -= moved;
 		if (source.stackCount <= 0)
 		{
 			Remove(source);
@@ -642,12 +633,11 @@ public class Inventory
 		if (incoming.data.IsStackable && target.CanStackWith(incoming))
 		{
 			int space = target.RemainingStackSpace();
-			int moved = Math.Min(space, incoming.stackCount);
+			int moved = incoming.TransferTo(target, space);
 			if (moved <= 0)
 			{
 				return 0;
 			}
-			target.stackCount += moved;
 			onChanged?.Invoke();
 			return moved;
 		}

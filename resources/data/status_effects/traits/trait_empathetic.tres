@@ -18,7 +18,7 @@ metadata/_custom_type_script = "uid://eok50kekxv5ds"
 [resource]
 script = ExtResource("1_data")
 displayName = &"Empathetic"
-description = "Rises to the occasion — gains extra stamina while a party member has fallen and awaits rescue."
+description = "+1 stamina while a party member awaits rescue."
 category = 2
 durationType = 1
 maxStack = 1

@@ -32,12 +32,11 @@ public class SimState
     // this on camping, and cooking pulls ingredients from it. Persisted by SaveGame.
     public readonly List<ItemState> PartyMaterialStash = new();
 
-    // Drop any stashed item whose spoil deadline (ItemState.removeOnDay) has been
-    // reached — perishables (meat, mushrooms) vanish from the shared party stashes
-    // at the sunrise their day arrives, mirroring the backpack sweep in
-    // Player.TickItemExpiry. Called from Sim.AdvanceToNextSunrise on the day
-    // rollover. The equipment stash is swept too for symmetry; equipment never
-    // sets removeOnDay, so it's a no-op there.
+    // Age the shared party stashes at the sunrise day rollover: prune each stack's
+    // spoiled cohorts (meat, mushrooms) in place and drop any stack that empties,
+    // mirroring the backpack sweep in Player.TickItemExpiry. Called from
+    // Sim.AdvanceToNextSunrise. The equipment stash is swept too for symmetry;
+    // equipment carries no perishable cohorts, so it's a no-op there.
     public void PruneExpiredPerishables(int dayNumber)
     {
         PruneExpiredStash(PartyMaterialStash, dayNumber);
@@ -49,7 +48,16 @@ public class SimState
         for (int i = stash.Count - 1; i >= 0; i--)
         {
             ItemState item = stash[i];
-            if (item != null && item.removeOnDay != 0 && dayNumber >= item.removeOnDay)
+            if (item == null)
+            {
+                continue;
+            }
+            // Spoiled food cohorts drop in place; the stack leaves the stash only
+            // when it empties out, or when a non-food timed drop's whole-item
+            // lifespan (removeOnDay) elapses.
+            item.PruneExpired(dayNumber);
+            bool lifespanElapsed = item.removeOnDay != 0 && dayNumber >= item.removeOnDay;
+            if (item.stackCount <= 0 || lifespanElapsed)
             {
                 stash.RemoveAt(i);
             }
@@ -100,8 +108,7 @@ public class SimState
                 {
                     continue;
                 }
-                int take = Math.Min(need, stack.stackCount);
-                stack.stackCount -= take;
+                int take = stack.Consume(need);
                 need -= take;
                 if (stack.stackCount <= 0)
                 {

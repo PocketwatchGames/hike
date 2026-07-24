@@ -9,6 +9,8 @@ using Godot;
 [GlobalClass]
 public partial class AttackBehaviorData : BehaviorData
 {
+    public AttackBehaviorData() { behaviorFlags = EBehaviorFlags.Engaging; }
+
     // Farthest the mob will chase the target before giving up on approach this
     // tick (the transition out of attack still runs via aggro-lost).
     [Export] public float approachRange = 30f;

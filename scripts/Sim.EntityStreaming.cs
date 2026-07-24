@@ -664,21 +664,130 @@ public partial class Sim
         }
     }
 
-    // True when any loaded mob is an active threat to the player — dangerous,
-    // hostile, and either triggered or currently visible (see
-    // Mob.IsThreateningPlayer). Drives NoDangerRequirement so "safe" interactives
-    // like cooking at a campfire refuse to start while danger is around. Cheap
-    // enough to call on demand at action-press time (mobs are few and loaded).
-    public bool IsDangerPresent()
+    // True when a dangerous hostile would make interacting at `anchor` unsafe:
+    // within `radius` of it AND either in an engaged posture (coming for the
+    // player, even behind cover — see Mob.IsEngaging) or with a clear line of
+    // sight to the spot. Deliberately fog/lighting-independent and symmetric about
+    // the object — LOS is measured mob->anchor, so it doesn't matter which side of
+    // the object the player stands. Drives NoDangerRequirement. `isWarded`
+    // optionally excludes mobs the interactive repels (a lit campfire's feared
+    // slimes) so those never block it. Cheap enough to call at action-press time.
+    public bool IsDangerNear(Vector3 anchor, float radius, Func<Mob, bool> isWarded = null,
+        Godot.Collections.Array<Rid> losExclude = null)
     {
+        float radiusSq = radius * radius;
         foreach (Mob mob in GetEntities<Mob>())
         {
-            if (mob.IsThreateningPlayer)
+            if (!mob.IsDangerousHostile)
+            {
+                continue;
+            }
+            if (isWarded != null && isWarded(mob))
+            {
+                continue;
+            }
+            // A mob actively hunting the player is danger at ANY range — it will
+            // close, dive, or shoot (a drake attacks from altitude/distance).
+            if (mob.IsEngaging)
+            {
+                return true;
+            }
+            // A merely-present hostile (aware of the spot but not engaged) counts
+            // only when it's near AND has a clear line to it. Horizontal distance
+            // so a flier's altitude doesn't push it out of range while it hovers
+            // right over the spot.
+            Vector3 toMob = mob.GlobalPosition - anchor;
+            toMob.Y = 0f;
+            if (toMob.LengthSquared() <= radiusSq && HasLineOfSight(mob.GlobalPosition, anchor, losExclude))
             {
                 return true;
             }
         }
         return false;
+    }
+
+    // Clear-line test for the danger gate against solid geometry (terrain, walls,
+    // props). `exclude` drops colliders that must not count as blockers — chiefly
+    // the interactive being checked, which is itself a body: a ray to its origin
+    // would otherwise hit its OWN collider and read as blocked. Reaching the object
+    // (its collider excluded, so no hit) is a clear line — "hitting the object
+    // itself means I can see the object" — while a real wall in between still
+    // blocks. Endpoints lifted off the surface so the ray doesn't graze the floor
+    // voxel under either party.
+    private const float DangerLosRayHeight = 1f;
+    private bool HasLineOfSight(Vector3 from, Vector3 to, Godot.Collections.Array<Rid> exclude = null)
+    {
+        World3D world = GetWorld3D();
+        if (world == null)
+        {
+            return true;
+        }
+        Vector3 a = from + Vector3.Up * DangerLosRayHeight;
+        Vector3 b = to + Vector3.Up * DangerLosRayHeight;
+        using var query = PhysicsRayQueryParameters3D.Create(a, b, (uint)ECollisionLayer.Solid);
+        query.CollideWithAreas = false;
+        query.CollideWithBodies = true;
+        if (exclude != null)
+        {
+            query.Exclude = exclude;
+        }
+        Godot.Collections.Dictionary hit = world.DirectSpaceState.IntersectRay(query);
+        return hit.Count == 0;
+    }
+
+    private float _dangerDebugAccumulator;
+    private const float DangerDebugIntervalSeconds = 0.5f;
+    // Radius (m) the debug scan considers "near" the player when deciding which
+    // mobs to report. Diagnostics only — the real gate uses each requirement's
+    // authored radius around its interactive.
+    private const float DangerDebugRadius = 40f;
+
+    // danger_debug: every half-second, dump each dangerous hostile within the
+    // debug radius of the player with the exact factors the danger scan reads —
+    // distance, behavior, composed flags, IsEngaging, and clear-line-to-player —
+    // so a stuck "Danger Nearby" can be pinned to a specific mob and the clause
+    // (engaging vs in-sight) holding it.
+    private void DebugDangerScan(double delta)
+    {
+        if (!CVars.dangerDebug.Value)
+        {
+            return;
+        }
+        _dangerDebugAccumulator += (float)delta;
+        if (_dangerDebugAccumulator < DangerDebugIntervalSeconds)
+        {
+            return;
+        }
+        _dangerDebugAccumulator = 0f;
+
+        Player p = _player;
+        if (p == null)
+        {
+            return;
+        }
+        Vector3 anchor = p.GlobalPosition;
+        int count = 0;
+        foreach (Mob mob in GetEntities<Mob>())
+        {
+            if (!mob.IsDangerousHostile)
+            {
+                continue;
+            }
+            float dist = mob.GlobalPosition.DistanceTo(anchor);
+            if (dist > DangerDebugRadius)
+            {
+                continue;
+            }
+            bool engaging = mob.IsEngaging;
+            bool los = HasLineOfSight(mob.GlobalPosition, anchor);
+            count++;
+            GD.Print($"[danger] {mob.mobData?.displayName} dist={dist:F1} behavior={mob.CurrentBehaviorName} " +
+                $"flags={mob.CurrentBehaviorFlags} engaging={engaging} losToPlayer={los} playerSeesMob={mob.playerCanSee}");
+        }
+        if (count == 0)
+        {
+            GD.Print($"[danger] no dangerous hostiles within {DangerDebugRadius:F0}m");
+        }
     }
 
     // Emit a discrete noise impulse at `position`, attributed to `source` — the

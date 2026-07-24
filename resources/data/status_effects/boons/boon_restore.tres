@@ -11,7 +11,7 @@
 script = ExtResource("2_se")
 icon = ExtResource("3_icon")
 displayName = &"Restore"
-description = "A fairy's blessing — mends every wound and washes away all afflictions."
+description = "Heals all wounds and removes afflictions"
 instantaneous = true
 instantHealPercent = 1.0
 removesOnApply = Array[ExtResource("2_se")]([ExtResource("4_poison"), ExtResource("5_burning"), ExtResource("6_food")])

@@ -1170,8 +1170,7 @@ public partial class Player : CharacterBody3D
 			{
 				continue;
 			}
-			int take = Math.Min(count, s.stackCount);
-			s.stackCount -= take;
+			int take = s.Consume(count);
 			count -= take;
 			if (s.stackCount <= 0)
 			{
@@ -1397,7 +1396,7 @@ public partial class Player : CharacterBody3D
 					{
 						int n = System.Math.Min(remaining, stackSize);
 						ItemState state = ic.descriptor.CreateState();
-						state.stackCount = n;
+						state.SetCount(n);
 						_inventory.TryAdd(state);
 						TryAutoEquipFromBackpack(state);
 						remaining -= n;
@@ -1415,7 +1414,7 @@ public partial class Player : CharacterBody3D
 					{
 						int n = System.Math.Min(remaining, stackSize);
 						ItemState state = ic.descriptor.CreateState();
-						state.stackCount = n;
+						state.SetCount(n);
 						_inventory.TryAdd(state);
 						remaining -= n;
 					}

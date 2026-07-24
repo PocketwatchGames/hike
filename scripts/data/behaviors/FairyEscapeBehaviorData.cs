@@ -6,6 +6,8 @@ using Godot;
 [GlobalClass]
 public partial class FairyEscapeBehaviorData : BehaviorData
 {
+    public FairyEscapeBehaviorData() { behaviorFlags = EBehaviorFlags.Disengaging; }
+
     [Export] public float ascentHeight = 10f;
     [Export] public float ascentSeconds = 1.5f;
 

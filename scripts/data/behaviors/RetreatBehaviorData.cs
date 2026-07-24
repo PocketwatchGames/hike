@@ -7,6 +7,8 @@ using Godot;
 [GlobalClass]
 public partial class RetreatBehaviorData : BehaviorData
 {
+    public RetreatBehaviorData() { behaviorFlags = EBehaviorFlags.Disengaging; }
+
     // Seconds the mob holds its gaze on the (safe) player before turning to
     // leave. Skipped entirely when the mob is retreating because it was just
     // attacked — a hit means bolt, not stare.

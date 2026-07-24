@@ -218,7 +218,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		src.stackCount -= placed;
+		src.Consume(placed);
 		if (src.stackCount <= 0)
 		{
 			stash.RemoveAt(index);

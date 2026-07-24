@@ -137,7 +137,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
                 ItemCount entry = lootItems[i];
                 if (entry?.descriptor?.item == null || entry.count <= 0) { continue; }
                 ItemState stack = entry.descriptor.CreateState();
-                stack.stackCount = entry.count;
+                stack.SetCount(entry.count);
                 _world.DropItem(stack, GlobalPosition + Vector3.Up, RandomImpulse(rng, horizontalSpeed, verticalSpeed));
             }
         }

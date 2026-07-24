@@ -5,6 +5,8 @@ using Godot;
 [GlobalClass]
 public partial class FlyFleeBehaviorData : BehaviorData
 {
+    public FlyFleeBehaviorData() { behaviorFlags = EBehaviorFlags.Disengaging; }
+
     // A perch must lie at least this far away to be considered (don't pick the
     // branch you're already on) and no farther than maxPerchRange.
     [Export] public float minPerchRange = 6f;

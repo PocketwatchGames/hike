@@ -201,14 +201,25 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			Expire();
 			return;
 		}
-		// A carried instance can also carry its own dawn expiry
-		// (ItemState.removeOnDay) — e.g. a time-limited fairy corpse dropped back
-		// out is still due to vanish at the next sleep-to-sunrise. Unlike
-		// LootData.removeTimeMs (an age-since-spawn duration) this is a day count.
 		ItemState carried = _simState?.Item;
-		if (carried != null && carried.removeOnDay > 0 && _world.DayNumber >= carried.removeOnDay)
+		if (carried != null)
 		{
-			Expire();
+			// Perishable food dropped back into the world keeps spoiling: shed any
+			// expired cohorts and despawn once the whole pile is gone.
+			carried.PruneExpired(_world.DayNumber);
+			if (carried.stackCount <= 0)
+			{
+				Expire();
+				return;
+			}
+			// A carried instance can also carry its own dawn expiry
+			// (ItemState.removeOnDay) — e.g. a time-limited fairy corpse dropped
+			// back out is still due to vanish at the next sleep-to-sunrise. Unlike
+			// LootData.removeTimeMs (an age-since-spawn duration) this is a day count.
+			if (carried.removeOnDay > 0 && _world.DayNumber >= carried.removeOnDay)
+			{
+				Expire();
+			}
 		}
 	}
 

@@ -10,6 +10,8 @@ public enum EStatName
 	Blunt,
 	Dizzy,
 	Knockback,
+	Block,
+	Parry,
 	BloodCost,
 	StaminaCost,
 	Cooldown,

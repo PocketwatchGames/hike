@@ -101,7 +101,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
             {
                 if (entry == null || entry.item == null) { continue; }
                 ItemState itemState = entry.item.CreateState();
-                itemState.stackCount = Mathf.Max(1, entry.count);
+                itemState.SetCount(Mathf.Max(1, entry.count));
                 state.Inventory.Add(new MobInventoryItem
                 {
                     item = itemState,

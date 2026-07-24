@@ -18,7 +18,7 @@ using Godot;
 //     status effect to the chosen character immediately (see CookingScreen).
 //   * Light → lights the flame (and douses all others).
 [GlobalClass]
-public partial class Campfire : Node3D, IInteractive, IWorldEntity
+public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard
 {
     [Export] private LitSpriteAnimator _animator;
     // Model-based forges (the 3D campfire) swap the mesh material between a
@@ -63,6 +63,13 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity
     public ItemState[] CampfireSlots => _simState?.CampfireSlots;
     public bool IsLit => _active;
     public ECampfireType CampfireType => _campfireType;
+
+    // IMobWard: a campfire wards off mobs that fear it (slimes) so they never
+    // block interacting here. Independent of lit state on purpose — the ward
+    // exists so the player can LIGHT an unlit fire while fearers are around
+    // (lighting it then drives them off via the safety zone); requiring it to be
+    // lit already would reintroduce the chicken-and-egg it's meant to solve.
+    public bool WardsOff(Mob mob) => mob?.mobData?.fearsCampfire == true;
 
     private static readonly StringName AnimOn = "on";
     private static readonly StringName AnimOff = "off";

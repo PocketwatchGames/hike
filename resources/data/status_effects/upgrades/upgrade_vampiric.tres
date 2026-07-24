@@ -13,7 +13,7 @@ idleFx = ExtResource("3_idle")
 [resource]
 script = ExtResource("1_data")
 displayName = &"Vampiric"
-description = "Heals the wielder for a fraction of the health damage each landed attack deals."
+description = "Heals you for a fraction of damage dealt."
 upgradeSlot = 3
 category = 2
 durationType = 2

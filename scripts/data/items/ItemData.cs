@@ -20,13 +20,14 @@ public partial class ItemData : Resource
 	[Export(PropertyHint.MultilineText)] public string description = "";
 	[Export] public int maxStack = 1;
 
-	// In-world days this item keeps before it spoils and is destroyed wherever it
-	// sits (backpack, party stash). 0 = never spoils (the default). Perishables
-	// (meat, mushrooms) set this; on acquisition the deadline is stamped onto
-	// ItemState.removeOnDay (DayNumber + spoilDays), which the backpack prune
-	// (Player.TickItemExpiry), the stash prune (SimState.PruneExpiredPerishables),
-	// and dropped Loot all honor. Stacks only merge with a matching removeOnDay
-	// (ItemState.CanStackWith), so a fresh batch never resets an older one.
+	// In-world days this item keeps before it spoils. 0 = never spoils (the
+	// default). Perishables (meat, mushrooms) set this; on acquisition the deadline
+	// (DayNumber + spoilDays) is stamped onto the acquired units as a spoil cohort
+	// (ItemState.StampSpoilDay). A same-kind stack shows as ONE inventory pile
+	// regardless of when its units were gathered — batches gathered on different
+	// days coexist as cohorts and are consumed oldest-first — while the backpack
+	// prune (Player.TickItemExpiry), the stash prune (SimState.PruneExpiredPerishables),
+	// and dropped Loot each shed only the cohorts whose day has arrived.
 	[Export(PropertyHint.Range, "0,60,1,or_greater")] public int spoilDays;
 	// Subjective worth of one unit. Mob.CalculatePersonalValue starts from this
 	// and lets per-mob preferences scale it (a vegetarian villager values a

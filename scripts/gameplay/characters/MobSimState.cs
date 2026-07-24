@@ -250,6 +250,10 @@ public class MobSimState : EntitySimState
     public InvestigateState? Investigation;
     public bool Yelled;
     public ulong SuspendAITimeMs;
+    // Composed behavior stance from the last AI tick (authored base + runtime
+    // bits). Written by Mob.TickAI, read out-of-tick by danger checks / despawn /
+    // CombatTracker. Transient (recomputed every tick) — not serialized.
+    public EBehaviorFlags CurrentBehaviorFlags;
     // One perception slot per potential target. Currently sized to 1 (the player);
     // the array shape is kept so multiplayer can add slots without reshuffling.
     public PerceptionState[] PerceptionTargets = new PerceptionState[1];

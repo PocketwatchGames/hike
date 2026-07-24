@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://cloo3byck0dx4" path="res://scripts/gui/ItemInfoPanel.cs" id="1_55ro3"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="2_08k4j"]
 [ext_resource type="PackedScene" uid="uid://dhdl6e3d0bqna" path="res://scenes/gui/item_action_panel.tscn" id="2_p0emx"]
+[ext_resource type="PackedScene" uid="uid://cxvwydwbyuusq" path="res://scenes/gui/item_action_context_panel.tscn" id="7_prycx"]
 [ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="3_iaocb"]
 [ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="4_t78nj"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="6_t8nb6"]
@@ -17,6 +18,7 @@ _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
 _icon = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Icon")
 _actionPanel = ExtResource("2_p0emx")
 _actionPanelContainer = NodePath("MarginContainer/VBoxContainer")
+_contextPanelScene = ExtResource("7_prycx")
 _statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
 _statScene = ExtResource("3_iaocb")
 _statusContainer = NodePath("MarginContainer/VBoxContainer/StatusEffectContainer")

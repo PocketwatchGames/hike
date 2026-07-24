@@ -7,6 +7,10 @@ using Godot;
 [GlobalClass]
 public partial class DodgeBehaviorData : BehaviorData
 {
+    // Entered mid-combat from the attack/encircle state, resumes the attack —
+    // still an engaged posture, so it counts as danger while dodging a volley.
+    public DodgeBehaviorData() { behaviorFlags = EBehaviorFlags.Engaging; }
+
     // Horizontal distance (meters) the dash carries the mob. Speed is derived
     // (dashDistance / dashDurationSeconds) so this stays the authored knob.
     [Export] public float dashDistance = 3f;

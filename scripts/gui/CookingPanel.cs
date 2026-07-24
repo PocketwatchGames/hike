@@ -192,7 +192,9 @@ public partial class CookingPanel : MarginContainer
 				continue;
 			}
 			int delta = Mathf.Min(room, amount - placed);
-			existing.stackCount += delta;
+			// Cooking slots are spoil-agnostic staging (recipes match by kind, not
+			// deadline); the real stash decrement happens oldest-first at the caller.
+			existing.AddUnits(delta, 0);
 			placed += delta;
 		}
 		// Pass 2: drop into the first empty slot.
@@ -204,7 +206,7 @@ public partial class CookingPanel : MarginContainer
 			}
 			ItemState fresh = donor.data.CreateState();
 			int delta = Mathf.Min(donor.data.maxStack, amount - placed);
-			fresh.stackCount = delta;
+			fresh.SetCount(delta);
 			_slots[i] = fresh;
 			placed += delta;
 		}
@@ -234,9 +236,7 @@ public partial class CookingPanel : MarginContainer
 		{
 			return null;
 		}
-		ItemState extracted = slot.data.CreateState();
-		extracted.stackCount = taken;
-		slot.stackCount -= taken;
+		ItemState extracted = slot.SplitOff(taken);
 		if (slot.stackCount <= 0)
 		{
 			_slots[index] = null;

@@ -33,8 +33,8 @@ public partial class PlayerStatsPanel : PanelContainer
 	readonly Dictionary<(StatusEffectData data, EUpgradeSlot slot), StatusEffectInfoPanel> _panels = new();
 	readonly List<(StatusEffectData data, EUpgradeSlot slot)> _toRemove = new();
 	// Keys in the order first seen while scanning the player's effects this frame,
-	// then partitioned into _displayOrder (upgrades first, then ordinary effects)
-	// so the container's child order matches. Both reused to avoid per-frame allocs.
+	// then sorted into _displayOrder by display tier (see BuildDisplayOrder) so the
+	// container's child order matches. Both reused to avoid per-frame allocs.
 	readonly List<(StatusEffectData data, EUpgradeSlot slot)> _seenOrder = new();
 	readonly List<(StatusEffectData data, EUpgradeSlot slot)> _displayOrder = new();
 
@@ -162,8 +162,8 @@ public partial class PlayerStatsPanel : PanelContainer
 
 	// Group the player's effects by (data, applied slot), drop panels whose key is
 	// no longer held, instantiate panels for newly-appeared keys, refresh the HUD
-	// count + timer on the rest, and order the container so forge upgrades list
-	// first (each individually, by slot) ahead of ordinary status effects.
+	// count + timer on the rest, and order the container by display tier
+	// (traits → meal → upgrades → no-timer states → timed effects; see BuildDisplayOrder).
 	void RefreshStatusEffects()
 	{
 		if (_statusEffectContainer == null || _statusEffectInfoScene == null)
@@ -258,33 +258,59 @@ public partial class PlayerStatsPanel : PanelContainer
 		}
 	}
 
-	// Partition this frame's first-seen keys into display order: forge upgrades
-	// first (each an individual row, ordered by applied slot bit — Melee, Ranged,
-	// Armor), then ordinary effects in the order first seen. Insertion keeps
-	// upgrades slot-sorted and both groups stable frame-to-frame (no reshuffle).
+	// Display tiers, top to bottom. A row's tier comes from the properties on its
+	// effect (see SortKey) since a boon leaves no runtime marker on the effect it
+	// grants: fairy boons are authored until-sunrise, so they ride the no-timer tier
+	// alongside wet/persistent states rather than carving out their own band.
+	const float TierTrait = 0f;    // Permanent-category perks / afflictions
+	const float TierMeal = 1f;     // the last cooked meal (Meal category)
+	const float TierUpgrade = 2f;  // forge upgrades (appliedUpgradeSlot != None)
+	const float TierNoTimer = 3f;  // no countdown bar (until-sunrise boons, wet, persistent)
+	const float TierTimer = 4f;    // timed effects, sub-ordered by remaining time
+
+	// Sort this frame's first-seen keys into display tiers. Within the timed tier,
+	// rows are ordered by remaining lifetime so the soonest-to-expire sits highest.
+	// Stable insertion keeps equal-key rows in first-seen order (no frame-to-frame
+	// reshuffle) and stays alloc-free.
 	void BuildDisplayOrder()
 	{
 		_displayOrder.Clear();
 		for (int i = 0; i < _seenOrder.Count; i++)
 		{
 			var key = _seenOrder[i];
-			if (key.slot == EUpgradeSlot.None)
-			{
-				continue;
-			}
+			float sortKey = SortKey(key);
 			int j = 0;
-			while (j < _displayOrder.Count && (int)_displayOrder[j].slot <= (int)key.slot)
+			while (j < _displayOrder.Count && SortKey(_displayOrder[j]) <= sortKey)
 			{
 				j++;
 			}
 			_displayOrder.Insert(j, key);
 		}
-		for (int i = 0; i < _seenOrder.Count; i++)
+	}
+
+	// Ascending sort value for a display row: its tier, plus (within the timed tier
+	// only) the remaining-lifetime fraction so lower progress — closer to expiring —
+	// sorts first. Tiers are integers and progress is [0,1], so a timed row never
+	// crosses into another tier's band.
+	float SortKey((StatusEffectData data, EUpgradeSlot slot) key)
+	{
+		StatusEffectData data = key.data;
+		if ((data.category & EEffectCategory.Permanent) != 0)
 		{
-			if (_seenOrder[i].slot == EUpgradeSlot.None)
-			{
-				_displayOrder.Add(_seenOrder[i]);
-			}
+			return TierTrait;
 		}
+		if ((data.category & EEffectCategory.Meal) != 0)
+		{
+			return TierMeal;
+		}
+		if (key.slot != EUpgradeSlot.None)
+		{
+			return TierUpgrade;
+		}
+		if (_minProgress.TryGetValue(key, out float progress))
+		{
+			return TierTimer + progress;
+		}
+		return TierNoTimer;
 	}
 }

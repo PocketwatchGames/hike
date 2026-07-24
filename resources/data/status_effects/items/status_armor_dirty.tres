@@ -7,7 +7,7 @@
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Dirty"
-description = "This garment is grimy from long wear. Get it wet to wash it clean."
+description = "Grimy from wear. Get it wet to clean."
 modifiers = []
 maxStack = 1
 buildupBehavior = 1

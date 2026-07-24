@@ -139,7 +139,7 @@ public partial class SpellSelectionPanel : MarginContainer
 			if (spell != null)
 			{
 				ItemState state = spell.CreateState();
-				state.stackCount = 1;
+				state.SetCount(1);
 				_itemInfoPanel.SetItem(state);
 			}
 			else
