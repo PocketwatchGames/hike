@@ -146,9 +146,10 @@ public partial class Projectile : Node3D
 	// scaling. The shot rebuilds its HitInfo from raw DamageData, so ResolveHit's
 	// scaling doesn't reach it — the multiplier is threaded through Launch instead.
 	private float _damageMultiplier = 1f;
-	// Attacker's per-level offense scale applied to every buildup this shot delivers
-	// (the buildup counterpart of _damageMultiplier's damage scaling). 1 = neutral.
-	private float _buildupMultiplier = 1f;
+	// Attacker's per-level offense scale, stamped as potency on any status effect
+	// this shot applies so a leveled ranged attack's poison/burn ticks harder as one
+	// stack (the buildup meter fill itself stays level-independent). 1 = neutral.
+	private float _potency = 1f;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -209,7 +210,7 @@ public partial class Projectile : Node3D
 		ItemEvent directHitEvent = null,
 		ItemEvent expirationEvent = null,
 		float damageMultiplier = 1f,
-		float buildupMultiplier = 1f,
+		float potency = 1f,
 		float staminaOnHit = 0f)
 	{
 		if (scene == null || parent == null)
@@ -225,7 +226,7 @@ public partial class Projectile : Node3D
 		inst._knockbackBonus = knockbackBonus;
 		inst._knockbackTimeBonus = knockbackTimeBonus;
 		inst._damageMultiplier = damageMultiplier;
-		inst._buildupMultiplier = buildupMultiplier;
+		inst._potency = potency;
 		inst._damageData = damageData;
 		inst._source = source;
 		inst._velocity = velocity;
@@ -426,11 +427,11 @@ public partial class Projectile : Node3D
 						var hit = new HitInfo(_damageData, _source, _velocity.Normalized(), _attackerTeam);
 						hit.friendlyFire = _friendlyFire;
 						// Composed weapon level doubles outgoing damage per level (2^level),
-						// folded with the attacker's per-level offense scale; the buildup
-						// counterpart rides buildupAmountMultiplier so the DamageData's own
-						// buildups AND the weapon-mod on-hit buildups below both scale.
+						// folded with the attacker's per-level offense scale. The per-level
+						// scale rides `potency` (bigger DoT ticks, not more stacks); the
+						// buildup meter fill stays level-independent.
 						hit.healthDamage *= _damageMultiplier;
-						hit.buildupAmountMultiplier *= _buildupMultiplier;
+						hit.potency = _potency;
 						// Weapon-mod on-hit effects (Burning applied immediately,
 						// Poison buildup) the shot carries, on top of the
 						// DamageData's own buildups.

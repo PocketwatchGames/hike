@@ -176,17 +176,21 @@ public partial class SimData : Resource
     // tier). Offense and defense are SYMMETRIC by construction — offense multiplies
     // by levelScalePerLevel^level, defense multiplies by its reciprocal
     // levelScalePerLevel^-level — so a level-N attacker and a level-N defender
-    // exactly cancel (net 1x). Matches the weapon-item scaling (WeaponState
-    // .DamageMultiplier = 2^level): at the default 2, each level doubles a leveled
-    // attacker's outgoing damage/buildup and halves what a leveled defender takes.
+    // exactly cancel (net 1x). Separate from the weapon-item scaling (WeaponState
+    // .DamageMultiplier = 2^level): at the default 1.5, each level multiplies a
+    // leveled attacker's outgoing damage/buildup by 1.5 and divides what a leveled
+    // defender takes by 1.5.
     // For the player these are slot-specific — the Melee/Ranged upgrade drives
     // offense on that weapon, the Armor upgrade drives defense; a mob applies both
     // from its single Level. See ItemEventHandlers.ResolveHit / Projectile (offense)
     // and Player/Mob.ApplyResistance (defense).
     //
-    // 2 also matches the mob health/armor Level curve (LevelMultiplier), so the
-    // default is behavior-preserving for existing mobs' outgoing damage.
-    [Export(PropertyHint.Range, "1,4,0.05")] public float levelScalePerLevel = 2f;
+    // This is the SINGLE per-star knob: it also drives the mob health/armor pool
+    // (LevelPoolMultiplier / Mob.LevelMultiplier), so one value tunes the whole
+    // difficulty curve. At 1.5 each star multiplies both a mob's pool AND its
+    // outgoing damage by 1.5 — so an under-geared fight's composite lethality
+    // (durability × their damage) rises ~2.25x per star rather than quadrupling.
+    [Export(PropertyHint.Range, "1,4,0.01")] public float levelScalePerLevel = 1.5f;
 
     // Outgoing damage / buildup multiplier for a leveled attacker (>=1). Level 0
     // (unleveled / no upgrade in the slot) is a neutral 1.
@@ -194,8 +198,16 @@ public partial class SimData : Resource
 
     // Incoming damage / buildup multiplier for a leveled defender — the exact
     // reciprocal of LevelOutgoingScale, so equal levels cancel. Level 0 is a
-    // neutral 1.
+    // neutral 1. NOTE: mobs no longer apply this (their level defense is the pool
+    // alone — see Mob.IncomingLevelResist); it remains the player's Armor-upgrade
+    // resist, whose reciprocal cancels a same-level attacker.
     public float LevelIncomingResist(int level) => level <= 0 ? 1f : Mathf.Pow(levelScalePerLevel, -level);
+
+    // Health/armor POOL multiplier for a leveled mob (>=1) — same curve as the
+    // outgoing scale, so both share the one levelScalePerLevel knob. Level 0 is a
+    // neutral 1. Drives Mob.LevelMultiplier (runtime cap reads) and the spawn-time
+    // vital bake (MobSimState constructor), which must agree.
+    public float LevelPoolMultiplier(int level) => level <= 0 ? 1f : Mathf.Pow(levelScalePerLevel, level);
 
     // Shared interactive verbs auto-injected on any mob whose runtime
     // SimState carries a Conversation. Authored here once so adding a new
@@ -1062,8 +1074,9 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,6,0.05")] public float nightSpawnDarknessBias = 2f;
 
     // Difficulty tier at full danger (midnight, or dwelling in total darkness). A
-    // spawn's level is round(danger × this) — each level is 2^level health / armor
-    // / outgoing damage and shows as level+1 HUD pips. Already-spawned mobs keep
+    // spawn's level is round(danger × this) — each level scales health / armor /
+    // outgoing damage by levelScalePerLevel (~1.5x) and shows as level+1 HUD pips.
+    // Already-spawned mobs keep
     // the level they arrived at; only new spawns scale up.
     [Export(PropertyHint.Range, "0,4,1")] public int nightSpawnMaxLevel = 4;
 

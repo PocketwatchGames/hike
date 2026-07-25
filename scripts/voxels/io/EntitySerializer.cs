@@ -216,8 +216,8 @@ public static class EntitySerializer
                 // ref, may be null. Appended last so older world files still parse.
                 WriteResource(w, mob.RecruitTemplate);
                 // Difficulty tier (MobDescriptor.level + worldgen level field).
-                // Scales health/armor/damage by 2^Level, so it must persist or a
-                // reloaded mob would revert to base stats. Appended last so older
+                // Scales health/armor/damage by the per-level curve, so it must
+                // persist or a reloaded mob would revert to base stats. Appended last so older
                 // world files still parse.
                 w.Write(mob.Level);
                 break;
@@ -283,6 +283,7 @@ public static class EntitySerializer
                 WriteVec3(w, trap.WorldPosition);
                 WriteScene(w, trap.Scene);
                 w.Write(trap.Disarmed);
+                w.Write(trap.Level);
                 break;
 
             case SignpostSimState signpost:
@@ -329,6 +330,7 @@ public static class EntitySerializer
                 WriteVec3(w, fire.WorldPosition);
                 WriteScene(w, fire.Scene);
                 w.Write(fire.PhaseOffsetSeconds);
+                w.Write(fire.Level);
                 break;
 
             case WellSimState well:
@@ -644,9 +646,11 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool disarmed = r.ReadBoolean();
+                int trapLevel = r.ReadInt32();
                 var trap = new TrapSimState(pos, scene);
                 trap.Disarmed = disarmed;
                 trap.HazardRadius = TrapSimState.DefaultHazardRadius;
+                trap.Level = trapLevel;
                 return trap;
             }
             case Tag.Signpost:
@@ -683,9 +687,11 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 float phaseOffset = r.ReadSingle();
+                int level = r.ReadInt32();
                 var fire = new FireTrapSimState(pos, scene);
                 fire.PhaseOffsetSeconds = phaseOffset;
                 fire.HazardRadius = FireTrapSimState.DefaultHazardRadius;
+                fire.Level = level;
                 return fire;
             }
             case Tag.Well:

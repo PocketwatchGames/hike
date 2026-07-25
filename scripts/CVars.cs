@@ -59,6 +59,23 @@ public static class CVars
     // "Danger Nearby" with nothing on screen can be traced to the exact mob.
     public static CVarBool dangerDebug = new CVarBool("danger_debug", false);
 
+    // Debug: drops a Treasure Map as loot at the player's feet so the pickup →
+    // reveal → dig flow can be exercised without hunting zone chests.
+    public static CVar spawnTreasureMap = new CVar("spawn_treasure_map", (cvar) =>
+    {
+        Sim sim = Sim.Current;
+        Player player = sim?.player;
+        if (sim == null || player == null)
+        {
+            return;
+        }
+        ItemData map = Godot.GD.Load<ItemData>("res://resources/data/items/consumables/treasure_map.tres");
+        if (map != null)
+        {
+            sim.SpawnLoot(player.GlobalPosition + Godot.Vector3.Up * 0.5f, Godot.Vector3.Up * 2.5f, map);
+        }
+    });
+
     // When true, draws the off-screen cap-mask SubViewport texture as a
     // fullscreen overlay so you can see exactly what the cap shader is
     // sampling. White pixels = "cap should draw here", black = "no cap".

@@ -122,7 +122,7 @@ public static class WorldFile
     //      player, with lighting one dousing all others (only one lit at a time).
     // v28: Mob entity payload appended a difficulty tier int (MobSimState.Level,
     //      from MobDescriptor.level + the worldgen level field) after the recruit
-    //      template — scales health/armor/damage by 2^Level, shown as HUD pips.
+    //      template — scales health/armor/damage by the per-level curve, shown as HUD pips.
     // v29: Day-count time model — the day/night clock pauses at midnight and only
     //      a sleep advances to sunrise. Dawn deadlines moved from a wall-clock
     //      (GameTimeMs) projection to a day number: ForgeSimState.ReactivateMs
@@ -139,7 +139,10 @@ public static class WorldFile
     //      removeOnDay pair — a cohort count followed by each (units, removeOnDay)
     //      so per-batch food spoilage persists. A same-kind stack now shows as one
     //      inventory pile regardless of acquisition day and consumes oldest-first.
-    public const uint VERSION = 31;
+    // v32: Fire/spike traps serialize a baked environment Level (int) — FireTrap
+    //      after its phase offset, Trap after Disarmed — so their damage + status
+    //      potency scale with the zone they sit in.
+    public const uint VERSION = 32;
 
     public struct IndexEntry
     {

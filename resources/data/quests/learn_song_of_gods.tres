@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="ScriptFlagCountQuestData" format=3]
+
+[ext_resource type="Script" uid="uid://5z0wozein4eu5" path="res://scripts/data/quests/ScriptFlagCountQuestData.cs" id="1_song"]
+
+[resource]
+script = ExtResource("1_song")
+textKey = &"quest_learn_song_of_gods"
+progressDisplay = 1
+flags = PackedStringArray("song_verse_1", "song_verse_2", "song_verse_3", "song_verse_4")

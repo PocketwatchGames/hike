@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://cfdavtb761i5m" path="res://scenes/gui/stamina_bar.tscn" id="6_552pg"]
 [ext_resource type="Material" uid="uid://dmnmapmatlr1a" path="res://resources/materials/minimap.tres" id="6_minimap_mat"]
 [ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="7_ggjrh"]
+[ext_resource type="Texture2D" uid="uid://i4ohpttlppmb" path="res://assets/textures/gui/hud_text_parried.png" id="7_okx5l"]
 [ext_resource type="Texture2D" uid="uid://dbdfb2i05edbk" path="res://assets/textures/weather/day_cold_clear.png" id="8_6101d"]
 [ext_resource type="Texture2D" uid="uid://dqyckjku6gox3" path="res://assets/textures/weather/night_cold_cloudy.png" id="9_is1ux"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="11_1hqqq"]
@@ -68,7 +69,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_lanternHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_lanternHint", "_staminaContainer", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_lanternHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_lanternHint", "_staminaContainer", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -93,6 +94,7 @@ _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _questContainer = NodePath("ScreenMarginContainer/UpperLeft/QuestContainer")
 _questItemScene = ExtResource("13_o8nis")
 _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/MarginContainer/HealthBar")
+_parryIcon = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/MarginContainer/HealthBar/TextureRect")
 _drainedHealthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/MarginContainer/DrainedHealthBar")
 _armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/ArmorBar")
 _blockArmorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/BlockArmorBar")
@@ -180,6 +182,19 @@ max_value = 1.0
 step = 0.001
 value = 0.5
 show_percentage = false
+
+[node name="TextureRect" type="TextureRect" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer/MarginContainer/HealthBar" unique_id=735863281]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -24.5
+offset_right = 48.0
+offset_bottom = 23.5
+grow_vertical = 2
+texture = ExtResource("7_okx5l")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/HBoxContainer" unique_id=181068372]
 custom_minimum_size = Vector2(50, 25)

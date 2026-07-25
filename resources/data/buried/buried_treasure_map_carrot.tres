@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="BuriedSpotData" format=3]
+
+[ext_resource type="Script" uid="uid://bagarwpxwvp1" path="res://scripts/data/buried/BuriedSpotData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://drxhdnq6x2ttv" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="2_loot_entry"]
+[ext_resource type="Resource" uid="uid://dq2wv8k7rmn3c" path="res://resources/data/items/loot/carrot.tres" id="3_carrot"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="4_desc"]
+[ext_resource type="PackedScene" uid="uid://cmd7r8wq3n2va" path="res://scenes/props/dirt_mound.tscn" id="5_mound"]
+
+[sub_resource type="Resource" id="Desc_carrot"]
+script = ExtResource("4_desc")
+item = ExtResource("3_carrot")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_carrot_payload"]
+script = ExtResource("2_loot_entry")
+item = SubResource("Desc_carrot")
+
+[resource]
+script = ExtResource("1_data")
+payload = SubResource("Resource_carrot_payload")
+dirtPileScene = ExtResource("5_mound")
+resultClass = 2

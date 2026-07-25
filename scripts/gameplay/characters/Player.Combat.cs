@@ -428,12 +428,12 @@ public partial class Player : CharacterBody3D
 		dir.Y = 0f;
 		var parryHit = new HitInfo(damage, this, dir, ETeam.Player);
 		// The riposte scales like any other hit from this weapon — composed item
-		// level and the Melee forge upgrade's curve fold into damage, the upgrade
-		// curve alone into buildups — mirroring ResolveHit / DoProjectile, which
-		// this direct mob.Hit path bypasses.
+		// level and the Melee forge upgrade's curve fold into damage, and the upgrade
+		// curve rides potency so any status it applies ticks harder — mirroring
+		// ResolveHit / DoProjectile, which this direct mob.Hit path bypasses.
 		float levelScale = OutgoingLevelScale(EInventorySlot.WeaponMelee);
 		parryHit.healthDamage *= weapon.DamageMultiplier * levelScale;
-		parryHit.buildupAmountMultiplier = levelScale;
+		parryHit.potency = levelScale;
 		mob.Hit(parryHit);
 	}
 

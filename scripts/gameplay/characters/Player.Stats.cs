@@ -377,6 +377,24 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// True when a parry is *possible* — the equipped melee weapon can parry and
+	// its guard is off its recharge cooldown — regardless of whether the crouch's
+	// timed window is currently open. Distinct from IsParryWindowActive (which
+	// also requires the window). Read by the HUD to show "parry available" before
+	// the window opens; the guard readiness alone doesn't need the sneak crouch.
+	public bool IsParryReady
+	{
+		get
+		{
+			if (_inventory?.GetEquipped(EInventorySlot.WeaponMelee) is WeaponState weapon
+				&& WeaponCanParry(weapon.data))
+			{
+				return IsGuardReadyToParry(weapon);
+			}
+			return false;
+		}
+	}
+
 	// A weapon parries only if it authors both a window (parryTimeMs) and a
 	// non-zero negation cap (maxParryDamage).
 	private static bool WeaponCanParry(WeaponData data)

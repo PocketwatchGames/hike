@@ -9,6 +9,7 @@
 [ext_resource type="Resource" uid="uid://c2slw3bih2n7x" path="res://resources/data/world_gen/zone_gen/swamp_highlands_gen.tres" id="17_hnhxf"]
 [ext_resource type="Resource" uid="uid://c3262urh41m8s" path="res://resources/data/world_gen/zone_gen/swamp_village_gen.tres" id="17_se4m7"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="18_8e3k4"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/swamp_world_script.tres" id="24_songscript"]
 [ext_resource type="Resource" uid="uid://chlk1f4ns5cwh" path="res://resources/data/world_gen/zone_gen/swamp_mud_gen.tres" id="18_se4m7"]
 [ext_resource type="Resource" uid="uid://tlfjf7x0adof" path="res://resources/data/world_gen/zone_gen/swamp_fire_gen.tres" id="21_d6mxe"]
 [ext_resource type="Script" uid="uid://bk2smsd8gwalq" path="res://scripts/data/worldgen/WorldGenData.cs" id="23_7umo2"]
@@ -191,6 +192,7 @@ metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 [resource]
 script = ExtResource("23_7umo2")
 simData = ExtResource("18_8e3k4")
+scriptData = ExtResource("24_songscript")
 zones = [SubResource("Placed_swamp"), SubResource("Placed_village"), SubResource("Placed_mud"), SubResource("Placed_highlands")]
 regions = [ExtResource("15_7nyke")]
 playerSpawnPosition = Vector3(72, 0, 80)

@@ -17,6 +17,13 @@
 [ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_gen/terrain_gen/marsh_kit.tres" id="15_e12v7"]
 [ext_resource type="Resource" uid="uid://cwvam7wm5c6ql" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="16_bxt8m"]
 [ext_resource type="Resource" uid="uid://c8lt1k3vpx7di" path="res://resources/data/zones/swamp_fire.tres" id="17_1xuj7"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_song_verse_1.tres" id="94_song"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="rc0"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_grilled_spider.tres" id="rc1"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_goblin_stamina.tres" id="rc2"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_goblin_health.tres" id="rc3"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_spider_health.tres" id="rc4"]
 
 [sub_resource type="Resource" id="Campfire_swamp"]
 script = ExtResource("5_uuxri")
@@ -45,6 +52,42 @@ confinementMinFraction = 0.15
 brokenness = 0.4
 metadata/_custom_type_script = "uid://dbxatq73lngxy"
 
+[sub_resource type="Resource" id="Dist_song"]
+script = ExtResource("90_countrange")
+item = ExtResource("94_song")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc0"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc0")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc1"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc1")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc2"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc2")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc3"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc3")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc4"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc4")
+count = 1
+countRange = 0
+
 [resource]
 script = ExtResource("11_dk2qw")
 zone = ExtResource("17_1xuj7")
@@ -65,6 +108,7 @@ forgeLevelMax = 1
 surfaceEntities = ExtResource("14_08puj")
 caveEntities = ExtResource("1_1xuj7")
 waterEntities = ExtResource("16_bxt8m")
+distributedLoot = Array[ExtResource("90_countrange")]([SubResource("Dist_song"), SubResource("Rc0"), SubResource("Rc1"), SubResource("Rc2"), SubResource("Rc3"), SubResource("Rc4")])
 fixtures = SubResource("Fixtures_swamp")
 ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("swamp_hollow")

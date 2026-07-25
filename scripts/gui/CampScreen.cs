@@ -66,7 +66,11 @@ public partial class CampScreen : Control
 
 	GameClient _gameClient;
 	Player _player;
-	Campfire _forge;
+	// The camp is always at the world's single lit fire, so resolve it LIVE from the sim
+	// rather than caching a node: a death/Pray respawn opens before the fire's chunk has
+	// streamed its entities back in, and this lets cooking enable itself the moment it does
+	// (a cached snapshot would be null forever). Null when no fire is lit / not yet resident.
+	Campfire Forge => _gameClient?.LitCampfireNode;
 	// The campfire this camp is anchored to — used to re-gather the party when the
 	// controlled member changes via the Select-Character screen.
 	Vector3 _campfirePosition;
@@ -121,9 +125,9 @@ public partial class CampScreen : Control
 		}
 	}
 
-	// Cooking needs a bound campfire. The death select binds the home campfire node
-	// when it's resident, but still opens forge-less when it was streamed out.
-	bool CanCook => _forge != null;
+	// Cooking needs a lit fire resident. Resolved live, so it flips true on its own once a
+	// respawn/Pray fire streams in (UpdateHubButtons re-runs from _Process while on the hub).
+	bool CanCook => Forge != null;
 
 	public override void _Ready()
 	{
@@ -144,33 +148,31 @@ public partial class CampScreen : Control
 		if (_leaveButton != null) { _leaveButton.Pressed -= OnLeaveButton; }
 	}
 
-	public void Open(Player player, Campfire forge)
+	public void Open(Player player, Vector3 campfirePosition)
 	{
 		// Camping anchors the party to this campfire (a later death gathers
 		// survivors here). The arrival bank / material transfer is done up front by
 		// GameClient.EnterCampWithFade before this screen opens.
-		OpenInternal(player, forge, forge?.GlobalPosition ?? player?.GlobalPosition ?? Vector3.Zero,
-			deathSelect: false);
+		OpenInternal(player, campfirePosition, deathSelect: false);
 	}
 
 	// Forced Select-Character screen after a party member's death: opens at the last
 	// campfire straight into the party view, locked there until the player picks a
-	// surviving member to control. Driven by GameClient.OpenDeathPartySelect, which
-	// binds the home campfire node when it's still resident (null when streamed out)
-	// so cooking is available without leaving and re-entering camp.
-	public void OpenPartySelect(Player controlledSurvivor, Campfire forge, Vector3 campfirePosition)
+	// surviving member to control. Driven by GameClient.OpenDeathPartySelect. The lit
+	// fire (if any) is read live, so cooking is available without leaving and re-entering
+	// camp — even while its chunk is still streaming back in.
+	public void OpenPartySelect(Player controlledSurvivor, Vector3 campfirePosition)
 	{
-		OpenInternal(controlledSurvivor, forge, campfirePosition, deathSelect: true);
+		OpenInternal(controlledSurvivor, campfirePosition, deathSelect: true);
 	}
 
-	void OpenInternal(Player player, Campfire forge, Vector3 campfirePosition, bool deathSelect)
+	void OpenInternal(Player player, Vector3 campfirePosition, bool deathSelect)
 	{
 		if (_open)
 		{
 			return;
 		}
 		_player = player;
-		_forge = forge;
 		_campfirePosition = campfirePosition;
 		_deathSelect = deathSelect;
 		// A plain campfire visit keeps whoever is controlled + their attuned spell; only
@@ -276,7 +278,6 @@ public partial class CampScreen : Control
 		_gameClient?.SyncControlToActive(transferBelt: true);
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 		_player = null;
-		_forge = null;
 		_deathSelect = false;
 		_characterChosen = false;
 	}
@@ -324,7 +325,7 @@ public partial class CampScreen : Control
 				_sleepButton?.CallDeferred(Control.MethodName.GrabFocus);
 				break;
 			case ECampView.Sleep:
-				_sleepScreen?.Open(_player, _forge?.HealFractionPerHour ?? 0f, RequestSleep);
+				_sleepScreen?.Open(_player, Forge?.HealFractionPerHour ?? 0f, RequestSleep);
 				break;
 			case ECampView.Party:
 				// Selecting marks the roster's active member (control transfers on camp
@@ -334,14 +335,14 @@ public partial class CampScreen : Control
 			case ECampView.Spell:
 				// Attunes onto the chosen character so the panel and the attunement
 				// agree even before the on-close control transfer.
-				_spellSelectionScreen?.Open(ChosenPlayer(), _forge, OnSpellChosen, PreferredSpell());
+				_spellSelectionScreen?.Open(ChosenPlayer(), Forge, OnSpellChosen, PreferredSpell());
 				break;
 			case ECampView.Cook:
 				// Eating a meal (picking a recipe, or a successful experimental cook)
 				// applies its effect to the chosen character and returns to the hub;
 				// the cook button only cooks the loaded ingredients, and ui_cancel
 				// backs out to the hub.
-				_cookingScreen?.Open(ChosenPlayer(), _forge, onMealChosen: OnMealChosen);
+				_cookingScreen?.Open(ChosenPlayer(), Forge, onMealChosen: OnMealChosen);
 				break;
 		}
 	}
@@ -367,6 +368,16 @@ public partial class CampScreen : Control
 		if (_characterChosen)
 		{
 			Close();
+		}
+	}
+
+	public override void _Process(double delta)
+	{
+		// A respawn/Pray fire can stream in a few frames after the hub opens; re-sync the
+		// hub buttons so the cook button enables itself the moment its fire becomes resident.
+		if (_open && _view == ECampView.Root)
+		{
+			UpdateHubButtons();
 		}
 	}
 
@@ -632,7 +643,6 @@ public partial class CampScreen : Control
 			_gameClient.onPlayerDied -= OnPlayerDied;
 		}
 		_player = null;
-		_forge = null;
 	}
 
 	// The Map action (back/Tab) opens the almanac. Handled in _Input rather than

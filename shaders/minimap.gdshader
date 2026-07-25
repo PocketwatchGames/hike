@@ -101,6 +101,12 @@ uniform vec4 void_color : source_color = vec4(0.04, 0.04, 0.06, 1.0);
 uniform float mask_radius : hint_range(0.0, 0.7071) = 0.5;
 uniform float mask_softness : hint_range(0.0, 0.1) = 0.015;
 
+// Floor on the exploration (fog-of-war) reveal. 0 = normal fog (unexplored
+// terrain stays dark). 1 = terrain always fully shown regardless of what the
+// party has charted — a treasure map depicts land the player may never have
+// visited (WorldMapScreen sets this in treasure-map mode).
+uniform float min_reveal : hint_range(0.0, 1.0) = 0.0;
+
 // Resolve one source-texel's TERRAIN color (tile LUT only — foliage is
 // applied separately below so its edges stay sharp).
 vec3 fetch_terrain_color(sampler2D surf_tex, ivec2 coord) {
@@ -183,7 +189,7 @@ void sample_layer(
                    + (1.0 - below_contrast) * t_below;
     color = mix(color, vec3(0.5), compress);
 
-    float explored = texture(expl_tex, uv).r;
+    float explored = max(texture(expl_tex, uv).r, min_reveal);
     color *= explored;
     out_color = color;
 }

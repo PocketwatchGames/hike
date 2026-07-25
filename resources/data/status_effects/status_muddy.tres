@@ -4,12 +4,6 @@
 [ext_resource type="Texture2D" uid="uid://idxjyig5rcky" path="res://assets/textures/status_effects/dots.png" id="2_icon"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
-[sub_resource type="Resource" id="m_movespeed"]
-script = ExtResource("m_script")
-stat = 4096
-value = 0.7
-metadata/_custom_type_script = "uid://bovyciaikopwb"
-
 [sub_resource type="Resource" id="m_scent"]
 script = ExtResource("m_script")
 stat = 131072
@@ -20,9 +14,9 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Muddy"
-description = "Slows you down but masks your scent from mobs. Rinses off in water."
+description = "Masks your scent from mobs. Rinses off in water."
 maxStack = 1
 buildupBehavior = 1
 removesOnApply = []
-modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_scent")])
+modifiers = Array[ExtResource("m_script")]([SubResource("m_scent")])
 conditionalModifiers = []

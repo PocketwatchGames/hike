@@ -18,6 +18,16 @@ public class StatusEffectState
 	// Read via StatusEffectController.ActiveUpgradeLevel.
 	public int level;
 
+	// Per-instance damage/heal magnitude scalar, captured at apply time from the
+	// applying source's strength — a weapon/mob's OutgoingLevelScale for combat
+	// DoTs, or an authored value for a source that customizes magnitude (a
+	// "superior" heal = the base heal at potency 2). The DoT tick multiplies
+	// dot.damagePerSecond by this, so a stronger source ticks bigger numbers as ONE
+	// stack rather than needing more stacks. Stays per-instance and never merges:
+	// a level-1 poison stack keeps ticking at level-1 even while a level-5 stack of
+	// the same effect ticks alongside it. 1 = base authored numbers.
+	public float potency = 1f;
+
 	// Game-time (ms) at which a Timed effect expires. 0 = no ms timer
 	// (Persistent, TimeOfDay, or a paused situational timer — see PauseTimer).
 	public ulong expireTimeMs;

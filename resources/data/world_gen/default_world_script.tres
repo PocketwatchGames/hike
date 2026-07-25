@@ -3,8 +3,11 @@
 [ext_resource type="Script" uid="uid://cpck4x65at916" path="res://scripts/data/worldgen/WorldScriptData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://buwh9zjfqgtky" path="res://resources/data/quests/rescue_quest.tres" id="2_rescue"]
 [ext_resource type="Resource" uid="uid://1ibortkocv6hq" path="res://resources/data/quests/return_to_camp.tres" id="3_return"]
+[ext_resource type="Script" uid="uid://wnl1w7ak8uqg" path="res://scripts/data/quests/QuestData.cs" id="4_questbase"]
+[ext_resource type="Resource" path="res://resources/data/quests/learn_song_of_gods.tres" id="5_song"]
 
 [resource]
 script = ExtResource("1_script")
 rescueQuest = ExtResource("2_rescue")
 returnToCampQuest = ExtResource("3_return")
+startingQuests = Array[ExtResource("4_questbase")]([ExtResource("5_song")])

@@ -481,10 +481,13 @@ public partial class GameClient : Node3D
 	// player camps somewhere new (CampScreen.Open → NotifyCampedAt). On a party
 	// member's death the survivors gather here and the fade-in frames it.
 	Vector3 _lastCampfirePosition;
-	// The Campfire node the party last camped at, so the Pray self-action can wake
-	// the player into a full camp screen there. May be null (never camped, or the
-	// node was streamed out) — callers fall back to _lastCampfirePosition.
-	Campfire _lastCampfire;
+	// The campfire the party camps / respawns at is always the world's single lit fire:
+	// lighting one is the only way to camp, and it douses every other, so SimState.LitCampfire
+	// is the one source of truth. Its RuntimeNode is repopulated on chunk reload and nulled on
+	// unload, so — unlike a cached node ref — it never dangles. Null when nothing is lit or the
+	// fire's chunk isn't resident yet. CampScreen reads this LIVE every frame rather than caching
+	// a node, so cooking enables itself the moment a respawn/Pray fire streams in.
+	public Campfire LitCampfireNode => _world?.WorldState?.SimState?.LitCampfire?.RuntimeNode as Campfire;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
@@ -847,21 +850,20 @@ public partial class GameClient : Node3D
 			return;
 		}
 		InputSuppressed = true;
+		// Lighting the fire makes it the world's LitCampfire (LitCampfireNode), which is
+		// how Pray / the death select later reopen a full camp screen here.
 		forge.Light();
-		// Remember the campfire node so Pray can wake the player into a full camp
-		// screen here later (position alone can't reopen the cook/craft tabs).
-		_lastCampfire = forge;
 		// The map reveal is armed but NOT shown here — it plays the next time the
 		// player opens the map. Knowledge that newly landed in the pool is announced
 		// (on top of the camp screen) inside NotifyCampedAt.
 		NotifyCampedAt(forge.GlobalPosition);
 		if (campFade != null && !campFade.Busy)
 		{
-			campFade.Play(() => campScreen.Open(_player, forge));
+			campFade.Play(() => campScreen.Open(_player, forge.GlobalPosition));
 		}
 		else
 		{
-			campScreen.Open(_player, forge);
+			campScreen.Open(_player, forge.GlobalPosition);
 		}
 	}
 
@@ -2503,11 +2505,9 @@ public partial class GameClient : Node3D
 	{
 		if (campScreen != null)
 		{
-			// Bind the home campfire node when it's still resident so cooking/crafting
-			// work straight from the death select; fall back to a position-only camp
-			// (no forge) when it was streamed out, exactly as ReturnHomeToSunrise does.
-			Campfire forge = (_lastCampfire != null && IsInstanceValid(_lastCampfire)) ? _lastCampfire : null;
-			campScreen.OpenPartySelect(_player, forge, _lastCampfirePosition);
+			// CampScreen reads the lit fire live, so cooking enables itself once the respawn
+			// fire streams in (or stays disabled if the player has no lit fire at all).
+			campScreen.OpenPartySelect(_player, _lastCampfirePosition);
 		}
 		else
 		{
@@ -2681,12 +2681,10 @@ public partial class GameClient : Node3D
 		// banking (the cost of the free trip). We reframe the camera + open the camp.
 		_world.ReturnHomeToSunrise(_lastCampfirePosition);
 		camera?.SetInitialPosition(_lastCampfirePosition);
-		// Open the camp screen without banking. The home campfire node is used when it
-		// is still resident (full cook/craft); otherwise fall back to a position-only
-		// camp, exactly as the death gather does.
-		Campfire forge = (_lastCampfire != null && IsInstanceValid(_lastCampfire)) ? _lastCampfire : null;
-		forge?.Light();
-		campScreen?.Open(_player, forge);
+		// Open the camp screen without banking. Relight the home fire if it's resident;
+		// CampScreen reads the lit node live (full cook/craft) once it streams in.
+		LitCampfireNode?.Light();
+		campScreen?.Open(_player, _lastCampfirePosition);
 	}
 
 	public void Save()

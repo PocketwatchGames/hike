@@ -34,6 +34,15 @@ public partial class WorldMapScreen : Control
 	[Export] public Texture2D unknownMarkerIcon;
 	[Export(PropertyHint.Range, "8,96,1")] public int markerIconSize = 28;
 
+	// Switches the panel between the world map (item 0) and each collected
+	// treasure map. Populated from SimState.TreasureMaps.
+	[Export] public OptionButton mapSelector;
+	// Zoom used for a treasure map — a small view radius so the marked area reads
+	// close-up, versus the whole-world radius the world map computes.
+	[Export(PropertyHint.Range, "16,200,1")] public float treasureMapViewRadiusMeters = 48f;
+	// Icon drawn at the dig spot (map center) on a treasure map. Null = a drawn red X.
+	[Export] public Texture2D treasureXIcon;
+
 	// World-sampling spin (radians) that puts game-north (−X,−Z) at the top of
 	// the map. +X is screen-right and +Z screen-down in the shader's unrotated
 	// frame, so the (−X,−Z) diagonal starts at the upper-left; −π/4 rotates it
@@ -44,6 +53,10 @@ public partial class WorldMapScreen : Control
 	// Marker icon overlay, lazily created as a child of regionLabels (which is
 	// sized to mapTexture's rect and un-rotated, so markers land on the terrain).
 	MapMarkerOverlay _markerOverlay;
+
+	// Full-rect overlay drawing the dig-spot X, shown only in treasure-map mode.
+	// A child of regionLabels so it renders above the map texture.
+	TreasureXMarker _xMarker;
 
 	GameClient _gameClient;
 
@@ -65,9 +78,25 @@ public partial class WorldMapScreen : Control
 	// Lazy-created on first visible frame, once WorldState is available.
 	readonly Dictionary<RegionData, Label> _labels = new();
 
+	// Rebuild the selector only when the collected-map count changes.
+	int _selectorMapCount = -1;
+
 	public override void _Ready()
 	{
 		Visible = false;
+		// This modal is Tab/controller-navigated with no mouse-driven focus, so the
+		// selector is unreachable unless we hand it focus when the tab is shown.
+		VisibilityChanged += OnVisibilityChanged;
+	}
+
+	void OnVisibilityChanged()
+	{
+		if (Visible && mapSelector != null)
+		{
+			// Deferred: the control can't take focus in the same frame its
+			// visibility flips on.
+			mapSelector.CallDeferred(Control.MethodName.GrabFocus);
+		}
 	}
 
 	public override void _Process(double delta)
@@ -101,6 +130,45 @@ public partial class WorldMapScreen : Control
 			_boundFoliageLut = minimap.FoliageLutTexture;
 		}
 
+		SimState simState = _gameClient?.Sim?.WorldState?.SimState;
+		SyncSelector(simState);
+
+		TreasureMapState treasureMap = GetSelectedTreasureMap(simState);
+		if (treasureMap != null)
+		{
+			RenderTreasureMap(mat, minimap, treasureMap);
+		}
+		else
+		{
+			RenderWorldMap(mat, minimap);
+		}
+	}
+
+	// Lazily create the label-plane overlays (marker icons + the treasure X) as
+	// children of regionLabels, which is sized to the map rect and drawn above the
+	// map texture. The X is added last so it sits on top of the markers.
+	void EnsureOverlays()
+	{
+		if (regionLabels == null)
+		{
+			return;
+		}
+		if (_markerOverlay == null)
+		{
+			// World map is banked-only — field markers appear here after camping.
+			_markerOverlay = MapMarkerOverlay.Create(_gameClient, unknownMarkerIcon, markerIconSize, includeProvisional: false, circleMaskFraction: 0f);
+			regionLabels.AddChild(_markerOverlay);
+		}
+		if (_xMarker == null)
+		{
+			_xMarker = new TreasureXMarker { icon = treasureXIcon, MouseFilter = MouseFilterEnum.Ignore };
+			regionLabels.AddChild(_xMarker);
+		}
+	}
+
+	// Whole-authored-world view, north-up, with region labels and banked markers.
+	void RenderWorldMap(ShaderMaterial mat, Minimap minimap)
+	{
 		PushState(mat, minimap.StateA, "_a", ref _boundA);
 		PushState(mat, minimap.StateB, "_b", ref _boundB);
 
@@ -120,18 +188,103 @@ public partial class WorldMapScreen : Control
 		mat.SetShaderParameter("view_radius_meters", viewRadius);
 		mat.SetShaderParameter("map_rotation", NorthMapRotation);
 		mat.SetShaderParameter("state_transition", minimap.StateTransition);
+		mat.SetShaderParameter("min_reveal", 0f);
 
 		UpdateRegionLabels(worldCenter, viewRadius);
 
-		if (regionLabels != null)
+		EnsureOverlays();
+		if (_markerOverlay != null)
 		{
-			if (_markerOverlay == null)
-			{
-				// World map is banked-only — field markers appear here after camping.
-				_markerOverlay = MapMarkerOverlay.Create(_gameClient, unknownMarkerIcon, markerIconSize, includeProvisional: false, circleMaskFraction: 0f);
-				regionLabels.AddChild(_markerOverlay);
-			}
+			_markerOverlay.Visible = true;
 			_markerOverlay.SetFraming(worldCenter, viewRadius, NorthMapRotation);
+		}
+		if (_xMarker != null)
+		{
+			_xMarker.Visible = false;
+		}
+	}
+
+	// A single treasure map: terrain only (no labels/markers), zoomed in, spun to
+	// the map's own random heading, centered on the dig spot, with fog forced off
+	// (min_reveal = 1) so the marked land shows even if never explored. Only state
+	// B is used — no crossfade — so state_transition is pinned to 1.
+	void RenderTreasureMap(ShaderMaterial mat, Minimap minimap, TreasureMapState map)
+	{
+		PushState(mat, minimap.StateB, "_b", ref _boundB);
+
+		Vector2 center = new Vector2(map.DigLocation.X, map.DigLocation.Z);
+		mat.SetShaderParameter("player_world_xz", center);
+		mat.SetShaderParameter("view_radius_meters", treasureMapViewRadiusMeters);
+		mat.SetShaderParameter("map_rotation", map.MapRotation);
+		mat.SetShaderParameter("state_transition", 1f);
+		// Read the surrounding terrain relative to the dig site's own elevation.
+		mat.SetShaderParameter("reference_elevation_b", map.DigLocation.Y);
+		mat.SetShaderParameter("min_reveal", 1f);
+
+		EnsureOverlays();
+		HideOverlays();
+		if (_xMarker != null && regionLabels != null)
+		{
+			// Dig spot is the view center (UV 0.5,0.5); place the X there in
+			// regionLabels space, matching the marker-icon projection.
+			_xMarker.Position = regionLabels.Size * 0.5f;
+			_xMarker.Visible = true;
+		}
+	}
+
+	// Rebuild the selector's item list from the collected maps whenever their
+	// count changes (a map found or dug up). Item 0 is the world map; item N is
+	// treasure map N. Item index equals item id here (added in order).
+	void SyncSelector(SimState simState)
+	{
+		if (mapSelector == null)
+		{
+			return;
+		}
+		int count = simState?.TreasureMaps.Count ?? 0;
+		if (count == _selectorMapCount)
+		{
+			return;
+		}
+		_selectorMapCount = count;
+		int prevId = mapSelector.GetSelectedId();
+		mapSelector.Clear();
+		mapSelector.AddItem(Loc.Get(Loc.Keys.map_option_world), 0);
+		for (int i = 0; i < count; i++)
+		{
+			mapSelector.AddItem(Loc.Format(Loc.Keys.map_option_treasure, (i + 1).ToString()), i + 1);
+		}
+		// Keep the prior selection if it still exists, else fall back to the world map.
+		int restore = (prevId >= 0 && prevId <= count) ? prevId : 0;
+		mapSelector.Select(restore);
+	}
+
+	// The treasure map the selector currently points at, or null for the world map
+	// (item 0) / no selection.
+	TreasureMapState GetSelectedTreasureMap(SimState simState)
+	{
+		if (simState == null || mapSelector == null)
+		{
+			return null;
+		}
+		int idx = mapSelector.GetSelectedId() - 1;
+		if (idx < 0 || idx >= simState.TreasureMaps.Count)
+		{
+			return null;
+		}
+		return simState.TreasureMaps[idx];
+	}
+
+	// Hide the world-map-only overlays (region labels + markers) for treasure mode.
+	void HideOverlays()
+	{
+		foreach (Label label in _labels.Values)
+		{
+			label.Visible = false;
+		}
+		if (_markerOverlay != null)
+		{
+			_markerOverlay.Visible = false;
 		}
 	}
 

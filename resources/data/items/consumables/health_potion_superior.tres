@@ -3,13 +3,14 @@
 [ext_resource type="Script" uid="uid://0p7zsad3dejuq" path="res://scripts/data/items/ConsumableData.cs" id="1_potion"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="3_apply"]
-[ext_resource type="Resource" uid="uid://bx03scg2f2668" path="res://resources/data/status_effects/status_heal_superior.tres" id="4_heal"]
+[ext_resource type="Resource" uid="uid://td4nk2wwtqxx" path="res://resources/data/status_effects/status_heal.tres" id="4_heal"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="5_icon"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/fx/drink_loop.tscn" id="6_drinkfx"]
 
 [sub_resource type="Resource" id="Effect_heal"]
 script = ExtResource("3_apply")
 statusEffect = ExtResource("4_heal")
+potency = 2.0
 
 [resource]
 script = ExtResource("1_potion")

@@ -44,6 +44,9 @@ public static partial class Loc
 		quest_rescue,
 		quest_kunkun_hunt,
 		quest_return_to_camp,
-		quest_learn_vyeshal
+		quest_learn_vyeshal,
+		quest_learn_song_of_gods,
+		map_option_world,
+		map_option_treasure
 	}
 }

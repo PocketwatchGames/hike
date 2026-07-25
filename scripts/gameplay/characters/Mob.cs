@@ -181,16 +181,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // IncomingLevelResist), and the HUD level pips (Level+1 of them). Immutable
     // after spawn.
     public int Level => _simState?.Level ?? 0;
-    // 2^Level — the flat multiplier a mob's level applies to its health and armor
-    // POOLS. Folded into the maxHealth/maxArmor caps so current vitals fill to the
-    // scaled max at spawn. Outgoing DAMAGE and incoming resist are NOT here — those
-    // route through the shared SimData curve (OutgoingLevelScale / IncomingLevelResist)
-    // so mob and player leveling stay in lockstep. Base (Level 0) mobs get 1.
-    public float LevelMultiplier => PoolLevelMultiplier(Level);
+    // The flat multiplier a mob's level applies to its health and armor POOLS —
+    // the mob's ONLY level-defense (there is no per-hit resist; see
+    // IncomingLevelResist). Folded into the maxHealth/maxArmor caps so current
+    // vitals fill to the scaled max at spawn. Outgoing DAMAGE routes through the
+    // shared SimData curve (OutgoingLevelScale) so mob and player leveling stay in
+    // lockstep. Base (Level 0) mobs get 1. Sourced from the one levelScalePerLevel
+    // knob (default √2), matching the spawn-time bake in MobSimState.
+    public float LevelMultiplier => _world?.SimData?.LevelPoolMultiplier(Level) ?? PoolLevelMultiplier(1.5f, Level);
 
-    // Shared level→pool scale so the maxHealth/maxArmor properties and the
-    // spawn-time vital scaling (MobSimState's constructor) agree on 2^Level.
-    public static float PoolLevelMultiplier(int level) => Mathf.Pow(2f, Mathf.Max(0, level));
+    // Static fallback for contexts without a live SimData (a bare spawn before the
+    // world's SimData is reachable). `scalePerLevel` is levelScalePerLevel; callers
+    // that have SimData should prefer SimData.LevelPoolMultiplier.
+    public static float PoolLevelMultiplier(float scalePerLevel, int level) => level <= 0 ? 1f : Mathf.Pow(scalePerLevel, level);
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
     // Elite marker, authored on the spawning MobDescriptor. Drives the crown,
     // shared elite buff, and crown-trophy loot; the signature effect rides
@@ -1200,15 +1203,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     // IActionActor — per-level offense scale from the mob's difficulty Level (slot
     // is irrelevant — a mob has no weapon slots). Scales outgoing damage + delivered
-    // buildups via the same SimData curve the player's forge upgrades use. Default
-    // curve (2x/level) reproduces the mob's prior 2^Level outgoing-damage behavior.
+    // buildups via the same SimData curve (levelScalePerLevel^Level) the player's
+    // forge upgrades use, so mob and player leveling stay in lockstep.
     public float OutgoingLevelScale(EInventorySlot slot) => _world?.SimData?.LevelOutgoingScale(Level) ?? 1f;
 
-    // Receiver-side per-level resistance (<=1) from the mob's Level, applied to
-    // incoming damage (ApplyResistance) and combat buildup (the controller callback).
-    // Stacks on top of the Level-scaled health/armor pool — a leveled mob is both
-    // bigger and tougher per hit.
-    public float IncomingLevelResist => _world?.SimData?.LevelIncomingResist(Level) ?? 1f;
+    // Neutral (1) by design: a mob's level-defense is its level-scaled health/armor
+    // POOL alone (LevelMultiplier), NOT a per-hit resist. A separate resist would
+    // stack with the pool and square the durability gain per star; the pool alone
+    // gives a clean per-star factor. Kept as a property (not deleted) because the shared StatusEffectController
+    // and ApplyResistance both source the receiver's level resist through it — the
+    // player overrides with its real Armor-upgrade resist; the mob stays 1.
+    public float IncomingLevelResist => 1f;
 
     // IActionActor — fire any active status effect's on-attack-impact burst
     // (elite lightning aura, etc.) at the swing/ray impact point. Forwarded to
@@ -3949,7 +3954,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Mirrors Player.AddStatusEffect: run apply-time payloads (heal, cleanse), then
     // keep the lingering state unless the effect is instantaneous. A mob can roll a
     // fairy boon via the random pick, so Restore heals + cleanses it.
-    public StatusEffectState AddStatusEffect(StatusEffectData data)
+    public StatusEffectState AddStatusEffect(StatusEffectData data, float potency = 1f)
     {
         if (data == null)
         {
@@ -3966,7 +3971,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _statusEffects.ApplyRemovesOnApply(data);
             return null;
         }
-        return _statusEffects.Add(data);
+        return _statusEffects.Add(data, potency: potency);
     }
 
     // Land a combat buildup contribution (with the mob's resistance fold) and

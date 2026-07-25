@@ -14,6 +14,12 @@ public partial class ApplyStatusEffect : ItemEffect
 	// rather than baked into the action data.
 	[Export] public StatusEffectData statusEffect;
 
+	// Magnitude multiplier stamped onto the applied effect's per-instance potency —
+	// how a "superior" variant is authored WITHOUT a duplicate StatusEffectData: a
+	// superior health potion applies the base Heal at potency 2 (double the tick).
+	// Only affects DoT magnitude (heal/poison ticks); 1 = the effect's base numbers.
+	[Export(PropertyHint.Range, "0.1,10,0.1")] public float potency = 1f;
+
 	public override void Apply(IActionActor actor, in ActionContext context)
 	{
 		// Fixed effect — apply it straight away, no choice involved. Consumption
@@ -21,7 +27,7 @@ public partial class ApplyStatusEffect : ItemEffect
 		// spent the moment its release tick fires).
 		if (statusEffect != null)
 		{
-			ApplyEffectToActor(actor, statusEffect);
+			ApplyEffectToActor(actor, statusEffect, potency);
 			return;
 		}
 
@@ -75,7 +81,7 @@ public partial class ApplyStatusEffect : ItemEffect
 		}
 	}
 
-	static void ApplyEffectToActor(IActionActor actor, StatusEffectData effect)
+	static void ApplyEffectToActor(IActionActor actor, StatusEffectData effect, float potency = 1f)
 	{
 		if (effect == null)
 		{
@@ -83,11 +89,11 @@ public partial class ApplyStatusEffect : ItemEffect
 		}
 		if (actor is Player player)
 		{
-			player.AddStatusEffect(effect);
+			player.AddStatusEffect(effect, 0, EUpgradeSlot.None, potency);
 		}
 		else if (actor is Mob mob)
 		{
-			mob.AddStatusEffect(effect);
+			mob.AddStatusEffect(effect, potency);
 		}
 	}
 

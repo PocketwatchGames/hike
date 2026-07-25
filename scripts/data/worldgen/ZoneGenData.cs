@@ -126,7 +126,8 @@ public partial class ZoneGenData : Resource
     // the other rather than sitting at one flat difficulty. Blended across zone
     // borders like the other per-position scalars (see WorldGen.ComputeMobLevel).
     // Mobs add their species base level and an underground bonus on top. Keep the
-    // span small — each level doubles a monster's health/armor/damage (2^Level).
+    // span small — each level scales a monster's health/armor/damage by
+    // SimData.levelScalePerLevel (~1.5x/level).
     [Export(PropertyHint.Range, "0,4,1")] public int mobLevelMin = 0;
     [Export(PropertyHint.Range, "0,4,1")] public int mobLevelMax = 3;
 

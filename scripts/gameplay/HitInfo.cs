@@ -80,6 +80,13 @@ public struct HitInfo
 	// direct reference to the authored resource list (never mutated), so the
 	// multiplier is the only allocation-free way to convey scaling.
 	public float buildupAmountMultiplier;
+	// Magnitude scalar the receiver stamps onto any status effect this hit applies
+	// (StatusEffectState.potency) — the attacker's OutgoingLevelScale, so a leveled
+	// weapon/mob's poison/burn TICKS harder as ONE stack rather than piling more
+	// stacks. Distinct from buildupAmountMultiplier: that governs how much METER a
+	// hit deposits (proc rate, deliberately level-independent now); this governs how
+	// hard the resulting DoT hits. 1 = base authored numbers.
+	public float potency;
 	// Direction the receiver should be pushed along on a non-zero knockback
 	// hit. Set by the sender at hit time — melee/hitscan use the attacker's
 	// forward, traps use whatever direction the trap implies (spike → up),
@@ -169,6 +176,7 @@ public struct HitInfo
 			friendlyFire = false;
 		}
 		buildupAmountMultiplier = 1f;
+		potency = 1f;
 	}
 
 	// Continuous-damage constructor. Pre-scales healthDamage by `delta` so the
@@ -220,6 +228,9 @@ public struct HitInfo
 		// body that stays in the zone for one second accumulates `amount`
 		// units regardless of frame rate.
 		buildupAmountMultiplier = delta;
+		// Continuous zones (gas, trap fields) default to base magnitude; a leveled
+		// source (a zone-scaled trap) overrides this after construction.
+		potency = 1f;
 	}
 
 	// True when the rolled chance landed inside the (possibly modifier-

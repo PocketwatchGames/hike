@@ -23,4 +23,9 @@ public struct ActionContext
 	public Node3D target;
 	public List<ItemState> supportingItems;
 	public EInventorySlot? sourceSlot;
+	// World position the action originates from, when it isn't implied by the
+	// actor — e.g. a found consumable applied on pickup carries the loot's
+	// location here so a treasure map can roll its dig spot near where it was
+	// found. Zero for the common case (the effect uses the actor instead).
+	public Vector3 worldPosition;
 }

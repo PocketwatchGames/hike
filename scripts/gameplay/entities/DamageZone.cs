@@ -70,6 +70,11 @@ public partial class DamageZone : Area3D
     private HitInfo[] _intervalHits;
     private bool _active = true;
     private bool _intervalsBuilt = false;
+    // Per-level offense scale from a leveled source (a zone-scaled fire trap). 1 =
+    // neutral. Multiplies direct healthDamage AND rides `potency` so any status the
+    // zone applies (Burning) ticks proportionally harder — matching how a leveled
+    // weapon/mob scales its hits. See SetLevelScale.
+    private float _levelScale = 1f;
 
     public override void _Ready()
     {
@@ -129,6 +134,15 @@ public partial class DamageZone : Area3D
         _active = active;
     }
 
+    // Scale this zone's damage + applied-status potency by a leveled source's
+    // per-level offense multiplier (SimData.LevelOutgoingScale). Forces the interval
+    // HitInfos to rebuild so the new scale is baked into their pre-built payloads.
+    public void SetLevelScale(float scale)
+    {
+        _levelScale = scale;
+        _intervalsBuilt = false;
+    }
+
     public override void _PhysicsProcess(double delta)
     {
         if (!_active || _hurtBoxes.Count == 0)
@@ -165,6 +179,8 @@ public partial class DamageZone : Area3D
                 }
                 HitInfo hit = new HitInfo(damageContinuous, this, dt, attackerTeam: attackerTeam);
                 hit.friendlyFire = friendlyFire;
+                hit.healthDamage *= _levelScale;
+                hit.potency = _levelScale;
                 TryHit(hb, hit);
             }
         }
@@ -216,6 +232,9 @@ public partial class DamageZone : Area3D
             // policy so the receiver's CanHit filter judges each tick against
             // the hazard's own ally rule.
             _intervalHits[i].friendlyFire = friendlyFire;
+            // Scale the per-tick damage + status potency by the zone's level.
+            _intervalHits[i].healthDamage *= _levelScale;
+            _intervalHits[i].potency = _levelScale;
             // tickOnEnter applies the first hit at entry time and resets the
             // timer there. Without it, wait the full interval before the
             // first tick.

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Godot;
 
 // Global, world-scope simulation state that lives outside per-chunk voxel
@@ -170,6 +171,74 @@ public class SimState
     // learning). World-scope like ScriptVars — GameClient ticks it and feeds it
     // triggers, the HUD surfaces it, and SaveGame serializes it (v4). See QuestLog.
     public readonly QuestLog QuestLog = new();
+
+    // Collected treasure maps — each a pre-rolled dig location + heading pointing
+    // at a buried payload, shown as switchable tabs on the world-map screen and
+    // removed when the treasure is dug up (Sim.TryDig). Persisted by SaveGame (v5).
+    public readonly List<TreasureMapState> TreasureMaps = new();
+
+    // Fired when a treasure map is added or removed so the map screen rebuilds
+    // its selector.
+    public event Action onTreasureMapsChanged;
+
+    public void AddTreasureMap(TreasureMapState map)
+    {
+        if (map == null)
+        {
+            return;
+        }
+        TreasureMaps.Add(map);
+        onTreasureMapsChanged?.Invoke();
+    }
+
+    public bool RemoveTreasureMap(TreasureMapState map)
+    {
+        if (map == null || !TreasureMaps.Remove(map))
+        {
+            return false;
+        }
+        onTreasureMapsChanged?.Invoke();
+        return true;
+    }
+
+    // Remove the treasure map (if any) that points at the buried object just
+    // unearthed at worldPos — the map's self-destruction when its treasure is
+    // dug up. Matched on the quantized position key, as maps and spots share the
+    // same dig location.
+    public bool RemoveTreasureMapAt(Vector3 worldPos)
+    {
+        Vector3I key = MapMarkerRecord.KeyFor(worldPos);
+        for (int i = 0; i < TreasureMaps.Count; i++)
+        {
+            if (MapMarkerRecord.KeyFor(TreasureMaps[i].DigLocation) == key)
+            {
+                TreasureMaps.RemoveAt(i);
+                onTreasureMapsChanged?.Invoke();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void SerializeTreasureMaps(BinaryWriter w)
+    {
+        w.Write(TreasureMaps.Count);
+        for (int i = 0; i < TreasureMaps.Count; i++)
+        {
+            TreasureMaps[i].Serialize(w);
+        }
+    }
+
+    public void DeserializeTreasureMaps(BinaryReader r)
+    {
+        TreasureMaps.Clear();
+        int count = r.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            TreasureMaps.Add(TreasureMapState.Deserialize(r));
+        }
+        onTreasureMapsChanged?.Invoke();
+    }
 
     // Fired the first time an item is identified. GameClient subscribes to
     // forward an announcement; UI surfaces that show item names refresh

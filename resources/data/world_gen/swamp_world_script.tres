@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="WorldScriptData" format=3]
+
+[ext_resource type="Script" uid="uid://cpck4x65at916" path="res://scripts/data/worldgen/WorldScriptData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://wnl1w7ak8uqg" path="res://scripts/data/quests/QuestData.cs" id="2_questbase"]
+[ext_resource type="Resource" path="res://resources/data/quests/learn_song_of_gods.tres" id="3_song"]
+
+[resource]
+script = ExtResource("1_script")
+startingQuests = Array[ExtResource("2_questbase")]([ExtResource("3_song")])

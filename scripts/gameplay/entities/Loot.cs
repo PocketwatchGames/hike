@@ -975,7 +975,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return false;
 		}
-		if (payload.ApplyOnPickup(player))
+		if (payload.ApplyOnPickup(player, GlobalPosition))
 		{
 			RemovePickedUp();
 		}

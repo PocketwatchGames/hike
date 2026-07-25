@@ -10,6 +10,10 @@
 [ext_resource type="Resource" uid="uid://cyjva4b6lpasi" path="res://resources/data/world_gen/fixtures/swamp_village_fixtures.tres" id="9_village"]
 [ext_resource type="Resource" uid="uid://c4823dvmhngig" path="res://resources/data/zones/swamp_village.tres" id="10_kyxs2"]
 [ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="10_ruins"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_song_verse_2.tres" id="94_song"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_goblin_health.tres" id="rc0"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_goblin_stamina.tres" id="rc1"]
 
 [sub_resource type="Resource" id="Resource_ruins"]
 script = ExtResource("10_ruins")
@@ -17,6 +21,24 @@ squareMetersPerSpawn = 1500.0
 confinementMinFraction = 0.15
 brokenness = 0.4
 metadata/_custom_type_script = "uid://dbxatq73lngxy"
+
+[sub_resource type="Resource" id="Dist_song"]
+script = ExtResource("90_countrange")
+item = ExtResource("94_song")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc0"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc0")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc1"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc1")
+count = 1
+countRange = 0
 
 [resource]
 script = ExtResource("8_m0lsp")
@@ -37,6 +59,7 @@ forgeCount = 0
 forgeLevelMax = 0
 surfaceEntities = ExtResource("5_5w857")
 caveEntities = ExtResource("1_5w857")
+distributedLoot = Array[ExtResource("90_countrange")]([SubResource("Dist_song"), SubResource("Rc0"), SubResource("Rc1")])
 fixtures = ExtResource("9_village")
 ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("swamp_village")

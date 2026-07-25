@@ -26,6 +26,10 @@ public partial class FireTrapSpawnEntry : SpawnEntryData
         var fireTrap = new FireTrapSimState(position, scene);
         fireTrap.PhaseOffsetSeconds = (float)(rng.NextDouble() * maxPhaseOffsetSeconds);
         fireTrap.HazardRadius = hazardRadius;
+        // Bake the environment tier from the same positional field that levels mobs
+        // (base 0 — the trap has no authored floor), so the trap scales with its
+        // surroundings. ComputeMobLevel is worldgen-only state, hence the bake.
+        fireTrap.Level = WorldGen.ComputeMobLevel(ws, position, 0);
         ws.AddEntity(fireTrap);
     }
 }

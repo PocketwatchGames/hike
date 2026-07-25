@@ -5,6 +5,7 @@
 [ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="5_blue"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_orange.tres" id="m_orange"]
 [ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="8_ffi6x"]
 [ext_resource type="PackedScene" uid="uid://clba532cprsy" path="res://scenes/interactives/fire_trap.tscn" id="10_3qw2q"]
 [ext_resource type="Script" uid="uid://dy4evm7tom40j" path="res://scripts/data/spawn/FireTrapSpawnEntry.cs" id="11_lthrm"]
@@ -52,6 +53,12 @@ scene = ExtResource("40_forage_scene")
 item = ExtResource("m_white")
 squareMetersPerSpawn = 300.0
 
+[sub_resource type="Resource" id="Resource_m_orange"]
+script = ExtResource("8_ffi6x")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_orange")
+squareMetersPerSpawn = 300.0
+
 [sub_resource type="Resource" id="Resource_firetrap"]
 script = ExtResource("11_lthrm")
 scene = ExtResource("10_3qw2q")
@@ -59,4 +66,4 @@ squareMetersPerSpawn = 250.0
 
 [resource]
 script = ExtResource("13_ep0wb")
-entries = Array[ExtResource("1_5s1fk")]([SubResource("Resource_drake"), SubResource("Resource_spider"), SubResource("Resource_sparrow"), SubResource("Resource_blue"), SubResource("Resource_m_black"), SubResource("Resource_m_white"), SubResource("Resource_firetrap")])
+entries = Array[ExtResource("1_5s1fk")]([SubResource("Resource_drake"), SubResource("Resource_spider"), SubResource("Resource_sparrow"), SubResource("Resource_blue"), SubResource("Resource_m_black"), SubResource("Resource_m_white"), SubResource("Resource_m_orange"), SubResource("Resource_firetrap")])

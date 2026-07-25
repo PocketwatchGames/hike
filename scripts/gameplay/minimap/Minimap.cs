@@ -188,6 +188,12 @@ public partial class Minimap : Node3D
     public Vector2 ExtentMeters => _textures?.ExtentMeters ?? Vector2.Zero;
     public Vector2I WorldOriginXZ => _textures?.WorldOriginXZ ?? Vector2I.Zero;
 
+    // Top-face world Y at world XZ from the full-world outdoor heightmap (0 = no
+    // content: off-map, or a column whose chunk hasn't stamped yet). A whole-world
+    // CPU buffer, so it answers for columns that aren't currently streamed — used
+    // to roll a treasure map's dig spot onto real charted land.
+    public ushort SurfaceHeightAt(int wx, int wz) => _textures?.GetHeightAtWorld(wx, wz) ?? 0;
+
     public EMinimapMode Mode => _mode;
     public int ActiveSliceLevel => _activeSliceLevel;
     public float ActiveMetersPerPixel => _mode == EMinimapMode.Outdoor

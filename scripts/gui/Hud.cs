@@ -37,6 +37,7 @@ public partial class Hud : Control
 	[Export] Control _questContainer;
 	[Export] PackedScene _questItemScene;
 	[Export] ProgressBar _healthBar;
+	[Export] TextureRect _parryIcon;
 	// Layered UNDERNEATH _healthBar (placed earlier in the scene tree) with
 	// a transparent background and value = (Health + DrainedHealth) / MaxHealth,
 	// so the dark-red fill spans [0, Health + DrainedHealth] and the bright
@@ -212,13 +213,18 @@ public partial class Hud : Control
 	const float CaveFadeSunlightFull = 0.25f;
 	// Tints for the block-guard bar. The fill stylebox is white so these
 	// multiply straight through: grey while the guard is dormant, saturated
-	// blue while the player is sneaking and the pool is live, near-white cyan
-	// while the parry window is still open so its close is a readable timing
-	// tell. Keep the three visibly far apart — on a 15px bar a dark navy is
-	// indistinguishable from the dormant grey.
+	// blue while the player is sneaking and the pool is live. The parry window
+	// is signalled separately by _parryIcon, not by a bar tint.
 	static readonly Color BlockArmorIdleColor = new Color(0.45f, 0.45f, 0.45f, 1f);
 	static readonly Color BlockArmorActiveColor = new Color(0.2f, 0.5f, 1f, 1f);
-	static readonly Color BlockArmorParryColor = new Color(0.65f, 0.9f, 1f, 1f);
+
+	// Parry icon states. Hidden while no parry can land (weapon can't parry, or
+	// the guard is on its recharge cooldown); a dim grey while a parry is
+	// available; a brighter near-white while the parry window is actually open,
+	// so the window's opening reads as a clear "now" flash. The icon's texture is
+	// light, so these modulate colors carry both the grey/white and the alpha.
+	[Export] Color _parryAvailableColor = new Color(0.6f, 0.6f, 0.6f, 0.5f);
+	[Export] Color _parryActiveColor = new Color(1f, 1f, 1f, 0.85f);
 
 	// Horizontal scale of the vitals bars: pixels of bar width per point of
 	// the stat, so a bigger max reads as a physically longer bar (a health
@@ -594,6 +600,7 @@ public partial class Hud : Control
 		SetBarWidth(_armorBar, maxArmor * _pixelsPerArmorPoint);
 
 		UpdateBlockArmorBar();
+		UpdateParryIcon();
 
 		UpdateStaminaPips();
 
@@ -1154,18 +1161,32 @@ public partial class Hud : Control
 		_blockArmorBar.MaxValue = 1;
 		_blockArmorBar.Value = weapon.blockArmor / capacity;
 		SetBarWidth(_blockArmorBar, capacity * _pixelsPerArmorPoint);
-		// Parry window outranks the plain guard tint: the bar reads bright blue
-		// for the opening beat of the crouch, then settles to the block blue.
-		Color tint = BlockArmorIdleColor;
+		_blockArmorBar.Modulate = active ? BlockArmorActiveColor : BlockArmorIdleColor;
+	}
+
+	// Drive the parry icon: hidden when no parry can land, dim grey while a parry
+	// is available (guard ready, weapon can parry), brighter near-white while the
+	// parry window is actually open. Replaces the old block-bar parry tint.
+	void UpdateParryIcon()
+	{
+		if (_parryIcon == null)
+		{
+			return;
+		}
 		if (_player.IsParryWindowActive)
 		{
-			tint = BlockArmorParryColor;
+			_parryIcon.Visible = true;
+			_parryIcon.Modulate = _parryActiveColor;
 		}
-		else if (active)
+		else if (_player.IsParryReady)
 		{
-			tint = BlockArmorActiveColor;
+			_parryIcon.Visible = true;
+			_parryIcon.Modulate = _parryAvailableColor;
 		}
-		_blockArmorBar.Modulate = tint;
+		else
+		{
+			_parryIcon.Visible = false;
+		}
 	}
 
 	// Picks the weapon whose block-armor pool the extension represents: the

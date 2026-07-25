@@ -150,6 +150,24 @@ public partial class Player : CharacterBody3D
 			chargeAnimOverride = ResolveChargeAnim(_runner.Current.profile);
 		}
 
+		// An in-flight interactive action (Dig) that authors a held pose drives
+		// that clip as a sustained LOOP through the pick below — same as a
+		// consumable's charge pose. The clip is looping (it fills the whole dig
+		// duration), so firing it as a one-shot via its PlayAnim event traps the
+		// latch forever (a looping clip never reports Finished). Clear the stale
+		// latch here so the loop pick owns it and it stops the instant the action
+		// ends and _curInteractive clears.
+		EAnimation? interactAnimOverride = null;
+		if (_curInteractive != null && _runner != null && _runner.IsBusy
+			&& _runner.Current.interactiveAction != null)
+		{
+			interactAnimOverride = ResolveInteractAnim(_runner.Current.interactiveAction);
+			if (interactAnimOverride.HasValue)
+			{
+				_oneShotClip = default;
+			}
+		}
+
 		if (_oneShotClip != default)
 		{
 			// Hitstun is gated solely by _hitstunTime — when the timer hits zero
@@ -225,9 +243,10 @@ public partial class Player : CharacterBody3D
 		else if (_curInteractive != null)
 		{
 			// Interaction holds the player still (movement speed is forced to
-			// 0 above) — show the interaction loop regardless of water/ground
-			// state until the action completes or is cancelled.
-			loopAnim = EAnimation.Interacting;
+			// 0 above) — show the interactive action's authored held pose (Dig's
+			// shovel loop) if it has one, else the generic interaction loop,
+			// regardless of water/ground state until the action ends or cancels.
+			loopAnim = interactAnimOverride ?? EAnimation.Interacting;
 		}
 		else if (_waterState == EWaterState.Swimming)
 		{
@@ -327,6 +346,29 @@ public partial class Player : CharacterBody3D
 		for (int i = 0; i < profile.chargeEvents.Count; i++)
 		{
 			ItemEvent ev = profile.chargeEvents[i];
+			if (ev != null && (ev.type & EItemEventType.PlayAnim) != 0)
+			{
+				return ev.animName;
+			}
+		}
+		return null;
+	}
+
+	// Pulls the held-pose anim out of an interactive action's interactEvents.
+	// Mirrors ResolveChargeAnim for the interactive path: returns the first
+	// PlayAnim event's animName (Dig's shovel loop) so UpdateAnimation can drive
+	// it as a sustained loop instead of a self-trapping one-shot; null when the
+	// action authors no PlayAnim (most interactives — chest, door — fall back to
+	// the generic Interacting loop).
+	private static EAnimation? ResolveInteractAnim(InteractiveAction action)
+	{
+		if (action?.interactEvents == null)
+		{
+			return null;
+		}
+		for (int i = 0; i < action.interactEvents.Count; i++)
+		{
+			ItemEvent ev = action.interactEvents[i];
 			if (ev != null && (ev.type & EItemEventType.PlayAnim) != 0)
 			{
 				return ev.animName;

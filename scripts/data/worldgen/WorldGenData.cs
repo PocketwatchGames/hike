@@ -300,8 +300,9 @@ public partial class WorldGenData : Resource
     // ceiling — a solid voxel within this window marks the spawn underground.
     [Export] public int mobLevelUndergroundProbe = 24;
     // Absolute cap on monster level after band + underground bonus + the
-    // descriptor's authored base. Each level doubles health/armor/damage (2^level),
-    // so keep this small. (Forges have no separate cap — they use their band
+    // descriptor's authored base. Each level scales health/armor/damage by
+    // SimData.levelScalePerLevel (~1.5x/level), so keep this small. (Forges have no
+    // separate cap — they use their band
     // directly.)
     [Export(PropertyHint.Range, "0,4,1")] public int mobLevelCap = 4;
 }

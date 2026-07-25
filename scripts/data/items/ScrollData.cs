@@ -27,7 +27,7 @@ public partial class ScrollData : ItemData, IApplyOnPickup
 	// auto-grabbing on contact — reading is a deliberate action.
 	protected override EItemCategory ComputeCategory() => EItemCategory.Equipment;
 
-	public bool ApplyOnPickup(Player player)
+	public bool ApplyOnPickup(Player player, Vector3 worldPosition)
 	{
 		if (player == null || concept == null)
 		{

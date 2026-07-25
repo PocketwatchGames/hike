@@ -14,6 +14,11 @@
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="13_stonescene"]
 [ext_resource type="Resource" uid="uid://xbjl27pt7p61" path="res://resources/data/zones/swamp_highlands.tres" id="14_cpg00"]
 [ext_resource type="Resource" path="res://resources/data/languages/muddish.tres" id="14_lang"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_song_verse_4.tres" id="94_song"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_drake_fortitude.tres" id="rc0"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="rc1"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_sparrow_perception.tres" id="rc2"]
 
 [sub_resource type="Resource" id="Stone_highlands"]
 script = ExtResource("12_stone")
@@ -35,6 +40,30 @@ confinementMinFraction = 0.15
 brokenness = 0.4
 metadata/_custom_type_script = "uid://dbxatq73lngxy"
 
+[sub_resource type="Resource" id="Dist_song"]
+script = ExtResource("90_countrange")
+item = ExtResource("94_song")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc0"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc0")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc1"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc1")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Rc2"]
+script = ExtResource("90_countrange")
+item = ExtResource("rc2")
+count = 1
+countRange = 0
+
 [resource]
 script = ExtResource("8_4e6x3")
 zone = ExtResource("14_cpg00")
@@ -55,6 +84,7 @@ forgeLevelMin = 3
 forgeLevelMax = 3
 surfaceEntities = ExtResource("5_4w8xh")
 caveEntities = ExtResource("1_4w8xh")
+distributedLoot = Array[ExtResource("90_countrange")]([SubResource("Dist_song"), SubResource("Rc0"), SubResource("Rc1"), SubResource("Rc2")])
 fixtures = SubResource("Fixtures_highlands")
 ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("swamp_highlands")

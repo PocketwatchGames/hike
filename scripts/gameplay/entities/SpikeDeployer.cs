@@ -37,6 +37,15 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
     private ESpikeDeployerState _state = ESpikeDeployerState.Idle;
     private float _stateTimer;
     private Node _activeSource;
+    // Per-level offense scale from the trap's baked environment tier (1 = neutral).
+    // Scales the spike hit's damage + any status potency. Set by Trap.Create.
+    private float _levelScale = 1f;
+
+    // Scale the spike hit to the trap's environment tier (SimData.LevelOutgoingScale).
+    public void SetLevelScale(float scale)
+    {
+        _levelScale = scale;
+    }
 
     public override void _Ready()
     {
@@ -185,6 +194,8 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
             // horizontal impulse in practice; senders that want a horizontal
             // shove from a trap should author a different direction here.
             HitInfo hit = new HitInfo(data.damageData, this, Vector3.Up);
+            hit.healthDamage *= _levelScale;
+            hit.potency = _levelScale;
             hurtBox.Hit(hit);
         }
     }

@@ -809,13 +809,12 @@ public static class ItemEventHandlers
 		// Composed weapon level doubles the shot's damage per level (2^level);
 		// threaded through Launch since the projectile rebuilds its HitInfo from
 		// raw DamageData and never sees ResolveHit's scaling. The per-level offense
-		// scale (a Ranged forge upgrade's level, or a mob's Level) rides the same two
-		// multipliers: damage folds into damageMultiplier, buildup into
-		// buildupMultiplier, so a leveled ranged attack lands harder hits AND harder
-		// status buildups on every creature the shot strikes.
+		// scale (a Ranged forge upgrade's level, or a mob's Level) folds into the
+		// damage multiplier and rides `potency` so a leveled shot's status effects
+		// TICK harder (bigger numbers) rather than piling extra stacks.
 		float levelScale = actor.OutgoingLevelScale(action.context.sourceSlot ?? EInventorySlot.None);
 		float damageMultiplier = (firingWeapon?.DamageMultiplier ?? 1f) * levelScale;
-		float buildupMultiplier = levelScale;
+		float potency = levelScale;
 		if (firingWeapon != null)
 		{
 			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingChargeIndex));
@@ -890,7 +889,7 @@ public static class ItemEventHandlers
 				ev.directHitEvent,
 				ev.expirationEvent,
 				damageMultiplier,
-				buildupMultiplier,
+				potency,
 				staminaOnHit);
 		}
 
@@ -1732,16 +1731,16 @@ public static class ItemEventHandlers
 			}
 		}
 		// Per-level offense scale (player: the forge upgrade on this weapon's slot;
-		// mob: its difficulty Level). Scales healthDamage AND every buildup the hit
-		// delivers (buildupAmountMultiplier), so a leveled attacker lands its status
-		// effects harder too. For projectiles this same scale is folded into the
-		// threaded damage/buildup multipliers in DoProjectile — the rebuilt HitInfo
-		// there ignores this one — so ranged upgrades aren't double-counted.
+		// mob: its difficulty Level). Scales direct healthDamage, and rides `potency`
+		// so any status effect this hit applies TICKS proportionally harder — as one
+		// bigger stack, not more stacks (buildup meter fill stays level-independent).
+		// For projectiles this same scale is threaded into DoProjectile — the rebuilt
+		// HitInfo there ignores this one — so ranged upgrades aren't double-counted.
 		float levelScale = actor.OutgoingLevelScale(action.context.sourceSlot ?? EInventorySlot.None);
+		hit.potency = levelScale;
 		if (levelScale != 1f)
 		{
 			hit.healthDamage *= levelScale;
-			hit.buildupAmountMultiplier *= levelScale;
 		}
 		// Weapon-mod payloads scope-filtered to the firing tier: on-hit enchants
 		// (a Flaming weapon's Burning) ride on top of the template's statusEffects,

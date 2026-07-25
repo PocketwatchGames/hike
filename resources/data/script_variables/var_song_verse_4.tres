@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ScriptVariableData" format=3]
+
+[ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="1_svd"]
+
+[resource]
+script = ExtResource("1_svd")
+id = &"song_verse_4"
+type = 0
+defaultValue = 0
+description = "Song of the Gods quest: set true when the party learns the fourth verse (from its verse scroll)."

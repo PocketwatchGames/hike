@@ -122,10 +122,6 @@ digNothingEffect = ExtResource("58_dignothing")
 digCommonEffect = ExtResource("59_digcommon")
 digTreasureEffect = ExtResource("60_digtreasure")
 
-[sub_resource type="Resource" id="Resource_dig_req_nodanger"]
-script = ExtResource("53_nodanger")
-rejectMessage = &"danger_nearby"
-
 [sub_resource type="Resource" id="Resource_dig_req_grounded"]
 script = ExtResource("57_actorstate")
 requireGrounded = true
@@ -137,7 +133,7 @@ displayName = &"Dig"
 interactEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_dig_event_anim")])
 completionEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_dig_event_dig")])
 durationSeconds = 2.5
-requirements = Array[ExtResource("52_areq")]([SubResource("Resource_dig_req_nodanger"), SubResource("Resource_dig_req_grounded")])
+requirements = Array[ExtResource("52_areq")]([SubResource("Resource_dig_req_grounded")])
 rejectEffect = ExtResource("56_reject")
 locksMovement = true
 

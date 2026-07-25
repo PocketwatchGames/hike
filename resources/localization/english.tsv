@@ -41,3 +41,6 @@ quest_rescue	Rescue %0!
 quest_kunkun_hunt	Kunkun Hunt
 quest_return_to_camp	Return to Camp
 quest_learn_vyeshal	Learn Vyeshal
+quest_learn_song_of_gods	Learn the Song of the Gods
+map_option_world	World Map
+map_option_treasure	Treasure Map %0

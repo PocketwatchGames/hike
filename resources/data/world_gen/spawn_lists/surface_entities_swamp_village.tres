@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_green.tres" id="m_green"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="m_gold"]
 
 [sub_resource type="Resource" id="Resource_m_red"]
 script = ExtResource("8_forage")
@@ -19,6 +20,12 @@ scene = ExtResource("40_forage_scene")
 item = ExtResource("m_green")
 squareMetersPerSpawn = 350.0
 
+[sub_resource type="Resource" id="Resource_m_gold"]
+script = ExtResource("8_forage")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_gold")
+squareMetersPerSpawn = 400.0
+
 [resource]
 script = ExtResource("13_ygg5g")
-entries = Array[ExtResource("1_ykslm")]([SubResource("Resource_m_red"), SubResource("Resource_m_green")])
+entries = Array[ExtResource("1_ykslm")]([SubResource("Resource_m_red"), SubResource("Resource_m_green"), SubResource("Resource_m_gold")])

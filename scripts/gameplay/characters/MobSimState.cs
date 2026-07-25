@@ -139,9 +139,10 @@ public class MobSimState : EntitySimState
     // below.
     public bool Elite;
     // Difficulty tier, stamped at spawn (MobDescriptor.level plus the worldgen
-    // level field — see WorldGen.ComputeMobLevel). Each level doubles the mob's
-    // health, armor, and outgoing damage (2^Level, applied by Mob) and shows as
-    // Level+1 pips on the HUD. 0 = base. Persisted via EntitySerializer so the
+    // level field — see WorldGen.ComputeMobLevel). Each level scales the mob's
+    // health, armor, and outgoing damage by SimData.levelScalePerLevel (~1.5x/level,
+    // applied by Mob) and shows as Level+1 pips on the HUD. 0 = base. Persisted via
+    // EntitySerializer so the
     // scaled vitals stay consistent across chunk eviction and save/load.
     public int Level;
     // The species variant this mob IS — the bestiary identity (discovery key,
@@ -300,8 +301,8 @@ public class MobSimState : EntitySimState
     // penalty on seeing the player. Not serialized; re-converges in ~seconds.
     public float EyeDilation;
 
-    public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData, int level = 0)
-        : this(worldPosition, rotationY, worldPosition, rotationY, scene, mobData, level)
+    public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData, int level = 0, float levelScalePerLevel = 1.5f)
+        : this(worldPosition, rotationY, worldPosition, rotationY, scene, mobData, level, levelScalePerLevel)
     {
     }
 
@@ -309,7 +310,9 @@ public class MobSimState : EntitySimState
     // keeps its authored spawn transform even if its current position has drifted.
     // `level` is the mob's difficulty tier, known at spawn — the deserializer
     // passes 0 and overwrites Level/Health/Armor with the persisted values after.
-    public MobSimState(Vector3 worldPosition, float rotationY, Vector3 spawnPosition, float spawnRotationY, PackedScene scene, MobData mobData, int level = 0)
+    // `levelScalePerLevel` is the SimData pool knob; callers with a live SimData
+    // pass it so the baked vitals match the runtime maxHealth/maxArmor caps.
+    public MobSimState(Vector3 worldPosition, float rotationY, Vector3 spawnPosition, float spawnRotationY, PackedScene scene, MobData mobData, int level = 0, float levelScalePerLevel = 1.5f)
         : base(worldPosition, scene)
     {
         RotationY = rotationY;
@@ -323,13 +326,13 @@ public class MobSimState : EntitySimState
         // non-dangerous mob leveled (which would scale its vitals and light HUD pips).
         Level = mobData.dangerous ? Mathf.Max(0, level) : 0;
         // Vitals at their level-scaled max. MaxHealth stays the unscaled drainable
-        // base (the maxHealth/maxArmor properties re-apply the 2^Level pool
-        // multiplier on read); Health/Armor are stored already scaled so they
-        // agree with those properties even for a mob baked into a .hike straight
-        // from worldgen and reloaded as RestoredFromSave (which skips
-        // Mob.Initialize's vitals finalize). Inherent MobData.modifiers and elite
-        // status effects fold in later, in that finalize, for a fresh live spawn.
-        float mult = Mob.PoolLevelMultiplier(Level);
+        // base (the maxHealth/maxArmor properties re-apply the pool multiplier on
+        // read); Health/Armor are stored already scaled so they agree with those
+        // properties even for a mob baked into a .hike straight from worldgen and
+        // reloaded as RestoredFromSave (which skips Mob.Initialize's vitals
+        // finalize). Inherent MobData.modifiers and elite status effects fold in
+        // later, in that finalize, for a fresh live spawn.
+        float mult = Mob.PoolLevelMultiplier(levelScalePerLevel, Level);
         MaxHealth = mobData.maxHealth;
         Health = mobData.maxHealth * mult;
         Armor = mobData.maxArmor * mult;

@@ -13,7 +13,8 @@ public static class SaveGame
 	//   v2: + player status-effect buildup section.
 	//   v3: + scripting-variable bank (quest flags / world state).
 	//   v4: + active quest log (Rescue / hunt / Return to Camp / language).
-	private const int SAVE_VERSION = 4;
+	//   v5: + collected treasure maps (pre-rolled dig locations).
+	private const int SAVE_VERSION = 5;
 
 	public static void Save(string filePath)
 	{
@@ -55,6 +56,17 @@ public static class SaveGame
 		{
 			w.Write(0);
 		}
+
+		// --- Collected treasure maps (v5+) ---
+		SimState simState = Sim.Current?.WorldState?.SimState;
+		if (simState != null)
+		{
+			simState.SerializeTreasureMaps(w);
+		}
+		else
+		{
+			w.Write(0);
+		}
 	}
 
 	public static void Load(string filePath)
@@ -86,6 +98,12 @@ public static class SaveGame
 		if (version >= 4)
 		{
 			Sim.Current?.WorldState?.SimState?.QuestLog?.Deserialize(r);
+		}
+
+		// --- Collected treasure maps (v5+) ---
+		if (version >= 5)
+		{
+			Sim.Current?.WorldState?.SimState?.DeserializeTreasureMaps(r);
 		}
 	}
 

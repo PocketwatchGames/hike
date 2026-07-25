@@ -31,8 +31,9 @@ public partial class MobDescriptor : Resource
     // Base difficulty tier for mobs spawned from this descriptor. WorldGen adds
     // its per-area level field on top (see WorldGen.ComputeMobLevel), so this is
     // a floor an authored variant can raise — e.g. a mini-boss descriptor that
-    // starts at level 2 everywhere. Each level doubles health, armor, and
-    // outgoing damage (2^level) and shows as level+1 HUD pips. 0 = base.
+    // starts at level 2 everywhere. Each level scales health, armor, and outgoing
+    // damage by SimData.levelScalePerLevel (~1.5x/level) and shows as level+1 HUD
+    // pips. 0 = base.
     [Export(PropertyHint.Range, "0,4,1")] public int level = 0;
 
     // Convenience accessor for the descriptor's base species template (null when
@@ -54,7 +55,7 @@ public partial class MobDescriptor : Resource
     // vitals are scaled to it at creation — before the state is ever serialized —
     // rather than patched afterward. (The constructor forces non-dangerous mobs
     // back to level 0.)
-    public MobSimState CreateState(Vector3 worldPosition, float rotationY, PackedScene sceneOverride = null, int? levelOverride = null)
+    public MobSimState CreateState(Vector3 worldPosition, float rotationY, PackedScene sceneOverride = null, int? levelOverride = null, float levelScalePerLevel = 1.5f)
     {
         MobData mobData = species?.mob;
         PackedScene scene = sceneOverride ?? mobData?.mobScene;
@@ -62,7 +63,7 @@ public partial class MobDescriptor : Resource
         {
             return null;
         }
-        var state = new MobSimState(worldPosition, rotationY, scene, mobData, levelOverride ?? level);
+        var state = new MobSimState(worldPosition, rotationY, scene, mobData, levelOverride ?? level, levelScalePerLevel);
         // The species is the mob's bestiary identity (discovery / kill-leveling
         // key) as well as the source of its recolor / loot / stat modifiers.
         state.Species = species;

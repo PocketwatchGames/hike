@@ -28,6 +28,7 @@
 [ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="sc7"]
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_song_verse_4.tres" id="94_song"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -74,6 +75,12 @@ countRange = 0
 [sub_resource type="Resource" id="Dist7"]
 script = ExtResource("90_countrange")
 item = ExtResource("sc7")
+count = 1
+countRange = 0
+
+[sub_resource type="Resource" id="Dist_song"]
+script = ExtResource("90_countrange")
+item = ExtResource("94_song")
 count = 1
 countRange = 0
 
@@ -136,7 +143,7 @@ forgeLevelMax = 1
 surfaceEntities = ExtResource("11_surface")
 caveEntities = ExtResource("12_cave")
 perChestLoot = Array[ExtResource("90_countrange")]([SubResource("PerChest_health"), SubResource("PerChest_oil")])
-distributedLoot = Array[ExtResource("90_countrange")]([SubResource("Dist0"), SubResource("Dist1"), SubResource("Dist2"), SubResource("Dist3"), SubResource("Dist4"), SubResource("Dist5"), SubResource("Dist6"), SubResource("Dist7")])
+distributedLoot = Array[ExtResource("90_countrange")]([SubResource("Dist0"), SubResource("Dist1"), SubResource("Dist2"), SubResource("Dist3"), SubResource("Dist4"), SubResource("Dist5"), SubResource("Dist6"), SubResource("Dist7"), SubResource("Dist_song")])
 waterEntities = ExtResource("14_water")
 fixtures = SubResource("Fixtures_swamp")
 ruins = SubResource("Resource_ruins")

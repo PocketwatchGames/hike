@@ -209,7 +209,7 @@ public partial class Sim
     // the target chunk is resident. Returns null if the descriptor has no scene.
     public Mob SpawnMob(MobDescriptor descriptor, Vector3 position)
     {
-        MobSimState simState = descriptor?.CreateState(position, 0f);
+        MobSimState simState = descriptor?.CreateState(position, 0f, levelScalePerLevel: SimData?.levelScalePerLevel ?? 1.5f);
         if (simState == null)
         {
             return null;
@@ -235,7 +235,7 @@ public partial class Sim
     // re-materialize the way a worldgen-placed mob does. `conditions` is stamped
     // onto the sim state so the off-condition cleanup can fade them when their
     // window ends (Night mobs at dawn). `level` raises the mob's difficulty tier
-    // (2^level health/armor/damage) but never below the descriptor's authored
+    // (~1.5x/level health/armor/damage) but never below the descriptor's authored
     // floor, so an ambient spawner can scale toughness (e.g. by time of night).
     // Spawns only onto an already-resident entity chunk (whose active-entity list
     // frees the node on eviction); returns null if the descriptor has no scene or
@@ -246,7 +246,7 @@ public partial class Sim
         // Raise the descriptor's authored floor to the ambient spawner's tier (never
         // lower it); the resolved level scales the mob's vitals at construction.
         int spawnLevel = descriptor != null ? Mathf.Max(descriptor.level, level) : 0;
-        MobSimState simState = descriptor?.CreateState(position, 0f, levelOverride: spawnLevel);
+        MobSimState simState = descriptor?.CreateState(position, 0f, levelOverride: spawnLevel, levelScalePerLevel: SimData?.levelScalePerLevel ?? 1.5f);
         if (simState == null)
         {
             return null;
@@ -290,6 +290,9 @@ public partial class Sim
         }
         if (bestSpot != null && bestSpot.Dig(digger))
         {
+            // A collected treasure map tracks its buried object by position and
+            // removes itself once that object is unearthed here.
+            _worldState?.SimState?.RemoveTreasureMapAt(bestSpot.GlobalPosition);
             return bestSpot.ResultClass;
         }
 

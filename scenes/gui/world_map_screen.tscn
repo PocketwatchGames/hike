@@ -21,7 +21,7 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="WorldMapScreen" type="Control" unique_id=590275791 node_paths=PackedStringArray("mapTexture", "regionLabels")]
+[node name="WorldMapScreen" type="Control" unique_id=590275791 node_paths=PackedStringArray("mapTexture", "regionLabels", "mapSelector")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -31,6 +31,7 @@ grow_vertical = 2
 script = ExtResource("1_wmap")
 mapTexture = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapTexture")
 regionLabels = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapTexture/RegionLabels")
+mapSelector = NodePath("Panel/MarginContainer/MarginContainer/VBoxContainer/OptionButton")
 unknownMarkerIcon = ExtResource("mm_question")
 
 [node name="Panel" type="PanelContainer" parent="." unique_id=1072787642]
@@ -85,3 +86,14 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Panel/MarginContainer" unique_id=1849510749]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer/MarginContainer" unique_id=937524636]
+layout_mode = 2
+
+[node name="OptionButton" type="OptionButton" parent="Panel/MarginContainer/MarginContainer/VBoxContainer" unique_id=1902027556]
+layout_mode = 2

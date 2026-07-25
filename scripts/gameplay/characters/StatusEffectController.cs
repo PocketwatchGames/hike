@@ -632,7 +632,7 @@ public class StatusEffectController
 			// uses, so removesOnApply / maxStack / fx lifecycle all run.
 			if (entry.applyImmediately)
 			{
-				Add(entry.effect);
+				Add(entry.effect, potency: hit.potency);
 				appliedAny = true;
 				continue;
 			}
@@ -651,7 +651,7 @@ public class StatusEffectController
 			{
 				appliedAny = true;
 			}
-			bool applied = AddCombatBuildup(entry.effect, amount);
+			bool applied = AddCombatBuildup(entry.effect, amount, hit.potency);
 			if (applied && entry.effect.applyTrigger != EDamageTrigger.None)
 			{
 				hit.ApplyTrigger(entry.effect.applyTrigger);
@@ -670,7 +670,7 @@ public class StatusEffectController
 	// plus any gear/status modifier) scales every combat buildup on top of its
 	// per-tag resistance; levelResist (Armor upgrade / mob Level) is the buildup
 	// counterpart of the incoming-damage resist in ApplyResistance.
-	public bool AddCombatBuildup(StatusEffectData effect, float amount)
+	public bool AddCombatBuildup(StatusEffectData effect, float amount, float potency = 1f)
 	{
 		if (effect == null || amount == 0f)
 		{
@@ -678,7 +678,7 @@ public class StatusEffectController
 		}
 		float resistance = _composeMaskMul?.Invoke(effect.tags | EStat.FortitudeResistance) ?? 1f;
 		float levelResist = _incomingLevelResist?.Invoke() ?? 1f;
-		return AddBuildup(effect, amount * resistance * levelResist);
+		return AddBuildup(effect, amount * resistance * levelResist, potency);
 	}
 
 	// Add a signed contribution to `data`'s buildup meter and run the per-
@@ -698,7 +698,7 @@ public class StatusEffectController
 	// falls through disarmThreshold (hysteresis prevents flapping). The armed
 	// instance's duration timer is held paused so the meter, not a countdown,
 	// owns lifecycle.
-	public bool AddBuildup(StatusEffectData data, float amount)
+	public bool AddBuildup(StatusEffectData data, float amount, float potency = 1f)
 	{
 		if (data == null || amount == 0f)
 		{
@@ -720,13 +720,13 @@ public class StatusEffectController
 		{
 			if (state.amount < 0f) { state.amount = 0f; }
 			else if (state.amount > 1f) { state.amount = 1f; }
-			return UpdateContinuousArm(data, state, now);
+			return UpdateContinuousArm(data, state, now, potency);
 		}
 		state.decayStartMs = now + (ulong)(data.buildupRemovalDelay * 1000f);
 		bool applied = false;
 		while (state.amount >= 1f)
 		{
-			Add(data);
+			Add(data, potency: potency);
 			applied = true;
 			if (data.clearBuildupOnApply)
 			{
@@ -745,7 +745,7 @@ public class StatusEffectController
 	// won't auto-expire on us. Returns true on the arm transition; release
 	// returns false (only fresh arms are meaningful to ApplyHitBuildups, and
 	// ContinuousArm effects don't carry an applyTrigger in any case).
-	private bool UpdateContinuousArm(StatusEffectData data, BuildupState state, ulong now)
+	private bool UpdateContinuousArm(StatusEffectData data, BuildupState state, ulong now, float potency = 1f)
 	{
 		if (state.armedInstance != null && !_statusEffects.Contains(state.armedInstance))
 		{
@@ -755,7 +755,7 @@ public class StatusEffectController
 		{
 			if (state.amount >= data.armThreshold)
 			{
-				state.armedInstance = Add(data);
+				state.armedInstance = Add(data, potency: potency);
 				state.armedInstance?.PauseTimer();
 				return true;
 			}
@@ -979,7 +979,7 @@ public class StatusEffectController
 	// is the concrete slot a forge applies the upgrade to (None for ordinary effects
 	// and weapon mods) — it drives the swap-not-stack slot exclusivity and is stamped
 	// onto the instance for weapon-mod matching (see StatusEffectState.appliedUpgradeSlot).
-	public StatusEffectState Add(StatusEffectData data, int level = 0, EUpgradeSlot appliedSlot = EUpgradeSlot.None)
+	public StatusEffectState Add(StatusEffectData data, int level = 0, EUpgradeSlot appliedSlot = EUpgradeSlot.None, float potency = 1f)
 	{
 		if (data == null)
 		{
@@ -1034,7 +1034,7 @@ public class StatusEffectController
 				return oldest;
 			}
 		}
-		var state = new StatusEffectState(data, now, nowDay, nowTod01) { level = level, appliedUpgradeSlot = appliedSlot };
+		var state = new StatusEffectState(data, now, nowDay, nowTod01) { level = level, appliedUpgradeSlot = appliedSlot, potency = potency };
 		_statusEffects.Add(state);
 		if (!suppressFx)
 		{
@@ -1302,13 +1302,16 @@ public class StatusEffectController
 					// >1 vulnerability scaling a heal up either. Item-side
 					// controllers pass null _applyHealthDelta — items don't
 					// take damage from their own status effects.
-					float dps = dot.damagePerSecond;
+					// Per-instance potency scales both damage and heal magnitude — a
+					// level-5 poison stack ticks ~5.6x, a superior heal ticks 2x — so
+					// stronger sources show bigger numbers rather than more stacks.
+					float dps = dot.damagePerSecond * s.potency;
 					if (dps > 0f)
 					{
 						float resistance = _composeMaskMul?.Invoke(s.data.tags) ?? 1f;
-						// Defensive-level resist (Armor upgrade / mob Level) reduces
-						// incoming DoT the same as a direct hit — "damage resist"
-						// covers burn/poison ticks, not just the landing blow.
+						// Defensive-level resist (the player's Armor upgrade; mobs are
+						// neutral — their level defense is the health pool alone)
+						// reduces incoming DoT the same as a direct hit.
 						dps *= resistance * (_incomingLevelResist?.Invoke() ?? 1f);
 					}
 					// Percentage-of-max-health damage (sunburn), added on top and

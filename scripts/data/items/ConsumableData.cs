@@ -23,15 +23,16 @@ public partial class ConsumableData : ItemData, IApplyOnPickup
 	// auto-grabbing on contact — using it is a deliberate action.
 	protected override EItemCategory ComputeCategory() => EItemCategory.Equipment;
 
-	public bool ApplyOnPickup(Player player)
+	public bool ApplyOnPickup(Player player, Vector3 worldPosition)
 	{
 		if (player == null)
 		{
 			return false;
 		}
 		// Self-targeted context — a found consumable buffs/heals the taker; there's
-		// no weapon swing or interactive behind it.
-		var context = new ActionContext { verb = EActionVerb.Use, target = player };
+		// no weapon swing or interactive behind it. worldPosition carries the find
+		// location for effects keyed to it (treasure map).
+		var context = new ActionContext { verb = EActionVerb.Use, target = player, worldPosition = worldPosition };
 		if (effects != null)
 		{
 			for (int i = 0; i < effects.Count; i++)

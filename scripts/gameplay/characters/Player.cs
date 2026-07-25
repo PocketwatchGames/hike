@@ -892,7 +892,7 @@ public partial class Player : CharacterBody3D
 	// `level` stamps the created instance's upgrade tier (0 = none). Forge upgrades
 	// pass the forge's level and the concrete `appliedSlot` the forge grants into;
 	// the eviction of any same-slot occupant happens inside StatusEffectController.Add.
-	public StatusEffectState AddStatusEffect(StatusEffectData data, int level, EUpgradeSlot appliedSlot = EUpgradeSlot.None)
+	public StatusEffectState AddStatusEffect(StatusEffectData data, int level, EUpgradeSlot appliedSlot = EUpgradeSlot.None, float potency = 1f)
 	{
 		if (data == null)
 		{
@@ -906,7 +906,7 @@ public partial class Player : CharacterBody3D
 			_statusEffects.ApplyRemovesOnApply(data);
 			return null;
 		}
-		return _statusEffects.Add(data, level, appliedSlot);
+		return _statusEffects.Add(data, level, appliedSlot, potency);
 	}
 
 	// The status effect currently occupying the given forge upgrade slot, or null
