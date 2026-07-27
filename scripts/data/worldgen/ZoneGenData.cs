@@ -125,11 +125,22 @@ public partial class ZoneGenData : Resource
     // a zone ramps from MobLevelMin at one end of its footprint to MobLevelMax at
     // the other rather than sitting at one flat difficulty. Blended across zone
     // borders like the other per-position scalars (see WorldGen.ComputeMobLevel).
-    // Mobs add their species base level and an underground bonus on top. Keep the
-    // span small — each level scales a monster's health/armor/damage by
-    // SimData.levelScalePerLevel (~1.5x/level).
+    // Mobs add their species base level on top. Keep the span small — each level
+    // scales a monster's health/armor/damage by SimData.levelScalePerLevel
+    // (~1.5x/level).
     [Export(PropertyHint.Range, "0,4,1")] public int mobLevelMin = 0;
     [Export(PropertyHint.Range, "0,4,1")] public int mobLevelMax = 3;
+
+    // Difficulty band for monsters spawned UNDERGROUND in this zone — a cave,
+    // tunnel, or anything with a ceiling overhead. Sampled from the same noise
+    // field as the surface band, so a cave inherits the difficulty gradient of
+    // the ground above it, just shifted: author these ~1 level above
+    // MobLevelMin/Max so descending reads as an escalation. Authored per zone
+    // rather than derived as a flat bonus because the shift a zone wants isn't
+    // uniform — a top-band zone has no headroom under MobLevelCap, and a
+    // starting zone may want its caves to jump further than +1.
+    [Export(PropertyHint.Range, "0,4,1")] public int undergroundMobLevelMin = 1;
+    [Export(PropertyHint.Range, "0,4,1")] public int undergroundMobLevelMax = 4;
 
     // How many smithing forges WorldGen scatters into this zone (each on its
     // own rejection-sampled flat column within the zone's bounds). Drives
@@ -150,16 +161,20 @@ public partial class ZoneGenData : Resource
     // list per candidate cell:
     //   SurfaceEntities — rolled per grass column (mobs, campfires, loot,
     //     berry trees, fire traps, etc.).
-    //   CaveEntities    — rolled per cave-pocket air cell with solid floor
+    //   CaveEntities      — rolled per cave-pocket AIR cell with solid floor
     //     and ceiling within reach (mobs, chests, loot, torches).
-    //   ShoreEntities   — reserved for shore-band columns. Currently unused;
+    //   CaveWaterEntities — rolled per flooded cave pocket: the top voxel of a
+    //     roofed underwater body. Separate from WaterEntities because caves
+    //     below sea level flood by construction, and what belongs in a drowned
+    //     tunnel is not what belongs in the open sea.
+    //   ShoreEntities     — reserved for shore-band columns. Currently unused;
     //     wire up when shore-specific authoring lands.
-    //   WaterEntities   — reserved for submerged cells. Currently unused;
-    //     wire up when underwater authoring lands.
+    //   WaterEntities     — rolled per open water-surface column (lakes, sea).
     // Lists are SpawnListData assets so multiple zones can share the same
     // file (e.g. all biomes pointing at one shared cave_entities.tres).
     [Export] public SpawnListData surfaceEntities;
     [Export] public SpawnListData caveEntities;
+    [Export] public SpawnListData caveWaterEntities;
     [Export] public SpawnListData shoreEntities;
     [Export] public SpawnListData waterEntities;
 
@@ -181,6 +196,18 @@ public partial class ZoneGenData : Resource
     // a zone with no chests simply doesn't place its distributed loot.
     [Export] public ItemCountRange[] perChestLoot = System.Array.Empty<ItemCountRange>();
     [Export] public ItemCountRange[] distributedLoot = System.Array.Empty<ItemCountRange>();
+
+    // World-unique name for this zone's one buried treasure. A treasure map
+    // (RevealTreasureMapEffect.treasureName) points at the spot by this name, so
+    // the map->treasure link is fixed at authoring/worldgen, not resolved
+    // dynamically. Empty = this zone has no treasure. Set treasureSpot too.
+    [Export] public string treasureName = "";
+
+    // The buried treasure placed once inside this zone by WorldGen.PlaceZoneTreasures
+    // (a BuriedSpotSpawnEntry supplying the shared buried_spot scene + the payload
+    // BuriedSpotData — the song scroll or crowns). Its location is stamped into
+    // WorldState.TreasureSpots under treasureName. Null = no treasure this zone.
+    [Export] public BuriedSpotSpawnEntry treasureSpot;
 
     // One-off landmark cluster placed ONCE per zone at the zone's anchor
     // (vs the SurfaceEntities density scan), e.g. a "home" campfire. The anchor

@@ -17,5 +17,5 @@ stretch_mode = 5
 
 [node name="Label" type="Label" parent="." unique_id=1313048798]
 layout_mode = 2
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 24
 text = "Rescue Misha!"

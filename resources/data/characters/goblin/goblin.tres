@@ -94,6 +94,7 @@ armorRecoverTime = 3.0
 modifiers = null
 dizzyResistance = 2.0
 canDodge = true
+defaultBehavior = null
 brain = ExtResource("2_brain")
 bestiaryPortrait = ExtResource("3_cqdkd")
 animations = Dictionary[int, ExtResource("7_animdata")]({

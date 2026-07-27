@@ -74,6 +74,7 @@ visionFovDegrees = 360.0
 dangerous = true
 maxHealth = 120.0
 modifiers = null
+defaultBehavior = null
 brain = ExtResource("2_brain")
 bestiaryPortrait = ExtResource("3_aefbr")
 animations = Dictionary[int, ExtResource("4_animdata")]({

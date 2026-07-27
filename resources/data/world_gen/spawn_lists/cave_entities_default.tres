@@ -23,14 +23,14 @@ script = ExtResource("2_mob_entry")
 descriptor = ExtResource("6_goblin_data")
 initialBehavior = &"Wander"
 initialBehaviorChance = 0.25
-squareMetersPerSpawn = 1000.0
+squareMetersPerSpawn = 400.0
 
 [sub_resource type="Resource" id="Resource_goblin_elite"]
 script = ExtResource("2_mob_entry")
 descriptor = ExtResource("6_goblin_elite")
 initialBehavior = &"Wander"
 initialBehaviorChance = 0.25
-squareMetersPerSpawn = 6667.0
+squareMetersPerSpawn = 2000.0
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("4_forage_entry")

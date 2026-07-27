@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_1v8d1"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
 [ext_resource type="Texture2D" uid="uid://cg3gcmvmdke8e" path="res://assets/textures/items/Potion_green.png" id="7_inv"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="7_vtyfs"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/fx/drink_loop.tscn" id="9_drinkfx"]
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="10_input"]
 [ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="11_blue"]
@@ -53,8 +54,8 @@ count = 2
 
 [resource]
 script = ExtResource("1_consumable")
-reagents = Array[ExtResource("10_input")]([SubResource("Resource_reagent_blue"), SubResource("Resource_reagent_purple")])
 actionProfile = SubResource("Resource_profile")
+reagents = Array[ExtResource("10_input")]([SubResource("Resource_reagent_blue"), SubResource("Resource_reagent_purple")])
 displayName = &"Divine Cleanse"
 unidentifiedDisplayName = &"Unknown Spell"
 description = "A cleansing rite that purges poisons of all kinds."

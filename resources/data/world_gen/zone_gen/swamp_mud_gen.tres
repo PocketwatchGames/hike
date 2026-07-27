@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://chlk1f4ns5cwh"]
 
-[ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="1_4e0co"]
+[ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="1_4e0co"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="2_p15ox"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_swamp_kit.tres" id="3_0m5rd"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_64pvx"]
@@ -9,42 +9,34 @@
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_6p0r5"]
 [ext_resource type="Resource" uid="uid://cdm5utxowkgje" path="res://resources/data/world_gen/fixtures/swamp_mud_fixtures.tres" id="9_hermit"]
 [ext_resource type="Resource" uid="uid://4od2uivsll01" path="res://resources/data/zones/swamp_mud.tres" id="9_p15ox"]
+[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
-[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_song_verse_3.tres" id="94_song"]
-[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_grilled_drake.tres" id="rc0"]
-[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_grilled_sparrow.tres" id="rc1"]
-[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_drake_damage.tres" id="rc2"]
-[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_sparrow_stamina.tres" id="rc3"]
+[ext_resource type="Resource" uid="uid://bfcfe26d6bj6a" path="res://resources/data/items/consumables/treasure_map_swamp_mud.tres" id="96_map"]
+[ext_resource type="Resource" path="res://resources/data/spawn/treasure_spot_song_3.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://bante0m1vlh6a" path="res://resources/data/items/scrolls/scroll_grilled_drake.tres" id="rc0"]
+[ext_resource type="Resource" uid="uid://bvwbp0bcuwn4i" path="res://resources/data/items/scrolls/scroll_grilled_sparrow.tres" id="rc1"]
+[ext_resource type="Resource" uid="uid://dfpa4q2wonauo" path="res://resources/data/items/scrolls/scroll_stew_drake_damage.tres" id="rc2"]
+[ext_resource type="Resource" uid="uid://bsnxuawbk5idr" path="res://resources/data/items/scrolls/scroll_stew_sparrow_stamina.tres" id="rc3"]
 
-[sub_resource type="Resource" id="Dist_song"]
+[sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
-item = ExtResource("94_song")
-count = 1
-countRange = 0
+item = ExtResource("96_map")
 
 [sub_resource type="Resource" id="Rc0"]
 script = ExtResource("90_countrange")
 item = ExtResource("rc0")
-count = 1
-countRange = 0
 
 [sub_resource type="Resource" id="Rc1"]
 script = ExtResource("90_countrange")
 item = ExtResource("rc1")
-count = 1
-countRange = 0
 
 [sub_resource type="Resource" id="Rc2"]
 script = ExtResource("90_countrange")
 item = ExtResource("rc2")
-count = 1
-countRange = 0
 
 [sub_resource type="Resource" id="Rc3"]
 script = ExtResource("90_countrange")
 item = ExtResource("rc3")
-count = 1
-countRange = 0
 
 [resource]
 script = ExtResource("8_6p0r5")
@@ -60,12 +52,18 @@ tunnelThreshold = 0.0
 caveNoiseFrequency = 0.04
 caveThreshold = 1.0
 grassThreshold = 0.5
-mobLevelMin = 2
+mobLevelMin = 1
+mobLevelMax = 2
+undergroundMobLevelMin = 2
+undergroundMobLevelMax = 3
 forgeCount = 2
 forgeLevelMin = 1
 forgeLevelMax = 2
 surfaceEntities = ExtResource("5_4e0co")
 caveEntities = ExtResource("1_4e0co")
-distributedLoot = Array[ExtResource("90_countrange")]([SubResource("Dist_song"), SubResource("Rc0"), SubResource("Rc1"), SubResource("Rc2"), SubResource("Rc3")])
+caveWaterEntities = ExtResource("90_cave_water")
+distributedLoot = [SubResource("Dist_treasure"), SubResource("Rc0"), SubResource("Rc1"), SubResource("Rc2"), SubResource("Rc3")]
+treasureName = "swamp_mud"
+treasureSpot = ExtResource("97_spot")
 fixtures = ExtResource("9_hermit")
 pointsOfInterest = PackedStringArray("swamp_mud")

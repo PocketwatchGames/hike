@@ -38,6 +38,15 @@ public class WorldState
     // POIs after a disk load.
     public readonly Dictionary<string, Vector3> PointsOfInterest = new();
 
+    // Buried-treasure locations by name — the anchors a treasure map points to.
+    // Placed by WorldGen.PlaceZoneTreasures and, crucially, RE-REGISTERED by each
+    // BuriedSpot as it streams in (BuriedSpot.Create), so this survives the
+    // worldgen cache / .hike reload without its own file section: the name rides
+    // on the persisted BuriedSpotSimState. An excavated spot does not register,
+    // and digging removes its entry, so a map never points at an emptied hole.
+    // Runtime cache, not serialized here.
+    public readonly Dictionary<string, Vector3> TreasureSpots = new();
+
     // Default spawn point baked into the world. Set by the loader (from the
     // world file header) or by Main when starting a procedurally-generated
     // game. The packed world file persists this so a save can recreate the

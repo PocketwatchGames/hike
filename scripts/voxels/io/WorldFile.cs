@@ -142,7 +142,9 @@ public static class WorldFile
     // v32: Fire/spike traps serialize a baked environment Level (int) — FireTrap
     //      after its phase offset, Trap after Disarmed — so their damage + status
     //      potency scale with the zone they sit in.
-    public const uint VERSION = 32;
+    // v33: BuriedSpot serializes a per-instance TreasureName (string) so a
+    //      worldgen-placed treasure can be pointed at by a treasure map by name.
+    public const uint VERSION = 33;
 
     public struct IndexEntry
     {

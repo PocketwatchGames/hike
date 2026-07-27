@@ -15,8 +15,8 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/drake_desert.tres" id="21_drake_desert"]
 [ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="30_forage_entry"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/forage_spawner.tscn" id="31_forage_scene"]
-[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_orange.tres" id="m_orange"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="m_gold"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_orange.tres" id="m_orange"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]

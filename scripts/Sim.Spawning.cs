@@ -164,6 +164,35 @@ public partial class Sim
         return loot;
     }
 
+    // Eject a set of loot stacks in a random upward-and-out spray from `origin` —
+    // the shared "pop loot out" used both when a chest is opened and when a buried
+    // spot is dug. Each ItemCount ejects as ONE stacked Loot (a "3 crowns" entry
+    // is one pile of 3, not three pickups).
+    public void EjectLootPile(ItemCount[] items, Vector3 origin)
+    {
+        if (items == null)
+        {
+            return;
+        }
+        var rng = new Random();
+        const float Speed = 5f;
+        float horizontal = Speed * Mathf.Cos(Mathf.Pi / 4f);
+        float vertical = Speed * Mathf.Sin(Mathf.Pi / 4f);
+        for (int i = 0; i < items.Length; i++)
+        {
+            ItemCount entry = items[i];
+            if (entry?.descriptor?.item == null || entry.count <= 0)
+            {
+                continue;
+            }
+            ItemState stack = entry.descriptor.CreateState();
+            stack.SetCount(entry.count);
+            float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
+            Vector3 impulse = new Vector3(horizontal * Mathf.Cos(angle), vertical, horizontal * Mathf.Sin(angle));
+            DropItem(stack, origin, impulse);
+        }
+    }
+
     // Spawn a pickup carrying a specific ItemState (player-dropped item path).
     // requireInteract latches the dropped pile into "press Interact to pick
     // up" mode so the player doesn't immediately re-pick up what they just
@@ -290,9 +319,6 @@ public partial class Sim
         }
         if (bestSpot != null && bestSpot.Dig(digger))
         {
-            // A collected treasure map tracks its buried object by position and
-            // removes itself once that object is unearthed here.
-            _worldState?.SimState?.RemoveTreasureMapAt(bestSpot.GlobalPosition);
             return bestSpot.ResultClass;
         }
 

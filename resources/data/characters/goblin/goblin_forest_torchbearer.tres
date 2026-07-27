@@ -1,8 +1,6 @@
 [gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://dloxi31ilii31"]
 
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="1_1qua3"]
-[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_xekq3"]
-[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="3_cs641"]
 [ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="4_nwkmu"]
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="4_v4w2x"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_q4wxy"]
@@ -28,18 +26,6 @@ script = ExtResource("9_lootcount")
 descriptor = SubResource("Desc_loot_meat")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
-[sub_resource type="Resource" id="entry_body"]
-script = ExtResource("2_xekq3")
-meshNames = PackedStringArray("SK_GoblinBody")
-color = Color(0.39886293, 0.61988956, 0.93924195, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://opnoz9diest61"
-
-[sub_resource type="Resource" id="Resource_ihwyg"]
-script = ExtResource("3_cs641")
-recolors = [SubResource("entry_body")]
-metadata/_custom_type_script = "uid://j75mtm0w0qkch"
-
 [sub_resource type="Resource" id="Resource_poison_buildup"]
 script = ExtResource("6_q8v8q")
 effect = ExtResource("7_pgd46")
@@ -54,6 +40,7 @@ metadata/_custom_type_script = "uid://fwmd5k3q8x2n"
 [sub_resource type="Resource" id="Resource_venom_effect"]
 script = ExtResource("5_q4wxy")
 displayName = &"Venomous"
+abilityTell = ExtResource("15_tell")
 description = "Swamp goblins' attacks build poison on the target."
 category = 2
 maxStack = 1
@@ -61,7 +48,6 @@ removesOnApply = []
 modifiers = []
 conditionalModifiers = []
 weaponMod = SubResource("Resource_venom_mod")
-abilityTell = ExtResource("15_tell")
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"
 
 [resource]

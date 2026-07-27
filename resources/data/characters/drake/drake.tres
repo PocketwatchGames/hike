@@ -68,6 +68,7 @@ maxHealth = 280.0
 modifiers = null
 dizzyResistance = 1.5
 canDodge = true
+defaultBehavior = null
 brain = ExtResource("2_brain")
 animations = Dictionary[int, ExtResource("4_animdata")]({
 0: SubResource("Resource_anim_attack"),

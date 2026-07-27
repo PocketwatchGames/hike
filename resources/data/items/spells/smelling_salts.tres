@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
 [ext_resource type="Texture2D" uid="uid://tjwldw1h4h45" path="res://assets/textures/items/Potion_blue.png" id="7_inv"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_4vnu5"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="8_63fyw"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/fx/drink_loop.tscn" id="9_drinkfx"]
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="11_input"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="12_gold"]
@@ -53,8 +54,8 @@ item = ExtResource("13_sparrow")
 
 [resource]
 script = ExtResource("1_consumable")
-reagents = Array[ExtResource("11_input")]([SubResource("Resource_reagent_gold"), SubResource("Resource_reagent_sparrow")])
 actionProfile = SubResource("Resource_profile")
+reagents = Array[ExtResource("11_input")]([SubResource("Resource_reagent_gold"), SubResource("Resource_reagent_sparrow")])
 displayName = &"Smelling Salts"
 unidentifiedDisplayName = &"Unknown Spell"
 description = "A sharp whiff that restores your stamina in an instant."

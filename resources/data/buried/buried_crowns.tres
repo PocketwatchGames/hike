@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="BuriedSpotData" format=3]
+
+[ext_resource type="Script" uid="uid://bagarwpxwvp1" path="res://scripts/data/buried/BuriedSpotData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="2_count"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="3_desc"]
+[ext_resource type="Resource" uid="uid://qhms7wphy46n" path="res://resources/data/items/loot/crown.tres" id="4_item"]
+[ext_resource type="PackedScene" uid="uid://cmd7r8wq3n2va" path="res://scenes/props/dirt_mound.tscn" id="5_mound"]
+
+[sub_resource type="Resource" id="Desc"]
+script = ExtResource("3_desc")
+item = ExtResource("4_item")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="C1"]
+script = ExtResource("2_count")
+descriptor = SubResource("Desc")
+count = 1
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="C2"]
+script = ExtResource("2_count")
+descriptor = SubResource("Desc")
+count = 1
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="C3"]
+script = ExtResource("2_count")
+descriptor = SubResource("Desc")
+count = 1
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[resource]
+script = ExtResource("1_data")
+loot = Array[ExtResource("2_count")]([SubResource("C1"), SubResource("C2"), SubResource("C3")])
+dirtPileScene = ExtResource("5_mound")
+resultClass = 2

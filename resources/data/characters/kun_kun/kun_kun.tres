@@ -83,6 +83,7 @@ burrowTime = 0.5
 hideRange = 8.0
 dugUpStun = ExtResource("8_digstun")
 idleLoopMaxRain = 0.2
+defaultBehavior = null
 brain = ExtResource("2_brain")
 bestiaryPortrait = ExtResource("3_ojd85")
 animations = Dictionary[int, ExtResource("6_animdata")]({

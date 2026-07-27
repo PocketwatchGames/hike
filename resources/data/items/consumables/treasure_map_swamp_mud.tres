@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://bfcfe26d6bj6a"]
+
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_map"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
+[ext_resource type="Script" uid="uid://ctvbtmbcpwhgo" path="res://scripts/data/effects/RevealTreasureMapEffect.cs" id="3_reveal"]
+[ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="5_icon"]
+
+[sub_resource type="Resource" id="Effect"]
+script = ExtResource("3_reveal")
+treasureName = "swamp_mud"
+metadata/_custom_type_script = "uid://ctvbtmbcpwhgo"
+
+[resource]
+script = ExtResource("1_map")
+effects = Array[ExtResource("2_effect")]([SubResource("Effect")])
+displayName = &"Treasure Map"
+unidentifiedDisplayName = &"Weathered Map"
+description = "An old map marked with an X. Read it to chart where a treasure lies buried, then dig it up."
+value = 15
+inventorySprite = ExtResource("5_icon")

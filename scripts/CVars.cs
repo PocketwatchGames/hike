@@ -69,7 +69,7 @@ public static class CVars
         {
             return;
         }
-        ItemData map = Godot.GD.Load<ItemData>("res://resources/data/items/consumables/treasure_map.tres");
+        ItemData map = Godot.GD.Load<ItemData>("res://resources/data/items/consumables/treasure_map_hub.tres");
         if (map != null)
         {
             sim.SpawnLoot(player.GlobalPosition + Godot.Vector3.Up * 0.5f, Godot.Vector3.Up * 2.5f, map);

@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 37;
+    public const int WORLDGEN_VERSION = 40;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -324,6 +324,7 @@ public static class WorldGen
     private const int SEED_SALT_FORGELEVEL = 0x15;
     // Post-gen distribution of ZoneGenData.distributedLoot across a zone's chests.
     private const int SEED_SALT_ZONELOOT = 0x16;
+    private const int SEED_SALT_TREASURE = 0x17;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -384,10 +385,12 @@ public static class WorldGen
     }
 
     // Difficulty tier for a monster placed at `position`, layered on the
-    // descriptor's authored `baseLevel`. Starts from the zone's [MobLevelMin,
-    // MobLevelMax] band lerped by the monster-level noise field; an underground
-    // spawn — a solid ceiling within mobLevelUndergroundProbe voxels overhead —
-    // adds mobLevelUndergroundBonus. The total is clamped to [0, mobLevelCap].
+    // descriptor's authored `baseLevel`. An underground spawn — a solid ceiling
+    // within mobLevelUndergroundProbe voxels overhead — draws from the zone's
+    // [UndergroundMobLevelMin, UndergroundMobLevelMax] band, everything else from
+    // [MobLevelMin, MobLevelMax]; either way the band is lerped by the same
+    // monster-level noise field, so a cave inherits the difficulty gradient of the
+    // ground above it. The total is clamped to [0, mobLevelCap].
     // Sunlight isn't baked yet when mobs are placed (it runs after prop/mob
     // scatter), so "underground" is a direct upward solid scan rather than a
     // sky-exposure read. Called per worldgen mob spawn.
@@ -400,11 +403,10 @@ public static class WorldGen
         }
         BlendedZoneGen bz = SampleBlendedZoneGen(
             Mathf.FloorToInt(position.X), Mathf.FloorToInt(position.Z), genData.ZoneGens);
-        int level = baseLevel + SampleBandedLevel(position, bz.MobLevelMin, bz.MobLevelMax, _mobLevelNoise);
-        if (IsUnderground(ws, position, genData.mobLevelUndergroundProbe))
-        {
-            level += genData.mobLevelUndergroundBonus;
-        }
+        bool under = IsUnderground(ws, position, genData.mobLevelUndergroundProbe);
+        float bandMin = under ? bz.UndergroundMobLevelMin : bz.MobLevelMin;
+        float bandMax = under ? bz.UndergroundMobLevelMax : bz.MobLevelMax;
+        int level = baseLevel + SampleBandedLevel(position, bandMin, bandMax, _mobLevelNoise);
         return Math.Clamp(level, 0, genData.mobLevelCap);
     }
 
@@ -593,6 +595,7 @@ public static class WorldGen
         // ZoneGenData.ForgeCount smithing forges per zone (0 = none, e.g. the
         // spawn zone). Scene authored via genData.forge; no-op when unset.
         PlaceZoneForges(ws, genData, heightMap, worldSeed);
+        PlaceZoneTreasures(ws, genData, heightMap, worldSeed);
 
         // A handful of fountains (healing + mana) scattered anywhere across the
         // world. Authored via genData.healingFountain / manaFountain + counts.
@@ -1044,6 +1047,54 @@ public static class WorldGen
     // independent of the zone's fixture anchor so it never stacks on the home
     // campfire. The forge scene is authored once on genData.forge; no-op when
     // that is unset.
+    // Place each zone's one buried treasure (song scroll or crowns) at a flat
+    // column inside the zone, stamping its authored treasureName onto the spot so
+    // a treasure map can point to it by name (BuriedSpot re-registers the anchor
+    // into WorldState.TreasureSpots on stream-in). The treasure exists in the
+    // world independently — the player can dig it up with or without the map.
+    private static void PlaceZoneTreasures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        PlacedZone[] zones = genData.zones ?? System.Array.Empty<PlacedZone>();
+        if (zones.Length == 0) { return; }
+
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_TREASURE));
+
+        for (int zi = 0; zi < zones.Length; zi++)
+        {
+            ZoneGenData zg = zones[zi]?.zoneGen;
+            BuriedSpotSpawnEntry spot = zg?.treasureSpot;
+            string name = zg?.treasureName;
+            // Each name is world-unique; first zone to claim it wins (guards a
+            // WorldGenData that lists the same template zone twice).
+            if (spot?.scene == null || spot.data == null || string.IsNullOrEmpty(name)
+                || ws.TreasureSpots.ContainsKey(name))
+            {
+                continue;
+            }
+            ZoneBounds bounds = zones[zi]?.bounds;
+            if (!TryRollColumn(rng, genData, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
+                    (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap)
+                        && (bounds == null || bounds.Contains(
+                            (int)Math.Floor((double)wx / ChunkState.SIZE),
+                            (int)Math.Floor((double)wz / ChunkState.SIZE),
+                            _zoneBoundsContext)),
+                    out int rx, out int rz))
+            {
+                continue;
+            }
+            int sy = heightMap.GetHeight(rx, rz);
+            var anchor = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
+            var state = new BuriedSpotSimState(anchor, spot.scene, spot.data) { TreasureName = name };
+            ws.AddEntity(state);
+            ws.TreasureSpots[name] = anchor;
+        }
+    }
+
     private static void PlaceZoneForges(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         ForgeSpawnEntry forge = genData.forge;
@@ -2002,6 +2053,9 @@ public static class WorldGen
         // between each pair by their own (independent) level-noise field.
         public float MobLevelMin;
         public float MobLevelMax;
+        // Same, for spawns with a ceiling overhead (caves, tunnels).
+        public float UndergroundMobLevelMin;
+        public float UndergroundMobLevelMax;
         public float ForgeLevelMin;
         public float ForgeLevelMax;
 
@@ -2062,6 +2116,8 @@ public static class WorldGen
             result.GrassThreshold += rg.grassThreshold * w;
             result.MobLevelMin += rg.mobLevelMin * w;
             result.MobLevelMax += rg.mobLevelMax * w;
+            result.UndergroundMobLevelMin += rg.undergroundMobLevelMin * w;
+            result.UndergroundMobLevelMax += rg.undergroundMobLevelMax * w;
             result.ForgeLevelMin += rg.forgeLevelMin * w;
             result.ForgeLevelMax += rg.forgeLevelMax * w;
             if (rg.flattenSurface)
@@ -4105,6 +4161,7 @@ public static class WorldGen
         // list collapses to anchor-only placement.
         int HEAD_CLEARANCE = genData.caveHeadClearance;
         int CAVE_CEILING_PROBE = genData.caveCeilingProbe;
+        int CAVE_WATER_MIN_DEPTH = genData.caveWaterMinDepth;
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
         // Reused across cave cells; its ZoneChestLoot is repointed per cell to the
@@ -4120,6 +4177,56 @@ public static class WorldGen
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
                 for (int wy = worldMinY + 1; wy <= worldMaxY - HEAD_CLEARANCE; wy++)
                 {
+                    // Flooded cave pocket: the top voxel of a water body with rock
+                    // overhead. The ceiling probe is what separates a submerged
+                    // cave from open lake/ocean surface (only sky above those), so
+                    // swimmers stay out of the sea unless a zone's WaterEntities
+                    // asks for them there.
+                    //
+                    // Anchored on the pocket's TOP water voxel, not its floor: the
+                    // navigation grid reports a water column's surface as its top
+                    // voxel, so a floor anchor fails MobSpawnEntry's walkability
+                    // gate on anything deeper than 1 voxel. Mid-voxel (+0.5) so the
+                    // mob's feet sample water on its first tick and buoyancy fires
+                    // — same reason the open-water pass anchors that way.
+                    if (ws.GetVoxelWorld(wx, wy, wz) == VoxelType.Water
+                        && ws.GetVoxelWorld(wx, wy + 1, wz) != VoxelType.Water)
+                    {
+                        if (ws.GetVoxelWorld(wx, wy - (CAVE_WATER_MIN_DEPTH - 1), wz) != VoxelType.Water)
+                        {
+                            continue;
+                        }
+                        bool roofed = false;
+                        for (int c = 1; c <= CAVE_CEILING_PROBE; c++)
+                        {
+                            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + c, wz)))
+                            {
+                                roofed = true;
+                                break;
+                            }
+                        }
+                        if (!roofed)
+                        {
+                            continue;
+                        }
+                        ZoneGenData waterZone = PickWeightedZoneData(wx, wz, zonesArr, rng);
+                        if (waterZone?.caveWaterEntities?.entries == null)
+                        {
+                            continue;
+                        }
+                        caveContext.ZonePerChestLoot = waterZone.perChestLoot;
+                        var waterPos = new Vector3(wx + 0.5f, wy + 0.5f, wz + 0.5f);
+                        foreach (SpawnEntryData entry in waterZone.caveWaterEntities.entries)
+                        {
+                            if (entry == null) { continue; }
+                            bool isWaterMob = entry is MobSpawnEntry;
+                            if (isWaterMob ? skipMobs : skipInteractives) { continue; }
+                            if (!entry.RollAreaChance(rng)) { continue; }
+                            entry.TrySpawn(ws, waterPos, rng, caveContext);
+                        }
+                        continue;
+                    }
+
                     var below = ws.GetVoxelWorld(wx, wy - 1, wz);
                     if (below == VoxelType.Air || below == VoxelType.Water)
                     {

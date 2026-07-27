@@ -8,9 +8,6 @@
 [ext_resource type="Resource" uid="uid://cmdgobelite01" path="res://resources/data/world_gen/mob_descriptors/goblin_mountain_elite.tres" id="5_goblin_elite"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/kun_kun_mountain.tres" id="6_kunkun_data"]
 [ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/goblin_group_mountain.tres" id="8_campfire_group"]
-[ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="m_blue"]
-[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
-[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/sparrow_mountain.tres" id="10_ub7y2"]
 [ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="10_well_entry"]
 [ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="11_well_scene"]
@@ -22,6 +19,10 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/drake_mountain.tres" id="20_drake_data"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/drake_mountain_elite.tres" id="21_drake_elite"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
+[ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="m_blue"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="m_gold"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")
@@ -76,6 +77,12 @@ scene = ExtResource("40_forage_scene")
 item = ExtResource("m_black")
 squareMetersPerSpawn = 300.0
 
+[sub_resource type="Resource" id="Resource_m_gold"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_gold")
+squareMetersPerSpawn = 300.0
+
 [sub_resource type="Resource" id="Resource_well"]
 script = ExtResource("10_well_entry")
 scene = ExtResource("11_well_scene")
@@ -102,4 +109,4 @@ squareMetersPerSpawn = 200.0
 
 [resource]
 script = ExtResource("1_list")
-entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_drake"), SubResource("Resource_drake_elite"), SubResource("Resource_m_blue"), SubResource("Resource_m_white"), SubResource("Resource_m_black"), ExtResource("8_campfire_group"), SubResource("Resource_well"), SubResource("Resource_prf3q"), SubResource("Resource_climbtree"), SubResource("Resource_carrot")])
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_drake"), SubResource("Resource_drake_elite"), SubResource("Resource_m_blue"), SubResource("Resource_m_white"), SubResource("Resource_m_black"), SubResource("Resource_m_gold"), ExtResource("8_campfire_group"), SubResource("Resource_well"), SubResource("Resource_prf3q"), SubResource("Resource_climbtree"), SubResource("Resource_carrot")])

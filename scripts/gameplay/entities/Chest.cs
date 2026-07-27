@@ -119,28 +119,11 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         _interactiveState.Active = false;
         UpdateVisuals(true);
 
-        var rng = new Random();
-        const float SPEED = 5f;
-        float horizontalSpeed = SPEED * Mathf.Cos(Mathf.Pi / 4f);
-        float verticalSpeed = SPEED * Mathf.Sin(Mathf.Pi / 4f);
-
         // Contents are authored on whatever spawns the chest (ChestSpawnEntry,
         // WorldGenData, future editor placements) and arrive through the sim
-        // state — the scene itself carries no loot. Each ItemCount ejects as
-        // a single stacked Loot so a "5 mushrooms" entry is one pile, not
-        // five pickups.
-        ItemCount[] lootItems = _interactiveState.LootItems;
-        if (lootItems != null)
-        {
-            for (int i = 0; i < lootItems.Length; i++)
-            {
-                ItemCount entry = lootItems[i];
-                if (entry?.descriptor?.item == null || entry.count <= 0) { continue; }
-                ItemState stack = entry.descriptor.CreateState();
-                stack.SetCount(entry.count);
-                _world.DropItem(stack, GlobalPosition + Vector3.Up, RandomImpulse(rng, horizontalSpeed, verticalSpeed));
-            }
-        }
+        // state — the scene itself carries no loot. Ejected through the shared
+        // loot-pop (also used by a dug buried spot): each ItemCount is one pile.
+        _world.EjectLootPile(_interactiveState.LootItems, GlobalPosition + Vector3.Up);
 
         // Fire any wired traps/effects. The chest itself is the source —
         // ITriggerables that need body-area context (a SpikeDeployer)
@@ -157,16 +140,6 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
                 }
             }
         }
-    }
-
-    private static Vector3 RandomImpulse(Random rng, float horizontalSpeed, float verticalSpeed)
-    {
-        float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-        return new Vector3(
-            horizontalSpeed * Mathf.Cos(angle),
-            verticalSpeed,
-            horizontalSpeed * Mathf.Sin(angle)
-        );
     }
 
     public static Chest Create(Sim sim, ChestSimState data)

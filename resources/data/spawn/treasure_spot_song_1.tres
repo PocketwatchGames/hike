@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="BuriedSpotSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://cruw4anaypwt" path="res://scripts/data/spawn/BuriedSpotSpawnEntry.cs" id="1_entry"]
+[ext_resource type="PackedScene" uid="uid://b8rq2dnk7vxce" path="res://scenes/interactives/buried_spot.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://resources/data/buried/buried_song_verse_1.tres" id="3_data"]
+
+[resource]
+script = ExtResource("1_entry")
+scene = ExtResource("2_scene")
+data = ExtResource("3_data")
+requireFlat = true

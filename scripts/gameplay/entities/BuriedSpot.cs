@@ -33,6 +33,12 @@ public partial class BuriedSpot : Node3D, IWorldEntity
         instance._world = sim;
         sim.AddChild(instance);
         instance.UpdateVisual();
+        // Re-register the treasure anchor so a map can point to it by name. Skip a
+        // dug spot — its treasure is gone and a map must never target an empty hole.
+        if (!string.IsNullOrEmpty(state.TreasureName) && !state.Excavated && sim.WorldState != null)
+        {
+            sim.WorldState.TreasureSpots[state.TreasureName] = state.WorldPosition;
+        }
         return instance;
     }
 
@@ -72,6 +78,12 @@ public partial class BuriedSpot : Node3D, IWorldEntity
             _world.SpawnEntryImmediate(Data.payload, GlobalPosition, digger);
         }
 
+        // Pop authored loot out of the hole exactly like a chest ejects contents.
+        if (Data.loot != null && Data.loot.Length > 0)
+        {
+            _world.EjectLootPile(Data.loot, GlobalPosition + Vector3.Up);
+        }
+
         if (Data.digEffect != null)
         {
             Fx.Create(Data.digEffect, GetParent(), GlobalPosition);
@@ -79,6 +91,15 @@ public partial class BuriedSpot : Node3D, IWorldEntity
 
         _state.Excavated = true;
         UpdateVisual();
+
+        // A treasure spot: drop its registry anchor and any map pointing here, so
+        // the map self-destructs once its treasure is unearthed (dug with or
+        // without a map in hand).
+        if (!string.IsNullOrEmpty(_state.TreasureName))
+        {
+            _world.WorldState?.TreasureSpots.Remove(_state.TreasureName);
+        }
+        _world.WorldState?.SimState?.RemoveTreasureMapAt(GlobalPosition);
         return true;
     }
 }

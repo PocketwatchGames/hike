@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="ScrollData" format=3]
+[gd_resource type="Resource" script_class="ScrollData" format=3 uid="uid://ciiy4tpes5ay6"]
 
 [ext_resource type="Script" uid="uid://b8udvxvx1n3ug" path="res://scripts/data/items/ScrollData.cs" id="1_scroll"]
-[ext_resource type="Script" uid="uid://ycoaftdvwuztg" path="res://scripts/data/teaching/ScriptFlagTeachable.cs" id="2_flagteach"]
+[ext_resource type="Script" uid="uid://471vhuejnrau" path="res://scripts/data/teaching/ScriptFlagTeachable.cs" id="2_flagteach"]
 [ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="4_sprite"]
 
 [sub_resource type="Resource" id="Resource_concept_verse4"]

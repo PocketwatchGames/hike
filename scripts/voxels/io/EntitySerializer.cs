@@ -359,6 +359,7 @@ public static class EntitySerializer
                 WriteScene(w, buried.Scene);
                 WriteResource(w, buried.Data);
                 w.Write(buried.Excavated);
+                w.Write(buried.TreasureName ?? "");
                 break;
 
             case TentSimState tent:
@@ -724,6 +725,7 @@ public static class EntitySerializer
                 bool excavated = r.ReadBoolean();
                 var buried = new BuriedSpotSimState(pos, scene, data);
                 buried.Excavated = excavated;
+                buried.TreasureName = r.ReadString();
                 return buried;
             }
             case Tag.Tent:

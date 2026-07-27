@@ -240,6 +240,10 @@ public partial class WorldGenData : Resource
     // for a ceiling before a column counts as an enclosed pocket.
     [Export] public int caveHeadClearance = 2;
     [Export] public int caveCeilingProbe = 6;
+    // Voxels of water a flooded cave pocket must hold below its surface before
+    // the CaveWaterEntities scan will place a swimmer there — anything shallower
+    // is a seep, not a pool a lurker fits in.
+    [Export(PropertyHint.Range, "1,8,1")] public int caveWaterMinDepth = 2;
 
     [ExportGroup("Placement Tuning")]
     // Max rejection-sampling attempts when rolling a random column for a
@@ -293,14 +297,12 @@ public partial class WorldGenData : Resource
     // zone's band extremes, LARGER keeps most of a zone mid-band.
     // Re-measure spread with tools/mob_level_noise_probe.gd after changing it.
     [Export(PropertyHint.Range, "0.05,1,0.01")] public float zoneLevelNoiseSpread = 0.22f;
-    // Flat level bonus added to any monster spawned underground (a solid ceiling
-    // within MobLevelUndergroundProbe voxels overhead), on top of the band level.
-    [Export(PropertyHint.Range, "0,4,1")] public int mobLevelUndergroundBonus = 1;
     // Voxels to scan straight up from a spawn before giving up on finding a
-    // ceiling — a solid voxel within this window marks the spawn underground.
+    // ceiling — a solid voxel within this window marks the spawn underground, so
+    // it draws from the zone's UndergroundMobLevel band instead of the surface one.
     [Export] public int mobLevelUndergroundProbe = 24;
-    // Absolute cap on monster level after band + underground bonus + the
-    // descriptor's authored base. Each level scales health/armor/damage by
+    // Absolute cap on monster level after the zone band and the descriptor's
+    // authored base. Each level scales health/armor/damage by
     // SimData.levelScalePerLevel (~1.5x/level), so keep this small. (Forges have no
     // separate cap — they use their band
     // directly.)

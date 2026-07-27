@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://scenes/fx/slime_burst.tscn" id="8_burst"]
 [ext_resource type="PackedScene" path="res://scenes/fx/slime_splat.tscn" id="9_splat"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_v3sfw"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="9_vmvbc"]
 [ext_resource type="PackedScene" path="res://scenes/fx/slime_target_preview.tscn" id="10_preview"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_vmvbc"]
 

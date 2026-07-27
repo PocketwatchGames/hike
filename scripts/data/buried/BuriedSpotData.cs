@@ -24,6 +24,13 @@ public partial class BuriedSpotData : Resource
     // allowed (an empty hole) but pointless in practice.
     [Export] public SpawnEntryData payload;
 
+    // Loot ejected on dig, popping out in a spray exactly like a chest's
+    // contents (reuses Sim.EjectLootPile). Each ItemCount is one stacked pile.
+    // This is the lightweight "dig -> loot pops out" outcome; the heavier
+    // `payload` above is for digs that spawn an entity (a chest, forge, or mob).
+    // A spot can carry both — the eject and the spawn both fire.
+    [Export] public ItemCount[] loot = System.Array.Empty<ItemCount>();
+
     // Optional above-ground tell instanced under the spot's model anchor —
     // carrot tops, disturbed soil, a protruding chest corner. Null = no
     // indication at all: the player must dig blind to find it (buried

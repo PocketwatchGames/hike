@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/projectiles/drake_lightning_bolt.tscn" id="6_proj"]
 [ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="7_impact"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_mu4ee"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="8_mu4ee"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="9_ghxws"]
 [ext_resource type="Resource" path="res://resources/data/characters/ability_tells/ability_tell_lightning.tres" id="14_tell"]
 

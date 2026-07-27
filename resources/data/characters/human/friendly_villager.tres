@@ -47,6 +47,7 @@ displayName = &"Villager"
 team = 1
 itemPreferences = Array[ExtResource("6_itempref")]([SubResource("Resource_pref_magic"), SubResource("Resource_pref_potion"), SubResource("Resource_pref_food"), SubResource("Resource_pref_weapon"), SubResource("Resource_pref_gross")])
 modifiers = null
+defaultBehavior = null
 brain = ExtResource("2_brain")
 appearsInBestiary = false
 animations = Dictionary[int, ExtResource("4_animdata")]({

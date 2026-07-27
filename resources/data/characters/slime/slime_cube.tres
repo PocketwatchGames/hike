@@ -62,6 +62,7 @@ dangerous = true
 fearsCampfire = true
 modifiers = null
 canBeBackstabbed = false
+defaultBehavior = null
 brain = ExtResource("2_brain")
 bestiaryPortrait = ExtResource("3_m1kuv")
 animations = Dictionary[int, ExtResource("4_animdata")]({

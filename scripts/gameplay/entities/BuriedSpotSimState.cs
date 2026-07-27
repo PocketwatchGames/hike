@@ -19,6 +19,13 @@ public class BuriedSpotSimState : EntitySimState
     // dirt mound) and gates re-digging.
     public bool Excavated;
 
+    // Per-instance name of the treasure this spot holds, stamped by worldgen
+    // (WorldGen.PlaceZoneTreasures) so a treasure map can point to it by name.
+    // Empty for ordinary buried spots. Lives here (not on the shared Data)
+    // because the same BuriedSpotData is reused across zones with distinct names.
+    // BuriedSpot re-registers it into WorldState.TreasureSpots on stream-in.
+    public string TreasureName = "";
+
     // Scene is the shared buried_spot.tscn (carries the BuriedSpot script +
     // model anchor); Data carries the payload and per-spot visuals.
     public BuriedSpotSimState(Vector3 worldPosition, PackedScene scene, BuriedSpotData data)

@@ -1,0 +1,81 @@
+[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://dg0htvagvnyp5"]
+
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_entry_base"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
+[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="3_chest_entry"]
+[ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="4_forage_entry"]
+[ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="5_mushroom"]
+[ext_resource type="Script" uid="uid://b62wjynnh78x4" path="res://scripts/data/spawn/TorchSpawnEntry.cs" id="5_torch_entry"]
+[ext_resource type="Resource" uid="uid://dfgqtsu27u73m" path="res://resources/data/world_gen/mob_descriptors/goblin_forest_torchbearer.tres" id="6_torchbearer"]
+[ext_resource type="Resource" uid="uid://rc4oq3kjbkbf" path="res://resources/data/world_gen/mob_descriptors/goblin_forest.tres" id="7_goblin"]
+[ext_resource type="Resource" uid="uid://dki4wkngpeupq" path="res://resources/data/world_gen/mob_descriptors/spider_forest.tres" id="8_spider"]
+[ext_resource type="Resource" uid="uid://d10e1t72d1y0s" path="res://resources/data/world_gen/mob_descriptors/goblin_forest_elite.tres" id="9_elite"]
+[ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="10_potion"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="11_item_count"]
+[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="12_chest_scene"]
+[ext_resource type="PackedScene" uid="uid://bfdv5jjcu2h5d" path="res://scenes/interactives/chest_poison.tscn" id="13_poison_scene"]
+[ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="14_torch_scene"]
+[ext_resource type="Script" uid="uid://byfibd54g5x4" path="res://scripts/data/spawn/TrapSpawnEntry.cs" id="15_trap_entry"]
+[ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="16_trap_scene"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/forage_spawner.tscn" id="17_forage_scene"]
+
+[sub_resource type="Resource" id="Resource_torchbearer"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("6_torchbearer")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 200.0
+
+[sub_resource type="Resource" id="Resource_goblin"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("7_goblin")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 250.0
+
+[sub_resource type="Resource" id="Resource_spider"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("8_spider")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 250.0
+
+[sub_resource type="Resource" id="Resource_elite"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("9_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 1000.0
+
+[sub_resource type="Resource" id="Resource_forage"]
+script = ExtResource("4_forage_entry")
+scene = ExtResource("17_forage_scene")
+item = ExtResource("5_mushroom")
+squareMetersPerSpawn = 200.0
+
+[sub_resource type="Resource" id="Resource_chest_loot"]
+script = ExtResource("11_item_count")
+item = ExtResource("10_potion")
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="Resource_chest"]
+script = ExtResource("3_chest_entry")
+scene = ExtResource("12_chest_scene")
+altScene = ExtResource("13_poison_scene")
+lootItems = [SubResource("Resource_chest_loot")]
+squareMetersPerSpawn = 500.0
+
+[sub_resource type="Resource" id="Resource_torch"]
+script = ExtResource("5_torch_entry")
+scene = ExtResource("14_torch_scene")
+squareMetersPerSpawn = 400.0
+
+[sub_resource type="Resource" id="Resource_spiketrap"]
+script = ExtResource("15_trap_entry")
+scene = ExtResource("16_trap_scene")
+squareMetersPerSpawn = 400.0
+
+[resource]
+script = ExtResource("1_list")
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_torchbearer"), SubResource("Resource_goblin"), SubResource("Resource_spider"), SubResource("Resource_elite"), SubResource("Resource_forage"), SubResource("Resource_chest"), SubResource("Resource_torch"), SubResource("Resource_spiketrap")])
