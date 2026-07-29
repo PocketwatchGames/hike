@@ -22,6 +22,9 @@ public sealed class WorldFileChunkSource : IChunkSource
     private readonly Dictionary<Vector3I, WorldFile.IndexEntry> _index;
     private readonly FileStream _stream;
     private readonly object _lock = new();
+    // File-wide resource-path table from the header; every chunk's entity list
+    // resolves its path indices against it.
+    private readonly EntitySerializer.ReadPathTable _pathTable;
 
     public WorldFileChunkSource(string path)
     {
@@ -30,6 +33,7 @@ public sealed class WorldFileChunkSource : IChunkSource
         var r = new BinaryReader(_stream, Encoding.UTF8, leaveOpen: true);
 
         WorldFile.Header header = WorldFile.ReadHeader(r);
+        _pathTable = header.PathTable;
         Min = header.Min;
         Max = header.Max;
         Spawn = header.Spawn;
@@ -100,7 +104,7 @@ public sealed class WorldFileChunkSource : IChunkSource
 
             using var ms = new MemoryStream(buffer, writable: false);
             using var br = new BinaryReader(ms, Encoding.UTF8, leaveOpen: false);
-            ChunkSerializer.Read(br, coord, out state, out entities);
+            ChunkSerializer.Read(br, coord, out state, out entities, _pathTable);
         }
         return true;
     }

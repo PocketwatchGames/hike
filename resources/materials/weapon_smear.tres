@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://cwsmrmat42rak"]
 
-[ext_resource type="Shader" path="res://shaders/weapon_smear.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://cinkyubhmbww1" path="res://shaders/weapon_smear.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://3oyru43n445q" path="res://assets/textures/effects/smear_streak_placeholder.tres" id="2_streak"]
 
 [resource]

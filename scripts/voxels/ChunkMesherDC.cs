@@ -9,26 +9,47 @@ using Godot;
 //      change, emit a quad using the 4 adjacent cell vertices.
 // The apron means cells on the neighbour side of a chunk boundary are also
 // computed here, so boundary quads connect without seams. Density is a
-// deterministic function of VoxelType + min-rule, so neighbouring chunks
-// compute the same vertex for a shared boundary cell.
+// deterministic function of VoxelType, so neighbouring chunks compute the
+// same vertex for a shared boundary cell.
+//
+// The sampling lattice is chosen by CVars.voxelCenterSampling. The `density`
+// array and all the cx/cy/cz "corner" indexing below address whichever
+// lattice is active: voxel corners (min-rule) or voxel centres (one sign per
+// voxel). Under centre sampling the lattice sits half a voxel further along
+// every axis, so cell vertices carry a +0.5 `latticeOffset` and a sharp cell
+// places its vertex at the cell centre — which lands exactly on a voxel-grid
+// corner, making SharpAxes.All regions a true cubic mesh.
 public static class ChunkMesherDC
 {
     private const int N = ChunkState.SIZE;
 
-    // Cells at coord [-1, N] inclusive  →  N+2 slots, indexed (coord + 1).
     // Corners at coord [-2, N+2] inclusive  →  N+5 slots, indexed (coord + 2).
     // The extra corner layer (vs a min [-1, N+1] apron for meshing alone) gives
-    // every cell in [-1, N] a full 3×3×3 box-smoothing neighbourhood around each
-    // of its 8 corners, so the normal gradient reads off a continuous density
-    // field. Both neighbouring chunks sample the same densities at the same
-    // world corners, so shared boundary cells get identical smoothed normals
-    // → no slope-pick seam across chunk boundaries.
-    private const int CELL_LO = -1;
-    private const int CELL_HI = N;
-    private const int CELL_DIM = N + 2;
-    private const int CORNER_LO = -2;
-    private const int CORNER_HI = N + 2;
-    private const int CORNER_DIM = N + 5;
+    // every cell a full 3×3×3 box-smoothing neighbourhood around each of its 8
+    // corners, so corner sampling's normal gradient reads off a continuous
+    // density field. Both neighbouring chunks sample the same densities at the
+    // same world corners, so shared boundary cells agree → no slope-pick seam
+    // across chunk boundaries.
+    //
+    // Cells are ALLOCATED over [-3, N+2] (N+6 slots, indexed coord + 3) but the
+    // active range is per-lattice — see cellLo/cellHi in Build. Only [-1, N] is
+    // ever emitted (USED_LO/USED_HI); corner sampling computes exactly that.
+    //
+    // Centre sampling needs two extra rings. Its normals come from accumulating
+    // the face normals of every quad touching a cell, then smoothing each
+    // emitted cell against its face-neighbours. So an emitted cell at -1 needs
+    // accurate accumulation at -2, which needs quads formed from cells at -3.
+    // Skip a ring and a boundary cell would sum fewer quads here than the
+    // neighbouring chunk sums for the same world cell, and the two would
+    // disagree on a shared vertex normal — a lighting seam at every chunk edge.
+    private const int CELL_LO = -3;
+    private const int CELL_HI = N + 2;
+    private const int CELL_DIM = N + 6;
+    private const int USED_LO = -1;
+    private const int USED_HI = N;
+    private const int CORNER_LO = -3;
+    private const int CORNER_HI = N + 3;
+    private const int CORNER_DIM = N + 7;
 
     private static int CellIdx(int c) => c - CELL_LO;
     private static int CornerIdx(int c) => c - CORNER_LO;
@@ -106,6 +127,142 @@ public static class ChunkMesherDC
         return totalW > 1e-5f ? Mathf.Clamp(occ / totalW, 0f, 1f) : 0f;
     }
 
+    // Per-vertex SKY VISIBILITY: the cosine-weighted fraction of this surface's
+    // outward hemisphere that reaches open sky.
+    //
+    // Three earlier models each failed on a case this one has to get right:
+    //   - Sampling the light volume near the surface mixed in the ground's own
+    //     unlit texels (sunlight is baked into AIR only), and the share of solid
+    //     inside the trilinear footprint cycles with the surface's sub-voxel
+    //     position — that banded every slope.
+    //   - Pushing that sample further out cured the bands but walked it
+    //     horizontally out of cliff faces into open sky, lighting a band along
+    //     every clifftop as wide as the offset.
+    //   - One sample along the normal is orientation-blind: air beside an open
+    //     cliff is sky-exposed at every height, so a vertical face read a flat
+    //     1.0 like level ground, which washed the lighting out. At a convex lip
+    //     the tilted normal also stepped from the enclosed side to the open one,
+    //     putting a one-cell bright band along the top of every wall.
+    //
+    // Averaging over the hemisphere fixes all three: it is orientation-aware
+    // (level ground sees the whole hemisphere, a wall roughly half, a ceiling
+    // none), and no single direction can flip the result, so a lip blends over
+    // its neighbours instead of stepping.
+    //
+    // `pos` is lattice space (as ComputeAo's), so RoundToInt gives the voxel
+    // index the way SampleSolid does. Static per bake — sunlight is recomputed
+    // only on load/edit, and time of day is a shader uniform, not part of this.
+    private const int SUN_STEPS = 4;
+
+    private static float BakeVertexSun(
+        Func<int, int, int, VoxelType> getVoxel, Func<int, int, int, int> getSunlight,
+        Vector3 pos, Vector3 n, int cwX, int cwY, int cwZ)
+    {
+        float lit = 0f;
+        float totalW = 0f;
+        for (int i = 0; i < AoDirs.Length; i++)
+        {
+            Vector3 d = AoDirs[i];
+            float nd = d.Dot(n);
+            if (nd < AO_MIN_FACING)
+            {
+                continue;
+            }
+            totalW += nd;
+
+            // March outward, taking the sunlight where the ray ended up so a
+            // direction that escapes into shadowed air contributes only that
+            // air's light.
+            //
+            // A blocker's occlusion is GRADED by how near it is, the same way
+            // ComputeAo does it, rather than being all-or-nothing. Two reasons,
+            // and they pull the same way:
+            //   - Ungraded, a ray flipping between clear and blocked swings the
+            //     result by 1/14 of the hemisphere. A single vertex swinging that
+            //     far shades as a diamond, which is the residual faceting.
+            //   - Grading is what puts local variation back. All-or-nothing only
+            //     registers geometry close enough to block outright, so broad
+            //     open ground came out uniformly lit and read flat.
+            float reach = 0f;
+            for (int step = 1; step <= SUN_STEPS; step++)
+            {
+                Vector3 sp = pos + d * step;
+                int wx = cwX + Mathf.RoundToInt(sp.X);
+                int wy = cwY + Mathf.RoundToInt(sp.Y);
+                int wz = cwZ + Mathf.RoundToInt(sp.Z);
+                if (VoxelTypeInfo.IsSolid(getVoxel(wx, wy, wz)))
+                {
+                    // Adjacent blocker (step 1) closes the direction entirely; one
+                    // at the end of the march barely dims it.
+                    reach *= (step - 1) / (float)SUN_STEPS;
+                    break;
+                }
+                reach = getSunlight(wx, wy, wz) / (float)LightEngine.MAX_LIGHT;
+            }
+            lit += nd * reach;
+        }
+        if (totalW <= 1e-5f)
+        {
+            return 0f;
+        }
+        float openness = Mathf.Clamp(lit / totalW, 0f, 1f);
+
+        // Local occlusion alone can't darken a cliff: the hemisphere pointing
+        // away from an open face genuinely is unobstructed, so the march returns
+        // 1.0 for a vertical wall exactly as for level ground. What it misses is
+        // that the sky is ABOVE — an unoccluded plane sees (1 + n.y)/2 of the sky
+        // hemisphere. That is exact, and gives 1.0 flat, 0.5 vertical, 0 facing
+        // down, which is the wall/ground contrast a single sample threw away.
+        float skyFacing = (1f + n.Y) * 0.5f;
+        return Mathf.Clamp(openness * skyFacing, 0f, 1f);
+    }
+
+    // Capped by the spare rings for the same reason as the vertex relaxation:
+    // iteration k needs correct values at distance k, and a cell smoothed against
+    // a truncated neighbourhood resolves differently in the two chunks sharing
+    // it — a lighting seam at every chunk border.
+    internal static int SUN_SMOOTH_ITERATIONS = 2;
+
+    // Laplacian smoothing of the baked sun over the surface graph, gated by the
+    // same crease rule as the normal smoothing: without it the ground above a
+    // thin roof and the cave ceiling under it are face-neighbours and would
+    // average together, undoing exactly the separation this bake exists for.
+    private static void SmoothSunAcrossSurface(bool[,,] cellHas, Vector3[,,] cellNormal, float[,,] cellSun)
+    {
+        var src = (float[,,])cellSun.Clone();
+        for (int x = CELL_LO; x <= CELL_HI; x++)
+        {
+            for (int y = CELL_LO; y <= CELL_HI; y++)
+            {
+                for (int z = CELL_LO; z <= CELL_HI; z++)
+                {
+                    if (!cellHas[CellIdx(x), CellIdx(y), CellIdx(z)]) { continue; }
+                    Vector3 self = cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)];
+                    float sum = src[CellIdx(x), CellIdx(y), CellIdx(z)];
+                    int n = 1;
+                    for (int i = 0; i < FaceNeighbors.Length; i++)
+                    {
+                        var (dx, dy, dz) = FaceNeighbors[i];
+                        int nx = x + dx, ny = y + dy, nz = z + dz;
+                        if (nx < CELL_LO || nx > CELL_HI || ny < CELL_LO || ny > CELL_HI
+                            || nz < CELL_LO || nz > CELL_HI)
+                        {
+                            continue;
+                        }
+                        if (!cellHas[CellIdx(nx), CellIdx(ny), CellIdx(nz)]) { continue; }
+                        if (self.Dot(cellNormal[CellIdx(nx), CellIdx(ny), CellIdx(nz)]) < NORMAL_SMOOTH_MIN_DOT)
+                        {
+                            continue;
+                        }
+                        sum += src[CellIdx(nx), CellIdx(ny), CellIdx(nz)];
+                        n++;
+                    }
+                    cellSun[CellIdx(x), CellIdx(y), CellIdx(z)] = sum / n;
+                }
+            }
+        }
+    }
+
     private static bool SampleSolid(sbyte[,,] density, Vector3 sp)
     {
         int cx = Math.Clamp(Mathf.RoundToInt(sp.X), CORNER_LO, CORNER_HI);
@@ -167,6 +324,7 @@ public static class ChunkMesherDC
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
+        Func<int, int, int, int> getSunlight,
         Func<int, int, int, bool> chunkExists,
         SurfaceTool st,
         int chunkWorldX, int chunkWorldY, int chunkWorldZ,
@@ -190,6 +348,11 @@ public static class ChunkMesherDC
         bool noPosY = !chunkExists(chunkWorldX, chunkWorldY + N, chunkWorldZ);
         bool noPosZ = !chunkExists(chunkWorldX, chunkWorldY, chunkWorldZ + N);
 
+        // Read once per chunk so a mid-build toggle can't split one mesh
+        // across both lattices.
+        bool centerSampling = CVars.voxelCenterSampling.Value;
+        float latticeOffset = centerSampling ? 0.5f : 0f;
+
         var density = new sbyte[CORNER_DIM, CORNER_DIM, CORNER_DIM];
         for (int cx = CORNER_LO; cx <= CORNER_HI; cx++)
         {
@@ -197,39 +360,45 @@ public static class ChunkMesherDC
             {
                 for (int cz = CORNER_LO; cz <= CORNER_HI; cz++)
                 {
-                    density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)] = Density.CornerDensity(
-                        chunkWorldX + cx, chunkWorldY + cy, chunkWorldZ + cz, getVoxel);
+                    density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)] = centerSampling
+                        ? Density.VoxelDensity(chunkWorldX + cx, chunkWorldY + cy, chunkWorldZ + cz, getVoxel)
+                        : Density.CornerDensity(chunkWorldX + cx, chunkWorldY + cy, chunkWorldZ + cz, getVoxel);
                 }
             }
         }
 
         // Box-smoothed density at corners in [-1, N+1], 3×3×3 kernel over the
-        // raw binary density. The outer corner layer at ±2 exists solely to
-        // give this pass a full kernel at the edges. Meshing still reads the
-        // raw binary density for topology, so surface placement is unchanged;
-        // only the gradient used for per-cell normals sees the smoothed field.
+        // raw binary density, used ONLY for corner sampling's normal gradient.
+        // Centre sampling derives normals from the emitted geometry instead
+        // (see the accumulation pass below), so it skips this entirely — the
+        // volumetric kernel is precisely what made buried geometry bleed into
+        // surface normals there.
         const int SMOOTH_LO = -1;
         const int SMOOTH_HI = N + 1;
         const int SMOOTH_DIM = N + 3;
-        var smoothDensity = new float[SMOOTH_DIM, SMOOTH_DIM, SMOOTH_DIM];
-        for (int cx = SMOOTH_LO; cx <= SMOOTH_HI; cx++)
+        float[,,] smoothDensity = null;
+        if (!centerSampling)
         {
-            for (int cy = SMOOTH_LO; cy <= SMOOTH_HI; cy++)
+            smoothDensity = new float[SMOOTH_DIM, SMOOTH_DIM, SMOOTH_DIM];
+            for (int cx = SMOOTH_LO; cx <= SMOOTH_HI; cx++)
             {
-                for (int cz = SMOOTH_LO; cz <= SMOOTH_HI; cz++)
+                for (int cy = SMOOTH_LO; cy <= SMOOTH_HI; cy++)
                 {
-                    int sum = 0;
-                    for (int ox = -1; ox <= 1; ox++)
+                    for (int cz = SMOOTH_LO; cz <= SMOOTH_HI; cz++)
                     {
-                        for (int oy = -1; oy <= 1; oy++)
+                        int sum = 0;
+                        for (int ox = -1; ox <= 1; ox++)
                         {
-                            for (int oz = -1; oz <= 1; oz++)
+                            for (int oy = -1; oy <= 1; oy++)
                             {
-                                sum += density[CornerIdx(cx + ox), CornerIdx(cy + oy), CornerIdx(cz + oz)];
+                                for (int oz = -1; oz <= 1; oz++)
+                                {
+                                    sum += density[CornerIdx(cx + ox), CornerIdx(cy + oy), CornerIdx(cz + oz)];
+                                }
                             }
                         }
+                        smoothDensity[cx - SMOOTH_LO, cy - SMOOTH_LO, cz - SMOOTH_LO] = sum;
                     }
-                    smoothDensity[cx - SMOOTH_LO, cy - SMOOTH_LO, cz - SMOOTH_LO] = sum;
                 }
             }
         }
@@ -252,6 +421,9 @@ public static class ChunkMesherDC
         // NORMAL), 1 = fully flat (shader substitutes dFdx/dFdy face normal).
         // Interpolates across the quad, so mixed cells get a soft crease.
         var cellSharpness = new float[CELL_DIM, CELL_DIM, CELL_DIM];
+        // Per-vertex baked sun, read from the air voxel the surface FACES.
+        // See BakeVertexSun for why this can't come from the light volume.
+        var cellSun = new float[CELL_DIM, CELL_DIM, CELL_DIM];
         // Per-cell smooth normal, derived deterministically from the cell's 8
         // corner densities. Written to SurfaceTool.SetNormal so we can skip
         // GenerateNormals — which, run per-chunk, would average only the owner
@@ -264,11 +436,18 @@ public static class ChunkMesherDC
         // diffuse darken in voxel_clip.gdshader.
         var cellAo = new float[CELL_DIM, CELL_DIM, CELL_DIM];
 
-        for (int x = CELL_LO; x <= CELL_HI; x++)
+        // Active cell range. Centre sampling needs the extra rings so its
+        // geometric normal accumulation and smoothing are complete at chunk
+        // borders; corner sampling doesn't, and keeping it at [-1, N] leaves
+        // that path's output bit-identical to before this lattice work.
+        int cellLo = centerSampling ? CELL_LO : USED_LO;
+        int cellHi = centerSampling ? CELL_HI : USED_HI;
+
+        for (int x = cellLo; x <= cellHi; x++)
         {
-            for (int y = CELL_LO; y <= CELL_HI; y++)
+            for (int y = cellLo; y <= cellHi; y++)
             {
-                for (int z = CELL_LO; z <= CELL_HI; z++)
+                for (int z = cellLo; z <= cellHi; z++)
                 {
                     sbyte d0 = density[CornerIdx(x),   CornerIdx(y),   CornerIdx(z)  ];
                     sbyte d1 = density[CornerIdx(x+1), CornerIdx(y),   CornerIdx(z)  ];
@@ -296,7 +475,13 @@ public static class ChunkMesherDC
 
                     sbyte[] dArr = { d0, d1, d2, d3, d4, d5, d6, d7 };
 
-                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getTerrainId, getOverlayId, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int TerrainId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant);
+                    // Cells outside the emitted range exist only to complete
+                    // centre sampling's normal accumulation. They still need
+                    // their vertex placed (so sharpMask/anySoftY), but nothing
+                    // reads their tile/kit/overlay — skip that work, which is
+                    // what the extra rings would otherwise cost.
+                    bool needMaterials = x >= USED_LO && x <= USED_HI && y >= USED_LO && y <= USED_HI && z >= USED_LO && z <= USED_HI;
+                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getTerrainId, getOverlayId, centerSampling, needMaterials, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int TerrainId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant);
 
                     // Per-axis majority counts (for snapped coords) and the
                     // edge-midpoint accumulator (for smooth coords). Computed
@@ -334,7 +519,7 @@ public static class ChunkMesherDC
                     }
 
                     float vx = (sharpMask & VoxelTypeInfo.SharpAxes.X) != 0
-                        ? (lowX > highX ? 0f : (highX > lowX ? 1f : 0.5f))
+                        ? SharpCoord(centerSampling, lowX, highX)
                         : accum.X / count;
                     // Y snap is the default for solid ground; any soft voxel
                     // in the 3×3×3 (shape missing the Y bit) overrides it back
@@ -348,11 +533,17 @@ public static class ChunkMesherDC
                     // get crisp vertical creases.
                     bool ySnap = (sharpMask & VoxelTypeInfo.SharpAxes.Y) != 0 && !anySoftY;
                     float vy = ySnap
-                        ? (lowY > highY ? 0f : (highY > lowY ? 1f : 0.5f))
+                        ? SharpCoord(centerSampling, lowY, highY)
                         : accum.Y / count;
                     float vz = (sharpMask & VoxelTypeInfo.SharpAxes.Z) != 0
-                        ? (lowZ > highZ ? 0f : (highZ > lowZ ? 1f : 0.5f))
+                        ? SharpCoord(centerSampling, lowZ, highZ)
                         : accum.Z / count;
+
+                    // Shift onto the active lattice before the boundary snap,
+                    // so the snap's 1/0 stay absolute cell-local coords.
+                    vx += latticeOffset;
+                    vy += latticeOffset;
+                    vz += latticeOffset;
 
                     // Snap apron-axis coord to the world boundary plane for
                     // cells on a world-edge apron row. -1 apron snaps to 1
@@ -375,40 +566,139 @@ public static class ChunkMesherDC
                     cellAmp[CellIdx(x), CellIdx(y), CellIdx(z)] = amp;
                     cellSharpness[CellIdx(x), CellIdx(y), CellIdx(z)] = sharpness;
 
-                    // Gradient across the cell's 8 corners of the box-smoothed
-                    // density. smoothDensity<0 inside, >0 outside, so the raw
-                    // gradient already points from solid toward air — that's
-                    // the outward surface normal. Using the smoothed field
-                    // avoids the per-cell direction quantization that binary
-                    // density produces (which manifests as star-shaped lighting
-                    // patches and slope-pick fracturing). Deterministic across
-                    // chunks because the 3×3×3 kernel reads only densities at
-                    // world corners that both neighbours agree on.
-                    int sx = x - SMOOTH_LO, sy = y - SMOOTH_LO, sz = z - SMOOTH_LO;
-                    float s0 = smoothDensity[sx,   sy,   sz  ];
-                    float s1 = smoothDensity[sx+1, sy,   sz  ];
-                    float s2 = smoothDensity[sx,   sy+1, sz  ];
-                    float s3 = smoothDensity[sx+1, sy+1, sz  ];
-                    float s4 = smoothDensity[sx,   sy,   sz+1];
-                    float s5 = smoothDensity[sx+1, sy,   sz+1];
-                    float s6 = smoothDensity[sx,   sy+1, sz+1];
-                    float s7 = smoothDensity[sx+1, sy+1, sz+1];
-                    float gx = (s1 + s3 + s5 + s7) - (s0 + s2 + s4 + s6);
-                    float gy = (s2 + s3 + s6 + s7) - (s0 + s1 + s4 + s5);
-                    float gz = (s4 + s5 + s6 + s7) - (s0 + s1 + s2 + s3);
-                    Vector3 normal = new Vector3(gx, gy, gz);
-                    float nLen = normal.Length();
-                    cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)] = nLen > 1e-5f ? normal / nLen : Vector3.Up;
-
-                    // AO bake: hemisphere occlusion at the vertex, oriented by
-                    // the cell normal we just computed. Vertex sits at the cell
-                    // origin plus its fractional offset, in the same world-corner
-                    // space the `density` array is indexed in.
-                    Vector3 aoPos = new Vector3(x + vx, y + vy, z + vz);
-                    cellAo[CellIdx(x), CellIdx(y), CellIdx(z)] = ComputeAo(density, aoPos, cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)]);
+                    if (!centerSampling)
+                    {
+                        // Gradient across the cell's 8 corners of the box-smoothed
+                        // density. smoothDensity<0 inside, >0 outside, so the raw
+                        // gradient already points from solid toward air — that's
+                        // the outward surface normal. Using the smoothed field
+                        // avoids the per-cell direction quantization that binary
+                        // density produces (which manifests as star-shaped lighting
+                        // patches and slope-pick fracturing). Deterministic across
+                        // chunks because the 3×3×3 kernel reads only densities at
+                        // world corners that both neighbours agree on.
+                        int sx = x - SMOOTH_LO, sy = y - SMOOTH_LO, sz = z - SMOOTH_LO;
+                        float s0 = smoothDensity[sx,   sy,   sz  ];
+                        float s1 = smoothDensity[sx+1, sy,   sz  ];
+                        float s2 = smoothDensity[sx,   sy+1, sz  ];
+                        float s3 = smoothDensity[sx+1, sy+1, sz  ];
+                        float s4 = smoothDensity[sx,   sy,   sz+1];
+                        float s5 = smoothDensity[sx+1, sy,   sz+1];
+                        float s6 = smoothDensity[sx,   sy+1, sz+1];
+                        float s7 = smoothDensity[sx+1, sy+1, sz+1];
+                        float gx = (s1 + s3 + s5 + s7) - (s0 + s2 + s4 + s6);
+                        float gy = (s2 + s3 + s6 + s7) - (s0 + s1 + s4 + s5);
+                        float gz = (s4 + s5 + s6 + s7) - (s0 + s1 + s2 + s3);
+                        Vector3 normal = new Vector3(gx, gy, gz);
+                        float nLen = normal.Length();
+                        cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)] = nLen > 1e-5f ? normal / nLen : Vector3.Up;
+                    }
                     activeCells++;
                 }
             }
+        }
+
+        // --- Geometric normals (centre sampling) -----------------------------
+        // Accumulate the face normal of every quad touching each cell, then
+        // normalize. The normal then describes the surface that actually
+        // exists, so nothing buried below it can tilt it — a volumetric density
+        // gradient reads through the ground and lets a tunnel roof one voxel
+        // down rotate a flat surface's normal by up to 45°, which the shader
+        // turns into a cliff tile smeared sideways by triplanar projection.
+        // Accumulation is unnormalized so larger quads weigh more, and the
+        // orientation comes from the density signs (solid → air) rather than
+        // winding, so it can't disagree with the emitted triangles.
+        if (centerSampling)
+        {
+            // Read the normals off a RELAXED copy of the surface, not the
+            // emitted one. A terraced slope (any ramp shallower than 45°) is
+            // genuinely a staircase, so faithful face normals cycle with the
+            // tread — measured 0.936/0.889/0.979 repeating on a 1-in-3, which is
+            // the lighting banding. Relaxing only this copy leaves the emitted
+            // geometry, silhouette and collision untouched; it changes shading
+            // alone. Like the normal smoothing it walks the surface graph, so
+            // buried geometry still can't reach the surface.
+            AccumulateGeometricNormals(density, cellHas, cellVert, cellNormal, cellLo, cellHi);
+            Vector3[,,] shadeVert = cellVert;
+            if (VERT_RELAX_ITERATIONS > 0)
+            {
+                // Orientation from the RAW geometry, used only to gate which
+                // neighbours may pull on each other (same crease rule as the
+                // normal smoothing — see NORMAL_SMOOTH_MIN_DOT). Without it the
+                // ground above a tunnel relaxes toward the tunnel ceiling one
+                // voxel below, which is precisely the bug this all exists to
+                // prevent: measured 0.943 ungated vs 0.992 required.
+                var rawNormal = (Vector3[,,])cellNormal.Clone();
+                shadeVert = (Vector3[,,])cellVert.Clone();
+                for (int i = 0; i < VERT_RELAX_ITERATIONS; i++)
+                {
+                    RelaxVertsAcrossSurface(cellHas, cellSharpness, rawNormal, shadeVert);
+                }
+                AccumulateGeometricNormals(density, cellHas, shadeVert, cellNormal, cellLo, cellHi);
+            }
+            for (int i = 0; i < NORMAL_SMOOTH_ITERATIONS; i++)
+            {
+                SmoothNormalsAcrossSurface(cellHas, cellNormal);
+            }
+        }
+
+        // AO bake: hemisphere occlusion at each vertex, oriented by the cell
+        // normal. Separate pass because geometric normals aren't known until
+        // every cell vertex exists. The vertex sits at the cell origin plus its
+        // offset, in the same lattice space `density` is indexed in (cellVert
+        // already carries latticeOffset, so this lands correctly in both modes).
+        for (int x = USED_LO; x <= USED_HI; x++)
+        {
+            for (int y = USED_LO; y <= USED_HI; y++)
+            {
+                for (int z = USED_LO; z <= USED_HI; z++)
+                {
+                    if (!cellHas[CellIdx(x), CellIdx(y), CellIdx(z)])
+                    {
+                        continue;
+                    }
+                    Vector3 aoPos = new Vector3(x, y, z) + cellVert[CellIdx(x), CellIdx(y), CellIdx(z)];
+                    Vector3 vn = cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)];
+                    cellAo[CellIdx(x), CellIdx(y), CellIdx(z)] = ComputeAo(density, aoPos, vn);
+                }
+            }
+        }
+
+        // Sun bake over the FULL cell range, spare rings included — NOT just the
+        // emitted cells like AO. The smoothing below reads neighbours up to
+        // SUN_SMOOTH_ITERATIONS cells out, and an unbaked ring reads 0, which
+        // dragged every chunk border dark and put a lighting seam at each chunk
+        // edge. Baking the rings is also what makes the two chunks sharing a
+        // boundary cell arrive at the same smoothed value. AO needs no such
+        // treatment because it is never smoothed.
+        for (int x = CELL_LO; x <= CELL_HI; x++)
+        {
+            for (int y = CELL_LO; y <= CELL_HI; y++)
+            {
+                for (int z = CELL_LO; z <= CELL_HI; z++)
+                {
+                    if (!cellHas[CellIdx(x), CellIdx(y), CellIdx(z)])
+                    {
+                        continue;
+                    }
+                    Vector3 sunPos = new Vector3(x, y, z) + cellVert[CellIdx(x), CellIdx(y), CellIdx(z)];
+                    cellSun[CellIdx(x), CellIdx(y), CellIdx(z)] = BakeVertexSun(
+                        getVoxel, getSunlight, sunPos, cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)],
+                        chunkWorldX, chunkWorldY, chunkWorldZ);
+                }
+            }
+        }
+
+        // The hemisphere march resolves each direction against a ROUNDED voxel
+        // index, so how many of the 14 rays land in solid flips with a vertex's
+        // sub-voxel position. That quantisation is per-vertex noise, and a lone
+        // vertex differing from its neighbours shades as a diamond — the union of
+        // the triangles fanning off it. Smoothing over the surface graph removes
+        // the outliers while leaving the large-scale structure (ground 1.0, wall
+        // 0.5, ceiling 0.0) intact, since that varies over many cells.
+        for (int i = 0; i < SUN_SMOOTH_ITERATIONS; i++)
+        {
+            SmoothSunAcrossSurface(cellHas, cellNormal, cellSun);
         }
 
         // --- Concavity bake ------------------------------------------------
@@ -422,11 +712,11 @@ public static class ChunkMesherDC
         // Second pass because it reads neighbour cells' finished vertices; reuses
         // already-computed cellVert/cellNormal, so no extra field sampling.
         var cellConcavity = new float[CELL_DIM, CELL_DIM, CELL_DIM];
-        for (int x = CELL_LO; x <= CELL_HI; x++)
+        for (int x = USED_LO; x <= USED_HI; x++)
         {
-            for (int y = CELL_LO; y <= CELL_HI; y++)
+            for (int y = USED_LO; y <= USED_HI; y++)
             {
-                for (int z = CELL_LO; z <= CELL_HI; z++)
+                for (int z = USED_LO; z <= USED_HI; z++)
                 {
                     if (!cellHas[CellIdx(x), CellIdx(y), CellIdx(z)])
                     {
@@ -457,7 +747,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx, cy - 1, cz - 1,
                                 cx, cy,     cz - 1,
@@ -481,7 +771,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy, cz - 1,
                                 cx - 1, cy, cz,
@@ -502,7 +792,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy - 1, cz,
                                 cx,     cy - 1, cz,
@@ -537,7 +827,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
@@ -566,7 +856,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
@@ -595,7 +885,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
@@ -628,7 +918,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
@@ -657,7 +947,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
@@ -686,7 +976,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
@@ -707,6 +997,269 @@ public static class ChunkMesherDC
         }
     }
 
+    // Sum the face normal of every sign-change quad into each of the four cells
+    // whose vertices form it, then normalize — an area-weighted vertex normal
+    // taken from the real geometry.
+    //
+    // Iterates the FULL allocated cell range rather than the emitted range, so
+    // a cell on a chunk border sums exactly the same quads the neighbouring
+    // chunk sums for that same world cell. Both chunks compute identical vertex
+    // positions for shared cells (density is a deterministic function of
+    // VoxelType), so both arrive at the same normal and shared vertices don't
+    // crease. Skipping this and only summing owned quads is what would produce
+    // a lighting seam at every chunk edge.
+    private static void AccumulateGeometricNormals(
+        sbyte[,,] density, bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal,
+        int cellLo, int cellHi)
+    {
+        Array.Clear(cellNormal);
+
+        for (int cx = cellLo; cx <= cellHi + 1; cx++)
+        {
+            for (int cy = cellLo; cy <= cellHi + 1; cy++)
+            {
+                for (int cz = cellLo; cz <= cellHi + 1; cz++)
+                {
+                    sbyte a = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)];
+
+                    if (cx <= cellHi)
+                    {
+                        sbyte b = density[CornerIdx(cx + 1), CornerIdx(cy), CornerIdx(cz)];
+                        if ((a < 0) != (b < 0))
+                        {
+                            AddQuadNormal(cellHas, cellVert, cellNormal, cellLo, cellHi,
+                                a < 0 ? Vector3.Right : Vector3.Left,
+                                cx, cy - 1, cz - 1, cx, cy, cz - 1, cx, cy, cz, cx, cy - 1, cz);
+                        }
+                    }
+                    if (cy <= cellHi)
+                    {
+                        sbyte b = density[CornerIdx(cx), CornerIdx(cy + 1), CornerIdx(cz)];
+                        if ((a < 0) != (b < 0))
+                        {
+                            AddQuadNormal(cellHas, cellVert, cellNormal, cellLo, cellHi,
+                                a < 0 ? Vector3.Up : Vector3.Down,
+                                cx - 1, cy, cz - 1, cx - 1, cy, cz, cx, cy, cz, cx, cy, cz - 1);
+                        }
+                    }
+                    if (cz <= cellHi)
+                    {
+                        sbyte b = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz + 1)];
+                        if ((a < 0) != (b < 0))
+                        {
+                            AddQuadNormal(cellHas, cellVert, cellNormal, cellLo, cellHi,
+                                a < 0 ? Vector3.Back : Vector3.Forward,
+                                cx - 1, cy - 1, cz, cx, cy - 1, cz, cx, cy, cz, cx - 1, cy, cz);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int x = cellLo; x <= cellHi; x++)
+        {
+            for (int y = cellLo; y <= cellHi; y++)
+            {
+                for (int z = cellLo; z <= cellHi; z++)
+                {
+                    Vector3 n = cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)];
+                    float len = n.Length();
+                    cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)] = len > 1e-5f ? n / len : Vector3.Up;
+                }
+            }
+        }
+    }
+
+    // How strongly a cell keeps its own accumulated normal versus its
+    // face-neighbours'. 1 = pure average (smoothest, softest creases); higher
+    // preserves more local shape. 2 restores the volumetric gradient's
+    // smoothness on staircase ramps while keeping cliff lips readable.
+    internal static float NORMAL_SMOOTH_SELF_WEIGHT = 2f;
+
+    // Minimum alignment (dot) for a neighbour to be smoothed against. Cell
+    // adjacency is only a PROXY for surface adjacency — two unrelated surfaces
+    // can occupy adjacent cells. The case that matters: ground with a tunnel one
+    // voxel beneath, where the floor cell (normal +Y) and the tunnel-ceiling
+    // cell (normal −Y) are face-neighbours; averaging them would smuggle buried
+    // geometry back into the surface normal, the exact bug geometric normals
+    // exist to kill. Rejecting misaligned neighbours also preserves cliff lips
+    // (floor vs wall dot ≈ 0) while keeping ramps (neighbours within a few
+    // degrees) fully smoothed.
+    internal static float NORMAL_SMOOTH_MIN_DOT = 0.5f;
+
+    internal static int NORMAL_SMOOTH_ITERATIONS = 1;
+
+    // Iterations of vertex relaxation applied to the shading copy of the
+    // surface. 0 disables (normals read the emitted geometry verbatim).
+    //
+    // Capped by the spare rings, NOT by looks: each iteration pulls truncation
+    // one cell further in, and a cell relaxed against a truncated neighbourhood
+    // resolves differently in the two chunks that share it — a lighting seam at
+    // every chunk border. Iteration k needs correct values at distance k, so
+    // with USED_LO = -1 and CELL_LO = -3 exactly 2 are exact. Raising this
+    // requires widening CELL_LO/CELL_HI to match.
+    internal static int VERT_RELAX_ITERATIONS = 2;
+
+    // Laplacian relaxation of the cell vertices, over the same surface graph the
+    // normal smoothing uses. Positions are averaged in lattice space (cell
+    // origin + offset), so a staircase's treads and risers pull each other
+    // toward the plane they approximate.
+    //
+    // Architectural cells (sharpness 1) are pinned: a wall corner must keep its
+    // exact edge, and it is the one place the staircase is the intended shape.
+    private static void RelaxVertsAcrossSurface(bool[,,] cellHas, float[,,] cellSharpness,
+        Vector3[,,] rawNormal, Vector3[,,] cellVert)
+    {
+        var src = (Vector3[,,])cellVert.Clone();
+        for (int x = CELL_LO; x <= CELL_HI; x++)
+        {
+            for (int y = CELL_LO; y <= CELL_HI; y++)
+            {
+                for (int z = CELL_LO; z <= CELL_HI; z++)
+                {
+                    if (!cellHas[CellIdx(x), CellIdx(y), CellIdx(z)]) { continue; }
+                    if (cellSharpness[CellIdx(x), CellIdx(y), CellIdx(z)] > 0.5f) { continue; }
+
+                    Vector3 sum = src[CellIdx(x), CellIdx(y), CellIdx(z)] + new Vector3(x, y, z);
+                    int n = 1;
+                    for (int i = 0; i < FaceNeighbors.Length; i++)
+                    {
+                        var (dx, dy, dz) = FaceNeighbors[i];
+                        int nx = x + dx, ny = y + dy, nz = z + dz;
+                        if (nx < CELL_LO || nx > CELL_HI || ny < CELL_LO || ny > CELL_HI
+                            || nz < CELL_LO || nz > CELL_HI)
+                        {
+                            continue;
+                        }
+                        if (!cellHas[CellIdx(nx), CellIdx(ny), CellIdx(nz)]) { continue; }
+                        if (rawNormal[CellIdx(x), CellIdx(y), CellIdx(z)]
+                                .Dot(rawNormal[CellIdx(nx), CellIdx(ny), CellIdx(nz)]) < NORMAL_SMOOTH_MIN_DOT)
+                        {
+                            continue;
+                        }
+                        sum += src[CellIdx(nx), CellIdx(ny), CellIdx(nz)] + new Vector3(nx, ny, nz);
+                        n++;
+                    }
+                    cellVert[CellIdx(x), CellIdx(y), CellIdx(z)] = sum / n - new Vector3(x, y, z);
+                }
+            }
+        }
+    }
+
+    // Laplacian smoothing over the SURFACE graph — each cell averaged against
+    // the face-adjacent cells that also carry geometry. This is the crucial
+    // distinction from the box filter it replaces: that one smoothed the
+    // volumetric density field, so it reached DOWN through the ground and let a
+    // buried tunnel tilt the surface above it. Walking cell-to-cell can only
+    // ever touch the same surface, so ramps get their smooth shading back with
+    // no path for buried geometry to influence anything.
+    //
+    // Only emitted cells are written, but neighbours are read from the extra
+    // rings — which is why those rings exist and must be accumulated exactly.
+    // Reads from a snapshot so the pass is order-independent and both chunks
+    // sharing a boundary cell compute the same result.
+    private static void SmoothNormalsAcrossSurface(bool[,,] cellHas, Vector3[,,] cellNormal)
+    {
+        var src = (Vector3[,,])cellNormal.Clone();
+        for (int x = USED_LO; x <= USED_HI; x++)
+        {
+            for (int y = USED_LO; y <= USED_HI; y++)
+            {
+                for (int z = USED_LO; z <= USED_HI; z++)
+                {
+                    if (!cellHas[CellIdx(x), CellIdx(y), CellIdx(z)])
+                    {
+                        continue;
+                    }
+                    Vector3 self = src[CellIdx(x), CellIdx(y), CellIdx(z)];
+                    Vector3 sum = self * NORMAL_SMOOTH_SELF_WEIGHT;
+                    for (int i = 0; i < FaceNeighbors.Length; i++)
+                    {
+                        var (dx, dy, dz) = FaceNeighbors[i];
+                        int nx = x + dx, ny = y + dy, nz = z + dz;
+                        if (nx < CELL_LO || nx > CELL_HI || ny < CELL_LO || ny > CELL_HI || nz < CELL_LO || nz > CELL_HI)
+                        {
+                            continue;
+                        }
+                        if (!cellHas[CellIdx(nx), CellIdx(ny), CellIdx(nz)])
+                        {
+                            continue;
+                        }
+                        Vector3 other = src[CellIdx(nx), CellIdx(ny), CellIdx(nz)];
+                        if (self.Dot(other) < NORMAL_SMOOTH_MIN_DOT)
+                        {
+                            continue;
+                        }
+                        sum += other;
+                    }
+                    float len = sum.Length();
+                    if (len > 1e-5f)
+                    {
+                        cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)] = sum / len;
+                    }
+                }
+            }
+        }
+    }
+
+    // One quad's contribution. `outward` is the solid→air direction implied by
+    // the density signs; the cross product is flipped to match it so the result
+    // never depends on winding. Magnitude is left unnormalized (≈ twice the
+    // quad area) so big faces dominate small ones.
+    private static void AddQuadNormal(
+        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int cellLo, int cellHi,
+        Vector3 outward,
+        int x0, int y0, int z0, int x1, int y1, int z1,
+        int x2, int y2, int z2, int x3, int y3, int z3)
+    {
+        if (!InRange(x0, y0, z0, cellLo, cellHi) || !InRange(x1, y1, z1, cellLo, cellHi)
+            || !InRange(x2, y2, z2, cellLo, cellHi) || !InRange(x3, y3, z3, cellLo, cellHi))
+        {
+            return;
+        }
+        if (!cellHas[CellIdx(x0), CellIdx(y0), CellIdx(z0)] || !cellHas[CellIdx(x1), CellIdx(y1), CellIdx(z1)]
+            || !cellHas[CellIdx(x2), CellIdx(y2), CellIdx(z2)] || !cellHas[CellIdx(x3), CellIdx(y3), CellIdx(z3)])
+        {
+            return;
+        }
+
+        Vector3 v0 = cellVert[CellIdx(x0), CellIdx(y0), CellIdx(z0)] + new Vector3(x0, y0, z0);
+        Vector3 v1 = cellVert[CellIdx(x1), CellIdx(y1), CellIdx(z1)] + new Vector3(x1, y1, z1);
+        Vector3 v2 = cellVert[CellIdx(x2), CellIdx(y2), CellIdx(z2)] + new Vector3(x2, y2, z2);
+        Vector3 v3 = cellVert[CellIdx(x3), CellIdx(y3), CellIdx(z3)] + new Vector3(x3, y3, z3);
+
+        Vector3 n = (v2 - v0).Cross(v3 - v1);
+        if (n.Dot(outward) < 0f)
+        {
+            n = -n;
+        }
+
+        cellNormal[CellIdx(x0), CellIdx(y0), CellIdx(z0)] += n;
+        cellNormal[CellIdx(x1), CellIdx(y1), CellIdx(z1)] += n;
+        cellNormal[CellIdx(x2), CellIdx(y2), CellIdx(z2)] += n;
+        cellNormal[CellIdx(x3), CellIdx(y3), CellIdx(z3)] += n;
+    }
+
+    private static bool InRange(int x, int y, int z, int lo, int hi)
+    {
+        return x >= lo && x <= hi && y >= lo && y <= hi && z >= lo && z <= hi;
+    }
+
+    // Sharp-axis vertex placement, in cell-local coords before latticeOffset.
+    // Corner sampling: the majority side, so the vertex lands on the voxel
+    // boundary the dilated field implies. Centre sampling: always the cell
+    // centre, which after the +0.5 offset is exactly a voxel-grid corner —
+    // the majority counts carry no extra information there, because each of
+    // the cell's 8 corners IS a voxel.
+    private static float SharpCoord(bool centerSampling, int low, int high)
+    {
+        if (centerSampling)
+        {
+            return 0.5f;
+        }
+        return low > high ? 0f : (high > low ? 1f : 0.5f);
+    }
+
     // Set by Build before each axis pass so EmitQuad can log per-quad context.
     private static char s_axisTag;
     private static int s_edgeCx, s_edgeCy, s_edgeCz;
@@ -714,7 +1267,7 @@ public static class ChunkMesherDC
 
     private static void EmitQuad(
         SurfaceTool st,
-        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, float[,,] cellAmp, float[,,] cellSharpness, float[,,] cellAo, float[,,] cellConcavity,
+        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, float[,,] cellAmp, float[,,] cellSharpness, float[,,] cellAo, float[,,] cellSun, float[,,] cellConcavity,
         int cwX, int cwY, int cwZ,
         int x0, int y0, int z0,
         int x1, int y1, int z1,
@@ -773,6 +1326,11 @@ public static class ChunkMesherDC
         float ao2 = cellAo[i2x, i2y, i2z];
         float ao3 = cellAo[i3x, i3y, i3z];
 
+        float sun0 = cellSun[i0x, i0y, i0z];
+        float sun1 = cellSun[i1x, i1y, i1z];
+        float sun2 = cellSun[i2x, i2y, i2z];
+        float sun3 = cellSun[i3x, i3y, i3z];
+
         float con0 = cellConcavity[i0x, i0y, i0z];
         float con1 = cellConcavity[i1x, i1y, i1z];
         float con2 = cellConcavity[i2x, i2y, i2z];
@@ -783,15 +1341,38 @@ public static class ChunkMesherDC
         Vector3 n2 = cellNormal[i2x, i2y, i2z];
         Vector3 n3 = cellNormal[i3x, i3y, i3z];
 
+        // Binary density pins every edge crossing to t=0.5, so a quad's four
+        // vertices are frequently non-planar and the split diagonal decides how
+        // much the two triangles disagree — visible as faceting, worst near 45°.
+        // Split along whichever diagonal leaves the halves more parallel. Moves
+        // no vertices and reads no field, so it is lattice-independent and
+        // cannot interact with sharp features.
+        bool splitV1V3 = Kink(v1, v2, v3, v1, v3, v0) < Kink(v0, v1, v2, v0, v2, v3);
         if (flip)
         {
-            AddTri(st, v0, v2, v1, n0, n2, n1, t0, t2, t1, k0, k2, k1, o0, o2, o1, a0, a2, a1, s0, s2, s1, ao0, ao2, ao1, con0, con2, con1);
-            AddTri(st, v0, v3, v2, n0, n3, n2, t0, t3, t2, k0, k3, k2, o0, o3, o2, a0, a3, a2, s0, s3, s2, ao0, ao3, ao2, con0, con3, con2);
+            if (splitV1V3)
+            {
+                AddTri(st, v1, v3, v2, n1, n3, n2, t1, t3, t2, k1, k3, k2, o1, o3, o2, a1, a3, a2, s1, s3, s2, ao1, ao3, ao2, sun1, sun3, sun2, con1, con3, con2);
+                AddTri(st, v1, v0, v3, n1, n0, n3, t1, t0, t3, k1, k0, k3, o1, o0, o3, a1, a0, a3, s1, s0, s3, ao1, ao0, ao3, sun1, sun0, sun3, con1, con0, con3);
+            }
+            else
+            {
+                AddTri(st, v0, v2, v1, n0, n2, n1, t0, t2, t1, k0, k2, k1, o0, o2, o1, a0, a2, a1, s0, s2, s1, ao0, ao2, ao1, sun0, sun2, sun1, con0, con2, con1);
+                AddTri(st, v0, v3, v2, n0, n3, n2, t0, t3, t2, k0, k3, k2, o0, o3, o2, a0, a3, a2, s0, s3, s2, ao0, ao3, ao2, sun0, sun3, sun2, con0, con3, con2);
+            }
         }
         else
         {
-            AddTri(st, v0, v1, v2, n0, n1, n2, t0, t1, t2, k0, k1, k2, o0, o1, o2, a0, a1, a2, s0, s1, s2, ao0, ao1, ao2, con0, con1, con2);
-            AddTri(st, v0, v2, v3, n0, n2, n3, t0, t2, t3, k0, k2, k3, o0, o2, o3, a0, a2, a3, s0, s2, s3, ao0, ao2, ao3, con0, con2, con3);
+            if (splitV1V3)
+            {
+                AddTri(st, v1, v2, v3, n1, n2, n3, t1, t2, t3, k1, k2, k3, o1, o2, o3, a1, a2, a3, s1, s2, s3, ao1, ao2, ao3, sun1, sun2, sun3, con1, con2, con3);
+                AddTri(st, v1, v3, v0, n1, n3, n0, t1, t3, t0, k1, k3, k0, o1, o3, o0, a1, a3, a0, s1, s3, s0, ao1, ao3, ao0, sun1, sun3, sun0, con1, con3, con0);
+            }
+            else
+            {
+                AddTri(st, v0, v1, v2, n0, n1, n2, t0, t1, t2, k0, k1, k2, o0, o1, o2, a0, a1, a2, s0, s1, s2, ao0, ao1, ao2, sun0, sun1, sun2, con0, con1, con2);
+                AddTri(st, v0, v2, v3, n0, n2, n3, t0, t2, t3, k0, k2, k3, o0, o2, o3, a0, a2, a3, s0, s2, s3, ao0, ao2, ao3, sun0, sun2, sun3, con0, con2, con3);
+            }
         }
 
         if (DebugLog)
@@ -815,6 +1396,21 @@ public static class ChunkMesherDC
         }
 
         hasAnyFace = true;
+    }
+
+    // Angle between two triangles' planes, as 1 - dot of their unit normals
+    // (0 = coplanar). Used only to compare a quad's two possible splits.
+    private static float Kink(Vector3 a0, Vector3 a1, Vector3 a2, Vector3 b0, Vector3 b1, Vector3 b2)
+    {
+        Vector3 na = (a1 - a0).Cross(a2 - a0);
+        Vector3 nb = (b1 - b0).Cross(b2 - b0);
+        float la = na.Length();
+        float lb = nb.Length();
+        if (la < 1e-9f || lb < 1e-9f)
+        {
+            return 0f;
+        }
+        return 1f - (na / la).Dot(nb / lb);
     }
 
     // Encodes per-triangle texture-blend data:
@@ -845,6 +1441,7 @@ public static class ChunkMesherDC
         float ampA, float ampB, float ampC,
         float sharpA, float sharpB, float sharpC,
         float aoA, float aoB, float aoC,
+        float sunA, float sunB, float sunC,
         float conA, float conB, float conC)
     {
         Color custA = new Color(ta, tb, tc, ampA);
@@ -858,15 +1455,16 @@ public static class ChunkMesherDC
         Color overlayCustA = new Color(oa, ob, oc, conA);
         Color overlayCustB = new Color(oa, ob, oc, conB);
         Color overlayCustC = new Color(oa, ob, oc, conC);
-        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, aoA)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCustA); st.AddVertex(a);
-        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, aoB)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCustB); st.AddVertex(b);
-        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, aoC)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCustC); st.AddVertex(c);
+        // CUSTOM3.x = baked sun; yzw reserved.
+        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, aoA)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCustA); st.SetCustom(3, new Color(sunA, 0f, 0f, 0f)); st.AddVertex(a);
+        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, aoB)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCustB); st.SetCustom(3, new Color(sunB, 0f, 0f, 0f)); st.AddVertex(b);
+        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, aoC)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCustC); st.SetCustom(3, new Color(sunC, 0f, 0f, 0f)); st.AddVertex(c);
     }
 
     // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,
     // or z outside [0, N-1]) fall back to a neighbour lookup via getVoxel.
     // A cell's sharp mask is the OR of the per-voxel Shape channel over every
-    // solid voxel in its 27-neighbourhood, plus a separate anySoftY flag that
+    // solid voxel in its neighbourhood, plus a separate anySoftY flag that
     // records whether ANY solid voxel lacked the Y bit — the caller uses the
     // flag to back off Y snapping so a ramp column's soft surface voxel can
     // smooth the ramp-base transition without getting overpowered by the OR.
@@ -879,25 +1477,49 @@ public static class ChunkMesherDC
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
+        bool centerSampling,
+        bool needMaterials,
         int cwX, int cwY, int cwZ,
         out int tile, out int TerrainId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant)
     {
-        // Dominant material: majority vote over the cell's 3x3x3 contributing
-        // neighbourhood. DC cells don't "own" the voxels at their 8 corner
-        // positions — corners are grid points, and the min-rule in
-        // Density.CornerDensity means a corner reads INSIDE if ANY of the 8
-        // voxels touching it is solid. So a top-face cell sits one row above
-        // the surface and has ALL corner-position voxels in air; the solid
-        // voxels that actually produced the sign change live one row below.
-        // Voting across the 3x3x3 covers every voxel whose density contributes
-        // to any of this cell's 8 corners. Majority weights each type by how
-        // much of the neighbourhood it occupies, so a cliff-face cell with
-        // dirt-heavy surroundings reads as dirt.
+        // Neighbourhood: one voxel beyond the cell's span on every side. DC
+        // cells don't "own" the voxels at their corner positions, and how far
+        // the window reaches decides more than the material — sharpMask and
+        // anySoftY are OR/ANY reductions over it, and they drive axis snapping
+        // and flat-shading. Narrowing the reach makes anySoftY fire less often,
+        // which re-hardens Y snapping into 1-voxel steps on ground the smooth
+        // path used to blend; those steps read as near-vertical faces, and the
+        // shader's AUTO band then picks the WALL tile for them. So keep the
+        // reach identical in both lattices:
+        // Window = exactly the voxels feeding this cell's 8 lattice corners.
+        //   Corner: corners sit at x..x+1 and each is fed by voxels x-1..x, so
+        //           the contributors are the 3×3×3 at x-1..x+1.
+        //   Centre: corners ARE voxels x..x+1, so it's the cell's own 2×2×2.
+        // Do NOT widen the centre window to "match" the corner one. It also
+        // feeds sharpMask, an OR — every extra layer pulls in more neighbouring
+        // Stone SharpAxes.All, flipping Terrain cells to sharpness=1, which
+        // makes the shader swap the smooth normal for the flat face normal and
+        // hand flat ground the WALL tile. Measured over a real world: 2×2×2
+        // gives 0.23% of Terrain cells sharpness=1, 3-wide 0.65%, 4-wide 1.05%,
+        // against 0.33% for corner sampling.
+        // Majority weights each type by how much of the neighbourhood it
+        // occupies, so a cliff-face cell with dirt-heavy surroundings reads as
+        // dirt.
         Span<int> counts = stackalloc int[16];
         Span<int> terrainCounts = stackalloc int[256];
         Span<int> overlayCounts = stackalloc int[256];
         sharpMask = VoxelTypeInfo.SharpAxes.None;
         anySoftY = false;
+        // anySoftY reads a WIDER window than sharpMask, and deliberately so.
+        // The two ORs want opposite things. sharpMask drives flat-shading and
+        // per-axis snapping, so every extra layer wrongly hardens Terrain next
+        // to Stone. anySoftY DISABLES the Y snap, and worldgen relies on it
+        // spreading: a ramp column's soft surface voxel is supposed to
+        // propagate horizontally into the adjacent plateau column's surface
+        // cell so the ramp base blends instead of reading as a 1-voxel step
+        // (see WorldGen's per-column shape comment). Confining it to the cell's
+        // own 2×2×2 leaves gentle ramps snapping into stairs.
+        int lo = centerSampling ? 0 : -1;
         for (int dx = -1; dx <= 1; dx++)
         {
             for (int dy = -1; dy <= 1; dy++)
@@ -906,16 +1528,29 @@ public static class ChunkMesherDC
                 {
                     VoxelType v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier) { continue; }
-                    counts[(int)v]++;
                     var shape = getShape(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
-                    sharpMask |= shape;
                     if ((shape & VoxelTypeInfo.SharpAxes.Y) == 0) { anySoftY = true; }
+                    if (dx < lo || dy < lo || dz < lo) { continue; }
+                    sharpMask |= shape;
+                    if (!needMaterials) { continue; }
+                    counts[(int)v]++;
                     terrainCounts[getTerrainId(cwX + x + dx, cwY + y + dy, cwZ + z + dz)]++;
                     int o = getOverlayId(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     if (o != 0) { overlayCounts[o]++; }
                 }
             }
         }
+        if (!needMaterials)
+        {
+            tile = 0;
+            TerrainId = 0;
+            overlayId = 0;
+            amp = 0f;
+            sharpness = 0f;
+            dominant = VoxelType.Air;
+            return;
+        }
+
         dominant = VoxelType.Air;
         int bestCount = 0;
         for (int i = 0; i < counts.Length; i++)
@@ -965,4 +1600,5 @@ public static class ChunkMesherDC
         tile = VoxelTypeInfo.GetTileForFace(dominant, 0);
         amp = VoxelTypeInfo.GetBlendNoise(dominant);
     }
+
 }

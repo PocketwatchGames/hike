@@ -19,7 +19,7 @@
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="PackedScene" uid="uid://skjv6ciciwfo" path="res://scenes/fx/spider_idle_loop.tscn" id="50_idle"]
-[ext_resource type="Resource" path="res://resources/data/characters/spider/spider_voice.tres" id="51_voice"]
+[ext_resource type="Resource" uid="uid://byrx0q8qpx7wx" path="res://resources/data/characters/spider/spider_voice.tres" id="51_voice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
 radius = 1.0

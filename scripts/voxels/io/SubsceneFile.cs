@@ -32,7 +32,10 @@ using Godot;
 public static class SubsceneFile
 {
     public const uint MAGIC = 0x4E435348; // 'HSCN' little-endian
-    public const uint VERSION = 1;
+    // v2: the entity list gained EntitySerializer's resource-path table prefix
+    //     (see WorldFile v34) — subscenes share that serializer, so their wire
+    //     layout moved with it.
+    public const uint VERSION = 2;
 
     [System.Flags]
     public enum ChannelMask : uint

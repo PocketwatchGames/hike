@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://nsghx0dy6spm"]
 
-[ext_resource type="Shader" path="res://shaders/model_lit_cutout.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://b3dtkdteoyjng" path="res://shaders/model_lit_cutout.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://v71q05qoy3bi" path="res://assets/models/characters/polysplit/medievalTexture_bodyColor1.png" id="2_atlas"]
 
 [resource]

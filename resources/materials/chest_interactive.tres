@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" load_steps=4 format=3 uid="uid://cu8wky4n8u01x"]
 
-[ext_resource type="Shader" path="res://shaders/model_lit_character.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://co18nytf3642q" path="res://shaders/model_lit_character.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://2tdv840qrt2o" path="res://assets/models/chest/Atlas_Props_01.png" id="2_tex"]
 [ext_resource type="ShaderMaterial" uid="uid://carpnncp8fg1l" path="res://resources/materials/model_xray.tres" id="3_xray"]
 

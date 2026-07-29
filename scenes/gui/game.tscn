@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
-[ext_resource type="PackedScene" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
+[ext_resource type="PackedScene" uid="uid://carxk5v82cy87" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
 [ext_resource type="PackedScene" uid="uid://blq0cn2x7hpke" path="res://scenes/gui/camp_screen.tscn" id="40_30f04"]
 [ext_resource type="PackedScene" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
 [ext_resource type="Script" uid="uid://bt6ru7ovpj28n" path="res://scripts/gui/ScreenFade.cs" id="42_screenfade"]

@@ -21,9 +21,9 @@
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="31_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/fx/dog_growl.tscn" id="50_growl"]
-[ext_resource type="PackedScene" path="res://scenes/fx/dog_snarl.tscn" id="51_snarl"]
-[ext_resource type="PackedScene" path="res://scenes/fx/dog_bark.tscn" id="52_bark"]
-[ext_resource type="PackedScene" path="res://scenes/fx/dog_whimper.tscn" id="53_whimper"]
+[ext_resource type="PackedScene" uid="uid://bjxtc2ycqn5mj" path="res://scenes/fx/dog_snarl.tscn" id="51_snarl"]
+[ext_resource type="PackedScene" uid="uid://bdbl036107hwh" path="res://scenes/fx/dog_bark.tscn" id="52_bark"]
+[ext_resource type="PackedScene" uid="uid://rpo02c84xxji" path="res://scenes/fx/dog_whimper.tscn" id="53_whimper"]
 [ext_resource type="PackedScene" uid="uid://bg28hplqg8bq3" path="res://scenes/fx/dog_curious.tscn" id="54_curious"]
 [ext_resource type="Resource" uid="uid://cjnkr1uvgp4k2" path="res://resources/data/characters/dog/dog_voice.tres" id="55_voice"]
 

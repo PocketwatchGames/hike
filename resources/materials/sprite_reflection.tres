@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" load_steps=2 format=3]
 
-[ext_resource type="Shader" path="res://shaders/sprite_reflection.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://xtfwu4yucoc5" path="res://shaders/sprite_reflection.gdshader" id="1_shader"]
 
 [resource]
 render_priority = 5

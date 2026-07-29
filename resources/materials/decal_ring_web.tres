@@ -1,6 +1,6 @@
 [gd_resource type="StandardMaterial3D" format=3]
 
-[ext_resource type="Texture2D" path="res://resources/textures/decal_ring.tres" id="1_ring"]
+[ext_resource type="Texture2D" uid="uid://dig8rwbe47xeo" path="res://resources/textures/decal_ring.tres" id="1_ring"]
 
 [resource]
 resource_name = "decal_ring_web"

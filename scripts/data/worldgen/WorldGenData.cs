@@ -192,6 +192,14 @@ public partial class WorldGenData : Resource
     // Horizontal cells per 1 vertical voxel on a ramp skirt. With PlateauStep=4,
     // slope 1 gives a 4-cell ramp rising one full step (steep but narrow).
     [Export] public int rampSlope = 1;
+
+    // Largest height difference between horizontally-adjacent columns still
+    // treated as a GRADE (a staircase approximation of a slope, meshed smooth)
+    // rather than a real discontinuity (meshed crisp). Plateau edges jump
+    // plateauStep voxels at once; ramps, graded roads and erosion move at most
+    // one per column. Raise only if you author grades steeper than 1 voxel per
+    // column — they would otherwise harden into visible stairs.
+    [Export] public int maxGradeStep = 1;
     // |pathNoise| below this marks the core of a ramp zone (thin, sparse
     // meanders). Authored at sub-0.01 magnitudes — the range hint keeps the
     // spinbox from snapping the value.

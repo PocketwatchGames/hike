@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Godot;
 
 // Type-tagged binary serialization for EntitySimState subclasses. Tags are
@@ -41,30 +42,165 @@ public static class EntitySerializer
     private const byte LegacyPropTypeAutoLoot = 2;
     private const byte LegacyPropTypeLoot = 3;
 
-    public static void WriteList(BinaryWriter w, IReadOnlyList<EntitySimState> entities)
-    {
-        if (entities == null)
-        {
-            w.Write((uint)0);
-            return;
-        }
+    // Resource-path dictionary for the list currently being written / read.
+    //
+    // Entity payloads reference scenes and resources by index into a table at
+    // the head of their list rather than repeating the path string on every
+    // entity — a chunk holding 40 trees drawn from 6 scenes stores 6 paths, not
+    // 40, and the path was roughly two thirds of a prop record.
+    //
+    // A list carries its own table by default, which keeps a standalone blob
+    // (a subscene, an in-memory clone) self-describing. A container holding many
+    // lists should instead open a SHARED table via BeginSharedWrite and store it
+    // once — measured on the test world, per-list tables cost 203KB against
+    // 411KB of original path bytes, because most chunks hold few entities and
+    // the same handful of paths recur in every one of them. That overhead grows
+    // with chunk count, so world files hoist one table into the header.
+    // Addressability is unaffected: the header is already read up front, so any
+    // chunk can still be seeked to and decoded on its own.
+    //
+    // [ThreadStatic] because worldgen and .hike loading both run off the main
+    // thread; the alternative was threading a table argument through ~30 entity
+    // cases and every nested list writer. Saved and restored around each list so
+    // nesting can't clobber an outer table.
+    [ThreadStatic] private static WritePathTable _writePaths;
+    [ThreadStatic] private static ReadPathTable _readPaths;
+    // True while a shared table is installed, meaning WriteList must not emit
+    // its own — the container already wrote it.
+    [ThreadStatic] private static bool _sharedWrite;
 
-        w.Write((uint)entities.Count);
-        foreach (EntitySimState e in entities)
+    public sealed class WritePathTable
+    {
+        public readonly List<string> Paths = new List<string>();
+        private readonly Dictionary<string, int> _indices = new Dictionary<string, int>();
+
+        public int Intern(string path)
         {
-            WriteOne(w, e);
+            path ??= "";
+            if (_indices.TryGetValue(path, out int existing))
+            {
+                return existing;
+            }
+            int index = Paths.Count;
+            Paths.Add(path);
+            _indices[path] = index;
+            return index;
         }
     }
 
-    public static List<EntitySimState> ReadList(BinaryReader r)
+    public sealed class ReadPathTable
     {
-        uint count = r.ReadUInt32();
-        var list = new List<EntitySimState>((int)count);
-        for (uint i = 0; i < count; i++)
+        public readonly string[] Paths;
+        // One GD.Load per distinct path instead of one per entity referencing it.
+        public readonly Resource[] Loaded;
+
+        public ReadPathTable(string[] paths)
         {
-            list.Add(ReadOne(r));
+            Paths = paths;
+            Loaded = new Resource[paths.Length];
         }
-        return list;
+    }
+
+    // Installs a table spanning every list written until EndSharedWrite. The
+    // caller writes the returned table with WriteTable once all its lists are
+    // serialized — which means it must buffer them, since interning only
+    // finishes when the last list does.
+    public static WritePathTable BeginSharedWrite()
+    {
+        _writePaths = new WritePathTable();
+        _sharedWrite = true;
+        return _writePaths;
+    }
+
+    public static void EndSharedWrite()
+    {
+        _writePaths = null;
+        _sharedWrite = false;
+    }
+
+    public static void WriteTable(BinaryWriter w, WritePathTable table)
+    {
+        w.Write7BitEncodedInt(table.Paths.Count);
+        foreach (string path in table.Paths)
+        {
+            w.Write(path);
+        }
+    }
+
+    public static ReadPathTable ReadTable(BinaryReader r)
+    {
+        int pathCount = r.Read7BitEncodedInt();
+        var paths = new string[pathCount];
+        for (int i = 0; i < pathCount; i++)
+        {
+            paths[i] = r.ReadString();
+        }
+        return new ReadPathTable(paths);
+    }
+
+    public static void WriteList(BinaryWriter w, IReadOnlyList<EntitySimState> entities)
+    {
+        if (_sharedWrite)
+        {
+            // The container owns the table; entities go straight out.
+            WriteEntities(w, entities);
+            return;
+        }
+
+        // Standalone list: entities are serialized to a buffer first because the
+        // table they populate has to be written ahead of them.
+        WritePathTable outer = _writePaths;
+        var table = new WritePathTable();
+        _writePaths = table;
+        byte[] payload;
+        try
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
+            {
+                WriteEntities(bw, entities);
+            }
+            payload = ms.ToArray();
+        }
+        finally
+        {
+            _writePaths = outer;
+        }
+
+        WriteTable(w, table);
+        w.Write(payload);
+    }
+
+    private static void WriteEntities(BinaryWriter w, IReadOnlyList<EntitySimState> entities)
+    {
+        int count = entities?.Count ?? 0;
+        w.Write((uint)count);
+        for (int i = 0; i < count; i++)
+        {
+            WriteOne(w, entities[i]);
+        }
+    }
+
+    // `shared` is the container's table when the list was written under
+    // BeginSharedWrite; null means the list carries its own.
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null)
+    {
+        ReadPathTable outer = _readPaths;
+        _readPaths = shared ?? ReadTable(r);
+        try
+        {
+            uint count = r.ReadUInt32();
+            var list = new List<EntitySimState>((int)count);
+            for (uint i = 0; i < count; i++)
+            {
+                list.Add(ReadOne(r));
+            }
+            return list;
+        }
+        finally
+        {
+            _readPaths = outer;
+        }
     }
 
     private static void WriteOne(BinaryWriter w, EntitySimState e)
@@ -793,32 +929,45 @@ public static class EntitySerializer
 
     private static void WriteScene(BinaryWriter w, PackedScene scene)
     {
-        w.Write(scene != null ? scene.ResourcePath : "");
+        WritePathRef(w, scene != null ? scene.ResourcePath : "");
     }
 
     private static PackedScene ReadScene(BinaryReader r)
     {
-        string path = r.ReadString();
-        if (string.IsNullOrEmpty(path))
-        {
-            return null;
-        }
-        return GD.Load<PackedScene>(path);
+        return ReadPathRef<PackedScene>(r);
     }
 
     private static void WriteResource(BinaryWriter w, Resource resource)
     {
-        w.Write(resource != null ? resource.ResourcePath : "");
+        WritePathRef(w, resource != null ? resource.ResourcePath : "");
     }
 
     private static T ReadResource<T>(BinaryReader r) where T : Resource
     {
-        string path = r.ReadString();
-        if (string.IsNullOrEmpty(path))
+        return ReadPathRef<T>(r);
+    }
+
+    // An empty path interns like any other, so null needs no sentinel — it just
+    // resolves back to null on read.
+    private static void WritePathRef(BinaryWriter w, string path)
+    {
+        w.Write7BitEncodedInt(_writePaths.Intern(path));
+    }
+
+    private static T ReadPathRef<T>(BinaryReader r) where T : Resource
+    {
+        int index = r.Read7BitEncodedInt();
+        ReadPathTable table = _readPaths;
+        if (index < 0 || index >= table.Paths.Length)
+        {
+            throw new InvalidDataException($"Entity path index {index} outside the list's table of {table.Paths.Length}.");
+        }
+        if (string.IsNullOrEmpty(table.Paths[index]))
         {
             return null;
         }
-        return GD.Load<T>(path);
+        table.Loaded[index] ??= GD.Load<Resource>(table.Paths[index]);
+        return table.Loaded[index] as T;
     }
 
     // Weapon loadout (MobSimState.Weapons), stamped from SpeciesData.weapons at

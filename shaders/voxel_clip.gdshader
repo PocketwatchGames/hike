@@ -27,7 +27,26 @@ global uniform bool debug_no_cloud;       // force cloud_dim = 1
 global uniform bool debug_no_detail_normal; // skip detail_normal perturbation
 global uniform bool debug_white_albedo;   // force tex_color.rgb = white (lighting-only view)
 global uniform bool debug_wet_spec;        // render only the wetness specular contribution as grayscale
+// Term-isolation switches. Each neutralises ONE multiplier of the final
+// composite so a banding artefact can be bisected to the term that carries it,
+// instead of inferred from how the finished pixel looks.
+global uniform bool debug_no_ao;           // ao_factor = 1
+global uniform bool debug_no_sun;          // sun_lit flat (drops the baked sun mask)
+global uniform bool debug_no_block_light;  // block_lit = 0
+global uniform bool debug_no_wet;          // no wetness / puddle / ripple terms
+global uniform bool debug_no_eye_adapt;    // ea_gain = 1
+// A/B the sun source: true = the old light-volume fetch (banded slopes),
+// false = the per-vertex sky-visibility bake. Kept so the two can be compared
+// in place without a rebuild.
+global uniform bool debug_sun_from_volume;
 global uniform float light_falloff_exp; // power applied to lightmap value (>1 = darker mids).
+// How far along the surface normal the lightmap is sampled, in voxels.
+// Sunlight is baked into AIR voxels only, so a sample too close to the surface
+// has unlit solid texels inside its trilinear footprint; the share of solid in
+// that footprint varies with where the surface sits in the voxel grid, which is
+// what makes a smooth slope band. Too far and cave walls read the brighter air
+// further out. Diagnostic knob for finding the balance.
+global uniform float light_sample_offset;
 
 // RGBA8 light map: R = sunlight visibility mask 0..1 (single source, max-fill,
 // pow'd in this shader). GBA = per-color-channel block light, post-pow at
@@ -293,6 +312,9 @@ varying float ao;
 // Per-vertex baked concavity (CUSTOM2.w). Signed voxels: + = dip/bowl,
 // - = bump/ridge. Interpolated to fragments; drives the wetness pooling term.
 varying float concavity;
+
+// Per-vertex baked sun (CUSTOM3.x), interpolated across the triangle.
+varying float baked_sun;
 // Per-vertex sharpness in [0,1]. 0 = use interpolated smooth NORMAL,
 // 1 = use dFdx/dFdy-derived face normal (hard flat-shaded crease). Authored
 // per-cell by the DC mesher: 1 for authored-sharp materials (Stone/Wood),
@@ -333,6 +355,7 @@ void vertex() {
 	terrain_ids = CUSTOM1.yzw;
 	overlay_ids = CUSTOM2.xyz;
 	concavity = CUSTOM2.w;
+	baked_sun = CUSTOM3.x;
 }
 
 // Hash-based 3D value noise. Good enough for breaking up tile-edge seams; we
@@ -344,27 +367,46 @@ float hash13(vec3 p) {
 }
 
 // Triplanar sample of one tile layer. `wp` is the world position already
-// scaled by tile_uv_scale; `blend` is the axis weight vector from the shading
-// normal. Returns base color, a world-space normal (decoded + remapped from
-// the packed tangent-space normal map), and the height/displacement scalar.
-void sample_tile(float layer, vec3 wp, vec3 blend,
+// scaled by tile_uv_scale; `dwp_dx`/`dwp_dy` are its screen-space derivatives
+// (see fragment(): they MUST be computed in uniform control flow and passed in);
+// `blend` is the axis weight vector from the shading normal. Returns base color,
+// a world-space normal (decoded + remapped from the packed tangent-space normal
+// map), and the height/displacement scalar.
+//
+// Every fetch is textureGrad, never texture(). Both atlases are mipmapped, and
+// every call site here sits in divergent control flow — the flat/triplanar
+// branch below, the per-class candidate loops, and the optional overlay fetch
+// all execute a different set of samples per fragment. Implicit-derivative
+// texture() in divergent flow reads neighbor lanes that never ran that fetch, so
+// the mip level came out as garbage and speckled/flickered wherever the divergence
+// lived: the ~0.5m band around cliff and slope edges where the normal tilts past
+// the fast-path cutoff and ground/cliff tiles both have weight.
+void sample_tile(float layer, vec3 wp, vec3 dwp_dx, vec3 dwp_dy, vec3 blend,
 		out vec3 color, out vec3 wnormal, out float height) {
+	// Per-plane UV gradients. Pure swizzles of the hoisted derivatives — no
+	// derivative op here, so these stay valid however divergent this call is.
+	vec2 g_xz_x = vec2(dwp_dx.x,  dwp_dx.z);
+	vec2 g_xz_y = vec2(dwp_dy.x,  dwp_dy.z);
 	// Fast path: near-flat ground is dominated by the XZ plane, so skip the two
 	// vertical projections — 1 fetch instead of 3, across the bulk of the ground.
 	if (blend.y > 0.995) {
-		color = texture(tile_array, vec3(wp.x, wp.z, layer)).rgb;
-		vec4 nh = texture(tile_nrm_height, vec3(wp.x, wp.z, layer));
+		color = textureGrad(tile_array, vec3(wp.x, wp.z, layer), g_xz_x, g_xz_y).rgb;
+		vec4 nh = textureGrad(tile_nrm_height, vec3(wp.x, wp.z, layer), g_xz_x, g_xz_y);
 		height = nh.a;
 		vec3 n = nh.xyz * 2.0 - 1.0;
 		wnormal = normalize(vec3(n.x, n.z, n.y));
 		return;
 	}
-	vec3 c_xy = texture(tile_array, vec3(wp.x, -wp.y, layer)).rgb;
-	vec3 c_xz = texture(tile_array, vec3(wp.x,  wp.z, layer)).rgb;
-	vec3 c_yz = texture(tile_array, vec3(wp.z, -wp.y, layer)).rgb;
-	vec4 nh_xy = texture(tile_nrm_height, vec3(wp.x, -wp.y, layer));
-	vec4 nh_xz = texture(tile_nrm_height, vec3(wp.x,  wp.z, layer));
-	vec4 nh_yz = texture(tile_nrm_height, vec3(wp.z, -wp.y, layer));
+	vec2 g_xy_x = vec2(dwp_dx.x, -dwp_dx.y);
+	vec2 g_xy_y = vec2(dwp_dy.x, -dwp_dy.y);
+	vec2 g_yz_x = vec2(dwp_dx.z, -dwp_dx.y);
+	vec2 g_yz_y = vec2(dwp_dy.z, -dwp_dy.y);
+	vec3 c_xy = textureGrad(tile_array, vec3(wp.x, -wp.y, layer), g_xy_x, g_xy_y).rgb;
+	vec3 c_xz = textureGrad(tile_array, vec3(wp.x,  wp.z, layer), g_xz_x, g_xz_y).rgb;
+	vec3 c_yz = textureGrad(tile_array, vec3(wp.z, -wp.y, layer), g_yz_x, g_yz_y).rgb;
+	vec4 nh_xy = textureGrad(tile_nrm_height, vec3(wp.x, -wp.y, layer), g_xy_x, g_xy_y);
+	vec4 nh_xz = textureGrad(tile_nrm_height, vec3(wp.x,  wp.z, layer), g_xz_x, g_xz_y);
+	vec4 nh_yz = textureGrad(tile_nrm_height, vec3(wp.z, -wp.y, layer), g_yz_x, g_yz_y);
 	color = c_xz * blend.y + c_xy * blend.z + c_yz * blend.x;
 	height = nh_xz.a * blend.y + nh_xy.a * blend.z + nh_yz.a * blend.x;
 	// Decode each plane's tangent-space normal and remap into world space
@@ -451,6 +493,12 @@ void fragment() {
 	blend /= (blend.x + blend.y + blend.z + 1e-5);
 
 	vec3 wp = world_vertex * tile_uv_scale;
+	// Tile-UV derivatives, taken HERE in uniform control flow and threaded into
+	// every sample_tile below. All the tile fetches live in divergent branches
+	// (flat vs triplanar, varying candidate counts, optional overlay), where
+	// implicit derivatives are undefined — see sample_tile.
+	vec3 dwp_dx = dFdx(wp);
+	vec3 dwp_dy = dFdy(wp);
 	float s = clamp(shaded_normal.y, 0.0, 1.0);
 	// Sharpness (higher = sharper) → height-blend depth (lower = tighter).
 	float wall_depth = 1.0 - wall_blend_sharpness;
@@ -544,7 +592,7 @@ void fragment() {
 			vec3 cc;
 			vec3 nn;
 			float hh;
-			sample_tile(g_ids[k], wp, blend, cc, nn, hh);
+			sample_tile(g_ids[k], wp, dwp_dx, dwp_dy, blend, cc, nn, hh);
 			cols[k] = cc;
 			nrms[k] = nn;
 			hs[k] = hh;
@@ -587,7 +635,7 @@ void fragment() {
 			vec3 cc;
 			vec3 nn;
 			float hh;
-			sample_tile(c_ids[k], wp, blend, cc, nn, hh);
+			sample_tile(c_ids[k], wp, dwp_dx, dwp_dy, blend, cc, nn, hh);
 			cols[k] = cc;
 			nrms[k] = nn;
 			hs[k] = hh;
@@ -621,7 +669,7 @@ void fragment() {
 	if (ov_id > 0.5 && g_n > 0) {
 		vec3 oc, on;
 		float oh;
-		sample_tile(ov_id, wp, blend, oc, on, oh);
+		sample_tile(ov_id, wp, dwp_dx, dwp_dy, blend, oc, on, oh);
 		float ob = height_blend_weight(ov_cov, g_h, oh, ground_depth);
 		g_col = mix(g_col, oc, ob);
 		g_nrm = normalize(mix(g_nrm, on, ob));
@@ -661,10 +709,17 @@ void fragment() {
 	// Push 0.5 along the outward normal so the sample lands in the adjacent
 	// air voxel — without this, DC vertices on cave walls would sample inside
 	// the solid (or worse, near a sunlit-air neighbour) and caves would glow.
-	vec3 light_sample_pos = world_vertex + shaded_normal * 0.5;
+	vec3 light_sample_pos = world_vertex + shaded_normal * light_sample_offset;
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = texture(light_map, uvw);
-	float sun_mask = pow(lm.r, light_falloff_exp);
+	// Sun comes from the per-vertex bake, not the light volume. The volume is
+	// one texel per voxel with sunlight written into AIR only, so sampling it
+	// near a surface mixed in the unlit solid texels of the ground itself and
+	// banded every slope; the mesher instead reads the air each vertex actually
+	// faces (ChunkMesherDC.BakeVertexSun). Block light (lm.gba) still comes from
+	// the volume — it changes at runtime and has no such surface association.
+	float sun_raw = debug_sun_from_volume ? lm.r : clamp(baked_sun, 0.0, 1.0);
+	float sun_mask = pow(sun_raw, light_falloff_exp);
 	// Wetness gate: only sky-exposed (sun_mask) and roughly upward-facing
 	// surfaces wet out. Vertical cliffs shed water, caves/overhangs never
 	// see rain. Slope exponent 3 gives a smooth falloff — fully flat reads
@@ -769,6 +824,10 @@ void fragment() {
 	float pool_reflect = pool_mask * mix(0.15, 1.0, water_clarity);
 	float reflect_amount = max(saturation * smoothness * mix(reflectivity, 1.0, pool_mask), pool_reflect);
 	vec3 wet_reflect = wet_sky * (wet_fresnel * wet_reflect_strength * reflect_amount);
+	if (debug_no_wet) {
+		wet_reflect = vec3(0.0);
+		ripple_rim = 0.0;
+	}
 	wet_reflect += wet_sky * (waterline * wet_reflect_strength * 0.5);
 	// Cloud shadow: pass to light() via cloud_dim so it composes with
 	// ATTENUATION as min() (darkest occluder wins) rather than multiplying
@@ -785,10 +844,18 @@ void fragment() {
 	// knee, not a lighting overhaul.
 	float sun_ndl = max(0.0, dot(shaded_normal, -sun_world_dir));
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color * (0.9 + 0.4 * sun_ndl);
+	// Flat sun: keeps intensity/colour but discards the BAKED sun mask, so a
+	// band that survives this is not coming from the sunlight volume.
+	if (debug_no_sun) {
+		sun_lit = sun_intensity * sun_color;
+	}
 	// Per-fragment block_lit (torch/lamp + skylight) is dimmed by any
 	// sprite silhouette projected from above by BlockLightShadowProjector.
 	// Direct sun (sun_lit, carried via ALBEDO) is untouched.
 	vec3 block_lit = lm.gba * block_light_shadow_factor(world_vertex);
+	if (debug_no_block_light) {
+		block_lit = vec3(0.0);
+	}
 
 	// "Reverse" directional shading: each fill darkens faces by its tint
 	// color in proportion to how much they face away from it. Faces facing
@@ -833,7 +900,7 @@ void fragment() {
 	// lighting only. ao=0 (open) leaves lighting untouched; ao=1 (buried)
 	// scales the diffuse down by ao_strength. The wet sky reflection
 	// (wet_reflect, a specular term) is intentionally NOT occluded here.
-	float ao_factor = 1.0 - ao * ao_strength;
+	float ao_factor = debug_no_ao ? 1.0 : 1.0 - ao * ao_strength;
 
 	// Split the lighting across ALBEDO and EMISSION so light() can shadow
 	// just the direct portion of the sun via ATTENUATION. The BFS sun mask
@@ -868,7 +935,7 @@ void fragment() {
 	// (ALBEDO*ATTENUATION + EMISSION) cleanly. No-op when eye_adaptation == 0.
 	// Runs BEFORE the debug blocks so diagnostics stay un-adapted.
 	float ea_light = dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114));
-	float ea_gain = eye_adaptation_gain(ea_light);
+	float ea_gain = debug_no_eye_adapt ? 1.0 : eye_adaptation_gain(ea_light);
 	ALBEDO *= ea_gain;
 	EMISSION *= ea_gain;
 

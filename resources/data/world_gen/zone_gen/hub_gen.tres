@@ -6,14 +6,18 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="5_kit_underwater"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="6_kit_shore"]
 [ext_resource type="Resource" uid="uid://buowgujm0up6j" path="res://resources/data/world_gen/terrain_gen/hub_kit.tres" id="6_vnuep"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/surface_entities_hub.tres" id="7_surface"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="7_cave"]
+[ext_resource type="Resource" uid="uid://bdm2ltl5kau8n" path="res://resources/data/world_gen/spawn_lists/surface_entities_hub.tres" id="7_surface"]
 [ext_resource type="Resource" uid="uid://c4lym14iaoht2" path="res://resources/data/world_gen/fixtures/hub_fixtures.tres" id="8_fixtures"]
 [ext_resource type="Script" uid="uid://dbxatq73lngxy" path="res://scripts/data/worldgen/RuinsGenData.cs" id="9_ruins"]
+[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
-[ext_resource type="Resource" path="res://resources/data/items/consumables/treasure_map_hub.tres" id="96_map"]
+[ext_resource type="Resource" uid="uid://chvv0wjmu7jh1" path="res://resources/data/items/consumables/treasure_map_hub.tres" id="96_map"]
 [ext_resource type="Resource" path="res://resources/data/spawn/treasure_spot_crowns.tres" id="97_spot"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
+
+[sub_resource type="Resource" id="Dist_treasure"]
+script = ExtResource("90_countrange")
+item = ExtResource("96_map")
 
 [sub_resource type="Resource" id="Resource_ruins"]
 script = ExtResource("9_ruins")
@@ -23,12 +27,6 @@ minSiteSpacing = 45.0
 confinementMinFraction = 0.15
 brokenness = 0.4
 metadata/_custom_type_script = "uid://dbxatq73lngxy"
-
-[sub_resource type="Resource" id="Dist_treasure"]
-script = ExtResource("90_countrange")
-item = ExtResource("96_map")
-count = 1
-countRange = 0
 
 [resource]
 script = ExtResource("1_script")
@@ -45,15 +43,14 @@ tunnelThreshold = 0.1
 caveNoiseFrequency = 0.04
 grassThreshold = 0.3
 mobLevelMax = 0
-undergroundMobLevelMin = 1
 undergroundMobLevelMax = 1
 forgeLevelMax = 0
 surfaceEntities = ExtResource("7_surface")
 caveEntities = ExtResource("7_cave")
 caveWaterEntities = ExtResource("90_cave_water")
+distributedLoot = [SubResource("Dist_treasure")]
+treasureName = "hub"
+treasureSpot = ExtResource("97_spot")
 fixtures = ExtResource("8_fixtures")
 ruins = SubResource("Resource_ruins")
 pointsOfInterest = PackedStringArray("crossroads")
-distributedLoot = Array[ExtResource("90_countrange")]([SubResource("Dist_treasure")])
-treasureName = "hub"
-treasureSpot = ExtResource("97_spot")

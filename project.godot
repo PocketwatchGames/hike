@@ -355,6 +355,42 @@ debug_no_detail_normal={
 "type": "bool",
 "value": false
 }
+light_sample_offset={
+"type": "float",
+"value": 0.5
+}
+debug_no_ao={
+"type": "bool",
+"value": false
+}
+debug_no_sun={
+"type": "bool",
+"value": false
+}
+debug_no_block_light={
+"type": "bool",
+"value": false
+}
+debug_no_wet={
+"type": "bool",
+"value": false
+}
+debug_no_eye_adapt={
+"type": "bool",
+"value": false
+}
+debug_sun_from_volume={
+"type": "bool",
+"value": false
+}
+debug_water_flat={
+"type": "bool",
+"value": false
+}
+debug_water_thickness={
+"type": "bool",
+"value": false
+}
 debug_white_albedo={
 "type": "bool",
 "value": false

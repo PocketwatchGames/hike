@@ -34,6 +34,10 @@ public partial class DebugDrawRenderer : Node3D
 
     private static DebugDrawRenderer _instance;
 
+    // Exposed so debug tooling can confirm its draw calls actually reached the
+    // renderer, separating "nothing was queued" from "queued but not rendering".
+    public static DebugDrawRenderer Instance => _instance != null && IsInstanceValid(_instance) ? _instance : null;
+
     private readonly List<Segment> _segments = new();
     private MeshInstance3D _meshInstance;
     private ImmediateMesh _mesh;

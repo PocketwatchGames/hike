@@ -541,6 +541,15 @@ public partial class Sim : Node3D
     {
         if (_player == null)
         {
+            // The editor streams entities without a player, so its spawn queue
+            // still has to drain — LoadEntitiesForChunk only enqueues, and an
+            // undrained queue leaves every chunk registered with an empty entity
+            // list. Recentering is driven by the editor cursor calling
+            // UpdateEntityLoading, not by a player position.
+            if (_editorMode)
+            {
+                DrainSpawnQueue();
+            }
             return;
         }
 

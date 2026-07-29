@@ -62,11 +62,11 @@ chargeEvents = Array[ExtResource("4_event")]([SubResource("Resource_event_drink"
 
 [resource]
 script = ExtResource("1_lantern")
+actionProfile = SubResource("Resource_profile")
+activeSprite = ExtResource("8_sprite_lit")
 douseEffectScene = ExtResource("9_douse")
 heldLanternScene = ExtResource("10_held")
 burnTimeSeconds = 360.0
-actionProfile = SubResource("Resource_profile")
-activeSprite = ExtResource("8_sprite_lit")
 displayName = &"Lantern"
 description = "A light in the darkness. Clips to your belt when lit. Hold to burn fuel and cast a healing spell."
 value = 10

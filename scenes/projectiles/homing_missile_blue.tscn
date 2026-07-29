@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" uid="uid://dqitly247p839" path="res://scripts/gameplay/entities/HomingMissile.cs" id="1_homing"]
-[ext_resource type="PackedScene" path="res://scenes/fx/homing_missile_trail.tscn" id="2_trail"]
+[ext_resource type="PackedScene" uid="uid://dsy06e2okf2x1" path="res://scenes/fx/homing_missile_trail.tscn" id="2_trail"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glow"]
 shading_mode = 0

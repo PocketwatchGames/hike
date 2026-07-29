@@ -90,6 +90,7 @@ public partial class MusicManager : Node
     private bool _playerDead;
     private bool _inCombat;
     private bool _camping;
+    private bool _inEditor;
 
     // Piece currently loaded on _active. Drives the same-piece guard (an ambient
     // cue never re-triggers itself) and the loop / one-shot finish handling.
@@ -227,6 +228,16 @@ public partial class MusicManager : Node
         Play(camping ? EMusicPiece.Camp : CurrentPhase());
     }
 
+    // The world editor runs silent — pushed by WorldEditor.Init / _ExitTree, so
+    // every entry path (menu button, autostart_editor) is covered. While set, Play
+    // ignores every non-Silent piece; clearing it hands the menu bed back.
+    public void SetEditor(bool inEditor)
+    {
+        if (inEditor == _inEditor) { return; }
+        _inEditor = inEditor;
+        Play(inEditor ? EMusicPiece.Silent : EMusicPiece.Menu);
+    }
+
     // Sleeping at a camp stops the camp music (→ silence through the fade/skip).
     public void OnCampSleepStart()
     {
@@ -332,7 +343,7 @@ public partial class MusicManager : Node
     // leave/wake of the same phase, is left to keep playing or stay silent).
     private void Play(EMusicPiece piece)
     {
-        if (piece == _currentPiece)
+        if (piece == _currentPiece || (_inEditor && piece != EMusicPiece.Silent))
         {
             return;
         }

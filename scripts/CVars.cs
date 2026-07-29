@@ -53,6 +53,14 @@ public static class CVars
     // diagnosed from console.
     public static CVarBool safetyDebug = new CVarBool("safety_debug", false);
 
+    // Logs every stage of the world editor's entity pick — mode, Ctrl detection,
+    // how many entities were considered / visible / had usable bounds / were hit
+    // by the cursor ray, and how many line segments reached DebugDrawRenderer —
+    // so a Ctrl-hover that draws no box can be traced to the stage that dropped
+    // it rather than guessed at. Also draws a fixed test box at the cursor, which
+    // isolates "DebugDraw doesn't render here" from "the pick found nothing".
+    public static CVarBool editorPickDebug = new CVarBool("editor_pick_debug", false);
+
     // Periodically logs each dangerous hostile near the player with the factors
     // the interactive danger gate reads (Sim.IsDangerNear) — distance, behavior,
     // composed EBehaviorFlags, IsEngaging, and clear-line-to-player — so a stuck
@@ -108,6 +116,29 @@ public static class CVars
     // doesn't cover (.cs helpers WorldGen calls into, .hikescene internals)
     // when you want to confirm a fresh regeneration.
     public static CVar worldCacheClear = new CVar("world_cache_clear", (cvar) => WorldGenCache.Clear());
+
+    // Mesher sampling lattice (see Density.cs / ChunkMesherDC.cs).
+    //   false — voxel CORNERS, min-rule. Dilates the solid phase by one voxel,
+    //           so 1-voxel-thin AIR features (doorways, arrow slits, narrow
+    //           tunnels) produce no sign change and mesh over solid.
+    //   true  — voxel CENTRES, one sign per voxel. Thin air and thin solid both
+    //           survive, and SharpAxes.All cells place their vertex on a
+    //           voxel-grid corner, so stone reads as a true cubic mesh.
+    // Toggling requeues every loaded chunk. Flat Y-snapped ground is unchanged
+    // between the two; slopes, inside corners, and anything currently welded
+    // shut by the dilation will move.
+    public static CVarBool voxelCenterSampling = new CVarBool("voxel_center_sampling", true, (cvar) =>
+    {
+        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
+    });
+
+    public static CVar mesherProbe = new CVar("mesher_probe", (cvar) => MesherProbe.Run());
+    public static CVar mesherSweep = new CVar("mesher_sweep", (cvar) => MesherProbe.Sweep());
+
+    // Dump the shape-channel decision for a patch of world so a stepped slope
+    // can be traced to either the stamping pass or the grade rule itself.
+    // Usage: grade_debug "<worldX> <worldZ>"
+    public static CVarString gradeDebug = new CVarString("grade_debug", "", (cvar) => GradeDebug.Dump(((CVarString)cvar).Value));
 
     // Debug: cycle control to the next party member. Exercises the party-switch
     // path (GameClient.SwitchControlTo) before the camp Select-Character UI lands.
@@ -951,6 +982,88 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("debug_white_albedo", ((CVarBool)cvar).Value);
     });
 
+    // Term-isolation switches for the terrain composite. The final pixel is a
+    // product of several independently-baked terms, so a banding artefact can
+    // be bisected by neutralising one at a time rather than reasoning about the
+    // finished pixel. Each maps to a `global uniform bool` of the same name in
+    // voxel_clip.gdshader; all default off.
+    //
+    // Pair with debug_white_albedo (white source color) so only lighting is
+    // left, then switch these off one at a time — the one that removes the
+    // banding is the term carrying it.
+
+    // Distance along the surface normal (in voxels) at which terrain samples the
+    // lightmap. Sunlight is baked into AIR voxels ONLY, so a small offset leaves
+    // unlit solid texels of the ground itself inside the sample's trilinear
+    // footprint — and the share of solid in that footprint cycles with where the
+    // surface sits in the voxel grid, which is what banded smooth slopes. 0.5
+    // (one half-voxel, just clear of the surface) was visibly banded; 1.0 nearly
+    // clears it and 1.5 removes it.
+    //
+    // Raising it is NOT a usable fix: on a vertical face the sample walks that
+    // far horizontally out of the wall into open sunlit air, so the top of every
+    // cliff gains a lit band exactly as wide as the offset. Kept as a diagnostic
+    // — it is what proved the banding comes from solid texels in the footprint.
+    public static CVarFloat lightSampleOffset = new CVarFloat("light_sample_offset", 0.5f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("light_sample_offset", ((CVarFloat)cvar).Value);
+    });
+
+    // Baked per-vertex ambient occlusion (COLOR.a -> ao_factor). Off = 1.0.
+    public static CVarBool debugNoAo = new CVarBool("debug_no_ao", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_no_ao", ((CVarBool)cvar).Value);
+    });
+
+    // The BAKED sun mask (lightmap R channel). Off keeps sun intensity/color
+    // but drops the per-voxel visibility term, so banding that survives this
+    // does not come from the sunlight volume.
+    public static CVarBool debugNoSun = new CVarBool("debug_no_sun", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_no_sun", ((CVarBool)cvar).Value);
+    });
+
+    // Block light (lightmap GBA) plus its shadow projector. Off = 0.
+    public static CVarBool debugNoBlockLight = new CVarBool("debug_no_block_light", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_no_block_light", ((CVarBool)cvar).Value);
+    });
+
+    // Wetness: sky reflection, puddles and footstep ripple rims.
+    public static CVarBool debugNoWet = new CVarBool("debug_no_wet", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_no_wet", ((CVarBool)cvar).Value);
+    });
+
+    // Water term isolation. debug_water_flat outputs a constant colour with no
+    // thickness, depth read, or screen blend — an artefact that survives it is
+    // geometry (overlapping / z-fighting faces), not shading.
+    // debug_water_thickness shows the reconstructed thickness as greyscale.
+    public static CVarBool debugWaterFlat = new CVarBool("debug_water_flat", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_water_flat", ((CVarBool)cvar).Value);
+    });
+
+    public static CVarBool debugWaterThickness = new CVarBool("debug_water_thickness", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_water_thickness", ((CVarBool)cvar).Value);
+    });
+
+    // Sun source A/B. On = the old light-volume fetch (slopes band, walls get
+    // their darkening from solid texels bleeding into the sample); off = the
+    // per-vertex sky-visibility bake. Lets the two be compared in place.
+    public static CVarBool debugSunFromVolume = new CVarBool("debug_sun_from_volume", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_sun_from_volume", ((CVarBool)cvar).Value);
+    });
+
+    // Eye adaptation gain, which is a per-fragment function of local
+    // illuminance and so can turn a gentle light gradient into a visible step.
+    public static CVarBool debugNoEyeAdapt = new CVarBool("debug_no_eye_adapt", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_no_eye_adapt", ((CVarBool)cvar).Value);
+    });
+
     // Render only the wetness specular contribution on terrain + detail
     // sprites. Output is grayscale: black where the spec term is zero
     // (cave/wall, dry weather, wrong camera angle) and bright where the
@@ -1164,6 +1277,21 @@ public static class CVars
         // The actual reflection_tint value is pushed every frame by
         // SkyController.Apply(); checking this flag there gates the push.
     });
+
+    // Zero the water surface wave DISPLACEMENT — voxel_water.gdshader's vertex()
+    // pushes the top face down by the wave field, so this makes water perfectly
+    // flat while leaving its colour, ripple normals and reflections alone. Use it
+    // to tell a geometry artefact from a shading one: anything that survives
+    // flat water is not the displacement.
+    //
+    // Wave amplitude is derived from wind and pushed every frame by
+    // SkyController.Apply(), so the gate lives there, not in this callback.
+    public static CVarBool waterWavesDisabled = new CVarBool("water_waves_disabled", false, (cvar) => { });
+
+    // Zero the ripple NORMAL perturbation (the small-scale surface chop that
+    // bends reflections and specular). Geometry is untouched — pair with
+    // water_waves_disabled to strip both.
+    public static CVarBool waterRipplesDisabled = new CVarBool("water_ripples_disabled", false, (cvar) => { });
 
     // Render the sun disk as a pure magenta circle in the sky (and thus in
     // the water reflection), bypassing cloud occlusion, sun tint, intensity
@@ -1398,6 +1526,11 @@ public static class CVars
     // exercises movement, chunk streaming, and combat without a human at the
     // controls. No effect until a game is actually running.
     public static CVarBool autoplay = new CVarBool("autoplay", false);
+
+    // When true, Main skips the main menu and opens the world editor instead.
+    // Same intent as `autostart`, for iterating on the editor without clicking
+    // through the menu. Ignored when `autostart` is also set.
+    public static CVarBool autostartEditor = new CVarBool("autostart_editor", false);
 
 // Path to a packed world file (`.hike`). When non-empty at game start,
     // Main loads the world from this path instead of running WorldGen.

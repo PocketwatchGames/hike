@@ -50,6 +50,10 @@ global uniform float water_alpha_min;
 global uniform float water_alpha_max;
 global uniform float water_depth_scale;
 global uniform float water_turbidity_exp;
+
+// Water term-isolation toggles - see the fragment tail.
+global uniform bool debug_water_flat;
+global uniform bool debug_water_thickness;
 global uniform float water_muddiness;
 global uniform vec3 water_shallow_tint : source_color;
 global uniform vec3 water_deep_tint : source_color;
@@ -1195,5 +1199,21 @@ void fragment() {
 	float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
 	ALBEDO = composited * ea_gain;
 	ALPHA = 1.0;
+
+	// Term isolation, the same approach that located the sun banding. Each
+	// replaces the composite outright so an artefact can be attributed rather
+	// than guessed at:
+	//   flat      - constant colour: no thickness, no depth read, no screen
+	//               blend. If the artefact SURVIVES this it is geometry
+	//               (overlapping or z-fighting faces), not shading.
+	//   thickness - reconstructed thickness as greyscale over
+	//               water_depth_scale, so a spike is visible directly at the
+	//               offending pixels.
+	if (debug_water_flat) {
+		ALBEDO = vec3(0.2, 0.45, 0.6);
+	}
+	if (debug_water_thickness) {
+		ALBEDO = vec3(clamp(thickness / max(water_depth_scale, 1e-4), 0.0, 1.0));
+	}
 	}
 }

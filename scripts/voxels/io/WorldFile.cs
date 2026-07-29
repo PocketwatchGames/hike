@@ -144,7 +144,13 @@ public static class WorldFile
     //      potency scale with the zone they sit in.
     // v33: BuriedSpot serializes a per-instance TreasureName (string) so a
     //      worldgen-placed treasure can be pointed at by a treasure map by name.
-    public const uint VERSION = 33;
+    // v34: every EntitySerializer entity list is now prefixed by a resource-path
+    //      table, and entities reference scenes / resources by 7-bit-encoded
+    //      index into it instead of repeating the path string. One table for the
+    //      whole file, written into the header before the persistent-entity list
+    //      (chunk reads pass Header.PathTable to ChunkSerializer.Read). Also
+    //      collapses the per-entity GD.Load to one per distinct path.
+    public const uint VERSION = 34;
 
     public struct IndexEntry
     {
@@ -173,6 +179,9 @@ public static class WorldFile
         public string SimDataPath;
         public ZoneEntry[] Zones;
         public RegionEntry[] Regions;
+        // Shared by every entity list in the file. Chunk reads must pass it to
+        // ChunkSerializer.Read or their path indices resolve against nothing.
+        public EntitySerializer.ReadPathTable PathTable;
         public List<EntitySimState> PersistentEntities;
         public uint ChunkCount;
     }
@@ -202,16 +211,36 @@ public static class WorldFile
         // Serialize each chunk's blob into a buffer first so we know its length
         // before writing the index. Memory cost is bounded by total world size
         // and this is an offline export tool, not a hot path.
+        //
+        // The buffering is also what lets one resource-path table cover the whole
+        // file: interning isn't complete until the last chunk is serialized, and
+        // the table has to land in the header ahead of them all.
+        EntitySerializer.WritePathTable pathTable = EntitySerializer.BeginSharedWrite();
         var blobs = new List<byte[]>(coords.Count);
-        foreach (Vector3I coord in coords)
+        byte[] persistentBlob;
+        try
         {
-            ChunkState chunk = worldState._chunks[coord];
-            List<EntitySimState> entities = worldState.GetEntities(coord);
-            using var ms = new MemoryStream();
-            using var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true);
-            ChunkSerializer.Write(bw, chunk, entities);
-            bw.Flush();
-            blobs.Add(ms.ToArray());
+            foreach (Vector3I coord in coords)
+            {
+                ChunkState chunk = worldState._chunks[coord];
+                List<EntitySimState> entities = worldState.GetEntities(coord);
+                using var ms = new MemoryStream();
+                using var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true);
+                ChunkSerializer.Write(bw, chunk, entities);
+                bw.Flush();
+                blobs.Add(ms.ToArray());
+            }
+
+            using var pms = new MemoryStream();
+            using (var pbw = new BinaryWriter(pms, Encoding.UTF8, leaveOpen: true))
+            {
+                EntitySerializer.WriteList(pbw, worldState.PersistentEntities);
+            }
+            persistentBlob = pms.ToArray();
+        }
+        finally
+        {
+            EntitySerializer.EndSharedWrite();
         }
 
         using FileStream fs = File.Create(osPath);
@@ -242,10 +271,13 @@ public static class WorldFile
         {
             w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
         }
+        // One resource-path table for every entity list in the file — chunk
+        // lists and the persistent list alike. Must precede both.
+        EntitySerializer.WriteTable(w, pathTable);
         // Persistent (non-chunked) globals — the companion. Written before
         // chunkCount so the index's fixed-size accounting (payloadStart below)
         // stays correct; fs.Position after this naturally includes these bytes.
-        EntitySerializer.WriteList(w, worldState.PersistentEntities);
+        w.Write(persistentBlob);
         w.Write((uint)coords.Count);
 
         // --- Index ---
@@ -307,7 +339,8 @@ public static class WorldFile
         {
             header.Regions[i] = new RegionEntry { DataPath = r.ReadString() };
         }
-        header.PersistentEntities = EntitySerializer.ReadList(r);
+        header.PathTable = EntitySerializer.ReadTable(r);
+        header.PersistentEntities = EntitySerializer.ReadList(r, header.PathTable);
         header.ChunkCount = r.ReadUInt32();
         return header;
     }

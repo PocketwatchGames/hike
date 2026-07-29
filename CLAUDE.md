@@ -194,7 +194,8 @@ Godot 4 tracks every importable file by a stable `uid://...` value. Scenes (`.ts
 **Rules when editing without Godot:**
 
 - **Every `.cs` file under `scripts/`, `addons/`, `tools/` MUST have a matching `.cs.uid` sidecar** containing exactly one line of the form `uid://[a-z0-9]+`. When creating a new C# script, also create the sidecar — **mint its UID with `dotnet run --project tools/validate_uids --fix`** (or let the Godot editor create it), never by typing one out.
-- **Never invent, copy, or hand-type `uid://` values.** A UID must be a random 13-char string like the tool/editor emits. A "memorable" or mnemonic value satisfies the `uid://[a-z0-9]+` format but is still invented — e.g. `uid://b2sdxefdesc4mqn` (≈ "sd-ef-desc") and `uid://bs1owm0t10nfx7` (≈ "slowmotion") are wrong, however valid they look. Generating a fresh UID with the tool for a brand-new file is fine; reusing one from another file is not.
+- **Never invent, copy, or hand-type `uid://` values.** A UID must be a random string like the tool/editor emits (length varies — 11 to 18 characters occur in this repo, so length proves nothing). A "memorable" or mnemonic value satisfies the `uid://[a-z0-9]+` format but is still invented — e.g. `uid://b2sdxefdesc4mqn` (≈ "sd-ef-desc") and `uid://bs1owm0t10nfx7` (≈ "slowmotion") are wrong, however valid they look. Generating a fresh UID with the tool for a brand-new file is fine; reusing one from another file is not.
+- **Every `[ext_resource ...]` line must carry a `uid=` attribute, not just `path=`.** Godot backfills the missing attribute the next time it saves that file, so an omitted `uid=` becomes an unrelated diff in a later commit. The validator flags these and `--fix` inserts them.
 - **A script's `.cs.uid` and every reference to that script must carry the identical UID.** The same value appears in the sidecar and in every `[ext_resource ...]` / `metadata/_custom_type_script` across all `.tscn`/`.tres`. When they drift (commonly: a hand-typed vanity sidecar vs. the editor-assigned value the content uses), `validate_uids` flags it — converge on the value the references unanimously use, not the lone outlier sidecar. Run the validator after any UID edit.
 - **When moving or renaming a `.cs` file**, move its `.cs.uid` sidecar with it AND update every `[ext_resource ... path="res://..." ...]` reference in `.tscn`/`.tres` files to the new path. The `uid` in the reference stays the same; only the path changes.
 - **When moving or renaming a `.tscn`/`.tres`**, the file's own `[gd_scene uid=...]` / `[gd_resource uid=...]` value stays the same. Update `path=` references in any other scene that points at it.
@@ -202,7 +203,12 @@ Godot 4 tracks every importable file by a stable `uid://...` value. Scenes (`.ts
 
 **When something is broken (UID errors at editor load, "missing dependency", etc.):**
 
-Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sidecars, duplicate UIDs, stale `path=` references, and uid/path mismatches. Add `--fix` to auto-create missing `.cs.uid` sidecars with fresh UIDs (other classes of issue are reported but not auto-fixed — they require knowing where things moved).
+Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sidecars, duplicate UIDs, stale `path=` references, and uid/path mismatches. It resolves a target's genuine UID from its `.uid` sidecar, its `.import` file (for textures/models/audio), or its own `[gd_resource]`/`[gd_scene]` header, so resource-to-resource references are checked too — not just references to scripts.
+
+`--fix` auto-creates missing `.cs.uid` sidecars, inserts absent `uid=` attributes, and reconciles sidecars/references to a strict reference majority. Two classes are deliberately **reported but never auto-fixed**:
+
+- **A reference disagreeing with the target's own header uid.** A header can itself be fabricated (several in this repo spell out their filename), so neither side is reliably genuine. Only the editor knows which UID it has registered — open the project in Godot, let it re-save, and commit that as its own commit.
+- **A tied reference vote.** Needs a human.
 
 ## Code Style
 

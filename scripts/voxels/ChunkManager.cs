@@ -201,6 +201,7 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
         ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.InvSize);
         ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
+        ShaderGlobals.Register("light_sample_offset", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
         // Night-vision degree for the screenspace effect in
         // shaders/post_process.gdshader. Seeded to 0 (off, exact no-op);
         // Player pushes the live degree each frame from its NightVision stat.
@@ -565,6 +566,17 @@ public partial class ChunkManager : Node3D
         }
     }
 
+    // Requeue every loaded chunk. For cvars that change mesh geometry globally
+    // (voxel_center_sampling). The queue is rate-limited per frame, so a large
+    // resident world trickles in over several seconds rather than hitching.
+    public void RebuildAllChunkMeshes()
+    {
+        foreach (Vector3I coord in _loadedChunks.Keys)
+        {
+            _meshRebuildQueue.Enqueue(coord);
+        }
+    }
+
     // True world-direction the camera is looking (−Z of its basis), or a stable
     // default before the camera is in the tree.
     private Vector3 CameraForward()
@@ -854,7 +866,7 @@ public partial class ChunkManager : Node3D
         // MAX_LOAD_DISTANCE this is always false, so normal play is unchanged.
         Vector3I rel = coord - _lastPlayerChunkCoord;
         bool visualOnly = (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z) > MAX_LOAD_DISTANCE_SQ;
-        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly);
+        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly);
         AddChild(mesh);
         _loadedChunks[coord] = mesh;
         if (CVars.chunkWaterLog.Value && mesh.HasWater)
@@ -882,7 +894,7 @@ public partial class ChunkManager : Node3D
             }
 
             oldMesh.QueueFree();
-            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.IsInBounds);
+            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.IsInBounds);
             AddChild(mesh);
             _loadedChunks[coord] = mesh;
             rebuilt++;

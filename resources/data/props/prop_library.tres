@@ -1,0 +1,243 @@
+[gd_resource type="Resource" script_class="PropLibraryData" load_steps=55 format=3]
+
+[ext_resource type="Script" uid="uid://1gsakvdzzgtzi" path="res://scripts/data/props/PropLibraryData.cs" id="1_lib"]
+[ext_resource type="Script" uid="uid://dt7fwhvxr2vis" path="res://scripts/data/props/PropLibraryEntry.cs" id="1_entry"]
+[ext_resource type="PackedScene" uid="uid://dgf3lsf0f6ngm" path="res://scenes/props/tree_pine.tscn" id="2_tree_pine"]
+[ext_resource type="PackedScene" uid="uid://w7si8tgx547d" path="res://scenes/props/tree_pine_dead.tscn" id="3_tree_pine_dead"]
+[ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="4_tree_sequoia"]
+[ext_resource type="PackedScene" uid="uid://b3eik2wv087fj" path="res://scenes/props/tree_sequoia_dead.tscn" id="5_tree_sequoia_dead"]
+[ext_resource type="PackedScene" uid="uid://7bdgoyo1ve4m" path="res://scenes/props/tree_birch.tscn" id="6_tree_birch"]
+[ext_resource type="PackedScene" uid="uid://bdgsvwohjn47w" path="res://scenes/props/tree_birch_dead.tscn" id="7_tree_birch_dead"]
+[ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="8_tree_desert_pine"]
+[ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="9_tree_desert_pine_dead"]
+[ext_resource type="PackedScene" uid="uid://bj7f8dy86dj1q" path="res://scenes/props/tree_willow.tscn" id="10_tree_willow"]
+[ext_resource type="PackedScene" uid="uid://ble6ry6xb2qgc" path="res://scenes/props/tree_willow_dead.tscn" id="11_tree_willow_dead"]
+[ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="12_tree_willow_dead_small"]
+[ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="13_tree_willow_dead_tiny"]
+[ext_resource type="PackedScene" uid="uid://cnfjopl8f5erw" path="res://scenes/props/tree_oak.tscn" id="14_tree_oak"]
+[ext_resource type="PackedScene" uid="uid://csthx76rtxtec" path="res://scenes/props/tree_oak_dead.tscn" id="15_tree_oak_dead"]
+[ext_resource type="PackedScene" uid="uid://ctvjr4p3wwxhy" path="res://scenes/props/tree_maple.tscn" id="16_tree_maple"]
+[ext_resource type="PackedScene" uid="uid://slol5t5s1qti" path="res://scenes/props/tree_maple_dead.tscn" id="17_tree_maple_dead"]
+[ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="18_rock1"]
+[ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="19_rock2"]
+[ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="20_rock3"]
+[ext_resource type="PackedScene" uid="uid://d0kbigg6xw7pf" path="res://scenes/props/desert_rocks_big1.tscn" id="21_desert_rocks_big1"]
+[ext_resource type="PackedScene" uid="uid://cuqyeyeg5imfv" path="res://scenes/props/desert_rocks_big2.tscn" id="22_desert_rocks_big2"]
+[ext_resource type="PackedScene" uid="uid://bxgmlna1my2w" path="res://scenes/props/desert_rocks_big3.tscn" id="23_desert_rocks_big3"]
+[ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/tall_grasses/tall_grass_01.tscn" id="24_tall_grass_01"]
+[ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/tall_grasses/tall_grass_02.tscn" id="25_tall_grass_02"]
+[ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/tall_grasses/tall_grass_03.tscn" id="26_tall_grass_03"]
+[ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/tall_grasses/tall_grass_04.tscn" id="27_tall_grass_04"]
+
+[sub_resource type="Resource" id="Entry_tree_pine"]
+script = ExtResource("1_entry")
+displayName = "Pine"
+scene = ExtResource("2_tree_pine")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_pine_dead"]
+script = ExtResource("1_entry")
+displayName = "Dead Pine"
+scene = ExtResource("3_tree_pine_dead")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_sequoia"]
+script = ExtResource("1_entry")
+displayName = "Sequoia"
+scene = ExtResource("4_tree_sequoia")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_sequoia_dead"]
+script = ExtResource("1_entry")
+displayName = "Dead Sequoia"
+scene = ExtResource("5_tree_sequoia_dead")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_birch"]
+script = ExtResource("1_entry")
+displayName = "Birch"
+scene = ExtResource("6_tree_birch")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_birch_dead"]
+script = ExtResource("1_entry")
+displayName = "Dead Birch"
+scene = ExtResource("7_tree_birch_dead")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_desert_pine"]
+script = ExtResource("1_entry")
+displayName = "Desert Pine"
+scene = ExtResource("8_tree_desert_pine")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_desert_pine_dead"]
+script = ExtResource("1_entry")
+displayName = "Dead Desert Pine"
+scene = ExtResource("9_tree_desert_pine_dead")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_willow"]
+script = ExtResource("1_entry")
+displayName = "Willow"
+scene = ExtResource("10_tree_willow")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_willow_dead"]
+script = ExtResource("1_entry")
+displayName = "Dead Willow"
+scene = ExtResource("11_tree_willow_dead")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_willow_dead_small"]
+script = ExtResource("1_entry")
+displayName = "Dead Willow (Small)"
+scene = ExtResource("12_tree_willow_dead_small")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_willow_dead_tiny"]
+script = ExtResource("1_entry")
+displayName = "Dead Willow (Tiny)"
+scene = ExtResource("13_tree_willow_dead_tiny")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_oak"]
+script = ExtResource("1_entry")
+displayName = "Oak"
+scene = ExtResource("14_tree_oak")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_oak_dead"]
+script = ExtResource("1_entry")
+displayName = "Dead Oak"
+scene = ExtResource("15_tree_oak_dead")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_maple"]
+script = ExtResource("1_entry")
+displayName = "Maple"
+scene = ExtResource("16_tree_maple")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tree_maple_dead"]
+script = ExtResource("1_entry")
+displayName = "Dead Maple"
+scene = ExtResource("17_tree_maple_dead")
+category = 0
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_rock1"]
+script = ExtResource("1_entry")
+displayName = "Rock 1"
+scene = ExtResource("18_rock1")
+category = 1
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_rock2"]
+script = ExtResource("1_entry")
+displayName = "Rock 2"
+scene = ExtResource("19_rock2")
+category = 1
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_rock3"]
+script = ExtResource("1_entry")
+displayName = "Rock 3"
+scene = ExtResource("20_rock3")
+category = 1
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_desert_rocks_big1"]
+script = ExtResource("1_entry")
+displayName = "Desert Boulder 1"
+scene = ExtResource("21_desert_rocks_big1")
+category = 1
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_desert_rocks_big2"]
+script = ExtResource("1_entry")
+displayName = "Desert Boulder 2"
+scene = ExtResource("22_desert_rocks_big2")
+category = 1
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_desert_rocks_big3"]
+script = ExtResource("1_entry")
+displayName = "Desert Boulder 3"
+scene = ExtResource("23_desert_rocks_big3")
+category = 1
+propType = 0
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tall_grass_01"]
+script = ExtResource("1_entry")
+displayName = "Tall Grass 1"
+scene = ExtResource("24_tall_grass_01")
+category = 2
+propType = 1
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tall_grass_02"]
+script = ExtResource("1_entry")
+displayName = "Tall Grass 2"
+scene = ExtResource("25_tall_grass_02")
+category = 2
+propType = 1
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tall_grass_03"]
+script = ExtResource("1_entry")
+displayName = "Tall Grass 3"
+scene = ExtResource("26_tall_grass_03")
+category = 2
+propType = 1
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_tall_grass_04"]
+script = ExtResource("1_entry")
+displayName = "Tall Grass 4"
+scene = ExtResource("27_tall_grass_04")
+category = 2
+propType = 1
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[resource]
+script = ExtResource("1_lib")
+entries = [SubResource("Entry_tree_pine"), SubResource("Entry_tree_pine_dead"), SubResource("Entry_tree_sequoia"), SubResource("Entry_tree_sequoia_dead"), SubResource("Entry_tree_birch"), SubResource("Entry_tree_birch_dead"), SubResource("Entry_tree_desert_pine"), SubResource("Entry_tree_desert_pine_dead"), SubResource("Entry_tree_willow"), SubResource("Entry_tree_willow_dead"), SubResource("Entry_tree_willow_dead_small"), SubResource("Entry_tree_willow_dead_tiny"), SubResource("Entry_tree_oak"), SubResource("Entry_tree_oak_dead"), SubResource("Entry_tree_maple"), SubResource("Entry_tree_maple_dead"), SubResource("Entry_rock1"), SubResource("Entry_rock2"), SubResource("Entry_rock3"), SubResource("Entry_desert_rocks_big1"), SubResource("Entry_desert_rocks_big2"), SubResource("Entry_desert_rocks_big3"), SubResource("Entry_tall_grass_01"), SubResource("Entry_tall_grass_02"), SubResource("Entry_tall_grass_03"), SubResource("Entry_tall_grass_04")]
+metadata/_custom_type_script = "uid://1gsakvdzzgtzi"

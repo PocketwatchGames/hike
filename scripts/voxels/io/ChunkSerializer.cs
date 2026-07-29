@@ -226,7 +226,10 @@ public static class ChunkSerializer
         EntitySerializer.WriteList(w, entities);
     }
 
-    public static void Read(BinaryReader r, Vector3I coord, out ChunkState chunk, out List<EntitySimState> entities)
+    // `pathTable` is the containing file's shared resource-path table when the
+    // chunk was written under EntitySerializer.BeginSharedWrite; null means the
+    // chunk's entity list carries its own.
+    public static void Read(BinaryReader r, Vector3I coord, out ChunkState chunk, out List<EntitySimState> entities, EntitySerializer.ReadPathTable pathTable = null)
     {
         chunk = new ChunkState(coord);
 
@@ -398,6 +401,6 @@ public static class ChunkSerializer
         chunk.ZoneIndex = r.ReadByte();
         chunk.RegionIndex = r.ReadByte();
 
-        entities = EntitySerializer.ReadList(r);
+        entities = EntitySerializer.ReadList(r, pathTable);
     }
 }

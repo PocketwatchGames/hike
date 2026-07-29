@@ -1,7 +1,7 @@
 [gd_resource type="ShaderMaterial" load_steps=3 format=3]
 
-[ext_resource type="Shader" path="res://shaders/sprite_lit_character.gdshader" id="1_shader"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_xray.tres" id="2_xray"]
+[ext_resource type="Shader" uid="uid://bwu7dc381qmca" path="res://shaders/sprite_lit_character.gdshader" id="1_shader"]
+[ext_resource type="ShaderMaterial" uid="uid://w120od8kk15w" path="res://resources/materials/sprite_xray.tres" id="2_xray"]
 
 [resource]
 render_priority = 0

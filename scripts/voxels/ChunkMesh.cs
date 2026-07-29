@@ -358,6 +358,7 @@ public partial class ChunkMesh : Node3D
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
+        Func<int, int, int, int> getSunlight,
         Func<int, int, int, bool> chunkExists,
         bool buildCollision = true,
         bool buildDetails = true)
@@ -370,7 +371,7 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkState.SIZE,
             data.ChunkCoord.Z * ChunkState.SIZE
         );
-        chunk.BuildMesh(data, getVoxel, getShape, getTerrainId, getOverlayId, chunkExists, buildCollision, buildDetails);
+        chunk.BuildMesh(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, chunkExists, buildCollision, buildDetails);
         return chunk;
     }
 
@@ -380,6 +381,7 @@ public partial class ChunkMesh : Node3D
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
+        Func<int, int, int, int> getSunlight,
         Func<int, int, int, bool> chunkExists,
         bool buildCollision,
         bool buildDetails)
@@ -405,12 +407,15 @@ public partial class ChunkMesh : Node3D
         // CUSTOM2: (overlay_a, overlay_b, overlay_c, _). Per-corner authored
         // overlay ids for the AUTO terrain branch.
         st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
+        // CUSTOM3: (baked_sun, _, _, _). Per-vertex sun read from the air the
+        // surface faces — see ChunkMesherDC.BakeVertexSun.
+        st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetMaterial(SharedMaterial);
 
         bool hasAnyFace;
         using (Profiler.Sample("ChunkMesh.MesherDC"))
         {
-            ChunkMesherDC.Build(data, getVoxel, getShape, getTerrainId, getOverlayId, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out hasAnyFace);
+            ChunkMesherDC.Build(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out hasAnyFace);
         }
 
         // Detail-sprite scatter (grass, flowers, etc.). Compute the per-entry

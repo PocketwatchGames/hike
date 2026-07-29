@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cruw4anaypwt" path="res://scripts/data/spawn/BuriedSpotSpawnEntry.cs" id="1_entry"]
 [ext_resource type="PackedScene" uid="uid://b8rq2dnk7vxce" path="res://scenes/interactives/buried_spot.tscn" id="2_scene"]
-[ext_resource type="Resource" path="res://resources/data/buried/buried_song_verse_4.tres" id="3_data"]
+[ext_resource type="Resource" uid="uid://dfr0vm36plnbq" path="res://resources/data/buried/buried_song_verse_4.tres" id="3_data"]
 
 [resource]
 script = ExtResource("1_entry")

@@ -3,12 +3,98 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
+// What an entity brush places. Prop carries a PropLibraryEntry — one brush per
+// library entry, so placing is a choice rather than a roll off a kit's weighted
+// palette. Every other kind stamps a fixed prefab off the EditorBrushPalette.
+public enum EEditorEntityKind
+{
+    PlayerSpawn,
+    Prop,
+    Loot,
+    Chest,
+    Torch,
+    Door,
+    SpikeTrap,
+    ClimbableTree,
+    Goblin,
+    KunKun,
+}
+
+// One entry in the editor's entity palette.
+public readonly struct EntityBrush
+{
+    public readonly string Name;
+    public readonly EEditorEntityKind Kind;
+    // Set only for Prop. Carries the scene AND the behavior (PropType) the
+    // placed entity gets, so the editor never has to infer one from the other.
+    public readonly PropLibraryEntry Prop;
+
+    public EntityBrush(string name, EEditorEntityKind kind, PropLibraryEntry prop = null)
+    {
+        Name = name;
+        Kind = kind;
+        Prop = prop;
+    }
+}
+
+// What the voxel brush does to the cells it covers. Paint targets the empty
+// cell the ray came from; Erase and Replace both target the cell that was hit.
+// Ctrl and Alt momentarily force Erase / Replace over the selected operation.
+public enum EEditorBrushOperation
+{
+    Paint,
+    Erase,
+    Replace,
+}
+
+// How the voxel brush turns a click into cells.
+//   Voxel  — the single targeted cell.
+//   Floor  — drag-fill an XZ rectangle, one cell thick, flat at the anchor's Y.
+//   Wall   — drag-fill a vertical slab along whichever of X / Z the drag ran
+//            further, also based at the anchor's Y.
+//   Fill   — Floor's footprint extruded to a full band's height.
+//   Window — one cell a fixed height above the column's floor.
+//   Door   — a short column starting at the column's floor.
+// Window / Door are Y-relative to the floor rather than to the click so they
+// land consistently when stamped (or erased) onto a wall face.
+public enum EEditorBrushShape
+{
+    Voxel,
+    Floor,
+    Wall,
+    Fill,
+    Window,
+    Door,
+}
+
 [GlobalClass]
 public partial class WorldEditor : Node3D
 {
     [Export] public GameCamera camera;
     [Export] public EditorHud editorHud;
     [Export] public EditorBrushPalette brushPalette;
+    // Filename prompt shown the first time a world is saved (no world_file, or
+    // a path the menu minted for a new world that isn't on disk yet).
+    [Export] public ConfirmationDialog saveDialog;
+    [Export] public LineEdit saveNameEdit;
+    // Where a newly named world is written when world_file carries no directory.
+    [Export] public string defaultSaveDir = "user://";
+
+    [ExportGroup("Brush Shapes")]
+    [Export(PropertyHint.Range, "1,16,1")] public int wallHeight = 4;
+    [Export(PropertyHint.Range, "1,16,1")] public int fillHeight = 4;
+    [Export(PropertyHint.Range, "1,8,1")] public int doorHeight = 2;
+    // Cells between the column's floor and the bottom of a window.
+    [Export(PropertyHint.Range, "0,8,1")] public int windowFloorOffset = 1;
+    // How far down a column FindFloorY looks for ground before giving up.
+    [Export(PropertyHint.Range, "1,128,1")] public int floorSearchDepth = 64;
+    [Export] public Color regionPreviewColor = new Color(0.3f, 1f, 0.5f);
+
+    [ExportGroup("Entity Picking")]
+    // Floor on an entity's click box per axis, so a flat prop (tall grass) or a
+    // mesh-less marker still presents something to hit.
+    [Export] public Vector3 minimumPickExtents = new Vector3(0.35f, 0.35f, 0.35f);
+    [Export] public Color entityHoverColor = new Color(1f, 0.4f, 0.3f);
 
     // Live editor instance, exposed for console-driven subscene commands
     // (subscene_corner / subscene_save / subscene_stamp). Mirrors the
@@ -21,16 +107,26 @@ public partial class WorldEditor : Node3D
     private const float MOVE_SPEED = 20f;
     private const float CLIP_START_OFFSET = 10f;
     private const float CLIP_VISUAL_BIAS = 0.05f;
+    private const string WORLD_FILE_EXTENSION = "hike";
 
     private static readonly VoxelType[] PlaceableTypes =
     {
-        VoxelType.Stone, VoxelType.Barrier, VoxelType.Water,
+        VoxelType.Terrain, VoxelType.Stone, VoxelType.Desert, VoxelType.Marsh,
+        VoxelType.Barrier, VoxelType.Water,
     };
 
-    private static readonly string[] EntityNames =
+    // Fixed-prefab entity brushes, in palette order. The scene-palette brushes
+    // (trees, tall grass) aren't here — they're expanded from the world's kits
+    // at Init, one brush per scene, and appended after these.
+    private static readonly EEditorEntityKind[] FixedEntityKinds =
     {
-        "PlayerSpawn", "Tree", "TallGrass", "Loot", "Chest", "Torch", "Door", "SpikeTrap", "Goblin", "KunKun", "ClimbableTree",
+        EEditorEntityKind.PlayerSpawn, EEditorEntityKind.Loot, EEditorEntityKind.Chest,
+        EEditorEntityKind.Torch, EEditorEntityKind.Door, EEditorEntityKind.SpikeTrap,
+        EEditorEntityKind.ClimbableTree, EEditorEntityKind.Goblin, EEditorEntityKind.KunKun,
     };
+
+    // Palette-index-aligned with the buttons in the Entities tab.
+    private readonly List<EntityBrush> _entityBrushes = new List<EntityBrush>();
 
     private Sim _world;
     private WorldState _worldState;
@@ -39,13 +135,21 @@ public partial class WorldEditor : Node3D
     private int _voxelTypeIndex = 0;
     private int _entityTypeIndex = 0;
     private bool _entityMode = false;
-    private int _paintHeight = 1;
+    private EEditorBrushOperation _operation = EEditorBrushOperation.Paint;
+    private EEditorBrushShape _brushShape = EEditorBrushShape.Voxel;
+    private bool _plateauSnap = true;
     private bool _dragActive = false;
-    private bool _dragDeleting = false;
-    private bool _dragReplacing = false;
+    private EEditorBrushOperation _dragOperation = EEditorBrushOperation.Paint;
     private int _dragBaseY = 0;
     private readonly HashSet<Vector3I> _lastPaintedBlocks = new HashSet<Vector3I>();
-    private int _debugFrameCount = 0;
+
+    // Drag-fill state for the region shapes (Floor / Wall). The anchor is the
+    // press cell, _regionCurrent tracks the cursor, and the region is committed
+    // on release — nothing is written until then, so the wireframe preview is
+    // the only feedback mid-drag.
+    private Vector3I? _regionAnchor;
+    private Vector3I _regionCurrent;
+    private EEditorBrushOperation _regionOperation;
 
     // Two-corner bbox selection for subscene save. Each is the floored
     // voxel coordinate of the editor cursor at the time the corner was
@@ -54,51 +158,29 @@ public partial class WorldEditor : Node3D
     private Vector3I? _subsceneCornerA;
     private Vector3I? _subsceneCornerB;
 
+    // Palette slot of brushPalette.terrainBrushKit, resolved once in Init (the
+    // kit palette is bound before the editor scene loads and never changes for
+    // the session). Stamped on every VoxelType.Terrain voxel the brush paints.
+    private byte _terrainBrushId;
+
     public void Init(WorldState worldState)
     {
         Current = this;
+        MusicManager.Instance?.SetEditor(true);
         _worldState = worldState;
+        if (!WorldGen.TryGetTerrainId(brushPalette?.terrainBrushKit, out _terrainBrushId))
+        {
+            GD.PushWarning($"WorldEditor: terrain brush kit '{brushPalette?.terrainBrushKit?.ResourcePath}' is not in this world's kit palette; painting terrain slot 0.");
+        }
         _cursorPosition = worldState.Spawn;
         _clipY = _cursorPosition.Y + CLIP_START_OFFSET;
 
-        GD.Print($"[Editor] Init: spawn={_cursorPosition}, clipY={_clipY}");
-        GD.Print($"[Editor] WorldState: Min={worldState.Min}, Max={worldState.Max}, chunks={worldState._chunks.Count}");
-
-        // Count non-empty chunks
-        int nonEmptyChunks = 0;
-        int totalVoxels = 0;
-        foreach (var kvp in worldState._chunks)
-        {
-            bool hasVoxels = false;
-            for (int x = 0; x < ChunkState.SIZE && !hasVoxels; x++)
-            {
-                for (int y = 0; y < ChunkState.SIZE && !hasVoxels; y++)
-                {
-                    for (int z = 0; z < ChunkState.SIZE && !hasVoxels; z++)
-                    {
-                        if (kvp.Value.Voxels[x, y, z] != VoxelType.Air)
-                        {
-                            hasVoxels = true;
-                            totalVoxels++;
-                        }
-                    }
-                }
-            }
-            if (hasVoxels)
-            {
-                nonEmptyChunks++;
-            }
-        }
-        GD.Print($"[Editor] Non-empty chunks: {nonEmptyChunks}, has voxels: {totalVoxels > 0}");
-
         _world = new Sim();
         AddChild(_world);
-        GD.Print("[Editor] World added to tree");
 
         _world.Initialize(worldState, _cursorPosition, camera, null, () => _cursorPosition);
-        GD.Print("[Editor] World initialized");
 
-        _world.EnableEditorMode();
+        _world.EnableEditorMode(_cursorPosition);
         _world.UpdateEntityLoading(_cursorPosition);
 
         camera.Init(this);
@@ -106,23 +188,91 @@ public partial class WorldEditor : Node3D
         camera.SetInitialPosition(_cursorPosition);
         camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
 
-        GD.Print($"[Editor] Camera pos={camera.GlobalPosition}, rot={camera.GlobalRotation}");
-        GD.Print($"[Editor] Camera projection={camera.Projection}, size={camera.Size}");
+        // Enter in the name field confirms the dialog.
+        if (saveDialog != null && saveNameEdit != null)
+        {
+            saveDialog.RegisterTextEnter(saveNameEdit);
+        }
 
+        BuildToolPalette();
+        editorHud.onVoxelBrushSelected += index => { _voxelTypeIndex = index; UpdateHud(); };
+        editorHud.onEntityBrushSelected += index => { _entityTypeIndex = index; UpdateHud(); };
+        editorHud.onEntityModeChanged += entityMode => { _entityMode = entityMode; UpdateHud(); };
+        editorHud.onOperationSelected += operation => _operation = operation;
+        editorHud.onShapeSelected += shape => _brushShape = shape;
+        editorHud.onPlateauSnapChanged += snap => _plateauSnap = snap;
+        editorHud.SetShape(_brushShape);
+        _plateauSnap = editorHud.PlateauSnapChecked;
         UpdateHud();
-        GD.Print("[Editor] Init complete");
+    }
+
+    // The atlas manifest is loaded here and nowhere else — see EditorBrushIcons
+    // for why it must stay off the game's normal load path.
+    private void BuildToolPalette()
+    {
+        VoxelAtlasManifest manifest = EditorBrushIcons.LoadManifest(brushPalette?.atlasManifestPath);
+
+        var voxels = new EditorBrushEntry[PlaceableTypes.Length];
+        for (int i = 0; i < PlaceableTypes.Length; i++)
+        {
+            VoxelType type = PlaceableTypes[i];
+            voxels[i] = new EditorBrushEntry(
+                type.ToString(),
+                EditorBrushIcons.ForVoxelType(type, brushPalette?.terrainBrushKit, manifest));
+        }
+
+        BuildEntityBrushes();
+        var entities = new EditorBrushEntry[_entityBrushes.Count];
+        for (int i = 0; i < _entityBrushes.Count; i++)
+        {
+            entities[i] = new EditorBrushEntry(_entityBrushes[i].Name, _entityBrushes[i].Prop?.icon);
+        }
+
+        editorHud.BuildToolButtons(voxels, entities);
+    }
+
+    // Fixed prefabs first, then one brush per distinct tree scene and one per
+    // distinct tall-grass scene across every kit in the world's palette.
+    private void BuildEntityBrushes()
+    {
+        _entityBrushes.Clear();
+        foreach (EEditorEntityKind kind in FixedEntityKinds)
+        {
+            _entityBrushes.Add(new EntityBrush(kind.ToString(), kind));
+        }
+        AddPropBrushes();
+    }
+
+    // Props come from the authored library, grouped by category so the palette
+    // reads Trees, then Rocks, then Foliage rather than library order.
+    private void AddPropBrushes()
+    {
+        PropLibraryEntry[] entries = brushPalette?.propLibrary?.entries;
+        if (entries == null)
+        {
+            return;
+        }
+        foreach (EPropCategory category in Enum.GetValues<EPropCategory>())
+        {
+            foreach (PropLibraryEntry entry in entries)
+            {
+                if (entry?.scene == null || entry.category != category)
+                {
+                    continue;
+                }
+                _entityBrushes.Add(new EntityBrush(
+                    string.IsNullOrEmpty(entry.displayName) ? entry.scene.ResourcePath.GetFile().GetBaseName() : entry.displayName,
+                    EEditorEntityKind.Prop,
+                    entry));
+            }
+        }
     }
 
     public override void _Process(double deltaTime)
     {
-        _debugFrameCount++;
-        if (_debugFrameCount <= 5 || _debugFrameCount % 300 == 0)
-        {
-            int childCount = _world.GetChildCount();
-            GD.Print($"[Editor] Frame {_debugFrameCount}: cursor={_cursorPosition}, cam={camera.GlobalPosition}, worldChildren={childCount}, clipY={_clipY}");
-        }
-
-        if (ConsoleUI.IsOpen)
+        // Movement polls Input directly, which ignores focus — without this the
+        // camera flies around while the save-name field is being typed into.
+        if (ConsoleUI.IsOpen || IsSaveDialogOpen)
         {
             return;
         }
@@ -141,16 +291,145 @@ public partial class WorldEditor : Node3D
 
         camera.UpdateCamera(deltaTime, _cursorPosition, 0f);
         camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
+        // The editor holds the cutaway permanently engaged (ManualClipMode), so
+        // the cap plane draws every frame and the cap mask must be kept in sync
+        // — unsynced, the mask stays at its white "draw the cap here" clear and
+        // the fullscreen cap plane paints over the entire world. The editor
+        // renders straight into the window, so that viewport IS the inner size.
+        camera.SyncCapMaskCamera((Vector2I)GetViewport().GetVisibleRect().Size);
         CullProps(camera.Clip);
         _world.UpdateEntityLoading(_cursorPosition);
 
         editorHud.UpdatePosition(_cursorPosition);
         editorHud.UpdateClip(_clipY);
+        // Ctrl / Alt momentarily override the selected operation; poll them so
+        // the button row tracks the modifier even with no click event in flight.
+        editorHud.SetHeldOverride(ModifierOverride(Input.IsKeyPressed(Key.Ctrl), Input.IsKeyPressed(Key.Alt)));
+        DrawRegionPreview();
+        DrawEntityHoverBox();
+    }
+
+    // Ctrl previews exactly what an erase click would remove, using the same
+    // pick the click does — so if no box appears, the click would miss too.
+    // Entity mode only: in voxel mode Ctrl erases voxels and boxing props would
+    // just be noise.
+    private void DrawEntityHoverBox()
+    {
+        bool debug = CVars.editorPickDebug.Value;
+        // Keycode vs physical matters here: a remapped layout can report Ctrl on
+        // only one of them, which would make the whole feature look dead.
+        bool ctrl = Input.IsKeyPressed(Key.Ctrl) || Input.IsPhysicalKeyPressed(Key.Ctrl);
+        Vector2 mouse = GetViewport().GetMousePosition();
+
+        if (debug)
+        {
+            // Unconditional reference box at the cursor's ground position. If this
+            // is invisible too, the problem is DebugDraw in the editor, not the pick.
+            Vector3 c = _cursorPosition;
+            DebugDraw.Box(c - Vector3.One, c + Vector3.One, Colors.Yellow);
+        }
+
+        Node3D hovered = null;
+        Aabb bounds = default;
+        if (_entityMode && ctrl)
+        {
+            hovered = PickEntityAt(mouse, out bounds);
+            if (hovered != null)
+            {
+                DebugDraw.Box(bounds.Position, bounds.End, entityHoverColor);
+            }
+        }
+
+        if (debug)
+        {
+            LogPickDebug(ctrl, mouse, hovered, bounds);
+        }
+    }
+
+    // Printed only when the summary changes, so holding Ctrl doesn't flood the
+    // console at frame rate.
+    private string _lastPickDebug;
+
+    private void LogPickDebug(bool ctrl, Vector2 mouse, Node3D hovered, Aabb bounds)
+    {
+        int chunks = 0;
+        int total = 0;
+        int visible = 0;
+        int withBounds = 0;
+        int hits = 0;
+        Vector3 rayOrigin = camera.ProjectRayOrigin(mouse);
+        Vector3 rayDir = camera.ProjectRayNormal(mouse);
+        foreach (List<Node3D> entities in _world.ActiveEntities.Values)
+        {
+            chunks++;
+            foreach (Node3D entity in entities)
+            {
+                total++;
+                if (!IsInstanceValid(entity) || !entity.Visible)
+                {
+                    continue;
+                }
+                visible++;
+                Aabb b = WorldBoundsOf(entity);
+                if (b.Size.LengthSquared() > 0f)
+                {
+                    withBounds++;
+                }
+                if (RayHitsAabb(rayOrigin, rayDir, b, out _))
+                {
+                    hits++;
+                }
+            }
+        }
+
+        int segments = DebugDrawRenderer.Instance?.SegmentCount ?? -1;
+        string summary = $"[EditorPick] entityMode={_entityMode} ctrl={ctrl} mouse={mouse} ray={rayDir} "
+            + $"chunks={chunks} entities={total} visible={visible} withBounds={withBounds} rayHits={hits} "
+            + $"picked={hovered?.Name.ToString() ?? "<none>"} bounds={bounds.Size} debugSegments={segments}";
+        if (summary != _lastPickDebug)
+        {
+            _lastPickDebug = summary;
+            GD.Print(summary);
+        }
+    }
+
+    // Wireframe box over the pending Floor / Wall fill. Re-emitted every frame
+    // (DebugDraw is immediate-mode) for as long as the drag is held.
+    private void DrawRegionPreview()
+    {
+        if (!_regionAnchor.HasValue)
+        {
+            return;
+        }
+        BuildRegionCells(_regionAnchor.Value, _regionCurrent, out Vector3I min, out Vector3I max);
+        DebugDraw.Box(min, max + Vector3I.One, regionPreviewColor);
+    }
+
+    private bool IsSaveDialogOpen => saveDialog != null && saveDialog.Visible;
+
+    // Ctrl wins over Alt when both are down. Null means no modifier is held, so
+    // the operation selected on the panel applies.
+    private static EEditorBrushOperation? ModifierOverride(bool ctrl, bool alt)
+    {
+        if (ctrl)
+        {
+            return EEditorBrushOperation.Erase;
+        }
+        if (alt)
+        {
+            return EEditorBrushOperation.Replace;
+        }
+        return null;
+    }
+
+    private EEditorBrushOperation OperationFor(bool ctrl, bool alt)
+    {
+        return ModifierOverride(ctrl, alt) ?? _operation;
     }
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (ConsoleUI.IsOpen)
+        if (ConsoleUI.IsOpen || IsSaveDialogOpen)
         {
             return;
         }
@@ -192,33 +471,6 @@ public partial class WorldEditor : Node3D
             return;
         }
 
-        // Q/E cycle types
-        if (e.IsActionPressed("UseItem"))
-        {
-            CyclePrevious();
-            UpdateHud();
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        if (e.IsActionPressed("Interact"))
-        {
-            CycleNext();
-            UpdateHud();
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        // Tab toggles mode
-        if (e.IsActionPressed("Map"))
-        {
-            _entityMode = !_entityMode;
-            UpdateHud();
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        // Ctrl+S save, number keys for paint height
         if (e is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.Echo)
         {
             if (keyEvent.Keycode == Key.S && keyEvent.CtrlPressed)
@@ -227,38 +479,39 @@ public partial class WorldEditor : Node3D
                 GetViewport().SetInputAsHandled();
                 return;
             }
-
-            if (keyEvent.Keycode >= Key.Key0 && keyEvent.Keycode <= Key.Key9 && !keyEvent.CtrlPressed)
-            {
-                int digit = (int)(keyEvent.Keycode - Key.Key0);
-                _paintHeight = digit == 0 ? 10 : digit;
-                UpdateHud();
-                GetViewport().SetInputAsHandled();
-                return;
-            }
         }
 
-        // Left click: place/delete/replace (with drag support in voxel mode)
+        // Left click: paint/erase/replace (with drag support in voxel mode)
         if (e is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left)
         {
             if (mouseButton.Pressed)
             {
-                bool ctrlHeld = mouseButton.CtrlPressed;
-                bool altHeld = mouseButton.AltPressed;
+                EEditorBrushOperation operation = OperationFor(mouseButton.CtrlPressed, mouseButton.AltPressed);
                 if (_entityMode)
                 {
-                    HandleEntityClick(mouseButton.Position, ctrlHeld);
+                    HandleEntityClick(mouseButton.Position, operation == EEditorBrushOperation.Erase);
                 }
-                else
+                else if (ComputeVoxelTarget(mouseButton.Position, Overwrites(operation), out Vector3I hitBlock, out Vector3I baseTarget, out Vector3I airTarget))
                 {
-                    bool overwrite = ctrlHeld || altHeld;
-                    if (ComputeVoxelTarget(mouseButton.Position, overwrite, out Vector3I hitBlock, out Vector3I baseTarget))
+                    _dragActive = true;
+                    _dragOperation = operation;
+                    if (IsRegionShape(_brushShape))
+                    {
+                        // Snap at press, not at fill time, so the drag plane and
+                        // the preview box sit on the same elevation the region
+                        // will actually be written at.
+                        if (_plateauSnap && SupportsPlateauSnap(_brushShape))
+                        {
+                            baseTarget.Y = SnapToPlateau(baseTarget.Y);
+                        }
+                        _regionAnchor = baseTarget;
+                        _regionCurrent = baseTarget;
+                        _regionOperation = operation;
+                    }
+                    else
                     {
                         _lastPaintedBlocks.Clear();
-                        PaintColumnAt(baseTarget, ctrlHeld);
-                        _dragActive = true;
-                        _dragDeleting = ctrlHeld;
-                        _dragReplacing = altHeld && !ctrlHeld;
+                        StampAt(baseTarget, hitBlock, airTarget, operation);
                         _dragBaseY = baseTarget.Y;
                     }
                 }
@@ -266,18 +519,33 @@ public partial class WorldEditor : Node3D
             }
             else
             {
+                if (_regionAnchor.HasValue)
+                {
+                    FillRegion(_regionAnchor.Value, _regionCurrent, _regionOperation);
+                    _regionAnchor = null;
+                }
                 _dragActive = false;
-                _dragDeleting = false;
-                _dragReplacing = false;
+                _dragOperation = EEditorBrushOperation.Paint;
                 _lastPaintedBlocks.Clear();
             }
         }
 
         if (e is InputEventMouseMotion mouseMotion && _dragActive)
         {
-            bool delete = _dragDeleting;
-            bool overwrite = _dragDeleting || _dragReplacing;
-            if (ComputeVoxelTarget(mouseMotion.Position, overwrite, out Vector3I hitBlock, out Vector3I baseTarget))
+            // A region drag resolves against the flat plane through its anchor,
+            // not against geometry — the press picks the elevation and the rest
+            // of the drag stays on it, so sweeping across a hill or an existing
+            // wall doesn't drag the far corner up onto whatever the ray hits.
+            if (_regionAnchor.HasValue)
+            {
+                if (ResolvePlaneTarget(mouseMotion.Position, _regionAnchor.Value.Y, out Vector3I planeTarget))
+                {
+                    _regionCurrent = planeTarget;
+                }
+                return;
+            }
+
+            if (ComputeVoxelTarget(mouseMotion.Position, Overwrites(_dragOperation), out Vector3I hitBlock, out Vector3I baseTarget, out Vector3I airTarget))
             {
                 // Skip if the ray hits a block we just painted (for place) or if the
                 // base target is one we already modified.
@@ -285,16 +553,54 @@ public partial class WorldEditor : Node3D
                     && !_lastPaintedBlocks.Contains(baseTarget)
                     && !_lastPaintedBlocks.Contains(hitBlock))
                 {
-                    PaintColumnAt(baseTarget, delete);
+                    StampAt(baseTarget, hitBlock, airTarget, _dragOperation);
                 }
             }
         }
     }
 
-    private bool ComputeVoxelTarget(Vector2 screenPos, bool overwriteHitBlock, out Vector3I hitBlock, out Vector3I baseTarget)
+    // Erase and Replace both act on the cell the ray hit; only Paint targets the
+    // empty cell in front of it.
+    private static bool Overwrites(EEditorBrushOperation operation)
+    {
+        return operation != EEditorBrushOperation.Paint;
+    }
+
+    // Intersects the mouse ray with the horizontal plane through the middle of
+    // layer `planeY` and returns the cell it lands in. Geometry-independent, so
+    // the result stays at one elevation no matter what the cursor sweeps over.
+    // False when the ray runs parallel to the plane or points away from it.
+    private bool ResolvePlaneTarget(Vector2 screenPos, int planeY, out Vector3I target)
+    {
+        target = default;
+        Vector3 rayOrigin = camera.ProjectRayOrigin(screenPos);
+        Vector3 rayDir = camera.ProjectRayNormal(screenPos);
+        if (Mathf.IsZeroApprox(rayDir.Y))
+        {
+            return false;
+        }
+        // Mid-cell, so the plane sits inside the layer rather than on the seam
+        // between it and its neighbour.
+        const float CELL_MIDPOINT = 0.5f;
+        float t = (planeY + CELL_MIDPOINT - rayOrigin.Y) / rayDir.Y;
+        if (t < 0f)
+        {
+            return false;
+        }
+        Vector3 planeHit = rayOrigin + rayDir * t;
+        target = new Vector3I(Mathf.FloorToInt(planeHit.X), planeY, Mathf.FloorToInt(planeHit.Z));
+        return true;
+    }
+
+    // airTarget is the empty cell the ray came from — the placement cell,
+    // regardless of `overwriteHitBlock`. Window / Door measure the column's
+    // floor from it so erasing into a wall (where baseTarget IS the wall) still
+    // finds ground rather than the wall voxel directly under the click.
+    private bool ComputeVoxelTarget(Vector2 screenPos, bool overwriteHitBlock, out Vector3I hitBlock, out Vector3I baseTarget, out Vector3I airTarget)
     {
         hitBlock = default;
         baseTarget = default;
+        airTarget = default;
 
         Vector3 hitPos;
         Vector3 hitNormal;
@@ -321,7 +627,7 @@ public partial class WorldEditor : Node3D
                 {
                     hitPos = new Vector3(planeHit.X, clipPlaneY, planeHit.Z);
                     hitNormal = Vector3.Up;
-                    FinalizeTarget(hitPos, hitNormal, overwriteHitBlock, out hitBlock, out baseTarget);
+                    FinalizeTarget(hitPos, hitNormal, overwriteHitBlock, out hitBlock, out baseTarget, out airTarget);
                     return true;
                 }
             }
@@ -336,44 +642,171 @@ public partial class WorldEditor : Node3D
         hitPos = (Vector3)result["position"];
         hitNormal = (Vector3)result["normal"];
 
-        FinalizeTarget(hitPos, hitNormal, overwriteHitBlock, out hitBlock, out baseTarget);
+        FinalizeTarget(hitPos, hitNormal, overwriteHitBlock, out hitBlock, out baseTarget, out airTarget);
         return true;
     }
 
-    private static void FinalizeTarget(Vector3 hitPos, Vector3 hitNormal, bool overwriteHitBlock, out Vector3I hitBlock, out Vector3I baseTarget)
+    private static void FinalizeTarget(Vector3 hitPos, Vector3 hitNormal, bool overwriteHitBlock, out Vector3I hitBlock, out Vector3I baseTarget, out Vector3I airTarget)
     {
         hitBlock = new Vector3I(
             Mathf.FloorToInt(hitPos.X - hitNormal.X * 0.5f),
             Mathf.FloorToInt(hitPos.Y - hitNormal.Y * 0.5f),
             Mathf.FloorToInt(hitPos.Z - hitNormal.Z * 0.5f));
 
-        if (overwriteHitBlock)
-        {
-            baseTarget = hitBlock;
-        }
-        else
-        {
-            baseTarget = new Vector3I(
-                Mathf.FloorToInt(hitPos.X + hitNormal.X * 0.5f),
-                Mathf.FloorToInt(hitPos.Y + hitNormal.Y * 0.5f),
-                Mathf.FloorToInt(hitPos.Z + hitNormal.Z * 0.5f));
-        }
+        airTarget = new Vector3I(
+            Mathf.FloorToInt(hitPos.X + hitNormal.X * 0.5f),
+            Mathf.FloorToInt(hitPos.Y + hitNormal.Y * 0.5f),
+            Mathf.FloorToInt(hitPos.Z + hitNormal.Z * 0.5f));
+
+        baseTarget = overwriteHitBlock ? hitBlock : airTarget;
     }
 
-    private void PaintColumnAt(Vector3I baseTarget, bool delete)
+    private static bool IsRegionShape(EEditorBrushShape shape)
     {
-        int clipFloor = Mathf.FloorToInt(_clipY);
-        VoxelType type = delete ? VoxelType.Air : PlaceableTypes[_voxelTypeIndex];
-        var changed = new List<Vector3I>();
+        return shape == EEditorBrushShape.Floor
+            || shape == EEditorBrushShape.Wall
+            || shape == EEditorBrushShape.Fill;
+    }
 
-        for (int i = 0; i < _paintHeight; i++)
+    // Only the drag-fill shapes have a base elevation to snap; the stamp shapes
+    // take their height from the column's floor, so the toggle is meaningless
+    // for them and the panel greys it out.
+    public static bool SupportsPlateauSnap(EEditorBrushShape shape)
+    {
+        return IsRegionShape(shape);
+    }
+
+    // Rounds a base elevation down onto the camera's cutaway band grid, so a
+    // wall or fill occupies exactly one band instead of straddling two.
+    private static int SnapToPlateau(int y)
+    {
+        int step = Mathf.RoundToInt(GameCamera.PLATEAU_STEP);
+        if (step <= 0)
         {
-            Vector3I target = new Vector3I(baseTarget.X, baseTarget.Y + i, baseTarget.Z);
-            if (target.Y >= clipFloor)
+            return y;
+        }
+        return Mathf.FloorToInt(y / (float)step) * step;
+    }
+
+    // The stamp shapes (Voxel / Window / Door), applied at a single click or
+    // along a free drag.
+    //
+    // Window / Door cut through the surface they're aimed at, so they use the
+    // HIT cell's column for both Paint and Erase — unlike Voxel, they must not
+    // follow baseTarget out to the air cell in front when painting, or filling
+    // an opening back in would drop the block in mid-air beside the wall
+    // instead of into the gap. Height still comes from airTarget's column: the
+    // hit column is solid all the way down, so measuring the floor there would
+    // just return the clicked cell.
+    private void StampAt(Vector3I baseTarget, Vector3I hitBlock, Vector3I airTarget, EEditorBrushOperation operation)
+    {
+        var cells = new List<Vector3I>();
+        switch (_brushShape)
+        {
+            case EEditorBrushShape.Window:
             {
+                int floorY = FindFloorY(airTarget) + windowFloorOffset;
+                cells.Add(new Vector3I(hitBlock.X, floorY, hitBlock.Z));
                 break;
             }
+            case EEditorBrushShape.Door:
+            {
+                int floorY = FindFloorY(airTarget);
+                for (int i = 0; i < doorHeight; i++)
+                {
+                    cells.Add(new Vector3I(hitBlock.X, floorY + i, hitBlock.Z));
+                }
+                break;
+            }
+            default:
+                cells.Add(baseTarget);
+                break;
+        }
+        PaintCells(cells, operation, baseTarget);
+        // Window / Door write at the column's floor, not at baseTarget, so the
+        // drag's "already did this one" guard needs the target logged too.
+        _lastPaintedBlocks.Add(baseTarget);
+    }
+
+    // Commits a Floor / Wall drag.
+    private void FillRegion(Vector3I anchor, Vector3I current, EEditorBrushOperation operation)
+    {
+        BuildRegionCells(anchor, current, out Vector3I min, out Vector3I max);
+        var cells = new List<Vector3I>();
+        for (int x = min.X; x <= max.X; x++)
+        {
+            for (int y = min.Y; y <= max.Y; y++)
+            {
+                for (int z = min.Z; z <= max.Z; z++)
+                {
+                    cells.Add(new Vector3I(x, y, z));
+                }
+            }
+        }
+        PaintCells(cells, operation, anchor);
+    }
+
+    // Inclusive voxel bounds of a region drag. Both shapes sit at the anchor's
+    // elevation — the drag never tilts them to follow terrain — so a wall built
+    // across a slope stays a flat-topped plateau.
+    private void BuildRegionCells(Vector3I anchor, Vector3I current, out Vector3I min, out Vector3I max)
+    {
+        if (_brushShape == EEditorBrushShape.Wall)
+        {
+            // The drag's longer horizontal axis picks the plane: run along X
+            // (an XY slab) or along Z (a YZ slab), one cell thick either way.
+            bool alongX = Math.Abs(current.X - anchor.X) >= Math.Abs(current.Z - anchor.Z);
+            int lo = alongX ? Math.Min(anchor.X, current.X) : Math.Min(anchor.Z, current.Z);
+            int hi = alongX ? Math.Max(anchor.X, current.X) : Math.Max(anchor.Z, current.Z);
+            min = alongX ? new Vector3I(lo, anchor.Y, anchor.Z) : new Vector3I(anchor.X, anchor.Y, lo);
+            max = alongX
+                ? new Vector3I(hi, anchor.Y + wallHeight - 1, anchor.Z)
+                : new Vector3I(anchor.X, anchor.Y + wallHeight - 1, hi);
+            return;
+        }
+
+        // Floor and Fill share one XZ footprint; only the extrusion differs.
+        int height = _brushShape == EEditorBrushShape.Fill ? fillHeight : 1;
+        min = new Vector3I(Math.Min(anchor.X, current.X), anchor.Y, Math.Min(anchor.Z, current.Z));
+        max = new Vector3I(Math.Max(anchor.X, current.X), anchor.Y + height - 1, Math.Max(anchor.Z, current.Z));
+    }
+
+    // First empty cell above the ground in a column, searched downward from
+    // `from`. Falls back to the starting cell when the column has no floor
+    // within reach, so a brush over open air still writes somewhere sensible.
+    private int FindFloorY(Vector3I from)
+    {
+        for (int dy = 0; dy <= floorSearchDepth; dy++)
+        {
+            int y = from.Y - dy;
+            if (VoxelTypeInfo.IsSolid(_worldState.GetVoxelWorld(from.X, y, from.Z)))
+            {
+                return y + 1;
+            }
+        }
+        return from.Y;
+    }
+
+    // Writes one brush's worth of cells and rebuilds. Cells at or above the clip
+    // plane are dropped rather than aborting the brush — a tall shape whose top
+    // pokes through the cutaway still lays down the part you can see.
+    private void PaintCells(List<Vector3I> cells, EEditorBrushOperation operation, Vector3I rebuildOrigin)
+    {
+        int clipFloor = Mathf.FloorToInt(_clipY);
+        VoxelType type = operation == EEditorBrushOperation.Erase ? VoxelType.Air : PlaceableTypes[_voxelTypeIndex];
+        var changed = new List<Vector3I>();
+
+        foreach (Vector3I target in cells)
+        {
+            if (target.Y >= clipFloor)
+            {
+                continue;
+            }
             _worldState.SetVoxelWorld(target.X, target.Y, target.Z, type);
+            if (type == VoxelType.Terrain)
+            {
+                _worldState.SetTerrainIdWorld(target.X, target.Y, target.Z, _terrainBrushId);
+            }
             changed.Add(target);
             _lastPaintedBlocks.Add(target);
         }
@@ -381,12 +814,24 @@ public partial class WorldEditor : Node3D
         if (changed.Count > 0)
         {
             _world.UpdateLighting(changed);
-            _world.RebuildNearbyChunkMeshes(new Vector3(baseTarget.X, baseTarget.Y, baseTarget.Z), changed);
+            _world.RebuildNearbyChunkMeshes(new Vector3(rebuildOrigin.X, rebuildOrigin.Y, rebuildOrigin.Z), changed);
         }
     }
 
     private void HandleEntityClick(Vector2 screenPos, bool delete)
     {
+        // Deleting picks the entity under the cursor directly. Placing still
+        // goes through the terrain raycast — it needs a surface, not an entity.
+        if (delete)
+        {
+            Node3D picked = PickEntityAt(screenPos, out _);
+            if (picked != null)
+            {
+                DeletePickedEntity(picked);
+            }
+            return;
+        }
+
         var result = Raycast(screenPos);
         if (result.Count == 0)
         {
@@ -397,79 +842,215 @@ public partial class WorldEditor : Node3D
         Vector3 hitNormal = (Vector3)result["normal"];
 
         // Place on the surface
-        Vector3 placePos = hitPos + hitNormal * 0.5f;
+        PlaceEntity(hitPos + hitNormal * 0.5f);
+    }
 
-        if (delete)
+    // Nearest loaded entity whose visual bounds the cursor ray enters.
+    //
+    // Props carry no collider the physics raycast could find — trees and grass
+    // are visual-only, so Raycast's Solid|Water mask passes straight through
+    // them into the terrain behind, and deleting used to search around that
+    // unrelated point. Rather than bolt an Area3D onto every prop scene (and
+    // spend a physics layer on it), pick with a CPU ray/AABB test over the
+    // loaded set: the entity count in view is small and this needs no authoring.
+    private Node3D PickEntityAt(Vector2 screenPos, out Aabb pickedBounds)
+    {
+        Vector3 rayOrigin = camera.ProjectRayOrigin(screenPos);
+        Vector3 rayDir = camera.ProjectRayNormal(screenPos);
+        Node3D best = null;
+        pickedBounds = default;
+        float bestDistance = float.MaxValue;
+
+        foreach (List<Node3D> entities in _world.ActiveEntities.Values)
         {
-            DeleteNearestEntity(placePos);
+            foreach (Node3D entity in entities)
+            {
+                // CullProps hides everything above the clip plane; picking what
+                // you can't see would delete things off-screen.
+                if (!IsInstanceValid(entity) || !entity.Visible)
+                {
+                    continue;
+                }
+                Aabb bounds = WorldBoundsOf(entity);
+                if (RayHitsAabb(rayOrigin, rayDir, bounds, out float distance) && distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    pickedBounds = bounds;
+                    best = entity;
+                }
+            }
         }
-        else
+        return best;
+    }
+
+    // Removes the state behind a picked node. Every spawned entity's state
+    // carries a RuntimeNode back-reference, so match on that rather than
+    // re-searching by position — proximity picks whatever state happens to sit
+    // nearest, which is the wrong one wherever entities overlap and finds
+    // nothing at all if a node sits even slightly off its authored position.
+    private void DeletePickedEntity(Node3D picked)
+    {
+        Vector3I centerChunk = Sim.WorldToChunkCoord(picked.GlobalPosition);
+        for (int dx = -1; dx <= 1; dx++)
         {
-            PlaceEntity(placePos);
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    Vector3I coord = centerChunk + new Vector3I(dx, dy, dz);
+                    List<EntitySimState> states = _worldState.GetEntities(coord);
+                    if (states == null)
+                    {
+                        continue;
+                    }
+                    foreach (EntitySimState state in states)
+                    {
+                        if (state.RuntimeNode != picked)
+                        {
+                            continue;
+                        }
+                        _worldState.RemoveEntity(state);
+                        _world.RemoveEntity(picked);
+                        picked.QueueFree();
+                        return;
+                    }
+                }
+            }
         }
+        GD.PushWarning($"WorldEditor: picked entity '{picked.Name}' has no sim state filed near {centerChunk}; nothing deleted.");
+    }
+
+    // World-space bounds of an entity's visuals, expanded to at least
+    // minimumPickExtents so a flat or mesh-less entity is still clickable.
+    private Aabb WorldBoundsOf(Node3D entity)
+    {
+        Aabb? combined = null;
+        foreach (Node descendant in entity.FindChildren("*", "VisualInstance3D", true, false))
+        {
+            if (descendant is VisualInstance3D visual)
+            {
+                Aabb world = TransformAabb(visual.GetAabb(), visual.GlobalTransform);
+                combined = combined.HasValue ? combined.Value.Merge(world) : world;
+            }
+        }
+        if (entity is VisualInstance3D selfVisual)
+        {
+            Aabb world = TransformAabb(selfVisual.GetAabb(), selfVisual.GlobalTransform);
+            combined = combined.HasValue ? combined.Value.Merge(world) : world;
+        }
+
+        Aabb bounds = combined ?? new Aabb(entity.GlobalPosition, Vector3.Zero);
+        Vector3 grow = new Vector3(
+            Mathf.Max(0f, minimumPickExtents.X - bounds.Size.X * 0.5f),
+            Mathf.Max(0f, minimumPickExtents.Y - bounds.Size.Y * 0.5f),
+            Mathf.Max(0f, minimumPickExtents.Z - bounds.Size.Z * 0.5f));
+        return new Aabb(bounds.Position - grow, bounds.Size + grow * 2f);
+    }
+
+    // Godot's C# bindings don't expose the Transform3D * Aabb operator, so
+    // transform the eight corners and re-fit. Same approach as MeshAutoCollider.
+    private static Aabb TransformAabb(Aabb aabb, Transform3D transform)
+    {
+        Vector3 p = aabb.Position;
+        Vector3 s = aabb.Size;
+        Vector3 min = transform * p;
+        Vector3 max = min;
+        for (int corner = 1; corner < 8; corner++)
+        {
+            Vector3 world = transform * (p + new Vector3(
+                (corner & 1) != 0 ? s.X : 0f,
+                (corner & 2) != 0 ? s.Y : 0f,
+                (corner & 4) != 0 ? s.Z : 0f));
+            min = min.Min(world);
+            max = max.Max(world);
+        }
+        return new Aabb(min, max - min);
+    }
+
+    // Slab test. `distance` is where the ray enters the box, so callers can take
+    // the nearest of several overlapping hits.
+    private static bool RayHitsAabb(Vector3 rayOrigin, Vector3 rayDir, Aabb box, out float distance)
+    {
+        distance = 0f;
+        Vector3 min = box.Position;
+        Vector3 max = box.End;
+        float tMin = 0f;
+        float tMax = float.MaxValue;
+        const float PARALLEL_EPSILON = 1e-6f;
+
+        for (int axis = 0; axis < 3; axis++)
+        {
+            float direction = rayDir[axis];
+            float origin = rayOrigin[axis];
+            if (Mathf.Abs(direction) < PARALLEL_EPSILON)
+            {
+                // Parallel to this slab: a miss unless the ray already lies in it.
+                if (origin < min[axis] || origin > max[axis])
+                {
+                    return false;
+                }
+                continue;
+            }
+            float inverse = 1f / direction;
+            float near = (min[axis] - origin) * inverse;
+            float far = (max[axis] - origin) * inverse;
+            if (near > far)
+            {
+                (near, far) = (far, near);
+            }
+            tMin = Mathf.Max(tMin, near);
+            tMax = Mathf.Min(tMax, far);
+            if (tMin > tMax)
+            {
+                return false;
+            }
+        }
+        distance = tMin;
+        return true;
     }
 
     private void PlaceEntity(Vector3 position)
     {
-        string entityName = EntityNames[_entityTypeIndex];
+        if (_entityTypeIndex < 0 || _entityTypeIndex >= _entityBrushes.Count)
+        {
+            return;
+        }
+        EntityBrush brush = _entityBrushes[_entityTypeIndex];
 
-        if (entityName == "PlayerSpawn")
+        if (brush.Kind == EEditorEntityKind.PlayerSpawn)
         {
             _worldState.Spawn = position;
             GD.Print($"Player spawn set to {position}");
             return;
         }
 
-        EntitySimState simState = CreateEntitySimState(entityName, position);
+        EntitySimState simState = CreateEntitySimState(brush, position);
         if (simState == null)
         {
             return;
         }
 
         _worldState.AddEntity(simState);
-
-        // Spawn the visual node immediately
-        Node3D node = simState.CreateEntity(_world);
-        if (node != null)
-        {
-            Vector3I coord = Sim.WorldToChunkCoord(position);
-            if (!_world.ActiveEntities.ContainsKey(coord))
-            {
-                // The chunk may not have an active entity list yet; force one via
-                // UpdateEntityLoading which will pick it up. For now, trigger a
-                // reload by invalidating and re-running entity loading.
-            }
-            // Register the entity node with the world
-            RegisterEditorEntity(node, coord);
-        }
+        // Spawn through the normal streaming path instead of instantiating here.
+        // A directly-created node is never filed in Sim.ActiveEntities and never
+        // gets its state's RuntimeNode back-reference set, so it's invisible to
+        // every consumer that walks the active set — culling, eviction, and the
+        // editor's own entity picking.
+        ReloadChunkEntities(Sim.WorldToChunkCoord(position));
     }
 
-    private EntitySimState CreateEntitySimState(string entityName, Vector3 position)
+    // Props place the brush's own library entry — worldgen rolls a kit's
+    // weighted palette, but an author picking a brush has already chosen. Every
+    // other kind stamps a fixed prefab from the EditorBrushPalette, the editor's
+    // standalone library of authorable interactives / mobs, independent of
+    // worldgen's per-zone spawn lists.
+    private EntitySimState CreateEntitySimState(EntityBrush brush, Vector3 position)
     {
-        // Tree/TallGrass scene palettes live on the terrain kit at the cursor's
-        // surface column, so the editor reads from whichever kit was stamped at
-        // that voxel (matches what WorldGen would pick at run time). Every other
-        // brush stamps a fixed prefab from the EditorBrushPalette — the editor's
-        // standalone library of authorable interactives / mobs, independent of
-        // worldgen's per-zone spawn lists.
-        TerrainKitData cursorKit = ResolveKitAtCursor(position);
-        switch (entityName)
+        switch (brush.Kind)
         {
-            case "Tree":
-            {
-                WeightedList<PackedScene> treeChances = WeightedScene.BuildList(cursorKit?.treeScenes);
-                return treeChances.Count > 0
-                    ? new PropSimState(PropType.Tree, position, treeChances.Choose(GD.Randf() * treeChances.TotalWeight))
-                    : null;
-            }
-            case "TallGrass":
-            {
-                WeightedList<PackedScene> grassChances = WeightedScene.BuildList(cursorKit?.tallGrassScenes);
-                return grassChances.Count > 0
-                    ? new PropSimState(PropType.Foliage, position, grassChances.Choose(GD.Randf() * grassChances.TotalWeight))
-                    : null;
-            }
-            case "Loot":
+            case EEditorEntityKind.Prop:
+                return new PropSimState(brush.Prop.propType, position, brush.Prop.scene);
+            case EEditorEntityKind.Loot:
             {
                 ItemDescriptor lootItem = brushPalette?.lootItem;
                 if (lootItem?.item == null) { return null; }
@@ -480,32 +1061,32 @@ public partial class WorldEditor : Node3D
                 }
                 return lootSim;
             }
-            case "Chest":
+            case EEditorEntityKind.Chest:
                 return brushPalette?.chestScene != null
                     ? new ChestSimState(position, brushPalette.chestScene) { LootItems = ChestSpawnEntry.Resolve(brushPalette.chestLoot, new Random()) }
                     : null;
-            case "Torch":
+            case EEditorEntityKind.Torch:
                 return brushPalette?.torchScene != null
                     ? new TorchSimState(position, brushPalette.torchScene)
                     : null;
-            case "Door":
+            case EEditorEntityKind.Door:
                 return brushPalette?.doorScene != null
                     ? new DoorSimState(position, 0f, brushPalette.doorScene)
                     : null;
-            case "ClimbableTree":
+            case EEditorEntityKind.ClimbableTree:
                 return brushPalette?.climbableTreeScene != null
                     ? new ClimbableTreeSimState(position, brushPalette.climbableTreeScene)
                     : null;
-            case "SpikeTrap":
+            case EEditorEntityKind.SpikeTrap:
                 return brushPalette?.spikeTrapScene != null
                     ? new TrapSimState(position, brushPalette.spikeTrapScene)
                     : null;
-            case "Goblin":
+            case EEditorEntityKind.Goblin:
             {
                 MobData data = brushPalette?.goblinMob;
                 return data?.mobScene != null ? new MobSimState(position, 0f, data.mobScene, data) : null;
             }
-            case "KunKun":
+            case EEditorEntityKind.KunKun:
             {
                 MobData data = brushPalette?.kunKunMob;
                 return data?.mobScene != null ? new MobSimState(position, 0f, data.mobScene, data) : null;
@@ -515,114 +1096,11 @@ public partial class WorldEditor : Node3D
         }
     }
 
-    private void RegisterEditorEntity(Node3D node, Vector3I coord)
-    {
-        if (node is IWorldEntity worldEntity)
-        {
-            worldEntity.OnSpawned(_world);
-        }
-
-        // The entity is already in WorldState; reload this chunk's entities so
-        // the newly added node is picked up by the normal loading pass.
-        ReloadChunkEntities(coord);
-    }
-
     private void ReloadChunkEntities(Vector3I coord)
     {
         // Unload then reload entities for this chunk so the newly added one appears
         _world.UnloadChunkEntities(coord);
         _world.LoadChunkEntities(coord);
-    }
-
-    private void DeleteNearestEntity(Vector3 position)
-    {
-        Vector3I centerChunk = Sim.WorldToChunkCoord(position);
-        float bestDist = 4f; // max search radius squared = 2^2
-        EntitySimState bestSim = null;
-        Vector3I bestChunk = default;
-
-        // Search the center chunk and neighbors
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                for (int dz = -1; dz <= 1; dz++)
-                {
-                    Vector3I chunkCoord = centerChunk + new Vector3I(dx, dy, dz);
-                    List<EntitySimState> simStates = _worldState.GetEntities(chunkCoord);
-                    if (simStates == null)
-                    {
-                        continue;
-                    }
-                    foreach (EntitySimState sim in simStates)
-                    {
-                        float dist = sim.WorldPosition.DistanceSquaredTo(position);
-                        if (dist < bestDist)
-                        {
-                            bestDist = dist;
-                            bestSim = sim;
-                            bestChunk = chunkCoord;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (bestSim == null)
-        {
-            return;
-        }
-
-        // Remove from world state
-        _worldState.RemoveEntity(bestSim);
-
-        // Find and remove the active node
-        if (_world.ActiveEntities.TryGetValue(bestChunk, out List<Node3D> activeNodes))
-        {
-            // Find the node closest to the sim state's position
-            Node3D toRemove = null;
-            float nodeBestDist = float.MaxValue;
-            foreach (Node3D node in activeNodes)
-            {
-                float dist = node.GlobalPosition.DistanceSquaredTo(bestSim.WorldPosition);
-                if (dist < nodeBestDist)
-                {
-                    nodeBestDist = dist;
-                    toRemove = node;
-                }
-            }
-            if (toRemove != null)
-            {
-                _world.RemoveEntity(toRemove);
-                toRemove.QueueFree();
-            }
-        }
-    }
-
-    // Resolve the surface terrain kit under the editor cursor. Walks the
-    // column at the cursor's XZ down up to SEARCH voxels looking for the
-    // first solid / water voxel; that voxel's terrain id is what scene
-    // palettes (TreeScenes, TallGrassScenes) read off the active kit
-    // palette. Returns null if the column has no content within reach.
-    private TerrainKitData ResolveKitAtCursor(Vector3 position)
-    {
-        int ox = (int)Math.Floor(position.X);
-        int oy = (int)Math.Floor(position.Y);
-        int oz = (int)Math.Floor(position.Z);
-        const int SEARCH = 4;
-        for (int dy = 0; dy <= SEARCH; dy++)
-        {
-            int sy = oy - dy;
-            VoxelType v = _worldState.GetVoxelWorld(ox, sy, oz);
-            if (v != VoxelType.Air && v != VoxelType.Water)
-            {
-                int terrainId = _worldState.GetTerrainIdWorld(ox, sy, oz);
-                TerrainKitData[] palette = WorldGen.ActiveKitPalette;
-                if (palette == null || terrainId < 0 || terrainId >= palette.Length) { return null; }
-                return palette[terrainId];
-            }
-        }
-        return null;
     }
 
     private Godot.Collections.Dictionary Raycast(Vector2 screenPos)
@@ -651,41 +1129,10 @@ public partial class WorldEditor : Node3D
         return spaceState.IntersectRay(query);
     }
 
-    private void CycleNext()
-    {
-        if (_entityMode)
-        {
-            _entityTypeIndex = (_entityTypeIndex + 1) % EntityNames.Length;
-        }
-        else
-        {
-            _voxelTypeIndex = (_voxelTypeIndex + 1) % PlaceableTypes.Length;
-        }
-    }
-
-    private void CyclePrevious()
-    {
-        if (_entityMode)
-        {
-            _entityTypeIndex = (_entityTypeIndex - 1 + EntityNames.Length) % EntityNames.Length;
-        }
-        else
-        {
-            _voxelTypeIndex = (_voxelTypeIndex - 1 + PlaceableTypes.Length) % PlaceableTypes.Length;
-        }
-    }
-
     private void UpdateHud()
     {
-        if (_entityMode)
-        {
-            editorHud.UpdateEntityMode(EntityNames[_entityTypeIndex], _entityTypeIndex, EntityNames.Length);
-        }
-        else
-        {
-            editorHud.UpdateVoxelMode(PlaceableTypes[_voxelTypeIndex].ToString(), _voxelTypeIndex, PlaceableTypes.Length);
-        }
-        editorHud.UpdatePaintHeight(_paintHeight);
+        editorHud.SetVoxelBrush(_voxelTypeIndex);
+        editorHud.SetEntityBrush(_entityTypeIndex);
     }
 
     private void CullProps(float cameraClip)
@@ -699,9 +1146,65 @@ public partial class WorldEditor : Node3D
         }
     }
 
+    // Ctrl+S. The first save of a world asks for a name; afterwards the file
+    // exists and every save overwrites it silently.
     private void Save()
     {
         string path = CVars.worldFile.Value;
+        if (!string.IsNullOrEmpty(path) && File.Exists(ProjectSettings.GlobalizePath(path)))
+        {
+            SaveTo(path);
+            return;
+        }
+        PromptForSaveName(path);
+    }
+
+    private void PromptForSaveName(string suggestedPath)
+    {
+        if (saveDialog == null || saveNameEdit == null)
+        {
+            // No dialog wired (headless / stripped scene) — keep the old
+            // behavior rather than silently dropping the save.
+            SaveTo(suggestedPath);
+            return;
+        }
+        string suggestedName = string.IsNullOrEmpty(suggestedPath) ? "" : suggestedPath.GetFile();
+        saveNameEdit.Text = suggestedName;
+        saveDialog.PopupCentered();
+        saveNameEdit.GrabFocus();
+        // Select the stem only, so typing replaces the name but keeps ".hike".
+        int dot = suggestedName.LastIndexOf('.');
+        saveNameEdit.CaretColumn = suggestedName.Length;
+        saveNameEdit.Select(0, dot > 0 ? dot : suggestedName.Length);
+    }
+
+    // ConfirmationDialog "Save" (also fired by Enter via RegisterTextEnter).
+    public void OnSaveNameConfirmed()
+    {
+        string name = saveNameEdit?.Text.Trim() ?? "";
+        if (string.IsNullOrEmpty(name))
+        {
+            GD.PrintErr("Save cancelled: no file name entered.");
+            return;
+        }
+        // Take the file part only so a stray path can't escape the save dir.
+        name = name.GetFile();
+        if (name.GetExtension() != WORLD_FILE_EXTENSION)
+        {
+            name = $"{name}.{WORLD_FILE_EXTENSION}";
+        }
+        string dir = CVars.worldFile.Value.GetBaseDir();
+        if (string.IsNullOrEmpty(dir))
+        {
+            dir = defaultSaveDir;
+        }
+        string path = $"{dir.TrimEnd('/')}/{name}";
+        CVars.worldFile.Value = path;
+        SaveTo(path);
+    }
+
+    private void SaveTo(string path)
+    {
         try
         {
             WorldFile.Write(path, _worldState);
@@ -718,6 +1221,7 @@ public partial class WorldEditor : Node3D
         if (Current == this)
         {
             Current = null;
+            MusicManager.Instance?.SetEditor(false);
         }
     }
 
@@ -1010,8 +1514,13 @@ public partial class WorldEditor : Node3D
         return clones;
     }
 
-    public static WorldState CreateEmptyWorld(WorldGenData genData)
+    // floorKit is the Terrain brush's kit (Main reads it off the editor scene's
+    // palette) so the starting floor matches what painting Terrain on top of it
+    // produces. Requires WorldGen.BindActivePalettes to have run.
+    public static WorldState CreateEmptyWorld(WorldGenData genData, TerrainKitData floorKit)
     {
+        WorldGen.TryGetTerrainId(floorKit, out byte floorTerrainId);
+
         var min = new Vector3I(-4, -1, -4);
         var max = new Vector3I(3, 1, 3);
         var ws = new WorldState(min, max, genData.simData);
@@ -1056,12 +1565,16 @@ public partial class WorldEditor : Node3D
                     {
                         chunk.Voxels[x, 0, z] = VoxelType.Terrain;
                         chunk.Shape[x, 0, z] = (byte)VoxelTypeInfo.SharpAxes.Y;
+                        chunk.TerrainId[x, 0, z] = floorTerrainId;
                     }
                 }
             }
         }
 
         ws.Spawn = new Vector3(0, 1, 0);
+        // Author under a high sun. The default 0.0 is sunrise, which lights the
+        // stub world too dimly to judge what you're building.
+        ws.TimeOfDay01 = WorldState.NoonTimeOfDay01;
 
         // Compute initial sunlight so the world isn't pitch black
         LightEngine.ComputeSunlight(ws);

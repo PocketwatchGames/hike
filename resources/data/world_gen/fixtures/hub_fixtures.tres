@@ -21,7 +21,7 @@
 [ext_resource type="Resource" uid="uid://df3tkp1uue567" path="res://resources/data/world_gen/party/talia.tres" id="19_talia"]
 [ext_resource type="Resource" uid="uid://b2q10suq78qsl" path="res://resources/data/characters/npcs/wanderer_conversation.tres" id="20_wanderconv"]
 [ext_resource type="PackedScene" path="res://scenes/characters/friendly_villager_female.tscn" id="21_villager_f"]
-[ext_resource type="Script" uid="uid://pfjwm48icbnys" path="res://scripts/data/spawn/SafetyZoneSpawnEntry.cs" id="22_safetyentry"]
+[ext_resource type="Script" uid="uid://dtcbuyhqmo1pi" path="res://scripts/data/spawn/SafetyZoneSpawnEntry.cs" id="22_safetyentry"]
 [ext_resource type="PackedScene" uid="uid://cppetcwunu7o8" path="res://scenes/interactives/safety_zone.tscn" id="23_safetyscene"]
 
 [sub_resource type="Resource" id="Stock_leather"]
@@ -81,13 +81,6 @@ scene = ExtResource("14_campscene")
 startLit = true
 metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
 
-[sub_resource type="Resource" id="SafetyZone_home"]
-script = ExtResource("22_safetyentry")
-scene = ExtResource("23_safetyscene")
-placeAtAnchor = true
-minSpacing = 0.0
-metadata/_custom_type_script = "uid://pfjwm48icbnys"
-
 [sub_resource type="Resource" id="Boat_home"]
 script = ExtResource("5_boat")
 scene = ExtResource("15_boatscene")
@@ -130,6 +123,13 @@ recruitTemplate = ExtResource("19_talia")
 descriptor = ExtResource("8_villager")
 initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
+
+[sub_resource type="Resource" id="SafetyZone_home"]
+script = ExtResource("22_safetyentry")
+scene = ExtResource("23_safetyscene")
+minSpacing = 0.0
+placeAtAnchor = true
+metadata/_custom_type_script = "uid://pfjwm48icbnys"
 
 [resource]
 script = ExtResource("2_group")

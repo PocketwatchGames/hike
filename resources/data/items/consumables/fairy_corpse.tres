@@ -1,12 +1,9 @@
 [gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://4vmr7jaq6thd"]
 
-[ext_resource type="Script" uid="uid://0p7zsad3dejuq" path="res://scripts/data/items/ConsumableData.cs" id="1_potion"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="1_2j6as"]
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_potion"]
 [ext_resource type="Texture2D" uid="uid://bwxddckhthk61" path="res://assets/textures/items/GemWhite.png" id="2_inv"]
 
-; Fairy corpse applies its effect on pickup via the boon-pick path
-; (Loot.OffersBoons / possibleBoons composed at spawn by Sim.ComposeFairyBoons),
-; so it carries no ConsumableData.effects of its own — it just needs to be
-; apply-on-pickup loot (non-material, interact-only).
 [resource]
 script = ExtResource("1_potion")
 displayName = &"Fairy Corpse"

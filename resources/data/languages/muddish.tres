@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="LanguageData" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/LanguageData.cs" id="1_lang"]
+[ext_resource type="Script" uid="uid://3q6eknviv60r7" path="res://scripts/data/LanguageData.cs" id="1_lang"]
 
 [resource]
 script = ExtResource("1_lang")

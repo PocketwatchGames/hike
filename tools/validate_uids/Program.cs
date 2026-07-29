@@ -8,11 +8,15 @@ class Program
 	static readonly string[] ScriptScanRoots = new[] { "scripts", "addons", "tools" };
 	static readonly string[] SceneScanRoots = new[] { "scenes", "resources", "addons" };
 	static readonly string[] ShaderScanRoots = new[] { "shaders" };
+	static readonly string[] ImportScanRoots = new[] { "assets", "resources", "scenes", "addons", "shaders" };
 	static readonly string[] SceneExtensions = new[] { ".tscn", ".tres" };
 
 	static readonly Regex UidValueRegex = new Regex(@"^uid://[a-z0-9]+$", RegexOptions.Compiled);
 	static readonly Regex ExtResourceRegex = new Regex(
 		@"\[ext_resource\b(?<attrs>[^\]]*)\]",
+		RegexOptions.Compiled);
+	static readonly Regex ResourceHeaderRegex = new Regex(
+		@"^\[(?:gd_resource|gd_scene)\b(?<attrs>[^\]]*)\]",
 		RegexOptions.Compiled);
 	static readonly Regex AttrRegex = new Regex(
 		@"(?<key>\w+)\s*=\s*""(?<val>[^""]*)""",
@@ -41,9 +45,11 @@ class Program
 		var issues = new List<string>();
 
 		var uidByPath = ScanUidSidecars(repoRoot, issues);
+		ScanImportUids(repoRoot, uidByPath, issues);
+		var headerUidByPath = ScanResourceHeaders(repoRoot, issues);
 		ValidateScriptSidecars(repoRoot, uidByPath, issues, fix);
-		ValidateUidUniqueness(uidByPath, issues);
-		ValidateSceneReferences(repoRoot, uidByPath, issues, fix);
+		ValidateUidUniqueness(uidByPath, headerUidByPath, issues);
+		ValidateSceneReferences(repoRoot, uidByPath, headerUidByPath, issues, fix);
 
 		Console.WriteLine();
 		if (issues.Count == 0)
@@ -147,6 +153,138 @@ class Program
 		uidByPath[targetPath] = contents;
 	}
 
+	// Imported assets (.png, .fbx, .wav) keep their uid in the sibling .import file.
+	// Same authority class as a .uid sidecar: Godot-owned, but hand-editable and so
+	// subject to the same majority reconciliation.
+	static void ScanImportUids(string repoRoot, Dictionary<string, string> uidByPath, List<string> issues)
+	{
+		foreach (string root in EnumerateRoots(repoRoot, ImportScanRoots))
+		{
+			foreach (string importFile in Directory.EnumerateFiles(root, "*.import", SearchOption.AllDirectories))
+			{
+				if (IsExcluded(importFile))
+				{
+					continue;
+				}
+
+				string targetPath = importFile.Substring(0, importFile.Length - ".import".Length);
+				if (!File.Exists(targetPath) || uidByPath.ContainsKey(targetPath))
+				{
+					continue;
+				}
+
+				foreach (string line in File.ReadLines(importFile))
+				{
+					Match a = AttrRegex.Match(line);
+					if (!line.StartsWith("uid=") || !a.Success)
+					{
+						continue;
+					}
+
+					string val = a.Groups["val"].Value;
+					if (UidValueRegex.IsMatch(val))
+					{
+						uidByPath[targetPath] = val;
+					}
+					else
+					{
+						issues.Add($"{Relative(repoRoot, importFile)}: malformed UID value '{val}'");
+					}
+
+					break;
+				}
+			}
+		}
+	}
+
+	// A .tres/.tscn carries its own uid inline in the [gd_resource]/[gd_scene] header.
+	// Unlike a sidecar this lives in the file Godot itself wrote, so it is the
+	// AUTHORITY for references to that file rather than one vote among many.
+	static Dictionary<string, string> ScanResourceHeaders(string repoRoot, List<string> issues)
+	{
+		var headerUidByPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		var missingHeader = new List<string>();
+
+		foreach (string root in EnumerateRoots(repoRoot, SceneScanRoots))
+		{
+			foreach (string file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories))
+			{
+				if (IsExcluded(file) || !HasSceneExtension(file))
+				{
+					continue;
+				}
+
+				string? first = null;
+				foreach (string line in File.ReadLines(file))
+				{
+					first = line;
+					break;
+				}
+
+				if (first == null)
+				{
+					continue;
+				}
+
+				Match m = ResourceHeaderRegex.Match(first);
+				if (!m.Success)
+				{
+					continue;
+				}
+
+				string? uid = null;
+				foreach (Match a in AttrRegex.Matches(m.Groups["attrs"].Value))
+				{
+					if (a.Groups["key"].Value == "uid")
+					{
+						uid = a.Groups["val"].Value;
+					}
+				}
+
+				string rel = Relative(repoRoot, file);
+				if (uid == null)
+				{
+					missingHeader.Add(rel);
+					continue;
+				}
+
+				if (!UidValueRegex.IsMatch(uid))
+				{
+					issues.Add($"{rel}:1: malformed UID value '{uid}' in resource header");
+					continue;
+				}
+
+				headerUidByPath[file] = uid;
+			}
+		}
+
+		// Godot mints these on its next save, so every one is a future diff. Summarise
+		// rather than emitting hundreds of individual issues.
+		if (missingHeader.Count > 0)
+		{
+			missingHeader.Sort(StringComparer.Ordinal);
+			int shown = Math.Min(missingHeader.Count, 10);
+			string sample = string.Join(", ", missingHeader.GetRange(0, shown));
+			string more = missingHeader.Count > shown ? $", +{missingHeader.Count - shown} more" : string.Empty;
+			issues.Add($"{missingHeader.Count} resource(s) have no uid= in their header (Godot will add one on next save, causing diff churn): {sample}{more}");
+		}
+
+		return headerUidByPath;
+	}
+
+	static bool HasSceneExtension(string path)
+	{
+		foreach (string ext in SceneExtensions)
+		{
+			if (path.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	static void ValidateScriptSidecars(string repoRoot, Dictionary<string, string> uidByPath, List<string> issues, bool fix)
 	{
 		foreach (string root in EnumerateRoots(repoRoot, ScriptScanRoots))
@@ -180,18 +318,24 @@ class Program
 		}
 	}
 
-	static void ValidateUidUniqueness(Dictionary<string, string> uidByPath, List<string> issues)
+	static void ValidateUidUniqueness(
+		Dictionary<string, string> uidByPath,
+		Dictionary<string, string> headerUidByPath,
+		List<string> issues)
 	{
 		var byUid = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-		foreach (var kv in uidByPath)
+		foreach (var source in new[] { uidByPath, headerUidByPath })
 		{
-			if (!byUid.TryGetValue(kv.Value, out var list))
+			foreach (var kv in source)
 			{
-				list = new List<string>();
-				byUid[kv.Value] = list;
-			}
+				if (!byUid.TryGetValue(kv.Value, out var list))
+				{
+					list = new List<string>();
+					byUid[kv.Value] = list;
+				}
 
-			list.Add(kv.Key);
+				list.Add(kv.Key);
+			}
 		}
 
 		foreach (var kv in byUid)
@@ -205,42 +349,40 @@ class Program
 
 	readonly record struct SceneRef(string SceneFile, int LineIndex, string TargetAbs, string Uid);
 
-	static void ValidateSceneReferences(string repoRoot, Dictionary<string, string> uidByPath, List<string> issues, bool fix)
+	static void ValidateSceneReferences(
+		string repoRoot,
+		Dictionary<string, string> uidByPath,
+		Dictionary<string, string> headerUidByPath,
+		List<string> issues,
+		bool fix)
 	{
 		var uidLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-		foreach (var kv in uidByPath)
+		foreach (var source in new[] { uidByPath, headerUidByPath })
 		{
-			uidLookup[kv.Value] = kv.Key;
+			foreach (var kv in source)
+			{
+				uidLookup[kv.Value] = kv.Key;
+			}
 		}
 
+		// sceneFile -> (lineIndex -> edit) batched per file. Populated by the
+		// header-authority and missing-uid passes as well as majority reconciliation.
+		var edits = new Dictionary<string, Dictionary<int, UidEdit>>(StringComparer.OrdinalIgnoreCase);
+
 		// Phase A: collect every ext_resource reference to a sidecar-owned target,
-		// plus immediate structural issues (missing paths, uid-points-elsewhere).
+		// plus immediate structural issues (missing paths, uid-points-elsewhere,
+		// header-authority mismatches, absent uid= attributes).
 		var refs = new List<SceneRef>();
 		foreach (string root in EnumerateRoots(repoRoot, SceneScanRoots))
 		{
 			foreach (string sceneFile in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories))
 			{
-				if (IsExcluded(sceneFile))
+				if (IsExcluded(sceneFile) || !HasSceneExtension(sceneFile))
 				{
 					continue;
 				}
 
-				bool match = false;
-				foreach (string ext in SceneExtensions)
-				{
-					if (sceneFile.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
-					{
-						match = true;
-						break;
-					}
-				}
-
-				if (!match)
-				{
-					continue;
-				}
-
-				CollectSceneRefs(repoRoot, sceneFile, uidByPath, uidLookup, refs, issues);
+				CollectSceneRefs(repoRoot, sceneFile, uidByPath, headerUidByPath, uidLookup, refs, edits, issues, fix);
 			}
 		}
 
@@ -263,9 +405,6 @@ class Program
 
 			list.Add(r);
 		}
-
-		// sceneFile -> (lineIndex -> (oldUid, newUid)) edits batched per file.
-		var edits = new Dictionary<string, Dictionary<int, (string Old, string New)>>(StringComparer.OrdinalIgnoreCase);
 
 		foreach (var kv in byTarget)
 		{
@@ -342,13 +481,7 @@ class Program
 
 				if (fix)
 				{
-					if (!edits.TryGetValue(r.SceneFile, out var lineMap))
-					{
-						lineMap = new Dictionary<int, (string, string)>();
-						edits[r.SceneFile] = lineMap;
-					}
-
-					lineMap[r.LineIndex] = (r.Uid, genuine);
+					QueueEdit(edits, r.SceneFile, r.LineIndex, new UidEdit(r.Uid, genuine));
 				}
 				else
 				{
@@ -368,9 +501,12 @@ class Program
 		string repoRoot,
 		string sceneFile,
 		Dictionary<string, string> uidByPath,
+		Dictionary<string, string> headerUidByPath,
 		Dictionary<string, string> uidLookup,
 		List<SceneRef> refs,
-		List<string> issues)
+		Dictionary<string, Dictionary<int, UidEdit>> edits,
+		List<string> issues,
+		bool fix)
 	{
 		string[] lines = File.ReadAllLines(sceneFile);
 		string sceneRel = Relative(repoRoot, sceneFile);
@@ -413,8 +549,48 @@ class Program
 				continue;
 			}
 
+			// A .tres/.tscn target's own header is authoritative, so compare directly
+			// instead of putting it to a vote.
+			headerUidByPath.TryGetValue(targetAbs, out string? headerUid);
+
 			if (uid == null)
 			{
+				// Godot backfills the attribute on its next save of this file. Writing
+				// it now keeps that save from showing up as an unrelated diff.
+				string? authority = headerUid;
+				if (authority == null)
+				{
+					uidByPath.TryGetValue(targetAbs, out authority);
+				}
+
+				if (authority == null)
+				{
+					continue;
+				}
+
+				if (fix)
+				{
+					QueueEdit(edits, sceneFile, i, new UidEdit(null, authority));
+				}
+				else
+				{
+					issues.Add($"{sceneRel}:{i + 1}: ext_resource has no uid= for {path} (expected {authority}; Godot will add it on next save)");
+				}
+
+				continue;
+			}
+
+			// Never auto-fixed: a header uid can itself be fabricated (several in this
+			// repo spell out their filename), so neither side of the disagreement is
+			// reliably genuine. Only the editor knows which uid it has registered —
+			// open the project, let it re-save, and commit that.
+			if (headerUid != null)
+			{
+				if (!string.Equals(uid, headerUid, StringComparison.OrdinalIgnoreCase))
+				{
+					issues.Add($"{sceneRel}:{i + 1}: uid {uid} does not match {Relative(repoRoot, targetAbs)} header uid {headerUid} (resolve by opening in Godot, not --fix)");
+				}
+
 				continue;
 			}
 
@@ -429,7 +605,25 @@ class Program
 		}
 	}
 
-	static void ApplyUidEdits(string repoRoot, string sceneFile, Dictionary<int, (string Old, string New)> lineEdits)
+	// Old == null means the line carries no uid= attribute and one must be inserted.
+	readonly record struct UidEdit(string? Old, string New);
+
+	static void QueueEdit(
+		Dictionary<string, Dictionary<int, UidEdit>> edits,
+		string sceneFile,
+		int lineIndex,
+		UidEdit edit)
+	{
+		if (!edits.TryGetValue(sceneFile, out var lineMap))
+		{
+			lineMap = new Dictionary<int, UidEdit>();
+			edits[sceneFile] = lineMap;
+		}
+
+		lineMap[lineIndex] = edit;
+	}
+
+	static void ApplyUidEdits(string repoRoot, string sceneFile, Dictionary<int, UidEdit> lineEdits)
 	{
 		string originalText = File.ReadAllText(sceneFile);
 		string newline = originalText.Contains("\r\n") ? "\r\n" : "\n";
@@ -444,13 +638,34 @@ class Program
 		foreach (var kv in lineEdits)
 		{
 			int i = kv.Key;
-			(string oldUid, string newUid) = kv.Value;
-			lines[i] = lines[i].Replace($"uid=\"{oldUid}\"", $"uid=\"{newUid}\"");
-			Console.WriteLine($"  fixed: {sceneRel}:{i + 1} uid {oldUid} -> {newUid}");
+			UidEdit edit = kv.Value;
+			if (edit.Old == null)
+			{
+				lines[i] = InsertUidAttribute(lines[i], edit.New);
+				Console.WriteLine($"  fixed: {sceneRel}:{i + 1} added uid {edit.New}");
+			}
+			else
+			{
+				lines[i] = lines[i].Replace($"uid=\"{edit.Old}\"", $"uid=\"{edit.New}\"");
+				Console.WriteLine($"  fixed: {sceneRel}:{i + 1} uid {edit.Old} -> {edit.New}");
+			}
 		}
 
 		string output = string.Join(newline, lines) + (trailingNewline ? newline : string.Empty);
 		File.WriteAllText(sceneFile, output);
+	}
+
+	// Godot writes uid= immediately before path=; matching that keeps the line
+	// byte-identical to what the editor would produce on its next save.
+	static string InsertUidAttribute(string line, string uid)
+	{
+		int at = line.IndexOf(" path=\"", StringComparison.Ordinal);
+		if (at < 0)
+		{
+			return line;
+		}
+
+		return line.Substring(0, at) + $" uid=\"{uid}\"" + line.Substring(at);
 	}
 
 	static string FirstKey(Dictionary<string, int> votes)

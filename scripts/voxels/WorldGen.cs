@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 40;
+    public const int WORLDGEN_VERSION = 44;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -115,6 +115,16 @@ public static class WorldGen
     {
         if (kit == null || _kitIndex == null) { return 0; }
         return _kitIndex.TryGetValue(kit, out byte i) ? i : (byte)0;
+    }
+
+    // TerrainIdOf for authoring tools that stamp a chosen kit (WorldEditor's
+    // Terrain brush). Returns false when the kit has no palette slot — no zone
+    // in the loaded WorldGenData references it — so the caller can warn rather
+    // than silently paint palette slot 0.
+    public static bool TryGetTerrainId(TerrainKitData kit, out byte id)
+    {
+        id = TerrainIdOf(kit);
+        return kit != null && _kitIndex != null && _kitIndex.ContainsKey(kit);
     }
 
     // Inverse of TerrainIdOf — resolve a stored TerrainId byte to its runtime
@@ -525,6 +535,11 @@ public static class WorldGen
         // connect tunnels vertically where they overlap.
         GenerateCaves(ws, genData, noise.Cave);
 
+        // Terrain is final here (roads regrade later and update the field
+        // themselves), so resolve where the ground actually ended up. Every
+        // pass below anchors placements to Surface, not the authored Height.
+        DeriveSurface(ws, heightMap);
+
         // One-off test stamp for underground-water visuals. Carves a wide
         // shallow cavern inland in the mountain zone (toward the desert
         // border) with the ceiling capped at the first plateau above water.
@@ -578,7 +593,7 @@ public static class WorldGen
         int skipFlags = CVars.worldgenSkip.Value;
         if ((skipFlags & SKIP_DETAILS) == 0)
         {
-            StampDetailScatter(ws, genData);
+            StampDetailScatter(ws, genData, heightMap);
         }
         GenerateAllProps(ws, genData, noise.Grass, noise.Forest, heightMap, skipFlags, worldSeed);
 
@@ -625,6 +640,7 @@ public static class WorldGen
         // then paints the tread overlay. Before ComputeSunlight so the bake sees
         // the regraded geometry.
         CarveRoads(ws, genData, heightMap, worldSeed);
+        StampGradeShapes(ws, heightMap, genData.maxGradeStep);
 
         // Player spawn point, resolved after road grading so a road crossing the
         // spawn column lands the player on the regraded surface. With
@@ -970,7 +986,8 @@ public static class WorldGen
     private static bool IsGrassySurfaceAt(WorldState ws, int wx, int wz, HeightMap heightMap)
     {
         if (!IsFlatDryGrassAt(wx, wz, heightMap)) { return false; }
-        int sy = heightMap.GetHeight(wx, wz);
+        if (heightMap.IsNoSpawn(wx, wz)) { return false; }
+        int sy = heightMap.GetSurface(wx, wz);
         VoxelType ground = ws.GetVoxelWorld(wx, sy, wz);
         if (ground == VoxelType.Air || ground == VoxelType.Water) { return false; }
         return ws.GetVoxelWorld(wx, sy + 1, wz) == VoxelType.Air;
@@ -995,7 +1012,7 @@ public static class WorldGen
         var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_FIXTURE));
         var context = new SpawnContext
         {
-            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
         };
@@ -1035,7 +1052,7 @@ public static class WorldGen
                 anchorCol = new Vector3I(rx, 0, rz);
             }
 
-            int sy = heightMap.GetHeight(anchorCol.X, anchorCol.Z);
+            int sy = heightMap.GetSurface(anchorCol.X, anchorCol.Z);
             var anchor = new Vector3(anchorCol.X + 0.5f, sy + 1f, anchorCol.Z + 0.5f);
             fixtures.Spawn(ws, anchor, rng, context);
         }
@@ -1087,7 +1104,7 @@ public static class WorldGen
             {
                 continue;
             }
-            int sy = heightMap.GetHeight(rx, rz);
+            int sy = heightMap.GetSurface(rx, rz);
             var anchor = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
             var state = new BuriedSpotSimState(anchor, spot.scene, spot.data) { TreasureName = name };
             ws.AddEntity(state);
@@ -1110,7 +1127,7 @@ public static class WorldGen
         var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_FORGE));
         var context = new SpawnContext
         {
-            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
         };
@@ -1132,7 +1149,7 @@ public static class WorldGen
                 {
                     continue;
                 }
-                int sy = heightMap.GetHeight(rx, rz);
+                int sy = heightMap.GetSurface(rx, rz);
                 var anchor = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
                 forge.Spawn(ws, anchor, rng, context);
             }
@@ -1155,7 +1172,7 @@ public static class WorldGen
         var rng = new Random(DeriveSeed(worldSeed, seedSalt));
         var context = new SpawnContext
         {
-            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
         };
@@ -1168,7 +1185,7 @@ public static class WorldGen
             {
                 continue;
             }
-            int sy = heightMap.GetHeight(rx, rz);
+            int sy = heightMap.GetSurface(rx, rz);
             var anchor = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
             fountain.Spawn(ws, anchor, rng, context);
         }
@@ -1207,7 +1224,7 @@ public static class WorldGen
         var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_RUINS));
         var sites = new System.Collections.Generic.List<Vector2I>();
 
-        int SurfaceYAt(int wx, int wz) => heightMap.GetHeight(wx, wz);
+        int SurfaceYAt(int wx, int wz) => heightMap.GetSurface(wx, wz);
         bool IsDry(int wx, int wz) => IsDryLand(wx, wz, heightMap);
 
         const float cellArea = RUIN_SCAN_STRIDE * RUIN_SCAN_STRIDE;
@@ -1236,6 +1253,46 @@ public static class WorldGen
 
                 sites.Add(new Vector2I(wx, wz));
                 ruins.Stamp(ws, wx, wz, rng, SurfaceYAt, IsDry);
+                MarkMasonryNoSpawn(ws, heightMap, wx, wz, ruins.siteRadius);
+            }
+        }
+    }
+
+    // Reserve the columns a just-stamped ruin actually put stone on. Derived
+    // from the geometry rather than reported by Stamp, so it needs no plumbing
+    // through RuinsGenData and stays correct whatever layout the stamper rolls:
+    // a column is masonry iff a solid non-natural voxel now sits above the
+    // natural ground. Scans the authored site disc, which bounds where Stamp
+    // can have written.
+    //
+    // Only the stonework is reserved, NOT the whole site — the open floor
+    // between the walls is exactly where content should still appear.
+    private static void MarkMasonryNoSpawn(WorldState ws, HeightMap hm, int originX, int originZ, int siteRadius)
+    {
+        int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int r = Math.Max(1, siteRadius);
+        int rSq = r * r;
+        for (int dx = -r; dx <= r; dx++)
+        {
+            for (int dz = -r; dz <= r; dz++)
+            {
+                if (dx * dx + dz * dz > rSq) { continue; }
+                int wx = originX + dx;
+                int wz = originZ + dz;
+                if (wx < hm.WorldMinX || wx > hm.WorldMaxX || wz < hm.WorldMinZ || wz > hm.WorldMaxZ)
+                {
+                    continue;
+                }
+                for (int wy = hm.GetSurface(wx, wz) + 1; wy <= maxY; wy++)
+                {
+                    VoxelType v = ws.GetVoxelWorld(wx, wy, wz);
+                    if (!VoxelTypeInfo.IsSolid(v)) { continue; }
+                    if (!IsNaturalGround(ws, wx, wy, wz))
+                    {
+                        hm.MarkNoSpawn(wx, wz);
+                    }
+                    break;
+                }
             }
         }
     }
@@ -1247,7 +1304,7 @@ public static class WorldGen
         {
             return false;
         }
-        return hm.GetHeight(wx, wz) >= WATER_LEVEL;
+        return hm.GetSurface(wx, wz) >= WATER_LEVEL;
     }
 
     // Optional "confined" gate for a ruin anchor — a ring at
@@ -1257,7 +1314,7 @@ public static class WorldGen
     // self-level against terrain noise, so no flatness is required either way.
     private static bool IsRuinSiteConfined(int cx, int cz, RuinsGenData ruins, HeightMap hm)
     {
-        int baseH = hm.GetHeight(cx, cz);
+        int baseH = hm.GetSurface(cx, cz);
         if (ruins.confinementMinFraction <= 0f) { return true; }
 
         const int Samples = 16;
@@ -1274,7 +1331,7 @@ public static class WorldGen
                 continue;
             }
             valid++;
-            if (hm.GetHeight(x, z) >= baseH + ruins.confinementRise) { higher++; }
+            if (hm.GetSurface(x, z) >= baseH + ruins.confinementRise) { higher++; }
         }
         if (valid == 0) { return false; }
         return (float)higher / valid >= ruins.confinementMinFraction;
@@ -1342,7 +1399,7 @@ public static class WorldGen
                 }
                 if (TryRollColumn(rng, genData, worldMinX, worldMaxX, worldMinZ, worldMaxZ, Valid, out int rx, out int rz))
                 {
-                    int sy = heightMap.GetHeight(rx, rz);
+                    int sy = heightMap.GetSurface(rx, rz);
                     ws.PointsOfInterest[name] = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
                 }
                 else
@@ -1365,7 +1422,7 @@ public static class WorldGen
 
         var context = new SpawnContext
         {
-            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
         };
@@ -1510,7 +1567,7 @@ public static class WorldGen
         bool Passable(int x, int z)
         {
             if (x < minX || x > maxX || z < minZ || z > maxZ) { return false; }
-            return hm.GetHeight(x, z) >= WATER_LEVEL;
+            return hm.GetSurface(x, z) >= WATER_LEVEL;
         }
         if (!Passable(start.x, start.z) || !Passable(goal.x, goal.z)) { return null; }
 
@@ -1555,7 +1612,7 @@ public static class WorldGen
 
             int cx = current / sizeZ + minX;
             int cz = current % sizeZ + minZ;
-            int curH = hm.GetHeight(cx, cz);
+            int curH = hm.GetSurface(cx, cz);
 
             for (int d = 0; d < 8; d++)
             {
@@ -1566,7 +1623,7 @@ public static class WorldGen
                 if (closed[nIdx]) { continue; }
 
                 float dist = d < 4 ? 1f : 1.41421356f;
-                int rise = Math.Abs(hm.GetHeight(nx, nz) - curH);
+                int rise = Math.Abs(hm.GetSurface(nx, nz) - curH);
                 float move = dist + rise; // gentle slope adds a mild cost
                 if (rise > maxStep)
                 {
@@ -1629,7 +1686,7 @@ public static class WorldGen
         var t = new int[n];
         for (int i = 0; i < n; i++)
         {
-            t[i] = hm.GetHeight(path[i].Item1, path[i].Item2);
+            t[i] = hm.GetSurface(path[i].Item1, path[i].Item2);
         }
 
         // Gauss-Seidel slope limit on interior columns (endpoints fixed). Each
@@ -1718,6 +1775,188 @@ public static class WorldGen
         }
     }
 
+    // Recompute HeightMap.Surface from the live voxels: the topmost natural
+    // terrain voxel in each column. Runs once, after the carving passes and
+    // before anything that places content, so every placement pass anchors to
+    // ground that actually exists.
+    //
+    // Architecture (ruin masonry, structure walls) is skipped on purpose — the
+    // ground under a wall is still the ground, and lifting the surface onto
+    // wall tops would scatter props and mobs across the battlements. Keeping
+    // things OUT of ruins is the ruin no-spawn mask's job, not this one's.
+    //
+    // A column with no natural voxel at all keeps its authored Height.
+    private static void DeriveSurface(WorldState ws, HeightMap hm)
+    {
+        int minY = ws.Min.Y * ChunkState.SIZE;
+        int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        for (int wx = hm.WorldMinX; wx <= hm.WorldMaxX; wx++)
+        {
+            for (int wz = hm.WorldMinZ; wz <= hm.WorldMaxZ; wz++)
+            {
+                // Start at the authored height and walk toward the real ground,
+                // so the scan costs O(drift) rather than a full column.
+                int y = Math.Clamp(hm.GetHeight(wx, wz), minY, maxY);
+                if (IsNaturalGround(ws, wx, y, wz))
+                {
+                    while (y < maxY && IsNaturalGround(ws, wx, y + 1, wz)) { y++; }
+                }
+                else
+                {
+                    while (y > minY && !IsNaturalGround(ws, wx, y, wz)) { y--; }
+                    if (!IsNaturalGround(ws, wx, y, wz))
+                    {
+                        continue;
+                    }
+                }
+                hm.Surface[wx - hm.WorldMinX, wz - hm.WorldMinZ] = y;
+            }
+        }
+    }
+
+    // Natural terrain — the materials worldgen fills ground with. Excludes
+    // architecture (Stone/Wood walls) and Barrier so they never read as ground.
+    private static bool IsNaturalGround(WorldState ws, int wx, int wy, int wz)
+    {
+        VoxelType v = ws.GetVoxelWorld(wx, wy, wz);
+        return v == VoxelType.Terrain || v == VoxelType.Desert || v == VoxelType.Marsh;
+    }
+
+    // Re-derive the surface shape channel from the FINISHED geometry.
+    //
+    // Every pass that moves terrain — plateaus, ramp skirts, road grading —
+    // used to be individually responsible for tagging what it built, and each
+    // one that forgot (or defaulted through the 4-arg SetVoxelWorld) left a
+    // slope stair-stepping. Deriving it once at the end instead means the tag
+    // always matches the geometry actually present, and a new height-modifying
+    // pass gets correct shading for free.
+    //
+    // Classification is LAYERED — every solid/open interface in a column, not
+    // just the outdoor surface. Cave floors, cavern floors and the ground under
+    // an overhang are real surfaces that grade exactly like open terrain; a
+    // one-surface-per-column pass leaves all of them with the blanket Y that
+    // MarkCaveSurfaceShapes stamps, so a sloping cavern floor stair-steps. It is
+    // also why the height field can't drive this: hm.Height names at most one
+    // voxel per column, and GenerateCaves breaches the surface as an
+    // open-topped pit without updating it (~10% of columns end up with
+    // hm.Height pointing at air, worst measured 23 voxels up). hm is used here
+    // for horizontal bounds only.
+    //
+    // Only natural surface material is touched — architectural material keeps
+    // its authored SharpAxes. Ceilings and walls stay snapped: a soft cave
+    // ceiling interpolates downward through the ceiling-cutaway clip plane and
+    // into view. A one-voxel shelf is both floor and ceiling, so it counts as a
+    // ceiling and stays snapped (the same guard the per-chunk fill applies).
+    private static void StampGradeShapes(WorldState ws, HeightMap hm, int maxGradeStep)
+    {
+        int minY = ws.Min.Y * ChunkState.SIZE;
+        int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int sizeX = hm.WorldMaxX - hm.WorldMinX + 1;
+        int sizeZ = hm.WorldMaxZ - hm.WorldMinZ + 1;
+
+        // Every floor surface in the world (solid voxel with a non-solid voxel
+        // directly above), grouped by column: column n owns
+        // surfaces[starts[n] .. starts[n + 1]), descending in Y. Columns are
+        // walked in a fixed order so each run is contiguous — no per-column
+        // allocation, and no per-column cap that would silently drop surfaces in
+        // a heavily caved column.
+        var surfaces = new List<int>(sizeX * sizeZ * 2);
+        var starts = new int[sizeX * sizeZ + 1];
+
+        for (int ix = 0; ix < sizeX; ix++)
+        {
+            for (int iz = 0; iz < sizeZ; iz++)
+            {
+                starts[ix * sizeZ + iz] = surfaces.Count;
+                int wx = hm.WorldMinX + ix;
+                int wz = hm.WorldMinZ + iz;
+                // Above the world ceiling is open sky, so a column that reaches
+                // maxY still registers its top voxel as a surface.
+                bool aboveSolid = false;
+                for (int wy = maxY; wy >= minY; wy--)
+                {
+                    bool solid = VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy, wz));
+                    if (solid && !aboveSolid)
+                    {
+                        surfaces.Add(wy);
+                    }
+                    aboveSolid = solid;
+                }
+            }
+        }
+        starts[sizeX * sizeZ] = surfaces.Count;
+
+        // Far enough outside any grade window that an axis with no facing
+        // surface reads as a discontinuity rather than a slope.
+        const int NO_SURFACE = 1 << 20;
+
+        // The neighbouring column's surface that this one actually faces: the
+        // nearest in Y. At a cave mouth the cave floor and the outdoor surface
+        // are one continuous sheet and pair up correctly; across a wall (no
+        // surface at all) the axis falls out of the window and stays snapped.
+        int FacingSurfaceY(int wx, int wz, int y)
+        {
+            int ix = Math.Clamp(wx, hm.WorldMinX, hm.WorldMaxX) - hm.WorldMinX;
+            int iz = Math.Clamp(wz, hm.WorldMinZ, hm.WorldMaxZ) - hm.WorldMinZ;
+            int n = ix * sizeZ + iz;
+            int bestY = y + NO_SURFACE;
+            for (int k = starts[n]; k < starts[n + 1]; k++)
+            {
+                if (Math.Abs(surfaces[k] - y) < Math.Abs(bestY - y))
+                {
+                    bestY = surfaces[k];
+                }
+            }
+            return bestY;
+        }
+
+        // Same per-axis rule as HeightMap.IsGrade (see there for why it is per
+        // axis, and why the step size rather than the angle is the
+        // discriminator), applied to one surface layer.
+        bool IsGradeAt(int wx, int wz, int y)
+        {
+            return HeightMap.AxisIsGrade(y, FacingSurfaceY(wx - 1, wz, y), FacingSurfaceY(wx + 1, wz, y), maxGradeStep)
+                || HeightMap.AxisIsGrade(y, FacingSurfaceY(wx, wz - 1, y), FacingSurfaceY(wx, wz + 1, y), maxGradeStep);
+        }
+
+        for (int ix = 0; ix < sizeX; ix++)
+        {
+            for (int iz = 0; iz < sizeZ; iz++)
+            {
+                int wx = hm.WorldMinX + ix;
+                int wz = hm.WorldMinZ + iz;
+                int n = ix * sizeZ + iz;
+                for (int k = starts[n]; k < starts[n + 1]; k++)
+                {
+                    int y = surfaces[k];
+
+                    // Every natural surface material, not just Terrain — desert
+                    // and marsh columns are their own VoxelType and were being
+                    // skipped, so their grades never got re-derived.
+                    VoxelType surface = ws.GetVoxelWorld(wx, y, wz);
+                    if (surface != VoxelType.Terrain && surface != VoxelType.Desert && surface != VoxelType.Marsh)
+                    {
+                        continue;
+                    }
+                    if (y > minY && !VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, y - 1, wz)))
+                    {
+                        continue;
+                    }
+                    ws.SetShapeWorld(wx, y, wz, IsGradeAt(wx, wz, y)
+                        ? VoxelTypeInfo.SharpAxes.None
+                        : VoxelTypeInfo.SharpAxes.Y);
+                }
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(CVars.gradeDebug.Value))
+        {
+            GradeDebug.Dump(CVars.gradeDebug.Value, ws,
+                (x, z) => hm.GetSurface(x, z), (x, z) => hm.IsGrade(x, z, maxGradeStep));
+        }
+    }
+
     // Rewrite one tread column to the graded height: cut solid above / fill solid
     // below, guarantee a solid bed, clear detail, paint the overlay. Re-filled
     // voxels copy the column's existing surface-kit TerrainId so cuts and
@@ -1770,6 +2009,7 @@ public static class WorldGen
         }
 
         hm.Height[wx - hm.WorldMinX, wz - hm.WorldMinZ] = hNew;
+        hm.Surface[wx - hm.WorldMinX, wz - hm.WorldMinZ] = hNew;
     }
 
     // Delete scatter scenery (trees / grass / climbable / berry trees) standing
@@ -2491,9 +2731,33 @@ public static class WorldGen
         public readonly int WorldMaxX;
         public readonly int WorldMaxZ;
         public readonly int[,] Plateau;
+
+        // The AUTHORED terrain height: what GenerateChunk fills each column up
+        // to, and what Plateau is compared against to decide "flat". Carving
+        // does NOT move it — read Surface for where the ground actually is.
         public readonly int[,] Height;
 
-        public HeightMap(int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ, int[,] plateau, int[,] height)
+        // The LIVE ground surface: topmost natural terrain voxel in the column.
+        // Seeded equal to Height and re-derived by DeriveSurface once carving is
+        // done, because a carve can drop a column far below its authored height
+        // (GenerateCaves breaches the surface as an open-topped pit on ~10% of
+        // columns, worst measured 23 voxels) and every placement pass that
+        // anchors to Height would otherwise aim at air. Deliberately ignores
+        // architecture — a ruin wall does not raise the ground under it, so
+        // placement still resolves to the terrain (ruins are kept clear by the
+        // separate no-spawn mask, not by moving the surface).
+        public readonly int[,] Surface;
+
+        // Columns that content passes must not place onto. Marked by whatever
+        // built there — ruins stamp the columns their masonry occupies, so a
+        // ruin's open floor still populates normally while the stonework itself
+        // stays clear. A channel rather than a per-pass rule so any future
+        // builder (structures, plazas, quest sites) can reserve ground the same
+        // way, including for reasons no geometric test could infer.
+        public readonly bool[,] NoSpawn;
+
+        public HeightMap(int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ,
+            int[,] plateau, int[,] height, int[,] surface, bool[,] noSpawn)
         {
             WorldMinX = worldMinX;
             WorldMaxX = worldMaxX;
@@ -2501,11 +2765,36 @@ public static class WorldGen
             WorldMaxZ = worldMaxZ;
             Plateau = plateau;
             Height = height;
+            Surface = surface;
+            NoSpawn = noSpawn;
+        }
+
+        public bool IsNoSpawn(int wx, int wz)
+        {
+            if (wx < WorldMinX || wx > WorldMaxX || wz < WorldMinZ || wz > WorldMaxZ)
+            {
+                return false;
+            }
+            return NoSpawn[wx - WorldMinX, wz - WorldMinZ];
+        }
+
+        public void MarkNoSpawn(int wx, int wz)
+        {
+            if (wx < WorldMinX || wx > WorldMaxX || wz < WorldMinZ || wz > WorldMaxZ)
+            {
+                return;
+            }
+            NoSpawn[wx - WorldMinX, wz - WorldMinZ] = true;
         }
 
         public int GetHeight(int wx, int wz)
         {
             return Height[wx - WorldMinX, wz - WorldMinZ];
+        }
+
+        public int GetSurface(int wx, int wz)
+        {
+            return Surface[wx - WorldMinX, wz - WorldMinZ];
         }
 
         public int GetPlateau(int wx, int wz)
@@ -2517,6 +2806,46 @@ public static class WorldGen
         {
             return GetHeight(wx, wz) > GetPlateau(wx, wz);
         }
+
+        // Is this column part of a GRADE (a staircase approximation of a slope)
+        // rather than a real discontinuity? Terrain quantizes plateaus to
+        // plateauStep voxels, so a genuine plateau edge jumps several voxels at
+        // once, while ramps, graded roads and erosion all move at most
+        // maxStep per column. That step size — not the apparent angle — is the
+        // discriminator: a voxel staircase has no intermediate angles, every
+        // adjacent pair is either flat or vertical, so an angle test can't see
+        // the slope at all.
+        // Tested PER AXIS, not over all four neighbours at once. A ramp climbing
+        // the side of a plateau is flanked sideways by the un-ramped plateau, so
+        // its cross-slope delta is the full plateau step even though it is
+        // unambiguously a grade along its own axis — requiring every neighbour
+        // to be gradual hardened the bottom of every such ramp into stairs while
+        // leaving the top (where the sideways delta has shrunk to nothing)
+        // smooth. An axis qualifies when both its neighbours are within maxStep
+        // AND at least one differs: the "differs" clause is what still keeps a
+        // plateau edge crisp, since its flat cross-axis is gradual but level.
+        public bool IsGrade(int wx, int wz, int maxStep)
+        {
+            return AxisIsGrade(GetHeight(wx, wz), Delta(wx - 1, wz), Delta(wx + 1, wz), maxStep)
+                || AxisIsGrade(GetHeight(wx, wz), Delta(wx, wz - 1), Delta(wx, wz + 1), maxStep);
+        }
+
+        // Public so StampGradeShapes can apply the identical rule to the live
+        // surface field — the rule must exist in exactly one place.
+        public static bool AxisIsGrade(int h, int lo, int hi, int maxStep)
+        {
+            return Math.Abs(lo - h) <= maxStep
+                && Math.Abs(hi - h) <= maxStep
+                && (lo != h || hi != h);
+        }
+
+        // Neighbour height, clamped into the world so edge columns compare
+        // against themselves instead of reading out of bounds.
+        private int Delta(int wx, int wz)
+        {
+            return GetHeight(Math.Clamp(wx, WorldMinX, WorldMaxX), Math.Clamp(wz, WorldMinZ, WorldMaxZ));
+        }
+
     }
 
     // Build the integer height field for the whole world. Two passes:
@@ -2546,7 +2875,7 @@ public static class WorldGen
         }
         int wx = Math.Clamp(Mathf.FloorToInt(p.X), heightMap.WorldMinX, heightMap.WorldMaxX);
         int wz = Math.Clamp(Mathf.FloorToInt(p.Z), heightMap.WorldMinZ, heightMap.WorldMaxZ);
-        int sy = heightMap.GetHeight(wx, wz);
+        int sy = heightMap.GetSurface(wx, wz);
         return new Vector3(wx + 0.5f, sy + 2f, wz + 0.5f);
     }
 
@@ -2741,7 +3070,11 @@ public static class WorldGen
             }
         }
 
-        return new HeightMap(worldMinX, worldMaxX, worldMinZ, worldMaxZ, plateau, height);
+        // Nothing has been carved yet, so the live surface starts equal to the
+        // authored height; DeriveSurface re-derives it after the carving passes.
+        var surface = (int[,])height.Clone();
+        var noSpawn = new bool[sizeX, sizeZ];
+        return new HeightMap(worldMinX, worldMaxX, worldMinZ, worldMaxZ, plateau, height, surface, noSpawn);
     }
 
     // True iff (wx, wz) is a flat, dry land column suitable for prop / mob /
@@ -2762,7 +3095,7 @@ public static class WorldGen
         {
             return false;
         }
-        int h = heightMap.GetHeight(wx, wz);
+        int h = heightMap.GetSurface(wx, wz);
         // h is the topmost solid voxel; the walkable surface sits at h+1, so
         // "above water" is h+1 > WATER_LEVEL, i.e. h >= WATER_LEVEL. Strict
         // greater-than was wrong: it excluded shoreline plateaus (h=WATER_LEVEL)
@@ -2784,7 +3117,7 @@ public static class WorldGen
         {
             return false;
         }
-        int h = heightMap.GetHeight(wx, wz);
+        int h = heightMap.GetSurface(wx, wz);
         for (int dx = -1; dx <= 1; dx++)
         {
             for (int dz = -1; dz <= 1; dz++)
@@ -2800,7 +3133,7 @@ public static class WorldGen
                 {
                     return false;
                 }
-                if (heightMap.GetHeight(nx, nz) != h)
+                if (heightMap.GetSurface(nx, nz) != h)
                 {
                     return false;
                 }
@@ -2863,16 +3196,19 @@ public static class WorldGen
 
                 int solidHeight = heightMap.GetHeight(wx, wz);
 
-                // Per-column shape: the topmost solid voxel (the surface) gets
-                // None for ramp columns, Y for plateau columns. All buried
-                // voxels stamp Y regardless — a ramp's softness must not leak
-                // downward into caves or other surfaces that happen to share
-                // the column. The mesher's "any soft voxel on Y wins" rule
-                // then propagates the ramp surface's softness horizontally
-                // into the adjacent plateau column's surface cell, so the
-                // ramp base blends smoothly into the plateau.
-                bool isRamp = heightMap.IsRamp(wx, wz);
-                byte surfaceShape = (byte)(isRamp ? VoxelTypeInfo.SharpAxes.None : VoxelTypeInfo.SharpAxes.Y);
+                // Per-column shape: the topmost solid voxel (the surface) is
+                // soft on a grade, snapped on a plateau/cliff edge. All buried
+                // voxels stamp Y regardless — softness must not leak downward
+                // into caves or other surfaces sharing the column. The mesher's
+                // "any soft voxel on Y wins" rule then propagates a grade's
+                // softness horizontally into the adjacent plateau column's
+                // surface cell, so the ramp base blends into the plateau.
+                // Provisional only: StampGradeShapes re-derives the surface tag
+                // from the finished geometry at the end of generation, and that
+                // pass — not this one — is authoritative.
+                byte surfaceShape = (byte)(heightMap.IsGrade(wx, wz, genData.maxGradeStep)
+                    ? VoxelTypeInfo.SharpAxes.None
+                    : VoxelTypeInfo.SharpAxes.Y);
 
                 // Per-column kit pick + above-water shore band, hoisted out of
                 // the y loop because both depend only on (wx, wz). The shore
@@ -2985,7 +3321,7 @@ public static class WorldGen
 
         var context = new SpawnContext
         {
-            SurfaceYAt = (wx, wz) => heightMap.GetHeight(wx, wz),
+            SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
         };
@@ -3017,7 +3353,7 @@ public static class WorldGen
                 {
                     continue;
                 }
-                int sy = heightMap.GetHeight(rx, rz);
+                int sy = heightMap.GetSurface(rx, rz);
                 var pos = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
                 entry.TrySpawn(ws, pos, rng, context);
             }
@@ -3060,7 +3396,7 @@ public static class WorldGen
                 int chunkX = (int)Math.Floor((double)wx / ChunkState.SIZE);
                 int chunkZ = (int)Math.Floor((double)wz / ChunkState.SIZE);
                 int zoneIdx = PickZoneIndex(new Vector3I(chunkX, 0, chunkZ), zoneCount);
-                int h = heightMap.GetHeight(wx, wz);
+                int h = heightMap.GetSurface(wx, wz);
                 zoneFloors[zoneIdx].Add(Math.Max(h, WATER_LEVEL));
             }
         }
@@ -3621,7 +3957,7 @@ public static class WorldGen
     // object is sampled at base frequency 1, with coords pre-scaled by the
     // kit's DetailNoiseFrequency, so kits within a single zone read
     // different noise patterns (sharp transitions where kits change).
-    private static void StampDetailScatter(WorldState ws, WorldGenData genData)
+    private static void StampDetailScatter(WorldState ws, WorldGenData genData, HeightMap heightMap)
     {
         var surfaceNoise = new FastNoiseLite();
         surfaceNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
@@ -3646,9 +3982,21 @@ public static class WorldGen
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
+                // Columns something built on stay bare (ruin stonework today).
+                if (heightMap.IsNoSpawn(wx, wz))
+                {
+                    continue;
+                }
                 for (int wy = worldMinY; wy < worldMaxY; wy++)
                 {
                     if (!IsSurfaceVoxel(ws, wx, wy, wz))
+                    {
+                        continue;
+                    }
+                    // Detail decorates ground, never masonry: IsSurfaceVoxel is
+                    // satisfied by the top of a wall, which would run grass and
+                    // flowers along the battlements.
+                    if (!IsNaturalGround(ws, wx, wy, wz))
                     {
                         continue;
                     }
@@ -3843,7 +4191,7 @@ public static class WorldGen
         // caves can carve through the surface, in which case props would
         // otherwise float over an open hole. Surface y comes from the
         // heightmap so the check works at any per-zone BaseElevation.
-        int SurfaceYAt(int wx, int wz) => heightMap.GetHeight(wx, wz);
+        int SurfaceYAt(int wx, int wz) => heightMap.GetSurface(wx, wz);
         bool IsGrassyAt(int wx, int wz)
         {
             if (!IsFlatDryGrassAt(wx, wz, heightMap))

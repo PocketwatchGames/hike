@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3]
 
-[ext_resource type="Shader" path="res://shaders/highlight_outline.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://drx1lpn2p77rh" path="res://shaders/highlight_outline.gdshader" id="1_shader"]
 
 [resource]
 render_priority = 10

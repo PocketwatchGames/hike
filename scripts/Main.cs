@@ -89,6 +89,15 @@ public partial class Main : Node
 			return;
 		}
 
+		// Same skip-the-menu path for the world editor, so `-- "autostart_editor 1"`
+		// drops straight into it (respects `world_file`, else the empty stub).
+		if (CVars.autostartEditor.Value)
+		{
+			StartMainMenu();
+			(_currentScreen as GuiMainMenu).StartEditor();
+			return;
+		}
+
 		StartMainMenu();
 	}
 
@@ -388,38 +397,54 @@ public partial class Main : Node
 		return worldState;
 	}
 
-	void StartEditor(WorldGenData worldGenData)
+	// worldFilePath is the menu's picked world (or a fresh unused path for a
+	// new world). It becomes `world_file`, which is what the editor's save
+	// writes back to.
+	void StartEditor(WorldGenData worldGenData, string worldFilePath)
 	{
 		_currentScreen.QueueFree();
 
-		string worldFilePath = CVars.worldFile.Value;
+		if (!string.IsNullOrEmpty(worldFilePath))
+		{
+			CVars.worldFile.Value = worldFilePath;
+		}
+
+		// Same palette bind StartGame does. The editor needs it too: VoxelType
+		// .Terrain carries no fixed tile (the shader resolves one per voxel from
+		// terrain_tiles), and the Tree / TallGrass brushes read the kit palette
+		// under the cursor. Without this the editor renders and paints against
+		// whatever a previous session happened to leave bound.
+		WorldGen.BindActivePalettes(worldGenData);
+		ChunkMesh.SetTerrains(WorldGen.ActiveTerrainPalette);
+		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
+
+		// Instantiated before the world is built so CreateEmptyWorld can floor
+		// the stub with the same terrain kit the Terrain brush paints.
+		var editor = editorScene.Instantiate<WorldEditor>();
+
 		string osPath = ProjectSettings.GlobalizePath(worldFilePath);
-		GD.Print($"[Editor] worldFile cvar='{worldFilePath}', osPath='{osPath}', exists={System.IO.File.Exists(osPath)}");
 		WorldState worldState;
 		if (!string.IsNullOrEmpty(worldFilePath) && System.IO.File.Exists(osPath))
 		{
 			try
 			{
-				GD.Print("[Editor] Loading world from file");
 				worldState = LoadWorldFromFile(worldFilePath);
 			}
 			catch (System.Exception e)
 			{
-				GD.PrintErr($"[Editor] Failed to load world file: {e.Message}");
-				GD.Print("[Editor] Creating empty world instead");
-				worldState = WorldEditor.CreateEmptyWorld(worldGenData);
+				GD.PrintErr($"[Editor] Failed to load world file, falling back to an empty world: {e.Message}");
+				worldState = WorldEditor.CreateEmptyWorld(worldGenData, editor.brushPalette?.terrainBrushKit);
 			}
 		}
 		else
 		{
-			GD.Print("[Editor] Creating empty world");
-			worldState = WorldEditor.CreateEmptyWorld(worldGenData);
+			worldState = WorldEditor.CreateEmptyWorld(worldGenData, editor.brushPalette?.terrainBrushKit);
 		}
 
-		_currentScreen = editorScene.Instantiate<Node>();
-		AddChild(_currentScreen);
-		(_currentScreen as WorldEditor).Init(worldState);
-		(_currentScreen as WorldEditor).onQuitToMenu += () =>
+		_currentScreen = editor;
+		AddChild(editor);
+		editor.Init(worldState);
+		editor.onQuitToMenu += () =>
 		{
 			_currentScreen.QueueFree();
 			StartMainMenu();

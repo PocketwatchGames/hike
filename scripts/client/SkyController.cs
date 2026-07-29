@@ -1603,7 +1603,10 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("ripple_scale_b", effRippleScaleB);
         RenderingServer.GlobalShaderParameterSet("ripple_offset_a", rippleOffsetA);
         RenderingServer.GlobalShaderParameterSet("ripple_offset_b", rippleOffsetB);
-        RenderingServer.GlobalShaderParameterSet("ripple_strength", _palette.RippleStrength);
+        // CVar `water_ripples_disabled` zeroes the ripple normal perturbation
+        // without touching geometry.
+        RenderingServer.GlobalShaderParameterSet("ripple_strength",
+            CVars.waterRipplesDisabled.Value ? 0f : _palette.RippleStrength);
         RenderingServer.GlobalShaderParameterSet("ripple_pixel_size", effRipplePx);
         RenderingServer.GlobalShaderParameterSet("water_ripple_count", _dynamicRippleCount);
         RenderingServer.GlobalShaderParameterSet("water_ripple_speed", dynamicRippleSpeed);
@@ -1668,7 +1671,11 @@ public partial class SkyController : Node3D
         // (already wind+rain damped in WeatherDerivation), so calm water
         // produces a near-rigid mirror and choppy water visibly distorts.
         RenderingServer.GlobalShaderParameterSet("reflection_pixel_jitter_max", spriteReflectionPixelJitter);
-        RenderingServer.GlobalShaderParameterSet("water_wave_amp", effWaveAmp);
+        // CVar `water_waves_disabled` flattens the surface by zeroing the
+        // amplitude the vertex shader displaces by, leaving colour, ripple
+        // normals and reflections intact.
+        RenderingServer.GlobalShaderParameterSet("water_wave_amp",
+            CVars.waterWavesDisabled.Value ? 0f : effWaveAmp);
         RenderingServer.GlobalShaderParameterSet("water_wave_length", Mathf.Max(waveLength, 0.1f));
         RenderingServer.GlobalShaderParameterSet("water_wave_gate_scale", waveGateScale);
         RenderingServer.GlobalShaderParameterSet("water_wave_phase", wavePhase);

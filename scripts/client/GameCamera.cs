@@ -62,7 +62,10 @@ public partial class GameCamera : Camera3D
 	// elevation reference, etc.) read this so the height the camera treats
 	// as "looking from" stays consistent across features.
 	public const float EYE_HEIGHT = 2f;
-	private const float PLATEAU_STEP = 4f;
+	// Vertical band size the cutaway snaps to. Public because the world editor's
+	// plateau-snapped brushes build onto the same grid — one shared number, so
+	// authored walls can't drift out of alignment with the bands that reveal them.
+	public const float PLATEAU_STEP = 4f;
 	// Asymmetric clip-fade durations. Going DOWN (cutaway opening / iris
 	// growing) is slower and uses a stronger ease-out so the player gets
 	// a moment to absorb the reveal of indoor space; going UP (iris

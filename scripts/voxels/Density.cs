@@ -1,23 +1,33 @@
 using System;
 
 // Shape channel for Dual Contouring. VoxelType stays as the material channel
-// (what to draw); Density tells the mesher where surfaces lie.
-//
-// Derived from VoxelType on the fly via the min-rule: a shared corner is
-// "inside" if any of the 8 voxels touching it is solid. Not stored —
+// (what to draw); Density tells the mesher where surfaces lie. Not stored —
 // recomputing is cheap and keeps Voxels[] as the single source of truth.
+//
+// Two lattices, selected by CVars.voxelCenterSampling:
+//   CornerDensity — samples at voxel CORNERS via the min-rule. Dilates the
+//     solid phase by one voxel, so 1-voxel-thin AIR (doorways, slits, narrow
+//     tunnels) has no sign change anywhere and vanishes.
+//   VoxelDensity  — samples at voxel CENTRES, one sign per voxel. Lossless:
+//     thin air and thin solid both survive.
 public static class Density
 {
     public const sbyte INSIDE = -127;
     public const sbyte OUTSIDE = 127;
 
-    public static sbyte VoxelCornerDensity(VoxelType type)
+    public static sbyte TypeDensity(VoxelType type)
     {
         if (!VoxelTypeInfo.IsSolid(type) || type == VoxelType.Barrier)
         {
             return OUTSIDE;
         }
         return INSIDE;
+    }
+
+    // Centre-lattice density: the voxel's own sign, no neighbourhood rule.
+    public static sbyte VoxelDensity(int vx, int vy, int vz, Func<int, int, int, VoxelType> getVoxel)
+    {
+        return TypeDensity(getVoxel(vx, vy, vz));
     }
 
     // Shared-corner density at world corner (cx,cy,cz). Min over the 8
@@ -32,7 +42,7 @@ public static class Density
                 for (int oz = 0; oz < 2; oz++)
                 {
                     VoxelType v = getVoxel(cx - 1 + ox, cy - 1 + oy, cz - 1 + oz);
-                    sbyte c = VoxelCornerDensity(v);
+                    sbyte c = TypeDensity(v);
                     if (c < d)
                     {
                         d = c;

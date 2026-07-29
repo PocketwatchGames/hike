@@ -147,9 +147,23 @@ public partial class Sim
         SyncEntitiesToDesired();
     }
 
-    public void EnableEditorMode()
+    // The editor runs a player-less Sim, so neither of the two places that
+    // normally prime entity streaming ever fires: SetPlayer (which seeds
+    // _desiredEntityChunks) and ExpandToFullEntityRadius (which leaves the
+    // initial narrow radius). Prime both here.
+    //
+    // UpdateEntityLoading can't do it — Initialize already stored the spawn
+    // chunk in _lastEntityChunkCoord, so the editor's first call sees an
+    // unchanged coord and early-returns. _desiredEntityChunks then stays empty,
+    // OnChunkLoaded rejects every chunk, and no entity ever spawns.
+    public void EnableEditorMode(Vector3 center)
     {
         _editorMode = true;
+        _useInitialEntityRadius = false;
+        Vector3I coord = WorldToChunkCoord(center);
+        _lastEntityChunkCoord = coord;
+        RebuildDesiredEntityChunks(coord);
+        SyncEntitiesToDesired();
     }
 
     private void RebuildDesiredEntityChunks(Vector3I center)

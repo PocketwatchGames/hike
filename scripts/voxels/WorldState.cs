@@ -606,9 +606,21 @@ public class WorldState
         arr[lx, ly, lz] = (byte)(sum > 255 ? 255 : sum);
     }
 
+    // Rewriting a voxel with the SAME material keeps its shape tag; changing
+    // the material resets to the new material's default.
+    //
+    // Both halves matter. Unconditionally defaulting meant any later pass
+    // re-touching a graded column silently hardened it back to a stair.
+    // Unconditionally preserving is worse: ruins and the editor's stone brush
+    // write Stone through this overload and depend on the default SharpAxes.All
+    // for their cubic edges, so painting stone over terrain would inherit Y and
+    // round the wall off. Callers wanting a non-default shape use the 5-arg form.
     public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type)
     {
-        SetVoxelWorld(wx, wy, wz, type, VoxelTypeInfo.GetDefaultShape(type));
+        VoxelTypeInfo.SharpAxes shape = GetVoxelWorld(wx, wy, wz) == type
+            ? GetShapeWorld(wx, wy, wz)
+            : VoxelTypeInfo.GetDefaultShape(type);
+        SetVoxelWorld(wx, wy, wz, type, shape);
     }
 
     public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type, VoxelTypeInfo.SharpAxes shape)
