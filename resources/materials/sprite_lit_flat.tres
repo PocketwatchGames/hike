@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://i5bjv0yqyppdt"]
 
 [ext_resource type="Shader" uid="uid://b7oryrcef0ogj" path="res://shaders/sprite_lit_flat.gdshader" id="1_shader"]
 

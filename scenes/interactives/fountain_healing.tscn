@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=19 format=3 uid="uid://svcot4fgz5f5i"]
 
 [ext_resource type="Script" uid="uid://dq0gsfedya8d3" path="res://scripts/gameplay/entities/Fountain.cs" id="1_fountain"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_ibox"]
@@ -12,7 +12,7 @@
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="10_porous"]
 [ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="11_mapmarker"]
 [ext_resource type="Texture2D" uid="uid://cci6ftqwqo18g" path="res://assets/textures/map_markers/well.png" id="12_mapicon"]
-[ext_resource type="Material" path="res://resources/materials/fountain_water.tres" id="13_water"]
+[ext_resource type="Material" uid="uid://3y65qx7iu8i8k" path="res://resources/materials/fountain_water.tres" id="13_water"]
 
 [sub_resource type="Resource" id="Resource_fountain_event_heal"]
 script = ExtResource("4_event")

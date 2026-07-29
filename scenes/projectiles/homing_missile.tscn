@@ -1,7 +1,7 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://xo5xdebnfd6ja"]
 
 [ext_resource type="Script" uid="uid://dqitly247p839" path="res://scripts/gameplay/entities/HomingMissile.cs" id="1_homing"]
-[ext_resource type="PackedScene" uid="uid://b1arrowmodelvis" path="res://scenes/projectiles/arrow_model.tscn" id="2_model"]
+[ext_resource type="PackedScene" uid="uid://dxr11valq1m5s" path="res://scenes/projectiles/arrow_model.tscn" id="2_model"]
 [ext_resource type="PackedScene" uid="uid://b8wq3n7rvtak2" path="res://scenes/fx/arrow_trail.tscn" id="3_trail"]
 
 [node name="HomingMissile" type="Node3D"]

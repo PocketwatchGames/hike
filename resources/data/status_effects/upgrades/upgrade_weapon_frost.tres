@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
 [ext_resource type="Resource" uid="uid://c2h2ti4r8qe07" path="res://resources/data/status_effects/status_slowed.tres" id="3_slowed"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="4_buildup"]
-[ext_resource type="PackedScene" path="res://scenes/fx/weapon_frost_drip_loop.tscn" id="5_frostfx"]
+[ext_resource type="PackedScene" uid="uid://kbkxovo8iutu7" path="res://scenes/fx/weapon_frost_drip_loop.tscn" id="5_frostfx"]
 
 [sub_resource type="Resource" id="buildup_slowed"]
 script = ExtResource("4_buildup")

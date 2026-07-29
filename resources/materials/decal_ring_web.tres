@@ -1,4 +1,4 @@
-[gd_resource type="StandardMaterial3D" format=3]
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://00awa030h9svi"]
 
 [ext_resource type="Texture2D" uid="uid://dig8rwbe47xeo" path="res://resources/textures/decal_ring.tres" id="1_ring"]
 

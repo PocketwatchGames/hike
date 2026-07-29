@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" format=3]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://pr8w6684ve7dm"]
 
 [ext_resource type="Shader" uid="uid://bckfhufdry4mb" path="res://shaders/highlight_outline_flat.gdshader" id="1_shader"]
 

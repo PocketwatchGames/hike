@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="LootData" format=3 uid="uid://qhms7wphy46n"]
 
 [ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_loot_data"]
-[ext_resource type="Texture2D" uid="uid://i23pwtav9dsz" path="res://assets/textures/items/Crown.png" id="2_inv"]
+[ext_resource type="Texture2D" uid="uid://i23pwtawads0" path="res://assets/textures/items/Crown.png" id="2_inv"]
 
 [resource]
 script = ExtResource("1_loot_data")

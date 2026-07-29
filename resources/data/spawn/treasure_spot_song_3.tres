@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BuriedSpotSpawnEntry" format=3]
+[gd_resource type="Resource" script_class="BuriedSpotSpawnEntry" format=3 uid="uid://eyr986zwwj9v9"]
 
 [ext_resource type="Script" uid="uid://cruw4anaypwt" path="res://scripts/data/spawn/BuriedSpotSpawnEntry.cs" id="1_entry"]
 [ext_resource type="PackedScene" uid="uid://b8rq2dnk7vxce" path="res://scenes/interactives/buried_spot.tscn" id="2_scene"]

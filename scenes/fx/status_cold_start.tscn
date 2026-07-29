@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://h9vxa259b5phd"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://b27f8b40ye6li" path="res://assets/audio/source/weapons/sfx_weapon_sword_charge_head_01.wav" id="2_ch01"]

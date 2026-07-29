@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" load_steps=3 format=3]
+[gd_resource type="ShaderMaterial" load_steps=3 format=3 uid="uid://zdeqyjvbmj1d0"]
 
 [ext_resource type="Shader" uid="uid://co18nytf3642q" path="res://shaders/model_lit_character.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="2_tex"]

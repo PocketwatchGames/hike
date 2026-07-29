@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="OutfitData" format=3]
+[gd_resource type="Resource" script_class="OutfitData" format=3 uid="uid://y935d55jia7hm"]
 
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="1_outfit"]
 

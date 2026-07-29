@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="TerrainKitData" format=3]
+[gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://59tpcikz3kin5"]
 
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://d2eve0m1jqgng" path="res://resources/data/terrain/underwater.tres" id="2_kit"]

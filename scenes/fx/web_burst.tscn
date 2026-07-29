@@ -1,11 +1,11 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://2hxn78h2q15mu"]
 
 [ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="3_plit"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="4_puff"]
 [ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="5_fade"]
-[ext_resource type="Material" path="res://resources/materials/decal_ring_web.tres" id="6_ring"]
+[ext_resource type="Material" uid="uid://00awa030h9svi" path="res://resources/materials/decal_ring_web.tres" id="6_ring"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_zone"]
 radius = 2.0

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://e9ylxcoxc01m2"]
 
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
-[ext_resource type="Resource" uid="uid://bwjra0l991slu" path="res://resources/data/characters/lurker/lurker_swamp.tres" id="2_species"]
+[ext_resource type="Resource" uid="uid://bwjra0mba1slu" path="res://resources/data/characters/lurker/lurker_swamp.tres" id="2_species"]
 
 [resource]
 script = ExtResource("1_desc")

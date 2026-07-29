@@ -7,12 +7,12 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_o6u5e"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
-[ext_resource type="PackedScene" path="res://scenes/projectiles/drake_fireball.tscn" id="6_proj"]
+[ext_resource type="PackedScene" uid="uid://2p2am0hpuuo8a" path="res://scenes/projectiles/drake_fireball.tscn" id="6_proj"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_dmnfk"]
 [ext_resource type="PackedScene" uid="uid://c1gf8agnm62bs" path="res://scenes/fx/homing_missile_impact.tscn" id="7_impact"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="8_dmnfk"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="9_ycuw1"]
-[ext_resource type="Resource" path="res://resources/data/characters/ability_tells/ability_tell_fire.tres" id="14_tell"]
+[ext_resource type="Resource" uid="uid://dl57x9sg4t9ks" path="res://resources/data/characters/ability_tells/ability_tell_fire.tres" id="14_tell"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="AbilityTellData" format=3]
+[gd_resource type="Resource" script_class="AbilityTellData" format=3 uid="uid://xbiui1j23nex6"]
 
 [ext_resource type="Script" uid="uid://c4kn0o501583m" path="res://scripts/data/characters/AbilityTellData.cs" id="1_script"]
 

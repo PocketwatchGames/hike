@@ -151,10 +151,10 @@ public partial class WorldEditor : Node3D
     private Vector3I _regionCurrent;
     private EEditorBrushOperation _regionOperation;
 
-    // Two-corner bbox selection for subscene save. Each is the floored
-    // voxel coordinate of the editor cursor at the time the corner was
-    // marked. Null until set; both required before save. Marking a third
-    // corner overwrites A and clears B.
+    // Optional two-corner bbox override for subscene save. Each is the floored
+    // voxel coordinate of the editor cursor at the time the corner was marked.
+    // Unset (the normal case) means the save auto-fits the bbox to the world's
+    // voxels. Marking a third corner overwrites A and clears B.
     private Vector3I? _subsceneCornerA;
     private Vector3I? _subsceneCornerB;
 
@@ -636,7 +636,17 @@ public partial class WorldEditor : Node3D
         var result = Raycast(screenPos);
         if (result.Count == 0)
         {
-            return false;
+            // No geometry under the mouse — resolve against the horizontal
+            // plane through the cursor's elevation instead, so a blank world
+            // (or a click out over open air) still has somewhere to paint.
+            if (!ResolvePlaneTarget(screenPos, Mathf.FloorToInt(_cursorPosition.Y), out Vector3I planeTarget))
+            {
+                return false;
+            }
+            hitBlock = planeTarget;
+            airTarget = planeTarget;
+            baseTarget = planeTarget;
+            return true;
         }
 
         hitPos = (Vector3)result["position"];
@@ -1261,27 +1271,78 @@ public partial class WorldEditor : Node3D
         GD.Print("subscene_corner: cleared");
     }
 
-    // Save the bounded selection as a subscene file. All voxels inside the
-    // bbox are marked present (= they will overwrite destination voxels on
-    // stamp) — keep the selection tight if you don't want to nuke
-    // surrounding terrain. Entities whose WorldPosition falls inside the
-    // bbox are deep-cloned (via the EntitySerializer round-trip) and added
-    // with subscene-local coordinates. Anchor defaults to (0,0,0) — bbox
-    // min corner.
+    // Inclusive voxel bounds a subscene save covers. Two marked corners win;
+    // otherwise the box auto-fits every non-air voxel in the world, which is
+    // the normal path — an editor world starts blank, so whatever you built
+    // IS the subscene.
+    private bool ResolveSaveBounds(out Vector3I min, out Vector3I max)
+    {
+        if (_subsceneCornerA != null && _subsceneCornerB != null)
+        {
+            min = ComponentMin(_subsceneCornerA.Value, _subsceneCornerB.Value);
+            max = ComponentMax(_subsceneCornerA.Value, _subsceneCornerB.Value);
+            return true;
+        }
+
+        if (!TryGetContentBounds(out min, out max))
+        {
+            GD.PrintErr("subscene_save: the world has no voxels to save.");
+            return false;
+        }
+        return true;
+    }
+
+    // Bbox of every non-air voxel in the world (water counts — it's painted
+    // like anything else). False when the world is empty. Walks every resident
+    // chunk — editor-only, and only on an explicit save.
+    private bool TryGetContentBounds(out Vector3I min, out Vector3I max)
+    {
+        min = default;
+        max = default;
+        bool any = false;
+        foreach (KeyValuePair<Vector3I, ChunkState> kvp in _worldState._chunks)
+        {
+            Vector3I origin = kvp.Key * ChunkState.SIZE;
+            ChunkState chunk = kvp.Value;
+            for (int x = 0; x < ChunkState.SIZE; x++)
+            {
+                for (int y = 0; y < ChunkState.SIZE; y++)
+                {
+                    for (int z = 0; z < ChunkState.SIZE; z++)
+                    {
+                        if (chunk.Voxels[x, y, z] == VoxelType.Air)
+                        {
+                            continue;
+                        }
+                        var voxel = new Vector3I(origin.X + x, origin.Y + y, origin.Z + z);
+                        min = any ? ComponentMin(min, voxel) : voxel;
+                        max = any ? ComponentMax(max, voxel) : voxel;
+                        any = true;
+                    }
+                }
+            }
+        }
+        return any;
+    }
+
+    // Save the world's authored content as a subscene file. The bbox comes
+    // from ResolveSaveBounds — normally auto-fit to every non-air voxel.
+    // All voxels inside the bbox are marked present (= they will overwrite
+    // destination voxels on stamp), so the enclosed air overwrites too.
+    // Every entity in the world is saved regardless of the bbox (they're a
+    // flat list, not grid cells); only an explicit corner box filters them.
+    // Anchor defaults to (0,0,0) — bbox min corner.
     //
     // includeEnv=true also bakes Wind/EnvTag overrides from the source
     // chunks' subgrids — use this for castles/dungeons that need to
     // override the destination's default-baked ambience.
     public void SaveSubscene(string path, bool includeEnv)
     {
-        if (_subsceneCornerA == null || _subsceneCornerB == null)
+        bool explicitBox = _subsceneCornerA != null && _subsceneCornerB != null;
+        if (!ResolveSaveBounds(out Vector3I min, out Vector3I max))
         {
-            GD.PrintErr("subscene_save: need two corners (subscene_corner twice).");
             return;
         }
-
-        Vector3I min = ComponentMin(_subsceneCornerA.Value, _subsceneCornerB.Value);
-        Vector3I max = ComponentMax(_subsceneCornerA.Value, _subsceneCornerB.Value);
         Vector3I size = max - min + new Vector3I(1, 1, 1);
 
         var sub = new SubsceneState(size);
@@ -1312,13 +1373,13 @@ public partial class WorldEditor : Node3D
             BakeEnvFromWorld(sub, min);
         }
 
-        sub.Entities = CollectEntitiesInBox(min, max, size);
+        sub.Entities = explicitBox ? CollectEntitiesInBox(min, max, size) : CollectAllEntities(min);
         sub.Anchor = Vector3.Zero;
 
         try
         {
             SubsceneFile.Write(path, sub);
-            GD.Print($"subscene_save: wrote {path} (size={size}, env={(includeEnv ? "yes" : "no")}, entities={sub.Entities.Count})");
+            GD.Print($"subscene_save: wrote {path} (bbox min={min} max={max} size={size}, env={(includeEnv ? "yes" : "no")}, entities={sub.Entities.Count})");
         }
         catch (Exception e)
         {
@@ -1444,11 +1505,23 @@ public partial class WorldEditor : Node3D
         }
     }
 
-    // Walk every chunk overlapping the bbox, collect EntitySimStates inside
-    // it, and return deep-cloned copies with subscene-local positions. The
-    // serializer round-trip is the cheapest deep-clone path that keeps every
-    // entity field aligned with the EntitySerializer's wire format — adding
-    // fields to an entity automatically propagates through here.
+    // Every entity in the world, deep-cloned with positions relative to `min`.
+    // The subscene stores entities as a flat list translated by the stamp
+    // anchor, independent of the voxel grid, so a local position outside the
+    // bbox (negative included) stamps fine — nothing has to be inside it.
+    private List<EntitySimState> CollectAllEntities(Vector3I min)
+    {
+        var all = new List<EntitySimState>();
+        foreach (EntitySimState e in _worldState.AllChunkEntities())
+        {
+            all.Add(e);
+        }
+        return CloneToLocal(all, min);
+    }
+
+    // Walk every chunk overlapping the bbox and collect the EntitySimStates
+    // inside it. For the explicit-corner path only — carving a piece out of a
+    // larger world shouldn't drag that world's other entities along.
     private List<EntitySimState> CollectEntitiesInBox(Vector3I min, Vector3I max, Vector3I size)
     {
         var inside = new List<EntitySimState>();
@@ -1485,18 +1558,24 @@ public partial class WorldEditor : Node3D
             }
         }
 
-        if (inside.Count == 0)
+        return CloneToLocal(inside, min);
+    }
+
+    // Deep-clone via serializer round-trip, then translate into subscene-local
+    // space. Avoids mutating editor-owned entities and keeps clone semantics
+    // aligned with the disk format — a field added to an entity propagates
+    // through here automatically.
+    private static List<EntitySimState> CloneToLocal(List<EntitySimState> source, Vector3I min)
+    {
+        if (source.Count == 0)
         {
             return new List<EntitySimState>();
         }
 
-        // Deep-clone via serializer round-trip, then translate into
-        // subscene-local space. This avoids mutating editor-owned
-        // entities and keeps clone semantics aligned with disk format.
         using var ms = new MemoryStream();
         using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
         {
-            EntitySerializer.WriteList(bw, inside);
+            EntitySerializer.WriteList(bw, source);
         }
         ms.Position = 0;
         using var br = new BinaryReader(ms, System.Text.Encoding.UTF8, leaveOpen: false);
@@ -1514,13 +1593,12 @@ public partial class WorldEditor : Node3D
         return clones;
     }
 
-    // floorKit is the Terrain brush's kit (Main reads it off the editor scene's
-    // palette) so the starting floor matches what painting Terrain on top of it
-    // produces. Requires WorldGen.BindActivePalettes to have run.
-    public static WorldState CreateEmptyWorld(WorldGenData genData, TerrainKitData floorKit)
+    // Chunks allocated, not one voxel written. Subscene authoring saves the
+    // bbox of whatever voxels exist, so anything baked in here would end up in
+    // every subscene; the brush falls back to the cursor's elevation plane
+    // when there's no geometry to click on (see ComputeVoxelTarget).
+    public static WorldState CreateEmptyWorld(WorldGenData genData)
     {
-        WorldGen.TryGetTerrainId(floorKit, out byte floorTerrainId);
-
         var min = new Vector3I(-4, -1, -4);
         var max = new Vector3I(3, 1, 3);
         var ws = new WorldState(min, max, genData.simData);
@@ -1553,25 +1631,7 @@ public partial class WorldEditor : Node3D
             }
         }
 
-        // Fill world y=0 layer with grass (chunk y=0, local y=0)
-        for (int cx = min.X; cx <= max.X; cx++)
-        {
-            for (int cz = min.Z; cz <= max.Z; cz++)
-            {
-                var chunk = ws._chunks[new Vector3I(cx, 0, cz)];
-                for (int x = 0; x < ChunkState.SIZE; x++)
-                {
-                    for (int z = 0; z < ChunkState.SIZE; z++)
-                    {
-                        chunk.Voxels[x, 0, z] = VoxelType.Terrain;
-                        chunk.Shape[x, 0, z] = (byte)VoxelTypeInfo.SharpAxes.Y;
-                        chunk.TerrainId[x, 0, z] = floorTerrainId;
-                    }
-                }
-            }
-        }
-
-        ws.Spawn = new Vector3(0, 1, 0);
+        ws.Spawn = Vector3.Zero;
         // Author under a high sun. The default 0.0 is sunrise, which lights the
         // stub world too dimly to judge what you're building.
         ws.TimeOfDay01 = WorldState.NoonTimeOfDay01;

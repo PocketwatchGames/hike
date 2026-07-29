@@ -1568,15 +1568,19 @@ public static class CVars
     // the corner selection; these CVars are just the console surface.
     //
     // Workflow:
-    //   1. Move the editor cursor (WASD + EditorUp/Down) to corner A; run
-    //      `subscene_corner` to capture it.
-    //   2. Move to corner B; run `subscene_corner` again.
-    //   3. Run `subscene_save user://cottage.hikescene` (or the _env
+    //   1. Build the thing in a fresh (blank) editor world.
+    //   2. Run `subscene_save user://cottage.hikescene` (or the _env
     //      variant for castles/dungeons that need to override Wind/EnvTag).
-    //   4. To stamp into the same world: move the cursor, run
+    //      The bbox auto-fits every voxel in the world, so author one
+    //      subscene per world.
+    //   3. To stamp into the same world: move the cursor, run
     //      `subscene_stamp <path>`. The cursor position is the placement
     //      anchor — the subscene's bbox-min lands there (anchor defaults
     //      to (0,0,0) at save time).
+    //
+    // `subscene_corner` twice pins an explicit bbox instead, for carving one
+    // piece out of a larger world; `subscene_corner_clear` returns to
+    // auto-fit.
     public static CVar subsceneCorner = new CVar("subscene_corner", (cvar) =>
     {
         if (WorldEditor.Current == null)

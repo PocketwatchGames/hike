@@ -17,7 +17,7 @@
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
 [ext_resource type="PackedScene" uid="uid://ddoqtp8ky0mvg" path="res://assets/models/characters/dog/dog.fbx" id="28_dogfbx"]
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/dog/dog_anims.res" id="29_doganims"]
-[ext_resource type="Material" path="res://resources/materials/dog_lit.tres" id="30_dogmat"]
+[ext_resource type="Material" uid="uid://bjs8vtszp1t64" path="res://resources/materials/dog_lit.tres" id="30_dogmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="31_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/fx/dog_growl.tscn" id="50_growl"]

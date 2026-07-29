@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://p3lk6dzu26doq"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://befinhr1geqh8" path="res://assets/audio/source/footsteps/un_shr_foot_mud_01.wav" id="2_m01"]

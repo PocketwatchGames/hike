@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="FountainSpawnEntry" format=3]
+[gd_resource type="Resource" script_class="FountainSpawnEntry" format=3 uid="uid://p8myqetzi5fav"]
 
 [ext_resource type="Script" uid="uid://cuyu2uykmhfid" path="res://scripts/data/spawn/FountainSpawnEntry.cs" id="1_entry"]
-[ext_resource type="PackedScene" path="res://scenes/interactives/fountain_mana.tscn" id="2_scene"]
+[ext_resource type="PackedScene" uid="uid://phz0ub8154wqh" path="res://scenes/interactives/fountain_mana.tscn" id="2_scene"]
 
 [resource]
 script = ExtResource("1_entry")

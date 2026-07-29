@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_item_data"]
 [ext_resource type="Texture2D" uid="uid://c56xlitxf10lu" path="res://assets/textures/items/MushroomGold.png" id="1_x4kx3"]
-[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom.tres" id="2_parent"]
+[ext_resource type="Resource" uid="uid://45twv92ziyfu6" path="res://resources/data/items/loot/mushroom.tres" id="2_parent"]
 
 [resource]
 script = ExtResource("1_item_data")

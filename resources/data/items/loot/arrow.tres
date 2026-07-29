@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://thkln2f8w7t7" path="res://scripts/data/items/ArrowLootData.cs" id="1_arrow_data"]
 [ext_resource type="Texture2D" uid="uid://sdpdfdbbomg6" path="res://assets/textures/items/Arrow.png" id="1_mw5lv"]
-[ext_resource type="PackedScene" uid="uid://b1arrowmodelvis" path="res://scenes/projectiles/arrow_model.tscn" id="4_model"]
+[ext_resource type="PackedScene" uid="uid://dxr11valq1m5s" path="res://scenes/projectiles/arrow_model.tscn" id="4_model"]
 
 [resource]
 script = ExtResource("1_arrow_data")

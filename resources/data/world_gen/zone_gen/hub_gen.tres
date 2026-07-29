@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://0s8pv7vuphq0" path="res://resources/data/zones/hub.tres" id="2_zone"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="4_kit_cave"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="5_kit_underwater"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="6_kit_shore"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="4_kit_cave"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://emqrvij6sly9m" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="6_kit_shore"]
 [ext_resource type="Resource" uid="uid://buowgujm0up6j" path="res://resources/data/world_gen/terrain_gen/hub_kit.tres" id="6_vnuep"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="7_cave"]
 [ext_resource type="Resource" uid="uid://bdm2ltl5kau8n" path="res://resources/data/world_gen/spawn_lists/surface_entities_hub.tres" id="7_surface"]
@@ -13,7 +13,7 @@
 [ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://chvv0wjmu7jh1" path="res://resources/data/items/consumables/treasure_map_hub.tres" id="96_map"]
-[ext_resource type="Resource" path="res://resources/data/spawn/treasure_spot_crowns.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://wzruon1k89ern" path="res://resources/data/spawn/treasure_spot_crowns.tres" id="97_spot"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")

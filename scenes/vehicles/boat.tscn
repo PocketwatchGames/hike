@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://b8npx1masl5o6"]
 
 [ext_resource type="Script" uid="uid://cxf2i4m1rpaxr" path="res://scripts/gameplay/vehicles/Boat.cs" id="1_boat"]
-[ext_resource type="Resource" uid="uid://bmmj8ul2ghbsl" path="res://resources/data/vehicles/boat.tres" id="2_data"]
+[ext_resource type="Resource" uid="uid://fh1ftwjb0n6kd" path="res://resources/data/vehicles/boat.tres" id="2_data"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="4_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]

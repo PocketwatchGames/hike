@@ -418,8 +418,6 @@ public partial class Main : Node
 		ChunkMesh.SetTerrains(WorldGen.ActiveTerrainPalette);
 		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
 
-		// Instantiated before the world is built so CreateEmptyWorld can floor
-		// the stub with the same terrain kit the Terrain brush paints.
 		var editor = editorScene.Instantiate<WorldEditor>();
 
 		string osPath = ProjectSettings.GlobalizePath(worldFilePath);
@@ -433,12 +431,12 @@ public partial class Main : Node
 			catch (System.Exception e)
 			{
 				GD.PrintErr($"[Editor] Failed to load world file, falling back to an empty world: {e.Message}");
-				worldState = WorldEditor.CreateEmptyWorld(worldGenData, editor.brushPalette?.terrainBrushKit);
+				worldState = WorldEditor.CreateEmptyWorld(worldGenData);
 			}
 		}
 		else
 		{
-			worldState = WorldEditor.CreateEmptyWorld(worldGenData, editor.brushPalette?.terrainBrushKit);
+			worldState = WorldEditor.CreateEmptyWorld(worldGenData);
 		}
 
 		_currentScreen = editor;

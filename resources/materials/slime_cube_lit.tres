@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" format=3]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://fd16lq91jqxzi"]
 
 [ext_resource type="Material" uid="uid://carpnncp8fg1l" path="res://resources/materials/model_xray.tres" id="1_xray"]
 [ext_resource type="Shader" uid="uid://co18nytf3642q" path="res://shaders/model_lit_character.gdshader" id="2_shader"]

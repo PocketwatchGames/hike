@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3]
+[gd_scene load_steps=27 format=3 uid="uid://8q9ywcnhghcqi"]
 
 [ext_resource type="Script" uid="uid://ua46j2wiqjsm" path="res://scripts/gameplay/entities/Forge.cs" id="1_forge"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_ibox"]

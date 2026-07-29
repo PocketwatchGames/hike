@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" load_steps=4 format=3]
+[gd_resource type="ShaderMaterial" load_steps=4 format=3 uid="uid://xl6uhn0qi5t35"]
 
 [ext_resource type="Shader" uid="uid://co18nytf3642q" path="res://shaders/model_lit_character.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://bue15j46wswub" path="res://assets/models/forge/Atlas_Base_01.png" id="2_tex"]

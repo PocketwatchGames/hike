@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ZoneData" format=3 uid="uid://c8lt1k3vpx7di"]
 
-[ext_resource type="Resource" path="res://resources/audio/swamp_ambience.tres" id="1_epecw"]
+[ext_resource type="Resource" uid="uid://xk7p3e2ylzmsx" path="res://resources/audio/swamp_ambience.tres" id="1_epecw"]
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="2_447is"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="3_du86e"]
 

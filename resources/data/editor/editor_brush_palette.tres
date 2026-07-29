@@ -14,7 +14,7 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="11_goblin"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun/kun_kun.tres" id="12_kunkun"]
 [ext_resource type="Resource" uid="uid://bfhjbpklk11v1" path="res://resources/data/world_gen/terrain_gen/forest_kit.tres" id="13_terrainkit"]
-[ext_resource type="Resource" path="res://resources/data/props/prop_library.tres" id="14_proplibrary"]
+[ext_resource type="Resource" uid="uid://vyqr6dvnlp98a" path="res://resources/data/props/prop_library.tres" id="14_proplibrary"]
 
 [sub_resource type="Resource" id="ChestLoot_potion"]
 script = ExtResource("7_itemcountrange")

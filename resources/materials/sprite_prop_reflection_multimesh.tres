@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://srwoisa3r5bu1"]
 
 [ext_resource type="Shader" uid="uid://kbn7ml3elgvl" path="res://shaders/sprite_prop_reflection_multimesh.gdshader" id="1_shader"]
 

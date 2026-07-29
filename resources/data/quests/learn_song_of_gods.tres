@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScriptFlagCountQuestData" format=3]
+[gd_resource type="Resource" script_class="ScriptFlagCountQuestData" format=3 uid="uid://ovupsk1vop2c2"]
 
 [ext_resource type="Script" uid="uid://5z0wozein4eu5" path="res://scripts/data/quests/ScriptFlagCountQuestData.cs" id="1_song"]
 

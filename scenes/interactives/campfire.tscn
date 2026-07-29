@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dq8w0kn7p4mr3" path="res://scripts/gameplay/entities/Campfire.cs" id="1_5bkwe"]
 [ext_resource type="PackedScene" uid="uid://dfs3p6y8yc688" path="res://scenes/fx/campfire_light.tscn" id="2_q0pgg"]
-[ext_resource type="PackedScene" path="res://scenes/fx/campfire_extinguish.tscn" id="3_qk6wi"]
+[ext_resource type="PackedScene" uid="uid://x7ea3vvpf6prw" path="res://scenes/fx/campfire_extinguish.tscn" id="3_qk6wi"]
 [ext_resource type="PackedScene" uid="uid://cetqhlokr0mrc" path="res://scenes/fx/campfire_loop.tscn" id="4_4nu01"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="5_yf2vb"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="6_naflh"]

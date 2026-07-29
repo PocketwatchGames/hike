@@ -1,7 +1,7 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://ce52k00znd5f4"]
 
 [ext_resource type="Script" uid="uid://xewjw2klmrwj9" path="res://scripts/gameplay/effects/GroundDecalPreview.cs" id="1_script"]
-[ext_resource type="Material" path="res://resources/materials/decal_ring_web.tres" id="2_mat"]
+[ext_resource type="Material" uid="uid://00awa030h9svi" path="res://resources/materials/decal_ring_web.tres" id="2_mat"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_preview"]
 size = Vector2(4, 4)

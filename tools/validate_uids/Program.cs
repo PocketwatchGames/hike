@@ -45,11 +45,13 @@ class Program
 		var issues = new List<string>();
 
 		var uidByPath = ScanUidSidecars(repoRoot, issues);
-		ScanImportUids(repoRoot, uidByPath, issues);
-		var headerUidByPath = ScanResourceHeaders(repoRoot, issues);
+		var importUidByPath = ScanImportUids(repoRoot, issues);
+		var headerlessTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		var headerUidByPath = ScanResourceHeaders(repoRoot, headerlessTargets, issues);
+		MintHeaderUids(repoRoot, headerlessTargets, headerUidByPath, new[] { uidByPath, importUidByPath }, fix);
 		ValidateScriptSidecars(repoRoot, uidByPath, issues, fix);
-		ValidateUidUniqueness(uidByPath, headerUidByPath, issues);
-		ValidateSceneReferences(repoRoot, uidByPath, headerUidByPath, issues, fix);
+		ValidateUidUniqueness(new[] { uidByPath, importUidByPath, headerUidByPath }, issues);
+		ValidateSceneReferences(repoRoot, uidByPath, importUidByPath, headerUidByPath, headerlessTargets, issues, fix);
 
 		Console.WriteLine();
 		if (issues.Count == 0)
@@ -153,11 +155,15 @@ class Program
 		uidByPath[targetPath] = contents;
 	}
 
-	// Imported assets (.png, .fbx, .wav) keep their uid in the sibling .import file.
-	// Same authority class as a .uid sidecar: Godot-owned, but hand-editable and so
-	// subject to the same majority reconciliation.
-	static void ScanImportUids(string repoRoot, Dictionary<string, string> uidByPath, List<string> issues)
+	// Imported assets (.png, .fbx, .wav) keep their uid in the sibling .import file,
+	// NOT in a .uid sidecar. Godot regenerates .import from the source asset, so it is
+	// authoritative for references — and must never be reconciled by writing a .uid
+	// sidecar next to the asset (that file does not belong there and leaves the
+	// mismatch unfixed, so the "fix" repeats on every run).
+	static Dictionary<string, string> ScanImportUids(string repoRoot, List<string> issues)
 	{
+		var importUidByPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
 		foreach (string root in EnumerateRoots(repoRoot, ImportScanRoots))
 		{
 			foreach (string importFile in Directory.EnumerateFiles(root, "*.import", SearchOption.AllDirectories))
@@ -168,7 +174,7 @@ class Program
 				}
 
 				string targetPath = importFile.Substring(0, importFile.Length - ".import".Length);
-				if (!File.Exists(targetPath) || uidByPath.ContainsKey(targetPath))
+				if (!File.Exists(targetPath))
 				{
 					continue;
 				}
@@ -184,7 +190,7 @@ class Program
 					string val = a.Groups["val"].Value;
 					if (UidValueRegex.IsMatch(val))
 					{
-						uidByPath[targetPath] = val;
+						importUidByPath[targetPath] = val;
 					}
 					else
 					{
@@ -195,12 +201,17 @@ class Program
 				}
 			}
 		}
+
+		return importUidByPath;
 	}
 
 	// A .tres/.tscn carries its own uid inline in the [gd_resource]/[gd_scene] header.
 	// Unlike a sidecar this lives in the file Godot itself wrote, so it is the
 	// AUTHORITY for references to that file rather than one vote among many.
-	static Dictionary<string, string> ScanResourceHeaders(string repoRoot, List<string> issues)
+	static Dictionary<string, string> ScanResourceHeaders(
+		string repoRoot,
+		HashSet<string> headerlessTargets,
+		List<string> issues)
 	{
 		var headerUidByPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		var missingHeader = new List<string>();
@@ -245,6 +256,7 @@ class Program
 				if (uid == null)
 				{
 					missingHeader.Add(rel);
+					headerlessTargets.Add(file);
 					continue;
 				}
 
@@ -258,18 +270,60 @@ class Program
 			}
 		}
 
-		// Godot mints these on its next save, so every one is a future diff. Summarise
-		// rather than emitting hundreds of individual issues.
-		if (missingHeader.Count > 0)
+		// Reported later by ValidateSceneReferences, which first adopts a unanimous
+		// reference value into the header where one exists.
+		return headerUidByPath;
+	}
+
+	// A .tres/.tscn with no header uid AND no uid-bearing reference has no identity at
+	// all — nothing can be inferred, so mint one. Safe precisely because no reference
+	// carries an id yet: there is nothing to orphan. Once the header has a uid, the
+	// normal missing-uid= pass backfills it into every reference.
+	static void MintHeaderUids(
+		string repoRoot,
+		HashSet<string> headerlessTargets,
+		Dictionary<string, string> headerUidByPath,
+		IEnumerable<Dictionary<string, string>> otherSources,
+		bool fix)
+	{
+		if (!fix || headerlessTargets.Count == 0)
 		{
-			missingHeader.Sort(StringComparer.Ordinal);
-			int shown = Math.Min(missingHeader.Count, 10);
-			string sample = string.Join(", ", missingHeader.GetRange(0, shown));
-			string more = missingHeader.Count > shown ? $", +{missingHeader.Count - shown} more" : string.Empty;
-			issues.Add($"{missingHeader.Count} resource(s) have no uid= in their header (Godot will add one on next save, causing diff churn): {sample}{more}");
+			return;
 		}
 
-		return headerUidByPath;
+		var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (var source in otherSources)
+		{
+			foreach (var kv in source)
+			{
+				taken.Add(kv.Value);
+			}
+		}
+
+		foreach (var kv in headerUidByPath)
+		{
+			taken.Add(kv.Value);
+		}
+
+		var targets = new List<string>(headerlessTargets);
+		targets.Sort(StringComparer.Ordinal);
+
+		foreach (string target in targets)
+		{
+			string minted;
+			do
+			{
+				minted = GenerateUid();
+			}
+			while (taken.Contains(minted));
+
+			taken.Add(minted);
+			InsertHeaderUid(target, minted);
+			headerUidByPath[target] = minted;
+			Console.WriteLine($"  fixed: {Relative(repoRoot, target)}:1 minted header uid {minted}");
+		}
+
+		headerlessTargets.Clear();
 	}
 
 	static bool HasSceneExtension(string path)
@@ -319,12 +373,11 @@ class Program
 	}
 
 	static void ValidateUidUniqueness(
-		Dictionary<string, string> uidByPath,
-		Dictionary<string, string> headerUidByPath,
+		IEnumerable<Dictionary<string, string>> sources,
 		List<string> issues)
 	{
 		var byUid = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-		foreach (var source in new[] { uidByPath, headerUidByPath })
+		foreach (var source in sources)
 		{
 			foreach (var kv in source)
 			{
@@ -352,12 +405,15 @@ class Program
 	static void ValidateSceneReferences(
 		string repoRoot,
 		Dictionary<string, string> uidByPath,
+		Dictionary<string, string> importUidByPath,
 		Dictionary<string, string> headerUidByPath,
+		HashSet<string> headerlessTargets,
 		List<string> issues,
 		bool fix)
 	{
+		var headerlessRefs = new List<SceneRef>();
 		var uidLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-		foreach (var source in new[] { uidByPath, headerUidByPath })
+		foreach (var source in new[] { uidByPath, importUidByPath, headerUidByPath })
 		{
 			foreach (var kv in source)
 			{
@@ -382,7 +438,7 @@ class Program
 					continue;
 				}
 
-				CollectSceneRefs(repoRoot, sceneFile, uidByPath, headerUidByPath, uidLookup, refs, edits, issues, fix);
+				CollectSceneRefs(repoRoot, sceneFile, uidByPath, importUidByPath, headerUidByPath, uidLookup, headerlessTargets, headerlessRefs, refs, edits, issues, fix);
 			}
 		}
 
@@ -450,10 +506,21 @@ class Program
 			string targetRel = Relative(repoRoot, targetAbs);
 			if (tie)
 			{
-				string breakdown = VoteBreakdown(votes);
-				string sidePart = sidecarUid != null ? $", sidecar {sidecarUid}" : string.Empty;
-				issues.Add($"{targetRel}: ambiguous uid — reference vote tied [{breakdown}]{sidePart} (resolve manually, even with --fix)");
-				continue;
+				// A tie means the references carry no majority signal, so the sidecar —
+				// which is what Godot reads to register this file — breaks it. It only
+				// loses to a STRICT majority, so this can't spread a bad sidecar.
+				if (sidecarUid != null && votes.ContainsKey(sidecarUid))
+				{
+					genuine = sidecarUid;
+					top = votes[sidecarUid];
+				}
+				else
+				{
+					string breakdown = VoteBreakdown(votes);
+					string sidePart = sidecarUid != null ? $", sidecar {sidecarUid}" : string.Empty;
+					issues.Add($"{targetRel}: ambiguous uid — reference vote tied [{breakdown}]{sidePart} (resolve manually, even with --fix)");
+					continue;
+				}
 			}
 
 			// Reconcile the sidecar to the genuine uid.
@@ -490,19 +557,107 @@ class Program
 			}
 		}
 
-		// Phase C: apply batched edits per scene file.
+		// Phase C: adopt a unanimous reference uid into a headerless resource's own
+		// header. Anything left over has no references to learn from (loaded by path
+		// only), so only Godot can mint it.
+		var byHeaderless = new Dictionary<string, List<SceneRef>>(StringComparer.OrdinalIgnoreCase);
+		foreach (SceneRef r in headerlessRefs)
+		{
+			if (!byHeaderless.TryGetValue(r.TargetAbs, out var list))
+			{
+				list = new List<SceneRef>();
+				byHeaderless[r.TargetAbs] = list;
+			}
+
+			list.Add(r);
+		}
+
+		foreach (var kv in byHeaderless)
+		{
+			var distinct = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (SceneRef r in kv.Value)
+			{
+				distinct.Add(r.Uid);
+			}
+
+			string targetRel = Relative(repoRoot, kv.Key);
+			if (distinct.Count != 1)
+			{
+				issues.Add($"{targetRel}:1: no uid= in header and references disagree [{string.Join(", ", distinct)}] (resolve manually)");
+				continue;
+			}
+
+			string adopt = FirstOf(distinct);
+			if (fix)
+			{
+				InsertHeaderUid(kv.Key, adopt);
+				headerlessTargets.Remove(kv.Key);
+				Console.WriteLine($"  fixed: {targetRel}:1 added header uid {adopt} ({kv.Value.Count} reference(s) agree)");
+			}
+			else
+			{
+				issues.Add($"{targetRel}:1: no uid= in header; {kv.Value.Count} reference(s) agree on {adopt}");
+			}
+		}
+
+		if (headerlessTargets.Count > 0)
+		{
+			var rest = new List<string>();
+			foreach (string p in headerlessTargets)
+			{
+				rest.Add(Relative(repoRoot, p));
+			}
+
+			rest.Sort(StringComparer.Ordinal);
+			int shown = Math.Min(rest.Count, 10);
+			string more = rest.Count > shown ? $", +{rest.Count - shown} more" : string.Empty;
+			issues.Add($"{rest.Count} resource(s) have no uid= in their header and no references to infer it from — only Godot can mint these: {string.Join(", ", rest.GetRange(0, shown))}{more}");
+		}
+
+		// Phase D: apply batched edits per scene file.
 		foreach (var kv in edits)
 		{
 			ApplyUidEdits(repoRoot, kv.Key, kv.Value);
 		}
 	}
 
+	static string FirstOf(HashSet<string> set)
+	{
+		foreach (string s in set)
+		{
+			return s;
+		}
+
+		return string.Empty;
+	}
+
+	// Godot writes uid= last in the header, after format=.
+	static void InsertHeaderUid(string file, string uid)
+	{
+		string text = File.ReadAllText(file);
+		string newline = text.Contains("\r\n") ? "\r\n" : "\n";
+		int eol = text.IndexOf(newline, StringComparison.Ordinal);
+		string first = eol < 0 ? text : text.Substring(0, eol);
+
+		int close = first.LastIndexOf(']');
+		if (close < 0)
+		{
+			return;
+		}
+
+		string patched = first.Substring(0, close) + $" uid=\"{uid}\"" + first.Substring(close);
+		File.WriteAllText(file, patched + (eol < 0 ? string.Empty : text.Substring(eol)));
+	}
+
 	static void CollectSceneRefs(
 		string repoRoot,
 		string sceneFile,
 		Dictionary<string, string> uidByPath,
+		Dictionary<string, string> importUidByPath,
 		Dictionary<string, string> headerUidByPath,
 		Dictionary<string, string> uidLookup,
+		HashSet<string> headerlessTargets,
+		List<SceneRef> headerlessRefs,
 		List<SceneRef> refs,
 		Dictionary<string, Dictionary<int, UidEdit>> edits,
 		List<string> issues,
@@ -549,15 +704,17 @@ class Program
 				continue;
 			}
 
-			// A .tres/.tscn target's own header is authoritative, so compare directly
-			// instead of putting it to a vote.
+			// A .tres/.tscn target's own header, and an imported asset's .import file,
+			// are authoritative for the target's uid — compare directly rather than
+			// putting them to a vote.
 			headerUidByPath.TryGetValue(targetAbs, out string? headerUid);
+			importUidByPath.TryGetValue(targetAbs, out string? importUid);
 
 			if (uid == null)
 			{
 				// Godot backfills the attribute on its next save of this file. Writing
 				// it now keeps that save from showing up as an unrelated diff.
-				string? authority = headerUid;
+				string? authority = headerUid ?? importUid;
 				if (authority == null)
 				{
 					uidByPath.TryGetValue(targetAbs, out authority);
@@ -580,6 +737,25 @@ class Program
 				continue;
 			}
 
+			// .import is machine-generated from the source asset on every reimport, so
+			// unlike a hand-authorable header it can be trusted to correct references.
+			if (importUid != null)
+			{
+				if (!string.Equals(uid, importUid, StringComparison.OrdinalIgnoreCase))
+				{
+					if (fix)
+					{
+						QueueEdit(edits, sceneFile, i, new UidEdit(uid, importUid));
+					}
+					else
+					{
+						issues.Add($"{sceneRel}:{i + 1}: uid {uid} does not match {Relative(repoRoot, targetAbs)}.import uid {importUid}");
+					}
+				}
+
+				continue;
+			}
+
 			// Never auto-fixed: a header uid can itself be fabricated (several in this
 			// repo spell out their filename), so neither side of the disagreement is
 			// reliably genuine. Only the editor knows which uid it has registered —
@@ -588,9 +764,36 @@ class Program
 			{
 				if (!string.Equals(uid, headerUid, StringComparison.OrdinalIgnoreCase))
 				{
-					issues.Add($"{sceneRel}:{i + 1}: uid {uid} does not match {Relative(repoRoot, targetAbs)} header uid {headerUid} (resolve by opening in Godot, not --fix)");
+					// If the stale uid is registered to some OTHER file, Godot resolves
+					// the reference to that file instead of falling back to path= — the
+					// silent wrong-asset load. Never rewrite blind in that case.
+					if (uidLookup.TryGetValue(uid, out string? other)
+						&& !string.Equals(other, targetAbs, StringComparison.OrdinalIgnoreCase))
+					{
+						issues.Add($"{sceneRel}:{i + 1}: WRONG ASSET — uid {uid} is registered to {Relative(repoRoot, other)}, but path= says {path} (header uid {headerUid})");
+					}
+					else if (fix)
+					{
+						// The header is what Godot reads to build its uid registry, so it
+						// DEFINES this file's identity — even a hand-typed one. A
+						// disagreeing reference is therefore always the stale side.
+						QueueEdit(edits, sceneFile, i, new UidEdit(uid, headerUid));
+					}
+					else
+					{
+						issues.Add($"{sceneRel}:{i + 1}: uid {uid} does not match {Relative(repoRoot, targetAbs)} header uid {headerUid}");
+					}
 				}
 
+				continue;
+			}
+
+			// Target is a .tres/.tscn with no uid= in its header. References already
+			// carry the id Godot assigned it at scan time, so a unanimous reference
+			// value can be adopted into the header.
+			if (headerlessTargets.Contains(targetAbs))
+			{
+				headerlessRefs.Add(new SceneRef(sceneFile, i, targetAbs, uid));
 				continue;
 			}
 

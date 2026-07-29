@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://t4m0kvu8d0641"]
 
 [ext_resource type="Shader" uid="uid://c7eijomerqyxn" path="res://shaders/block_light_shadow_caster.gdshader" id="1_shader"]
 

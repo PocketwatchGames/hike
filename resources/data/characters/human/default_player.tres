@@ -8,12 +8,12 @@
 [ext_resource type="Resource" uid="uid://b8nf3qkxr7m2p" path="res://resources/data/items/weapons/fists.tres" id="8_fists"]
 [ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/weapons/lantern.tres" id="9_lantern"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="10_outfit_script"]
-[ext_resource type="Resource" path="res://resources/data/characters/outfits/mage.tres" id="11_outfit_mage"]
-[ext_resource type="Resource" path="res://resources/data/characters/outfits/fighter.tres" id="12_outfit_fighter"]
-[ext_resource type="Resource" path="res://resources/data/characters/outfits/hunter.tres" id="13_outfit_hunter"]
-[ext_resource type="Resource" path="res://resources/data/characters/outfits/knight.tres" id="14_outfit_knight"]
-[ext_resource type="Resource" path="res://resources/data/characters/outfits/swordsman.tres" id="15_outfit_swordsman"]
-[ext_resource type="Resource" path="res://resources/data/characters/outfits/archer.tres" id="16_outfit_archer"]
+[ext_resource type="Resource" uid="uid://r8q6lyg1ba7lb" path="res://resources/data/characters/outfits/mage.tres" id="11_outfit_mage"]
+[ext_resource type="Resource" uid="uid://jwv6setkz46hu" path="res://resources/data/characters/outfits/fighter.tres" id="12_outfit_fighter"]
+[ext_resource type="Resource" uid="uid://qm2juskki06ym" path="res://resources/data/characters/outfits/hunter.tres" id="13_outfit_hunter"]
+[ext_resource type="Resource" uid="uid://l74ciotykmykd" path="res://resources/data/characters/outfits/knight.tres" id="14_outfit_knight"]
+[ext_resource type="Resource" uid="uid://ad0mn4nja8uy4" path="res://resources/data/characters/outfits/swordsman.tres" id="15_outfit_swordsman"]
+[ext_resource type="Resource" uid="uid://y935d55jia7hm" path="res://resources/data/characters/outfits/archer.tres" id="16_outfit_archer"]
 
 [resource]
 script = ExtResource("1_mknwc")

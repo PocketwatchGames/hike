@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MobDescriptor" format=3]
+[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://f6qpb6wglnatw"]
 
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
 [ext_resource type="Resource" uid="uid://du1hgf5vapmbh" path="res://resources/data/characters/drake/drake_swamp.tres" id="2_sub"]

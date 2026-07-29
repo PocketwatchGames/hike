@@ -15,7 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
 [ext_resource type="PackedScene" uid="uid://bvtryc5sntykd" path="res://assets/models/characters/spider/spider.fbx" id="20_spiderfbx"]
-[ext_resource type="Material" path="res://resources/materials/spider_lit.tres" id="22_spidermat"]
+[ext_resource type="Material" uid="uid://ieigqvobc3wnn" path="res://resources/materials/spider_lit.tres" id="22_spidermat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="PackedScene" uid="uid://skjv6ciciwfo" path="res://scenes/fx/spider_idle_loop.tscn" id="50_idle"]

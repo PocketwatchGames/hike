@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://6hcypwck0p60h"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://dafhd22621yff" path="res://assets/audio/source/movement/sfx_player_treadingWater_lp.wav" id="2_twlp"]

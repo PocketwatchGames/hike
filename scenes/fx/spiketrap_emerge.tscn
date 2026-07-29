@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://igcpk0vshq350"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://b1sdc07gq5ui3" path="res://assets/audio/source/interactives/sfx_spikeTrap_spike_01.wav" id="2_s01"]

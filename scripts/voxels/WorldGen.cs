@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 44;
+    public const int WORLDGEN_VERSION = 45;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -3978,6 +3978,9 @@ public static class WorldGen
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
+        // Hoisted so the shell test below doesn't allocate a delegate per voxel.
+        Func<int, int, int, VoxelType> getVoxel = ws.GetVoxelWorld;
+
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
@@ -4008,6 +4011,16 @@ public static class WorldGen
                     // would otherwise spawn grass inside the water. Reject
                     // any surface voxel whose air-above slot is water.
                     if (ws.GetVoxelWorld(wx, wy + 1, wz) == VoxelType.Water)
+                    {
+                        continue;
+                    }
+                    // The water mesh also dilates a voxel laterally into the
+                    // shore and skins that shell cell's top face at the
+                    // waterline, so its ground is submerged even though the
+                    // slot above is air. Shore kits carry real detail (grass on
+                    // shore_swamp, pebbles on shore_sand), so without this the
+                    // waterline row sprouts sprites standing in the water.
+                    if (WaterMesher.IsCoveredShell(getVoxel, wx, wy, wz))
                     {
                         continue;
                     }

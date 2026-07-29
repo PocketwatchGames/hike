@@ -12,7 +12,7 @@
 [ext_resource type="Resource" uid="uid://chlk1f4ns5cwh" path="res://resources/data/world_gen/zone_gen/swamp_mud_gen.tres" id="18_se4m7"]
 [ext_resource type="Resource" uid="uid://tlfjf7x0adof" path="res://resources/data/world_gen/zone_gen/swamp_fire_gen.tres" id="21_d6mxe"]
 [ext_resource type="Script" uid="uid://bk2smsd8gwalq" path="res://scripts/data/worldgen/WorldGenData.cs" id="23_7umo2"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/swamp_world_script.tres" id="24_songscript"]
+[ext_resource type="Resource" uid="uid://ts86duefnittd" path="res://resources/data/world_gen/swamp_world_script.tres" id="24_songscript"]
 [ext_resource type="Script" uid="uid://c247odltr1n2o" path="res://scripts/data/worldgen/PlacedZone.cs" id="30_placed"]
 [ext_resource type="Script" uid="uid://cfywh1bfbi04v" path="res://scripts/data/worldgen/EverywhereBounds.cs" id="31_everywhere"]
 [ext_resource type="Script" uid="uid://dri0vgugdo5e0" path="res://scripts/data/worldgen/CircleBounds.cs" id="32_circle"]
@@ -29,8 +29,8 @@
 [ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/world_gen/party/mischa.tres" id="60_mischa"]
 [ext_resource type="Resource" uid="uid://vlhadu2uwy1q" path="res://resources/data/world_gen/party/rowan.tres" id="61_rowan"]
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="62_forge"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
+[ext_resource type="Resource" uid="uid://9a30yzgrtp5i4" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
+[ext_resource type="Resource" uid="uid://p8myqetzi5fav" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
 
 [sub_resource type="Resource" id="Resource_know_cure"]
 script = ExtResource("3_spellteach")

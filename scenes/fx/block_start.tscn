@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://9y2ehc26fegq7"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://cbxbb1vr653eo" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_01.wav" id="2_wh01"]

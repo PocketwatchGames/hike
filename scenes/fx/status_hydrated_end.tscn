@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://80opv7lpro2mg"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://ceprkl5q5vd82" path="res://assets/audio/source/movement/un_shr_move_water_unit_enter_06.wav" id="2_we06"]

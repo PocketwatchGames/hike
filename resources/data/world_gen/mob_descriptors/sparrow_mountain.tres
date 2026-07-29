@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="MobDescriptor" format=3]
+[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://0kia662bo6e3x"]
 
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
 [ext_resource type="Resource" uid="uid://ijkypp22hvn6" path="res://resources/data/characters/sparrow/sparrow_mountain.tres" id="2_sub"]

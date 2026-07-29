@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://pbvrb2nt2puza"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://bmemqlsidxywv" path="res://assets/audio/source/weapons/sfx_player_lantern_tail.wav" id="2_lt"]

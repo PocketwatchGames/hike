@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://ekyimdzikr7r1"]
 
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]

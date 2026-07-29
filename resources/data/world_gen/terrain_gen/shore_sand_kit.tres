@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="TerrainKitData" format=3]
+[gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://emqrvij6sly9m"]
 
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://4koslaug4ok" path="res://resources/data/terrain/shore_sand.tres" id="2_kit"]

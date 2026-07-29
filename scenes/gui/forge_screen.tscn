@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=3 format=3 uid="uid://iclwdeljyf5oi"]
 
 [ext_resource type="Script" uid="uid://jy2mfs8ednf1" path="res://scripts/gui/ForgeScreen.cs" id="1_forge"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_hint"]

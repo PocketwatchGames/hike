@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ZoneAmbienceData" format=3]
+[gd_resource type="Resource" script_class="ZoneAmbienceData" format=3 uid="uid://ave5pgvyav892"]
 
 [ext_resource type="Script" uid="uid://vovph8nbb6ae" path="res://scripts/data/world/ZoneAmbienceData.cs" id="ambience_script"]
 [ext_resource type="Resource" uid="uid://kbtsmbjt1c5" path="res://resources/audio/layers/base_daytime.tres" id="layer_day"]

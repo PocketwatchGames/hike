@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="PositionalEmitterData" format=3]
+[gd_resource type="Resource" script_class="PositionalEmitterData" format=3 uid="uid://wak0099uxpxya"]
 
 [ext_resource type="Script" uid="uid://cpvqe8otxhh1d" path="res://scripts/data/world/PositionalEmitterData.cs" id="emitter_script"]
 [ext_resource type="AudioStream" uid="uid://q4ufw8hi1lig" path="res://assets/audio/source/ambience/water_shore/amb_loc_shore_a_01.wav" id="stream_shore"]

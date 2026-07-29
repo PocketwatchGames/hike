@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://mrjxfs41yf1u5"]
 
 [ext_resource type="Script" uid="uid://da7kevnwwai5g" path="res://scripts/gui/HudRegionBanner.cs" id="1_script"]
 

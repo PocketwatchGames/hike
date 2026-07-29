@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="LanguageData" format=3]
+[gd_resource type="Resource" script_class="LanguageData" format=3 uid="uid://irm377w14z4uf"]
 
 [ext_resource type="Script" uid="uid://3q6eknviv60r7" path="res://scripts/data/LanguageData.cs" id="1_lang"]
 

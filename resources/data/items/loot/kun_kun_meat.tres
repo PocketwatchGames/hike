@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_loot_data"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="2_inv"]
-[ext_resource type="Resource" path="res://resources/data/items/loot/meat.tres" id="3_parent"]
+[ext_resource type="Resource" uid="uid://4hiwjcj7oqg79" path="res://resources/data/items/loot/meat.tres" id="3_parent"]
 
 [resource]
 script = ExtResource("1_loot_data")

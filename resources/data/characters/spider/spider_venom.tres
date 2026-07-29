@@ -12,12 +12,12 @@
 [ext_resource type="PackedScene" uid="uid://1p5y5en8utg4" path="res://scenes/projectiles/venom_glob.tscn" id="8_proj"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_28nm0"]
 [ext_resource type="PackedScene" uid="uid://btyxvmgnjfmtn" path="res://scenes/fx/venom_splat.tscn" id="9_splat"]
-[ext_resource type="PackedScene" path="res://scenes/fx/venom_burst.tscn" id="10_burst"]
+[ext_resource type="PackedScene" uid="uid://kspnlfwnfvjuu" path="res://scenes/fx/venom_burst.tscn" id="10_burst"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_opuky"]
-[ext_resource type="PackedScene" path="res://scenes/fx/venom_target_preview.tscn" id="11_preview"]
+[ext_resource type="PackedScene" uid="uid://qhibn5w8ubl7r" path="res://scenes/fx/venom_target_preview.tscn" id="11_preview"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_qnv72"]
 [ext_resource type="PackedScene" uid="uid://dsgde212y3j3m" path="res://scenes/fx/spider_spit.tscn" id="12_spit"]
-[ext_resource type="Resource" path="res://resources/data/characters/ability_tells/ability_tell_venom.tres" id="13_tell"]
+[ext_resource type="Resource" uid="uid://xsy24gir9acrv" path="res://resources/data/characters/ability_tells/ability_tell_venom.tres" id="13_tell"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")

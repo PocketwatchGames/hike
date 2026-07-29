@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://ocsw3pnaodbwk"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://0rkqb6od7cim" path="res://assets/audio/source/ambience/wind/amb_base_wind_light.wav" id="2_wind"]

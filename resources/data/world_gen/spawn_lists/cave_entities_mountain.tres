@@ -18,7 +18,7 @@
 [ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="14_torch_scene"]
 [ext_resource type="Script" uid="uid://byfibd54g5x4" path="res://scripts/data/spawn/TrapSpawnEntry.cs" id="15_trap_entry"]
 [ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="16_trap_scene"]
-[ext_resource type="PackedScene" path="res://scenes/interactives/forage_spawner.tscn" id="17_forage_scene"]
+[ext_resource type="PackedScene" uid="uid://txnqaadygfgyf" path="res://scenes/interactives/forage_spawner.tscn" id="17_forage_scene"]
 
 [sub_resource type="Resource" id="Resource_torchbearer"]
 script = ExtResource("2_mob_entry")

@@ -2,8 +2,8 @@
 
 [ext_resource type="Texture2D" uid="uid://c2t3c8adwjrpi" path="res://assets/textures/status_effects/hydrate.png" id="1_bf5kg"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="PackedScene" path="res://scenes/fx/status_hydrated_start.tscn" id="3_startfx"]
-[ext_resource type="PackedScene" path="res://scenes/fx/status_hydrated_end.tscn" id="4_endfx"]
+[ext_resource type="PackedScene" uid="uid://vbam73mnr2zbe" path="res://scenes/fx/status_hydrated_start.tscn" id="3_startfx"]
+[ext_resource type="PackedScene" uid="uid://80opv7lpro2mg" path="res://scenes/fx/status_hydrated_end.tscn" id="4_endfx"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_stamina"]

@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" load_steps=3 format=3]
+[gd_resource type="ShaderMaterial" load_steps=3 format=3 uid="uid://ho7tywh7vw0lh"]
 
 [ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://b4yms7ccsskb6" path="res://assets/models/statue/T_StoneStatue_Big_A_AlbedoTransparency.tga" id="2_tex"]

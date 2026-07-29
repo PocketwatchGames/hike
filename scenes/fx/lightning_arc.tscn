@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=3 format=3 uid="uid://ljg4r91kxrm0u"]
 
 [ext_resource type="Script" uid="uid://e72d3diinp2rh" path="res://scripts/gameplay/entities/LightningBolt.cs" id="1_bolt"]
 

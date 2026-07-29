@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://2p2am0hpuuo8a"]
 
 [ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_proj"]
 [ext_resource type="PackedScene" uid="uid://bf2lmtrlqawq3" path="res://scenes/fx/flame_trail_loop.tscn" id="2_trail"]

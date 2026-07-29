@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ZoneAmbienceData" format=3]
+[gd_resource type="Resource" script_class="ZoneAmbienceData" format=3 uid="uid://qpvfjau4zl4ge"]
 
 [ext_resource type="Script" uid="uid://vovph8nbb6ae" path="res://scripts/data/world/ZoneAmbienceData.cs" id="ambience_script"]
 [ext_resource type="Resource" uid="uid://kbtsmbjt1c5" path="res://resources/audio/layers/base_daytime.tres" id="layer_day"]
@@ -11,7 +11,7 @@
 [ext_resource type="Resource" uid="uid://dopilvgs2gy84" path="res://resources/audio/emitters/insect_cicada.tres" id="emitter_cicada"]
 [ext_resource type="Resource" uid="uid://bx0hk70j5fv3u" path="res://resources/audio/emitters/insect_cricket.tres" id="emitter_cricket"]
 [ext_resource type="Resource" uid="uid://cjy7k5ps1jcg1" path="res://resources/audio/emitters/insect_grasshopper.tres" id="emitter_grasshopper"]
-[ext_resource type="Resource" path="res://resources/audio/emitters/water_shore.tres" id="emitter_water_shore"]
+[ext_resource type="Resource" uid="uid://wak0099uxpxya" path="res://resources/audio/emitters/water_shore.tres" id="emitter_water_shore"]
 
 [resource]
 script = ExtResource("ambience_script")

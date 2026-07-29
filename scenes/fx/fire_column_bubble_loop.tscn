@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://d4728vs83ih5m"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fxbubble"]
 [ext_resource type="AudioStream" uid="uid://dsog70n5i1r5x" path="res://assets/audio/source/interactives/sfx_fireTrap_idle_bubble_lp.wav" id="2_bubble_lp"]

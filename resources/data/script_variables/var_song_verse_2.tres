@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScriptVariableData" format=3]
+[gd_resource type="Resource" script_class="ScriptVariableData" format=3 uid="uid://hl0t1kxgmdmfx"]
 
 [ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="1_svd"]
 

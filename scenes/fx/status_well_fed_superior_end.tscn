@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://92zmfqztr817u"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://dx4g2snd8mteu" path="res://assets/audio/source/interactives/sfx_loot_pickup_04.wav" id="2_lp04"]

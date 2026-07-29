@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://cv4q99anpy105"]
 
 [ext_resource type="Script" uid="uid://dqitly247p839" path="res://scripts/gameplay/entities/HomingMissile.cs" id="1_homing"]
 [ext_resource type="PackedScene" uid="uid://dsy06e2okf2x1" path="res://scenes/fx/homing_missile_trail.tscn" id="2_trail"]

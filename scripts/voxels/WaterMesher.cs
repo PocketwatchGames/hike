@@ -140,6 +140,17 @@ public static class WaterMesher
         }
     }
 
+    // True iff a SOLID voxel is covered by the water mesh's top quad: it is in
+    // the dilated volume (shell cell) and has air directly above, so Build
+    // skins its top face at the waterline. Nothing above it is a Water voxel,
+    // yet its whole DC surface sits under water — placement passes gate upright
+    // scatter on this so grass doesn't root in the visible shallows.
+    public static bool IsCoveredShell(Func<int, int, int, VoxelType> getVoxel, int wx, int wy, int wz)
+    {
+        return InWaterVolume(getVoxel, wx, wy, wz)
+            && getVoxel(wx, wy + 1, wz) == VoxelType.Air;
+    }
+
     // The water VOLUME: real water, plus a one-voxel lateral shell into the
     // solid it touches. Lateral only — water must not climb over land or seep
     // down into bedrock. A pure function of world voxels, so two chunks sharing
