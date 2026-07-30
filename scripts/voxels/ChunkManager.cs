@@ -879,7 +879,7 @@ public partial class ChunkManager : Node3D
         // MAX_LOAD_DISTANCE this is always false, so normal play is unchanged.
         Vector3I rel = coord - _lastPlayerChunkCoord;
         bool visualOnly = (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z) > MAX_LOAD_DISTANCE_SQ;
-        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly);
+        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly);
         AddChild(mesh);
         _loadedChunks[coord] = mesh;
         if (CVars.chunkWaterLog.Value && mesh.HasWater)
@@ -907,7 +907,7 @@ public partial class ChunkManager : Node3D
             }
 
             oldMesh.QueueFree();
-            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.IsInBounds);
+            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds);
             AddChild(mesh);
             _loadedChunks[coord] = mesh;
             rebuilt++;

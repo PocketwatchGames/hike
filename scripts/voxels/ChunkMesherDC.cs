@@ -156,6 +156,7 @@ public static class ChunkMesherDC
 
     private static float BakeVertexSun(
         Func<int, int, int, VoxelType> getVoxel, Func<int, int, int, int> getSunlight,
+        Func<int, int, int, bool> getSunOpaque,
         Vector3 pos, Vector3 n, int cwX, int cwY, int cwZ)
     {
         float lit = 0f;
@@ -190,7 +191,13 @@ public static class ChunkMesherDC
                 int wx = cwX + Mathf.RoundToInt(sp.X);
                 int wy = cwY + Mathf.RoundToInt(sp.Y);
                 int wz = cwZ + Mathf.RoundToInt(sp.Z);
-                if (VoxelTypeInfo.IsSolid(getVoxel(wx, wy, wz)))
+                // Non-voxel solid cover (a roof) blocks the march exactly as a
+                // solid voxel does. Without it the ray walks straight through
+                // the roof — which is AIR to the voxel grid — into the lit sky
+                // above and overwrites `reach` with full sun, so the floor of a
+                // roofed room bakes as fully sky-exposed and cloud shadows drift
+                // across it indoors.
+                if (VoxelTypeInfo.IsSolid(getVoxel(wx, wy, wz)) || getSunOpaque(wx, wy, wz))
                 {
                     // Adjacent blocker (step 1) closes the direction entirely; one
                     // at the end of the march barely dims it.
@@ -325,6 +332,7 @@ public static class ChunkMesherDC
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
         Func<int, int, int, int> getSunlight,
+        Func<int, int, int, bool> getSunOpaque,
         Func<int, int, int, bool> chunkExists,
         SurfaceTool st,
         int chunkWorldX, int chunkWorldY, int chunkWorldZ,
@@ -545,6 +553,43 @@ public static class ChunkMesherDC
                     vy += latticeOffset;
                     vz += latticeOffset;
 
+                    // --- Edge roughness ---------------------------------------
+                    // Carve the vertex inward along the cell's coarse outward
+                    // normal by a hashed amount, so authored-straight materials
+                    // (stone walls) get an irregular silhouette instead of a
+                    // ruled line. See BlockData.edgeRoughness.
+                    //
+                    // The hash reads WORLD cell coords, never chunk-local ones:
+                    // two chunks independently compute the cell they share on
+                    // their boundary, and the whole no-seam property of this
+                    // mesher rests on them agreeing exactly.
+                    //
+                    // INWARD-only is a correctness constraint, not a look
+                    // choice. A sharp-snapped coord already sits ON its cell
+                    // boundary, so any outward push leaves the cell, and two
+                    // adjacent cells pushing toward each other invert the quad
+                    // between them. Carving toward the solid can't: the coord
+                    // moves off the boundary into the cell's interior.
+                    VoxelTypeInfo.EdgeRoughness rough = VoxelTypeInfo.GetEdgeRoughness(dominant);
+                    float roughAmount = rough.Amount * CVars.voxelEdgeRoughness.Value;
+                    if (roughAmount > 0f)
+                    {
+                        // Corner counts give the outward normal for free: a
+                        // majority of solid corners on the low side of an axis
+                        // means the air — and so the surface's facing — is on
+                        // the high side.
+                        var outward = new Vector3(lowX - highX, lowY - highY, lowZ - highZ);
+                        float outLen = outward.Length();
+                        if (outLen > 1e-5f)
+                        {
+                            outward /= outLen;
+                            float carve = Hash01(chunkWorldX + x, chunkWorldY + y, chunkWorldZ + z) * roughAmount;
+                            vx -= outward.X * carve;
+                            vy -= outward.Y * carve * rough.VerticalScale;
+                            vz -= outward.Z * carve;
+                        }
+                    }
+
                     // Snap apron-axis coord to the world boundary plane for
                     // cells on a world-edge apron row. -1 apron snaps to 1
                     // (cell-local +X of the cell, which lines up at world
@@ -683,7 +728,7 @@ public static class ChunkMesherDC
                     }
                     Vector3 sunPos = new Vector3(x, y, z) + cellVert[CellIdx(x), CellIdx(y), CellIdx(z)];
                     cellSun[CellIdx(x), CellIdx(y), CellIdx(z)] = BakeVertexSun(
-                        getVoxel, getSunlight, sunPos, cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)],
+                        getVoxel, getSunlight, getSunOpaque, sunPos, cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)],
                         chunkWorldX, chunkWorldY, chunkWorldZ);
                 }
             }
@@ -1245,6 +1290,24 @@ public static class ChunkMesherDC
         return x >= lo && x <= hi && y >= lo && y <= hi && z >= lo && z <= hi;
     }
 
+    // Deterministic per-cell hash in [0,1], driving edge roughness. An integer
+    // hash rather than a noise object on purpose: it is bit-identical for a
+    // given world cell no matter which chunk asks, which is what keeps the two
+    // chunks sharing a boundary cell from carving it to different depths.
+    private static float Hash01(int x, int y, int z)
+    {
+        unchecked
+        {
+            uint h = (uint)(x * 73856093) ^ (uint)(y * 19349663) ^ (uint)(z * 83492791);
+            h ^= h >> 16;
+            h *= 0x7feb352dU;
+            h ^= h >> 15;
+            h *= 0x846ca68bU;
+            h ^= h >> 16;
+            return h * (1f / uint.MaxValue);
+        }
+    }
+
     // Sharp-axis vertex placement, in cell-local coords before latticeOffset.
     // Corner sampling: the majority side, so the vertex lands on the voxel
     // boundary the dilated field implies. Centre sampling: always the cell
@@ -1532,25 +1595,20 @@ public static class ChunkMesherDC
                     if ((shape & VoxelTypeInfo.SharpAxes.Y) == 0) { anySoftY = true; }
                     if (dx < lo || dy < lo || dz < lo) { continue; }
                     sharpMask |= shape;
-                    if (!needMaterials) { continue; }
+                    // The dominant-type vote runs for the spare rings too,
+                    // because edge roughness reads it and roughness MOVES
+                    // geometry. A ring cell that skipped the vote would carve
+                    // differently here than the neighbouring chunk carves the
+                    // same world cell, and the two would disagree on the shared
+                    // vertex — a crack, not just a shading seam.
                     counts[(int)v]++;
+                    if (!needMaterials) { continue; }
                     terrainCounts[getTerrainId(cwX + x + dx, cwY + y + dy, cwZ + z + dz)]++;
                     int o = getOverlayId(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     if (o != 0) { overlayCounts[o]++; }
                 }
             }
         }
-        if (!needMaterials)
-        {
-            tile = 0;
-            TerrainId = 0;
-            overlayId = 0;
-            amp = 0f;
-            sharpness = 0f;
-            dominant = VoxelType.Air;
-            return;
-        }
-
         dominant = VoxelType.Air;
         int bestCount = 0;
         for (int i = 0; i < counts.Length; i++)
@@ -1561,6 +1619,17 @@ public static class ChunkMesherDC
                 dominant = (VoxelType)i;
             }
         }
+
+        if (!needMaterials)
+        {
+            tile = 0;
+            TerrainId = 0;
+            overlayId = 0;
+            amp = 0f;
+            sharpness = 0f;
+            return;
+        }
+
         TerrainId = 0;
         int bestTerrainCount = 0;
         for (int i = 0; i < terrainCounts.Length; i++)

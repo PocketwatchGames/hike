@@ -2179,8 +2179,13 @@ public partial class Player : CharacterBody3D
 		// MoveAndCollide so the lift stops at contact; raw teleport would clip
 		// the head through low ceilings (e.g. cave interiors) and block
 		// horizontal motion because MoveAndSlide then pushes back down.
+		//
+		// Only lift when the flat move is actually blocked — see IsFlatMoveBlocked.
+		// That test runs first because it short-circuits the step-up ray on the
+		// common unobstructed tick.
 		Vector3 posBeforeStep = GlobalPosition;
-		bool useStepUp = _grounded && _waterState != EWaterState.Swimming && CanStepUpAhead();
+		bool useStepUp = _grounded && _waterState != EWaterState.Swimming
+			&& IsFlatMoveBlocked(dt) && CanStepUpAhead();
 		if (useStepUp)
 		{
 			using var stepUpResult = MoveAndCollide(Vector3.Up * data.stepHeight);
@@ -2369,6 +2374,31 @@ public partial class Player : CharacterBody3D
 		UpdateAnimation();
 
 		UpdateHeldItemVisual();
+	}
+
+	// Gate for the per-tick step-up lift: is this tick's horizontal motion
+	// obstructed at the UNLIFTED position? The lift exists only to climb
+	// obstacles, so a tick with a clear path must not change the player's
+	// vertical extent. Lifting unconditionally put the capsule at
+	// stepHeight..stepHeight+capsuleHeight during MoveAndSlide, so walking into
+	// any opening shorter than that sum bounced off the lintel — a 2m voxel gap
+	// was impassable to a 1.5m capsule. MoveAndCollide caps the lift under a
+	// ceiling directly overhead, but not one that is still ahead of us.
+	//
+	// TestMove is a query — it never moves the body, so there is no rewind and
+	// nothing downstream (step-down, grounding, land sounds) has to change.
+	// Reach floors at stepProbeReach for the same reason the step-up ray does:
+	// one tick of travel is shorter than the recovery margin, and a wall has to
+	// be seen before we are flush against it.
+	private bool IsFlatMoveBlocked(float dt)
+	{
+		Vector3 dir = new(Velocity.X, 0f, Velocity.Z);
+		if (dir.LengthSquared() < 0.0001f)
+		{
+			return false;
+		}
+		float reach = Mathf.Max(dir.Length() * dt, data.stepProbeReach);
+		return TestMove(GlobalTransform, dir.Normalized() * reach);
 	}
 
 	// Gate for the per-tick step-up lift. The lift itself is blind geometry —

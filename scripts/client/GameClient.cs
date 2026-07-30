@@ -1895,6 +1895,16 @@ public partial class GameClient : Node3D
 		{
 			foreach (Node3D entity in entities)
 			{
+				// A roof cuts itself away in-shader and carries passes that MUST
+				// keep rendering once it does — a shadow proxy, and its cap-mask
+				// copy. Hiding the node takes those children down with it, so the
+				// shadow under the eaves vanishes the moment you step under the
+				// roof. Skipping it here costs nothing: its material discards
+				// above the clip anyway, which is what hides it.
+				if (entity is Roof)
+				{
+					continue;
+				}
 				entity.Visible = entity.GlobalPosition.Y < cameraClip;
 			}
 		}

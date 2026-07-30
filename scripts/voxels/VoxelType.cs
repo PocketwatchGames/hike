@@ -113,6 +113,44 @@ public static class VoxelTypeInfo
         return BlendNoise.TryGetValue(type, out float v) ? v : 0f;
     }
 
+    // Per-block geometric edge roughness, resolved once from the catalog and
+    // keyed by voxel type so the mesher's per-cell read is a dictionary hit
+    // rather than a catalog walk. Keyed off the SIDE tile: roughness is a
+    // property of the wall material, and Terrain's side is TILE_AUTO (no single
+    // block), which resolves to null and therefore to zero — natural terrain is
+    // already organic via the surface-nets path and must not be carved.
+    public readonly struct EdgeRoughness
+    {
+        public readonly float Amount;
+        public readonly float VerticalScale;
+
+        public EdgeRoughness(float amount, float verticalScale)
+        {
+            Amount = amount;
+            VerticalScale = verticalScale;
+        }
+    }
+
+    private static readonly Dictionary<VoxelType, EdgeRoughness> EdgeRoughnessByType = BuildEdgeRoughness();
+
+    private static Dictionary<VoxelType, EdgeRoughness> BuildEdgeRoughness()
+    {
+        var map = new Dictionary<VoxelType, EdgeRoughness>();
+        foreach (var pair in Tiles)
+        {
+            BlockData block = BlockCatalog.Active.GetByAtlasIndex(pair.Value.Side);
+            map[pair.Key] = block == null
+                ? new EdgeRoughness(0f, 0f)
+                : new EdgeRoughness(block.edgeRoughness, block.edgeRoughnessVerticalScale);
+        }
+        return map;
+    }
+
+    public static EdgeRoughness GetEdgeRoughness(VoxelType type)
+    {
+        return EdgeRoughnessByType.TryGetValue(type, out EdgeRoughness r) ? r : new EdgeRoughness(0f, 0f);
+    }
+
     // Representative "ground color" per voxel type, used to tint the bottom of
     // detail sprites so blades visually root into the surface they sit on.
     // Biased ~40% darker than the authored ground tones so the tint doubles

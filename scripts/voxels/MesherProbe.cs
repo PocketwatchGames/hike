@@ -319,7 +319,7 @@ public static class MesherProbe
         VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)),
-            (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => true,
+            (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace);
         if (!hasAnyFace) { return; }
 
@@ -404,7 +404,7 @@ public static class MesherProbe
         st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)),
-            (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => true,
+            (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace);
         if (!hasAnyFace) { GD.Print("[probe] tunnel sun: no faces"); return; }
 
@@ -457,7 +457,7 @@ public static class MesherProbe
         for (int i = 0; i < 4; i++) { st.SetCustomFormat(i, SurfaceTool.CustomFormat.RgbaFloat); }
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => VoxelTypeInfo.SharpAxes.Y,
-            (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => true,
+            (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace);
         if (!hasAnyFace) { GD.Print("[probe] cliff sun: no faces"); return; }
 
@@ -591,7 +591,7 @@ public static class MesherProbe
         st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), get, shape,
-            (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => true,
+            (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace);
         if (!hasAnyFace)
         {

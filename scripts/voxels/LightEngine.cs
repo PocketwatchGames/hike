@@ -523,6 +523,11 @@ public static class LightEngine
                 if (!world.IsInBounds(nx, ny, nz)) { continue; }
                 VoxelType v = world.GetVoxelWorld(nx, ny, nz);
                 if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v)) { continue; }
+                // Non-voxel solid cover (a roof) is a barrier to the flood as
+                // well as to the column scan. Without this the lit air directly
+                // above it spreads straight back down through it — one step, one
+                // level — and refills the room the column scan just darkened.
+                if (world.GetSunOpaqueWorld(nx, ny, nz)) { continue; }
 
                 int fogFalloff = (world.GetFogWorld(nx, ny, nz) * FOG_SUN_FALLOFF_255) / 255;
                 float stepped = currentLevel - FALLOFF_PER_VOXEL - VoxelTypeInfo.LightAttenuation(v) - fogFalloff;

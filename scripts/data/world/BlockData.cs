@@ -58,6 +58,25 @@ public partial class BlockData : Resource
     // resolve to Sand. New categories should append to EGroundType.
     [Export] public EGroundType groundType = EGroundType.Grass;
 
+    // Geometric edge roughness, in voxels. The DC mesher carves each surface
+    // vertex of this block INWARD along its outward normal by a hashed amount
+    // in [0, this]. 0 = the exact authored surface (ruler-straight walls);
+    // ~0.2 reads as roughly-hewn stone. Carving inward rather than displacing
+    // both ways is what keeps the mesh safe: the vertex can never leave its own
+    // DC cell, so quads can't invert against a neighbour's.
+    //
+    // Displacement lives on the 1-voxel lattice — one vertex per cell is all DC
+    // emits — so this breaks up the SILHOUETTE at metre scale. Sub-voxel surface
+    // detail is the normal/height atlas's job, not this.
+    [Export(PropertyHint.Range, "0,0.45,0.01")] public float edgeRoughness = 0f;
+
+    // Damping on the vertical component of that carve, so walkable surfaces
+    // don't get pitted collision. A floor/ceiling cell's normal is all-Y and
+    // scales to nearly nothing; a vertical wall face has no Y component to damp
+    // and is unaffected. Wall-top lips keep their full horizontal carve, which
+    // is where the silhouette break-up actually reads.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float edgeRoughnessVerticalScale = 0.35f;
+
     // Material scooped up when the player digs a bare hole in this block —
     // i.e. the shovel finds no buried spot or burrowed mob (see Sim.TryDig).
     // Marsh yields mud; most blocks leave this null (digging bare ground comes

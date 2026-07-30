@@ -132,6 +132,14 @@ public static class CVars
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
     });
 
+    // Global multiplier on every block's authored BlockData.edgeRoughness, for
+    // dialling the look in live. 0 disables the carve entirely and restores
+    // ruler-straight authored surfaces. Requeues every loaded chunk.
+    public static CVarFloat voxelEdgeRoughness = new CVarFloat("voxel_edge_roughness", 1f, (cvar) =>
+    {
+        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
+    });
+
     public static CVar mesherProbe = new CVar("mesher_probe", (cvar) => MesherProbe.Run());
     public static CVar mesherSweep = new CVar("mesher_sweep", (cvar) => MesherProbe.Sweep());
 

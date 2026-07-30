@@ -1525,10 +1525,19 @@ public partial class WorldEditor : Node3D
             return;
         }
         // The stamp is add-only with no way to subtract one roof, so the whole
-        // field is rebuilt. Cheap next to the relight, and it keeps foliage and
-        // roofs in one authoritative pass.
+        // field is rebuilt, then sunlight is recomputed outright rather than
+        // propagated incrementally: the incremental path keys off VOXEL changes,
+        // and marking a column opaque changes no voxel, so it would never darken
+        // what the roof now covers. Same pair Main runs on world load.
         FoliageStamper.Stamp(_worldState);
-        _world.UpdateLighting(cells);
+        LightEngine.ComputeSunlight(_worldState);
+        // Re-mesh as well as relight. Terrain takes its sun from a PER-VERTEX
+        // bake frozen into the chunk mesh (ChunkMesherDC.BakeVertexSun), not
+        // from the light volume — relighting alone updates props and volumetrics
+        // while the floor under the roof stays exactly as bright as it was.
+        var refresh = new EditorRefresh();
+        refresh.AddVoxels(cells);
+        refresh.Apply(_world);
     }
 
     private void CollectRoofSunCells(List<Vector3I> into)
@@ -1651,8 +1660,12 @@ public partial class WorldEditor : Node3D
             foreach (Node3D entity in entities)
             {
                 // CullProps hides everything above the clip plane; picking what
-                // you can't see would delete things off-screen.
-                if (!IsInstanceValid(entity) || !entity.Visible)
+                // you can't see would delete things off-screen. Roofs are exempt
+                // from that hide (they clip in-shader so their shadow survives),
+                // so they need the elevation test applied directly or a cut-away
+                // roof stays clickable.
+                if (!IsInstanceValid(entity) || !entity.Visible
+                    || entity.GlobalPosition.Y >= camera.Clip)
                 {
                     continue;
                 }
@@ -2135,6 +2148,12 @@ public partial class WorldEditor : Node3D
         {
             foreach (Node3D entity in entities)
             {
+                // See GameClient.CullProps: a roof clips itself in-shader and
+                // owns passes that have to survive the cutaway.
+                if (entity is Roof)
+                {
+                    continue;
+                }
                 entity.Visible = entity.GlobalPosition.Y < cameraClip;
             }
         }

@@ -8,4 +8,5 @@ blockName = &"Stone"
 minimapColor = Color(0.4608, 0.4608, 0.48, 1)
 isCliff = true
 porosity = 0.1
+edgeRoughness = 0.2
 groundType = 1
