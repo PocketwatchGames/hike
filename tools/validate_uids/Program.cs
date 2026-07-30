@@ -29,12 +29,17 @@ class Program
 	{
 		string repoRoot = ResolveRepoRoot(args);
 		bool fix = false;
+		bool mintHeaders = false;
 
 		foreach (string a in args)
 		{
 			if (a == "--fix")
 			{
 				fix = true;
+			}
+			else if (a == "--mint-headers")
+			{
+				mintHeaders = true;
 			}
 		}
 
@@ -48,7 +53,7 @@ class Program
 		var importUidByPath = ScanImportUids(repoRoot, issues);
 		var headerlessTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		var headerUidByPath = ScanResourceHeaders(repoRoot, headerlessTargets, issues);
-		MintHeaderUids(repoRoot, headerlessTargets, headerUidByPath, new[] { uidByPath, importUidByPath }, fix);
+		MintHeaderUids(repoRoot, headerlessTargets, headerUidByPath, new[] { uidByPath, importUidByPath }, fix && mintHeaders);
 		ValidateScriptSidecars(repoRoot, uidByPath, issues, fix);
 		ValidateUidUniqueness(new[] { uidByPath, importUidByPath, headerUidByPath }, issues);
 		ValidateSceneReferences(repoRoot, uidByPath, importUidByPath, headerUidByPath, headerlessTargets, issues, fix);
@@ -275,18 +280,20 @@ class Program
 		return headerUidByPath;
 	}
 
-	// A .tres/.tscn with no header uid AND no uid-bearing reference has no identity at
-	// all — nothing can be inferred, so mint one. Safe precisely because no reference
-	// carries an id yet: there is nothing to orphan. Once the header has a uid, the
-	// normal missing-uid= pass backfills it into every reference.
+	// A .tres/.tscn with no header uid and no uid-bearing reference has no identity to
+	// infer, so this mints one. OPT-IN (--mint-headers) and normally the wrong choice:
+	// a uid minted here is absent from Godot's registry, so every load logs
+	// "ext_resource, invalid UID ... using text path instead" until the GUI editor
+	// scans and registers it. Letting the editor mint them instead is atomic and
+	// warning-free. Measured on this repo: minting 145 headers added 257 warnings.
 	static void MintHeaderUids(
 		string repoRoot,
 		HashSet<string> headerlessTargets,
 		Dictionary<string, string> headerUidByPath,
 		IEnumerable<Dictionary<string, string>> otherSources,
-		bool fix)
+		bool mint)
 	{
-		if (!fix || headerlessTargets.Count == 0)
+		if (!mint || headerlessTargets.Count == 0)
 		{
 			return;
 		}
