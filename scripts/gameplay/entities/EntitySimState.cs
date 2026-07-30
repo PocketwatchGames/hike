@@ -10,12 +10,27 @@ public abstract class EntitySimState
     // Mutable so movers can sync their current position back before unload.
     // Non-movers leave it equal to the spawn position.
     public Vector3 WorldPosition;
+    // Y-axis facing, radians. Every entity carries one so the editor's rotate
+    // gizmo works on anything selectable; movers (mobs) also write their live
+    // facing back here before unload.
+    public float RotationY;
     public readonly PackedScene Scene;
 
     protected EntitySimState(Vector3 worldPosition, PackedScene scene)
     {
         WorldPosition = worldPosition;
         Scene = scene;
+    }
+
+    // Seats a freshly instantiated node on this state's transform. Call it in
+    // CreateEntity BEFORE AddChild — several entities read their transform in
+    // _Ready, so seating afterwards is too late. Only the Y rotation is
+    // written, so a scene root authored with an X/Z tilt keeps it.
+    public void SeatTransform(Node3D node)
+    {
+        node.Position = WorldPosition;
+        Vector3 rotation = node.Rotation;
+        node.Rotation = new Vector3(rotation.X, RotationY, rotation.Z);
     }
 
     // Returns null if this sim state should not materialize an entity right now

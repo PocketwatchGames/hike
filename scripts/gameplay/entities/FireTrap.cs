@@ -150,7 +150,7 @@ public partial class FireTrap : Node3D, IWorldEntity
     public static FireTrap Create(Sim sim, FireTrapSimState data)
     {
         var instance = data.Scene.Instantiate<FireTrap>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._simState = data;
         // Scale the fire damage + Burning potency to the trap's baked environment
         // tier, so a trap is as dangerous as the zone it sits in (and can't be

@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 45;
+    public const int WORLDGEN_VERSION = 48;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -515,6 +515,13 @@ public static class WorldGen
         // geometry is noise-free by construction.
         var heightMap = BuildHeightMap(ws, genData, noise.Terrain, noise.RampGate, noise.Elevation);
 
+        // Load the authored subscenes and reserve the ground they will cover.
+        // The stamp itself has to wait for finished terrain, but every content
+        // pass runs in between — and those place ENTITIES, which a later voxel
+        // stamp writes straight through, leaving rocks standing in the front
+        // room. Reserving here is what keeps them out.
+        var reservedSubscenes = LoadAndReserveSubscenes(genData, heightMap);
+
         // Resolve each authored POI name (ZoneData.PointsOfInterest) to a flat
         // column inside its zone and register it on WorldState. Runs on the bare
         // heightmap (terrain is "constructed" once BuildHeightMap is done); the
@@ -648,13 +655,11 @@ public static class WorldGen
         // (X, Z); otherwise the explicit Y is used verbatim.
         ws.Spawn = ResolveSpawn(genData, heightMap);
 
-        // Stamp authored subscenes (voxels + entities). Loads each
-        // `.hikescene` referenced from genData.Subscenes, computes a
-        // surface-following Y anchor over its footprint, and writes
-        // voxels into the world. Must run BEFORE ComputeSunlight so the
-        // bake sees the final geometry. Env overrides land in a second
-        // pass after the wind/envtag default bake (below).
-        var stampedSubscenes = StampAuthoredSubscenes(ws, genData);
+        // Stamp the subscenes reserved up front (voxels + entities), sitting
+        // each on the plateau level under its footprint. Must run BEFORE
+        // ComputeSunlight so the bake sees the final geometry. Env overrides
+        // land in a second pass after the wind/envtag default bake (below).
+        var stampedSubscenes = StampReservedSubscenes(ws, reservedSubscenes, heightMap);
 
         // Compute sunlight after all geometry exists.
         LightEngine.ComputeSunlight(ws);
@@ -1233,6 +1238,9 @@ public static class WorldGen
             for (int wx = worldMinX; wx <= worldMaxX; wx += RUIN_SCAN_STRIDE)
             {
                 if (!IsDryLand(wx, wz, heightMap)) { continue; }
+                // Reserved ground (a subscene footprint) — a ruin dropped on a
+                // building is the same mistake as a rock inside one.
+                if (heightMap.IsNoSpawn(wx, wz)) { continue; }
                 int domIdx = DominantZoneIndex(wx, wz, zones);
                 if (domIdx < 0) { continue; }
                 RuinsGenData ruins = zones[domIdx]?.ruins;
@@ -2118,12 +2126,16 @@ public static class WorldGen
         }
     }
 
-    private static List<(SubsceneState sub, Vector3 anchor)> StampAuthoredSubscenes(WorldState ws, WorldGenData genData)
+    // Load each `.hikescene` and mark every column its footprint covers as
+    // no-spawn, so the content passes that run before the stamp leave that
+    // ground alone. Loading here (not at stamp time) also means a bad path is
+    // reported before the expensive passes rather than after them.
+    private static List<(SubsceneState sub, SubscenePlacement placement)> LoadAndReserveSubscenes(WorldGenData genData, HeightMap heightMap)
     {
-        var stamped = new List<(SubsceneState, Vector3)>();
+        var loaded = new List<(SubsceneState, SubscenePlacement)>();
         if (genData.subscenes == null || genData.subscenes.Length == 0)
         {
-            return stamped;
+            return loaded;
         }
         foreach (SubscenePlacement placement in genData.subscenes)
         {
@@ -2141,11 +2153,120 @@ public static class WorldGen
                 GD.PrintErr($"WorldGen: subscene '{placement.path}' failed to load: {e.Message}");
                 continue;
             }
-            Vector3 anchor = SubsceneStamper.ComputeSurfaceAnchor(ws, sub, placement.anchorXZ);
+            Vector3I origin = FootprintOrigin(sub, placement);
+            for (int dx = 0; dx < sub.Size.X; dx++)
+            {
+                for (int dz = 0; dz < sub.Size.Z; dz++)
+                {
+                    heightMap.MarkNoSpawn(origin.X + dx, origin.Z + dz);
+                }
+            }
+            loaded.Add((sub, placement));
+        }
+        return loaded;
+    }
+
+    private static List<(SubsceneState sub, Vector3 anchor)> StampReservedSubscenes(
+        WorldState ws, List<(SubsceneState sub, SubscenePlacement placement)> reserved, HeightMap heightMap)
+    {
+        var stamped = new List<(SubsceneState, Vector3)>();
+        foreach ((SubsceneState sub, SubscenePlacement placement) in reserved)
+        {
+            Vector3I origin = FootprintOrigin(sub, placement);
+            int plateauY = FootprintPlateauY(heightMap, origin, sub.Size, out int levelCount);
+            // Anchored ON the plateau's top voxel, not above it: a scene carries
+            // its own floor, so its bottom layer replaces that voxel instead of
+            // stacking a second floor on top of the ground.
+            var anchor = new Vector3(placement.anchorXZ.X, plateauY, placement.anchorXZ.Y);
+            int entityCount = sub.Entities?.Count ?? 0;
+            int evicted = ClearEntitiesInVolume(ws, origin, anchor, sub.Size);
             SubsceneStamper.StampVoxels(ws, sub, anchor);
             stamped.Add((sub, anchor));
+            GD.Print($"[WorldGen] stamped subscene {placement.path.GetFile()} at {anchor} (size={sub.Size}, entities={entityCount}, evicted={evicted}, plateau levels under footprint={levelCount})");
         }
         return stamped;
+    }
+
+    // Remove anything already standing in the volume the stamp is about to
+    // fill. The stamp overwrites those voxels regardless, so an entity left
+    // inside ends up embedded in a wall or loose in a room it was never
+    // authored into.
+    //
+    // This is not just a backstop for the footprint reservation — it is the
+    // only mechanism that can work for the CAVE pass. No-spawn is a per-column
+    // channel, so it can keep surface content off the ground a building covers,
+    // but it cannot express "these five voxels of height are taken" without
+    // sterilising the whole column down to bedrock. The cave scan is
+    // volumetric, so a cave pocket that happens to sit inside the building's
+    // band is caught here instead.
+    private static int ClearEntitiesInVolume(WorldState ws, Vector3I origin, Vector3 anchor, Vector3I size)
+    {
+        int minY = Mathf.FloorToInt(anchor.Y);
+        var doomed = new List<EntitySimState>();
+        foreach (EntitySimState e in ws.AllChunkEntities())
+        {
+            Vector3 p = e.WorldPosition;
+            if (p.X >= origin.X && p.X < origin.X + size.X
+                && p.Z >= origin.Z && p.Z < origin.Z + size.Z
+                && p.Y >= minY && p.Y < minY + size.Y)
+            {
+                doomed.Add(e);
+            }
+        }
+        foreach (EntitySimState e in doomed)
+        {
+            ws.RemoveEntity(e);
+        }
+        return doomed.Count;
+    }
+
+    // World XZ of the footprint's min corner. Y is unused — the reservation is
+    // per column and the stamp resolves its own elevation.
+    private static Vector3I FootprintOrigin(SubsceneState sub, SubscenePlacement placement)
+    {
+        return new Vector3I(
+            Mathf.FloorToInt(placement.anchorXZ.X - sub.Anchor.X),
+            0,
+            Mathf.FloorToInt(placement.anchorXZ.Y - sub.Anchor.Z));
+    }
+
+    // The plateau level a subscene sits on: the most common Plateau height
+    // across its footprint, ties going to the lower one so the building cuts
+    // into the higher terrace instead of floating over the lower one (the stamp
+    // overwrites its whole bbox, so buried is self-correcting and floating is
+    // not). levelCount reports how many distinct levels the footprint spans —
+    // anything above 1 means it straddles a terrace edge and wants a nudge.
+    //
+    // Plateau, NOT Surface: cave carving breaches the ground on ~10% of columns
+    // and drops Surface tens of voxels below the terrain beside it, which drags
+    // a footprint average down and sinks the building into the intact ground
+    // around the hole. Plateau is the authored terrain level; carving never
+    // moves it, and ramps don't tilt it.
+    private static int FootprintPlateauY(HeightMap heightMap, Vector3I origin, Vector3I size, out int levelCount)
+    {
+        var counts = new Dictionary<int, int>();
+        for (int dx = 0; dx < size.X; dx++)
+        {
+            for (int dz = 0; dz < size.Z; dz++)
+            {
+                int plateau = heightMap.GetPlateau(origin.X + dx, origin.Z + dz);
+                counts.TryGetValue(plateau, out int seen);
+                counts[plateau] = seen + 1;
+            }
+        }
+
+        levelCount = counts.Count;
+        int best = 0;
+        int bestCount = -1;
+        foreach (KeyValuePair<int, int> level in counts)
+        {
+            if (level.Value > bestCount || (level.Value == bestCount && level.Key < best))
+            {
+                best = level.Key;
+                bestCount = level.Value;
+            }
+        }
+        return best;
     }
 
     private static void ApplySubsceneEnvOverrides(WorldState ws, List<(SubsceneState sub, Vector3 anchor)> stamped)
@@ -2787,19 +2908,34 @@ public static class WorldGen
             NoSpawn[wx - WorldMinX, wz - WorldMinZ] = true;
         }
 
+        // The three column accessors CLAMP to the map's edge rather than
+        // throwing. Placement passes legitimately sample a disc around an
+        // anchor — a ruin site, a fixture scatter, a subscene footprint — and a
+        // site found at the world edge overhangs it, so "the nearest column" is
+        // the right answer and an IndexOutOfRangeException that kills the whole
+        // generate is not. IsNoSpawn / MarkNoSpawn already guard the same way.
         public int GetHeight(int wx, int wz)
         {
+            ClampToMap(ref wx, ref wz);
             return Height[wx - WorldMinX, wz - WorldMinZ];
         }
 
         public int GetSurface(int wx, int wz)
         {
+            ClampToMap(ref wx, ref wz);
             return Surface[wx - WorldMinX, wz - WorldMinZ];
         }
 
         public int GetPlateau(int wx, int wz)
         {
+            ClampToMap(ref wx, ref wz);
             return Plateau[wx - WorldMinX, wz - WorldMinZ];
+        }
+
+        private void ClampToMap(ref int wx, ref int wz)
+        {
+            wx = Math.Clamp(wx, WorldMinX, WorldMaxX);
+            wz = Math.Clamp(wz, WorldMinZ, WorldMaxZ);
         }
 
         public bool IsRamp(int wx, int wz)
@@ -4208,6 +4344,14 @@ public static class WorldGen
         bool IsGrassyAt(int wx, int wz)
         {
             if (!IsFlatDryGrassAt(wx, wz, heightMap))
+            {
+                return false;
+            }
+            // Ground something has claimed — ruin stonework, or a subscene
+            // footprint reserved before this pass ran. Ruins are also excluded
+            // by the solid-voxel test below (their masonry already stands),
+            // but a subscene is stamped after this, so nothing else would.
+            if (heightMap.IsNoSpawn(wx, wz))
             {
                 return false;
             }

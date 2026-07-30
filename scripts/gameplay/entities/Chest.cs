@@ -145,7 +145,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     public static Chest Create(Sim sim, ChestSimState data)
     {
         var instance = data.Scene.Instantiate<Chest>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._interactiveState = data;
         instance._world = sim;
         sim.AddChild(instance);

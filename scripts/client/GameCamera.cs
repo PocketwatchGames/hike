@@ -232,6 +232,8 @@ public partial class GameCamera : Camera3D
 
 	public float Clip => _clip;
 	public float Yaw => _yaw;
+	// True while a Q/E yaw tween is still easing toward its target.
+	public bool IsRotating => _rotating;
 	// True whenever the camera is clipping the world above the player —
 	// either an auto-detected ceiling raycast hit between player and camera
 	// or `_clipAlways` forcing the next-plateau cutaway. Read by the minimap
@@ -569,9 +571,15 @@ public partial class GameCamera : Camera3D
 			Mathf.DegToRad(freeLookPitchMaxDegrees));
 	}
 
-	public void UpdateCamera(double deltaTime, Vector3 playerPosition, float followTime)
+	// tickRotation: false for a caller that already advanced the yaw tween itself
+	// this frame (the world editor, which has to know the final yaw before it can
+	// place the framing anchor it passes in here).
+	public void UpdateCamera(double deltaTime, Vector3 playerPosition, float followTime, bool tickRotation = true)
 	{
-		TickRotation((float)deltaTime);
+		if (tickRotation)
+		{
+			TickRotation((float)deltaTime);
+		}
 
 		Vector3 target = GetFollowTarget(playerPosition);
 		if (!_followInitialized)

@@ -113,7 +113,7 @@ public partial class Trap : Node3D, IInteractive, IWorldEntity
     public static Trap Create(Sim sim, TrapSimState data)
     {
         var instance = data.Scene.Instantiate<Trap>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._simState = data;
         instance._world = sim;
         instance._disarmed = data.Disarmed;

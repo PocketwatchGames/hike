@@ -358,7 +358,15 @@ public partial class Main : Node
 		}
 		if (task.IsFaulted)
 		{
-			throw task.Exception?.GetBaseException() ?? new Exception("background task failed");
+			Exception inner = task.Exception?.GetBaseException();
+			if (inner == null)
+			{
+				throw new Exception("background task failed");
+			}
+			// Rethrow via ExceptionDispatchInfo, not `throw inner` — the latter
+			// resets the stack trace to this line and loses every frame inside
+			// the worker, which is the only part worth reading.
+			System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(inner).Throw();
 		}
 		return task.Result;
 	}
@@ -397,16 +405,20 @@ public partial class Main : Node
 		return worldState;
 	}
 
-	// worldFilePath is the menu's picked world (or a fresh unused path for a
-	// new world). It becomes `world_file`, which is what the editor's save
-	// writes back to.
-	void StartEditor(WorldGenData worldGenData, string worldFilePath)
+	// documentPath is what the menu picked, or a fresh unused path it minted for
+	// a new document. Its extension decides what the editor is editing — a
+	// `.hikescene` opens as a scene, anything else as a world — so the two
+	// document kinds need no separate signal.
+	void StartEditor(WorldGenData worldGenData, string documentPath)
 	{
 		_currentScreen.QueueFree();
 
-		if (!string.IsNullOrEmpty(worldFilePath))
+		bool isScene = WorldEditor.KindForPath(documentPath) == EEditorDocumentKind.Scene;
+		if (!string.IsNullOrEmpty(documentPath) && !isScene)
 		{
-			CVars.worldFile.Value = worldFilePath;
+			// world_file means "the world the game loads" — a scene document
+			// must not claim it.
+			CVars.worldFile.Value = documentPath;
 		}
 
 		// Same palette bind StartGame does. The editor needs it too: VoxelType
@@ -420,28 +432,31 @@ public partial class Main : Node
 
 		var editor = editorScene.Instantiate<WorldEditor>();
 
-		string osPath = ProjectSettings.GlobalizePath(worldFilePath);
+		string osPath = ProjectSettings.GlobalizePath(documentPath);
 		WorldState worldState;
-		if (!string.IsNullOrEmpty(worldFilePath) && System.IO.File.Exists(osPath))
+		bool includeEnv = false;
+		if (!string.IsNullOrEmpty(documentPath) && System.IO.File.Exists(osPath))
 		{
 			try
 			{
-				worldState = LoadWorldFromFile(worldFilePath);
+				worldState = isScene
+					? editor.CreateSubsceneWorld(worldGenData, documentPath, out includeEnv)
+					: LoadWorldFromFile(documentPath);
 			}
 			catch (System.Exception e)
 			{
-				GD.PrintErr($"[Editor] Failed to load world file, falling back to an empty world: {e.Message}");
-				worldState = WorldEditor.CreateEmptyWorld(worldGenData);
+				GD.PrintErr($"[Editor] Failed to load '{documentPath}', falling back to an empty world: {e.Message}");
+				worldState = editor.CreateEmptyWorld(worldGenData);
 			}
 		}
 		else
 		{
-			worldState = WorldEditor.CreateEmptyWorld(worldGenData);
+			worldState = editor.CreateEmptyWorld(worldGenData);
 		}
 
 		_currentScreen = editor;
 		AddChild(editor);
-		editor.Init(worldState);
+		editor.Init(worldState, documentPath, includeEnv);
 		editor.onQuitToMenu += () =>
 		{
 			_currentScreen.QueueFree();

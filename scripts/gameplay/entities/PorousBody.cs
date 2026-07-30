@@ -18,6 +18,15 @@ using Godot;
 [GlobalClass]
 public partial class PorousBody : StaticBody3D
 {
+    // Whether a walker may STEP UP onto this collider. Off by default: the
+    // step-up lift is purely geometric, so without this every prop shorter
+    // than the walker's step height (beds, tables, chests) becomes a staircase.
+    // Turn it on for props meant to be walked over — a low threshold, a
+    // boardwalk plank, a fallen log. Jumping on top is unaffected either way;
+    // this only gates the automatic lift. Per-collider rather than per-prop so
+    // a prop can have a steppable base and a blocking top.
+    [Export] public bool steppable;
+
     public override void _Ready()
     {
         CollisionLayer = (uint)ECollisionLayer.Porous;

@@ -32,6 +32,7 @@ public static class EntitySerializer
         Fountain = 19,
         ForageSpawner = 20,
         SafetyZone = 21,
+        Roof = 22,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -183,7 +184,12 @@ public static class EntitySerializer
 
     // `shared` is the container's table when the list was written under
     // BeginSharedWrite; null means the list carries its own.
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null)
+    //
+    // `hasRotation` false reads a list written before RotationY became a common
+    // trailing field — the only such files left are pre-v3 subscenes, which load
+    // with every entity at zero facing. Containers that bumped their version in
+    // lockstep never pass it.
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true)
     {
         ReadPathTable outer = _readPaths;
         _readPaths = shared ?? ReadTable(r);
@@ -193,7 +199,7 @@ public static class EntitySerializer
             var list = new List<EntitySimState>((int)count);
             for (uint i = 0; i < count; i++)
             {
-                list.Add(ReadOne(r));
+                list.Add(hasRotation ? ReadOne(r) : ReadPayload(r));
             }
             return list;
         }
@@ -203,7 +209,17 @@ public static class EntitySerializer
         }
     }
 
+    // Tag + per-kind payload, then RotationY as a common trailing field — every
+    // entity carries a facing now, so writing it once here beats threading it
+    // through 21 payloads. Trailing rather than leading because the payload is
+    // what constructs the state; ReadOne assigns the rotation afterwards.
     private static void WriteOne(BinaryWriter w, EntitySimState e)
+    {
+        WritePayload(w, e);
+        w.Write(e.RotationY);
+    }
+
+    private static void WritePayload(BinaryWriter w, EntitySimState e)
     {
         switch (e)
         {
@@ -216,7 +232,6 @@ public static class EntitySerializer
                 // Foliage never pick up; write false to keep the wire shape
                 // unchanged so existing .hike files keep loading.
                 w.Write(false);
-                w.Write(prop.RotationY);
                 break;
 
             case LootSimState loot:
@@ -236,7 +251,6 @@ public static class EntitySerializer
                 // MobData. Adding this field changed the Mob wire layout — old
                 // .hike files predating it must be re-exported.
                 WriteResource(w, mob.Species);
-                w.Write(mob.RotationY);
                 WriteVec3(w, mob.SpawnPosition);
                 w.Write(mob.SpawnRotationY);
                 w.Write(mob.Alive);
@@ -362,7 +376,6 @@ public static class EntitySerializer
                 w.Write((byte)Tag.Door);
                 WriteVec3(w, door.WorldPosition);
                 WriteScene(w, door.Scene);
-                w.Write(door.RotationY);
                 w.Write(door.Active);
                 break;
 
@@ -370,7 +383,6 @@ public static class EntitySerializer
                 w.Write((byte)Tag.Boat);
                 WriteVec3(w, boat.WorldPosition);
                 WriteScene(w, boat.Scene);
-                w.Write(boat.RotationY);
                 break;
 
             case CampfireSimState campfire:
@@ -535,12 +547,39 @@ public static class EntitySerializer
                 WriteScene(w, safety.Scene);
                 break;
 
+            // No scene ref: a roof has no authored mesh, only a style to skin
+            // the geometry rebuilt from these dimensions at spawn.
+            case RoofSimState roof:
+                w.Write((byte)Tag.Roof);
+                WriteVec3(w, roof.WorldPosition);
+                WriteResource(w, roof.Style);
+                w.Write(roof.SizeX);
+                w.Write(roof.SizeZ);
+                w.Write((byte)roof.SeamAxis);
+                w.Write(roof.SlopeDegrees);
+                break;
+
             default:
                 throw new InvalidOperationException($"EntitySerializer has no writer for {e.GetType().Name}");
         }
     }
 
+    // Mirrors WriteOne: payload first, then the common trailing rotation. It has
+    // to be assigned after the payload because the payload is what constructs
+    // the state. A payload that returns null (an unknown tag) still consumes it,
+    // so the stream stays aligned.
     private static EntitySimState ReadOne(BinaryReader r)
+    {
+        EntitySimState state = ReadPayload(r);
+        float rotationY = r.ReadSingle();
+        if (state != null)
+        {
+            state.RotationY = rotationY;
+        }
+        return state;
+    }
+
+    private static EntitySimState ReadPayload(BinaryReader r)
     {
         var tag = (Tag)r.ReadByte();
         switch (tag)
@@ -551,7 +590,6 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 byte typeByte = r.ReadByte();
                 bool pickedUp = r.ReadBoolean();
-                float rotationY = r.ReadSingle();
                 // Legacy migration: pre-split PropSimState covered loot too.
                 // Old world files with the retired AutoLoot/Loot PropType
                 // bytes are upgraded to LootSimState on read; new code only
@@ -565,7 +603,7 @@ public static class EntitySerializer
                     loot.PickedUp = pickedUp;
                     return loot;
                 }
-                return new PropSimState((PropType)typeByte, pos, scene) { RotationY = rotationY };
+                return new PropSimState((PropType)typeByte, pos, scene);
             }
             case Tag.Loot:
             {
@@ -582,7 +620,6 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 var mobData = ReadResource<MobData>(r);
                 var species = ReadResource<SpeciesData>(r);
-                float rotationY = r.ReadSingle();
                 Vector3 spawnPos = ReadVec3(r);
                 float spawnRotationY = r.ReadSingle();
                 bool alive = r.ReadBoolean();
@@ -665,7 +702,9 @@ public static class EntitySerializer
                 string idleAnimation = r.ReadString();
                 var recruitTemplate = ReadResource<PlayerState>(r);
 
-                var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
+                // Live facing arrives in the common trailing field (ReadOne
+                // assigns it); only the authored spawn facing is in the payload.
+                var mob = new MobSimState(pos, rotationY: 0f, spawnPos, spawnRotationY, scene, mobData);
                 mob.Species = species;
                 mob.RestoredFromSave = true;
                 mob.Language = language;
@@ -715,9 +754,8 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                float rotationY = r.ReadSingle();
                 bool active = r.ReadBoolean();
-                var door = new DoorSimState(pos, rotationY, scene);
+                var door = new DoorSimState(pos, rotationY: 0f, scene);
                 door.Active = active;
                 return door;
             }
@@ -725,8 +763,7 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                float rotationY = r.ReadSingle();
-                return new BoatSimState(pos, rotationY, scene);
+                return new BoatSimState(pos, rotationY: 0f, scene);
             }
             case Tag.Torch:
             {
@@ -906,6 +943,16 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 return new SafetyZoneSimState(pos, scene);
+            }
+            case Tag.Roof:
+            {
+                Vector3 pos = ReadVec3(r);
+                var style = ReadResource<RoofStyleData>(r);
+                float sizeX = r.ReadSingle();
+                float sizeZ = r.ReadSingle();
+                var seamAxis = (ERoofSeamAxis)r.ReadByte();
+                float slopeDegrees = r.ReadSingle();
+                return new RoofSimState(pos, style, sizeX, sizeZ, seamAxis, slopeDegrees);
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

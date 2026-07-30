@@ -566,6 +566,19 @@ public partial class ChunkManager : Node3D
         }
     }
 
+    // Requeue the mesh of each named chunk. Coords that aren't resident are
+    // skipped — they re-mesh from current voxel state when they stream in.
+    public void RebuildChunkMeshes(IEnumerable<Vector3I> coords)
+    {
+        foreach (Vector3I coord in coords)
+        {
+            if (_loadedChunks.ContainsKey(coord))
+            {
+                _meshRebuildQueue.Enqueue(coord);
+            }
+        }
+    }
+
     // Requeue every loaded chunk. For cvars that change mesh geometry globally
     // (voxel_center_sampling). The queue is rate-limited per frame, so a large
     // resident world trickles in over several seconds rather than hitching.

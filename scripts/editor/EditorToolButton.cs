@@ -7,11 +7,15 @@ public readonly struct EditorBrushEntry
 {
     public readonly string Name;
     public readonly Texture2D Icon;
+    // Which entity palette tab the button belongs in. Ignored by voxel brushes,
+    // which all share one grid.
+    public readonly EEditorEntityTab Tab;
 
-    public EditorBrushEntry(string name, Texture2D icon)
+    public EditorBrushEntry(string name, Texture2D icon, EEditorEntityTab tab = EEditorEntityTab.Interactives)
     {
         Name = name;
         Icon = icon;
+        Tab = tab;
     }
 }
 

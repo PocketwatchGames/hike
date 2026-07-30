@@ -185,8 +185,7 @@ public partial class Boat : RideableVehicle
     public static Boat Create(Sim sim, BoatSimState data)
     {
         var instance = data.Scene.Instantiate<Boat>();
-        instance.Position = data.WorldPosition;
-        instance.RotationDegrees = new Vector3(0f, Mathf.RadToDeg(data.RotationY), 0f);
+        data.SeatTransform(instance);
         instance._world = sim;
         sim.AddChild(instance);
         return instance;

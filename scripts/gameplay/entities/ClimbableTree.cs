@@ -119,7 +119,7 @@ public partial class ClimbableTree : Node3D, IInteractive, IWorldEntity
     public static ClimbableTree Create(Sim sim, ClimbableTreeSimState data)
     {
         var instance = data.Scene.Instantiate<ClimbableTree>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         sim.AddChild(instance);
         return instance;
     }

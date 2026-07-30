@@ -2,21 +2,20 @@
 
 [ext_resource type="Script" uid="uid://dq8w0kn7p4mr3" path="res://scripts/gameplay/entities/Campfire.cs" id="1_5bkwe"]
 [ext_resource type="PackedScene" uid="uid://dfs3p6y8yc688" path="res://scenes/fx/campfire_light.tscn" id="2_q0pgg"]
-[ext_resource type="PackedScene" uid="uid://x7ea3vvpf6prw" path="res://scenes/fx/campfire_extinguish.tscn" id="3_qk6wi"]
+[ext_resource type="PackedScene" uid="uid://0w2kkd61yg8c" path="res://scenes/fx/campfire_extinguish.tscn" id="3_qk6wi"]
 [ext_resource type="PackedScene" uid="uid://cetqhlokr0mrc" path="res://scenes/fx/campfire_loop.tscn" id="4_4nu01"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="5_yf2vb"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="6_naflh"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_xn81r"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_vs5lw"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_e7drt"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="9_5ijcj"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="9_at2wd"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="10_qk6wi"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_continuous"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="14_3pg55"]
 [ext_resource type="Script" uid="uid://bnwcak8yxdu2q" path="res://scripts/gameplay/WarmthZone.cs" id="17_warmth"]
-[ext_resource type="Script" uid="uid://cfl7jgnj40oc6" path="res://scripts/gameplay/SafetyZone.cs" id="33_safety"]
 [ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="20_light"]
-[ext_resource type="Texture2D" uid="uid://ba2akoi7qnnje" path="res://assets/textures/interactions/sleep.png" id="30_sleep"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="21_burning"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_buildup"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="23_meshhl"]
@@ -25,10 +24,12 @@
 [ext_resource type="Material" uid="uid://cwfk2p8nxe7lq" path="res://assets/models/campfire/campfire_lit.tres" id="26_lit"]
 [ext_resource type="Material" uid="uid://bq7n0wkx2mhd5" path="res://assets/models/campfire/campfire_doused.tres" id="27_doused"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="28_xray"]
-[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
-[ext_resource type="Script" uid="uid://b7kq3xn2v9wdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="29_nodanger"]
-[ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="31_mapmarker"]
+[ext_resource type="Script" uid="uid://b7kq3xn2wawdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="29_nodanger"]
+[ext_resource type="Texture2D" uid="uid://ba2akoi7qnnje" path="res://assets/textures/interactions/sleep.png" id="30_sleep"]
+[ext_resource type="Script" uid="uid://desad1mdwnbo3" path="res://scripts/gameplay/entities/MapMarker.cs" id="31_mapmarker"]
 [ext_resource type="Texture2D" uid="uid://c4e77bjjtnm2l" path="res://assets/textures/map_markers/campfire.png" id="32_mapicon"]
+[ext_resource type="Script" uid="uid://cfl7jgnj40oc6" path="res://scripts/gameplay/SafetyZone.cs" id="33_safety"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw30e" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("6_xn81r")
@@ -58,7 +59,7 @@ requirements = Array[ExtResource("8_e7drt")]([SubResource("Resource_campfire_nod
 radius = 1.0
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_qk6wi"]
-radius = 2.2
+radius = 2.0
 
 [sub_resource type="Resource" id="Resource_campfire_burning_buildup"]
 script = ExtResource("22_buildup")
@@ -71,7 +72,7 @@ healthDamage = 10.0
 buildups = Array[ExtResource("22_buildup")]([SubResource("Resource_campfire_burning_buildup")])
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_q0pgg"]
-radius = 0.75
+radius = 0.65
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_warmth"]
 radius = 5.0
@@ -142,7 +143,7 @@ metadata/_custom_type_script = "uid://cfl7jgnj40oc6"
 shape = SubResource("SphereShape3D_safety")
 
 [node name="Model" type="Node3D" parent="." unique_id=1042645394]
-transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
 
 [node name="SM_Prop_Camp_Fireplace_Stones_01" parent="Model" unique_id=540536945 instance=ExtResource("24_stones")]
 
@@ -167,10 +168,10 @@ _collectFrom = NodePath("../Model")
 script = ExtResource("28_xray")
 _meshRoots = [NodePath("../Model")]
 
-[node name="MapMarker" type="Node3D" parent="."]
+[node name="MapMarker" type="Node3D" parent="." unique_id=1645346268]
 script = ExtResource("31_mapmarker")
-displayName = &"Campfire"
 icon = ExtResource("32_mapicon")
+displayName = &"Campfire"
 hasActiveState = true
 iconModulate = Color(0.6, 0.6, 0.6, 1)
 activeModulate = Color(1, 0.62, 0.22, 1)

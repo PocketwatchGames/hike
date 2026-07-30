@@ -16,6 +16,23 @@ public partial class Sim
         );
     }
 
+    // Voxel-space overload, kept integer so it stays exact at large world
+    // coordinates where float division would round.
+    public static Vector3I WorldToChunkCoord(Vector3I voxel)
+    {
+        return new Vector3I(
+            FloorDiv(voxel.X, ChunkState.SIZE),
+            FloorDiv(voxel.Y, ChunkState.SIZE),
+            FloorDiv(voxel.Z, ChunkState.SIZE)
+        );
+    }
+
+    private static int FloorDiv(int a, int b)
+    {
+        int q = a / b;
+        return (a % b != 0 && (a < 0) != (b < 0)) ? q - 1 : q;
+    }
+
     public bool IsSpawnChunkReady(Vector3 spawnPosition)
     {
         return _chunkManager.IsSpawnChunkReady(spawnPosition);
@@ -68,5 +85,13 @@ public partial class Sim
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)
     {
         _chunkManager.RebuildNearbyChunkMeshes(worldPos, changedPositions);
+    }
+
+    // Requeue specific chunks. For edits whose extent is known but not centred
+    // on anything — an editor fill or its undo can easily outgrow the 3x3x3
+    // neighbourhood RebuildNearbyChunkMeshes covers.
+    public void RebuildChunkMeshes(IEnumerable<Vector3I> chunkCoords)
+    {
+        _chunkManager.RebuildChunkMeshes(chunkCoords);
     }
 }

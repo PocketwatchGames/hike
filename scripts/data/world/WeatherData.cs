@@ -88,4 +88,24 @@ public partial class WeatherData : Resource
     // simulated wind / elevation / humidity / rain. Downstream
     // WeatherDerivation reads this current value.
     public float dustAmount = 0.1f;
+
+    // Overwrite this instance's AUTHORED channels from `src`. The simulation
+    // outputs (dustAmount, destinationLightningAmount) are deliberately not
+    // copied — they don't exist on an authored preset, so the caller owns
+    // them. Used to force a working copy to a fixed forecast instead of the
+    // zone blend; ZoneBlend.BlendWeather covers the same field set.
+    public void CopyFrom(WeatherData src)
+    {
+        if (src == null)
+        {
+            return;
+        }
+        cloudCover = src.cloudCover;
+        windSpeed = src.windSpeed;
+        airTemperature = src.airTemperature;
+        sunTemperature = src.sunTemperature;
+        humidity = src.humidity;
+        rainAmount = src.rainAmount;
+        lightningAmount = src.lightningAmount;
+    }
 }

@@ -128,7 +128,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     public static BerryTree Create(Sim sim, BerryTreeSimState data)
     {
         var instance = data.Scene.Instantiate<BerryTree>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._interactiveState = data;
         instance._world = sim;
         sim.AddChild(instance);

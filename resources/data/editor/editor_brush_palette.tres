@@ -14,7 +14,9 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="11_goblin"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun/kun_kun.tres" id="12_kunkun"]
 [ext_resource type="Resource" uid="uid://bfhjbpklk11v1" path="res://resources/data/world_gen/terrain_gen/forest_kit.tres" id="13_terrainkit"]
-[ext_resource type="Resource" uid="uid://vyqr6dvnlp98a" path="res://resources/data/props/prop_library.tres" id="14_proplibrary"]
+[ext_resource type="Resource" uid="uid://cnpf73berpwgg" path="res://resources/data/props/prop_library.tres" id="14_proplibrary"]
+[ext_resource type="Resource" uid="uid://b1ee1ch87plrm" path="res://resources/data/weather/weather_clear.tres" id="15_weather_clear"]
+[ext_resource type="Resource" uid="uid://dg6i16eia6jvl" path="res://resources/data/roofs/roof_library.tres" id="16_rooflibrary"]
 
 [sub_resource type="Resource" id="ChestLoot_potion"]
 script = ExtResource("7_itemcountrange")
@@ -31,6 +33,7 @@ script = ExtResource("1_palette")
 terrainBrushKit = ExtResource("13_terrainkit")
 atlasManifestPath = "res://resources/data/blocks/voxel_atlas_manifest.tres"
 propLibrary = ExtResource("14_proplibrary")
+roofLibrary = ExtResource("16_rooflibrary")
 doorScene = ExtResource("2_door")
 spikeTrapScene = ExtResource("3_spiketrap")
 climbableTreeScene = ExtResource("4_climbtree")
@@ -40,4 +43,5 @@ chestLoot = [SubResource("ChestLoot_potion")]
 lootItem = SubResource("LootItem_mushroom")
 goblinMob = ExtResource("11_goblin")
 kunKunMob = ExtResource("12_kunkun")
+weatherPresets = [ExtResource("15_weather_clear")]
 metadata/_custom_type_script = "uid://bvswblqkqx1yl"

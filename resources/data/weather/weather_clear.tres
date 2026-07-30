@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeatherData" format=3 uid="uid://b1ee1ch87plrm"]
+
+[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="1_weather"]
+
+[resource]
+script = ExtResource("1_weather")
+resource_name = "Clear"
+cloudCover = 0.0
+windSpeed = 2.0
+humidity = 0.0
+rainAmount = 0.0
+lightningAmount = 0.0
+metadata/_custom_type_script = "uid://d25sc6n2mi728"

@@ -87,8 +87,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     public static Door Create(Sim sim, DoorSimState data)
     {
         var instance = data.Scene.Instantiate<Door>();
-        instance.Position = data.WorldPosition;
-        instance.RotationDegrees = new Vector3(0, Mathf.RadToDeg(data.RotationY), 0);
+        data.SeatTransform(instance);
         instance._interactiveState = data;
         instance._worldData = sim.WorldState;
         instance._world = sim;

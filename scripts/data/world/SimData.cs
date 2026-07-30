@@ -1200,6 +1200,22 @@ public partial class SimData : Resource
     // outlast a deep one anyway.
     [Export] public float footprintDurationSeconds = 15f;
 
+    [ExportGroup("Roofs")]
+    // Cap-mask material every generated roof renders a second copy of itself
+    // with, on GameCamera.CapMaskLayer (cap_mask_prop.tres). Shared, not
+    // per-style: it writes a flat black "geometry covers this pixel" mask and
+    // never shows on screen. Without it a roof is invisible wherever no terrain
+    // sits behind it — the mask viewport's white clear means "cap here", so the
+    // cap plane paints straight over it. Null = skip the pass.
+    [Export] public Material roofCapMaskMaterial;
+    // Non-clipping shadow proxy material, shared with voxel terrain
+    // (voxel_shadow_caster.gdshader via roof_shadow_caster.tres). A roof's
+    // visible material DISCARDS above the cutaway, and Godot runs fragment()
+    // in the shadow pass too — so without a proxy a roof stops casting the
+    // moment it cuts away, and the interior it just revealed floods with sun.
+    // Same failure voxel terrain solves the same way. Null = skip the pass.
+    [Export] public Material roofShadowCasterMaterial;
+
     [ExportGroup("Grounding Shadows")]
     // Shared material for the batched grounding-shadow blobs (GroundShadowScatter
     // uploads one MultiMesh instance per shadow-caster — the player plus every

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="RoofLibraryData" load_steps=4 format=3 uid="uid://dg6i16eia6jvl"]
+
+[ext_resource type="Script" uid="uid://kkdd4vj64syx" path="res://scripts/data/props/RoofLibraryData.cs" id="1_lib"]
+[ext_resource type="Resource" uid="uid://bun2d7ceigicv" path="res://resources/data/roofs/roof_wood_shakes.tres" id="2_wood"]
+[ext_resource type="Resource" uid="uid://dht57ebthxgod" path="res://resources/data/roofs/roof_slate.tres" id="3_slate"]
+
+[resource]
+script = ExtResource("1_lib")
+styles = [ExtResource("2_wood"), ExtResource("3_slate")]
+metadata/_custom_type_script = "uid://kkdd4vj64syx"

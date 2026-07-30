@@ -5,21 +5,21 @@
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="4_mobhud"]
 [ext_resource type="PackedScene" uid="uid://cgihjbbk73uss" path="res://assets/models/characters/polysplit/BasicHero_M.fbx" id="5_herofbx"]
-[ext_resource type="AnimationLibrary" path="res://assets/models/characters/polysplit/human_anims.res" id="6_heroanims"]
+[ext_resource type="AnimationLibrary" uid="uid://bths24wkpklau" path="res://assets/models/characters/polysplit/human_anims.res" id="6_heroanims"]
 [ext_resource type="Material" uid="uid://bxk7m2n4qwp3d" path="res://resources/materials/model_lit_character_body.tres" id="7_heromat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="8_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="9_pixelsnap"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
 [ext_resource type="Resource" uid="uid://cx7ub2sgi3fui" path="res://resources/data/characters/human/friendly_villager_voice.tres" id="11_voice"]
 [ext_resource type="Material" uid="uid://nsghx0dy6spm" path="res://resources/materials/model_lit_face_cutout.tres" id="12_facemat"]
-[ext_resource type="Script" uid="uid://ra804zm0hgk7y" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="13_livemarker"]
+[ext_resource type="Script" uid="uid://btmjrrxy7m26w" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="13_livemarker"]
 [ext_resource type="Texture2D" uid="uid://dr6jpb6ba715x" path="res://assets/textures/map_markers/npc.png" id="14_npcicon"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_villager"]
 radius = 0.35
 height = 1.5
 
-[node name="FriendlyVillager" type="RigidBody3D" unique_id=968756915 node_paths=PackedStringArray("_collisionShape", "_liveMapMarker", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
+[node name="FriendlyVillager" type="RigidBody3D" unique_id=968756915 node_paths=PackedStringArray("_collisionShape", "_liveMapMarker", "_modelAnimator", "_mesh", "_visuals", "_hurtBox")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")
@@ -34,17 +34,31 @@ hudScene = ExtResource("4_mobhud")
 _voice = ExtResource("11_voice")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
-[node name="Visuals" type="Node3D" parent="."]
+[node name="Visuals" type="Node3D" parent="." unique_id=854959775]
 
 [node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=979065073]
 
 [node name="VillagerModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=436410010]
-transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 0, 0, 0)
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 0, 0, 0)
 
-[node name="BasicHero_M" parent="Visuals/MeshContainer/VillagerModel" instance=ExtResource("5_herofbx")]
+[node name="BasicHero_M" parent="Visuals/MeshContainer/VillagerModel" unique_id=1113664099 instance=ExtResource("5_herofbx")]
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="Visuals/MeshContainer/VillagerModel/BasicHero_M" unique_id=1813657696]
 libraries/ = ExtResource("6_heroanims")
+
+[node name="ModelAnimator" type="Node" parent="Visuals/MeshContainer" unique_id=1365668840 node_paths=PackedStringArray("player", "visual")]
+script = ExtResource("8_modelanim")
+player = NodePath("../VillagerModel/BasicHero_M/AnimationPlayer")
+visual = NodePath("../VillagerModel")
+modelMaterial = ExtResource("7_heromat")
+secondaryMaterial = ExtResource("12_facemat")
+secondaryMeshNames = PackedStringArray("M_eyes0", "M_eyebrows0", "M_mouth0")
+visibleMeshNames = PackedStringArray("M_Head", "M_eyes0", "M_eyebrows0", "M_mouth0", "M_hair_2b", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
+baseMeshNames = PackedStringArray("M_Head", "M_eyes0", "M_eyebrows0", "M_mouth0")
+metadata/_custom_type_script = "uid://y5ti8jcvqdvm"
+
+[node name="HudAnchor" type="Node3D" parent="Visuals" unique_id=357625513]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.907801, 0)
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1842591515]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
@@ -70,28 +84,14 @@ _interactiveNode = NodePath("..")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_villager")
 
-[node name="HudAnchor" type="Node3D" parent="Visuals" unique_id=357625513]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.907801, 0)
-
-[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+[node name="PixelSnap" type="Node" parent="." unique_id=1087900478 node_paths=PackedStringArray("_target")]
 script = ExtResource("9_pixelsnap")
 _target = NodePath("../Visuals/MeshContainer/VillagerModel")
 
-[node name="ModelAnimator" type="Node" parent="Visuals/MeshContainer" unique_id=1365668840 node_paths=PackedStringArray("player", "visual")]
-script = ExtResource("8_modelanim")
-player = NodePath("../VillagerModel/BasicHero_M/AnimationPlayer")
-visual = NodePath("../VillagerModel")
-modelMaterial = ExtResource("7_heromat")
-secondaryMaterial = ExtResource("12_facemat")
-secondaryMeshNames = PackedStringArray("M_eyes0", "M_eyebrows0", "M_mouth0")
-visibleMeshNames = PackedStringArray("M_Head", "M_eyes0", "M_eyebrows0", "M_mouth0", "M_hair_2b", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
-baseMeshNames = PackedStringArray("M_Head", "M_eyes0", "M_eyebrows0", "M_mouth0")
-metadata/_custom_type_script = "uid://y5ti8jcvqdvm"
-
-[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=66684009 node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("10_meshhl")
 _collectFrom = NodePath("../Visuals/MeshContainer/VillagerModel")
 
-[node name="LiveMapMarker" type="Node3D" parent="."]
+[node name="LiveMapMarker" type="Node3D" parent="." unique_id=954225575]
 script = ExtResource("13_livemarker")
 icon = ExtResource("14_npcicon")

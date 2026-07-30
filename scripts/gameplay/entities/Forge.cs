@@ -308,7 +308,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     public static Forge Create(Sim sim, ForgeSimState data)
     {
         var instance = data.Scene.Instantiate<Forge>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._simState = data;
         instance._world = sim;
         var lightPos = new Vector3I(

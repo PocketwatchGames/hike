@@ -150,7 +150,11 @@ public static class WorldFile
     //      whole file, written into the header before the persistent-entity list
     //      (chunk reads pass Header.PathTable to ChunkSerializer.Read). Also
     //      collapses the per-entity GD.Load to one per distinct path.
-    public const uint VERSION = 34;
+    // v36: new Roof entity (tag 22): pos + RoofStyleData ref + sizeX/sizeZ
+    //      (float) + seam-axis byte + slope degrees. The editor's Roofs tool
+    //      drag-authors these; the mesh is regenerated from the dimensions at
+    //      spawn, so there is no scene ref in the payload.
+    public const uint VERSION = 36;
 
     public struct IndexEntry
     {

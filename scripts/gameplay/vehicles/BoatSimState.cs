@@ -8,8 +8,6 @@ using Godot;
 // now it respawns at its authored anchor.
 public class BoatSimState : EntitySimState
 {
-    public readonly float RotationY;
-
     public BoatSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
         : base(worldPosition, scene)
     {

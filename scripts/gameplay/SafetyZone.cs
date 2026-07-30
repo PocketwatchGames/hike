@@ -134,7 +134,7 @@ public partial class SafetyZone : Area3D
     public static SafetyZone Create(Sim sim, SafetyZoneSimState data)
     {
         var instance = data.Scene.Instantiate<SafetyZone>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         sim.AddChild(instance);
         return instance;
     }

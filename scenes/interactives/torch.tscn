@@ -1,22 +1,22 @@
 [gd_scene format=3 uid="uid://dnbg3pwmomno5"]
 
 [ext_resource type="Script" uid="uid://fm8tun2kafj5" path="res://scripts/gameplay/entities/Torch.cs" id="1_torch"]
-[ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/interactives/torch_01_lit.png" id="2_ty0ga"]
-[ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="3_m4hkm"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_8hk5n"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_ett7l"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="4_light"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_8hk5n"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="5_litsprite"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="7_8hk5n"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="7_interactivebox"]
 [ext_resource type="PackedScene" uid="uid://co37ekr23jxpo" path="res://scenes/fx/torch_light.tscn" id="10_torchon"]
 [ext_resource type="PackedScene" uid="uid://co37ed8hknxpo" path="res://scenes/fx/torch_extinguish.tscn" id="11_torchoff"]
 [ext_resource type="PackedScene" uid="uid://co37ekycknxpo" path="res://scenes/fx/torch_loop.tscn" id="12_torchloop"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="13_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="14_event"]
-[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/sprites/LitSpriteAnimator.cs" id="16_anim"]
 [ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="17_light"]
 [ext_resource type="Texture2D" uid="uid://bagjs7ylxtu6r" path="res://assets/textures/interactions/douse.png" id="18_douse"]
+[ext_resource type="PackedScene" uid="uid://cvyyyt006kjpa" path="res://assets/models/torch/SM_Prop_Torch_Ornate_01.fbx" id="19_model"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="21_modellit"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="22_meshhl"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("14_event")
@@ -37,30 +37,32 @@ icon = ExtResource("17_light")
 completionEvents = Array[ExtResource("14_event")]([SubResource("Resource_torch_event_open")])
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
-size = Vector3(0.5, 1, 0.5)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_torch"]
-animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("3_m4hkm")
-}],
-"loop": true,
-"name": &"off",
-"speed": 1.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("2_ty0ga")
-}],
-"loop": true,
-"name": &"on",
-"speed": 1.0
-}]
+[sub_resource type="SphereMesh" id="SphereMesh_flame"]
+radius = 0.04
+height = 0.08
+radial_segments = 8
+rings = 4
 
-[node name="Torch" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_animator", "_light", "_hudNode")]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_flame"]
+render_priority = 0
+shader = ExtResource("21_modellit")
+shader_parameter/form_strength = 0.0
+shader_parameter/color_tint = Color(1, 0.72, 0.34, 1)
+shader_parameter/emission_tint = Color(1.5, 0.72, 0.28, 1)
+shader_parameter/emission_strength = 2.2
+shader_parameter/specular_strength = 0.0
+shader_parameter/specular_color = Color(1, 1, 1, 1)
+shader_parameter/specular_shininess = 32.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[node name="Torch" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_flame", "_flameAnchor", "_light", "_hudNode")]
 script = ExtResource("1_torch")
-_animator = NodePath("LitSpriteAnimator")
+_flame = NodePath("Flame")
+_flameAnchor = NodePath("Flame")
 _light = NodePath("StationaryLight")
 _hudNode = NodePath("HUDNode")
 _litActions = Array[ExtResource("13_action")]([SubResource("Resource_torch_action_douse")])
@@ -70,7 +72,7 @@ _lightOffEffectScene = ExtResource("11_torchoff")
 _lightLoopEffectScene = ExtResource("12_torchloop")
 
 [node name="InteractiveBox" type="Area3D" parent="." unique_id=632033449 node_paths=PackedStringArray("_interactiveNode")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8071674, 0)
 collision_layer = 4
 collision_mask = 0
 monitoring = false
@@ -81,26 +83,20 @@ _interactiveNode = NodePath("..")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="Sprite" type="Sprite3D" parent="." unique_id=222554796]
-cast_shadow = 0
-centered = false
-offset = Vector2(-2, 0)
-pixel_size = 0.0738
-alpha_cut = 1
-texture = ExtResource("2_ty0ga")
-region_enabled = true
-region_rect = Rect2(0, 0, 4, 13)
-script = ExtResource("5_litsprite")
-Reflects = 1
+[node name="Model" type="Node3D" parent="." unique_id=1518408015]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2271674, 0)
 
-[node name="LitSpriteAnimator" type="Node" parent="." unique_id=324022419 node_paths=PackedStringArray("target")]
-script = ExtResource("16_anim")
-target = NodePath("../Sprite")
-frames = SubResource("SpriteFrames_torch")
-defaultAnimation = &"on"
-metadata/_custom_type_script = "uid://dwrtaigmbeepp"
+[node name="SM_Prop_Torch_Ornate_01" parent="Model" unique_id=1533521645 instance=ExtResource("19_model")]
+transform = Transform3D(3, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0)
+
+[node name="Flame" type="MeshInstance3D" parent="." unique_id=1466042295]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5521674, 0)
+cast_shadow = 0
+mesh = SubResource("SphereMesh_flame")
+surface_material_override/0 = SubResource("ShaderMaterial_flame")
 
 [node name="StationaryLight" type="Node3D" parent="." unique_id=1171222661]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.54545665, 0)
 script = ExtResource("4_light")
 _distance = 8.0
 _falloff = 2.5
@@ -111,4 +107,9 @@ _flickerHz = 14.0
 _fadeOutDuration = 0.1
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3014388, 0)
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=1263330072 node_paths=PackedStringArray("_collectFrom")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.19283259, 0)
+script = ExtResource("22_meshhl")
+_collectFrom = NodePath("../Model")

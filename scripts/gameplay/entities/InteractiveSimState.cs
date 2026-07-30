@@ -4,7 +4,6 @@ using System.Collections.Generic;
 public class DoorSimState : EntitySimState
 {
     public bool Active = true;
-    public readonly float RotationY;
 
     public DoorSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
         : base(worldPosition, scene)

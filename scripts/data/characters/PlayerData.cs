@@ -33,6 +33,12 @@ public partial class PlayerData : Resource
 
 	[ExportGroup("Movement")]
 	[Export] public float stepHeight = 0.5f;
+	// Forward ankle-height ray that decides whether the step-up lift is allowed
+	// this tick. Height is above the floor already stood on; reach extends past
+	// the movement capsule's radius and must exceed one tick of travel at
+	// moveSpeed or the player clips into a blocking prop before the probe sees it.
+	[Export] public float stepProbeHeight = 0.15f;
+	[Export] public float stepProbeReach = 0.25f;
 	[Export] public float coyoteTime = 0.25f;
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;

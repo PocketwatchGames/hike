@@ -200,6 +200,16 @@ public class WorldState
     // on world load so OnVoxelsChanged re-propagation still sees foliage.
     public readonly Dictionary<Vector3I, byte[,,]> CanopyAttenuation = new();
 
+    // Voxels that stop sunlight DEAD, as a solid voxel does, for cover that
+    // isn't made of voxels — a roof. Distinct from CanopyAttenuation because
+    // that field can only ever attenuate: its transmittance is
+    // exp(-density * canopySunExtinction) with a single global extinction
+    // tuned for leaves, so even a saturated byte lets ~55% through per voxel.
+    // Fine for a canopy, wrong for a solid roof. Same lifetime and streaming
+    // rules as CanopyAttenuation, and likewise NOT serialized — rebuilt from
+    // the entity list on load.
+    public readonly Dictionary<Vector3I, bool[,,]> SunOpaque = new();
+
     // Same pattern for WaterCurrentMap. Populated by anything that mutates
     // water-current vectors at runtime; ChunkManager drains it each frame
     // to push only touched chunks back to the GPU.
@@ -578,6 +588,33 @@ public class WorldState
             return 0;
         }
         return arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)];
+    }
+
+    // True if a non-voxel occluder blocks the sky at this voxel outright.
+    public bool GetSunOpaqueWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!SunOpaque.TryGetValue(cc, out bool[,,] arr))
+        {
+            return false;
+        }
+        return arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)];
+    }
+
+    // Allocates the chunk's array on demand, but only if the chunk is resident.
+    public void SetSunOpaqueWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.ContainsKey(cc))
+        {
+            return;
+        }
+        if (!SunOpaque.TryGetValue(cc, out bool[,,] arr))
+        {
+            arr = new bool[ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE];
+            SunOpaque[cc] = arr;
+        }
+        arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)] = true;
     }
 
     // Saturating add — multiple overlapping foliage clusters stack but
@@ -969,6 +1006,20 @@ public class WorldState
             _entities[coord] = entities;
         }
         entities.Add(entity);
+    }
+
+    // Wholesale replacement of a chunk's filed entity states — the editor's
+    // undo/redo restoring a snapshot of the bucket. Add/RemoveEntity can't
+    // express that: they re-derive the bucket from an entity's CURRENT
+    // position, which isn't necessarily the chunk it was filed under.
+    public void ReplaceChunkEntities(Vector3I coord, List<EntitySimState> entities)
+    {
+        if (entities == null || entities.Count == 0)
+        {
+            _entities.Remove(coord);
+            return;
+        }
+        _entities[coord] = new List<EntitySimState>(entities);
     }
 
     public bool RemoveEntity(EntitySimState entity)

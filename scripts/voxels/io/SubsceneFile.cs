@@ -31,11 +31,15 @@ using Godot;
 // at the end of the body, never inserted; bump VERSION when you do so.
 public static class SubsceneFile
 {
+    // Where authored subscenes live. Under res:// because worldgen's
+    // SubscenePlacement references them by res:// path.
+    public const string DEFAULT_SCENE_DIR = "res://resources/data/subscenes/";
+
     public const uint MAGIC = 0x4E435348; // 'HSCN' little-endian
     // v2: the entity list gained EntitySerializer's resource-path table prefix
     //     (see WorldFile v34) — subscenes share that serializer, so their wire
     //     layout moved with it.
-    public const uint VERSION = 2;
+    public const uint VERSION = 3;
 
     [System.Flags]
     public enum ChannelMask : uint
@@ -88,11 +92,19 @@ public static class SubsceneFile
         EntitySerializer.WriteList(w, sub.Entities);
     }
 
+    // Reads through Godot's FileAccess, not System.IO: in an exported build a
+    // `res://` subscene lives inside the .pck, where there is no OS path for
+    // File.OpenRead to open. Whole-file read is fine — subscenes are bbox-sized
+    // blobs, not the chunk-addressable world format.
     public static SubsceneState Read(string path)
     {
-        string osPath = ProjectSettings.GlobalizePath(path);
-        using FileStream fs = File.OpenRead(osPath);
-        using var r = new BinaryReader(fs, Encoding.UTF8, leaveOpen: false);
+        byte[] bytes = Godot.FileAccess.GetFileAsBytes(path);
+        if (bytes == null || bytes.Length == 0)
+        {
+            throw new IOException($"could not read '{path}' ({Godot.FileAccess.GetOpenError()})");
+        }
+        using var ms = new MemoryStream(bytes);
+        using var r = new BinaryReader(ms, Encoding.UTF8, leaveOpen: false);
 
         uint magic = r.ReadUInt32();
         if (magic != MAGIC)
@@ -100,7 +112,11 @@ public static class SubsceneFile
             throw new InvalidDataException($"Not a HSCN subscene file (magic = 0x{magic:X8})");
         }
         uint version = r.ReadUInt32();
-        if (version != VERSION)
+        // v2 is still readable: its only difference is that entities carry no
+        // trailing RotationY, so they load facing zero and pick one up the next
+        // time the scene is saved. Anything older is gone.
+        const uint MIN_READABLE_VERSION = 2;
+        if (version > VERSION || version < MIN_READABLE_VERSION)
         {
             throw new InvalidDataException($"Unsupported HSCN subscene version {version}");
         }
@@ -129,7 +145,7 @@ public static class SubsceneFile
             ReadByteChannel(r, sub.EnvTag, sub.EnvSize);
         }
 
-        sub.Entities = EntitySerializer.ReadList(r);
+        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3);
         return sub;
     }
 

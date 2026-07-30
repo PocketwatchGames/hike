@@ -13,6 +13,8 @@ public enum EWaterState
 public partial class Player : CharacterBody3D
 {
 	[Export] public PlayerData data;
+	// The movement capsule, read for its radius by the step-up forward probe.
+	[Export] private CollisionShape3D _movementCollision;
 	// The character's display name (stats panel, etc.), set from the hosted
 	// PlayerState.characterName at Initialize. Defaults to a placeholder so the
 	// UI always has something to show even before / without spawn data.
@@ -2178,7 +2180,7 @@ public partial class Player : CharacterBody3D
 		// the head through low ceilings (e.g. cave interiors) and block
 		// horizontal motion because MoveAndSlide then pushes back down.
 		Vector3 posBeforeStep = GlobalPosition;
-		bool useStepUp = _grounded && _waterState != EWaterState.Swimming;
+		bool useStepUp = _grounded && _waterState != EWaterState.Swimming && CanStepUpAhead();
 		if (useStepUp)
 		{
 			using var stepUpResult = MoveAndCollide(Vector3.Up * data.stepHeight);
@@ -2369,7 +2371,36 @@ public partial class Player : CharacterBody3D
 		UpdateHeldItemVisual();
 	}
 
-
+	// Gate for the per-tick step-up lift. The lift itself is blind geometry —
+	// it hoists the player onto anything shorter than stepHeight — so probe
+	// what the knees are about to meet and let that surface decide. Terrain and
+	// world walls are always steppable; a prop opts in via PorousBody.steppable,
+	// so by default the player bumps into a bed instead of walking up it (and
+	// MoveAndSlide then slides them along its flank). Jumping on top still
+	// works: this whole path is gated on _grounded.
+	//
+	// Only the FIRST hit along the ray matters — whatever is actually in the
+	// way is what a lift would climb. The ray masks Solid and the player is on
+	// the Player layer, so it can't self-hit.
+	private bool CanStepUpAhead()
+	{
+		Vector3 dir = new(Velocity.X, 0f, Velocity.Z);
+		if (dir.LengthSquared() < 0.0001f)
+		{
+			return true;
+		}
+		dir = dir.Normalized();
+		float radius = _movementCollision?.Shape is CapsuleShape3D capsule ? capsule.Radius : 0f;
+		Vector3 from = GlobalPosition + Vector3.Up * data.stepProbeHeight;
+		Vector3 to = from + dir * (radius + data.stepProbeReach);
+		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
+		Godot.Collections.Dictionary hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
+		if (hit.Count == 0)
+		{
+			return true;
+		}
+		return hit["collider"].As<GodotObject>() is not PorousBody prop || prop.steppable;
+	}
 
 	bool TryGetWeaponState(EInventorySlot slot, out WeaponState weapon)
 	{

@@ -1,0 +1,21 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://dfphdn57y62xh"]
+
+[ext_resource type="Shader" uid="uid://rlvlta0p26wu" path="res://shaders/roof_lit.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://ornfgufmpq37" path="res://assets/textures/roofs/roof_wood_planks.png" id="2_wood"]
+[ext_resource type="Texture2D" uid="uid://bkq8vuvhw8cte" path="res://assets/textures/roofs/roof_wood_planks_nrm.png" id="3_wood_nrm"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_wood")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(0.72, 0.56, 0.42, 1)
+shader_parameter/vertex_ao_strength = 1.0
+shader_parameter/ao_contact_strength = 0.0
+shader_parameter/normal_tex = ExtResource("3_wood_nrm")
+shader_parameter/normal_strength = 1.0
+shader_parameter/height_shade = 0.0
+shader_parameter/detail_tex = ExtResource("2_wood")
+shader_parameter/detail_scale = 0.11
+shader_parameter/detail_strength = 0.35
+shader_parameter/hole_threshold = 0.0

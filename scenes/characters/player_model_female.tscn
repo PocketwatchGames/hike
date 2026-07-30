@@ -2,27 +2,27 @@
 
 [ext_resource type="Script" uid="uid://bgpy464q710yr" path="res://scripts/gameplay/characters/PlayerModelPackage.cs" id="1_pkg"]
 [ext_resource type="PackedScene" uid="uid://ckibma4hpcyu7" path="res://assets/models/characters/polysplit/BasicHero_F.fbx" id="2_rig"]
-[ext_resource type="AnimationLibrary" path="res://assets/models/characters/polysplit/human_anims.res" id="3_animlib"]
+[ext_resource type="AnimationLibrary" uid="uid://bths24wkpklau" path="res://assets/models/characters/polysplit/human_anims.res" id="3_animlib"]
 [ext_resource type="Material" uid="uid://bxk7m2n4qwp3d" path="res://resources/materials/model_lit_character_body.tres" id="4_modelmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="5_modelanim"]
 [ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="6_helditem"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="7_pixelsnap"]
 [ext_resource type="Material" uid="uid://nsghx0dy6spm" path="res://resources/materials/model_lit_face_cutout.tres" id="8_facemat"]
 
-[node name="PlayerModelFemale" type="Node3D" node_paths=PackedStringArray("animator", "heldVisual")]
+[node name="PlayerModelFemale" type="Node3D" unique_id=1466331927 node_paths=PackedStringArray("animator", "heldVisual")]
 script = ExtResource("1_pkg")
 animator = NodePath("ModelAnimator")
 heldVisual = NodePath("HeldItemVisual")
 
-[node name="PlayerModel" type="Node3D" parent="."]
-transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 0, 0, 0)
+[node name="PlayerModel" type="Node3D" parent="." unique_id=692765241]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 0, 0, 0)
 
-[node name="BasicHero_F" parent="PlayerModel" instance=ExtResource("2_rig")]
+[node name="BasicHero_F" parent="PlayerModel" unique_id=2117789854 instance=ExtResource("2_rig")]
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="PlayerModel/BasicHero_F"]
+[node name="AnimationPlayer" type="AnimationPlayer" parent="PlayerModel/BasicHero_F" unique_id=110445246]
 libraries/ = ExtResource("3_animlib")
 
-[node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
+[node name="ModelAnimator" type="Node" parent="." unique_id=67241820 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("5_modelanim")
 player = NodePath("../PlayerModel/BasicHero_F/AnimationPlayer")
 visual = NodePath("../PlayerModel")
@@ -35,10 +35,10 @@ bareBodyMeshNames = PackedStringArray("F_TopBody", "F_BottomBody")
 skinMeshNames = PackedStringArray("F_Head", "F_TopBody", "F_BottomBody")
 hairStyleMeshNames = PackedStringArray("F_hair_1", "F_hair_2", "F_hair_3", "F_hair_4", "F_hair_5", "F_hair_6", "F_hair_7", "F_hair_8")
 
-[node name="HeldItemVisual" type="Node3D" parent="." node_paths=PackedStringArray("visual")]
+[node name="HeldItemVisual" type="Node3D" parent="." unique_id=427891193 node_paths=PackedStringArray("visual")]
 script = ExtResource("6_helditem")
 visual = NodePath("../PlayerModel")
 
-[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+[node name="PixelSnap" type="Node" parent="." unique_id=1207350811 node_paths=PackedStringArray("_target")]
 script = ExtResource("7_pixelsnap")
 _target = NodePath("../PlayerModel")

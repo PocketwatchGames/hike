@@ -48,7 +48,7 @@ public partial class Tent : Node3D, IInteractive, IWorldEntity
     public static Tent Create(Sim sim, TentSimState data)
     {
         var instance = data.Scene.Instantiate<Tent>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._interactiveState = data;
         instance._world = sim;
         sim.AddChild(instance);

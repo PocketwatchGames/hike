@@ -1,0 +1,21 @@
+[gd_scene load_steps=5 format=3 uid="uid://cbhlu1vng53ug"]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="2_porous"]
+[ext_resource type="PackedScene" uid="uid://c25vhlw7vaas2" path="res://assets/models/furniture/rpgpp_av_table_03b.fbx" id="3_model"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_body"]
+size = Vector3(1.1678, 0.9374, 1.3183)
+
+[node name="PropInstance" type="Node3D"]
+script = ExtResource("1_prop")
+
+[node name="Body" type="StaticBody3D" parent="."]
+script = ExtResource("2_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4687, 0)
+shape = SubResource("BoxShape3D_body")
+
+[node name="Model" type="Node3D" parent="." instance=ExtResource("3_model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0034, 0.0306, -0.0327)

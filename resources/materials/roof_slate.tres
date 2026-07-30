@@ -1,0 +1,21 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://dk70qjble8y03"]
+
+[ext_resource type="Shader" uid="uid://rlvlta0p26wu" path="res://shaders/roof_lit.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://t656kw6cxmjq" path="res://assets/textures/roofs/roof_slate_tiles.png" id="2_slate"]
+[ext_resource type="Texture2D" uid="uid://2dsx05wu3g7o" path="res://assets/textures/roofs/roof_slate_tiles_nrm.png" id="3_slate_nrm"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_slate")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(0.42, 0.46, 0.55, 1)
+shader_parameter/vertex_ao_strength = 1.0
+shader_parameter/ao_contact_strength = 0.0
+shader_parameter/normal_tex = ExtResource("3_slate_nrm")
+shader_parameter/normal_strength = 1.0
+shader_parameter/height_shade = 0.0
+shader_parameter/detail_tex = ExtResource("2_slate")
+shader_parameter/detail_scale = 0.11
+shader_parameter/detail_strength = 0.35
+shader_parameter/hole_threshold = 0.0

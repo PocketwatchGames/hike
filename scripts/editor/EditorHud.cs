@@ -8,12 +8,58 @@ public partial class EditorHud : CanvasLayer
     [Export] public Label clipLabel;
     [Export] public Label coordsLabel;
     [Export] public Label helpLabel;
+    // What Ctrl+S will write. Always visible, so a save that goes somewhere
+    // unexpected is obvious before it happens rather than after.
+    [Export] public Label documentLabel;
+    // Transient save feedback. Hidden until a save reports in.
+    [Export] public Label toastLabel;
+    [Export] public Color toastSuccessColor = new Color(0.6f, 1f, 0.6f);
+    [Export] public Color toastFailureColor = new Color(1f, 0.5f, 0.45f);
+    [Export(PropertyHint.Range, "0.5,10,0.1")] public float toastSeconds = 3f;
 
     [ExportGroup("Tool Palette")]
     [Export] public PackedScene toolButtonScene;
-    [Export] public TabContainer toolTabs;
+    // Which brush a click paints with. A ButtonGroup in the scene keeps these
+    // exclusive; Voxel is the one pressed at startup.
+    [Export] public Button voxelToolButton;
+    [Export] public Button entityToolButton;
+    [Export] public Button roofToolButton;
+    // Bottom-of-screen palettes. Exactly one is shown, per the selected tool.
+    [Export] public Control voxelPalette;
+    [Export] public Control entityPalette;
+    [Export] public Control roofPalette;
+    // Operation / shape / brush-summary panel. Voxel-only — none of it applies
+    // to entity placement, so it hides with the voxel palette.
+    [Export] public Control voxelInfoPanel;
     [Export] public GridContainer voxelTab;
-    [Export] public GridContainer entityTab;
+
+    [ExportGroup("Entity Details")]
+    // The entity tool's own panel — mode row plus selection readout. Mirrors
+    // VoxelInfo: shown only while its tool is the active one.
+    [Export] public Control entityDetailsPanel;
+    [Export] public Button placeModeButton;
+    [Export] public Button selectModeButton;
+    [Export] public Label selectionLabel;
+
+    [ExportGroup("Roof Details")]
+    // The roof tool's own panel — seam axis plus pitch. Mirrors VoxelInfo and
+    // EntityDetails: shown only while its tool is the active one.
+    [Export] public Control roofInfoPanel;
+    [Export] public GridContainer roofTab;
+    [Export] public Button ridgeXButton;
+    [Export] public Button ridgeZButton;
+    // Roof pitch in degrees. Range/step are authored on the slider itself.
+    [Export] public HSlider slopeSlider;
+    [Export] public Label slopeLabel;
+
+    [ExportGroup("Entity Tabs")]
+    // One grid per EEditorEntityTab, in enum order.
+    [Export] public GridContainer interactivesTab;
+    [Export] public GridContainer treesTab;
+    [Export] public GridContainer rocksTab;
+    [Export] public GridContainer natureTab;
+    [Export] public GridContainer furnitureTab;
+    [Export] public GridContainer propsTab;
 
     [ExportGroup("Current Tool")]
     [Export] public TextureRect brushImage;
@@ -29,21 +75,41 @@ public partial class EditorHud : CanvasLayer
     [Export] public Button doorShapeButton;
     [Export] public Button plateauSnapButton;
 
+    [ExportGroup("View")]
+    [Export] public CheckButton lightingButton;
+    // Normalized awake-day clock: 0 = sunrise, 1/3 = noon, 2/3 = sunset,
+    // 1 = midnight. Range/step are authored on the slider itself.
+    [Export] public HSlider timeOfDaySlider;
+    // Items are filled from the brush palette's presets at startup, so the
+    // dropdown is authored in the .tres rather than in the scene.
+    [Export] public OptionButton weatherOption;
+
     public Action<int> onVoxelBrushSelected;
     public Action<int> onEntityBrushSelected;
-    public Action<bool> onEntityModeChanged;
+    public Action<int> onRoofBrushSelected;
+    public Action<EEditorTool> onToolChanged;
+    public Action<ERoofSeamAxis> onRoofSeamAxisChanged;
+    public Action<float> onRoofSlopeChanged;
+    public Action<EEditorEntityMode> onEntityToolModeChanged;
     public Action<EEditorBrushOperation> onOperationSelected;
     public Action<EEditorBrushShape> onShapeSelected;
     public Action<bool> onPlateauSnapChanged;
+    public Action<bool> onLightingChanged;
+    public Action<float> onTimeOfDayChanged;
+    public Action<int> onWeatherSelected;
 
-    // Tab order must match the two GridContainers wired above.
-    private const int VOXEL_TAB = 0;
-    private const int ENTITY_TAB = 1;
-
+    // Index-aligned with the brush entries. A slot is null when its tab wasn't
+    // wired in the scene, so the palette index a brush selection carries stays
+    // meaningful either way.
     private readonly List<EditorToolButton> _voxelButtons = new List<EditorToolButton>();
     private readonly List<EditorToolButton> _entityButtons = new List<EditorToolButton>();
+    private readonly List<EditorToolButton> _roofButtons = new List<EditorToolButton>();
     private EditorBrushEntry[] _voxelEntries = Array.Empty<EditorBrushEntry>();
     private EditorBrushEntry[] _entityEntries = Array.Empty<EditorBrushEntry>();
+    private EditorBrushEntry[] _roofEntries = Array.Empty<EditorBrushEntry>();
+
+    private EEditorTool _tool = EEditorTool.Voxel;
+    private EEditorEntityMode _entityToolMode = EEditorEntityMode.Place;
 
     // The persistent operation chosen on the panel. A held Ctrl / Alt shows its
     // operation pressed without touching this, so releasing the modifier snaps
@@ -51,17 +117,36 @@ public partial class EditorHud : CanvasLayer
     private EEditorBrushOperation _operation = EEditorBrushOperation.Paint;
     private EEditorBrushOperation? _heldOverride;
 
+    private float _toastRemaining;
+
     public override void _Ready()
     {
         if (helpLabel != null)
         {
-            helpLabel.Text = "LMB: Paint | Ctrl+LMB: Erase | Alt+LMB: Replace | R/F: Up/Down | Z/C: Rotate | Ctrl+S: Save | Esc: Quit";
+            helpLabel.Text = "LMB: Paint | Ctrl+LMB: Erase | Alt+LMB: Replace | R/F: Up/Down | Z/C: Rotate | Ctrl+Z/Y: Undo/Redo | Ctrl+S: Save | Ctrl+Shift+S: Save As | Esc: Quit";
+        }
+        if (toastLabel != null)
+        {
+            toastLabel.Visible = false;
         }
 
-        if (toolTabs != null)
+        BindToolButton(voxelToolButton, EEditorTool.Voxel);
+        BindToolButton(entityToolButton, EEditorTool.Entity);
+        BindToolButton(roofToolButton, EEditorTool.Roof);
+        BindEntityModeButton(placeModeButton, EEditorEntityMode.Place);
+        BindEntityModeButton(selectModeButton, EEditorEntityMode.Select);
+        BindSeamAxisButton(ridgeXButton, ERoofSeamAxis.AlongX);
+        BindSeamAxisButton(ridgeZButton, ERoofSeamAxis.AlongZ);
+        if (slopeSlider != null)
         {
-            toolTabs.TabChanged += OnTabChanged;
+            slopeSlider.ValueChanged += value =>
+            {
+                UpdateSlopeLabel((float)value);
+                onRoofSlopeChanged?.Invoke((float)value);
+            };
         }
+        ApplyToolVisibility();
+        SetSelectionCount(0);
         BindOperationButton(paintButton, EEditorBrushOperation.Paint);
         BindOperationButton(eraseButton, EEditorBrushOperation.Erase);
         BindOperationButton(replaceButton, EEditorBrushOperation.Replace);
@@ -74,6 +159,18 @@ public partial class EditorHud : CanvasLayer
         if (plateauSnapButton != null)
         {
             plateauSnapButton.Toggled += pressed => onPlateauSnapChanged?.Invoke(pressed);
+        }
+        if (lightingButton != null)
+        {
+            lightingButton.Toggled += pressed => onLightingChanged?.Invoke(pressed);
+        }
+        if (timeOfDaySlider != null)
+        {
+            timeOfDaySlider.ValueChanged += value => onTimeOfDayChanged?.Invoke((float)value);
+        }
+        if (weatherOption != null)
+        {
+            weatherOption.ItemSelected += index => onWeatherSelected?.Invoke((int)index);
         }
     }
 
@@ -118,42 +215,137 @@ public partial class EditorHud : CanvasLayer
     // "off" for the startup shape and stick, since Toggled only fires on input.
     public bool PlateauSnapChecked => plateauSnapButton != null && plateauSnapButton.ButtonPressed;
 
-    // ----- Tool palette ----------------------------------------------------
+    // Checked = the real game look; unchecked = the flat authoring view.
+    public bool LightingChecked => lightingButton == null || lightingButton.ButtonPressed;
 
-    // Fills the Voxels / Entities tabs with one toggle button per brush. Each
-    // tab gets its own ButtonGroup so the two selections are independent.
-    public void BuildToolButtons(EditorBrushEntry[] voxels, EditorBrushEntry[] entities)
+    // Pushed by WorldEditor at startup to seat the slider on its authored
+    // default. NoSignal so seating it doesn't echo back as an author edit.
+    public void SetTimeOfDay(float timeOfDay01)
     {
-        _voxelEntries = voxels ?? Array.Empty<EditorBrushEntry>();
-        _entityEntries = entities ?? Array.Empty<EditorBrushEntry>();
-        FillTab(voxelTab, _voxelEntries, _voxelButtons, i => onVoxelBrushSelected?.Invoke(i));
-        FillTab(entityTab, _entityEntries, _entityButtons, i => onEntityBrushSelected?.Invoke(i));
+        timeOfDaySlider?.SetValueNoSignal(timeOfDay01);
     }
 
-    private void FillTab(GridContainer tab, EditorBrushEntry[] entries, List<EditorToolButton> buttons, Action<int> onSelected)
+    public float TimeOfDayValue => timeOfDaySlider != null ? (float)timeOfDaySlider.Value : 0f;
+
+    // Fills the weather dropdown and selects the first entry. Item indices
+    // line up with `presets`, so the caller can index straight off the
+    // selection. A preset's inspector "Resource Name" is its label; one that
+    // never got a name falls back to its file name so the menu is never blank.
+    public void BuildWeatherOptions(List<WeatherData> presets)
     {
-        buttons.Clear();
-        if (tab == null || toolButtonScene == null)
+        if (weatherOption == null)
         {
             return;
         }
-        foreach (Node child in tab.GetChildren())
+        weatherOption.Clear();
+        foreach (WeatherData preset in presets)
+        {
+            string label = string.IsNullOrEmpty(preset.ResourceName)
+                ? preset.ResourcePath.GetFile().GetBaseName()
+                : preset.ResourceName;
+            weatherOption.AddItem(label);
+        }
+        if (weatherOption.ItemCount > 0)
+        {
+            weatherOption.Select(0);
+        }
+    }
+
+    // ----- Tool palette ----------------------------------------------------
+
+    // Fills the voxel grid, the entity tabs and the roof grid with one toggle
+    // button per brush. Each tool gets a ButtonGroup of its own so their
+    // selections are independent, but the entity group spans all six tabs —
+    // there is still only one entity brush selected at a time, so picking one in
+    // Trees has to release whatever Rocks had pressed.
+    public void BuildToolButtons(EditorBrushEntry[] voxels, EditorBrushEntry[] entities, EditorBrushEntry[] roofs)
+    {
+        _voxelEntries = voxels ?? Array.Empty<EditorBrushEntry>();
+        _entityEntries = entities ?? Array.Empty<EditorBrushEntry>();
+        _roofEntries = roofs ?? Array.Empty<EditorBrushEntry>();
+
+        ClearGrid(voxelTab);
+        _voxelButtons.Clear();
+        var voxelGroup = new ButtonGroup();
+        for (int i = 0; i < _voxelEntries.Length; i++)
+        {
+            _voxelButtons.Add(AddBrushButton(voxelTab, _voxelEntries[i], voxelGroup, i, index => onVoxelBrushSelected?.Invoke(index)));
+        }
+
+        foreach (EEditorEntityTab tab in Enum.GetValues<EEditorEntityTab>())
+        {
+            ClearGrid(GridForTab(tab));
+        }
+        _entityButtons.Clear();
+        var entityGroup = new ButtonGroup();
+        for (int i = 0; i < _entityEntries.Length; i++)
+        {
+            GridContainer grid = GridForTab(_entityEntries[i].Tab);
+            _entityButtons.Add(AddBrushButton(grid, _entityEntries[i], entityGroup, i, index => onEntityBrushSelected?.Invoke(index)));
+        }
+
+        ClearGrid(roofTab);
+        _roofButtons.Clear();
+        var roofGroup = new ButtonGroup();
+        for (int i = 0; i < _roofEntries.Length; i++)
+        {
+            _roofButtons.Add(AddBrushButton(roofTab, _roofEntries[i], roofGroup, i, index => onRoofBrushSelected?.Invoke(index)));
+        }
+    }
+
+    // Icons that arrive after the buttons are built — the icon baker renders
+    // one brush per frame, so a palette opens on name labels and fills in.
+    public void SetEntityIcon(int index, Texture2D icon)
+    {
+        if (index < 0 || index >= _entityEntries.Length || icon == null)
+        {
+            return;
+        }
+        _entityEntries[index] = new EditorBrushEntry(_entityEntries[index].Name, icon, _entityEntries[index].Tab);
+        _entityButtons[index]?.Bind(_entityEntries[index]);
+    }
+
+    private GridContainer GridForTab(EEditorEntityTab tab)
+    {
+        return tab switch
+        {
+            EEditorEntityTab.Interactives => interactivesTab,
+            EEditorEntityTab.Trees => treesTab,
+            EEditorEntityTab.Rocks => rocksTab,
+            EEditorEntityTab.Nature => natureTab,
+            EEditorEntityTab.Furniture => furnitureTab,
+            EEditorEntityTab.Props => propsTab,
+            _ => null,
+        };
+    }
+
+    private static void ClearGrid(GridContainer grid)
+    {
+        if (grid == null)
+        {
+            return;
+        }
+        foreach (Node child in grid.GetChildren())
         {
             child.QueueFree();
         }
+    }
 
-        var group = new ButtonGroup();
-        for (int i = 0; i < entries.Length; i++)
+    // Null when there's no grid to put the button in — the caller still records
+    // the slot so brush indices stay aligned with the palette.
+    private EditorToolButton AddBrushButton(GridContainer grid, EditorBrushEntry entry, ButtonGroup group, int index, Action<int> onSelected)
+    {
+        if (grid == null || toolButtonScene == null)
         {
-            var button = toolButtonScene.Instantiate<EditorToolButton>();
-            button.ToggleMode = true;
-            button.ButtonGroup = group;
-            button.Bind(entries[i]);
-            int index = i;
-            button.Pressed += () => onSelected(index);
-            tab.AddChild(button);
-            buttons.Add(button);
+            return null;
         }
+        var button = toolButtonScene.Instantiate<EditorToolButton>();
+        button.ToggleMode = true;
+        button.ButtonGroup = group;
+        button.Bind(entry);
+        button.Pressed += () => onSelected(index);
+        grid.AddChild(button);
+        return button;
     }
 
     // ----- Selection state -------------------------------------------------
@@ -164,26 +356,26 @@ public partial class EditorHud : CanvasLayer
     public void SetVoxelBrush(int index)
     {
         SelectButton(_voxelButtons, index);
-        if (!IsEntityMode)
-        {
-            UpdateBrushSummary(_voxelEntries, index);
-        }
+        UpdateBrushSummary(_voxelEntries, index);
     }
 
+    // No summary to update: it lives in the voxel-only panel, and an entity
+    // button carries its own name label and tooltip.
     public void SetEntityBrush(int index)
     {
         SelectButton(_entityButtons, index);
-        if (IsEntityMode)
-        {
-            UpdateBrushSummary(_entityEntries, index);
-        }
+    }
+
+    public void SetRoofBrush(int index)
+    {
+        SelectButton(_roofButtons, index);
     }
 
     private static void SelectButton(List<EditorToolButton> buttons, int index)
     {
         for (int i = 0; i < buttons.Count; i++)
         {
-            buttons[i].SetPressedNoSignal(i == index);
+            buttons[i]?.SetPressedNoSignal(i == index);
         }
     }
 
@@ -203,13 +395,130 @@ public partial class EditorHud : CanvasLayer
         }
     }
 
-    // Voxel vs entity mode is purely which palette tab is open — there is no
-    // separate mode toggle.
-    public bool IsEntityMode => toolTabs != null && toolTabs.CurrentTab == ENTITY_TAB;
+    public EEditorTool Tool => _tool;
 
-    private void OnTabChanged(long tab)
+    private void BindToolButton(Button button, EEditorTool tool)
     {
-        onEntityModeChanged?.Invoke(tab == ENTITY_TAB);
+        if (button != null)
+        {
+            button.Pressed += () => SelectTool(tool);
+        }
+    }
+
+    // The Toolbox buttons pick what a click paints, and with it which palette
+    // the bottom bar shows. Re-pressing the button that's already down re-emits
+    // Pressed (a grouped toggle can't be released by clicking it), so an
+    // unchanged tool must not fan out as a selection change.
+    private void SelectTool(EEditorTool tool)
+    {
+        if (tool == _tool)
+        {
+            return;
+        }
+        _tool = tool;
+        ApplyToolVisibility();
+        onToolChanged?.Invoke(tool);
+    }
+
+    private void ApplyToolVisibility()
+    {
+        voxelToolButton?.SetPressedNoSignal(_tool == EEditorTool.Voxel);
+        entityToolButton?.SetPressedNoSignal(_tool == EEditorTool.Entity);
+        roofToolButton?.SetPressedNoSignal(_tool == EEditorTool.Roof);
+        SetVisible(voxelPalette, _tool == EEditorTool.Voxel);
+        SetVisible(voxelInfoPanel, _tool == EEditorTool.Voxel);
+        SetVisible(entityPalette, _tool == EEditorTool.Entity);
+        SetVisible(entityDetailsPanel, _tool == EEditorTool.Entity);
+        SetVisible(roofPalette, _tool == EEditorTool.Roof);
+        SetVisible(roofInfoPanel, _tool == EEditorTool.Roof);
+    }
+
+    private static void SetVisible(Control control, bool visible)
+    {
+        if (control != null)
+        {
+            control.Visible = visible;
+        }
+    }
+
+    // ----- Roof options ----------------------------------------------------
+
+    private void BindSeamAxisButton(Button button, ERoofSeamAxis axis)
+    {
+        if (button != null)
+        {
+            button.Pressed += () => onRoofSeamAxisChanged?.Invoke(axis);
+        }
+    }
+
+    // Pushed by WorldEditor at startup to seat the controls on their authored
+    // defaults. NoSignal so seating them doesn't echo back as an author edit.
+    public void SetRoofSeamAxis(ERoofSeamAxis axis)
+    {
+        ridgeXButton?.SetPressedNoSignal(axis == ERoofSeamAxis.AlongX);
+        ridgeZButton?.SetPressedNoSignal(axis == ERoofSeamAxis.AlongZ);
+    }
+
+    public void SetRoofSlope(float degrees)
+    {
+        slopeSlider?.SetValueNoSignal(degrees);
+        UpdateSlopeLabel(degrees);
+    }
+
+    private void UpdateSlopeLabel(float degrees)
+    {
+        if (slopeLabel != null)
+        {
+            slopeLabel.Text = $"Slope: {degrees:F0}°";
+        }
+    }
+
+    public float RoofSlopeValue => slopeSlider != null ? (float)slopeSlider.Value : 0f;
+
+    private void BindEntityModeButton(Button button, EEditorEntityMode mode)
+    {
+        if (button != null)
+        {
+            button.Pressed += () => SelectEntityToolMode(mode);
+        }
+    }
+
+    // Place vs Select. Same re-press guard as the tool row: a grouped toggle
+    // re-emits Pressed when you click the one already down, and re-announcing an
+    // unchanged mode would drop the selection out from under the author.
+    private void SelectEntityToolMode(EEditorEntityMode mode)
+    {
+        if (mode == _entityToolMode)
+        {
+            return;
+        }
+        _entityToolMode = mode;
+        ApplyEntityToolMode();
+        onEntityToolModeChanged?.Invoke(mode);
+    }
+
+    private void ApplyEntityToolMode()
+    {
+        placeModeButton?.SetPressedNoSignal(_entityToolMode == EEditorEntityMode.Place);
+        selectModeButton?.SetPressedNoSignal(_entityToolMode == EEditorEntityMode.Select);
+    }
+
+    public EEditorEntityMode EntityToolMode => _entityToolMode;
+
+    // Pushed every frame by WorldEditor while Select mode is up, so the readout
+    // tracks a selection that shrank on its own (an undo, a chunk eviction).
+    public void SetSelectionCount(int count)
+    {
+        if (selectionLabel == null)
+        {
+            return;
+        }
+        selectionLabel.Text = count switch
+        {
+            0 => "No selection",
+            1 => "1 selected",
+            _ => $"{count} selected",
+        };
     }
 
     // ----- Paint / erase ---------------------------------------------------
@@ -278,6 +587,49 @@ public partial class EditorHud : CanvasLayer
         if (coordsLabel != null)
         {
             coordsLabel.Text = $"Pos: ({pos.X:F1}, {pos.Y:F1}, {pos.Z:F1})";
+        }
+    }
+
+    // The open document — kind, where it will be written, and whether that file
+    // exists yet (a new document carries a proposed path nothing has written).
+    public void SetDocument(string kindLabel, string path, bool saved)
+    {
+        if (documentLabel == null)
+        {
+            return;
+        }
+        if (string.IsNullOrEmpty(path))
+        {
+            documentLabel.Text = $"{kindLabel}: (unsaved)";
+            return;
+        }
+        documentLabel.Text = saved ? $"{kindLabel}: {path}" : $"{kindLabel}: {path} (unsaved)";
+    }
+
+    public void ShowToast(string message, bool success)
+    {
+        if (toastLabel == null)
+        {
+            return;
+        }
+        toastLabel.Text = message;
+        toastLabel.Modulate = success ? toastSuccessColor : toastFailureColor;
+        toastLabel.Visible = true;
+        _toastRemaining = toastSeconds;
+    }
+
+    // Wall clock, not the sim clock: the toast is pure presentation, and the
+    // editor never ticks the sim anyway.
+    public override void _Process(double delta)
+    {
+        if (_toastRemaining <= 0f)
+        {
+            return;
+        }
+        _toastRemaining -= (float)delta;
+        if (_toastRemaining <= 0f && toastLabel != null)
+        {
+            toastLabel.Visible = false;
         }
     }
 }

@@ -28,7 +28,7 @@ public partial class BuriedSpot : Node3D, IWorldEntity
     public static BuriedSpot Create(Sim sim, BuriedSpotSimState state)
     {
         var instance = state.Scene.Instantiate<BuriedSpot>();
-        instance.Position = state.WorldPosition;
+        state.SeatTransform(instance);
         instance._state = state;
         instance._world = sim;
         sim.AddChild(instance);

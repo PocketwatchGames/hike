@@ -32,6 +32,10 @@ public partial class DebugDrawRenderer : Node3D
         public float remaining;
     }
 
+    // Above every other transparent material in the project (the fullscreen fog
+    // quad, at 64, is the highest), so debug geometry draws last.
+    private const int OVERLAY_RENDER_PRIORITY = 100;
+
     private static DebugDrawRenderer _instance;
 
     // Exposed so debug tooling can confirm its draw calls actually reached the
@@ -73,7 +77,16 @@ public partial class DebugDrawRenderer : Node3D
         _material.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
         _material.VertexColorUseAsAlbedo = true;
         _material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
-        _material.NoDepthTest = false;
+        // Debug lines are an overlay: they must survive both the depth buffer
+        // and the fullscreen transparent quads that composite on top of the
+        // scene. Without the priority the fog quad (render_priority 64) blends
+        // over them at ALPHA≈1 wherever the ray reaches the far plane, which is
+        // why they vanished against the sky. Without DisableFog the inner
+        // environment's black depth fog (88..105m) fades them to black past the
+        // camera's focus distance.
+        _material.NoDepthTest = true;
+        _material.DisableFog = true;
+        _material.RenderPriority = OVERLAY_RENDER_PRIORITY;
         // Disable the back-face culling: line primitives don't have
         // sides, but with culling on the rasterizer is still fussy
         // about wide lines on certain GPUs.

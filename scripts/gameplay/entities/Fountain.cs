@@ -119,7 +119,7 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
     public static Fountain Create(Sim sim, FountainSimState data)
     {
         var instance = data.Scene.Instantiate<Fountain>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._simState = data;
         instance._world = sim;
         sim.AddChild(instance);

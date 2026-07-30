@@ -168,6 +168,37 @@ uniform float ao_height = 1.5;
 // meshes that bake their own AO (the trunks) so the base isn't double-darkened.
 uniform float ao_contact_strength : hint_range(0.0, 1.0) = 0.55;
 
+#ifdef MODEL_SURFACE_DETAIL
+// --- Large-surface detail (roof_lit) ---------------------------------------
+// A big tiled surface reads flat and repetitive with one albedo alone. Gated by
+// a #define rather than default-off uniforms so the ~18 materials sharing this
+// body compile byte-identically to before — they don't even pay for the
+// samplers. Mirrors how MODEL_ALPHA_CUTOUT is switched on below.
+
+// Tangent-space normal map, perturbing the wrap-lambert form term below. Godot's
+// NORMAL_MAP is no use here: this shader lights from its own `world_normal`
+// varying, which NORMAL_MAP never reaches. Needs mesh tangents.
+uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap, repeat_enable;
+uniform float normal_strength : hint_range(0.0, 2.0) = 1.0;
+// Crevice darkening from the normal map's ALPHA channel, matching the voxel
+// atlas's RGB=normal / A=height packing. 0 when the map carries no height.
+uniform float height_shade : hint_range(0.0, 1.0) = 0.0;
+
+// Second albedo layer at a DIFFERENT frequency. detail_scale below 1 makes it a
+// macro variation spanning many tiles of the base, which is what stops a large
+// roof reading as one texture stamped over and over. Centred on 1, so a
+// mid-grey map is a no-op and only the light/dark drift shows.
+uniform sampler2D detail_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float detail_scale = 0.11;
+uniform float detail_strength : hint_range(0.0, 1.0) = 0.0;
+
+// Hole mask — punches gaps through the surface for a derelict roof. Its own
+// scale so one mask serves any roof size. 0 = solid, and the samplers stay cold.
+uniform sampler2D hole_mask_tex : filter_linear, repeat_enable;
+uniform float hole_scale = 0.08;
+uniform float hole_threshold : hint_range(0.0, 1.0) = 0.0;
+#endif
+
 varying vec3 world_pos;
 varying vec3 world_normal;
 // Object-space Y forwarded for the contact-AO height ramp in fragment().
@@ -180,6 +211,13 @@ varying float vert_brightness;
 // clip against their flat per-sprite anchor). See fragment().
 varying flat vec3 model_origin;
 
+#ifdef MODEL_SURFACE_DETAIL
+// World-space tangent frame for the normal map. Same uniform-scale assumption
+// as world_normal below.
+varying vec3 world_tangent;
+varying vec3 world_binormal;
+#endif
+
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	model_origin = MODEL_MATRIX[3].xyz;
@@ -188,6 +226,10 @@ void vertex() {
 	// Uniform-scale rig, so transforming the normal by MODEL_MATRIX (without
 	// the inverse-transpose) is correct.
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+#ifdef MODEL_SURFACE_DETAIL
+	world_tangent = normalize((MODEL_MATRIX * vec4(TANGENT, 0.0)).xyz);
+	world_binormal = normalize((MODEL_MATRIX * vec4(BINORMAL, 0.0)).xyz);
+#endif
 }
 
 void fragment() {
@@ -218,12 +260,38 @@ void fragment() {
 		}
 	}
 
+#ifdef MODEL_SURFACE_DETAIL
+	// Holes first — the cheapest possible reject, before anything samples the
+	// surface. NOTE this discard removes the fragment from the SHADOW pass too,
+	// so light only streams through a hole if the shadow proxy carries the same
+	// mask (RoofStyleData.shadowCasterMaterial exists for exactly that).
+	if (hole_threshold > 0.0 && texture(hole_mask_tex, UV * hole_scale).r < hole_threshold) {
+		discard;
+	}
+#endif
+
 	vec4 tex = texture(albedo_tex, UV);
 	vec3 base = tex.rgb * color_tint;
 	// Palette recolor: flat-replace the sampled hue with the chosen tone before
 	// lighting (inert at recolor_amount 0, the default for every non-skin/hair
 	// mesh). See the instance-uniform comment above.
 	base = mix(base, recolor, recolor_amount);
+
+	// The normal the form term shades against. Plain geometry unless a detail
+	// map perturbs it below.
+	vec3 shading_normal = normalize(world_normal);
+#ifdef MODEL_SURFACE_DETAIL
+	vec3 detail = texture(detail_tex, UV * detail_scale).rgb;
+	base *= mix(vec3(1.0), detail * 2.0, detail_strength);
+
+	vec4 nh = texture(normal_tex, UV);
+	vec3 tangent_normal = nh.xyz * 2.0 - 1.0;
+	tangent_normal.xy *= normal_strength;
+	shading_normal = normalize(world_tangent * tangent_normal.x
+		+ world_binormal * tangent_normal.y
+		+ shading_normal * tangent_normal.z);
+	base *= 1.0 - (1.0 - nh.a) * height_shade;
+#endif
 
 	// Editor-preview fallback: light globals aren't registered until the game
 	// starts, so a standalone .tres / editor preview gets vec3(0) for
@@ -250,7 +318,7 @@ void fragment() {
 		// The wrap (ndl*0.5+0.5) keeps back faces softly lit rather than
 		// crushed to black, since the lightmap already carries world occlusion.
 		vec3 to_sun = -normalize(sun_world_dir);
-		float ndl = dot(normalize(world_normal), to_sun);
+		float ndl = dot(shading_normal, to_sun);
 		float wrap = ndl * 0.5 + 0.5;
 		float form = mix(1.0, wrap, form_strength);
 

@@ -2,9 +2,14 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-// Rasterizes prop foliage clusters into WorldState.CanopyAttenuation so the
-// next ComputeSunlight pass (or any incremental UpdateSunlightAt) sees
-// canopies as sun-attenuating volumes. Walks the entity dictionary for
+// Rasterizes every sun-occluding NON-VOXEL entity so the next ComputeSunlight
+// pass (or any incremental UpdateSunlightAt) sees it: foliage canopies here,
+// roofs via RoofSunStamper. Still named for foliage because that is what it
+// started as and what most of it still does; it owns the Clear() for both
+// fields, which is why roofs ride this walk instead of a second pass.
+//
+// Stamps prop foliage clusters into WorldState.CanopyAttenuation as
+// sun-attenuating volumes. Walks the entity dictionary for
 // every PropSimState, looks up each scene's cached occluder list via
 // FoliageOccluderCache, transforms by the prop's world position + Y
 // rotation, and stamps each ellipsoid + downward shadow column whose
@@ -22,6 +27,7 @@ public static class FoliageStamper
         // Clean slate — caller may rebuild after a tree-change. Drops
         // every chunk's canopy array; rebuilding is O(n_clusters * n_voxels).
         world.CanopyAttenuation.Clear();
+        world.SunOpaque.Clear();
 
         // Tuning lives on SimData (Foliage Canopy Shadow group). baseDensity
         // is authored as a 0..1 float so overlapping clusters stack toward
@@ -36,6 +42,14 @@ public static class FoliageStamper
         {
             for (int i = 0; i < bucket.Count; i++)
             {
+                // Roofs occlude sun through the same field, and ride this walk
+                // so there is one clear and one entity pass — a separate
+                // stamper would have to run strictly after this one's Clear().
+                if (bucket[i] is RoofSimState roof)
+                {
+                    RoofSunStamper.Stamp(world, roof);
+                    continue;
+                }
                 if (bucket[i] is not PropSimState prop)
                 {
                     continue;

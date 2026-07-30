@@ -105,7 +105,7 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
     public static KnowledgeStone Create(Sim sim, KnowledgeStoneSimState data)
     {
         var instance = data.Scene.Instantiate<KnowledgeStone>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._simState = data;
         if (!string.IsNullOrEmpty(data.Text))
         {

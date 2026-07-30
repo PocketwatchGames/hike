@@ -856,8 +856,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     {
         _world = sim;
         _simState = simState;
-        Position = simState.WorldPosition;
-        Rotation = new Vector3(0, simState.RotationY, 0);
+        simState.SeatTransform(this);
         // Navigator depends on mobData (for the traversal profile) and World
         // (for voxel queries), so construct here after both are wired.
         _navigator = new MobNavigator(this);

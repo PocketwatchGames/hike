@@ -13,8 +13,7 @@ public partial class PropInstance : Node3D, IWorldEntity
     public static PropInstance Create(Sim sim, PropSimState data)
     {
         var instance = data.Scene.Instantiate<PropInstance>();
-        instance.Position = data.WorldPosition;
-        instance.Rotation = new Vector3(0f, data.RotationY, 0f);
+        data.SeatTransform(instance);
         sim.AddChild(instance);
         return instance;
     }

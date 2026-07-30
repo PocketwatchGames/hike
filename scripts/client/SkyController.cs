@@ -748,6 +748,13 @@ public partial class SkyController : Node3D
     private Vector3 _blendedWindDirection = new Vector3(1f, 0f, 0f);
     private float _blendedElevation;
 
+    // Authoring override: when set, the zone-blended weather is overwritten
+    // by this forecast every frame and the weather SIMULATION is skipped, so
+    // the sky holds still instead of drifting. Zone PALETTE blending is
+    // untouched — "Clear" over the swamp still looks swampy, just cloudless.
+    // The world editor sets this; the game leaves it null.
+    public WeatherData WeatherOverride;
+
     // Most recently derived palette. Updated in _Process before Apply.
     private DerivedPalette _palette;
 
@@ -1032,9 +1039,9 @@ public partial class SkyController : Node3D
 
         if (!Engine.IsEditorHint() && simData != null && _blendedZone != null && _blendedWeather != null)
         {
-            Vector3 playerPos = Sim.Current.player?.GlobalPosition ?? Vector3.Zero;
+            Vector3 sampleAt = Sim.Current.ViewCenter;
             WorldState ws = Sim.Current.WorldState;
-            ZoneBlend.Sample(playerPos, ws, _blendedZone, _blendedWeather,
+            ZoneBlend.Sample(sampleAt, ws, _blendedZone, _blendedWeather,
                 out _blendedWindDirection, out _blendedElevation);
 
             // Diurnal + 12-hour-variance perturbation on top of the
@@ -1045,8 +1052,22 @@ public partial class SkyController : Node3D
             // sees the simulated weather, not the zone max).
             if (ws != null)
             {
-                WeatherSimulation.UpdateVariance(ws, simData);
-                WeatherSimulation.Apply(_blendedWeather, _blendedZone, _blendedElevation, ws, simData);
+                if (WeatherOverride != null)
+                {
+                    // Forced forecast: stomp the blend and skip the simulation
+                    // entirely, so nothing drifts it back. dustAmount is the
+                    // zone's authored max rather than the preset's (it isn't
+                    // an authored channel) — without it a clear sky would lose
+                    // the scattering medium the sun shafts need.
+                    _blendedWeather.CopyFrom(WeatherOverride);
+                    _blendedWeather.dustAmount = _blendedZone.dustAmount;
+                    _blendedWeather.destinationLightningAmount = _blendedWeather.lightningAmount;
+                }
+                else
+                {
+                    WeatherSimulation.UpdateVariance(ws, simData);
+                    WeatherSimulation.Apply(_blendedWeather, _blendedZone, _blendedElevation, ws, simData);
+                }
                 // Publish the blended wind direction to WorldState so
                 // gameplay consumers (RainEffect, physics) see a single
                 // authoritative current wind. Other weather variables

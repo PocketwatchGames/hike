@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://ce8wqk3mxr7n2" path="res://scripts/data/effects/payloads/ChainLightningData.cs" id="4_chain"]
 [ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="5_fx"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="6_mod"]
-[ext_resource type="PackedScene" uid="uid://ljg4r91kxrm0u" path="res://scenes/fx/lightning_arc.tscn" id="7_arc"]
+[ext_resource type="PackedScene" uid="uid://dsnel562tdvic" path="res://scenes/fx/lightning_arc.tscn" id="7_arc"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="8_buildup"]
 [ext_resource type="Resource" uid="uid://vpftgrww2h73" path="res://resources/data/status_effects/status_shocked.tres" id="9_shocked"]
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="10_dizzy"]

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bgpy464q710yr" path="res://scripts/gameplay/characters/PlayerModelPackage.cs" id="1_pkg"]
 [ext_resource type="PackedScene" uid="uid://cgihjbbk73uss" path="res://assets/models/characters/polysplit/BasicHero_M.fbx" id="2_rig"]
-[ext_resource type="AnimationLibrary" path="res://assets/models/characters/polysplit/human_anims.res" id="3_animlib"]
+[ext_resource type="AnimationLibrary" uid="uid://bths24wkpklau" path="res://assets/models/characters/polysplit/human_anims.res" id="3_animlib"]
 [ext_resource type="Material" uid="uid://bxk7m2n4qwp3d" path="res://resources/materials/model_lit_character_body.tres" id="4_modelmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="5_modelanim"]
 [ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="6_helditem"]
@@ -15,7 +15,7 @@ animator = NodePath("ModelAnimator")
 heldVisual = NodePath("HeldItemVisual")
 
 [node name="PlayerModel" type="Node3D" parent="." unique_id=1830519800]
-transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 0, 0, 0)
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 0, 0, 0)
 
 [node name="BasicHero_M" parent="PlayerModel" unique_id=1692855916 instance=ExtResource("2_rig")]
 

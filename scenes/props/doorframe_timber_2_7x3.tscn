@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://jqs44lnulpt5"]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="2_porous"]
+[ext_resource type="PackedScene" uid="uid://dmtc50s0gw7a3" path="res://assets/models/frames/rpgpp_av_door_frame_03.fbx" id="3_model"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_post_l"]
+size = Vector3(0.6336, 3.0179, 0.6985)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_post_r"]
+size = Vector3(0.6866, 3.0179, 0.6985)
+
+[node name="PropInstance" type="Node3D"]
+script = ExtResource("1_prop")
+
+[node name="Body" type="StaticBody3D" parent="."]
+script = ExtResource("2_porous")
+
+[node name="PostLeft" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0333, 1.5089, 0)
+shape = SubResource("BoxShape3D_post_l")
+
+[node name="PostRight" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0068, 1.5089, 0)
+shape = SubResource("BoxShape3D_post_r")
+
+[node name="Model" type="Node3D" parent="." instance=ExtResource("3_model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0153, 0.0000, 0.0140)

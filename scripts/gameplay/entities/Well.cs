@@ -36,7 +36,7 @@ public partial class Well : Node3D, IInteractive, IWorldEntity
     public static Well Create(Sim sim, WellSimState data)
     {
         var instance = data.Scene.Instantiate<Well>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._interactiveState = data;
         instance._world = sim;
         sim.AddChild(instance);

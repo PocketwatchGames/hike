@@ -6,7 +6,13 @@ using Godot;
 [GlobalClass]
 public partial class Torch : Node3D, IInteractive, IWorldEntity
 {
-    [Export] private LitSpriteAnimator _animator;
+    // Emissive ball sitting in the brazier, shown only while lit. The mesh
+    // itself is the whole "is it burning" read on the model — the body
+    // material never changes.
+    [Export] private Node3D _flame;
+    // Where the flame fx sit. Null = this node's origin, which is ground level —
+    // right for a campfire, wrong for anything whose flame is up on a head.
+    [Export] private Node3D _flameAnchor;
     [Export] private StationaryLight _light;
     [Export] private Node3D _hudNode;
     // Optional burn zone — campfires reuse this scene layout in the editor
@@ -29,14 +35,6 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
     private bool _active = true;
     private TorchSimState _interactiveState;
     private Fx _loopEffect;
-
-    private static readonly StringName AnimOn = "on";
-    private static readonly StringName AnimOff = "off";
-
-    // No _Ready override: the .tscn ships with the animator's
-    // defaultAnimation = "on", which matches the default _active=true state.
-    // Torch.Create runs UpdateVisuals after applying AutoLightAtNight, so
-    // any deviation from the authored state gets pushed there.
 
     public void OnSpawned(Sim sim) { }
 
@@ -69,7 +67,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         PackedScene oneShot = _active ? _lightOnEffectScene : _lightOffEffectScene;
         if (oneShot != null)
         {
-            Fx.Create(oneShot, GetParent(), Position);
+            Fx.Create(oneShot, GetParent(), Position + (_flameAnchor?.Position ?? Vector3.Zero));
         }
         UpdateLoopEffect();
     }
@@ -78,7 +76,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
     {
         if (_active && _loopEffect == null && _lightLoopEffectScene != null)
         {
-            _loopEffect = Fx.Create(_lightLoopEffectScene, this, Vector3.Zero);
+            _loopEffect = Fx.Create(_lightLoopEffectScene, _flameAnchor ?? this, Vector3.Zero);
         }
         else if (!_active && _loopEffect != null)
         {
@@ -89,18 +87,18 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
 
     private void UpdateVisuals()
     {
-        if (_animator == null)
+        if (_flame == null)
         {
-            GD.PushError($"Torch '{Name}' has no _animator wired");
+            GD.PushError($"Torch '{Name}' has no _flame wired");
             return;
         }
-        _animator.Play(_active ? AnimOn : AnimOff);
+        _flame.Visible = _active;
     }
 
     public static Torch Create(Sim sim, TorchSimState data)
     {
         var instance = data.Scene.Instantiate<Torch>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._interactiveState = data;
         var baseWorldPos = new Vector3I(
             Mathf.FloorToInt(data.WorldPosition.X),

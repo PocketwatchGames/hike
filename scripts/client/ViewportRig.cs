@@ -49,6 +49,17 @@ public partial class ViewportRig : Node
 			(innerPx.Y + _subpixelTexelOffset.Y) * PixelScale);
 	}
 
+	// Inverse of ProjectToScreen: a window pixel (mouse position) → the inner
+	// viewport pixel the same point occupies, so it can be fed to the scene
+	// camera's ProjectRay* / picking. Y adds where X subtracts for the same
+	// V-flip reason described above.
+	public Vector2 ScreenToInner(Vector2 screenPos)
+	{
+		return new Vector2(
+			screenPos.X / PixelScale + _subpixelTexelOffset.X,
+			screenPos.Y / PixelScale - _subpixelTexelOffset.Y);
+	}
+
 	public void UpdateViewportSize()
 	{
 		if (sceneViewport == null)

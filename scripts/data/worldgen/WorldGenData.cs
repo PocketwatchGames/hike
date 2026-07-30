@@ -98,8 +98,8 @@ public partial class WorldGenData : Resource
     // Hand-authored subscene stamps (cottages, dungeons, landmarks). Each
     // entry is a `.hikescene` file plus a world XZ anchor; WorldGen loads
     // and stamps them after terrain/cave/road generation but before the
-    // sunlight bake. Y is picked from average surface elevation over the
-    // footprint — see SubsceneStamper.ComputeSurfaceAnchor.
+    // sunlight bake. Y is the dominant plateau level over the footprint —
+    // see WorldGen.FootprintPlateauY.
     [Export] public SubscenePlacement[] subscenes = System.Array.Empty<SubscenePlacement>();
 
     // POI-anchored spawn placements. Each binds authored spawn content to a

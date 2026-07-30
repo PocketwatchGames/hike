@@ -62,7 +62,7 @@ public partial class ForageSpawner : Node3D, IWorldEntity
     public static ForageSpawner Create(Sim sim, ForageSpawnerSimState data)
     {
         var instance = data.Scene.Instantiate<ForageSpawner>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._simState = data;
         instance._world = sim;
         sim.AddChild(instance);

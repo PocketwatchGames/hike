@@ -256,7 +256,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard
     public static Campfire Create(Sim sim, CampfireSimState data)
     {
         var instance = data.Scene.Instantiate<Campfire>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._simState = data;
         var baseWorldPos = new Vector3I(
             Mathf.FloorToInt(data.WorldPosition.X),

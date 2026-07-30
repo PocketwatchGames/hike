@@ -16,7 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://c0tanvr8884cb" path="res://scenes/items/held/torch_held.tscn" id="11_held"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="12_buildup"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="13_burning"]
-[ext_resource type="Resource" uid="uid://dl57x9sg4t9ks" path="res://resources/data/characters/ability_tells/ability_tell_fire.tres" id="14_tell"]
+[ext_resource type="Resource" uid="uid://dl57yasg4uaks" path="res://resources/data/characters/ability_tells/ability_tell_fire.tres" id="14_tell"]
 
 [sub_resource type="Resource" id="Resource_event_windup_anim"]
 script = ExtResource("4_event")

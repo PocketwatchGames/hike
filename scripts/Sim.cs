@@ -168,9 +168,19 @@ public partial class Sim : Node3D
         }
     }
 
+    private Func<Vector3> _getViewCenter;
+
+    // Where the world is centred: the player in game, the editor cursor in the
+    // editor. Anything that wants "the point the world is streaming around"
+    // must read this rather than `player.GlobalPosition` — the editor runs a
+    // player-less Sim, and falling back to the origin there resolves the wrong
+    // zone (and so the wrong sky) for wherever you're actually working.
+    public Vector3 ViewCenter => _getViewCenter != null ? _getViewCenter() : Vector3.Zero;
+
     public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, ShaderMaterial fogMaterial, Func<Vector3> getPlayerPosition)
     {
         _worldState = worldState;
+        _getViewCenter = getPlayerPosition;
         _camera = camera;
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
         _wasNight = WorldState.IsNight(worldState.TimeOfDay01);

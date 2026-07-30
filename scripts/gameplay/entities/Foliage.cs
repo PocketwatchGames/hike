@@ -57,8 +57,7 @@ public partial class Foliage : Area3D, IWorldEntity
 	public static Foliage Create(Sim sim, PropSimState data)
 	{
 		var instance = data.Scene.Instantiate<Foliage>();
-		instance.Position = data.WorldPosition;
-		instance.Rotation = new Vector3(0f, data.RotationY, 0f);
+		data.SeatTransform(instance);
 		sim.AddChild(instance);
 		return instance;
 	}

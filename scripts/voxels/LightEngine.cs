@@ -81,6 +81,12 @@ public static class LightEngine
                     {
                         break;
                     }
+                    // Non-voxel solid cover (a roof) stops the column exactly as
+                    // a solid voxel does — canopy attenuation can only ever dim.
+                    if (world.GetSunOpaqueWorld(wx, wy, wz))
+                    {
+                        break;
+                    }
                     sunLevel -= VoxelTypeInfo.LightAttenuation(v);
                     sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255f;
                     sunLevel *= CanopyTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
@@ -563,10 +569,11 @@ public static class LightEngine
                     continue;
                 }
                 VoxelType v = world.GetVoxelWorld(wx, wy, wz);
-                if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v))
+                // Opaque ceiling — a solid voxel, or non-voxel solid cover such
+                // as a roof: this voxel and everything below it are sheltered
+                // from the sky.
+                if ((v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v)) || world.GetSunOpaqueWorld(wx, wy, wz))
                 {
-                    // Opaque ceiling: this voxel and everything below it are
-                    // sheltered from the sky.
                     blocked = true;
                     world.SetSkyExposureWorld(wx, wy, wz, 0);
                     continue;

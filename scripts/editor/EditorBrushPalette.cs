@@ -30,6 +30,12 @@ public partial class EditorBrushPalette : Resource
 	[ExportGroup("Props")]
 	[Export] public PropLibraryData propLibrary;
 
+	// Surfaces the Roofs tool skins its generated geometry with. A roof has no
+	// scene to stamp — the shape comes from the drag — so this is a list of
+	// materials-plus-tuning rather than of prefabs.
+	[ExportGroup("Roofs")]
+	[Export] public RoofLibraryData roofLibrary;
+
 	[ExportGroup("Interactives")]
 	[Export] public PackedScene doorScene;
 	[Export] public PackedScene spikeTrapScene;
@@ -50,4 +56,11 @@ public partial class EditorBrushPalette : Resource
 	[ExportGroup("Mobs")]
 	[Export] public MobData goblinMob;
 	[Export] public MobData kunKunMob;
+
+	// Forecasts offered by the editor's Weather dropdown, in menu order. The
+	// selected one overrides the zone-blended weather so a scene can be
+	// authored under a chosen sky; the first entry is what the editor opens
+	// with. Each preset's inspector "Resource Name" is its menu label.
+	[ExportGroup("View")]
+	[Export] public WeatherData[] weatherPresets = System.Array.Empty<WeatherData>();
 }

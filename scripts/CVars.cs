@@ -1532,6 +1532,11 @@ public static class CVars
     // through the menu. Ignored when `autostart` is also set.
     public static CVarBool autostartEditor = new CVarBool("autostart_editor", false);
 
+    // Which of the menu's world templates `autostart` launches, as an index into
+    // GuiMainMenu.worldOptions (the same order the New Game list shows). -1 uses
+    // the menu's default. The only way to reach a non-default template headlessly.
+    public static CVarInt worldGenIndex = new CVarInt("world_gen_index", -1);
+
 // Path to a packed world file (`.hike`). When non-empty at game start,
     // Main loads the world from this path instead of running WorldGen.
     public static CVarString worldFile = new CVarString("world_file", ""); // user://world.hike
@@ -1563,20 +1568,58 @@ public static class CVars
         }
     });
 
+    // Action: converts a packed world file into a subscene file, auto-fitting
+    // the bbox to its voxels — the headless equivalent of opening the world in
+    // the editor and running `subscene_save`. Needs no editor and no running
+    // game. The destination defaults to the standard scene dir, same file stem.
+    // Usage: `subscene_from_world user://house01.hike [res://path/out.hikescene]`
+    public static CVarString subsceneFromWorld = new CVarString("subscene_from_world", "", (cvar) =>
+    {
+        string arg = ((CVarString)cvar).Value;
+        if (string.IsNullOrEmpty(arg))
+        {
+            return;
+        }
+        string[] parts = arg.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+        string src = parts[0];
+        string dst = parts.Length > 1
+            ? parts[1]
+            : Godot.StringExtensions.PathJoin(
+                SubsceneFile.DEFAULT_SCENE_DIR,
+                $"{Godot.StringExtensions.GetBaseName(Godot.StringExtensions.GetFile(src))}.{WorldEditor.SCENE_FILE_EXTENSION}");
+        try
+        {
+            WorldState ws = Main.LoadWorldFromFile(src);
+            if (!SubsceneBuilder.TryGetContentBounds(ws, out Godot.Vector3I min, out Godot.Vector3I max))
+            {
+                Godot.GD.PrintErr($"subscene_from_world: '{src}' has no voxels to save.");
+                return;
+            }
+            SubsceneState sub = SubsceneBuilder.Build(ws, min, max, includeEnv: false, filterEntitiesToBox: false);
+            SubsceneFile.Write(dst, sub);
+            Godot.GD.Print($"subscene_from_world: wrote {dst} (bbox min={min} max={max} size={sub.Size}, entities={sub.Entities.Count})");
+        }
+        catch (System.Exception e)
+        {
+            Godot.GD.PrintErr($"subscene_from_world failed: {e.Message}");
+        }
+    });
+
     // Subscene authoring commands. All require an active WorldEditor — they
     // no-op (with an error log) outside editor mode. The editor maintains
     // the corner selection; these CVars are just the console surface.
     //
-    // Workflow:
-    //   1. Build the thing in a fresh (blank) editor world.
-    //   2. Run `subscene_save user://cottage.hikescene` (or the _env
-    //      variant for castles/dungeons that need to override Wind/EnvTag).
-    //      The bbox auto-fits every voxel in the world, so author one
-    //      subscene per world.
-    //   3. To stamp into the same world: move the cursor, run
-    //      `subscene_stamp <path>`. The cursor position is the placement
-    //      anchor — the subscene's bbox-min lands there (anchor defaults
-    //      to (0,0,0) at save time).
+    // The normal way to author a subscene is to open a Scene document from the
+    // menu (New Scene, or an existing `.hikescene`) and press Ctrl+S — these
+    // commands are the manual path, for saving a scene out of a World document
+    // or stamping one into it:
+    //   - `subscene_save <path>` writes the world's voxels as a scene (the
+    //     `_env` variant also bakes Wind/EnvTag, for castles/dungeons that must
+    //     override the destination's ambience). The bbox auto-fits every voxel
+    //     in the world unless corners are pinned.
+    //   - `subscene_stamp <path>` pastes one at the cursor, which becomes the
+    //     placement anchor — the subscene's bbox-min lands there (the anchor
+    //     defaults to (0,0,0) at save time).
     //
     // `subscene_corner` twice pins an explicit bbox instead, for carving one
     // piece out of a larger world; `subscene_corner_clear` returns to

@@ -20,7 +20,7 @@
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="18_recolor"]
 [ext_resource type="Resource" uid="uid://df3tkp1uue567" path="res://resources/data/world_gen/party/talia.tres" id="19_talia"]
 [ext_resource type="Resource" uid="uid://b2q10suq78qsl" path="res://resources/data/characters/npcs/wanderer_conversation.tres" id="20_wanderconv"]
-[ext_resource type="PackedScene" uid="uid://ekyimdzikr7r1" path="res://scenes/characters/friendly_villager_female.tscn" id="21_villager_f"]
+[ext_resource type="PackedScene" uid="uid://pkm1b280lc1a" path="res://scenes/characters/friendly_villager_female.tscn" id="21_villager_f"]
 [ext_resource type="Script" uid="uid://dtcbuyhqmo1pi" path="res://scripts/data/spawn/SafetyZoneSpawnEntry.cs" id="22_safetyentry"]
 [ext_resource type="PackedScene" uid="uid://cppetcwunu7o8" path="res://scenes/interactives/safety_zone.tscn" id="23_safetyscene"]
 

@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="PropLibraryData" load_steps=55 format=3 uid="uid://vyqr6dvnlp98a"]
+[gd_resource type="Resource" script_class="PropLibraryData" format=3 uid="uid://cnpf73berpwgg"]
 
-[ext_resource type="Script" uid="uid://1gsakvdzzgtzi" path="res://scripts/data/props/PropLibraryData.cs" id="1_lib"]
 [ext_resource type="Script" uid="uid://dt7fwhvxr2vis" path="res://scripts/data/props/PropLibraryEntry.cs" id="1_entry"]
+[ext_resource type="Script" uid="uid://dac11juil8lgw" path="res://scripts/data/props/PropLibraryData.cs" id="1_lib"]
 [ext_resource type="PackedScene" uid="uid://dgf3lsf0f6ngm" path="res://scenes/props/tree_pine.tscn" id="2_tree_pine"]
 [ext_resource type="PackedScene" uid="uid://w7si8tgx547d" path="res://scenes/props/tree_pine_dead.tscn" id="3_tree_pine_dead"]
 [ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="4_tree_sequoia"]
@@ -28,188 +28,210 @@
 [ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/tall_grasses/tall_grass_02.tscn" id="25_tall_grass_02"]
 [ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/tall_grasses/tall_grass_03.tscn" id="26_tall_grass_03"]
 [ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/tall_grasses/tall_grass_04.tscn" id="27_tall_grass_04"]
+[ext_resource type="PackedScene" uid="uid://fboesx4ja423" path="res://scenes/props/table_long.tscn" id="28_table_long"]
+[ext_resource type="PackedScene" uid="uid://bi2owrmp5uys6" path="res://scenes/props/table_round.tscn" id="29_table_round"]
+[ext_resource type="PackedScene" uid="uid://ckavqxohsyx2w" path="res://scenes/props/table_round_low.tscn" id="30_table_round_low"]
+[ext_resource type="PackedScene" uid="uid://imnq0o8nknyw" path="res://scenes/props/table_plain.tscn" id="31_table_plain"]
+[ext_resource type="PackedScene" uid="uid://dj2fldj04ri86" path="res://scenes/props/chair.tscn" id="32_chair"]
+[ext_resource type="PackedScene" uid="uid://b6aaf06fr184o" path="res://scenes/props/bench.tscn" id="33_bench"]
+[ext_resource type="PackedScene" uid="uid://flpu3sqiqm70" path="res://scenes/props/stool_square.tscn" id="34_stool_square"]
+[ext_resource type="PackedScene" uid="uid://cixls5imdru28" path="res://scenes/props/stool_tall.tscn" id="35_stool_tall"]
+[ext_resource type="PackedScene" uid="uid://cdrdu147njon6" path="res://scenes/props/stool_stump.tscn" id="36_stool_stump"]
+[ext_resource type="PackedScene" uid="uid://cxywavv16vdf2" path="res://scenes/props/bed_bunk.tscn" id="37_bed_bunk"]
+[ext_resource type="PackedScene" uid="uid://n01b10ho1vpv" path="res://scenes/props/bookcase.tscn" id="38_bookcase"]
+[ext_resource type="PackedScene" uid="uid://dns3km6nvi52k" path="res://scenes/props/shelf_1.tscn" id="39_shelf_1"]
+[ext_resource type="PackedScene" uid="uid://cum6guyb6fmya" path="res://scenes/props/bookcase_2.tscn" id="40_bookcase_2"]
+[ext_resource type="PackedScene" uid="uid://vd67me3hfjf" path="res://scenes/props/table_1.tscn" id="41_ruined_table_1"]
+[ext_resource type="PackedScene" uid="uid://clarrc3gtxom1" path="res://scenes/props/table_2.tscn" id="42_ruined_table_2"]
+[ext_resource type="PackedScene" uid="uid://csmr0t2iuy8em" path="res://scenes/props/table_3.tscn" id="43_ruined_table_3"]
+[ext_resource type="PackedScene" uid="uid://c2y3qaiuofmsd" path="res://scenes/props/table_4.tscn" id="44_ruined_table_4"]
+[ext_resource type="PackedScene" uid="uid://cbhlu1vng53ug" path="res://scenes/props/table_5.tscn" id="45_ruined_table_5"]
+[ext_resource type="PackedScene" uid="uid://cfmw1ibr6kmev" path="res://scenes/props/table_6.tscn" id="46_ruined_table_6"]
+[ext_resource type="PackedScene" uid="uid://c7woevs3bcpru" path="res://scenes/props/table_7.tscn" id="47_ruined_table_7"]
+[ext_resource type="PackedScene" uid="uid://cx22lyweqt8dn" path="res://scenes/props/table_8.tscn" id="48_ruined_table_8"]
+[ext_resource type="PackedScene" uid="uid://g76go1vlxvvi" path="res://scenes/props/chair_1.tscn" id="49_ruined_chair_1"]
+[ext_resource type="PackedScene" uid="uid://c4yrpoww06euq" path="res://scenes/props/chair_2.tscn" id="50_ruined_chair_2"]
+[ext_resource type="PackedScene" uid="uid://cgwoufxgdik1i" path="res://scenes/props/chair_3.tscn" id="51_ruined_chair_3"]
+[ext_resource type="PackedScene" uid="uid://dclakdymdkc4" path="res://scenes/props/chair_4.tscn" id="52_ruined_chair_4"]
+[ext_resource type="PackedScene" uid="uid://dag4baoiccq8x" path="res://scenes/props/chair_5.tscn" id="53_ruined_chair_5"]
+[ext_resource type="PackedScene" uid="uid://cagyocx3ii1ka" path="res://scenes/props/chair_6.tscn" id="54_ruined_chair_6"]
+[ext_resource type="PackedScene" uid="uid://d1x66bo57grrg" path="res://scenes/props/chair_7.tscn" id="55_ruined_chair_7"]
+[ext_resource type="PackedScene" uid="uid://bnvt8l5vqmj00" path="res://scenes/props/stool_1.tscn" id="56_ruined_stool_1"]
+[ext_resource type="PackedScene" uid="uid://ujqb3rn4k65q" path="res://scenes/props/stool_2.tscn" id="57_ruined_stool_2"]
+[ext_resource type="PackedScene" uid="uid://dv72au4k4psl3" path="res://scenes/props/stool_3.tscn" id="58_ruined_stool_3"]
+[ext_resource type="PackedScene" uid="uid://oif3l887piti" path="res://scenes/props/bed_1.tscn" id="59_ruined_bed_1"]
+[ext_resource type="PackedScene" uid="uid://bhhpvimnxwgi" path="res://scenes/props/bed_2.tscn" id="60_ruined_bed_2"]
+[ext_resource type="PackedScene" uid="uid://371cu2vujjj5" path="res://scenes/props/bed_3.tscn" id="61_ruined_bed_3"]
+[ext_resource type="PackedScene" uid="uid://b3yvkfkobw587" path="res://scenes/props/bed_4.tscn" id="62_ruined_bed_4"]
+[ext_resource type="PackedScene" uid="uid://byuraapub4kdp" path="res://scenes/props/bed_5.tscn" id="63_ruined_bed_5"]
+[ext_resource type="PackedScene" uid="uid://db8ao3q4w2qbc" path="res://scenes/props/doorframe_timber_2x3.tscn" id="64_doorframe_timber_2x3"]
+[ext_resource type="PackedScene" uid="uid://bdi0gmda34gkp" path="res://scenes/props/doorframe_timber_2_3x3.tscn" id="65_doorframe_timber_2_3x3"]
+[ext_resource type="PackedScene" uid="uid://jqs44lnulpt5" path="res://scenes/props/doorframe_timber_2_7x3.tscn" id="66_doorframe_timber_2_7x3"]
+[ext_resource type="PackedScene" uid="uid://dgl20qkbod153" path="res://scenes/props/doorframe_timber_2_7x3_tall.tscn" id="67_doorframe_timber_2_7x3_tall"]
+[ext_resource type="PackedScene" uid="uid://drubpr1e4bclj" path="res://scenes/props/doorframe_stone_2x2_5.tscn" id="68_doorframe_stone_2x2_5"]
+[ext_resource type="PackedScene" uid="uid://cjar77tyyaqir" path="res://scenes/props/doorframe_stone_2_9x3.tscn" id="69_doorframe_stone_2_9x3"]
+[ext_resource type="PackedScene" uid="uid://cmb8uedjef3ao" path="res://scenes/props/doorframe_stone_arch_1_9x2_7.tscn" id="70_doorframe_stone_arch_1_9x2_7"]
+[ext_resource type="PackedScene" uid="uid://clgunwosiun6w" path="res://scenes/props/doorframe_stone_arch_3_3x3.tscn" id="71_doorframe_stone_arch_3_3x3"]
 
 [sub_resource type="Resource" id="Entry_tree_pine"]
 script = ExtResource("1_entry")
 displayName = "Pine"
 scene = ExtResource("2_tree_pine")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_pine_dead"]
 script = ExtResource("1_entry")
 displayName = "Dead Pine"
 scene = ExtResource("3_tree_pine_dead")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_sequoia"]
 script = ExtResource("1_entry")
 displayName = "Sequoia"
 scene = ExtResource("4_tree_sequoia")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_sequoia_dead"]
 script = ExtResource("1_entry")
 displayName = "Dead Sequoia"
 scene = ExtResource("5_tree_sequoia_dead")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_birch"]
 script = ExtResource("1_entry")
 displayName = "Birch"
 scene = ExtResource("6_tree_birch")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_birch_dead"]
 script = ExtResource("1_entry")
 displayName = "Dead Birch"
 scene = ExtResource("7_tree_birch_dead")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_desert_pine"]
 script = ExtResource("1_entry")
 displayName = "Desert Pine"
 scene = ExtResource("8_tree_desert_pine")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_desert_pine_dead"]
 script = ExtResource("1_entry")
 displayName = "Dead Desert Pine"
 scene = ExtResource("9_tree_desert_pine_dead")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_willow"]
 script = ExtResource("1_entry")
 displayName = "Willow"
 scene = ExtResource("10_tree_willow")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_willow_dead"]
 script = ExtResource("1_entry")
 displayName = "Dead Willow"
 scene = ExtResource("11_tree_willow_dead")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_willow_dead_small"]
 script = ExtResource("1_entry")
 displayName = "Dead Willow (Small)"
 scene = ExtResource("12_tree_willow_dead_small")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_willow_dead_tiny"]
 script = ExtResource("1_entry")
 displayName = "Dead Willow (Tiny)"
 scene = ExtResource("13_tree_willow_dead_tiny")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_oak"]
 script = ExtResource("1_entry")
 displayName = "Oak"
 scene = ExtResource("14_tree_oak")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_oak_dead"]
 script = ExtResource("1_entry")
 displayName = "Dead Oak"
 scene = ExtResource("15_tree_oak_dead")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_maple"]
 script = ExtResource("1_entry")
 displayName = "Maple"
 scene = ExtResource("16_tree_maple")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tree_maple_dead"]
 script = ExtResource("1_entry")
 displayName = "Dead Maple"
 scene = ExtResource("17_tree_maple_dead")
-category = 0
-propType = 0
+category = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_rock1"]
 script = ExtResource("1_entry")
 displayName = "Rock 1"
 scene = ExtResource("18_rock1")
-category = 1
-propType = 0
+category = 2
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_rock2"]
 script = ExtResource("1_entry")
 displayName = "Rock 2"
 scene = ExtResource("19_rock2")
-category = 1
-propType = 0
+category = 2
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_rock3"]
 script = ExtResource("1_entry")
 displayName = "Rock 3"
 scene = ExtResource("20_rock3")
-category = 1
-propType = 0
+category = 2
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_desert_rocks_big1"]
 script = ExtResource("1_entry")
 displayName = "Desert Boulder 1"
 scene = ExtResource("21_desert_rocks_big1")
-category = 1
-propType = 0
+category = 2
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_desert_rocks_big2"]
 script = ExtResource("1_entry")
 displayName = "Desert Boulder 2"
 scene = ExtResource("22_desert_rocks_big2")
-category = 1
-propType = 0
+category = 2
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_desert_rocks_big3"]
 script = ExtResource("1_entry")
 displayName = "Desert Boulder 3"
 scene = ExtResource("23_desert_rocks_big3")
-category = 1
-propType = 0
+category = 2
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [sub_resource type="Resource" id="Entry_tall_grass_01"]
 script = ExtResource("1_entry")
 displayName = "Tall Grass 1"
 scene = ExtResource("24_tall_grass_01")
-category = 2
+category = 4
 propType = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
@@ -217,7 +239,7 @@ metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 script = ExtResource("1_entry")
 displayName = "Tall Grass 2"
 scene = ExtResource("25_tall_grass_02")
-category = 2
+category = 4
 propType = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
@@ -225,7 +247,7 @@ metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 script = ExtResource("1_entry")
 displayName = "Tall Grass 3"
 scene = ExtResource("26_tall_grass_03")
-category = 2
+category = 4
 propType = 1
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
@@ -233,11 +255,311 @@ metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 script = ExtResource("1_entry")
 displayName = "Tall Grass 4"
 scene = ExtResource("27_tall_grass_04")
-category = 2
+category = 4
 propType = 1
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_table_long"]
+script = ExtResource("1_entry")
+displayName = "Long Table"
+scene = ExtResource("28_table_long")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_table_round"]
+script = ExtResource("1_entry")
+displayName = "Round Table"
+scene = ExtResource("29_table_round")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_table_round_low"]
+script = ExtResource("1_entry")
+displayName = "Low Round Table"
+scene = ExtResource("30_table_round_low")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_table_plain"]
+script = ExtResource("1_entry")
+displayName = "Plain Table"
+scene = ExtResource("31_table_plain")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_chair"]
+script = ExtResource("1_entry")
+displayName = "Chair"
+scene = ExtResource("32_chair")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_bench"]
+script = ExtResource("1_entry")
+displayName = "Bench"
+scene = ExtResource("33_bench")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_stool_square"]
+script = ExtResource("1_entry")
+displayName = "Square Stool"
+scene = ExtResource("34_stool_square")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_stool_tall"]
+script = ExtResource("1_entry")
+displayName = "Tall Stool"
+scene = ExtResource("35_stool_tall")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_stool_stump"]
+script = ExtResource("1_entry")
+displayName = "Stump Stool"
+scene = ExtResource("36_stool_stump")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_bed_bunk"]
+script = ExtResource("1_entry")
+displayName = "Bunk Bed"
+scene = ExtResource("37_bed_bunk")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_bookcase"]
+script = ExtResource("1_entry")
+displayName = "Bookcase"
+scene = ExtResource("38_bookcase")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_shelf_1"]
+script = ExtResource("1_entry")
+displayName = "Shelf 1"
+scene = ExtResource("39_shelf_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_bookcase_2"]
+script = ExtResource("1_entry")
+displayName = "Bookcase 2"
+scene = ExtResource("40_bookcase_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_table_1"]
+script = ExtResource("1_entry")
+displayName = "Ruined Table 1"
+scene = ExtResource("41_ruined_table_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_table_2"]
+script = ExtResource("1_entry")
+displayName = "Ruined Table 2"
+scene = ExtResource("42_ruined_table_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_table_3"]
+script = ExtResource("1_entry")
+displayName = "Ruined Table 3"
+scene = ExtResource("43_ruined_table_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_table_4"]
+script = ExtResource("1_entry")
+displayName = "Ruined Table 4"
+scene = ExtResource("44_ruined_table_4")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_table_5"]
+script = ExtResource("1_entry")
+displayName = "Ruined Table 5"
+scene = ExtResource("45_ruined_table_5")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_table_6"]
+script = ExtResource("1_entry")
+displayName = "Ruined Table 6"
+scene = ExtResource("46_ruined_table_6")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_table_7"]
+script = ExtResource("1_entry")
+displayName = "Ruined Table 7"
+scene = ExtResource("47_ruined_table_7")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_table_8"]
+script = ExtResource("1_entry")
+displayName = "Ruined Table 8"
+scene = ExtResource("48_ruined_table_8")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_chair_1"]
+script = ExtResource("1_entry")
+displayName = "Ruined Chair 1"
+scene = ExtResource("49_ruined_chair_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_chair_2"]
+script = ExtResource("1_entry")
+displayName = "Ruined Chair 2"
+scene = ExtResource("50_ruined_chair_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_chair_3"]
+script = ExtResource("1_entry")
+displayName = "Ruined Chair 3"
+scene = ExtResource("51_ruined_chair_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_chair_4"]
+script = ExtResource("1_entry")
+displayName = "Ruined Chair 4"
+scene = ExtResource("52_ruined_chair_4")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_chair_5"]
+script = ExtResource("1_entry")
+displayName = "Ruined Chair 5"
+scene = ExtResource("53_ruined_chair_5")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_chair_6"]
+script = ExtResource("1_entry")
+displayName = "Ruined Chair 6"
+scene = ExtResource("54_ruined_chair_6")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_chair_7"]
+script = ExtResource("1_entry")
+displayName = "Ruined Chair 7"
+scene = ExtResource("55_ruined_chair_7")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_stool_1"]
+script = ExtResource("1_entry")
+displayName = "Ruined Stool 1"
+scene = ExtResource("56_ruined_stool_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_stool_2"]
+script = ExtResource("1_entry")
+displayName = "Ruined Stool 2"
+scene = ExtResource("57_ruined_stool_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_stool_3"]
+script = ExtResource("1_entry")
+displayName = "Ruined Stool 3"
+scene = ExtResource("58_ruined_stool_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_bed_1"]
+script = ExtResource("1_entry")
+displayName = "Ruined Bed 1"
+scene = ExtResource("59_ruined_bed_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_bed_2"]
+script = ExtResource("1_entry")
+displayName = "Ruined Bed 2"
+scene = ExtResource("60_ruined_bed_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_bed_3"]
+script = ExtResource("1_entry")
+displayName = "Ruined Bed 3"
+scene = ExtResource("61_ruined_bed_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_bed_4"]
+script = ExtResource("1_entry")
+displayName = "Ruined Bed 4"
+scene = ExtResource("62_ruined_bed_4")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_ruined_bed_5"]
+script = ExtResource("1_entry")
+displayName = "Ruined Bed 5"
+scene = ExtResource("63_ruined_bed_5")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_doorframe_timber_2x3"]
+script = ExtResource("1_entry")
+displayName = "Timber Frame 2.0 x 3.0"
+scene = ExtResource("64_doorframe_timber_2x3")
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_doorframe_timber_2_3x3"]
+script = ExtResource("1_entry")
+displayName = "Timber Frame 2.3 x 3.0"
+scene = ExtResource("65_doorframe_timber_2_3x3")
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_doorframe_timber_2_7x3"]
+script = ExtResource("1_entry")
+displayName = "Timber Frame 2.7 x 3.0"
+scene = ExtResource("66_doorframe_timber_2_7x3")
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_doorframe_timber_2_7x3_tall"]
+script = ExtResource("1_entry")
+displayName = "Timber Frame 2.7 x 3.1"
+scene = ExtResource("67_doorframe_timber_2_7x3_tall")
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_doorframe_stone_2x2_5"]
+script = ExtResource("1_entry")
+displayName = "Stone Frame 2.0 x 2.5"
+scene = ExtResource("68_doorframe_stone_2x2_5")
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_doorframe_stone_2_9x3"]
+script = ExtResource("1_entry")
+displayName = "Stone Frame 2.9 x 3.0"
+scene = ExtResource("69_doorframe_stone_2_9x3")
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_doorframe_stone_arch_1_9x2_7"]
+script = ExtResource("1_entry")
+displayName = "Stone Arch 1.9 x 2.7"
+scene = ExtResource("70_doorframe_stone_arch_1_9x2_7")
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_doorframe_stone_arch_3_3x3"]
+script = ExtResource("1_entry")
+displayName = "Stone Arch 3.3 x 3.0"
+scene = ExtResource("71_doorframe_stone_arch_3_3x3")
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
 [resource]
 script = ExtResource("1_lib")
-entries = [SubResource("Entry_tree_pine"), SubResource("Entry_tree_pine_dead"), SubResource("Entry_tree_sequoia"), SubResource("Entry_tree_sequoia_dead"), SubResource("Entry_tree_birch"), SubResource("Entry_tree_birch_dead"), SubResource("Entry_tree_desert_pine"), SubResource("Entry_tree_desert_pine_dead"), SubResource("Entry_tree_willow"), SubResource("Entry_tree_willow_dead"), SubResource("Entry_tree_willow_dead_small"), SubResource("Entry_tree_willow_dead_tiny"), SubResource("Entry_tree_oak"), SubResource("Entry_tree_oak_dead"), SubResource("Entry_tree_maple"), SubResource("Entry_tree_maple_dead"), SubResource("Entry_rock1"), SubResource("Entry_rock2"), SubResource("Entry_rock3"), SubResource("Entry_desert_rocks_big1"), SubResource("Entry_desert_rocks_big2"), SubResource("Entry_desert_rocks_big3"), SubResource("Entry_tall_grass_01"), SubResource("Entry_tall_grass_02"), SubResource("Entry_tall_grass_03"), SubResource("Entry_tall_grass_04")]
+entries = [SubResource("Entry_tree_pine"), SubResource("Entry_tree_pine_dead"), SubResource("Entry_tree_sequoia"), SubResource("Entry_tree_sequoia_dead"), SubResource("Entry_tree_birch"), SubResource("Entry_tree_birch_dead"), SubResource("Entry_tree_desert_pine"), SubResource("Entry_tree_desert_pine_dead"), SubResource("Entry_tree_willow"), SubResource("Entry_tree_willow_dead"), SubResource("Entry_tree_willow_dead_small"), SubResource("Entry_tree_willow_dead_tiny"), SubResource("Entry_tree_oak"), SubResource("Entry_tree_oak_dead"), SubResource("Entry_tree_maple"), SubResource("Entry_tree_maple_dead"), SubResource("Entry_rock1"), SubResource("Entry_rock2"), SubResource("Entry_rock3"), SubResource("Entry_desert_rocks_big1"), SubResource("Entry_desert_rocks_big2"), SubResource("Entry_desert_rocks_big3"), SubResource("Entry_tall_grass_01"), SubResource("Entry_tall_grass_02"), SubResource("Entry_tall_grass_03"), SubResource("Entry_tall_grass_04"), SubResource("Entry_table_long"), SubResource("Entry_table_round"), SubResource("Entry_table_round_low"), SubResource("Entry_table_plain"), SubResource("Entry_chair"), SubResource("Entry_bench"), SubResource("Entry_stool_square"), SubResource("Entry_stool_tall"), SubResource("Entry_stool_stump"), SubResource("Entry_bed_bunk"), SubResource("Entry_bookcase"), SubResource("Entry_shelf_1"), SubResource("Entry_bookcase_2"), SubResource("Entry_ruined_table_1"), SubResource("Entry_ruined_table_2"), SubResource("Entry_ruined_table_3"), SubResource("Entry_ruined_table_4"), SubResource("Entry_ruined_table_5"), SubResource("Entry_ruined_table_6"), SubResource("Entry_ruined_table_7"), SubResource("Entry_ruined_table_8"), SubResource("Entry_ruined_chair_1"), SubResource("Entry_ruined_chair_2"), SubResource("Entry_ruined_chair_3"), SubResource("Entry_ruined_chair_4"), SubResource("Entry_ruined_chair_5"), SubResource("Entry_ruined_chair_6"), SubResource("Entry_ruined_chair_7"), SubResource("Entry_ruined_stool_1"), SubResource("Entry_ruined_stool_2"), SubResource("Entry_ruined_stool_3"), SubResource("Entry_ruined_bed_1"), SubResource("Entry_ruined_bed_2"), SubResource("Entry_ruined_bed_3"), SubResource("Entry_ruined_bed_4"), SubResource("Entry_ruined_bed_5"), SubResource("Entry_doorframe_timber_2x3"), SubResource("Entry_doorframe_timber_2_3x3"), SubResource("Entry_doorframe_timber_2_7x3"), SubResource("Entry_doorframe_timber_2_7x3_tall"), SubResource("Entry_doorframe_stone_2x2_5"), SubResource("Entry_doorframe_stone_2_9x3"), SubResource("Entry_doorframe_stone_arch_1_9x2_7"), SubResource("Entry_doorframe_stone_arch_3_3x3")]
 metadata/_custom_type_script = "uid://1gsakvdzzgtzi"

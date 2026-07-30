@@ -51,7 +51,7 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
     public static Signpost Create(Sim sim, SignpostSimState data)
     {
         var instance = data.Scene.Instantiate<Signpost>();
-        instance.Position = data.WorldPosition;
+        data.SeatTransform(instance);
         instance._interactiveState = data;
         if (!string.IsNullOrEmpty(data.Text))
         {

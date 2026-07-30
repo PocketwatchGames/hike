@@ -26,9 +26,9 @@ public class MobSimState : EntitySimState
 
     // Mutable runtime sim state — this is the canonical source of truth for the
     // mob; the Mob node is just a view that reads from and writes back to it.
-    // RotationY (and inherited WorldPosition) are kept current by Mob.SyncToSimState
-    // before the node is freed on chunk unload.
-    public float RotationY;
+    // The inherited RotationY / WorldPosition are kept current by
+    // Mob.SyncToSimState before the node is freed on chunk unload.
+    //
     // Authored spawn transform, used by Idle to send the mob home after it has
     // been pulled away (combat, wander) and to restore its original facing.
     // Captured at construction from the initial WorldPosition/RotationY, so it

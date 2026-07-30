@@ -64,6 +64,11 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	[Export] private float _magnetAcceleration = 45f;
 	[Export] private float _magnetMaxSpeed = 14f;
 	[Export] private float _magnetTargetHeight = 1.0f;
+	// Distance from the aim point at which a seeking pickup counts as collected.
+	// The interact box is a few tens of cm across and the loot covers ~20cm per
+	// physics tick at full seek speed, so waiting on an area overlap lets a
+	// grazing approach slip past — proximity is what actually ends the flight.
+	[Export] private float _magnetCaptureRadius = 0.5f;
 	// Height above the loot's origin the line-of-sight ray leaves from — lifts
 	// the origin off the ground so a lip of terrain right at its feet doesn't
 	// read as blocked. (Its own Passive body is never on the Solid ray mask, so
@@ -108,6 +113,10 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private Player _attractor;
 	private bool _seeking;
 	private bool _seekGravityActive;
+	// Scalar flight speed, ramped by _magnetAcceleration. Kept separate from
+	// LinearVelocity so the seek direction is re-aimed from scratch every tick
+	// (see UpdateMagnet).
+	private float _seekSpeed;
 
 	// Timed-emergence state (LootData.timedEmergence). Drives a buried->risen
 	// animation of the visual only — the rigidbody stays settled on the ground.
@@ -462,9 +471,16 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			return false;
 		}
 
+		Vector3 target = p.GlobalPosition + Vector3.Up * _magnetTargetHeight;
+		Vector3 toTarget = target - GlobalPosition;
+
 		if (!_seeking)
 		{
 			_seeking = true;
+			// Carry over whatever closing speed the loot already had so latching
+			// on mid-flight doesn't stop it dead; its sideways momentum is
+			// deliberately dropped.
+			_seekSpeed = Mathf.Max(0f, LinearVelocity.Dot(toTarget.Normalized()));
 			// Guarantee the interact area is probing so contact pickup fires even
 			// if the post-spawn arc delay hasn't elapsed, and stop the idle bob —
 			// the magnet owns the loot's vertical motion now.
@@ -481,14 +497,20 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			_seekGravityActive = true;
 		}
 
-		Vector3 target = p.GlobalPosition + Vector3.Up * _magnetTargetHeight;
-		Vector3 dir = (target - GlobalPosition).Normalized();
-		Vector3 vel = LinearVelocity + dir * _magnetAcceleration * dt;
-		if (vel.LengthSquared() > _magnetMaxSpeed * _magnetMaxSpeed)
+		if (toTarget.LengthSquared() <= _magnetCaptureRadius * _magnetCaptureRadius)
 		{
-			vel = vel.Normalized() * _magnetMaxSpeed;
+			_picker = p;
+			FinalizePickup();
+			return true;
 		}
-		LinearVelocity = vel;
+
+		// Ramp a scalar speed but re-aim it straight at the target every tick.
+		// Accumulating into LinearVelocity instead (a steering "seek") preserves
+		// whatever tangential component the spawn impulse or the player's own
+		// movement imparted, and the resulting turn radius (v^2/a) is wider than
+		// the attract sphere — so the pickup can't converge and orbits instead.
+		_seekSpeed = Mathf.Min(_seekSpeed + _magnetAcceleration * dt, _magnetMaxSpeed);
+		LinearVelocity = toTarget.Normalized() * _seekSpeed;
 		return true;
 	}
 
@@ -498,6 +520,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private void StopSeeking()
 	{
 		_seeking = false;
+		_seekSpeed = 0f;
 		if (_seekGravityActive)
 		{
 			if (_gravityScaleCaptured)
@@ -515,6 +538,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private bool IsMagnetEligible(Player player)
 	{
 		if (_pickedUp || _removed || _simState == null || _simState.RequireInteract)
+		{
+			return false;
+		}
+		// Timed-emergent loot is only grabbable while fully risen. The seek
+		// force-enables the interact area, so without this gate the magnet would
+		// vacuum up a mushroom that's still buried outside its window.
+		if (IsTimedEmergent && _emergeState != EmergeState.Visible)
 		{
 			return false;
 		}
@@ -1102,7 +1132,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	public static Loot Create(Sim sim, LootSimState data, PackedScene scene, Vector3 impulse = default)
 	{
 		var instance = scene.Instantiate<Loot>();
-		instance.Position = data.WorldPosition;
+		data.SeatTransform(instance);
 		instance._simState = data;
 		instance._world = sim;
 		instance._initialImpulse = impulse;

@@ -9,9 +9,8 @@ using Godot;
 // with the hand bone, while its lifetime still rides with the torch.
 //
 // SetLit toggles the head visuals, spawns/stops the loop fx, and brings the world
-// light up/down. The flame scene's particles are authored at ~0.85m up, which
-// lands on the head when the fx parents at this scene's origin, so flameAnchor
-// defaults to this node.
+// light up/down. torch_loop's particles emit at the fx's own origin, so the flame
+// lands wherever flameAnchor sits — wire it to the head, not the handle base.
 [GlobalClass]
 public partial class HeldTorch : Node3D
 {
@@ -21,7 +20,7 @@ public partial class HeldTorch : Node3D
     [Export] public Node3D litHead;
 
     // Where the flame loop fx parents when lit. Left null = this node's origin,
-    // which aligns the fx's authored ~0.85m flame height with the torch head.
+    // i.e. the bottom of the handle — wire it to the head.
     [Export] public Node3D flameAnchor;
 
     // The looping flame + ember + crackle effect (torch_loop scene).

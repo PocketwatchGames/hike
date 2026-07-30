@@ -155,40 +155,6 @@ public static class SubsceneStamper
         StampAll(ws, sub, worldAnchor);
     }
 
-    // Place the subscene at the average top-surface Y over its footprint.
-    // worldAnchorXZ specifies where the subscene's anchor lands in world XZ;
-    // the Y is computed by averaging the topmost non-air, non-water voxel
-    // in each (wx, wz) column over the footprint. No slope check, no
-    // overlap test.
-    public static Vector3 ComputeSurfaceAnchor(WorldState ws, SubsceneState sub, Vector2I worldAnchorXZ)
-    {
-        Vector3I size = sub.Size;
-        int worldOriginX = Mathf.FloorToInt(worldAnchorXZ.X - sub.Anchor.X);
-        int worldOriginZ = Mathf.FloorToInt(worldAnchorXZ.Y - sub.Anchor.Z);
-
-        int yMin = ws.Min.Y * ChunkState.SIZE;
-        int yMax = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        long sum = 0;
-        int count = 0;
-        for (int dx = 0; dx < size.X; dx++)
-        {
-            for (int dz = 0; dz < size.Z; dz++)
-            {
-                int wx = worldOriginX + dx;
-                int wz = worldOriginZ + dz;
-                int surfaceY = FindSurfaceY(ws, wx, wz, yMin, yMax);
-                sum += surfaceY;
-                count++;
-            }
-        }
-        int avgY = count > 0 ? (int)(sum / count) : yMin;
-        // The average surface is the Y of the topmost solid voxel; place
-        // the subscene one voxel above so its footprint sits ON the
-        // surface rather than being sunk into it.
-        return new Vector3(worldAnchorXZ.X, avgY + 1, worldAnchorXZ.Y);
-    }
-
     private static Vector3I ComputeWorldOrigin(SubsceneState sub, Vector3 worldAnchor)
     {
         // Floor against the anchor so an integer-aligned anchor lands on
@@ -198,19 +164,6 @@ public static class SubsceneStamper
             Mathf.FloorToInt(worldAnchor.X - sub.Anchor.X),
             Mathf.FloorToInt(worldAnchor.Y - sub.Anchor.Y),
             Mathf.FloorToInt(worldAnchor.Z - sub.Anchor.Z));
-    }
-
-    private static int FindSurfaceY(WorldState ws, int wx, int wz, int yMin, int yMax)
-    {
-        for (int y = yMax; y >= yMin; y--)
-        {
-            VoxelType t = ws.GetVoxelWorld(wx, y, wz);
-            if (t != VoxelType.Air && t != VoxelType.Water)
-            {
-                return y;
-            }
-        }
-        return yMin;
     }
 
     private static int FloorDiv(int a, int b)

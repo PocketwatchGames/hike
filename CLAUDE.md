@@ -161,6 +161,10 @@ Every `global uniform` in a `.gdshader` MUST be seeded from C# at startup before
 
 Two parallel renderers behind one HUD widget — a global outdoor heightmap and a sparse per-slice indoor atlas — composited via an A/B crossfade so mode and slice-level changes glide. Exploration is a separate per-renderer R8 mask. See [scripts/gameplay/minimap/CLAUDE.md](scripts/gameplay/minimap/CLAUDE.md).
 
+### World Editor Undo / Redo (`scripts/editor/undo/`)
+
+Snapshot-on-touch: a tool opens an `EditorEdit` off `EditorHistory`, declares what it is **about to** change (`TouchVoxel` / `TouchEntityChunk` / `TouchSpawn`) before writing, then commits — the edit captures "before" at touch and "after" at commit and drops itself if nothing moved. **Any new editor tool gets undo by touching what it writes; no tool ever writes undo logic.** A whole drag is one edit (Begin on press, Commit on release). Making a new *kind* of state undoable means one new `IEditorEditAspect`, not a case in a switch. `EditorRefresh` is the shared "what the live scene must redo" batch (relight + re-mesh changed chunks, respawn changed entity buckets) — brush strokes, subscene stamps and undo/redo all go through it.
+
 ### Ground Stains / Decals (`scripts/client/GroundStainProjector.cs`, `shaders/ground_stain.gdshaderinc`)
 
 Flat ground marks (scorch, footprints, blood) are **not** Godot `Decal`s (decals wash out wherever the terrain shader's `EMISSION` dominates). Instead a top-down `GroundStainProjector` renders proxy quads on visual layer 5 into `ground_stain_tex`, which the terrain shader composites into `base`; add a stain via a flat unshaded layer-5 quad (static in the prop scene, or batched via `FootprintScatter`). See [scripts/client/CLAUDE.md](scripts/client/CLAUDE.md).

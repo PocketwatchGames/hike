@@ -24,8 +24,26 @@ using Godot;
 //   - Flat-on-ground things (hover offset over terrain) → FlatLitSprite.
 [Tool]
 [GlobalClass]
-public partial class SpriteBase : Sprite3D
+public partial class SpriteBase : Sprite3D, IVisualBounds
 {
+    // What this sprite actually draws, in local space. The runtime shaders size
+    // their own quad from the `sprite_chunky` global, so PixelSize is forced to
+    // 1 (see ApplyCommonAuthoring) and Sprite3D.GetAabb() reports one metre per
+    // texel — ~13x too big. Anything measuring a sprite (editor pick boxes, icon
+    // framing) has to go through here instead.
+    public Aabb? LocalVisualBounds
+    {
+        get
+        {
+            GetSpriteRect(out Vector2I size, out _);
+            float pixelSize = GetEditorPixelSize();
+            Vector2 min = Offset * pixelSize;
+            return new Aabb(
+                new Vector3(min.X, min.Y, 0f),
+                new Vector3(size.X * pixelSize, size.Y * pixelSize, 0f));
+        }
+    }
+
     // Index into MinimapFoliageColors palette. 0 = no minimap stamp; non-zero
     // stamps the matching darken-multiplier at this sprite's XZ during the
     // minimap's prop pass. Same semantic as MultimeshPropSprite.MinimapFoliageId,
