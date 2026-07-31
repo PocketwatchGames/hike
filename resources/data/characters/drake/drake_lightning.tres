@@ -7,12 +7,12 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_v5yt4"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
-[ext_resource type="PackedScene" uid="uid://86elbkrj2e2p" path="res://scenes/projectiles/drake_lightning_bolt.tscn" id="6_proj"]
+[ext_resource type="PackedScene" uid="uid://ygml4m3axanmb" path="res://scenes/projectiles/drake_lightning_bolt.tscn" id="6_proj"]
 [ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="7_impact"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_mu4ee"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="8_mu4ee"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="9_ghxws"]
-[ext_resource type="Resource" uid="uid://dyhikqxtam06d" path="res://resources/data/characters/ability_tells/ability_tell_lightning.tres" id="14_tell"]
+[ext_resource type="Resource" uid="uid://xbiui1j23nex6" path="res://resources/data/characters/ability_tells/ability_tell_lightning.tres" id="14_tell"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")

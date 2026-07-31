@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="5_lootcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="6_desc"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="6_l2rlh"]
-[ext_resource type="Resource" uid="uid://cdl46y53kpu67" path="res://resources/data/items/loot/lurker_meat.tres" id="7_meat"]
+[ext_resource type="Resource" uid="uid://rs8mj7t3tjd79" path="res://resources/data/items/loot/lurker_meat.tres" id="7_meat"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="8_va7jy"]
 
 [sub_resource type="Resource" id="Desc_loot_meat"]
