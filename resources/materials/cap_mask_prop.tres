@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://dwenpv2ymmiag"]
 
-[ext_resource type="Shader" path="res://shaders/cap_mask_prop.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://c142o1ihhctyy" path="res://shaders/cap_mask_prop.gdshader" id="1_shader"]
 
 [resource]
 render_priority = 0

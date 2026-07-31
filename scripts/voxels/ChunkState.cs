@@ -160,6 +160,13 @@ public class ChunkState
     // correct streaming default (no fog where there's no data).
     public readonly byte[,,] FogDensity;
 
+    // Extra fog held under a roof, overlaid onto FogDensity at upload time
+    // (FogMap) rather than merged into it. NOT serialized and allocated only
+    // where a roof actually covers something: the authored fog stays exactly as
+    // saved, so deleting a roof takes its dust with it instead of leaving it
+    // baked into the world file. Null = no roof over this chunk.
+    public byte[,,] RoofDust;
+
     public ChunkState(Vector3I chunkCoord)
     {
         ChunkCoord = chunkCoord;

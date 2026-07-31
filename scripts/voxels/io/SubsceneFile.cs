@@ -39,7 +39,11 @@ public static class SubsceneFile
     // v2: the entity list gained EntitySerializer's resource-path table prefix
     //     (see WorldFile v34) — subscenes share that serializer, so their wire
     //     layout moved with it.
-    public const uint VERSION = 3;
+    // v4: Roof entity payload gained a trailing per-instance `broken` float.
+    //     v3 subscenes are still read — their roofs simply load intact.
+    // v5: Roof entity payload gained a trailing form byte (gable / hip). v4 and
+    //     earlier subscenes still read — their roofs load as gables.
+    public const uint VERSION = 5;
 
     [System.Flags]
     public enum ChannelMask : uint
@@ -112,9 +116,10 @@ public static class SubsceneFile
             throw new InvalidDataException($"Not a HSCN subscene file (magic = 0x{magic:X8})");
         }
         uint version = r.ReadUInt32();
-        // v2 is still readable: its only difference is that entities carry no
-        // trailing RotationY, so they load facing zero and pick one up the next
-        // time the scene is saved. Anything older is gone.
+        // v2 and v3 are still readable. v2 entities carry no trailing RotationY
+        // (they load facing zero); v3 roofs carry no trailing `broken` (they load
+        // intact). Both pick the field up the next time the scene is saved.
+        // Anything older is gone.
         const uint MIN_READABLE_VERSION = 2;
         if (version > VERSION || version < MIN_READABLE_VERSION)
         {
@@ -145,7 +150,10 @@ public static class SubsceneFile
             ReadByteChannel(r, sub.EnvTag, sub.EnvSize);
         }
 
-        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3);
+        int roofFormat = version >= 5 ? EntitySerializer.ROOF_FORMAT_FORM
+            : version >= 4 ? EntitySerializer.ROOF_FORMAT_BROKEN
+            : EntitySerializer.ROOF_FORMAT_ORIGINAL;
+        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat);
         return sub;
     }
 

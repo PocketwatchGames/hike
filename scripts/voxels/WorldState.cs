@@ -617,6 +617,62 @@ public class WorldState
         arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)] = true;
     }
 
+    // Raises the dust floor under a roof. MAX, never a reduction — a roof adds
+    // haze to still air but must not thin out authored mist it happens to cover.
+    public void RaiseRoofDustWorld(int wx, int wy, int wz, int amount)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return;
+        }
+        chunk.RoofDust ??= new byte[ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE];
+        int lx = Mod(wx, ChunkState.SIZE);
+        int ly = Mod(wy, ChunkState.SIZE);
+        int lz = Mod(wz, ChunkState.SIZE);
+        if (amount > chunk.RoofDust[lx, ly, lz])
+        {
+            chunk.RoofDust[lx, ly, lz] = (byte)amount;
+            FogChunkDirty.Add(cc);
+        }
+    }
+
+    // Air thickness at a voxel, [0,1] — authored fog raised by any roof dust,
+    // matching what FogMap uploads. The CPU read of the same field the fog and
+    // mote shaders sample, for effects that size themselves off local air
+    // rather than the regional weather scalar. 0 outside a resident chunk.
+    public float GetAirDensityWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return 0f;
+        }
+        int lx = Mod(wx, ChunkState.SIZE);
+        int ly = Mod(wy, ChunkState.SIZE);
+        int lz = Mod(wz, ChunkState.SIZE);
+        int density = chunk.GetFog(lx, ly, lz);
+        if (chunk.RoofDust != null)
+        {
+            int dust = chunk.RoofDust[lx, ly, lz];
+            if (dust > density) { density = dust; }
+        }
+        return density / 255f;
+    }
+
+    // Dropped and rebuilt alongside CanopyAttenuation / SunOpaque.
+    public void ClearRoofDust()
+    {
+        foreach (ChunkState chunk in _chunks.Values)
+        {
+            if (chunk.RoofDust != null)
+            {
+                chunk.RoofDust = null;
+                FogChunkDirty.Add(chunk.ChunkCoord);
+            }
+        }
+    }
+
     // Saturating add — multiple overlapping foliage clusters stack but
     // can never exceed 255. Allocates the chunk's canopy array on demand,
     // but only if the chunk is resident and `amount` is positive.

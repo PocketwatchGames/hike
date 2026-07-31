@@ -556,6 +556,16 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseThreshold = 0.2f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseSharpness = 0.5f;
 
+    [ExportSubgroup("Motes")]
+    // Maps ZoneData.dustAmount → mote particle budget. The window is narrow and
+    // the low edge matters most: at a floor of 0.05 every zone authored at or
+    // below that (swamp at 0.05, forest and hub at 0) gets EXACTLY zero motes,
+    // so dust reads as a switch rather than a dial. A floor of 0 instead gives
+    // low-dust zones a sparse scatter, which is what makes motes partially
+    // present across most of the world rather than only in the desert.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float moteDustRampMin = 0.0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float moteDustRampMax = 0.4f;
+
     [ExportSubgroup("Inscatter")]
     [Export(PropertyHint.Range, "0,32,0.01")] public float blockHaloIntensity = 6.0f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftSharpness = 0.95f;
@@ -1892,8 +1902,8 @@ public partial class SkyController : Node3D
         if (motes == null) { return; }
 
         float shaftPresence = Mathf.Clamp(sunShaftFactor + moonShaftFactor, 0f, 1f);
-        // Clean "not dusty → none" to "dusty → full" ramp on the raw dust level.
-        float wash = Mathf.SmoothStep(0.05f, 0.4f, dust) * shaftPresence;
+        // "Not dusty → sparse" to "dusty → full" ramp on the raw dust level.
+        float wash = Mathf.SmoothStep(moteDustRampMin, moteDustRampMax, dust) * shaftPresence;
         if (!CVars.sunShafts.Value) { wash = 0f; }
         motes.SetIntensity(wash);
 

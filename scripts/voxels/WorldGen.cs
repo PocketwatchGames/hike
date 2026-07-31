@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 48;
+    public const int WORLDGEN_VERSION = 49;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -3612,6 +3612,67 @@ public static class WorldGen
                     float depth = blendedLevel - wy;
                     int density = (int)Mathf.Clamp(depth * genData.fogDensityPerVoxel, 0f, FOG_MAX_DENSITY);
                     if (density > 0)
+                    {
+                        ws.SetFogWorld(wx, wy, wz, density);
+                    }
+                }
+            }
+        }
+
+        GenerateCaveDust(ws, genData);
+    }
+
+    // Dust in sky-sealed air, keyed on depth below each column's topmost solid
+    // voxel. Belongs at generation time rather than as an upload-time overlay
+    // (the way roof dust works): nothing marks a chunk fog-dirty when its VOXELS
+    // change, so an overlay reading the final geometry would never recompute
+    // after a tunnel was carved. Baked into the serialized fog it is also
+    // visible to LightEngine's flood, which is what makes a lantern genuinely
+    // dim in a dusty cave — tune caveDustAmount against that, not just the look.
+    //
+    // Runs inside GenerateFog so it stays downstream of GenerateCaves.
+    private static void GenerateCaveDust(WorldState ws, WorldGenData genData)
+    {
+        if (genData.caveDustAmount <= 0f)
+        {
+            return;
+        }
+        float fade = Math.Max(genData.caveDustDepthFadeVoxels, 1f);
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                // Topmost solid in the column is the surface; every Air voxel
+                // under it is enclosed, however far down the cave sits.
+                int surfaceY = int.MinValue;
+                for (int wy = worldMaxY; wy >= worldMinY; wy--)
+                {
+                    VoxelType v = ws.GetVoxelWorld(wx, wy, wz);
+                    if (v != VoxelType.Air && v != VoxelType.Water)
+                    {
+                        if (surfaceY == int.MinValue)
+                        {
+                            surfaceY = wy;
+                        }
+                        continue;
+                    }
+                    // Open sky above the surface, or submerged — neither is a
+                    // cave. The surface pass owns the air above.
+                    if (surfaceY == int.MinValue || v == VoxelType.Water)
+                    {
+                        continue;
+                    }
+                    float ramp = Math.Min((surfaceY - wy) / fade, 1f);
+                    int density = (int)Mathf.Clamp(genData.caveDustAmount * ramp * 255f, 0f, FOG_MAX_DENSITY);
+                    // Never thin authored fog that already sits here.
+                    if (density > ws.GetFogWorld(wx, wy, wz))
                     {
                         ws.SetFogWorld(wx, wy, wz, density);
                     }

@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://bevo41qx0gote"]
 
-[ext_resource type="Shader" uid="uid://qnf4116sg1cq" path="res://shaders/voxel_shadow_caster.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://b368h6uhikmd6" path="res://shaders/roof_shadow_caster.gdshader" id="1_shader"]
 
 [resource]
 render_priority = 0

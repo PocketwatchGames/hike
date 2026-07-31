@@ -172,6 +172,11 @@ public partial class ChunkManager : Node3D
     private ShaderMaterial _fogMaterial;
     private Camera3D _camera;
 
+    // The fog volume is a per-material uniform rather than a shader global (see
+    // the bind in Initialize), so every consumer has to be handed it explicitly.
+    // Null until Initialize runs.
+    public FogMap FogVolume => _fogMap;
+
     public void Initialize(WorldState worldData, Vector3 spawnPosition, Camera3D camera, ShaderMaterial fogMaterial, Func<Vector3> getPlayerPosition)
     {
         _worldData = worldData;

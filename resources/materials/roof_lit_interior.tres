@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://7dts231o8xyl"]
+
+[ext_resource type="Shader" uid="uid://ewmlypf5sjdd" path="res://shaders/roof_lit_interior.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://ornfgufmpq37" path="res://assets/textures/roofs/roof_wood_planks.png" id="2_albedo"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_albedo")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(0.3, 0.26, 0.22, 1)
+shader_parameter/normal_strength = 0.0
+shader_parameter/detail_strength = 0.0

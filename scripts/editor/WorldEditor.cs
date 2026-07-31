@@ -15,6 +15,18 @@ public enum EEditorTool
     Roof,
 }
 
+// What a click does while the Roofs tool is active.
+//   Draw — drag a footprint and generate a new roof.
+//   Edit — click a placed roof and push the panel's current settings onto it.
+//          Roof shape is baked at placement (the mesh is regenerated from it),
+//          so without this, retuning a pitch or a brokenness means deleting the
+//          roof and redrawing it.
+public enum EEditorRoofMode
+{
+    Draw,
+    Edit,
+}
+
 // What an entity brush places. Prop carries a PropLibraryEntry — one brush per
 // library entry, so placing is a choice rather than a roll off a kit's weighted
 // palette. Every other kind stamps a fixed prefab off the EditorBrushPalette.
@@ -104,6 +116,8 @@ public enum EEditorBrushOperation
 //   Wall   — drag-fill a vertical slab along whichever of X / Z the drag ran
 //            further, also based at the anchor's Y.
 //   Fill   — Floor's footprint extruded to a full band's height.
+//   Room   — Floor's footprint plus a wall-height perimeter shell on top of it,
+//            hollow inside.
 //   Window — one cell a fixed height above the column's floor.
 //   Door   — a short column starting at the column's floor.
 // Window / Door are Y-relative to the floor rather than to the click so they
@@ -116,6 +130,7 @@ public enum EEditorBrushShape
     Fill,
     Window,
     Door,
+    Room,
 }
 
 [GlobalClass]
@@ -185,6 +200,10 @@ public partial class WorldEditor : Node3D
     // slider's own range/step are authored on it in the scene.
     [Export(PropertyHint.Range, "1,75,1")] public float defaultRoofSlopeDegrees = 35f;
     [Export] public ERoofSeamAxis defaultRoofSeamAxis = ERoofSeamAxis.AlongX;
+    [Export] public ERoofForm defaultRoofForm = ERoofForm.Gable;
+    // How derelict a newly dragged roof is. Per-roof, so a ruined hut can sit
+    // beside an intact one of the same style.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float defaultRoofBroken = 0f;
     [Export] public Color roofPreviewColor = new Color(1f, 0.75f, 0.3f);
 
     [ExportGroup("Entity Picking")]
@@ -259,7 +278,10 @@ public partial class WorldEditor : Node3D
     private EEditorTool _tool = EEditorTool.Voxel;
     private EEditorEntityMode _entityToolMode = EEditorEntityMode.Place;
     private ERoofSeamAxis _roofSeamAxis;
+    private ERoofForm _roofForm;
+    private EEditorRoofMode _roofMode = EEditorRoofMode.Draw;
     private float _roofSlopeDegrees;
+    private float _roofBroken;
     private EEditorBrushOperation _operation = EEditorBrushOperation.Paint;
     private EEditorBrushShape _brushShape = EEditorBrushShape.Voxel;
     private bool _plateauSnap = true;
@@ -422,7 +444,10 @@ public partial class WorldEditor : Node3D
             UpdateHud();
         };
         editorHud.onRoofSeamAxisChanged += axis => _roofSeamAxis = axis;
+        editorHud.onRoofFormChanged += form => _roofForm = form;
         editorHud.onRoofSlopeChanged += degrees => _roofSlopeDegrees = degrees;
+        editorHud.onRoofBrokenChanged += broken => _roofBroken = broken;
+        editorHud.onRoofModeChanged += mode => _roofMode = mode;
         // Leaving Select mode (or the entity tool entirely) drops the selection
         // rather than leaving an invisible group armed for the next Delete.
         editorHud.onEntityToolModeChanged += mode =>
@@ -441,9 +466,13 @@ public partial class WorldEditor : Node3D
         editorHud.SetShape(_brushShape);
         editorHud.SetTimeOfDay(editorTimeOfDay);
         _roofSeamAxis = defaultRoofSeamAxis;
+        _roofForm = defaultRoofForm;
         _roofSlopeDegrees = defaultRoofSlopeDegrees;
+        _roofBroken = defaultRoofBroken;
         editorHud.SetRoofSeamAxis(_roofSeamAxis);
+        editorHud.SetRoofForm(_roofForm);
         editorHud.SetRoofSlope(_roofSlopeDegrees);
+        editorHud.SetRoofBroken(_roofBroken);
         BuildWeatherPresets();
         _plateauSnap = editorHud.PlateauSnapChecked;
         _authoredDepthFog = sceneEnvironment?.Environment?.FogEnabled ?? false;
@@ -927,10 +956,14 @@ public partial class WorldEditor : Node3D
         DebugDraw.Box(min, max + Vector3I.One, regionPreviewColor);
     }
 
+    // Below this a preview ridge segment has collapsed to a point and drawing it
+    // would just stack a dot on the rafters already meeting there.
+    private const float MIN_PREVIEW_RIDGE_LENGTH = 0.01f;
+
     // Wireframe of the roof a release would generate — the eave rectangle
-    // (overhang included), the ridge, and the gable profile joining them. A box
-    // wouldn't do: the seam axis and the pitch are the whole point of the drag,
-    // and neither is visible in a bounding volume.
+    // (overhang included), the ridge, and a rafter from each corner up to it. A
+    // box wouldn't do: the form, the seam axis and the pitch are the whole point
+    // of the drag, and none of them is visible in a bounding volume.
     private void DrawRoofPreview()
     {
         if (!_roofAnchor.HasValue)
@@ -945,26 +978,34 @@ public partial class WorldEditor : Node3D
         BuildRoofFootprint(_roofAnchor.Value, _roofCurrent, out Vector3 center, out float sizeX, out float sizeZ);
         // Straight off the mesh builder's own dimensions, so the wireframe can't
         // drift from what the release actually generates.
-        var size = new RoofDimensions(style, sizeX, sizeZ, _roofSeamAxis, _roofSlopeDegrees);
-        Vector3 seam = size.Seam;
-        Vector3 across = size.Across;
+        var size = new RoofDimensions(style, sizeX, sizeZ, _roofSeamAxis, _roofSlopeDegrees, _roofForm);
+        // How far the ridge reaches from the centre. A gable's runs the whole
+        // length; a hip's is pulled in from every eave by the slope's own run,
+        // which closes it to a point on a square footprint.
+        float ridgeAcross = size.Form == ERoofForm.Hip ? size.HalfAcross - size.RidgeRun : 0f;
+        float ridgeSeam = size.Form == ERoofForm.Hip ? size.HalfSeam - size.RidgeRun : size.HalfSeam;
+        Vector3 peak = Vector3.Up * (size.Rise + size.Thickness);
 
-        Vector3 eaveNearLow = center - seam * size.HalfSeam - across * size.HalfAcross;
-        Vector3 eaveNearHigh = center - seam * size.HalfSeam + across * size.HalfAcross;
-        Vector3 eaveFarLow = center + seam * size.HalfSeam - across * size.HalfAcross;
-        Vector3 eaveFarHigh = center + seam * size.HalfSeam + across * size.HalfAcross;
-        Vector3 ridgeNear = center - seam * size.HalfSeam + Vector3.Up * (size.Rise + size.Thickness);
-        Vector3 ridgeFar = center + seam * size.HalfSeam + Vector3.Up * (size.Rise + size.Thickness);
-
-        DebugDraw.Line(eaveNearLow, eaveNearHigh, roofPreviewColor);
-        DebugDraw.Line(eaveFarLow, eaveFarHigh, roofPreviewColor);
-        DebugDraw.Line(eaveNearLow, eaveFarLow, roofPreviewColor);
-        DebugDraw.Line(eaveNearHigh, eaveFarHigh, roofPreviewColor);
-        DebugDraw.Line(ridgeNear, ridgeFar, roofPreviewColor);
-        DebugDraw.Line(eaveNearLow, ridgeNear, roofPreviewColor);
-        DebugDraw.Line(eaveNearHigh, ridgeNear, roofPreviewColor);
-        DebugDraw.Line(eaveFarLow, ridgeFar, roofPreviewColor);
-        DebugDraw.Line(eaveFarHigh, ridgeFar, roofPreviewColor);
+        // Corner signs wound around the footprint, so consecutive entries share
+        // an eave edge. Each corner rises to the ridge end on its own side.
+        Vector2[] corners = { new Vector2(1f, 1f), new Vector2(1f, -1f), new Vector2(-1f, -1f), new Vector2(-1f, 1f) };
+        for (int i = 0; i < corners.Length; i++)
+        {
+            Vector2 corner = corners[i];
+            Vector2 next = corners[(i + 1) % corners.Length];
+            Vector3 eave = center + size.Across * (corner.X * size.HalfAcross) + size.Seam * (corner.Y * size.HalfSeam);
+            Vector3 eaveNext = center + size.Across * (next.X * size.HalfAcross) + size.Seam * (next.Y * size.HalfSeam);
+            Vector3 ridge = center + size.Across * (corner.X * ridgeAcross) + size.Seam * (corner.Y * ridgeSeam) + peak;
+            Vector3 ridgeNext = center + size.Across * (next.X * ridgeAcross) + size.Seam * (next.Y * ridgeSeam) + peak;
+            DebugDraw.Line(eave, eaveNext, roofPreviewColor);
+            DebugDraw.Line(eave, ridge, roofPreviewColor);
+            // Skipped where the ridge has closed on this axis — both corners
+            // land on the same point and the line is a dot.
+            if (ridge.DistanceSquaredTo(ridgeNext) > MIN_PREVIEW_RIDGE_LENGTH * MIN_PREVIEW_RIDGE_LENGTH)
+            {
+                DebugDraw.Line(ridge, ridgeNext, roofPreviewColor);
+            }
+        }
     }
 
     private bool IsSaveDialogOpen => saveDialog != null && saveDialog.Visible;
@@ -1110,6 +1151,10 @@ public partial class WorldEditor : Node3D
                     {
                         HandleEntityClick(_history.Begin("Delete Roof"), scenePos, delete: true);
                         _history.Commit();
+                    }
+                    else if (_roofMode == EEditorRoofMode.Edit)
+                    {
+                        ApplyRoofSettingsAt(scenePos);
                     }
                     else if (ComputeVoxelTarget(scenePos, overwriteHitBlock: false, out _, out Vector3I roofTarget, out _))
                     {
@@ -1366,7 +1411,8 @@ public partial class WorldEditor : Node3D
     {
         return shape == EEditorBrushShape.Floor
             || shape == EEditorBrushShape.Wall
-            || shape == EEditorBrushShape.Fill;
+            || shape == EEditorBrushShape.Fill
+            || shape == EEditorBrushShape.Room;
     }
 
     // Only the drag-fill shapes have a base elevation to snap; the stamp shapes
@@ -1429,22 +1475,39 @@ public partial class WorldEditor : Node3D
         _lastPaintedBlocks.Add(baseTarget);
     }
 
-    // Commits a Floor / Wall drag.
+    // Commits a Floor / Wall / Fill / Room drag.
     private void FillRegion(EditorEdit edit, Vector3I anchor, Vector3I current, EEditorBrushOperation operation)
     {
         BuildRegionCells(anchor, current, out Vector3I min, out Vector3I max);
+        bool hollow = _brushShape == EEditorBrushShape.Room;
         var cells = new List<Vector3I>();
+        var interiorCells = new List<Vector3I>();
         for (int x = min.X; x <= max.X; x++)
         {
             for (int y = min.Y; y <= max.Y; y++)
             {
                 for (int z = min.Z; z <= max.Z; z++)
                 {
+                    // A Room is a shell: the bottom course is a solid floor slab,
+                    // everything above it keeps only the perimeter walls.
+                    bool interior = y > min.Y && x > min.X && x < max.X && z > min.Z && z < max.Z;
+                    if (hollow && interior)
+                    {
+                        interiorCells.Add(new Vector3I(x, y, z));
+                        continue;
+                    }
                     cells.Add(new Vector3I(x, y, z));
                 }
             }
         }
         PaintCells(edit, cells, operation);
+        // The room's inside is cleared, not merely skipped, so dragging one into
+        // a hillside (or over existing geometry) hollows out a space to stand in.
+        // Erase already emptied the whole box, so there's nothing left to clear.
+        if (hollow && operation != EEditorBrushOperation.Erase)
+        {
+            PaintCells(edit, interiorCells, EEditorBrushOperation.Erase);
+        }
     }
 
     // Inclusive voxel bounds of a region drag. Both shapes sit at the anchor's
@@ -1466,8 +1529,15 @@ public partial class WorldEditor : Node3D
             return;
         }
 
-        // Floor and Fill share one XZ footprint; only the extrusion differs.
-        int height = _brushShape == EEditorBrushShape.Fill ? fillHeight : 1;
+        // Floor, Fill and Room share one XZ footprint; only the extrusion differs.
+        // Room's walls stand ON its floor slab, so it's one course taller than
+        // the wall height the Wall shape lays down.
+        int height = _brushShape switch
+        {
+            EEditorBrushShape.Fill => fillHeight,
+            EEditorBrushShape.Room => wallHeight + 1,
+            _ => 1,
+        };
         min = new Vector3I(Math.Min(anchor.X, current.X), anchor.Y, Math.Min(anchor.Z, current.Z));
         max = new Vector3I(Math.Max(anchor.X, current.X), anchor.Y + height - 1, Math.Max(anchor.Z, current.Z));
     }
@@ -1491,6 +1561,47 @@ public partial class WorldEditor : Node3D
         center = new Vector3(minX + sizeX * 0.5f, anchor.Y, minZ + sizeZ * 0.5f);
     }
 
+    // Pushes the panel's current seam / slope / brokenness onto the roof under
+    // the cursor. The shape fields are readonly and the mesh is regenerated from
+    // them, so this swaps in a new state carrying the same footprint rather than
+    // mutating in place — then re-spawns and re-stamps exactly as a placement does.
+    private void ApplyRoofSettingsAt(Vector2 screenPos)
+    {
+        Node3D picked = PickEntityAt(screenPos, out _);
+        if (picked == null || !TryFindEntityState(picked, out EntitySimState state, out Vector3I bucket)
+            || state is not RoofSimState roof)
+        {
+            return;
+        }
+        List<Vector3I> priorRoofCells = SnapshotRoofSunCells();
+        EditorEdit edit = _history.Begin("Edit Roof");
+        edit?.TouchEntityChunk(bucket);
+
+        var replacement = new RoofSimState(
+            roof.WorldPosition, roof.Style, roof.SizeX, roof.SizeZ,
+            _roofSeamAxis, _roofForm, _roofSlopeDegrees, _roofBroken)
+        {
+            RotationY = roof.RotationY,
+        };
+        List<EntitySimState> entities = _worldState.GetEntities(bucket);
+        int index = entities?.IndexOf(roof) ?? -1;
+        if (index < 0)
+        {
+            _history.Commit();
+            return;
+        }
+        entities[index] = replacement;
+        Node3D node = roof.RuntimeNode;
+        if (node != null && IsInstanceValid(node))
+        {
+            _world.RemoveEntity(node);
+            node.QueueFree();
+        }
+        ReloadChunkEntities(bucket);
+        RefreshRoofSunOcclusion(priorRoofCells);
+        _history.Commit();
+    }
+
     // Commits a roof footprint drag. Like every other entity placement this goes
     // through the streaming path rather than instantiating directly, so the
     // roof lands in Sim.ActiveEntities and gets its RuntimeNode back-reference —
@@ -1504,7 +1615,7 @@ public partial class WorldEditor : Node3D
             return;
         }
         BuildRoofFootprint(anchor, current, out Vector3 center, out float sizeX, out float sizeZ);
-        var simState = new RoofSimState(center, style, sizeX, sizeZ, _roofSeamAxis, _roofSlopeDegrees);
+        var simState = new RoofSimState(center, style, sizeX, sizeZ, _roofSeamAxis, _roofForm, _roofSlopeDegrees, _roofBroken);
         edit?.TouchEntitiesAt(center);
         _worldState.AddEntity(simState);
         ReloadChunkEntities(Sim.WorldToChunkCoord(center));
@@ -2508,6 +2619,13 @@ public partial class WorldEditor : Node3D
         // env bakes never ran on this stub, so authored overrides can't be
         // clobbered by one.
         SubsceneStamper.StampAll(ws, sub, Vector3.Zero);
+        // Rasterize the non-voxel sun occluders the scene just brought in —
+        // foliage canopies and roofs — BEFORE relighting. Without this an opened
+        // scene's roofs neither darken the room beneath them nor hold any dust,
+        // so a broken roof shows holes but drops no light shaft through them.
+        // Main does the same pair when it loads a world; the editor's open path
+        // was only doing the second half.
+        FoliageStamper.Stamp(ws);
         // The stub's bake ran on an empty world; redo it now there's geometry.
         LightEngine.ComputeSunlight(ws);
         ws.Spawn = new Vector3(
@@ -2563,6 +2681,8 @@ public partial class WorldEditor : Node3D
         // stub world too dimly to judge what you're building.
         ws.TimeOfDay01 = WorldState.NoonTimeOfDay01;
 
+        // Same pairing as the scene path: occluders first, then light.
+        FoliageStamper.Stamp(ws);
         // Compute initial sunlight so the world isn't pitch black
         LightEngine.ComputeSunlight(ws);
 

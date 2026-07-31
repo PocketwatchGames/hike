@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_38mg1"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_5837a"]
-[ext_resource type="Script" uid="uid://b7kq3xn2v9wdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="5_nodanger"]
+[ext_resource type="Script" uid="uid://b7kq3xn2wawdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="5_nodanger"]
 [ext_resource type="Script" uid="uid://bbrh4rolb8use" path="res://scripts/data/actions/requirements/NoDamagingEffectRequirement.cs" id="6_nodamaging"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="8_interactivebox"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="17_meshhl"]

@@ -42,6 +42,9 @@ global uniform float cloud_altitude;
 // Dark-adaptation ("night eyes") tone curve. Driven by the player sim
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
+#ifdef MODEL_SURFACE_DETAIL
+#include "res://shaders/roof_broken.gdshaderinc"
+#endif
 
 // Ceiling cutaway: discard the mesh above the animating camera clip so model
 // mobs / props vanish under a cutaway like sprites do. Unlike terrain
@@ -192,11 +195,29 @@ uniform sampler2D detail_tex : source_color, filter_linear_mipmap, repeat_enable
 uniform float detail_scale = 0.11;
 uniform float detail_strength : hint_range(0.0, 1.0) = 0.0;
 
-// Hole mask — punches gaps through the surface for a derelict roof. Its own
-// scale so one mask serves any roof size. 0 = solid, and the samplers stay cold.
-uniform sampler2D hole_mask_tex : filter_linear, repeat_enable;
-uniform float hole_scale = 0.08;
-uniform float hole_threshold : hint_range(0.0, 1.0) = 0.0;
+// How far gone a derelict roof is: 0 = intact, 1 = nothing left. Procedural
+// rather than a mask texture, specifically so the CPU can evaluate the same
+// function — that is what lets the sun-occlusion pass leave the matching voxel
+// columns open and put a real god ray under each hole. See roof_broken.
+//
+// An INSTANCE uniform so one shared material serves every roof and the visible
+// mesh and its shadow proxy can be handed the same value without duplicating
+// materials.
+instance uniform float broken : hint_range(0.0, 1.0) = 0.0;
+instance uniform float broken_scale = 0.35;
+instance uniform float broken_edge_scale = 1.6;
+instance uniform float broken_edge_jagged = 0.35;
+// Scales the hole threshold for THIS pass. The inner-shell pass (roof_lit_
+// interior) sets it below 1 so its holes are smaller than the outer surface's,
+// leaving a ring of slab interior visible through every opening — which is the
+// only thing that gives a discard-cut hole any apparent thickness. Cutting both
+// surfaces at the same threshold punches a clean shaft through the slab and the
+// roof reads as paper.
+instance uniform float broken_bias = 1.0;
+// Contact darkening just OUTSIDE a hole, faking the occlusion of a real cut
+// edge. Cheap, and it does most of the work of selling depth at a distance.
+instance uniform float broken_rim_darken : hint_range(0.0, 1.0) = 0.55;
+instance uniform float broken_rim_width : hint_range(0.001, 0.5) = 0.09;
 #endif
 
 varying vec3 world_pos;
@@ -262,10 +283,10 @@ void fragment() {
 
 #ifdef MODEL_SURFACE_DETAIL
 	// Holes first — the cheapest possible reject, before anything samples the
-	// surface. NOTE this discard removes the fragment from the SHADOW pass too,
-	// so light only streams through a hole if the shadow proxy carries the same
-	// mask (RoofStyleData.shadowCasterMaterial exists for exactly that).
-	if (hole_threshold > 0.0 && texture(hole_mask_tex, UV * hole_scale).r < hole_threshold) {
+	// surface. The shadow proxy runs the SAME test (roof_shadow_caster), so a
+	// hole lets light through instead of casting a solid shadow.
+	float broken_field = roof_broken_field(world_pos.xz, broken_scale, broken_edge_scale, broken_edge_jagged);
+	if (broken > 0.0 && broken_field < broken * broken_bias) {
 		discard;
 	}
 #endif
@@ -283,6 +304,14 @@ void fragment() {
 #ifdef MODEL_SURFACE_DETAIL
 	vec3 detail = texture(detail_tex, UV * detail_scale).rgb;
 	base *= mix(vec3(1.0), detail * 2.0, detail_strength);
+
+	// Rim: darken the band just outside the hole boundary. Uses the field
+	// already computed for the discard, so it costs a smoothstep.
+	if (broken > 0.0 && broken_rim_darken > 0.0)
+	{
+		float edge = smoothstep(broken * broken_bias, broken * broken_bias + broken_rim_width, broken_field);
+		base *= mix(1.0 - broken_rim_darken, 1.0, edge);
+	}
 
 	vec4 nh = texture(normal_tex, UV);
 	vec3 tangent_normal = nh.xyz * 2.0 - 1.0;

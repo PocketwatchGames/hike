@@ -23,7 +23,7 @@
 [ext_resource type="PackedScene" uid="uid://cmd7r8wq3n2va" path="res://scenes/props/dirt_mound.tscn" id="24_dirtmound"]
 [ext_resource type="PackedScene" uid="uid://dtkn4fy5ctyvr" path="res://assets/models/characters/bunny_rat/bunny_rat.fbx" id="28_bunnyfbx"]
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/bunny_rat/bunny_rat_anims.res" id="29_bunnyanims"]
-[ext_resource type="Material" uid="uid://b74m7q8cnvcx0" path="res://resources/materials/bunny_rat_lit.tres" id="30_bunnymat"]
+[ext_resource type="Material" uid="uid://39yqc5n3mbg9d" path="res://resources/materials/bunny_rat_lit.tres" id="30_bunnymat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="31_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="Resource" uid="uid://bm2yf5vqo3fvx" path="res://resources/data/characters/kun_kun/kun_kun_voice.tres" id="50_voice"]

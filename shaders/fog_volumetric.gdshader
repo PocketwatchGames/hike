@@ -222,6 +222,18 @@ uniform float block_halo_intensity : hint_range(0.0, 32.0) = 6.0;
 // multiplied by this and ADDED to the global wash, so painted fog volumes
 // (mist over water, dusty hollows) get locally denser shafts. 0 = off.
 uniform float fog_shaft_gain : hint_range(0.0, 4.0) = 1.0;
+
+// Skylight carve-out for the above-clip suppression below.
+//
+// Above-clip air is normally treated as fully occluded, because it is usually
+// the solid the cutaway removed. But a hole in a roof (or a cave mouth) is air
+// that genuinely sees sky, and killing it erases a shaft exactly where it
+// should be strongest — at its source — the moment the player steps indoors and
+// the clip snaps down to the ceiling. sky_exposure_map already distinguishes
+// the two: it is a top-down, non-leaky field, 0 under solid cover and high
+// under a real opening, and roofs write into the column scan that fills it.
+// 0 = old behaviour (suppress everything above clip).
+uniform float indoor_shaft_sky_gain : hint_range(0.0, 1.0) = 1.0;
 // Day↔night fade for the shafts (0 at the day/night boundary, up to 1 with the
 // sun/moon high). SkyController already folds this into sun_shaft_intensity for
 // the weather-driven wash; it's passed separately so the authored-fog boost
@@ -768,6 +780,16 @@ void fragment()
                 // growth iris, so this dissolves in sync with the ceiling
                 // instead of snapping when camera_clip changes (was a pop).
                 float clip_occ = clip_visibility_smooth(p);
+                // Spare above-clip air that genuinely has open sky above it, so
+                // a shaft through a roof hole survives the player walking in
+                // under it. Cut-away rock reads 0 here, so the case this
+                // suppression exists for is untouched.
+                if (indoor_shaft_sky_gain > 0.0 && clip_occ < 1.0)
+                {
+                    vec3 se_uvw = (p - sky_exposure_map_origin) * sky_exposure_map_inv_size;
+                    float p_sky = texture(sky_exposure_map, se_uvw).r;
+                    clip_occ = max(clip_occ, p_sky * indoor_shaft_sky_gain);
+                }
                 // Carve the coarse+sharp streak pattern into beam visibility.
                 // Pure darken (mix capped at 1) so it can only thin/erase a
                 // beam, never brighten it (no reverse-shadow blowout).

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="SimData" format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/world/SimData.cs" id="1_1meao"]
-[ext_resource type="Material" uid="uid://dhl426xulqxbf" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
+[ext_resource type="Material" uid="uid://dftmm0prnt7kq2" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
 [ext_resource type="Material" uid="uid://vyod0jnbvh8p" path="res://resources/materials/ground_shadow_blob.tres" id="1_mobshadow"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="3_recipe_script"]
 [ext_resource type="Resource" uid="uid://drcp4n7p2q8wt" path="res://resources/data/recipes/recipe_grilled_kun_kun.tres" id="5_recipe_gkk"]
@@ -23,7 +23,7 @@
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="19_boondata"]
 [ext_resource type="Resource" uid="uid://crbn7q3k2p8wt" path="res://resources/data/status_effects/boons/boon_restore.tres" id="21_boon_restore"]
 [ext_resource type="Resource" uid="uid://dgbn5q3p8wrx2" path="res://resources/data/status_effects/boons/boon_gold.tres" id="22_boon_gold"]
-[ext_resource type="Resource" uid="uid://bbsdqlnqddipm" path="res://resources/data/script_variables/script_variables.tres" id="23_scriptvars"]
+[ext_resource type="Resource" uid="uid://cscriptvarsreg" path="res://resources/data/script_variables/script_variables.tres" id="23_scriptvars"]
 [ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="24_mob_spider"]
 [ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow/sparrow.tres" id="25_mob_sparrow"]
 [ext_resource type="Resource" uid="uid://cspmuy1rwr522" path="res://resources/data/characters/dog/dog.tres" id="26_mob_dog"]
@@ -66,6 +66,7 @@
 [ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/spells/smelling_salts.tres" id="74_spell_stamina"]
 [ext_resource type="Material" uid="uid://dwenpv2ymmiag" path="res://resources/materials/cap_mask_prop.tres" id="75_roofcapmask"]
 [ext_resource type="Material" uid="uid://bevo41qx0gote" path="res://resources/materials/roof_shadow_caster.tres" id="76_roofshadow"]
+[ext_resource type="Material" uid="uid://7dts231o8xyl" path="res://resources/materials/roof_lit_interior.tres" id="77_roofinterior"]
 [ext_resource type="Resource" uid="uid://lyjscq176hl1" path="res://resources/data/recipes/recipe_grilled_drake.tres" id="80_gr_drake"]
 [ext_resource type="Resource" uid="uid://wxsxjjd5j6nu" path="res://resources/data/recipes/recipe_grilled_spider.tres" id="81_gr_spider"]
 [ext_resource type="Resource" uid="uid://d0oeud2xwp3t" path="res://resources/data/recipes/recipe_grilled_sparrow.tres" id="82_gr_sparrow"]
@@ -129,6 +130,7 @@ fairySpawnDescriptor = ExtResource("60_fairy_desc")
 footprintMaterial = ExtResource("1_atie7")
 roofCapMaskMaterial = ExtResource("75_roofcapmask")
 roofShadowCasterMaterial = ExtResource("76_roofshadow")
+roofInteriorMaterial = ExtResource("77_roofinterior")
 groundShadowMaterial = ExtResource("1_mobshadow")
 playerShadowRadius = 0.65
 mobShadowAlpha = 0.7

@@ -59,6 +59,10 @@ volumetric_fog_sky_affect = 0.0
 
 [sub_resource type="ButtonGroup" id="ButtonGroup_seam"]
 
+[sub_resource type="ButtonGroup" id="ButtonGroup_roof_form"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_roof_mode"]
+
 [node name="WorldEditor" type="Node3D" unique_id=1875192204 node_paths=PackedStringArray("camera", "editorHud", "iconBaker", "gizmo", "saveDialog", "saveNameEdit", "sceneViewport", "viewportRig", "sceneEnvironment")]
 script = ExtResource("1_editor")
 camera = NodePath("SceneViewport/MainCamera")
@@ -284,7 +288,7 @@ mouse_filter = 2
 [node name="EditorGizmo" type="Node" parent="." unique_id=1408225650]
 script = ExtResource("15_gizmo")
 
-[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "slopeSlider", "slopeLabel", "voxelTab", "interactivesTab", "treesTab", "rocksTab", "natureTab", "furnitureTab", "propsTab", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "lightingButton", "timeOfDaySlider", "weatherOption")]
+[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "voxelTab", "interactivesTab", "treesTab", "rocksTab", "natureTab", "furnitureTab", "propsTab", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "lightingButton", "timeOfDaySlider", "weatherOption")]
 script = ExtResource("3_hud")
 clipLabel = NodePath("UpperLeft/VBoxContainer/ClipLabel")
 coordsLabel = NodePath("UpperLeft/VBoxContainer/CoordsLabel")
@@ -307,8 +311,14 @@ roofInfoPanel = NodePath("MiddleLeft/VBoxContainer/RoofInfo")
 roofTab = NodePath("Bottom/RoofPalette/Roofs")
 ridgeXButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/SeamRow/RidgeX")
 ridgeZButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/SeamRow/RidgeZ")
+gableFormButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/FormRow/Gable")
+hipFormButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/FormRow/Hip")
 slopeSlider = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/Slope")
 slopeLabel = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/SlopeLabel")
+brokenSlider = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/Broken")
+brokenLabel = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/BrokenLabel")
+drawRoofModeButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow/Draw")
+editRoofModeButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow/Edit")
 voxelTab = NodePath("Bottom/VoxelPalette/Voxels")
 interactivesTab = NodePath("Bottom/EntityPalette/Interactives")
 treesTab = NodePath("Bottom/EntityPalette/Trees")
@@ -325,6 +335,7 @@ voxelShapeButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/
 floorShapeButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer/Floor")
 wallShapeButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer/Wall")
 fillShapeButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer/Fill")
+roomShapeButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer/Room")
 windowShapeButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer/Window")
 doorShapeButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer/Door")
 plateauSnapButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/PlateauSnap")
@@ -559,6 +570,12 @@ toggle_mode = true
 button_group = SubResource("ButtonGroup_shape")
 text = "Fill"
 
+[node name="Room" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_shape")
+text = "Room"
+
 [node name="Window" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer" unique_id=661225537]
 layout_mode = 2
 toggle_mode = true
@@ -633,6 +650,42 @@ theme_override_constants/margin_bottom = 5
 [node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer"]
 layout_mode = 2
 
+[node name="ModeRow" type="HBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Draw" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow"]
+layout_mode = 2
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("ButtonGroup_roof_mode")
+text = "Draw"
+
+[node name="Edit" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow"]
+layout_mode = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_roof_mode")
+text = "Edit"
+
+[node name="FormLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Shape"
+
+[node name="FormRow" type="HBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Gable" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/FormRow"]
+layout_mode = 2
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("ButtonGroup_roof_form")
+text = "Gable"
+
+[node name="Hip" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/FormRow"]
+layout_mode = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_roof_form")
+text = "Hip"
+
 [node name="Label" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "Ridge Direction"
@@ -664,9 +717,18 @@ max_value = 70.0
 step = 1.0
 value = 35.0
 
+[node name="BrokenLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Broken: none"
+
+[node name="Broken" type="HSlider" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+max_value = 1.0
+step = 0.01
+
 [node name="Help" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Drag a footprint | Ctrl: delete"
+text = "Draw: drag a footprint | Edit: click a roof | Ctrl: delete"
 
 [node name="UpperRight" type="MarginContainer" parent="EditorHud" unique_id=259976953]
 anchors_preset = 1

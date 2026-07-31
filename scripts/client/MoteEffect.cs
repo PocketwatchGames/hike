@@ -78,12 +78,17 @@ public partial class MoteEffect : Node3D
     // to show. Higher = motes confined to the most intense beams only; lower =
     // motes also drift through softly-lit air, not just the sharpest beams.
     [Export(PropertyHint.Range, "0,1,0.01")] public float beamThreshold = 0.3f;
-    // Block-light (torch / campfire / lamp) contribution. Lets motes also drift
-    // and glint inside local light, and strongly tints/brightens their glint
-    // toward the block-light colour. Block-light values are small, so this wants
-    // a big multiplier — push to 8-24 for a strong torch response (past ~1 the
-    // glint blooms). 0 = sun/moon shafts only.
+    // Block-light (torch / campfire / lantern) APPEARANCE: how strongly local
+    // light tints/brightens a speck's glint. Block-light values are small, so
+    // this wants a big multiplier — 8-24 (past ~1 the glint blooms). 0 =
+    // sun/moon shafts only.
     [Export(PropertyHint.Range, "0,32,0.1")] public float blockLightStrength = 8.0f;
+    // Block-light REVEAL: how far from a light motes appear at all — separate
+    // from the appearance term above so a long-reaching light can still have a
+    // tight mote pool. Raise the curve to tighten the pool; the strength then
+    // sets where its edge lands. See the block_light_* block in mote.gdshader.
+    [Export(PropertyHint.Range, "0.5,4,0.05")] public float blockLightRevealCurve = 1.5f;
+    [Export(PropertyHint.Range, "0,64,0.5")] public float blockLightRevealStrength = 13.0f;
     // Shaft occlusion gate — makes motes track the actual god-rays instead of
     // blanketing open lit sky (clear desert noon). A mote needs cloud cover OR
     // local terrain/foliage shadow contrast to show. shaftSampleRadius = how far
@@ -102,7 +107,29 @@ public partial class MoteEffect : Node3D
     // the underground slab and the too-high band that nearGroundHeight fades out.
     [Export(PropertyHint.Range, "0,16,0.5")] public float anchorHeightAbovePlayer = 4f;
 
+    // --- Local air density ------------------------------------------------
+    // The regional weather scalar (ZoneData.dustAmount, via SkyController) sets
+    // the baseline particle budget, but it knows nothing about authored fog
+    // volumes or roof interior dust. Those are per-voxel, so the count also
+    // rides the air the player is actually standing in — otherwise a dusty room
+    // in a clean zone has no particles to light and the whole roof mechanic is
+    // inert. Taken as a MAX with the weather wash, never a replacement.
+    [Export(PropertyHint.Range, "0,2,0.05")] public float localDustDensityScale = 1f;
+    // Metres above the player's feet to sample. Wants to sit in the room's air
+    // rather than in the floor voxel.
+    [Export(PropertyHint.Range, "0,4,0.1")] public float localDustSampleHeight = 1f;
+    // Seconds for the sampled value to catch up. Smoothed because Amount
+    // reallocates the GPU buffer and restarts emission — stepping through a
+    // doorway would otherwise flush the whole field, repeatedly.
+    [Export(PropertyHint.Range, "0.05,10,0.05")] public float localDustLagSeconds = 1.5f;
+
+    private float _localDust;
     private float _intensity;
+    // The density the live buffer was sized for. Handed to the shader so it can
+    // cull each speck back to what its own position earns — without it, a dusty
+    // room raises the count across the whole emission box and motes appear in
+    // the open air outside. See mote_budget_density in mote.gdshader.
+    private float _budgetDensity = 1f;
     // Pre-integrated sparkle time (accumulates dt), pushed as mote_time so the
     // twinkle phase doesn't ride raw shader TIME (precision over long sessions).
     private float _moteTime;
@@ -201,6 +228,16 @@ public partial class MoteEffect : Node3D
             GlobalPosition = new Vector3(pp.X, pp.Y + anchorHeightAbovePlayer, pp.Z);
 
             WorldState ws = sim.WorldState;
+            if (ws != null)
+            {
+                float sampled = ws.GetAirDensityWorld(
+                    Mathf.FloorToInt(pp.X),
+                    Mathf.FloorToInt(pp.Y + localDustSampleHeight),
+                    Mathf.FloorToInt(pp.Z));
+                // Exponential catch-up, frame-rate independent.
+                float k = 1f - Mathf.Exp(-dt / Mathf.Max(localDustLagSeconds, 0.01f));
+                _localDust = Mathf.Lerp(_localDust, sampled, k);
+            }
             if (ws != null && windInfluence > 0f)
             {
                 Vector3 windVel = ws.GetWindVelocityWorld(
@@ -225,7 +262,12 @@ public partial class MoteEffect : Node3D
         {
             int ceiling = Mathf.Max(1, particleCount);
             int step = Mathf.Clamp(amountQuantizationStep, 1, ceiling);
-            int target = Mathf.RoundToInt(ceiling * _intensity);
+            // Whichever is thicker: the regional weather air, or the air right
+            // here (fog volume / dusty roof interior).
+            float density = Mathf.Clamp(
+                Mathf.Max(_intensity, _localDust * localDustDensityScale), 0f, 1f);
+            _budgetDensity = density;
+            int target = Mathf.RoundToInt(ceiling * density);
             // Round the buffer UP to the next step (min one step) so AmountRatio
             // always has headroom to fine-tune the density downward.
             int quantized = Mathf.Clamp(((target + step - 1) / step) * step, step, ceiling);
@@ -262,11 +304,30 @@ public partial class MoteEffect : Node3D
             MoteMatRuntime.SetShaderParameter("spec_intensity", specIntensity);
             MoteMatRuntime.SetShaderParameter("beam_threshold", beamThreshold);
             MoteMatRuntime.SetShaderParameter("block_light_strength", blockLightStrength);
+            MoteMatRuntime.SetShaderParameter("block_light_reveal_curve", blockLightRevealCurve);
+            MoteMatRuntime.SetShaderParameter("block_light_reveal_strength", blockLightRevealStrength);
             MoteMatRuntime.SetShaderParameter("shaft_sample_radius", shaftSampleRadius);
             MoteMatRuntime.SetShaderParameter("shaft_occlusion_min", shaftOcclusionMin);
             MoteMatRuntime.SetShaderParameter("shaft_occlusion_soft", shaftOcclusionSoft);
             MoteMatRuntime.SetShaderParameter("near_ground_height", nearGroundHeight);
             MoteMatRuntime.SetShaderParameter("mote_time", _moteTime);
+            // Bound per-frame rather than once, because the volume recenters as
+            // the player crosses chunks — the texture handle is stable but its
+            // origin is not. Unbound (no ChunkManager yet) leaves inv_size at
+            // zero, which the shader reads as "no local dust".
+            // Both halves of the density reconciliation, pushed together so the
+            // shader's max() matches the one that sized the buffer this frame.
+            MoteMatRuntime.SetShaderParameter("mote_budget_density", _budgetDensity);
+            MoteMatRuntime.SetShaderParameter("mote_weather_density", _intensity);
+            MoteMatRuntime.SetShaderParameter("local_dust_density_scale", localDustDensityScale);
+
+            FogMap fog = sim?.ChunkManager?.FogVolume;
+            if (fog != null)
+            {
+                MoteMatRuntime.SetShaderParameter("fog_map", fog.Texture);
+                MoteMatRuntime.SetShaderParameter("fog_map_origin", fog.Origin);
+                MoteMatRuntime.SetShaderParameter("fog_map_inv_size", fog.InvSize);
+            }
             float groundY = worldReady ? sim.player.GlobalPosition.Y : 0f;
             MoteMatRuntime.SetShaderParameter("ground_reference_y", groundY);
         }

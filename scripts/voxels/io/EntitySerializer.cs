@@ -35,6 +35,14 @@ public static class EntitySerializer
         Roof = 22,
     }
 
+    // How much of the Roof payload a stream carries. Containers map their own
+    // file version onto one of these and pass it to ReadList; a reader that
+    // says nothing gets the current layout.
+    public const int ROOF_FORMAT_ORIGINAL = 0;
+    public const int ROOF_FORMAT_BROKEN = 1;
+    public const int ROOF_FORMAT_FORM = 2;
+    public const int ROOF_FORMAT_CURRENT = ROOF_FORMAT_FORM;
+
     // Legacy PropType byte values for loot. PropSimState used to cover loot
     // before LootSimState was split out; old world files still carry Tag.Prop
     // with these PropType bytes and must round-trip through the legacy reader.
@@ -69,6 +77,12 @@ public static class EntitySerializer
     // True while a shared table is installed, meaning WriteList must not emit
     // its own — the container already wrote it.
     [ThreadStatic] private static bool _sharedWrite;
+    // Which trailing fields the Roof payload being read carries — the roof is
+    // the one entity whose payload has grown since it shipped. A per-payload
+    // version gate can't ride ReadList's signature the way hasRotation does
+    // (that one is consumed in ReadOne), so it goes here with the other
+    // per-list read state.
+    [ThreadStatic] private static int _roofFormat;
 
     public sealed class WritePathTable
     {
@@ -189,10 +203,12 @@ public static class EntitySerializer
     // trailing field — the only such files left are pre-v3 subscenes, which load
     // with every entity at zero facing. Containers that bumped their version in
     // lockstep never pass it.
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true)
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT)
     {
         ReadPathTable outer = _readPaths;
+        int outerRoofFormat = _roofFormat;
         _readPaths = shared ?? ReadTable(r);
+        _roofFormat = roofFormat;
         try
         {
             uint count = r.ReadUInt32();
@@ -206,6 +222,7 @@ public static class EntitySerializer
         finally
         {
             _readPaths = outer;
+            _roofFormat = outerRoofFormat;
         }
     }
 
@@ -557,6 +574,8 @@ public static class EntitySerializer
                 w.Write(roof.SizeZ);
                 w.Write((byte)roof.SeamAxis);
                 w.Write(roof.SlopeDegrees);
+                w.Write(roof.Broken);
+                w.Write((byte)roof.Form);
                 break;
 
             default:
@@ -952,7 +971,12 @@ public static class EntitySerializer
                 float sizeZ = r.ReadSingle();
                 var seamAxis = (ERoofSeamAxis)r.ReadByte();
                 float slopeDegrees = r.ReadSingle();
-                return new RoofSimState(pos, style, sizeX, sizeZ, seamAxis, slopeDegrees);
+                // Subscenes written before these fields existed stop short;
+                // reading one anyway would eat the next entity's tag byte and
+                // derail the whole list.
+                float broken = _roofFormat >= ROOF_FORMAT_BROKEN ? r.ReadSingle() : 0f;
+                var form = _roofFormat >= ROOF_FORMAT_FORM ? (ERoofForm)r.ReadByte() : ERoofForm.Gable;
+                return new RoofSimState(pos, style, sizeX, sizeZ, seamAxis, form, slopeDegrees, broken);
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 // drag preview so the wireframe can't drift from the geometry it promises.
 public readonly struct RoofDimensions
 {
+    public readonly ERoofForm Form;
     // Unit vector along the ridge, and the one across it. `Across` is +Z for an
     // X seam but -X for a Z seam, deliberately: it keeps (edge direction × seam)
     // pointing the same way on both axes, so one winding rule serves both. Flip
@@ -12,42 +13,60 @@ public readonly struct RoofDimensions
     public readonly Vector3 Seam;
     public readonly Vector3 Across;
     // Where the vertical gable end face sits: flush with the footprint, i.e. on
-    // the wall it rests on.
+    // the wall it rests on. Unused by a hip, which has no end face.
     public readonly float HalfSeamBody;
-    // How far the sloped planes reach — they oversail the end face by the
-    // style's rake overhang, so the roof visibly caps the wall rather than
-    // stopping dead on it.
+    // How far the roof reaches along the seam. On a gable the sloped planes
+    // oversail the end face by the style's rake overhang, so the roof visibly
+    // caps the wall rather than stopping dead on it; on a hip the ends ARE
+    // eaves and take the eave overhang like the sides.
     public readonly float HalfSeam;
     public readonly float HalfAcross;
+    // Horizontal run from an eave up to the ridge — the span the cross-section
+    // is built over. A gable only slopes across, so it is always the half-across
+    // there. A hip climbs from all four eaves at one pitch, so the ridge forms
+    // over whichever half-extent is SHORTER and a square footprint peaks at a
+    // point.
+    public readonly float RidgeRun;
     public readonly float Rise;
     public readonly float Thickness;
 
-    public RoofDimensions(RoofStyleData style, float sizeX, float sizeZ, ERoofSeamAxis seamAxis, float slopeDegrees)
+    public RoofDimensions(RoofStyleData style, float sizeX, float sizeZ, ERoofSeamAxis seamAxis, float slopeDegrees, ERoofForm form)
     {
         // Never let a footprint collapse to nothing and fold the roof inside out.
         const float MIN_HALF_EXTENT = 0.25f;
+        Form = form;
         bool alongX = seamAxis == ERoofSeamAxis.AlongX;
         Seam = alongX ? Vector3.Right : Vector3.Back;
         Across = alongX ? Vector3.Back : Vector3.Left;
         HalfSeamBody = Mathf.Max((alongX ? sizeX : sizeZ) * 0.5f, MIN_HALF_EXTENT);
-        HalfSeam = HalfSeamBody + style.rakeOverhang;
+        HalfSeam = HalfSeamBody + (form == ERoofForm.Hip ? style.eaveOverhang : style.rakeOverhang);
         HalfAcross = (alongX ? sizeZ : sizeX) * 0.5f + style.eaveOverhang;
-        Rise = HalfAcross * Mathf.Tan(Mathf.DegToRad(slopeDegrees));
+        RidgeRun = form == ERoofForm.Hip ? Mathf.Min(HalfAcross, HalfSeam) : HalfAcross;
+        Rise = RidgeRun * Mathf.Tan(Mathf.DegToRad(slopeDegrees));
         Thickness = style.thickness;
     }
 }
 
 // Builds a roof's geometry from its footprint and pitch.
 //
-// The shape is a cross-section extruded along the seam axis. That structure is
-// the point: a new roof FORM (shed, hip, mansard) is a new cross-section and
-// nothing else — winding, normals, UVs, caps and collision are form-agnostic.
+// Both forms come from ONE authored cross-section (eave → courses → ridge);
+// they differ only in how it is swept. That structure is the point: a new roof
+// form is a new sweep of the same profile, and winding, normals, UVs, shading
+// and collision stay form-agnostic.
 //
-// It extrudes in two parts, which is what produces the rake overhang:
+// GABLE — the profile extruded straight along the seam, in two parts, which is
+// what produces the rake overhang:
 //   * BODY, out to HalfSeamBody — the full cross-section, filled down to a flat
 //     soffit. Ends in the vertical gable face, flush with the wall.
 //   * RAKE, from there out to HalfSeam — only the sloped slab continues, so the
 //     roof oversails the gable end and you read its underside from below.
+//
+// HIP — the profile's outward half swept as INSET RINGS: each station on the
+// profile becomes a rectangle pulled in from the eave by that station's own
+// horizontal run, so all four faces climb at one pitch. A ring closing on one
+// axis leaves the seam, closing on both leaves a point — so hip, tower and
+// pyramid all fall out of the same loop with no special cases. Nothing
+// oversails, and the underside is one flat soffit over the whole footprint.
 //
 // Two things about the vertical layout are load-bearing:
 //   * Y = 0 is the eave's UNDERSIDE, so the roof sits ON the surface it was
@@ -79,56 +98,26 @@ public static class RoofMeshBuilder
     // neighbouring spans meeting the sides at a T-junction free to crack open.
     private const float MIN_LIP_RUN_FRACTION = 0.02f;
 
-    public static ArrayMesh Build(RoofStyleData style, float sizeX, float sizeZ, ERoofSeamAxis seamAxis, float slopeDegrees)
+    public static ArrayMesh Build(RoofStyleData style, float sizeX, float sizeZ, ERoofSeamAxis seamAxis, float slopeDegrees, ERoofForm form)
     {
-        var size = new RoofDimensions(style, sizeX, sizeZ, seamAxis, slopeDegrees);
-        float tiles = style.textureTilesPerMeter;
+        var size = new RoofDimensions(style, sizeX, sizeZ, seamAxis, slopeDegrees, form);
 
-        // Chamfered up front, because the profile feeds the sides AND both sets
-        // of caps — bevelling any one of them alone would tear them apart.
+        // Chamfered up front, because the profile feeds the sides AND every cap
+        // — bevelling any one of them alone would tear them apart.
         Vector2[] top = Chamfer(BuildTopProfile(size, style), style.edgeBevel, size.Thickness,
             Mathf.Cos(Mathf.DegToRad(style.bevelMinTurnDegrees)));
-        // The slab's underside, and the body's flat soffit. Clamped rather than
-        // simply offset: near the eaves the chamfer takes the profile low enough
-        // that a raw offset would dive under the soffit and invert the slab.
-        var under = new Vector2[top.Length];
-        var soffit = new Vector2[top.Length];
-        for (int i = 0; i < top.Length; i++)
-        {
-            float underY = Mathf.Max(top[i].Y - size.Thickness, SOFFIT_LIFT);
-            // SNAP when the slab bottoms out on the soffit. Where the eave
-            // corner escapes the chamfer (a steep pitch), top.Y - thickness
-            // lands a few ULPs ABOVE the constant rather than below it, so Max
-            // returns the computed value and the two chains hold points that are
-            // equal to the eye but not to ==. The caps then emit a vertex that
-            // misses the sides' by nanometres, leaving a hairline seam right
-            // along the eave. Collapsing them to the identical value is what
-            // keeps the two surfaces sharing real vertices.
-            if (underY - SOFFIT_LIFT < EDGE_EPSILON)
-            {
-                underY = SOFFIT_LIFT;
-            }
-            under[i] = new Vector2(top[i].X, underY);
-            soffit[i] = new Vector2(top[i].X, SOFFIT_LIFT);
-        }
 
         var surface = new SurfaceTool();
         surface.Begin(Mesh.PrimitiveType.Triangles);
-        var context = new Context(surface, size, style, tiles);
-
-        // Sides. The body carries the full cross-section; the two rake segments
-        // carry only the slab, so the soffit stops at the wall.
-        context.ExtrudeOutline(Close(top, soffit), -size.HalfSeamBody, size.HalfSeamBody);
-        context.ExtrudeOutline(Close(top, under), size.HalfSeamBody, size.HalfSeam);
-        context.ExtrudeOutline(Close(top, under), -size.HalfSeam, -size.HalfSeamBody);
-
-        // Caps. The slab's own ends close the oversail; the region between the
-        // slab underside and the soffit is the vertical gable face at the wall,
-        // which tapers to nothing at the eaves where the two chains meet.
-        context.AddChainCap(top, under, size.HalfSeam, facingPositive: true);
-        context.AddChainCap(top, under, -size.HalfSeam, facingPositive: false);
-        context.AddChainCap(under, soffit, size.HalfSeamBody, facingPositive: true);
-        context.AddChainCap(under, soffit, -size.HalfSeamBody, facingPositive: false);
+        var context = new Context(surface, size, style, style.textureTilesPerMeter);
+        if (form == ERoofForm.Hip)
+        {
+            context.BuildHip(top);
+        }
+        else
+        {
+            context.BuildGable(top);
+        }
 
         // No GenerateNormals: the faces are flat and authored, and averaging
         // them would round off the ridge and the eave corners. Tangents ARE
@@ -137,6 +126,14 @@ public static class RoofMeshBuilder
         surface.GenerateTangents();
         return surface.Commit();
     }
+
+    // The four footprint corners in (across, seam) sign, wound counter-clockwise
+    // seen from ABOVE. Every hip face is emitted off consecutive entries, so
+    // this ordering is what makes the whole form come out facing outward.
+    private static readonly Vector2[] CORNER_SIGNS =
+    {
+        new Vector2(1f, -1f), new Vector2(1f, 1f), new Vector2(-1f, 1f), new Vector2(-1f, -1f),
+    };
 
     // Closes an upper and a lower chain (shared `across` values) into one
     // outline, wound CLOCKWISE in (across, up): left-to-right along the top,
@@ -185,6 +182,193 @@ public static class RoofMeshBuilder
             float span = _ridgeY - SOFFIT_LIFT;
             float t = span > EDGE_EPSILON ? Mathf.Clamp((section.Y - SOFFIT_LIFT) / span, 0f, 1f) : 1f;
             return Mathf.Lerp(_eaveShade, 1f, t);
+        }
+
+        // The cross-section extruded straight along the seam, with vertical end
+        // walls the slab oversails.
+        public void BuildGable(Vector2[] top)
+        {
+            // The slab's underside, and the body's flat soffit. Clamped rather
+            // than simply offset: near the eaves the chamfer takes the profile
+            // low enough that a raw offset would dive under the soffit and
+            // invert the slab.
+            var under = new Vector2[top.Length];
+            var soffit = new Vector2[top.Length];
+            for (int i = 0; i < top.Length; i++)
+            {
+                float underY = Mathf.Max(top[i].Y - _size.Thickness, SOFFIT_LIFT);
+                // SNAP when the slab bottoms out on the soffit. Where the eave
+                // corner escapes the chamfer (a steep pitch), top.Y - thickness
+                // lands a few ULPs ABOVE the constant rather than below it, so
+                // Max returns the computed value and the two chains hold points
+                // that are equal to the eye but not to ==. The caps then emit a
+                // vertex that misses the sides' by nanometres, leaving a
+                // hairline seam right along the eave. Collapsing them to the
+                // identical value is what keeps the two surfaces sharing real
+                // vertices.
+                if (underY - SOFFIT_LIFT < EDGE_EPSILON)
+                {
+                    underY = SOFFIT_LIFT;
+                }
+                under[i] = new Vector2(top[i].X, underY);
+                soffit[i] = new Vector2(top[i].X, SOFFIT_LIFT);
+            }
+
+            // Sides. The body carries the full cross-section; the two rake
+            // segments carry only the slab, so the soffit stops at the wall.
+            ExtrudeOutline(Close(top, soffit), -_size.HalfSeamBody, _size.HalfSeamBody);
+            ExtrudeOutline(Close(top, under), _size.HalfSeamBody, _size.HalfSeam);
+            ExtrudeOutline(Close(top, under), -_size.HalfSeam, -_size.HalfSeamBody);
+
+            // Caps. The slab's own ends close the oversail; the region between
+            // the slab underside and the soffit is the vertical gable face at
+            // the wall, which tapers to nothing at the eaves where the two
+            // chains meet.
+            AddChainCap(top, under, _size.HalfSeam, facingPositive: true);
+            AddChainCap(top, under, -_size.HalfSeam, facingPositive: false);
+            AddChainCap(under, soffit, _size.HalfSeamBody, facingPositive: true);
+            AddChainCap(under, soffit, -_size.HalfSeamBody, facingPositive: false);
+        }
+
+        // The same cross-section swept as inset rings, so the ends slope in at
+        // the pitch the sides do.
+        //
+        // Only the OUTWARD HALF of the profile is used, reparameterized from an
+        // across-coordinate to `run` — how far in from any eave the station sits
+        // — because on a hip that one chain describes all four faces. The
+        // chamfered profile is symmetric about the ridge by construction, so
+        // halving it lands on the ridge chamfer and hands the sweep the small
+        // flat the four faces meet on.
+        public void BuildHip(Vector2[] top)
+        {
+            int half = (top.Length + 1) / 2;
+            var chain = new Vector2[half + 1];
+            // The bottom of the eave fascia. The chamfered profile starts part
+            // way UP the fascia, so without this the roof never closes down onto
+            // its own soffit.
+            chain[0] = new Vector2(0f, SOFFIT_LIFT);
+            for (int i = 0; i < half; i++)
+            {
+                chain[i + 1] = new Vector2(top[i].X + _size.RidgeRun, top[i].Y);
+            }
+
+            float arc = 0f;
+            for (int i = 0; i < chain.Length - 1; i++)
+            {
+                Vector2 step = chain[i + 1] - chain[i];
+                float length = step.Length();
+                if (length <= EDGE_EPSILON)
+                {
+                    continue;
+                }
+                AddRingBand(chain[i], chain[i + 1], arc, arc + length, step / length);
+                arc += length;
+            }
+
+            // The flat underside, and whatever flat the ridge chamfer left on
+            // top. Both drop out when their ring has already closed.
+            AddRingFace(chain[0], facingUp: false);
+            AddRingFace(chain[chain.Length - 1], facingUp: true);
+        }
+
+        // The rectangle a hip station sweeps: the footprint pulled in from every
+        // eave by that station's horizontal run. Clamped at zero so a ring that
+        // has already closed on one axis stays a segment instead of everting.
+        private void Ring(Vector2 station, out float halfAcross, out float halfSeam)
+        {
+            halfAcross = Mathf.Max(_size.HalfAcross - station.X, 0f);
+            halfSeam = Mathf.Max(_size.HalfSeam - station.X, 0f);
+        }
+
+        private Vector3 RingCorner(Vector2 sign, float halfAcross, float halfSeam, float up)
+        {
+            return _size.Across * (sign.X * halfAcross) + _size.Seam * (sign.Y * halfSeam) + Vector3.Up * up;
+        }
+
+        // One band of the hip between two profile stations: four planar faces,
+        // one per eave, meeting along the hip lines the corners trace. A face
+        // degenerates to a triangle once its ring edge has closed to nothing,
+        // which is exactly what turns the sweep into a ridge (one axis closed)
+        // or an apex (both).
+        //
+        // `slope` is the station step as (run inward, rise), so the outward
+        // normal is rise horizontally and run vertically: a flat step faces
+        // straight up, the eave fascia straight out.
+        private void AddRingBand(Vector2 lower, Vector2 upper, float arc, float arcUpper, Vector2 slope)
+        {
+            Ring(lower, out float lowAcross, out float lowSeam);
+            Ring(upper, out float highAcross, out float highSeam);
+            float shadeLower = Shade(lower);
+            float shadeUpper = Shade(upper);
+            for (int side = 0; side < CORNER_SIGNS.Length; side++)
+            {
+                Vector2 startSign = CORNER_SIGNS[side];
+                Vector2 endSign = CORNER_SIGNS[(side + 1) % CORNER_SIGNS.Length];
+                // Sides alternate: the even ones run along the seam and face
+                // across, the odd ones the other way about.
+                bool facesAcross = (side % 2) == 0;
+                Vector3 outward = facesAcross ? _size.Across * startSign.X : _size.Seam * startSign.Y;
+                Vector3 normal = outward * slope.Y + Vector3.Up * slope.X;
+                // Texture runs up the slope and sideways along the face, same as
+                // the gable's — courses have to band, whatever the sweep. The
+                // sideways coordinate is signed to advance the way the face is
+                // wound, so neighbouring faces don't mirror against each other.
+                float lateralSign = facesAcross ? startSign.X : -startSign.Y;
+                float Lateral(Vector2 sign, float halfAcross, float halfSeam)
+                {
+                    return lateralSign * (facesAcross ? sign.Y * halfSeam : sign.X * halfAcross);
+                }
+
+                Vector3 p0 = RingCorner(startSign, lowAcross, lowSeam, lower.Y);
+                Vector3 p1 = RingCorner(endSign, lowAcross, lowSeam, lower.Y);
+                Vector3 q0 = RingCorner(startSign, highAcross, highSeam, upper.Y);
+                Vector3 q1 = RingCorner(endSign, highAcross, highSeam, upper.Y);
+                // The lower ring is never the narrower of the two, so a closed
+                // edge there means the whole face is behind us.
+                if (p0.DistanceSquaredTo(p1) <= EDGE_EPSILON * EDGE_EPSILON)
+                {
+                    continue;
+                }
+                Vector2 uv0 = new Vector2(arc, Lateral(startSign, lowAcross, lowSeam)) * _tiles;
+                Vector2 uv1 = new Vector2(arc, Lateral(endSign, lowAcross, lowSeam)) * _tiles;
+                Vector2 uvQ0 = new Vector2(arcUpper, Lateral(startSign, highAcross, highSeam)) * _tiles;
+                Vector2 uvQ1 = new Vector2(arcUpper, Lateral(endSign, highAcross, highSeam)) * _tiles;
+                if (q0.DistanceSquaredTo(q1) <= EDGE_EPSILON * EDGE_EPSILON)
+                {
+                    AddTriangle(normal, shadeLower, shadeLower, shadeUpper, p0, p1, q1, uv0, uv1, uvQ1);
+                }
+                else
+                {
+                    AddQuad(normal, shadeLower, shadeLower, shadeUpper, shadeUpper, p0, p1, q1, q0, uv0, uv1, uvQ1, uvQ0);
+                }
+            }
+        }
+
+        // The horizontal rectangle a station's ring encloses — the soffit at the
+        // bottom of the sweep, the ridge chamfer's flat at the top. Skipped once
+        // the ring has closed on either axis: there is no area left to fill, and
+        // the bands already met along that line.
+        private void AddRingFace(Vector2 station, bool facingUp)
+        {
+            Ring(station, out float halfAcross, out float halfSeam);
+            if (halfAcross <= EDGE_EPSILON || halfSeam <= EDGE_EPSILON)
+            {
+                return;
+            }
+            Vector3 normal = facingUp ? Vector3.Up : Vector3.Down;
+            float shade = Shade(station);
+            var corners = new Vector3[CORNER_SIGNS.Length];
+            var uvs = new Vector2[CORNER_SIGNS.Length];
+            for (int i = 0; i < CORNER_SIGNS.Length; i++)
+            {
+                // Counter-clockwise from above; reversed for the downward face,
+                // so both read counter-clockwise from their own outside.
+                Vector2 sign = CORNER_SIGNS[facingUp ? i : CORNER_SIGNS.Length - 1 - i];
+                corners[i] = RingCorner(sign, halfAcross, halfSeam, station.Y);
+                uvs[i] = new Vector2(sign.X * halfAcross, sign.Y * halfSeam) * _tiles;
+            }
+            AddQuad(normal, shade, shade, shade, shade,
+                corners[0], corners[1], corners[2], corners[3], uvs[0], uvs[1], uvs[2], uvs[3]);
         }
 
         // One extruded quad per outline edge, between two offsets along the seam.
@@ -324,22 +508,26 @@ public static class RoofMeshBuilder
     // along the slope and then steps up by a lip, so the roof reads as banded
     // rows of shingles instead of one flat plane. The mean pitch is unchanged —
     // the lip comes out of the course's own rise, not on top of it.
+    //
+    // Spans the RIDGE RUN, which is the half-across on a gable but the shorter
+    // half-extent on a hip: a hip's cross-section has to reach its ridge in the
+    // run its END faces take, or the two sets of faces meet at different heights.
     private static Vector2[] BuildTopProfile(in RoofDimensions size, RoofStyleData style)
     {
         float baseY = SOFFIT_LIFT + size.Thickness;
         int courses = style.coursesPerMeter > 0f
-            ? Mathf.Max(1, Mathf.CeilToInt(size.HalfAcross * style.coursesPerMeter))
+            ? Mathf.Max(1, Mathf.CeilToInt(size.RidgeRun * style.coursesPerMeter))
             : 1;
-        float run = size.HalfAcross / courses;
+        float run = size.RidgeRun / courses;
         float climb = size.Rise / courses;
         // A lip at or above the course's own rise would turn the slope into a
         // staircase (or invert it), so it can never take the whole climb.
         float lip = Mathf.Min(style.courseLipHeight, climb * 0.5f);
 
-        var half = new List<Vector2>(courses * 2 + 1) { new Vector2(-size.HalfAcross, baseY) };
+        var half = new List<Vector2>(courses * 2 + 1) { new Vector2(-size.RidgeRun, baseY) };
         for (int i = 1; i <= courses; i++)
         {
-            float u = -size.HalfAcross + run * i;
+            float u = -size.RidgeRun + run * i;
             float topY = baseY + climb * i;
             // The topmost course ends AT the ridge with no lip. A lip there gets
             // mirrored onto the far slope as a second riser at the same `across`,

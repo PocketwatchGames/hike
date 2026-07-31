@@ -21,7 +21,15 @@ public class FogMap : WindowedVolumeMap
                 int rowOffset = (lz * cells + ly) * cells;
                 for (int lx = 0; lx < cells; lx++)
                 {
-                    dst[rowOffset + lx] = chunk.FogDensity[lx, ly, lz];
+                    byte fog = chunk.FogDensity[lx, ly, lz];
+                    // Roof dust is a floor on the authored fog, applied here so
+                    // the serialized field is never touched.
+                    if (chunk.RoofDust != null)
+                    {
+                        byte dust = chunk.RoofDust[lx, ly, lz];
+                        if (dust > fog) { fog = dust; }
+                    }
+                    dst[rowOffset + lx] = fog;
                 }
             }
         }

@@ -84,15 +84,69 @@ uniform float dust_noise_sharpness : hint_range(0.0, 1.0) = 0.5;
 uniform float dust_noise_strength : hint_range(0.0, 1.0) = 0.7;
 uniform vec2 dust_noise_offset_a = vec2(0.0);
 uniform vec2 dust_noise_offset_b = vec2(0.0);
-// Block-light (torch / campfire / lamp) contribution. The light_map's GBA
-// channels carry accumulated block-light RGB — but at fairly small magnitudes
-// (the fog multiplies them ~6x for its halos), so this wants a big multiplier
-// to read. It scales how much block light counts toward a mote being "lit" (so
-// motes drift and glint inside torch glow, not just sunbeams) AND how strongly
-// it tints/brightens the speck toward the block-light colour. Push it high
-// (8-24) for a strong torch response; past ~1 the glint goes HDR and blooms. 0
-// disables (sun/moon shafts only).
+// --- Local air thickness (authored fog volumes + roof interior dust) -------
+// Same per-voxel field the fog raymarch reads, bound per-material rather than
+// as a global for the reason fog_volumetric documents (a runtime-registered
+// global sampler errors at editor load and locks the inspector out of the
+// material). MoteEffect binds all three from ChunkManager.FogVolume.
+//
+// STRICTLY A BOOST. Every term below folds back to the un-dusty expression at
+// dust 0, so clean air renders exactly as it did before this existed — which
+// is also what keeps stepping into a dusty room from changing the air outside
+// it, since the emission box spans far more than the room.
+uniform sampler3D fog_map : filter_linear, repeat_enable;
+uniform vec3 fog_map_origin;
+uniform vec3 fog_map_inv_size;
+// Air thinner than this contributes no boost at all — keeps the faint ambient
+// fog most of the world carries from lifting motes everywhere.
+uniform float dust_boost_min : hint_range(0.0, 1.0) = 0.15;
+uniform float dust_boost_strength : hint_range(0.0, 1.0) = 1.0;
+// --- Density reconciliation ----------------------------------------------
+// The particle COUNT is one global number for the whole emission box, sized by
+// MoteEffect from whichever is thicker: the regional weather air, or the air at
+// the player. That makes standing in a dusty room raise the count everywhere in
+// the box — including the open ground outside, where the gates are at their
+// most permissive (a roof's edge in the sun mask is maximum shadow contrast, so
+// the shaft gate passes hardest right outside the walls).
+//
+// So the shader culls each speck back to the density its OWN position earns:
+// budget is the density the count was sized for, weather is the regional
+// baseline, and a fragment keeps specks in proportion to what it deserves out
+// of that budget. Standing in dust therefore raises the count and the room
+// spends it, while the air outside stays at the density it always had.
+uniform float mote_budget_density : hint_range(0.0, 1.0) = 1.0;
+uniform float mote_weather_density : hint_range(0.0, 1.0) = 1.0;
+uniform float local_dust_density_scale : hint_range(0.0, 2.0) = 1.0;
+// Fraction of beam_threshold that survives in full dust. Thick air scatters
+// enough that dimmer light still picks specks out, so the light gate relaxes.
+uniform float dust_threshold_relax : hint_range(0.05, 1.0) = 0.35;
+// Extra opacity in full dust. >0 makes a dusty room read thicker, not just
+// more populated.
+uniform float dust_alpha_gain : hint_range(0.0, 2.0) = 0.6;
+// --- Block light (torch / campfire / lantern) -----------------------------
+// The light_map's GBA channels carry accumulated block-light RGB at fairly
+// small magnitudes (the fog multiplies them ~6x for its halos), so both terms
+// below want large multipliers to read.
+//
+// REVEAL and APPEARANCE are deliberately separate responses to the same field.
+// They used to share one sqrt, which forced the two to move together: a light's
+// deposit falls ~29:1 from its core to the edge of its reach, but sqrt
+// compressed that to ~5:1, so even the faintest tail cleared the beam gate and
+// motes filled the light's ENTIRE radius. Tightening it via the shared term
+// then blew the core out to flat white. Split, the reveal can fall off far
+// faster than the light does — which is what lets a lantern light a cave at
+// range while its motes stay close in.
+//
+// Appearance: how strongly block light tints/brightens the speck. Gentle (sqrt)
+// so a mote near the source doesn't saturate. Past ~1 the glint blooms.
 uniform float block_light_strength : hint_range(0.0, 32.0) = 8.0;
+// Reveal: how far from a light motes appear at all. Higher curve = tighter
+// pool. Because the light's own falloff is pinned to 1% of core at its authored
+// `distance` (LightEngine.ResolveTuning), the reveal edge lands well inside the
+// lit radius rather than tracking it. Retune the pair together — raising the
+// curve without raising the strength shrinks the pool from both ends.
+uniform float block_light_reveal_curve : hint_range(0.5, 4.0) = 1.5;
+uniform float block_light_reveal_strength : hint_range(0.0, 64.0) = 13.0;
 // Speck size in SubViewport pixels (the visual core; the raster footprint is
 // inflated 1 px for analytical AA).
 uniform float mote_size_px : hint_range(0.5, 8.0) = 1.5;
@@ -122,6 +176,9 @@ varying flat vec3 view_dir;
 varying flat vec2 quad_center_px;
 varying flat float quad_half_px;
 varying flat float seed;
+// Stable per-particle draw in [0,1) for the density cull — keyed on the
+// particle's buffer slot, so it holds for the particle's whole life.
+varying flat float cull_draw;
 // Per-particle COLOR from the process material's color_ramp (lifetime fade).
 // Defaults to white opaque when no ramp is authored, so it's a no-op until you
 // set one — primarily used to fade ALPHA in/out over each mote's lifetime.
@@ -134,6 +191,18 @@ float hash13(vec3 p)
     p = fract(p * 0.1031);
     p += dot(p, p.zyx + 31.32);
     return fract((p.x + p.y) * p.z);
+}
+
+// Scalar hash, for the per-particle survival draw. Must key off something
+// STABLE for the particle's life — the position-derived `seed` above changes as
+// a speck drifts, which is what we want for decorrelating sparkle phases and
+// exactly what we can't have for a cull (a speck would blink as it crossed hash
+// cells rather than holding its verdict).
+float hash11(float p)
+{
+    p = fract(p * 0.1031);
+    p *= p + 33.33;
+    return fract((p + p) * p);
 }
 
 // Voxel sun-visibility (light_map.r) at a world position. Used by the shaft
@@ -177,6 +246,10 @@ void vertex()
     // position. Neighbours land in different hash cells → independent sparkle
     // phases, so the field never pulses in regional waves.
     seed = hash13(floor(origin * 13.0));
+    // Slot index, not position — see hash11. Slots recycle as particles respawn,
+    // which is fine: each new particle spawns somewhere unrelated, so the
+    // surviving subset stays spatially uniform.
+    cull_draw = hash11(float(INSTANCE_ID) + 0.5);
     // Carry the particle's lifetime color/alpha (process material color_ramp)
     // into the fragment so it can fade the speck over its life.
     particle_color = COLOR;
@@ -196,6 +269,7 @@ void fragment()
     // specular glint, so a fleck inside torch glow glints warm orange while one
     // in a sunbeam glints with the sky light.
     float beam = 1.0;
+    float dust_gain = 1.0;
     vec3 light_col = sun_color;
     if (globals_ready)
     {
@@ -210,13 +284,49 @@ void fragment()
         vec4 lm = texture(light_map, luvw);
         float cloud = cloud_shadow_shafts(world_pos, mote_time, cloud_sharpness);
         float sun_lit = lm.r * (1.0 - cloud);
-        // Block light (GBA) counts toward "lit" and is added into the light
-        // colour so the glint tracks it strongly. sqrt lifts the small stored
-        // magnitudes so faint torch glow reaches more motes before scaling.
-        vec3 block_light = sqrt(max(lm.gba, vec3(0.0))) * block_light_strength;
-        float block_lit = max(block_light.r, max(block_light.g, block_light.b));
+        // Block light (GBA), split into the two independent responses described
+        // at block_light_strength: a gentle one for how the speck LOOKS, and a
+        // steep one for how far out specks appear at all.
+        vec3 block_raw = max(lm.gba, vec3(0.0));
+        vec3 block_light = sqrt(block_raw) * block_light_strength;
+        float block_peak = max(block_raw.r, max(block_raw.g, block_raw.b));
+        float block_lit = pow(block_peak, block_light_reveal_curve) * block_light_reveal_strength;
         float lit = max(sun_lit, block_lit);
         light_col = sun_color * sun_lit + block_light;
+
+        // Local air thickness — authored fog volumes plus any roof interior
+        // dust, the same single channel the fog raymarch reads. 0 in clean air,
+        // where every use of dust_boost below folds back to the expression it
+        // replaced; that is what keeps walking into a dusty room from altering
+        // the air outside it, since the emission box spans far more than a room.
+        float dust_boost = 0.0;
+        float dust_here = 0.0;
+        bool fog_ready = length(fog_map_inv_size) > 1e-6;
+        if (fog_ready)
+        {
+            vec3 fuvw = (world_pos - fog_map_origin) * fog_map_inv_size;
+            dust_here = texture(fog_map, fuvw).r;
+            dust_boost = smoothstep(dust_boost_min, 1.0, dust_here) * dust_boost_strength;
+        }
+        dust_gain = 1.0 + dust_alpha_gain * dust_boost;
+
+        // Cull back to locally-earned density (see mote_budget_density). Mirrors
+        // the max() MoteEffect sized the buffer with, so the fraction kept is 1
+        // wherever the budget came from this fragment's own air and falls to the
+        // weather baseline everywhere else.
+        //
+        // Stochastic rather than proportional: dropping whole specks keeps the
+        // survivors at full brightness, so thin air reads as a few clear motes.
+        // Fading all of them instead matches total emitted light but turns the
+        // same budget into a dim wash, which is the thing that looked wrong.
+        if (fog_ready && mote_budget_density > 1e-4)
+        {
+            float earned = max(mote_weather_density, dust_here * local_dust_density_scale);
+            if (cull_draw > clamp(earned / mote_budget_density, 0.0, 1.0))
+            {
+                discard;
+            }
+        }
 
         // Shaft occlusion gate: require cloud cover OR local terrain/foliage
         // shadow contrast, so motes track the actual god-rays instead of
@@ -246,10 +356,17 @@ void fragment()
         float noise_gate = mix(1.0, dust_pattern, dust_noise_strength);
 
         // Block-lit motes (torch glow) bypass the sun-shaft occlusion + noise.
+        // Thick air bypasses it too: dust IS the scattering medium, so a speck
+        // in it doesn't need a shaft edge or a noise pocket to justify showing.
+        // This is what lifts motes inside authored fog banks and under dusty
+        // roofs, where there is no terrain shadow contrast to gate on.
         float block_present = smoothstep(0.0, 0.15, block_lit);
-        float shaft_struct = max(occ_gate * noise_gate, block_present);
+        float shaft_struct = max(max(occ_gate * noise_gate, block_present), dust_boost);
 
-        beam = smoothstep(beam_threshold, beam_threshold + beam_softness, lit) * shaft_struct;
+        // Dust also lets dimmer light reveal a speck at all — more of the air
+        // is scattering, so the sun/moon picks specks out further into shadow.
+        float thr = mix(beam_threshold, beam_threshold * dust_threshold_relax, dust_boost);
+        beam = smoothstep(thr, thr + beam_softness, lit) * shaft_struct;
         if (beam < 1e-3)
         {
             discard;
@@ -302,5 +419,5 @@ void fragment()
     // Fold in the per-particle lifetime ramp: rgb tints the speck, a fades it.
     // Both default to 1 (white/opaque) when no color_ramp is authored.
     ALBEDO = color * particle_color.rgb;
-    ALPHA = mote_alpha * coverage * beam * ground_fade * particle_color.a;
+    ALPHA = min(mote_alpha * dust_gain, 1.0) * coverage * beam * ground_fade * particle_color.a;
 }

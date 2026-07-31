@@ -48,9 +48,19 @@ public partial class EditorHud : CanvasLayer
     [Export] public GridContainer roofTab;
     [Export] public Button ridgeXButton;
     [Export] public Button ridgeZButton;
+    // Gable ends or hipped ends. A hip ignores the ridge direction — it derives
+    // the seam from whichever footprint axis is longer.
+    [Export] public Button gableFormButton;
+    [Export] public Button hipFormButton;
     // Roof pitch in degrees. Range/step are authored on the slider itself.
     [Export] public HSlider slopeSlider;
     [Export] public Label slopeLabel;
+    // How derelict the next roof is. Per-roof, not per-style.
+    [Export] public HSlider brokenSlider;
+    [Export] public Label brokenLabel;
+    // Draw a new roof, or retune one already placed.
+    [Export] public Button drawRoofModeButton;
+    [Export] public Button editRoofModeButton;
 
     [ExportGroup("Entity Tabs")]
     // One grid per EEditorEntityTab, in enum order.
@@ -71,6 +81,7 @@ public partial class EditorHud : CanvasLayer
     [Export] public Button floorShapeButton;
     [Export] public Button wallShapeButton;
     [Export] public Button fillShapeButton;
+    [Export] public Button roomShapeButton;
     [Export] public Button windowShapeButton;
     [Export] public Button doorShapeButton;
     [Export] public Button plateauSnapButton;
@@ -89,7 +100,10 @@ public partial class EditorHud : CanvasLayer
     public Action<int> onRoofBrushSelected;
     public Action<EEditorTool> onToolChanged;
     public Action<ERoofSeamAxis> onRoofSeamAxisChanged;
+    public Action<ERoofForm> onRoofFormChanged;
     public Action<float> onRoofSlopeChanged;
+    public Action<float> onRoofBrokenChanged;
+    public Action<EEditorRoofMode> onRoofModeChanged;
     public Action<EEditorEntityMode> onEntityToolModeChanged;
     public Action<EEditorBrushOperation> onOperationSelected;
     public Action<EEditorBrushShape> onShapeSelected;
@@ -135,14 +149,26 @@ public partial class EditorHud : CanvasLayer
         BindToolButton(roofToolButton, EEditorTool.Roof);
         BindEntityModeButton(placeModeButton, EEditorEntityMode.Place);
         BindEntityModeButton(selectModeButton, EEditorEntityMode.Select);
+        BindRoofModeButton(drawRoofModeButton, EEditorRoofMode.Draw);
+        BindRoofModeButton(editRoofModeButton, EEditorRoofMode.Edit);
         BindSeamAxisButton(ridgeXButton, ERoofSeamAxis.AlongX);
         BindSeamAxisButton(ridgeZButton, ERoofSeamAxis.AlongZ);
+        BindRoofFormButton(gableFormButton, ERoofForm.Gable);
+        BindRoofFormButton(hipFormButton, ERoofForm.Hip);
         if (slopeSlider != null)
         {
             slopeSlider.ValueChanged += value =>
             {
                 UpdateSlopeLabel((float)value);
                 onRoofSlopeChanged?.Invoke((float)value);
+            };
+        }
+        if (brokenSlider != null)
+        {
+            brokenSlider.ValueChanged += value =>
+            {
+                UpdateBrokenLabel((float)value);
+                onRoofBrokenChanged?.Invoke((float)value);
             };
         }
         ApplyToolVisibility();
@@ -154,6 +180,7 @@ public partial class EditorHud : CanvasLayer
         BindShapeButton(floorShapeButton, EEditorBrushShape.Floor);
         BindShapeButton(wallShapeButton, EEditorBrushShape.Wall);
         BindShapeButton(fillShapeButton, EEditorBrushShape.Fill);
+        BindShapeButton(roomShapeButton, EEditorBrushShape.Room);
         BindShapeButton(windowShapeButton, EEditorBrushShape.Window);
         BindShapeButton(doorShapeButton, EEditorBrushShape.Door);
         if (plateauSnapButton != null)
@@ -443,11 +470,39 @@ public partial class EditorHud : CanvasLayer
 
     // ----- Roof options ----------------------------------------------------
 
+    // Same re-press guard as every other grouped toggle here: clicking the one
+    // already down re-emits Pressed, and re-announcing it would be noise.
+    private EEditorRoofMode _roofMode = EEditorRoofMode.Draw;
+
+    private void BindRoofModeButton(Button button, EEditorRoofMode mode)
+    {
+        if (button != null)
+        {
+            button.Pressed += () =>
+            {
+                if (mode == _roofMode)
+                {
+                    return;
+                }
+                _roofMode = mode;
+                onRoofModeChanged?.Invoke(mode);
+            };
+        }
+    }
+
     private void BindSeamAxisButton(Button button, ERoofSeamAxis axis)
     {
         if (button != null)
         {
             button.Pressed += () => onRoofSeamAxisChanged?.Invoke(axis);
+        }
+    }
+
+    private void BindRoofFormButton(Button button, ERoofForm form)
+    {
+        if (button != null)
+        {
+            button.Pressed += () => onRoofFormChanged?.Invoke(form);
         }
     }
 
@@ -457,6 +512,12 @@ public partial class EditorHud : CanvasLayer
     {
         ridgeXButton?.SetPressedNoSignal(axis == ERoofSeamAxis.AlongX);
         ridgeZButton?.SetPressedNoSignal(axis == ERoofSeamAxis.AlongZ);
+    }
+
+    public void SetRoofForm(ERoofForm form)
+    {
+        gableFormButton?.SetPressedNoSignal(form == ERoofForm.Gable);
+        hipFormButton?.SetPressedNoSignal(form == ERoofForm.Hip);
     }
 
     public void SetRoofSlope(float degrees)
@@ -474,6 +535,20 @@ public partial class EditorHud : CanvasLayer
     }
 
     public float RoofSlopeValue => slopeSlider != null ? (float)slopeSlider.Value : 0f;
+
+    public void SetRoofBroken(float broken)
+    {
+        brokenSlider?.SetValueNoSignal(broken);
+        UpdateBrokenLabel(broken);
+    }
+
+    private void UpdateBrokenLabel(float broken)
+    {
+        if (brokenLabel != null)
+        {
+            brokenLabel.Text = broken <= 0f ? "Broken: none" : $"Broken: {broken * 100f:F0}%";
+        }
+    }
 
     private void BindEntityModeButton(Button button, EEditorEntityMode mode)
     {
@@ -559,6 +634,7 @@ public partial class EditorHud : CanvasLayer
             EEditorBrushShape.Floor => floorShapeButton,
             EEditorBrushShape.Wall => wallShapeButton,
             EEditorBrushShape.Fill => fillShapeButton,
+            EEditorBrushShape.Room => roomShapeButton,
             EEditorBrushShape.Window => windowShapeButton,
             EEditorBrushShape.Door => doorShapeButton,
             _ => null,

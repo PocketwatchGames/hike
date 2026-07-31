@@ -16,16 +16,25 @@ public class RoofSimState : EntitySimState
     public readonly float SizeX;
     public readonly float SizeZ;
     public readonly ERoofSeamAxis SeamAxis;
+    // Gable or hip. A hip sweeps the same cross-section in from all four eaves,
+    // so the seam axis stops mattering to its geometry.
+    public readonly ERoofForm Form;
     public readonly float SlopeDegrees;
+    // How far gone THIS roof is, 0..1. Per-instance rather than per-style so a
+    // derelict hut can stand beside an intact one built from the same material;
+    // the style only decides how big the holes are and how ragged their edges.
+    public readonly float Broken;
 
-    public RoofSimState(Vector3 worldPosition, RoofStyleData style, float sizeX, float sizeZ, ERoofSeamAxis seamAxis, float slopeDegrees)
+    public RoofSimState(Vector3 worldPosition, RoofStyleData style, float sizeX, float sizeZ, ERoofSeamAxis seamAxis, ERoofForm form, float slopeDegrees, float broken)
         : base(worldPosition, scene: null)
     {
         Style = style;
         SizeX = sizeX;
         SizeZ = sizeZ;
         SeamAxis = seamAxis;
+        Form = form;
         SlopeDegrees = slopeDegrees;
+        Broken = broken;
     }
 
     // A style that failed to load leaves nothing to build a surface from, so

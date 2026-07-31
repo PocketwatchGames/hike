@@ -34,12 +34,24 @@ public static class RoofSunStamper
         // attenuation only compounds as the column crosses successive voxels.
         int depth = style.blocksSun ? 1 : style.partialSunOcclusionDepthVoxels;
         int amount = style.blocksSun ? 0 : Mathf.Clamp(Mathf.RoundToInt(style.partialSunOcclusion * 255f), 0, 255);
+        int dust = Mathf.Clamp(Mathf.RoundToInt(style.interiorDust * 255f), 0, 255);
+        bool wantsDust = dust > 0 && style.interiorDustDepthVoxels > 0;
         if (depth <= 0 || (!style.blocksSun && amount <= 0))
         {
-            return;
+            if (!wantsDust)
+            {
+                return;
+            }
         }
 
-        var size = new RoofDimensions(style, roof.SizeX, roof.SizeZ, roof.SeamAxis, roof.SlopeDegrees);
+        // Deliberately wider than the visual — see brokenSunBias. The bias is
+        // applied to the FRACTION, not to the threshold: the noise CDF is steep,
+        // so scaling the threshold is wildly nonlinear (1.6x opened 31% of the
+        // roof, 2.0x opened 66%). In fraction space the knob reads as "the sun
+        // treats the roof as this much more broken", which composes predictably.
+        float sunThreshold = RoofBrokenNoise.ThresholdFor(Mathf.Min(roof.Broken * style.brokenSunBias, 1f));
+
+        var size = new RoofDimensions(style, roof.SizeX, roof.SizeZ, roof.SeamAxis, roof.SlopeDegrees, roof.Form);
         // The roof's full sky coverage, overhangs included — what physically
         // stands between the sun and the ground, rather than just the walls.
         float halfSeam = size.HalfSeam;
@@ -74,6 +86,24 @@ public static class RoofSunStamper
                 {
                     continue;
                 }
+                // Dust fills the room whether or not this column is holed —
+                // the beam coming through a hole needs air to light up several
+                // metres away from the hole itself.
+                if (wantsDust)
+                {
+                    for (int d = 0; d < style.interiorDustDepthVoxels; d++)
+                    {
+                        world.RaiseRoofDustWorld(wx, baseY - d, wz, dust);
+                    }
+                }
+                // A hole leaves the column open, so the sun reaches straight
+                // down it and the raymarcher gets a lit shaft through the dust.
+                // Evaluated with the SAME noise the shader discards on, at the
+                // column centre, so the beam lands under the gap you can see.
+                if (RoofBrokenNoise.IsHole(wx + 0.5f, wz + 0.5f, sunThreshold, style.brokenScale, style.brokenScale * style.brokenEdgeRatio, style.brokenEdgeJagged))
+                {
+                    continue;
+                }
                 for (int d = 0; d < depth; d++)
                 {
                     if (style.blocksSun)
@@ -99,7 +129,7 @@ public static class RoofSunStamper
             return;
         }
         int depth = Mathf.Max(1, style.blocksSun ? 1 : style.partialSunOcclusionDepthVoxels);
-        var size = new RoofDimensions(style, roof.SizeX, roof.SizeZ, roof.SeamAxis, roof.SlopeDegrees);
+        var size = new RoofDimensions(style, roof.SizeX, roof.SizeZ, roof.SeamAxis, roof.SlopeDegrees, roof.Form);
         float cos = Mathf.Cos(roof.RotationY);
         float sin = Mathf.Sin(roof.RotationY);
         Vector2 seamAxis = Rotate(new Vector2(size.Seam.X, size.Seam.Z), cos, sin);

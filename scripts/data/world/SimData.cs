@@ -1215,6 +1215,11 @@ public partial class SimData : Resource
     // moment it cuts away, and the interior it just revealed floods with sun.
     // Same failure voxel terrain solves the same way. Null = skip the pass.
     [Export] public Material roofShadowCasterMaterial;
+    // Back-faces-only pass (roof_lit_interior.tres) drawn on roofs that have
+    // holes, so each opening shows a ring of slab interior instead of a clean
+    // shaft straight through. Shared: the per-style hole shape reaches it via
+    // instance uniforms. Null = skip the pass (holes look paper-thin).
+    [Export] public Material roofInteriorMaterial;
 
     [ExportGroup("Grounding Shadows")]
     // Shared material for the batched grounding-shadow blobs (GroundShadowScatter

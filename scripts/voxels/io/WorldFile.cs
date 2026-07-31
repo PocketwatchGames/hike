@@ -154,7 +154,16 @@ public static class WorldFile
     //      (float) + seam-axis byte + slope degrees. The editor's Roofs tool
     //      drag-authors these; the mesh is regenerated from the dimensions at
     //      spawn, so there is no scene ref in the payload.
-    public const uint VERSION = 36;
+    // v37: Roof entity payload appended a per-instance `broken` float (0..1).
+    //      How derelict a roof is moved off RoofStyleData so one hut can be
+    //      falling apart beside an intact one of the same material; the style
+    //      keeps only the hole size and edge raggedness.
+    // v38: Roof entity payload appended a form byte — gable (the original shape)
+    //      or hip, whose ends slope in to the seam at the side pitch instead of
+    //      standing as vertical gable walls, so a square footprint peaks at a
+    //      point. Hips take the eave overhang on all four edges and oversail
+    //      nothing, so `rakeOverhang` is now gable-only.
+    public const uint VERSION = 38;
 
     public struct IndexEntry
     {

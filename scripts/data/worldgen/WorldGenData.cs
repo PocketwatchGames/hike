@@ -217,6 +217,15 @@ public partial class WorldGenData : Resource
     // Density gradient inside the bucket: density(wy) = (ceiling - wy) *
     // FogDensityPerVoxel, clamped to [0, 255].
     [Export] public float fogDensityPerVoxel = 80f;
+    // Dust held in sky-sealed air. The bucket-fill above only ever fills ABOVE
+    // the terrain surface, so without this a cave inherits nothing and reads as
+    // dusty as whatever zone happens to sit overhead — a tunnel under a clean
+    // forest has none. Underground air has no reason to track the weather.
+    // 0 = caves stay as clean as the surface pass left them.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float caveDustAmount = 0.4f;
+    // Voxels below the surface over which cave dust ramps from nothing to full,
+    // so a cave mouth or an overhang lip fades in instead of stepping.
+    [Export(PropertyHint.Range, "1,64,1")] public float caveDustDepthFadeVoxels = 8f;
 
     [ExportGroup("Zone Blending")]
     // Per-column smoothstep blend radius (in chunks) for the worldgen scalar
