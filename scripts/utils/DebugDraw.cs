@@ -52,6 +52,11 @@ public static class DebugDraw
         }
     }
 
+    // Grown by a hair on every side. A box drawn on voxel cell boundaries is
+    // exactly coplanar with the faces of the blocks it bounds, and the lines are
+    // depth-tested now, so without this its edges strobe against them.
+    private const float BoxInflate = 0.02f;
+
     public static void Box(Vector3 min, Vector3 max, Color color, float lifetime = 0f)
     {
         DebugDrawRenderer r = DebugDrawRenderer.EnsureInstance();
@@ -59,6 +64,8 @@ public static class DebugDraw
         {
             return;
         }
+        min -= Vector3.One * BoxInflate;
+        max += Vector3.One * BoxInflate;
         // 8 corners
         Vector3 c000 = new(min.X, min.Y, min.Z);
         Vector3 c100 = new(max.X, min.Y, min.Z);

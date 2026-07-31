@@ -2,16 +2,18 @@
 
 [ext_resource type="Script" uid="uid://c3a4l0n4knjyq" path="res://scripts/gameplay/entities/Door.cs" id="1_door"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
-[ext_resource type="Texture2D" uid="uid://1ey3qioeb75t" path="res://assets/textures/interactives/door_01.png" id="2_k0lqv"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_fi88q"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_x342m"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_3q0qa"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="7_6gu0v"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="10_xray"]
-[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/sprites/LitSpriteAnimator.cs" id="11_anim"]
+[ext_resource type="PackedScene" uid="uid://db8ao3q4w2qbc" path="res://scenes/props/doorframe_timber_2x3.tscn" id="11_iboii"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="11_meshhl"]
 [ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="12_open"]
+[ext_resource type="PackedScene" uid="uid://cabgksfyakp0l" path="res://assets/models/doors/SM_Env_Door_01.fbx" id="13_model"]
 
 [sub_resource type="Resource" id="Resource_door_event_open"]
 script = ExtResource("9_event")
@@ -24,35 +26,15 @@ icon = ExtResource("12_open")
 completionEvents = Array[ExtResource("9_event")]([SubResource("Resource_door_event_open")])
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
-size = Vector3(1, 2, 1)
+size = Vector3(1.32, 2.46, 0.2)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
-size = Vector3(1, 2, 1)
+size = Vector3(1.32, 2.46, 1)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_door"]
-animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("2_k0lqv")
-}],
-"loop": true,
-"name": &"closed",
-"speed": 1.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("2_k0lqv")
-}],
-"loop": true,
-"name": &"open",
-"speed": 1.0
-}]
-
-[node name="Door" type="Node3D" unique_id=964775259 node_paths=PackedStringArray("_blockCollider", "_sprite", "_animator", "_hurtBox", "_hudNode")]
+[node name="Door" type="Node3D" unique_id=964775259 node_paths=PackedStringArray("_blockCollider", "_hinge", "_hurtBox", "_hudNode")]
 script = ExtResource("1_door")
 _blockCollider = NodePath("BlockCollider")
-_sprite = NodePath("Sprite")
-_animator = NodePath("LitSpriteAnimator")
+_hinge = NodePath("DoorVisual/Hinge")
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("8_action")]([SubResource("Resource_door_action_open")])
@@ -60,7 +42,7 @@ _actions = Array[ExtResource("8_action")]([SubResource("Resource_door_action_ope
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=730201462]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=311926449]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
 shape = SubResource("BoxShape3D_block")
 
 [node name="InteractiveBox" type="Area3D" parent="." unique_id=2010892134 node_paths=PackedStringArray("_interactiveNode")]
@@ -71,28 +53,21 @@ script = ExtResource("3_interactivebox")
 _interactiveNode = NodePath("..")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1847616444]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="Sprite" type="Sprite3D" parent="." unique_id=658007565]
-cast_shadow = 0
-centered = false
-offset = Vector2(-5, 0)
-pixel_size = 0.0738
-alpha_cut = 1
-texture = ExtResource("2_k0lqv")
-region_enabled = true
-region_rect = Rect2(0, 0, 10, 20)
-script = ExtResource("4_litsprite")
-Material = 1
-Xray = true
+[node name="PropInstance" parent="." unique_id=1175629485 instance=ExtResource("11_iboii")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 0.2, 0, -0.202, -0.6)
 
-[node name="LitSpriteAnimator" type="Node" parent="." unique_id=1280578721 node_paths=PackedStringArray("target")]
-script = ExtResource("11_anim")
-target = NodePath("../Sprite")
-frames = SubResource("SpriteFrames_door")
-defaultAnimation = &"closed"
-metadata/_custom_type_script = "uid://dwrtaigmbeepp"
+[node name="PropInstance2" parent="." unique_id=1041082403 instance=ExtResource("11_iboii")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 0.2, 0, -0.202, 0.6)
+
+[node name="DoorVisual" type="Node3D" parent="." unique_id=658007565]
+
+[node name="Hinge" type="Node3D" parent="DoorVisual" unique_id=2008820566]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6257, 0, 0)
+
+[node name="Model" parent="DoorVisual/Hinge" unique_id=354855064 instance=ExtResource("13_model")]
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1178586367]
 collision_layer = 32
@@ -100,12 +75,16 @@ collision_mask = 0
 script = ExtResource("2_hurtbox")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=123390100]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
 shape = SubResource("BoxShape3D_block")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=1967781157]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.304572, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
 
-[node name="InteractiveXray" type="Node3D" parent="." unique_id=192680251 node_paths=PackedStringArray("_sprites")]
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=722739117 node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("11_meshhl")
+_collectFrom = NodePath("../DoorVisual")
+
+[node name="InteractiveXray" type="Node3D" parent="." unique_id=192680251 node_paths=PackedStringArray("_meshRoots")]
 script = ExtResource("10_xray")
-_sprites = [NodePath("../Sprite")]
+_meshRoots = [NodePath("../DoorVisual")]

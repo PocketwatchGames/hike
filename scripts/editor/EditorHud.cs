@@ -40,6 +40,9 @@ public partial class EditorHud : CanvasLayer
     [Export] public Button placeModeButton;
     [Export] public Button selectModeButton;
     [Export] public Label selectionLabel;
+    // Placement / gizmo snapping. Entity-tool only, so they live on its panel.
+    [Export] public CheckButton snapToGridButton;
+    [Export] public CheckButton snapRotationButton;
 
     [ExportGroup("Roof Details")]
     // The roof tool's own panel — seam axis plus pitch. Mirrors VoxelInfo and
@@ -104,7 +107,14 @@ public partial class EditorHud : CanvasLayer
     public Action<float> onRoofSlopeChanged;
     public Action<float> onRoofBrokenChanged;
     public Action<EEditorRoofMode> onRoofModeChanged;
+    // A roof setting has settled and should be pushed onto the roof being
+    // retuned. Every discrete change fires it; a slider fires on release rather
+    // than on each value it streams through, because applying rebuilds the
+    // roof's chunk and relights the world — far too much to do per drag pixel.
+    public Action onRoofSettingsCommitted;
     public Action<EEditorEntityMode> onEntityToolModeChanged;
+    public Action<bool> onSnapToGridChanged;
+    public Action<bool> onSnapRotationChanged;
     public Action<EEditorBrushOperation> onOperationSelected;
     public Action<EEditorBrushShape> onShapeSelected;
     public Action<bool> onPlateauSnapChanged;
@@ -137,7 +147,7 @@ public partial class EditorHud : CanvasLayer
     {
         if (helpLabel != null)
         {
-            helpLabel.Text = "LMB: Paint | Ctrl+LMB: Erase | Alt+LMB: Replace | R/F: Up/Down | Z/C: Rotate | Ctrl+Z/Y: Undo/Redo | Ctrl+S: Save | Ctrl+Shift+S: Save As | Esc: Quit";
+            helpLabel.Text = "LMB: Paint | Ctrl+LMB: Erase | Alt+LMB: Replace | RMB: Fly (WASD/E/Q, Shift boost, Wheel speed) | R/F: Up/Down | Z/C: Rotate | Ctrl+Z/Y: Undo/Redo | Ctrl+S: Save | Ctrl+Shift+S: Save As | Esc: Quit";
         }
         if (toastLabel != null)
         {
@@ -155,22 +165,16 @@ public partial class EditorHud : CanvasLayer
         BindSeamAxisButton(ridgeZButton, ERoofSeamAxis.AlongZ);
         BindRoofFormButton(gableFormButton, ERoofForm.Gable);
         BindRoofFormButton(hipFormButton, ERoofForm.Hip);
-        if (slopeSlider != null)
+        BindRoofSlider(slopeSlider, value =>
         {
-            slopeSlider.ValueChanged += value =>
-            {
-                UpdateSlopeLabel((float)value);
-                onRoofSlopeChanged?.Invoke((float)value);
-            };
-        }
-        if (brokenSlider != null)
+            UpdateSlopeLabel(value);
+            onRoofSlopeChanged?.Invoke(value);
+        });
+        BindRoofSlider(brokenSlider, value =>
         {
-            brokenSlider.ValueChanged += value =>
-            {
-                UpdateBrokenLabel((float)value);
-                onRoofBrokenChanged?.Invoke((float)value);
-            };
-        }
+            UpdateBrokenLabel(value);
+            onRoofBrokenChanged?.Invoke(value);
+        });
         ApplyToolVisibility();
         SetSelectionCount(0);
         BindOperationButton(paintButton, EEditorBrushOperation.Paint);
@@ -186,6 +190,14 @@ public partial class EditorHud : CanvasLayer
         if (plateauSnapButton != null)
         {
             plateauSnapButton.Toggled += pressed => onPlateauSnapChanged?.Invoke(pressed);
+        }
+        if (snapToGridButton != null)
+        {
+            snapToGridButton.Toggled += pressed => onSnapToGridChanged?.Invoke(pressed);
+        }
+        if (snapRotationButton != null)
+        {
+            snapRotationButton.Toggled += pressed => onSnapRotationChanged?.Invoke(pressed);
         }
         if (lightingButton != null)
         {
@@ -218,29 +230,29 @@ public partial class EditorHud : CanvasLayer
     {
         if (button != null)
         {
-            button.Pressed += () =>
-            {
-                ApplyPlateauSnapAvailability(shape);
-                onShapeSelected?.Invoke(shape);
-            };
+            button.Pressed += () => onShapeSelected?.Invoke(shape);
         }
     }
 
-    // The toggle keeps its own state across shape changes — greying it out for
-    // a shape that can't snap must not silently clear the author's choice for
-    // the ones that can, so only Disabled moves here.
-    private void ApplyPlateauSnapAvailability(EEditorBrushShape shape)
+    // Snap is stored per brush shape by WorldEditor, which seats the toggle here
+    // on every shape change. NoSignal, so restoring the stored value can't be
+    // mistaken for the author toggling it and write straight back.
+    public void SetPlateauSnap(bool snap, bool supported)
     {
         if (plateauSnapButton != null)
         {
-            plateauSnapButton.Disabled = !WorldEditor.SupportsPlateauSnap(shape);
+            plateauSnapButton.SetPressedNoSignal(snap);
+            plateauSnapButton.Disabled = !supported;
         }
     }
 
-    // The raw toggle state, independent of whether the current shape can use it
-    // — the caller applies that gate. Folding Disabled in here would read as
-    // "off" for the startup shape and stick, since Toggled only fires on input.
-    public bool PlateauSnapChecked => plateauSnapButton != null && plateauSnapButton.ButtonPressed;
+    // Seated by WorldEditor at startup from its own defaults. NoSignal, so
+    // seating them can't be mistaken for the author toggling them.
+    public void SetEntitySnaps(bool grid, bool rotation)
+    {
+        snapToGridButton?.SetPressedNoSignal(grid);
+        snapRotationButton?.SetPressedNoSignal(rotation);
+    }
 
     // Checked = the real game look; unchecked = the flat authoring view.
     public bool LightingChecked => lightingButton == null || lightingButton.ButtonPressed;
@@ -494,7 +506,11 @@ public partial class EditorHud : CanvasLayer
     {
         if (button != null)
         {
-            button.Pressed += () => onRoofSeamAxisChanged?.Invoke(axis);
+            button.Pressed += () =>
+            {
+                onRoofSeamAxisChanged?.Invoke(axis);
+                onRoofSettingsCommitted?.Invoke();
+            };
         }
     }
 
@@ -502,8 +518,42 @@ public partial class EditorHud : CanvasLayer
     {
         if (button != null)
         {
-            button.Pressed += () => onRoofFormChanged?.Invoke(form);
+            button.Pressed += () =>
+            {
+                onRoofFormChanged?.Invoke(form);
+                onRoofSettingsCommitted?.Invoke();
+            };
         }
+    }
+
+    // True while a roof slider is being dragged, which is what holds the push
+    // back until release. Keyboard / wheel nudges never enter a drag, so they
+    // fall through to the immediate push in ValueChanged.
+    private bool _roofSliderDragging;
+
+    private void BindRoofSlider(HSlider slider, Action<float> onValue)
+    {
+        if (slider == null)
+        {
+            return;
+        }
+        slider.DragStarted += () => _roofSliderDragging = true;
+        slider.DragEnded += changed =>
+        {
+            _roofSliderDragging = false;
+            if (changed)
+            {
+                onRoofSettingsCommitted?.Invoke();
+            }
+        };
+        slider.ValueChanged += value =>
+        {
+            onValue((float)value);
+            if (!_roofSliderDragging)
+            {
+                onRoofSettingsCommitted?.Invoke();
+            }
+        };
     }
 
     // Pushed by WorldEditor at startup to seat the controls on their authored
@@ -623,7 +673,6 @@ public partial class EditorHud : CanvasLayer
     public void SetShape(EEditorBrushShape shape)
     {
         ButtonForShape(shape)?.SetPressedNoSignal(true);
-        ApplyPlateauSnapAvailability(shape);
     }
 
     private Button ButtonForShape(EEditorBrushShape shape)
@@ -658,11 +707,24 @@ public partial class EditorHud : CanvasLayer
         }
     }
 
-    public void UpdatePosition(Vector3 pos)
+    // True while the pointer sits on a HUD control, so the world tools can drop
+    // their previews rather than picking whatever a panel happens to cover.
+    // Layout-only wrappers (the margin / box containers that merely position the
+    // panels) are authored MouseFilter=Ignore, so their large transparent rects
+    // don't read as HUD — anything counted here is a control that draws.
+    public bool IsPointerOverUi()
+    {
+        return GetViewport().GuiGetHoveredControl() != null;
+    }
+
+    // The voxel cell under the mouse, or null when the pick resolves to nothing.
+    public void UpdatePosition(Vector3I? cell)
     {
         if (coordsLabel != null)
         {
-            coordsLabel.Text = $"Pos: ({pos.X:F1}, {pos.Y:F1}, {pos.Z:F1})";
+            coordsLabel.Text = cell.HasValue
+                ? $"Pos: ({cell.Value.X}, {cell.Value.Y}, {cell.Value.Z})"
+                : "Pos: --";
         }
     }
 

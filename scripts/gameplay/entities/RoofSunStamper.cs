@@ -34,14 +34,9 @@ public static class RoofSunStamper
         // attenuation only compounds as the column crosses successive voxels.
         int depth = style.blocksSun ? 1 : style.partialSunOcclusionDepthVoxels;
         int amount = style.blocksSun ? 0 : Mathf.Clamp(Mathf.RoundToInt(style.partialSunOcclusion * 255f), 0, 255);
-        int dust = Mathf.Clamp(Mathf.RoundToInt(style.interiorDust * 255f), 0, 255);
-        bool wantsDust = dust > 0 && style.interiorDustDepthVoxels > 0;
         if (depth <= 0 || (!style.blocksSun && amount <= 0))
         {
-            if (!wantsDust)
-            {
-                return;
-            }
+            return;
         }
 
         // Deliberately wider than the visual — see brokenSunBias. The bias is
@@ -56,6 +51,13 @@ public static class RoofSunStamper
         // stands between the sun and the ground, rather than just the walls.
         float halfSeam = size.HalfSeam;
         float halfAcross = size.HalfAcross;
+        // Dust stops at the walls, NOT at the roof's edge. An overhang shades
+        // the ground outside the building but doesn't enclose it, and that strip
+        // is still lit by the sun mask leaking in sideways — so max-density fog
+        // stamped out there reads as a bright band hugging the walls the moment
+        // the ceiling cutaway reveals it.
+        float dustHalfSeam = size.HalfSeamBody;
+        float dustHalfAcross = size.HalfAcrossBody;
 
         // Roof-local axes in world XZ, carrying the entity's Y rotation.
         float cos = Mathf.Cos(roof.RotationY);
@@ -82,19 +84,11 @@ public static class RoofSunStamper
                 var offset = new Vector2(
                     wx + 0.5f - roof.WorldPosition.X,
                     wz + 0.5f - roof.WorldPosition.Z);
-                if (Mathf.Abs(offset.Dot(seamAxis)) > halfSeam || Mathf.Abs(offset.Dot(acrossAxis)) > halfAcross)
+                float alongSeam = Mathf.Abs(offset.Dot(seamAxis));
+                float alongAcross = Mathf.Abs(offset.Dot(acrossAxis));
+                if (alongSeam > halfSeam || alongAcross > halfAcross)
                 {
                     continue;
-                }
-                // Dust fills the room whether or not this column is holed —
-                // the beam coming through a hole needs air to light up several
-                // metres away from the hole itself.
-                if (wantsDust)
-                {
-                    for (int d = 0; d < style.interiorDustDepthVoxels; d++)
-                    {
-                        world.RaiseRoofDustWorld(wx, baseY - d, wz, dust);
-                    }
                 }
                 // A hole leaves the column open, so the sun reaches straight
                 // down it and the raymarcher gets a lit shaft through the dust.

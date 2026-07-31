@@ -243,7 +243,7 @@ public partial class Main : Node
 				// the canopy shadows are baked into the persisted sun field
 				// before the world hits the cache.
 				FoliageStamper.Stamp(worldState);
-				LightEngine.ComputeSunlight(worldState);
+				LightEngine.Relight(worldState);
 
 				if (cachePath != null)
 				{
@@ -274,7 +274,7 @@ public partial class Main : Node
 				// world sizes); the canopy field also needs to be live so
 				// later voxel-edit re-propagation keeps foliage shadowing.
 				FoliageStamper.Stamp(worldState);
-				LightEngine.ComputeSunlight(worldState);
+				LightEngine.Relight(worldState);
 			}
 		}
 		catch (Exception e)

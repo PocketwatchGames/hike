@@ -39,17 +39,15 @@ public struct AmbienceState
     public float ShorelineFactor;
 
     // Listener "openness" in [0, 1]. 1 = open sky overhead, 0 = enclosed.
-    // Authored env-tag Outdoor weight scaled by (1 - Enclosure) so a
-    // player standing in an Outdoor cell but ducked under a tree canopy
-    // hears the local geometric enclosure attenuate openness even if the
-    // 4-voxel-resolution authored tag still reads Outdoor.
+    // The blended openness of the space classes around the listener, already
+    // pulled down by the geometric enclosure probe — so a player standing in
+    // an outdoor cell but ducked under a tree canopy reads as less open even
+    // though the 4-voxel-resolution authored cell still says outdoor.
     public float Openness;
 
-    // Listener "caveness" in [0, 1]. 1 = sealed natural cavity. Authored
-    // Cave + Tunnel + Building weights plus the share of Outdoor weight
-    // that the geometric enclosure raycast pulled into "cave-like" — so
-    // overhangs and tight forest canopy in nominally-Outdoor cells still
-    // get cave-style reverb response.
+    // Listener "caveness" in [0, 1]. 1 = fully enclosed. The complement of
+    // Openness over the weight actually sampled, so unloaded corners read as
+    // neither open nor enclosed rather than defaulting to one.
     public float Caveness;
 
     // Geometric enclosure at the listener in [0, 1]. 0 = open sky in all
@@ -101,7 +99,9 @@ public struct AmbienceState
     // which biome's stream set is active.
     public int BiomeId;
 
-    // Authored env-tag weights at the listener — outputs of the trilinear
-    // sample on ChunkState.EnvTag. Drives reverb-bus parameter blending.
-    public EnvTagWeights EnvTagWeights;
+    // Blended space-class ambience at the listener — the trilinear sample on
+    // ChunkState.EnvTag resolved through SimData.interiorAmbiences, then pulled
+    // toward enclosed by the geometric probe. Drives reverb-bus parameters.
+    // TotalWeight below 1 means some sampled corners were unloaded.
+    public InteriorAmbience Interior;
 }

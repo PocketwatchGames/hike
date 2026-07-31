@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using Godot;
 
 // Single batched renderer for transient debug line geometry. Owns one
-// MeshInstance3D + ImmediateMesh + an unshaded vertex-color material that
-// gets cleared and refilled every frame. Callers don't talk to this class
-// directly — they go through the static DebugDraw API which forwards into
-// _instance.
+// ImmediateMesh — cleared and refilled every frame — drawn through two
+// MeshInstance3Ds so occluded geometry reads as occluded (see the two
+// materials below). Callers don't talk to this class directly — they go
+// through the static DebugDraw API which forwards into _instance.
 //
 // Lifetime model: each queued segment has a `remaining` time in seconds.
 // Segments with remaining=0 (the default) live for exactly one frame —
@@ -33,8 +33,17 @@ public partial class DebugDrawRenderer : Node3D
     }
 
     // Above every other transparent material in the project (the fullscreen fog
-    // quad, at 64, is the highest), so debug geometry draws last.
+    // quad, at 64, is the highest), so debug geometry draws last. The occluded
+    // pass takes the lower of the two so it is laid down first and the visible
+    // pass blends over it — transparent surfaces sort by priority ascending.
     private const int OVERLAY_RENDER_PRIORITY = 100;
+    private const int VISIBLE_RENDER_PRIORITY = OVERLAY_RENDER_PRIORITY + 1;
+
+    // Alpha multiplier for the parts of a shape that are behind geometry. They
+    // still draw — that's the point of a debug overlay — but faintly enough to
+    // read as behind rather than in front, which is otherwise impossible to
+    // tell for a box that could be either inside a wall or hovering before it.
+    private const float OCCLUDED_ALPHA = 0.22f;
 
     private static DebugDrawRenderer _instance;
 
@@ -43,9 +52,14 @@ public partial class DebugDrawRenderer : Node3D
     public static DebugDrawRenderer Instance => _instance != null && IsInstanceValid(_instance) ? _instance : null;
 
     private readonly List<Segment> _segments = new();
+    // One mesh, drawn twice: once depth-tested at full strength, once faint
+    // with the depth test off. Every segment therefore appears exactly once —
+    // bright where nothing is in front of it, dim where something is.
     private MeshInstance3D _meshInstance;
+    private MeshInstance3D _occludedInstance;
     private ImmediateMesh _mesh;
     private StandardMaterial3D _material;
+    private StandardMaterial3D _occludedMaterial;
 
     // Lazy-creates the singleton renderer as a child of Sim.Current the
     // first time anything tries to draw. If Sim.Current isn't ready
@@ -73,31 +87,51 @@ public partial class DebugDrawRenderer : Node3D
         // Material/mesh constructed at runtime is normally discouraged
         // (see CLAUDE.md), but this is a debug-only helper that's gated
         // off in shipping — keeping the .tres for it would just add noise.
-        _material = new StandardMaterial3D();
-        _material.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
-        _material.VertexColorUseAsAlbedo = true;
-        _material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
-        // Debug lines are an overlay: they must survive both the depth buffer
-        // and the fullscreen transparent quads that composite on top of the
-        // scene. Without the priority the fog quad (render_priority 64) blends
-        // over them at ALPHA≈1 wherever the ray reaches the far plane, which is
-        // why they vanished against the sky. Without DisableFog the inner
-        // environment's black depth fog (88..105m) fades them to black past the
-        // camera's focus distance.
-        _material.NoDepthTest = true;
-        _material.DisableFog = true;
-        _material.RenderPriority = OVERLAY_RENDER_PRIORITY;
+        _material = CreateMaterial(depthTested: true, alpha: 1f, VISIBLE_RENDER_PRIORITY);
+        _occludedMaterial = CreateMaterial(depthTested: false, OCCLUDED_ALPHA, OVERLAY_RENDER_PRIORITY);
+
+        _mesh = new ImmediateMesh();
+        // Occluded pass first: the visible pass blends over it, so a line that
+        // is in the clear ends up at full strength rather than washed out.
+        _occludedInstance = AddPass(_occludedMaterial);
+        _meshInstance = AddPass(_material);
+    }
+
+    // Alpha rides on albedo_color, which StandardMaterial3D multiplies into the
+    // vertex color — so one shared mesh serves both passes and callers keep
+    // passing a single opaque color.
+    //
+    // Both passes must survive the fullscreen transparent quads that composite
+    // on top of the scene, hence the render priority: without it the fog quad
+    // (render_priority 64) blends over them at ALPHA≈1 wherever the ray reaches
+    // the far plane, which is why they vanished against the sky. Without
+    // DisableFog the inner environment's black depth fog (88..105m) fades them
+    // to black past the camera's focus distance.
+    private static StandardMaterial3D CreateMaterial(bool depthTested, float alpha, int renderPriority)
+    {
+        var material = new StandardMaterial3D();
+        material.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
+        material.VertexColorUseAsAlbedo = true;
+        material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+        material.AlbedoColor = new Color(1f, 1f, 1f, alpha);
+        material.NoDepthTest = !depthTested;
+        material.DisableFog = true;
+        material.RenderPriority = renderPriority;
         // Disable the back-face culling: line primitives don't have
         // sides, but with culling on the rasterizer is still fussy
         // about wide lines on certain GPUs.
-        _material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+        material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+        return material;
+    }
 
-        _mesh = new ImmediateMesh();
-        _meshInstance = new MeshInstance3D();
-        _meshInstance.Mesh = _mesh;
-        _meshInstance.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-        _meshInstance.MaterialOverride = _material;
-        AddChild(_meshInstance);
+    private MeshInstance3D AddPass(Material material)
+    {
+        var instance = new MeshInstance3D();
+        instance.Mesh = _mesh;
+        instance.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        instance.MaterialOverride = material;
+        AddChild(instance);
+        return instance;
     }
 
     public override void _ExitTree()

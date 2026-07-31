@@ -114,7 +114,11 @@ public partial class MoteEffect : Node3D
     // rides the air the player is actually standing in — otherwise a dusty room
     // in a clean zone has no particles to light and the whole roof mechanic is
     // inert. Taken as a MAX with the weather wash, never a replacement.
-    [Export(PropertyHint.Range, "0,2,0.05")] public float localDustDensityScale = 1f;
+    // >1 so a MODEST authored dust value still fills the field. The same channel
+    // feeds the fog raymarch's extinction, so needing dust near 1.0 for a good
+    // mote field would force a washed-out interior to get one; this buys the
+    // motes without the haze.
+    [Export(PropertyHint.Range, "0,8,0.05")] public float localDustDensityScale = 3f;
     // Metres above the player's feet to sample. Wants to sit in the room's air
     // rather than in the floor voxel.
     [Export(PropertyHint.Range, "0,4,0.1")] public float localDustSampleHeight = 1f;

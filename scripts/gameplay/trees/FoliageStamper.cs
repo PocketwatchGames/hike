@@ -28,7 +28,6 @@ public static class FoliageStamper
         // every chunk's canopy array; rebuilding is O(n_clusters * n_voxels).
         world.CanopyAttenuation.Clear();
         world.SunOpaque.Clear();
-        world.ClearRoofDust();
 
         // Tuning lives on SimData (Foliage Canopy Shadow group). baseDensity
         // is authored as a 0..1 float so overlapping clusters stack toward

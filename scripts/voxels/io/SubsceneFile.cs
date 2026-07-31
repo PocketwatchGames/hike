@@ -7,12 +7,15 @@ using Godot;
 // stays a 20×7×15 blob instead of being padded out to two 16³ chunks.
 //
 // Layout:
-//   Header
+//   Header (fixed size — HEADER_BYTES)
 //     magic        : 4 bytes "HSCN"
 //     version      : uint32
 //     size         : Vector3I (12 bytes)         — voxel bbox dimensions
 //     anchor       : Vector3  (12 bytes)         — placement reference, subscene-local
 //     channelMask  : uint32                      — bit set per optional channel present
+//     [v6+] dirLength : uint32                   — bytes of the directory block below
+//   [v6+] Directory (dirLength bytes)
+//     tagCount     : 7-bit int, then (string tag, 7-bit int count) per pool
 //   Body (in fixed order; arrays sized to size.X * size.Y * size.Z unless noted)
 //     voxels         : SX*SY*SZ bytes (VoxelType row-major X,Y,Z)
 //     shape          : SX*SY*SZ bytes (SharpAxes byte per cell)
@@ -29,6 +32,12 @@ using Godot;
 // CHANNEL_* bit and appending the read/write at the end of the existing
 // channel block (before entities). Mandatory channels can ONLY be appended
 // at the end of the body, never inserted; bump VERSION when you do so.
+//
+// The directory is the one exception to that rule, and it earns it by sitting
+// at a known offset: ReadDirectory seeks straight to it and reads nothing else,
+// which is what lets the variant inspector query a scene's pools without
+// decoding a dungeon's worth of voxels. Version-gated, so pre-v6 files (which
+// have no tags to summarize) still read.
 public static class SubsceneFile
 {
     // Where authored subscenes live. Under res:// because worldgen's
@@ -43,7 +52,14 @@ public static class SubsceneFile
     //     v3 subscenes are still read — their roofs simply load intact.
     // v5: Roof entity payload gained a trailing form byte (gable / hip). v4 and
     //     earlier subscenes still read — their roofs load as gables.
-    public const uint VERSION = 5;
+    // v6: entities gained a trailing variant pool tag, and the header gained a
+    //     directory summarizing those tags. v5 and earlier still read — their
+    //     entities load untagged, i.e. unconditional, which is what they were.
+    public const uint VERSION = 6;
+
+    // Bytes before the directory block: magic + version + size + anchor +
+    // channelMask + dirLength. ReadDirectory seeks past exactly this much.
+    private const int HEADER_BYTES = 4 + 4 + 12 + 12 + 4 + 4;
 
     [System.Flags]
     public enum ChannelMask : uint
@@ -69,11 +85,17 @@ public static class SubsceneFile
         if (sub.WindFactor != null) { mask |= ChannelMask.Wind; }
         if (sub.EnvTag != null) { mask |= ChannelMask.EnvTag; }
 
+        // Buffered so its length can precede it — the length is what makes the
+        // block skippable by a full read and bounded by a directory-only read.
+        byte[] directory = EncodeDirectory(SubsceneDirectory.FromEntities(sub.Entities));
+
         w.Write(MAGIC);
         w.Write(VERSION);
         WriteVec3I(w, sub.Size);
         WriteVec3(w, sub.Anchor);
         w.Write((uint)mask);
+        w.Write((uint)directory.Length);
+        w.Write(directory);
 
         Vector3I size = sub.Size;
         WriteVoxelChannel(w, sub.Voxels, size);
@@ -129,6 +151,14 @@ public static class SubsceneFile
         Vector3I size = ReadVec3I(r);
         Vector3 anchor = ReadVec3(r);
         var mask = (ChannelMask)r.ReadUInt32();
+        if (version >= 6)
+        {
+            // Skipped, not parsed: a full read reconstructs the entities the
+            // directory summarizes, so re-deriving it costs nothing and can't
+            // disagree with them.
+            uint directoryLength = r.ReadUInt32();
+            r.BaseStream.Seek(directoryLength, SeekOrigin.Current);
+        }
 
         var sub = new SubsceneState(size) { Anchor = anchor };
         ReadVoxelChannel(r, sub.Voxels, size);
@@ -153,8 +183,75 @@ public static class SubsceneFile
         int roofFormat = version >= 5 ? EntitySerializer.ROOF_FORMAT_FORM
             : version >= 4 ? EntitySerializer.ROOF_FORMAT_BROKEN
             : EntitySerializer.ROOF_FORMAT_ORIGINAL;
-        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat);
+        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6);
         return sub;
+    }
+
+    // The scene's variant pools, without decoding its voxel body. Reads the
+    // fixed header plus the directory block and stops — the point is that the
+    // authoring inspector can query a scene cheaply and often. Returns an empty
+    // directory for a pre-v6 file (no tags existed) or one that can't be read.
+    public static SubsceneDirectory ReadDirectory(string path)
+    {
+        using Godot.FileAccess file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
+        if (file == null)
+        {
+            GD.PrintErr($"SubsceneFile: could not open '{path}' ({Godot.FileAccess.GetOpenError()})");
+            return new SubsceneDirectory();
+        }
+
+        byte[] head = file.GetBuffer(HEADER_BYTES);
+        if (head.Length < HEADER_BYTES)
+        {
+            return new SubsceneDirectory();
+        }
+        using var headStream = new MemoryStream(head);
+        using var headReader = new BinaryReader(headStream, Encoding.UTF8, leaveOpen: false);
+        if (headReader.ReadUInt32() != MAGIC || headReader.ReadUInt32() < 6)
+        {
+            return new SubsceneDirectory();
+        }
+        headStream.Seek(12 + 12 + 4, SeekOrigin.Current); // size + anchor + channelMask
+        uint directoryLength = headReader.ReadUInt32();
+
+        byte[] block = file.GetBuffer((long)directoryLength);
+        if (block.Length < directoryLength)
+        {
+            return new SubsceneDirectory();
+        }
+        using var blockStream = new MemoryStream(block);
+        using var blockReader = new BinaryReader(blockStream, Encoding.UTF8, leaveOpen: false);
+        return DecodeDirectory(blockReader);
+    }
+
+    private static byte[] EncodeDirectory(SubsceneDirectory directory)
+    {
+        using var ms = new MemoryStream();
+        using (var w = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
+        {
+            w.Write7BitEncodedInt(directory.Entries.Length);
+            foreach (SubsceneDirectory.Entry entry in directory.Entries)
+            {
+                w.Write(entry.Tag ?? "");
+                w.Write7BitEncodedInt(entry.Count);
+            }
+        }
+        return ms.ToArray();
+    }
+
+    private static SubsceneDirectory DecodeDirectory(BinaryReader r)
+    {
+        int count = r.Read7BitEncodedInt();
+        var directory = new SubsceneDirectory { Entries = new SubsceneDirectory.Entry[count] };
+        for (int i = 0; i < count; i++)
+        {
+            directory.Entries[i] = new SubsceneDirectory.Entry
+            {
+                Tag = r.ReadString(),
+                Count = r.Read7BitEncodedInt(),
+            };
+        }
+        return directory;
     }
 
     private static void WriteVoxelChannel(BinaryWriter w, VoxelType[,,] arr, Vector3I size)

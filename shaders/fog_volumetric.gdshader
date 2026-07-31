@@ -1087,7 +1087,18 @@ void fragment()
             float cover_hi = max(shaft_sky_cover_max, shaft_sky_cover_min + 1e-3);
             sky_gate = smoothstep(shaft_sky_cover_min, cover_hi, sky_exposure);
         }
-        float shaft_clip = clip_fade * clip_atten * sky_gate;
+        // sky_gate gates the BEAM only, never the darkening. The darkening is
+        // the "this air is unlit" wash, so cancelling it over cutaway-revealed
+        // floor makes covered ground read BRIGHTER than the open ground beside
+        // it — the opposite of what cover means. Harmless while only caves
+        // tripped it (their floors are barely lit anyway), but a roof stamps
+        // sky exposure to 0 across its whole footprint AND presents a flat
+        // soffit, so GameCamera's upward clip ray lands camera_clip exactly on
+        // that voxel: probe at +0.5 hits its texel centre, sky_gate reads 0,
+        // and every wall and eave under the roof popped bright the instant the
+        // cutaway engaged.
+        float shaft_clip = clip_fade * clip_atten;
+        float beam_clip = shaft_clip * sky_gate;
         // TEST: fade the darkening out where the column has near-zero light, so
         // genuinely lightless areas aren't washed. 0 floor = off (full effect).
         float light_present = shaft_light_floor > 0.0
@@ -1104,7 +1115,7 @@ void fragment()
         // peak reaches the full wash. (Floating dust motes are now a separate
         // GPU particle system — see MoteEffect / scenes/fx/motes.tscn.)
         float beam_lit = clamp(lit_frac, 0.0, 1.0) * shadow * 4.0 * wash;
-        vec3 tint = shaft_color * (beam_lit * wash_tint_strength) * shaft_clip;
+        vec3 tint = shaft_color * (beam_lit * wash_tint_strength) * beam_clip;
 
         // Shaft layer (darken + tint) composited OVER the haze layer via
         // premultiplied alpha.

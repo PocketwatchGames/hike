@@ -51,7 +51,9 @@ public static class EntitySerializer
     private const byte LegacyPropTypeAutoLoot = 2;
     private const byte LegacyPropTypeLoot = 3;
 
-    // Resource-path dictionary for the list currently being written / read.
+    // String dictionary for the list currently being written / read. Named for
+    // its original and dominant contents — resource paths — but any repeated
+    // per-entity string belongs in it (the variant pool tag rides it too).
     //
     // Entity payloads reference scenes and resources by index into a table at
     // the head of their list rather than repeating the path string on every
@@ -201,9 +203,11 @@ public static class EntitySerializer
     //
     // `hasRotation` false reads a list written before RotationY became a common
     // trailing field — the only such files left are pre-v3 subscenes, which load
-    // with every entity at zero facing. Containers that bumped their version in
-    // lockstep never pass it.
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT)
+    // with every entity at zero facing. `hasTag` false likewise reads one written
+    // before the variant pool tag joined it (pre-v6 subscenes), which load
+    // untagged. Both are subscene-only: the world file demands an exact version
+    // match, so a stale .hike is rejected rather than read compatibly.
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true)
     {
         ReadPathTable outer = _readPaths;
         int outerRoofFormat = _roofFormat;
@@ -215,7 +219,7 @@ public static class EntitySerializer
             var list = new List<EntitySimState>((int)count);
             for (uint i = 0; i < count; i++)
             {
-                list.Add(hasRotation ? ReadOne(r) : ReadPayload(r));
+                list.Add(hasRotation ? ReadOne(r, hasTag) : ReadPayload(r));
             }
             return list;
         }
@@ -226,14 +230,17 @@ public static class EntitySerializer
         }
     }
 
-    // Tag + per-kind payload, then RotationY as a common trailing field — every
-    // entity carries a facing now, so writing it once here beats threading it
-    // through 21 payloads. Trailing rather than leading because the payload is
-    // what constructs the state; ReadOne assigns the rotation afterwards.
+    // Tag + per-kind payload, then RotationY and the variant pool tag as common
+    // trailing fields — every entity carries both now, so writing them once here
+    // beats threading them through 21 payloads. Trailing rather than leading
+    // because the payload is what constructs the state; ReadOne assigns them
+    // afterwards. The pool tag goes through the string table, so the common case
+    // (a scene reusing a handful of pool names) costs one byte per entity.
     private static void WriteOne(BinaryWriter w, EntitySimState e)
     {
         WritePayload(w, e);
         w.Write(e.RotationY);
+        WriteInternedString(w, e.Tag);
     }
 
     private static void WritePayload(BinaryWriter w, EntitySimState e)
@@ -587,13 +594,15 @@ public static class EntitySerializer
     // to be assigned after the payload because the payload is what constructs
     // the state. A payload that returns null (an unknown tag) still consumes it,
     // so the stream stays aligned.
-    private static EntitySimState ReadOne(BinaryReader r)
+    private static EntitySimState ReadOne(BinaryReader r, bool hasTag)
     {
         EntitySimState state = ReadPayload(r);
         float rotationY = r.ReadSingle();
+        string tag = hasTag ? ReadInternedString(r) : "";
         if (state != null)
         {
             state.RotationY = rotationY;
+            state.Tag = tag;
         }
         return state;
     }
@@ -1023,6 +1032,25 @@ public static class EntitySerializer
     private static void WritePathRef(BinaryWriter w, string path)
     {
         w.Write7BitEncodedInt(_writePaths.Intern(path));
+    }
+
+    // Plain strings share the resource-path table: a pool tag repeats across
+    // every entity in its pool, which is exactly what the table is good at.
+    // Read back as text rather than resolved to a Resource.
+    private static void WriteInternedString(BinaryWriter w, string value)
+    {
+        w.Write7BitEncodedInt(_writePaths.Intern(value ?? ""));
+    }
+
+    private static string ReadInternedString(BinaryReader r)
+    {
+        int index = r.Read7BitEncodedInt();
+        ReadPathTable table = _readPaths;
+        if (index < 0 || index >= table.Paths.Length)
+        {
+            throw new InvalidDataException($"Entity string index {index} outside the list's table of {table.Paths.Length}.");
+        }
+        return table.Paths[index] ?? "";
     }
 
     private static T ReadPathRef<T>(BinaryReader r) where T : Resource

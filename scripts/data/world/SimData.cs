@@ -1247,6 +1247,84 @@ public partial class SimData : Resource
     // ignore daylight and always render at full strength.
     [Export(PropertyHint.Range, "0,1,0.01")] public float groundShadowDaylightFade = 1f;
 
+    [ExportGroup("Interior Ambience")]
+    // Palette of space classes. A cell of ChunkState.EnvTag stores an INDEX
+    // into this list, so what the air, wind and acoustics are like at a point
+    // is authored per 4³-voxel cell — orthogonal to zone, which says where in
+    // the world you are rather than what kind of space you're in.
+    //
+    // ORDER IS PART OF THE FILE FORMAT for the first four entries only: indices
+    // 0..3 must stay Outdoor / Building / Cave / Tunnel (the legacy
+    // EnvironmentTag values), because every .hike and .hikescene written before
+    // this palette existed stores those bytes. APPEND new classes; never insert
+    // or reorder within the first four.
+    //
+    // Null entries are skipped by the sampler and read as "no data", so a hole
+    // in the list degrades to unweighted rather than throwing.
+    [Export] public InteriorAmbienceData[] interiorAmbiences = System.Array.Empty<InteriorAmbienceData>();
+
+    // What worldgen assigns to a cell with cover overhead. The only class it
+    // can infer beyond outdoor — vertical cover can't tell a tidy hall from a
+    // dusty cellar, so everything finer is painted. Must be a member of the
+    // palette above; anything else resolves to index 0 and every sheltered
+    // cell in a generated world silently reads outdoor.
+    [Export] public InteriorAmbienceData worldgenEnclosedAmbience;
+
+    // Fraction of full sunlight a cell must average across its air voxels to
+    // count as outdoor. Read against the FLOODED field, so it is really "how
+    // far from a lateral opening" — sunlight decays ~4 of 60 per voxel of
+    // travel, making 0.5 roughly seven voxels in from any opening.
+    //
+    // The one knob trading the two failure modes against each other: RAISE it
+    // and shallow interiors classify as enclosed, but cover that is open at the
+    // sides (eaves, porches, cave mouths) starts reading as interior too; LOWER
+    // it and those stay outdoor at the cost of small rooms near a door not
+    // registering as interior at all.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float interiorEnclosureThreshold = 0.5f;
+
+    // Palette position of an entry, for the classification bake. Returns 0
+    // (outdoor) for null or a resource that isn't in the list.
+    public int IndexOfInteriorAmbience(InteriorAmbienceData data)
+    {
+        if (data == null || interiorAmbiences == null)
+        {
+            return 0;
+        }
+        for (int i = 0; i < interiorAmbiences.Length; i++)
+        {
+            if (interiorAmbiences[i] == data)
+            {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    // What a space drifts toward when the audio system's 6-ray enclosure probe
+    // says it is tighter than the authored cell claims — an overhang, a tree
+    // canopy, a doorway, none of which the 4-voxel cell grid can resolve. The
+    // pull is scaled by how OPEN the authored class already says it is, so an
+    // enclosed cell is left alone. Null = the probe only affects Openness /
+    // Caveness and leaves reverb and dust on the authored values.
+    [Export] public InteriorAmbienceData enclosureReferenceAmbience;
+
+    // Index resolved against the palette above, clamped and null-checked.
+    // Out-of-range indices (a world authored against a longer palette) fall
+    // back to entry 0 rather than nothing, so a stale index reads as outdoor
+    // instead of silently contributing zero weight everywhere.
+    public InteriorAmbienceData GetInteriorAmbience(int index)
+    {
+        if (interiorAmbiences == null || interiorAmbiences.Length == 0)
+        {
+            return null;
+        }
+        if (index < 0 || index >= interiorAmbiences.Length)
+        {
+            return interiorAmbiences[0];
+        }
+        return interiorAmbiences[index];
+    }
+
     [ExportGroup("Audio")]
     // Distant rolling-thunder scheduler asset + tuning. Sim-wide, since
     // the rolling-thunder bed sounds the same across zones (the per-zone

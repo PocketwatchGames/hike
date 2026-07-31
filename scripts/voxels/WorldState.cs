@@ -617,30 +617,10 @@ public class WorldState
         arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)] = true;
     }
 
-    // Raises the dust floor under a roof. MAX, never a reduction — a roof adds
-    // haze to still air but must not thin out authored mist it happens to cover.
-    public void RaiseRoofDustWorld(int wx, int wy, int wz, int amount)
-    {
-        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
-        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
-        {
-            return;
-        }
-        chunk.RoofDust ??= new byte[ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE];
-        int lx = Mod(wx, ChunkState.SIZE);
-        int ly = Mod(wy, ChunkState.SIZE);
-        int lz = Mod(wz, ChunkState.SIZE);
-        if (amount > chunk.RoofDust[lx, ly, lz])
-        {
-            chunk.RoofDust[lx, ly, lz] = (byte)amount;
-            FogChunkDirty.Add(cc);
-        }
-    }
-
-    // Air thickness at a voxel, [0,1] — authored fog raised by any roof dust,
-    // matching what FogMap uploads. The CPU read of the same field the fog and
-    // mote shaders sample, for effects that size themselves off local air
-    // rather than the regional weather scalar. 0 outside a resident chunk.
+    // Air thickness at a voxel, [0,1]. The CPU read of the same serialized fog
+    // field the fog raymarch and mote shaders sample, for effects that size
+    // themselves off local air rather than the regional weather scalar.
+    // 0 outside a resident chunk.
     public float GetAirDensityWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
@@ -651,26 +631,7 @@ public class WorldState
         int lx = Mod(wx, ChunkState.SIZE);
         int ly = Mod(wy, ChunkState.SIZE);
         int lz = Mod(wz, ChunkState.SIZE);
-        int density = chunk.GetFog(lx, ly, lz);
-        if (chunk.RoofDust != null)
-        {
-            int dust = chunk.RoofDust[lx, ly, lz];
-            if (dust > density) { density = dust; }
-        }
-        return density / 255f;
-    }
-
-    // Dropped and rebuilt alongside CanopyAttenuation / SunOpaque.
-    public void ClearRoofDust()
-    {
-        foreach (ChunkState chunk in _chunks.Values)
-        {
-            if (chunk.RoofDust != null)
-            {
-                chunk.RoofDust = null;
-                FogChunkDirty.Add(chunk.ChunkCoord);
-            }
-        }
+        return chunk.GetFog(lx, ly, lz) / 255f;
     }
 
     // Saturating add — multiple overlapping foliage clusters stack but
@@ -838,15 +799,19 @@ public class WorldState
         float c0 = c00 * (1f - ty) + c10 * ty;
         float c1 = c01 * (1f - ty) + c11 * ty;
         float c = c0 * (1f - tz) + c1 * tz;
+        // Space-class suppression is already baked in by WindGen, so this is
+        // the final value — applying it again here would double it, and the
+        // GPU (wind_map's alpha) reads the baked channel and could not see a
+        // sample-time multiply anyway.
         return c / 255f;
     }
 
-    // Trilinearly-sampled env-tag weights at a world position. Each of the
-    // eight surrounding cells contributes its tag's wire value with a
+    // Trilinearly-sampled space-class ambience at a world position. Each of the
+    // eight surrounding cells contributes its palette entry's fields with a
     // fractional weight; weights sum to 1 when all corners are loaded.
-    // Audio uses these to blend reverb preset parameters smoothly across
-    // cell boundaries instead of swapping presets discretely.
-    public EnvTagWeights SampleEnvTagWeights(Vector3 worldPos)
+    // Blending the values means crossing a threshold crossfades reverb, wind
+    // and dust together instead of snapping at a cell boundary.
+    public InteriorAmbience SampleInteriorAmbience(Vector3 worldPos)
     {
         const float CELL = ChunkState.ENV_VOXELS_PER_CELL;
         float fx = worldPos.X / CELL - 0.5f;
@@ -859,16 +824,16 @@ public class WorldState
         float ty = fy - cy0;
         float tz = fz - cz0;
 
-        var weights = new EnvTagWeights();
-        AccumEnvTagAtCell(ref weights, cx0,     cy0,     cz0,     (1f - tx) * (1f - ty) * (1f - tz));
-        AccumEnvTagAtCell(ref weights, cx0 + 1, cy0,     cz0,     tx        * (1f - ty) * (1f - tz));
-        AccumEnvTagAtCell(ref weights, cx0,     cy0 + 1, cz0,     (1f - tx) * ty        * (1f - tz));
-        AccumEnvTagAtCell(ref weights, cx0 + 1, cy0 + 1, cz0,     tx        * ty        * (1f - tz));
-        AccumEnvTagAtCell(ref weights, cx0,     cy0,     cz0 + 1, (1f - tx) * (1f - ty) * tz);
-        AccumEnvTagAtCell(ref weights, cx0 + 1, cy0,     cz0 + 1, tx        * (1f - ty) * tz);
-        AccumEnvTagAtCell(ref weights, cx0,     cy0 + 1, cz0 + 1, (1f - tx) * ty        * tz);
-        AccumEnvTagAtCell(ref weights, cx0 + 1, cy0 + 1, cz0 + 1, tx        * ty        * tz);
-        return weights;
+        var ambience = new InteriorAmbience();
+        AccumAmbienceAtCell(ref ambience, cx0,     cy0,     cz0,     (1f - tx) * (1f - ty) * (1f - tz));
+        AccumAmbienceAtCell(ref ambience, cx0 + 1, cy0,     cz0,     tx        * (1f - ty) * (1f - tz));
+        AccumAmbienceAtCell(ref ambience, cx0,     cy0 + 1, cz0,     (1f - tx) * ty        * (1f - tz));
+        AccumAmbienceAtCell(ref ambience, cx0 + 1, cy0 + 1, cz0,     tx        * ty        * (1f - tz));
+        AccumAmbienceAtCell(ref ambience, cx0,     cy0,     cz0 + 1, (1f - tx) * (1f - ty) * tz);
+        AccumAmbienceAtCell(ref ambience, cx0 + 1, cy0,     cz0 + 1, tx        * (1f - ty) * tz);
+        AccumAmbienceAtCell(ref ambience, cx0,     cy0 + 1, cz0 + 1, (1f - tx) * ty        * tz);
+        AccumAmbienceAtCell(ref ambience, cx0 + 1, cy0 + 1, cz0 + 1, tx        * ty        * tz);
+        return ambience;
     }
 
     // Trilinearly-sampled water current at a world position, in world m/s.
@@ -935,19 +900,19 @@ public class WorldState
         return chunk.WindFactor[sx, sy, sz];
     }
 
-    private void AccumEnvTagAtCell(ref EnvTagWeights weights, int cellWx, int cellWy, int cellWz, float w)
+    private void AccumAmbienceAtCell(ref InteriorAmbience ambience, int cellWx, int cellWy, int cellWz, float w)
     {
         Vector3I cc = CellWorldToChunkCoord(cellWx, cellWy, cellWz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
-            // Drop the contribution rather than defaulting to a tag —
-            // weights sum < 1 is the listener's "no data here" signal.
+            // Drop the contribution rather than defaulting to a class —
+            // TotalWeight < 1 is the listener's "no data here" signal.
             return;
         }
         int sx = Mod(cellWx, ChunkState.ENV_SUBGRID_SIZE);
         int sy = Mod(cellWy, ChunkState.ENV_SUBGRID_SIZE);
         int sz = Mod(cellWz, ChunkState.ENV_SUBGRID_SIZE);
-        weights.Add((EnvironmentTag)chunk.EnvTag[sx, sy, sz], w);
+        ambience.Accumulate(SimData?.GetInteriorAmbience(chunk.EnvTag[sx, sy, sz]), w);
     }
 
     private static Vector3I CellWorldToChunkCoord(int cellWx, int cellWy, int cellWz)

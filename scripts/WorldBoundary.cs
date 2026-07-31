@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 // One-time setup of the invisible StaticBody3D walls + floor that box the
 // streamed world in, so the player and physics bodies can't fall off the edge
@@ -8,7 +9,10 @@ public static class WorldBoundary
 {
     private const float WALL_THICKNESS = 1f;
 
-    public static void Create(Node3D parent, WorldState worldState)
+    // Returns the bodies' RIDs, for queries that must not see them. They sit on
+    // Environment like real terrain but are invisible and outside the world, so
+    // anything picking a point to act on (the editor's brush) has to skip them.
+    public static List<Rid> Create(Node3D parent, WorldState worldState)
     {
         Vector3 minWorld = new Vector3(
             worldState.Min.X * ChunkState.SIZE,
@@ -25,28 +29,32 @@ public static class WorldBoundary
 
         float wallHeight = size.Y;
 
+        var rids = new List<Rid>();
+
         // North wall (+Z)
-        AddWall(parent, new Vector3(center.X, center.Y, maxWorld.Z + WALL_THICKNESS / 2f),
-            new Vector3(size.X + WALL_THICKNESS * 2f, wallHeight, WALL_THICKNESS));
+        rids.Add(AddWall(parent, new Vector3(center.X, center.Y, maxWorld.Z + WALL_THICKNESS / 2f),
+            new Vector3(size.X + WALL_THICKNESS * 2f, wallHeight, WALL_THICKNESS)));
 
         // South wall (-Z)
-        AddWall(parent, new Vector3(center.X, center.Y, minWorld.Z - WALL_THICKNESS / 2f),
-            new Vector3(size.X + WALL_THICKNESS * 2f, wallHeight, WALL_THICKNESS));
+        rids.Add(AddWall(parent, new Vector3(center.X, center.Y, minWorld.Z - WALL_THICKNESS / 2f),
+            new Vector3(size.X + WALL_THICKNESS * 2f, wallHeight, WALL_THICKNESS)));
 
         // East wall (+X)
-        AddWall(parent, new Vector3(maxWorld.X + WALL_THICKNESS / 2f, center.Y, center.Z),
-            new Vector3(WALL_THICKNESS, wallHeight, size.Z + WALL_THICKNESS * 2f));
+        rids.Add(AddWall(parent, new Vector3(maxWorld.X + WALL_THICKNESS / 2f, center.Y, center.Z),
+            new Vector3(WALL_THICKNESS, wallHeight, size.Z + WALL_THICKNESS * 2f)));
 
         // West wall (-X)
-        AddWall(parent, new Vector3(minWorld.X - WALL_THICKNESS / 2f, center.Y, center.Z),
-            new Vector3(WALL_THICKNESS, wallHeight, size.Z + WALL_THICKNESS * 2f));
+        rids.Add(AddWall(parent, new Vector3(minWorld.X - WALL_THICKNESS / 2f, center.Y, center.Z),
+            new Vector3(WALL_THICKNESS, wallHeight, size.Z + WALL_THICKNESS * 2f)));
 
         // Floor (-Y)
-        AddWall(parent, new Vector3(center.X, minWorld.Y - WALL_THICKNESS / 2f, center.Z),
-            new Vector3(size.X + WALL_THICKNESS * 2f, WALL_THICKNESS, size.Z + WALL_THICKNESS * 2f));
+        rids.Add(AddWall(parent, new Vector3(center.X, minWorld.Y - WALL_THICKNESS / 2f, center.Z),
+            new Vector3(size.X + WALL_THICKNESS * 2f, WALL_THICKNESS, size.Z + WALL_THICKNESS * 2f)));
+
+        return rids;
     }
 
-    private static void AddWall(Node3D parent, Vector3 position, Vector3 size)
+    private static Rid AddWall(Node3D parent, Vector3 position, Vector3 size)
     {
         var body = new StaticBody3D();
         body.Position = position;
@@ -59,5 +67,6 @@ public static class WorldBoundary
 
         body.AddChild(collisionShape);
         parent.AddChild(body);
+        return body.GetRid();
     }
 }

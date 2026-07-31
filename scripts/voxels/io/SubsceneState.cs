@@ -14,7 +14,7 @@ using Godot;
 //     surrounding terrain at the bbox boundary).
 //   - Optional environmental channels (Wind, EnvTag) are stored at
 //     subscene-cell resolution and only override the destination where
-//     authored — so a dungeon can force EnvironmentTag.Tunnel without
+//     authored — so a dungeon can force its own space class without
 //     bringing wind data along, etc.
 //
 // Channels backed by always-on byte arrays (Voxels, Shape, TerrainId,

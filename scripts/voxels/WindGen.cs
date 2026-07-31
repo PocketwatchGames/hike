@@ -98,7 +98,20 @@ public static class WindGen
                             }
                         }
                     }
-                    chunk.SetWindFactor(sx, sy, sz, (sum * 255) / divisor);
+                    int windFactor = (sum * 255) / divisor;
+                    // The cell's space class damps what gets in. Baked rather
+                    // than applied at sample time because WindFactor is
+                    // uploaded as wind_map's alpha and read by the sprite
+                    // shaders — a CPU-side multiply would leave grass swaying
+                    // inside a sealed building. Safe to bake because this
+                    // recomputes from Sunlight every run and never reads the
+                    // previous value back, so re-running can't compound it.
+                    InteriorAmbienceData ambience = ws.SimData?.GetInteriorAmbience(chunk.EnvTag[sx, sy, sz]);
+                    if (ambience != null && ambience.windSuppression > 0f)
+                    {
+                        windFactor = (int)(windFactor * (1f - Mathf.Clamp(ambience.windSuppression, 0f, 1f)));
+                    }
+                    chunk.SetWindFactor(sx, sy, sz, windFactor);
                     chunk.SetWindVelocity(sx, sy, sz, storedVel.X, storedVel.Y, storedVel.Z);
                 }
             }

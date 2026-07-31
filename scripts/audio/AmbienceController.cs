@@ -95,7 +95,7 @@ public partial class AmbienceController : Node3D
             SampleDensity(ws, player.GlobalPosition);
         }
 
-        AmbienceBusDriver.Apply(_state);
+        AmbienceBusDriver.Apply(_state, ws.SimData?.GetInteriorAmbience(0));
         TickLayers(ws, player.GlobalPosition, (float)delta);
     }
 
@@ -373,29 +373,31 @@ public partial class AmbienceController : Node3D
         // rainAmount. Keeps rain audio in lock-step with the visible
         // particle effect.
         _state.RainIntensity = SkyController.Current?.Palette.RainIntensity ?? 0f;
-        EnvTagWeights tagWeights = ws.SampleEnvTagWeights(listenerPos);
+        InteriorAmbience ambience = ws.SampleInteriorAmbience(listenerPos);
 
         // Geometric enclosure at the listener — short rays in 6 directions
-        // catch local geometry the 4-voxel-resolution authored env-tag
-        // can't see (overhangs, tree canopy, doorways) and pull the
-        // weighting toward Cave-like response. Smoothed across frames so
-        // a single occluder briefly clipping a ray doesn't pop the mix.
+        // catch local geometry the 4-voxel-resolution authored space class
+        // can't see (overhangs, tree canopy, doorways) and pull the response
+        // toward enclosed. Smoothed across frames so a single occluder
+        // briefly clipping a ray doesn't pop the mix.
         float rawEnclosure = SampleEnclosure(listenerPos);
         float alpha = 1f / (1f + ENCLOSURE_SMOOTH_TAU * 60f);
         _state.Enclosure += (rawEnclosure - _state.Enclosure) * alpha;
 
-        // Re-attribute the geometric-cave share away from Outdoor so all
-        // downstream consumers (BusDriver, Openness, Caveness) see one
-        // unified set of weights. Authored Cave/Tunnel/Building stay
-        // exactly where they are; only the Outdoor → Cave conversion is
-        // synthetic from the raycast.
-        float pull = _state.Enclosure * tagWeights.Outdoor;
-        tagWeights.Outdoor -= pull;
-        tagWeights.Cave += pull;
-        _state.EnvTagWeights = tagWeights;
+        // Drift the blended values toward the authored "geometrically
+        // enclosed" reference, by how enclosed we are AND how open the
+        // authored class claims to be — so a tree canopy over an outdoor cell
+        // tightens up, while an already-enclosed cell is left alone (it has
+        // no openness left to spend). Under the old per-class weights this
+        // was an Outdoor → Cave re-attribution; blending values reaches the
+        // same place without needing a weight per class.
+        float pull = _state.Enclosure * ambience.Openness;
+        ambience.BlendToward(ws.SimData?.enclosureReferenceAmbience, pull);
 
-        _state.Openness = tagWeights.Outdoor;
-        _state.Caveness = tagWeights.Cave + tagWeights.Building + tagWeights.Tunnel;
+        _state.Interior = ambience;
+
+        _state.Openness = ambience.Openness;
+        _state.Caveness = Mathf.Clamp(ambience.TotalWeight - ambience.Openness, 0f, 1f);
 
         // Fog at the listener. WorldState.GetFogWorld returns 0..255 per
         // voxel; normalize. Single-voxel sample is fine for audio (vs
@@ -430,6 +432,7 @@ public partial class AmbienceController : Node3D
     // openness/caveness, while still tracking when the player ducks into
     // a cave mouth.
     private const float ENCLOSURE_SMOOTH_TAU = 0.4f;
+
 
     // Rays cast from the listener for the geometric enclosure aggregate.
     // Up + 4 horizontal cardinals + a +Y diagonal — six short rays,

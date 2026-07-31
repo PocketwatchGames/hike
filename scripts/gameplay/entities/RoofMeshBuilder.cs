@@ -20,6 +20,9 @@ public readonly struct RoofDimensions
     // caps the wall rather than stopping dead on it; on a hip the ends ARE
     // eaves and take the eave overhang like the sides.
     public readonly float HalfSeam;
+    // Across-seam counterpart of HalfSeamBody: the eave sits on this line, and
+    // everything past it out to HalfAcross is overhang hanging over open ground.
+    public readonly float HalfAcrossBody;
     public readonly float HalfAcross;
     // Horizontal run from an eave up to the ridge — the span the cross-section
     // is built over. A gable only slopes across, so it is always the half-across
@@ -40,7 +43,8 @@ public readonly struct RoofDimensions
         Across = alongX ? Vector3.Back : Vector3.Left;
         HalfSeamBody = Mathf.Max((alongX ? sizeX : sizeZ) * 0.5f, MIN_HALF_EXTENT);
         HalfSeam = HalfSeamBody + (form == ERoofForm.Hip ? style.eaveOverhang : style.rakeOverhang);
-        HalfAcross = (alongX ? sizeZ : sizeX) * 0.5f + style.eaveOverhang;
+        HalfAcrossBody = Mathf.Max((alongX ? sizeZ : sizeX) * 0.5f, MIN_HALF_EXTENT);
+        HalfAcross = HalfAcrossBody + style.eaveOverhang;
         RidgeRun = form == ERoofForm.Hip ? Mathf.Min(HalfAcross, HalfSeam) : HalfAcross;
         Rise = RidgeRun * Mathf.Tan(Mathf.DegToRad(slopeDegrees));
         Thickness = style.thickness;

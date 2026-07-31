@@ -1091,6 +1091,17 @@ public partial class GameCamera : Camera3D
 		_rotationBlurDir = Vector2.Left;
 	}
 
+	// Snap the yaw to an absolute angle, dropping any in-flight Q/E tween. For
+	// callers that drive yaw continuously (the world editor's right-drag free
+	// look) rather than in 90° steps.
+	public void SetYaw(float yawRadians)
+	{
+		_yaw = yawRadians;
+		_destYaw = yawRadians;
+		_yawStart = yawRadians;
+		_rotating = false;
+	}
+
 	public void ToggleClipAlways()
 	{
 		_clipAlways = !_clipAlways;

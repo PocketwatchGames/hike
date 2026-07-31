@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 49;
+    public const int WORLDGEN_VERSION = 53;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -661,20 +661,41 @@ public static class WorldGen
         // land in a second pass after the wind/envtag default bake (below).
         var stampedSubscenes = StampReservedSubscenes(ws, reservedSubscenes, heightMap);
 
-        // Compute sunlight after all geometry exists.
+        // The air pipeline. Strictly ordered, and each step feeds the next:
+        //
+        //   roofs      — non-voxel cover, so a roofed room reads as enclosed
+        //                exactly as a cave does. Pure math, unlike foliage
+        //                occluders (which need PackedScene.Instantiate on the
+        //                main thread and are stamped later, in Main). Canopy is
+        //                deliberately absent here: a tree should not make a
+        //                cell an interior.
+        //   sky        — geometry-only VERTICAL cover, for the rain / shelter
+        //                consumers. Fog-free, and never feeds classification.
+        //   sunlight   — the flooded field, which bleeds sideways. Run twice:
+        //                classification needs it before the dust it will cause
+        //                exists, and the final bake needs to attenuate by that
+        //                dust. The alternative is classifying off vertical
+        //                cover, which cannot tell "inside the walls" from
+        //                "under an eave" and leaks a cottage's ambience out
+        //                past its overhang.
+        //   classify   — enclosure → space class per env cell.
+        //   dust       — class → serialized fog, ramped by the same enclosure.
+        //   wind       — from the flooded sunlight, damped by the class.
+        //
+        // Disk-loaded chunks skip classify/dust entirely: those bytes are
+        // serialized, and a painted class must survive the round trip.
+        StampRoofSunOcclusion(ws);
+        LightEngine.ComputeSkyExposure(ws);
         LightEngine.ComputeSunlight(ws);
-
-        // Bake the per-chunk wind subgrid from sunlight openness so caves
-        // and roofed interiors ship with damped wind. Must run after
-        // ComputeSunlight; disk-loaded chunks skip this and use the
-        // serialized bytes.
-        WindGen.ComputeWindGrid(ws);
-
-        // Default-bake the per-chunk env-tag subgrid from the wind signal
-        // so audio's reverb routing has a sensible starting tag without
-        // an editor authoring step. Disk-loaded chunks skip this and use
-        // the (eventually editor-authored) serialized bytes.
         EnvTagGen.ComputeEnvTagGrid(ws);
+        // Authored classes beat inferred ones, and must land BEFORE the dust
+        // and wind bakes read them — otherwise a hikescene's cells carry its
+        // authored class but its air and wind were derived from the class
+        // worldgen guessed.
+        ApplySubsceneEnvOverrides(ws, stampedSubscenes);
+        InteriorDustStamper.Bake(ws);
+        LightEngine.ComputeSunlight(ws);
+        WindGen.ComputeWindGrid(ws);
 
         // Stamp a procedural test pattern into every chunk's water-current
         // subgrid so the water shader has something to advect. Real worlds
@@ -689,10 +710,6 @@ public static class WorldGen
         // audio) can verify that authored gust regions read correctly
         // without needing the editor.
         GenerateTestStrongWind(ws);
-
-        // Apply subscene env overrides AFTER the default bake so authored
-        // dungeon/castle ambience wins over the inferred Outdoor/Cave tag.
-        ApplySubsceneEnvOverrides(ws, stampedSubscenes);
 
         // Spread each zone's distributedLoot across its chests. Runs last so it
         // sees every chest already placed (cave, camp, fixture, subscene).
@@ -3619,63 +3636,23 @@ public static class WorldGen
             }
         }
 
-        GenerateCaveDust(ws, genData);
     }
 
-    // Dust in sky-sealed air, keyed on depth below each column's topmost solid
-    // voxel. Belongs at generation time rather than as an upload-time overlay
-    // (the way roof dust works): nothing marks a chunk fog-dirty when its VOXELS
-    // change, so an overlay reading the final geometry would never recompute
-    // after a tunnel was carved. Baked into the serialized fog it is also
-    // visible to LightEngine's flood, which is what makes a lantern genuinely
-    // dim in a dusty cave — tune caveDustAmount against that, not just the look.
-    //
-    // Runs inside GenerateFog so it stays downstream of GenerateCaves.
-    private static void GenerateCaveDust(WorldState ws, WorldGenData genData)
+    // Rasterize roof sun occlusion so the SkyExposure column scan below sees
+    // roofs as cover. Foliage is NOT stamped here: its occluders come from
+    // PackedScene.Instantiate, a Node API that can't run on the worldgen worker
+    // thread, so canopy is stamped later by FoliageStamper on the main thread.
+    // That split is also the correct semantics — a tree canopy shouldn't make a
+    // cell an interior, only a real ceiling should.
+    private static void StampRoofSunOcclusion(WorldState ws)
     {
-        if (genData.caveDustAmount <= 0f)
+        foreach (List<EntitySimState> bucket in ws._entities.Values)
         {
-            return;
-        }
-        float fade = Math.Max(genData.caveDustDepthFadeVoxels, 1f);
-        int worldMinY = ws.Min.Y * ChunkState.SIZE;
-        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinX = ws.Min.X * ChunkState.SIZE;
-        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        for (int wx = worldMinX; wx <= worldMaxX; wx++)
-        {
-            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            for (int i = 0; i < bucket.Count; i++)
             {
-                // Topmost solid in the column is the surface; every Air voxel
-                // under it is enclosed, however far down the cave sits.
-                int surfaceY = int.MinValue;
-                for (int wy = worldMaxY; wy >= worldMinY; wy--)
+                if (bucket[i] is RoofSimState roof)
                 {
-                    VoxelType v = ws.GetVoxelWorld(wx, wy, wz);
-                    if (v != VoxelType.Air && v != VoxelType.Water)
-                    {
-                        if (surfaceY == int.MinValue)
-                        {
-                            surfaceY = wy;
-                        }
-                        continue;
-                    }
-                    // Open sky above the surface, or submerged — neither is a
-                    // cave. The surface pass owns the air above.
-                    if (surfaceY == int.MinValue || v == VoxelType.Water)
-                    {
-                        continue;
-                    }
-                    float ramp = Math.Min((surfaceY - wy) / fade, 1f);
-                    int density = (int)Mathf.Clamp(genData.caveDustAmount * ramp * 255f, 0f, FOG_MAX_DENSITY);
-                    // Never thin authored fog that already sits here.
-                    if (density > ws.GetFogWorld(wx, wy, wz))
-                    {
-                        ws.SetFogWorld(wx, wy, wz, density);
-                    }
+                    RoofSunStamper.Stamp(ws, roof);
                 }
             }
         }

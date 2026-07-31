@@ -13,9 +13,11 @@ using Godot;
 //   detailStrength : 4096 bytes (0..255 scatter density)
 //   windFactor     : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, 0 = no wind,
 //                    255 = full ambient — coarse subgrid, X,Y,Z row-major)
-//   envTag         : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, EnvironmentTag
-//                    enum: 0 = Outdoor, 1 = Building, 2 = Cave, 3 = Tunnel —
-//                    same row-major layout as windFactor)
+//   envTag         : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, index into
+//                    SimData.interiorAmbiences — same row-major layout as
+//                    windFactor. Indices 0..3 are pinned to the original
+//                    Outdoor/Building/Cave/Tunnel classes so files written
+//                    before the palette existed still mean what they said)
 //   currentX       : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, signed water-
 //                    current X component encoded as (byte - 128) / 127 in
 //                    world-XZ velocity normalized units)

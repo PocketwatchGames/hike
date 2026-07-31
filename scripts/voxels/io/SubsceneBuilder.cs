@@ -52,7 +52,10 @@ public static class SubsceneBuilder
     //
     // includeEnv bakes Wind/EnvTag from the source chunks' subgrids — for
     // castles/dungeons that need to override the destination's ambience.
-    public static SubsceneState Build(WorldState ws, Vector3I min, Vector3I max, bool includeEnv, bool filterEntitiesToBox)
+    // interiorClassOverride >= 0 rewrites every enclosed cell of the captured
+    // EnvTag to that palette index — the scene-level "what kind of interior is
+    // this" knob. Negative leaves the captured bytes alone.
+    public static SubsceneState Build(WorldState ws, Vector3I min, Vector3I max, bool includeEnv, bool filterEntitiesToBox, int interiorClassOverride = -1)
     {
         Vector3I size = max - min + new Vector3I(1, 1, 1);
         var sub = new SubsceneState(size);
@@ -80,7 +83,7 @@ public static class SubsceneBuilder
         {
             sub.EnsureWindFactor();
             sub.EnsureEnvTag();
-            BakeEnvFromWorld(ws, sub, min);
+            BakeEnvFromWorld(ws, sub, min, interiorClassOverride);
         }
 
         sub.Entities = filterEntitiesToBox
@@ -90,7 +93,7 @@ public static class SubsceneBuilder
         return sub;
     }
 
-    private static void BakeEnvFromWorld(WorldState ws, SubsceneState sub, Vector3I worldOrigin)
+    private static void BakeEnvFromWorld(WorldState ws, SubsceneState sub, Vector3I worldOrigin, int interiorClassOverride)
     {
         const int S = ChunkState.ENV_VOXELS_PER_CELL;
         Vector3I envSize = sub.EnvSize;
@@ -119,7 +122,15 @@ public static class SubsceneBuilder
                     int sy = ((cwy % ChunkState.ENV_SUBGRID_SIZE) + ChunkState.ENV_SUBGRID_SIZE) % ChunkState.ENV_SUBGRID_SIZE;
                     int sz = ((cwz % ChunkState.ENV_SUBGRID_SIZE) + ChunkState.ENV_SUBGRID_SIZE) % ChunkState.ENV_SUBGRID_SIZE;
                     sub.WindFactor[lcx, lcy, lcz] = chunk.WindFactor[sx, sy, sz];
-                    sub.EnvTag[lcx, lcy, lcz] = chunk.EnvTag[sx, sy, sz];
+                    byte envTag = chunk.EnvTag[sx, sy, sz];
+                    // Index 0 is outdoor and is left alone — the scene's
+                    // open-air margin should keep taking the destination's
+                    // ambience rather than being declared an interior.
+                    if (interiorClassOverride >= 0 && envTag != 0)
+                    {
+                        envTag = (byte)interiorClassOverride;
+                    }
+                    sub.EnvTag[lcx, lcy, lcz] = envTag;
                 }
             }
         }

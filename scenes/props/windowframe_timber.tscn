@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://da0n4fgeqrnfy"]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_0drks"]
+[ext_resource type="PackedScene" uid="uid://cnaj4ex23yu7b" path="res://assets/models/frames/rpgpp_av_door_frame_04.fbx" id="3_55mea"]
+
+[node name="PropInstance" type="Node3D" unique_id=1563075394]
+script = ExtResource("1_0drks")
+
+[node name="Model" parent="." unique_id=711860529 instance=ExtResource("3_55mea")]
+transform = Transform3D(0.6, 0, 0, 0, 0.4, 0, 0, 0, 0.1, 0.002, 0, 0.6)
+
+[node name="Model2" parent="." unique_id=1746548879 instance=ExtResource("3_55mea")]
+transform = Transform3D(-0.6, 0, -8.742278e-09, 0, 0.4, 0, 5.2453668e-08, 0, -0.1, 0.002, 0, -0.6)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 // Central hub for all world simulation. The class is split across several
@@ -139,6 +140,11 @@ public partial class Sim : Node3D
     // via RemoveChunk on eviction.
     public WorldDetailScatter DetailScatter => _detailScatter;
     public ChunkManager ChunkManager => _chunkManager;
+
+    // The invisible walls and floor boxing the world in. Kept so world queries
+    // that pick a point to ACT on can exclude them — they're Environment-layer
+    // solid, so a ray out over open air hits one instead of missing.
+    public List<Rid> BoundaryRids { get; private set; } = new List<Rid>();
 
     // Global manager for static-prop sprite multimeshes. Each
     // MultimeshPropSprite registers itself in _Ready and unregisters in
@@ -284,7 +290,7 @@ public partial class Sim : Node3D
         _heatField = gc?.heatField;
         _heatField?.Initialize(this);
 
-        WorldBoundary.Create(this, _worldState);
+        BoundaryRids = WorldBoundary.Create(this, _worldState);
     }
 
     public override void _ExitTree()

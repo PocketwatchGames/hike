@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="3_base"]
 [ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="5_stone"]
-[ext_resource type="Resource" uid="uid://22wxp5pnkhxtu" path="res://resources/data/regions/forest.tres" id="6_region"]
+[ext_resource type="Resource" uid="uid://02ulravl2tji" path="res://resources/data/regions/forest.tres" id="6_region"]
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="7_lang"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="9_stonescene"]
 

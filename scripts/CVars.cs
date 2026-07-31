@@ -1576,6 +1576,20 @@ public static class CVars
         }
     });
 
+    // Scene-level interior class: the SimData.interiorAmbiences index written
+    // into every ENCLOSED cell of a subscene as it is saved. Lets an author say
+    // "this whole cottage is a tidy building" without a per-cell brush.
+    //
+    // -1 (default) PRESERVES whatever the cells already carry, so re-saving an
+    // existing scene can't silently overwrite its class — set it once when a
+    // scene is first saved, then leave it alone. Per-cell paint, when it
+    // exists, writes the same bytes and is overridden by a non-negative value
+    // here, so leave this at -1 once you start painting.
+    //
+    // Outdoor cells are never touched: the class describes interiors, and a
+    // scene's open-air margin should keep taking the destination's ambience.
+    public static CVarInt subsceneInteriorClass = new CVarInt("subscene_interior_class", -1);
+
     // Action: converts a packed world file into a subscene file, auto-fitting
     // the bbox to its voxels — the headless equivalent of opening the world in
     // the editor and running `subscene_save`. Needs no editor and no running
@@ -1610,6 +1624,40 @@ public static class CVars
         catch (System.Exception e)
         {
             Godot.GD.PrintErr($"subscene_from_world failed: {e.Message}");
+        }
+    });
+
+    // Action: prints what a `.hikescene` contains without opening it — bbox,
+    // anchor, entity count, and the variant pools it defines with how many
+    // positions each offers. Needs no editor and no running game. The pool list
+    // comes from the file's baked directory, so it answers "what can a variant
+    // pick from here?" without decoding the voxel body.
+    // Usage: `subscene_info res://resources/data/subscenes/house01.hikescene`
+    public static CVarString subsceneInfo = new CVarString("subscene_info", "", (cvar) =>
+    {
+        string path = ((CVarString)cvar).Value;
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+        try
+        {
+            SubsceneDirectory directory = SubsceneFile.ReadDirectory(path);
+            SubsceneState sub = SubsceneFile.Read(path);
+            Godot.GD.Print($"subscene_info: {path} size={sub.Size} anchor={sub.Anchor} entities={sub.Entities.Count}");
+            if (directory.Entries.Length == 0)
+            {
+                Godot.GD.Print("  pools: none (every entity is unconditional)");
+                return;
+            }
+            foreach (SubsceneDirectory.Entry entry in directory.Entries)
+            {
+                Godot.GD.Print($"  pool '{entry.Tag}': {entry.Count} position(s)");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Godot.GD.PrintErr($"subscene_info failed: {e.Message}");
         }
     });
 

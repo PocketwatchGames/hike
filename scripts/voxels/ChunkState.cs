@@ -160,13 +160,6 @@ public class ChunkState
     // correct streaming default (no fog where there's no data).
     public readonly byte[,,] FogDensity;
 
-    // Extra fog held under a roof, overlaid onto FogDensity at upload time
-    // (FogMap) rather than merged into it. NOT serialized and allocated only
-    // where a roof actually covers something: the authored fog stays exactly as
-    // saved, so deleting a roof takes its dust with it instead of leaving it
-    // baked into the world file. Null = no roof over this chunk.
-    public byte[,,] RoofDust;
-
     public ChunkState(Vector3I chunkCoord)
     {
         ChunkCoord = chunkCoord;
@@ -278,27 +271,32 @@ public class ChunkState
         WindFactor[sx, sy, sz] = (byte)factor;
     }
 
-    // Coarse environment-tag subgrid. One byte per cell (4³ voxels per cell,
-    // 64 cells per chunk). Authored in the editor (when one exists) per
-    // pocket of space — Outdoor / Building / Cave / Tunnel — and trilinearly
-    // sampled at the listener to drive reverb-bus blending and outdoor-layer
-    // attenuation in the audio system. Worldgen seeds a default from the
-    // wind/sunlight signal: open-sky cells → Outdoor, sealed cells → Cave.
-    // Building/Tunnel are author-only.
+    // Coarse space-class subgrid. One byte per cell (4³ voxels per cell, 64
+    // cells per chunk), holding an INDEX into SimData.interiorAmbiences —
+    // which decides the air (dust), the wind that reaches in, and the
+    // acoustics of that pocket of space. Trilinearly sampled, so crossing a
+    // threshold crossfades rather than snapping.
+    //
+    // Worldgen seeds a default from the wind/sunlight signal: open-sky cells →
+    // outdoor, sealed cells → underground. Anything finer than that
+    // distinction (a tidy hall vs a dusty cellar) is author-only, because no
+    // generated signal separates them.
     public readonly byte[,,] EnvTag;
 
-    public EnvironmentTag GetEnvTag(int sx, int sy, int sz)
+    // Index into SimData.interiorAmbiences. Out of bounds reads as 0, which
+    // that palette pins to the outdoor entry.
+    public byte GetEnvTag(int sx, int sy, int sz)
     {
         if (sx < 0 || sx >= ENV_SUBGRID_SIZE || sy < 0 || sy >= ENV_SUBGRID_SIZE || sz < 0 || sz >= ENV_SUBGRID_SIZE)
         {
-            return EnvironmentTag.Outdoor;
+            return 0;
         }
-        return (EnvironmentTag)EnvTag[sx, sy, sz];
+        return EnvTag[sx, sy, sz];
     }
 
-    public void SetEnvTag(int sx, int sy, int sz, EnvironmentTag tag)
+    public void SetEnvTag(int sx, int sy, int sz, byte ambienceIndex)
     {
-        EnvTag[sx, sy, sz] = (byte)tag;
+        EnvTag[sx, sy, sz] = ambienceIndex;
     }
 
     public VoxelType GetVoxel(int x, int y, int z)

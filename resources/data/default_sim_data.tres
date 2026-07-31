@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="SimData" format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/world/SimData.cs" id="1_1meao"]
-[ext_resource type="Material" uid="uid://dftmm0prnt7kq2" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
+[ext_resource type="Material" uid="uid://dhl426xulqxbf" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
 [ext_resource type="Material" uid="uid://vyod0jnbvh8p" path="res://resources/materials/ground_shadow_blob.tres" id="1_mobshadow"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="3_recipe_script"]
 [ext_resource type="Resource" uid="uid://drcp4n7p2q8wt" path="res://resources/data/recipes/recipe_grilled_kun_kun.tres" id="5_recipe_gkk"]
@@ -23,7 +23,7 @@
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="19_boondata"]
 [ext_resource type="Resource" uid="uid://crbn7q3k2p8wt" path="res://resources/data/status_effects/boons/boon_restore.tres" id="21_boon_restore"]
 [ext_resource type="Resource" uid="uid://dgbn5q3p8wrx2" path="res://resources/data/status_effects/boons/boon_gold.tres" id="22_boon_gold"]
-[ext_resource type="Resource" uid="uid://cscriptvarsreg" path="res://resources/data/script_variables/script_variables.tres" id="23_scriptvars"]
+[ext_resource type="Resource" uid="uid://bbsdqlnqddipm" path="res://resources/data/script_variables/script_variables.tres" id="23_scriptvars"]
 [ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="24_mob_spider"]
 [ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow/sparrow.tres" id="25_mob_sparrow"]
 [ext_resource type="Resource" uid="uid://cspmuy1rwr522" path="res://resources/data/characters/dog/dog.tres" id="26_mob_dog"]
@@ -83,6 +83,13 @@
 [ext_resource type="Resource" uid="uid://dh6380yd0rdai" path="res://resources/data/recipes/recipe_stew_lurker_fortitude.tres" id="93_st_lur_f"]
 [ext_resource type="Resource" uid="uid://dhe6jq1euuci4" path="res://resources/data/recipes/recipe_stew_spider_stealth.tres" id="94_st_spd_s"]
 [ext_resource type="Resource" uid="uid://b46fiknhfeeww" path="res://resources/data/recipes/recipe_stew_spider_health.tres" id="95_st_spd_h"]
+[ext_resource type="Resource" path="res://resources/data/ambience/building_dusty_large.tres" id="96_amb_bdl"]
+[ext_resource type="Resource" path="res://resources/data/ambience/building_dusty_small.tres" id="96_amb_bds"]
+[ext_resource type="Resource" path="res://resources/data/ambience/building_tidy_large.tres" id="96_amb_btl"]
+[ext_resource type="Resource" path="res://resources/data/ambience/building_tidy_small.tres" id="96_amb_bts"]
+[ext_resource type="Resource" path="res://resources/data/ambience/outdoor.tres" id="96_amb_outdoor"]
+[ext_resource type="Resource" path="res://resources/data/ambience/underground_large.tres" id="96_amb_ugl"]
+[ext_resource type="Resource" path="res://resources/data/ambience/underground_small.tres" id="96_amb_ugs"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -134,6 +141,9 @@ roofInteriorMaterial = ExtResource("77_roofinterior")
 groundShadowMaterial = ExtResource("1_mobshadow")
 playerShadowRadius = 0.65
 mobShadowAlpha = 0.7
+interiorAmbiences = [ExtResource("96_amb_outdoor"), ExtResource("96_amb_btl"), ExtResource("96_amb_ugl"), ExtResource("96_amb_ugs"), ExtResource("96_amb_bts"), ExtResource("96_amb_bds"), ExtResource("96_amb_bdl")]
+worldgenEnclosedAmbience = ExtResource("96_amb_ugl")
+enclosureReferenceAmbience = ExtResource("96_amb_ugl")
 thunderScheduler = ExtResource("11_thunder_distant")
 weatherLightning = ExtResource("12_lightning")
 fogVisionReduction = 0.7

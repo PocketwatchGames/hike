@@ -166,12 +166,8 @@ public partial class RoofStyleData : Resource
     // wider column than the gap's own silhouette. 1 = identical to the visual.
     [Export(PropertyHint.Range, "1,4,0.05")] public float brokenSunBias = 1.8f;
 
-    // Airborne dust held under the roof, as a floor on the per-voxel fog the
-    // raymarcher reads (a MAX, never a reduction). Shafts are only visible where
-    // there is something for them to light, so without this a god ray through a
-    // hole passes through clean air and never reads as a beam. Overlaid at
-    // upload time, NOT written into the serialized fog — remove the roof and the
-    // dust goes with it. 0 = leave the room's air as authored.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float interiorDust = 0.5f;
-    [Export(PropertyHint.Range, "0,64,1")] public int interiorDustDepthVoxels = 12;
+    // NOTE: a roof carries no dust of its own. It marks the space beneath it as
+    // interior by stamping sun occlusion, exactly as a voxel ceiling does, and
+    // the space class that classification then assigns supplies the air. A roof
+    // decides THAT a room is enclosed, never HOW dusty it is.
 }

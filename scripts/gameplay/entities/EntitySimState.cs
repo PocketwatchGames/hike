@@ -14,6 +14,14 @@ public abstract class EntitySimState
     // gizmo works on anything selectable; movers (mobs) also write their live
     // facing back here before unload.
     public float RotationY;
+
+    // Subscene variant pool this entity belongs to. Empty (the default) means
+    // unconditional: the entity spawns wherever its scene is stamped. A tagged
+    // entity is a CANDIDATE — it spawns only when the stamping variant selects
+    // its pool and the roll picks this position, so tagging something makes it
+    // stop spawning everywhere that doesn't ask for it. On a MarkerSimState the
+    // tag is all there is: the pool name for a position with no authored body.
+    public string Tag = "";
     public readonly PackedScene Scene;
 
     protected EntitySimState(Vector3 worldPosition, PackedScene scene)

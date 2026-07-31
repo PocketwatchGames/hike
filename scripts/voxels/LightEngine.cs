@@ -47,6 +47,95 @@ public static class LightEngine
         return Mathf.Exp(-(canopyByte / 255f) * extinction);
     }
 
+    // Full relight: cover, then light. What every caller outside worldgen wants
+    // after changing geometry or occluders.
+    //
+    // Worldgen does NOT use this — it has to interleave classification and the
+    // fog bake between the two halves (cover → space class → fog → light), which
+    // is the whole reason they are separable. Everywhere else there is nothing
+    // to put in the middle, and calling only one of the pair is a silent bug:
+    // stale SkyExposure leaves rain falling through a new roof.
+    public static void Relight(WorldState world)
+    {
+        ComputeSkyExposure(world);
+        ComputeSunlight(world);
+    }
+
+    // Geometry-only vertical cover, written into SkyExposure: solid voxels,
+    // non-voxel cover (roofs) and canopy, with NO fog term.
+    //
+    // Fog is deliberately excluded even though ComputeSunlight's column
+    // attenuates by it. SkyExposure answers "is there cover straight up", and
+    // every consumer asks it as such — rain reaching the ground, terrain
+    // wetness, torch dousing, the no-ceiling requirement. Haze is air, not
+    // cover; counting it would make a foggy morning read as shelter from rain.
+    //
+    // Being fog-free is also what lets space-class classification read this:
+    // interior fog is baked FROM the class, so a class derived from a
+    // fog-attenuated signal would feed itself.
+    //
+    // Cheap relative to ComputeSunlight — one column per XZ, no BFS flood.
+    public static void ComputeSkyExposure(WorldState world)
+    {
+        world.ClearSkyExposureAll();
+
+        float canopySunExtinction = world.SimData.canopySunExtinction;
+        int minWx = world.Min.X * ChunkState.SIZE;
+        int maxWx = (world.Max.X + 1) * ChunkState.SIZE;
+        int minWz = world.Min.Z * ChunkState.SIZE;
+        int maxWz = (world.Max.Z + 1) * ChunkState.SIZE;
+
+        for (int wx = minWx; wx < maxWx; wx++)
+        {
+            for (int wz = minWz; wz < maxWz; wz++)
+            {
+                ScanSkyExposureColumn(world, wx, wz, canopySunExtinction);
+            }
+        }
+    }
+
+    // One XZ column of SkyExposure, top-down. The single definition of the
+    // field — both the full-world bake and the incremental per-edit recompute
+    // call this, so there is no pair of scans to keep in sync by hand.
+    private static void ScanSkyExposureColumn(WorldState world, int wx, int wz, float canopySunExtinction)
+    {
+        int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
+        int minWy = world.Min.Y * ChunkState.SIZE;
+
+        float level = MAX_LIGHT;
+        bool blocked = false;
+        for (int wy = topWy; wy >= minWy; wy--)
+        {
+            if (blocked)
+            {
+                world.SetSkyExposureWorld(wx, wy, wz, 0);
+                continue;
+            }
+            VoxelType v = world.GetVoxelWorld(wx, wy, wz);
+            // Opaque ceiling — a solid voxel, or non-voxel solid cover such as
+            // a roof: this voxel and everything below it are sheltered.
+            if ((v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v)) || world.GetSunOpaqueWorld(wx, wy, wz))
+            {
+                blocked = true;
+                world.SetSkyExposureWorld(wx, wy, wz, 0);
+                continue;
+            }
+            level -= VoxelTypeInfo.LightAttenuation(v);
+            level *= CanopyTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
+            int rounded = (int)(level + 0.5f);
+            if (rounded <= 0)
+            {
+                blocked = true;
+                world.SetSkyExposureWorld(wx, wy, wz, 0);
+                continue;
+            }
+            world.SetSkyExposureWorld(wx, wy, wz, rounded);
+        }
+    }
+
+    // The lighting signal: same column walk, plus fog attenuation, plus the
+    // lateral BFS spread. Does NOT write SkyExposure — that field is owned by
+    // ComputeSkyExposure above and is a different question (cover, not light).
     public static void ComputeSunlight(WorldState world)
     {
         // Reset first — the column scan breaks when sunLevel reaches zero,
@@ -55,9 +144,6 @@ public static class LightEngine
         // after the first pass) would leave stale-bright sunlight at the
         // bottom of darkened columns.
         world.ClearSunlightAll();
-        // SkyExposure is captured from this same column scan (below) and never
-        // touched by the BFS spread, so it needs the same baseline reset.
-        world.ClearSkyExposureAll();
 
         int minWx = world.Min.X * ChunkState.SIZE;
         int maxWx = (world.Max.X + 1) * ChunkState.SIZE;
@@ -96,9 +182,6 @@ public static class LightEngine
                         break;
                     }
                     world.SetSunlightWorld(wx, wy, wz, level);
-                    // Capture the vertical column value BEFORE the BFS spread
-                    // can raise it — this is the non-leaky sky-exposure field.
-                    world.SetSkyExposureWorld(wx, wy, wz, level);
                     queue.Enqueue((wx, wy, wz));
                 }
             }
@@ -548,13 +631,10 @@ public static class LightEngine
     // by the changed voxels. SkyExposure is a pure top-down property — a voxel
     // change only affects its own (x, z) column — so rescanning each affected
     // column from the world top is both correct and cheap (one column per
-    // distinct XZ, not a flood fill). This mirrors the column scan in
-    // ComputeSunlight and MUST stay in sync with it (same attenuation terms).
+    // distinct XZ, not a flood fill).
     private static void RecomputeSkyExposureColumns(WorldState world, List<Vector3I> changedPositions)
     {
         float canopySunExtinction = world.SimData.canopySunExtinction;
-        int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
-        int minWy = world.Min.Y * ChunkState.SIZE;
 
         var columns = new HashSet<(int x, int z)>();
         foreach (Vector3I pos in changedPositions)
@@ -564,37 +644,7 @@ public static class LightEngine
 
         foreach (var (wx, wz) in columns)
         {
-            float sunLevel = MAX_LIGHT;
-            bool blocked = false;
-            for (int wy = topWy; wy >= minWy; wy--)
-            {
-                if (blocked)
-                {
-                    world.SetSkyExposureWorld(wx, wy, wz, 0);
-                    continue;
-                }
-                VoxelType v = world.GetVoxelWorld(wx, wy, wz);
-                // Opaque ceiling — a solid voxel, or non-voxel solid cover such
-                // as a roof: this voxel and everything below it are sheltered
-                // from the sky.
-                if ((v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v)) || world.GetSunOpaqueWorld(wx, wy, wz))
-                {
-                    blocked = true;
-                    world.SetSkyExposureWorld(wx, wy, wz, 0);
-                    continue;
-                }
-                sunLevel -= VoxelTypeInfo.LightAttenuation(v);
-                sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255f;
-                sunLevel *= CanopyTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
-                int level = (int)(sunLevel + 0.5f);
-                if (level <= 0)
-                {
-                    blocked = true;
-                    world.SetSkyExposureWorld(wx, wy, wz, 0);
-                    continue;
-                }
-                world.SetSkyExposureWorld(wx, wy, wz, level);
-            }
+            ScanSkyExposureColumn(world, wx, wz, canopySunExtinction);
         }
     }
 

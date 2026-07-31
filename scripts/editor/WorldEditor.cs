@@ -193,7 +193,13 @@ public partial class WorldEditor : Node3D
     [Export(PropertyHint.Range, "0,8,1")] public int windowFloorOffset = 1;
     // How far down a column FindFloorY looks for ground before giving up.
     [Export(PropertyHint.Range, "1,128,1")] public int floorSearchDepth = 64;
+    // Elevation the brush resolves against when the ray hits no geometry at all.
+    // A fixed ground line rather than the camera cursor's drifting elevation, so
+    // clicking out over empty air always lands somewhere predictable.
+    [Export] public int emptyAirPaintY = 0;
     [Export] public Color regionPreviewColor = new Color(0.3f, 1f, 0.5f);
+    // The cell a click would target, boxed under the cursor before committing.
+    [Export] public Color brushPreviewColor = new Color(1f, 1f, 1f);
 
     [ExportGroup("Roofs")]
     // Pitch the Roofs tool opens on, and what the HUD slider is seated to. The
@@ -217,12 +223,39 @@ public partial class WorldEditor : Node3D
     [Export] public EditorGizmo gizmo;
     [Export] public Color selectionColor = new Color(1f, 0.85f, 0.2f);
 
+    [ExportGroup("Entity Snapping")]
+    // Grid entity positions land on while Snap to Grid is checked, in metres.
+    [Export(PropertyHint.Range, "0.05,4,0.05")] public float entityGridSnap = 0.5f;
+    // Increment entity facings land on while Snap Rotation is checked.
+    [Export(PropertyHint.Range, "1,180,1")] public float entityRotationSnapDegrees = 45f;
+    // How far the cursor must leave a just-placed entity before the still-held
+    // button starts aiming it — closer in, the drag direction is noise.
+    [Export(PropertyHint.Range, "0.05,4,0.05")] public float placeAimDeadzone = 0.4f;
+
     [ExportGroup("History")]
     // Undo steps kept. One step is one action — a whole drag, not each cell —
     // and only the cells that actually changed are stored, so this can be deep.
     [Export(PropertyHint.Range, "1,512,1")] public int undoDepth = 128;
 
     [ExportGroup("Camera")]
+    // The editor runs its own framing rather than the game's camera_preset:
+    // perspective, close in, and free to pitch. The shipping orthographic angle
+    // is locked to one pitch, which can't get inside a room and look around it.
+    [Export(PropertyHint.Range, "10,120,1")] public float cameraFov = 55f;
+    // How far back from the cursor the camera sits. The cursor is what WASD
+    // moves and what the cutaway, entity streaming and the subscene commands all
+    // resolve against, so it stays the anchor — free look just swings the camera
+    // about the eye instead of about the cursor (see ApplyFreeLook).
+    [Export(PropertyHint.Range, "1,100,0.5")] public float cameraDistance = 20f;
+    // Pitch the editor opens on; free look retunes it from there.
+    [Export(PropertyHint.Range, "-89,89,1")] public float cameraStartPitchDegrees = -40f;
+    [Export(PropertyHint.Range, "1,200,1")] public float moveSpeed = 20f;
+    // Hold-Shift multiplier while flying.
+    [Export(PropertyHint.Range, "1,20,0.5")] public float flyBoostMultiplier = 4f;
+    // Radians of look rotation per pixel of right-drag mouse motion.
+    [Export(PropertyHint.Range, "0.0005,0.05,0.0005")] public float lookSensitivity = 0.005f;
+    // Fly-speed multiplier applied per mouse-wheel notch while flying.
+    [Export(PropertyHint.Range, "1.02,2,0.01")] public float flySpeedStep = 1.2f;
     // Cap on how far from the cursor the Q/E orbit pivot may sit, so a grazing
     // centre-ray hit far downhill doesn't turn a rotation into a wide sweep.
     [Export(PropertyHint.Range, "1,200,1")] public float orbitPivotMaxRadius = 40f;
@@ -235,7 +268,11 @@ public partial class WorldEditor : Node3D
 
     public Action onQuitToMenu;
 
-    private const float MOVE_SPEED = 20f;
+    // Gimbal guard on the free-look pitch — straight up / straight down would
+    // leave the yaw axis degenerate.
+    private const float PITCH_LIMIT_DEGREES = 89f;
+    private const float FLY_SPEED_SCALE_MIN = 0.1f;
+    private const float FLY_SPEED_SCALE_MAX = 8f;
     private const float CLIP_START_OFFSET = 10f;
     private const float CLIP_VISUAL_BIAS = 0.05f;
     public const string WORLD_FILE_EXTENSION = "hike";
@@ -284,7 +321,20 @@ public partial class WorldEditor : Node3D
     private float _roofBroken;
     private EEditorBrushOperation _operation = EEditorBrushOperation.Paint;
     private EEditorBrushShape _brushShape = EEditorBrushShape.Voxel;
-    private bool _plateauSnap = true;
+    // Plateau snap, remembered per brush shape — turning it off to drop a floor
+    // at an arbitrary height mustn't also unsnap the Room selected next. Every
+    // slot starts on; the shapes that can't snap are gated by SupportsPlateauSnap
+    // rather than by their stored value, so switching through one doesn't clear
+    // the choice made for the shapes that can.
+    private readonly bool[] _plateauSnapByShape = new bool[Enum.GetValues<EEditorBrushShape>().Length];
+    // Entity snapping, shared by placement and the gizmo. Both start on: the
+    // grid divides a voxel evenly, so furniture lines up with the walls around
+    // it without anyone having to aim.
+    private bool _snapToGrid = true;
+    private bool _snapRotation = true;
+    // The entity the still-held left button just placed. Motion aims it until
+    // the release commits, so dropping a prop and turning it is one gesture.
+    private EntitySimState _placingEntity;
     // Authored state of the inner environment's built-in depth fog, captured
     // before the lighting toggle ever touches it — the flat view only ever
     // turns it OFF, so restoring means restoring what game.tscn ships with.
@@ -299,11 +349,29 @@ public partial class WorldEditor : Node3D
     private Vector3 _orbitPivot;
     private Vector3 _orbitStartCursor;
     private float _orbitStartYaw;
+    // Free-look pitch in degrees (negative = looking down), pushed into the
+    // camera each frame. Yaw lives on the camera, which owns the Q/E tween.
+    private float _cameraPitchDegrees;
+    // Right-mouse fly cam: pointer captured, mouse looks, WASD/E/Q flies.
+    private bool _flying;
+    private float _flySpeedScale = 1f;
 
     private bool _dragActive = false;
     private EEditorBrushOperation _dragOperation = EEditorBrushOperation.Paint;
     private int _dragBaseY = 0;
     private readonly HashSet<Vector3I> _lastPaintedBlocks = new HashSet<Vector3I>();
+
+    // What the mouse resolves to this frame, from the same pick a click runs —
+    // _hoverHit is the cell the ray landed in, _hoverBase the cell the current
+    // operation would write. Feeds both the HUD coordinate readout and the brush
+    // preview, so neither can disagree with what clicking would actually do.
+    private bool _hoverValid;
+    private Vector3I _hoverHit;
+    private Vector3I _hoverBase;
+    private Vector3I _hoverAir;
+
+    // Bodies every editor pick ray skips — see Raycast.
+    private readonly Godot.Collections.Array<Rid> _boundaryExclude = new Godot.Collections.Array<Rid>();
 
     // Entity selection (Select mode) and the gizmo drag acting on it. The drag
     // records each entity's transform at press time and re-derives from it every
@@ -347,6 +415,13 @@ public partial class WorldEditor : Node3D
     // has none — entangling them would mean a shape check on every roof path.
     private Vector3I? _roofAnchor;
     private Vector3I _roofCurrent;
+
+    // The placed roof the Roofs panel is retuning (Edit mode). Clicking a roof
+    // latches it here and it stays latched, so the sliders and toggles keep
+    // acting on it without another click. Replaced wholesale on every push —
+    // RoofSimState's shape is readonly — so this always names the LIVE state.
+    private RoofSimState _editingRoof;
+    private Vector3I _editingRoofBucket;
 
     // Optional two-corner bbox override for subscene save. Each is the floored
     // voxel coordinate of the editor cursor at the time the corner was marked.
@@ -415,11 +490,18 @@ public partial class WorldEditor : Node3D
 
         _world.EnableEditorMode(_cursorPosition);
         _world.UpdateEntityLoading(_cursorPosition);
+        // Built once: the boundary is created in Initialize above and lives as
+        // long as the Sim does.
+        foreach (Rid rid in _world.BoundaryRids)
+        {
+            _boundaryExclude.Add(rid);
+        }
 
         _history = new EditorHistory(worldState, _world, undoDepth);
 
         camera.Init(sceneViewport);
         camera.ManualClipMode = true;
+        ApplyEditorCameraSettings();
         camera.SetInitialPosition(_cursorPosition);
         camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
 
@@ -440,6 +522,7 @@ public partial class WorldEditor : Node3D
             _tool = tool;
             CancelGizmoDrag();
             _selection.Clear();
+            _editingRoof = null;
             EndDrag();
             UpdateHud();
         };
@@ -447,7 +530,17 @@ public partial class WorldEditor : Node3D
         editorHud.onRoofFormChanged += form => _roofForm = form;
         editorHud.onRoofSlopeChanged += degrees => _roofSlopeDegrees = degrees;
         editorHud.onRoofBrokenChanged += broken => _roofBroken = broken;
-        editorHud.onRoofModeChanged += mode => _roofMode = mode;
+        // Every roof-panel change lands here once it has settled, and retunes
+        // the latched roof in place. Registered after the setters above so it
+        // reads the value they just stored.
+        editorHud.onRoofSettingsCommitted += PushRoofSettings;
+        // Leaving Edit mode drops the retune target, so a stray slider nudge
+        // can't reach back and reshape a roof that's no longer being pointed at.
+        editorHud.onRoofModeChanged += mode =>
+        {
+            _roofMode = mode;
+            _editingRoof = null;
+        };
         // Leaving Select mode (or the entity tool entirely) drops the selection
         // rather than leaving an invisible group armed for the next Delete.
         editorHud.onEntityToolModeChanged += mode =>
@@ -457,13 +550,22 @@ public partial class WorldEditor : Node3D
             _selection.Clear();
             UpdateHud();
         };
+        editorHud.onSnapToGridChanged += snap => _snapToGrid = snap;
+        editorHud.onSnapRotationChanged += snap => _snapRotation = snap;
         editorHud.onOperationSelected += operation => _operation = operation;
-        editorHud.onShapeSelected += shape => _brushShape = shape;
-        editorHud.onPlateauSnapChanged += snap => _plateauSnap = snap;
+        editorHud.onShapeSelected += shape =>
+        {
+            _brushShape = shape;
+            PushPlateauSnap();
+        };
+        editorHud.onPlateauSnapChanged += snap => _plateauSnapByShape[(int)_brushShape] = snap;
         editorHud.onLightingChanged += ApplyLighting;
         editorHud.onTimeOfDayChanged += ApplyTimeOfDay;
         editorHud.onWeatherSelected += ApplyWeather;
+        Array.Fill(_plateauSnapByShape, true);
+        editorHud.SetEntitySnaps(_snapToGrid, _snapRotation);
         editorHud.SetShape(_brushShape);
+        PushPlateauSnap();
         editorHud.SetTimeOfDay(editorTimeOfDay);
         _roofSeamAxis = defaultRoofSeamAxis;
         _roofForm = defaultRoofForm;
@@ -474,7 +576,6 @@ public partial class WorldEditor : Node3D
         editorHud.SetRoofSlope(_roofSlopeDegrees);
         editorHud.SetRoofBroken(_roofBroken);
         BuildWeatherPresets();
-        _plateauSnap = editorHud.PlateauSnapChecked;
         _authoredDepthFog = sceneEnvironment?.Environment?.FogEnabled ?? false;
         ApplyLighting(editorHud.LightingChecked);
         UpdateHud();
@@ -700,6 +801,15 @@ public partial class WorldEditor : Node3D
 
     public override void _Process(double deltaTime)
     {
+        // Ends the drag before the early-out below, so the pointer can't stay
+        // captured behind a console or dialog that opened mid-flight. Polling the
+        // button (rather than trusting the release event) means a release that
+        // something else swallowed still lands.
+        if (_flying && (ConsoleUI.IsOpen || IsSaveDialogOpen || !Input.IsMouseButtonPressed(MouseButton.Right)))
+        {
+            EndFly();
+        }
+
         // Movement polls Input directly, which ignores focus — without this the
         // camera flies around while the save-name field is being typed into.
         if (ConsoleUI.IsOpen || IsSaveDialogOpen)
@@ -713,16 +823,7 @@ public partial class WorldEditor : Node3D
         // the cursor; UpdateCamera then skips its own tick.
         camera.TickRotation(dt);
 
-        // WASD movement on XZ plane relative to camera yaw
-        Vector3 move = Vector3.Zero;
-        Vector2 input = Input.GetVector("MoveLeft", "MoveRight", "MoveUp", "MoveDown");
-        if (input.LengthSquared() > 0f)
-        {
-            float yaw = camera.Yaw;
-            Vector3 forward = new Vector3(Mathf.Sin(yaw), 0, Mathf.Cos(yaw));
-            Vector3 right = new Vector3(forward.Z, 0, -forward.X);
-            move = (forward * input.Y + right * input.X) * MOVE_SPEED * dt;
-        }
+        Vector3 move = _flying ? FlyMove(dt) : PanMove(dt);
 
         if (_orbiting)
         {
@@ -734,6 +835,7 @@ public partial class WorldEditor : Node3D
             _cursorPosition += move;
         }
 
+        camera.pitchDegrees = _cameraPitchDegrees;
         camera.UpdateCamera(deltaTime, _cursorPosition, 0f, tickRotation: false);
         camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
         // Pixel-snap and refresh the upscale uniforms before anything reads the
@@ -749,21 +851,57 @@ public partial class WorldEditor : Node3D
         CullProps(camera.Clip);
         _world.UpdateEntityLoading(_cursorPosition);
 
-        editorHud.UpdatePosition(_cursorPosition);
         editorHud.UpdateClip(_clipY);
+        bool overUi = editorHud.IsPointerOverUi();
+        // Ahead of the fly-cam bail below: the selection's boxes are immediate-
+        // mode, so they'd blink out for the length of every flight.
+        TickSelection(overUi);
+
+        // Nothing to pick against while flying: the pointer is captured, so its
+        // position is frozen and every preview would just sit wherever it was
+        // when the drag began.
+        if (_flying)
+        {
+            _hoverValid = false;
+            editorHud.UpdatePosition(null);
+            editorHud.SetHeldOverride(null);
+            return;
+        }
+
+        // Same over the HUD: the ray passes behind the panel, so every preview
+        // would chase a cell the click can't reach anyway (the panels stop the
+        // press). Drags already in flight keep drawing — the pointer is only
+        // crossing the HUD on its way somewhere.
+        if (overUi)
+        {
+            _hoverValid = false;
+            editorHud.UpdatePosition(null);
+            editorHud.SetHeldOverride(null);
+            DrawRegionPreview();
+            DrawRoofPreview();
+            return;
+        }
+
         // Ctrl / Alt momentarily override the selected operation; poll them so
-        // the button row tracks the modifier even with no click event in flight.
-        editorHud.SetHeldOverride(ModifierOverride(Input.IsKeyPressed(Key.Ctrl), Input.IsKeyPressed(Key.Alt)));
+        // the button row and the hover preview track the modifier even with no
+        // click event in flight. Keycode vs physical matters (see
+        // DrawEntityHoverBox), and both readings must feed the same override or
+        // the preview lands a cell off what the click will actually target.
+        bool ctrl = Input.IsKeyPressed(Key.Ctrl) || Input.IsPhysicalKeyPressed(Key.Ctrl);
+        bool alt = Input.IsKeyPressed(Key.Alt) || Input.IsPhysicalKeyPressed(Key.Alt);
+        UpdateHoverTarget(OperationFor(ctrl, alt));
+        editorHud.UpdatePosition(_hoverValid ? _hoverHit : null);
+        editorHud.SetHeldOverride(ModifierOverride(ctrl, alt));
+        DrawBrushPreview();
         DrawRegionPreview();
         DrawRoofPreview();
         DrawEntityHoverBox();
-        TickSelection();
     }
 
     // Selection upkeep and its immediate-mode visuals. Runs after the entity
     // streaming pass above, so a selection that lost its entities to an undo or
     // a chunk eviction is pruned before anything draws or drags it.
-    private void TickSelection()
+    private void TickSelection(bool overUi)
     {
         if (!IsSelectMode)
         {
@@ -789,16 +927,122 @@ public partial class WorldEditor : Node3D
             return;
         }
         Vector3 pivot = _gizmoDrag != EGizmoHandle.None ? _gizmoDragPivot : _selection.Pivot;
-        // A drag holds its handle lit even when the cursor wanders off it.
+        // A drag holds its handle lit even when the cursor wanders off it — or
+        // onto the HUD, which otherwise lights whatever handle sits behind it.
         if (_gizmoDrag == EGizmoHandle.None)
         {
             Vector2 mouse = ToScenePos(GetViewport().GetMousePosition());
-            _hotHandle = gizmo.Pick(pivot, camera.ProjectRayOrigin(mouse), camera.ProjectRayNormal(mouse));
+            _hotHandle = overUi ? EGizmoHandle.None : gizmo.Pick(pivot, camera.ProjectRayOrigin(mouse), camera.ProjectRayNormal(mouse));
         }
         gizmo.Draw(pivot, _gizmoDrag != EGizmoHandle.None ? _gizmoDrag : _hotHandle);
     }
 
     private bool IsSelectMode => _tool == EEditorTool.Entity && _entityToolMode == EEditorEntityMode.Select;
+
+    // Perspective and close in, with the pitch under free look. Applied after
+    // camera.Init, which seats whatever the game's camera_preset CVar says — the
+    // editor's framing is its own concern and mustn't ride on that setting.
+    private void ApplyEditorCameraSettings()
+    {
+        _cameraPitchDegrees = Mathf.Clamp(cameraStartPitchDegrees, -PITCH_LIMIT_DEGREES, PITCH_LIMIT_DEGREES);
+        camera.ApplyAngleSettings(new CameraAngleSettings
+        {
+            Perspective = true,
+            Fov = cameraFov,
+            Distance = cameraDistance,
+            PitchDegrees = _cameraPitchDegrees,
+        });
+        // SetInitialPosition places the camera off its own basis, so the pose has
+        // to carry the new pitch before it runs.
+        camera.GlobalRotation = new Vector3(Mathf.DegToRad(_cameraPitchDegrees), camera.Yaw, 0f);
+    }
+
+    // This frame's camera orientation, built from the editor's own angles rather
+    // than read off the node — by the time movement runs, the node still holds
+    // last frame's pose, pixel-snapped by the viewport rig.
+    private Basis CameraBasis()
+    {
+        return Basis.FromEuler(new Vector3(Mathf.DegToRad(_cameraPitchDegrees), camera.Yaw, 0f));
+    }
+
+    // WASD panning on the XZ plane relative to camera yaw — the navigation with
+    // no button held.
+    private Vector3 PanMove(float dt)
+    {
+        Vector2 input = Input.GetVector("MoveLeft", "MoveRight", "MoveUp", "MoveDown");
+        if (input.LengthSquared() <= 0f)
+        {
+            return Vector3.Zero;
+        }
+        float yaw = camera.Yaw;
+        Vector3 back = new Vector3(Mathf.Sin(yaw), 0, Mathf.Cos(yaw));
+        Vector3 right = new Vector3(back.Z, 0, -back.X);
+        return (back * input.Y + right * input.X) * moveSpeed * _flySpeedScale * dt;
+    }
+
+    // Camera-relative flight while the right button is held: WASD along the view
+    // axes (so forward follows the pitch), E/Q straight up/down, Shift to boost.
+    // The camera is placed at cursor + back * distance every frame, so flying is
+    // just translating the cursor.
+    private Vector3 FlyMove(float dt)
+    {
+        Vector2 input = Input.GetVector("MoveLeft", "MoveRight", "MoveUp", "MoveDown");
+        Basis basis = CameraBasis();
+        // MoveUp is the negative half of the pair (W reads -1) and basis.Z points
+        // back out of the screen; the two signs cancel to "W flies forward".
+        Vector3 dir = basis.X * input.X + basis.Z * input.Y;
+        if (Input.IsPhysicalKeyPressed(Key.E)) { dir += Vector3.Up; }
+        if (Input.IsPhysicalKeyPressed(Key.Q)) { dir -= Vector3.Up; }
+        if (dir.LengthSquared() <= 0f)
+        {
+            return Vector3.Zero;
+        }
+        float speed = moveSpeed * _flySpeedScale;
+        if (Input.IsPhysicalKeyPressed(Key.Shift)) { speed *= flyBoostMultiplier; }
+        return dir.Normalized() * speed * dt;
+    }
+
+    private void BeginFly()
+    {
+        if (_flying)
+        {
+            return;
+        }
+        _flying = true;
+        // A left drag still held would never see its release once the pointer is
+        // captured, leaving the edit open and the stroke re-painting on the way
+        // out — so close it exactly as a release would.
+        FinishStroke();
+        // A Q/E orbit still easing would keep swinging the cursor about its
+        // pivot and fight the look.
+        _orbiting = false;
+        Input.MouseMode = Input.MouseModeEnum.Captured;
+    }
+
+    private void EndFly()
+    {
+        if (!_flying)
+        {
+            return;
+        }
+        _flying = false;
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+    }
+
+    // Right-drag look. Turns the camera in place: the eye is held where it is and
+    // the cursor — which the camera is actually placed off — is re-derived behind
+    // the new orientation. Orbiting the cursor instead would swing the camera
+    // through whatever is `distance` behind it, which in a corridor is the wall.
+    private void ApplyFreeLook(Vector2 relative)
+    {
+        Vector3 eye = _cursorPosition + CameraBasis().Z * camera.distance;
+        _cameraPitchDegrees = Mathf.Clamp(
+            _cameraPitchDegrees - Mathf.RadToDeg(relative.Y * lookSensitivity),
+            -PITCH_LIMIT_DEGREES,
+            PITCH_LIMIT_DEGREES);
+        camera.SetYaw(camera.Yaw - relative.X * lookSensitivity);
+        _cursorPosition = eye - CameraBasis().Z * camera.distance;
+    }
 
     // Latches what the camera is looking at so the cursor can be swung around it
     // while the yaw eases. Re-pressing mid-rotation just re-latches from the
@@ -946,6 +1190,54 @@ public partial class WorldEditor : Node3D
 
     // Wireframe box over the pending Floor / Wall fill. Re-emitted every frame
     // (DebugDraw is immediate-mode) for as long as the drag is held.
+    // Runs the click-time pick against the current mouse position, once a frame,
+    // ahead of anything that reads the hover fields.
+    private void UpdateHoverTarget(EEditorBrushOperation operation)
+    {
+        Vector2 mouse = ToScenePos(GetViewport().GetMousePosition());
+        _hoverValid = ComputeVoxelTarget(mouse, Overwrites(operation), out _hoverHit, out _hoverBase, out _hoverAir);
+    }
+
+    // Boxes the cell a click would base the brush at. Voxel tool only, and
+    // dropped once a region drag is in flight, where DrawRegionPreview shows the
+    // real footprint.
+    private void DrawBrushPreview()
+    {
+        if (_tool != EEditorTool.Voxel || !_hoverValid || _regionAnchor.HasValue)
+        {
+            return;
+        }
+        Vector3I cell = ResolveBrushCell();
+        DebugDraw.Box(cell, cell + Vector3I.One, brushPreviewColor);
+    }
+
+    // Where the brush would base if you clicked right now. The target cell alone
+    // isn't it: a region shape snaps its elevation onto the cutaway band grid at
+    // press, and Window / Door take theirs from the column's floor rather than
+    // from the click. Both derivations are repeated from the press path, so the
+    // box lands where the shape does instead of one band or one storey off.
+    private Vector3I ResolveBrushCell()
+    {
+        Vector3I cell = _hoverBase;
+        if (IsRegionShape(_brushShape))
+        {
+            if (_plateauSnapByShape[(int)_brushShape] && SupportsPlateauSnap(_brushShape))
+            {
+                cell.Y = SnapToPlateau(cell.Y);
+            }
+            return cell;
+        }
+        switch (_brushShape)
+        {
+            case EEditorBrushShape.Window:
+                return new Vector3I(_hoverHit.X, FindFloorY(_hoverAir) + windowFloorOffset, _hoverHit.Z);
+            case EEditorBrushShape.Door:
+                return new Vector3I(_hoverHit.X, FindFloorY(_hoverAir), _hoverHit.Z);
+            default:
+                return cell;
+        }
+    }
+
     private void DrawRegionPreview()
     {
         if (!_regionAnchor.HasValue)
@@ -953,6 +1245,15 @@ public partial class WorldEditor : Node3D
             return;
         }
         BuildRegionCells(_regionAnchor.Value, _regionCurrent, out Vector3I min, out Vector3I max);
+        if (_brushShape == EEditorBrushShape.Room)
+        {
+            // Slab and walls get their own boxes: a Room's bounding volume would
+            // promise a solid block, when what lands is a one-course floor with a
+            // hollow shell standing on it.
+            DebugDraw.Box(min, new Vector3I(max.X, min.Y, max.Z) + Vector3I.One, regionPreviewColor);
+            DebugDraw.Box(new Vector3I(min.X, min.Y + 1, min.Z), max + Vector3I.One, regionPreviewColor);
+            return;
+        }
         DebugDraw.Box(min, max + Vector3I.One, regionPreviewColor);
     }
 
@@ -1030,10 +1331,55 @@ public partial class WorldEditor : Node3D
         return ModifierOverride(ctrl, alt) ?? _operation;
     }
 
+    // Everything the fly cam consumes has to be caught ahead of the GUI: with the
+    // pointer captured it sits frozen whereever it was when the drag started, and
+    // a HUD panel under it would eat the motion long before _UnhandledInput.
+    public override void _Input(InputEvent e)
+    {
+        if (!_flying)
+        {
+            return;
+        }
+
+        if (e is InputEventMouseMotion motion)
+        {
+            ApplyFreeLook(motion.Relative);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (e is InputEventMouseButton button && button.Pressed)
+        {
+            // Wheel retunes the fly speed, the usual fly-cam convention. It also
+            // scales panning, so the speed you settled on carries back out.
+            if (button.ButtonIndex == MouseButton.WheelUp || button.ButtonIndex == MouseButton.WheelDown)
+            {
+                float step = button.ButtonIndex == MouseButton.WheelUp ? flySpeedStep : 1f / flySpeedStep;
+                _flySpeedScale = Mathf.Clamp(_flySpeedScale * step, FLY_SPEED_SCALE_MIN, FLY_SPEED_SCALE_MAX);
+                editorHud.ShowToast($"Fly speed {moveSpeed * _flySpeedScale:0.#} m/s", success: true);
+                GetViewport().SetInputAsHandled();
+            }
+        }
+        else if (e is InputEventMouseButton release && release.ButtonIndex == MouseButton.Right)
+        {
+            EndFly();
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
     public override void _UnhandledInput(InputEvent e)
     {
         if (ConsoleUI.IsOpen || IsSaveDialogOpen)
         {
+            return;
+        }
+
+        // Right-drag flies the camera. Started here rather than in _Input so a
+        // press that lands on the HUD stays the HUD's.
+        if (e is InputEventMouseButton flyButton && flyButton.ButtonIndex == MouseButton.Right && flyButton.Pressed)
+        {
+            BeginFly();
+            GetViewport().SetInputAsHandled();
             return;
         }
 
@@ -1088,7 +1434,9 @@ public partial class WorldEditor : Node3D
             return;
         }
 
-        if (e.IsActionPressed("CameraLeft"))
+        // Suppressed mid-flight: a 90° orbit swings the cursor about a pivot,
+        // which fights the free look driving the same two values.
+        if (e.IsActionPressed("CameraLeft") && !_flying)
         {
             BeginCameraOrbit();
             camera.RotateLeft();
@@ -1096,7 +1444,7 @@ public partial class WorldEditor : Node3D
             return;
         }
 
-        if (e.IsActionPressed("CameraRight"))
+        if (e.IsActionPressed("CameraRight") && !_flying)
         {
             BeginCameraOrbit();
             camera.RotateRight();
@@ -1120,8 +1468,9 @@ public partial class WorldEditor : Node3D
             return;
         }
 
-        // Left click: paint/erase/replace (with drag support in voxel mode)
-        if (e is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left)
+        // Left click: paint/erase/replace (with drag support in voxel mode).
+        // Ignored while flying — the captured pointer isn't over anything.
+        if (e is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left && !_flying)
         {
             if (mouseButton.Pressed)
             {
@@ -1138,10 +1487,15 @@ public partial class WorldEditor : Node3D
                 }
                 else if (_tool == EEditorTool.Entity)
                 {
-                    // Single-shot: an entity click has no drag to stay open for.
                     bool erase = operation == EEditorBrushOperation.Erase;
-                    HandleEntityClick(_history.Begin(erase ? "Delete Entity" : "Place Entity"), scenePos, erase);
-                    _history.Commit();
+                    _placingEntity = HandleEntityClick(_history.Begin(erase ? "Delete Entity" : "Place Entity"), scenePos, erase);
+                    // A placement stays open while the button is held so motion
+                    // can aim what was just dropped; a delete (or a click that
+                    // stamped nothing) has no drag to stay open for.
+                    if (_placingEntity == null)
+                    {
+                        _history.Commit();
+                    }
                 }
                 else if (_tool == EEditorTool.Roof)
                 {
@@ -1154,7 +1508,7 @@ public partial class WorldEditor : Node3D
                     }
                     else if (_roofMode == EEditorRoofMode.Edit)
                     {
-                        ApplyRoofSettingsAt(scenePos);
+                        SelectRoofForEdit(scenePos);
                     }
                     else if (ComputeVoxelTarget(scenePos, overwriteHitBlock: false, out _, out Vector3I roofTarget, out _))
                     {
@@ -1176,10 +1530,23 @@ public partial class WorldEditor : Node3D
                     _dragOperation = operation;
                     if (IsRegionShape(_brushShape))
                     {
+                        // A region's base is the elevation of the open space
+                        // against the surface being pointed at — airTarget's —
+                        // whatever the operation, so paint and erase agree on
+                        // which band they mean and a stroke can be taken back
+                        // with the same shape that laid it down. Replace still
+                        // takes its XZ from the cell the ray HIT, which is what
+                        // lets a room share an existing wall rather than stand a
+                        // second one in front of it; taking Y from there too
+                        // would cost a whole band on a top-face click (a
+                        // band-aligned wall's top course, y=11, snaps down to 8)
+                        // and leave the drag plane three cells below the surface
+                        // the cursor is riding.
+                        baseTarget.Y = airTarget.Y;
                         // Snap at press, not at fill time, so the drag plane and
                         // the preview box sit on the same elevation the region
                         // will actually be written at.
-                        if (_plateauSnap && SupportsPlateauSnap(_brushShape))
+                        if (_plateauSnapByShape[(int)_brushShape] && SupportsPlateauSnap(_brushShape))
                         {
                             baseTarget.Y = SnapToPlateau(baseTarget.Y);
                         }
@@ -1198,29 +1565,19 @@ public partial class WorldEditor : Node3D
             }
             else
             {
-                if (_gizmoDrag != EGizmoHandle.None)
-                {
-                    CommitGizmoDrag();
-                }
-                if (_regionAnchor.HasValue)
-                {
-                    FillRegion(_history.Current, _regionAnchor.Value, _regionCurrent, _regionOperation);
-                }
-                if (_roofAnchor.HasValue)
-                {
-                    // Opened here rather than on press: unlike a voxel stroke
-                    // nothing is written until release, so an aborted drag would
-                    // otherwise leave an empty edit for the history to drop.
-                    PlaceRoof(_history.Begin("Place Roof"), _roofAnchor.Value, _roofCurrent);
-                }
-                EndDrag();
-                _history.Commit();
+                FinishStroke();
             }
         }
 
         if (e is InputEventMouseMotion gizmoMotion && _gizmoDrag != EGizmoHandle.None)
         {
             UpdateGizmoDrag(ToScenePos(gizmoMotion.Position));
+            return;
+        }
+
+        if (e is InputEventMouseMotion placeMotion && _placingEntity != null)
+        {
+            UpdatePlaceAim(ToScenePos(placeMotion.Position));
             return;
         }
 
@@ -1265,6 +1622,31 @@ public partial class WorldEditor : Node3D
         }
     }
 
+    // Closes out whatever the left button was holding: the gizmo drag, the
+    // pending region / roof footprint, then the edit they wrote into. Called on
+    // release, and on anything else that takes the pointer away mid-stroke (the
+    // fly cam captures it, so the release event never lands).
+    private void FinishStroke()
+    {
+        if (_gizmoDrag != EGizmoHandle.None)
+        {
+            CommitGizmoDrag();
+        }
+        if (_regionAnchor.HasValue)
+        {
+            FillRegion(_history.Current, _regionAnchor.Value, _regionCurrent, _regionOperation);
+        }
+        if (_roofAnchor.HasValue)
+        {
+            // Opened here rather than on press: unlike a voxel stroke nothing is
+            // written until release, so an aborted drag would otherwise leave an
+            // empty edit for the history to drop.
+            PlaceRoof(_history.Begin("Place Roof"), _roofAnchor.Value, _roofCurrent);
+        }
+        EndDrag();
+        _history.Commit();
+    }
+
     // Ends a stroke without committing it — the drag state and the open edit are
     // separate lifetimes, and undo needs to clear the former while the history
     // deals with the latter.
@@ -1274,6 +1656,7 @@ public partial class WorldEditor : Node3D
         _dragOperation = EEditorBrushOperation.Paint;
         _regionAnchor = null;
         _roofAnchor = null;
+        _placingEntity = null;
         _lastPaintedBlocks.Clear();
     }
 
@@ -1372,10 +1755,10 @@ public partial class WorldEditor : Node3D
         var result = Raycast(screenPos);
         if (result.Count == 0)
         {
-            // No geometry under the mouse — resolve against the horizontal
-            // plane through the cursor's elevation instead, so a blank world
-            // (or a click out over open air) still has somewhere to paint.
-            if (!ResolvePlaneTarget(screenPos, Mathf.FloorToInt(_cursorPosition.Y), out Vector3I planeTarget))
+            // No geometry under the mouse — resolve against the fixed ground
+            // plane instead, so a blank world (or a click out over open air)
+            // still has somewhere to paint.
+            if (!ResolvePlaneTarget(screenPos, emptyAirPaintY, out Vector3I planeTarget))
             {
                 return false;
             }
@@ -1421,6 +1804,13 @@ public partial class WorldEditor : Node3D
     public static bool SupportsPlateauSnap(EEditorBrushShape shape)
     {
         return IsRegionShape(shape);
+    }
+
+    // Seats the toggle on the selected shape's remembered state. WorldEditor owns
+    // that state, so the HUD never has to carry it across a shape change.
+    private void PushPlateauSnap()
+    {
+        editorHud.SetPlateauSnap(_plateauSnapByShape[(int)_brushShape], SupportsPlateauSnap(_brushShape));
     }
 
     // Rounds a base elevation down onto the camera's cutaway band grid, so a
@@ -1479,7 +1869,9 @@ public partial class WorldEditor : Node3D
     private void FillRegion(EditorEdit edit, Vector3I anchor, Vector3I current, EEditorBrushOperation operation)
     {
         BuildRegionCells(anchor, current, out Vector3I min, out Vector3I max);
-        bool hollow = _brushShape == EEditorBrushShape.Room;
+        // Erasing a room means clearing the whole volume, so only a Room that's
+        // building anything carves itself hollow.
+        bool hollow = _brushShape == EEditorBrushShape.Room && operation != EEditorBrushOperation.Erase;
         var cells = new List<Vector3I>();
         var interiorCells = new List<Vector3I>();
         for (int x = min.X; x <= max.X; x++)
@@ -1503,8 +1895,7 @@ public partial class WorldEditor : Node3D
         PaintCells(edit, cells, operation);
         // The room's inside is cleared, not merely skipped, so dragging one into
         // a hillside (or over existing geometry) hollows out a space to stand in.
-        // Erase already emptied the whole box, so there's nothing left to clear.
-        if (hollow && operation != EEditorBrushOperation.Erase)
+        if (hollow)
         {
             PaintCells(edit, interiorCells, EEditorBrushOperation.Erase);
         }
@@ -1530,16 +1921,21 @@ public partial class WorldEditor : Node3D
         }
 
         // Floor, Fill and Room share one XZ footprint; only the extrusion differs.
-        // Room's walls stand ON its floor slab, so it's one course taller than
-        // the wall height the Wall shape lays down.
+        // A Room hangs its floor slab one course BELOW the anchor so its walls
+        // and its interior fill exactly the cutaway band the anchor snapped to,
+        // the slab being the ceiling course of the band underneath — which is
+        // how storeys stack. Sitting the slab ON the anchor instead would leave
+        // the top course of the walls in the next band up, and the cutaway lops
+        // that course off while you're standing in the room.
+        int baseY = _brushShape == EEditorBrushShape.Room ? anchor.Y - 1 : anchor.Y;
         int height = _brushShape switch
         {
             EEditorBrushShape.Fill => fillHeight,
             EEditorBrushShape.Room => wallHeight + 1,
             _ => 1,
         };
-        min = new Vector3I(Math.Min(anchor.X, current.X), anchor.Y, Math.Min(anchor.Z, current.Z));
-        max = new Vector3I(Math.Max(anchor.X, current.X), anchor.Y + height - 1, Math.Max(anchor.Z, current.Z));
+        min = new Vector3I(Math.Min(anchor.X, current.X), baseY, Math.Min(anchor.Z, current.Z));
+        max = new Vector3I(Math.Max(anchor.X, current.X), baseY + height - 1, Math.Max(anchor.Z, current.Z));
     }
 
     // ----- Roofs -----------------------------------------------------------
@@ -1561,21 +1957,51 @@ public partial class WorldEditor : Node3D
         center = new Vector3(minX + sizeX * 0.5f, anchor.Y, minZ + sizeZ * 0.5f);
     }
 
-    // Pushes the panel's current seam / slope / brokenness onto the roof under
-    // the cursor. The shape fields are readonly and the mesh is regenerated from
-    // them, so this swaps in a new state carrying the same footprint rather than
-    // mutating in place — then re-spawns and re-stamps exactly as a placement does.
-    private void ApplyRoofSettingsAt(Vector2 screenPos)
+    // Picks the roof under the cursor as the retune target and pushes the panel
+    // onto it. It STAYS the target, so every later panel change re-pushes on its
+    // own — retuning a pitch is a slider drag, not a click per value.
+    private void SelectRoofForEdit(Vector2 screenPos)
     {
         Node3D picked = PickEntityAt(screenPos, out _);
+        _editingRoof = null;
         if (picked == null || !TryFindEntityState(picked, out EntitySimState state, out Vector3I bucket)
             || state is not RoofSimState roof)
         {
             return;
         }
+        _editingRoof = roof;
+        _editingRoofBucket = bucket;
+        PushRoofSettings();
+    }
+
+    // Rebuilds the retune target with the panel's current seam / form / slope /
+    // brokenness. Called for every roof-panel change and no-ops unless a roof is
+    // being edited, so no handler has to know whether one is.
+    //
+    // The shape fields are readonly and the mesh is regenerated from them, so
+    // this swaps in a new state carrying the same footprint rather than mutating
+    // in place — then re-spawns and re-stamps exactly as a placement does.
+    private void PushRoofSettings()
+    {
+        if (!EditingRoofIsLive())
+        {
+            return;
+        }
+        RoofSimState roof = _editingRoof;
+        // Nothing to do when the panel already matches — a re-pressed toggle
+        // would otherwise cost an undo slot and a chunk reload for no change.
+        if (roof.SeamAxis == _roofSeamAxis && roof.Form == _roofForm
+            && Mathf.IsEqualApprox(roof.SlopeDegrees, _roofSlopeDegrees)
+            && Mathf.IsEqualApprox(roof.Broken, _roofBroken))
+        {
+            return;
+        }
+        List<EntitySimState> entities = _worldState.GetEntities(_editingRoofBucket);
+        int index = entities.IndexOf(roof);
+
         List<Vector3I> priorRoofCells = SnapshotRoofSunCells();
         EditorEdit edit = _history.Begin("Edit Roof");
-        edit?.TouchEntityChunk(bucket);
+        edit?.TouchEntityChunk(_editingRoofBucket);
 
         var replacement = new RoofSimState(
             roof.WorldPosition, roof.Style, roof.SizeX, roof.SizeZ,
@@ -1583,23 +2009,37 @@ public partial class WorldEditor : Node3D
         {
             RotationY = roof.RotationY,
         };
-        List<EntitySimState> entities = _worldState.GetEntities(bucket);
-        int index = entities?.IndexOf(roof) ?? -1;
-        if (index < 0)
-        {
-            _history.Commit();
-            return;
-        }
         entities[index] = replacement;
+        // The panel keeps pointing at the roof, not at the state object it
+        // happened to have when it was picked.
+        _editingRoof = replacement;
         Node3D node = roof.RuntimeNode;
         if (node != null && IsInstanceValid(node))
         {
             _world.RemoveEntity(node);
             node.QueueFree();
         }
-        ReloadChunkEntities(bucket);
+        ReloadChunkEntities(_editingRoofBucket);
         RefreshRoofSunOcclusion(priorRoofCells);
         _history.Commit();
+    }
+
+    // Whether a roof is still under the panel's control. A delete or an undo can
+    // swap out the very state it points at, so the target is dropped the moment
+    // it's no longer filed in the world.
+    private bool EditingRoofIsLive()
+    {
+        if (_editingRoof == null)
+        {
+            return false;
+        }
+        List<EntitySimState> entities = _worldState.GetEntities(_editingRoofBucket);
+        if (entities == null || !entities.Contains(_editingRoof))
+        {
+            _editingRoof = null;
+            return false;
+        }
+        return true;
     }
 
     // Commits a roof footprint drag. Like every other entity placement this goes
@@ -1641,7 +2081,7 @@ public partial class WorldEditor : Node3D
         // and marking a column opaque changes no voxel, so it would never darken
         // what the roof now covers. Same pair Main runs on world load.
         FoliageStamper.Stamp(_worldState);
-        LightEngine.ComputeSunlight(_worldState);
+        LightEngine.Relight(_worldState);
         // Re-mesh as well as relight. Terrain takes its sun from a PER-VERTEX
         // bake frozen into the chunk mesh (ChunkMesherDC.BakeVertexSun), not
         // from the light volume — relighting alone updates props and volumetrics
@@ -1723,7 +2163,10 @@ public partial class WorldEditor : Node3D
         }
     }
 
-    private void HandleEntityClick(EditorEdit edit, Vector2 screenPos, bool delete)
+    // Returns the state a place-click stamped so the caller can keep aiming it
+    // while the button is held; null for a delete, a miss, or a brush that
+    // writes no entity of its own.
+    private EntitySimState HandleEntityClick(EditorEdit edit, Vector2 screenPos, bool delete)
     {
         // Deleting picks the entity under the cursor directly. Placing still
         // goes through the terrain raycast — it needs a surface, not an entity.
@@ -1734,20 +2177,88 @@ public partial class WorldEditor : Node3D
             {
                 DeletePickedEntity(edit, picked);
             }
-            return;
+            return null;
         }
 
         var result = Raycast(screenPos);
         if (result.Count == 0)
         {
-            return;
+            return null;
         }
 
         // The hit is already on the terrain's visible surface (the collider is
         // the meshed surface, smoothing included), and entity scenes anchor at
         // their base — so the raw hit IS the anchor. Don't offset along the
         // normal the way the voxel path does; that lifts props off the ground.
-        PlaceEntity(edit, (Vector3)result["position"]);
+        return PlaceEntity(edit, SnapPosition((Vector3)result["position"]));
+    }
+
+    // ----- Entity snapping -------------------------------------------------
+
+    // All three axes: on an interior floor the height snap is a no-op (floors
+    // sit at whole metres) and out on terrain it keeps a row of props level
+    // with each other rather than each riding its own bump.
+    private Vector3 SnapPosition(Vector3 position)
+    {
+        return _snapToGrid && entityGridSnap > 0f
+            ? position.Snapped(Vector3.One * entityGridSnap)
+            : position;
+    }
+
+    // A drag delta snapped about where it started, so `origin` lands exactly on
+    // the grid however far off it began.
+    private float SnapDelta(float origin, float delta)
+    {
+        return _snapToGrid && entityGridSnap > 0f
+            ? Mathf.Snapped(origin + delta, entityGridSnap) - origin
+            : delta;
+    }
+
+    private float SnapRotation(float radians)
+    {
+        return _snapRotation && entityRotationSnapDegrees > 0f
+            ? Mathf.Snapped(radians, Mathf.DegToRad(entityRotationSnapDegrees))
+            : radians;
+    }
+
+    // Same idea as SnapDelta, referenced off the first selected entity's own
+    // facing: a lone selection lands exactly on an increment, and a group turns
+    // by one common angle so its internal arrangement survives.
+    private float SnapRotationDelta(float rotation)
+    {
+        if (_gizmoDragStart.Count == 0)
+        {
+            return rotation;
+        }
+        float anchor = _gizmoDragStart[0].RotationY;
+        return SnapRotation(anchor + rotation) - anchor;
+    }
+
+    // Motion while the placing button is still held turns the entity to face the
+    // cursor. Under the deadzone the direction from the drop point is noise, so
+    // the facing it was placed with stands.
+    private void UpdatePlaceAim(Vector2 screenPos)
+    {
+        Vector3 rayOrigin = camera.ProjectRayOrigin(screenPos);
+        Vector3 rayDir = camera.ProjectRayNormal(screenPos);
+        Vector3 anchor = _placingEntity.WorldPosition;
+        if (!EditorGizmo.RayPlaneY(rayOrigin, rayDir, anchor.Y, out Vector3 planeHit))
+        {
+            return;
+        }
+        var offset = new Vector2(planeHit.X - anchor.X, planeHit.Z - anchor.Z);
+        if (offset.Length() < placeAimDeadzone)
+        {
+            return;
+        }
+        // Atan2(x, z) is the project's yaw convention, so the entity's front
+        // ends up pointing at the cursor.
+        _placingEntity.RotationY = SnapRotation(Mathf.Atan2(offset.X, offset.Y));
+        Node3D node = _placingEntity.RuntimeNode;
+        if (node != null && IsInstanceValid(node))
+        {
+            _placingEntity.SeatTransform(node);
+        }
     }
 
     // Nearest loaded entity whose visual bounds the cursor ray enters.
@@ -1933,21 +2444,27 @@ public partial class WorldEditor : Node3D
                     return;
                 }
                 translation = planeHit - _gizmoDragStartPlaneHit;
-                translation.Y = 0f;
+                // Snapped about the pivot — a lone entity (whose pivot is its
+                // own position) lands on the grid, and a group moves by one
+                // common delta so its internal arrangement survives.
+                translation = new Vector3(
+                    SnapDelta(_gizmoDragPivot.X, translation.X),
+                    0f,
+                    SnapDelta(_gizmoDragPivot.Z, translation.Z));
                 break;
             case EGizmoHandle.Vertical:
                 if (!gizmo.TryVerticalY(_gizmoDragPivot, rayOrigin, rayDir, out float y))
                 {
                     return;
                 }
-                translation = new Vector3(0f, y - _gizmoDragStartY, 0f);
+                translation = new Vector3(0f, SnapDelta(_gizmoDragPivot.Y, y - _gizmoDragStartY), 0f);
                 break;
             case EGizmoHandle.Rotate:
                 if (!gizmo.TryRotateAngle(_gizmoDragPivot, rayOrigin, rayDir, out float angle))
                 {
                     return;
                 }
-                rotation = Mathf.AngleDifference(_gizmoDragStartAngle, angle);
+                rotation = SnapRotationDelta(Mathf.AngleDifference(_gizmoDragStartAngle, angle));
                 break;
             default:
                 return;
@@ -2122,11 +2639,13 @@ public partial class WorldEditor : Node3D
         return true;
     }
 
-    private void PlaceEntity(EditorEdit edit, Vector3 position)
+    // The state that was placed, or null when the brush wrote no entity of its
+    // own (the player spawn, an unconfigured palette slot).
+    private EntitySimState PlaceEntity(EditorEdit edit, Vector3 position)
     {
         if (_entityTypeIndex < 0 || _entityTypeIndex >= _entityBrushes.Count)
         {
-            return;
+            return null;
         }
         EntityBrush brush = _entityBrushes[_entityTypeIndex];
 
@@ -2135,13 +2654,13 @@ public partial class WorldEditor : Node3D
             edit?.TouchSpawn();
             _worldState.Spawn = position;
             GD.Print($"Player spawn set to {position}");
-            return;
+            return null;
         }
 
         EntitySimState simState = CreateEntitySimState(brush, position);
         if (simState == null)
         {
-            return;
+            return null;
         }
 
         edit?.TouchEntitiesAt(position);
@@ -2152,6 +2671,7 @@ public partial class WorldEditor : Node3D
         // every consumer that walks the active set — culling, eviction, and the
         // editor's own entity picking.
         ReloadChunkEntities(Sim.WorldToChunkCoord(position));
+        return simState;
     }
 
     // Props place the brush's own library entry — worldgen rolls a kit's
@@ -2243,6 +2763,11 @@ public partial class WorldEditor : Node3D
         var spaceState = _world.GetWorld3D().DirectSpaceState;
         using var query = PhysicsRayQueryParameters3D.Create(rayOrigin, rayEnd);
         query.CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Water);
+        // The world boundary is invisible, sits outside the world, and is on
+        // Environment like real terrain — so a click out over open air lands on
+        // the floor under the bottom chunk (y = -16 in a scene workspace)
+        // instead of falling through to the empty-air plane.
+        query.Exclude = _boundaryExclude;
         return spaceState.IntersectRay(query);
     }
 
@@ -2397,6 +2922,8 @@ public partial class WorldEditor : Node3D
 
     public override void _ExitTree()
     {
+        // Closing mid-drag would otherwise leave the menu with a captured pointer.
+        EndFly();
         if (Current == this)
         {
             Current = null;
@@ -2488,9 +3015,11 @@ public partial class WorldEditor : Node3D
         {
             throw new InvalidOperationException("nothing to save — the world has no voxels.");
         }
-        SubsceneState sub = SubsceneBuilder.Build(_worldState, min, max, includeEnv, filterEntitiesToBox: explicitBox);
+        int interiorClass = CVars.subsceneInteriorClass.Value;
+        SubsceneState sub = SubsceneBuilder.Build(_worldState, min, max, includeEnv, filterEntitiesToBox: explicitBox, interiorClassOverride: interiorClass);
         SubsceneFile.Write(path, sub);
-        GD.Print($"subscene_save: wrote {path} (bbox min={min} max={max} size={sub.Size}, env={(includeEnv ? "yes" : "no")}, entities={sub.Entities.Count})");
+        string interiorNote = interiorClass >= 0 ? $", interiorClass={interiorClass}" : "";
+        GD.Print($"subscene_save: wrote {path} (bbox min={min} max={max} size={sub.Size}, env={(includeEnv ? "yes" : "no")}, entities={sub.Entities.Count}{interiorNote})");
     }
 
     // Stamp a subscene file at the editor cursor and rebuild meshes /
@@ -2587,8 +3116,8 @@ public partial class WorldEditor : Node3D
 
     // Chunks allocated, not one voxel written. Subscene authoring saves the
     // bbox of whatever voxels exist, so anything baked in here would end up in
-    // every subscene; the brush falls back to the cursor's elevation plane
-    // when there's no geometry to click on (see ComputeVoxelTarget).
+    // every subscene; the brush falls back to the emptyAirPaintY plane when
+    // there's no geometry to click on (see ComputeVoxelTarget).
     public WorldState CreateEmptyWorld(WorldGenData genData)
     {
         return CreateEmptyWorld(genData, emptyWorldMinChunk, emptyWorldMaxChunk);
@@ -2627,7 +3156,7 @@ public partial class WorldEditor : Node3D
         // was only doing the second half.
         FoliageStamper.Stamp(ws);
         // The stub's bake ran on an empty world; redo it now there's geometry.
-        LightEngine.ComputeSunlight(ws);
+        LightEngine.Relight(ws);
         ws.Spawn = new Vector3(
             worldMin.X + sub.Size.X * 0.5f,
             worldMax.Y + 1,
@@ -2684,7 +3213,7 @@ public partial class WorldEditor : Node3D
         // Same pairing as the scene path: occluders first, then light.
         FoliageStamper.Stamp(ws);
         // Compute initial sunlight so the world isn't pitch black
-        LightEngine.ComputeSunlight(ws);
+        LightEngine.Relight(ws);
 
         return ws;
     }

@@ -9,13 +9,13 @@
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="7_block_shadow"]
 [ext_resource type="Script" uid="uid://bd2qbk8yxpmjj" path="res://scripts/client/GroundStainProjector.cs" id="8_ground_stain"]
 [ext_resource type="PackedScene" uid="uid://cf4ipeopmfe77" path="res://scenes/gui/editor_tool_button.tscn" id="9_tool_button"]
-[ext_resource type="Script" uid="uid://4i7avir0kcrnl" path="res://scripts/editor/EditorGizmo.cs" id="15_gizmo"]
 [ext_resource type="Script" uid="uid://cjflrpaeqaulr" path="res://scripts/client/ViewportRig.cs" id="10_viewport_rig"]
 [ext_resource type="Material" uid="uid://ssmvopbv8hql1" path="res://resources/materials/upscale.tres" id="11_upscale"]
 [ext_resource type="Material" uid="uid://bl84gy5kiqaeh" path="res://resources/materials/depth_outline.tres" id="12_outline"]
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="13_post_process"]
 [ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/fx/motes.tscn" id="14_motes"]
-[ext_resource type="Script" uid="uid://oh27dxe7ln0ax" path="res://scripts/editor/EditorIconBaker.cs" id="15_icon_baker"]
+[ext_resource type="Script" uid="uid://chc6q4c8lwnc8" path="res://scripts/editor/EditorGizmo.cs" id="15_gizmo"]
+[ext_resource type="Script" uid="uid://cvullrngv2d0n" path="res://scripts/editor/EditorIconBaker.cs" id="15_icon_baker"]
 
 [sub_resource type="Environment" id="Environment_bloom"]
 background_mode = 3
@@ -51,31 +51,31 @@ volumetric_fog_sky_affect = 0.0
 
 [sub_resource type="ButtonGroup" id="ButtonGroup_tool"]
 
-[sub_resource type="ButtonGroup" id="ButtonGroup_entity_mode"]
-
 [sub_resource type="ButtonGroup" id="ButtonGroup_operation"]
 
 [sub_resource type="ButtonGroup" id="ButtonGroup_shape"]
 
-[sub_resource type="ButtonGroup" id="ButtonGroup_seam"]
-
-[sub_resource type="ButtonGroup" id="ButtonGroup_roof_form"]
+[sub_resource type="ButtonGroup" id="ButtonGroup_entity_mode"]
 
 [sub_resource type="ButtonGroup" id="ButtonGroup_roof_mode"]
 
-[node name="WorldEditor" type="Node3D" unique_id=1875192204 node_paths=PackedStringArray("camera", "editorHud", "iconBaker", "gizmo", "saveDialog", "saveNameEdit", "sceneViewport", "viewportRig", "sceneEnvironment")]
+[sub_resource type="ButtonGroup" id="ButtonGroup_roof_form"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_seam"]
+
+[node name="WorldEditor" type="Node3D" unique_id=1875192204 node_paths=PackedStringArray("camera", "editorHud", "iconBaker", "saveDialog", "saveNameEdit", "sceneViewport", "viewportRig", "sceneEnvironment", "gizmo")]
 script = ExtResource("1_editor")
 camera = NodePath("SceneViewport/MainCamera")
 editorHud = NodePath("EditorHud")
-iconBaker = NodePath("IconBakerRig")
-gizmo = NodePath("EditorGizmo")
 brushPalette = ExtResource("4_palette")
+iconBaker = NodePath("IconBakerRig")
 saveDialog = NodePath("EditorHud/SaveDialog")
 saveNameEdit = NodePath("EditorHud/SaveDialog/NameEdit")
 sceneViewport = NodePath("SceneViewport")
 viewportRig = NodePath("ViewportRig")
 sceneEnvironment = NodePath("SceneViewport/InnerEnv")
 fogMaterial = ExtResource("6_fog_mat")
+gizmo = NodePath("EditorGizmo")
 
 [node name="OuterEnv" type="WorldEnvironment" parent="." unique_id=1077832550]
 environment = SubResource("Environment_bloom")
@@ -253,27 +253,26 @@ cloudAltitude = 100.0
 cloudShadowStrength = 0.6
 fogMaterial = ExtResource("6_fog_mat")
 
-[node name="IconBakerRig" type="Node" parent="." node_paths=PackedStringArray("viewport", "camera", "mount")]
+[node name="IconBakerRig" type="Node" parent="." unique_id=1322572352 node_paths=PackedStringArray("viewport", "camera", "mount")]
 script = ExtResource("15_icon_baker")
 viewport = NodePath("BakeViewport")
 camera = NodePath("BakeViewport/BakeCamera")
 mount = NodePath("BakeViewport/Mount")
 
-[node name="BakeViewport" type="SubViewport" parent="IconBakerRig"]
+[node name="BakeViewport" type="SubViewport" parent="IconBakerRig" unique_id=301155357]
 own_world_3d = true
 transparent_bg = true
 handle_input_locally = false
 size = Vector2i(128, 128)
 render_target_update_mode = 0
 
-[node name="BakeCamera" type="Camera3D" parent="IconBakerRig/BakeViewport"]
+[node name="BakeCamera" type="Camera3D" parent="IconBakerRig/BakeViewport" unique_id=748787103]
 projection = 1
 current = true
 size = 8.0
-near = 0.05
 far = 200.0
 
-[node name="Mount" type="Node3D" parent="IconBakerRig/BakeViewport"]
+[node name="Mount" type="Node3D" parent="IconBakerRig/BakeViewport" unique_id=76598214]
 
 [node name="PostProcess" type="CanvasLayer" parent="." unique_id=1349076883]
 layer = 0
@@ -288,7 +287,7 @@ mouse_filter = 2
 [node name="EditorGizmo" type="Node" parent="." unique_id=1408225650]
 script = ExtResource("15_gizmo")
 
-[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "voxelTab", "interactivesTab", "treesTab", "rocksTab", "natureTab", "furnitureTab", "propsTab", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "lightingButton", "timeOfDaySlider", "weatherOption")]
+[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "voxelTab", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "snapToGridButton", "snapRotationButton", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "interactivesTab", "treesTab", "rocksTab", "natureTab", "furnitureTab", "propsTab", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "lightingButton", "timeOfDaySlider", "weatherOption")]
 script = ExtResource("3_hud")
 clipLabel = NodePath("UpperLeft/VBoxContainer/ClipLabel")
 coordsLabel = NodePath("UpperLeft/VBoxContainer/CoordsLabel")
@@ -303,10 +302,13 @@ voxelPalette = NodePath("Bottom/VoxelPalette")
 entityPalette = NodePath("Bottom/EntityPalette")
 roofPalette = NodePath("Bottom/RoofPalette")
 voxelInfoPanel = NodePath("MiddleLeft/VBoxContainer/VoxelInfo")
+voxelTab = NodePath("Bottom/VoxelPalette/Voxels")
 entityDetailsPanel = NodePath("MiddleLeft/VBoxContainer/EntityDetails")
 placeModeButton = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/ModeRow/Place")
 selectModeButton = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/ModeRow/Select")
 selectionLabel = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/SelectionLabel")
+snapToGridButton = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/SnapToGrid")
+snapRotationButton = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/SnapRotation")
 roofInfoPanel = NodePath("MiddleLeft/VBoxContainer/RoofInfo")
 roofTab = NodePath("Bottom/RoofPalette/Roofs")
 ridgeXButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/SeamRow/RidgeX")
@@ -319,7 +321,6 @@ brokenSlider = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxC
 brokenLabel = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/BrokenLabel")
 drawRoofModeButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow/Draw")
 editRoofModeButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow/Edit")
-voxelTab = NodePath("Bottom/VoxelPalette/Voxels")
 interactivesTab = NodePath("Bottom/EntityPalette/Interactives")
 treesTab = NodePath("Bottom/EntityPalette/Trees")
 rocksTab = NodePath("Bottom/EntityPalette/Rocks")
@@ -346,11 +347,13 @@ weatherOption = NodePath("UpperRight/PanelContainer/VBoxContainer/Weather")
 [node name="UpperLeft" type="MarginContainer" parent="EditorHud" unique_id=16426533]
 offset_right = 600.0
 offset_bottom = 200.0
+mouse_filter = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 16
 
 [node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/UpperLeft" unique_id=1947860599]
 layout_mode = 2
+mouse_filter = 2
 
 [node name="ClipLabel" type="Label" parent="EditorHud/UpperLeft/VBoxContainer" unique_id=347428147]
 layout_mode = 2
@@ -383,10 +386,12 @@ grow_horizontal = 2
 grow_vertical = 0
 size_flags_horizontal = 0
 size_flags_vertical = 8
+mouse_filter = 2
 
 [node name="EntityPalette" type="TabContainer" parent="EditorHud/Bottom" unique_id=1093743966]
 visible = false
 layout_mode = 2
+mouse_filter = 0
 current_tab = 0
 
 [node name="Interactives" type="GridContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=1952286636]
@@ -431,11 +436,11 @@ layout_mode = 2
 layout_mode = 2
 columns = 12
 
-[node name="RoofPalette" type="PanelContainer" parent="EditorHud/Bottom"]
+[node name="RoofPalette" type="PanelContainer" parent="EditorHud/Bottom" unique_id=622353518]
 visible = false
 layout_mode = 2
 
-[node name="Roofs" type="GridContainer" parent="EditorHud/Bottom/RoofPalette"]
+[node name="Roofs" type="GridContainer" parent="EditorHud/Bottom/RoofPalette" unique_id=1129986744]
 layout_mode = 2
 columns = 12
 
@@ -448,9 +453,11 @@ offset_bottom = 15.5
 grow_vertical = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
+mouse_filter = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/MiddleLeft" unique_id=13299475]
 layout_mode = 2
+mouse_filter = 2
 
 [node name="Toolbox" type="PanelContainer" parent="EditorHud/MiddleLeft/VBoxContainer" unique_id=759353342]
 layout_mode = 2
@@ -474,7 +481,7 @@ toggle_mode = true
 button_group = SubResource("ButtonGroup_tool")
 text = "Entity"
 
-[node name="Roofs" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/Toolbox/MarginContainer/HBoxContainer"]
+[node name="Roofs" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/Toolbox/MarginContainer/HBoxContainer" unique_id=624728286]
 layout_mode = 2
 toggle_mode = true
 button_group = SubResource("ButtonGroup_tool")
@@ -570,7 +577,7 @@ toggle_mode = true
 button_group = SubResource("ButtonGroup_shape")
 text = "Fill"
 
-[node name="Room" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer"]
+[node name="Room" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer/HBoxContainer" unique_id=1651544595]
 layout_mode = 2
 toggle_mode = true
 button_group = SubResource("ButtonGroup_shape")
@@ -590,7 +597,6 @@ text = "Door"
 
 [node name="PlateauSnap" type="CheckButton" parent="EditorHud/MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Shape/VBoxContainer" unique_id=202992417]
 layout_mode = 2
-disabled = true
 button_pressed = true
 text = "Snap to Plateau"
 
@@ -628,105 +634,114 @@ toggle_mode = true
 button_group = SubResource("ButtonGroup_entity_mode")
 text = "Select"
 
+[node name="SnapToGrid" type="CheckButton" parent="EditorHud/MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer"]
+layout_mode = 2
+button_pressed = true
+text = "Snap to Grid"
+
+[node name="SnapRotation" type="CheckButton" parent="EditorHud/MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer"]
+layout_mode = 2
+button_pressed = true
+text = "Snap Rotation"
+
 [node name="SelectionLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer" unique_id=1408225641]
 layout_mode = 2
 text = "No selection"
 
 [node name="Help" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer" unique_id=1408225642]
 layout_mode = 2
-text = "Shift: add/remove | Del: delete"
+text = "Shift: add/remove | Del: delete | Hold to aim on place"
 
-[node name="RoofInfo" type="PanelContainer" parent="EditorHud/MiddleLeft/VBoxContainer"]
+[node name="RoofInfo" type="PanelContainer" parent="EditorHud/MiddleLeft/VBoxContainer" unique_id=1090066599]
 visible = false
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo"]
+[node name="MarginContainer" type="MarginContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo" unique_id=1628533973]
 layout_mode = 2
 theme_override_constants/margin_left = 5
 theme_override_constants/margin_top = 5
 theme_override_constants/margin_right = 5
 theme_override_constants/margin_bottom = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer" unique_id=44670291]
 layout_mode = 2
 
-[node name="ModeRow" type="HBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="ModeRow" type="HBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=1304942608]
 layout_mode = 2
 
-[node name="Draw" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow"]
+[node name="Draw" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow" unique_id=421445091]
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
 button_group = SubResource("ButtonGroup_roof_mode")
 text = "Draw"
 
-[node name="Edit" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow"]
+[node name="Edit" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow" unique_id=2104541469]
 layout_mode = 2
 toggle_mode = true
 button_group = SubResource("ButtonGroup_roof_mode")
 text = "Edit"
 
-[node name="FormLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="FormLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=2019402782]
 layout_mode = 2
 text = "Shape"
 
-[node name="FormRow" type="HBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="FormRow" type="HBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=1515849330]
 layout_mode = 2
 
-[node name="Gable" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/FormRow"]
+[node name="Gable" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/FormRow" unique_id=2106844893]
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
 button_group = SubResource("ButtonGroup_roof_form")
 text = "Gable"
 
-[node name="Hip" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/FormRow"]
+[node name="Hip" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/FormRow" unique_id=463752126]
 layout_mode = 2
 toggle_mode = true
 button_group = SubResource("ButtonGroup_roof_form")
 text = "Hip"
 
-[node name="Label" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=39757304]
 layout_mode = 2
 text = "Ridge Direction"
 
-[node name="SeamRow" type="HBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="SeamRow" type="HBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=1760833306]
 layout_mode = 2
 
-[node name="RidgeX" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/SeamRow"]
+[node name="RidgeX" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/SeamRow" unique_id=1643469259]
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
 button_group = SubResource("ButtonGroup_seam")
 text = "Ridge X"
 
-[node name="RidgeZ" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/SeamRow"]
+[node name="RidgeZ" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/SeamRow" unique_id=396574776]
 layout_mode = 2
 toggle_mode = true
 button_group = SubResource("ButtonGroup_seam")
 text = "Ridge Z"
 
-[node name="SlopeLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="SlopeLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=1770360555]
 layout_mode = 2
 text = "Slope: 35°"
 
-[node name="Slope" type="HSlider" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="Slope" type="HSlider" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=1860732917]
 layout_mode = 2
 min_value = 5.0
 max_value = 70.0
-step = 1.0
 value = 35.0
 
-[node name="BrokenLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="BrokenLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=989851158]
 layout_mode = 2
 text = "Broken: none"
 
-[node name="Broken" type="HSlider" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="Broken" type="HSlider" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=1744140590]
 layout_mode = 2
 max_value = 1.0
 step = 0.01
 
-[node name="Help" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer"]
+[node name="Help" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=1245429023]
 layout_mode = 2
 text = "Draw: drag a footprint | Edit: click a roof | Ctrl: delete"
 
@@ -739,6 +754,7 @@ offset_bottom = 40.0
 grow_horizontal = 0
 size_flags_horizontal = 8
 size_flags_vertical = 0
+mouse_filter = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="EditorHud/UpperRight" unique_id=940148899]
 layout_mode = 2

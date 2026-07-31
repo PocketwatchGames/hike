@@ -98,8 +98,13 @@ uniform sampler3D fog_map : filter_linear, repeat_enable;
 uniform vec3 fog_map_origin;
 uniform vec3 fog_map_inv_size;
 // Air thinner than this contributes no boost at all — keeps the faint ambient
-// fog most of the world carries from lifting motes everywhere.
-uniform float dust_boost_min : hint_range(0.0, 1.0) = 0.15;
+// fog most of the world carries from lifting motes everywhere. The window
+// [min, full] is deliberately narrow and sits LOW: the same channel drives the
+// fog raymarch's extinction, so an author who has to reach dust 1.0 to get a
+// good mote field gets a washed-out room along with it. Saturating the mote
+// response early is what lets interiorDust / caveDustAmount stay modest.
+uniform float dust_boost_min : hint_range(0.0, 1.0) = 0.05;
+uniform float dust_boost_full : hint_range(0.05, 1.0) = 0.5;
 uniform float dust_boost_strength : hint_range(0.0, 1.0) = 1.0;
 // --- Density reconciliation ----------------------------------------------
 // The particle COUNT is one global number for the whole emission box, sized by
@@ -306,7 +311,7 @@ void fragment()
         {
             vec3 fuvw = (world_pos - fog_map_origin) * fog_map_inv_size;
             dust_here = texture(fog_map, fuvw).r;
-            dust_boost = smoothstep(dust_boost_min, 1.0, dust_here) * dust_boost_strength;
+            dust_boost = smoothstep(dust_boost_min, max(dust_boost_full, dust_boost_min + 1e-3), dust_here) * dust_boost_strength;
         }
         dust_gain = 1.0 + dust_alpha_gain * dust_boost;
 

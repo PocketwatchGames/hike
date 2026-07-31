@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="InteriorAmbienceData" format=3 uid="uid://dpmwcsftdxlv4"]
+
+[ext_resource type="Script" uid="uid://dj8y40e8mf2jc" path="res://scripts/data/world/InteriorAmbienceData.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+displayName = "Underground Small"
+dustFloor = 0.35
+windSuppression = 1.0
+reverbWet = 0.4
+reverbRoomSize = 0.65
+reverbPredelayMs = 150.0
+reverbDamping = 0.45
+lowpassCutoffHz = 6000.0
+metadata/_custom_type_script = "uid://o5hlv55zb1osm"

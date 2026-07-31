@@ -163,7 +163,12 @@ public static class WorldFile
     //      standing as vertical gable walls, so a square footprint peaks at a
     //      point. Hips take the eave overhang on all four edges and oversail
     //      nothing, so `rakeOverhang` is now gable-only.
-    public const uint VERSION = 38;
+    // v39: every entity payload appended a variant pool tag (interned through
+    //      the shared string table, so ~1 byte each). Subscene stamping reads it
+    //      to decide whether an entity spawns; it rides into the world file so
+    //      the editor can round-trip a scene through a live WorldState without
+    //      dropping it.
+    public const uint VERSION = 39;
 
     public struct IndexEntry
     {

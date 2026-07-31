@@ -172,7 +172,7 @@ public class WorldMapState
         int spawnH = TerrainHeight(-Data.WorldMinX, -Data.WorldMinZ);
         ws.Spawn = new Vector3(0.5f, spawnH + 2f, 0.5f);
 
-        LightEngine.ComputeSunlight(ws);
+        LightEngine.Relight(ws);
         return ws;
     }
 
