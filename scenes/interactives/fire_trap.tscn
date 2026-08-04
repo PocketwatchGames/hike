@@ -14,6 +14,7 @@
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="8_light"]
 [ext_resource type="Script" uid="uid://bnwcak8yxdu2q" path="res://scripts/gameplay/WarmthZone.cs" id="9_warmth"]
 [ext_resource type="Material" uid="uid://bscorchstn4mq" path="res://resources/materials/scorch_stain.tres" id="10_scorch_mat"]
+[ext_resource type="Script" uid="uid://jmrwopt7ktlx7" path="res://scripts/data/combat/HazardProfileData.cs" id="12_hazard"]
 
 [sub_resource type="Resource" id="Resource_firetrap_damage"]
 script = ExtResource("3_damage")
@@ -35,9 +36,17 @@ script = ExtResource("3_buildup")
 effect = ExtResource("3_burning")
 amount = 0.4
 
+[sub_resource type="Resource" id="Resource_firetrap_hazard"]
+script = ExtResource("12_hazard")
+strength = 160.0
+damageFloorPercent = 0.05
+damageCeilingPercent = 0.25
+dotFloorPercent = 0.02
+dotCeilingPercent = 0.06
+
 [sub_resource type="Resource" id="Resource_firetrap_continuous"]
 script = ExtResource("3_continuous")
-healthDamage = 160.0
+hazardProfile = SubResource("Resource_firetrap_hazard")
 armorPenetration = 0.75
 buildups = Array[ExtResource("3_buildup")]([SubResource("Resource_firetrap_burning_buildup")])
 
@@ -77,6 +86,7 @@ _falloff = 1.5
 _brightness = 1.3
 _flicker = true
 _flickerMin = 0.4
+_flickerHz = 8.0
 _fadeInDuration = 0.1
 
 [node name="ScorchStain" type="MeshInstance3D" parent="." unique_id=1631401259]

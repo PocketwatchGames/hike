@@ -211,6 +211,8 @@ public partial class Fx : Node3D
 
 	public override void _Process(double delta)
 	{
+		using var _prof = Profiler.Sample("Fx.Process");
+
 		if (_loop)
 		{
 			if (!_stopping)

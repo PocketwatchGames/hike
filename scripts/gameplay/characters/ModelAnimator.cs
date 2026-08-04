@@ -119,6 +119,7 @@ public partial class ModelAnimator : Node
         if (visual != null && (visibleMeshNames.Length > 0 || hiddenMeshNames.Length > 0))
         {
             ApplyMeshVisibility(visual);
+            PruneHiddenMeshes();
         }
         _body = visual?.GetParent() as Node3D;
         if (visual != null)
@@ -207,6 +208,46 @@ public partial class ModelAnimator : Node
         foreach (Node child in node.GetChildren())
         {
             ApplyMeshVisibility(child);
+        }
+    }
+
+    // Free the meshes the authored allow/denylist just hid. The imported
+    // character FBX bundle every outfit, hairstyle and bare-body variant on one
+    // skeleton, so a mob typically carries an order of magnitude more hidden
+    // MeshInstance3Ds than visible ones, each one a resident node for the life of
+    // the mob.
+    //
+    // Only safe when nothing can reveal them again: SetVisibleMeshes is called
+    // exclusively by the player's armor compositor, and baseMeshNames is the
+    // authored marker for a rig that runs it (empty on every mob). A hidden mesh
+    // with children is left alone — freeing it would take the subtree (e.g. a
+    // BoneAttachment3D) with it.
+    private void PruneHiddenMeshes()
+    {
+        if (baseMeshNames.Length > 0)
+        {
+            return;
+        }
+        var doomed = new List<MeshInstance3D>();
+        CollectHiddenMeshes(visual, doomed);
+        for (int i = 0; i < doomed.Count; i++)
+        {
+            MeshInstance3D mesh = doomed[i];
+            mesh.GetParent().RemoveChild(mesh);
+            mesh.QueueFree();
+        }
+    }
+
+    private static void CollectHiddenMeshes(Node node, List<MeshInstance3D> output)
+    {
+        if (node is MeshInstance3D mesh && !mesh.Visible && node.GetChildCount() == 0)
+        {
+            output.Add(mesh);
+            return;
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            CollectHiddenMeshes(child, output);
         }
     }
 
@@ -434,6 +475,8 @@ public partial class ModelAnimator : Node
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("ModelAnimator.Process");
+
         UpdateFacing();
 
         if (player == null || CurrentAnimation == default)

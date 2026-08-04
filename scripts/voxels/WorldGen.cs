@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 64;
+    public const int WORLDGEN_VERSION = 66;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -2032,6 +2032,10 @@ public static class WorldGen
                 GD.PrintErr($"WorldGen: subscene '{placement.path}' failed to load: {e.Message}");
                 continue;
             }
+            // Turn it before anything measures it: the reservation below, the
+            // plateau sample and the stamp all read Size / Anchor, and a rotated
+            // state already reports the footprint they should be seeing.
+            sub = SubsceneRotator.Rotate(sub, (int)placement.rotation);
             Vector3I origin = FootprintOrigin(sub, placement);
             for (int dx = 0; dx < sub.Size.X; dx++)
             {
@@ -2061,7 +2065,7 @@ public static class WorldGen
             int evicted = ClearEntitiesInVolume(ws, origin, anchor, sub.Size);
             SubsceneStamper.StampVoxels(ws, sub, anchor);
             stamped.Add((sub, anchor));
-            GD.Print($"[WorldGen] stamped subscene {placement.path.GetFile()} at {anchor} (size={sub.Size}, entities={entityCount}, evicted={evicted}, plateau levels under footprint={levelCount})");
+            GD.Print($"[WorldGen] stamped subscene {placement.path.GetFile()} at {anchor} (size={sub.Size}, rot={(int)placement.rotation * 90}deg, entities={entityCount}, evicted={evicted}, plateau levels under footprint={levelCount})");
         }
         return stamped;
     }

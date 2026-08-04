@@ -112,6 +112,14 @@ public partial class SimData : Resource
     // a zone to whittle a tough enemy down. 0 disables. See Mob.TickSafeZoneHeal.
     [Export(PropertyHint.Range, "0,1,0.01")] public float safeZoneEnemyHealFractionPerSecond = 0.1f;
 
+    // Shape knob shared by every hazard profile (DamageData.hazardProfile): the
+    // fraction of a receiver's max health at which a hazard's `strength` puts it
+    // exactly halfway between its floor and ceiling bands. Lower = hazards stay near
+    // their ceiling against tougher targets. One value world-wide, so retuning it
+    // reshapes how every trap responds to toughness at once.
+    // See HazardProfileData.Outmatch.
+    [Export(PropertyHint.Range, "0.05,3,0.01")] public float hazardDamageHalfPointPercent = 0.6f;
+
     // Fairy-loot boons. A fairy corpse (FairyLoot) draws its candidate boons
     // from FairyBoons, composed onto the corpse's per-instance ItemState when it
     // spawns (Sim.SpawnLoot) so one can be applied on use and chosen by the
@@ -544,6 +552,26 @@ public partial class SimData : Resource
     // more ambient fill.
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float nightAmbientHumidityLift = 0.05f;
 
+    [ExportSubgroup("Nightfall")]
+    // Skylight decays across the sunset→midnight window as
+    //     skyLight = (1 - t)^NightfallFalloff
+    // where t is 0 at sunset and 1 at midnight. 1 = linear; >1 dims fast in the
+    // early evening then lingers dim; <1 holds the dusk brightness and plunges
+    // near midnight. Everything the sky lights rides this curve — ambient,
+    // sun/moon intensity, the dome, stars, the moon disk (and so its water
+    // reflection), moon shafts, and the water-foam light floor.
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float nightfallFalloff = 0.5f;
+    // Skylight remaining at midnight. 0 = utterly black, block lights only —
+    // raise it if pitch dark reads as unplayable rather than tense.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float nightfallSkylightFloor = 0f;
+    // Direct-light intensity at or above which the open air counts as FULLY
+    // lit, for the palette's Illumination scalar (fog haze color, water-foam
+    // light floor). Well under moonlight by default, so day / dusk / moonlit
+    // night all read as fully lit and only the vanishing end ramps down. This
+    // is what makes anything self-lit-looking go dark for ANY reason the light
+    // dies — nightfall, or an eclipse — instead of on a clock.
+    [Export(PropertyHint.Range, "0.01,2,0.01")] public float skyLightReference = 0.35f;
+
     [ExportSubgroup("Water")]
     // Reference wind speed (m/s) at which ripple_strength saturates to 1.
     // Curve is quadratic: (wind / ref)² — low wind barely perturbs the
@@ -957,6 +985,21 @@ public partial class SimData : Resource
     // ~0.6 keeps a typical tree under the rain shader's 0.7-of-MAX_LIGHT shelter
     // threshold while staying far from black.
     [Export(PropertyHint.Range, "0,3,0.01")] public float canopySunExtinction = 0.6f;
+    // Same, for one voxel of fully-dense (255) fog / dust. Mirrors
+    // BlockLightFogExtinction for the block-light flood. Deliberately far weaker
+    // than the canopy figure: sun threads a long column through the whole air
+    // mass, so a coefficient tuned to read as convincing view haze over tens of
+    // metres strangles light transport over the ~10 voxels it takes to reach into
+    // a room. Dust limits VISIBILITY; it should barely limit ILLUMINATION (our
+    // model is absorption-only — real dust also forward-scatters light back in).
+    [Export(PropertyHint.Range, "0,1,0.005")] public float fogSunExtinction = 0.05f;
+    // Sun level lost per voxel of LATERAL spread away from a sunlit column (the
+    // vertical column scan pays no falloff). Reach is LightEngine.MAX_LIGHT / this
+    // — at 2, light carries 30 voxels in from a window or cave mouth. Lower =
+    // deeper leakage, but the flood touches more voxels per relight, and a door
+    // toggle re-encodes every chunk it reaches (plus their 6 neighbours) on the
+    // main thread, so watch hitches when lowering it.
+    [Export(PropertyHint.Range, "1,15,1")] public int sunFalloffPerVoxel = 2;
 
     // (Block light's canopy attenuation is the per-light flood term
     // BlockLightCanopyExtinction in the Block Light group, not here.)
@@ -993,6 +1036,20 @@ public partial class SimData : Resource
     // since spawn conditions (time of day, weather) change slowly.
     [Export(PropertyHint.Range, "0.5,30,0.5")] public float spawnCleanupIntervalSeconds = 2f;
 
+    [ExportGroup("Mob Tick LOD")]
+    // Mobs farther than this from the player and not in combat drop their
+    // rate-based upkeep (terrain speed, wetness / sunburn / safe-zone heal,
+    // status + DoT timers, footstep and ripple emission) to
+    // mobColdTickIntervalSeconds instead of every physics tick. Deliberately
+    // excludes animation and steering: at this range a mob can still be on
+    // screen, and throttling those reads as stutter (the same reason
+    // mob_pose_distance defaults to off).
+    [Export(PropertyHint.Range, "0,200,1")] public float mobColdTickDistance = 30f;
+    // Cold-band period. Every skipped tick's delta accumulates and is handed to
+    // the subsystems when they do run, so rate-based effects integrate to the
+    // same totals — only their granularity coarsens.
+    [Export(PropertyHint.Range, "0.016,1,0.001")] public float mobColdTickIntervalSeconds = 0.133f;
+
     [ExportGroup("Night Ambient Spawn")]
     // Composed mobs the NightMobSpawner materializes in dark spots around the
     // player after dark, one picked at random per spawn. These are TRANSIENT
@@ -1020,11 +1077,12 @@ public partial class SimData : Resource
 
     // DARKNESS term. Total perceived light [0,1] at the player at/below which the
     // spot counts as fully dark (dwell targets 1); it ramps linearly to 0 as light
-    // reaches this. Sits above moonlight so a moonlit area still reads partly dark
-    // (a moderate danger) while a cave/dungeon/shadow reads fully dark. Raise it to
-    // make moonlight more dangerous (smaller moonlit-vs-dark gap), lower it so only
-    // near-black counts.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float nightDarkThreshold = 0.6f;
+    // reaches this. Deliberately low: this gate answers only "am I somewhere
+    // genuinely dark" (cave, dungeon, unlit interior) at any hour. Danger is
+    // max(time-of-day, dwell), so NIGHT is carried by the time term and needs no
+    // help from here — keep this below a windowed-but-roofed interior reading
+    // (~0.13-0.17) so only near-black spaces accumulate.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float nightDarkThreshold = 0.1f;
     // Seconds for the darkness dwell to charge from 0 to full in pitch black — the
     // "lurking in the dark draws them" ramp. Shorter in dimmer-but-not-black spots
     // (it only eases toward that spot's partial darkness).

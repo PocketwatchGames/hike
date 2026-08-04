@@ -77,13 +77,6 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
 
     public void Rebuild()
     {
-        ClearShadowCaster();
-        if (cardMesh == null)
-        {
-            Multimesh = null;
-            return;
-        }
-
         List<FoliageCluster> clusters = new List<FoliageCluster>();
         foreach (Node child in GetChildren())
         {
@@ -91,6 +84,22 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             {
                 clusters.Add(cluster);
             }
+        }
+
+        Bake(clusters);
+        // Outside Bake so it also covers the paths that bake nothing — a dead
+        // tree has clusters but no leaf mesh, and its clusters are just as inert
+        // afterwards as a leafed tree's.
+        PruneClusters(clusters);
+    }
+
+    private void Bake(List<FoliageCluster> clusters)
+    {
+        ClearShadowCaster();
+        if (cardMesh == null)
+        {
+            Multimesh = null;
+            return;
         }
         if (clusters.Count == 0)
         {
@@ -191,10 +200,36 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
         {
             mat.SetShaderParameter("tree_origin", treeOrigin);
             mat.SetShaderParameter("canopy_height", canopyHeight);
-            RebuildShadowCaster(mm, mat);
+            RebuildShadowCaster(mm, mat, AnyClusterFades(clusters));
         }
 
         RebuildDetails(clusters, treeOrigin, canopyHeight);
+    }
+
+    // FoliageCluster is pure authoring data: everything it describes is baked
+    // into the MultiMesh above, and the CPU-side consumers (FoliageStamper's
+    // canopy attenuation, Sim.IsFadeVolumeOccluded) read a snapshot taken from
+    // the PackedScene by FoliageOccluderCache, never from live nodes. So at
+    // runtime the cluster nodes are inert after this bake — free them rather
+    // than carry one Node3D per leaf-blob through every tree in the resident
+    // world (measured: 2545 of ~28.5k nodes at spawn in the default world).
+    //
+    // Editor-gated: the editor is where clusters are authored, moved, and
+    // re-baked via the Rebuild button, so they must survive there. TreeTrunk
+    // drives its own cluster repositioning strictly BEFORE calling Rebuild(),
+    // and only from _Ready, so nothing re-reads them after this point.
+    private void PruneClusters(List<FoliageCluster> clusters)
+    {
+        if (Engine.IsEditorHint())
+        {
+            return;
+        }
+        for (int i = 0; i < clusters.Count; i++)
+        {
+            FoliageCluster cluster = clusters[i];
+            RemoveChild(cluster);
+            cluster.QueueFree();
+        }
     }
 
     // Splits the canopy into a visible non-casting MultiMesh (this node) and a
@@ -206,8 +241,22 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
     // the wind sway card-for-card) with shadow_caster_pass = 1, skipping the
     // cutaway. Net draw calls are unchanged: the shadow pass just sources the
     // canopy from the twin instead of from this node.
-    private void RebuildShadowCaster(MultiMesh mm, ShaderMaterial cardMaterial)
+    //
+    // The split is only needed when some cluster actually opted into the
+    // cutaway: tree_cards_lit gates that discard on the per-cluster
+    // v_fade_eligible bit, so a canopy where no cluster fades never discards in
+    // the first place and can just cast for itself. Ground foliage (tall grass,
+    // bushes) is the whole population of that case, and it is the most numerous
+    // foliage in the world — skipping the twin there drops one
+    // MultiMeshInstance3D per clump with pixel-identical output.
+    private void RebuildShadowCaster(MultiMesh mm, ShaderMaterial cardMaterial, bool anyClusterFades)
     {
+        if (!anyClusterFades)
+        {
+            CastShadow = ShadowCastingSetting.On;
+            return;
+        }
+
         CastShadow = ShadowCastingSetting.Off;
 
         ShaderMaterial shadowMat = (ShaderMaterial)cardMaterial.Duplicate();
@@ -221,6 +270,18 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             CastShadow = ShadowCastingSetting.ShadowsOnly,
         };
         AddChild(proxy);
+    }
+
+    private static bool AnyClusterFades(List<FoliageCluster> clusters)
+    {
+        for (int i = 0; i < clusters.Count; i++)
+        {
+            if (clusters[i].fadesWhenOccludingPlayer)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Owner stays null (like _Details) so the proxy is never written into the

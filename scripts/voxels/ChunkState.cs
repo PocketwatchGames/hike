@@ -92,6 +92,12 @@ public class ChunkState
     // in the shader via the sun_color uniform — the storage is just a mask.
     public readonly byte[,,] Sunlight;
 
+    // Bumped by every write to Sunlight. LightMap keys its cached dilated-sun
+    // encode off this (its own plus its six face neighbours'), so the cache can
+    // never go stale without a caller having to remember to invalidate it.
+    // Anything writing Sunlight[] directly must call MarkSunlightChanged().
+    public int SunlightVersion { get; private set; }
+
     // Sky exposure: byte 0..LightEngine.MAX_LIGHT. The PURELY VERTICAL sky
     // reach — the value the sunlight column scan computes on its way down
     // (open sky overhead, attenuated by overhead voxels, fog, and canopy)
@@ -111,6 +117,12 @@ public class ChunkState
     // getting a "brilliance bonus" from sum-then-pow. Ushort holds the raw
     // sum so subtraction stays exact when stacked lights are removed; the
     // LightMap upload clamps to 0-255 per channel for the GPU.
+    //
+    // TEXTURE_MAX is that GPU clamp. AddBlockLight reports whether a write
+    // moved the CLAMPED value, which is the only thing an upload could show —
+    // a flicker roll that only shuffles the saturated core, or rounds to the
+    // same byte out in the falloff tail, must not re-dirty the chunk.
+    public const int BLOCK_LIGHT_TEXTURE_MAX = 255;
     public readonly ushort[,,] BlockLightR;
     public readonly ushort[,,] BlockLightG;
     public readonly ushort[,,] BlockLightB;
@@ -426,6 +438,15 @@ public class ChunkState
     public void SetSunlight(int x, int y, int z, int level)
     {
         Sunlight[x, y, z] = (byte)level;
+        SunlightVersion++;
+    }
+
+    // Invalidates anything cached off SunlightVersion. For the paths that fill
+    // Sunlight[] wholesale rather than through SetSunlight — the chunk decoder
+    // and WorldState.ClearSunlightAll.
+    public void MarkSunlightChanged()
+    {
+        SunlightVersion++;
     }
 
     public int GetSkyExposure(int x, int y, int z)
@@ -456,24 +477,41 @@ public class ChunkState
         b = BlockLightB[x, y, z];
     }
 
-    public void AddBlockLight(int x, int y, int z, int r, int g, int b)
+    // Signed per-channel accumulate. Returns true if this moved the value the
+    // LightMap would upload (see BLOCK_LIGHT_TEXTURE_MAX) on any channel, so
+    // the caller can skip re-dirtying a chunk nothing visible changed in.
+    public bool AddBlockLight(int x, int y, int z, int r, int g, int b)
     {
-        int sr = BlockLightR[x, y, z] + r;
-        int sg = BlockLightG[x, y, z] + g;
-        int sb = BlockLightB[x, y, z] + b;
-        BlockLightR[x, y, z] = sr > ushort.MaxValue ? ushort.MaxValue : (ushort)sr;
-        BlockLightG[x, y, z] = sg > ushort.MaxValue ? ushort.MaxValue : (ushort)sg;
-        BlockLightB[x, y, z] = sb > ushort.MaxValue ? ushort.MaxValue : (ushort)sb;
+        ushort or = BlockLightR[x, y, z];
+        ushort og = BlockLightG[x, y, z];
+        ushort ob = BlockLightB[x, y, z];
+        ushort nr = Accumulate(or, r);
+        ushort ng = Accumulate(og, g);
+        ushort nb = Accumulate(ob, b);
+        BlockLightR[x, y, z] = nr;
+        BlockLightG[x, y, z] = ng;
+        BlockLightB[x, y, z] = nb;
+        return Encoded(or) != Encoded(nr)
+            || Encoded(og) != Encoded(ng)
+            || Encoded(ob) != Encoded(nb);
     }
 
-    public void SubtractBlockLight(int x, int y, int z, int r, int g, int b)
+    public bool SubtractBlockLight(int x, int y, int z, int r, int g, int b)
     {
-        int sr = BlockLightR[x, y, z] - r;
-        int sg = BlockLightG[x, y, z] - g;
-        int sb = BlockLightB[x, y, z] - b;
-        BlockLightR[x, y, z] = sr < 0 ? (ushort)0 : (ushort)sr;
-        BlockLightG[x, y, z] = sg < 0 ? (ushort)0 : (ushort)sg;
-        BlockLightB[x, y, z] = sb < 0 ? (ushort)0 : (ushort)sb;
+        return AddBlockLight(x, y, z, -r, -g, -b);
+    }
+
+    private static ushort Accumulate(ushort current, int delta)
+    {
+        int sum = current + delta;
+        if (sum < 0) { return 0; }
+        if (sum > ushort.MaxValue) { return ushort.MaxValue; }
+        return (ushort)sum;
+    }
+
+    private static int Encoded(ushort v)
+    {
+        return v > BLOCK_LIGHT_TEXTURE_MAX ? BLOCK_LIGHT_TEXTURE_MAX : v;
     }
 
     // Returns this chunk's fill classification. Computes on first call;

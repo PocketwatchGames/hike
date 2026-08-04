@@ -280,6 +280,14 @@ public partial class MobData : Resource
     // is { Dizzy, 3 } here — any buildup feeding a Dizzy-tagged effect
     // lands triple.
     [Export] public Godot.Collections.Array<StatModifier> modifiers;
+    // Managed read-mirror of `modifiers` for per-tick callers (ComposeStat /
+    // ComposeMaskMul run on every mob every physics tick). Indexing the Godot
+    // array marshals a Variant per element; this doesn't. Built once on first
+    // access and never invalidated — MobData is authored data, immutable after
+    // load. In-editor inspector edits go to `modifiers`, which is what the
+    // editor reads; only runtime gameplay reads this.
+    private StatModifier[] _modifiersFlat;
+    public StatModifier[] ModifiersFlat => _modifiersFlat ??= StatModifierUtil.Flatten(modifiers);
     // Per-species Dizzy resistance — a base trait every mob tunes, like
     // maxHealth / maxArmor (which are likewise direct fields with EStat
     // counterparts for situational deltas). The Dizzy buildup meter fills to
@@ -645,7 +653,30 @@ public partial class MobData : Resource
     // hard error.
     public StringName GetAnimationName(EAnimation anim)
     {
-        return animations.TryGetValue(anim, out AnimationData d) && d != null ? d.name : default;
+        return AnimationsFlat.TryGetValue(anim, out AnimationData d) && d != null ? d.name : default;
+    }
+
+    // Managed read-mirror of `animations` — see ModifiersFlat. Both lookups
+    // below run every physics tick from Mob.UpdateAnimation, and a Godot
+    // Dictionary lookup marshals the key in and the value back out.
+    private System.Collections.Generic.Dictionary<EAnimation, AnimationData> _animationsFlat;
+    private System.Collections.Generic.Dictionary<EAnimation, AnimationData> AnimationsFlat
+    {
+        get
+        {
+            if (_animationsFlat == null)
+            {
+                _animationsFlat = new System.Collections.Generic.Dictionary<EAnimation, AnimationData>();
+                if (animations != null)
+                {
+                    foreach (var kv in animations)
+                    {
+                        _animationsFlat[kv.Key] = kv.Value;
+                    }
+                }
+            }
+            return _animationsFlat;
+        }
     }
 
     // Returns whether the slot is authored to track statusAnimMul. Returns
@@ -653,7 +684,7 @@ public partial class MobData : Resource
     // the same as playing nothing at authored speed.
     public bool IsAnimationSpeedAffected(EAnimation anim)
     {
-        return animations.TryGetValue(anim, out AnimationData d) && d != null && d.affectedBySpeedMultiplier;
+        return AnimationsFlat.TryGetValue(anim, out AnimationData d) && d != null && d.affectedBySpeedMultiplier;
     }
 
     // Whether the idle anim-audio loop should be playing at the given

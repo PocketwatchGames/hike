@@ -52,7 +52,10 @@ public static class ItemEventHandlers
 		var query = new PhysicsShapeQueryParameters3D
 		{
 			Shape = shape,
-			CollisionMask = actor.AttackHurtboxMask,
+			// Debris rides along here (and in the AoE burst) but nowhere else:
+			// this query collects EVERY overlap, so knocking a dropped item
+			// about can't cost a mob its hit. See ECollisionLayer.Debris.
+			CollisionMask = actor.AttackHurtboxMask | (uint)ECollisionLayer.Debris,
 			CollideWithAreas = true,
 			CollideWithBodies = false,
 		};
@@ -392,7 +395,9 @@ public static class ItemEventHandlers
 		{
 			Shape = sphere,
 			Transform = new Transform3D(Basis.Identity, center),
-			CollisionMask = attacker.AttackHurtboxMask,
+			// Blasts scatter loose loot — see the melee sweep above for why
+			// Debris is safe in an every-overlap query and nowhere else.
+			CollisionMask = attacker.AttackHurtboxMask | (uint)ECollisionLayer.Debris,
 			CollideWithAreas = true,
 			CollideWithBodies = false,
 		};
@@ -416,7 +421,12 @@ public static class ItemEventHandlers
 			// center falls back to zero (no usable axis). The attacker node is
 			// the source so the receiver still attributes the hit correctly.
 			Vector3 hitDir = Vector3.Zero;
-			if (radialKnockback)
+			// Loose debris always scatters outward, whether or not the effect
+			// authors radialKnockback — that flag is a per-effect choice about
+			// knocking ACTORS around, but a dropped item has to be thrown
+			// somewhere or the blast reads as passing straight through it.
+			bool isDebris = (hurtBox.CollisionLayer & (uint)ECollisionLayer.Debris) != 0;
+			if (radialKnockback || isDebris)
 			{
 				Vector3 away = hurtBox.GlobalPosition - center;
 				away.Y = 0f;

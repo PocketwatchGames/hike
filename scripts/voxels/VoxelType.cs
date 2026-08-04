@@ -245,7 +245,7 @@ public static class VoxelTypeInfo
     /// <summary>
     /// Extra light attenuation when light passes through a transparent voxel.
     /// Returns 0 for air (no extra cost), positive for water etc.
-    /// Added on top of the normal LightEngine.FALLOFF_PER_VOXEL decay.
+    /// Added on top of the normal SimData.sunFalloffPerVoxel decay.
     /// </summary>
     public static int LightAttenuation(VoxelType type)
     {

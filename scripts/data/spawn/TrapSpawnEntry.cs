@@ -32,8 +32,6 @@ public partial class TrapSpawnEntry : SpawnEntryData
         ws.AddEntity(new TrapSimState(position, scene)
         {
             HazardRadius = hazardRadius,
-            // Bake the environment tier so the spike hit scales with its zone.
-            Level = WorldGen.ComputeMobLevel(ws, position, 0),
         });
     }
 }

@@ -282,7 +282,7 @@ void vertex() {
 
 void fragment() {
 	// Master disable: when SkyController pushes reflection_tint == 0
-	// (CVar `sprite_reflections_disabled` true, or fully muddy/dim
+	// (CVar `sprite_reflection_visible` false, or fully muddy/dim
 	// conditions), skip the entire fragment instead of rendering opaque
 	// black. blend_mix would composite ALBEDO=(0,0,0)*ALPHA=1 as a black
 	// silhouette over the water otherwise.
@@ -473,7 +473,7 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	float cloud = cloud_shadow_ground(vertex_world_var, TIME);
+	float cloud = cloud_shadow_ground_gated(vertex_world_var, light_sample_pos, TIME);
 	float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun;
 	// Reflection block_lit is dimmed by the projector at the reflection's

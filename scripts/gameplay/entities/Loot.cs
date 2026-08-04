@@ -111,6 +111,12 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	// clear LOS). _seekGravityActive tracks whether engine gravity is zeroed for
 	// the flight so StopSeeking restores the authored scale exactly once.
 	private Player _attractor;
+	// Knockback response to being hit (see OnHurtBoxHit). Impulse is scaled by
+	// the hit's own knockbackDistance, so a bomb throws loot further than a
+	// club tap; the minimum keeps a zero-knockback hit from being a no-op.
+	[Export] private float _knockbackImpulse = 2.5f;
+	[Export(PropertyHint.Range, "0,2,0.01")] private float _knockbackUpwardBias = 0.6f;
+	[Export(PropertyHint.Range, "0,5,0.01")] private float _knockbackMinDistance = 0.5f;
 	private bool _seeking;
 	private bool _seekGravityActive;
 	// Scalar flight speed, ramped by _magnetAcceleration. Kept separate from
@@ -177,6 +183,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 
 	public override void _Process(double delta)
 	{
+		using var _prof = Profiler.Sample("Loot.Process");
 		if (_pickedUp || _removed || _world == null)
 		{
 			return;
@@ -317,6 +324,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 
 	public override void _PhysicsProcess(double delta)
 	{
+		using var _prof = Profiler.Sample("Loot.PhysicsProcess");
 		if (_pickedUp || _removed || _world == null)
 		{
 			return;
@@ -772,8 +780,52 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 	}
 
+	// Loose loot is scattered by anything that hits it — a bomb blast, a swung
+	// weapon. Purely physical: loot has no health, so the hit's damage and status
+	// payload are ignored and only its direction + knockback drive the impulse.
+	// Reached via the HurtBox on ECollisionLayer.Debris, which only the
+	// every-overlap attack queries mask, so this never costs a mob its hit.
 	private void OnHurtBoxHit(HitInfo hit)
 	{
+		if (_pickedUp || _removed || _seeking)
+		{
+			return;
+		}
+		Vector3 dir = hit.hitDirection;
+		if (dir.LengthSquared() < 0.0001f)
+		{
+			return;
+		}
+		// Bias upward so a flat sweep pops the item into an arc instead of
+		// grinding it along the ground.
+		Vector3 launch = (dir.Normalized() + Vector3.Up * _knockbackUpwardBias).Normalized();
+		float strength = _knockbackImpulse * Mathf.Max(hit.knockbackDistance, _knockbackMinDistance);
+		Wake();
+		ApplyCentralImpulse(launch * strength);
+	}
+
+	// Return a settled (frozen) item to live physics so an
+	// impulse actually moves it, and let _IntegrateForces re-Settle it when it
+	// comes to rest. Mirrors what the magnet does when it latches on.
+	private void Wake()
+	{
+		if (_interactArea != null)
+		{
+			_interactArea.Monitoring = true;
+		}
+		if (_gravityScaleSwimActive && _gravityScaleCaptured)
+		{
+			GravityScale = _gravityScaleAuthored;
+			_gravityScaleSwimActive = false;
+		}
+		if (Freeze)
+		{
+			Freeze = false;
+			_animationPlayer?.Play("Idle");
+		}
+		// A settled body has usually gone to sleep, and Jolt drops impulses
+		// applied to a sleeping body — wake it or the knockback silently no-ops.
+		Sleeping = false;
 	}
 
 	private void OnInteractAreaBodyEntered(Node body)
@@ -1136,7 +1188,10 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		instance._simState = data;
 		instance._world = sim;
 		instance._initialImpulse = impulse;
-		instance._playSpawnEffects = true;
+		// Only the FIRST materialization of a given pile announces itself — see
+		// LootSimState.PlaySpawnEffects. Chunk streaming re-runs this factory
+		// for loot that has been lying there all along.
+		instance._playSpawnEffects = data.PlaySpawnEffects;
 		ItemData itemData = data.Item?.data ?? data.Data;
 		PackedScene worldModel = (itemData as LootData)?.worldModel;
 		if (worldModel != null && instance._modelAnchor != null)

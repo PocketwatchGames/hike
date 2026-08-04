@@ -56,6 +56,16 @@ public class DotHudAccumulator
 	// the actor later comes back into view) but spawns no floating number and
 	// reports no flush — so the receiver-side "ouch" / damage-flash stays silent
 	// for a mob the player can't currently see. Always true for the player.
+	// True only when Tick would do more than return immediately — the flush
+	// deadline has come up, or hasn't been armed yet. Mirrors the two guards at
+	// the top of Tick exactly, so a false result proves Tick would be a no-op.
+	//
+	// Exists so per-tick callers can skip BUILDING Tick's arguments: for a Mob
+	// those are a global-transform resolution and a visibility query, and the
+	// deadline only comes up once a second, so ~59 of every 60 physics ticks
+	// were computing both just to have them discarded here.
+	public bool WantsTick(ulong nowMs) => _nextFlushMs == 0 || nowMs >= _nextFlushMs;
+
 	public DotHudFlush Tick(ulong nowMs, Vector3 position, bool showHudFeedback)
 	{
 		DotHudFlush flush = default;

@@ -231,7 +231,10 @@ public partial class Projectile : Node3D
 		inst._source = source;
 		inst._velocity = velocity;
 		inst._maxLifetimeSeconds = maxLifetimeSeconds;
-		inst._hurtboxMask = hurtboxMask;
+		// Debris is added here rather than to the caller's AttackHurtboxMask so it
+		// stays out of the melee/aim masks that property also feeds. The sweep
+		// below treats a Debris hit as pass-through, never as an impact.
+		inst._hurtboxMask = hurtboxMask | (uint)ECollisionLayer.Debris;
 		inst._impact = impact;
 		inst._gravity = gravity;
 		inst._noCollide = noCollide;
@@ -446,6 +449,21 @@ public partial class Projectile : Node3D
 						// Falls through to the env-clip / continue branches below.
 						if (!hurtBox.CanBeHit(hit))
 						{
+							if (_hurtBoxExclude == null)
+							{
+								_hurtBoxExclude = new Godot.Collections.Array<Rid>();
+							}
+							_hurtBoxExclude.Add(hurtBox.GetRid());
+							goto AfterHurtSweep;
+						}
+						// Loose debris never stops a shot — knock it aside and keep flying,
+						// so an arrow scatters a dropped item instead of being eaten by it.
+						// Excluded afterwards so this shot can't strike the same pile twice,
+						// and no pierce budget is spent: debris isn't a target the shot
+						// punched through, it's scenery being shoved out of the way.
+						if ((hurtBox.CollisionLayer & (uint)ECollisionLayer.Debris) != 0)
+						{
+							hurtBox.Hit(hit);
 							if (_hurtBoxExclude == null)
 							{
 								_hurtBoxExclude = new Godot.Collections.Array<Rid>();

@@ -26,6 +26,20 @@ public struct DerivedPalette
     // through the dayNightThreshold band around the horizon. SkyController
     // uses this to blend the (sun*Primary, moon*Night) pair.
     public float NightT;
+    // How much of the sky still lights the world, 1 → 0 across sunset →
+    // midnight. Already multiplied into Ambient / PrimaryIntensity /
+    // NightPrimaryIntensity and the sky dome + cloud tints above; exposed so
+    // SkyController can dim the celestial bodies on the same curve (stars,
+    // moon disk, moon shafts). Clock-driven — it says where the night is, not
+    // how lit the world is. For "is there light here", use Illumination.
+    public float SkyLight;
+    // Normalized "is there light in the open air", 1 under any normally-lit
+    // condition and → 0 only as light genuinely vanishes. Derived from the
+    // blended direct intensity, so it responds to ANY cause of darkness
+    // (nightfall, and an eclipse if one is ever added) rather than to the
+    // clock. What anything self-lit-looking must ride so it goes dark with the
+    // world: fog haze color, the water-foam light floor.
+    public float Illumination;
 
     // Off-axis sculpt fills. Blended across all three phases.
     public Color FillA;

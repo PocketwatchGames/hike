@@ -128,6 +128,8 @@ public partial class Discoverable : Node3D
 
     public override void _PhysicsProcess(double delta)
     {
+        using var _prof = Profiler.Sample("Discoverable.PhysicsProcess");
+
         if (_state.state == EPlayerPerceptionState.Discovered)
         {
             return;
@@ -173,6 +175,8 @@ public partial class Discoverable : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("Discoverable.Process");
+
         // Discovered is terminal, so target is 1; pre-Discovered targets
         // ride at 0 (Detected included — the suspicious-phase HUD is the
         // callout there, the sprite stays dithered out). Once _visibility

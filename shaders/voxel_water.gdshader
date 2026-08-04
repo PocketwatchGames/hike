@@ -814,7 +814,7 @@ void fragment() {
 	// Water is `unshaded` (no light() stage / no ATTENUATION available), so
 	// cloud shadow multiplies sun_lit directly. Block light (lm.gba) stays
 	// unaffected — torches shining on water don't care about clouds.
-	float cloud = cloud_shadow_ground(world_vertex, TIME);
+	float cloud = cloud_shadow_ground_gated(world_vertex, light_sample_pos, TIME);
 	float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
 	// Rippled-normal lighting modifier, weighted by water_alpha. Transparent
 	// water reads as "we're seeing through to the seabed" — its surface

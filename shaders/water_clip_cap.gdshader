@@ -121,7 +121,7 @@ void fragment() {
 	float sun_mask = pow(lm.r, light_falloff_exp);
 	// Unshaded (no light() / ATTENUATION), so cloud shadow folds directly
 	// into sun_lit. Block light stays unaffected.
-	float cloud = cloud_shadow_ground(world_pos, TIME);
+	float cloud = cloud_shadow_ground_gated(world_pos, world_pos, TIME);
 	float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun;
 	vec3 block_lit = lm.gba;

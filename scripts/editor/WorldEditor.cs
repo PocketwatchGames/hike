@@ -1424,6 +1424,19 @@ public partial class WorldEditor : Node3D
                     StepHistory(redo: true);
                     GetViewport().SetInputAsHandled();
                     return;
+                case Key.D:
+                    // Only meaningful with a selection to copy; otherwise it
+                    // falls through so the key keeps whatever else it does.
+                    if (IsSelectMode && !_selection.IsEmpty)
+                    {
+                        if (!keyEvent.Echo)
+                        {
+                            DuplicateSelection();
+                        }
+                        GetViewport().SetInputAsHandled();
+                        return;
+                    }
+                    break;
             }
         }
 
@@ -2393,6 +2406,40 @@ public partial class WorldEditor : Node3D
         {
             _selection.SetSingle(state);
         }
+    }
+
+    // Ctrl+D. Copies the selection in place and hands the selection to the
+    // copies, so the gizmo drag that usually follows moves the new entities and
+    // leaves the originals where they were.
+    private void DuplicateSelection()
+    {
+        List<EntitySimState> copies = EntitySerializer.CloneList(_selection.States);
+        if (copies.Count == 0)
+        {
+            return;
+        }
+
+        EditorEdit edit = _history.Begin(copies.Count > 1 ? $"Duplicate {copies.Count} Entities" : "Duplicate Entity");
+        var refresh = new EditorRefresh();
+        VoxelBox roofRegion = VoxelBox.Empty;
+        foreach (EntitySimState copy in copies)
+        {
+            Vector3 position = copy.WorldPosition;
+            edit?.TouchEntitiesAt(position);
+            _worldState.AddEntity(copy);
+            refresh.AddEntityChunk(Sim.WorldToChunkCoord(position));
+            if (copy is RoofSimState roof)
+            {
+                roofRegion = roofRegion.Union(RoofSunStamper.FootprintBox(roof));
+            }
+        }
+        // Respawn before selecting: the copies only get their RuntimeNode
+        // back-reference from the streaming path, and without it the gizmo has
+        // nothing to draw over and picking can't find them again.
+        refresh.Apply(_world);
+        RefreshRoofSunOcclusion(roofRegion);
+        _selection.SetMany(copies);
+        _history.Commit();
     }
 
     private void DeleteSelection()

@@ -456,7 +456,7 @@ void fragment() {
 	// so grass, terrain, and sprite shadows stay in lockstep and all drift
 	// at wind-rate regardless of sun elevation. See sprite_lit.gdshader's
 	// matching call for the full rationale.
-	float cloud = cloud_shadow_ground(frag_world_pos, TIME);
+	float cloud = cloud_shadow_ground_gated(frag_world_pos, light_sample_pos, TIME);
 	cloud_dim = debug_no_cloud ? 1.0 : 1.0 - cloud * cloud_shadow_strength;
 	// NdotL lift on sun-facing sprite normals — matches voxel_clip so terrain
 	// and detail sprites pop into bloom at matching angles. See voxel_clip.

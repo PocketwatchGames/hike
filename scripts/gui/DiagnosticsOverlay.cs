@@ -116,6 +116,9 @@ public partial class DiagnosticsOverlay : CanvasLayer
         // Always-on hitch detector. Runs even when the overlay is hidden so
         // hitches can be caught in the wild.
         UpdateHitchDetector(delta);
+        // Unconditional (ahead of the Visible gate) so the profiler's per-frame
+        // maths is right even when the table is only read via `profile_dump`.
+        Profiler.MarkFrame();
 
         // debug_slopes pins the overlay visible so the slope readout shows
         // without F3. Hidden again on the next frame after the CVar flips

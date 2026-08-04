@@ -119,6 +119,8 @@ public partial class InteractiveXray : Node3D
 
     public override void _PhysicsProcess(double delta)
     {
+        using var _prof = Profiler.Sample("InteractiveXray.PhysicsProcess");
+
         // Skip everything while a host Discoverable is still pre-Discovered:
         // the sprite is hidden, so the X-ray pass has no visible effect and
         // the raycast / uniform push are pure waste. The OnStateChanged

@@ -52,6 +52,8 @@ public partial class EliteCrown : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("EliteCrown.Process");
+
         if (_halo == null)
         {
             return;

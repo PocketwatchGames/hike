@@ -221,6 +221,11 @@ public partial class StatusEffectData : Resource
 	// 0.75 (mult, Cold slow), ColdResist -25 (add), Damage 0.0 (mult, dash i-frames).
 	[ExportGroup("Character Modifiers")]
 	[Export] public Godot.Collections.Array<StatModifier> modifiers;
+	// Managed read-mirror of `modifiers` — see MobData.ModifiersFlat. This is
+	// the hottest of them all: StatusEffectController.FoldStat/FoldMask walk
+	// every active effect on EVERY ComposeStat call, for both mobs and players.
+	private StatModifier[] _modifiersFlat;
+	public StatModifier[] ModifiersFlat => _modifiersFlat ??= StatModifierUtil.Flatten(modifiers);
 
 	// Like `modifiers`, but each group contributes only while its runtime condition
 	// holds (see ConditionalModifierData). Lets a permanent trait grant a situational

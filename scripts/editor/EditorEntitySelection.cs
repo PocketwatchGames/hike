@@ -33,6 +33,18 @@ public sealed class EditorEntitySelection
         }
     }
 
+    public void SetMany(IEnumerable<EntitySimState> states)
+    {
+        _states.Clear();
+        foreach (EntitySimState state in states)
+        {
+            if (state != null && !_states.Contains(state))
+            {
+                _states.Add(state);
+            }
+        }
+    }
+
     // Shift-click: into the group if it wasn't in it, out if it was.
     public void Toggle(EntitySimState state)
     {

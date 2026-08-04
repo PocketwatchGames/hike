@@ -69,6 +69,26 @@ public partial class PlayerState : Resource
 	// PlayerData, equipped-armor, and status-effect modifiers (see
 	// ArmorData.modifiers for authoring examples).
 	[Export] public Array<StatModifier> modifiers;
+	// Managed read-mirror of `modifiers` — see MobData.ModifiersFlat. Unlike the
+	// *Data mirrors this one re-checks the source reference, because PlayerState
+	// is runtime state: nothing reassigns `modifiers` today, but a future class
+	// change or respec plausibly would, and a silently stale stat table is a
+	// nasty failure. Reassigning the array is handled; mutating it in place is
+	// not — clear _modifiersFlat if you ever add/remove entries live.
+	private StatModifier[] _modifiersFlat;
+	private Array<StatModifier> _modifiersFlatFrom;
+	public StatModifier[] ModifiersFlat
+	{
+		get
+		{
+			if (!ReferenceEquals(modifiers, _modifiersFlatFrom) || _modifiersFlat == null)
+			{
+				_modifiersFlatFrom = modifiers;
+				_modifiersFlat = StatModifierUtil.Flatten(modifiers);
+			}
+			return _modifiersFlat;
+		}
+	}
 
 	// Passive status effects intrinsic to this character (perks / afflictions),
 	// applied to the Player when this member is spawned / becomes controlled.

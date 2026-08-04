@@ -645,20 +645,7 @@ public static class SharedWalkabilityCache
     }
 
     private static readonly System.Collections.Generic.Dictionary<Key, Entry> _cache = new();
-    private static int _hitsThisWindow;
-    private static int _missesThisWindow;
-    private static int _hitsLatched;
-    private static int _missesLatched;
-    public static int HitsLatched => _hitsLatched;
-    public static int MissesLatched => _missesLatched;
     public static int EntryCount => _cache.Count;
-    public static void LatchCounters()
-    {
-        _hitsLatched = _hitsThisWindow;
-        _missesLatched = _missesThisWindow;
-        _hitsThisWindow = 0;
-        _missesThisWindow = 0;
-    }
 
     public static Entry GetOrSample(WorldState ws, Sim sim, in TraversalProfile profile,
         int centerX, int centerY, int centerZ, int requestedHalfExtent)
@@ -674,10 +661,10 @@ public static class SharedWalkabilityCache
         if (_cache.TryGetValue(key, out Entry hit))
         {
             hit.LastUsedMs = now;
-            _hitsThisWindow++;
+            Profiler.IncrementCounter("walkability_cache_hits");
             return hit;
         }
-        _missesThisWindow++;
+        Profiler.IncrementCounter("walkability_cache_misses");
 
         // Compute the enlarged window that satisfies any mob within the
         // quantum. The quantum's XZ extent is [qx*Quantum .. qx*Quantum+Quantum),
@@ -765,9 +752,9 @@ public static class SharedWalkabilityCache
         }
     }
 
-    // Drop entries that haven't been touched in a while. Called from
-    // Profiler.Tick on each window latch — opportunistic, no fixed
-    // cadence, but catches drift as the player explores.
+    // Drop entries that haven't been touched in a while. Driven from Sim.Tick
+    // on the spawn-cleanup interval — must stay on a real gameplay tick, NOT a
+    // diagnostics path, or it silently stops running in shipping builds.
     public static void SweepStale()
     {
         ulong now = Godot.Time.GetTicksMsec();

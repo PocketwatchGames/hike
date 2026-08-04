@@ -132,6 +132,9 @@ public partial class GameClient : Node3D
 	[Export] public UpgradeScreen upgradeScreen;
 	[Export] public ForgeScreen forgeScreen;
 	[Export] public Node worldHUD;
+	// Pool that leases MobHUDs to the mobs currently showing one, instead of
+	// every loaded mob owning one. Created in StartWorld under worldHUD.
+	private MobHudManager _mobHuds;
 	[Export] public SubViewport sceneViewport;
 	// Scene WorldEnvironment (SceneViewport/InnerEnv). Its built-in DEPTH fog
 	// (fog_depth_begin/end, black) darkens distant ground for the normal iso
@@ -611,6 +614,11 @@ public partial class GameClient : Node3D
 			onCombatEnd?.Invoke();
 		};
 		Combat.onCombatVictory = OnCombatVictory;
+		// Parented under worldHUD so the pooled HUDs inherit the same canvas and
+		// pause behaviour they had when each mob owned one outright.
+		_mobHuds = new MobHudManager();
+		_mobHuds.Init(camera);
+		worldHUD?.AddChild(_mobHuds);
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
 		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
@@ -1340,13 +1348,46 @@ public partial class GameClient : Node3D
 		_rumble.StopAll();
 	}
 
+	// One-shot scene-tree census for unattended runs, which have no console to
+	// type `node_census` into. See CVars.nodeCensusDelay.
+	private double _nodeCensusElapsed;
+	private bool _nodeCensusDone;
+
+	private void TickNodeCensusDelay(double deltaTime)
+	{
+		float delay = CVars.nodeCensusDelay.Value;
+		if (_nodeCensusDone || delay <= 0f)
+		{
+			return;
+		}
+		_nodeCensusElapsed += deltaTime;
+		if (_nodeCensusElapsed >= delay)
+		{
+			_nodeCensusDone = true;
+			NodeCensus.Run();
+			// The two reports answer halves of the same question — what is
+			// resident, and what it costs — so an unattended run that asked for
+			// one and enabled profiling gets both.
+			if (CVars.profile.Value)
+			{
+				Profiler.DumpAndReset();
+			}
+		}
+	}
+
 	public override void _Process(double deltaTime)
 	{
+		using var _profProcess = Profiler.Sample("GameClient.Process");
+		TickNodeCensusDelay(deltaTime);
+
 		// Push the foliage player-occlusion fade globals before the pause /
 		// console gates — even while paused the camera or player anchors
 		// can still drift (mid-pause shake, debug-cam fly), and a stale fade
 		// volume would visibly punch the wrong hole in the canopy.
-		PushFoliageOcclusionGlobals(deltaTime);
+		using (Profiler.Sample("GameClient.FoliageGlobals"))
+		{
+			PushFoliageOcclusionGlobals(deltaTime);
+		}
 
 		// Drive rumble before the pause/console gate: an indefinite vibration
 		// would otherwise stick on while paused. On a blocked frame StopAll
@@ -1423,7 +1464,10 @@ public partial class GameClient : Node3D
 		if (birdsEye != null && birdsEye.IsActive)
 		{
 			birdsEye.UpdateCamera(deltaTime);
-			viewportRig?.SnapAndUpscale();
+			using (Profiler.Sample("GameClient.ViewportSnap"))
+			{
+				viewportRig?.SnapAndUpscale();
+			}
 			// Sprites are sized off `sprite_chunky` (world meters per inner-viewport
 			// texel) — SnapCameraAndUpdateUpscale ties it to the live ortho Size so
 			// the pixel-art look stays "1 source pixel = N screen pixels". During
@@ -1461,7 +1505,10 @@ public partial class GameClient : Node3D
 			{
 				followTime = camera.followTimeNormal;
 			}
-			camera.UpdateCamera(deltaTime, _player.GlobalPosition, followTime);
+			using (Profiler.Sample("GameClient.UpdateCamera"))
+			{
+				camera.UpdateCamera(deltaTime, _player.GlobalPosition, followTime);
+			}
 			// Auto-release the finisher slow-mo once its wall-clock hold elapses
 			// (the death cam, by contrast, holds until respawn).
 			if (_victorySlowMoReleaseMs != 0 && Time.GetTicksMsec() >= _victorySlowMoReleaseMs)
@@ -1476,6 +1523,12 @@ public partial class GameClient : Node3D
 			viewportRig?.SnapAndUpscale();
 			CullProps(camera.Clip);
 		}
+		// Quantize every opted-in visual onto the grid the camera just snapped to.
+		// Outside the branch chain above so it still runs under the bird's-eye
+		// overview and the debug fly-cam, matching the per-node _Process this
+		// replaced; each branch has already established its own grid by here.
+		PixelSnap.TickAll(camera);
+
 		// Sync the cap-mask camera AFTER the chunky-pixel snap so the mask
 		// renders at the same snapped pose as the main scene. Mask
 		// SubViewport size matches the inner pre-upscale size for 1:1
@@ -1889,12 +1942,30 @@ public partial class GameClient : Node3D
 
 	}
 
+	// Last clip this ran against, so a frame where it hasn't moved can skip every
+	// entity that couldn't have moved either.
+	private float _lastCullClip = float.NaN;
+
 	void CullProps(float cameraClip)
 	{
+		using var _prof = Profiler.Sample("GameClient.CullProps");
+		// The clip only changes when the player's ceiling context does. On every
+		// other frame a STATIC entity's visibility cannot have changed, so only
+		// things that can actually move get re-tested — the difference between
+		// ~2300 GlobalPosition reads per frame and a few dozen. PhysicsBody3D is
+		// the proxy for "can move": Mob and Loot are RigidBody3D, the player is a
+		// CharacterBody3D, while props / foliage / roofs are plain Node3D or
+		// StaticBody3D and never relocate once spawned.
+		bool clipChanged = cameraClip != _lastCullClip;
+		_lastCullClip = cameraClip;
 		foreach (List<Node3D> entities in _world.ActiveEntities.Values)
 		{
 			foreach (Node3D entity in entities)
 			{
+				if (!clipChanged && entity is not PhysicsBody3D)
+				{
+					continue;
+				}
 				// A roof cuts itself away in-shader and carries passes that MUST
 				// keep rendering once it does — a shadow proxy, and its cap-mask
 				// copy. Hiding the node takes those children down with it, so the
@@ -1940,6 +2011,9 @@ public partial class GameClient : Node3D
 			ApplyHighlight(target);
 			_outlinedNode = target;
 		}
+		// Run the outline SubViewport only while something is actually outlined —
+		// it's a full off-screen pass and stands idle on nearly every frame.
+		camera?.SetOutlineMaskActive(_outlinedNode != null);
 	}
 
 	// Single source of truth for spawning/freeing the InteractHUD. Called
@@ -2356,14 +2430,12 @@ public partial class GameClient : Node3D
 
 	void OnMobSpawned(Mob mob)
 	{
-		if (mob.hudScene != null)
-		{
-			MobHUD.Create(mob.hudScene, camera, mob, worldHUD);
-		}
+		_mobHuds?.Register(mob);
 	}
 
 	void OnMobRemoved(Mob mob)
 	{
+		_mobHuds?.Unregister(mob);
 	}
 
 	void OnDiscoverableSpawned(Discoverable discoverable)

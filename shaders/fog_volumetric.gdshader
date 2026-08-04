@@ -39,17 +39,14 @@ uniform sampler2D depth_tex : hint_depth_texture;
 global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
-// Vertical (top-down, non-leaky) sky-reach field, registered by ChunkManager
-// and also used by the rain shader. R = how much open sky is directly above a
-// voxel [0..1]: 1 under open sky, 0 under solid overhead cover. The sun shaft
-// samples it at the CLIP PLANE over the backdrop's column (not at the surface)
-// to detect floor revealed by THIS cutaway: a low reading at camera_clip means
-// the clip removed solid that sits right above this floor. Sampling at the clip
-// height (rather than the surface) ignores cover BELOW the clip — tree canopy,
-// distant terrain — so only the genuinely clipped interior fades.
-global uniform sampler3D sky_exposure_map : filter_linear, repeat_enable;
-global uniform vec3 sky_exposure_map_origin;
-global uniform vec3 sky_exposure_map_inv_size;
+// sky_exposure_map (+ origin / inv_size) is declared by cloud_shadow.gdshaderinc
+// below, which this shader includes — do not redeclare it here. R = how much open
+// sky is directly above a voxel [0..1]: 1 under open sky, 0 under solid overhead
+// cover. The sun shaft samples it at the CLIP PLANE over the backdrop's column
+// (not at the surface) to detect floor revealed by THIS cutaway: a low reading at
+// camera_clip means the clip removed solid that sits right above this floor.
+// Sampling at the clip height (rather than the surface) ignores cover BELOW the
+// clip — tree canopy, distant terrain — so only the genuinely clipped interior fades.
 // Ceiling cutaway altitude + animation. Voxel/sprite shaders discard
 // fragments above camera_clip (the cut-away ceiling) so the player sees into
 // indoor spaces from above. We treat above-clip air as occluded (the cut

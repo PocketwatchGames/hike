@@ -22,6 +22,16 @@ public struct HitInfo
 	// armor-penetration-chance, armor chip, knockback magnitude — when applying.
 	public EStat tags;
 	public float healthDamage;
+	// Non-null when the source template is an environmental hazard — the profile
+	// whose bands decide this hit's damage, its buildup proc rate, and the DoT of
+	// any status it applies, all against the receiver's max health. Receivers fold
+	// the damage band via ApplyHazardScaling before their resistance pass and carry
+	// the reference into the status path. See DamageData.hazardProfile.
+	public HazardProfileData hazardProfile;
+	// Physics delta this hit's healthDamage was pre-scaled by, for continuous
+	// (per-frame) hits; 0 on discrete hits. A hazard band resolves a per-SECOND
+	// rate, so ApplyHazardScaling multiplies by this to land a one-frame chunk.
+	public float continuousDeltaSeconds;
 	// Multiplier converting healthDamage into aggro on the receiver (and, for a
 	// player receiver, relayed to their companion). Sourced from the DamageData
 	// template; the continuous-damage path defaults it to 1 so DoT zones still
@@ -147,6 +157,8 @@ public struct HitInfo
 			// Roll the authored ±variance here, once per hit — downstream readers
 			// (prediction, armor chip, aggro) all see the same varied value.
 			healthDamage = template.healthDamage * (1f + template.damageVariance * (GD.Randf() * 2f - 1f));
+			hazardProfile = template.hazardProfile;
+			continuousDeltaSeconds = 0f;
 			aggroMultiplier = template.aggroMultiplier;
 			hitstun = template.hitstun;
 			knockbackDistance = template.knockbackDistance;
@@ -163,6 +175,8 @@ public struct HitInfo
 		{
 			tags = EStat.None;
 			healthDamage = 0f;
+			hazardProfile = null;
+			continuousDeltaSeconds = 0f;
 			aggroMultiplier = 1f;
 			hitstun = 0f;
 			knockbackDistance = 0f;
@@ -196,10 +210,12 @@ public struct HitInfo
 		triggers = EDamageTriggerFlags.None;
 		armorPenetrationRoll = GD.Randf();
 		critRoll = GD.Randf();
+		continuousDeltaSeconds = delta;
 		if (template != null)
 		{
 			tags = template.tags;
 			healthDamage = template.healthDamage * delta;
+			hazardProfile = template.hazardProfile;
 			blunt = template.blunt;
 			armorBypassFraction = template.armorPenetration;
 			buildups = template.buildups;
@@ -208,6 +224,7 @@ public struct HitInfo
 		{
 			tags = EStat.None;
 			healthDamage = 0f;
+			hazardProfile = null;
 			blunt = 0f;
 			armorBypassFraction = 0f;
 			buildups = null;
@@ -231,6 +248,28 @@ public struct HitInfo
 		// Continuous zones (gas, trap fields) default to base magnitude; a leveled
 		// source (a zone-scaled trap) overrides this after construction.
 		potency = 1f;
+	}
+
+	// Replace an environmental hazard's damage with its profile's band, resolved
+	// against the receiver's max health — the authored healthDamage plays no part
+	// (the profile's `strength` is the dial). A frail target takes the ceiling
+	// fraction, a tough one converges on the floor, so one trap reads consistently
+	// wherever it sits and never one-shots from full.
+	//
+	// A band is a per-SECOND fraction for continuous hits, so the result is scaled
+	// by the frame's delta to land a one-frame chunk. A zero damage band is legal
+	// and lands a zero-damage hit: a pure-buildup hazard (poison gas) still needs
+	// the payload to deliver its buildups. Receivers call this once, ahead of their
+	// resistance fold, so armor / tag resistances scale the converted number.
+	public void ApplyHazardScaling(float maxHealth, SimData simData)
+	{
+		if (hazardProfile == null || simData == null || maxHealth <= 0f)
+		{
+			return;
+		}
+		float t = hazardProfile.Outmatch(maxHealth, simData.hazardDamageHalfPointPercent);
+		float dt = continuousDeltaSeconds > 0f ? continuousDeltaSeconds : 1f;
+		healthDamage = maxHealth * hazardProfile.DamageFraction(t) * dt;
 	}
 
 	// True when the rolled chance landed inside the (possibly modifier-

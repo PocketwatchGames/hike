@@ -112,14 +112,18 @@ public partial class Player : CharacterBody3D
 	// ColdResist / HeatResist) per StatModifierUtil.IsAdditive.
 	public float ComposeStat(EStat stat)
 	{
+		// All four modifier sources read through their owners' managed mirrors —
+		// this runs several times per physics tick (scent, wetness, night vision,
+		// thermal, the Max* pools), so folding the Godot arrays directly meant
+		// marshaling a Variant per entry per source per call.
 		float value = StatModifierUtil.NeutralValue(stat);
-		if (data?.modifiers != null)
+		if (data != null)
 		{
-			value = StatModifierUtil.Fold(stat, data.modifiers, value);
+			value = StatModifierUtil.Fold(stat, data.ModifiersFlat, value);
 		}
-		if (Member?.modifiers != null)
+		if (Member != null)
 		{
-			value = StatModifierUtil.Fold(stat, Member.modifiers, value);
+			value = StatModifierUtil.Fold(stat, Member.ModifiersFlat, value);
 		}
 		value = AccumulateArmorStat(EInventorySlot.Helmet, stat, value);
 		value = AccumulateArmorStat(EInventorySlot.Armor, stat, value);
@@ -167,13 +171,13 @@ public partial class Player : CharacterBody3D
 	public float ComposeMaskMul(EStat mask)
 	{
 		float product = 1f;
-		if (data?.modifiers != null)
+		if (data != null)
 		{
-			product = StatModifierUtil.FoldMask(mask, data.modifiers, product);
+			product = StatModifierUtil.FoldMask(mask, data.ModifiersFlat, product);
 		}
-		if (Member?.modifiers != null)
+		if (Member != null)
 		{
-			product = StatModifierUtil.FoldMask(mask, Member.modifiers, product);
+			product = StatModifierUtil.FoldMask(mask, Member.ModifiersFlat, product);
 		}
 		product = AccumulateArmorMask(EInventorySlot.Helmet, mask, product);
 		product = AccumulateArmorMask(EInventorySlot.Armor, mask, product);
@@ -223,9 +227,9 @@ public partial class Player : CharacterBody3D
 	private float AccumulateArmorStat(EInventorySlot slot, EStat stat, float value)
 	{
 		if (_inventory == null) { return value; }
-		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data?.modifiers != null)
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
 		{
-			value = StatModifierUtil.Fold(stat, armor.data.modifiers, value);
+			value = StatModifierUtil.Fold(stat, armor.data.ModifiersFlat, value);
 		}
 		return value;
 	}
@@ -233,9 +237,9 @@ public partial class Player : CharacterBody3D
 	private float AccumulateArmorMask(EInventorySlot slot, EStat mask, float product)
 	{
 		if (_inventory == null) { return product; }
-		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data?.modifiers != null)
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
 		{
-			product = StatModifierUtil.FoldMask(mask, armor.data.modifiers, product);
+			product = StatModifierUtil.FoldMask(mask, armor.data.ModifiersFlat, product);
 		}
 		return product;
 	}

@@ -18,6 +18,7 @@
 [ext_resource type="Script" uid="uid://7k5dqthgen3e" path="res://scripts/gameplay/entities/SpikeDeployer.cs" id="19_deployer"]
 [ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="20_modellit"]
 [ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="21_white"]
+[ext_resource type="Script" uid="uid://jmrwopt7ktlx7" path="res://scripts/data/combat/HazardProfileData.cs" id="22_hazard"]
 
 [sub_resource type="Resource" id="Resource_trap_event_disarm"]
 script = ExtResource("9_event")
@@ -122,9 +123,15 @@ _data = {
 &"warn": SubResource("Animation_warn")
 }
 
+[sub_resource type="Resource" id="Resource_trap_hazard"]
+script = ExtResource("22_hazard")
+strength = 250.0
+damageFloorPercent = 0.1
+damageCeilingPercent = 0.7
+
 [sub_resource type="Resource" id="Resource_trap_damage"]
 script = ExtResource("3_damage")
-healthDamage = 250.0
+hazardProfile = SubResource("Resource_trap_hazard")
 armorPenetration = 0.5
 statusEffects = []
 buildups = []

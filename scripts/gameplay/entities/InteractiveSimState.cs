@@ -179,10 +179,6 @@ public class TrapSimState : EntitySimState
 
     public bool Disarmed;
 
-    // Environment difficulty tier baked at worldgen placement (WorldGen.ComputeMobLevel),
-    // scaling the spike hit's damage + any status potency so the trap matches its zone.
-    public int Level;
-
     public TrapSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
@@ -317,13 +313,6 @@ public class FireTrapSimState : EntitySimState
     // creation and persisted through save/load — preserving the rhythm
     // matters for replayability of authored swamp encounters.
     public float PhaseOffsetSeconds;
-
-    // Environment difficulty tier stamped at worldgen placement (same positional
-    // field that levels mobs, via WorldGen.ComputeMobLevel). Scales the trap's fire
-    // damage and its Burning potency through SimData.LevelOutgoingScale, so a trap
-    // is as dangerous as its surroundings — meaningful against the mobs that live
-    // there, weak against anything far above the zone. 0 = base.
-    public int Level;
 
     public FireTrapSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)

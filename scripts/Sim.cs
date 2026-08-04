@@ -351,6 +351,12 @@ public partial class Sim : Node3D
         {
             _spawnCleanupAccumulator = 0f;
             CleanupOffConditionMobs();
+            // Same cadence, same "periodic housekeeping" band: drop walkability
+            // cache entries past their TTL. This used to hang off Profiler.Tick,
+            // which is [Conditional("PROFILE")] AND only reached while the F3
+            // overlay is open — so in a shipping build the cache never evicted
+            // at all.
+            SharedWalkabilityCache.SweepStale();
         }
 
         DebugDangerScan(delta);
@@ -390,7 +396,7 @@ public partial class Sim : Node3D
         float block01 = 0f;
         if (_player != null)
         {
-            Vector3 p = _player.GlobalPosition;
+            Vector3 p = _player.GlobalPosition + Vector3.Up * (_player.data?.lightSampleHeight ?? 1f);
             _worldState.GetBlockLightWorld(Mathf.FloorToInt(p.X), Mathf.FloorToInt(p.Y), Mathf.FloorToInt(p.Z),
                 out int r, out int g, out int b);
             block01 = Mathf.Clamp(Mathf.Max(r, Mathf.Max(g, b)) / 255f / targetLightMax, 0f, 1f);
@@ -555,6 +561,8 @@ public partial class Sim : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("Sim.Process");
+
         if (_player == null)
         {
             // The editor streams entities without a player, so its spawn queue

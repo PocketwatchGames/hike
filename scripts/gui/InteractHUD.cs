@@ -292,6 +292,8 @@ public partial class InteractHUD : Node2D
 
 	public override void _Process(double delta)
 	{
+		using var _prof = Profiler.Sample("InteractHUD.Process");
+
 		Update();
 	}
 

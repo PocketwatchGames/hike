@@ -636,6 +636,8 @@ public partial class Minimap : Node3D
 
     public override void _PhysicsProcess(double delta)
     {
+        using var _prof = Profiler.Sample("Minimap.PhysicsProcess");
+
         if (_world == null || _textures == null)
         {
             return;

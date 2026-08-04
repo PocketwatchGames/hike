@@ -292,7 +292,7 @@ void fragment() {
 	// with the fog shader's sun-projected shaft sampling during day, which
 	// in rare cases reads as a sprite in cloud shadow under a bright shaft.
 	// Acceptable compared to terrain / sprite mismatch visible everywhere.
-	float cloud = cloud_shadow_ground(frag_world_pos, TIME);
+	float cloud = cloud_shadow_ground_gated(frag_world_pos, light_sample_pos, TIME);
 	cloud_dim = 1.0 - cloud * cloud_shadow_strength;
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
 	// Per-sprite block_lit dim. Sample the projector at the anchor (one

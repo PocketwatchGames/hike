@@ -117,19 +117,6 @@ public partial class Trap : Node3D, IInteractive, IWorldEntity
         instance._simState = data;
         instance._world = sim;
         instance._disarmed = data.Disarmed;
-        // Scale any deployer that supports it (spike field) to the trap's baked
-        // environment tier, so a spike trap is as dangerous as its zone.
-        float levelScale = sim.SimData?.LevelOutgoingScale(data.Level) ?? 1f;
-        if (levelScale != 1f && instance._deployers != null)
-        {
-            foreach (Node deployer in instance._deployers)
-            {
-                if (deployer is SpikeDeployer spikes)
-                {
-                    spikes.SetLevelScale(levelScale);
-                }
-            }
-        }
         sim.AddChild(instance);
         return instance;
     }

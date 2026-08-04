@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Godot;
 
 // Builds a SubsceneState out of a live WorldState. Shared by the editor's
@@ -185,26 +184,11 @@ public static class SubsceneBuilder
         return CloneToLocal(inside, min);
     }
 
-    // Deep-clone via serializer round-trip, then translate into subscene-local
-    // space. Avoids mutating the source world's entities and keeps clone
-    // semantics aligned with the disk format — a field added to an entity
-    // propagates through here automatically.
+    // Deep-clone, then translate into subscene-local space. Cloning avoids
+    // mutating the source world's entities.
     private static List<EntitySimState> CloneToLocal(List<EntitySimState> source, Vector3I min)
     {
-        if (source.Count == 0)
-        {
-            return new List<EntitySimState>();
-        }
-
-        using var ms = new MemoryStream();
-        using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
-        {
-            EntitySerializer.WriteList(bw, source);
-        }
-        ms.Position = 0;
-        using var br = new BinaryReader(ms, System.Text.Encoding.UTF8, leaveOpen: false);
-        List<EntitySimState> clones = EntitySerializer.ReadList(br);
-
+        List<EntitySimState> clones = EntitySerializer.CloneList(source);
         Vector3 offset = new Vector3(-min.X, -min.Y, -min.Z);
         foreach (EntitySimState clone in clones)
         {

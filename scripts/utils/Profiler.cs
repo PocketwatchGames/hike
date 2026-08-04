@@ -58,7 +58,14 @@ using System.Text;
 //   total_ms   - wall time spent in the section
 //   avg_us     - mean per call
 //   max_ms     - worst single call in the window
-//   per_frame  - total_ms / window-seconds * 60. Rough ms/frame at 60 Hz.
+//   ms_frame   - total_ms / frames actually rendered in the window. Compare
+//                directly against frame_ms_avg; no 60 Hz assumption.
+//
+// Below the table, a "frame coverage" block reports frames / frame_ms_avg /
+// profiled_ms_avg / unaccounted_ms_avg for the same window. profiled_ms_avg is
+// the UNION of time inside any section (nesting-aware, so it doesn't
+// double-count), which makes unaccounted_ms_avg the honest "cost we cannot
+// see" figure — engine-side per-node dispatch and culling land there.
 //
 // Main-thread only: sections write into per-section fields without locking.
 public static class Profiler
@@ -113,20 +120,34 @@ public static class Profiler
             Name = name;
         }
 
+        // Value behind this section's Godot editor custom monitor. Divides by
+        // the frames actually rendered in the latched window, matching the
+        // table's ms_frame column — the editor graph and the on-screen table
+        // must not disagree about what "per frame" means.
         internal double LatchedPerFrameMs()
         {
-            if (LatchedCalls == 0 || LatchedWindowSec <= 0.0)
+            if (LatchedCalls == 0)
             {
                 return 0.0;
             }
             double total = LatchedTotal * (1000.0 / Stopwatch.Frequency);
-            return total / (LatchedWindowSec * 60.0);
+            if (_framesLatched > 0)
+            {
+                return total / _framesLatched;
+            }
+            return LatchedWindowSec > 0.0 ? total / (LatchedWindowSec * 60.0) : 0.0;
         }
 
         [Conditional("PROFILE")]
         public void Begin()
         {
-            ActiveStart = Enabled ? Stopwatch.GetTimestamp() : 0L;
+            if (!Enabled)
+            {
+                ActiveStart = 0L;
+                return;
+            }
+            ActiveStart = Stopwatch.GetTimestamp();
+            EnterSection(ActiveStart);
         }
 
         [Conditional("PROFILE")]
@@ -138,13 +159,15 @@ public static class Profiler
                 return;
             }
             ActiveStart = 0L;
-            long elapsed = Stopwatch.GetTimestamp() - start;
+            long now = Stopwatch.GetTimestamp();
+            long elapsed = now - start;
             Total += elapsed;
             if (elapsed > Max)
             {
                 Max = elapsed;
             }
             Calls++;
+            ExitSection(now);
         }
 
         // Disposable scope used by Profiler.Sample(). A struct so `using`
@@ -164,13 +187,15 @@ public static class Profiler
                 {
                     return;
                 }
-                long elapsed = Stopwatch.GetTimestamp() - _start;
+                long now = Stopwatch.GetTimestamp();
+                long elapsed = now - _start;
                 _section.Total += elapsed;
                 if (elapsed > _section.Max)
                 {
                     _section.Max = elapsed;
                 }
                 _section.Calls++;
+                ExitSection(now);
             }
         }
     }
@@ -178,6 +203,52 @@ public static class Profiler
     private static readonly Dictionary<string, Section> _byName = new();
     private static readonly List<Section> _sections = new();
     private static long _windowStartTicks;
+
+    // UNION of time spent inside any section, and the count of rendered frames
+    // it spans. Summing the section table instead would double-count every
+    // nested section (Mob.UpdateAnimation lives inside Mob.PhysicsProcess), so
+    // instead we track nesting depth and accumulate only the outermost span:
+    // depth 0→1 stamps a start, 1→0 banks the elapsed time. That yields exactly
+    // "wall time with at least one section open", which is what the frame
+    // budget should be compared against.
+    private static int _sectionDepth;
+    private static long _unionStartTicks;
+    private static long _unionTotal;
+    private static long _unionLatched;
+    private static long _unionCumulative;
+    private static int _framesThisWindow;
+    private static int _framesLatched;
+    private static int _framesCumulative;
+
+    private static void EnterSection(long nowTicks)
+    {
+        if (_sectionDepth++ == 0)
+        {
+            _unionStartTicks = nowTicks;
+        }
+    }
+
+    private static void ExitSection(long nowTicks)
+    {
+        if (_sectionDepth > 0 && --_sectionDepth == 0 && _unionStartTicks != 0L)
+        {
+            _unionTotal += nowTicks - _unionStartTicks;
+            _unionStartTicks = 0L;
+        }
+    }
+
+    // Called once per rendered frame (DiagnosticsOverlay._Process, which runs
+    // unconditionally). Gives the table a real frame count so per-frame numbers
+    // reflect the frames actually drawn instead of an assumed 60Hz.
+    [Conditional("PROFILE")]
+    public static void MarkFrame()
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+        _framesThisWindow++;
+    }
 
     // Start of the Cumulative window. Stamped only by Reset (i.e. `profile 1`
     // and `profile_dump`), never by the overlay's per-window LatchAndReset, so
@@ -234,7 +305,9 @@ public static class Profiler
             return default;
         }
         Section s = GetOrCreate(name);
-        return new Section.Scope(s, Stopwatch.GetTimestamp());
+        long start = Stopwatch.GetTimestamp();
+        EnterSection(start);
+        return new Section.Scope(s, start);
 #else
         return default;
 #endif
@@ -284,6 +357,7 @@ public static class Profiler
         }
         Section s = GetOrCreate(name);
         s.ActiveStart = Stopwatch.GetTimestamp();
+        EnterSection(s.ActiveStart);
     }
 
     [Conditional("PROFILE")]
@@ -299,13 +373,15 @@ public static class Profiler
             return;
         }
         s.ActiveStart = 0L;
-        long elapsed = Stopwatch.GetTimestamp() - start;
+        long now = Stopwatch.GetTimestamp();
+        long elapsed = now - start;
         s.Total += elapsed;
         if (elapsed > s.Max)
         {
             s.Max = elapsed;
         }
         s.Calls++;
+        ExitSection(now);
     }
 
     private static Section GetOrCreate(string name)
@@ -389,8 +465,6 @@ public static class Profiler
         // Latch + reset bare counters that aren't tied to a Section. Same
         // window cadence as the section table so the per-window numbers
         // line up.
-        SharedWalkabilityCache.LatchCounters();
-        SharedWalkabilityCache.SweepStale();
         for (int i = 0; i < _counterNames.Count; i++)
         {
             string n = _counterNames[i];
@@ -405,6 +479,16 @@ public static class Profiler
             string n = _gaugeNames[i];
             _latchedGauges[n] = _gauges[n];
         }
+        _unionLatched = _unionTotal;
+        _unionCumulative += _unionTotal;
+        _unionTotal = 0;
+        _framesLatched = _framesThisWindow;
+        _framesCumulative += _framesThisWindow;
+        _framesThisWindow = 0;
+        // A section left open across the latch would otherwise strand the depth
+        // counter above zero and suppress union tracking for the rest of the run.
+        _sectionDepth = 0;
+        _unionStartTicks = 0L;
         _windowGcBaseline0 = System.GC.CollectionCount(0);
         _windowGcBaseline1 = System.GC.CollectionCount(1);
         _windowGcBaseline2 = System.GC.CollectionCount(2);
@@ -453,7 +537,12 @@ public static class Profiler
             }
         }
         sb.Append('\n');
-        sb.Append("  section                          calls   total_ms   avg_us  max_ms  per_frame_ms\n");
+        // ms_frame is total_ms divided by the frames ACTUALLY rendered in the
+        // window. This used to divide by windowSec*60 — i.e. it assumed 60fps —
+        // which silently under-reported every row by frame_ms/16.67 (over 3x at
+        // 16fps) and made _PhysicsProcess sections look far cheaper than they
+        // were. Falls back to the 60Hz assumption only if no frames were marked.
+        sb.Append("  section                          calls   total_ms   avg_us  max_ms       ms_frame\n");
 
         // Overlay path filters out sections below the cutoff so the table
         // stays scannable. Manual dump / hitch dump path (useLatched=false)
@@ -502,7 +591,10 @@ public static class Profiler
             double totalMs = total * tickToMs;
             double avg = (totalMs * 1000.0) / calls;
             double maxMs = max * tickToMs;
-            double perFrame = windowSec > 0.0 ? totalMs / (windowSec * 60.0) : 0.0;
+            int frames = ViewFrames(view);
+            double perFrame = frames > 0
+                ? totalMs / frames
+                : (windowSec > 0.0 ? totalMs / (windowSec * 60.0) : 0.0);
             if (perFrame < minPerFrameMs)
             {
                 continue;
@@ -527,13 +619,50 @@ public static class Profiler
     // show whether Jolt's broadphase + narrowphase is the cost.
     private static void AppendEngineMonitors(StringBuilder sb, View view)
     {
+        // Coverage: how much of the real frame the section table actually
+        // explains. All three come from the SAME window, so they're directly
+        // comparable — unlike the instantaneous monitors below. A large
+        // unaccounted figure means the cost is somewhere no section wraps
+        // (Godot's own per-node dispatch and culling are the usual culprits,
+        // and no amount of section-level tuning will touch them).
+        int frames = ViewFrames(view);
+        if (frames > 0)
+        {
+            double windowMs = ViewWindowSec(view) * 1000.0;
+            double profiledMs = ViewUnionTicks(view) * (1000.0 / Stopwatch.Frequency);
+            double windowFrameMs = windowMs / frames;
+            double profiledPerFrame = profiledMs / frames;
+            sb.Append("  --- frame coverage (this window) ---\n");
+            AppendValue(sb, "frames", frames.ToString());
+            AppendValue(sb, "frame_ms_avg", windowFrameMs.ToString("F2"));
+            AppendValue(sb, "profiled_ms_avg", profiledPerFrame.ToString("F2"));
+            AppendValue(sb, "unaccounted_ms_avg", (windowFrameMs - profiledPerFrame).ToString("F2"));
+        }
         sb.Append("  --- engine monitors (instantaneous) ---\n");
         AppendMonitor(sb, "fps", Godot.Performance.Monitor.TimeFps, "F1");
+        // Instantaneous budget for one RENDERED frame. Compare against
+        // process_ms + physics_process_ms; what's left is render submission /
+        // GPU / vsync. This is a single-frame sample and jitters — for anything
+        // window-scoped use frame_ms_avg in the coverage block above, which
+        // shares its denominator with the ms_frame column.
+        double fps = Godot.Performance.GetMonitor(Godot.Performance.Monitor.TimeFps);
+        double frameMs = fps > 0.0 ? 1000.0 / fps : 0.0;
+        sb.Append("  ").Append("frame_ms".PadRight(32)).Append(frameMs.ToString("F2").PadLeft(12)).Append('\n');
         AppendMonitor(sb, "process_ms", Godot.Performance.Monitor.TimeProcess, "F2", 1000.0);
         AppendMonitor(sb, "physics_process_ms", Godot.Performance.Monitor.TimePhysicsProcess, "F2", 1000.0);
         AppendMonitor(sb, "render_draw_calls", Godot.Performance.Monitor.RenderTotalDrawCallsInFrame, "F0");
         AppendMonitor(sb, "render_objects", Godot.Performance.Monitor.RenderTotalObjectsInFrame, "F0");
         AppendMonitor(sb, "render_primitives", Godot.Performance.Monitor.RenderTotalPrimitivesInFrame, "F0");
+        // Scene size. These do NOT appear in any C# section but the engine pays
+        // for them every frame: Godot walks the node tree to dispatch
+        // notifications and walks every VisualInstance3D to cull it, whether or
+        // not it ends up drawn. So a large node_count with a small
+        // render_objects means the frame is going into engine-side traversal of
+        // resident-but-invisible scene content — invisible to this profiler,
+        // and not fixable by optimizing any section below.
+        AppendMonitor(sb, "node_count", Godot.Performance.Monitor.ObjectNodeCount, "F0");
+        AppendMonitor(sb, "object_count", Godot.Performance.Monitor.ObjectCount, "F0");
+        AppendMonitor(sb, "orphan_node_count", Godot.Performance.Monitor.ObjectOrphanNodeCount, "F0");
         AppendMonitor(sb, "physics_active_objects", Godot.Performance.Monitor.Physics3DActiveObjects, "F0");
         AppendMonitor(sb, "physics_collision_pairs", Godot.Performance.Monitor.Physics3DCollisionPairs, "F0");
         AppendMonitor(sb, "physics_islands", Godot.Performance.Monitor.Physics3DIslandCount, "F0");
@@ -543,11 +672,12 @@ public static class Profiler
         sb.Append("  ").Append("fx_active".PadRight(32)).Append(Fx.ActiveCount.ToString().PadLeft(12)).Append('\n');
         sb.Append("  ").Append("fx_active_audio".PadRight(32)).Append(Fx.ActiveAudioCount.ToString().PadLeft(12)).Append('\n');
         sb.Append("  ").Append("fx_active_particles".PadRight(32)).Append(Fx.ActiveParticlesCount.ToString().PadLeft(12)).Append('\n');
-        // SharedWalkabilityCache hit/miss/size. A high hit ratio at swarm
-        // density is the whole point of the cache; if hits ≪ misses the
-        // quantum is too tight or mob profiles vary too much for sharing.
-        sb.Append("  ").Append("walkability_cache_hits".PadRight(32)).Append(SharedWalkabilityCache.HitsLatched.ToString().PadLeft(12)).Append('\n');
-        sb.Append("  ").Append("walkability_cache_misses".PadRight(32)).Append(SharedWalkabilityCache.MissesLatched.ToString().PadLeft(12)).Append('\n');
+        // SharedWalkabilityCache size. A high hit ratio at swarm density is the
+        // whole point of the cache; if hits ≪ misses the quantum is too tight
+        // or mob profiles vary too much for sharing. hits/misses ride the
+        // ordinary counter path below, so they honour the requested view — they
+        // used to print a latched value that only advanced while the F3 overlay
+        // was open, and so read 0 from every console `profile_dump`.
         sb.Append("  ").Append("walkability_cache_entries".PadRight(32)).Append(SharedWalkabilityCache.EntryCount.ToString().PadLeft(12)).Append('\n');
         // GC collections in the current window. Gen0 churn that climbs into
         // the dozens-per-window is the smoking gun for per-frame allocations
@@ -594,6 +724,49 @@ public static class Profiler
         }
     }
 
+    // Per-view accessors for the window-scoped aggregates. Latched reads the
+    // last full window; Cumulative folds the not-yet-latched live remainder in,
+    // matching how the section rows treat CumulativeTotal + Total.
+    private static int ViewFrames(View view) => view switch
+    {
+        View.Latched => _framesLatched,
+        View.Cumulative => _framesCumulative + _framesThisWindow,
+        _ => _framesThisWindow,
+    };
+
+    private static long ViewUnionTicks(View view) => view switch
+    {
+        View.Latched => _unionLatched,
+        View.Cumulative => _unionCumulative + _unionTotal,
+        _ => _unionTotal,
+    };
+
+    private static double ViewWindowSec(View view)
+    {
+        if (view == View.Latched)
+        {
+            // Every section latches the same window length; take the first
+            // non-zero one rather than storing a duplicate copy.
+            for (int i = 0; i < _sections.Count; i++)
+            {
+                if (_sections[i].LatchedWindowSec > 0.0)
+                {
+                    return _sections[i].LatchedWindowSec;
+                }
+            }
+            return 0.0;
+        }
+        long startTicks = view == View.Cumulative ? _manualWindowStartTicks : _windowStartTicks;
+        return startTicks == 0L
+            ? 0.0
+            : (Stopwatch.GetTimestamp() - startTicks) / (double)Stopwatch.Frequency;
+    }
+
+    private static void AppendValue(StringBuilder sb, string label, string value)
+    {
+        sb.Append("  ").Append(label.PadRight(32)).Append(value.PadLeft(12)).Append('\n');
+    }
+
     private static void AppendMonitor(StringBuilder sb, string label, Godot.Performance.Monitor m, string fmt, double scale = 1.0)
     {
         double v = Godot.Performance.GetMonitor(m) * scale;
@@ -618,6 +791,12 @@ public static class Profiler
             _counters[_counterNames[i]] = 0;
             _cumulativeCounters[_counterNames[i]] = 0;
         }
+        _unionTotal = 0;
+        _unionCumulative = 0;
+        _unionStartTicks = 0L;
+        _sectionDepth = 0;
+        _framesThisWindow = 0;
+        _framesCumulative = 0;
         long now = Stopwatch.GetTimestamp();
         _windowGcBaseline0 = System.GC.CollectionCount(0);
         _windowGcBaseline1 = System.GC.CollectionCount(1);

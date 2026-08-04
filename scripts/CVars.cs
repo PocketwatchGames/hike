@@ -389,10 +389,10 @@ public static class CVars
         Godot.GD.Print($"    airTemperature = {w.airTemperature:F1}°F");
 
         // FOG breakdown — the values that actually drive the volumetric
-        // shader, plus the night-dimming diagnostic. fogPhaseScale is
-        // SUPPOSED to dim fog at night, but it's fed p.PrimaryIntensity
-        // (sun-side only, never drops at night), so this shows whether
-        // night fog is rendering at full daytime density.
+        // shader, plus the night-dimming diagnostic. fogPhaseScale is fed
+        // p.PrimaryIntensity, which is sun-side: it only drops after sunset
+        // via the nightfall SkyLight scale, not from the day→night blend.
+        // This shows how close night fog still is to full daytime density.
         DerivedPalette pal = sky.Palette;
         float fogIntensityReference = simData.fogIntensityReference;
         float fogIntensityFloor = simData.fogIntensityFloor;
@@ -436,6 +436,8 @@ public static class CVars
         Godot.GD.Print($"  FOG NIGHT-DIMMING DIAGNOSTIC:");
         Godot.GD.Print($"    PrimaryIntensity (sun-side, used now) = {pal.PrimaryIntensity:F3}");
         Godot.GD.Print($"    NightPrimaryIntensity / NightT        = {pal.NightPrimaryIntensity:F3} / {pal.NightT:F3}");
+        Godot.GD.Print($"    SkyLight (nightfall, 1=sunset 0=midnight) = {pal.SkyLight:F3}");
+        Godot.GD.Print($"    Illumination (0 = no light in open air)    = {pal.Illumination:F3}   (scales fog_color)");
         Godot.GD.Print($"    fogPhaseScale  CURRENT = {curPhaseScale:F3}   (1.0 = no night dimming)");
         Godot.GD.Print($"    fogPhaseScale  IF FIXED= {fixPhaseScale:F3}   (would scale fog by this/{curPhaseScale:F3} = {(curPhaseScale > 0 ? fixPhaseScale / curPhaseScale : 1f):F2}×)");
 
@@ -682,6 +684,22 @@ public static class CVars
         Profiler.DumpAndReset();
     });
 
+    // Console action: walks the whole scene tree and prints what the resident
+    // nodes are, bucketed by subtree / source scene / class, with the columns
+    // that actually cost frame time (nodes in the process lists, culled
+    // VisualInstance3Ds, Jolt colliders). Explains the gap between the F3
+    // overlay's node_count and render_objects.
+    public static CVar nodeCensus = new CVar("node_census", (cvar) =>
+    {
+        NodeCensus.Run();
+    });
+
+    // Seconds after the game scene starts at which to auto-run `node_census`
+    // once. 0 = never. Exists so a headless run (which has no console) can
+    // capture a census once the world has settled:
+    //   -- "autostart 1" "node_census_delay 20"
+    public static CVarFloat nodeCensusDelay = new CVarFloat("node_census_delay", 0f);
+
     // Console action: prints the active Fx instance count broken down by
     // source scene. Pair with the `fx_active` engine monitor to identify
     // which scenes account for the headline number — climbing per-scene
@@ -727,10 +745,34 @@ public static class CVars
     //                 doubles as a shadow-pass draw call).
     public static CVarBool mobShadows = new CVarBool("mob_shadows", true);
 
-    // mob_physics 0 → every Mob freezes and its CollisionLayer/Mask go to 0,
-    //                 so the broadphase and contact resolver see nothing. If
-    //                 _PhysicsProcess time collapses, Jolt is the cost.
+    // mob_physics 0 → every Mob freezes, its CollisionLayer/Mask go to 0 (so
+    //                 the broadphase and contact resolver see nothing), AND its
+    //                 C# _PhysicsProcess tick is skipped. This is the "mobs cost
+    //                 nothing" floor — it does NOT on its own tell you whether
+    //                 the cost was Jolt or C#. Pair it with mob_ai below.
     public static CVarBool mobPhysics = new CVarBool("mob_physics", true);
+
+    // mob_ai 0 → skip only the C# half of Mob._PhysicsProcess (perception,
+    //            status/environment ticks, TickAI, the action runner, steering,
+    //            animation) while leaving the RigidBody live and unfrozen in
+    //            Jolt. This is the finer half of the mob bisection; the two
+    //            toggles decompose mob cost:
+    //
+    //              baseline    - (mob_ai 0)      = C# per-mob tick cost
+    //              (mob_ai 0)  - (mob_physics 0) = Jolt body cost
+    //
+    //            Caveat: with AI off nothing commands the mobs, so Jolt sleeps
+    //            most of them within a second or two. The Jolt number this
+    //            yields is the resting-body floor, not the cost of a moving
+    //            crowd — read it as a lower bound.
+    public static CVarBool mobAI = new CVarBool("mob_ai", true);
+
+    // mob_cold_tick 0 → every mob runs its full upkeep every physics tick,
+    //                   disabling the distance-based cold band
+    //                   (SimData.mobColdTickDistance). Bisection toggle for
+    //                   measuring what the LOD is actually worth, and the first
+    //                   thing to flip if a distant mob misbehaves.
+    public static CVarBool mobColdTick = new CVarBool("mob_cold_tick", true);
 
     // mob_visible 0 → every Mob's mesh subtree is hidden (visible = false).
     //                 The sprite, its shadow proxy, water reflection child,
@@ -794,6 +836,24 @@ public static class CVars
     //                  audio vs particles.
     public static CVarBool fxParticles = new CVarBool("fx_particles", true);
 
+    // skeleton_internal 0 → SetProcessInternal(false) on every Skeleton3D in the
+    //                       tree. Skeleton3D does its per-frame pose/skin work on
+    //                       Godot's INTERNAL process channel, which no
+    //                       Profiler.Sample can wrap and which IsProcessing()
+    //                       doesn't even report — so it lands in process_ms as
+    //                       unaccounted time and the only way to size it is to
+    //                       switch it off and read the delta. Expect poses to
+    //                       freeze while it's off; that IS the tell that the work
+    //                       is real. Purely a bisection toggle — the fix, if this
+    //                       measures big, is to gate skeletons the way
+    //                       mob_anim_cull already gates AnimationPlayers (139
+    //                       resident mobs, only ~2 animating, yet 119 skeletons
+    //                       were still ticking internally).
+    public static CVarBool skeletonInternal = new CVarBool("skeleton_internal", true, (cvar) =>
+    {
+        SkeletonProbe.SetInternalProcessing(((CVarBool)cvar).Value);
+    });
+
     // motes 0 → the camera-parented dust-mote GpuParticles3D (MoteEffect,
     //           scenes/fx/motes.tscn, 4000 particles) hides itself, so
     //           the renderer skips its per-particle simulation + draw-pass
@@ -813,6 +873,11 @@ public static class CVars
     //                        but this toggle stays so you can still
     //                        attribute frame time to the reflection path
     //                        without recompiling).
+    //                        This is the CPU gate — no node, no lookup. Its
+    //                        pair `sprite_reflection_visible` is the RENDER gate
+    //                        (nodes and per-frame work stay, the tint goes to
+    //                        zero so they draw invisible). Use this one to
+    //                        measure CPU cost, that one to kill the look.
     public static CVarBool spriteReflections = new CVarBool("sprite_reflections", true);
 
     // props_visible 0 → every PropInstance in the world hides itself.
@@ -1183,6 +1248,27 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("block_light_shadow_enabled", ((CVarBool)cvar).Value);
     });
 
+    // cap_mask_pass 0 / outline_mask_pass 0 -> stop the matching off-screen
+    // SubViewport rendering (UpdateMode.Disabled). Both otherwise run
+    // UpdateMode.Always, so each is a FULL scene cull every frame across every
+    // VisualInstance3D in the world — the same population the main camera culls,
+    // paid again per pass. The outline mask normally has nothing in it (only a
+    // highlighted interactive's meshes join OutlineMaskLayer), so it is pure
+    // overhead most frames.
+    //
+    // Expect breakage while off: the ceiling cutaway freezes on a stale mask and
+    // the selection outline disappears. These size the pass; they are not
+    // ship-off switches. Pair with block_light_shadow / ground_stain to bisect
+    // the whole off-screen-pass budget against frame_ms_avg.
+    public static CVarBool capMaskPass = new CVarBool("cap_mask_pass", true, (cvar) =>
+    {
+        GameClient.Current?.camera?.SetCapMaskPassEnabled(((CVarBool)cvar).Value);
+    });
+    public static CVarBool outlineMaskPass = new CVarBool("outline_mask_pass", true, (cvar) =>
+    {
+        GameClient.Current?.camera?.SetOutlineMaskPassEnabled(((CVarBool)cvar).Value);
+    });
+
     // ground_stain 0 -> the GroundStainProjector stops rendering and the lit
     // ground shaders branch around the stain sample, so scorch/footprint/blood
     // marks vanish and terrain renders byte-identical to pre-feature. Perf
@@ -1283,14 +1369,17 @@ public static class CVars
     // no effect on particles.
     public static CVarFloat particleWindStrength = new CVarFloat("particle_wind_strength", 0.15f);
 
-    // Disable all sprite-based water reflections (the flipped child sprites
-    // LitSprite spawns under water surfaces). Doesn't tear down the
-    // reflection nodes — just zeroes the global reflection_tint that
-    // sprite_reflection.gdshader multiplies the output by, so reflections
-    // collapse to black/invisible. Set back to false to restore. Useful
-    // for measuring perf cost of reflections, isolating render bugs, or as
-    // a low-end graphics setting.
-    public static CVarBool spriteReflectionsDisabled = new CVarBool("sprite_reflections_disabled", false, (cvar) =>
+    // sprite_reflection_visible 0 → the global reflection_tint that
+    //                            sprite_reflection.gdshader multiplies its
+    //                            output by goes to zero, so sprite-based water
+    //                            reflections draw invisible. The reflection
+    //                            nodes and their per-frame update still exist
+    //                            and still cost CPU — this is the RENDER gate,
+    //                            matching mob_visible / props_visible. Use
+    //                            `sprite_reflections` (above) for the CPU gate
+    //                            that skips the work entirely. Useful for
+    //                            isolating render bugs or as a low-end setting.
+    public static CVarBool spriteReflectionVisible = new CVarBool("sprite_reflection_visible", true, (cvar) =>
     {
         // The actual reflection_tint value is pushed every frame by
         // SkyController.Apply(); checking this flag there gates the push.

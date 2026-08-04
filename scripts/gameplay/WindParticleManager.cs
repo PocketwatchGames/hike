@@ -112,6 +112,8 @@ public partial class WindParticleManager : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("WindParticleManager.Process");
+
         float dt = (float)delta;
         SkyController sky = SkyController.Current;
         Sim sim = Sim.Current;

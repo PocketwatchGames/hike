@@ -99,7 +99,7 @@ _brightness = 0.8
 _flicker = true
 _flickerMin = 0.6
 _flickerMax = 1.0
-_flickerHz = 10.0
+_flickerHz = 6.0
 _fadeInDuration = 0.6
 _fadeOutDuration = 1.2
 

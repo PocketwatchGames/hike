@@ -283,6 +283,13 @@ public class MobSimState : EntitySimState
     public const float PerceptionTickInterval = 0.1f;
     public float PerceptionTickAccumulator;
 
+    // Cold-band upkeep accumulator (see SimData.mobColdTickDistance). Holds the
+    // delta skipped since this mob's last cold tick; the subsystems are handed
+    // the accumulated value so rate-based effects still integrate correctly.
+    // Seeded with a random offset at construction, like the perception and
+    // light accumulators, so 139 mobs don't all fall due on the same frame.
+    public float ColdTickAccumulator;
+
     // Cached environment-light readings, refreshed every LightSampleInterval.
     // SkyBrightness is the time-of-day / storm-scaled primary intensity (the
     // sun "is dim because it's stormy or nighttime" signal). SunExposure is
@@ -341,6 +348,17 @@ public class MobSimState : EntitySimState
         MemoryTimeMs = 0;
         PerceptionTickAccumulator = (float)GD.RandRange(0.0, PerceptionTickInterval);
         LightSampleAccumulator = (float)GD.RandRange(0.0, LightSampleInterval);
+        ColdTickAccumulator = (float)GD.RandRange(0.0, 0.2);
+    }
+
+    // The spawn transform is a second authored transform, so a rotated subscene
+    // has to turn it too — otherwise a mob stamped at a rotation walks back to
+    // where its spawn anchor sat before the scene was turned.
+    public override void RotateQuarterTurns(int quarterTurns, System.Func<Vector3, Vector3> mapPosition)
+    {
+        base.RotateQuarterTurns(quarterTurns, mapPosition);
+        SpawnPosition = mapPosition(SpawnPosition);
+        SpawnRotationY = Mathf.Wrap(SpawnRotationY + quarterTurns * Mathf.Pi * 0.5f, -Mathf.Pi, Mathf.Pi);
     }
 
     public override bool ShouldSpawn(Sim sim)

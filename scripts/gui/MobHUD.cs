@@ -57,20 +57,34 @@ public partial class MobHUD : Node2D
 	// only. Companions, villagers, and prey never surface them. Fixed at spawn.
 	bool _showLevelPips;
 
-	public static void Create(PackedScene scene, Camera3D camera, Mob mob, Node parent)
+	// Pooled by MobHudManager: a HUD is instantiated once, then Bind/Unbind
+	// re-point it at whichever mob currently needs one. Ticking is driven by the
+	// manager (see Tick) rather than by an own _Process, so idle pool entries
+	// cost the engine nothing.
+	// The scene this instance came from, so the pool can file it back under the
+	// right key after the mob it was serving is gone.
+	public PackedScene SourceScene { get; private set; }
+
+	public static MobHUD Create(PackedScene scene, Camera3D camera, Node parent)
 	{
 		var hud = scene.Instantiate<MobHUD>();
-		hud.Init(camera, mob, parent);
-	}
-
-	void Init(Camera3D camera, Mob mob, Node parent)
-	{
-		_camera = camera;
-		_mob = mob;
+		hud.SourceScene = scene;
+		hud._camera = camera;
+		hud.SetProcess(false);
+		hud.Visible = false;
 		if (parent != null)
 		{
-			parent.AddChild(this);
+			parent.AddChild(hud);
 		}
+		return hud;
+	}
+
+	// Per-mob setup. Everything here is fixed for as long as this HUD follows
+	// that mob (badge, pip count, pip layout); the per-frame work is in Tick.
+	public void Bind(Mob mob)
+	{
+		_mob = mob;
+		Visible = true;
 		// Badge the health bar with the mob's marker icon, authored on its
 		// MobDescriptor (MobDescriptor.badge). Fixed at spawn, so resolve the
 		// texture + visibility once here rather than per frame; the icon then
@@ -109,12 +123,32 @@ public partial class MobHUD : Node2D
 		{
 			_levelContainer.Visible = false;
 		}
-		_mob.TreeExiting += QueueFree;
 		_curScale = 0f;
 		_curAlpha = 0f;
 		_bars.Visible = false;
 		_bars.Scale = Vector2.Zero;
 		_bars.Modulate = new Color(1f, 1f, 1f, 0f);
+	}
+
+	// Return to the pool. Status icons are per-mob, so they're freed rather than
+	// carried to whatever mob this HUD is bound to next; the strip rebuilds (with
+	// its intro animation) if the same mob comes back into view.
+	public void Unbind()
+	{
+		foreach (var kv in _statusEffectIcons)
+		{
+			kv.Value.QueueFree();
+		}
+		_statusEffectIcons.Clear();
+		_mob = null;
+		Visible = false;
+		_curScale = 0f;
+		_curAlpha = 0f;
+		_bars.Visible = false;
+		if (_levelContainer != null)
+		{
+			_levelContainer.Visible = false;
+		}
 	}
 
 	// Spreads the `count` visible pips evenly across a downward arc, centered on
@@ -148,7 +182,11 @@ public partial class MobHUD : Node2D
 		}
 	}
 
-	public override void _Process(double delta)
+	// Driven by MobHudManager, not by the engine. Returns whether this HUD still
+	// has something on screen (including a bar mid-fade-out) — the manager keeps
+	// the lease alive until this goes false, so a HUD that stops qualifying fades
+	// out rather than popping.
+	public bool Tick(double delta)
 	{
 		using var _prof = Profiler.Sample("MobHUD.Process");
 		Vector3 worldPosition = _mob.hudAnchor != null ? _mob.hudAnchor.GlobalPosition : _mob.GlobalPosition;
@@ -219,7 +257,7 @@ public partial class MobHUD : Node2D
 			{
 				_levelContainer.Visible = false;
 			}
-			return;
+			return false;
 		}
 
 		bool stateHidden = !_mob.alive || _mob.playerPerceptionState == EPlayerPerceptionState.Hidden;
@@ -337,7 +375,9 @@ public partial class MobHUD : Node2D
 			_curScale = 0f;
 			_curAlpha = 0f;
 			_bars.Visible = false;
-			return;
+			// No bar, but the status strip and the debug readout are independent
+			// of the bar fade — the lease has to outlive them too.
+			return statusStripShowing || showDebug;
 		}
 
 		_bars.Visible = true;
@@ -363,6 +403,7 @@ public partial class MobHUD : Node2D
 		{
 			_discoveryBar.Value = _mob.discoveryProgress;
 		}
+		return true;
 	}
 
 	// Per-instance icon strip: one StatusEffectIcon per StatusEffectState on

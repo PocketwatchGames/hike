@@ -759,6 +759,10 @@ cloud_shadow_strength={
 "type": "float",
 "value": 1.0
 }
+cloud_shadow_sky_cover={
+"type": "float",
+"value": 0.25
+}
 sky_night_factor={
 "type": "float",
 "value": 0.0

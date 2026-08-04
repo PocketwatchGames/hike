@@ -42,6 +42,13 @@ public partial class ContinuousDamageData : Resource
 	// physics delta when the zone fires its per-frame tick.
 	[Export] public float healthDamage = 0f;
 
+	// Non-null marks this as environmental-hazard damage: `healthDamage` is IGNORED
+	// and the zone's dps resolves from the profile's damage band as a fraction of
+	// the receiver's max health per second (HitInfo.ApplyHazardScaling). The same
+	// profile bands the proc rate and DoT of anything in `buildups`. Null =
+	// ordinary flat dps.
+	[Export] public HazardProfileData hazardProfile;
+
 	// Fraction of per-frame damage that bypasses armor and lands on health.
 	// Differs from DamageData.armorPenetration (chance-based) — continuous damage
 	// spreads the bypass across time instead of rolling per hit. Default 1

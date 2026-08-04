@@ -166,6 +166,64 @@ public partial class GameCamera : Camera3D
 	// doesn't see the mask geometry; the SubViewport camera's cull_mask
 	// is bit 1 ONLY so it sees nothing else.
 	public const uint MainSceneLayer = 1u << 0;
+	// Perf bisection: switch either off-screen mask pass off entirely. Both run
+	// UpdateMode.Always, so each is a full scene cull every frame over every
+	// VisualInstance3D in the world — and the outline mask usually has nothing in
+	// it at all. Disabling breaks the effect it feeds (the ceiling cutaway goes
+	// stale, the selection outline vanishes); that is expected, these exist to
+	// size the pass, not to ship off. Driven by the cap_mask_pass /
+	// outline_mask_pass cvars.
+	public void SetCapMaskPassEnabled(bool enabled)
+	{
+		if (_capMaskViewport != null)
+		{
+			_capMaskViewport.RenderTargetUpdateMode = enabled
+				? SubViewport.UpdateMode.Always
+				: SubViewport.UpdateMode.Disabled;
+		}
+	}
+
+	public void SetOutlineMaskPassEnabled(bool enabled)
+	{
+		_outlineMaskPassAllowed = enabled;
+		RefreshOutlineMaskUpdateMode();
+	}
+
+	// The outline pass only ever contains a highlighted interactive's meshes, so
+	// on the overwhelming majority of frames it culls the whole world to draw
+	// nothing — measured at ~1.9 ms/frame, the most expensive of the four
+	// off-screen passes despite drawing the least (the cost is per-pass overhead:
+	// render-target bind, clear, pipeline setup). GameClient tells us when an
+	// interactive is outlined and we run the pass only then.
+	public void SetOutlineMaskActive(bool active)
+	{
+		_outlineMaskActive = active;
+		RefreshOutlineMaskUpdateMode();
+	}
+
+	private bool _outlineMaskPassAllowed = true;
+	private bool _outlineMaskActive;
+
+	private void RefreshOutlineMaskUpdateMode()
+	{
+		if (_outlineMaskViewport == null)
+		{
+			return;
+		}
+		if (!_outlineMaskPassAllowed)
+		{
+			_outlineMaskViewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Disabled;
+			return;
+		}
+		// Once (not Disabled) when going idle: Godot renders exactly one more
+		// frame — now empty — and then stops. Skipping that frame would freeze the
+		// LAST outline in the render target, leaving a ghost outline on screen
+		// after the player looks away.
+		_outlineMaskViewport.RenderTargetUpdateMode = _outlineMaskActive
+			? SubViewport.UpdateMode.Always
+			: SubViewport.UpdateMode.Once;
+	}
+
 	public const uint CapMaskLayer = 1u << 1;
 	// Selection-outline mask layer (bit 2, layer 3). A highlighted interactive's
 	// meshes are temporarily ADDED to this layer (in addition to MainSceneLayer)
@@ -349,7 +407,9 @@ public partial class GameCamera : Camera3D
 		_outlineMaskViewport = new SubViewport();
 		_outlineMaskViewport.OwnWorld3D = false;
 		_outlineMaskViewport.HandleInputLocally = false;
-		_outlineMaskViewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
+		// Starts idle — GameClient flips it Always via SetOutlineMaskActive the
+		// moment an interactive is outlined. See RefreshOutlineMaskUpdateMode.
+		_outlineMaskViewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Once;
 		_outlineMaskViewport.RenderTargetClearMode = SubViewport.ClearMode.Always;
 		_outlineMaskViewport.TransparentBg = true;
 		_outlineMaskViewport.Disable3D = false;

@@ -76,6 +76,9 @@ public partial class Player : CharacterBody3D
 	// without each call site re-asking.
 	private void ApplyResistance(ref HitInfo hit)
 	{
+		// Environmental hazards deal a band of max health rather than a flat number
+		// — convert first so everything below scales the percent-derived damage.
+		hit.ApplyHazardScaling(MaxHealth, _world?.SimData);
 		// General defensive-level resistance (Armor forge upgrade), applied to all
 		// incoming damage regardless of tag — the damage counterpart of the combat-
 		// buildup resist in StatusEffectController. Ahead of the tags==None guard so

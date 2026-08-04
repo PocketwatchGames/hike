@@ -1,3 +1,4 @@
+using System;
 using Godot;
 
 // Persistent simulation state for an entity. Lives in WorldState across save/load
@@ -39,6 +40,23 @@ public abstract class EntitySimState
         node.Position = WorldPosition;
         Vector3 rotation = node.Rotation;
         node.Rotation = new Vector3(rotation.X, RotationY, rotation.Z);
+    }
+
+    // Turns this state's authored transform by `quarterTurns` × 90° about +Y,
+    // for a subscene stamped at a rotation (see SubsceneRotator). `mapPosition`
+    // carries the whole position mapping — the turn plus the re-origining that
+    // keeps the scene's box at its corner — so an override never does the math
+    // itself, it just routes each position it owns through the map. The base
+    // covers WorldPosition and RotationY; override for any OTHER position or
+    // facing a state stores, and call base.
+    //
+    // Nothing that derives its shape from RotationY needs an override: a roof's
+    // footprint, a door's occluder column and every seated model already read
+    // the rotation back out.
+    public virtual void RotateQuarterTurns(int quarterTurns, Func<Vector3, Vector3> mapPosition)
+    {
+        WorldPosition = mapPosition(WorldPosition);
+        RotationY = Mathf.Wrap(RotationY + quarterTurns * Mathf.Pi * 0.5f, -Mathf.Pi, Mathf.Pi);
     }
 
     // Returns null if this sim state should not materialize an entity right now

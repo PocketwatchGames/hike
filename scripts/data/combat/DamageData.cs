@@ -36,6 +36,13 @@ public partial class DamageData : Resource
 
 	[Export] public float healthDamage = 0f;
 
+	// Non-null marks this as environmental-hazard damage: `healthDamage` is IGNORED
+	// and the hit's damage, status proc rate, and applied-DoT rate all resolve from
+	// the profile's bands against the receiver's max health (folded receiver-side
+	// ahead of resistances — see HitInfo.ApplyHazardScaling). Null = ordinary flat
+	// damage.
+	[Export] public HazardProfileData hazardProfile;
+
 	// Multiplier converting this hit's health damage into aggro on the receiver
 	// (and, when the receiver is the player, relayed onto their companion). A
 	// mob's target selection favors whoever has accrued the most aggro, so a

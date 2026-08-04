@@ -629,6 +629,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // already set doesn't trigger a spurious transition on first tick.
     private bool _lastMobPhysicsCvar = true;
 
+    // Last loop name resolved by UpdateAnimation and whether the animator
+    // actually has it — see the HasAnimation note at that call site.
+    private StringName _lastLoopName;
+    private bool _lastLoopNamePlayable;
+
     // Latched one-shot animation. Same model as Player: PlayOneShot pins the
     // animator on a non-looping clip; UpdateAnimation defers the loop pick
     // until the animator's Finished flips. Behaviors emit via
@@ -1228,16 +1233,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // variant's own modifiers, and active status-effect modifiers. Mobs don't
     // currently equip armor, so the shape is two source lists (the base MobData
     // and the SpeciesData variant) + the controller's contribution.
+    // Both sources read through their resource-owned managed mirrors — see
+    // MobData.ModifiersFlat. Nothing is cached per mob: 139 mobs sharing five
+    // MobData assets should share five flattened arrays, not allocate their own.
     public float ComposeStat(EStat stat)
     {
         float value = StatModifierUtil.NeutralValue(stat);
-        if (mobData?.modifiers != null)
+        MobData md = mobData;
+        if (md != null)
         {
-            value = StatModifierUtil.Fold(stat, mobData.modifiers, value);
+            value = StatModifierUtil.Fold(stat, md.ModifiersFlat, value);
         }
-        if (_simState?.Species?.modifiers != null)
+        SpeciesData species = _simState?.Species;
+        if (species != null)
         {
-            value = StatModifierUtil.Fold(stat, _simState.Species.modifiers, value);
+            value = StatModifierUtil.Fold(stat, species.ModifiersFlat, value);
         }
         value = _statusEffects?.FoldStat(stat, value) ?? value;
         return value;
@@ -1249,13 +1259,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float ComposeMaskMul(EStat mask)
     {
         float product = 1f;
-        if (mobData?.modifiers != null)
+        MobData md = mobData;
+        if (md != null)
         {
-            product = StatModifierUtil.FoldMask(mask, mobData.modifiers, product);
+            product = StatModifierUtil.FoldMask(mask, md.ModifiersFlat, product);
         }
-        if (_simState?.Species?.modifiers != null)
+        SpeciesData species = _simState?.Species;
+        if (species != null)
         {
-            product = StatModifierUtil.FoldMask(mask, _simState.Species.modifiers, product);
+            product = StatModifierUtil.FoldMask(mask, species.ModifiersFlat, product);
         }
         product = _statusEffects?.FoldMask(mask, product) ?? product;
         // Per-species Dizzy resistance (MobData.dizzyResistance). The buildup
@@ -1277,6 +1289,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Player-side ApplyResistance shape.
     private void ApplyResistance(ref HitInfo hit)
     {
+        // Environmental hazards deal a band of max health rather than a flat number
+        // — convert first so everything below scales the percent-derived damage.
+        hit.ApplyHazardScaling(maxHealth, _world?.SimData);
         // General per-level defensive resistance (mob Level), applied to all incoming
         // damage regardless of tag — mirrors the player's Armor-upgrade resist and the
         // combat-buildup resist in StatusEffectController. Ahead of the tags==None
@@ -1345,21 +1360,23 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     //     player-side — you can't see where it really is.
     //   - above the camera's ceiling clip (an upper floor cut away by the
     //     cutaway) — camera.Clip is +inf outdoors, so this only bites indoors.
-    public bool ShowsHudFeedback
+    public bool ShowsHudFeedback => ShowsHudFeedbackAt(hudPosition);
+
+    // Same gate against an already-resolved hud position. `hudPosition` walks a
+    // node transform, so callers that also need the position pass it in rather
+    // than resolving it twice.
+    public bool ShowsHudFeedbackAt(Vector3 hudPos)
     {
-        get
+        if (_mesh == null || !_mesh.Visible)
         {
-            if (_mesh == null || !_mesh.Visible)
-            {
-                return false;
-            }
-            if (!Teams.AreAllied(ActorTeam, ETeam.Player) && !playerCanSee)
-            {
-                return false;
-            }
-            float clip = GameClient.Current?.camera?.Clip ?? float.PositiveInfinity;
-            return hudPosition.Y < clip;
+            return false;
         }
+        if (!Teams.AreAllied(ActorTeam, ETeam.Player) && !playerCanSee)
+        {
+            return false;
+        }
+        float clip = GameClient.Current?.camera?.Clip ?? float.PositiveInfinity;
+        return hudPos.Y < clip;
     }
 
     public bool CanInteract()
@@ -1819,7 +1836,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             loopName = _simState.IdleAnimation;
         }
-        if (loopName != default && _animator.HasAnimation(loopName))
+        // HasAnimation is a string-keyed lookup through the AnimationPlayer's
+        // libraries — a marshaled call that answers the same thing every tick,
+        // since a mob's animation set is fixed once its model is bound. Cache
+        // the answer per resolved name. Play() itself still runs every tick: it
+        // no-ops internally on an unchanged clip, but must stay outside this
+        // gate so a one-shot that stole CurrentAnimation resumes the loop when
+        // it ends.
+        if (loopName != _lastLoopName)
+        {
+            _lastLoopName = loopName;
+            _lastLoopNamePlayable = loopName != default && _animator.HasAnimation(loopName);
+        }
+        if (_lastLoopNamePlayable)
         {
             _animator.Play(loopName);
         }
@@ -2798,25 +2827,71 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
 
-        using (Profiler.Sample("Mob.UpdateTerrainSpeed"))
+        // mob_ai is the finer half of the same bisection: skip the C# tick
+        // below but leave the body live in Jolt, so the frame-time delta from
+        // here attributes to C# and the remaining delta down to mob_physics 0
+        // attributes to Jolt. See the CVar comment for the arithmetic.
+        if (!CVars.mobAI.Value)
         {
-            UpdateTerrainSpeed((float)delta);
+            return;
         }
 
-        using (Profiler.Sample("Mob.UpdateWaterRipples"))
+        // Distance tick-LOD ("cold band"). A mob far from the player and not
+        // engaging drops its rate-based upkeep to mobColdTickIntervalSeconds.
+        // Every skipped tick's delta accumulates and is handed to those
+        // subsystems when they do run (coldDt), so anything integrating a rate —
+        // status timers, DoT, wetness, sunburn, safe-zone heal — reaches the
+        // same totals; only the granularity coarsens. Animation, steering,
+        // perception and the action runner stay hot: a mob past this distance
+        // can still be on screen, and throttling those reads as stutter.
+        float coldDt = (float)delta;
+        bool runCold = true;
+        if (CVars.mobColdTick.Value && !IsEngaging && _world?.player != null)
         {
-            UpdateWaterRipples();
+            SimData coldSimData = _world.SimData;
+            float coldDistance = coldSimData?.mobColdTickDistance ?? 30f;
+            if (coldDistance > 0f
+                && GlobalPosition.DistanceSquaredTo(_world.player.GlobalPosition) > coldDistance * coldDistance)
+            {
+                _simState.ColdTickAccumulator += (float)delta;
+                float coldInterval = coldSimData?.mobColdTickIntervalSeconds ?? 0.133f;
+                if (_simState.ColdTickAccumulator < coldInterval)
+                {
+                    runCold = false;
+                }
+                else
+                {
+                    coldDt = _simState.ColdTickAccumulator;
+                    _simState.ColdTickAccumulator = 0f;
+                }
+            }
         }
-        using (Profiler.Sample("Mob.UpdateFootsteps"))
+
+        if (runCold)
         {
-            UpdateFootsteps();
+            using (Profiler.Sample("Mob.UpdateTerrainSpeed"))
+            {
+                UpdateTerrainSpeed(coldDt);
+            }
+
+            using (Profiler.Sample("Mob.UpdateWaterRipples"))
+            {
+                UpdateWaterRipples();
+            }
+            using (Profiler.Sample("Mob.UpdateFootsteps"))
+            {
+                UpdateFootsteps();
+            }
         }
 
         // Keep the spatial hash up-to-date for the navigator's separation
         // query and any other neighbor-radius lookup. Update() short-
         // circuits when the mob hasn't crossed a cell boundary, so this is
         // effectively free for idle mobs.
-        _world?.MobSpatialHash?.Update(this);
+        using (Profiler.Sample("Mob.SpatialHash"))
+        {
+            _world?.MobSpatialHash?.Update(this);
+        }
 
         // Perception is throttled — accumulate delta and only run when the
         // interval is reached, so per-mob raycast cost stays low at density.
@@ -2862,27 +2937,44 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
         if (alive)
         {
-            TickArmor((float)delta);
-            _statusEffects.Tick((float)delta);
-            // A +MaxHealth buff expiring (processed in the status tick above)
-            // shrinks the live cap; clamp current health down so it can't sit
-            // above max. Increases leave health alone — heals own the climb,
-            // mirroring the armor clamp in TickArmor.
-            if (health > maxHealth)
+            if (runCold)
             {
-                health = maxHealth;
+                using (Profiler.Sample("Mob.StatusTick"))
+                {
+                    TickArmor(coldDt);
+                    _statusEffects.Tick(coldDt);
+                    // A +MaxHealth buff expiring (processed in the status tick above)
+                    // shrinks the live cap; clamp current health down so it can't sit
+                    // above max. Increases leave health alone — heals own the climb,
+                    // mirroring the armor clamp in TickArmor.
+                    if (health > maxHealth)
+                    {
+                        health = maxHealth;
+                    }
+                    // Gated so the hud position + visibility gate are only resolved
+                    // on the ~1Hz flush tick, not every physics tick.
+                    ulong dotNowMs = _world?.GameTimeMs ?? 0;
+                    DotHudFlush dotFlush = default;
+                    if (_dotHud.WantsTick(dotNowMs))
+                    {
+                        Vector3 dotHudPos = hudPosition;
+                        dotFlush = _dotHud.Tick(dotNowMs, dotHudPos, ShowsHudFeedbackAt(dotHudPos));
+                    }
+                    if (dotFlush.damage)
+                    {
+                        // Continuous damage authors no per-frame fx; its "ouch" rides
+                        // on the once-per-second HUD rollup instead.
+                        SpawnVoice(_voice?.hurt);
+                    }
+                }
+                using (Profiler.Sample("Mob.EnvironmentTick"))
+                {
+                    UpdateWaterState();
+                    UpdateMobWet(coldDt);
+                    TickSunburn(coldDt);
+                    TickSafeZoneHeal(coldDt);
+                }
             }
-            DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, hudPosition, ShowsHudFeedback);
-            if (dotFlush.damage)
-            {
-                // Continuous damage authors no per-frame fx; its "ouch" rides
-                // on the once-per-second HUD rollup instead.
-                SpawnVoice(_voice?.hurt);
-            }
-            UpdateWaterState();
-            UpdateMobWet((float)delta);
-            TickSunburn((float)delta);
-            TickSafeZoneHeal((float)delta);
             _exitingWater = false;
             // Engine gravity is owned by ApplyWaterPhysics while swimming —
             // disable Godot's default gravity application on this body so
@@ -2945,7 +3037,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 SpawnWorldEffect(_dashFx);
             }
-            _runner?.Tick();
+            using (Profiler.Sample("Mob.ActionRunner"))
+            {
+                _runner?.Tick();
+            }
 
             // Draw the mob's active movement target when the debug CVar is on.
             // Single-frame lifetime — this is called every physics tick so

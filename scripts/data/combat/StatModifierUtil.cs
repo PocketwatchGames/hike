@@ -71,7 +71,10 @@ public static class StatModifierUtil
 			return running;
 		}
 		bool additive = IsAdditive(stat);
-		for (int i = 0; i < entries.Count; i++)
+		// Count is a native call — hoist it, or the loop crosses the managed/
+		// native boundary twice per element instead of once.
+		int count = entries.Count;
+		for (int i = 0; i < count; i++)
 		{
 			StatModifier m = entries[i];
 			if (m == null || m.stat != stat)
@@ -90,6 +93,78 @@ public static class StatModifierUtil
 		return running;
 	}
 
+	// Copy an authored modifier list into a managed array for per-tick reads.
+	// Callers cache the result on the owning *Data resource (see MobData
+	// .ModifiersFlat) — never per consuming instance, or every mob sharing that
+	// resource pays for its own copy.
+	public static StatModifier[] Flatten(Array<StatModifier> entries)
+	{
+		int count = entries?.Count ?? 0;
+		if (count == 0)
+		{
+			return System.Array.Empty<StatModifier>();
+		}
+		var flat = new StatModifier[count];
+		for (int i = 0; i < count; i++)
+		{
+			flat[i] = entries[i];
+		}
+		return flat;
+	}
+
+	// Plain-array overloads of Fold / FoldMask, identical in semantics to the
+	// Godot.Collections.Array versions. Indexing a Godot Array from C# marshals
+	// a Variant per element; a caller that folds the SAME immutable modifier
+	// list every tick should flatten it into a plain array once and use these
+	// instead (see Mob's baked modifier array). Authored data still lives in
+	// Godot.Collections.Array — this is strictly a hot-path read form.
+	public static float Fold(EStat stat, StatModifier[] entries, float running)
+	{
+		if (entries == null || stat == EStat.None)
+		{
+			return running;
+		}
+		bool additive = IsAdditive(stat);
+		for (int i = 0; i < entries.Length; i++)
+		{
+			StatModifier m = entries[i];
+			if (m == null || m.stat != stat)
+			{
+				continue;
+			}
+			if (additive)
+			{
+				running += m.value;
+			}
+			else
+			{
+				running *= m.value;
+			}
+		}
+		return running;
+	}
+
+	public static float FoldMask(EStat mask, StatModifier[] entries, float product)
+	{
+		if (entries == null || mask == EStat.None)
+		{
+			return product;
+		}
+		for (int i = 0; i < entries.Length; i++)
+		{
+			StatModifier m = entries[i];
+			if (m == null)
+			{
+				continue;
+			}
+			if ((m.stat & mask) != 0)
+			{
+				product *= m.value;
+			}
+		}
+		return product;
+	}
+
 	// Multiplicative fold across every entry whose single-bit stat overlaps
 	// `mask`. Used by the hit-side resistance paths (damage / bypass / blunt
 	// chip / knockback / buildup) where the mask is the hit's tag set and
@@ -103,7 +178,8 @@ public static class StatModifierUtil
 		{
 			return product;
 		}
-		for (int i = 0; i < entries.Count; i++)
+		int count = entries.Count;
+		for (int i = 0; i < count; i++)
 		{
 			StatModifier m = entries[i];
 			if (m == null)

@@ -1358,7 +1358,7 @@ public partial class Player : CharacterBody3D
 		// held-torch prop has to refresh even when the inventory contents don't.
 		_inventory.onConsumableChanged += OnConsumableChanged;
 		_runner = new ActionRunner(this);
-		_statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeMaskMul, conditionActive: EvaluateTraitCondition, incomingLevelResist: () => IncomingLevelResist);
+		_statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeMaskMul, conditionActive: EvaluateTraitCondition, incomingLevelResist: () => IncomingLevelResist, maxHealth: () => MaxHealth);
 		_scent = new ScentEmitter(this, sim, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
@@ -1703,6 +1703,8 @@ public partial class Player : CharacterBody3D
 
 	public override void _PhysicsProcess(double delta)
 	{
+		using var _prof = Profiler.Sample("Player.PhysicsProcess");
+
 		float dt = (float)delta;
 		base._PhysicsProcess(delta);
 

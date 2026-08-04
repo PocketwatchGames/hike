@@ -97,6 +97,8 @@ public static class PlayerPerception
         float delta,
         out PerceptionDebug debug)
     {
+        using var _prof = Profiler.Sample("PlayerPerception.Tick");
+
         var result = new PerceptionTickResult();
         debug = default;
         if (sim == null || sim.player == null)

@@ -156,7 +156,8 @@ public partial class Player : CharacterBody3D
 	private void UpdateVisibility()
 	{
 		float targetLightMax = _world.SimData?.targetLightMax ?? 0.75f;
-		float lightFactor = targetLightMax > 0f ? Mathf.Clamp(_world.GetPerceivedLight(GlobalPosition) / targetLightMax, 0, 1) : 0f;
+		Vector3 lightSamplePos = GlobalPosition + Vector3.Up * (data?.lightSampleHeight ?? 1f);
+		float lightFactor = targetLightMax > 0f ? Mathf.Clamp(_world.GetPerceivedLight(lightSamplePos) / targetLightMax, 0, 1) : 0f;
 
 		float speedFactor = data.moveSpeed > 0f ? Mathf.Clamp(Mathf.Pow(Velocity.Length() / data.moveSpeed, data.visibilityMovementPower), data.visibilityMovementMin, 1f) : 1f;
 

@@ -195,6 +195,8 @@ public partial class MoteEffect : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("MoteEffect.Process");
+
         // Bisection / cost toggle: when disabled, hide the particles so the
         // renderer skips their simulation + draw-pass shader entirely, and skip
         // the per-frame param pushes below. Hidden (not just non-emitting) so

@@ -101,9 +101,8 @@ script = ExtResource("4_light")
 _distance = 8.0
 _falloff = 2.5
 _brightness = 0.65
-_flicker = true
 _flickerMin = 0.75
-_flickerHz = 14.0
+_flickerHz = 8.0
 _fadeOutDuration = 0.1
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]

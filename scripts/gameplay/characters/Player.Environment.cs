@@ -155,7 +155,7 @@ public partial class Player : CharacterBody3D
 				else
 				{
 					float armorDryMul = armor.data.modifiers != null
-						? StatModifierUtil.Fold(EStat.WetnessDryRate, armor.data.modifiers, 1f)
+						? StatModifierUtil.Fold(EStat.WetnessDryRate, armor.data.ModifiersFlat, 1f)
 						: 1f;
 					float armorDryRate = Mathf.Max(baseDryRate * armorDryMul, warmthRate);
 					armorDelta = rainAccum - armorDryRate * dt;

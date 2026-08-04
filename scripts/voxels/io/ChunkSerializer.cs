@@ -267,6 +267,7 @@ public static class ChunkSerializer
                 }
             }
         }
+        chunk.MarkSunlightChanged();
 
         for (int x = 0; x < ChunkState.SIZE; x++)
         {

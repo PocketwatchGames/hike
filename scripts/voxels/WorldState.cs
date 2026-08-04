@@ -176,7 +176,10 @@ public class WorldState
     // been written since the last LightMap upload. ChunkManager drains this
     // after each light operation so the GPU upload only re-encodes touched
     // chunks. Populated automatically by SetSunlightWorld / AddBlockLightWorld
-    // / SubtractBlockLightWorld — callers don't need to remember.
+    // / SubtractBlockLightWorld — callers don't need to remember. The block-light
+    // writers only mark when the write moved the value the texture would show
+    // (ChunkState.BLOCK_LIGHT_TEXTURE_MAX), so a flicker roll that only shuffles
+    // the saturated core or rounds to the same byte costs no upload.
     public readonly HashSet<Vector3I> LightChunkDirty = new();
 
     // Chunks whose stored sunlight moved during the most recent incremental
@@ -448,6 +451,7 @@ public class WorldState
         foreach (var kvp in _chunks)
         {
             Array.Clear(kvp.Value.Sunlight, 0, kvp.Value.Sunlight.Length);
+            kvp.Value.MarkSunlightChanged();
             LightChunkDirty.Add(kvp.Key);
         }
     }
@@ -547,8 +551,10 @@ public class WorldState
         {
             return;
         }
-        chunk.AddBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), r, g, b);
-        LightChunkDirty.Add(cc);
+        if (chunk.AddBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), r, g, b))
+        {
+            LightChunkDirty.Add(cc);
+        }
     }
 
     public void SubtractBlockLightWorld(int wx, int wy, int wz, int r, int g, int b)
@@ -558,8 +564,10 @@ public class WorldState
         {
             return;
         }
-        chunk.SubtractBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), r, g, b);
-        LightChunkDirty.Add(cc);
+        if (chunk.SubtractBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), r, g, b))
+        {
+            LightChunkDirty.Add(cc);
+        }
     }
 
     // Fog density at a world-space voxel, byte 0-255. 0 = clear air, 255 =

@@ -205,6 +205,13 @@ public partial class PlayerData : Resource
 	// closeness 0.5. Higher flattens the curve (more of the range reads instant in
 	// good light, but the floor discriminates range less in poor light).
 	[Export(PropertyHint.Range, "1,4,0.05")] public float visionRangeCurveExtension = 2f;
+	// Height above the player's origin at which world light is sampled for
+	// visibilityLight / block light. MUST stay above 0: the origin sits at the
+	// feet, and dual-contoured terrain puts the walkable surface inside the
+	// voxel cell, so a 0 offset samples the SOLID floor voxel — which always
+	// reads sun 0 / block 0 (light only floods open voxels), zeroing the
+	// player's light everywhere. Matches Mob.Perception's eye-level sample.
+	[Export(PropertyHint.Range, "0.1,2,0.05")] public float lightSampleHeight = 1f;
 	[Export] public float visibilityMovementMin = 0.5f;
 	[Export] public float visibilityMovementPower = 2f;
 	// Shapes how SOON darkness / fog / rain bite as each ramps in. Applied to the
@@ -360,6 +367,10 @@ public partial class PlayerData : Resource
 	// stats; 0 is neutral for additive stats. Vulnerabilities author
 	// multiplier > 1.
 	[Export] public Godot.Collections.Array<StatModifier> modifiers;
+	// Managed read-mirror of `modifiers` — see MobData.ModifiersFlat.
+	// Player.ComposeStat folds this several times per physics tick.
+	private StatModifier[] _modifiersFlat;
+	public StatModifier[] ModifiersFlat => _modifiersFlat ??= StatModifierUtil.Flatten(modifiers);
 
 	// Maximum angle (radians) between the mob's facing direction and the
 	// player→mob vector at hit time for the attack to count as a backstab.

@@ -504,6 +504,15 @@ public partial class SkyController : Node3D
     // it's a contrast-sculpt choice, and ambient (on SimData) is the
     // separate knob for whole-scene shadow floor.
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShadowStrength = 0.66f;
+    // Sky exposure (sky_exposure_map, 0 = fully covered) at or above which a surface
+    // tracks the live cloud pattern; below it, it reads as fully shadowed — cover is
+    // just another occluder resolving to the same single shadow value. Without this
+    // gate clouds drift across cave and interior surfaces, because the shadow only
+    // ever rides on the sunlight volume and that spreads laterally indoors.
+    // Matches the fog shader's shaft_sky_cover_max default, so shafts and ground
+    // shadows give up at the same amount of cover. Raise it to also pull cloud
+    // shadows off canopy-shaded ground (canopy dims sky exposure too).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShadowSkyCover = 0.25f;
 
     // Peak DirectionalLight3D energy added on top of the body's normal
     // LightEnergy during a lightning flash (flash intensity 1.0 adds
@@ -1448,8 +1457,13 @@ public partial class SkyController : Node3D
         float dayNightThreshold = sunsetAngle + colorRange;
         float nightT = 1f - Mathf.SmoothStep(-dayNightThreshold, dayNightThreshold, _sunElevationDegrees);
 
+        // Nightfall dimming (1 at sunset → 0 at midnight). Derivation already
+        // applied it to the palette's own channels; the celestial reads below
+        // are SkyController's, so they ride the same curve here.
+        float skyLight = _palette.SkyLight;
+
         float effSunDiskGlow = sunDiskGlowStrength * (1f - nightT);
-        float effMoonDiskGlow = moonDiskGlowStrength * nightT;
+        float effMoonDiskGlow = moonDiskGlowStrength * nightT * skyLight;
         // Sun disk intensity lerps between sunsetDiskIntensity (horizon) and
         // sunDiskIntensity (noon) with sin(orbital phase) as the parameter —
         // sin(phase) is 1 at noon, 0 at sunrise/sunset. Derived from the
@@ -1486,10 +1500,10 @@ public partial class SkyController : Node3D
         // default falloff since they're far dimmer to begin with.
         float moonFogAtten = Mathf.Lerp(1f, 1f - fogMoonDim, fogForDisk);
         float moonDustAtten = Mathf.Lerp(1f, 1f - dustMoonDim, dustForDisk);
-        float effMoonDiskIntensity = moonDiskIntensity * moonFogAtten * moonDustAtten * moonDiskFade;
+        float effMoonDiskIntensity = moonDiskIntensity * moonFogAtten * moonDustAtten * moonDiskFade * skyLight;
         float starFogAtten = Mathf.Lerp(1f, 1f - fogStarDim, fogForDisk);
         float starDustAtten = Mathf.Lerp(1f, 1f - dustStarDim, dustForDisk);
-        float effStarIntensity = starIntensity * starFogAtten * starDustAtten;
+        float effStarIntensity = starIntensity * starFogAtten * starDustAtten * skyLight;
 
         // --- Global uniforms ---------------------------------------------
         RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(_palette.SunTint));
@@ -1527,6 +1541,7 @@ public partial class SkyController : Node3D
         // authored cloudShadowStrength is unchanged.
         float flashShadowMask = 1f - Mathf.Clamp(flashIntensity, 0f, 1f);
         RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength * flashShadowMask);
+        RenderingServer.GlobalShaderParameterSet("cloud_shadow_sky_cover", cloudShadowSkyCover);
         RenderingServer.GlobalShaderParameterSet("wetness_level", Sim.Current?.WorldState?.WetnessLevel ?? 0f);
         RenderingServer.GlobalShaderParameterSet("wet_spec_strength", wetSpecStrength);
         RenderingServer.GlobalShaderParameterSet("wet_albedo_floor", wetAlbedoFloor);
@@ -1691,12 +1706,15 @@ public partial class SkyController : Node3D
         // Sprite reflection brightness — same air-clarity factors as the
         // sky reflection (muddiness, humidity, fog, cloud cover) plus a
         // light-level term so dim scenes don't paint bright mirror copies
-        // of upright objects on dark water. CVar `sprite_reflections_disabled`
-        // forces the tint to zero, killing the entire effect without
-        // touching any LitSprite reflection nodes.
-        float effSpriteReflTint = CVars.spriteReflectionsDisabled.Value
-            ? 0f
-            : spriteReflectionTint * reflectionClarity * lightLevel;
+        // of upright objects on dark water. CVar `sprite_reflection_visible` 0
+        // forces the tint to zero, killing the visible effect without touching
+        // any LitSprite reflection nodes (they keep updating — see the
+        // `sprite_reflections` CVar for the CPU-side gate). Note the CVar is
+        // distinct from this class's `spriteReflectionTint` export, which is
+        // the authored strength it scales.
+        float effSpriteReflTint = CVars.spriteReflectionVisible.Value
+            ? spriteReflectionTint * reflectionClarity * lightLevel
+            : 0f;
         RenderingServer.GlobalShaderParameterSet("reflection_tint", effSpriteReflTint);
         // Reflection pixel jitter scales with weather-driven ripple strength
         // (already wind+rain damped in WeatherDerivation), so calm water
@@ -1767,8 +1785,13 @@ public partial class SkyController : Node3D
         // looks emissive on dark stormy nights (a constant 0.7 floor was
         // higher than ambient sky light, making foam glow against
         // surrounding water that was lit by dim moonlight only).
+        // Scaled by Illumination: this is a SKY-light floor, and both terms
+        // feeding it bottom out well above zero (the 0.18 base, and lightLevel's
+        // 0.2 clamp), so without it foam glows white on black water wherever the
+        // sky light dies. Illumination rather than the nightfall clock so that
+        // holds for any cause, not just midnight.
         float clarity = (1f - cloudCover01 * 0.7f) * (1f - fog01 * 0.5f);
-        float effFoamMinLight = 0.18f + 0.45f * lightLevel * clarity;
+        float effFoamMinLight = (0.18f + 0.45f * lightLevel * clarity) * _palette.Illumination;
         RenderingServer.GlobalShaderParameterSet("foam_min_light", effFoamMinLight);
         RenderingServer.GlobalShaderParameterSet("foam_depth", foamDepth);
         RenderingServer.GlobalShaderParameterSet("foam_scale", foamScale);
@@ -1802,8 +1825,14 @@ public partial class SkyController : Node3D
         // effective intensity + color via the horizon smoothstep.
         float shaftFadeEnd = sunsetAngle + shaftFadeAngleDegrees;
         float shaftFadeStart = shaftFadeEnd + Mathf.Max(shaftFadeRangeDegrees, 0.1f);
-        float sunShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _sunLightElevationDegrees);
-        float moonShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _moonLightElevationDegrees);
+        // Both gated by Illumination on top of the horizon fade: a beam needs a
+        // source, and elevation alone doesn't know whether one is shining. The
+        // moon in particular rides HIGHEST at midnight, exactly where the sky is
+        // supposed to be gone. Applied to the factors rather than to the summed
+        // intensity so the motes those beams carry ride the same gate.
+        float lit = _palette.Illumination;
+        float sunShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _sunLightElevationDegrees) * lit;
+        float moonShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _moonLightElevationDegrees) * lit;
 
         // Global sun-wash intensity (client-side tuning). Product of the scalar
         // weather: humidity-folded dust × (baseline + cloudGain × cloudCover²),

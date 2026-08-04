@@ -28,6 +28,14 @@ public class StatusEffectState
 	// the same effect ticks alongside it. 1 = base authored numbers.
 	public float potency = 1f;
 
+	// Hazard that applied this instance (trap, fire column, gas cloud), stamped at
+	// apply time. Non-null with a dot band replaces dot.damagePerSecond with a
+	// per-second fraction of max health, so a hazard's burn stays proportionate to
+	// whoever caught it long after they left the hazard. Null — every ordinary
+	// weapon / consumable application — leaves the flat DoT path untouched, so the
+	// same StatusEffectData ticks differently depending on what landed it.
+	public HazardProfileData hazardProfile;
+
 	// Game-time (ms) at which a Timed effect expires. 0 = no ms timer
 	// (Persistent, TimeOfDay, or a paused situational timer — see PauseTimer).
 	public ulong expireTimeMs;

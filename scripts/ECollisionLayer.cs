@@ -44,6 +44,14 @@ public enum ECollisionLayer
     // node sit here; terrain/walls stay on Environment so they stay solid to
     // everything.
     Porous = 2048,
+    // Loose world debris — settled Loot. Included by the VOLUME attack queries
+    // (the melee sweep and the AoE burst, both of which collect every overlap)
+    // so blasts and swings scatter dropped items. Deliberately NOT included by
+    // the first-hit queries — a hitscan ray, a projectile sweep or a
+    // chain-lightning hop must not pick a dropped berry over the goblin behind
+    // it — nor by AimingReticle, so loot never steals the reticle from a mob.
+    // Separate from HurtBox for exactly that reason; don't fold it in.
+    Debris = 4096,
     // Convenience combo: "solid to the world" — terrain/walls plus porous
     // props. Movement bodies and most world raycasts (vision, arrows, aim,
     // pathing, rain, lightning) mask this so props still block them; the few

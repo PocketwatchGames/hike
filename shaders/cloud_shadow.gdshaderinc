@@ -29,6 +29,19 @@
 //       : filter_linear, repeat_enable;                        //  if you don't include sky_common, declare locally)
 //   global uniform float cloud_altitude;                       // owned by sky_common; declare locally if not included
 
+// Vertical (top-down, non-leaky) sky-reach field, registered by ChunkManager.
+// R = how much open sky is directly above a voxel: 1 under open sky, 0 under
+// any solid cover, with canopy folded in. Owned by THIS include (unlike the
+// cloud globals above) because every gated consumer needs it and none of them
+// declare it themselves — a shader that includes this file must NOT redeclare
+// these three. rain_drop declares its own set; it doesn't include this file.
+global uniform sampler3D sky_exposure_map : filter_linear, repeat_enable;
+global uniform vec3 sky_exposure_map_origin;
+global uniform vec3 sky_exposure_map_inv_size;
+// Sky exposure at or above which a fragment tracks the live cloud pattern;
+// below it, it reads as fully shadowed. Pushed by SkyController.
+global uniform float cloud_shadow_sky_cover;
+
 // World-unit → texture-UV multiplier. Smaller values make cloud features
 // span more world units (broader shadows). At 0.01 and a 512² texture
 // baked from FastNoiseLite(frequency=0.01), a "cloud feature" is roughly
@@ -85,12 +98,80 @@ float cloud_shadow(vec3 world_pos, float time)
 // whose magnitude and direction both sweep quickly at grazing sun,
 // making shadows race across the ground at dawn/dusk.
 //
-// Use this for ALL surface lighting (terrain, sprites, water). The fog
-// raymarch still needs real sun-direction projection for shaft
-// ray-coherence — it uses cloud_shadow() and cloud_shadow_shafts().
+// Surface lighting wants the SKY-GATED wrapper below, not this — bare, it
+// drapes over cave and interior surfaces too. Left ungated for the one caller
+// that must opt out: distant backdrop geometry, whose sky-exposure probe would
+// wrap onto unrelated world. The fog raymarch needs real sun-direction
+// projection for shaft ray-coherence — it uses cloud_shadow() /
+// cloud_shadow_shafts().
 float cloud_shadow_ground(vec3 world_pos, float time)
 {
     return cs_sample(world_pos.xz, time);
+}
+
+// Sky-exposure gate for the ground shadow. The cloud pattern is a 2D drape
+// with no vertical extent, so on its own it reaches a cave floor at full
+// contrast; every consumer only hides it by multiplying into the sun term,
+// and the sun term is NOT zero indoors (the sunlight BFS spreads laterally
+// ~MAX_LIGHT / sunFalloffPerVoxel voxels in from any opening, and the light
+// volume is trilinear so it bleeds through thin rock). Result: drifting cloud
+// blotches on cave and interior surfaces. sky_exposure_map is the field that
+// actually answers "is there cover straight up", so gate on it.
+//
+// `probe_pos` MUST be the same AIR-voxel position the caller samples the light
+// map at (surface + half a voxel along the normal, typically). A fragment's own
+// world position sits inside the solid it belongs to, where exposure is 0 — probe
+// there and cloud shadows vanish from open ground too.
+float cs_sky_gate(vec3 probe_pos)
+{
+    // Editor preview / first frames: ChunkManager hasn't registered the real
+    // volume yet and the placeholder samples black, which would read as "fully
+    // covered" and erase every cloud shadow. Same globals_ready idiom flat_lit
+    // uses for the light map.
+    if (length(sky_exposure_map_inv_size) < 1e-6)
+    {
+        return 1.0;
+    }
+    // Toroidal window with a zero origin — sample directly and let the repeat
+    // sampler wrap. Don't add a [0,1] guard: uvw is only in range near the world
+    // origin, so a guard would switch the gate off across most of the map.
+    // Geometry past the window wraps onto unrelated world; callers that draw a
+    // distant backdrop (voxel_clip's baked-sun path) opt out of the gate instead.
+    vec3 uvw = (probe_pos - sky_exposure_map_origin) * sky_exposure_map_inv_size;
+    float exposure = texture(sky_exposure_map, uvw).r;
+    return smoothstep(0.0, max(cloud_shadow_sky_cover, 1e-4), exposure);
+}
+
+// Ground cloud shadow that goes fully shadowed under overhead cover. The
+// default for all surface lighting — prefer this over bare
+// cloud_shadow_ground().
+//
+// Cover is just another occluder, so it resolves to the SAME single shadow
+// value a cloud gives — the darkest-occluder-wins rule the light() stages
+// already apply between this and ATTENUATION. Two things fall out of that:
+// there's no third brightness level between lit and shadowed, and the gate can
+// only ever darken. Fading the shadow out toward 1.0 instead (the obvious
+// reading of "no clouds reach in here") leaves a bright strip under a cave
+// overhang or a house eave — the sheltered fragment keeps its leaked sun at
+// full brightness while a passing cloud darkens the open ground beside it.
+//
+// Consequence worth knowing: on a CLEAR day a sheltered fragment still takes
+// this shadow, so cloud_shadow_strength doubles as how hard an overhang
+// shadows. That reads correctly (an eave casts a shadow in full sun) but if it
+// ever needs to be dialled separately, add a cover strength — don't soften it
+// back toward an average.
+float cloud_shadow_ground_gated(vec3 world_pos, vec3 probe_pos, float time)
+{
+    float cloud = cs_sample(world_pos.xz, time);
+    return mix(1.0, cloud, cs_sky_gate(probe_pos));
+}
+
+// Same, probing half a voxel up. For shaders whose light() stage recomputes the
+// shadow and has only the fragment's world position in scope — the lift matches
+// the one those shaders already apply to their light-map sample in fragment().
+float cloud_shadow_ground_gated_up(vec3 world_pos, float time)
+{
+    return cloud_shadow_ground_gated(world_pos, world_pos + vec3(0.0, 0.5, 0.0), time);
 }
 
 // Shaft-specific variant — re-projects along the sun (Y-coherent) and

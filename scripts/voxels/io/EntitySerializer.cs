@@ -207,6 +207,27 @@ public static class EntitySerializer
     // before the variant pool tag joined it (pre-v6 subscenes), which load
     // untagged. Both are subscene-only: the world file demands an exact version
     // match, so a stale .hike is rejected rather than read compatibly.
+    // Deep-copies entities through a write/read round-trip. Clone semantics stay
+    // aligned with the disk format for free — a field added to an entity
+    // propagates here without anyone remembering to copy it. The clones carry no
+    // RuntimeNode; whoever files them is responsible for spawning.
+    public static List<EntitySimState> CloneList(IReadOnlyList<EntitySimState> source)
+    {
+        if (source == null || source.Count == 0)
+        {
+            return new List<EntitySimState>();
+        }
+
+        using var ms = new MemoryStream();
+        using (var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
+        {
+            WriteList(bw, source);
+        }
+        ms.Position = 0;
+        using var br = new BinaryReader(ms, Encoding.UTF8, leaveOpen: false);
+        return ReadList(br);
+    }
+
     public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true)
     {
         ReadPathTable outer = _readPaths;
@@ -455,7 +476,6 @@ public static class EntitySerializer
                 WriteVec3(w, trap.WorldPosition);
                 WriteScene(w, trap.Scene);
                 w.Write(trap.Disarmed);
-                w.Write(trap.Level);
                 break;
 
             case SignpostSimState signpost:
@@ -502,7 +522,6 @@ public static class EntitySerializer
                 WriteVec3(w, fire.WorldPosition);
                 WriteScene(w, fire.Scene);
                 w.Write(fire.PhaseOffsetSeconds);
-                w.Write(fire.Level);
                 break;
 
             case WellSimState well:
@@ -848,11 +867,9 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool disarmed = r.ReadBoolean();
-                int trapLevel = r.ReadInt32();
                 var trap = new TrapSimState(pos, scene);
                 trap.Disarmed = disarmed;
                 trap.HazardRadius = TrapSimState.DefaultHazardRadius;
-                trap.Level = trapLevel;
                 return trap;
             }
             case Tag.Signpost:
@@ -889,11 +906,9 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 float phaseOffset = r.ReadSingle();
-                int level = r.ReadInt32();
                 var fire = new FireTrapSimState(pos, scene);
                 fire.PhaseOffsetSeconds = phaseOffset;
                 fire.HazardRadius = FireTrapSimState.DefaultHazardRadius;
-                fire.Level = level;
                 return fire;
             }
             case Tag.Well:

@@ -73,6 +73,43 @@
 [ext_resource type="PackedScene" uid="uid://cmb8uedjef3ao" path="res://scenes/props/doorframe_stone_arch_1_9x2_7.tscn" id="70_doorframe_stone_arch_1_9x2_7"]
 [ext_resource type="PackedScene" uid="uid://clgunwosiun6w" path="res://scenes/props/doorframe_stone_arch_3_3x3.tscn" id="71_doorframe_stone_arch_3_3x3"]
 [ext_resource type="PackedScene" uid="uid://da0n4fgeqrnfy" path="res://scenes/props/windowframe_timber.tscn" id="72_cf5o1"]
+[ext_resource type="PackedScene" uid="uid://c3yvruwlg2lk2" path="res://scenes/props/barrel_1.tscn" id="100_barrel_1"]
+[ext_resource type="PackedScene" uid="uid://5acqxyddk423" path="res://scenes/props/barrel_2.tscn" id="101_barrel_2"]
+[ext_resource type="PackedScene" uid="uid://163v8was4dnc" path="res://scenes/props/barrel_3.tscn" id="102_barrel_3"]
+[ext_resource type="PackedScene" uid="uid://c4bjwqc4pxnwh" path="res://scenes/props/barrel_4.tscn" id="103_barrel_4"]
+[ext_resource type="PackedScene" uid="uid://bxgianalq0xxn" path="res://scenes/props/barrel_5.tscn" id="104_barrel_5"]
+[ext_resource type="PackedScene" uid="uid://db8f1gj41ghcq" path="res://scenes/props/barrel_6.tscn" id="105_barrel_6"]
+[ext_resource type="PackedScene" uid="uid://c7kactd61teq0" path="res://scenes/props/barrel_7.tscn" id="106_barrel_7"]
+[ext_resource type="PackedScene" uid="uid://ke2rcabc47kv" path="res://scenes/props/barrel_8.tscn" id="107_barrel_8"]
+[ext_resource type="PackedScene" uid="uid://dlflco14rmnh2" path="res://scenes/props/barrel_9.tscn" id="108_barrel_9"]
+[ext_resource type="PackedScene" uid="uid://bc7w8i25xpw5a" path="res://scenes/props/crate_1.tscn" id="109_crate_1"]
+[ext_resource type="PackedScene" uid="uid://dm3qx7x112dit" path="res://scenes/props/crate_2.tscn" id="110_crate_2"]
+[ext_resource type="PackedScene" uid="uid://gupx1lnch4n0" path="res://scenes/props/crate_3.tscn" id="111_crate_3"]
+[ext_resource type="PackedScene" uid="uid://5lsd8co1ghbv" path="res://scenes/props/crate_4.tscn" id="112_crate_4"]
+[ext_resource type="PackedScene" uid="uid://suynxoqoktwd" path="res://scenes/props/crate_5.tscn" id="113_crate_5"]
+[ext_resource type="PackedScene" uid="uid://c0rqtj0rhh0in" path="res://scenes/props/barrel_upright.tscn" id="114_barrel_upright"]
+[ext_resource type="PackedScene" uid="uid://bnh77ljxb87sp" path="res://scenes/props/barrel_cradle.tscn" id="115_barrel_cradle"]
+[ext_resource type="PackedScene" uid="uid://c28fty137hkak" path="res://scenes/props/barrel_open.tscn" id="116_barrel_open"]
+[ext_resource type="PackedScene" uid="uid://dssa507kaadak" path="res://scenes/props/barrel_broken.tscn" id="117_barrel_broken"]
+[ext_resource type="PackedScene" uid="uid://ogtrfoxyhjfs" path="res://scenes/props/barrel_staves.tscn" id="118_barrel_staves"]
+[ext_resource type="PackedScene" uid="uid://dmnc5vjf3vetx" path="res://scenes/props/barrel_large.tscn" id="119_barrel_large"]
+[ext_resource type="PackedScene" uid="uid://bhj4vy232aqfv" path="res://scenes/props/crate_wood_1.tscn" id="120_crate_wood_1"]
+[ext_resource type="PackedScene" uid="uid://dvudg1jcde85x" path="res://scenes/props/crate_wood_2.tscn" id="121_crate_wood_2"]
+[ext_resource type="PackedScene" uid="uid://bhk42menma6ap" path="res://scenes/props/crate_wood_3.tscn" id="122_crate_wood_3"]
+[ext_resource type="PackedScene" uid="uid://ca05ojgfy0wrl" path="res://scenes/props/crate_wood_4.tscn" id="123_crate_wood_4"]
+[ext_resource type="PackedScene" uid="uid://crofkva4us241" path="res://scenes/props/crate_wood_5.tscn" id="124_crate_wood_5"]
+[ext_resource type="PackedScene" uid="uid://ctpvkndy37fq" path="res://scenes/props/crate_ornate.tscn" id="125_crate_ornate"]
+[ext_resource type="PackedScene" uid="uid://hw5ddp5yblwx" path="res://scenes/props/barrel_plain_1.tscn" id="126_barrel_plain_1"]
+[ext_resource type="PackedScene" uid="uid://du02tdr15bc6c" path="res://scenes/props/barrel_plain_2.tscn" id="127_barrel_plain_2"]
+[ext_resource type="PackedScene" uid="uid://b3h7xu6qmptnl" path="res://scenes/props/barrel_plain_3.tscn" id="128_barrel_plain_3"]
+[ext_resource type="PackedScene" uid="uid://b1t85l0chfblm" path="res://scenes/props/crate_plain_1.tscn" id="129_crate_plain_1"]
+[ext_resource type="PackedScene" uid="uid://bprtyvrqy20dx" path="res://scenes/props/crate_plain_2.tscn" id="130_crate_plain_2"]
+[ext_resource type="PackedScene" uid="uid://cyktbp3fkywvc" path="res://scenes/props/crate_plain_3.tscn" id="131_crate_plain_3"]
+[ext_resource type="PackedScene" uid="uid://kwhoaakdql6l" path="res://scenes/props/sack_1.tscn" id="132_sack_1"]
+[ext_resource type="PackedScene" uid="uid://pc6fumj2f1xl" path="res://scenes/props/sack_2.tscn" id="133_sack_2"]
+[ext_resource type="PackedScene" uid="uid://blc0fq5eunyri" path="res://scenes/props/sack_3.tscn" id="134_sack_3"]
+[ext_resource type="PackedScene" uid="uid://biu7wybsowr5" path="res://scenes/props/sack_stack_1.tscn" id="135_sack_stack_1"]
+[ext_resource type="PackedScene" uid="uid://bb66f8tv47lul" path="res://scenes/props/sack_stack_2.tscn" id="136_sack_stack_2"]
 
 [sub_resource type="Resource" id="Entry_tree_pine"]
 script = ExtResource("1_entry")
@@ -566,7 +603,266 @@ displayName = "Window Frame"
 scene = ExtResource("72_cf5o1")
 metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
 
+[sub_resource type="Resource" id="Entry_barrel_1"]
+script = ExtResource("1_entry")
+displayName = "Ruined Barrel 1"
+scene = ExtResource("100_barrel_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_2"]
+script = ExtResource("1_entry")
+displayName = "Ruined Barrel 2"
+scene = ExtResource("101_barrel_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_3"]
+script = ExtResource("1_entry")
+displayName = "Ruined Barrel 3"
+scene = ExtResource("102_barrel_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_4"]
+script = ExtResource("1_entry")
+displayName = "Ruined Barrel 4"
+scene = ExtResource("103_barrel_4")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_5"]
+script = ExtResource("1_entry")
+displayName = "Ruined Barrel 5"
+scene = ExtResource("104_barrel_5")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_6"]
+script = ExtResource("1_entry")
+displayName = "Ruined Barrel 6"
+scene = ExtResource("105_barrel_6")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_7"]
+script = ExtResource("1_entry")
+displayName = "Ruined Barrel 7"
+scene = ExtResource("106_barrel_7")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_8"]
+script = ExtResource("1_entry")
+displayName = "Ruined Barrel 8"
+scene = ExtResource("107_barrel_8")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_9"]
+script = ExtResource("1_entry")
+displayName = "Ruined Barrel 9"
+scene = ExtResource("108_barrel_9")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_1"]
+script = ExtResource("1_entry")
+displayName = "Ruined Crate 1"
+scene = ExtResource("109_crate_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_2"]
+script = ExtResource("1_entry")
+displayName = "Ruined Crate 2"
+scene = ExtResource("110_crate_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_3"]
+script = ExtResource("1_entry")
+displayName = "Ruined Crate 3"
+scene = ExtResource("111_crate_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_4"]
+script = ExtResource("1_entry")
+displayName = "Ruined Crate 4"
+scene = ExtResource("112_crate_4")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_5"]
+script = ExtResource("1_entry")
+displayName = "Ruined Crate 5"
+scene = ExtResource("113_crate_5")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_upright"]
+script = ExtResource("1_entry")
+displayName = "Barrel"
+scene = ExtResource("114_barrel_upright")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_cradle"]
+script = ExtResource("1_entry")
+displayName = "Barrel on Cradle"
+scene = ExtResource("115_barrel_cradle")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_open"]
+script = ExtResource("1_entry")
+displayName = "Open Barrel"
+scene = ExtResource("116_barrel_open")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_broken"]
+script = ExtResource("1_entry")
+displayName = "Broken Barrel"
+scene = ExtResource("117_barrel_broken")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_staves"]
+script = ExtResource("1_entry")
+displayName = "Barrel Staves"
+scene = ExtResource("118_barrel_staves")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_large"]
+script = ExtResource("1_entry")
+displayName = "Large Barrel"
+scene = ExtResource("119_barrel_large")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_wood_1"]
+script = ExtResource("1_entry")
+displayName = "Wood Crate 1"
+scene = ExtResource("120_crate_wood_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_wood_2"]
+script = ExtResource("1_entry")
+displayName = "Wood Crate 2"
+scene = ExtResource("121_crate_wood_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_wood_3"]
+script = ExtResource("1_entry")
+displayName = "Wood Crate 3"
+scene = ExtResource("122_crate_wood_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_wood_4"]
+script = ExtResource("1_entry")
+displayName = "Wood Crate 4"
+scene = ExtResource("123_crate_wood_4")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_wood_5"]
+script = ExtResource("1_entry")
+displayName = "Wood Crate 5"
+scene = ExtResource("124_crate_wood_5")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_ornate"]
+script = ExtResource("1_entry")
+displayName = "Ornate Crate"
+scene = ExtResource("125_crate_ornate")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_plain_1"]
+script = ExtResource("1_entry")
+displayName = "Plain Barrel 1"
+scene = ExtResource("126_barrel_plain_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_plain_2"]
+script = ExtResource("1_entry")
+displayName = "Plain Barrel 2"
+scene = ExtResource("127_barrel_plain_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_barrel_plain_3"]
+script = ExtResource("1_entry")
+displayName = "Plain Barrel 3"
+scene = ExtResource("128_barrel_plain_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_plain_1"]
+script = ExtResource("1_entry")
+displayName = "Plain Crate 1"
+scene = ExtResource("129_crate_plain_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_plain_2"]
+script = ExtResource("1_entry")
+displayName = "Plain Crate 2"
+scene = ExtResource("130_crate_plain_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_crate_plain_3"]
+script = ExtResource("1_entry")
+displayName = "Plain Crate 3"
+scene = ExtResource("131_crate_plain_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_sack_1"]
+script = ExtResource("1_entry")
+displayName = "Sack 1"
+scene = ExtResource("132_sack_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_sack_2"]
+script = ExtResource("1_entry")
+displayName = "Sack 2"
+scene = ExtResource("133_sack_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_sack_3"]
+script = ExtResource("1_entry")
+displayName = "Sack 3"
+scene = ExtResource("134_sack_3")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_sack_stack_1"]
+script = ExtResource("1_entry")
+displayName = "Sack Stack 1"
+scene = ExtResource("135_sack_stack_1")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
+[sub_resource type="Resource" id="Entry_sack_stack_2"]
+script = ExtResource("1_entry")
+displayName = "Sack Stack 2"
+scene = ExtResource("136_sack_stack_2")
+category = 8
+metadata/_custom_type_script = "uid://dt7fwhvxr2vis"
+
 [resource]
 script = ExtResource("1_lib")
-entries = [SubResource("Entry_tree_pine"), SubResource("Entry_tree_pine_dead"), SubResource("Entry_tree_sequoia"), SubResource("Entry_tree_sequoia_dead"), SubResource("Entry_tree_birch"), SubResource("Entry_tree_birch_dead"), SubResource("Entry_tree_desert_pine"), SubResource("Entry_tree_desert_pine_dead"), SubResource("Entry_tree_willow"), SubResource("Entry_tree_willow_dead"), SubResource("Entry_tree_willow_dead_small"), SubResource("Entry_tree_willow_dead_tiny"), SubResource("Entry_tree_oak"), SubResource("Entry_tree_oak_dead"), SubResource("Entry_tree_maple"), SubResource("Entry_tree_maple_dead"), SubResource("Entry_rock1"), SubResource("Entry_rock2"), SubResource("Entry_rock3"), SubResource("Entry_desert_rocks_big1"), SubResource("Entry_desert_rocks_big2"), SubResource("Entry_desert_rocks_big3"), SubResource("Entry_tall_grass_01"), SubResource("Entry_tall_grass_02"), SubResource("Entry_tall_grass_03"), SubResource("Entry_tall_grass_04"), SubResource("Entry_table_long"), SubResource("Entry_table_round"), SubResource("Entry_table_round_low"), SubResource("Entry_table_plain"), SubResource("Entry_chair"), SubResource("Entry_bench"), SubResource("Entry_stool_square"), SubResource("Entry_stool_tall"), SubResource("Entry_stool_stump"), SubResource("Entry_bed_bunk"), SubResource("Entry_bookcase"), SubResource("Entry_shelf_1"), SubResource("Entry_bookcase_2"), SubResource("Entry_ruined_table_1"), SubResource("Entry_ruined_table_2"), SubResource("Entry_ruined_table_3"), SubResource("Entry_ruined_table_4"), SubResource("Entry_ruined_table_5"), SubResource("Entry_ruined_table_6"), SubResource("Entry_ruined_table_7"), SubResource("Entry_ruined_table_8"), SubResource("Entry_ruined_chair_1"), SubResource("Entry_ruined_chair_2"), SubResource("Entry_ruined_chair_3"), SubResource("Entry_ruined_chair_4"), SubResource("Entry_ruined_chair_5"), SubResource("Entry_ruined_chair_6"), SubResource("Entry_ruined_chair_7"), SubResource("Entry_ruined_stool_1"), SubResource("Entry_ruined_stool_2"), SubResource("Entry_ruined_stool_3"), SubResource("Entry_ruined_bed_1"), SubResource("Entry_ruined_bed_2"), SubResource("Entry_ruined_bed_3"), SubResource("Entry_ruined_bed_4"), SubResource("Entry_ruined_bed_5"), SubResource("Entry_doorframe_timber_2x3"), SubResource("Entry_doorframe_timber_2_3x3"), SubResource("Entry_doorframe_timber_2_7x3"), SubResource("Entry_doorframe_timber_2_7x3_tall"), SubResource("Entry_doorframe_stone_2x2_5"), SubResource("Entry_doorframe_stone_2_9x3"), SubResource("Entry_doorframe_stone_arch_1_9x2_7"), SubResource("Entry_doorframe_stone_arch_3_3x3"), SubResource("Resource_ordwb")]
+entries = [SubResource("Entry_tree_pine"), SubResource("Entry_tree_pine_dead"), SubResource("Entry_tree_sequoia"), SubResource("Entry_tree_sequoia_dead"), SubResource("Entry_tree_birch"), SubResource("Entry_tree_birch_dead"), SubResource("Entry_tree_desert_pine"), SubResource("Entry_tree_desert_pine_dead"), SubResource("Entry_tree_willow"), SubResource("Entry_tree_willow_dead"), SubResource("Entry_tree_willow_dead_small"), SubResource("Entry_tree_willow_dead_tiny"), SubResource("Entry_tree_oak"), SubResource("Entry_tree_oak_dead"), SubResource("Entry_tree_maple"), SubResource("Entry_tree_maple_dead"), SubResource("Entry_rock1"), SubResource("Entry_rock2"), SubResource("Entry_rock3"), SubResource("Entry_desert_rocks_big1"), SubResource("Entry_desert_rocks_big2"), SubResource("Entry_desert_rocks_big3"), SubResource("Entry_tall_grass_01"), SubResource("Entry_tall_grass_02"), SubResource("Entry_tall_grass_03"), SubResource("Entry_tall_grass_04"), SubResource("Entry_table_long"), SubResource("Entry_table_round"), SubResource("Entry_table_round_low"), SubResource("Entry_table_plain"), SubResource("Entry_chair"), SubResource("Entry_bench"), SubResource("Entry_stool_square"), SubResource("Entry_stool_tall"), SubResource("Entry_stool_stump"), SubResource("Entry_bed_bunk"), SubResource("Entry_bookcase"), SubResource("Entry_shelf_1"), SubResource("Entry_bookcase_2"), SubResource("Entry_ruined_table_1"), SubResource("Entry_ruined_table_2"), SubResource("Entry_ruined_table_3"), SubResource("Entry_ruined_table_4"), SubResource("Entry_ruined_table_5"), SubResource("Entry_ruined_table_6"), SubResource("Entry_ruined_table_7"), SubResource("Entry_ruined_table_8"), SubResource("Entry_ruined_chair_1"), SubResource("Entry_ruined_chair_2"), SubResource("Entry_ruined_chair_3"), SubResource("Entry_ruined_chair_4"), SubResource("Entry_ruined_chair_5"), SubResource("Entry_ruined_chair_6"), SubResource("Entry_ruined_chair_7"), SubResource("Entry_ruined_stool_1"), SubResource("Entry_ruined_stool_2"), SubResource("Entry_ruined_stool_3"), SubResource("Entry_ruined_bed_1"), SubResource("Entry_ruined_bed_2"), SubResource("Entry_ruined_bed_3"), SubResource("Entry_ruined_bed_4"), SubResource("Entry_ruined_bed_5"), SubResource("Entry_doorframe_timber_2x3"), SubResource("Entry_doorframe_timber_2_3x3"), SubResource("Entry_doorframe_timber_2_7x3"), SubResource("Entry_doorframe_timber_2_7x3_tall"), SubResource("Entry_doorframe_stone_2x2_5"), SubResource("Entry_doorframe_stone_2_9x3"), SubResource("Entry_doorframe_stone_arch_1_9x2_7"), SubResource("Entry_doorframe_stone_arch_3_3x3"), SubResource("Resource_ordwb"), SubResource("Entry_barrel_1"), SubResource("Entry_barrel_2"), SubResource("Entry_barrel_3"), SubResource("Entry_barrel_4"), SubResource("Entry_barrel_5"), SubResource("Entry_barrel_6"), SubResource("Entry_barrel_7"), SubResource("Entry_barrel_8"), SubResource("Entry_barrel_9"), SubResource("Entry_crate_1"), SubResource("Entry_crate_2"), SubResource("Entry_crate_3"), SubResource("Entry_crate_4"), SubResource("Entry_crate_5"), SubResource("Entry_barrel_upright"), SubResource("Entry_barrel_cradle"), SubResource("Entry_barrel_open"), SubResource("Entry_barrel_broken"), SubResource("Entry_barrel_staves"), SubResource("Entry_barrel_large"), SubResource("Entry_crate_wood_1"), SubResource("Entry_crate_wood_2"), SubResource("Entry_crate_wood_3"), SubResource("Entry_crate_wood_4"), SubResource("Entry_crate_wood_5"), SubResource("Entry_crate_ornate"), SubResource("Entry_barrel_plain_1"), SubResource("Entry_barrel_plain_2"), SubResource("Entry_barrel_plain_3"), SubResource("Entry_crate_plain_1"), SubResource("Entry_crate_plain_2"), SubResource("Entry_crate_plain_3"), SubResource("Entry_sack_1"), SubResource("Entry_sack_2"), SubResource("Entry_sack_3"), SubResource("Entry_sack_stack_1"), SubResource("Entry_sack_stack_2")]
 metadata/_custom_type_script = "uid://1gsakvdzzgtzi"

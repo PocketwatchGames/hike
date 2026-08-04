@@ -7,16 +7,11 @@ public static class LightEngine
     // Sun channel: a max-fill flood with a per-step falloff (block light uses
     // the geodesic flood model instead — see the Block-light flood section).
     public const int MAX_LIGHT = 60;
-    public const int FALLOFF_PER_VOXEL = 4;
 
-    // Fog adds extra sun attenuation: FOG_SUN_FALLOFF_255 is the falloff
-    // subtracted per voxel at max fog density (255); intermediate densities scale
-    // linearly. (Block light's fog/canopy attenuation lives in the flood — see
-    // SimData.BlockLightFogExtinction / BlockLightCanopyExtinction.)
-    public const int FOG_SUN_FALLOFF_255 = 4;
-
-    // The sun-channel canopy falloff strength lives on SimData
-    // (CanopySunFalloffPeak), read off world.SimData inside ComputeSunlight.
+    // The sun-channel fog and canopy extinctions live on SimData
+    // (FogSunExtinction / CanopySunExtinction), read off world.SimData inside
+    // ComputeSunlight. (Block light's are BlockLightFogExtinction /
+    // BlockLightCanopyExtinction, applied in the flood.)
 
     private static readonly Vector3I[] Neighbors =
     {
@@ -31,20 +26,20 @@ public static class LightEngine
     [ThreadStatic] private static bool[] _floodVisited;
     [ThreadStatic] private static Queue<(int lx, int ly, int lz, float depth)> _floodQueue;
 
-    // Multiplicative (Beer-Lambert) sun transmittance through one voxel of
-    // canopy: exp(-density * extinction). canopyByte is 0..255 (the saturating
-    // sum of overlapping foliage clusters); extinction is the optical depth a
-    // fully-dense voxel adds. Unlike a flat subtraction this compounds with
-    // depth and asymptotes toward — never snaps to — zero, so a lone tree's
-    // shadow stays dim-but-readable while only deep, dense canopy drives it very
-    // dark. Mirrors the block-light flood's canopy term.
-    private static float CanopyTransmittance(int canopyByte, float extinction)
+    // Multiplicative (Beer-Lambert) sun transmittance through one voxel of an
+    // attenuating medium (canopy or fog/dust): exp(-density * extinction).
+    // densityByte is 0..255; extinction is the optical depth a fully-dense voxel
+    // adds. Unlike a flat subtraction this compounds with depth and asymptotes
+    // toward — never snaps to — zero, so a lone tree's shadow (or a dusty room)
+    // stays dim-but-readable while only deep, dense medium drives it very dark.
+    // Mirrors the block-light flood's medium terms.
+    private static float MediumTransmittance(int densityByte, float extinction)
     {
-        if (canopyByte <= 0)
+        if (densityByte <= 0)
         {
             return 1f;
         }
-        return Mathf.Exp(-(canopyByte / 255f) * extinction);
+        return Mathf.Exp(-(densityByte / 255f) * extinction);
     }
 
     // Full relight: cover, then light. What every caller outside worldgen wants
@@ -121,7 +116,7 @@ public static class LightEngine
                 continue;
             }
             level -= VoxelTypeInfo.LightAttenuation(v);
-            level *= CanopyTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
+            level *= MediumTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
             int rounded = (int)(level + 0.5f);
             if (rounded <= 0)
             {
@@ -152,12 +147,13 @@ public static class LightEngine
 
         var queue = new Queue<(int x, int y, int z)>();
         float canopySunExtinction = world.SimData.canopySunExtinction;
+        float fogSunExtinction = world.SimData.fogSunExtinction;
 
         for (int wx = minWx; wx < maxWx; wx++)
         {
             for (int wz = minWz; wz < maxWz; wz++)
             {
-                ScanSunlightColumn(world, wx, wz, canopySunExtinction, queue, int.MaxValue);
+                ScanSunlightColumn(world, wx, wz, canopySunExtinction, fogSunExtinction, queue, int.MaxValue);
             }
         }
 
@@ -173,7 +169,7 @@ public static class LightEngine
     // there) but writes only at or below `maxWriteY`. A regional relight uses
     // that to leave the untouched sky above its region alone rather than
     // rewriting it with identical values and dirtying every chunk it passes.
-    private static void ScanSunlightColumn(WorldState world, int wx, int wz, float canopySunExtinction, Queue<(int x, int y, int z)> queue, int maxWriteY)
+    private static void ScanSunlightColumn(WorldState world, int wx, int wz, float canopySunExtinction, float fogSunExtinction, Queue<(int x, int y, int z)> queue, int maxWriteY)
     {
         int minWy = world.Min.Y * ChunkState.SIZE;
         int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
@@ -193,8 +189,8 @@ public static class LightEngine
                 break;
             }
             sunLevel -= VoxelTypeInfo.LightAttenuation(v);
-            sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255f;
-            sunLevel *= CanopyTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
+            sunLevel *= MediumTransmittance(world.GetFogWorld(wx, wy, wz), fogSunExtinction);
+            sunLevel *= MediumTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
             int level = (int)(sunLevel + 0.5f);
             if (level <= 0)
             {
@@ -234,6 +230,7 @@ public static class LightEngine
         }
         world.SunlightChunkDirty.Clear();
         float canopySunExtinction = world.SimData.canopySunExtinction;
+        float fogSunExtinction = world.SimData.fogSunExtinction;
         int minWy = world.Min.Y * ChunkState.SIZE;
 
         // Zero the columns outright and hand their OLD levels to the removal
@@ -264,7 +261,7 @@ public static class LightEngine
             for (int wz = region.Min.Z; wz <= region.Max.Z; wz++)
             {
                 ScanSkyExposureColumn(world, wx, wz, canopySunExtinction);
-                ScanSunlightColumn(world, wx, wz, canopySunExtinction, refillQueue, region.Max.Y);
+                ScanSunlightColumn(world, wx, wz, canopySunExtinction, fogSunExtinction, refillQueue, region.Max.Y);
             }
         }
         SpreadSunlight(world, refillQueue);
@@ -288,19 +285,40 @@ public static class LightEngine
         world.LightSources.Remove(source);
     }
 
-    // Change the source's brightness without recomputing its footprint. Full
-    // remove-at-old-amplitude then add-at-new — NOT a delta deposit. A delta
-    // (DepositFootprint(Δ)) re-rounds each step, so the deposited value drifts
-    // away from round(footprint × amplitude) over many flicker rolls and the
-    // eventual remove leaves permanent per-channel residue in the light map.
-    // Remove-then-add keeps the world exactly round(footprint × amplitude), so
-    // every add is undone exactly by the matching remove.
+    // Change the source's brightness without recomputing its footprint. This is
+    // the flicker path — the hottest light operation in the game, so it walks
+    // the footprint ONCE and applies round(f × new) − round(f × old) per voxel.
+    //
+    // Both terms are re-derived from the full-amplitude footprint, so this is
+    // exactly equivalent to remove-at-old then add-at-new: the world still holds
+    // precisely round(footprint × amplitude) and every add is undone exactly by
+    // its matching remove. What is NOT equivalent — and what the two-pass shape
+    // was guarding against — is accumulating a delta from the PREVIOUS delta,
+    // which re-rounds each step and leaves permanent per-channel residue after
+    // enough flicker rolls.
     public static void SetAmplitude(WorldState world, LightSource source, float newAmplitude)
     {
         if (Math.Abs(newAmplitude - source.Amplitude) < 1e-6f) { return; }
-        DepositFootprint(world, source, -source.Amplitude);
+        using var _prof = Profiler.Sample("LightEngine.RescaleFootprint");
+        Profiler.IncrementCounter("light_deposit_voxels", source.Footprint.Count);
+
+        float oldAmplitude = source.Amplitude;
         source.Amplitude = newAmplitude;
-        DepositFootprint(world, source, source.Amplitude);
+        List<(Vector3I pos, ushort r, ushort g, ushort b)> footprint = source.Footprint;
+        for (int i = 0; i < footprint.Count; i++)
+        {
+            var (pos, r, g, b) = footprint[i];
+            int dr = Quantize(r, newAmplitude) - Quantize(r, oldAmplitude);
+            int dg = Quantize(g, newAmplitude) - Quantize(g, oldAmplitude);
+            int db = Quantize(b, newAmplitude) - Quantize(b, oldAmplitude);
+            if ((dr | dg | db) == 0) { continue; }
+            world.AddBlockLightWorld(pos.X, pos.Y, pos.Z, dr, dg, db);
+        }
+    }
+
+    private static int Quantize(ushort value, float amplitude)
+    {
+        return (int)(value * amplitude + 0.5f);
     }
 
     public static void OnVoxelsChanged(WorldState world, List<Vector3I> changedPositions)
@@ -341,7 +359,8 @@ public static class LightEngine
     private static void DepositFootprint(WorldState world, LightSource source, float scale)
     {
         using var _prof = Profiler.Sample("LightEngine.DepositFootprint");
-        // Static-light re-deposit (incl. StationaryLight flicker amplitude rolls).
+        // Static-light footprint add/remove: registration, teardown, and the
+        // geometry-changed recompute. Flicker rolls take SetAmplitude instead.
         Profiler.IncrementCounter("light_deposit_voxels", source.Footprint.Count);
         for (int i = 0; i < source.Footprint.Count; i++)
         {
@@ -673,11 +692,13 @@ public static class LightEngine
     private static void SpreadSunlight(WorldState world, Queue<(int x, int y, int z)> queue)
     {
         float canopySunExtinction = world.SimData.canopySunExtinction;
+        float fogSunExtinction = world.SimData.fogSunExtinction;
+        int falloffPerVoxel = Math.Max(1, world.SimData.sunFalloffPerVoxel);
         while (queue.Count > 0)
         {
             var (x, y, z) = queue.Dequeue();
             int currentLevel = world.GetSunlightWorld(x, y, z);
-            if (currentLevel <= FALLOFF_PER_VOXEL) { continue; }
+            if (currentLevel <= falloffPerVoxel) { continue; }
 
             foreach (Vector3I offset in Neighbors)
             {
@@ -694,9 +715,9 @@ public static class LightEngine
                 // level — and refills the room the column scan just darkened.
                 if (world.GetSunOpaqueWorld(nx, ny, nz)) { continue; }
 
-                int fogFalloff = (world.GetFogWorld(nx, ny, nz) * FOG_SUN_FALLOFF_255) / 255;
-                float stepped = currentLevel - FALLOFF_PER_VOXEL - VoxelTypeInfo.LightAttenuation(v) - fogFalloff;
-                stepped *= CanopyTransmittance(world.GetCanopyAttenuationWorld(nx, ny, nz), canopySunExtinction);
+                float stepped = currentLevel - falloffPerVoxel - VoxelTypeInfo.LightAttenuation(v);
+                stepped *= MediumTransmittance(world.GetFogWorld(nx, ny, nz), fogSunExtinction);
+                stepped *= MediumTransmittance(world.GetCanopyAttenuationWorld(nx, ny, nz), canopySunExtinction);
                 int newLevel = (int)(stepped + 0.5f);
                 if (newLevel <= 0) { continue; }
 

@@ -857,8 +857,15 @@ void fragment() {
 	// onto the direct-sun term. Ambient sky-bounce (EMISSION half) is still
 	// cloud-dimmed below — clouds do occlude sky light.
 	// cloud_shadow_ground is Y-independent to avoid faceted polygon-edge
-	// artifacts on sloped triangles.
-	float cloud = cloud_shadow_ground(world_vertex, TIME);
+	// artifacts on sloped triangles. Gated by sky exposure at the same air
+	// voxel the light map was sampled at, so cave / interior surfaces that
+	// still carry lateral sun spill don't get cloud blotches drifting over them.
+	// Backdrop geometry past the volume window takes the ungated drape: its
+	// sky-exposure probe would wrap onto unrelated world, same reason that
+	// path reads baked_sun instead of the live sun volume.
+	float cloud = (use_baked_sun > 0.5)
+		? cloud_shadow_ground(world_vertex, TIME)
+		: cloud_shadow_ground_gated(world_vertex, light_sample_pos, TIME);
 	cloud_dim = debug_no_cloud ? 1.0 : 1.0 - cloud * cloud_shadow_strength;
 	// NdotL multiplier on direct sun. Slopes facing toward the sun get a lift
 	// above the glow HDR threshold so bloom catches them; sun-averted slopes

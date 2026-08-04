@@ -21,6 +21,15 @@ public class LootSimState : EntitySimState
     // the last life's spoils lying around, while authored loot (Dropped == false)
     // stays put. In-memory only, like RequireInteract.
     public bool Dropped;
+    // Whether the next materialization should play the spawn puff + sound.
+    // CreateEntity runs on every chunk stream-in, not just when loot first
+    // appears, so without consuming this the whole ground inventory of an area
+    // re-poofs (and re-chimes) each time the player walks back into it — 64
+    // concurrent loot_spawn effects showed up in a node census this way.
+    // Starts true so genuinely new loot announces itself once. In-memory only,
+    // like the flags above; a reload replays each pile's puff once, which is
+    // indistinguishable from the loot having just appeared.
+    public bool PlaySpawnEffects = true;
 
     public LootSimState(Vector3 worldPosition, ItemData data)
         : base(worldPosition, scene: null)
@@ -40,7 +49,9 @@ public class LootSimState : EntitySimState
         {
             return null;
         }
-        return Loot.Create(sim, this, scene);
+        Loot loot = Loot.Create(sim, this, scene);
+        PlaySpawnEffects = false;
+        return loot;
     }
 
     // Overrides for the per-loot-kind pickup contract — base implementation

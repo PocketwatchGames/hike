@@ -152,11 +152,6 @@ public partial class FireTrap : Node3D, IWorldEntity
         var instance = data.Scene.Instantiate<FireTrap>();
         data.SeatTransform(instance);
         instance._simState = data;
-        // Scale the fire damage + Burning potency to the trap's baked environment
-        // tier, so a trap is as dangerous as the zone it sits in (and can't be
-        // cheesed by luring a far-higher mob onto a low-zone trap).
-        float levelScale = sim.SimData?.LevelOutgoingScale(data.Level) ?? 1f;
-        instance._damageZone?.SetLevelScale(levelScale);
         // Light sits one voxel up from the trap base so the floor doesn't
         // block its propagation — the column erupts upward from there.
         var baseWorldPos = new Vector3I(

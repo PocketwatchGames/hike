@@ -107,6 +107,8 @@ public partial class LitSpriteAnimator : Node
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("LitSpriteAnimator.Process");
+
         if (target == null || frames == null)
         {
             return;

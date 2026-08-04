@@ -168,7 +168,11 @@ public static class WorldFile
     //      to decide whether an entity spawns; it rides into the world file so
     //      the editor can round-trip a scene through a live WorldState without
     //      dropping it.
-    public const uint VERSION = 40;
+    // v41: Trap and FireTrap payloads dropped their baked environment-tier `Level`
+    //      int. Traps carry no level of their own — they read as identical wherever
+    //      they sit, so their damage is sized to the victim (DamageData.hazardProfile)
+    //      rather than to the zone.
+    public const uint VERSION = 41;
 
     public struct IndexEntry
     {

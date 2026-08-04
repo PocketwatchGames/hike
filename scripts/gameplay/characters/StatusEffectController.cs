@@ -61,9 +61,10 @@ public class StatusEffectController
 	// cached scalar) because the level can change mid-life (a forge visit swaps the
 	// Armor upgrade).
 	readonly Func<float> _incomingLevelResist;
-	// Live current-max-health accessor, for DamageOverTimeData.fractionMaxHealthPerSecond
-	// (percentage-of-max DoTs like sunburn). Null on actors that don't model it
-	// (the player, items) → percent DoTs are inert there.
+	// Live current-max-health accessor. Drives every percent-of-max path:
+	// DamageOverTimeData.fractionMaxHealthPerSecond (sunburn) and the hazard proc /
+	// dot bands. Wired by Player and Mob; null on item-side controllers, where those
+	// paths go inert.
 	readonly Func<float> _maxHealth;
 	readonly List<StatusEffectState> _statusEffects = new();
 	readonly Dictionary<StatusEffectData, BuildupState> _buildups = new();
@@ -620,6 +621,11 @@ public class StatusEffectController
 			return false;
 		}
 		bool appliedAny = false;
+		// A hazard bands its proc rate the same way it bands its damage: the tougher
+		// the receiver, the slower every meter this payload feeds. One factor for the
+		// whole payload, so a hazard applying several effects keeps their relative
+		// rates (see HazardProfileData.procFloorPercent).
+		float hazardProcScale = HazardProcScale(hit.hazardProfile);
 		for (int i = 0; i < hit.buildups.Count; i++)
 		{
 			StatusEffectBuildup entry = hit.buildups[i];
@@ -632,7 +638,7 @@ public class StatusEffectController
 			// uses, so removesOnApply / maxStack / fx lifecycle all run.
 			if (entry.applyImmediately)
 			{
-				Add(entry.effect, potency: hit.potency);
+				Add(entry.effect, potency: hit.potency, hazard: hit.hazardProfile);
 				appliedAny = true;
 				continue;
 			}
@@ -643,7 +649,7 @@ public class StatusEffectController
 			// multiplier (untagged buildups take no resistance scaling).
 			// Only combat-delivered buildup routes through here — ambient meters
 			// (rain Wet) call AddBuildup directly and are intentionally untouched.
-			float amount = entry.amount * hit.buildupAmountMultiplier;
+			float amount = entry.amount * hit.buildupAmountMultiplier * hazardProcScale;
 			// A positive contribution reaches the meter (resistance may still
 			// scale it down inside AddCombatBuildup, but the hit did land buildup),
 			// so it's not a miss even when this tick doesn't cross the threshold.
@@ -651,7 +657,7 @@ public class StatusEffectController
 			{
 				appliedAny = true;
 			}
-			bool applied = AddCombatBuildup(entry.effect, amount, hit.potency);
+			bool applied = AddCombatBuildup(entry.effect, amount, hit.potency, hit.hazardProfile);
 			if (applied && entry.effect.applyTrigger != EDamageTrigger.None)
 			{
 				hit.ApplyTrigger(entry.effect.applyTrigger);
@@ -670,7 +676,7 @@ public class StatusEffectController
 	// plus any gear/status modifier) scales every combat buildup on top of its
 	// per-tag resistance; levelResist (Armor upgrade / mob Level) is the buildup
 	// counterpart of the incoming-damage resist in ApplyResistance.
-	public bool AddCombatBuildup(StatusEffectData effect, float amount, float potency = 1f)
+	public bool AddCombatBuildup(StatusEffectData effect, float amount, float potency = 1f, HazardProfileData hazard = null)
 	{
 		if (effect == null || amount == 0f)
 		{
@@ -678,7 +684,36 @@ public class StatusEffectController
 		}
 		float resistance = _composeMaskMul?.Invoke(effect.tags | EStat.FortitudeResistance) ?? 1f;
 		float levelResist = _incomingLevelResist?.Invoke() ?? 1f;
-		return AddBuildup(effect, amount * resistance * levelResist, potency);
+		return AddBuildup(effect, amount * resistance * levelResist, potency, hazard);
+	}
+
+	// Per-second damage a hazard-applied instance ticks, as a fraction of this
+	// actor's CURRENT max health (so a withering or buffed pool tracks). 0 when the
+	// instance came from an ordinary source, when its hazard authored no dot band,
+	// or on a controller with no max-health accessor — all of which fall back to the
+	// flat damagePerSecond path.
+	private float HazardDotPerSecond(StatusEffectState s)
+	{
+		HazardProfileData hazard = s?.hazardProfile;
+		if (hazard == null || !hazard.HasDotBand || _maxHealth == null || _world?.SimData == null)
+		{
+			return 0f;
+		}
+		float maxHealth = _maxHealth();
+		return maxHealth * hazard.DotFraction(hazard.Outmatch(maxHealth, _world.SimData.hazardDamageHalfPointPercent));
+	}
+
+	// This actor's proc-rate multiplier for `hazard` (1 when there's no hazard, or
+	// on a controller with no max-health accessor — items). Public so out-of-band
+	// hazard sources that call AddCombatBuildup directly can apply the same band the
+	// ref-HitInfo path does.
+	public float HazardProcScale(HazardProfileData hazard)
+	{
+		if (hazard == null || _maxHealth == null || _world?.SimData == null)
+		{
+			return 1f;
+		}
+		return hazard.ProcScale(hazard.Outmatch(_maxHealth(), _world.SimData.hazardDamageHalfPointPercent));
 	}
 
 	// Add a signed contribution to `data`'s buildup meter and run the per-
@@ -698,7 +733,7 @@ public class StatusEffectController
 	// falls through disarmThreshold (hysteresis prevents flapping). The armed
 	// instance's duration timer is held paused so the meter, not a countdown,
 	// owns lifecycle.
-	public bool AddBuildup(StatusEffectData data, float amount, float potency = 1f)
+	public bool AddBuildup(StatusEffectData data, float amount, float potency = 1f, HazardProfileData hazard = null)
 	{
 		if (data == null || amount == 0f)
 		{
@@ -720,13 +755,13 @@ public class StatusEffectController
 		{
 			if (state.amount < 0f) { state.amount = 0f; }
 			else if (state.amount > 1f) { state.amount = 1f; }
-			return UpdateContinuousArm(data, state, now, potency);
+			return UpdateContinuousArm(data, state, now, potency, hazard);
 		}
 		state.decayStartMs = now + (ulong)(data.buildupRemovalDelay * 1000f);
 		bool applied = false;
 		while (state.amount >= 1f)
 		{
-			Add(data, potency: potency);
+			Add(data, potency: potency, hazard: hazard);
 			applied = true;
 			if (data.clearBuildupOnApply)
 			{
@@ -745,7 +780,7 @@ public class StatusEffectController
 	// won't auto-expire on us. Returns true on the arm transition; release
 	// returns false (only fresh arms are meaningful to ApplyHitBuildups, and
 	// ContinuousArm effects don't carry an applyTrigger in any case).
-	private bool UpdateContinuousArm(StatusEffectData data, BuildupState state, ulong now, float potency = 1f)
+	private bool UpdateContinuousArm(StatusEffectData data, BuildupState state, ulong now, float potency = 1f, HazardProfileData hazard = null)
 	{
 		if (state.armedInstance != null && !_statusEffects.Contains(state.armedInstance))
 		{
@@ -755,7 +790,7 @@ public class StatusEffectController
 		{
 			if (state.amount >= data.armThreshold)
 			{
-				state.armedInstance = Add(data, potency: potency);
+				state.armedInstance = Add(data, potency: potency, hazard: hazard);
 				state.armedInstance?.PauseTimer();
 				return true;
 			}
@@ -979,7 +1014,7 @@ public class StatusEffectController
 	// is the concrete slot a forge applies the upgrade to (None for ordinary effects
 	// and weapon mods) — it drives the swap-not-stack slot exclusivity and is stamped
 	// onto the instance for weapon-mod matching (see StatusEffectState.appliedUpgradeSlot).
-	public StatusEffectState Add(StatusEffectData data, int level = 0, EUpgradeSlot appliedSlot = EUpgradeSlot.None, float potency = 1f)
+	public StatusEffectState Add(StatusEffectData data, int level = 0, EUpgradeSlot appliedSlot = EUpgradeSlot.None, float potency = 1f, HazardProfileData hazard = null)
 	{
 		if (data == null)
 		{
@@ -1034,7 +1069,7 @@ public class StatusEffectController
 				return oldest;
 			}
 		}
-		var state = new StatusEffectState(data, now, nowDay, nowTod01) { level = level, appliedUpgradeSlot = appliedSlot, potency = potency };
+		var state = new StatusEffectState(data, now, nowDay, nowTod01) { level = level, appliedUpgradeSlot = appliedSlot, potency = potency, hazardProfile = hazard };
 		_statusEffects.Add(state);
 		if (!suppressFx)
 		{
@@ -1306,6 +1341,15 @@ public class StatusEffectController
 					// level-5 poison stack ticks ~5.6x, a superior heal ticks 2x — so
 					// stronger sources show bigger numbers rather than more stacks.
 					float dps = dot.damagePerSecond * s.potency;
+					// A hazard-applied instance (trap burn, gas poison) REPLACES that
+					// flat rate with its profile's per-second fraction of max health,
+					// so the burn stays proportionate to whoever caught it — the same
+					// effect landed by a weapon keeps the authored flat number above.
+					float hazardDps = HazardDotPerSecond(s);
+					if (hazardDps > 0f)
+					{
+						dps = hazardDps;
+					}
 					if (dps > 0f)
 					{
 						float resistance = _composeMaskMul?.Invoke(s.data.tags) ?? 1f;
@@ -1371,7 +1415,7 @@ public class StatusEffectController
 			{
 				continue;
 			}
-			running = StatModifierUtil.Fold(stat, data.modifiers, running);
+			running = StatModifierUtil.Fold(stat, data.ModifiersFlat, running);
 			running = FoldConditional(data, running, mask: false, stat: stat, maskArg: EStat.None);
 		}
 		return running;
@@ -1397,7 +1441,7 @@ public class StatusEffectController
 			{
 				continue;
 			}
-			product = StatModifierUtil.FoldMask(mask, data.modifiers, product);
+			product = StatModifierUtil.FoldMask(mask, data.ModifiersFlat, product);
 			product = FoldConditional(data, product, mask: true, stat: EStat.None, maskArg: mask);
 		}
 		return product;
@@ -1415,7 +1459,9 @@ public class StatusEffectController
 		{
 			return running;
 		}
-		for (int g = 0; g < groups.Count; g++)
+		// Count is a native call on a Godot array — hoist it out of the condition.
+		int groupCount = groups.Count;
+		for (int g = 0; g < groupCount; g++)
 		{
 			ConditionalModifierData group = groups[g];
 			if (group?.modifiers == null || !_conditionActive(group.condition, group.parameter))
@@ -1423,8 +1469,8 @@ public class StatusEffectController
 				continue;
 			}
 			running = mask
-				? StatModifierUtil.FoldMask(maskArg, group.modifiers, running)
-				: StatModifierUtil.Fold(stat, group.modifiers, running);
+				? StatModifierUtil.FoldMask(maskArg, group.ModifiersFlat, running)
+				: StatModifierUtil.Fold(stat, group.ModifiersFlat, running);
 		}
 		return running;
 	}

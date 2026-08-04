@@ -567,6 +567,8 @@ public partial class Hud : Control
 
 	public override void _Process(double delta)
 	{
+		using var _prof = Profiler.Sample("Hud.Process");
+
 		UpdateLightningFlash((float)delta);
 
 		if (_player == null)

@@ -215,7 +215,14 @@ public abstract class WindowedVolumeMap
                 }
             }
         }
+        OnWindowMoved();
         return true;
+    }
+
+    // Called after the window slides. Subclasses holding per-chunk derived state
+    // (LightMap's cached sun planes) drop whatever just fell out of the window.
+    protected virtual void OnWindowMoved()
+    {
     }
 
     // Encodes dirty chunks that are in-window and resident, GPU-copying each into
@@ -239,8 +246,16 @@ public abstract class WindowedVolumeMap
             }
             ChunkState chunk = world.GetChunk(coord);
             if (chunk == null) { continue; }
-            EncodeChunkPixels(chunk, _chunkScratch);
-            UploadChunkRegion(coord);
+            // Split so a regression shows up on the right side of the fence:
+            // Encode is CPU staging work, Upload is the RD texture_copy.
+            using (Profiler.Sample("VolumeMap.Encode"))
+            {
+                EncodeChunkPixels(chunk, _chunkScratch);
+            }
+            using (Profiler.Sample("VolumeMap.Upload"))
+            {
+                UploadChunkRegion(coord);
+            }
             _processedScratch.Add(coord);
         }
         for (int i = 0; i < _processedScratch.Count; i++)
@@ -354,7 +369,7 @@ public abstract class WindowedVolumeMap
         }
     }
 
-    private bool InWindow(Vector3I coord)
+    protected bool InWindow(Vector3I coord)
     {
         return coord.X >= _winMinChunk.X && coord.X < _winMinChunk.X + _windowChunksX
             && coord.Y >= _winMinChunk.Y && coord.Y < _winMinChunk.Y + _windowChunksY

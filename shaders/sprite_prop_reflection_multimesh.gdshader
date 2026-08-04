@@ -304,7 +304,7 @@ void vertex() {
 
 void fragment() {
     // Master disable — when SkyController pushes reflection_tint == 0
-    // (CVar `sprite_reflections_disabled`, fully muddy/dim conditions).
+    // (CVar `sprite_reflection_visible` false, fully muddy/dim conditions).
     if (reflection_tint <= 0.0) {
         discard;
     }
@@ -503,7 +503,7 @@ void fragment() {
     vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
     vec4 lm = textureLod(light_map, uvw, 0.0);
     float sun_mask = pow(lm.r, light_falloff_exp);
-    float cloud = cloud_shadow_ground(source_world_pos, TIME);
+    float cloud = cloud_shadow_ground_gated(source_world_pos, light_sample_pos, TIME);
     float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
     vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun;
     // Match the lightmap sampling position above — the reflection's

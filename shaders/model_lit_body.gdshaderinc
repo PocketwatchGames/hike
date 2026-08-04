@@ -351,7 +351,7 @@ void fragment() {
 		float wrap = ndl * 0.5 + 0.5;
 		float form = mix(1.0, wrap, form_strength);
 
-		float cloud = cloud_shadow_ground(world_pos, TIME);
+		float cloud = cloud_shadow_ground_gated_up(world_pos, TIME);
 		float cloud_dim = 1.0 - cloud * cloud_shadow_strength;
 
 		vec3 sun_lit = sun_mask * sun_intensity * sun_color * form;
@@ -415,7 +415,7 @@ void light() {
 	// matches sprite_lit_common / voxel_clip: LIGHT_COLOR = color*energy*PI.
 	const float INV_PI = 0.31830989;
 	float light_energy = LIGHT_COLOR.r * INV_PI;
-	float cloud = cloud_shadow_ground(world_pos, TIME);
+	float cloud = cloud_shadow_ground_gated_up(world_pos, TIME);
 	float cloud_dim = 1.0 - cloud * cloud_shadow_strength;
 	DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
 

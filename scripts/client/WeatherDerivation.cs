@@ -465,6 +465,62 @@ public static class WeatherDerivation
         // Sky shader's moon disk is literally the moon; no phase blend.
         p.MoonDiskColor = moonC;
 
+        // --- Nightfall ----------------------------------------------
+        // The awake day ends at midnight, so the whole playable night is one
+        // monotonic slide from moonlit dusk into pitch dark: skylight ramps to
+        // NightfallSkylightFloor (0 = utterly black) by midnight, leaving block
+        // lights as the only thing the player can see by. Deliberately runs
+        // after the whole day/sunset/night model above — that computes each
+        // channel normally and this is a pure dimming pass over the result, so
+        // the curve can't perturb any of that logic.
+        //
+        // Applied here rather than folded into the night phase weights because
+        // those key off sun ELEVATION (saturated well before midnight) while
+        // this keys off clock POSITION in the sunset→midnight window.
+        float nightfallFalloff = Mathf.Max(simData?.nightfallFalloff ?? 1.5f, 0.01f);
+        float nightfallFloor = Mathf.Clamp(simData?.nightfallSkylightFloor ?? 0f, 0f, 1f);
+        float sunsetPhase = (float)WorldState.OrbitPhase01(WorldState.SunsetTimeOfDay01);
+        float midnightPhase = (float)WorldState.OrbitPhase01(WorldState.MidnightTimeOfDay01);
+        float nightfall01 = Mathf.Clamp(
+            (timeOfDay01 - sunsetPhase) / Mathf.Max(midnightPhase - sunsetPhase, 1e-4f), 0f, 1f);
+        p.SkyLight = Mathf.Lerp(nightfallFloor, 1f, Mathf.Pow(1f - nightfall01, nightfallFalloff));
+
+        p.Ambient *= p.SkyLight;
+        p.PrimaryIntensity *= p.SkyLight;
+        p.NightPrimaryIntensity *= p.SkyLight;
+
+        // --- Illumination -------------------------------------------
+        // "Is there light in the open air at all", 1 whenever the scene is lit
+        // by any normal amount and → 0 only as the light genuinely vanishes.
+        // Derived from the RESULT (the blended direct intensity) rather than
+        // from the clock, so every cause of darkness feeds it: nightfall above,
+        // and anything future that dims intensity — an eclipse — for free.
+        //
+        // The ramp reaches 1 well below moonlight, so day, dusk and moonlit
+        // night are all untouched; this only bites at the vanishing end.
+        float litIntensity = Mathf.Lerp(p.PrimaryIntensity, p.NightPrimaryIntensity, p.NightT);
+        float skyLightRef = Mathf.Max(simData?.skyLightReference ?? 0.35f, 1e-4f);
+        p.Illumination = Mathf.SmoothStep(0f, skyLightRef, litIntensity);
+
+        // Haze is lit air, so its COLOR is the light present in that air. The
+        // fog shader gates haze on light_map.r — whether sky REACHES a voxel,
+        // not how much light the sky is giving — so a sealed cave already
+        // contributes no haze, but open ground holds that gate at ~1 through
+        // any darkness and would go on washing the world toward a
+        // full-brightness fog_color. Illumination supplies the missing half.
+        // Density is deliberately NOT scaled (it reads the pre-nightfall
+        // PrimaryIntensity above): dark air still occludes, so distant block
+        // lights fade toward black rather than toward white haze.
+        p.FogTint = ScaleColor(p.FogTint, p.Illumination);
+
+        // The dome, its clouds, and with them the water / wet-fresnel
+        // reflections that sample these colors. Same argument as the haze —
+        // all three are air lit by the sky, so they ride the light, not the
+        // clock, and go black whenever it does.
+        p.HorizonTint = ScaleColor(p.HorizonTint, p.Illumination);
+        p.ZenithTint = ScaleColor(p.ZenithTint, p.Illumination);
+        p.CloudTint = ScaleColor(p.CloudTint, p.Illumination);
+
         return p;
     }
 

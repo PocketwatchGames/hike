@@ -55,6 +55,8 @@ public partial class DiscoverableHud : Node2D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("DiscoverableHud.Process");
+
         Update();
     }
 }
