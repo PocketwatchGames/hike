@@ -97,6 +97,9 @@ public partial class EditorHud : CanvasLayer
     // Items are filled from the brush palette's presets at startup, so the
     // dropdown is authored in the .tres rather than in the scene.
     [Export] public OptionButton weatherOption;
+    // Space class stamped into a subscene's enclosed cells when it is saved.
+    // Filled from SimData.interiorAmbiences at startup.
+    [Export] public OptionButton interiorClassOption;
 
     public Action<int> onVoxelBrushSelected;
     public Action<int> onEntityBrushSelected;
@@ -121,6 +124,8 @@ public partial class EditorHud : CanvasLayer
     public Action<bool> onLightingChanged;
     public Action<float> onTimeOfDayChanged;
     public Action<int> onWeatherSelected;
+    // Palette index, or -1 for "preserve whatever the cells already carry".
+    public Action<int> onInteriorClassSelected;
 
     // Index-aligned with the brush entries. A slot is null when its tab wasn't
     // wired in the scene, so the palette index a brush selection carries stays
@@ -211,6 +216,12 @@ public partial class EditorHud : CanvasLayer
         {
             weatherOption.ItemSelected += index => onWeatherSelected?.Invoke((int)index);
         }
+        if (interiorClassOption != null)
+        {
+            // Item 0 is Preserve, so the palette index is one less than the
+            // item index — see BuildInteriorClassOptions.
+            interiorClassOption.ItemSelected += index => onInteriorClassSelected?.Invoke((int)index - 1);
+        }
     }
 
     private void BindOperationButton(Button button, EEditorBrushOperation operation)
@@ -288,6 +299,32 @@ public partial class EditorHud : CanvasLayer
         {
             weatherOption.Select(0);
         }
+    }
+
+    // Fills the interior-class dropdown from the world's space-class palette.
+    // Item 0 is "Preserve" (palette index -1), so the remaining items line up
+    // with SimData.interiorAmbiences at an offset of one — a scene that has
+    // already been classified keeps its cells unless the author picks a class
+    // explicitly, which is the safe default for re-saving an existing scene.
+    public void BuildInteriorClassOptions(InteriorAmbienceData[] palette)
+    {
+        if (interiorClassOption == null)
+        {
+            return;
+        }
+        interiorClassOption.Clear();
+        interiorClassOption.AddItem("Preserve");
+        for (int i = 0; i < (palette?.Length ?? 0); i++)
+        {
+            InteriorAmbienceData data = palette[i];
+            string label = data == null
+                ? $"({i})"
+                : string.IsNullOrEmpty(data.displayName)
+                    ? data.ResourcePath.GetFile().GetBaseName()
+                    : data.displayName;
+            interiorClassOption.AddItem($"{i}: {label}");
+        }
+        interiorClassOption.Select(0);
     }
 
     // ----- Tool palette ----------------------------------------------------

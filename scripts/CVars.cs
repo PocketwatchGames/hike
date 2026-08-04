@@ -142,6 +142,7 @@ public static class CVars
 
     public static CVar mesherProbe = new CVar("mesher_probe", (cvar) => MesherProbe.Run());
     public static CVar mesherSweep = new CVar("mesher_sweep", (cvar) => MesherProbe.Sweep());
+    public static CVar mesherProbeMaterial = new CVar("mesher_probe_material", (cvar) => MesherProbe.MaterialRegistration());
 
     // Dump the shape-channel decision for a patch of world so a stepped slope
     // can be traced to either the stamping pass or the grade rule itself.
@@ -1057,12 +1058,21 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("debug_water_thickness", ((CVarBool)cvar).Value);
     });
 
-    // Sun source A/B. On = the old light-volume fetch (slopes band, walls get
-    // their darkening from solid texels bleeding into the sample); off = the
-    // per-vertex sky-visibility bake. Lets the two be compared in place.
+    // Sun source A/B. On = the raw light-volume fetch with no openness term
+    // (slopes band where the dilation misses, walls read flat); off = the
+    // shipping path, volume sun x static per-vertex openness.
     public static CVarBool debugSunFromVolume = new CVarBool("debug_sun_from_volume", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_sun_from_volume", ((CVarBool)cvar).Value);
+    });
+
+    // Forces the pre-dynamic per-vertex sun bake everywhere, including chunks
+    // inside the light-map window. The A/B partner for the volume path: terrain
+    // stops responding to doors and anything else that moves sunlight at run
+    // time, which is exactly what makes the difference legible.
+    public static CVarBool debugSunLegacy = new CVarBool("debug_sun_legacy", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_sun_legacy", ((CVarBool)cvar).Value);
     });
 
     // Eye adaptation gain, which is a per-fragment function of local

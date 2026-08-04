@@ -115,13 +115,28 @@ public class ChunkState
     public readonly ushort[,,] BlockLightG;
     public readonly ushort[,,] BlockLightB;
 
-    // Coarse wind-factor subgrid. 0 = sealed (no ambient wind, e.g. deep
-    // cave or building interior), 255 = full ambient wind. Sampled
-    // trilinearly at the listener / shader fragment so cave-mouth
-    // transitions blend smoothly. Worldgen bakes it from sunlight
-    // openness; uploaded to the GPU as the alpha channel of the
-    // `wind_map` global texture (RGB carries WindVelocity).
-    public readonly byte[,,] WindFactor;
+    // Coarse ENCLOSURE subgrid: 0 = fully open to the outdoors, 255 = deeply
+    // enclosed. Baked by InteriornessGen as an aperture-weighted flood inward
+    // from open sky, so it measures how hard it is for the outdoors to REACH a
+    // cell rather than how much light does — which is the distinction every
+    // light-based attempt at this failed on:
+    //
+    //   * under an eave — one wide step from open air, so ~0 despite full
+    //     cover overhead;
+    //   * a room with a window — the aperture is narrow, so the interior stays
+    //     high even standing a metre from the glass;
+    //   * under a broken roof — holes are narrow apertures, so the room stays
+    //     a room and only softens by roughly how holed it is;
+    //   * deep cave — saturated.
+    //
+    // Paired with EnvTag: that says WHICH class a cell is, this says HOW MUCH
+    // of it applies. Both are trilinearly sampled together, which is what makes
+    // thresholds crossfade instead of stepping.
+    //
+    // Also replaces the old baked WindFactor channel — ambient wind reach is
+    // now derived from this and the class's windSuppression at upload time,
+    // rather than being a second, separately-baked openness measure.
+    public readonly byte[,,] Interiorness;
 
     // Coarse wind-velocity subgrid. One full XYZ vector per ENV cell.
     // Bytes 0..255 map to signed [-1, 1] via the (byte - 128) / 127
@@ -175,7 +190,7 @@ public class ChunkState
         BlockLightG = new ushort[SIZE, SIZE, SIZE];
         BlockLightB = new ushort[SIZE, SIZE, SIZE];
         FogDensity = new byte[SIZE, SIZE, SIZE];
-        WindFactor = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
+        Interiorness = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
         EnvTag = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
         CurrentX = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
         CurrentZ = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
@@ -255,20 +270,39 @@ public class ChunkState
         CurrentZ[sx, sy, sz] = (byte)(Mathf.RoundToInt(fz * 127f) + 128);
     }
 
-    public int GetWindFactor(int sx, int sy, int sz)
+    // Out of bounds reads as 0 = fully open, matching an unloaded neighbour
+    // contributing nothing rather than falsely enclosing the edge of the world.
+    public int GetInteriorness(int sx, int sy, int sz)
     {
         if (sx < 0 || sx >= ENV_SUBGRID_SIZE || sy < 0 || sy >= ENV_SUBGRID_SIZE || sz < 0 || sz >= ENV_SUBGRID_SIZE)
         {
             return 0;
         }
-        return WindFactor[sx, sy, sz];
+        return Interiorness[sx, sy, sz];
     }
 
-    public void SetWindFactor(int sx, int sy, int sz, int factor)
+    // Ambient wind reaching a cell, 0..255 — DERIVED, not stored. An open cell
+    // gets full ambient wind; an enclosed one is damped by its space class's
+    // windSuppression, in proportion to how enclosed it actually is. Replaces
+    // the old baked WindFactor channel, which was a second openness measure
+    // computed from sunlight and needed its own bake pass to stay in step.
+    //
+    // Single definition because both the CPU sampler (WorldState) and the GPU
+    // upload (WindMap) must agree exactly — the shaders read the same value the
+    // audio and motes do.
+    public int GetWindFactor(SimData simData, int sx, int sy, int sz)
     {
-        if (factor < 0) { factor = 0; }
-        if (factor > 255) { factor = 255; }
-        WindFactor[sx, sy, sz] = (byte)factor;
+        int interiorness = GetInteriorness(sx, sy, sz);
+        InteriorAmbienceData ambience = simData?.GetInteriorAmbience(GetEnvTag(sx, sy, sz));
+        float suppression = ambience == null ? 0f : Mathf.Clamp(ambience.windSuppression, 0f, 1f);
+        return 255 - (int)(interiorness * suppression);
+    }
+
+    public void SetInteriorness(int sx, int sy, int sz, int value)
+    {
+        if (value < 0) { value = 0; }
+        if (value > 255) { value = 255; }
+        Interiorness[sx, sy, sz] = (byte)value;
     }
 
     // Coarse space-class subgrid. One byte per cell (4³ voxels per cell, 64
@@ -482,13 +516,39 @@ public class ChunkState
         _fillType = first;
     }
 
-    public int GetFog(int x, int y, int z)
+    // Air density: authored/procedural fog raised by the space class's own
+    // dust. DERIVED rather than baked, which is what makes tuning a class's
+    // dustFloor take effect immediately instead of needing a WORLDGEN_VERSION
+    // bump and a full regen.
+    //
+    // Scaled by interiorness so dust fades out toward openings the same way
+    // everything else about the class does — a cave mouth thins rather than
+    // stepping at the cell where the class flips.
+    //
+    // MAX, never a sum: authored mist already sitting here must not be thinned
+    // by a drier class, nor doubled by a wetter one.
+    public int GetFog(SimData simData, int x, int y, int z)
     {
         if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
         {
             return 0;
         }
-        return FogDensity[x, y, z];
+        int fog = FogDensity[x, y, z];
+        // Dust is airborne; solids keep only whatever fog was authored into
+        // them, so the fog volume's linear filter falls off across a wall face
+        // instead of hazing through it.
+        if (Voxels[x, y, z] != VoxelType.Air)
+        {
+            return fog;
+        }
+        int s = ENV_VOXELS_PER_CELL;
+        InteriorAmbienceData ambience = simData?.GetInteriorAmbience(GetEnvTag(x / s, y / s, z / s));
+        if (ambience == null || ambience.dustFloor <= 0f)
+        {
+            return fog;
+        }
+        int dust = (int)(ambience.dustFloor * GetInteriorness(x / s, y / s, z / s));
+        return dust > fog ? dust : fog;
     }
 
     public void SetFog(int x, int y, int z, int density)

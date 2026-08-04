@@ -556,6 +556,196 @@ public static class MesherProbe
         return worst;
     }
 
+    // Where does a MATERIAL boundary land relative to the voxel boundary it was
+    // authored at? Flat ground, TerrainId 1 for x<8 and 2 for x>=8, so geometry
+    // is identical everywhere and only the material channel moves. The rendered
+    // transition sits midway between the last vertex carrying kit 1 and the
+    // first carrying kit 2, so those two X values bracket the seam.
+    public static void MaterialRegistration()
+    {
+        GD.Print($"[matreg] === voxel_center_sampling = {CVars.voxelCenterSampling.Value} ===");
+        // Edge roughness carves vertices off the plane by a per-cell hash, which
+        // would drop them from the flat-surface filters below.
+        float rough = CVars.voxelEdgeRoughness.Value;
+        CVars.voxelEdgeRoughness.Value = 0f;
+        FlatKitSplit();
+        FlatTileSplit();
+        WallOnGround();
+        BuildingCrossSection();
+        CVars.voxelEdgeRoughness.Value = rough;
+    }
+
+    // Same measurement on the TILE channel: flat ground, Terrain for x<8 and
+    // Stone for x>=8.
+    private static void FlatTileSplit()
+    {
+        var v = new VoxelType[N, N, N];
+        for (int x = 0; x < N; x++)
+        {
+            for (int z = 0; z < N; z++)
+            {
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = x < 8 ? VoxelType.Terrain : VoxelType.Stone; }
+            }
+        }
+        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = BuildIds(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), (x, y, z) => 1,
+            out int[] tiles, out int[] kits, out Vector3[] norms);
+        int stoneTile = VoxelTypeInfo.GetTileForFace(VoxelType.Stone, 0);
+        var byX = new SortedDictionary<float, SortedSet<string>>();
+        for (int i = 0; i < verts.Length; i++)
+        {
+            if (norms[i].Y < 0.9f || Mathf.Abs(verts[i].Y - 8f) > 0.01f || verts[i].Z < 4f || verts[i].Z > 12f) { continue; }
+            float x = Mathf.Round(verts[i].X * 100f) / 100f;
+            if (!byX.TryGetValue(x, out var set)) { set = new SortedSet<string>(); byX[x] = set; }
+            set.Add(tiles[i] == stoneTile ? "stone" : "grass");
+        }
+        var parts = new List<string>();
+        foreach (var kv in byX) { parts.Add($"{kv.Key:F1}:{string.Join("/", kv.Value)}"); }
+        GD.Print($"[matreg] flat tile split (authored seam at x=8.0) vertexX:tile = {string.Join(" ", parts)}");
+    }
+
+    private static void FlatKitSplit()
+    {
+        var v = new VoxelType[N, N, N];
+        for (int x = 0; x < N; x++)
+        {
+            for (int z = 0; z < N; z++)
+            {
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = VoxelType.Terrain; }
+            }
+        }
+        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = BuildIds(Get, (x, y, z) => VoxelTypeInfo.SharpAxes.Y, (x, y, z) => x < 8 ? 1 : 2,
+            out int[] tiles, out int[] kits, out Vector3[] norms);
+        var byX = new SortedDictionary<float, SortedSet<int>>();
+        for (int i = 0; i < verts.Length; i++)
+        {
+            if (norms[i].Y < 0.9f || Mathf.Abs(verts[i].Y - 8f) > 0.01f || verts[i].Z < 4f || verts[i].Z > 12f) { continue; }
+            float x = Mathf.Round(verts[i].X * 100f) / 100f;
+            if (!byX.TryGetValue(x, out var set)) { set = new SortedSet<int>(); byX[x] = set; }
+            set.Add(kits[i]);
+        }
+        var parts = new List<string>();
+        foreach (var kv in byX) { parts.Add($"{kv.Key:F1}:{string.Join("/", kv.Value)}"); }
+        GD.Print($"[matreg] flat kit split (authored seam at x=8.0) vertexX:kit = {string.Join(" ", parts)}");
+    }
+
+    // A hard block sitting ON soft ground — the stone-wall-in-grass case. The
+    // wall's own faces must read pure stone, and the ground quads beside it must
+    // stay pure grass rather than gradient into the wall's material.
+    private static void WallOnGround()
+    {
+        var v = new VoxelType[N, N, N];
+        for (int x = 0; x < N; x++)
+        {
+            for (int z = 0; z < N; z++)
+            {
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = VoxelType.Terrain; }
+            }
+        }
+        for (int z = 0; z < N; z++)
+        {
+            for (int y = 8; y <= 10; y++) { v[8, y, z] = VoxelType.Stone; }
+        }
+        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = BuildIds(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), (x, y, z) => 1,
+            out int[] tiles, out int[] kits, out Vector3[] norms);
+        int stoneTile = VoxelTypeInfo.GetTileForFace(VoxelType.Stone, 0);
+        var byX = new SortedDictionary<float, SortedSet<string>>();
+        for (int i = 0; i < verts.Length; i++)
+        {
+            if (norms[i].Y < 0.9f || Mathf.Abs(verts[i].Y - 8f) > 0.01f || verts[i].Z < 4f || verts[i].Z > 12f) { continue; }
+            float x = Mathf.Round(verts[i].X * 100f) / 100f;
+            if (!byX.TryGetValue(x, out var set)) { set = new SortedSet<string>(); byX[x] = set; }
+            set.Add(tiles[i] == stoneTile ? "stone" : "grass");
+        }
+        var parts = new List<string>();
+        foreach (var kv in byX) { parts.Add($"{kv.Key:F1}:{string.Join("/", kv.Value)}"); }
+        GD.Print($"[matreg] stone wall on grass at x=8 — ground vertexX:tile = {string.Join(" ", parts)}");
+    }
+
+    // The reported artefact: a stone building on grass. Ground is Terrain
+    // (kit 1) everywhere; the building's floor is Stone and its walls are Stone
+    // columns at x=4 and x=12. Prints the top-surface tile per vertex X so the
+    // -X and +X seams can be compared against each other.
+    private static void BuildingCrossSection()
+    {
+        var v = new VoxelType[N, N, N];
+        for (int x = 0; x < N; x++)
+        {
+            for (int z = 0; z < N; z++)
+            {
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = VoxelType.Terrain; }
+            }
+        }
+        for (int x = 4; x <= 12; x++)
+        {
+            for (int z = 4; z <= 12; z++) { v[x, 7, z] = VoxelType.Stone; }
+        }
+        for (int y = 8; y <= 10; y++)
+        {
+            for (int z = 4; z <= 12; z++) { v[4, y, z] = VoxelType.Stone; v[12, y, z] = VoxelType.Stone; }
+            for (int x = 4; x <= 12; x++) { v[x, y, 4] = VoxelType.Stone; v[x, y, 12] = VoxelType.Stone; }
+        }
+        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = BuildIds(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), (x, y, z) => 1,
+            out int[] tiles, out int[] kits, out Vector3[] norms);
+        int stoneTile = VoxelTypeInfo.GetTileForFace(VoxelType.Stone, 0);
+        var byX = new SortedDictionary<float, SortedSet<string>>();
+        for (int i = 0; i < verts.Length; i++)
+        {
+            // Floor level only, down the middle of the building in Z.
+            if (norms[i].Y < 0.9f || Mathf.Abs(verts[i].Y - 8f) > 0.01f || Mathf.Abs(verts[i].Z - 8f) > 1.01f) { continue; }
+            float x = Mathf.Round(verts[i].X * 100f) / 100f;
+            if (!byX.TryGetValue(x, out var set)) { set = new SortedSet<string>(); byX[x] = set; }
+            set.Add(tiles[i] == stoneTile ? "stone" : "grass");
+        }
+        var parts = new List<string>();
+        foreach (var kv in byX) { parts.Add($"{kv.Key:F1}:{string.Join("/", kv.Value)}"); }
+        GD.Print($"[matreg] building floor x=[4..12] walls at x=4,12 — vertexX:tile = {string.Join(" ", parts)}");
+    }
+
+    // Build + return each vertex's OWN tile/kit id, decoded from the flat
+    // per-triangle id triple (CUSTOM0.xyz / CUSTOM1.yzw) via the vertex's
+    // barycentric selector in COLOR.rgb.
+    private static Vector3[] BuildIds(Func<int, int, int, VoxelType> get,
+        Func<int, int, int, VoxelTypeInfo.SharpAxes> shape,
+        Func<int, int, int, int> terrainId,
+        out int[] tiles, out int[] kits, out Vector3[] norms)
+    {
+        var st = new SurfaceTool();
+        st.Begin(Godot.Mesh.PrimitiveType.Triangles);
+        st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
+        st.SetCustomFormat(1, SurfaceTool.CustomFormat.RgbaFloat);
+        st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
+        st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
+        ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), get, shape,
+            terrainId, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
+            st, 0, 0, 0, out bool hasAnyFace);
+        if (!hasAnyFace)
+        {
+            tiles = Array.Empty<int>();
+            kits = Array.Empty<int>();
+            norms = Array.Empty<Vector3>();
+            return Array.Empty<Vector3>();
+        }
+        var arrays = st.Commit().SurfaceGetArrays(0);
+        Vector3[] verts = arrays[(int)Godot.Mesh.ArrayType.Vertex].AsVector3Array();
+        norms = arrays[(int)Godot.Mesh.ArrayType.Normal].AsVector3Array();
+        Color[] colors = arrays[(int)Godot.Mesh.ArrayType.Color].AsColorArray();
+        float[] c0 = arrays[(int)Godot.Mesh.ArrayType.Custom0].AsFloat32Array();
+        float[] c1 = arrays[(int)Godot.Mesh.ArrayType.Custom1].AsFloat32Array();
+        tiles = new int[verts.Length];
+        kits = new int[verts.Length];
+        for (int i = 0; i < verts.Length; i++)
+        {
+            int sel = colors[i].R > 0.5f ? 0 : (colors[i].G > 0.5f ? 1 : 2);
+            tiles[i] = Mathf.RoundToInt(c0[i * 4 + sel]);
+            kits[i] = Mathf.RoundToInt(c1[i * 4 + 1 + sel]);
+        }
+        return verts;
+    }
+
     private static void Shapes()
     {
         var door = new VoxelType[N, N, N];

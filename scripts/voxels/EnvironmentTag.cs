@@ -1,22 +1,7 @@
-// The four ORIGINAL classes of space, kept because their values are pinned to
-// the first four entries of SimData.interiorAmbiences. ChunkState.EnvTag stores
-// a palette index now, not one of these — but every .hike and .hikescene written
-// before the palette existed holds these values, so pinning them costs one
-// authored ordering constraint and saves a wire-format bump plus a remap on read.
-//
-// Worldgen still seeds with them (EnvTagGen), since it only ever needs "open" vs
-// "sealed" and those two are guaranteed to be at a known index. Authors paint
-// any index in the palette; nothing else in the codebase reads these names.
-//
-// Do NOT add members. A new class of space is a new .tres appended to
-// SimData.interiorAmbiences — that is the whole point of the palette.
-public enum EnvironmentTag : byte
-{
-    Outdoor = 0,
-    Building = 1,
-    Cave = 2,
-    Tunnel = 3,
-}
+// Index 0 of SimData.interiorAmbiences is the OUTDOOR entry by contract —
+// EnvTagGen writes it for open cells and every fallback resolves to it. The
+// rest of the list is free to reorder; the old pinned Outdoor/Building/Cave/
+// Tunnel enum is gone, along with the wire compatibility it was buying.
 
 // A blended InteriorAmbienceData sample at a point: the eight surrounding env
 // cells, each contributing its entry's fields weighted by trilinear distance.

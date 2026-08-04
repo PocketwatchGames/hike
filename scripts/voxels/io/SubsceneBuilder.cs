@@ -81,7 +81,6 @@ public static class SubsceneBuilder
 
         if (includeEnv)
         {
-            sub.EnsureWindFactor();
             sub.EnsureEnvTag();
             BakeEnvFromWorld(ws, sub, min, interiorClassOverride);
         }
@@ -121,7 +120,6 @@ public static class SubsceneBuilder
                     int sx = ((cwx % ChunkState.ENV_SUBGRID_SIZE) + ChunkState.ENV_SUBGRID_SIZE) % ChunkState.ENV_SUBGRID_SIZE;
                     int sy = ((cwy % ChunkState.ENV_SUBGRID_SIZE) + ChunkState.ENV_SUBGRID_SIZE) % ChunkState.ENV_SUBGRID_SIZE;
                     int sz = ((cwz % ChunkState.ENV_SUBGRID_SIZE) + ChunkState.ENV_SUBGRID_SIZE) % ChunkState.ENV_SUBGRID_SIZE;
-                    sub.WindFactor[lcx, lcy, lcz] = chunk.WindFactor[sx, sy, sz];
                     byte envTag = chunk.EnvTag[sx, sy, sz];
                     // Index 0 is outdoor and is left alone — the scene's
                     // open-air margin should keep taking the destination's

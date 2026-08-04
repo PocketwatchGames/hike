@@ -168,7 +168,7 @@ public static class WorldFile
     //      to decide whether an entity spawns; it rides into the world file so
     //      the editor can round-trip a scene through a live WorldState without
     //      dropping it.
-    public const uint VERSION = 39;
+    public const uint VERSION = 40;
 
     public struct IndexEntry
     {

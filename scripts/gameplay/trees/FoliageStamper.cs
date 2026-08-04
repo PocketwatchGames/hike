@@ -55,41 +55,92 @@ public static class FoliageStamper
                     continue;
                 }
                 propsScanned++;
-                FoliageOccluder[] occluders = FoliageOccluderCache.GetOccluders(prop.Scene);
-                if (occluders.Length == 0)
-                {
-                    continue;
-                }
-                float cos = Mathf.Cos(prop.RotationY);
-                float sin = Mathf.Sin(prop.RotationY);
-                for (int o = 0; o < occluders.Length; o++)
-                {
-                    FoliageOccluder occ = occluders[o];
-                    if (!occ.CastsSunShadow)
-                    {
-                        continue;
-                    }
-                    // Rotate occluder's local position around Y by prop's
-                    // rotation, then translate to world.
-                    float rx = cos * occ.CenterLocal.X + sin * occ.CenterLocal.Z;
-                    float rz = -sin * occ.CenterLocal.X + cos * occ.CenterLocal.Z;
-                    Vector3 centerWorld = new Vector3(
-                        prop.WorldPosition.X + rx,
-                        prop.WorldPosition.Y + occ.CenterLocal.Y,
-                        prop.WorldPosition.Z + rz);
-                    // Floor the shadow column at one voxel below the prop's
-                    // base so the player's standing voxel is always covered,
-                    // even when the canopy sits 10+ voxels above ground.
-                    int columnFloorY = Mathf.FloorToInt(prop.WorldPosition.Y) - 1;
-                    StampEllipsoid(world, centerWorld, occ.Radii, cos, sin, columnFloorY, baseDensity, shadowDepthVoxels);
-                    clustersStamped++;
-                }
+                clustersStamped += StampProp(world, prop, baseDensity, shadowDepthVoxels, null);
             }
         }
         GD.Print($"[FoliageStamper] props={propsScanned} clusters={clustersStamped} canopyChunks={world.CanopyAttenuation.Count}");
     }
 
-    private static void StampEllipsoid(WorldState world, Vector3 center, Vector3 radii, float cos, float sin, int columnFloorY, int baseDensity, int shadowDepthVoxels)
+    // Rebuild the occlusion fields inside one region only, leaving the rest of
+    // the world's stamps alone. What an editor edit to non-voxel cover wants: a
+    // roof occludes its own footprint, and re-rasterizing every tree in the
+    // world to establish that is what made an editor undo cost seconds.
+    //
+    // Clearing and re-stamping the SAME box is what makes this exact — every
+    // occluder overlapping the region contributes again, clipped, so overlapping
+    // canopies re-stack to the value a whole-world pass would have produced.
+    public static void RestampRegion(WorldState world, VoxelBox region)
+    {
+        if (world == null || region.IsEmpty)
+        {
+            return;
+        }
+        for (int wx = region.Min.X; wx <= region.Max.X; wx++)
+        {
+            for (int wy = region.Min.Y; wy <= region.Max.Y; wy++)
+            {
+                for (int wz = region.Min.Z; wz <= region.Max.Z; wz++)
+                {
+                    world.ClearSunOcclusionWorld(wx, wy, wz);
+                }
+            }
+        }
+
+        int baseDensity = Mathf.Clamp((int)Math.Round(world.SimData.canopyDensity * 255f), 0, 255);
+        int shadowDepthVoxels = world.SimData.canopyShadowDepthVoxels;
+        foreach (List<EntitySimState> bucket in world._entities.Values)
+        {
+            for (int i = 0; i < bucket.Count; i++)
+            {
+                if (bucket[i] is RoofSimState roof)
+                {
+                    RoofSunStamper.Stamp(world, roof, region);
+                }
+                else if (bucket[i] is PropSimState prop)
+                {
+                    StampProp(world, prop, baseDensity, shadowDepthVoxels, region);
+                }
+            }
+        }
+    }
+
+    // Returns the number of clusters stamped.
+    private static int StampProp(WorldState world, PropSimState prop, int baseDensity, int shadowDepthVoxels, VoxelBox? clip)
+    {
+        FoliageOccluder[] occluders = FoliageOccluderCache.GetOccluders(prop.Scene);
+        if (occluders.Length == 0)
+        {
+            return 0;
+        }
+        float cos = Mathf.Cos(prop.RotationY);
+        float sin = Mathf.Sin(prop.RotationY);
+        int stamped = 0;
+        for (int o = 0; o < occluders.Length; o++)
+        {
+            FoliageOccluder occ = occluders[o];
+            if (!occ.CastsSunShadow)
+            {
+                continue;
+            }
+            // Rotate occluder's local position around Y by prop's
+            // rotation, then translate to world.
+            float rx = cos * occ.CenterLocal.X + sin * occ.CenterLocal.Z;
+            float rz = -sin * occ.CenterLocal.X + cos * occ.CenterLocal.Z;
+            Vector3 centerWorld = new Vector3(
+                prop.WorldPosition.X + rx,
+                prop.WorldPosition.Y + occ.CenterLocal.Y,
+                prop.WorldPosition.Z + rz);
+            // Floor the shadow column at one voxel below the prop's
+            // base so the player's standing voxel is always covered,
+            // even when the canopy sits 10+ voxels above ground.
+            int columnFloorY = Mathf.FloorToInt(prop.WorldPosition.Y) - 1;
+            StampEllipsoid(world, centerWorld, occ.Radii, cos, sin, columnFloorY, baseDensity, shadowDepthVoxels, clip);
+            stamped++;
+        }
+        return stamped;
+    }
+
+    private static void StampEllipsoid(WorldState world, Vector3 center, Vector3 radii, float cos, float sin, int columnFloorY, int baseDensity, int shadowDepthVoxels, VoxelBox? clip)
     {
         if (radii.X <= 0f || radii.Y <= 0f || radii.Z <= 0f)
         {
@@ -106,6 +157,17 @@ public static class FoliageStamper
         int maxY = (int)Mathf.Ceil(center.Y + radii.Y);
         int shadowBottomConst = (int)Mathf.Floor(center.Y - radii.Y) - shadowDepthVoxels;
         int minY = Math.Min(shadowBottomConst, columnFloorY);
+
+        if (clip.HasValue)
+        {
+            VoxelBox box = clip.Value;
+            minX = Math.Max(minX, box.Min.X);
+            maxX = Math.Min(maxX, box.Max.X);
+            minY = Math.Max(minY, box.Min.Y);
+            maxY = Math.Min(maxY, box.Max.Y);
+            minZ = Math.Max(minZ, box.Min.Z);
+            maxZ = Math.Min(maxZ, box.Max.Z);
+        }
 
         float invRx = 1f / radii.X;
         float invRy = 1f / radii.Y;

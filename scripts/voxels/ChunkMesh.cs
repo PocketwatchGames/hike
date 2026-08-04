@@ -345,6 +345,29 @@ public partial class ChunkMesh : Node3D
         }
     }
 
+    // Hands the detail-scatter posting for this coord over to the mesh that is
+    // replacing this one in place. MUST be called before QueueFree on any
+    // rebuild-in-place path: QueueFree runs _ExitTree at the END of the frame,
+    // i.e. AFTER the replacement has already posted, so the RemoveChunk above
+    // would delete whichever contributions are live and leave the chunk bare
+    // until it next streams in.
+    public void TransferDetailScatterTo(ChunkMesh replacement)
+    {
+        if (!_scatterPosted)
+        {
+            return;
+        }
+        _scatterPosted = false;
+        if (replacement != null && !replacement._scatterPosted)
+        {
+            // The replacement skipped the scatter (its voxels didn't change), so
+            // our instances stay in the multimesh untouched — it inherits the
+            // duty of removing them when it evicts.
+            replacement._scatteredChunkCoord = _scatteredChunkCoord;
+            replacement._scatterPosted = true;
+        }
+    }
+
     // buildCollision / buildDetails default true for normal chunks. The
     // bird's-eye overlook loads its far backdrop ring with both false: the
     // player is movement-locked in the tree so nothing walks on those chunks
@@ -362,7 +385,8 @@ public partial class ChunkMesh : Node3D
         Func<int, int, int, bool> getSunOpaque,
         Func<int, int, int, bool> chunkExists,
         bool buildCollision = true,
-        bool buildDetails = true)
+        bool buildDetails = true,
+        bool outOfLightWindow = false)
     {
         using var _prof = Profiler.Sample("ChunkMesh.Create");
         EnsureMaterialsInitialized();
@@ -372,7 +396,7 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkState.SIZE,
             data.ChunkCoord.Z * ChunkState.SIZE
         );
-        chunk.BuildMesh(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, buildCollision, buildDetails);
+        chunk.BuildMesh(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, buildCollision, buildDetails, outOfLightWindow);
         return chunk;
     }
 
@@ -386,7 +410,8 @@ public partial class ChunkMesh : Node3D
         Func<int, int, int, bool> getSunOpaque,
         Func<int, int, int, bool> chunkExists,
         bool buildCollision,
-        bool buildDetails)
+        bool buildDetails,
+        bool outOfLightWindow)
     {
         if (OnlyChunkFilter.HasValue && data.ChunkCoord != OnlyChunkFilter.Value)
         {
@@ -486,6 +511,14 @@ public partial class ChunkMesh : Node3D
             visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
             visual.MaterialOverride = SharedMaterial;
             visual.Layers = GameCamera.MainSceneLayer;
+            if (outOfLightWindow)
+            {
+                // Terrain normally shades from the live light volume, but the
+                // volume is a player-centric toroidal window — a sample from
+                // outside it wraps onto unrelated world. Backdrop chunks past
+                // the window shade from the frozen per-vertex bake instead.
+                visual.SetInstanceShaderParameter("use_baked_sun", 1f);
+            }
             AddChild(visual);
 
             // Cap-mask front-face: BLACK over visible (below-clip) terrain,

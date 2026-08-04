@@ -219,13 +219,6 @@ public partial class ZoneGenData : Resource
     // no per-zone cluster.
     [Export] public SpawnGroupData fixtures;
 
-    // Broken stone ruins this zone scatters onto flat, confined ground —
-    // crumbled walls and 1x1/2x2/3x3 pillars stamped as hard-edged
-    // VoxelType.Stone by WorldGen's PlaceRuins pass. See RuinsGenData for the
-    // geometry tunables (wall/pillar size, brokenness, confinement, density).
-    // Null = this zone grows no ruins.
-    [Export] public RuinsGenData ruins;
-
     // Names of points of interest located in this zone placement. WorldGen
     // resolves each to a random flat column inside this zone's bounds and
     // registers it in WorldState.PointsOfInterest, where road connections

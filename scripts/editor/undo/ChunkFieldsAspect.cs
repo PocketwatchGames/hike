@@ -13,7 +13,7 @@ public sealed class ChunkFieldsAspect : IEditorEditAspect
     {
         public byte ZoneIndex;
         public byte RegionIndex;
-        public byte[,,] WindFactor;
+        public byte[,,] Interiorness;
         public byte[,,] EnvTag;
     }
 
@@ -68,7 +68,7 @@ public sealed class ChunkFieldsAspect : IEditorEditAspect
             }
             chunk.ZoneIndex = kvp.Value.ZoneIndex;
             chunk.RegionIndex = kvp.Value.RegionIndex;
-            Array.Copy(kvp.Value.WindFactor, chunk.WindFactor, chunk.WindFactor.Length);
+            Array.Copy(kvp.Value.Interiorness, chunk.Interiorness, chunk.Interiorness.Length);
             Array.Copy(kvp.Value.EnvTag, chunk.EnvTag, chunk.EnvTag.Length);
             // Nothing per-voxel moved, so name one cell of the chunk to get it
             // requeued for the mesh / volume-map upload that carries these.
@@ -82,7 +82,7 @@ public sealed class ChunkFieldsAspect : IEditorEditAspect
         {
             ZoneIndex = chunk.ZoneIndex,
             RegionIndex = chunk.RegionIndex,
-            WindFactor = (byte[,,])chunk.WindFactor.Clone(),
+            Interiorness = (byte[,,])chunk.Interiorness.Clone(),
             EnvTag = (byte[,,])chunk.EnvTag.Clone(),
         };
     }
@@ -100,7 +100,7 @@ public sealed class ChunkFieldsAspect : IEditorEditAspect
             {
                 for (int z = 0; z < S; z++)
                 {
-                    if (a.WindFactor[x, y, z] != b.WindFactor[x, y, z] || a.EnvTag[x, y, z] != b.EnvTag[x, y, z])
+                    if (a.Interiorness[x, y, z] != b.Interiorness[x, y, z] || a.EnvTag[x, y, z] != b.EnvTag[x, y, z])
                     {
                         return false;
                     }

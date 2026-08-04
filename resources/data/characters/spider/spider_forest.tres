@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://cssspider0001"]
 
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="1_descitem"]
-[ext_resource type="Resource" uid="uid://d0y12rtrmtgie" path="res://resources/data/items/loot/spider_legs.tres" id="1_legs"]
+[ext_resource type="Resource" uid="uid://hvewntq061b85" path="res://resources/data/items/loot/spider_legs.tres" id="1_legs"]
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="1_wvr67"]
 [ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="2_mob"]

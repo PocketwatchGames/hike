@@ -57,6 +57,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
     private const string CardMaterialTemplatePath = "res://resources/materials/tree_cards_lit.tres";
     private const string DetailMaterialTemplatePath = "res://resources/materials/tree_detail.tres";
     private const string DetailsContainerName = "_Details";
+    private const string ShadowCasterName = "_ShadowCaster";
     private const float GoldenAngleRad = 2.39996323f;
     private const float MaxAngleJitterDeg = 90f;
 
@@ -76,6 +77,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
 
     public void Rebuild()
     {
+        ClearShadowCaster();
         if (cardMesh == null)
         {
             Multimesh = null;
@@ -189,9 +191,49 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
         {
             mat.SetShaderParameter("tree_origin", treeOrigin);
             mat.SetShaderParameter("canopy_height", canopyHeight);
+            RebuildShadowCaster(mm, mat);
         }
 
         RebuildDetails(clusters, treeOrigin, canopyHeight);
+    }
+
+    // Splits the canopy into a visible non-casting MultiMesh (this node) and a
+    // hidden ShadowsOnly twin that shares the same MultiMesh resource. Godot
+    // runs fragment() during the shadow depth pass, so the visible material's
+    // player-occlusion `discard` used to cut the tree out of the sun shadow
+    // atlas too — stand under a tree and its cast shadow dissolved along with
+    // its leaves. The twin runs the identical vertex() (so the shadow tracks
+    // the wind sway card-for-card) with shadow_caster_pass = 1, skipping the
+    // cutaway. Net draw calls are unchanged: the shadow pass just sources the
+    // canopy from the twin instead of from this node.
+    private void RebuildShadowCaster(MultiMesh mm, ShaderMaterial cardMaterial)
+    {
+        CastShadow = ShadowCastingSetting.Off;
+
+        ShaderMaterial shadowMat = (ShaderMaterial)cardMaterial.Duplicate();
+        shadowMat.SetShaderParameter("shadow_caster_pass", true);
+
+        MultiMeshInstance3D proxy = new MultiMeshInstance3D
+        {
+            Name = ShadowCasterName,
+            Multimesh = mm,
+            MaterialOverride = shadowMat,
+            CastShadow = ShadowCastingSetting.ShadowsOnly,
+        };
+        AddChild(proxy);
+    }
+
+    // Owner stays null (like _Details) so the proxy is never written into the
+    // saved .tscn — it's rebuilt from scratch on every bake.
+    private void ClearShadowCaster()
+    {
+        Node existing = GetNodeOrNull(ShadowCasterName);
+        if (existing == null)
+        {
+            return;
+        }
+        RemoveChild(existing);
+        existing.QueueFree();
     }
 
     // Per-cluster instance color stamped into every card's COLOR. Shared by
@@ -340,6 +382,12 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
                 Name = $"Detail{typeIdx}",
                 Multimesh = mm,
                 MaterialOverride = BuildDetailMaterial(detail, treeOrigin, canopyHeight),
+                // Details never cast: they're a handful of flowers/buds sitting
+                // ON a canopy that already casts an opaque silhouette, and their
+                // camera-facing billboard + view-space depth_bias both point the
+                // wrong way in the sun's frustum. Off also keeps tree_detail's
+                // player-occlusion discard out of the shadow atlas.
+                CastShadow = ShadowCastingSetting.Off,
             };
             container.AddChild(mmi);
         }

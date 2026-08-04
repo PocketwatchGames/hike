@@ -179,6 +179,15 @@ public class WorldState
     // / SubtractBlockLightWorld — callers don't need to remember.
     public readonly HashSet<Vector3I> LightChunkDirty = new();
 
+    // Chunks whose stored sunlight moved during the most recent incremental
+    // relight. Narrower than LightChunkDirty (which block-light flicker
+    // re-marks constantly) because sunlight is BAKED INTO MESH VERTICES — a
+    // chunk in here has a stale mesh until it is re-meshed. Cleared at the top
+    // of LightEngine.OnVoxelsChanged, so it only ever describes that call; the
+    // world-load flood populates it harmlessly and the first incremental edit
+    // wipes it.
+    public readonly HashSet<Vector3I> SunlightChunkDirty = new();
+
     // Same pattern for FogMap. Populated automatically by SetFogWorld.
     // Currently only worldgen writes fog, so this only trips if something
     // mutates fog at runtime (e.g. a weather CVar or future fog emitter).
@@ -426,6 +435,7 @@ public class WorldState
         }
         chunk.SetSunlight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), level);
         LightChunkDirty.Add(cc);
+        SunlightChunkDirty.Add(cc);
     }
 
     // Zero every resident chunk's Sunlight bytes so a fresh ComputeSunlight
@@ -563,7 +573,7 @@ public class WorldState
         {
             return 0;
         }
-        return chunk.GetFog(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
+        return chunk.GetFog(SimData, Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
     }
 
     public void SetFogWorld(int wx, int wy, int wz, int density)
@@ -617,6 +627,25 @@ public class WorldState
         arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)] = true;
     }
 
+    // Wipes both non-voxel occlusion fields at one voxel. They are cleared as a
+    // pair because they are two halves of one answer — a regional restamp that
+    // reset only one would leave the other's stale stamp behind.
+    public void ClearSunOcclusionWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        int lx = Mod(wx, ChunkState.SIZE);
+        int ly = Mod(wy, ChunkState.SIZE);
+        int lz = Mod(wz, ChunkState.SIZE);
+        if (CanopyAttenuation.TryGetValue(cc, out byte[,,] canopy))
+        {
+            canopy[lx, ly, lz] = 0;
+        }
+        if (SunOpaque.TryGetValue(cc, out bool[,,] opaque))
+        {
+            opaque[lx, ly, lz] = false;
+        }
+    }
+
     // Air thickness at a voxel, [0,1]. The CPU read of the same serialized fog
     // field the fog raymarch and mote shaders sample, for effects that size
     // themselves off local air rather than the regional weather scalar.
@@ -631,7 +660,7 @@ public class WorldState
         int lx = Mod(wx, ChunkState.SIZE);
         int ly = Mod(wy, ChunkState.SIZE);
         int lz = Mod(wz, ChunkState.SIZE);
-        return chunk.GetFog(lx, ly, lz) / 255f;
+        return chunk.GetFog(SimData, lx, ly, lz) / 255f;
     }
 
     // Saturating add — multiple overlapping foliage clusters stack but
@@ -665,9 +694,9 @@ public class WorldState
     //
     // Both halves matter. Unconditionally defaulting meant any later pass
     // re-touching a graded column silently hardened it back to a stair.
-    // Unconditionally preserving is worse: ruins and the editor's stone brush
-    // write Stone through this overload and depend on the default SharpAxes.All
-    // for their cubic edges, so painting stone over terrain would inherit Y and
+    // Unconditionally preserving is worse: the editor's stone brush writes
+    // Stone through this overload and depends on the default SharpAxes.All
+    // for its cubic edges, so painting stone over terrain would inherit Y and
     // round the wall off. Callers wanting a non-default shape use the 5-arg form.
     public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type)
     {
@@ -833,6 +862,19 @@ public class WorldState
         AccumAmbienceAtCell(ref ambience, cx0 + 1, cy0,     cz0 + 1, tx        * (1f - ty) * tz);
         AccumAmbienceAtCell(ref ambience, cx0,     cy0 + 1, cz0 + 1, (1f - tx) * ty        * tz);
         AccumAmbienceAtCell(ref ambience, cx0 + 1, cy0 + 1, cz0 + 1, tx        * ty        * tz);
+
+        // Class says WHAT KIND of interior; interiorness says HOW MUCH of it
+        // applies. Classification is a threshold, so without this the cell grid
+        // gives a hard boundary softened only by the trilinear blend above —
+        // one 4m cell wide. Blending back toward outdoor by the continuous
+        // interiorness spreads the transition over the whole aperture falloff
+        // instead, with no step where the class flipped.
+        //
+        // Interiorness is ALSO what the derived dust term scales by
+        // (ChunkState.GetFog), so air and acoustics cannot disagree about how
+        // enclosed a point is.
+        float openness01 = 1f - SampleInteriorness(worldPos);
+        ambience.BlendToward(SimData?.GetInteriorAmbience(0), Mathf.Clamp(openness01, 0f, 1f));
         return ambience;
     }
 
@@ -897,7 +939,48 @@ public class WorldState
         int sx = Mod(cellWx, ChunkState.ENV_SUBGRID_SIZE);
         int sy = Mod(cellWy, ChunkState.ENV_SUBGRID_SIZE);
         int sz = Mod(cellWz, ChunkState.ENV_SUBGRID_SIZE);
-        return chunk.WindFactor[sx, sy, sz];
+        return chunk.GetWindFactor(SimData, sx, sy, sz);
+    }
+
+    // Trilinearly-sampled interiorness at a world position, in [0, 1].
+    // 1 = deeply enclosed, 0 = outdoors. Shares the cell-centre convention of
+    // every other env-subgrid sampler so the class and its strength are read
+    // from the same interpolation.
+    public float SampleInteriorness(Vector3 worldPos)
+    {
+        const float CELL = ChunkState.ENV_VOXELS_PER_CELL;
+        float fx = worldPos.X / CELL - 0.5f;
+        float fy = worldPos.Y / CELL - 0.5f;
+        float fz = worldPos.Z / CELL - 0.5f;
+        int cx0 = (int)Math.Floor(fx);
+        int cy0 = (int)Math.Floor(fy);
+        int cz0 = (int)Math.Floor(fz);
+        float tx = fx - cx0;
+        float ty = fy - cy0;
+        float tz = fz - cz0;
+
+        float c00 = Mathf.Lerp(InteriornessAtCell(cx0, cy0, cz0), InteriornessAtCell(cx0 + 1, cy0, cz0), tx);
+        float c01 = Mathf.Lerp(InteriornessAtCell(cx0, cy0, cz0 + 1), InteriornessAtCell(cx0 + 1, cy0, cz0 + 1), tx);
+        float c10 = Mathf.Lerp(InteriornessAtCell(cx0, cy0 + 1, cz0), InteriornessAtCell(cx0 + 1, cy0 + 1, cz0), tx);
+        float c11 = Mathf.Lerp(InteriornessAtCell(cx0, cy0 + 1, cz0 + 1), InteriornessAtCell(cx0 + 1, cy0 + 1, cz0 + 1), tx);
+        float c0 = Mathf.Lerp(c00, c10, ty);
+        float c1 = Mathf.Lerp(c01, c11, ty);
+        return Mathf.Lerp(c0, c1, tz) / 255f;
+    }
+
+    // Unloaded neighbours read as 0 (open) rather than enclosed, so the edge of
+    // the resident window never fabricates an interior.
+    private float InteriornessAtCell(int cellWx, int cellWy, int cellWz)
+    {
+        Vector3I cc = CellWorldToChunkCoord(cellWx, cellWy, cellWz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return 0f;
+        }
+        return chunk.GetInteriorness(
+            Mod(cellWx, ChunkState.ENV_SUBGRID_SIZE),
+            Mod(cellWy, ChunkState.ENV_SUBGRID_SIZE),
+            Mod(cellWz, ChunkState.ENV_SUBGRID_SIZE));
     }
 
     private void AccumAmbienceAtCell(ref InteriorAmbience ambience, int cellWx, int cellWy, int cellWz, float w)

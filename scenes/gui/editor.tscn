@@ -287,7 +287,7 @@ mouse_filter = 2
 [node name="EditorGizmo" type="Node" parent="." unique_id=1408225650]
 script = ExtResource("15_gizmo")
 
-[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "voxelTab", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "snapToGridButton", "snapRotationButton", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "interactivesTab", "treesTab", "rocksTab", "natureTab", "furnitureTab", "propsTab", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "lightingButton", "timeOfDaySlider", "weatherOption")]
+[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "voxelTab", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "snapToGridButton", "snapRotationButton", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "interactivesTab", "treesTab", "rocksTab", "natureTab", "furnitureTab", "propsTab", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "lightingButton", "timeOfDaySlider", "weatherOption", "interiorClassOption")]
 script = ExtResource("3_hud")
 clipLabel = NodePath("UpperLeft/VBoxContainer/ClipLabel")
 coordsLabel = NodePath("UpperLeft/VBoxContainer/CoordsLabel")
@@ -343,6 +343,7 @@ plateauSnapButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer
 lightingButton = NodePath("UpperRight/PanelContainer/VBoxContainer/Lighting")
 timeOfDaySlider = NodePath("UpperRight/PanelContainer/VBoxContainer/TimeOfDay")
 weatherOption = NodePath("UpperRight/PanelContainer/VBoxContainer/Weather")
+interiorClassOption = NodePath("UpperRight/PanelContainer/VBoxContainer/InteriorClass")
 
 [node name="UpperLeft" type="MarginContainer" parent="EditorHud" unique_id=16426533]
 offset_right = 600.0
@@ -782,6 +783,13 @@ layout_mode = 2
 text = "Weather"
 
 [node name="Weather" type="OptionButton" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=894124908]
+layout_mode = 2
+
+[node name="Label3" type="Label" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Scene Interior"
+
+[node name="InteriorClass" type="OptionButton" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer"]
 layout_mode = 2
 
 [node name="SaveDialog" type="ConfirmationDialog" parent="EditorHud" unique_id=354178986]

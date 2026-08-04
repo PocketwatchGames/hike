@@ -29,11 +29,11 @@
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/blocks/block_dirt_overlay.tres" id="57_dirt"]
 [ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/blocks/block_cobblestone.tres" id="58_cobble"]
 [ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/world_gen/party/mischa.tres" id="60_mischa"]
-[ext_resource type="Resource" uid="uid://cr4ms75qyq3pp" path="res://resources/data/world_gen/default_world_script.tres" id="60_worldscript"]
+[ext_resource type="Resource" uid="uid://4typxmliw5702" path="res://resources/data/world_gen/default_world_script.tres" id="60_worldscript"]
 [ext_resource type="Resource" uid="uid://vlhadu2uwy1q" path="res://resources/data/world_gen/party/rowan.tres" id="61_rowan"]
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="62_forge"]
-[ext_resource type="Resource" uid="uid://ddt2aj3rb35g0" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
-[ext_resource type="Resource" uid="uid://r0id550acv8t" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
+[ext_resource type="Resource" uid="uid://9a30yzgrtp5i4" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
+[ext_resource type="Resource" uid="uid://p8myqetzi5fav" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
 [ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="70_subplace"]
 
 [sub_resource type="Resource" id="Resource_know_cure"]
@@ -182,6 +182,12 @@ path = "res://resources/data/subscenes/house01.hikescene"
 anchorXZ = Vector2i(12, -5)
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
+[sub_resource type="Resource" id="Subscene_house02"]
+script = ExtResource("70_subplace")
+path = "res://resources/data/subscenes/house02.hikescene"
+anchorXZ = Vector2i(-26, -6)
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
 [sub_resource type="Resource" id="Bounds_mountain"]
 script = ExtResource("41_quadrant")
 priority = 1
@@ -247,7 +253,7 @@ simData = ExtResource("2_sim")
 scriptData = ExtResource("60_worldscript")
 zones = [SubResource("Placed_mountain"), SubResource("Placed_desert"), SubResource("Placed_swamp"), SubResource("Placed_forest"), SubResource("Placed_hub")]
 regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), ExtResource("3_region_swamp"), ExtResource("3_region_forest")]
-subscenes = [SubResource("Subscene_house01")]
+subscenes = [SubResource("Subscene_house01"), SubResource("Subscene_house02")]
 pointsOfInterestPlacements = [SubResource("Poi_crossroads"), SubResource("Poi_mountain"), SubResource("Poi_desert"), SubResource("Poi_swamp"), SubResource("Poi_forest")]
 roads = [SubResource("Road_mountain"), SubResource("Road_forest"), SubResource("Road_desert"), SubResource("Road_swamp"), SubResource("Road_forest_desert")]
 forge = ExtResource("62_forge")

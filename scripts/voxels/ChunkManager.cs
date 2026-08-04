@@ -443,11 +443,57 @@ public partial class ChunkManager : Node3D
         _waterCurrentMap?.Free();
     }
 
+    // Re-propagates light around the changed voxels and queues the affected
+    // chunks for GPU re-encode. No mesh work: terrain sun is sampled from the
+    // light volume, so a change that moves light but not geometry (a door) is
+    // fully handled here.
     public void UpdateLighting(List<Vector3I> changedPositions)
     {
         _worldData.OnVoxelsChanged(changedPositions);
+        FlushLighting();
+    }
+
+    // Push an already-computed lighting change to the GPU. For relights that
+    // didn't come from voxel edits (LightEngine.RelightColumns after a roof
+    // moves), where UpdateLighting's voxel-keyed re-propagation would find
+    // nothing to do and clear the dirty set the relight just filled.
+    public void FlushLighting()
+    {
+        MarkSunlightNeighborsDirty();
         DrainLightChunkDirty();
     }
+
+    // LightMap's sun dilation reads one voxel past the chunk edge, so a chunk
+    // whose sunlight moved also staled its neighbours' boundary texels. Only sun
+    // changes pay this 7x re-encode — block-light flicker re-dirties chunks
+    // every frame and must not, which is why this keys off SunlightChunkDirty
+    // rather than LightChunkDirty. Marks into LightChunkDirty (a texture
+    // concern), never SunlightChunkDirty (which drives mesh rebuilds).
+    private void MarkSunlightNeighborsDirty()
+    {
+        if (_worldData.SunlightChunkDirty.Count == 0) { return; }
+        _neighborScratch.Clear();
+        foreach (Vector3I coord in _worldData.SunlightChunkDirty)
+        {
+            for (int axis = 0; axis < 3; axis++)
+            {
+                for (int sign = -1; sign <= 1; sign += 2)
+                {
+                    var offset = new Vector3I(
+                        axis == 0 ? sign : 0,
+                        axis == 1 ? sign : 0,
+                        axis == 2 ? sign : 0);
+                    _neighborScratch.Add(coord + offset);
+                }
+            }
+        }
+        foreach (Vector3I coord in _neighborScratch)
+        {
+            _worldData.LightChunkDirty.Add(coord);
+        }
+    }
+
+    private readonly HashSet<Vector3I> _neighborScratch = new();
 
     public void AddLightSource(LightSource source)
     {
@@ -555,20 +601,6 @@ public partial class ChunkManager : Node3D
             _windMap.MarkChunkDirty(coord);
         }
         _worldData.WindChunkDirty.Clear();
-    }
-
-    public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)
-    {
-        UpdateLighting(changedPositions);
-
-        Vector3I center = Sim.WorldToChunkCoord(worldPos);
-        foreach (Vector3I coord in _loadedChunks.Keys)
-        {
-            if (Math.Abs(coord.X - center.X) <= 1 && Math.Abs(coord.Y - center.Y) <= 1 && Math.Abs(coord.Z - center.Z) <= 1)
-            {
-                _meshRebuildQueue.Enqueue(coord);
-            }
-        }
     }
 
     // Requeue the mesh of each named chunk. Coords that aren't resident are
@@ -884,7 +916,7 @@ public partial class ChunkManager : Node3D
         // MAX_LOAD_DISTANCE this is always false, so normal play is unchanged.
         Vector3I rel = coord - _lastPlayerChunkCoord;
         bool visualOnly = (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z) > MAX_LOAD_DISTANCE_SQ;
-        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly);
+        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
         AddChild(mesh);
         _loadedChunks[coord] = mesh;
         if (CVars.chunkWaterLog.Value && mesh.HasWater)
@@ -911,8 +943,11 @@ public partial class ChunkManager : Node3D
                 continue;
             }
 
-            oldMesh.QueueFree();
             ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds);
+            // Before QueueFree — the outgoing node's _ExitTree runs at the end
+            // of the frame and would otherwise strip the live detail scatter.
+            oldMesh.TransferDetailScatterTo(mesh);
+            oldMesh.QueueFree();
             AddChild(mesh);
             _loadedChunks[coord] = mesh;
             rebuilt++;

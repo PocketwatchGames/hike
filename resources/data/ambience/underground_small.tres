@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="InteriorAmbienceData" format=3 uid="uid://dpmwcsftdxlv4"]
 
-[ext_resource type="Script" uid="uid://dj8y40e8mf2jc" path="res://scripts/data/world/InteriorAmbienceData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://o5hlv55zb1osm" path="res://scripts/data/world/InteriorAmbienceData.cs" id="1_script"]
 
 [resource]
 script = ExtResource("1_script")

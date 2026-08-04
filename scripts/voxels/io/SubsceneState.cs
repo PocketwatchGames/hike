@@ -19,7 +19,7 @@ using Godot;
 //
 // Channels backed by always-on byte arrays (Voxels, Shape, TerrainId,
 // OverlayId, DetailGroup, DetailStrength) and an always-on PresenceMask.
-// Optional channels (WindFactor, EnvTag) are null unless authored.
+// Optional channels (Interiorness, EnvTag) are null unless authored.
 public class SubsceneState
 {
     public readonly Vector3I Size;
@@ -46,7 +46,7 @@ public class SubsceneState
     // where envSize = ceil(Size / ENV_VOXELS_PER_CELL). Each cell covers
     // a 4³ subscene-voxel cube. Null when the subscene didn't author
     // overrides — the stamper leaves the destination subgrid alone.
-    public byte[,,] WindFactor;
+    public byte[,,] Interiorness;
     public byte[,,] EnvTag;
 
     public List<EntitySimState> Entities = new();
@@ -75,12 +75,12 @@ public class SubsceneState
         }
     }
 
-    public void EnsureWindFactor()
+    public void EnsureInteriorness()
     {
-        if (WindFactor == null)
+        if (Interiorness == null)
         {
             Vector3I es = EnvSize;
-            WindFactor = new byte[es.X, es.Y, es.Z];
+            Interiorness = new byte[es.X, es.Y, es.Z];
         }
     }
 

@@ -151,7 +151,7 @@ public static class ChunkSerializer
             {
                 for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
                 {
-                    w.Write(chunk.WindFactor[x, y, z]);
+                    w.Write(chunk.Interiorness[x, y, z]);
                 }
             }
         }
@@ -329,7 +329,7 @@ public static class ChunkSerializer
             {
                 for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
                 {
-                    chunk.WindFactor[x, y, z] = r.ReadByte();
+                    chunk.Interiorness[x, y, z] = r.ReadByte();
                 }
             }
         }

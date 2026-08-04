@@ -12,7 +12,7 @@
 [ext_resource type="Resource" uid="uid://chlk1f4ns5cwh" path="res://resources/data/world_gen/zone_gen/swamp_mud_gen.tres" id="18_se4m7"]
 [ext_resource type="Resource" uid="uid://tlfjf7x0adof" path="res://resources/data/world_gen/zone_gen/swamp_fire_gen.tres" id="21_d6mxe"]
 [ext_resource type="Script" uid="uid://bk2smsd8gwalq" path="res://scripts/data/worldgen/WorldGenData.cs" id="23_7umo2"]
-[ext_resource type="Resource" uid="uid://h7tfkr5tig1j" path="res://resources/data/world_gen/swamp_world_script.tres" id="24_songscript"]
+[ext_resource type="Resource" uid="uid://ts86duefnittd" path="res://resources/data/world_gen/swamp_world_script.tres" id="24_songscript"]
 [ext_resource type="Script" uid="uid://c247odltr1n2o" path="res://scripts/data/worldgen/PlacedZone.cs" id="30_placed"]
 [ext_resource type="Script" uid="uid://cfywh1bfbi04v" path="res://scripts/data/worldgen/EverywhereBounds.cs" id="31_everywhere"]
 [ext_resource type="Script" uid="uid://dri0vgugdo5e0" path="res://scripts/data/worldgen/CircleBounds.cs" id="32_circle"]
@@ -29,8 +29,8 @@
 [ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/world_gen/party/mischa.tres" id="60_mischa"]
 [ext_resource type="Resource" uid="uid://vlhadu2uwy1q" path="res://resources/data/world_gen/party/rowan.tres" id="61_rowan"]
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="62_forge"]
-[ext_resource type="Resource" uid="uid://ddt2aj3rb35g0" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
-[ext_resource type="Resource" uid="uid://r0id550acv8t" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
+[ext_resource type="Resource" uid="uid://9a30yzgrtp5i4" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
+[ext_resource type="Resource" uid="uid://p8myqetzi5fav" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
 [ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="70_subplace"]
 
 [sub_resource type="Resource" id="Resource_know_cure"]
@@ -147,6 +147,12 @@ path = "res://resources/data/subscenes/house01.hikescene"
 anchorXZ = Vector2i(84, 75)
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
+[sub_resource type="Resource" id="Subscene_house02"]
+script = ExtResource("70_subplace")
+path = "res://resources/data/subscenes/house02.hikescene"
+anchorXZ = Vector2i(48, 74)
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
 [sub_resource type="Resource" id="Bounds_swamp"]
 script = ExtResource("31_everywhere")
 metadata/_custom_type_script = "uid://4ht0mfp58w5f8"
@@ -203,7 +209,7 @@ scriptData = ExtResource("24_songscript")
 zones = [SubResource("Placed_swamp"), SubResource("Placed_village"), SubResource("Placed_mud"), SubResource("Placed_highlands")]
 regions = [ExtResource("15_7nyke")]
 playerSpawnPosition = Vector3(72, 0, 80)
-subscenes = [SubResource("Subscene_house01")]
+subscenes = [SubResource("Subscene_house01"), SubResource("Subscene_house02")]
 pointsOfInterestPlacements = [SubResource("Poi_swamp"), SubResource("Poi_village"), SubResource("Poi_mud"), SubResource("Poi_highlands")]
 roads = [SubResource("Road_village_hollow"), SubResource("Road_village_mud"), SubResource("Road_village_highlands")]
 forge = ExtResource("62_forge")

@@ -51,9 +51,6 @@ public sealed class EditorRefresh
         _entityChunks.Clear();
     }
 
-    // Chunks holding changed voxels, grown by one in every direction: a chunk's
-    // mesh culls its faces and shades its corners against its neighbours'
-    // voxels, so a change on a seam restains the chunk next door.
     private HashSet<Vector3I> ChunksToRemesh()
     {
         var touched = new HashSet<Vector3I>();
@@ -61,9 +58,16 @@ public sealed class EditorRefresh
         {
             touched.Add(Sim.WorldToChunkCoord(cell));
         }
+        return GrowByOne(touched);
+    }
 
+    // Chunks grown by one in every direction: a chunk's mesh culls its faces and
+    // shades its corners against its neighbours' voxels and sunlight, so a
+    // change on a seam restains the chunk next door.
+    public static HashSet<Vector3I> GrowByOne(IEnumerable<Vector3I> chunkCoords)
+    {
         var grown = new HashSet<Vector3I>();
-        foreach (Vector3I coord in touched)
+        foreach (Vector3I coord in chunkCoords)
         {
             for (int dx = -1; dx <= 1; dx++)
             {

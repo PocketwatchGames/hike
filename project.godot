@@ -383,6 +383,10 @@ debug_sun_from_volume={
 "type": "bool",
 "value": false
 }
+debug_sun_legacy={
+"type": "bool",
+"value": false
+}
 debug_water_flat={
 "type": "bool",
 "value": false

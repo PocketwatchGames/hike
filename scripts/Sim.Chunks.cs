@@ -52,6 +52,11 @@ public partial class Sim
         _chunkManager.UpdateLighting(changedPositions);
     }
 
+    public void FlushLighting()
+    {
+        _chunkManager.FlushLighting();
+    }
+
     public void AddLightSource(LightSource source)
     {
         _chunkManager.AddLightSource(source);
@@ -82,14 +87,9 @@ public partial class Sim
         _chunkManager?.SetFogVolumetricEnabled(enabled);
     }
 
-    public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)
-    {
-        _chunkManager.RebuildNearbyChunkMeshes(worldPos, changedPositions);
-    }
-
-    // Requeue specific chunks. For edits whose extent is known but not centred
-    // on anything — an editor fill or its undo can easily outgrow the 3x3x3
-    // neighbourhood RebuildNearbyChunkMeshes covers.
+    // Requeue specific chunks. For edits whose extent is known up front — an
+    // editor fill or its undo names its own chunks rather than deriving them
+    // from a voxel list.
     public void RebuildChunkMeshes(IEnumerable<Vector3I> chunkCoords)
     {
         _chunkManager.RebuildChunkMeshes(chunkCoords);

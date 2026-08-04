@@ -2,10 +2,9 @@
 // by AmbienceController and read by every audio consumer:
 //   * global ambience layers map fields → volume/pitch (rain → wetness,
 //     wind layers → windSpeed, etc.)
-//   * the reverb-send bus reads envTagWeights + caveness/openness to
-//     blend room size / wet-dry / lowpass cutoff
-//   * positional emitter palettes use biomeId + envTagWeights + time of
-//     day to gate spawning
+//   * the reverb-send bus reads the blended space-class ambience to set
+//     room size / wet-dry / lowpass cutoff
+//   * positional emitter palettes use biomeId + time of day to gate spawning
 //
 // Plain struct, value-copied — consumers should snapshot it at the top
 // of their tick and not hold a reference, since the controller rewrites
@@ -39,23 +38,14 @@ public struct AmbienceState
     public float ShorelineFactor;
 
     // Listener "openness" in [0, 1]. 1 = open sky overhead, 0 = enclosed.
-    // The blended openness of the space classes around the listener, already
-    // pulled down by the geometric enclosure probe — so a player standing in
-    // an outdoor cell but ducked under a tree canopy reads as less open even
-    // though the 4-voxel-resolution authored cell still says outdoor.
+    // The blended openness of the space classes around the listener, scaled by
+    // the baked Interiorness at the exact sample point.
     public float Openness;
 
     // Listener "caveness" in [0, 1]. 1 = fully enclosed. The complement of
     // Openness over the weight actually sampled, so unloaded corners read as
     // neither open nor enclosed rather than defaulting to one.
     public float Caveness;
-
-    // Geometric enclosure at the listener in [0, 1]. 0 = open sky in all
-    // directions, 1 = a wall within reach in every direction. Aggregate
-    // of a few short raycasts; updated each frame. Stored separately
-    // from Openness/Caveness so consumers that want the raw geometric
-    // signal can read it without reverse-engineering the env-tag mix.
-    public float Enclosure;
 
     // Local fog density in [0, 1]. From the active visual fog state
     // sampled at the listener. Drives a mild high-frequency damping on
@@ -100,8 +90,8 @@ public struct AmbienceState
     public int BiomeId;
 
     // Blended space-class ambience at the listener — the trilinear sample on
-    // ChunkState.EnvTag resolved through SimData.interiorAmbiences, then pulled
-    // toward enclosed by the geometric probe. Drives reverb-bus parameters.
-    // TotalWeight below 1 means some sampled corners were unloaded.
+    // ChunkState.EnvTag resolved through SimData.interiorAmbiences, then ramped
+    // by Interiorness. Drives reverb-bus parameters. TotalWeight below 1 means
+    // some sampled corners were unloaded.
     public InteriorAmbience Interior;
 }

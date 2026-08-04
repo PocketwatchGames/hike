@@ -56,8 +56,18 @@ public partial class GameCamera : Camera3D
 	// outright; < 1 keeps the player partly in frame (a two-shot of both).
 	[Export(PropertyHint.Range, "0,1,0.05")] public float focusWeight = 0.85f;
 
+	[ExportGroup("Ceiling Cutaway")]
+	// How far BELOW the cutaway height the cap plane sits. The cap is opaque and
+	// depth-tested, so this is a tolerance band: geometry in (clip - bias, clip]
+	// is below the clip (never dithered away) but above the cap plane, so it wins
+	// the depth test and draws over the cap. That is deliberate for foliage and
+	// props at the cutaway's lower edge — but anything embedded in a wall within
+	// the band (window frames, lintels) punches through the cap the same way.
+	// Keep it just large enough to avoid z-fighting with a surface sitting exactly
+	// at the cutaway height.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float capPlaneYBias = 0.05f;
+
 	private const float CLIP_EPSILON = 0.5f;
-	private const float CAP_PLANE_Y_BIAS = 0.5f;
 	// Player eye offset above the foot position. Other systems (minimap
 	// elevation reference, etc.) read this so the height the camera treats
 	// as "looking from" stays consistent across features.
@@ -1051,9 +1061,9 @@ public partial class GameCamera : Camera3D
 		if (effectiveClip < float.PositiveInfinity)
 		{
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;
-			_clipCapPlane.GlobalPosition = new Vector3(centerPos.X, effectiveClip - CAP_PLANE_Y_BIAS, centerPos.Z);
+			_clipCapPlane.GlobalPosition = new Vector3(centerPos.X, effectiveClip - capPlaneYBias, centerPos.Z);
 			_waterCapPlane.Visible = true;
-			_waterCapPlane.GlobalPosition = new Vector3(centerPos.X, effectiveClip - CAP_PLANE_Y_BIAS, centerPos.Z);
+			_waterCapPlane.GlobalPosition = new Vector3(centerPos.X, effectiveClip - capPlaneYBias, centerPos.Z);
 		}
 		else
 		{

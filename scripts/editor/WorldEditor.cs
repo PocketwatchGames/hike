@@ -562,6 +562,7 @@ public partial class WorldEditor : Node3D
         editorHud.onLightingChanged += ApplyLighting;
         editorHud.onTimeOfDayChanged += ApplyTimeOfDay;
         editorHud.onWeatherSelected += ApplyWeather;
+        editorHud.onInteriorClassSelected += index => CVars.subsceneInteriorClass.Value = index;
         Array.Fill(_plateauSnapByShape, true);
         editorHud.SetEntitySnaps(_snapToGrid, _snapRotation);
         editorHud.SetShape(_brushShape);
@@ -576,6 +577,9 @@ public partial class WorldEditor : Node3D
         editorHud.SetRoofSlope(_roofSlopeDegrees);
         editorHud.SetRoofBroken(_roofBroken);
         BuildWeatherPresets();
+        // After _worldState is assigned above — the menu is the world's own
+        // space-class palette, not an editor-side list.
+        editorHud.BuildInteriorClassOptions(_worldState?.SimData?.interiorAmbiences);
         _authoredDepthFog = sceneEnvironment?.Environment?.FogEnabled ?? false;
         ApplyLighting(editorHud.LightingChecked);
         UpdateHud();
@@ -1666,16 +1670,17 @@ public partial class WorldEditor : Node3D
         // history is about to close, so end it first.
         EndDrag();
         CancelGizmoDrag();
-        // A step can add OR remove roofs, so the columns to re-propagate are the
-        // union of what they covered before and after.
-        List<Vector3I> priorRoofCells = SnapshotRoofSunCells();
+        // A step can add OR remove roofs, so diff the two sides: the region to
+        // re-propagate is what the roofs that appeared or vanished covered. Most
+        // steps touch no roof at all and skip the sun work entirely.
+        Dictionary<RoofSimState, VoxelBox> roofsBefore = CollectRoofFootprints();
         EditorEdit edit = redo ? _history.Redo() : _history.Undo();
         string action = redo ? "Redo" : "Undo";
         GD.Print(edit != null ? $"{action}: {edit.Name}" : $"Nothing to {action.ToLowerInvariant()}");
         // Undoing a placement or a delete swaps out the very states the
         // selection points at, so drop the ones the world no longer holds.
         _selection.Prune(_worldState);
-        RefreshRoofSunOcclusion(priorRoofCells);
+        RefreshRoofSunOcclusion(RegionOfDifference(roofsBefore, CollectRoofFootprints()));
     }
 
     // Erase and Replace both act on the cell the ray hit; only Paint targets the
@@ -1999,7 +2004,6 @@ public partial class WorldEditor : Node3D
         List<EntitySimState> entities = _worldState.GetEntities(_editingRoofBucket);
         int index = entities.IndexOf(roof);
 
-        List<Vector3I> priorRoofCells = SnapshotRoofSunCells();
         EditorEdit edit = _history.Begin("Edit Roof");
         edit?.TouchEntityChunk(_editingRoofBucket);
 
@@ -2020,7 +2024,8 @@ public partial class WorldEditor : Node3D
             node.QueueFree();
         }
         ReloadChunkEntities(_editingRoofBucket);
-        RefreshRoofSunOcclusion(priorRoofCells);
+        // Re-styling changes the footprint, so both shapes need re-propagating.
+        RefreshRoofSunOcclusion(RoofSunStamper.FootprintBox(roof).Union(RoofSunStamper.FootprintBox(replacement)));
         _history.Commit();
     }
 
@@ -2059,59 +2064,85 @@ public partial class WorldEditor : Node3D
         edit?.TouchEntitiesAt(center);
         _worldState.AddEntity(simState);
         ReloadChunkEntities(Sim.WorldToChunkCoord(center));
-        RefreshRoofSunOcclusion(null);
+        RefreshRoofSunOcclusion(RoofSunStamper.FootprintBox(simState));
     }
 
-    // Rebuilds the canopy-attenuation field and relights the columns any roof
-    // covers, so a roof shades the volumetrics as soon as it is placed instead
-    // of only after a reload. `priorCells` are the columns roofs covered BEFORE
-    // the edit — a delete or an undo removes a roof, and those columns still
-    // need re-propagating even though nothing covers them now.
-    private void RefreshRoofSunOcclusion(List<Vector3I> priorCells)
+    // Rebuilds sun occlusion over the region a roof edit covers and relights it,
+    // so a roof shades the volumetrics as soon as it is placed instead of only
+    // after a reload. `region` must span the footprint BOTH before and after the
+    // edit — a delete or a move leaves columns that still need re-propagating
+    // even though nothing covers them now.
+    //
+    // Every pass here is regional. Doing this world-wide was affordable when
+    // only roof placement paid for it, but undo runs it too, so a one-voxel
+    // brush undo was costing a full relight plus a full enclosure flood — and
+    // the world-wide re-derive silently overwrote authored enclosure everywhere.
+    private void RefreshRoofSunOcclusion(VoxelBox region)
     {
-        var cells = priorCells ?? new List<Vector3I>();
-        CollectRoofSunCells(cells);
-        if (cells.Count == 0)
+        if (region.IsEmpty)
         {
             return;
         }
-        // The stamp is add-only with no way to subtract one roof, so the whole
-        // field is rebuilt, then sunlight is recomputed outright rather than
-        // propagated incrementally: the incremental path keys off VOXEL changes,
-        // and marking a column opaque changes no voxel, so it would never darken
-        // what the roof now covers. Same pair Main runs on world load.
-        FoliageStamper.Stamp(_worldState);
-        LightEngine.Relight(_worldState);
+        // The stamp is add-only with no way to subtract one roof, so the region
+        // is cleared and rebuilt; sunlight is then recomputed rather than
+        // propagated incrementally, because the incremental path keys off VOXEL
+        // changes and marking a column opaque changes no voxel.
+        FoliageStamper.RestampRegion(_worldState, region);
+        LightEngine.RelightRegion(_worldState, region);
+        // Roofs are cover, so placing or breaking one changes enclosure —
+        // re-derive rather than leaving the ambience on the pre-edit bake.
+        EnvTagGen.ComputeEnvTagGrid(_worldState, InteriornessGen.ComputeRegion(_worldState, region));
         // Re-mesh as well as relight. Terrain takes its sun from a PER-VERTEX
         // bake frozen into the chunk mesh (ChunkMesherDC.BakeVertexSun), not
         // from the light volume — relighting alone updates props and volumetrics
         // while the floor under the roof stays exactly as bright as it was.
-        var refresh = new EditorRefresh();
-        refresh.AddVoxels(cells);
-        refresh.Apply(_world);
+        // RelightRegion leaves SunlightChunkDirty naming exactly what moved.
+        _world.RebuildChunkMeshes(EditorRefresh.GrowByOne(_worldState.SunlightChunkDirty));
+        _world.FlushLighting();
     }
 
-    private void CollectRoofSunCells(List<Vector3I> into)
+    // What every roof in the world currently covers. Cheap enough to run on both
+    // sides of an undo step (arithmetic only, no rasterization), which is how
+    // the history path learns whether a step touched cover at all.
+    private Dictionary<RoofSimState, VoxelBox> CollectRoofFootprints()
     {
+        var roofs = new Dictionary<RoofSimState, VoxelBox>();
         foreach (List<EntitySimState> bucket in _worldState._entities.Values)
         {
             foreach (EntitySimState state in bucket)
             {
                 if (state is RoofSimState roof)
                 {
-                    RoofSunStamper.CollectCells(roof, into);
+                    roofs[roof] = RoofSunStamper.FootprintBox(roof);
                 }
             }
         }
+        return roofs;
     }
 
-    // Snapshot of the columns roofs currently cover, taken before an edit that
-    // may remove one.
-    private List<Vector3I> SnapshotRoofSunCells()
+    // Footprint spanning every roof an undo step added, removed or MOVED —
+    // compared by what each covers, not by identity, because undoing a gizmo
+    // drag puts the same state object back at a different position. A re-style
+    // shows up as an add plus a remove; it swaps the object rather than mutating
+    // it.
+    private static VoxelBox RegionOfDifference(Dictionary<RoofSimState, VoxelBox> before, Dictionary<RoofSimState, VoxelBox> after)
     {
-        var cells = new List<Vector3I>();
-        CollectRoofSunCells(cells);
-        return cells;
+        VoxelBox region = VoxelBox.Empty;
+        foreach (KeyValuePair<RoofSimState, VoxelBox> kvp in before)
+        {
+            if (!after.TryGetValue(kvp.Key, out VoxelBox now) || !now.Equals(kvp.Value))
+            {
+                region = region.Union(kvp.Value);
+            }
+        }
+        foreach (KeyValuePair<RoofSimState, VoxelBox> kvp in after)
+        {
+            if (!before.TryGetValue(kvp.Key, out VoxelBox was) || !was.Equals(kvp.Value))
+            {
+                region = region.Union(kvp.Value);
+            }
+        }
+        return region;
     }
 
     // First empty cell above the ground in a column, searched downward from
@@ -2325,7 +2356,7 @@ public partial class WorldEditor : Node3D
     {
         // Captured before the removal: once the roof is gone its columns can't
         // be enumerated, and they're exactly the ones needing re-propagation.
-        List<Vector3I> priorRoofCells = state is RoofSimState ? SnapshotRoofSunCells() : null;
+        VoxelBox roofRegion = state is RoofSimState roof ? RoofSunStamper.FootprintBox(roof) : VoxelBox.Empty;
         edit?.TouchEntityChunk(bucket);
         _worldState.GetEntities(bucket)?.Remove(state);
         Node3D node = state.RuntimeNode;
@@ -2334,10 +2365,7 @@ public partial class WorldEditor : Node3D
             _world.RemoveEntity(node);
             node.QueueFree();
         }
-        if (priorRoofCells != null)
-        {
-            RefreshRoofSunOcclusion(priorRoofCells);
-        }
+        RefreshRoofSunOcclusion(roofRegion);
     }
 
     // ----- Entity selection ------------------------------------------------
@@ -2511,11 +2539,20 @@ public partial class WorldEditor : Node3D
                 edit?.TouchEntityChunk(to);
             }
         }
+        // A roof that moved covers different columns at each end of the drag, and
+        // its cover is stamped, not derived from the node — so both need
+        // re-propagating once the states are settled.
+        VoxelBox roofRegion = VoxelBox.Empty;
         foreach (SelectedTransform start in _gizmoDragStart)
         {
             Vector3I from = Sim.WorldToChunkCoord(start.Position);
             Vector3I to = Sim.WorldToChunkCoord(start.State.WorldPosition);
             refresh.AddEntityChunk(from);
+            if (start.State is RoofSimState roof)
+            {
+                roofRegion = roofRegion
+                    .Union(RoofSunStamper.FootprintBox(roof).Union(FootprintBoxAt(roof, start.Position)));
+            }
             if (from == to)
             {
                 continue;
@@ -2531,6 +2568,19 @@ public partial class WorldEditor : Node3D
         _gizmoDrag = EGizmoHandle.None;
         _gizmoDragStart.Clear();
         refresh.Apply(_world);
+        RefreshRoofSunOcclusion(roofRegion);
+    }
+
+    // The footprint a roof HAD, by measuring it at a position it no longer
+    // occupies. Restoring the position is the only way to ask — the footprint
+    // depends on style, size, form and rotation as well as where it sits.
+    private static VoxelBox FootprintBoxAt(RoofSimState roof, Vector3 position)
+    {
+        Vector3 current = roof.WorldPosition;
+        roof.WorldPosition = position;
+        VoxelBox box = RoofSunStamper.FootprintBox(roof);
+        roof.WorldPosition = current;
+        return box;
     }
 
     // Abandons a drag without committing it — used when the mode changes out
@@ -3130,7 +3180,7 @@ public partial class WorldEditor : Node3D
     public WorldState CreateSubsceneWorld(WorldGenData genData, string path, out bool includeEnv)
     {
         SubsceneState sub = SubsceneFile.Read(path);
-        includeEnv = sub.WindFactor != null || sub.EnvTag != null;
+        includeEnv = sub.EnvTag != null;
 
         // Where the scene lands when stamped at the origin: local cell
         // floor(Anchor) sits at (0,0,0), so the bbox starts at -Anchor.
@@ -3157,6 +3207,12 @@ public partial class WorldEditor : Node3D
         FoliageStamper.Stamp(ws);
         // The stub's bake ran on an empty world; redo it now there's geometry.
         LightEngine.Relight(ws);
+        // The editor is the only place these are heard while authoring, and
+        // nothing else runs them outside WorldGen.Generate — without this the
+        // whole world classifies outdoor and the audio you hear while editing
+        // is the raycast enclosure probe alone.
+        InteriornessGen.Compute(ws);
+        EnvTagGen.ComputeEnvTagGrid(ws);
         ws.Spawn = new Vector3(
             worldMin.X + sub.Size.X * 0.5f,
             worldMax.Y + 1,
@@ -3214,6 +3270,12 @@ public partial class WorldEditor : Node3D
         FoliageStamper.Stamp(ws);
         // Compute initial sunlight so the world isn't pitch black
         LightEngine.Relight(ws);
+        // The editor is the only place these are heard while authoring, and
+        // nothing else runs them outside WorldGen.Generate — without this the
+        // whole world classifies outdoor and the audio you hear while editing
+        // is the raycast enclosure probe alone.
+        InteriornessGen.Compute(ws);
+        EnvTagGen.ComputeEnvTagGrid(ws);
 
         return ws;
     }

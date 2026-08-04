@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Godot;
 
 // Rasterizes roofs into WorldState.CanopyAttenuation so the next sunlight pass
@@ -23,7 +22,15 @@ public static class RoofSunStamper
 {
     // Called by FoliageStamper as part of the same rebuild, so there is one
     // clear and one entity walk and no ordering trap between the two passes.
-    public static void Stamp(WorldState world, RoofSimState roof)
+    // `clip` confines the write to a region for a regional restamp; null stamps
+    // the whole footprint.
+    // ignoreHoles treats a broken roof as intact. Used by the COVER pass that
+    // feeds classification: a hole lets light in but does not stop the space
+    // beneath being a room, and letting holes punch the cover field made a
+    // broken cottage classify its own middle as outdoors — the brighter the god
+    // ray, the less indoor it read, so the feature fought itself. The lighting
+    // pass still stamps with holes, which is what produces the shafts.
+    public static void Stamp(WorldState world, RoofSimState roof, VoxelBox? clip = null, bool ignoreHoles = false)
     {
         RoofStyleData style = roof.Style;
         if (style == null)
@@ -51,13 +58,6 @@ public static class RoofSunStamper
         // stands between the sun and the ground, rather than just the walls.
         float halfSeam = size.HalfSeam;
         float halfAcross = size.HalfAcross;
-        // Dust stops at the walls, NOT at the roof's edge. An overhang shades
-        // the ground outside the building but doesn't enclose it, and that strip
-        // is still lit by the sun mask leaking in sideways — so max-density fog
-        // stamped out there reads as a bright band hugging the walls the moment
-        // the ceiling cutaway reveals it.
-        float dustHalfSeam = size.HalfSeamBody;
-        float dustHalfAcross = size.HalfAcrossBody;
 
         // Roof-local axes in world XZ, carrying the entity's Y rotation.
         float cos = Mathf.Cos(roof.RotationY);
@@ -74,6 +74,20 @@ public static class RoofSunStamper
         int minZ = Mathf.FloorToInt(roof.WorldPosition.Z - reachZ);
         int maxZ = Mathf.FloorToInt(roof.WorldPosition.Z + reachZ);
         int baseY = Mathf.FloorToInt(roof.WorldPosition.Y);
+
+        // Sheet runs downward from the eave, so the shallowest d is the top.
+        int minD = 0;
+        int maxD = depth - 1;
+        if (clip.HasValue)
+        {
+            VoxelBox box = clip.Value;
+            minX = Mathf.Max(minX, box.Min.X);
+            maxX = Mathf.Min(maxX, box.Max.X);
+            minZ = Mathf.Max(minZ, box.Min.Z);
+            maxZ = Mathf.Min(maxZ, box.Max.Z);
+            minD = Mathf.Max(minD, baseY - box.Max.Y);
+            maxD = Mathf.Min(maxD, baseY - box.Min.Y);
+        }
 
         for (int wx = minX; wx <= maxX; wx++)
         {
@@ -94,11 +108,11 @@ public static class RoofSunStamper
                 // down it and the raymarcher gets a lit shaft through the dust.
                 // Evaluated with the SAME noise the shader discards on, at the
                 // column centre, so the beam lands under the gap you can see.
-                if (RoofBrokenNoise.IsHole(wx + 0.5f, wz + 0.5f, sunThreshold, style.brokenScale, style.brokenScale * style.brokenEdgeRatio, style.brokenEdgeJagged))
+                if (!ignoreHoles && RoofBrokenNoise.IsHole(wx + 0.5f, wz + 0.5f, sunThreshold, style.brokenScale, style.brokenScale * style.brokenEdgeRatio, style.brokenEdgeJagged))
                 {
                     continue;
                 }
-                for (int d = 0; d < depth; d++)
+                for (int d = minD; d <= maxD; d++)
                 {
                     if (style.blocksSun)
                     {
@@ -113,14 +127,15 @@ public static class RoofSunStamper
         }
     }
 
-    // Cells a stamp touches, so the editor can relight just those columns
-    // instead of recomputing the whole world after placing one roof.
-    public static void CollectCells(RoofSimState roof, List<Vector3I> into)
+    // The region a stamp can write, holes ignored — the editor's regional
+    // restamp / relight / re-classify passes are all scoped by this, so it must
+    // bound Stamp's writes from above rather than describe them exactly.
+    public static VoxelBox FootprintBox(RoofSimState roof)
     {
-        RoofStyleData style = roof.Style;
+        RoofStyleData style = roof?.Style;
         if (style == null)
         {
-            return;
+            return VoxelBox.Empty;
         }
         int depth = Mathf.Max(1, style.blocksSun ? 1 : style.partialSunOcclusionDepthVoxels);
         var size = new RoofDimensions(style, roof.SizeX, roof.SizeZ, roof.SeamAxis, roof.SlopeDegrees, roof.Form);
@@ -131,16 +146,15 @@ public static class RoofSunStamper
         float reach = Mathf.Abs(seamAxis.X) * size.HalfSeam + Mathf.Abs(acrossAxis.X) * size.HalfAcross;
         float reachZ = Mathf.Abs(seamAxis.Y) * size.HalfSeam + Mathf.Abs(acrossAxis.Y) * size.HalfAcross;
         int baseY = Mathf.FloorToInt(roof.WorldPosition.Y);
-        for (int wx = Mathf.FloorToInt(roof.WorldPosition.X - reach); wx <= Mathf.FloorToInt(roof.WorldPosition.X + reach); wx++)
-        {
-            for (int wz = Mathf.FloorToInt(roof.WorldPosition.Z - reachZ); wz <= Mathf.FloorToInt(roof.WorldPosition.Z + reachZ); wz++)
-            {
-                for (int d = 0; d < depth; d++)
-                {
-                    into.Add(new Vector3I(wx, baseY - d, wz));
-                }
-            }
-        }
+        return new VoxelBox(
+            new Vector3I(
+                Mathf.FloorToInt(roof.WorldPosition.X - reach),
+                baseY - depth + 1,
+                Mathf.FloorToInt(roof.WorldPosition.Z - reachZ)),
+            new Vector3I(
+                Mathf.FloorToInt(roof.WorldPosition.X + reach),
+                baseY,
+                Mathf.FloorToInt(roof.WorldPosition.Z + reachZ)));
     }
 
     private static Vector2 Rotate(Vector2 v, float cos, float sin)

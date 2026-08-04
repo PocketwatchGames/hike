@@ -147,8 +147,6 @@ public static class LightEngine
 
         int minWx = world.Min.X * ChunkState.SIZE;
         int maxWx = (world.Max.X + 1) * ChunkState.SIZE;
-        int minWy = world.Min.Y * ChunkState.SIZE;
-        int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
         int minWz = world.Min.Z * ChunkState.SIZE;
         int maxWz = (world.Max.Z + 1) * ChunkState.SIZE;
 
@@ -159,35 +157,117 @@ public static class LightEngine
         {
             for (int wz = minWz; wz < maxWz; wz++)
             {
-                float sunLevel = MAX_LIGHT;
-                for (int wy = topWy; wy >= minWy; wy--)
-                {
-                    VoxelType v = world.GetVoxelWorld(wx, wy, wz);
-                    if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v))
-                    {
-                        break;
-                    }
-                    // Non-voxel solid cover (a roof) stops the column exactly as
-                    // a solid voxel does — canopy attenuation can only ever dim.
-                    if (world.GetSunOpaqueWorld(wx, wy, wz))
-                    {
-                        break;
-                    }
-                    sunLevel -= VoxelTypeInfo.LightAttenuation(v);
-                    sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255f;
-                    sunLevel *= CanopyTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
-                    int level = (int)(sunLevel + 0.5f);
-                    if (level <= 0)
-                    {
-                        break;
-                    }
-                    world.SetSunlightWorld(wx, wy, wz, level);
-                    queue.Enqueue((wx, wy, wz));
-                }
+                ScanSunlightColumn(world, wx, wz, canopySunExtinction, queue, int.MaxValue);
             }
         }
 
         SpreadSunlight(world, queue);
+    }
+
+    // Direct sun down one XZ column, top-down to the first thing that stops it.
+    // The single definition of the column phase — the full bake and the regional
+    // relight both call it, so there is no pair of scans to keep in sync.
+    // Every cell it lights is enqueued as a source for the lateral spread.
+    //
+    // The scan always starts at the world top (attenuation accumulates from
+    // there) but writes only at or below `maxWriteY`. A regional relight uses
+    // that to leave the untouched sky above its region alone rather than
+    // rewriting it with identical values and dirtying every chunk it passes.
+    private static void ScanSunlightColumn(WorldState world, int wx, int wz, float canopySunExtinction, Queue<(int x, int y, int z)> queue, int maxWriteY)
+    {
+        int minWy = world.Min.Y * ChunkState.SIZE;
+        int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
+
+        float sunLevel = MAX_LIGHT;
+        for (int wy = topWy; wy >= minWy; wy--)
+        {
+            VoxelType v = world.GetVoxelWorld(wx, wy, wz);
+            if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v))
+            {
+                break;
+            }
+            // Non-voxel solid cover (a roof) stops the column exactly as
+            // a solid voxel does — canopy attenuation can only ever dim.
+            if (world.GetSunOpaqueWorld(wx, wy, wz))
+            {
+                break;
+            }
+            sunLevel -= VoxelTypeInfo.LightAttenuation(v);
+            sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255f;
+            sunLevel *= CanopyTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
+            int level = (int)(sunLevel + 0.5f);
+            if (level <= 0)
+            {
+                break;
+            }
+            if (wy > maxWriteY)
+            {
+                continue;
+            }
+            world.SetSunlightWorld(wx, wy, wz, level);
+            queue.Enqueue((wx, wy, wz));
+        }
+    }
+
+    // Regional twin of Relight, for a change to NON-VOXEL cover: a roof placed,
+    // deleted, moved or re-styled changes what the sun reaches without changing
+    // a single voxel, so OnVoxelsChanged's incremental path sees nothing to do
+    // — and a full Relight pays for the whole world to fix one building.
+    //
+    // Retract before rescan. The column scan alone can only ever write the
+    // cover's own columns, so a room a new roof just covered would keep the
+    // lateral spill its formerly-lit columns had already pushed sideways into
+    // it, and read as bright as before.
+    //
+    // Only the region's own columns are torn down and rebuilt, from its top
+    // downward: nothing above the changed cover moved, so rewriting the open sky
+    // over it would only dirty every chunk in the stack for identical values.
+    //
+    // Leaves SunlightChunkDirty naming exactly the chunks whose sunlight moved,
+    // which is what the caller has to re-mesh (terrain sun is a per-vertex bake)
+    // and upload.
+    public static void RelightRegion(WorldState world, VoxelBox region)
+    {
+        if (world == null || region.IsEmpty)
+        {
+            return;
+        }
+        world.SunlightChunkDirty.Clear();
+        float canopySunExtinction = world.SimData.canopySunExtinction;
+        int minWy = world.Min.Y * ChunkState.SIZE;
+
+        // Zero the columns outright and hand their OLD levels to the removal
+        // flood, so everything they lit elsewhere is pulled back too. Same
+        // machinery a voxel edit uses; only the trigger differs.
+        var removeQueue = new Queue<(int x, int y, int z, int level)>();
+        var refillQueue = new Queue<(int x, int y, int z)>();
+        for (int wx = region.Min.X; wx <= region.Max.X; wx++)
+        {
+            for (int wz = region.Min.Z; wz <= region.Max.Z; wz++)
+            {
+                for (int wy = region.Max.Y; wy >= minWy; wy--)
+                {
+                    int level = world.GetSunlightWorld(wx, wy, wz);
+                    if (level <= 0)
+                    {
+                        continue;
+                    }
+                    world.SetSunlightWorld(wx, wy, wz, 0);
+                    removeQueue.Enqueue((wx, wy, wz, level));
+                }
+            }
+        }
+        RetractSunlight(world, removeQueue, refillQueue);
+
+        for (int wx = region.Min.X; wx <= region.Max.X; wx++)
+        {
+            for (int wz = region.Min.Z; wz <= region.Max.Z; wz++)
+            {
+                ScanSkyExposureColumn(world, wx, wz, canopySunExtinction);
+                ScanSunlightColumn(world, wx, wz, canopySunExtinction, refillQueue, region.Max.Y);
+            }
+        }
+        SpreadSunlight(world, refillQueue);
     }
 
     public static void AddLightSource(WorldState world, LightSource source)
@@ -225,6 +305,8 @@ public static class LightEngine
 
     public static void OnVoxelsChanged(WorldState world, List<Vector3I> changedPositions)
     {
+        // Scope SunlightChunkDirty to this call — callers re-mesh what it names.
+        world.SunlightChunkDirty.Clear();
         UpdateSunlightAt(world, changedPositions);
         RecomputeSkyExposureColumns(world, changedPositions);
 
@@ -685,6 +767,16 @@ public static class LightEngine
             }
         }
 
+        RetractSunlight(world, removeQueue, refillQueue);
+        SpreadSunlight(world, refillQueue);
+    }
+
+    // Darkening half of an incremental sunlight update: walks outward from cells
+    // that just lost light, zeroing everything dimmer (which could only have
+    // come from them) and collecting anything still at least as bright as a
+    // source to refill from.
+    private static void RetractSunlight(WorldState world, Queue<(int x, int y, int z, int level)> removeQueue, Queue<(int x, int y, int z)> refillQueue)
+    {
         while (removeQueue.Count > 0)
         {
             var (x, y, z, level) = removeQueue.Dequeue();
@@ -707,7 +799,5 @@ public static class LightEngine
                 }
             }
         }
-
-        SpreadSunlight(world, refillQueue);
     }
 }

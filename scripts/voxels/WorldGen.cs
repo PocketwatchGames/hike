@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 53;
+    public const int WORLDGEN_VERSION = 64;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -324,7 +324,6 @@ public static class WorldGen
     private const int SEED_SALT_FIXTURE = 0x0D;
     private const int SEED_SALT_ZONEBOUNDS = 0x0E;
     private const int SEED_SALT_POI = 0x0F;
-    private const int SEED_SALT_RUINS = 0x10;
     private const int SEED_SALT_FORGE = 0x11;
     private const int SEED_SALT_MOBLEVEL = 0x12;
     private const int SEED_SALT_FOUNTAIN = 0x13;
@@ -515,11 +514,11 @@ public static class WorldGen
         // geometry is noise-free by construction.
         var heightMap = BuildHeightMap(ws, genData, noise.Terrain, noise.RampGate, noise.Elevation);
 
-        // Load the authored subscenes and reserve the ground they will cover.
-        // The stamp itself has to wait for finished terrain, but every content
-        // pass runs in between — and those place ENTITIES, which a later voxel
-        // stamp writes straight through, leaving rocks standing in the front
-        // room. Reserving here is what keeps them out.
+        // Load the authored subscenes and reserve the ground they will cover,
+        // so the content passes between here and the stamp leave it alone —
+        // they place ENTITIES, and a voxel stamp writes straight through one,
+        // leaving rocks standing in the front room. Loading here (not at stamp
+        // time) also reports a bad path before the expensive passes.
         var reservedSubscenes = LoadAndReserveSubscenes(genData, heightMap);
 
         // Resolve each authored POI name (ZoneData.PointsOfInterest) to a flat
@@ -586,22 +585,12 @@ public static class WorldGen
         // worlds; replace with authored tags once the custom editor lands.
         StampProceduralOverlays(ws, genData);
 
-        // Stamp broken stone ruins (hard-edged Stone walls + pillars) onto flat,
-        // confined ground, per the dominant zone's ZoneGenData.ruins. Runs before
-        // detail/prop/mob scatter so those passes' air-over-solid + walkability
-        // gates keep trees and mobs from spawning inside the masonry, and before
-        // ComputeSunlight so the ruins occlude/cast light correctly.
-        PlaceRuins(ws, genData, heightMap, worldSeed);
-
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
         // the worldgen_skip CVar (bitmask — see SKIP_* flags). Each category is
         // checked independently so e.g. setting just "details" strips grass
         // blades without affecting trees or mobs.
         int skipFlags = CVars.worldgenSkip.Value;
-        if ((skipFlags & SKIP_DETAILS) == 0)
-        {
-            StampDetailScatter(ws, genData, heightMap);
-        }
+
         GenerateAllProps(ws, genData, noise.Grass, noise.Forest, heightMap, skipFlags, worldSeed);
 
         // Authored fixtures (zone clusters, POI placements, region landmarks).
@@ -640,26 +629,37 @@ public static class WorldGen
 
         ws.TaggingFixtures = false;
 
+        // Stamp the subscenes reserved up front (voxels + entities), sitting
+        // each on the plateau level under its footprint. Env overrides land in a
+        // second pass, after the wind/envtag default bake (below).
+        var stampedSubscenes = StampReservedSubscenes(ws, reservedSubscenes, heightMap);
+
         // Pathfind and carve roads between connected POIs. Runs AFTER props so
         // the route can prefer naturally open ground (props add pathfinding
-        // cost) and clear the props it does cross. Grades cliff climbs into
+        // cost) and clear the props it does cross, and AFTER the subscene stamp
+        // so a building is standing when the route is chosen — its reserved
+        // columns are impassable, so the road bends around it rather than
+        // regrading its floor out from under it. Grades cliff climbs into
         // walkable ramps by rewriting voxels in place (chunks already exist),
         // then paints the tread overlay. Before ComputeSunlight so the bake sees
         // the regraded geometry.
         CarveRoads(ws, genData, heightMap, worldSeed);
         StampGradeShapes(ws, heightMap, genData.maxGradeStep);
 
+        // AFTER every ground-moving pass: the scatter writes per-voxel channels
+        // that a later road regrade or subscene stamp would overwrite wholesale,
+        // which is what used to leave a stamped building's terrain margin bald.
+        // Roads suppress their own detail here rather than clearing it after.
+        if ((skipFlags & SKIP_DETAILS) == 0)
+        {
+            StampDetailScatter(ws, genData, heightMap);
+        }
+
         // Player spawn point, resolved after road grading so a road crossing the
         // spawn column lands the player on the regraded surface. With
         // spawnAtSurface the authored Y is replaced by the ground surface at
         // (X, Z); otherwise the explicit Y is used verbatim.
         ws.Spawn = ResolveSpawn(genData, heightMap);
-
-        // Stamp the subscenes reserved up front (voxels + entities), sitting
-        // each on the plateau level under its footprint. Must run BEFORE
-        // ComputeSunlight so the bake sees the final geometry. Env overrides
-        // land in a second pass after the wind/envtag default bake (below).
-        var stampedSubscenes = StampReservedSubscenes(ws, reservedSubscenes, heightMap);
 
         // The air pipeline. Strictly ordered, and each step feeds the next:
         //
@@ -671,29 +671,25 @@ public static class WorldGen
         //                cell an interior.
         //   sky        — geometry-only VERTICAL cover, for the rain / shelter
         //                consumers. Fog-free, and never feeds classification.
-        //   sunlight   — the flooded field, which bleeds sideways. Run twice:
-        //                classification needs it before the dust it will cause
-        //                exists, and the final bake needs to attenuate by that
-        //                dust. The alternative is classifying off vertical
-        //                cover, which cannot tell "inside the walls" from
-        //                "under an eave" and leaks a cottage's ambience out
-        //                past its overhang.
-        //   classify   — enclosure → space class per env cell.
-        //   dust       — class → serialized fog, ramped by the same enclosure.
+        //   classify   — cover → space class per env cell. Everything under a
+        //                ceiling is marked indoors, flatly.
+        //   sunlight   — the flooded field, which bleeds sideways through every
+        //                aperture. This is the BLEED term: how much outdoors
+        //                leaks back in. Never used to classify.
+        //   dust       — class → serialized fog, reduced by that bleed.
         //   wind       — from the flooded sunlight, damped by the class.
         //
         // Disk-loaded chunks skip classify/dust entirely: those bytes are
         // serialized, and a painted class must survive the round trip.
         StampRoofSunOcclusion(ws);
         LightEngine.ComputeSkyExposure(ws);
-        LightEngine.ComputeSunlight(ws);
+        InteriornessGen.Compute(ws);
         EnvTagGen.ComputeEnvTagGrid(ws);
         // Authored classes beat inferred ones, and must land BEFORE the dust
         // and wind bakes read them — otherwise a hikescene's cells carry its
         // authored class but its air and wind were derived from the class
         // worldgen guessed.
         ApplySubsceneEnvOverrides(ws, stampedSubscenes);
-        InteriorDustStamper.Bake(ws);
         LightEngine.ComputeSunlight(ws);
         WindGen.ComputeWindGrid(ws);
 
@@ -1213,155 +1209,6 @@ public static class WorldGen
         }
     }
 
-    // Anchors at which a ruin site has already been committed are probed on a
-    // coarse grid; sites are tens of meters wide, so a 1-voxel scan is wasted
-    // work. The per-sample spawn probability scales by this cell's area so the
-    // expected site count stays independent of the stride.
-    private const int RUIN_SCAN_STRIDE = 4;
-
-    // Scatter broken stone ruins across the world. Samples land columns on a
-    // coarse grid; the dominant zone's ZoneGenData.ruins (if any) rolls its area
-    // chance, and on a hit the anchor must clear the optional confinement gate
-    // and the inter-site spacing, then RuinsGenData.Stamp writes the masonry. The
-    // ruins self-level against noisy terrain (see RuinsGenData), so the anchor
-    // only needs dry land, not flat ground. Early-outs entirely when no zone
-    // authors ruins; same whole-world vein as the fog / overlay passes.
-    private static void PlaceRuins(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
-    {
-        ZoneGenData[] zones = genData.ZoneGens;
-        if (zones == null || zones.Length == 0) { return; }
-
-        bool anyRuins = false;
-        foreach (ZoneGenData z in zones)
-        {
-            if (z?.ruins != null && z.ruins.Enabled) { anyRuins = true; break; }
-        }
-        if (!anyRuins) { return; }
-
-        int worldMinX = ws.Min.X * ChunkState.SIZE;
-        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_RUINS));
-        var sites = new System.Collections.Generic.List<Vector2I>();
-
-        int SurfaceYAt(int wx, int wz) => heightMap.GetSurface(wx, wz);
-        bool IsDry(int wx, int wz) => IsDryLand(wx, wz, heightMap);
-
-        const float cellArea = RUIN_SCAN_STRIDE * RUIN_SCAN_STRIDE;
-        for (int wz = worldMinZ; wz <= worldMaxZ; wz += RUIN_SCAN_STRIDE)
-        {
-            for (int wx = worldMinX; wx <= worldMaxX; wx += RUIN_SCAN_STRIDE)
-            {
-                if (!IsDryLand(wx, wz, heightMap)) { continue; }
-                // Reserved ground (a subscene footprint) — a ruin dropped on a
-                // building is the same mistake as a rock inside one.
-                if (heightMap.IsNoSpawn(wx, wz)) { continue; }
-                int domIdx = DominantZoneIndex(wx, wz, zones);
-                if (domIdx < 0) { continue; }
-                RuinsGenData ruins = zones[domIdx]?.ruins;
-                if (ruins == null || !ruins.Enabled) { continue; }
-                // Per-sample chance scaled to the scan cell's area.
-                if (rng.NextDouble() * ruins.squareMetersPerSpawn >= cellArea) { continue; }
-                if (!IsRuinSiteConfined(wx, wz, ruins, heightMap)) { continue; }
-
-                float minSpacingSq = ruins.minSiteSpacing * ruins.minSiteSpacing;
-                bool tooClose = false;
-                foreach (Vector2I s in sites)
-                {
-                    float dx = s.X - wx;
-                    float dz = s.Y - wz;
-                    if (dx * dx + dz * dz < minSpacingSq) { tooClose = true; break; }
-                }
-                if (tooClose) { continue; }
-
-                sites.Add(new Vector2I(wx, wz));
-                ruins.Stamp(ws, wx, wz, rng, SurfaceYAt, IsDry);
-                MarkMasonryNoSpawn(ws, heightMap, wx, wz, ruins.siteRadius);
-            }
-        }
-    }
-
-    // Reserve the columns a just-stamped ruin actually put stone on. Derived
-    // from the geometry rather than reported by Stamp, so it needs no plumbing
-    // through RuinsGenData and stays correct whatever layout the stamper rolls:
-    // a column is masonry iff a solid non-natural voxel now sits above the
-    // natural ground. Scans the authored site disc, which bounds where Stamp
-    // can have written.
-    //
-    // Only the stonework is reserved, NOT the whole site — the open floor
-    // between the walls is exactly where content should still appear.
-    private static void MarkMasonryNoSpawn(WorldState ws, HeightMap hm, int originX, int originZ, int siteRadius)
-    {
-        int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int r = Math.Max(1, siteRadius);
-        int rSq = r * r;
-        for (int dx = -r; dx <= r; dx++)
-        {
-            for (int dz = -r; dz <= r; dz++)
-            {
-                if (dx * dx + dz * dz > rSq) { continue; }
-                int wx = originX + dx;
-                int wz = originZ + dz;
-                if (wx < hm.WorldMinX || wx > hm.WorldMaxX || wz < hm.WorldMinZ || wz > hm.WorldMaxZ)
-                {
-                    continue;
-                }
-                for (int wy = hm.GetSurface(wx, wz) + 1; wy <= maxY; wy++)
-                {
-                    VoxelType v = ws.GetVoxelWorld(wx, wy, wz);
-                    if (!VoxelTypeInfo.IsSolid(v)) { continue; }
-                    if (!IsNaturalGround(ws, wx, wy, wz))
-                    {
-                        hm.MarkNoSpawn(wx, wz);
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    // Dry land: an in-bounds column whose surface sits at or above water level.
-    private static bool IsDryLand(int wx, int wz, HeightMap hm)
-    {
-        if (wx < hm.WorldMinX || wx > hm.WorldMaxX || wz < hm.WorldMinZ || wz > hm.WorldMaxZ)
-        {
-            return false;
-        }
-        return hm.GetSurface(wx, wz) >= WATER_LEVEL;
-    }
-
-    // Optional "confined" gate for a ruin anchor — a ring at
-    // RuinsGenData.ConfinementRadius must rise at least ConfinementRise voxels
-    // above it for at least ConfinementMinFraction of the ring (sat in a hollow
-    // / against a cliff step). ConfinementMinFraction 0 drops the gate; the ruins
-    // self-level against terrain noise, so no flatness is required either way.
-    private static bool IsRuinSiteConfined(int cx, int cz, RuinsGenData ruins, HeightMap hm)
-    {
-        int baseH = hm.GetSurface(cx, cz);
-        if (ruins.confinementMinFraction <= 0f) { return true; }
-
-        const int Samples = 16;
-        int radius = Mathf.Max(1, ruins.confinementRadius);
-        int higher = 0;
-        int valid = 0;
-        for (int i = 0; i < Samples; i++)
-        {
-            float a = i / (float)Samples * Mathf.Tau;
-            int x = cx + Mathf.RoundToInt(radius * Mathf.Cos(a));
-            int z = cz + Mathf.RoundToInt(radius * Mathf.Sin(a));
-            if (x < hm.WorldMinX || x > hm.WorldMaxX || z < hm.WorldMinZ || z > hm.WorldMaxZ)
-            {
-                continue;
-            }
-            valid++;
-            if (hm.GetSurface(x, z) >= baseH + ruins.confinementRise) { higher++; }
-        }
-        if (valid == 0) { return false; }
-        return (float)higher / valid >= ruins.confinementMinFraction;
-    }
-
     // ─────────────────────────────────────────────────────────────────────
     // Points of interest & roads
     // ─────────────────────────────────────────────────────────────────────
@@ -1404,6 +1251,10 @@ public static class WorldGen
                 bool Valid(int wx, int wz)
                 {
                     if (!IsFlatTerrainAt(wx, wz, heightMap)) { return false; }
+                    // Reserved ground is impassable to the road pass, so a POI
+                    // landing inside a subscene footprint would strand every
+                    // road that names it — no route in or out of a building.
+                    if (heightMap.IsNoSpawn(wx, wz)) { return false; }
                     if (bounds != null && !bounds.Contains(
                             (int)Math.Floor((double)wx / ChunkState.SIZE),
                             (int)Math.Floor((double)wz / ChunkState.SIZE),
@@ -1592,6 +1443,13 @@ public static class WorldGen
         bool Passable(int x, int z)
         {
             if (x < minX || x > maxX || z < minZ || z > maxZ) { return false; }
+            // Subscenes are stamped before this pass, so a route through one is
+            // a route through a building — the tread would regrade its floor
+            // out from under it. Blocked outright rather than priced: a footprint
+            // is a few dozen columns in an open world, so there is always a way
+            // around, and a merely expensive one still gets taken when the POIs
+            // line up with it.
+            if (hm.IsNoSpawn(x, z)) { return false; }
             return hm.GetSurface(x, z) >= WATER_LEVEL;
         }
         if (!Passable(start.x, start.z) || !Passable(goal.x, goal.z)) { return null; }
@@ -1775,7 +1633,11 @@ public static class WorldGen
                         // Leave existing road columns alone so the earlier road's
                         // texture and grade win where roads overlap; skip authored
                         // fixtures so the road never regrades under a landmark.
-                        if (_roadColumns.Contains((wx, wz)) || protectedColumns.Contains((wx, wz)))
+                        // Subscene footprints are barred from the route entirely,
+                        // but the tread swells to maxWidth either side of it and
+                        // can still reach one.
+                        if (_roadColumns.Contains((wx, wz)) || protectedColumns.Contains((wx, wz))
+                            || hm.IsNoSpawn(wx, wz))
                         {
                             continue;
                         }
@@ -1805,10 +1667,10 @@ public static class WorldGen
     // before anything that places content, so every placement pass anchors to
     // ground that actually exists.
     //
-    // Architecture (ruin masonry, structure walls) is skipped on purpose — the
+    // Architecture (a stamped building's walls) is skipped on purpose — the
     // ground under a wall is still the ground, and lifting the surface onto
     // wall tops would scatter props and mobs across the battlements. Keeping
-    // things OUT of ruins is the ruin no-spawn mask's job, not this one's.
+    // things OUT of a building is the reservation mask's job, not this one's.
     //
     // A column with no natural voxel at all keeps its authored Height.
     private static void DeriveSurface(WorldState ws, HeightMap hm)
@@ -2143,10 +2005,10 @@ public static class WorldGen
         }
     }
 
-    // Load each `.hikescene` and mark every column its footprint covers as
-    // no-spawn, so the content passes that run before the stamp leave that
-    // ground alone. Loading here (not at stamp time) also means a bad path is
-    // reported before the expensive passes rather than after them.
+    // Load each `.hikescene` and reserve every column its footprint covers, so
+    // the content passes leave that ground alone. Loading here (not at stamp
+    // time) also means a bad path is reported before the expensive passes
+    // rather than after them.
     private static List<(SubsceneState sub, SubscenePlacement placement)> LoadAndReserveSubscenes(WorldGenData genData, HeightMap heightMap)
     {
         var loaded = new List<(SubsceneState, SubscenePlacement)>();
@@ -2881,17 +2743,19 @@ public static class WorldGen
         // (GenerateCaves breaches the surface as an open-topped pit on ~10% of
         // columns, worst measured 23 voxels) and every placement pass that
         // anchors to Height would otherwise aim at air. Deliberately ignores
-        // architecture — a ruin wall does not raise the ground under it, so
-        // placement still resolves to the terrain (ruins are kept clear by the
-        // separate no-spawn mask, not by moving the surface).
+        // architecture — a stamped building does not raise the ground under it,
+        // so placement still resolves to the terrain (built ground is kept clear
+        // by the separate reservation mask, not by moving the surface).
         public readonly int[,] Surface;
 
-        // Columns that content passes must not place onto. Marked by whatever
-        // built there — ruins stamp the columns their masonry occupies, so a
-        // ruin's open floor still populates normally while the stonework itself
-        // stays clear. A channel rather than a per-pass rule so any future
-        // builder (structures, plazas, quest sites) can reserve ground the same
-        // way, including for reasons no geometric test could infer.
+        // Ground an authored builder has claimed — today only subscene
+        // footprints (LoadAndReserveSubscenes). Three consumers, and a new
+        // builder marking this channel inherits all three: content passes place
+        // nothing here, the road pass routes around rather than regrading a
+        // building away, and the detail scatter decorates it normally (the
+        // stamped ground is real terrain, and its margin should grass over like
+        // any other). A channel rather than a per-pass rule so a builder can
+        // reserve ground for reasons no geometric test could infer.
         public readonly bool[,] NoSpawn;
 
         public HeightMap(int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ,
@@ -2927,7 +2791,7 @@ public static class WorldGen
 
         // The three column accessors CLAMP to the map's edge rather than
         // throwing. Placement passes legitimately sample a disc around an
-        // anchor — a ruin site, a fixture scatter, a subscene footprint — and a
+        // anchor — a fixture scatter, a subscene footprint — and a
         // site found at the world edge overhangs it, so "the nearest column" is
         // the right answer and an IndexOutOfRangeException that kills the whole
         // generate is not. IsNoSpawn / MarkNoSpawn already guard the same way.
@@ -4159,8 +4023,10 @@ public static class WorldGen
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                // Columns something built on stay bare (ruin stonework today).
-                if (heightMap.IsNoSpawn(wx, wz))
+                // A road tread is bare dirt, and this pass runs after it is laid
+                // — so the road is kept clear here rather than by clearing the
+                // detail channel again after the fact.
+                if (_roadColumns.Contains((wx, wz)))
                 {
                     continue;
                 }
@@ -4385,10 +4251,9 @@ public static class WorldGen
             {
                 return false;
             }
-            // Ground something has claimed — ruin stonework, or a subscene
-            // footprint reserved before this pass ran. Ruins are also excluded
-            // by the solid-voxel test below (their masonry already stands),
-            // but a subscene is stamped after this, so nothing else would.
+            // Ground an authored builder has claimed — a subscene footprint,
+            // reserved up front precisely because the scene is stamped after
+            // this pass, so no geometric test here could see it coming.
             if (heightMap.IsNoSpawn(wx, wz))
             {
                 return false;

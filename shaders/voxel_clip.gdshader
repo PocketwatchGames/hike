@@ -35,10 +35,15 @@ global uniform bool debug_no_sun;          // sun_lit flat (drops the baked sun 
 global uniform bool debug_no_block_light;  // block_lit = 0
 global uniform bool debug_no_wet;          // no wetness / puddle / ripple terms
 global uniform bool debug_no_eye_adapt;    // ea_gain = 1
-// A/B the sun source: true = the old light-volume fetch (banded slopes),
-// false = the per-vertex sky-visibility bake. Kept so the two can be compared
-// in place without a rebuild.
+// A/B the sun source, both kept so the three can be compared in place without a
+// rebuild. Default (both false) = live volume sun x static per-vertex openness.
+//   debug_sun_from_volume — raw volume fetch, no openness term.
+//   debug_sun_legacy      — the pre-dynamic per-vertex bake, everywhere.
 global uniform bool debug_sun_from_volume;
+global uniform bool debug_sun_legacy;
+// Set per chunk mesh (see ChunkMesh) for backdrop geometry loaded outside the
+// light-map window: 1 = shade from the per-vertex bake instead of the volume.
+instance uniform float use_baked_sun;
 global uniform float light_falloff_exp; // power applied to lightmap value (>1 = darker mids).
 // How far along the surface normal the lightmap is sampled, in voxels.
 // Sunlight is baked into AIR voxels only, so a sample too close to the surface
@@ -313,7 +318,12 @@ varying float ao;
 // - = bump/ridge. Interpolated to fragments; drives the wetness pooling term.
 varying float concavity;
 
-// Per-vertex baked sun (CUSTOM3.x), interpolated across the triangle.
+// Per-vertex static sky openness (CUSTOM3.x) — the geometry-only hemisphere
+// fraction, multiplied by the live volume sun in fragment().
+varying float openness;
+// Per-vertex baked sun (CUSTOM3.y): openness already weighted by the sunlight
+// each ray reached, frozen at mesh-build time. Only backdrop geometry outside
+// the light-map window shades with it.
 varying float baked_sun;
 // Per-vertex sharpness in [0,1]. 0 = use interpolated smooth NORMAL,
 // 1 = use dFdx/dFdy-derived face normal (hard flat-shaded crease). Authored
@@ -355,7 +365,8 @@ void vertex() {
 	terrain_ids = CUSTOM1.yzw;
 	overlay_ids = CUSTOM2.xyz;
 	concavity = CUSTOM2.w;
-	baked_sun = CUSTOM3.x;
+	openness = CUSTOM3.x;
+	baked_sun = CUSTOM3.y;
 }
 
 // Hash-based 3D value noise. Good enough for breaking up tile-edge seams; we
@@ -712,13 +723,25 @@ void fragment() {
 	vec3 light_sample_pos = world_vertex + shaded_normal * light_sample_offset;
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = texture(light_map, uvw);
-	// Sun comes from the per-vertex bake, not the light volume. The volume is
-	// one texel per voxel with sunlight written into AIR only, so sampling it
-	// near a surface mixed in the unlit solid texels of the ground itself and
-	// banded every slope; the mesher instead reads the air each vertex actually
-	// faces (ChunkMesherDC.BakeVertexSun). Block light (lm.gba) still comes from
-	// the volume — it changes at runtime and has no such surface association.
-	float sun_raw = debug_sun_from_volume ? lm.r : clamp(baked_sun, 0.0, 1.0);
+	// Sun = the live volume field x a static per-vertex openness term.
+	//   The VOLUME carries everything that can change at runtime — a door
+	//   opening, canopy, the propagated flood — so terrain relights without a
+	//   re-mesh. It is dilated into solid voxels at encode time (see LightMap)
+	//   so sampling near a surface no longer pulls the ground's own black texels
+	//   into the trilinear footprint and bands every slope.
+	//   OPENNESS carries what one volume sample cannot express: the cosine-
+	//   weighted sky hemisphere, which is what keeps a wall darker than the
+	//   ground it meets instead of reading a flat 1.0 like level terrain.
+	// Block light (lm.gba) comes from the volume unchanged.
+	float sun_raw = clamp(lm.r * openness, 0.0, 1.0);
+	if (use_baked_sun > 0.5 || debug_sun_legacy) {
+		// Backdrop geometry past the light-map window: the window is toroidal,
+		// so a sample from outside it wraps onto unrelated world. The frozen
+		// bake is correct enough for a distant panorama.
+		sun_raw = clamp(baked_sun, 0.0, 1.0);
+	} else if (debug_sun_from_volume) {
+		sun_raw = lm.r;
+	}
 	float sun_mask = pow(sun_raw, light_falloff_exp);
 	// Wetness gate: only sky-exposed (sun_mask) and roughly upward-facing
 	// surfaces wet out. Vertical cliffs shed water, caves/overhangs never

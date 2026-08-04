@@ -75,7 +75,7 @@ public static class SubsceneStamper
 
     public static void StampEnvOverrides(WorldState ws, SubsceneState sub, Vector3 worldAnchor)
     {
-        if (sub.WindFactor == null && sub.EnvTag == null)
+        if (sub.EnvTag == null)
         {
             return;
         }
@@ -125,10 +125,6 @@ public static class SubsceneStamper
                     int dsy = Mod(cwy, ChunkState.ENV_SUBGRID_SIZE);
                     int dsz = Mod(cwz, ChunkState.ENV_SUBGRID_SIZE);
 
-                    if (sub.WindFactor != null)
-                    {
-                        chunk.WindFactor[dsx, dsy, dsz] = sub.WindFactor[lcx, lcy, lcz];
-                    }
                     if (sub.EnvTag != null)
                     {
                         chunk.EnvTag[dsx, dsy, dsz] = sub.EnvTag[lcx, lcy, lcz];

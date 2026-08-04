@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="5_lootcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="6_desc"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="6_k07wa"]
-[ext_resource type="Resource" uid="uid://khjswp5qnpnm" path="res://resources/data/items/loot/drake_meat.tres" id="7_meat"]
+[ext_resource type="Resource" uid="uid://pz3055e5zg7oo" path="res://resources/data/items/loot/drake_meat.tres" id="7_meat"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="8_wd"]
 [ext_resource type="Resource" uid="uid://kauvrkh62nsl" path="res://resources/data/characters/drake/drake_lightning.tres" id="9_lightning"]
 [ext_resource type="Resource" uid="uid://cv47ms5ub1g4b" path="res://resources/data/characters/drake/drake_bite.tres" id="10_bite"]

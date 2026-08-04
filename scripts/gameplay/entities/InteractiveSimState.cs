@@ -5,6 +5,14 @@ public class DoorSimState : EntitySimState
 {
     public bool Active = true;
 
+    // Bottom cell of the doorway column this door makes opaque while closed.
+    // Runtime-only and deliberately NOT serialized: it is derived from the seat
+    // position against world voxels, and resolving it once (see
+    // Door.ResolveOccluderBase) is what keeps the load-time stamp and the
+    // runtime toggle writing the same cells. Null until first resolved, which
+    // also marks a door the load-time stamp has never seen.
+    public Vector3I? OccluderBase;
+
     public DoorSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
         : base(worldPosition, scene)
     {

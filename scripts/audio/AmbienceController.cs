@@ -375,25 +375,6 @@ public partial class AmbienceController : Node3D
         _state.RainIntensity = SkyController.Current?.Palette.RainIntensity ?? 0f;
         InteriorAmbience ambience = ws.SampleInteriorAmbience(listenerPos);
 
-        // Geometric enclosure at the listener — short rays in 6 directions
-        // catch local geometry the 4-voxel-resolution authored space class
-        // can't see (overhangs, tree canopy, doorways) and pull the response
-        // toward enclosed. Smoothed across frames so a single occluder
-        // briefly clipping a ray doesn't pop the mix.
-        float rawEnclosure = SampleEnclosure(listenerPos);
-        float alpha = 1f / (1f + ENCLOSURE_SMOOTH_TAU * 60f);
-        _state.Enclosure += (rawEnclosure - _state.Enclosure) * alpha;
-
-        // Drift the blended values toward the authored "geometrically
-        // enclosed" reference, by how enclosed we are AND how open the
-        // authored class claims to be — so a tree canopy over an outdoor cell
-        // tightens up, while an already-enclosed cell is left alone (it has
-        // no openness left to spend). Under the old per-class weights this
-        // was an Outdoor → Cave re-attribution; blending values reaches the
-        // same place without needing a weight per class.
-        float pull = _state.Enclosure * ambience.Openness;
-        ambience.BlendToward(ws.SimData?.enclosureReferenceAmbience, pull);
-
         _state.Interior = ambience;
 
         _state.Openness = ambience.Openness;
@@ -422,56 +403,4 @@ public partial class AmbienceController : Node3D
     // at roughly head height where a real listener would be.
     private const float LISTENER_EAR_HEIGHT = 1.5f;
 
-    // Maximum enclosure-ray distance. Past this distance we treat the
-    // direction as fully open — long enough to feel a cave entrance
-    // approaching, short enough that distant cliffs don't close us in.
-    private const float ENCLOSURE_RAY_RANGE = 6f;
-
-    // Time-constant on the enclosure smoothing in seconds. A 0.4-second
-    // lag prevents tree trunks the player walks past from popping
-    // openness/caveness, while still tracking when the player ducks into
-    // a cave mouth.
-    private const float ENCLOSURE_SMOOTH_TAU = 0.4f;
-
-
-    // Rays cast from the listener for the geometric enclosure aggregate.
-    // Up + 4 horizontal cardinals + a +Y diagonal — six short rays,
-    // weighted equally, mean of (1 - hit_dist / range) per ray. Down is
-    // intentionally omitted: the floor is always there outdoors and would
-    // bias every reading toward enclosed.
-    private static readonly Vector3[] EnclosureRayDirs =
-    {
-        new Vector3( 0,  1,  0),
-        new Vector3( 1,  0,  0),
-        new Vector3(-1,  0,  0),
-        new Vector3( 0,  0,  1),
-        new Vector3( 0,  0, -1),
-        new Vector3( 0.7071f, 0.7071f, 0),
-    };
-
-    private float SampleEnclosure(Vector3 listenerPos)
-    {
-        var space = GetWorld3D()?.DirectSpaceState;
-        if (space == null) { return 0f; }
-
-        Vector3 from = listenerPos + new Vector3(0f, LISTENER_EAR_HEIGHT, 0f);
-        float sum = 0f;
-        for (int i = 0; i < EnclosureRayDirs.Length; i++)
-        {
-            Vector3 dir = EnclosureRayDirs[i].Normalized();
-            Vector3 to = from + dir * ENCLOSURE_RAY_RANGE;
-            using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
-            var hit = space.IntersectRay(query);
-            if (hit.Count == 0) { continue; }
-
-            Vector3 hitPos = (Vector3)hit["position"];
-            float dist = (hitPos - from).Length();
-            // Closer hits = more enclosed in this direction. Linear ramp
-            // is fine — the smoothing on the aggregate hides ray-stepping.
-            float occlusion = 1f - (dist / ENCLOSURE_RAY_RANGE);
-            if (occlusion < 0f) { occlusion = 0f; }
-            sum += occlusion;
-        }
-        return sum / EnclosureRayDirs.Length;
-    }
 }

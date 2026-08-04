@@ -51,6 +51,16 @@ stencil_mode write, compare_always, 16;
 uniform sampler2D albedo_tex : source_color, filter_linear;
 uniform float alpha_cutoff : hint_range(0.0, 1.0) = 0.5;
 
+// Set on the material of the hidden ShadowsOnly proxy MultiMesh that
+// FoliageMultiMesh spawns alongside the visible canopy (the visible one is
+// CastShadow.Off). Godot runs fragment() during the directional-shadow depth
+// pass, so the player-occlusion `discard` below would otherwise punch the
+// cutaway hole straight through the shadow atlas — walk under a tree and its
+// sun shadow vanishes with its leaves. The proxy skips the cutaway entirely
+// and returns right after the alpha cutout, so the canopy keeps casting its
+// full silhouette no matter how much of it is dithered away on screen.
+uniform bool shadow_caster_pass = false;
+
 // Per-cluster player-occlusion fade-eligibility flag. FoliageMultiMesh
 // writes COLOR.g = 1.0 for cards whose cluster opted in via
 // FoliageCluster.FadesWhenOccludingPlayer, and 0.0 otherwise. Read as
@@ -341,7 +351,7 @@ void fragment() {
 	// zero — see GameClient's PushFoliageOcclusionGlobals): no geometry
 	// math, no noise, no Bayer compare. This is the common case while the
 	// player is in open terrain or behind opt-out foliage.
-	if (v_fade_eligible > 0.5 && foliage_player_fade_radius > 0.01) {
+	if (!shadow_caster_pass && v_fade_eligible > 0.5 && foliage_player_fade_radius > 0.01) {
 		// NOTE: this block intentionally has NO horizontal half-space test
 		// against the player plane. The CPU probe (World.ProbeFadeVolume)
 		// already gates ACTIVATION on a "camera-side of player" test, so
@@ -461,7 +471,14 @@ void fragment() {
 	// light_map_inv_size. Fall back to "full bright" so authoring sees the
 	// recolored base without a cave-dimmed read. Mirrors model_lit.
 	bool globals_ready = length(light_map_inv_size) > 1e-6;
-	if (!globals_ready) {
+	if (shadow_caster_pass) {
+		// The proxy only ever renders into the depth/shadow atlas, so the
+		// alpha-cut silhouette above is the entire job — skip the lighting
+		// composite and its texture fetches. (Godot forbids an early `return`
+		// from fragment(), hence the branch rather than a bail-out.)
+		ALBEDO = vec3(0.0);
+		EMISSION = vec3(0.0);
+	} else if (!globals_ready) {
 		ALBEDO = base;
 		EMISSION = vec3(0.0);
 	} else {

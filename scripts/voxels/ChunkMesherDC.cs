@@ -154,12 +154,25 @@ public static class ChunkMesherDC
     // only on load/edit, and time of day is a shader uniform, not part of this.
     private const int SUN_STEPS = 4;
 
-    private static float BakeVertexSun(
+    // Bakes BOTH terms in one march, since they share every ray:
+    //   bakedSun  — sky visibility weighted by the sunlight each ray reached.
+    //               The legacy value, still what backdrop geometry outside the
+    //               light-map window shades with.
+    //   openness  — the same hemisphere fraction with the light lookup removed,
+    //               so it is pure static geometry. Multiplied by the live volume
+    //               sun in-shader, which is what lets a door (or any other
+    //               runtime occluder) relight terrain without a re-mesh.
+    // The two use different blocker tests on purpose: openness asks "is there
+    // GEOMETRY here", so Barrier — an invisible marker with no surface — can't
+    // bake a shut door into a static term that outlives it.
+    private static void BakeVertexSunAndOpenness(
         Func<int, int, int, VoxelType> getVoxel, Func<int, int, int, int> getSunlight,
         Func<int, int, int, bool> getSunOpaque,
-        Vector3 pos, Vector3 n, int cwX, int cwY, int cwZ)
+        Vector3 pos, Vector3 n, int cwX, int cwY, int cwZ,
+        out float bakedSun, out float openness)
     {
         float lit = 0f;
+        float open = 0f;
         float totalW = 0f;
         for (int i = 0; i < AoDirs.Length; i++)
         {
@@ -184,35 +197,62 @@ public static class ChunkMesherDC
             //   - Grading is what puts local variation back. All-or-nothing only
             //     registers geometry close enough to block outright, so broad
             //     open ground came out uniformly lit and read flat.
-            float reach = 0f;
-            for (int step = 1; step <= SUN_STEPS; step++)
+            float reachLit = 0f;
+            float reachOpen = 0f;
+            bool litDone = false;
+            bool openDone = false;
+            for (int step = 1; step <= SUN_STEPS && !(litDone && openDone); step++)
             {
                 Vector3 sp = pos + d * step;
                 int wx = cwX + Mathf.RoundToInt(sp.X);
                 int wy = cwY + Mathf.RoundToInt(sp.Y);
                 int wz = cwZ + Mathf.RoundToInt(sp.Z);
+                VoxelType v = getVoxel(wx, wy, wz);
                 // Non-voxel solid cover (a roof) blocks the march exactly as a
                 // solid voxel does. Without it the ray walks straight through
                 // the roof — which is AIR to the voxel grid — into the lit sky
                 // above and overwrites `reach` with full sun, so the floor of a
                 // roofed room bakes as fully sky-exposed and cloud shadows drift
-                // across it indoors.
-                if (VoxelTypeInfo.IsSolid(getVoxel(wx, wy, wz)) || getSunOpaque(wx, wy, wz))
+                // across it indoors. Roofs are authored and static, so they
+                // belong in the static term too.
+                bool cover = getSunOpaque(wx, wy, wz);
+                // Adjacent blocker (step 1) closes the direction entirely; one
+                // at the end of the march barely dims it.
+                float grade = (step - 1) / (float)SUN_STEPS;
+                if (!litDone)
                 {
-                    // Adjacent blocker (step 1) closes the direction entirely; one
-                    // at the end of the march barely dims it.
-                    reach *= (step - 1) / (float)SUN_STEPS;
-                    break;
+                    if (VoxelTypeInfo.IsSolid(v) || cover)
+                    {
+                        reachLit *= grade;
+                        litDone = true;
+                    }
+                    else
+                    {
+                        reachLit = getSunlight(wx, wy, wz) / (float)LightEngine.MAX_LIGHT;
+                    }
                 }
-                reach = getSunlight(wx, wy, wz) / (float)LightEngine.MAX_LIGHT;
+                if (!openDone)
+                {
+                    if (Density.TypeDensity(v) < 0 || cover)
+                    {
+                        reachOpen *= grade;
+                        openDone = true;
+                    }
+                    else
+                    {
+                        reachOpen = 1f;
+                    }
+                }
             }
-            lit += nd * reach;
+            lit += nd * reachLit;
+            open += nd * reachOpen;
         }
         if (totalW <= 1e-5f)
         {
-            return 0f;
+            bakedSun = 0f;
+            openness = 0f;
+            return;
         }
-        float openness = Mathf.Clamp(lit / totalW, 0f, 1f);
 
         // Local occlusion alone can't darken a cliff: the hemisphere pointing
         // away from an open face genuinely is unobstructed, so the march returns
@@ -221,7 +261,8 @@ public static class ChunkMesherDC
         // hemisphere. That is exact, and gives 1.0 flat, 0.5 vertical, 0 facing
         // down, which is the wall/ground contrast a single sample threw away.
         float skyFacing = (1f + n.Y) * 0.5f;
-        return Mathf.Clamp(openness * skyFacing, 0f, 1f);
+        bakedSun = Mathf.Clamp((lit / totalW) * skyFacing, 0f, 1f);
+        openness = Mathf.Clamp((open / totalW) * skyFacing, 0f, 1f);
     }
 
     // Capped by the spare rings for the same reason as the vertex relaxation:
@@ -423,6 +464,12 @@ public static class ChunkMesherDC
         // would drown out a single surface voxel stamped with an overlay. The
         // rule is "any non-zero wins, tie-broken by count."
         var cellOverlay = new int[CELL_DIM, CELL_DIM, CELL_DIM];
+        // Per-cell winners over the SOFT voxels only (shape != All). A face on
+        // soft ground reads these so a hard-edged neighbour (a stone wall) can't
+        // smear its material across the boundary onto it — see EmitQuad.
+        var cellSoftTile = new int[CELL_DIM, CELL_DIM, CELL_DIM];
+        var cellSoftTerrain = new int[CELL_DIM, CELL_DIM, CELL_DIM];
+        var cellSoftOverlay = new int[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellAmp = new float[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellHas = new bool[CELL_DIM, CELL_DIM, CELL_DIM];
         // Per-vertex sharpness in [0,1]: 0 = fully smooth (rely on interpolated
@@ -430,8 +477,12 @@ public static class ChunkMesherDC
         // Interpolates across the quad, so mixed cells get a soft crease.
         var cellSharpness = new float[CELL_DIM, CELL_DIM, CELL_DIM];
         // Per-vertex baked sun, read from the air voxel the surface FACES.
-        // See BakeVertexSun for why this can't come from the light volume.
+        // Only backdrop geometry outside the light-map window shades with it —
+        // see BakeVertexSunAndOpenness.
         var cellSun = new float[CELL_DIM, CELL_DIM, CELL_DIM];
+        // Per-vertex static sky openness, the geometry-only half of the same
+        // march. Multiplied by the live volume sun in-shader.
+        var cellOpenness = new float[CELL_DIM, CELL_DIM, CELL_DIM];
         // Per-cell smooth normal, derived deterministically from the cell's 8
         // corner densities. Written to SurfaceTool.SetNormal so we can skip
         // GenerateNormals — which, run per-chunk, would average only the owner
@@ -489,7 +540,7 @@ public static class ChunkMesherDC
                     // reads their tile/kit/overlay — skip that work, which is
                     // what the extra rings would otherwise cost.
                     bool needMaterials = x >= USED_LO && x <= USED_HI && y >= USED_LO && y <= USED_HI && z >= USED_LO && z <= USED_HI;
-                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getTerrainId, getOverlayId, centerSampling, needMaterials, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int TerrainId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant);
+                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getTerrainId, getOverlayId, centerSampling, needMaterials, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int TerrainId, out int overlayId, out int softTile, out int softTerrain, out int softOverlay, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant);
 
                     // Per-axis majority counts (for snapped coords) and the
                     // edge-midpoint accumulator (for smooth coords). Computed
@@ -608,6 +659,9 @@ public static class ChunkMesherDC
                     cellTile[CellIdx(x), CellIdx(y), CellIdx(z)] = tile;
                     cellTerrain[CellIdx(x), CellIdx(y), CellIdx(z)] = TerrainId;
                     cellOverlay[CellIdx(x), CellIdx(y), CellIdx(z)] = overlayId;
+                    cellSoftTile[CellIdx(x), CellIdx(y), CellIdx(z)] = softTile;
+                    cellSoftTerrain[CellIdx(x), CellIdx(y), CellIdx(z)] = softTerrain;
+                    cellSoftOverlay[CellIdx(x), CellIdx(y), CellIdx(z)] = softOverlay;
                     cellAmp[CellIdx(x), CellIdx(y), CellIdx(z)] = amp;
                     cellSharpness[CellIdx(x), CellIdx(y), CellIdx(z)] = sharpness;
 
@@ -727,9 +781,12 @@ public static class ChunkMesherDC
                         continue;
                     }
                     Vector3 sunPos = new Vector3(x, y, z) + cellVert[CellIdx(x), CellIdx(y), CellIdx(z)];
-                    cellSun[CellIdx(x), CellIdx(y), CellIdx(z)] = BakeVertexSun(
+                    BakeVertexSunAndOpenness(
                         getVoxel, getSunlight, getSunOpaque, sunPos, cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)],
-                        chunkWorldX, chunkWorldY, chunkWorldZ);
+                        chunkWorldX, chunkWorldY, chunkWorldZ,
+                        out float bakedSun, out float openness);
+                    cellSun[CellIdx(x), CellIdx(y), CellIdx(z)] = bakedSun;
+                    cellOpenness[CellIdx(x), CellIdx(y), CellIdx(z)] = openness;
                 }
             }
         }
@@ -744,6 +801,9 @@ public static class ChunkMesherDC
         for (int i = 0; i < SUN_SMOOTH_ITERATIONS; i++)
         {
             SmoothSunAcrossSurface(cellHas, cellNormal, cellSun);
+            // Openness carries the identical per-vertex quantisation noise, so
+            // it needs the same treatment or the diamonds come back through it.
+            SmoothSunAcrossSurface(cellHas, cellNormal, cellOpenness);
         }
 
         // --- Concavity bake ------------------------------------------------
@@ -773,6 +833,31 @@ public static class ChunkMesherDC
             }
         }
 
+        // The voxel a quad's face belongs to — the solid endpoint of its
+        // sign-change edge — and whether that voxel is a HARD-edged block
+        // (shape All, i.e. authored architectural: stone, wood). Hardness is
+        // what decides how the face gets its material, in EmitQuad.
+        //
+        // Only meaningful under centre sampling, where a lattice coord IS a
+        // voxel. The corner lattice has no such 1:1 mapping — but there a cell
+        // already sits on a voxel and its vote is vertex-centred, so it needs
+        // none of this and opts out with Hard=false / -1 ids.
+        (bool Hard, int Tile, int Terrain, int Overlay) OwnerIds(int lx, int ly, int lz)
+        {
+            if (!centerSampling)
+            {
+                return (false, -1, -1, -1);
+            }
+            int wx = chunkWorldX + lx, wy = chunkWorldY + ly, wz = chunkWorldZ + lz;
+            VoxelType v = getVoxel(wx, wy, wz);
+            if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier)
+            {
+                return (false, -1, -1, -1);
+            }
+            bool hard = (getShape(wx, wy, wz) & VoxelTypeInfo.SharpAxes.All) == VoxelTypeInfo.SharpAxes.All;
+            return (hard, VoxelTypeInfo.GetTileForFace(v, 0), getTerrainId(wx, wy, wz), getOverlayId(wx, wy, wz));
+        }
+
         // Emit quads for edges owned by this chunk: all three corner indices of
         // the edge's lower endpoint must lie in [0, N-1]. Edges on a +X/+Y/+Z
         // chunk face are owned by the neighbour (they appear there at index 0
@@ -792,8 +877,9 @@ public static class ChunkMesherDC
                             s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
+                                OwnerIds(a < 0 ? cx : cx + 1, cy, cz),
                                 cx, cy - 1, cz - 1,
                                 cx, cy,     cz - 1,
                                 cx, cy,     cz,
@@ -816,8 +902,9 @@ public static class ChunkMesherDC
                             s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
+                                OwnerIds(cx, a < 0 ? cy : cy + 1, cz),
                                 cx - 1, cy, cz - 1,
                                 cx - 1, cy, cz,
                                 cx,     cy, cz,
@@ -837,8 +924,9 @@ public static class ChunkMesherDC
                             s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
+                                OwnerIds(cx, cy, a < 0 ? cz : cz + 1),
                                 cx - 1, cy - 1, cz,
                                 cx,     cy - 1, cz,
                                 cx,     cy,     cz,
@@ -872,8 +960,9 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
+                            OwnerIds(a < 0 ? cx : cx + 1, cy, cz),
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
                             cx, cy,     cz,
@@ -901,8 +990,9 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
+                            OwnerIds(cx, a < 0 ? cy : cy + 1, cz),
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
                             cx,     cy, cz,
@@ -930,8 +1020,9 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
+                            OwnerIds(cx, cy, a < 0 ? cz : cz + 1),
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
                             cx,     cy,     cz,
@@ -963,8 +1054,9 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
+                            OwnerIds(a < 0 ? cx : cx + 1, cy, cz),
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
                             cx, cy,     cz,
@@ -992,8 +1084,9 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
+                            OwnerIds(cx, a < 0 ? cy : cy + 1, cz),
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
                             cx,     cy, cz,
@@ -1021,8 +1114,9 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
+                            OwnerIds(cx, cy, a < 0 ? cz : cz + 1),
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
                             cx,     cy,     cz,
@@ -1330,8 +1424,9 @@ public static class ChunkMesherDC
 
     private static void EmitQuad(
         SurfaceTool st,
-        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, float[,,] cellAmp, float[,,] cellSharpness, float[,,] cellAo, float[,,] cellSun, float[,,] cellConcavity,
+        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, int[,,] cellSoftTile, int[,,] cellSoftTerrain, int[,,] cellSoftOverlay, float[,,] cellAmp, float[,,] cellSharpness, float[,,] cellAo, float[,,] cellSun, float[,,] cellOpenness, float[,,] cellConcavity,
         int cwX, int cwY, int cwZ,
+        (bool Hard, int Tile, int Terrain, int Overlay) owner,
         int x0, int y0, int z0,
         int x1, int y1, int z1,
         int x2, int y2, int z2,
@@ -1359,20 +1454,43 @@ public static class ChunkMesherDC
         Vector3 v2 = cellVert[i2x, i2y, i2z] + new Vector3(x2, y2, z2);
         Vector3 v3 = cellVert[i3x, i3y, i3z] + new Vector3(x3, y3, z3);
 
-        int t0 = cellTile[i0x, i0y, i0z];
-        int t1 = cellTile[i1x, i1y, i1z];
-        int t2 = cellTile[i2x, i2y, i2z];
-        int t3 = cellTile[i3x, i3y, i3z];
+        // How a face gets its material is decided by ONE property of the voxel
+        // it belongs to: whether that block is hard-edged (shape All).
+        //   Hard owner — the face reads its own voxel's material across all four
+        //     corners. A stone wall ends exactly at its own face: no gradient
+        //     off the edge, and the seam lands on the authored voxel boundary
+        //     instead of half a tile off it (where the cell vote puts it, the
+        //     cell straddling a voxel CORNER under centre sampling).
+        //   Soft owner — corners keep the per-cell vote, so terrain still blends
+        //     organically, but read the SOFT-only vote so a hard neighbour can't
+        //     smear its material across the boundary onto the ground beside it.
+        // Both branches are uniform over the quad, which is what stops a seam
+        // from reading hard on one side of a voxel and soft on the other.
+        // Faces with no owner at all (the corner lattice, which has no voxel per
+        // lattice coord, and Barrier) keep the plain full-window vote.
+        // Every corner cell of a quad has BOTH endpoints of its edge among its
+        // own 8 corners, so a soft owner always has itself in the soft vote —
+        // the soft-only pick can't come back empty here.
+        bool hard = owner.Hard;
+        bool soft = !hard && owner.Tile >= 0;
+        int[,,] tileSrc = soft ? cellSoftTile : cellTile;
+        int[,,] terrainSrc = soft ? cellSoftTerrain : cellTerrain;
+        int[,,] overlaySrc = soft ? cellSoftOverlay : cellOverlay;
 
-        int k0 = cellTerrain[i0x, i0y, i0z];
-        int k1 = cellTerrain[i1x, i1y, i1z];
-        int k2 = cellTerrain[i2x, i2y, i2z];
-        int k3 = cellTerrain[i3x, i3y, i3z];
+        int t0 = hard ? owner.Tile : tileSrc[i0x, i0y, i0z];
+        int t1 = hard ? owner.Tile : tileSrc[i1x, i1y, i1z];
+        int t2 = hard ? owner.Tile : tileSrc[i2x, i2y, i2z];
+        int t3 = hard ? owner.Tile : tileSrc[i3x, i3y, i3z];
 
-        int o0 = cellOverlay[i0x, i0y, i0z];
-        int o1 = cellOverlay[i1x, i1y, i1z];
-        int o2 = cellOverlay[i2x, i2y, i2z];
-        int o3 = cellOverlay[i3x, i3y, i3z];
+        int k0 = hard ? owner.Terrain : terrainSrc[i0x, i0y, i0z];
+        int k1 = hard ? owner.Terrain : terrainSrc[i1x, i1y, i1z];
+        int k2 = hard ? owner.Terrain : terrainSrc[i2x, i2y, i2z];
+        int k3 = hard ? owner.Terrain : terrainSrc[i3x, i3y, i3z];
+
+        int o0 = hard ? owner.Overlay : overlaySrc[i0x, i0y, i0z];
+        int o1 = hard ? owner.Overlay : overlaySrc[i1x, i1y, i1z];
+        int o2 = hard ? owner.Overlay : overlaySrc[i2x, i2y, i2z];
+        int o3 = hard ? owner.Overlay : overlaySrc[i3x, i3y, i3z];
 
         float a0 = cellAmp[i0x, i0y, i0z];
         float a1 = cellAmp[i1x, i1y, i1z];
@@ -1389,10 +1507,12 @@ public static class ChunkMesherDC
         float ao2 = cellAo[i2x, i2y, i2z];
         float ao3 = cellAo[i3x, i3y, i3z];
 
-        float sun0 = cellSun[i0x, i0y, i0z];
-        float sun1 = cellSun[i1x, i1y, i1z];
-        float sun2 = cellSun[i2x, i2y, i2z];
-        float sun3 = cellSun[i3x, i3y, i3z];
+        // (openness, baked sun) per corner, carried as one value so the eight
+        // permuted AddTri calls below stay in lockstep.
+        Vector2 sun0 = new Vector2(cellOpenness[i0x, i0y, i0z], cellSun[i0x, i0y, i0z]);
+        Vector2 sun1 = new Vector2(cellOpenness[i1x, i1y, i1z], cellSun[i1x, i1y, i1z]);
+        Vector2 sun2 = new Vector2(cellOpenness[i2x, i2y, i2z], cellSun[i2x, i2y, i2z]);
+        Vector2 sun3 = new Vector2(cellOpenness[i3x, i3y, i3z], cellSun[i3x, i3y, i3z]);
 
         float con0 = cellConcavity[i0x, i0y, i0z];
         float con1 = cellConcavity[i1x, i1y, i1z];
@@ -1504,7 +1624,7 @@ public static class ChunkMesherDC
         float ampA, float ampB, float ampC,
         float sharpA, float sharpB, float sharpC,
         float aoA, float aoB, float aoC,
-        float sunA, float sunB, float sunC,
+        Vector2 sunA, Vector2 sunB, Vector2 sunC,
         float conA, float conB, float conC)
     {
         Color custA = new Color(ta, tb, tc, ampA);
@@ -1518,10 +1638,10 @@ public static class ChunkMesherDC
         Color overlayCustA = new Color(oa, ob, oc, conA);
         Color overlayCustB = new Color(oa, ob, oc, conB);
         Color overlayCustC = new Color(oa, ob, oc, conC);
-        // CUSTOM3.x = baked sun; yzw reserved.
-        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, aoA)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCustA); st.SetCustom(3, new Color(sunA, 0f, 0f, 0f)); st.AddVertex(a);
-        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, aoB)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCustB); st.SetCustom(3, new Color(sunB, 0f, 0f, 0f)); st.AddVertex(b);
-        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, aoC)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCustC); st.SetCustom(3, new Color(sunC, 0f, 0f, 0f)); st.AddVertex(c);
+        // CUSTOM3 = (static sky openness, legacy baked sun); zw reserved.
+        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, aoA)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCustA); st.SetCustom(3, new Color(sunA.X, sunA.Y, 0f, 0f)); st.AddVertex(a);
+        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, aoB)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCustB); st.SetCustom(3, new Color(sunB.X, sunB.Y, 0f, 0f)); st.AddVertex(b);
+        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, aoC)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCustC); st.SetCustom(3, new Color(sunC.X, sunC.Y, 0f, 0f)); st.AddVertex(c);
     }
 
     // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,
@@ -1543,7 +1663,7 @@ public static class ChunkMesherDC
         bool centerSampling,
         bool needMaterials,
         int cwX, int cwY, int cwZ,
-        out int tile, out int TerrainId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant)
+        out int tile, out int TerrainId, out int overlayId, out int softTile, out int softTerrain, out int softOverlay, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant)
     {
         // Neighbourhood: one voxel beyond the cell's span on every side. DC
         // cells don't "own" the voxels at their corner positions, and how far
@@ -1571,6 +1691,14 @@ public static class ChunkMesherDC
         Span<int> counts = stackalloc int[16];
         Span<int> terrainCounts = stackalloc int[256];
         Span<int> overlayCounts = stackalloc int[256];
+        // Second vote over the SOFT voxels of the window only (shape != All).
+        // A hard-edged block is authored to end at its own face, so it must not
+        // smear across the boundary onto the soft ground beside it — soft faces
+        // blend among soft materials and ignore the hard neighbour entirely.
+        // See EmitQuad for the per-face pick.
+        Span<int> softCounts = stackalloc int[16];
+        Span<int> softTerrainCounts = stackalloc int[256];
+        Span<int> softOverlayCounts = stackalloc int[256];
         sharpMask = VoxelTypeInfo.SharpAxes.None;
         anySoftY = false;
         // anySoftY reads a WIDER window than sharpMask, and deliberately so.
@@ -1603,53 +1731,43 @@ public static class ChunkMesherDC
                     // vertex — a crack, not just a shading seam.
                     counts[(int)v]++;
                     if (!needMaterials) { continue; }
-                    terrainCounts[getTerrainId(cwX + x + dx, cwY + y + dy, cwZ + z + dz)]++;
+                    bool soft = (shape & VoxelTypeInfo.SharpAxes.All) != VoxelTypeInfo.SharpAxes.All;
+                    int terrain = getTerrainId(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     int o = getOverlayId(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
+                    terrainCounts[terrain]++;
                     if (o != 0) { overlayCounts[o]++; }
+                    if (!soft) { continue; }
+                    softCounts[(int)v]++;
+                    softTerrainCounts[terrain]++;
+                    if (o != 0) { softOverlayCounts[o]++; }
                 }
             }
         }
-        dominant = VoxelType.Air;
-        int bestCount = 0;
-        for (int i = 0; i < counts.Length; i++)
-        {
-            if (counts[i] > bestCount)
-            {
-                bestCount = counts[i];
-                dominant = (VoxelType)i;
-            }
-        }
+        dominant = (VoxelType)Argmax(counts, 0, (int)VoxelType.Air, out _);
 
         if (!needMaterials)
         {
             tile = 0;
             TerrainId = 0;
             overlayId = 0;
+            softTile = 0;
+            softTerrain = 0;
+            softOverlay = 0;
             amp = 0f;
             sharpness = 0f;
             return;
         }
 
-        TerrainId = 0;
-        int bestTerrainCount = 0;
-        for (int i = 0; i < terrainCounts.Length; i++)
-        {
-            if (terrainCounts[i] > bestTerrainCount)
-            {
-                bestTerrainCount = terrainCounts[i];
-                TerrainId = i;
-            }
-        }
-        overlayId = 0;
-        int bestOverlayCount = 0;
-        for (int i = 1; i < overlayCounts.Length; i++)
-        {
-            if (overlayCounts[i] > bestOverlayCount)
-            {
-                bestOverlayCount = overlayCounts[i];
-                overlayId = i;
-            }
-        }
+        TerrainId = Argmax(terrainCounts, 0, 0, out _);
+        overlayId = Argmax(overlayCounts, 1, 0, out _);
+
+        // Same three winners over the soft-only window. Falls back to the full
+        // vote where the cell holds no soft material at all (deep inside stone),
+        // which no soft face can reach anyway.
+        var softDominant = (VoxelType)Argmax(softCounts, 0, (int)VoxelType.Air, out int bestSoftCount);
+        softTile = bestSoftCount > 0 ? VoxelTypeInfo.GetTileForFace(softDominant, 0) : 0;
+        softTerrain = Argmax(softTerrainCounts, 0, TerrainId, out _);
+        softOverlay = Argmax(softOverlayCounts, 1, overlayId, out _);
 
         // Flat-shading is reserved for architectural material (shape=All).
         // Partial snaps (Y-only, for cave/overworld ground) snap the *coord*
@@ -1668,6 +1786,23 @@ public static class ChunkMesherDC
 
         tile = VoxelTypeInfo.GetTileForFace(dominant, 0);
         amp = VoxelTypeInfo.GetBlendNoise(dominant);
+    }
+
+    // Winning id of a vote, scanning from `from` (overlay ignores id 0), or
+    // `fallback` when nothing was counted.
+    private static int Argmax(Span<int> counts, int from, int fallback, out int bestCount)
+    {
+        bestCount = 0;
+        int id = fallback;
+        for (int i = from; i < counts.Length; i++)
+        {
+            if (counts[i] > bestCount)
+            {
+                bestCount = counts[i];
+                id = i;
+            }
+        }
+        return id;
     }
 
 }

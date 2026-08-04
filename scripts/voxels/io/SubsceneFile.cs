@@ -55,7 +55,7 @@ public static class SubsceneFile
     // v6: entities gained a trailing variant pool tag, and the header gained a
     //     directory summarizing those tags. v5 and earlier still read — their
     //     entities load untagged, i.e. unconditional, which is what they were.
-    public const uint VERSION = 6;
+    public const uint VERSION = 7;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.
@@ -65,7 +65,9 @@ public static class SubsceneFile
     public enum ChannelMask : uint
     {
         None = 0,
-        Wind = 1u << 0,
+        // Legacy slot: WindFactor in old files, briefly Interiorness after the
+        // rename. Read and discarded, never written. See Read().
+        Legacy = 1u << 0,
         EnvTag = 1u << 1,
     }
 
@@ -82,7 +84,6 @@ public static class SubsceneFile
         using var w = new BinaryWriter(fs, Encoding.UTF8, leaveOpen: false);
 
         ChannelMask mask = ChannelMask.None;
-        if (sub.WindFactor != null) { mask |= ChannelMask.Wind; }
         if (sub.EnvTag != null) { mask |= ChannelMask.EnvTag; }
 
         // Buffered so its length can precede it — the length is what makes the
@@ -106,10 +107,6 @@ public static class SubsceneFile
         WriteByteChannel(w, sub.DetailStrength, size);
         WritePresenceMask(w, sub.PresenceMask, size);
 
-        if ((mask & ChannelMask.Wind) != 0)
-        {
-            WriteByteChannel(w, sub.WindFactor, sub.EnvSize);
-        }
         if ((mask & ChannelMask.EnvTag) != 0)
         {
             WriteByteChannel(w, sub.EnvTag, sub.EnvSize);
@@ -169,10 +166,17 @@ public static class SubsceneFile
         ReadByteChannel(r, sub.DetailStrength, size);
         ReadPresenceMask(r, sub.PresenceMask, size);
 
-        if ((mask & ChannelMask.Wind) != 0)
+        if ((mask & ChannelMask.Legacy) != 0)
         {
-            sub.EnsureWindFactor();
-            ReadByteChannel(r, sub.WindFactor, sub.EnvSize);
+            // Consumed and DISCARDED. This slot held WindFactor in older files
+            // and briefly held Interiorness after the rename — two fields whose
+            // meanings are inverted (wind 255 = wide open, interiorness 255 =
+            // deeply enclosed), so trusting it makes a sealed room read as open
+            // field. Nothing authors it now either: the editor has no flood, so
+            // a save would only ever capture zeros. Worldgen's InteriornessGen
+            // is the sole source, and it runs over the stamped result anyway.
+            Vector3I es = sub.EnvSize;
+            ReadByteChannel(r, new byte[es.X, es.Y, es.Z], es);
         }
         if ((mask & ChannelMask.EnvTag) != 0)
         {

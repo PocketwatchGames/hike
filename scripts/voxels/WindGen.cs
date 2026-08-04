@@ -1,17 +1,12 @@
 using Godot;
 
-// Bakes per-chunk wind subgrids: WindFactor (openness, computed from
-// already-computed sunlight) and WindVelocity (per-zone direction at a
-// baseline ambient speed).
+// Bakes the per-chunk wind VELOCITY subgrid — direction and speed.
 //
-// WindFactor: sky-exposed voxels fill to MAX_LIGHT in the vertical seed
-// pass; lateral BFS spread decays by FALLOFF_PER_VOXEL=4 per voxel, so
-// raw sunlight reaches ~15 voxels into a cave before hitting zero.
-// Averaging raw sunlight per cell gives a long, soft falloff — wind
-// tapers gradually as the player walks deep into a cave instead of
-// snapping off at the entrance. Cleared transparency (water surface)
-// inherits the column's near-MAX value, so outdoor lake cells read as
-// full wind without any special handling.
+// How much of that velocity actually reaches a cell is no longer baked here.
+// It is derived from Interiorness and the cell's space class
+// (ChunkState.GetWindFactor), so there is exactly one measure of "how open is
+// this" in the world instead of a sunlight-derived copy that had to be re-baked
+// to stay in step with it.
 //
 // WindVelocity: every cell starts at the chunk's zone wind direction
 // (per-chunk via ZoneIndex) × DEFAULT_BASE_SPEED. Authored overrides
@@ -53,10 +48,6 @@ public static class WindGen
 
     public static void ComputeChunkWind(WorldState ws, ChunkState chunk)
     {
-        const int cellSize = ChunkState.ENV_VOXELS_PER_CELL;
-        const int voxelsPerCell = cellSize * cellSize * cellSize;
-        int divisor = voxelsPerCell * LightEngine.MAX_LIGHT;
-
         // Look up this chunk's zone direction. ZoneIndex is per-chunk,
         // so every cell in this chunk seeds from the same direction;
         // overrides at sub-chunk granularity are a later pass's job.
@@ -76,42 +67,10 @@ public static class WindGen
 
         for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
         {
-            int x0 = sx * cellSize;
             for (int sy = 0; sy < ChunkState.ENV_SUBGRID_SIZE; sy++)
             {
-                int y0 = sy * cellSize;
                 for (int sz = 0; sz < ChunkState.ENV_SUBGRID_SIZE; sz++)
                 {
-                    int z0 = sz * cellSize;
-                    // Average raw sunlight across the cell, normalized to
-                    // 0..255. Sunlight's lateral BFS decay (~4 per voxel)
-                    // produces a long, smooth taper — full at open sky,
-                    // ~half ~7 voxels into a cave, near zero ~15 voxels in.
-                    int sum = 0;
-                    for (int dx = 0; dx < cellSize; dx++)
-                    {
-                        for (int dy = 0; dy < cellSize; dy++)
-                        {
-                            for (int dz = 0; dz < cellSize; dz++)
-                            {
-                                sum += chunk.Sunlight[x0 + dx, y0 + dy, z0 + dz];
-                            }
-                        }
-                    }
-                    int windFactor = (sum * 255) / divisor;
-                    // The cell's space class damps what gets in. Baked rather
-                    // than applied at sample time because WindFactor is
-                    // uploaded as wind_map's alpha and read by the sprite
-                    // shaders — a CPU-side multiply would leave grass swaying
-                    // inside a sealed building. Safe to bake because this
-                    // recomputes from Sunlight every run and never reads the
-                    // previous value back, so re-running can't compound it.
-                    InteriorAmbienceData ambience = ws.SimData?.GetInteriorAmbience(chunk.EnvTag[sx, sy, sz]);
-                    if (ambience != null && ambience.windSuppression > 0f)
-                    {
-                        windFactor = (int)(windFactor * (1f - Mathf.Clamp(ambience.windSuppression, 0f, 1f)));
-                    }
-                    chunk.SetWindFactor(sx, sy, sz, windFactor);
                     chunk.SetWindVelocity(sx, sy, sz, storedVel.X, storedVel.Y, storedVel.Z);
                 }
             }

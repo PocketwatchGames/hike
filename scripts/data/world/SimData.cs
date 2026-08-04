@@ -1270,17 +1270,52 @@ public partial class SimData : Resource
     // cell in a generated world silently reads outdoor.
     [Export] public InteriorAmbienceData worldgenEnclosedAmbience;
 
-    // Fraction of full sunlight a cell must average across its air voxels to
-    // count as outdoor. Read against the FLOODED field, so it is really "how
-    // far from a lateral opening" — sunlight decays ~4 of 60 per voxel of
-    // travel, making 0.5 roughly seven voxels in from any opening.
-    //
-    // The one knob trading the two failure modes against each other: RAISE it
-    // and shallow interiors classify as enclosed, but cover that is open at the
-    // sides (eaves, porches, cave mouths) starts reading as interior too; LOWER
-    // it and those stay outdoor at the cost of small rooms near a door not
-    // registering as interior at all.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float interiorEnclosureThreshold = 0.5f;
+    // Interiorness at which a cell stops being outdoor and takes the enclosed
+    // class. Only picks WHICH class; how strongly it applies rides the
+    // continuous interiorness value, so this is far less delicate than a
+    // threshold on a binary classifier would be.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float interiorEnclosureThreshold = 0.35f;
+
+    [ExportSubgroup("Interiorness Flood")]
+    // Travel cost at which a cell counts as fully enclosed. Roughly "voxels
+    // from the outdoors through open space", since crossing open air costs 1
+    // per voxel — so 24 means a cell two dozen voxels into a wide cave is
+    // fully interior. Squeezing through apertures costs much more (below), so
+    // a room behind a doorway saturates far sooner than this suggests.
+    [Export(PropertyHint.Range, "4,128,1")] public int interiornessSaturationCost = 10;
+
+    // Extra cost per BLOCKED neighbour when stepping into a voxel — the
+    // aperture-width term, and the whole reason this works where light didn't.
+    // A voxel in open air has 6 air neighbours and costs 1 to enter; one inside
+    // a one-voxel doorway or roof hole has ~2 and costs 1 + 4×this. Raise it
+    // and narrow gaps seal harder (a window stops mattering); lower it and the
+    // measure degrades toward plain distance-from-outside.
+    [Export(PropertyHint.Range, "0,8,1")] public int interiornessNarrowPenalty = 1;
+
+    // How open to the sky a voxel must be to seed the flood as "outdoors",
+    // as a fraction of full sky exposure. Below 1 so a voxel under light
+    // canopy still counts as outside; low enough values would start seeding
+    // inside cave mouths and flatten the measure.
+    [Export(PropertyHint.Range, "0.1,1,0.01")] public float interiornessSeedSkyFraction = 0.9f;
+
+    // Palette position of an entry, for the classification bake. Returns 0
+    // (outdoor) for null or a resource that isn't in the list.
+    // Index resolved against the palette above, clamped and null-checked.
+    // Out-of-range indices (a world authored against a longer palette) fall
+    // back to entry 0 rather than nothing, so a stale index reads as outdoor
+    // instead of silently contributing zero weight everywhere.
+    public InteriorAmbienceData GetInteriorAmbience(int index)
+    {
+        if (interiorAmbiences == null || interiorAmbiences.Length == 0)
+        {
+            return null;
+        }
+        if (index < 0 || index >= interiorAmbiences.Length)
+        {
+            return interiorAmbiences[0];
+        }
+        return interiorAmbiences[index];
+    }
 
     // Palette position of an entry, for the classification bake. Returns 0
     // (outdoor) for null or a resource that isn't in the list.
@@ -1298,31 +1333,6 @@ public partial class SimData : Resource
             }
         }
         return 0;
-    }
-
-    // What a space drifts toward when the audio system's 6-ray enclosure probe
-    // says it is tighter than the authored cell claims — an overhang, a tree
-    // canopy, a doorway, none of which the 4-voxel cell grid can resolve. The
-    // pull is scaled by how OPEN the authored class already says it is, so an
-    // enclosed cell is left alone. Null = the probe only affects Openness /
-    // Caveness and leaves reverb and dust on the authored values.
-    [Export] public InteriorAmbienceData enclosureReferenceAmbience;
-
-    // Index resolved against the palette above, clamped and null-checked.
-    // Out-of-range indices (a world authored against a longer palette) fall
-    // back to entry 0 rather than nothing, so a stale index reads as outdoor
-    // instead of silently contributing zero weight everywhere.
-    public InteriorAmbienceData GetInteriorAmbience(int index)
-    {
-        if (interiorAmbiences == null || interiorAmbiences.Length == 0)
-        {
-            return null;
-        }
-        if (index < 0 || index >= interiorAmbiences.Length)
-        {
-            return interiorAmbiences[0];
-        }
-        return interiorAmbiences[index];
     }
 
     [ExportGroup("Audio")]
