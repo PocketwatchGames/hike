@@ -66,13 +66,13 @@ public partial class EditorHud : CanvasLayer
     [Export] public Button editRoofModeButton;
 
     [ExportGroup("Entity Tabs")]
-    // One grid per EEditorEntityTab, in enum order.
-    [Export] public GridContainer interactivesTab;
-    [Export] public GridContainer treesTab;
-    [Export] public GridContainer rocksTab;
-    [Export] public GridContainer natureTab;
-    [Export] public GridContainer furnitureTab;
-    [Export] public GridContainer propsTab;
+    // One container per EEditorEntityTab, in enum order.
+    [Export] public Container interactivesTab;
+    [Export] public Container treesTab;
+    [Export] public Container rocksTab;
+    [Export] public Container natureTab;
+    [Export] public Container furnitureTab;
+    [Export] public Container propsTab;
 
     [ExportGroup("Current Tool")]
     [Export] public TextureRect brushImage;
@@ -350,13 +350,13 @@ public partial class EditorHud : CanvasLayer
 
         foreach (EEditorEntityTab tab in Enum.GetValues<EEditorEntityTab>())
         {
-            ClearGrid(GridForTab(tab));
+            ClearGrid(ContainerForTab(tab));
         }
         _entityButtons.Clear();
         var entityGroup = new ButtonGroup();
         for (int i = 0; i < _entityEntries.Length; i++)
         {
-            GridContainer grid = GridForTab(_entityEntries[i].Tab);
+            Container grid = ContainerForTab(_entityEntries[i].Tab);
             _entityButtons.Add(AddBrushButton(grid, _entityEntries[i], entityGroup, i, index => onEntityBrushSelected?.Invoke(index)));
         }
 
@@ -381,7 +381,7 @@ public partial class EditorHud : CanvasLayer
         _entityButtons[index]?.Bind(_entityEntries[index]);
     }
 
-    private GridContainer GridForTab(EEditorEntityTab tab)
+    private Container ContainerForTab(EEditorEntityTab tab)
     {
         return tab switch
         {
@@ -395,7 +395,7 @@ public partial class EditorHud : CanvasLayer
         };
     }
 
-    private static void ClearGrid(GridContainer grid)
+    private static void ClearGrid(Container grid)
     {
         if (grid == null)
         {
@@ -409,7 +409,7 @@ public partial class EditorHud : CanvasLayer
 
     // Null when there's no grid to put the button in — the caller still records
     // the slot so brush indices stay aligned with the palette.
-    private EditorToolButton AddBrushButton(GridContainer grid, EditorBrushEntry entry, ButtonGroup group, int index, Action<int> onSelected)
+    private EditorToolButton AddBrushButton(Container grid, EditorBrushEntry entry, ButtonGroup group, int index, Action<int> onSelected)
     {
         if (grid == null || toolButtonScene == null)
         {

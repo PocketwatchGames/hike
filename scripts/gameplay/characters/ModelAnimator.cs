@@ -230,11 +230,35 @@ public partial class ModelAnimator : Node
         }
         var doomed = new List<MeshInstance3D>();
         CollectHiddenMeshes(visual, doomed);
+        // Parents emptied by the prune. The Synty rigs hang each cosmetic mesh
+        // off its own BoneAttachment3D, so freeing the mesh strands the socket:
+        // it can never hold anything again (nothing else references it), yet the
+        // Skeleton3D still drives its transform from a bone every frame. A goblin
+        // carried four of these — dagger-left, dagger-right, sword, stone.
+        //
+        // Only sockets THIS prune emptied are considered, never merely-childless
+        // ones: an authored empty socket may be a runtime attach point (the hand
+        // and belt sockets hold their weapon/torch/item holders, and one authored
+        // without a holder yet would be a false positive).
+        var emptiedParents = new HashSet<Node>();
         for (int i = 0; i < doomed.Count; i++)
         {
             MeshInstance3D mesh = doomed[i];
-            mesh.GetParent().RemoveChild(mesh);
+            Node parent = mesh.GetParent();
+            parent.RemoveChild(mesh);
             mesh.QueueFree();
+            if (parent is BoneAttachment3D)
+            {
+                emptiedParents.Add(parent);
+            }
+        }
+        foreach (Node socket in emptiedParents)
+        {
+            if (socket.GetChildCount() == 0)
+            {
+                socket.GetParent()?.RemoveChild(socket);
+                socket.QueueFree();
+            }
         }
     }
 

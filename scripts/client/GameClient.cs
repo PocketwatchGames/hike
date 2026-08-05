@@ -1365,6 +1365,9 @@ public partial class GameClient : Node3D
 		{
 			_nodeCensusDone = true;
 			NodeCensus.Run();
+			// Same unattended-diagnostic slot: a headless run can ask for one
+			// subtree dump alongside the census by setting node_tree on the CLI.
+			NodeCensus.DumpSubtree(CVars.nodeTree.Value);
 			// The two reports answer halves of the same question — what is
 			// resident, and what it costs — so an unattended run that asked for
 			// one and enabled profiling gets both.

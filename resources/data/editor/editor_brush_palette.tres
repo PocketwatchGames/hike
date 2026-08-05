@@ -17,6 +17,11 @@
 [ext_resource type="Resource" uid="uid://cnpf73berpwgg" path="res://resources/data/props/prop_library.tres" id="14_proplibrary"]
 [ext_resource type="Resource" uid="uid://b1ee1ch87plrm" path="res://resources/data/weather/weather_clear.tres" id="15_weather_clear"]
 [ext_resource type="Resource" uid="uid://dg6i16eia6jvl" path="res://resources/data/roofs/roof_library.tres" id="16_rooflibrary"]
+[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="17_campfire"]
+[ext_resource type="PackedScene" uid="uid://ct006vbgwucoe" path="res://scenes/interactives/forge.tscn" id="18_forge"]
+[ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="19_well"]
+[ext_resource type="PackedScene" uid="uid://svcot4fgz5f5i" path="res://scenes/interactives/fountain_healing.tscn" id="20_fountain_healing"]
+[ext_resource type="PackedScene" uid="uid://phz0ub8154wqh" path="res://scenes/interactives/fountain_mana.tscn" id="21_fountain_mana"]
 
 [sub_resource type="Resource" id="ChestLoot_potion"]
 script = ExtResource("7_itemcountrange")
@@ -38,6 +43,11 @@ doorScene = ExtResource("2_door")
 spikeTrapScene = ExtResource("3_spiketrap")
 climbableTreeScene = ExtResource("4_climbtree")
 torchScene = ExtResource("5_torch")
+campfireScene = ExtResource("17_campfire")
+wellScene = ExtResource("19_well")
+healingFountainScene = ExtResource("20_fountain_healing")
+manaFountainScene = ExtResource("21_fountain_mana")
+forgeScene = ExtResource("18_forge")
 chestScene = ExtResource("6_chest")
 chestLoot = [SubResource("ChestLoot_potion")]
 lootItem = SubResource("LootItem_mushroom")

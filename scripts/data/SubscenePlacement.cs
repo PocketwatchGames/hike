@@ -36,4 +36,12 @@ public partial class SubscenePlacement : Resource
     // covers different ground once turned. Author the anchor at the centre in
     // the world editor if you want a rotation to stay put.
     [Export] public ESubsceneRotation rotation;
+
+    // Open ground the scene INVITES worldgen content onto — a plaza, a
+    // courtyard — as opposed to a building, where a spawn inside lands in a
+    // wall. Lets the one-off fixture passes (a zone's villagers, its well, a
+    // POI signpost) stand on the footprint, and spares them the stamp's
+    // entity eviction. Procedural scatter and roads stay off it either way:
+    // this opens the ground to authored placements only.
+    [Export] public bool allowFixtures;
 }

@@ -141,16 +141,35 @@ toPoi = "swamp_highlands"
 texture = ExtResource("58_cobble")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
+[sub_resource type="Resource" id="Subscene_town_square"]
+script = ExtResource("70_subplace")
+path = "res://resources/data/subscenes/town_square01.hikescene"
+anchorXZ = Vector2i(65, 66)
+allowFixtures = true
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
 [sub_resource type="Resource" id="Subscene_house01"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house01.hikescene"
-anchorXZ = Vector2i(84, 75)
+anchorXZ = Vector2i(62, 49)
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Subscene_house02"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house02.hikescene"
-anchorXZ = Vector2i(48, 74)
+anchorXZ = Vector2i(62, 82)
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
+[sub_resource type="Resource" id="Subscene_house03"]
+script = ExtResource("70_subplace")
+path = "res://resources/data/subscenes/house03.hikescene"
+anchorXZ = Vector2i(43, 63)
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
+[sub_resource type="Resource" id="Subscene_house04"]
+script = ExtResource("70_subplace")
+path = "res://resources/data/subscenes/house04.hikescene"
+anchorXZ = Vector2i(81, 63)
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Bounds_swamp"]
@@ -208,8 +227,8 @@ simData = ExtResource("18_8e3k4")
 scriptData = ExtResource("24_songscript")
 zones = [SubResource("Placed_swamp"), SubResource("Placed_village"), SubResource("Placed_mud"), SubResource("Placed_highlands")]
 regions = [ExtResource("15_7nyke")]
-playerSpawnPosition = Vector3(72, 0, 80)
-subscenes = [SubResource("Subscene_house01"), SubResource("Subscene_house02")]
+playerSpawnPosition = Vector3(72, 0, 72)
+subscenes = [SubResource("Subscene_town_square"), SubResource("Subscene_house01"), SubResource("Subscene_house02"), SubResource("Subscene_house03"), SubResource("Subscene_house04")]
 pointsOfInterestPlacements = [SubResource("Poi_swamp"), SubResource("Poi_village"), SubResource("Poi_mud"), SubResource("Poi_highlands")]
 roads = [SubResource("Road_village_hollow"), SubResource("Road_village_mud"), SubResource("Road_village_highlands")]
 forge = ExtResource("62_forge")

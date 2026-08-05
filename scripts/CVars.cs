@@ -694,6 +694,14 @@ public static class CVars
         NodeCensus.Run();
     });
 
+    // node_tree <substring> → prints the full subtree of the first node whose
+    // name or source scene matches, with per-node cost flags. node_census says
+    // which scene is heavy per instance; this says what's inside it.
+    public static CVarString nodeTree = new CVarString("node_tree", "", (cvar) =>
+    {
+        NodeCensus.DumpSubtree(((CVarString)cvar).Value);
+    });
+
     // Seconds after the game scene starts at which to auto-run `node_census`
     // once. 0 = never. Exists so a headless run (which has no console) can
     // capture a census once the world has settled:

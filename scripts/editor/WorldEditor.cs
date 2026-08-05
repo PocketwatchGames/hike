@@ -40,6 +40,11 @@ public enum EEditorEntityKind
     Door,
     SpikeTrap,
     ClimbableTree,
+    Campfire,
+    Forge,
+    Well,
+    HealingFountain,
+    ManaFountain,
     Goblin,
     KunKun,
 }
@@ -291,7 +296,9 @@ public partial class WorldEditor : Node3D
     {
         EEditorEntityKind.PlayerSpawn, EEditorEntityKind.Loot, EEditorEntityKind.Chest,
         EEditorEntityKind.Torch, EEditorEntityKind.Door, EEditorEntityKind.SpikeTrap,
-        EEditorEntityKind.ClimbableTree, EEditorEntityKind.Goblin, EEditorEntityKind.KunKun,
+        EEditorEntityKind.ClimbableTree, EEditorEntityKind.Campfire, EEditorEntityKind.Forge,
+        EEditorEntityKind.Well, EEditorEntityKind.HealingFountain, EEditorEntityKind.ManaFountain,
+        EEditorEntityKind.Goblin, EEditorEntityKind.KunKun,
     };
 
     // Palette-index-aligned with the entity buttons, which are spread across the
@@ -735,6 +742,11 @@ public partial class WorldEditor : Node3D
             EEditorEntityKind.Door => brushPalette?.doorScene,
             EEditorEntityKind.SpikeTrap => brushPalette?.spikeTrapScene,
             EEditorEntityKind.ClimbableTree => brushPalette?.climbableTreeScene,
+            EEditorEntityKind.Campfire => brushPalette?.campfireScene,
+            EEditorEntityKind.Forge => brushPalette?.forgeScene,
+            EEditorEntityKind.Well => brushPalette?.wellScene,
+            EEditorEntityKind.HealingFountain => brushPalette?.healingFountainScene,
+            EEditorEntityKind.ManaFountain => brushPalette?.manaFountainScene,
             _ => null,
         };
     }
@@ -2812,6 +2824,37 @@ public partial class WorldEditor : Node3D
             case EEditorEntityKind.SpikeTrap:
                 return brushPalette?.spikeTrapScene != null
                     ? new TrapSimState(position, brushPalette.spikeTrapScene)
+                    : null;
+            case EEditorEntityKind.Campfire:
+                // Always unlit: lighting one douses every other, so a placed
+                // campfire must not steal the world's lit one at load.
+                return brushPalette?.campfireScene != null
+                    ? new CampfireSimState(position, brushPalette.campfireScene) { HazardRadius = CampfireSimState.DefaultHazardRadius }
+                    : null;
+            case EEditorEntityKind.Forge:
+                // Slot/level come from the palette until the tool grows a picker;
+                // None derives a stable slot from the position, as worldgen does.
+                return brushPalette?.forgeScene != null
+                    ? new ForgeSimState(
+                        position,
+                        brushPalette.forgeScene,
+                        brushPalette.forgeLevel,
+                        brushPalette.forgeSlot != EUpgradeSlot.None ? brushPalette.forgeSlot : ForgeOffer.SlotFor(position))
+                    : null;
+            case EEditorEntityKind.Well:
+                return brushPalette?.wellScene != null
+                    ? new WellSimState(position, brushPalette.wellScene)
+                    : null;
+            // Two brushes rather than one plus a picker: which resource a fountain
+            // refills is an [Export] on the scene's Fountain node, so the scene IS
+            // the variant.
+            case EEditorEntityKind.HealingFountain:
+                return brushPalette?.healingFountainScene != null
+                    ? new FountainSimState(position, brushPalette.healingFountainScene)
+                    : null;
+            case EEditorEntityKind.ManaFountain:
+                return brushPalette?.manaFountainScene != null
+                    ? new FountainSimState(position, brushPalette.manaFountainScene)
                     : null;
             case EEditorEntityKind.Goblin:
             {

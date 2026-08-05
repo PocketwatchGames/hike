@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 66;
+    public const int WORLDGEN_VERSION = 67;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -661,6 +661,13 @@ public static class WorldGen
         // (X, Z); otherwise the explicit Y is used verbatim.
         ws.Spawn = ResolveSpawn(genData, heightMap);
 
+        // The party's home fire, resolved by proximity to the spawn rather than
+        // authored on whichever entry happened to place it — the campfire can
+        // come from a fixture group or from a stamped subscene, and the world
+        // editor can only ever author one unlit (a lit one would claim the
+        // world's single lit fire at load).
+        LightSpawnCampfire(ws, genData);
+
         // The air pipeline. Strictly ordered, and each step feeds the next:
         //
         //   roofs      — non-voxel cover, so a roofed room reads as enclosed
@@ -1004,7 +1011,9 @@ public static class WorldGen
     private static bool IsGrassySurfaceAt(WorldState ws, int wx, int wz, HeightMap heightMap)
     {
         if (!IsFlatDryGrassAt(wx, wz, heightMap)) { return false; }
-        if (heightMap.IsNoSpawn(wx, wz)) { return false; }
+        // Reserved ground is off limits unless the scene that claimed it opened
+        // it to fixtures — a village square wants the villagers standing in it.
+        if (heightMap.IsNoSpawn(wx, wz) && !heightMap.IsFixtureGround(wx, wz)) { return false; }
         int sy = heightMap.GetSurface(wx, wz);
         VoxelType ground = ws.GetVoxelWorld(wx, sy, wz);
         if (ground == VoxelType.Air || ground == VoxelType.Water) { return false; }
@@ -2042,6 +2051,10 @@ public static class WorldGen
                 for (int dz = 0; dz < sub.Size.Z; dz++)
                 {
                     heightMap.MarkNoSpawn(origin.X + dx, origin.Z + dz);
+                    if (placement.allowFixtures)
+                    {
+                        heightMap.MarkFixtureGround(origin.X + dx, origin.Z + dz);
+                    }
                 }
             }
             loaded.Add((sub, placement));
@@ -2062,12 +2075,47 @@ public static class WorldGen
             // stacking a second floor on top of the ground.
             var anchor = new Vector3(placement.anchorXZ.X, plateauY, placement.anchorXZ.Y);
             int entityCount = sub.Entities?.Count ?? 0;
-            int evicted = ClearEntitiesInVolume(ws, origin, anchor, sub.Size);
+            // A fixture-open scene keeps what is already standing on it: the
+            // fixture pass ran earlier and placed there deliberately, and a
+            // plaza's stamp only re-paves the ground they stand on.
+            int evicted = placement.allowFixtures ? 0 : ClearEntitiesInVolume(ws, origin, anchor, sub.Size);
             SubsceneStamper.StampVoxels(ws, sub, anchor);
             stamped.Add((sub, anchor));
             GD.Print($"[WorldGen] stamped subscene {placement.path.GetFile()} at {anchor} (size={sub.Size}, rot={(int)placement.rotation * 90}deg, entities={entityCount}, evicted={evicted}, plateau levels under footprint={levelCount})");
         }
         return stamped;
+    }
+
+    // Light the campfire nearest the spawn, so the party starts at a burning
+    // fire. Nearest-wins rather than first-found because a village square can
+    // hold several; only one campfire in the world may be lit at a time
+    // (Campfire.DouseOtherCampfires), and this is the one that starts that way.
+    private static void LightSpawnCampfire(WorldState ws, WorldGenData genData)
+    {
+        float radius = genData.spawnCampfireRadius;
+        if (radius <= 0f)
+        {
+            return;
+        }
+        float bestDistSq = radius * radius;
+        CampfireSimState best = null;
+        foreach (EntitySimState e in ws.AllChunkEntities())
+        {
+            if (e is not CampfireSimState fire)
+            {
+                continue;
+            }
+            float distSq = fire.WorldPosition.DistanceSquaredTo(ws.Spawn);
+            if (distSq <= bestDistSq)
+            {
+                bestDistSq = distSq;
+                best = fire;
+            }
+        }
+        if (best != null)
+        {
+            best.Active = true;
+        }
     }
 
     // Remove anything already standing in the volume the stamp is about to
@@ -2762,6 +2810,12 @@ public static class WorldGen
         // reserve ground for reasons no geometric test could infer.
         public readonly bool[,] NoSpawn;
 
+        // The subset of NoSpawn ground a scene opens to AUTHORED placements —
+        // a plaza's paving, not a house's floor (SubscenePlacement.allowFixtures).
+        // Only the one-off fixture passes consult it; the procedural scatter and
+        // the road pass read NoSpawn alone, so they still keep off.
+        public readonly bool[,] FixtureGround;
+
         public HeightMap(int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ,
             int[,] plateau, int[,] height, int[,] surface, bool[,] noSpawn)
         {
@@ -2773,6 +2827,7 @@ public static class WorldGen
             Height = height;
             Surface = surface;
             NoSpawn = noSpawn;
+            FixtureGround = new bool[noSpawn.GetLength(0), noSpawn.GetLength(1)];
         }
 
         public bool IsNoSpawn(int wx, int wz)
@@ -2791,6 +2846,24 @@ public static class WorldGen
                 return;
             }
             NoSpawn[wx - WorldMinX, wz - WorldMinZ] = true;
+        }
+
+        public bool IsFixtureGround(int wx, int wz)
+        {
+            if (wx < WorldMinX || wx > WorldMaxX || wz < WorldMinZ || wz > WorldMaxZ)
+            {
+                return false;
+            }
+            return FixtureGround[wx - WorldMinX, wz - WorldMinZ];
+        }
+
+        public void MarkFixtureGround(int wx, int wz)
+        {
+            if (wx < WorldMinX || wx > WorldMaxX || wz < WorldMinZ || wz > WorldMaxZ)
+            {
+                return;
+            }
+            FixtureGround[wx - WorldMinX, wz - WorldMinZ] = true;
         }
 
         // The three column accessors CLAMP to the map's edge rather than

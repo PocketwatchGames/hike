@@ -75,6 +75,77 @@ public static class NodeCensus
         GD.Print(sb.ToString());
     }
 
+    // Prints the full subtree of the FIRST node whose name or source scene
+    // contains `filter`, one line per node with its class and the same cost flags
+    // the tables use. The census says WHICH scene is heavy per instance; this
+    // says WHAT is in it, which is what you need before pruning. Driven by the
+    // `node_tree <substring>` cvar.
+    public static void DumpSubtree(string filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return;
+        }
+        SceneTree tree = (SceneTree)Engine.GetMainLoop();
+        Node root = tree?.Root;
+        if (root == null)
+        {
+            GD.Print("node_tree: no scene tree.");
+            return;
+        }
+        Node match = FindFirst(root, filter);
+        if (match == null)
+        {
+            GD.Print($"node_tree: nothing matching '{filter}'.");
+            return;
+        }
+        var sb = new StringBuilder();
+        int count = 0;
+        sb.Append($"\n=== node tree: {match.Name} ({match.GetType().Name}) ===\n");
+        DumpNode(match, 0, sb, ref count);
+        sb.Append($"  ({count} nodes total)\n");
+        GD.Print(sb.ToString());
+    }
+
+    private static Node FindFirst(Node node, string filter)
+    {
+        if (node.Name.ToString().Contains(filter, System.StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrEmpty(node.SceneFilePath)
+                && node.SceneFilePath.Contains(filter, System.StringComparison.OrdinalIgnoreCase)))
+        {
+            return node;
+        }
+        int childCount = node.GetChildCount();
+        for (int i = 0; i < childCount; i++)
+        {
+            Node found = FindFirst(node.GetChild(i), filter);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    private static void DumpNode(Node node, int depth, StringBuilder sb, ref int count)
+    {
+        count++;
+        string flags = "";
+        if (node.IsProcessing()) { flags += " proc"; }
+        if (node.IsPhysicsProcessing()) { flags += " phys"; }
+        if (node.IsProcessingInternal() || node.IsPhysicsProcessingInternal()) { flags += " intl"; }
+        if (node is VisualInstance3D v) { flags += v.Visible ? " VIS" : " vis-off"; }
+        if (node is CollisionObject3D) { flags += " col"; }
+        sb.Append("  ").Append(new string(' ', depth * 2))
+          .Append(node.Name).Append("  [").Append(node.GetType().Name).Append(']')
+          .Append(flags).Append('\n');
+        int childCount = node.GetChildCount();
+        for (int i = 0; i < childCount; i++)
+        {
+            DumpNode(node.GetChild(i), depth + 1, sb, ref count);
+        }
+    }
+
     // depth counts from the SceneTree root; the subtree bucket freezes at depth
     // 2 so every node lands under a stable "/root/Main/Game"-style heading
     // instead of its own leaf path.

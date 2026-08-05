@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://bd2qbk8yxpmjj" path="res://scripts/client/GroundStainProjector.cs" id="8_ground_stain"]
 [ext_resource type="PackedScene" uid="uid://cf4ipeopmfe77" path="res://scenes/gui/editor_tool_button.tscn" id="9_tool_button"]
 [ext_resource type="Script" uid="uid://cjflrpaeqaulr" path="res://scripts/client/ViewportRig.cs" id="10_viewport_rig"]
-[ext_resource type="Material" uid="uid://ssmvopbv8hql1" path="res://resources/materials/upscale.tres" id="11_upscale"]
+[ext_resource type="Material" uid="uid://dc0fchmvyn8ky" path="res://resources/materials/upscale.tres" id="11_upscale"]
 [ext_resource type="Material" uid="uid://bl84gy5kiqaeh" path="res://resources/materials/depth_outline.tres" id="12_outline"]
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="13_post_process"]
 [ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/fx/motes.tscn" id="14_motes"]
@@ -395,39 +395,33 @@ layout_mode = 2
 mouse_filter = 0
 current_tab = 0
 
-[node name="Interactives" type="GridContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=1952286636]
+[node name="Interactives" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=500863454]
 layout_mode = 2
-columns = 12
 metadata/_tab_index = 0
 
-[node name="Trees" type="GridContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=2076463096]
+[node name="Trees" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=2146101377]
 visible = false
 layout_mode = 2
-columns = 12
 metadata/_tab_index = 1
 
-[node name="Rocks" type="GridContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=363704005]
+[node name="Rocks" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=935995108]
 visible = false
 layout_mode = 2
-columns = 12
 metadata/_tab_index = 2
 
-[node name="Nature" type="GridContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=1764707262]
+[node name="Nature" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=115000544]
 visible = false
 layout_mode = 2
-columns = 12
 metadata/_tab_index = 3
 
-[node name="Furniture" type="GridContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=1754285001]
+[node name="Furniture" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=1006943044]
 visible = false
 layout_mode = 2
-columns = 12
 metadata/_tab_index = 4
 
-[node name="Props" type="GridContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=1594262922]
+[node name="Props" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=959570311]
 visible = false
 layout_mode = 2
-columns = 12
 metadata/_tab_index = 5
 
 [node name="VoxelPalette" type="PanelContainer" parent="EditorHud/Bottom" unique_id=998766744]
@@ -635,12 +629,12 @@ toggle_mode = true
 button_group = SubResource("ButtonGroup_entity_mode")
 text = "Select"
 
-[node name="SnapToGrid" type="CheckButton" parent="EditorHud/MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer"]
+[node name="SnapToGrid" type="CheckButton" parent="EditorHud/MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer" unique_id=1547182814]
 layout_mode = 2
 button_pressed = true
 text = "Snap to Grid"
 
-[node name="SnapRotation" type="CheckButton" parent="EditorHud/MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer"]
+[node name="SnapRotation" type="CheckButton" parent="EditorHud/MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer" unique_id=1777123065]
 layout_mode = 2
 button_pressed = true
 text = "Snap Rotation"
@@ -785,11 +779,11 @@ text = "Weather"
 [node name="Weather" type="OptionButton" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=894124908]
 layout_mode = 2
 
-[node name="Label3" type="Label" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer"]
+[node name="Label3" type="Label" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=1195162749]
 layout_mode = 2
 text = "Scene Interior"
 
-[node name="InteriorClass" type="OptionButton" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer"]
+[node name="InteriorClass" type="OptionButton" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=370913601]
 layout_mode = 2
 
 [node name="SaveDialog" type="ConfirmationDialog" parent="EditorHud" unique_id=354178986]

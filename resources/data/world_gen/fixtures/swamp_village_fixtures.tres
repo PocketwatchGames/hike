@@ -3,17 +3,11 @@
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
 [ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="3_npc"]
-[ext_resource type="Script" uid="uid://c0bcoj5vlqohu" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="4_camp"]
-[ext_resource type="Script" uid="uid://jwmjuqoukebq" path="res://scripts/data/spawn/StoneRingSpawnEntry.cs" id="5_ring"]
 [ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="6_villager"]
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="7_lang"]
 [ext_resource type="Resource" uid="uid://bn24251j6okt0" path="res://resources/data/characters/npcs/swamp_villager01_conversation.tres" id="8_6mc61"]
 [ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/characters/npcs/friendly_villager_conversation.tres" id="8_conv"]
-[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="9_campscene"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="10_ewmta"]
-[ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="10_rock1"]
-[ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="11_rock2"]
-[ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="12_rock3"]
 [ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="12_vyhu6"]
 [ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_gen/mob_descriptors/dog.tres" id="13_dog"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="13_mobentry"]
@@ -25,17 +19,6 @@
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="19_recolor"]
 [ext_resource type="Script" uid="uid://dtcbuyhqmo1pi" path="res://scripts/data/spawn/SafetyZoneSpawnEntry.cs" id="20_safetyentry"]
 [ext_resource type="PackedScene" uid="uid://cppetcwunu7o8" path="res://scenes/interactives/safety_zone.tscn" id="21_safetyscene"]
-
-[sub_resource type="Resource" id="StoneRing"]
-script = ExtResource("5_ring")
-scenes = [ExtResource("10_rock1"), ExtResource("11_rock2"), ExtResource("12_rock3")]
-metadata/_custom_type_script = "uid://ajwmjuqoukebq"
-
-[sub_resource type="Resource" id="Campfire_center"]
-script = ExtResource("4_camp")
-scene = ExtResource("9_campscene")
-placeAtAnchor = true
-metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
 
 [sub_resource type="Resource" id="SafetyZone_center"]
 script = ExtResource("20_safetyentry")
@@ -219,5 +202,5 @@ metadata/_custom_type_script = "uid://b7gskt20b7441"
 
 [resource]
 script = ExtResource("2_group")
-scatterRadius = 8.0
-entries = Array[ExtResource("1_base")]([SubResource("StoneRing"), SubResource("Campfire_center"), SubResource("SafetyZone_center"), SubResource("Villager_1"), SubResource("Villager_2"), SubResource("Villager_3"), SubResource("Villager_4"), SubResource("Villager_5"), SubResource("Dog"), SubResource("Well")])
+scatterRadius = 5.0
+entries = Array[ExtResource("1_base")]([SubResource("SafetyZone_center"), SubResource("Villager_1"), SubResource("Villager_2"), SubResource("Villager_3"), SubResource("Villager_4"), SubResource("Villager_5"), SubResource("Dog"), SubResource("Well")])

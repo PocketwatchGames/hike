@@ -1,7 +1,7 @@
 using Godot;
 
 // The WorldEditor's library of stampable prefabs — the scenes / loot the author
-// paints with the Door, SpikeTrap, ClimbableTree, Torch, Chest, Loot, and mob
+// paints with the Door, SpikeTrap, ClimbableTree, Torch, Campfire, Forge, Well, Fountain, Chest, Loot, and mob
 // brushes. Lives on its own resource (not WorldGenData) because these are an
 // editor-tool concern, not procedural-generation input: WorldGen.Generate never
 // reads them. The Tree / TallGrass brushes are deliberately absent — they read
@@ -41,6 +41,22 @@ public partial class EditorBrushPalette : Resource
 	[Export] public PackedScene spikeTrapScene;
 	[Export] public PackedScene climbableTreeScene;
 	[Export] public PackedScene torchScene;
+	[Export] public PackedScene campfireScene;
+	[Export] public PackedScene wellScene;
+	// One scene per fountain variant — EFountainKind is authored on the scene's
+	// Fountain node, so these are two separate brushes.
+	[Export] public PackedScene healingFountainScene;
+	[Export] public PackedScene manaFountainScene;
+
+	[ExportGroup("Forge")]
+	[Export] public PackedScene forgeScene;
+	// Baked onto every editor-placed forge (worldgen instead reads the zone's
+	// noise-modulated band). Until the entity tool grows a per-placement picker,
+	// these are the whole authoring surface for a stamped forge.
+	[Export(PropertyHint.Range, "0,4,1")] public int forgeLevel = 0;
+	// None derives a stable slot from the placement position (ForgeOffer.SlotFor),
+	// matching ForgeSpawnEntry; set it to stamp forges of one specific kind.
+	[Export] public EUpgradeSlot forgeSlot = EUpgradeSlot.None;
 
 	[ExportGroup("Chest")]
 	[Export] public PackedScene chestScene;

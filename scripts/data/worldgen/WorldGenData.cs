@@ -95,6 +95,12 @@ public partial class WorldGenData : Resource
     // used as-is (e.g. to spawn on top of an authored structure / platform).
     [Export] public bool spawnAtSurface = true;
 
+    // How far from the spawn to look for the party's home campfire, which
+    // starts lit (WorldGen.LightSpawnCampfire). Source-agnostic: the fire can
+    // be placed by a fixture group or authored into a stamped subscene. 0 = no
+    // fire is lit at the start.
+    [Export(PropertyHint.Range, "0,64,0.5")] public float spawnCampfireRadius = 12f;
+
     // Hand-authored subscene stamps (cottages, dungeons, landmarks). Each
     // entry is a `.hikescene` file plus a world XZ anchor; WorldGen loads
     // and stamps them after terrain/cave/road generation but before the

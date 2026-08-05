@@ -176,16 +176,35 @@ toPoi = "desert_well"
 texture = ExtResource("57_dirt")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
+[sub_resource type="Resource" id="Subscene_town_square"]
+script = ExtResource("70_subplace")
+path = "res://resources/data/subscenes/town_square01.hikescene"
+anchorXZ = Vector2i(1, 2)
+allowFixtures = true
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
 [sub_resource type="Resource" id="Subscene_house01"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house01.hikescene"
-anchorXZ = Vector2i(12, -5)
+anchorXZ = Vector2i(-2, -15)
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Subscene_house02"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house02.hikescene"
-anchorXZ = Vector2i(-26, -6)
+anchorXZ = Vector2i(-2, 18)
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
+[sub_resource type="Resource" id="Subscene_house03"]
+script = ExtResource("70_subplace")
+path = "res://resources/data/subscenes/house03.hikescene"
+anchorXZ = Vector2i(-21, -1)
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
+[sub_resource type="Resource" id="Subscene_house04"]
+script = ExtResource("70_subplace")
+path = "res://resources/data/subscenes/house04.hikescene"
+anchorXZ = Vector2i(17, -1)
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Bounds_mountain"]
@@ -253,7 +272,8 @@ simData = ExtResource("2_sim")
 scriptData = ExtResource("60_worldscript")
 zones = [SubResource("Placed_mountain"), SubResource("Placed_desert"), SubResource("Placed_swamp"), SubResource("Placed_forest"), SubResource("Placed_hub")]
 regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), ExtResource("3_region_swamp"), ExtResource("3_region_forest")]
-subscenes = [SubResource("Subscene_house01"), SubResource("Subscene_house02")]
+playerSpawnPosition = Vector3(8, 0, 8)
+subscenes = [SubResource("Subscene_town_square"), SubResource("Subscene_house01"), SubResource("Subscene_house02"), SubResource("Subscene_house03"), SubResource("Subscene_house04")]
 pointsOfInterestPlacements = [SubResource("Poi_crossroads"), SubResource("Poi_mountain"), SubResource("Poi_desert"), SubResource("Poi_swamp"), SubResource("Poi_forest")]
 roads = [SubResource("Road_mountain"), SubResource("Road_forest"), SubResource("Road_desert"), SubResource("Road_swamp"), SubResource("Road_forest_desert")]
 forge = ExtResource("62_forge")

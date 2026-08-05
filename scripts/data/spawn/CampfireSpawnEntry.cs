@@ -1,8 +1,9 @@
 using System;
 using Godot;
 
-// Single campfire entity. Spawns unlit unless startLit is set — only the
-// party's spawn campfire lights on its own; every other fire is lit by the
+// Single campfire entity. Always spawns unlit: the one fire that starts burning
+// is picked by proximity to the spawn (WorldGen.LightSpawnCampfire), so it can
+// equally be one authored into a subscene. Every other fire is lit by the
 // player, and lighting one douses all the rest (Campfire.DouseOtherCampfires).
 //
 // To author a campfire surrounded by an encampment (mobs, chests scattered
@@ -34,10 +35,6 @@ public partial class CampfireSpawnEntry : SpawnEntryData
     // (the bowl tilts, surrounding fuel/rocks intersect the step face).
     public override bool RequireFlatTerrain => true;
 
-    // Spawn already lit. Reserved for the party's spawn campfire — every other
-    // campfire leaves this false and starts unlit until the player lights it.
-    [Export] public bool startLit = false;
-
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
@@ -45,7 +42,6 @@ public partial class CampfireSpawnEntry : SpawnEntryData
             return;
         }
         var campfire = new CampfireSimState(position, scene);
-        campfire.Active = startLit;
         campfire.HazardRadius = hazardRadius;
         ws.AddEntity(campfire);
         ws.ClearDetailVoxelsWithin(position, detailSuppressionRadius);
