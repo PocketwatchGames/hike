@@ -367,6 +367,26 @@ visibility_fan_perspective={
 "type": "bool",
 "value": false
 }
+clip_mask_enabled={
+"type": "bool",
+"value": false
+}
+clip_mask_tex={
+"type": "sampler2D",
+"value": "res://assets/textures/block_light_shadow_placeholder.tres"
+}
+clip_mask_origin_xz={
+"type": "vec2",
+"value": Vector2(0, 0)
+}
+clip_mask_extent={
+"type": "float",
+"value": 64.0
+}
+camera_clip_wall_offset={
+"type": "float",
+"value": 0.0
+}
 debug_solid={
 "type": "vec3",
 "value": Vector3(0, 0, 0)

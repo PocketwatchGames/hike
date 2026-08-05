@@ -330,6 +330,59 @@ public partial class GameClient : Node3D
 	// movement rather than a hole punched through the world.
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float visibilityOpenSeconds = 0.15f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float visibilityCloseSeconds = 0.25f;
+
+	[ExportGroup("Column Cutaway")]
+	// Head height the rule cuts at: a column whose band from the player's floor
+	// up to here is clear gets cut above it, anything else is kept whole.
+	//
+	// This is a CEILING on the spaces the rule can open, not a target — a column
+	// whose own ceiling sits below it fails the band test and keeps everything.
+	// So it has to be no taller than the shortest space that should still open
+	// (a low cave passage, a corridor off a tall room), which means roughly the
+	// player's standing height rather than a generous room height. Raising it
+	// does not open more, it opens less.
+	[Export(PropertyHint.Range, "1,8,0.5")] public float clipColumnHeadroom = 2f;
+	// Height a BLOCKED column cuts at, where a clear one cuts at the headroom.
+	// Blocked columns used to keep to infinity, so an upper-storey wall survived
+	// whenever a ground-floor wall happened to sit beneath it and cut where none
+	// did — a black band through the wall in the shape of the ground-floor plan.
+	// With both cutting, at different heights, there is no plan-shaped pattern
+	// left to trace. Wants to be tall enough to read a room and hold a building's
+	// silhouette from outside; tall rooms will visibly flatten at it, which is the
+	// knob to judge that on.
+	[Export(PropertyHint.Range, "2,16,0.5")] public float clipColumnWallKeep = 5f;
+	// How far the region flood carries into the walls bounding the player's air,
+	// in cells — so it wants to cover the thickest authored wall. 0 leaves walls
+	// exempt, which is the pre-WALL_KEEP behaviour and a useful A/B.
+	[Export(PropertyHint.Range, "0,4,1")] public int clipColumnWallDepth = 2;
+	// Height of the band the region flood travels through, in voxels. Shorter
+	// than the headroom on purpose: a passage that pinches to a crawl is still
+	// one passage, and sharing the headroom band here severs it at every pinch
+	// and strands everything beyond.
+	[Export(PropertyHint.Range, "1,4,1")] public int clipColumnConnectHeight = 1;
+	// Fraction of a roof's footprint that must sit over the player's air region
+	// before it starts cutting; full at twice this. Low, so a roof spanning two
+	// rooms still cuts fully from either one.
+	[Export(PropertyHint.Range, "0.02,0.5,0.01")] public float clipColumnFootprintCoverage = 0.15f;
+	// Spatial bound on the rule. Unbounded it would take every roof in a town off
+	// at the player's elevation and destroy the settlement silhouette; a radius is
+	// the first bound, and it is what makes the mask edge travel with the player.
+	// Also sizes the per-tick column scan, so it is the one knob with a cost.
+	[Export(PropertyHint.Range, "4,31,1")] public float clipColumnRadius = 20f;
+	// Per-cell fade as columns cross the radius boundary. The clip iris animates
+	// HEIGHT changes only, so without this a column entering the mask has nothing
+	// to animate it and pops in a single frame. Opening slower than closing,
+	// matching clipFadeDownSeconds / clipFadeUpSeconds.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipColumnOpenSeconds = 0.35f;
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipColumnCloseSeconds = 0.25f;
+	// How far above the clip plane the arming scan looks for real cover. Only
+	// decides whether the cutaway engages at all, so it has to reach a roof, not
+	// the sky.
+	[Export(PropertyHint.Range, "4,48,1")] public int clipColumnCoverScanHeight = 20;
+	// Frames between arming scans. The mask rebuilds every frame; whether there is
+	// anything overhead worth cutting changes far more slowly, and that scan is
+	// the expensive half in a forest (canopy reads as cover, so it runs long).
+	[Export(PropertyHint.Range, "1,20,1")] public int clipColumnArmingInterval = 6;
 	[ExportGroup("")]
 
 	public Action<Player> onPlayerSpawned;
@@ -1423,6 +1476,139 @@ public partial class GameClient : Node3D
 		RenderingServer.GlobalShaderParameterSet("visibility_fan_perspective", camera.Projection == Camera3D.ProjectionType.Perspective);
 	}
 
+	// Per-column ceiling cutaway. Created lazily so a session that never enables
+	// the column path never allocates the mask or its texture.
+	private ClipColumnMask _clipColumnMask;
+	private double _clipColumnDebugElapsed;
+	// Corner overlay drawing the mask texture directly (clip_column_overlay).
+	// Built on first use so a session that never asks for it costs nothing.
+	private CanvasLayer _clipOverlayLayer;
+	private TextureRect _clipOverlayRect;
+
+	private void UpdateClipColumnOverlay()
+	{
+		bool show = CVars.clipColumnOverlay.Value && _clipColumnMask?.Texture != null;
+		if (!show)
+		{
+			if (_clipOverlayRect != null)
+			{
+				_clipOverlayRect.Visible = false;
+			}
+			return;
+		}
+		if (_clipOverlayLayer == null)
+		{
+			_clipOverlayLayer = new CanvasLayer();
+			_clipOverlayLayer.Layer = 100;
+			AddChild(_clipOverlayLayer);
+			_clipOverlayRect = new TextureRect();
+			_clipOverlayRect.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+			// Nearest, or the cell grid the whole point of this is to show gets
+			// smeared into a gradient.
+			_clipOverlayRect.TextureFilter = CanvasItem.TextureFilterEnum.Nearest;
+			_clipOverlayRect.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
+			_clipOverlayRect.Position = new Vector2(16, 16);
+			_clipOverlayRect.Size = new Vector2(256, 256);
+			_clipOverlayLayer.AddChild(_clipOverlayRect);
+		}
+		_clipOverlayRect.Texture = _clipColumnMask.Texture;
+		_clipOverlayRect.Visible = true;
+	}
+
+	// The live mask, or null whenever the column path isn't driving the cutaway —
+	// so every consumer gets "no mask" and the scalar clip alone decides, which is
+	// exactly the old behavior.
+	private ClipColumnMask ActiveClipColumnMask => CVars.clipColumnMask.Value ? _clipColumnMask : null;
+
+	private void PushClipColumnMaskGlobals(double deltaSeconds)
+	{
+		if (_player == null || camera == null)
+		{
+			return;
+		}
+		bool enabled = CVars.clipColumnMask.Value;
+		camera.ExternalClipSource = enabled;
+		if (!enabled)
+		{
+			camera.WallClipOffset = 0f;
+			RenderingServer.GlobalShaderParameterSet("clip_mask_enabled", false);
+			RenderingServer.GlobalShaderParameterSet("camera_clip_wall_offset", 0f);
+			return;
+		}
+
+		_clipColumnMask ??= new ClipColumnMask();
+		_clipColumnMask.Headroom = clipColumnHeadroom;
+		// Never negative: a wall plane below the headroom plane would cut walls
+		// shorter than the space they enclose.
+		_clipColumnMask.WallOffset = Mathf.Max(0f, clipColumnWallKeep - clipColumnHeadroom);
+		_clipColumnMask.WallDepth = clipColumnWallDepth;
+		_clipColumnMask.ConnectHeight = clipColumnConnectHeight;
+		_clipColumnMask.FootprintCoverageThreshold = clipColumnFootprintCoverage;
+		_clipColumnMask.Radius = clipColumnRadius;
+		camera.WallClipOffset = _clipColumnMask.WallOffset;
+		_clipColumnMask.OpenSeconds = clipColumnOpenSeconds;
+		_clipColumnMask.CloseSeconds = clipColumnCloseSeconds;
+		_clipColumnMask.CoverScanHeight = clipColumnCoverScanHeight;
+		_clipColumnMask.ArmingInterval = clipColumnArmingInterval;
+
+		Sim sim = Sim.Current;
+		Vector3 playerPos = _player.GlobalPosition;
+		_clipColumnMask.Tick(sim != null, sim?.WorldState, playerPos, _player.IsGrounded, (float)deltaSeconds);
+
+		// Parked at infinity when nothing overhead is actually being cut, so open
+		// ground leaves the whole cutaway — and the indoor-mode signal the minimap
+		// reads off it — switched off rather than running inert at head height.
+		camera.SetClip(_clipColumnMask.AnyClipped ? _clipColumnMask.ClipY : float.PositiveInfinity, playerPos);
+
+		// IsOpen (not the enabled flag) so the mask survives its close-out
+		// animation instead of the global dropping and snapping roofs back in a
+		// frame. The texture global itself is bound once, on first upload.
+		RenderingServer.GlobalShaderParameterSet("clip_mask_enabled", _clipColumnMask.IsOpen);
+		if (!_clipColumnMask.IsOpen)
+		{
+			return;
+		}
+		// Window anchor, not the live player position: the mask is smoothed per
+		// world column so its temporal lag stays pinned to the world.
+		RenderingServer.GlobalShaderParameterSet("clip_mask_origin_xz", _clipColumnMask.OriginXz);
+		RenderingServer.GlobalShaderParameterSet("clip_mask_extent", _clipColumnMask.Extent);
+		// An offset rather than a second pair of clip globals, so both planes ride
+		// the camera's existing iris animation without any new fade state.
+		RenderingServer.GlobalShaderParameterSet("camera_clip_wall_offset", _clipColumnMask.WallOffset);
+
+		UpdateClipColumnOverlay();
+
+		if (CVars.clipColumnDebug.Value && sim != null)
+		{
+			_clipColumnDebugElapsed += deltaSeconds;
+			if (_clipColumnDebugElapsed >= 1.0)
+			{
+				_clipColumnDebugElapsed = 0.0;
+				GD.Print($"[clip_column] {_clipColumnMask.Describe(sim.WorldState, playerPos)} cameraClip={camera.Clip}");
+			}
+		}
+	}
+
+	// Is the ceiling cutaway currently hiding geometry at this world point? Above
+	// the clip height, and — on the column path — in a column the mask actually
+	// cuts. Callers that gate on "can the player see this" use it rather than
+	// comparing against camera.Clip, which alone no longer answers the question.
+	public bool IsCutAway(Vector3 worldPosition)
+	{
+		if (camera == null)
+		{
+			return false;
+		}
+		ClipColumnMask mask = ActiveClipColumnMask;
+		// camera.Clip is the CLEAR-column height; a blocked column cuts higher.
+		float clipHere = mask == null ? camera.Clip : mask.ClipHeightAt(worldPosition, camera.Clip);
+		if (worldPosition.Y < clipHere)
+		{
+			return false;
+		}
+		return mask == null || mask.IsClipped(worldPosition);
+	}
+
 	public override void _ExitTree()
 	{
 		// Silence any in-flight rumble when the game scene tears down (quit to
@@ -1480,6 +1666,14 @@ public partial class GameClient : Node3D
 		using (Profiler.Sample("GameClient.VisibilityFan"))
 		{
 			PushVisibilityFanGlobals(deltaTime);
+		}
+
+		// Ahead of the camera update below, which reads ExternalClipSource to
+		// decide whether to run its own ceiling probe, and ahead of CullProps,
+		// which needs this tick's mask rather than the last one's.
+		using (Profiler.Sample("GameClient.ClipColumnMask"))
+		{
+			PushClipColumnMaskGlobals(deltaTime);
 		}
 
 		// Drive rumble before the pause/console gate: an indefinite vibration
@@ -2051,25 +2245,43 @@ public partial class GameClient : Node3D
 		// StaticBody3D and never relocate once spawned.
 		bool clipChanged = cameraClip != _lastCullClip;
 		_lastCullClip = cameraClip;
-		foreach (List<Node3D> entities in _world.ActiveEntities.Values)
+		// The column mask travels with the player, so a static entity's visibility
+		// CAN change on a frame the clip height didn't move. Only chunks the mask
+		// window overlaps can be affected though, and ActiveEntities is already
+		// keyed by chunk coord — so the skip above survives, scoped by geometry
+		// instead of switched off.
+		ClipColumnMask mask = ActiveClipColumnMask;
+		bool maskChanged = mask != null && mask.MaskChanged;
+		Vector3 playerPos = _player != null ? _player.GlobalPosition : Vector3.Zero;
+		foreach ((Vector3I coord, List<Node3D> entities) in _world.ActiveEntities)
 		{
+			bool sweep = clipChanged || (maskChanged && mask.WindowTouchesChunk(coord));
 			foreach (Node3D entity in entities)
 			{
-				if (!clipChanged && entity is not PhysicsBody3D)
-				{
-					continue;
-				}
 				// A roof cuts itself away in-shader and carries passes that MUST
 				// keep rendering once it does — a shadow proxy, and its cap-mask
 				// copy. Hiding the node takes those children down with it, so the
 				// shadow under the eaves vanishes the moment you step under the
-				// roof. Skipping it here costs nothing: its material discards
-				// above the clip anyway, which is what hides it.
-				if (entity is Roof)
+				// roof. So it is never hidden; it is told how much of the cut to
+				// take. That tracks the player continuously, so it updates ahead
+				// of the sweep gate rather than through it.
+				if (entity is Roof roof)
+				{
+					roof.UpdateClipParticipation(_player != null ? mask : null, playerPos);
+					continue;
+				}
+				if (!sweep && entity is not PhysicsBody3D)
 				{
 					continue;
 				}
-				entity.Visible = entity.GlobalPosition.Y < cameraClip;
+				Vector3 entityPos = entity.GlobalPosition;
+				// Above the clip is only half the test now — an entity in a column
+				// the mask exempts stays put however high it sits, which is what
+				// keeps a town's roofs standing outside the player's region. The
+				// height itself is per-column too: a prop standing on a wall cuts
+				// at the taller wall plane, not the head-height one.
+				float clipHere = mask == null ? cameraClip : mask.ClipHeightAt(entityPos, cameraClip);
+				entity.Visible = entityPos.Y < clipHere || (mask != null && !mask.IsClipped(entityPos));
 			}
 		}
 	}

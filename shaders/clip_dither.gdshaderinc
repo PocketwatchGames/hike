@@ -139,6 +139,63 @@ float visibility_fan_cut(vec3 world_pos)
 	return visibility_fan_contains(world_pos.xz + view_dir.xz * travel);
 }
 
+// --- Per-column cutaway mask -----------------------------------------------
+// Which columns the ceiling clip applies to. A column whose vertical band from
+// the player's floor up to head height is entirely air is cut above that
+// height; a column with anything in the band — a wall, a window sill, a door
+// header, a cliff face — is kept whole.
+//
+// The clip HEIGHT stays a single scalar (camera_clip) because the band is
+// measured from the player's floor, so every column that cuts, cuts at the same
+// Y. Only participation varies, which is why this is a 2D mask and not a 3D
+// classification of the geometry.
+//
+// World-anchored, NOT player-polar, for the same reason the visibility fan is:
+// the value is smoothed per world cell on the CPU, and a lagging cell has to
+// mean the same column from frame to frame or it wobbles as the player walks.
+// Outside the window reads 0 = exempt, which is what bounds the rule spatially.
+global uniform bool clip_mask_enabled;
+// R = participation: is this column in play at all (in the player's air region,
+//     inside the radius clamp), faded at the boundary.
+// G = clearness: 1 where the band is clear, 0 where it is blocked. Picks WHICH
+//     of the two clip heights the column cuts at.
+global uniform sampler2D clip_mask_tex : filter_nearest, repeat_disable;
+global uniform vec2 clip_mask_origin_xz;
+global uniform float clip_mask_extent;
+// How much HIGHER a blocked column cuts than a clear one (WALL_KEEP - HEADROOM).
+// A blocked column no longer keeps to infinity: the clip surface is a two-level
+// step, so walls of the storey the player occupies stand tall enough to read the
+// room while everything stacked above any wall cuts uniformly. Expressed as an
+// offset rather than a second pair of clip globals so it rides the existing iris
+// animation — both heights derive from the same floor, a fixed distance apart.
+global uniform float camera_clip_wall_offset;
+
+// Participation sentinel: "resolve it from the mask per fragment" rather than
+// taking a value the caller decided. Any real participation is in [0,1].
+const float CLIP_COLUMN_FROM_MASK = -1.0;
+
+// x = participation (1 = full, 0 = exempt, fractional while fading in or out of
+// the mask), y = clearness (1 = cut at the head-height plane, 0 = at the taller
+// wall plane). filter_nearest because the boundary is a hard column edge —
+// spatial feathering is a later decision, and bilinear would pre-empt it.
+//
+// Outside the window reads exempt, and clearness there is irrelevant. Feature
+// off reads fully participating and clear, which collapses every consumer to the
+// plain single-plane height test.
+vec2 clip_column_mask(vec2 world_xz)
+{
+	if (!clip_mask_enabled)
+	{
+		return vec2(1.0, 1.0);
+	}
+	vec2 uv = (world_xz - clip_mask_origin_xz) / clip_mask_extent;
+	if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))))
+	{
+		return vec2(0.0, 1.0);
+	}
+	return texture(clip_mask_tex, uv).rg;
+}
+
 // Smooth [0,1] "how much is this point part of the visible interior
 // (below the animating cutaway clip)". 1 = fully drawn / below-clip,
 // 0 = fully cut-away / above-clip; the transition follows the same
@@ -151,33 +208,53 @@ float clip_visibility_smooth(vec3 world_pos)
 	// again, so the "above the clip is removed rock" reasoning volumetrics rely
 	// on holds unchanged, and the fan's ray projection stays out of the fog
 	// raymarch (which calls this once per step, 48-256 per pixel).
-	bool above_prev = world_pos.y > camera_clip_prev;
-	bool above_new = world_pos.y > camera_clip;
-	if (above_prev && above_new)
+	// Below the LOWER of the two planes on both endpoints, no column can be
+	// cutting here — so this returns without a fetch, which is what keeps the fog
+	// raymarch (48-256 calls per pixel) off the mask everywhere under the clip.
+	if (world_pos.y <= min(camera_clip, camera_clip_prev))
 	{
-		return 0.0;
+		return 1.0;
 	}
+	vec2 mask = clip_column_mask(world_pos.xz);
+	float column = mask.x;
+	if (column <= 0.0)
+	{
+		return 1.0;
+	}
+	float wall_lift = camera_clip_wall_offset * (1.0 - mask.y);
+	float clip_new = camera_clip + wall_lift;
+	float clip_prev = camera_clip_prev + wall_lift;
+	bool above_prev = world_pos.y > clip_prev;
+	bool above_new = world_pos.y > clip_new;
 	if (!above_prev && !above_new)
 	{
 		return 1.0;
 	}
-	// In the transition band — compute a player-centered phase that
-	// normalizes the horizontal distance from the growth center (player
-	// position) by max_radius, with world-stable sin-noise on the edge.
-	vec2 to_center = world_pos.xz - camera_clip_growth_center.xz;
-	float dist = length(to_center);
-	float phase = dist / max(camera_clip_growth_max_radius, 1e-3);
-	float n = sin(world_pos.x * 1.3 + world_pos.z * 0.7) * 0.06
-	        + sin(world_pos.x * 0.5 - world_pos.z * 1.7) * 0.04
-	        + sin(world_pos.x * 2.1 + world_pos.z * 0.4) * 0.03;
-	phase = clamp(phase + n, 0.0, 1.0);
-	if (camera_clip > camera_clip_prev) {
-		phase = 1.0 - phase;
+
+	float height_visibility = 0.0;
+	if (!(above_prev && above_new))
+	{
+		// In the transition band — compute a player-centered phase that
+		// normalizes the horizontal distance from the growth center (player
+		// position) by max_radius, with world-stable sin-noise on the edge.
+		vec2 to_center = world_pos.xz - camera_clip_growth_center.xz;
+		float dist = length(to_center);
+		float phase = dist / max(camera_clip_growth_max_radius, 1e-3);
+		float n = sin(world_pos.x * 1.3 + world_pos.z * 0.7) * 0.06
+		        + sin(world_pos.x * 0.5 - world_pos.z * 1.7) * 0.04
+		        + sin(world_pos.x * 2.1 + world_pos.z * 0.4) * 0.03;
+		phase = clamp(phase + n, 0.0, 1.0);
+		if (clip_new > clip_prev) {
+			phase = 1.0 - phase;
+		}
+		float softness = max(camera_clip_growth_edge_softness, 1e-3);
+		float leading_phase = -softness + camera_clip_blend * (1.0 + 2.0 * softness);
+		float local_blend = clamp(0.5 - (phase - leading_phase) / (2.0 * softness), 0.0, 1.0);
+		height_visibility = above_new ? (1.0 - local_blend) : local_blend;
 	}
-	float softness = max(camera_clip_growth_edge_softness, 1e-3);
-	float leading_phase = -softness + camera_clip_blend * (1.0 + 2.0 * softness);
-	float local_blend = clamp(0.5 - (phase - leading_phase) / (2.0 * softness), 0.0, 1.0);
-	return above_new ? (1.0 - local_blend) : local_blend;
+	// An exempt column keeps the fragment whatever the height says; a partly
+	// faded one scales how much of the cut it takes.
+	return 1.0 - column * (1.0 - height_visibility);
 }
 
 // Bayer + hash threshold compare, shared by both discard paths below.
@@ -203,26 +280,58 @@ bool clip_dither_test(float clip_visibility, vec2 frag_xy)
 	return clip_visibility <= threshold;
 }
 
-// Two positions, because the two axes of the test want different granularity:
+// Two positions, because the axes of the test want different granularity, and
+// the split is by the SHAPE OF EACH BOUNDARY, not by which feature it belongs to:
 //
-//   height_anchor — resolves the HEIGHT clip. Meshes that must cut as a unit
-//                   (roofs, props, sprites) pass a flat per-instance origin so
-//                   they are never sliced at the horizontal plane.
-//   fan_pos       — resolves the FAN. Always the per-fragment world position,
-//                   even for those meshes: the fan's boundary is vertical, and
-//                   slicing across it is exactly what it is for. A roof spans
-//                   many metres horizontally, so anchoring the fan at its origin
-//                   would take the whole roof off (or none of it) rather than
-//                   just the part over the player's sightline.
+//   height_anchor — resolves the HEIGHT clip, whose boundary is horizontal.
+//                   Meshes that must cut as a unit (roofs, props, sprites) pass
+//                   a flat per-instance origin so they are never sliced through
+//                   the middle at that plane.
+//   fragment_pos  — resolves every boundary that is VERTICAL: the column mask
+//                   and the fan. Always the per-fragment world position, even
+//                   for those meshes, because slicing across a vertical boundary
+//                   is exactly what it is for. A roof spans many metres
+//                   horizontally, so anchoring either one at its origin takes the
+//                   whole roof off (or none of it) rather than just the part that
+//                   qualifies — and would make an authored roof disagree with a
+//                   voxel ceiling over the same building, which cuts per column.
 //
-// Callers where one position serves both use clip_dither_should_discard below.
-bool clip_dither_should_discard_anchored(vec3 height_anchor, vec3 fan_pos, vec2 frag_xy)
+// `column_in` is how much of the cut this mesh takes, in [0,1], or
+// CLIP_COLUMN_FROM_MASK to resolve it from the mask at fragment_pos.
+//
+// Column-local geometry passes the sentinel and lets each fragment answer for
+// itself. A mesh that must cut as ONE OBJECT and spans many columns cannot: no
+// fragment can see the whole footprint, and letting each answer for itself
+// leaves the roof standing in the shape of the building's wall plan — strips
+// over the walls and partitions, floating metres above the walls that justify
+// them. Those callers have the CPU pick one value for the whole mesh (see
+// Roof.UpdateClipParticipation) and pass it here.
+bool clip_dither_should_discard_masked(vec3 height_anchor, vec3 fragment_pos, float column_in, vec2 frag_xy)
 {
 	vec3 world_pos = height_anchor;
-	bool above_prev = world_pos.y > camera_clip_prev;
-	bool above_new = world_pos.y > camera_clip;
-	// Above the ceiling clip on both endpoints: gone, full width, as always.
-	if (above_prev && above_new)
+
+	// Resolved only where the height test could cut something. camera_clip is the
+	// LOWER of the two planes (a clear column), so anything below it is below both
+	// and needs no fetch — which is every fragment of open terrain.
+	vec2 mask = vec2(1.0, 1.0);
+	if (world_pos.y > min(camera_clip, camera_clip_prev))
+	{
+		mask = column_in < 0.0 ? clip_column_mask(fragment_pos.xz) : vec2(column_in, 1.0);
+	}
+	float column = mask.x;
+	// Blocked columns cut at the taller wall plane instead of keeping to infinity.
+	// Callers that supply their own participation resolve at the clear height:
+	// a roof sits far above both planes, so which one it nominally uses cannot
+	// change the outcome.
+	float wall_lift = camera_clip_wall_offset * (1.0 - mask.y);
+	float clip_new = camera_clip + wall_lift;
+	float clip_prev = camera_clip_prev + wall_lift;
+	bool above_prev = world_pos.y > clip_prev;
+	bool above_new = world_pos.y > clip_new;
+	// Above the ceiling clip on both endpoints, in a fully-participating column:
+	// gone, full width, before the fan gets a say. A column part-way in or out of
+	// the mask falls through to stipple against it below.
+	if (above_prev && above_new && column >= 1.0)
 	{
 		return true;
 	}
@@ -252,7 +361,7 @@ bool clip_dither_should_discard_anchored(vec3 height_anchor, vec3 fan_pos, vec2 
 #ifdef CLIP_FAN_PARTICIPATES
 	if (visibility_fan_enabled && world_pos.y > visibility_fan_clip_y)
 	{
-		float fan = visibility_fan_cut(fan_pos);
+		float fan = visibility_fan_cut(fragment_pos);
 		if (fan > 0.0 && clip_dither_test(1.0 - fan, frag_xy))
 		{
 			return true;
@@ -264,6 +373,19 @@ bool clip_dither_should_discard_anchored(vec3 height_anchor, vec3 fan_pos, vec2 
 	{
 		return false;
 	}
+	// Exempt column — the height says cut, the mask says this column is not part
+	// of the rule, so it stands however high it is.
+	if (column <= 0.0)
+	{
+		return false;
+	}
+	// Fully above the clip in a column still fading into the mask: stipple the
+	// cut in proportion rather than taking all of it at once.
+	if (above_prev && above_new)
+	{
+		return clip_dither_test(1.0 - column, frag_xy);
+	}
+
 	// In the transition band — compute a player-centered phase that
 	// normalizes the horizontal distance from the growth center (player
 	// position) by max_radius. World-stable sin-noise wobbles the phase
@@ -298,10 +420,11 @@ bool clip_dither_should_discard_anchored(vec3 height_anchor, vec3 fan_pos, vec2 
 	// center outward. Revealing case (clip rising): reverse phase so
 	// far-from-player pixels transition first and the hole CLOSES toward
 	// the center — the player-centered patch is the last to reappear.
-	// Detected purely from camera_clip vs camera_clip_prev so a mid-fade
-	// reversal (GameCamera.RequestClip swaps prev/new + flips blend) gets
-	// the new direction for free, with no visual pop at the swap instant.
-	if (camera_clip > camera_clip_prev) {
+	// Detected from this column's own pair so a mid-fade reversal
+	// (GameCamera.RequestClip swaps prev/new + flips blend) gets the new
+	// direction for free, with no visual pop at the swap instant. Both planes
+	// carry the same wall lift, so the comparison is unaffected by it.
+	if (clip_new > clip_prev) {
 		phase = 1.0 - phase;
 	}
 
@@ -322,7 +445,17 @@ bool clip_dither_should_discard_anchored(vec3 height_anchor, vec3 fan_pos, vec2 
 	// when the fragment is above the new clip but was below the prev,
 	// and from 0 -> 1 (fading in) when above the prev but below the new.
 	float clip_visibility = above_new ? (1.0 - local_blend) : local_blend;
+	// A column mid-fade takes a proportional share of the cut, so the iris and
+	// the mask boundary dither through each other rather than one overriding the
+	// other. At column = 1 this is the plain band result.
+	clip_visibility = 1.0 - column * (1.0 - clip_visibility);
 	return clip_dither_test(clip_visibility, frag_xy);
+}
+
+// Column-local mesh: each fragment resolves its own participation from the mask.
+bool clip_dither_should_discard_anchored(vec3 height_anchor, vec3 fragment_pos, vec2 frag_xy)
+{
+	return clip_dither_should_discard_masked(height_anchor, fragment_pos, CLIP_COLUMN_FROM_MASK, frag_xy);
 }
 
 // One position for both axes — terrain and anything else already testing its

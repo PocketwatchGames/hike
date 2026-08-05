@@ -262,9 +262,20 @@ void fragment() {
 	// Height clips by origin (never slice a prop at the plane); the visibility
 	// fan clips per fragment, since a roof spans metres horizontally and only
 	// the part over the player's sightline should come off.
+	//
+	// CLIP_PARTICIPATION_INSTANCE: the mesh is too wide for any one fragment to
+	// decide whether it takes part in the column cutaway, so the CPU decides for
+	// the whole instance and hands it down. Roofs only — everything else resolves
+	// per fragment from the mask.
+#ifdef CLIP_PARTICIPATION_INSTANCE
+	if (clip_dither_should_discard_masked(model_origin, world_pos, clip_participation, FRAGCOORD.xy)) {
+		discard;
+	}
+#else
 	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
 		discard;
 	}
+#endif
 
 	// Discovery dither: 4x4 Bayer threshold keyed off integer FRAGCOORD so the
 	// pattern is stable at the screen-pixel level. `visibility >= 1` skips the

@@ -106,25 +106,42 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     }
 
     // Writes the doorway column to match the door's state: Barrier while closed
-    // (opaque to sunlight, block light and navigation), Air while open. Shared
-    // by the load-time stamp (DoorOcclusionStamper) and the runtime toggle so
-    // the two can never disagree about which cells a door owns. Cells actually
+    // (opaque to sunlight, block light and navigation), Opening while open.
+    // Shared by the load-time stamp (DoorOcclusionStamper) and the runtime toggle
+    // so the two can never disagree about which cells a door owns. Cells actually
     // changed are appended to `changed` for the caller's relight.
     public static void ApplyOcclusion(WorldState world, DoorSimState data, List<Vector3I> changed)
     {
         // Active == closed. Door.Create derives its own _open the same way.
-        VoxelType voxel = data.Active ? VoxelType.Barrier : VoxelType.Air;
+        //
+        // Open writes Opening, not Air. Opening is empty in every sense that
+        // matters here — passable, invisible, transparent to light — but the
+        // ceiling cutaway reads it as wall, so the masonry above a doorway stays
+        // put instead of appearing and disappearing as the door swings.
+        //
+        // This is NOT a substitute for authoring the aperture. Apertures are
+        // painted Opening in the editor, every doorway and window, whatever its
+        // width — a door only ever owns a single column (see ResolveOccluderBase),
+        // so it could not carry a wider one anyway. What this write buys is that
+        // a door can never DESTROY the painted aperture by swinging open, which
+        // is what would happen if the open state reverted to plain Air.
+        VoxelType voxel = data.Active ? VoxelType.Barrier : VoxelType.Opening;
         Vector3I baseCell = ResolveOccluderBase(world, data);
         int height = Mathf.Max(1, GetOccluderHeight(data.Scene));
         for (int i = 0; i < height; i++)
         {
             var cell = new Vector3I(baseCell.X, baseCell.Y + i, baseCell.Z);
             VoxelType existing = world.GetVoxelWorld(cell.X, cell.Y, cell.Z);
-            // Only ever write empty cells or the door's own barrier. Authored
+            // Only ever write empty cells or the door's own markers. Authored
             // geometry is never overwritten: a seat position that resolved onto
             // a floor or wall block would otherwise erase it on open and leave a
-            // hole the player falls through.
-            if (existing != VoxelType.Air && existing != VoxelType.Barrier)
+            // hole the player falls through. Opening has to be accepted here as
+            // well as Air — it is what the open state writes, so rejecting it
+            // would let a door stamp Opening once and then never be able to close
+            // back to Barrier. An Opening an AUTHOR painted is equally fine to
+            // take over: both states the door writes block the cutaway anyway,
+            // which is exactly what that author was asking for.
+            if (existing != VoxelType.Air && existing != VoxelType.Barrier && existing != VoxelType.Opening)
             {
                 continue;
             }

@@ -36,6 +36,29 @@ Godot ... --path . --headless -- "autostart 1" "autoplay 1"
 - `autostart` skips the main menu and launches a new game (respects `world_file` if set, else the default `WorldGenData`). `autoplay` spawns a `HeadlessBot` ([scripts/client/HeadlessBot.cs](scripts/client/HeadlessBot.cs)) that drives the player via synthesized global `Input` actions (wander + jump/dash/melee).
 - The sim is renderer-independent (gameplay reads CPU `WorldState` arrays; volume maps are visual-only and no-op when `RenderingServer.GetRenderingDevice()` is null under the dummy renderer). SubViewport passes render nothing headless but don't crash. `ChunkMesh … GroundTint … tile_array` warnings under headless are **benign** (texture-array CPU readback is unavailable, so authored tints are kept).
 - **`--quit-after N` counts FRAMES, not seconds.** Headless spins frames far faster than wall-clock worldgen completes, so a small frame cap quits mid-generation — use a wall-clock timeout (or a large frame budget) when you need the world to finish loading.
+- **Don't sit on a fixed multi-minute timeout — kill on the last load marker.** A warm run prints `[Load] Total (to fade start)` at ~21s (`[Load] WorldGen cache HIT`; a MISS regenerates and is where the minutes go). Stream the output and kill on that line instead of waiting out a timeout.
+
+### Checking That Shaders Still Compile
+
+**`shader_check` is the shader loop — a full autostart run is not needed.** It loads every `.gdshader` in `shaders/`, prints `[shader_check] done`, and quits on its own:
+
+```bash
+Godot ... --path . --headless -- "shader_check 1"     # ~4s, all 49 shaders
+```
+
+Grep the output for `SHADER ERROR` / `Shader compilation failed`; a clean tree prints neither. This beats a gameplay run on coverage as well as speed — shaders reached only by a `GD.Load` in a rare code path (`mesh_outline.gdshader`) may not be touched at all by a short playthrough.
+
+Measured boundaries, so you pick the right run:
+
+| Failure | Cheapest run that reports it |
+|---|---|
+| Syntax / type error, bad `#include` | `--headless -- "shader_check 1"` (~4s) |
+| `global uniform` not registered | **windowed** `-- "autostart 1"` (~10s to the line) |
+
+- **Headless really does run the shader parser** — the dummy renderer's `shader_set_code` compiles the code, so `--headless` is legitimate for everything except the global-uniform check.
+- **An unregistered `global uniform` is invisible headless, and it's a WARNING, not an error**: `Shader uses global parameter 'x', but it was removed at some point.` Grep for `global parameter`, windowed, when you touched a `global uniform` or `[shader_globals]`.
+- **`--script` mode is useless here** — it never brings the rendering server up, so every shader loads "clean" no matter how broken. It must be a real boot.
+- Loading a `Shader` resource does not compile it; the code only reaches the compiler once it's bound to a material (which is what `ShaderCheck.cs` does).
 
 ### Worktree Setup
 
@@ -84,10 +107,10 @@ The runtime node/scene skeleton (`Main` → `GameClient` → `World` → `ChunkM
 
 ### Scenes
 
-- `scenes/main.tscn` - Root scene (Main.cs)
-- `scenes/screens/game.tscn` - Game world with camera, lighting, environment
-- `scenes/screens/main_menu.tscn` - Title screen
-- `scenes/game/player.tscn` - Player CharacterBody3D
+- `scenes/gui/main.tscn` - Root scene (Main.cs)
+- `scenes/gui/game.tscn` - Game world with camera, lighting, environment
+- `scenes/gui/main_menu.tscn` - Title screen
+- `scenes/characters/player.tscn` - Player CharacterBody3D
 - `scenes/gui/` - HUD, pause menu, floating text scenes
 
 ### Utilities (`scripts/utils/`)

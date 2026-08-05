@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 // A generated sloped roof. The mesh is built in code rather than loaded from a
@@ -12,6 +13,18 @@ public partial class Roof : Node3D, IWorldEntity, IClipCover
     // the room from the oversail.
     private float _halfFootprintX;
     private float _halfFootprintZ;
+
+    // Matches CLIP_COLUMN_FROM_MASK in clip_dither.gdshaderinc: "no instance
+    // value, resolve participation per fragment". What a roof reports whenever
+    // the column cutaway isn't the live clip source, leaving the height-only
+    // behaviour exactly as it was.
+    private const float CLIP_PARTICIPATION_FROM_MASK = -1f;
+
+    // Every pass that has to cut with the roof. The shadow proxy is deliberately
+    // absent: it must keep casting after the roof cuts away, or the interior it
+    // just revealed floods with sun.
+    private readonly List<GeometryInstance3D> _clipInstances = new();
+    private float _clipParticipation = CLIP_PARTICIPATION_FROM_MASK;
 
     public void OnSpawned(Sim sim) { }
 
@@ -59,6 +72,7 @@ public partial class Roof : Node3D, IWorldEntity, IClipCover
         }
         AddChild(visual);
         ApplyBroken(visual, data, innerShell: false);
+        _clipInstances.Add(visual);
 
         // Inner shell: the same mesh rendered back-faces-only, with slightly
         // SMALLER holes. Everywhere the roof is solid the outer surface is
@@ -74,6 +88,7 @@ public partial class Roof : Node3D, IWorldEntity, IClipCover
             inner.Layers = GameCamera.MainSceneLayer;
             AddChild(inner);
             ApplyBroken(inner, data, innerShell: true);
+            _clipInstances.Add(inner);
         }
 
         // Non-clipping shadow proxy. The visible material discards above the
@@ -104,7 +119,13 @@ public partial class Roof : Node3D, IWorldEntity, IClipCover
             capMask.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
             capMask.Layers = GameCamera.CapMaskLayer;
             AddChild(capMask);
+            _clipInstances.Add(capMask);
         }
+
+        // Seed every pass before the first frame draws — an instance uniform that
+        // has never been set reads as 0 ("exempt"), which would hold the roof on
+        // for the frame or two before the first update reaches it.
+        ApplyClipParticipation(CLIP_PARTICIPATION_FROM_MASK);
 
         // A plain StaticBody3D on Environment, not a PorousBody: a roof is a
         // building surface, so flight and grounded sight should both stop at it.
@@ -129,6 +150,71 @@ public partial class Roof : Node3D, IWorldEntity, IClipCover
     {
         Vector3 local = ToLocal(worldPos);
         return Mathf.Abs(local.X) <= _halfFootprintX && Mathf.Abs(local.Z) <= _halfFootprintZ;
+    }
+
+    // How much of the column cutaway this roof takes, decided for the whole mesh
+    // and pushed to every pass that cuts with it.
+    //
+    // How much of the cut this roof takes, decided for the whole mesh from HOW
+    // MUCH OF ITS FOOTPRINT sits over the player's own air region.
+    //
+    // Not a sampled point. Every choice of point is arbitrary for a mesh spanning
+    // tens of metres, and both previous attempts failed in play: the origin read
+    // whatever happened to be under the middle of the building, and the nearest
+    // footprint point reads the rect's boundary, which is not the wall line — a
+    // footprint painted slightly larger than its building clamps onto open
+    // street, so a roof cut while the player merely walked past and stopped a
+    // step later. Coverage has no point to be wrong about.
+    //
+    // Measured against the AIR REGION specifically: a roof follows the space
+    // beneath it, and the house's own walls are carried by the flood as bounds of
+    // whatever region the player is in.
+    public void UpdateClipParticipation(ClipColumnMask mask, Vector3 playerPosition)
+    {
+        float participation = CLIP_PARTICIPATION_FROM_MASK;
+        if (mask != null)
+        {
+            FootprintExtents(out Vector2 min, out Vector2 max);
+            participation = mask.RegionCoverage(min, max);
+        }
+        if (Mathf.IsEqualApprox(participation, _clipParticipation))
+        {
+            return;
+        }
+        _clipParticipation = participation;
+        ApplyClipParticipation(participation);
+    }
+
+    private void ApplyClipParticipation(float participation)
+    {
+        for (int i = 0; i < _clipInstances.Count; i++)
+        {
+            _clipInstances[i].SetInstanceShaderParameter("clip_participation", participation);
+        }
+    }
+
+    // World-space XZ bounds of the painted footprint. Built from the four corners
+    // rather than the half-extents directly, so a roof seated at a 90° yaw (the
+    // only rotations the editor produces) reports the rect it actually occupies.
+    // Inset by one cell: the outermost ring straddles the wall line, and a
+    // footprint painted a shade larger than its building would otherwise count
+    // open ground outside the wall as part of the space the roof covers.
+    private const float FOOTPRINT_INSET = 1f;
+
+    private void FootprintExtents(out Vector2 min, out Vector2 max)
+    {
+        float hx = Mathf.Max(_halfFootprintX - FOOTPRINT_INSET, 0.5f);
+        float hz = Mathf.Max(_halfFootprintZ - FOOTPRINT_INSET, 0.5f);
+        Vector3 a = ToGlobal(new Vector3(-hx, 0f, -hz));
+        Vector3 b = ToGlobal(new Vector3(hx, 0f, -hz));
+        Vector3 c = ToGlobal(new Vector3(-hx, 0f, hz));
+        Vector3 d = ToGlobal(new Vector3(hx, 0f, hz));
+        min = new Vector2(
+            Mathf.Min(Mathf.Min(a.X, b.X), Mathf.Min(c.X, d.X)),
+            Mathf.Min(Mathf.Min(a.Z, b.Z), Mathf.Min(c.Z, d.Z)));
+        max = new Vector2(
+            Mathf.Max(Mathf.Max(a.X, b.X), Mathf.Max(c.X, d.X)),
+            Mathf.Max(Mathf.Max(a.Z, b.Z), Mathf.Max(c.Z, d.Z)));
     }
 
     // Instance uniforms rather than per-style materials, so one shared material

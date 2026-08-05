@@ -132,7 +132,7 @@ public static class InteriornessGen
                 {
                     for (int z = 0; z < ChunkState.SIZE; z++)
                     {
-                        if (chunk.Voxels[x, y, z] != VoxelType.Air)
+                        if (!VoxelTypeInfo.IsEmpty(chunk.Voxels[x, y, z]))
                         {
                             continue;
                         }
@@ -237,7 +237,7 @@ public static class InteriornessGen
                                     int lx = sx * CELL + x;
                                     int ly = sy * CELL + y;
                                     int lz = sz * CELL + z;
-                                    if (chunk.Voxels[lx, ly, lz] != VoxelType.Air)
+                                    if (!VoxelTypeInfo.IsEmpty(chunk.Voxels[lx, ly, lz]))
                                     {
                                         continue;
                                     }
@@ -294,7 +294,7 @@ public static class InteriornessGen
     // set by how wide they are, with no roof-specific code here.
     private static bool IsOpen(WorldState ws, Vector3I p)
     {
-        return ws.GetVoxelWorld(p.X, p.Y, p.Z) == VoxelType.Air
+        return VoxelTypeInfo.IsEmpty(ws.GetVoxelWorld(p.X, p.Y, p.Z))
             && !ws.GetSunOpaqueWorld(p.X, p.Y, p.Z);
     }
 

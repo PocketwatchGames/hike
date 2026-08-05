@@ -292,7 +292,7 @@ public partial class WorldEditor : Node3D
     private static readonly VoxelType[] PlaceableTypes =
     {
         VoxelType.Terrain, VoxelType.Stone, VoxelType.Desert, VoxelType.Marsh,
-        VoxelType.Barrier, VoxelType.Water,
+        VoxelType.Barrier, VoxelType.Water, VoxelType.Opening,
     };
 
     // Fixed-prefab entity brushes, in palette order. The scene-palette brushes

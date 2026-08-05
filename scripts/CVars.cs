@@ -1298,6 +1298,28 @@ public static class CVars
     // camera and ground the player can see.
     public static CVarBool visibilityCutaway = new CVarBool("visibility_cutaway", true);
 
+    // clip_column_mask 1 -> the ceiling cutaway is driven by the per-column band
+    // rule (ClipColumnMask) instead of the upward ceiling raycast in
+    // GameCamera.UpdateClip. An A/B switch while both sources exist; the raycast
+    // path, IClipCover and the eave-skip logic come out once this one is proven.
+    // The outdoor visibility fan does not run on the column path — its cut plane
+    // sits at nearly the same height as the column clip and the two fight.
+    public static CVarBool clipColumnMask = new CVarBool("clip_column_mask", false);
+
+    // clip_column_debug 1 -> print the column rule's decision at the player once
+    // a second: the band it tested, what blocked it, whether it found cover, and
+    // the resulting clip height. The first thing to read when the cutaway looks
+    // like it did nothing.
+    public static CVarBool clipColumnDebug = new CVarBool("clip_column_debug", false);
+
+    // clip_column_overlay 1 -> draw the column mask itself as a top-down patch in
+    // the corner, player at the centre, north up. RED = the column is in play,
+    // GREEN = its band is clear; so YELLOW is open floor the rule is cutting at
+    // head height, RED-only is a wall being cut at the taller plane, and BLACK is
+    // exempt. Reading it beside the world is the fastest way to tell "why did
+    // THAT cut" from "why did that NOT cut".
+    public static CVarBool clipColumnOverlay = new CVarBool("clip_column_overlay", false);
+
     // ground_stain 0 -> the GroundStainProjector stops rendering and the lit
     // ground shaders branch around the stain sample, so scorch/footprint/blood
     // marks vanish and terrain renders byte-identical to pre-feature. Perf
@@ -1641,6 +1663,11 @@ public static class CVars
     // stats.txt to this directory, and quits. Use with `--headless` for a
     // fast-feedback debugging loop over the height-field algorithm.
     public static CVarString worldgenDebugDump = new CVarString("worldgen_debug_dump", "");
+
+    // When true, Main loads every .gdshader so the engine parses it, then quits
+    // without starting a game. Pair with `--headless` for a ~4s "do the shaders
+    // still compile" check instead of a full autostart run.
+    public static CVarBool shaderCheck = new CVarBool("shader_check", false);
 
     // Console command: dumps the most recently generated world's plateau/
     // height fields to user://worldgen_debug (outside the project tree).

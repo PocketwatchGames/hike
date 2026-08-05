@@ -328,6 +328,16 @@ public partial class GameCamera : Camera3D
 	public float VisibilityCutY => _visibilityCutY;
 	public MeshInstance3D WaterCapPlane => _waterCapPlane;
 	public bool ManualClipMode { get; set; } = false;
+	// Set while ClipColumnMask owns the clip height, so the camera's own upward
+	// ceiling probe stands down and GameClient drives SetClip instead. Distinct
+	// from ManualClipMode, which the world editor holds for its own cursor-driven
+	// clip and must keep working independently.
+	public bool ExternalClipSource { get; set; }
+	// How far above `Clip` the TALLEST cut surface sits — the blocked-column wall
+	// plane. The cap plane has to be anchored to that, not to Clip: a cap left at
+	// the clear height ends up buried inside a wall that is still standing, so the
+	// pixels where the wall was cut get no black fill at all.
+	public float WallClipOffset { get; set; }
 
 	// Writes an angle preset's framing into the live camera fields. Called only
 	// on a camera_preset CVar change (and once at Init) — never per frame — so
@@ -758,7 +768,14 @@ public partial class GameCamera : Camera3D
 			GlobalPosition += shakeOffset;
 		}
 
-		if (!ManualClipMode)
+		if (ExternalClipSource)
+		{
+			// The column mask owns the clip. The outdoor visibility fan is not
+			// part of that path — its cut plane lands within a metre of the
+			// column clip, so the two cut the same geometry and fight over it.
+			_visibilityCutY = float.PositiveInfinity;
+		}
+		else if (!ManualClipMode)
 		{
 			UpdateClip(playerPosition);
 		}
@@ -1205,6 +1222,10 @@ public partial class GameCamera : Camera3D
 		{
 			effectiveClip = _visibilityCutY;
 		}
+		// Anchored to the TALLEST cut surface. Where a blocked column cuts higher
+		// than a clear one, a cap left at the clear height sits inside the wall
+		// that is still standing and never reaches the pixels the cut exposed.
+		effectiveClip += WallClipOffset;
 		if (effectiveClip < float.PositiveInfinity)
 		{
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;

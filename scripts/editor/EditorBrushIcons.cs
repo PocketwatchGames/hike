@@ -26,11 +26,12 @@ public static class EditorBrushIcons
     }
 
     // Null when the type has no single representative tile (Barrier is invisible
-    // collision), when the terrain kit is unresolved, or when the manifest isn't
-    // loaded — callers fall back to the button's name label.
+    // collision, Opening is an invisible doorway/window marker), when the terrain
+    // kit is unresolved, or when the manifest isn't loaded — callers fall back to
+    // the button's name label.
     public static Texture2D ForVoxelType(VoxelType type, TerrainKitData terrainKit, VoxelAtlasManifest manifest)
     {
-        if (manifest?.layers == null || type == VoxelType.Barrier)
+        if (manifest?.layers == null || type == VoxelType.Barrier || type == VoxelType.Opening)
         {
             return null;
         }

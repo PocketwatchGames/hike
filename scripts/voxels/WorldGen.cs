@@ -2175,7 +2175,7 @@ public static class WorldGen
             // Partial Fisher-Yates over the pool, one content entry per marker
             // (cycled): which spot each occupant gets varies with the seed, but
             // no marker is used twice and the whole list gets placed.
-            var context = new SpawnContext();
+            var context = new SpawnContext { AuthoredPosition = true };
             for (int i = 0; i < take; i++)
             {
                 int j = i + rng.Next(pool.Count - i);
@@ -2202,7 +2202,7 @@ public static class WorldGen
                     // scene, not a fact about the terrain — say so, because the
                     // gates are all silent and the author would otherwise be
                     // left staring at an empty room.
-                    GD.PushWarning($"WorldGen: '{variant.poolTag}' marker at {position} in '{placement.path}' rejected {entry.GetType().Name} — needs {entry.minSpacing}m clear of other entities, air on all four sides over 2 voxels, and a floor its body can stand on.");
+                    GD.PushWarning($"WorldGen: '{variant.poolTag}' marker at {position} in '{placement.path}' rejected {entry.GetType().Name} — needs {entry.minSpacing}m clear of other entities and a floor its body can stand on (check it with `nav_grid`).");
                 }
             }
         }

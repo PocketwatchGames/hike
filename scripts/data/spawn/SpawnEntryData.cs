@@ -136,7 +136,9 @@ public partial class SpawnEntryData : Resource
                 return false;
             }
         }
-        if (RequireLateralClearance && !HasLateralClearance(ws, position))
+        // Skipped for a hand-authored position — see SpawnContext.AuthoredPosition.
+        if (RequireLateralClearance && context?.AuthoredPosition != true
+            && !HasLateralClearance(ws, position))
         {
             return false;
         }

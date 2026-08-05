@@ -40,7 +40,7 @@ public static class GroundTypeResolver
         int fy = Mathf.FloorToInt(worldPos.Y - 0.05f);
 
         VoxelType v = ws.GetVoxelWorld(fx, fy, fz);
-        if (v == VoxelType.Air)
+        if (VoxelTypeInfo.IsEmpty(v))
         {
             fy -= 1;
             v = ws.GetVoxelWorld(fx, fy, fz);

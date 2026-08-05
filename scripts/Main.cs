@@ -74,6 +74,15 @@ public partial class Main : Node
 			return;
 		}
 
+		// Headless shader check: parse every .gdshader and quit, without the
+		// menu or a world. `--headless -- "shader_check 1"` is the fast "do the
+		// shaders still compile" loop; a full autostart run is not needed.
+		if (CVars.shaderCheck.Value)
+		{
+			_ = ShaderCheck.RunAndQuit(GetTree());
+			return;
+		}
+
 		// Headless / automated path: skip the menu and launch a new game
 		// immediately via the menu's own standard-new-game path (reuses all the
 		// existing NewGame wiring — StartMainMenu instantiates and connects the

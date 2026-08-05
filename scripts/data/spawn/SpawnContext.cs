@@ -43,6 +43,16 @@ public sealed class SpawnContext
     // through this context.)
     public ItemCountRange[] ZonePerChestLoot;
 
+    // True when the position was hand-authored (a subscene marker) rather than
+    // sampled off a column. It turns OFF the placement heuristics that exist to
+    // judge whether an AUTO-PICKED spot is sensible — chiefly the 4-neighbour
+    // lateral air test, which rejects anything within a voxel of a wall and so
+    // rejects most of any room worth standing an NPC in. The gates that answer
+    // "can this body physically stand here" (navgrid walkability, entity
+    // overlap) still run: the author picks the spot, the world still gets to
+    // say whether a body fits in it.
+    public bool AuthoredPosition;
+
     // Authored facing (radians about +Y) for the position being spawned at,
     // when the caller has one: a subscene marker carries the rotation it was
     // turned to in the editor, so an NPC stood on it faces the way the author

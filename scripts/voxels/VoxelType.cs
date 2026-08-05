@@ -17,6 +17,20 @@ public enum VoxelType : byte
     Desert = 10,
     // Authored wetland tile (single-tile, no bands/variants).
     Marsh = 11,
+    // An authored OPENING in a structure — the void of a doorway or window.
+    // Invisible, passable and transparent to light, exactly like the Air it
+    // replaces; the one thing it changes is that the ceiling cutaway's column
+    // rule reads it as part of the wall, so the wall above a door or between
+    // stacked windows is never cut into a slot.
+    //
+    // It has to be authored rather than inferred: a 2-voxel doorway and a
+    // 2-voxel tunnel are the same column profile AND the same footprint, so no
+    // geometric test separates them. Barrier is the mirror of this one —
+    // invisible but SOLID, for a closed door blocking sight and light.
+    //
+    // Values are explicit, so this appends without renumbering anything and
+    // old .hike files (which never contain it) keep loading unchanged.
+    Opening = 12,
 }
 
 public static class VoxelTypeInfo
@@ -232,14 +246,33 @@ public static class VoxelTypeInfo
         return faces.Side;
     }
 
+    // Opening is excluded alongside Air and Water, which is what earns it every
+    // other behaviour for free: the mesher, Density and the light engine all
+    // gate on `!IsSolid(v) || v == Barrier`, so an opening produces no geometry,
+    // no collision and no navigation blocker without a single new case.
     public static bool IsSolid(VoxelType type)
     {
-        return type != VoxelType.Air && type != VoxelType.Water;
+        return type != VoxelType.Air && type != VoxelType.Water && type != VoxelType.Opening;
     }
 
+    // "Nothing here" — empty space you can stand in, see through and walk out of.
+    // Use this rather than `== VoxelType.Air` wherever the question is about
+    // EMPTINESS: Opening is a doorway or window void and is empty in every sense
+    // except the ceiling cutaway's, so a raw Air compare silently treats one as
+    // occupied. (`== Air` stays correct where the question is about authored
+    // CONTENT — a subscene's bounds should include the openings it was drawn
+    // with.)
+    public static bool IsEmpty(VoxelType type)
+    {
+        return type == VoxelType.Air || type == VoxelType.Opening;
+    }
+
+    // "Light passes through" — every caller is in the light engine and means
+    // exactly that. A doorway must let sun through, so Opening belongs here; its
+    // LightAttenuation stays 0, unlike water's.
     public static bool IsTransparent(VoxelType type)
     {
-        return type == VoxelType.Water;
+        return type == VoxelType.Water || type == VoxelType.Opening;
     }
 
     /// <summary>

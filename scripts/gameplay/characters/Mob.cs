@@ -1358,8 +1358,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     //   - mesh not drawn (culled / faded out), or a remembered-silhouette mob
     //     that's outside the line-of-sight window (playerCanSee false) and not
     //     player-side — you can't see where it really is.
-    //   - above the camera's ceiling clip (an upper floor cut away by the
-    //     cutaway) — camera.Clip is +inf outdoors, so this only bites indoors.
+    //   - cut away by the ceiling cutaway (an upper floor removed overhead). The
+    //     cutaway is inert outdoors, so this only bites indoors.
     public bool ShowsHudFeedback => ShowsHudFeedbackAt(hudPosition);
 
     // Same gate against an already-resolved hud position. `hudPosition` walks a
@@ -1375,8 +1375,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return false;
         }
-        float clip = GameClient.Current?.camera?.Clip ?? float.PositiveInfinity;
-        return hudPos.Y < clip;
+        return !(GameClient.Current?.IsCutAway(hudPos) ?? false);
     }
 
     public bool CanInteract()
