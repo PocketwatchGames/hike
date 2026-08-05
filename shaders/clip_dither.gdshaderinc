@@ -44,6 +44,101 @@ float clip_dither_hash(ivec2 p)
 	return float((n ^ (n >> 16)) & 0xFFFF) / 65535.0;
 }
 
+// --- Player visibility fan -------------------------------------------
+// Removes exactly the geometry standing between the camera and ground the
+// player can see, so an outdoor cutaway is targeted instead of taking every
+// roof in frame off at once.
+//
+// VisibilityFan bakes what the player can see at eye level — a star-shaped
+// polygon about the player — into a BIN_COUNT x 1 R32F strip of radii
+// indexed by bearing. The test is NOT "is this fragment over the polygon".
+// It is: continue the fragment's view ray onward to the sight plane, and
+// ask whether it LANDS in the polygon. If it does, this fragment sits
+// between the camera and ground the player can see, and it is what needs to
+// go.
+//
+// That distinction is the whole design. Testing the fragment's own position
+// removes what is ABOVE the visible ground, which both misses a building
+// standing in front of the player and over-removes an entire column above a
+// window. Testing the landing point removes an occluder through its full
+// thickness, and nothing else: geometry that occludes nothing projects past
+// the polygon and survives, so a distant ridgeline or a wall on the far side
+// of the player is never touched. The effect needs no near-field term and no
+// activation gate — it is inert until something is genuinely in the way.
+//
+// visibility_fan_enabled is false whenever the clip comes from a real
+// ceiling, so indoor cutaways are untouched: the cut helper returns 1.0 and
+// every consumer collapses to its previous behavior exactly.
+global uniform bool visibility_fan_enabled;
+// World-anchored, NOT player-polar. The temporal smoothing lives in this
+// texture, and a radial r(theta) strip would anchor it to the player: a
+// lagging radius gets reinterpreted from a new origin every frame, so the
+// stale shape is a different region rather than "where I could see a moment
+// ago", and it wobbles as the player walks. Per world cell, a lagging value
+// means one thing no matter where the player went.
+global uniform sampler2D visibility_fan_tex : filter_linear, repeat_disable;
+// World XZ of the grid's (0,0) corner, and the window's total world size.
+global uniform vec2 visibility_fan_origin_xz;
+global uniform float visibility_fan_extent;
+// World Y of the surface view rays are projected onto (the player's eye
+// level). Fragments at or below it can never be in front of it.
+global uniform float visibility_fan_plane_y;
+// Height the fan cuts from, INDEPENDENT of camera_clip. The two compose: the
+// ceiling clip removes everything above it at full width, the fan removes only
+// occluders above this lower plane. Folding them into one value made them
+// mutually exclusive, so a ceiling overhead switched the fan off and windows
+// under it stopped opening.
+global uniform float visibility_fan_clip_y;
+// Main-camera pose, pushed explicitly rather than read from INV_VIEW_MATRIX
+// so the off-screen mask passes resolve the identical volume the main pass
+// does. dir is the constant forward for the orthographic presets; the
+// perspective presets need a per-fragment direction from the position.
+global uniform vec3 visibility_fan_camera_pos;
+global uniform vec3 visibility_fan_view_dir;
+global uniform bool visibility_fan_perspective;
+
+// 1 where the player can see this patch of ground, 0 where they cannot,
+// fractional across the boundary ramp (written CPU-side while rasterizing).
+// The explicit bounds test is what makes outside-the-window read as unseen —
+// repeat_disable would otherwise smear the edge texel outward forever.
+float visibility_fan_contains(vec2 world_xz)
+{
+	vec2 uv = (world_xz - visibility_fan_origin_xz) / visibility_fan_extent;
+	if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))))
+	{
+		return 0.0;
+	}
+	return texture(visibility_fan_tex, uv).r;
+}
+
+// 1 = this fragment stands between the camera and visible ground (cut it),
+// 0 = it occludes nothing (keep it), fractional across the boundary ramp.
+// The caller folds it into its own visibility so the dither does the stipple.
+float visibility_fan_cut(vec3 world_pos)
+{
+	if (!visibility_fan_enabled)
+	{
+		return 1.0;
+	}
+	vec3 view_dir = visibility_fan_perspective
+		? normalize(world_pos - visibility_fan_camera_pos)
+		: visibility_fan_view_dir;
+	// A ray that isn't descending never reaches the sight plane. Guards the
+	// divide as well as the level-camera degenerate case.
+	if (view_dir.y > -1e-4)
+	{
+		return 0.0;
+	}
+	float travel = (visibility_fan_plane_y - world_pos.y) / view_dir.y;
+	// Negative means the plane is BEHIND this fragment along the ray — the
+	// fragment is at or under eye level, so it is not in front of anything.
+	if (travel <= 0.0)
+	{
+		return 0.0;
+	}
+	return visibility_fan_contains(world_pos.xz + view_dir.xz * travel);
+}
+
 // Smooth [0,1] "how much is this point part of the visible interior
 // (below the animating cutaway clip)". 1 = fully drawn / below-clip,
 // 0 = fully cut-away / above-clip; the transition follows the same
@@ -52,6 +147,10 @@ float clip_dither_hash(ivec2 p)
 // cutaway dissolves into them smoothly rather than snapping at camera_clip.
 float clip_visibility_smooth(vec3 world_pos)
 {
+	// Deliberately ignores the visibility fan: camera_clip is a real ceiling
+	// again, so the "above the clip is removed rock" reasoning volumetrics rely
+	// on holds unchanged, and the fan's ray projection stays out of the fog
+	// raymarch (which calls this once per step, 48-256 per pixel).
 	bool above_prev = world_pos.y > camera_clip_prev;
 	bool above_new = world_pos.y > camera_clip;
 	if (above_prev && above_new)
@@ -81,14 +180,86 @@ float clip_visibility_smooth(vec3 world_pos)
 	return above_new ? (1.0 - local_blend) : local_blend;
 }
 
-bool clip_dither_should_discard(vec3 world_pos, vec2 frag_xy)
+// Bayer + hash threshold compare, shared by both discard paths below.
+// `clip_visibility`: 1 = keep the fragment, 0 = cut it away.
+bool clip_dither_test(float clip_visibility, vec2 frag_xy)
 {
+	ivec2 ip = ivec2(frag_xy);
+	int bx = ip.x & 7;
+	int by = ip.y & 7;
+	// Add a small hash-noise offset (±1/128) to the threshold to break
+	// the residual ordered-pattern feel of pure Bayer. Cheap (one int
+	// hash) and stable per-pixel so the noise isn't temporally noisy.
+	float threshold = CLIP_DITHER_BAYER_8[by * 8 + bx];
+	threshold += (clip_dither_hash(ip) - 0.5) * (1.0 / 64.0);
+	// Floor at 0 — the Bayer table's lowest cell is exactly 0, and hash
+	// subtraction would otherwise drop the threshold negative there. At
+	// visibility = 0 (end of a fade-out) the test `0 <= negative` is
+	// FALSE, so those pixels skip the discard for the whole band-logic
+	// phase and only disappear when the post-fade `above_prev &&
+	// above_new` early-out takes over — producing the sparse stuck
+	// pixels that pop off at transition completion.
+	threshold = max(threshold, 0.0);
+	return clip_visibility <= threshold;
+}
+
+// Two positions, because the two axes of the test want different granularity:
+//
+//   height_anchor — resolves the HEIGHT clip. Meshes that must cut as a unit
+//                   (roofs, props, sprites) pass a flat per-instance origin so
+//                   they are never sliced at the horizontal plane.
+//   fan_pos       — resolves the FAN. Always the per-fragment world position,
+//                   even for those meshes: the fan's boundary is vertical, and
+//                   slicing across it is exactly what it is for. A roof spans
+//                   many metres horizontally, so anchoring the fan at its origin
+//                   would take the whole roof off (or none of it) rather than
+//                   just the part over the player's sightline.
+//
+// Callers where one position serves both use clip_dither_should_discard below.
+bool clip_dither_should_discard_anchored(vec3 height_anchor, vec3 fan_pos, vec2 frag_xy)
+{
+	vec3 world_pos = height_anchor;
 	bool above_prev = world_pos.y > camera_clip_prev;
 	bool above_new = world_pos.y > camera_clip;
+	// Above the ceiling clip on both endpoints: gone, full width, as always.
 	if (above_prev && above_new)
 	{
 		return true;
 	}
+
+	// The fan is a SEPARATE cut at its own, lower plane, so it still applies
+	// under an active ceiling clip — that is what lets a first-storey window
+	// open while the player stands under the eaves. Folding the two into one
+	// value made them mutually exclusive, which is the same fact that made
+	// second-storey frames reappear only when a ceiling took over.
+	//
+	// Note the asymmetry: participation is decided by the ANCHOR (a prop's flat
+	// origin), while the cut itself resolves per fragment. So a prop only takes
+	// part when the whole thing is placed above the cut plane — it is elevated
+	// architecture, like a second-storey window frame — and once it qualifies,
+	// only the part actually occluding comes off. A well or a player standing on
+	// the ground is anchored below the plane and is exempt outright, however
+	// tall it is, which is what stopped well.tscn's roof dissolving and the
+	// player's own head being sliced.
+	//
+	// That only holds if the cut plane stays at or above the sight plane; see
+	// the floor on _visibilityCutY in GameCamera, without which the plane can
+	// sink below the player's feet and every ground-standing prop qualifies.
+	//
+	// OPT-IN on top of that: only shaders that #define CLIP_FAN_PARTICIPATES
+	// take part at all. Characters are excluded outright rather than by anchor,
+	// since a flying mob is legitimately anchored high and must never dissolve.
+#ifdef CLIP_FAN_PARTICIPATES
+	if (visibility_fan_enabled && world_pos.y > visibility_fan_clip_y)
+	{
+		float fan = visibility_fan_cut(fan_pos);
+		if (fan > 0.0 && clip_dither_test(1.0 - fan, frag_xy))
+		{
+			return true;
+		}
+	}
+#endif
+
 	if (!above_prev && !above_new)
 	{
 		return false;
@@ -151,21 +322,12 @@ bool clip_dither_should_discard(vec3 world_pos, vec2 frag_xy)
 	// when the fragment is above the new clip but was below the prev,
 	// and from 0 -> 1 (fading in) when above the prev but below the new.
 	float clip_visibility = above_new ? (1.0 - local_blend) : local_blend;
-	ivec2 ip = ivec2(frag_xy);
-	int bx = ip.x & 7;
-	int by = ip.y & 7;
-	// Add a small hash-noise offset (±1/128) to the threshold to break
-	// the residual ordered-pattern feel of pure Bayer. Cheap (one int
-	// hash) and stable per-pixel so the noise isn't temporally noisy.
-	float threshold = CLIP_DITHER_BAYER_8[by * 8 + bx];
-	threshold += (clip_dither_hash(ip) - 0.5) * (1.0 / 64.0);
-	// Floor at 0 — the Bayer table's lowest cell is exactly 0, and hash
-	// subtraction would otherwise drop the threshold negative there. At
-	// visibility = 0 (end of a fade-out) the test `0 <= negative` is
-	// FALSE, so those pixels skip the discard for the whole band-logic
-	// phase and only disappear when the post-fade `above_prev &&
-	// above_new` early-out takes over — producing the sparse stuck
-	// pixels that pop off at transition completion.
-	threshold = max(threshold, 0.0);
-	return clip_visibility <= threshold;
+	return clip_dither_test(clip_visibility, frag_xy);
+}
+
+// One position for both axes — terrain and anything else already testing its
+// own per-fragment world position.
+bool clip_dither_should_discard(vec3 world_pos, vec2 frag_xy)
+{
+	return clip_dither_should_discard_anchored(world_pos, world_pos, frag_xy);
 }

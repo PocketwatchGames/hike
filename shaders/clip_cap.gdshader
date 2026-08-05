@@ -16,7 +16,10 @@ global uniform int clip_debug_mode;
 uniform sampler2D cap_mask_tex : filter_nearest, repeat_disable;
 
 void fragment() {
-	if (clip_debug_mode == 6) {
+	// 6 = cap disabled outright. 21 = the cut volume is being painted instead of
+	// discarded, so the cap has nothing to fill and would only draw black over
+	// the diagnostic.
+	if (clip_debug_mode == 6 || clip_debug_mode == 21) {
 		discard;
 	}
 	float mask = texture(cap_mask_tex, SCREEN_UV).r;

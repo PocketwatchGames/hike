@@ -71,7 +71,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
         {
             return;
         }
-        float rotationY = (float)(rng.NextDouble() * Mathf.Pi * 2f);
+        float rotationY = context?.FacingY ?? (float)(rng.NextDouble() * Mathf.Pi * 2f);
         MobSimState state = descriptor.CreateState(position, rotationY, scene);
         if (state == null)
         {

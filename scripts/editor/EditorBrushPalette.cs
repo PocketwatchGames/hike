@@ -10,10 +10,12 @@ using Godot;
 [GlobalClass]
 public partial class EditorBrushPalette : Resource
 {
-	// Terrain kit stamped as the per-voxel TerrainId behind the Terrain brush —
-	// VoxelType.Terrain has no fixed tile, the shader resolves one from this.
-	// A single default for now; the planned terrain picker turns this into the
-	// author's current selection. The kit must be referenced by some zone in the
+	// What the Terrain brush looks like WHILE AUTHORING — VoxelType.Terrain has
+	// no fixed tile, so the editor needs some kit to resolve one from. It is not
+	// scene content: a stamped scene's natural ground inherits the ground it
+	// lands on (see SubsceneStamper), so a town square reads as mud in a swamp
+	// and grass in a forest with nothing authored per scene. Pick whatever kit
+	// makes the workspace legible; it must be referenced by some zone in the
 	// loaded WorldGenData or it has no palette slot (see WorldGen.TryGetTerrainId).
 	[ExportGroup("Terrain")]
 	[Export] public TerrainKitData terrainBrushKit;
@@ -72,6 +74,15 @@ public partial class EditorBrushPalette : Resource
 	[ExportGroup("Mobs")]
 	[Export] public MobData goblinMob;
 	[Export] public MobData kunKunMob;
+
+	[ExportGroup("Markers")]
+	// Pin drawn where a spawn marker stands. Editor-only art: worldgen consumes
+	// markers at stamp time, so this scene never reaches a running game.
+	[Export] public PackedScene markerScene;
+	// One brush per pool name — placing a marker is picking the pool it belongs
+	// to, so no tag has to be typed. Adding a pool means adding a string here;
+	// a SubscenePlacement's variants fill these pools by the same name.
+	[Export] public string[] markerTags = System.Array.Empty<string>();
 
 	// Forecasts offered by the editor's Weather dropdown, in menu order. The
 	// selected one overrides the zone-blended weather so a scene can be

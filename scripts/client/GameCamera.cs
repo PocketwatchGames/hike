@@ -68,6 +68,13 @@ public partial class GameCamera : Camera3D
 	[Export(PropertyHint.Range, "0,1,0.01")] public float capPlaneYBias = 0.05f;
 
 	private const float CLIP_EPSILON = 0.5f;
+	// How far above a rejected overhang hit the cutaway probe resumes — just
+	// enough to clear the surface it already hit so the same triangle isn't
+	// found again.
+	private const float COVER_SKIP_EPSILON = 0.01f;
+	// Cap on overhang hits skipped in one upward probe. Stacked eaves are the
+	// only way past one, and this runs every frame, so it stays bounded.
+	private const int MAX_COVER_SKIPS = 4;
 	// Player eye offset above the foot position. Other systems (minimap
 	// elevation reference, etc.) read this so the height the camera treats
 	// as "looking from" stays consistent across features.
@@ -94,6 +101,12 @@ public partial class GameCamera : Camera3D
 	// at 60Hz is ~50ms; too small to feel laggy for genuine ceiling
 	// changes, large enough to absorb a single-frame raycast blip.
 	[Export(PropertyHint.Range, "1,12,1")] public int clipTargetStabilityFrames = 3;
+	// Which plateau band the visibility cut sits in, as an offset in PLATEAU_STEP
+	// from the band the ceiling path would pick. 0 is the band just above the
+	// player's eyes — which sits ABOVE first-storey windows, so the fan can
+	// never open one. -1 drops a step so the cut reaches window height. Lower
+	// still cuts more of the near wall away.
+	[Export(PropertyHint.Range, "-3,1,1")] public int visibilityCutPlateauSteps = -1;
 
 	private float _pitchRadians => Mathf.DegToRad(pitchDegrees);
 	private float _clip = float.PositiveInfinity;
@@ -147,6 +160,9 @@ public partial class GameCamera : Camera3D
 	private float _focusBlend;
 	private bool _focusing;
 	private bool _clipAlways = false;
+	// Lower, independent cut plane the visibility fan applies at. Composes with
+	// _clip rather than replacing it — see UpdateClip.
+	private float _visibilityCutY = float.PositiveInfinity;
 	private MeshInstance3D _clipCapPlane;
 	private MeshInstance3D _waterCapPlane;
 	private SubViewport _capMaskViewport;
@@ -307,6 +323,9 @@ public partial class GameCamera : Camera3D
 	// or `_clipAlways` forcing the next-plateau cutaway. Read by the minimap
 	// to swap to its indoor (slice) view in lockstep with the camera.
 	public bool IsIndoorMode => !float.IsPositiveInfinity(_clip);
+	// Height the visibility fan cuts at — below the ceiling clip and independent
+	// of it, so both can be active at once. Infinite when the feature is off.
+	public float VisibilityCutY => _visibilityCutY;
 	public MeshInstance3D WaterCapPlane => _waterCapPlane;
 	public bool ManualClipMode { get; set; } = false;
 
@@ -892,22 +911,14 @@ public partial class GameCamera : Camera3D
 	private void UpdateClip(Vector3 playerPos)
 	{
 		float cameraY = GlobalPosition.Y;
-		Vector3 rayFrom = playerPos;
-		Vector3 rayTo = new Vector3(playerPos.X, cameraY, playerPos.Z);
-
-		var spaceState = GetWorld3D().DirectSpaceState;
-		using var query = PhysicsRayQueryParameters3D.Create(rayFrom, rayTo);
-		query.CollisionMask = (uint)ECollisionLayer.Solid;
-		var result = spaceState.IntersectRay(query);
 
 		float eyeY = playerPos.Y + EYE_HEIGHT;
 		float alwaysClip = Mathf.Ceil(eyeY / PLATEAU_STEP) * PLATEAU_STEP - CLIP_EPSILON;
 
 		float targetClip;
-		if (result.Count > 0)
+		if (TryFindCeiling(playerPos, cameraY, out float ceilingY))
 		{
-			Vector3 hitPosition = (Vector3)result["position"];
-			float ceilingClip = hitPosition.Y - CLIP_EPSILON;
+			float ceilingClip = ceilingY - CLIP_EPSILON;
 			targetClip = _clipAlways ? Mathf.Min(ceilingClip, alwaysClip) : ceilingClip;
 		}
 		else if (_clipAlways)
@@ -918,6 +929,24 @@ public partial class GameCamera : Camera3D
 		{
 			targetClip = float.PositiveInfinity;
 		}
+
+		// The visibility cut is a SEPARATE, lower plane that composes with the
+		// ceiling clip rather than replacing it. Making them one value made them
+		// mutually exclusive: under the eaves of a two-storey building the
+		// ceiling clip won, the fan switched off, and first-storey windows
+		// stopped opening (and second-storey frames reappeared, which is the
+		// same fact seen from the other side). Plateau-snapped so the cut edge
+		// lands on the authored elevation grid; the step offset picks WHICH
+		// band, since the one above the player's eyes sits above first-storey
+		// windows and cannot open them.
+		// Floored at the sight plane the fan projects onto. Below that the fan
+		// cuts nothing anyway (a fragment under the plane is in front of no
+		// visible ground, so visibility_fan_cut early-outs), while the cap plane
+		// would still follow the value down — underground, where terrain hides
+		// it and the cut shows sky instead of a capped surface.
+		_visibilityCutY = CVars.visibilityCutaway.Value
+			? Mathf.Max(alwaysClip + visibilityCutPlateauSteps * PLATEAU_STEP, eyeY - CLIP_EPSILON)
+			: float.PositiveInfinity;
 
 		// Stability filter — a new candidate has to match for
 		// clipTargetStabilityFrames consecutive frames before it lands
@@ -949,6 +978,56 @@ public partial class GameCamera : Camera3D
 		{
 			RequestClip(targetClip, playerPos);
 		}
+	}
+
+
+	// The upward cutaway probe: how high overhead the first thing that counts as
+	// a CEILING sits, straight up from the player's feet to the camera.
+	//
+	// Hits an IClipCover rejects are skipped rather than ending the probe. A
+	// roof's eave and rake overhangs oversail the building by design, and their
+	// underside answers this ray exactly like a soffit does — so treating the
+	// first hit as a ceiling cut the whole roof away while the player was still
+	// outside, standing under the eaves. Nothing about the collider changes; the
+	// overhang still blocks movement, sight and projectiles.
+	private bool TryFindCeiling(Vector3 playerPos, float cameraY, out float ceilingY)
+	{
+		var spaceState = GetWorld3D().DirectSpaceState;
+		float fromY = playerPos.Y;
+		for (int skips = 0; skips <= MAX_COVER_SKIPS && fromY < cameraY; skips++)
+		{
+			using var query = PhysicsRayQueryParameters3D.Create(
+				new Vector3(playerPos.X, fromY, playerPos.Z),
+				new Vector3(playerPos.X, cameraY, playerPos.Z));
+			query.CollisionMask = (uint)ECollisionLayer.Solid;
+			var result = spaceState.IntersectRay(query);
+			if (result.Count == 0)
+			{
+				break;
+			}
+
+			Vector3 hitPosition = (Vector3)result["position"];
+			if (result["collider"].As<GodotObject>() is Node collider
+				&& FindClipCover(collider) is IClipCover cover
+				&& !cover.IsCeilingAt(hitPosition))
+			{
+				fromY = hitPosition.Y + COVER_SKIP_EPSILON;
+				continue;
+			}
+
+			ceilingY = hitPosition.Y;
+			return true;
+		}
+
+		ceilingY = float.PositiveInfinity;
+		return false;
+	}
+
+	// The raycast reports the collider; an entity owns it one level up, since
+	// entities carry their StaticBody3D as a child of the entity node.
+	private static IClipCover FindClipCover(Node collider)
+	{
+		return collider as IClipCover ?? collider.GetParent() as IClipCover;
 	}
 
 	// Approximate equality for clip Y comparisons. Both infinite ⇒ equal;
@@ -1118,6 +1197,14 @@ public partial class GameCamera : Camera3D
 		// which point AdvanceClipFade sets _clipPrev = _clip and the
 		// next-frame re-apply naturally hides the cap.
 		float effectiveClip = Mathf.Min(_clip, _clipPrev);
+		// With no ceiling the fan is the only thing cutting, so the cap follows
+		// it — otherwise an outdoor cut has no surface filling it. Only when
+		// there is no ceiling: a real one keeps the cap exactly where it has
+		// always been, so interiors are untouched by this.
+		if (float.IsPositiveInfinity(effectiveClip))
+		{
+			effectiveClip = _visibilityCutY;
+		}
 		if (effectiveClip < float.PositiveInfinity)
 		{
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;

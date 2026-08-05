@@ -14,4 +14,6 @@ shader_type spatial;
 render_mode ambient_light_disabled, depth_draw_opaque, cull_front;
 
 #define MODEL_SURFACE_DETAIL
+// A roof IS architecture, unlike every other model_lit_body consumer.
+#define CLIP_FAN_PARTICIPATES
 #include "res://shaders/model_lit_body.gdshaderinc"

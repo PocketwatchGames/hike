@@ -5,8 +5,14 @@ using Godot;
 // the editor dragged, so a scene per size/pitch combination is exactly what
 // this exists to avoid. The surface still comes from an authored material.
 [GlobalClass]
-public partial class Roof : Node3D, IWorldEntity
+public partial class Roof : Node3D, IWorldEntity, IClipCover
 {
+    // Half-extents of the PAINTED footprint, in local X/Z. The mesh oversails
+    // these by the style's eave and rake overhangs; IsCeilingAt uses them to tell
+    // the room from the oversail.
+    private float _halfFootprintX;
+    private float _halfFootprintZ;
+
     public void OnSpawned(Sim sim) { }
 
     public static Roof Create(Sim sim, RoofSimState data)
@@ -24,6 +30,16 @@ public partial class Roof : Node3D, IWorldEntity
     {
         ArrayMesh mesh = RoofMeshBuilder.Build(
             data.Style, data.SizeX, data.SizeZ, data.SeamAxis, data.SlopeDegrees, data.Form);
+
+        // Re-derived rather than passed back out of the builder, the same way the
+        // editor's drag preview does it — the clamps that keep a footprint from
+        // collapsing live in RoofDimensions, so reading the raw sizes here would
+        // disagree with the mesh on a degenerate drag.
+        var size = new RoofDimensions(
+            data.Style, data.SizeX, data.SizeZ, data.SeamAxis, data.SlopeDegrees, data.Form);
+        bool alongX = data.SeamAxis == ERoofSeamAxis.AlongX;
+        _halfFootprintX = alongX ? size.HalfSeamBody : size.HalfAcrossBody;
+        _halfFootprintZ = alongX ? size.HalfAcrossBody : size.HalfSeamBody;
 
         // Everything sits at the node origin, which is the roof's BASE: the mesh
         // is built with Y = 0 at the eave's underside. model_lit resolves the
@@ -100,6 +116,19 @@ public partial class Roof : Node3D, IWorldEntity
         collision.Shape = mesh.CreateTrimeshShape();
         body.AddChild(collision);
         AddChild(body);
+    }
+
+    // A roof is a ceiling only over the footprint it was dragged over. Past that
+    // line the mesh is eave / rake oversail hanging over open ground, and the
+    // upward cutaway ray hits its underside just the same — so without this,
+    // standing under the eaves cut the whole roof away from outside the house.
+    // The node origin is the footprint centre, so this is a local-space rectangle
+    // test; ToLocal rather than a world-space compare because the seat transform
+    // owns the placement.
+    public bool IsCeilingAt(Vector3 worldPos)
+    {
+        Vector3 local = ToLocal(worldPos);
+        return Mathf.Abs(local.X) <= _halfFootprintX && Mathf.Abs(local.Z) <= _halfFootprintZ;
     }
 
     // Instance uniforms rather than per-style materials, so one shared material

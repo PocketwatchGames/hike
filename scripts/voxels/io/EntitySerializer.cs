@@ -33,6 +33,7 @@ public static class EntitySerializer
         ForageSpawner = 20,
         SafetyZone = 21,
         Roof = 22,
+        Marker = 23,
     }
 
     // How much of the Roof payload a stream carries. Containers map their own
@@ -604,6 +605,15 @@ public static class EntitySerializer
                 w.Write((byte)roof.Form);
                 break;
 
+            // The pool name it belongs to rides the common trailing Tag, so a
+            // marker's payload is just where it stands (plus the editor's pin
+            // scene, which is all that ever draws it).
+            case MarkerSimState marker:
+                w.Write((byte)Tag.Marker);
+                WriteVec3(w, marker.WorldPosition);
+                WriteScene(w, marker.Scene);
+                break;
+
             default:
                 throw new InvalidOperationException($"EntitySerializer has no writer for {e.GetType().Name}");
         }
@@ -1001,6 +1011,13 @@ public static class EntitySerializer
                 float broken = _roofFormat >= ROOF_FORMAT_BROKEN ? r.ReadSingle() : 0f;
                 var form = _roofFormat >= ROOF_FORMAT_FORM ? (ERoofForm)r.ReadByte() : ERoofForm.Gable;
                 return new RoofSimState(pos, style, sizeX, sizeZ, seamAxis, form, slopeDegrees, broken);
+            }
+            case Tag.Marker:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                // Pool tag comes from the common trailing field ReadOne applies.
+                return new MarkerSimState(pos, "", scene);
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

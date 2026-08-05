@@ -37,6 +37,12 @@ public partial class SubscenePlacement : Resource
     // the world editor if you want a rotation to stay put.
     [Export] public ESubsceneRotation rotation;
 
+    // What this stamp puts in the scene's marker pools (see SubsceneVariant).
+    // Empty means every marker in the scene stays empty here — which is what
+    // makes one `.hikescene` reusable across placements that want different
+    // occupants.
+    [Export] public SubsceneVariant[] variants = System.Array.Empty<SubsceneVariant>();
+
     // Open ground the scene INVITES worldgen content onto — a plaza, a
     // courtyard — as opposed to a building, where a spawn inside lands in a
     // wall. Lets the one-off fixture passes (a zone's villagers, its well, a

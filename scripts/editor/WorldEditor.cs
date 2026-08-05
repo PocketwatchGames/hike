@@ -47,6 +47,9 @@ public enum EEditorEntityKind
     ManaFountain,
     Goblin,
     KunKun,
+    // A tagged position with no body — the subscene spawn point. One brush per
+    // pool name, expanded from EditorBrushPalette.markerTags.
+    Marker,
 }
 
 // What a click does while the entity tool is active.
@@ -83,13 +86,16 @@ public readonly struct EntityBrush
     // Set only for Prop. Carries the scene AND the behavior (PropType) the
     // placed entity gets, so the editor never has to infer one from the other.
     public readonly PropLibraryEntry Prop;
+    // Set only for Marker: the variant pool a placed marker joins.
+    public readonly string Tag;
 
-    public EntityBrush(string name, EEditorEntityKind kind, EEditorEntityTab tab, PropLibraryEntry prop = null)
+    public EntityBrush(string name, EEditorEntityKind kind, EEditorEntityTab tab, PropLibraryEntry prop = null, string tag = "")
     {
         Name = name;
         Kind = kind;
         Tab = tab;
         Prop = prop;
+        Tag = tag;
     }
 }
 
@@ -464,7 +470,9 @@ public partial class WorldEditor : Node3D
 
     // Palette slot of brushPalette.terrainBrushKit, resolved once in Init (the
     // kit palette is bound before the editor scene loads and never changes for
-    // the session). Stamped on every VoxelType.Terrain voxel the brush paints.
+    // the session). Stamped on every VoxelType.Terrain voxel the brush paints —
+    // an editing-time appearance only, since stamping a scene into a world
+    // replaces it with that world's ground (see SubsceneStamper).
     private byte _terrainBrushId;
 
     // documentPath is what Ctrl+S writes back to — a real file when the menu
@@ -747,6 +755,7 @@ public partial class WorldEditor : Node3D
             EEditorEntityKind.Well => brushPalette?.wellScene,
             EEditorEntityKind.HealingFountain => brushPalette?.healingFountainScene,
             EEditorEntityKind.ManaFountain => brushPalette?.manaFountainScene,
+            EEditorEntityKind.Marker => brushPalette?.markerScene,
             _ => null,
         };
     }
@@ -761,7 +770,28 @@ public partial class WorldEditor : Node3D
         {
             _entityBrushes.Add(new EntityBrush(kind.ToString(), kind, EEditorEntityTab.Interactives));
         }
+        AddMarkerBrushes();
         AddPropBrushes();
+    }
+
+    // One brush per authored pool name. Like the prop brushes these are expanded
+    // from the palette rather than fixed in the enum — a new spawn-point pool is
+    // a string in EditorBrushPalette.markerTags, not a code change.
+    private void AddMarkerBrushes()
+    {
+        if (brushPalette?.markerScene == null)
+        {
+            return;
+        }
+        foreach (string tag in brushPalette.markerTags ?? System.Array.Empty<string>())
+        {
+            if (string.IsNullOrEmpty(tag))
+            {
+                continue;
+            }
+            _entityBrushes.Add(new EntityBrush($"Spawn: {tag}", EEditorEntityKind.Marker,
+                EEditorEntityTab.Interactives, prop: null, tag: tag));
+        }
     }
 
     // One brush per library entry PER CATEGORY FLAG it ticks, in library order —
@@ -866,6 +896,16 @@ public partial class WorldEditor : Node3D
         camera.SyncCapMaskCamera(sceneViewport.Size);
         CullProps(camera.Clip);
         _world.UpdateEntityLoading(_cursorPosition);
+
+        // Same `nav_grid` overlay the game draws around the player, centred on
+        // the edit cursor instead — the editor has no player, so Sim's own call
+        // never fires here. Ahead of the fly / over-UI bails below so it keeps
+        // drawing while the view is being moved: it reads the cursor, not the
+        // pick ray, and has nothing to do with what the pointer is over.
+        if (CVars.navGridDebug.Value)
+        {
+            NavGridDebug.Draw(_world, _cursorPosition);
+        }
 
         editorHud.UpdateClip(_clipY);
         bool overUi = editorHud.IsPointerOverUi();
@@ -2866,6 +2906,12 @@ public partial class WorldEditor : Node3D
                 MobData data = brushPalette?.kunKunMob;
                 return data?.mobScene != null ? new MobSimState(position, 0f, data.mobScene, data) : null;
             }
+            // The brush IS the pool — one button per tag, so what gets placed is
+            // decided by which marker brush is selected.
+            case EEditorEntityKind.Marker:
+                return brushPalette?.markerScene != null
+                    ? new MarkerSimState(position, brush.Tag, brushPalette.markerScene)
+                    : null;
             default:
                 return null;
         }

@@ -22,16 +22,23 @@ global uniform float camera_clip_blend;
 global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
+// Architecture: participates in the visibility-fan cut. See clip_dither.
+#define CLIP_FAN_PARTICIPATES
 #include "res://shaders/clip_dither.gdshaderinc"
 
 varying flat vec3 model_origin;
+// Per-fragment world position, needed because the visibility fan resolves per
+// fragment even for props that clip as a unit — see model_lit_body, which must
+// make the identical call or mask and geometry disagree across the fan edge.
+varying vec3 world_vertex;
 
 void vertex() {
 	model_origin = MODEL_MATRIX[3].xyz;
+	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {
-	if (clip_dither_should_discard(model_origin, FRAGCOORD.xy)) {
+	if (clip_dither_should_discard_anchored(model_origin, world_vertex, FRAGCOORD.xy)) {
 		discard;
 	}
 	ALBEDO = vec3(0.0);

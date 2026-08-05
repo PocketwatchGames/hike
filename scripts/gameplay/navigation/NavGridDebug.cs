@@ -1,13 +1,17 @@
 using Godot;
 
-// Debug overlay that renders the mob-navigability grid around the player so a
+// Debug overlay that renders the mob-navigability grid around a point so a
 // designer can see exactly which columns the pathfinder considers standable —
 // the canonical tool for diagnosing "the player can walk in there but the mob
-// won't path there." Gated by the `nav_grid` CVar and driven from World._Process.
+// won't path there." Gated by the `nav_grid` CVar; the game draws it around the
+// player from Sim._Process, the world editor around its edit cursor (there is no
+// player there, so Sim's call bails before reaching this).
 //
 // It samples the NEAREST loaded mob's TraversalProfile (its real maxStepHeight /
 // clearance / headroom), so walking a companion up to a spot shows that mob's
-// view of the world. With no mob loaded it falls back to a default ground walker.
+// view of the world. With no mob loaded — the usual case in the editor — it
+// falls back to a default ground walker, which is what the humanoid NPC entries
+// resolve to anyway.
 //
 // It calls WalkabilityGrid.SampleColumn directly rather than going through
 // WalkabilityGrid.Sample — deliberately. Sample reads the process-wide
@@ -49,7 +53,7 @@ public static class NavGridDebug
     private static readonly Color HazardColor = new(1f, 0.2f, 1f);
     private static readonly Color RejectColor = new(1f, 0.2f, 0.2f);
 
-    public static void Draw(Sim sim, Vector3 playerPos)
+    public static void Draw(Sim sim, Vector3 center)
     {
         WorldState ws = sim?.WorldState;
         if (ws == null)
@@ -57,11 +61,11 @@ public static class NavGridDebug
             return;
         }
 
-        TraversalProfile profile = ProfileForNearestMob(sim, playerPos);
+        TraversalProfile profile = ProfileForNearestMob(sim, center);
 
-        int anchorX = Mathf.FloorToInt(playerPos.X);
-        int anchorY = Mathf.FloorToInt(playerPos.Y);
-        int anchorZ = Mathf.FloorToInt(playerPos.Z);
+        int anchorX = Mathf.FloorToInt(center.X);
+        int anchorY = Mathf.FloorToInt(center.Y);
+        int anchorZ = Mathf.FloorToInt(center.Z);
 
         // One column's worth of layer slots, reused across columns.
         WalkabilityCell[] column = new WalkabilityCell[WalkabilityGrid.MaxColumnLayers];
@@ -106,13 +110,13 @@ public static class NavGridDebug
     // Nearest loaded mob's profile, or the default ground walker if none. The
     // companion following the player is normally the nearest, which is exactly
     // the mob a designer is debugging.
-    private static TraversalProfile ProfileForNearestMob(Sim sim, Vector3 playerPos)
+    private static TraversalProfile ProfileForNearestMob(Sim sim, Vector3 center)
     {
         Mob nearest = null;
         float bestSq = float.MaxValue;
         foreach (Mob mob in sim.GetEntities<Mob>())
         {
-            float dSq = mob.GlobalPosition.DistanceSquaredTo(playerPos);
+            float dSq = mob.GlobalPosition.DistanceSquaredTo(center);
             if (dSq < bestSq)
             {
                 bestSq = dSq;

@@ -32,6 +32,9 @@
 [ext_resource type="Resource" uid="uid://9a30yzgrtp5i4" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
 [ext_resource type="Resource" uid="uid://p8myqetzi5fav" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
 [ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="70_subplace"]
+[ext_resource type="Script" uid="uid://zdnwz72z5aj9h" path="res://scripts/data/SubsceneVariant.cs" id="71_subvariant"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/house_hermit.tres" id="72_hermitlist"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/village_npcs_swamp.tres" id="73_villagenpcs"]
 
 [sub_resource type="Resource" id="Resource_know_cure"]
 script = ExtResource("3_spellteach")
@@ -141,10 +144,16 @@ toPoi = "swamp_highlands"
 texture = ExtResource("58_cobble")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
+[sub_resource type="Resource" id="Variant_village_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("73_villagenpcs")
+
 [sub_resource type="Resource" id="Subscene_town_square"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/town_square01.hikescene"
 anchorXZ = Vector2i(65, 66)
+variants = [SubResource("Variant_village_npcs")]
 allowFixtures = true
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
@@ -170,6 +179,18 @@ metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house04.hikescene"
 anchorXZ = Vector2i(81, 63)
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
+[sub_resource type="Resource" id="Variant_hermit"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("72_hermitlist")
+
+[sub_resource type="Resource" id="Subscene_house04_mud"]
+script = ExtResource("70_subplace")
+path = "res://resources/data/subscenes/house04.hikescene"
+anchorXZ = Vector2i(-35, 60)
+variants = [SubResource("Variant_hermit")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Bounds_swamp"]
@@ -228,7 +249,7 @@ scriptData = ExtResource("24_songscript")
 zones = [SubResource("Placed_swamp"), SubResource("Placed_village"), SubResource("Placed_mud"), SubResource("Placed_highlands")]
 regions = [ExtResource("15_7nyke")]
 playerSpawnPosition = Vector3(72, 0, 72)
-subscenes = [SubResource("Subscene_town_square"), SubResource("Subscene_house01"), SubResource("Subscene_house02"), SubResource("Subscene_house03"), SubResource("Subscene_house04")]
+subscenes = [SubResource("Subscene_town_square"), SubResource("Subscene_house01"), SubResource("Subscene_house02"), SubResource("Subscene_house03"), SubResource("Subscene_house04"), SubResource("Subscene_house04_mud")]
 pointsOfInterestPlacements = [SubResource("Poi_swamp"), SubResource("Poi_village"), SubResource("Poi_mud"), SubResource("Poi_highlands")]
 roads = [SubResource("Road_village_hollow"), SubResource("Road_village_mud"), SubResource("Road_village_highlands")]
 forge = ExtResource("62_forge")

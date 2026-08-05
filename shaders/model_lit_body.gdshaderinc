@@ -259,7 +259,10 @@ void fragment() {
 	// straddling the clip gets sliced at the plane. A prop should either fully
 	// dither out or stay, as a unit, like sprites do (which clip against their
 	// flat anchor). Runs before any other work.
-	if (clip_dither_should_discard(model_origin, FRAGCOORD.xy)) {
+	// Height clips by origin (never slice a prop at the plane); the visibility
+	// fan clips per fragment, since a roof spans metres horizontally and only
+	// the part over the player's sightline should come off.
+	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
 		discard;
 	}
 

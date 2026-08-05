@@ -331,6 +331,42 @@ camera_clip_growth_edge_softness={
 "type": "float",
 "value": 0.2
 }
+visibility_fan_enabled={
+"type": "bool",
+"value": false
+}
+visibility_fan_tex={
+"type": "sampler2D",
+"value": "res://assets/textures/block_light_shadow_placeholder.tres"
+}
+visibility_fan_origin_xz={
+"type": "vec2",
+"value": Vector2(0, 0)
+}
+visibility_fan_extent={
+"type": "float",
+"value": 26.0
+}
+visibility_fan_plane_y={
+"type": "float",
+"value": 0.0
+}
+visibility_fan_clip_y={
+"type": "float",
+"value": 1e+20
+}
+visibility_fan_camera_pos={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+visibility_fan_view_dir={
+"type": "vec3",
+"value": Vector3(0, -1, 0)
+}
+visibility_fan_perspective={
+"type": "bool",
+"value": false
+}
 debug_solid={
 "type": "vec3",
 "value": Vector3(0, 0, 0)

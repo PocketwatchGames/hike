@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 67;
+    public const int WORLDGEN_VERSION = 69;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -334,6 +334,8 @@ public static class WorldGen
     // Post-gen distribution of ZoneGenData.distributedLoot across a zone's chests.
     private const int SEED_SALT_ZONELOOT = 0x16;
     private const int SEED_SALT_TREASURE = 0x17;
+    // Which of a stamped scene's markers a SubscenePlacement variant fills.
+    private const int SEED_SALT_SUBSCENE = 0x18;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -632,7 +634,7 @@ public static class WorldGen
         // Stamp the subscenes reserved up front (voxels + entities), sitting
         // each on the plateau level under its footprint. Env overrides land in a
         // second pass, after the wind/envtag default bake (below).
-        var stampedSubscenes = StampReservedSubscenes(ws, reservedSubscenes, heightMap);
+        var stampedSubscenes = StampReservedSubscenes(ws, reservedSubscenes, heightMap, worldSeed);
 
         // Pathfind and carve roads between connected POIs. Runs AFTER props so
         // the route can prefer naturally open ground (props add pathfinding
@@ -2063,27 +2065,149 @@ public static class WorldGen
     }
 
     private static List<(SubsceneState sub, Vector3 anchor)> StampReservedSubscenes(
-        WorldState ws, List<(SubsceneState sub, SubscenePlacement placement)> reserved, HeightMap heightMap)
+        WorldState ws, List<(SubsceneState sub, SubscenePlacement placement)> reserved, HeightMap heightMap, int worldSeed)
     {
         var stamped = new List<(SubsceneState, Vector3)>();
-        foreach ((SubsceneState sub, SubscenePlacement placement) in reserved)
+        for (int si = 0; si < reserved.Count; si++)
         {
+            (SubsceneState sub, SubscenePlacement placement) = reserved[si];
             Vector3I origin = FootprintOrigin(sub, placement);
             int plateauY = FootprintPlateauY(heightMap, origin, sub.Size, out int levelCount);
             // Anchored ON the plateau's top voxel, not above it: a scene carries
             // its own floor, so its bottom layer replaces that voxel instead of
             // stacking a second floor on top of the ground.
             var anchor = new Vector3(placement.anchorXZ.X, plateauY, placement.anchorXZ.Y);
+            // Pulled out BEFORE the stamp: a marker is a position this placement
+            // may or may not fill, never an entity the world keeps.
+            List<MarkerSimState> markers = ExtractMarkers(sub);
             int entityCount = sub.Entities?.Count ?? 0;
             // A fixture-open scene keeps what is already standing on it: the
             // fixture pass ran earlier and placed there deliberately, and a
             // plaza's stamp only re-paves the ground they stand on.
             int evicted = placement.allowFixtures ? 0 : ClearEntitiesInVolume(ws, origin, anchor, sub.Size);
+            Vector3 markerOffset = SubsceneStamper.WorldOffset(sub, anchor);
             SubsceneStamper.StampVoxels(ws, sub, anchor);
+            int fromVariants = SpawnSubsceneVariants(ws, placement, markers, markerOffset,
+                new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SUBSCENE), si, 0)));
             stamped.Add((sub, anchor));
-            GD.Print($"[WorldGen] stamped subscene {placement.path.GetFile()} at {anchor} (size={sub.Size}, rot={(int)placement.rotation * 90}deg, entities={entityCount}, evicted={evicted}, plateau levels under footprint={levelCount})");
+            GD.Print($"[WorldGen] stamped subscene {placement.path.GetFile()} at {anchor} (size={sub.Size}, rot={(int)placement.rotation * 90}deg, entities={entityCount}, markers={markers.Count}, variant spawns={fromVariants}, evicted={evicted}, plateau levels under footprint={levelCount})");
         }
         return stamped;
+    }
+
+    // Removes the scene's markers from the stamp list and returns them. They
+    // still hold subscene-local positions — the caller translates.
+    private static List<MarkerSimState> ExtractMarkers(SubsceneState sub)
+    {
+        var markers = new List<MarkerSimState>();
+        if (sub.Entities == null)
+        {
+            return markers;
+        }
+        for (int i = sub.Entities.Count - 1; i >= 0; i--)
+        {
+            if (sub.Entities[i] is MarkerSimState marker)
+            {
+                markers.Add(marker);
+                sub.Entities.RemoveAt(i);
+            }
+        }
+        // The removal walks backwards, so restore authored order — a variant
+        // that fills every marker in a pool then does so predictably.
+        markers.Reverse();
+        return markers;
+    }
+
+    // Fills this placement's declared marker pools. Runs AFTER the voxel stamp:
+    // the entries' own gates (lateral clearance, navgrid walkability) have to
+    // see the building, not the ground it replaced. Returns how many entities
+    // were actually placed.
+    private static int SpawnSubsceneVariants(WorldState ws, SubscenePlacement placement,
+        List<MarkerSimState> markers, Vector3 worldOffset, Random rng)
+    {
+        SubsceneVariant[] variants = placement.variants ?? System.Array.Empty<SubsceneVariant>();
+        if (variants.Length == 0)
+        {
+            return 0;
+        }
+        // NOT short-circuited on an empty marker list: a scene with no markers
+        // at all is the case most worth reporting, and the per-variant warning
+        // below is what names the pool that came up empty.
+
+        // Authored placements, like the fixture passes: roads route around them
+        // and never regrade the ground under them.
+        bool wasTagging = ws.TaggingFixtures;
+        ws.TaggingFixtures = true;
+        int spawned = 0;
+        var pool = new List<MarkerSimState>();
+        foreach (SubsceneVariant variant in variants)
+        {
+            if (variant == null || string.IsNullOrEmpty(variant.poolTag) || variant.content?.entries == null)
+            {
+                continue;
+            }
+            pool.Clear();
+            foreach (MarkerSimState marker in markers)
+            {
+                if (marker.Tag == variant.poolTag)
+                {
+                    pool.Add(marker);
+                }
+            }
+            if (pool.Count == 0)
+            {
+                GD.PushWarning($"WorldGen: subscene '{placement.path}' has no markers tagged '{variant.poolTag}'.");
+                continue;
+            }
+            // Hoisted: entries is a Godot Array, so Count and the indexer both
+            // cross into native.
+            int entryCount = variant.content.entries.Count;
+            if (entryCount == 0)
+            {
+                continue;
+            }
+            int wanted = variant.count > 0 ? variant.count : entryCount;
+            int take = Math.Min(wanted, pool.Count);
+            if (take < wanted)
+            {
+                GD.PushWarning($"WorldGen: subscene '{placement.path}' has {pool.Count} marker(s) tagged '{variant.poolTag}' but the variant wants {wanted} — {wanted - take} not placed.");
+            }
+            // Partial Fisher-Yates over the pool, one content entry per marker
+            // (cycled): which spot each occupant gets varies with the seed, but
+            // no marker is used twice and the whole list gets placed.
+            var context = new SpawnContext();
+            for (int i = 0; i < take; i++)
+            {
+                int j = i + rng.Next(pool.Count - i);
+                (pool[i], pool[j]) = (pool[j], pool[i]);
+                MarkerSimState marker = pool[i];
+                SpawnEntryData entry = variant.content.entries[i % entryCount];
+                if (entry == null)
+                {
+                    continue;
+                }
+                // The context carries the marker's authored facing and nothing
+                // else: the position is authored too, so there is no column
+                // sampler to offer — and the terrain gates it would drive judge
+                // the ground the building replaced, not the floor stood on.
+                context.FacingY = marker.RotationY;
+                Vector3 position = marker.WorldPosition + worldOffset;
+                if (entry.TrySpawn(ws, position, rng, context))
+                {
+                    spawned++;
+                }
+                else
+                {
+                    // An authored marker that spawns nothing is a bug in the
+                    // scene, not a fact about the terrain — say so, because the
+                    // gates are all silent and the author would otherwise be
+                    // left staring at an empty room.
+                    GD.PushWarning($"WorldGen: '{variant.poolTag}' marker at {position} in '{placement.path}' rejected {entry.GetType().Name} — needs {entry.minSpacing}m clear of other entities, air on all four sides over 2 voxels, and a floor its body can stand on.");
+                }
+            }
+        }
+        ws.TaggingFixtures = wasTagging;
+        return spawned;
     }
 
     // Light the campfire nearest the spawn, so the party starts at a burning

@@ -2,119 +2,15 @@
 
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
-[ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="3_npc"]
 [ext_resource type="Script" uid="uid://kfffp8mrtgin" path="res://scripts/data/spawn/BoatSpawnEntry.cs" id="5_boat"]
-[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="6_loyaltygift"]
-[ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="6_mpd4i"]
-[ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/characters/MobInventoryData.cs" id="7_stock"]
-[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="8_villager"]
-[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="10_lang"]
-[ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/characters/npcs/friendly_villager_conversation.tres" id="11_conv"]
-[ext_resource type="Resource" uid="uid://csrlvygmra001" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="12_scroll"]
-[ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="13_leather"]
 [ext_resource type="PackedScene" uid="uid://b8npx1masl5o6" path="res://scenes/vehicles/boat.tscn" id="15_boatscene"]
-[ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="16_villager_m"]
-[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="17_palette"]
-[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="18_recolor"]
-[ext_resource type="Resource" uid="uid://df3tkp1uue567" path="res://resources/data/world_gen/party/talia.tres" id="19_talia"]
-[ext_resource type="Resource" uid="uid://b2q10suq78qsl" path="res://resources/data/characters/npcs/wanderer_conversation.tres" id="20_wanderconv"]
-[ext_resource type="PackedScene" uid="uid://pkm1b280lc1a" path="res://scenes/characters/friendly_villager_female.tscn" id="21_villager_f"]
 [ext_resource type="Script" uid="uid://dtcbuyhqmo1pi" path="res://scripts/data/spawn/SafetyZoneSpawnEntry.cs" id="22_safetyentry"]
 [ext_resource type="PackedScene" uid="uid://cppetcwunu7o8" path="res://scenes/interactives/safety_zone.tscn" id="23_safetyscene"]
-
-[sub_resource type="Resource" id="Stock_leather"]
-script = ExtResource("7_stock")
-item = ExtResource("13_leather")
-metadata/_custom_type_script = "uid://dkowx1ny0eu5e"
-
-[sub_resource type="Resource" id="Loyalty_grammar"]
-script = ExtResource("6_loyaltygift")
-item = ExtResource("12_scroll")
-requiredLoyalty = 5.0
-metadata/_custom_type_script = "uid://3h0g6cv5drq7"
-
-[sub_resource type="Resource" id="Merch_top"]
-script = ExtResource("18_recolor")
-meshNames = PackedStringArray("M_Hunter_Top")
-color = Color(0.34, 0.18, 0.42, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Merch_bottom"]
-script = ExtResource("18_recolor")
-meshNames = PackedStringArray("M_Hunter_Bottom")
-color = Color(0.62, 0.48, 0.18, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Merch_hat"]
-script = ExtResource("18_recolor")
-meshNames = PackedStringArray("M_Hunter_FeltedHat")
-color = Color(0.24, 0.14, 0.3, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Merch_palette"]
-script = ExtResource("17_palette")
-recolors = [SubResource("Merch_top"), SubResource("Merch_bottom"), SubResource("Merch_hat")]
-metadata/_custom_type_script = "uid://cicvni6fvcssx"
-
-[sub_resource type="Resource" id="Npc_villager"]
-script = ExtResource("3_npc")
-language = ExtResource("10_lang")
-conversation = ExtResource("11_conv")
-scene = ExtResource("16_villager_m")
-outfit = PackedStringArray("M_hair_4", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
-palette = SubResource("Merch_palette")
-idleAnimation = null
-loyaltyGifts = Array[ExtResource("6_loyaltygift")]([SubResource("Loyalty_grammar")])
-inventory = [SubResource("Stock_leather")]
-descriptor = ExtResource("8_villager")
-initialBehavior = null
-metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="Boat_home"]
 script = ExtResource("5_boat")
 scene = ExtResource("15_boatscene")
 metadata/_custom_type_script = "uid://kfffp8mrtgin"
-
-[sub_resource type="Resource" id="Recruit_top"]
-script = ExtResource("18_recolor")
-meshNames = PackedStringArray("F_Archer_Top")
-color = Color(0.28, 0.42, 0.3, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Recruit_bottom"]
-script = ExtResource("18_recolor")
-meshNames = PackedStringArray("F_Archer_Bottom")
-color = Color(0.3, 0.26, 0.2, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Recruit_cape"]
-script = ExtResource("18_recolor")
-meshNames = PackedStringArray("F_Archer_Cape")
-color = Color(0.5, 0.3, 0.2, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Recruit_palette"]
-script = ExtResource("17_palette")
-recolors = [SubResource("Recruit_top"), SubResource("Recruit_bottom"), SubResource("Recruit_cape")]
-metadata/_custom_type_script = "uid://cicvni6fvcssx"
-
-[sub_resource type="Resource" id="Npc_recruit"]
-script = ExtResource("3_npc")
-conversation = ExtResource("20_wanderconv")
-scene = ExtResource("21_villager_f")
-outfit = PackedStringArray("F_hair_3", "F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")
-palette = SubResource("Recruit_palette")
-idleAnimation = &"idle_neutral"
-recruitTemplate = ExtResource("19_talia")
-descriptor = ExtResource("8_villager")
-initialBehavior = null
-metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="SafetyZone_home"]
 script = ExtResource("22_safetyentry")
@@ -126,4 +22,4 @@ metadata/_custom_type_script = "uid://pfjwm48icbnys"
 [resource]
 script = ExtResource("2_group")
 scatterRadius = 5.0
-entries = Array[ExtResource("1_base")]([SubResource("Npc_villager"), SubResource("Boat_home"), SubResource("Npc_recruit"), SubResource("SafetyZone_home")])
+entries = Array[ExtResource("1_base")]([SubResource("Boat_home"), SubResource("SafetyZone_home")])

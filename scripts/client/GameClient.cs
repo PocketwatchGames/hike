@@ -301,6 +301,37 @@ public partial class GameClient : Node3D
 	// gives the iso rig headroom without trawling distant entities.
 	[Export(PropertyHint.Range, "2,32,0.5")] public float foliagePlayerFadeProbeRange = 8f;
 
+	[ExportGroup("Visibility Cutaway")]
+	// How far the player's sight reaches, in metres. Bounds the polygon and
+	// therefore how far from the player an occluder can be and still be removed.
+	// Also sizes the CPU occupancy window, so it is the one knob with a cost —
+	// (2r+3)² cells per tick.
+	[Export(PropertyHint.Range, "4,32,0.5")] public float visibilityFarRadius = 7.5f;
+	// Meters of soft ramp at the fan boundary before the Bayer dither, matching
+	// foliagePlayerFadeSoftEdge's role on the canopy cutaway.
+	[Export(PropertyHint.Range, "0.05,3,0.05")] public float visibilityEdgeSoftness = 0.6f;
+	// How far short of a hit surface the fan stops. Wants to be about
+	// visibilityEdgeSoftness: the ramp spans ±softness around the boundary, so
+	// without this the cut reaches that far INTO every wall the fan stops
+	// against and slices the top off its near face. Does not apply to the
+	// near-field terms, which cut into walls deliberately.
+	[Export(PropertyHint.Range, "0,2,0.05")] public float visibilityRaySetback = 0.5f;
+	// Height band above the player's FEET treated as eye level, in metres. A
+	// column blocks sight only if it is solid across the whole band, so a window
+	// opening anywhere inside it reads as see-through. Windows are authored at
+	// roughly feet+1 to feet+2, which is what the defaults track — a single
+	// sample height cannot catch them reliably at 1m voxel resolution.
+	[Export(PropertyHint.Range, "0,3,0.1")] public float visibilitySightLow = 1f;
+	[Export(PropertyHint.Range, "0,3,0.1")] public float visibilitySightHigh = 2f;
+	// Per-bearing radius smoothing. Opening is the visible event — an iris
+	// sweeping down a newly-exposed sightline as the player rounds a corner —
+	// so it runs slower than the close, mirroring clipFadeDown vs clipFadeUp.
+	// Also low-passes a single bad frame of ray output into a few percent of
+	// movement rather than a hole punched through the world.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float visibilityOpenSeconds = 0.15f;
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float visibilityCloseSeconds = 0.25f;
+	[ExportGroup("")]
+
 	public Action<Player> onPlayerSpawned;
 	// Fired from OnPlayerDiedInternal (GameClient's own player.onDied bridge),
 	// so subscribers get death reliably without racing the deferred player
@@ -1341,6 +1372,57 @@ public partial class GameClient : Node3D
 		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_edge_softness", cameraClipGrowthEdgeSoftness);
 	}
 
+	// Horizontal mask for the outdoor cutaway. Created lazily so a session that
+	// never triggers one never allocates the occupancy window or the strip.
+	private VisibilityFan _visibilityFan;
+
+	private void PushVisibilityFanGlobals(double deltaSeconds)
+	{
+		if (_player == null || camera == null)
+		{
+			return;
+		}
+		_visibilityFan ??= new VisibilityFan();
+
+		Sim sim = Sim.Current;
+		Vector3 playerPos = _player.GlobalPosition;
+
+		_visibilityFan.MaxRadius = visibilityFarRadius;
+		_visibilityFan.EdgeSoftness = visibilityEdgeSoftness;
+		_visibilityFan.RaySetback = visibilityRaySetback;
+		_visibilityFan.SightLow = visibilitySightLow;
+		_visibilityFan.SightHigh = visibilitySightHigh;
+		_visibilityFan.OpenSeconds = visibilityOpenSeconds;
+		_visibilityFan.CloseSeconds = visibilityCloseSeconds;
+
+		// Armed whenever the feature is on, INCLUDING under an active ceiling
+		// clip — the fan cuts at its own lower plane, so the two compose. Gating
+		// it on "no ceiling" is what stopped first-storey windows opening under
+		// the eaves of a two-storey building.
+		bool active = sim != null && !float.IsPositiveInfinity(camera.VisibilityCutY);
+		_visibilityFan.Tick(active, sim?.WorldState, playerPos, (float)deltaSeconds);
+
+		// IsOpen (not `active`) so the field survives its close-out animation
+		// rather than the global dropping and snapping geometry back in a frame.
+		RenderingServer.GlobalShaderParameterSet("visibility_fan_enabled", _visibilityFan.IsOpen);
+		if (!_visibilityFan.IsOpen)
+		{
+			return;
+		}
+		// Window anchor, not the live player position: the field is accumulated
+		// per world cell so its temporal lag stays pinned to the world.
+		RenderingServer.GlobalShaderParameterSet("visibility_fan_origin_xz", _visibilityFan.OriginXz);
+		RenderingServer.GlobalShaderParameterSet("visibility_fan_extent", _visibilityFan.Extent);
+		RenderingServer.GlobalShaderParameterSet("visibility_fan_plane_y", _visibilityFan.SightPlaneY);
+		RenderingServer.GlobalShaderParameterSet("visibility_fan_clip_y", camera.VisibilityCutY);
+		// Camera pose pushed explicitly rather than left to INV_VIEW_MATRIX, so
+		// the off-screen cap-mask passes project onto the same sight plane the
+		// main pass does — they render with their own cameras.
+		RenderingServer.GlobalShaderParameterSet("visibility_fan_camera_pos", camera.GlobalPosition);
+		RenderingServer.GlobalShaderParameterSet("visibility_fan_view_dir", -camera.GlobalBasis.Z);
+		RenderingServer.GlobalShaderParameterSet("visibility_fan_perspective", camera.Projection == Camera3D.ProjectionType.Perspective);
+	}
+
 	public override void _ExitTree()
 	{
 		// Silence any in-flight rumble when the game scene tears down (quit to
@@ -1390,6 +1472,14 @@ public partial class GameClient : Node3D
 		using (Profiler.Sample("GameClient.FoliageGlobals"))
 		{
 			PushFoliageOcclusionGlobals(deltaTime);
+		}
+
+		// Same reasoning as the foliage globals above — ahead of the pause /
+		// console gates, since a stale fan would leave the wrong hole cut while
+		// the camera drifts.
+		using (Profiler.Sample("GameClient.VisibilityFan"))
+		{
+			PushVisibilityFanGlobals(deltaTime);
 		}
 
 		// Drive rumble before the pause/console gate: an indefinite vibration

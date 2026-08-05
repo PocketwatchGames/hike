@@ -43,6 +43,13 @@ public sealed class SpawnContext
     // through this context.)
     public ItemCountRange[] ZonePerChestLoot;
 
+    // Authored facing (radians about +Y) for the position being spawned at,
+    // when the caller has one: a subscene marker carries the rotation it was
+    // turned to in the editor, so an NPC stood on it faces the way the author
+    // pointed. Null — every scan pass — leaves each entry rolling its own.
+    // Honored by the mob entries; other types face as they always did.
+    public float? FacingY;
+
     // Pick a position within `radius` of `anchor` that satisfies all the
     // entry's placement gates: column validity (IsValidColumn), flat
     // terrain if required (IsFlatColumn + entry.RequireFlatTerrain), and

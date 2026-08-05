@@ -1235,6 +1235,19 @@ public static class CVars
     //  10 = voxel_water `camera_clip` global as grayscale (mod 16).
     //  11 = voxel_water face-type visualizer. CYAN = top, MAGENTA =
     //       bottom, YELLOW = side. For diagnosing water poke-through.
+    //  20 = visibility fan footprint painted onto the ground in GREEN. The
+    //       fan is a vertical prism, so the terrain surface shows its exact
+    //       plan-view outline: near ellipse elongated toward the camera plus
+    //       whatever sightlines and doorways opened up. Combine with
+    //       `visibility_cutaway_force 1` to inspect the shape in the open,
+    //       where no roof is in the way.
+    //  21 = the cut VOLUME painted RED on terrain instead of being discarded,
+    //       so the prism reads as a solid: red climbs a wall from the clip
+    //       plane up and stops laterally at the fan boundary. Mode 20 is the
+    //       plan view, this is the elevation. The ceiling cap stands down in
+    //       this mode so it can't paint black over the diagnostic. Terrain
+    //       only — roofs are model props and still cut away normally, so pair
+    //       with `props_visible 0` if one is in the way.
     // For inspecting the ceiling cap's mask coverage directly (the
     // SubViewport-rendered black/white silhouette), use `cap_mask_debug 1`
     // instead — that draws the mask texture as a fullscreen overlay.
@@ -1276,6 +1289,14 @@ public static class CVars
     {
         GameClient.Current?.camera?.SetOutlineMaskPassEnabled(((CVarBool)cvar).Value);
     });
+
+    // visibility_cutaway 0 -> the outdoor cutaway never arms, so the ceiling
+    // cutaway stays purely ceiling-driven. Standing behind a tall building
+    // outdoors leaves the player hidden, which is the pre-feature behavior.
+    // There is no separate "engage" switch: the cutaway runs unconditionally
+    // outdoors and removes nothing unless something is actually between the
+    // camera and ground the player can see.
+    public static CVarBool visibilityCutaway = new CVarBool("visibility_cutaway", true);
 
     // ground_stain 0 -> the GroundStainProjector stops rendering and the lit
     // ground shaders branch around the stain sample, so scorch/footprint/blood

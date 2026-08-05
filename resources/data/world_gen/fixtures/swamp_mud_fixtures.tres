@@ -2,57 +2,9 @@
 
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
-[ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="3_npc"]
-[ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="4_equbd"]
-[ext_resource type="Resource" uid="uid://5y7s98x14lcxm" path="res://resources/data/world_gen/mob_descriptors/hermit.tres" id="4_hermit"]
-[ext_resource type="Resource" uid="uid://w5olwf3iq444" path="res://resources/data/characters/npcs/hermit_conversation.tres" id="5_conv"]
-[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="6_f643l"]
-[ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="6_villager_m"]
-[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="7_palette"]
-[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="8_recolor"]
 [ext_resource type="Resource" uid="uid://irm377w14z4uf" path="res://resources/data/languages/muddish.tres" id="9_lang"]
-[ext_resource type="Resource" uid="uid://b8sb4docghyjo" path="res://resources/data/world_gen/party/hermit.tres" id="10_recruit"]
 [ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="11_stone"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="12_stonescene"]
-
-[sub_resource type="Resource" id="Hermit_top"]
-script = ExtResource("8_recolor")
-meshNames = PackedStringArray("M_TopBody")
-color = Color(0.32, 0.28, 0.22, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Hermit_bottom"]
-script = ExtResource("8_recolor")
-meshNames = PackedStringArray("M_BottomBody")
-color = Color(0.22, 0.2, 0.17, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Hermit_hair"]
-script = ExtResource("8_recolor")
-meshNames = PackedStringArray("M_hair_8")
-color = Color(0.58, 0.56, 0.52, 1)
-amount = 0.7
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Hermit_palette"]
-script = ExtResource("7_palette")
-recolors = [SubResource("Hermit_top"), SubResource("Hermit_bottom"), SubResource("Hermit_hair")]
-metadata/_custom_type_script = "uid://cicvni6fvcssx"
-
-[sub_resource type="Resource" id="Hermit"]
-script = ExtResource("3_npc")
-language = ExtResource("9_lang")
-conversation = ExtResource("5_conv")
-scene = ExtResource("6_villager_m")
-outfit = PackedStringArray("M_hair_8", "M_TopBody", "M_BottomBody")
-palette = SubResource("Hermit_palette")
-idleAnimation = &"idle_old_man"
-recruitTemplate = ExtResource("10_recruit")
-descriptor = ExtResource("4_hermit")
-initialBehavior = null
-metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="Stone_mud"]
 script = ExtResource("11_stone")
@@ -64,4 +16,5 @@ metadata/_custom_type_script = "uid://d3c3iycy3trkp"
 
 [resource]
 script = ExtResource("2_group")
-entries = Array[ExtResource("1_base")]([SubResource("Hermit"), SubResource("Stone_mud")])
+entries = Array[ExtResource("1_base")]([SubResource("Stone_mud")])
+metadata/_custom_type_script = "uid://ci23e7ltpsb6o"

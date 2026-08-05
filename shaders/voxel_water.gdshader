@@ -13,6 +13,8 @@ global uniform float camera_clip_blend;
 global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
+// Architecture: participates in the visibility-fan cut. See clip_dither.
+#define CLIP_FAN_PARTICIPATES
 #include "res://shaders/clip_dither.gdshaderinc"
 global uniform int clip_debug_mode;
 // When true, the water shader discards every fragment. Lets you see the

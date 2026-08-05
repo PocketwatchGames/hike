@@ -90,7 +90,7 @@ public partial class MobSpawnEntry : SpawnEntryData
         {
             return;
         }
-        float rotationY = (float)(rng.NextDouble() * Mathf.Pi * 2f);
+        float rotationY = context?.FacingY ?? (float)(rng.NextDouble() * Mathf.Pi * 2f);
         // Layer the per-area worldgen level field (and underground bonus) onto the
         // descriptor's authored base level, then hand the final tier to CreateState
         // so the mob's vitals are scaled to it at construction (before this state is

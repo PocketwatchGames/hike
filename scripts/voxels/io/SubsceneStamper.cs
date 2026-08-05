@@ -18,6 +18,9 @@ using Godot;
 // the post-stamp geometry; block light rebuilds itself when torch entities
 // spawn and register with LightEngine.
 //
+// TerrainId is the one channel not copied verbatim — a scene's natural ground
+// INHERITS the ground it lands on. See SampleGroundTerrain.
+//
 // Entity instances in `sub.Entities` are mutated (WorldPosition set in
 // world-space) and added to the world directly. After StampVoxels, the
 // supplied SubsceneState's entity list is empty — load a fresh state from
@@ -28,6 +31,10 @@ public static class SubsceneStamper
     {
         Vector3I worldOrigin = ComputeWorldOrigin(sub, worldAnchor);
         Vector3I size = sub.Size;
+        // Sampled before the first write — the stamp overwrites the very
+        // voxels it inherits from.
+        int[,] groundTerrain = SampleGroundTerrain(ws, worldOrigin, size);
+        int footprintGround = MajorityGround(groundTerrain, size);
 
         for (int lx = 0; lx < size.X; lx++)
         {
@@ -43,7 +50,7 @@ public static class SubsceneStamper
                     int wy = worldOrigin.Y + ly;
                     int wz = worldOrigin.Z + lz;
                     ws.SetVoxelWorld(wx, wy, wz, sub.Voxels[lx, ly, lz], (VoxelTypeInfo.SharpAxes)sub.Shape[lx, ly, lz]);
-                    ws.SetTerrainIdWorld(wx, wy, wz, sub.TerrainId[lx, ly, lz]);
+                    ws.SetTerrainIdWorld(wx, wy, wz, ResolveTerrainId(sub, groundTerrain, footprintGround, lx, ly, lz));
                     ws.SetOverlayIdWorld(wx, wy, wz, sub.OverlayId[lx, ly, lz]);
                     ws.SetDetailGroupWorld(wx, wy, wz, sub.DetailGroup[lx, ly, lz]);
                     ws.SetDetailStrengthWorld(wx, wy, wz, sub.DetailStrength[lx, ly, lz]);
@@ -51,10 +58,7 @@ public static class SubsceneStamper
             }
         }
 
-        Vector3 worldOffset = new Vector3(
-            worldAnchor.X - sub.Anchor.X,
-            worldAnchor.Y - sub.Anchor.Y,
-            worldAnchor.Z - sub.Anchor.Z);
+        Vector3 worldOffset = WorldOffset(sub, worldAnchor);
         if (sub.Entities != null)
         {
             foreach (EntitySimState e in sub.Entities)
@@ -71,6 +75,105 @@ public static class SubsceneStamper
             }
             sub.Entities.Clear();
         }
+    }
+
+    // A TerrainId byte is a slot in the kit palette of the world the scene was
+    // authored in. Palettes are built per WorldGenData by walking its zones, so
+    // the same kit sits at a different slot in every world and a kit no zone
+    // references has no slot at all — an out-of-range slot renders as bare
+    // stone, because its shader uniform was never written.
+    //
+    // The authored byte is therefore discarded: a scene has no biome of its own,
+    // so its natural ground inherits the ground it is stamped onto. The same
+    // town square reads as mud in a swamp and grass in a forest, with nothing to
+    // author per scene. Deliberate materials go in channels that ARE world-
+    // independent — an explicit VoxelType (Stone, Marsh) or an OverlayId
+    // (cobblestone, dirt), both of which name a block directly.
+    private const int NO_GROUND = -1;
+
+    // How far below the bbox floor to look for the ground being stamped onto.
+    // Scenes anchor ON the plateau's top voxel, so the first sample usually
+    // hits; the rest covers columns whose ground sits a step or two lower.
+    private const int GROUND_SEARCH_DEPTH = 8;
+
+    private static int ResolveTerrainId(SubsceneState sub, int[,] groundTerrain, int footprintGround, int lx, int ly, int lz)
+    {
+        int inherited = groundTerrain[lx, lz];
+        if (inherited == NO_GROUND)
+        {
+            inherited = footprintGround;
+        }
+        // Nothing under any of it — a stamp into open air, or the editor's blank
+        // workspace where the scene IS the world and its own byte is the only
+        // index there is.
+        return inherited != NO_GROUND ? inherited : sub.TerrainId[lx, ly, lz];
+    }
+
+    // Per-column TerrainId of the destination ground under the stamp's footprint,
+    // NO_GROUND for a column with nothing solid within GROUND_SEARCH_DEPTH.
+    private static int[,] SampleGroundTerrain(WorldState ws, Vector3I worldOrigin, Vector3I size)
+    {
+        var ground = new int[size.X, size.Z];
+        for (int lx = 0; lx < size.X; lx++)
+        {
+            for (int lz = 0; lz < size.Z; lz++)
+            {
+                int wx = worldOrigin.X + lx;
+                int wz = worldOrigin.Z + lz;
+                ground[lx, lz] = NO_GROUND;
+                for (int depth = 0; depth < GROUND_SEARCH_DEPTH; depth++)
+                {
+                    int wy = worldOrigin.Y - depth;
+                    if (!VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy, wz)))
+                    {
+                        continue;
+                    }
+                    ground[lx, lz] = ws.GetTerrainIdWorld(wx, wy, wz);
+                    break;
+                }
+            }
+        }
+        return ground;
+    }
+
+    // What the footprint as a whole is standing on, for the columns that found
+    // nothing — a scene overhanging a ledge or a pond takes the kit the rest of
+    // it is sitting on rather than a palette slot nobody chose. NO_GROUND when
+    // no column found ground at all.
+    private static int MajorityGround(int[,] ground, Vector3I size)
+    {
+        var counts = new int[byte.MaxValue + 1];
+        int best = NO_GROUND;
+        int bestCount = 0;
+        for (int lx = 0; lx < size.X; lx++)
+        {
+            for (int lz = 0; lz < size.Z; lz++)
+            {
+                int id = ground[lx, lz];
+                if (id == NO_GROUND)
+                {
+                    continue;
+                }
+                if (++counts[id] > bestCount)
+                {
+                    bestCount = counts[id];
+                    best = id;
+                }
+            }
+        }
+        return best;
+    }
+
+    // Subscene-local → world translation for a stamp at `worldAnchor`. Exposed
+    // so a caller that pulls entities OUT of the list before stamping (WorldGen
+    // consumes markers rather than placing them) lands them where the stamp
+    // would have.
+    public static Vector3 WorldOffset(SubsceneState sub, Vector3 worldAnchor)
+    {
+        return new Vector3(
+            worldAnchor.X - sub.Anchor.X,
+            worldAnchor.Y - sub.Anchor.Y,
+            worldAnchor.Z - sub.Anchor.Z);
     }
 
     public static void StampEnvOverrides(WorldState ws, SubsceneState sub, Vector3 worldAnchor)

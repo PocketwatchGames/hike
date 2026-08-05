@@ -15,6 +15,8 @@ global uniform float camera_clip_blend;
 global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
+// Architecture: participates in the visibility-fan cut. See clip_dither.
+#define CLIP_FAN_PARTICIPATES
 #include "res://shaders/clip_dither.gdshaderinc"
 global uniform int clip_debug_mode;
 global uniform vec3 debug_solid; // (0,0,0) = disabled, otherwise forces ALBEDO.
@@ -1008,7 +1010,10 @@ void fragment() {
 		EMISSION = vec3(wetness_level, sun_mask * wet_slope, wet_geom);
 		wet_spec = 0.0;
 	}
-	if (clip_dither_should_discard(world_vertex, FRAGCOORD.xy)) {
+	// Mode 21 keeps cut fragments alive so they can be painted below — the cut
+	// VOLUME is otherwise invisible by construction.
+	bool clip_cut = clip_dither_should_discard(world_vertex, FRAGCOORD.xy);
+	if (clip_cut && clip_debug_mode != 21) {
 		discard;
 	}
 	// Mode 13: paint terrain via EMISSION (bypasses lighting) so it shows
@@ -1020,6 +1025,30 @@ void fragment() {
 	if (clip_debug_mode == 13 || clip_debug_mode == 14) {
 		ALBEDO = vec3(0.0);
 		EMISSION = vec3(0.0, 0.0, 0.4);
+	}
+	// Mode 20: paint the visibility fan's footprint onto the ground, so its
+	// SHAPE is directly readable. The fan is a vertical prism, so sampling it
+	// at the terrain surface gives exactly the plan-view outline — the near
+	// ellipse elongated toward the camera, plus whatever sightlines and
+	// doorways the ray march opened. Green inside, fading across the soft edge.
+	// Via EMISSION so it survives dim/interior lighting like mode 13 does.
+	// Pair with `visibility_cutaway_force 1` to read it standing in the open.
+	if (clip_debug_mode == 20 && visibility_fan_enabled) {
+		// Containment, not the cut test: this paints where the player can SEE
+		// (the polygon's plan view). The cut test would paint nothing here,
+		// since ground sits below the sight plane and is in front of nothing.
+		float fan_debug = visibility_fan_contains(world_vertex.xz);
+		ALBEDO = vec3(0.0);
+		EMISSION = mix(EMISSION, vec3(0.05, 0.9, 0.3), fan_debug * 0.8);
+	}
+	// Mode 21: paint the cut VOLUME in red rather than removing it. Mode 20
+	// gives the plan view; this gives the elevation, which is the half you
+	// cannot infer from a footprint — red climbs a wall from the clip plane
+	// upward and stops laterally at the fan boundary, so the prism reads as a
+	// solid. The dither stipples the edge, showing the soft ramp too.
+	if (clip_debug_mode == 21 && clip_cut) {
+		ALBEDO = vec3(0.0);
+		EMISSION = vec3(0.9, 0.05, 0.15);
 	}
 }
 
