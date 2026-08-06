@@ -1,0 +1,94 @@
+[gd_scene format=3 uid="uid://6ed61nomh8wwo"]
+
+[ext_resource type="Script" uid="uid://r9qfbdjjhmgxp" path="res://scripts/gameplay/entities/Trapdoor.cs" id="1_trapdoor"]
+[ext_resource type="Script" uid="uid://mzybnn7qgxsxb" path="res://scripts/gameplay/entities/TrapdoorPanel.cs" id="2_panel"]
+[ext_resource type="Script" uid="uid://jld00rg3hnt8q" path="res://scripts/data/world/TrapdoorData.cs" id="3_data"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="4_box"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="5_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_event"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="7_meshhl"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="8_modellit"]
+[ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="9_white"]
+[ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="10_open"]
+
+[sub_resource type="Resource" id="Resource_td_event_open"]
+script = ExtResource("6_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_td_action_open"]
+script = ExtResource("5_action")
+displayName = &"Open"
+icon = ExtResource("10_open")
+completionEvents = Array[ExtResource("6_event")]([SubResource("Resource_td_event_open")])
+
+[sub_resource type="Resource" id="Resource_td_data"]
+script = ExtResource("3_data")
+openAngleDeg = 92.0
+openSeconds = 0.25
+closeSeconds = 0.35
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wood"]
+render_priority = 0
+shader = ExtResource("8_modellit")
+shader_parameter/albedo_tex = ExtResource("9_white")
+shader_parameter/form_strength = 0.3
+shader_parameter/color_tint = Color(0.45, 0.3, 0.17, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[sub_resource type="BoxMesh" id="BoxMesh_leaf"]
+material = SubResource("ShaderMaterial_wood")
+size = Vector3(2, 0.2, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_leaf"]
+size = Vector3(2, 0.2, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(2, 2, 2)
+
+[node name="Trapdoor" type="Node3D" node_paths=PackedStringArray("_panel", "_hudNode")]
+script = ExtResource("1_trapdoor")
+_panel = NodePath("Panel")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("5_action")]([SubResource("Resource_td_action_open")])
+
+[node name="Panel" type="Node3D" parent="." node_paths=PackedStringArray("_hinge", "_leafCollider")]
+script = ExtResource("2_panel")
+data = SubResource("Resource_td_data")
+_hinge = NodePath("Hinge")
+_leafCollider = NodePath("LeafCollider")
+
+[node name="LeafCollider" type="StaticBody3D" parent="Panel"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Panel/LeafCollider"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+shape = SubResource("BoxShape3D_leaf")
+
+[node name="Hinge" type="Node3D" parent="Panel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1)
+
+[node name="Leaf" type="MeshInstance3D" parent="Panel/Hinge"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 1)
+mesh = SubResource("BoxMesh_leaf")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("4_box")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("7_meshhl")
+_collectFrom = NodePath("../Panel/Hinge")

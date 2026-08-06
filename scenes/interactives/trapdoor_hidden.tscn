@@ -1,0 +1,121 @@
+[gd_scene format=3 uid="uid://dtd6fk0wqinab"]
+
+[ext_resource type="Script" uid="uid://bnfujjr3k2ir5" path="res://scripts/gameplay/entities/Trap.cs" id="1_trap"]
+[ext_resource type="Script" uid="uid://mzybnn7qgxsxb" path="res://scripts/gameplay/entities/TrapdoorPanel.cs" id="2_panel"]
+[ext_resource type="Script" uid="uid://jld00rg3hnt8q" path="res://scripts/data/world/TrapdoorData.cs" id="3_data"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="4_box"]
+[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="5_disc"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="6_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="7_event"]
+[ext_resource type="Script" uid="uid://dsu0nvrw5cdsi" path="res://scripts/gameplay/entities/TriggerSource.cs" id="8_trig"]
+[ext_resource type="PackedScene" uid="uid://byjufllnj0ow2" path="res://scenes/hud/discoverable_hud.tscn" id="9_hud"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="10_modellit"]
+[ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="11_white"]
+
+[sub_resource type="Resource" id="Resource_td_event_disarm"]
+script = ExtResource("7_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_td_action_disarm"]
+script = ExtResource("6_action")
+displayName = &"jam shut"
+completionEvents = Array[ExtResource("7_event")]([SubResource("Resource_td_event_disarm")])
+durationSeconds = 2.0
+locksMovement = true
+
+[sub_resource type="Resource" id="Resource_td_data"]
+script = ExtResource("3_data")
+openAngleDeg = 92.0
+openSeconds = 0.14
+closeSeconds = 0.4
+warningSeconds = 0.35
+autoCloseSeconds = 3.5
+armedProminence = 0.55
+firedProminence = 2.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wood"]
+render_priority = 0
+shader = ExtResource("10_modellit")
+shader_parameter/albedo_tex = ExtResource("11_white")
+shader_parameter/form_strength = 0.3
+shader_parameter/color_tint = Color(0.42, 0.29, 0.18, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[sub_resource type="BoxMesh" id="BoxMesh_leaf"]
+material = SubResource("ShaderMaterial_wood")
+size = Vector3(2, 0.2, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_leaf"]
+size = Vector3(2, 0.2, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_trigger"]
+size = Vector3(2, 1, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(2.5, 2, 2.5)
+
+[node name="Trapdoor" type="Node3D" node_paths=PackedStringArray("_triggerSource", "_deployers", "_interactBox", "_discoverable", "_hudNode")]
+script = ExtResource("1_trap")
+_triggerSource = NodePath("TriggerSource")
+_deployers = [NodePath("Panel")]
+_interactBox = NodePath("InteractiveBox")
+_discoverable = NodePath("Discoverable")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("6_action")]([SubResource("Resource_td_action_disarm")])
+
+[node name="Panel" type="Node3D" parent="." node_paths=PackedStringArray("_hinge", "_leafCollider", "_discoverable")]
+script = ExtResource("2_panel")
+data = SubResource("Resource_td_data")
+_hinge = NodePath("Hinge")
+_leafCollider = NodePath("LeafCollider")
+_discoverable = NodePath("../Discoverable")
+
+[node name="LeafCollider" type="StaticBody3D" parent="Panel"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Panel/LeafCollider"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+shape = SubResource("BoxShape3D_leaf")
+
+[node name="Hinge" type="Node3D" parent="Panel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1)
+
+[node name="Leaf" type="MeshInstance3D" parent="Panel/Hinge"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 1)
+mesh = SubResource("BoxMesh_leaf")
+
+[node name="TriggerSource" type="Area3D" parent="." node_paths=PackedStringArray("_targets")]
+collision_layer = 0
+collision_mask = 0
+script = ExtResource("8_trig")
+_targets = [NodePath("../Panel")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TriggerSource"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("4_box")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+
+[node name="Discoverable" type="Node3D" parent="." node_paths=PackedStringArray("_hudAnchor", "_fadeMeshRoot")]
+script = ExtResource("5_disc")
+losRayHeight = 0.0
+hudScene = ExtResource("9_hud")
+hudScale = 0.5
+_hudAnchor = NodePath("../HUDNode")
+_fadeMeshRoot = NodePath("../Panel/Hinge")

@@ -41,6 +41,16 @@ public partial class EditorBrushPalette : Resource
 	[ExportGroup("Interactives")]
 	[Export] public PackedScene doorScene;
 	[Export] public PackedScene spikeTrapScene;
+	// Player-operated floor trapdoor; the perception-gated drop trap; and the
+	// crumbling floor that looks like ground and breaks when stepped on.
+	[Export] public PackedScene trapdoorScene;
+	[Export] public PackedScene trapdoorTrapScene;
+	[Export] public PackedScene crumblingFloorScene;
+	// Lever that remote-throws a linked trapdoor. One "Lever: tag" + "Trapdoor:
+	// tag" brush pair is generated per entry (see WorldEditor.AddLinkedTrapdoorBrushes),
+	// sharing the tag so the lever throws that trapdoor.
+	[Export] public PackedScene leverScene;
+	[Export] public string[] linkTags = System.Array.Empty<string>();
 	[Export] public PackedScene climbableTreeScene;
 	[Export] public PackedScene torchScene;
 	[Export] public PackedScene campfireScene;

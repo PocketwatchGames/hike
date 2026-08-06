@@ -34,6 +34,8 @@ public static class EntitySerializer
         SafetyZone = 21,
         Roof = 22,
         Marker = 23,
+        Trapdoor = 24,
+        Lever = 25,
     }
 
     // How much of the Roof payload a stream carries. Containers map their own
@@ -431,6 +433,22 @@ public static class EntitySerializer
                 WriteScene(w, boat.Scene);
                 break;
 
+            case TrapdoorSimState trapdoor:
+                w.Write((byte)Tag.Trapdoor);
+                WriteVec3(w, trapdoor.WorldPosition);
+                WriteScene(w, trapdoor.Scene);
+                w.Write(trapdoor.Open);
+                w.Write(trapdoor.LinkTag ?? string.Empty);
+                break;
+
+            case LeverSimState lever:
+                w.Write((byte)Tag.Lever);
+                WriteVec3(w, lever.WorldPosition);
+                WriteScene(w, lever.Scene);
+                w.Write(lever.TargetLinkTag ?? string.Empty);
+                w.Write(lever.On);
+                break;
+
             case CampfireSimState campfire:
                 w.Write((byte)Tag.Campfire);
                 WriteVec3(w, campfire.WorldPosition);
@@ -821,6 +839,28 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 return new BoatSimState(pos, rotationY: 0f, scene);
+            }
+            case Tag.Trapdoor:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                bool open = r.ReadBoolean();
+                string linkTag = r.ReadString();
+                var trapdoor = new TrapdoorSimState(pos, rotationY: 0f, scene);
+                trapdoor.Open = open;
+                trapdoor.LinkTag = linkTag;
+                return trapdoor;
+            }
+            case Tag.Lever:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                string targetLinkTag = r.ReadString();
+                bool on = r.ReadBoolean();
+                var lever = new LeverSimState(pos, rotationY: 0f, scene);
+                lever.TargetLinkTag = targetLinkTag;
+                lever.On = on;
+                return lever;
             }
             case Tag.Torch:
             {
