@@ -1,0 +1,104 @@
+[gd_scene load_steps=18 format=3 uid="uid://o855v1a5ij0wo"]
+
+[ext_resource type="Script" uid="uid://86h26u5gs29fp" path="res://scripts/gameplay/entities/Cactus.cs" id="1_cactus"]
+[ext_resource type="Script" uid="uid://jv7xaseb02ujc" path="res://scripts/data/world/CactusData.cs" id="2_data"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="3_damage"]
+[ext_resource type="Script" uid="uid://jmrwopt7ktlx7" path="res://scripts/data/combat/HazardProfileData.cs" id="4_hazard"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="5_hurtbox"]
+[ext_resource type="Script" uid="uid://dsu0nvrw5cdsi" path="res://scripts/gameplay/entities/TriggerSource.cs" id="6_trigger"]
+[ext_resource type="PackedScene" uid="uid://cggycl43ldcah" path="res://scenes/projectiles/cactus_spine.tscn" id="7_spine"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="8_porous"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_body"]
+albedo_color = Color(0.22, 0.47, 0.26, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+material = SubResource("StandardMaterial3D_body")
+radius = 0.32
+height = 1.5
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_arm"]
+material = SubResource("StandardMaterial3D_body")
+radius = 0.13
+height = 0.55
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
+height = 1.5
+radius = 0.3
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
+radius = 0.4
+height = 1.5
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_touch"]
+height = 1.8
+radius = 0.75
+
+[sub_resource type="Resource" id="Resource_hazard"]
+script = ExtResource("4_hazard")
+strength = 150.0
+damageFloorPercent = 0.05
+damageCeilingPercent = 0.3
+procFloorPercent = 0.25
+procCeilingPercent = 1.0
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("3_damage")
+hazardProfile = SubResource("Resource_hazard")
+armorPenetration = 0.4
+friendlyFire = true
+
+[sub_resource type="Resource" id="Resource_cactus_data"]
+script = ExtResource("2_data")
+projectileScene = ExtResource("7_spine")
+damageData = SubResource("Resource_damage")
+spineCount = 12
+spineSpeed = 12.0
+spineLifetimeSeconds = 1.2
+spineElevationDegrees = 12.0
+launchHeight = 0.6
+cooldownSeconds = 1.5
+
+[node name="Cactus" type="Node3D" node_paths=PackedStringArray("_hurtBox")]
+script = ExtResource("1_cactus")
+data = SubResource("Resource_cactus_data")
+_hurtBox = NodePath("HurtBox")
+
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+mesh = SubResource("CapsuleMesh_body")
+
+[node name="ArmL" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3, 0.95, 0)
+mesh = SubResource("CapsuleMesh_arm")
+
+[node name="ArmR" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 1.05, 0)
+mesh = SubResource("CapsuleMesh_arm")
+
+[node name="Collider" type="StaticBody3D" parent="."]
+script = ExtResource("8_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Collider"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CylinderShape3D_body")
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("5_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_hurt")
+
+[node name="TriggerSource" type="Area3D" parent="." node_paths=PackedStringArray("_targets")]
+collision_layer = 0
+collision_mask = 0
+script = ExtResource("6_trigger")
+_targets = [NodePath("..")]
+cooldown = 0.5
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TriggerSource"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CylinderShape3D_touch")

@@ -18,6 +18,8 @@
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="m_gold"]
 [ext_resource type="Resource" uid="uid://a2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="m_orange"]
 [ext_resource type="Resource" uid="uid://s8l1m34eoh8ca" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
+[ext_resource type="Script" uid="uid://2skpu1c9y7jqc" path="res://scripts/data/spawn/CactusSpawnEntry.cs" id="40_cactus_entry"]
+[ext_resource type="PackedScene" uid="uid://o855v1a5ij0wo" path="res://scenes/interactives/cactus.tscn" id="41_cactus_scene"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("3_3y2ux")
@@ -50,6 +52,11 @@ squareMetersPerSpawn = 2000.0
 script = ExtResource("11_trap_entry")
 scene = ExtResource("12_trap_scene")
 squareMetersPerSpawn = 600.0
+
+[sub_resource type="Resource" id="Resource_cactus"]
+script = ExtResource("40_cactus_entry")
+scene = ExtResource("41_cactus_scene")
+squareMetersPerSpawn = 700.0
 
 [sub_resource type="Resource" id="Resource_spider"]
 script = ExtResource("3_3y2ux")
@@ -84,4 +91,4 @@ squareMetersPerSpawn = 350.0
 
 [resource]
 script = ExtResource("8_88i6m")
-entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap"), SubResource("Resource_spider"), SubResource("Resource_drake"), SubResource("Resource_m_orange"), SubResource("Resource_m_gold"), SubResource("Resource_m_red")])
+entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap"), SubResource("Resource_cactus"), SubResource("Resource_spider"), SubResource("Resource_drake"), SubResource("Resource_m_orange"), SubResource("Resource_m_gold"), SubResource("Resource_m_red")])

@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://cggycl43ldcah"]
+
+[ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_proj"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spine"]
+shading_mode = 0
+albedo_color = Color(0.86, 0.79, 0.46, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_spine"]
+material = SubResource("StandardMaterial3D_spine")
+size = Vector3(0.05, 0.05, 0.45)
+
+[node name="CactusSpine" type="Node3D"]
+script = ExtResource("1_proj")
+
+[node name="Model" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_spine")
