@@ -1,0 +1,179 @@
+[gd_scene format=3 uid="uid://4af08c5087te6"]
+
+[ext_resource type="Script" uid="uid://bnfujjr3k2ir5" path="res://scripts/gameplay/entities/Trap.cs" id="1_trap"]
+[ext_resource type="Script" uid="uid://4inawyoeuh2n1" path="res://scripts/data/world/DartTrapData.cs" id="2_data"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="3_damage"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="4_box"]
+[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="6_discoverable"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="7_xray"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
+[ext_resource type="PackedScene" uid="uid://byjufllnj0ow2" path="res://scenes/hud/discoverable_hud.tscn" id="15_hud"]
+[ext_resource type="PackedScene" uid="uid://3be7xgcuxn4rm" path="res://scenes/fx/spiketrap_warning.tscn" id="16_warning"]
+[ext_resource type="Script" uid="uid://dsu0nvrw5cdsi" path="res://scripts/gameplay/entities/TriggerSource.cs" id="18_trigsrc"]
+[ext_resource type="Script" uid="uid://rxyf3nsc641jf" path="res://scripts/gameplay/entities/DartDeployer.cs" id="19_deployer"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="20_modellit"]
+[ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="21_white"]
+[ext_resource type="Script" uid="uid://jmrwopt7ktlx7" path="res://scripts/data/combat/HazardProfileData.cs" id="22_hazard"]
+[ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="23_dart"]
+
+[sub_resource type="Resource" id="Resource_trap_event_disarm"]
+script = ExtResource("9_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_trap_action_disarm"]
+script = ExtResource("8_action")
+displayName = &"disarm"
+completionEvents = Array[ExtResource("9_event")]([SubResource("Resource_trap_event_disarm")])
+durationSeconds = 2.0
+locksMovement = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_panel"]
+render_priority = 0
+shader = ExtResource("20_modellit")
+shader_parameter/albedo_tex = ExtResource("21_white")
+shader_parameter/form_strength = 0.4
+shader_parameter/color_tint = Color(0.32, 0.31, 0.34, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[sub_resource type="BoxMesh" id="BoxMesh_panel"]
+material = SubResource("ShaderMaterial_panel")
+size = Vector3(3, 2, 0.3)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hole"]
+render_priority = 0
+shader = ExtResource("20_modellit")
+shader_parameter/albedo_tex = ExtResource("21_white")
+shader_parameter/form_strength = 0.0
+shader_parameter/color_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[sub_resource type="BoxMesh" id="BoxMesh_hole"]
+material = SubResource("ShaderMaterial_hole")
+size = Vector3(0.28, 0.28, 0.12)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_trigger"]
+size = Vector3(3, 2, 2.5)
+
+[sub_resource type="Resource" id="Resource_trap_hazard"]
+script = ExtResource("22_hazard")
+strength = 180.0
+damageFloorPercent = 0.1
+damageCeilingPercent = 0.6
+
+[sub_resource type="Resource" id="Resource_trap_damage"]
+script = ExtResource("3_damage")
+hazardProfile = SubResource("Resource_trap_hazard")
+armorPenetration = 0.35
+knockbackDistance = 2.0
+knockbackTime = 0.15
+friendlyFire = true
+
+[sub_resource type="Resource" id="Resource_trap_data"]
+script = ExtResource("2_data")
+damageData = SubResource("Resource_trap_damage")
+dartScene = ExtResource("23_dart")
+dartSpeed = 26.0
+dartLifetimeSeconds = 1.5
+aimHeight = 1.0
+warningDelay = 0.35
+resetTime = 3.0
+warningEffect = ExtResource("16_warning")
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(6, 2, 6)
+
+[node name="DartTrap" type="Node3D" node_paths=PackedStringArray("_triggerSource", "_deployers", "_interactBox", "_discoverable", "_hudNode")]
+script = ExtResource("1_trap")
+_triggerSource = NodePath("TriggerSource")
+_deployers = [NodePath("DartDeployer")]
+_interactBox = NodePath("InteractiveBox")
+_discoverable = NodePath("Discoverable")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("8_action")]([SubResource("Resource_trap_action_disarm")])
+
+[node name="Model" type="Node3D" parent="."]
+
+[node name="Panel" type="MeshInstance3D" parent="Model"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1.5)
+mesh = SubResource("BoxMesh_panel")
+
+[node name="Holes" type="Node3D" parent="Model"]
+
+[node name="Hole1" type="MeshInstance3D" parent="Model/Holes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8, 1, 1.35)
+mesh = SubResource("BoxMesh_hole")
+
+[node name="Hole2" type="MeshInstance3D" parent="Model/Holes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1.35)
+mesh = SubResource("BoxMesh_hole")
+
+[node name="Hole3" type="MeshInstance3D" parent="Model/Holes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8, 1, 1.35)
+mesh = SubResource("BoxMesh_hole")
+
+[node name="Muzzles" type="Node3D" parent="Model"]
+
+[node name="Muzzle1" type="Node3D" parent="Model/Muzzles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8, 1, 1.35)
+
+[node name="Muzzle2" type="Node3D" parent="Model/Muzzles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1.35)
+
+[node name="Muzzle3" type="Node3D" parent="Model/Muzzles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8, 1, 1.35)
+
+[node name="TriggerSource" type="Area3D" parent="." node_paths=PackedStringArray("_targets")]
+collision_layer = 0
+collision_mask = 0
+script = ExtResource("18_trigsrc")
+_targets = [NodePath("../DartDeployer")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TriggerSource"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="DartDeployer" type="Node3D" parent="." node_paths=PackedStringArray("_muzzles", "_discoverable")]
+script = ExtResource("19_deployer")
+data = SubResource("Resource_trap_data")
+_muzzles = [NodePath("../Model/Muzzles/Muzzle1"), NodePath("../Model/Muzzles/Muzzle2"), NodePath("../Model/Muzzles/Muzzle3")]
+_discoverable = NodePath("../Discoverable")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("4_box")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 1.5)
+
+[node name="Discoverable" type="Node3D" parent="." node_paths=PackedStringArray("_hudAnchor", "_fadeMeshRoot", "_interactBox")]
+script = ExtResource("6_discoverable")
+losRayHeight = 0.0
+hudScene = ExtResource("15_hud")
+hudScale = 0.5
+_hudAnchor = NodePath("../HUDNode")
+_fadeMeshRoot = NodePath("../Model")
+_interactBox = NodePath("../InteractiveBox")
+
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_sprites", "_discoverable")]
+script = ExtResource("7_xray")
+losRayHeight = 0.5
+_sprites = [null, null]
+_discoverable = NodePath("../Discoverable")

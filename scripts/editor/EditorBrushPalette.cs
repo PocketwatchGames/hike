@@ -41,6 +41,7 @@ public partial class EditorBrushPalette : Resource
 	[ExportGroup("Interactives")]
 	[Export] public PackedScene doorScene;
 	[Export] public PackedScene spikeTrapScene;
+	[Export] public PackedScene dartTrapScene;
 	[Export] public PackedScene climbableTreeScene;
 	[Export] public PackedScene torchScene;
 	[Export] public PackedScene campfireScene;

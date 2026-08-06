@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://bvswblqkqx1yl" path="res://scripts/editor/EditorBrushPalette.cs" id="1_palette"]
 [ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="2_door"]
 [ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="3_spiketrap"]
+[ext_resource type="PackedScene" uid="uid://4af08c5087te6" path="res://scenes/interactives/dart_trap.tscn" id="23_darttrap"]
 [ext_resource type="PackedScene" uid="uid://c8mxl2yqr3vkt" path="res://scenes/interactives/climbable_tree.tscn" id="4_climbtree"]
 [ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="5_torch"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="6_chest"]
@@ -42,6 +43,7 @@ propLibrary = ExtResource("14_proplibrary")
 roofLibrary = ExtResource("16_rooflibrary")
 doorScene = ExtResource("2_door")
 spikeTrapScene = ExtResource("3_spiketrap")
+dartTrapScene = ExtResource("23_darttrap")
 climbableTreeScene = ExtResource("4_climbtree")
 torchScene = ExtResource("5_torch")
 campfireScene = ExtResource("17_campfire")
