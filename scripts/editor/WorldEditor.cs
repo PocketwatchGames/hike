@@ -912,12 +912,6 @@ public partial class WorldEditor : Node3D
             NavGridDebug.Draw(_world, _cursorPosition);
         }
 
-        // Same reasoning, and the same reason Sim's own call can't cover it: the
-        // cell-region overlay follows the edit cursor here. This is where the
-        // structures it exists to be judged against — the barn, the street, the
-        // tunnel — actually get loaded.
-        _world.TickCellRegions(_cursorPosition);
-
         editorHud.UpdateClip(_clipY);
         bool overUi = editorHud.IsPointerOverUi();
         // Ahead of the fly-cam bail below: the selection's boxes are immediate-

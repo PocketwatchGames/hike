@@ -225,15 +225,6 @@ public class WorldState
     // Same pattern for WaterCurrentMap. Populated by anything that mutates
     // water-current vectors at runtime; ChunkManager drains it each frame
     // to push only touched chunks back to the GPU.
-    // Chunks whose CELL DECOMPOSITION is stale (see CellField). Written by every
-    // path that can change what a column's air runs look like — a voxel write, a
-    // roof stamping SunOpaque with no voxel write at all, a door stamping Barrier
-    // into its own doorway — and drained by whoever owns the live CellField.
-    //
-    // Door.ApplyOcclusion is the one that matters in play: there is no runtime
-    // digging in this game, but a door closing splits the region underneath it.
-    public readonly HashSet<Vector3I> CellChunkDirty = new();
-
     public readonly HashSet<Vector3I> WaterCurrentChunkDirty = new();
 
     // Same pattern for WindMap. Used for both per-cell wind velocity (RGB
@@ -644,7 +635,6 @@ public class WorldState
         arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)] = true;
         // A roof is a ceiling with no voxel behind it, so this is the only signal
         // the cell decomposition gets that one appeared.
-        CellChunkDirty.Add(cc);
     }
 
     // Wipes both non-voxel occlusion fields at one voxel. They are cleared as a
@@ -664,7 +654,6 @@ public class WorldState
         {
             opaque[lx, ly, lz] = false;
         }
-        CellChunkDirty.Add(cc);
     }
 
     // Air thickness at a voxel, [0,1]. The CPU read of the same serialized fog
@@ -739,7 +728,6 @@ public class WorldState
         int lz = Mod(wz, ChunkState.SIZE);
         chunk.Voxels[lx, ly, lz] = type;
         chunk.Shape[lx, ly, lz] = (byte)shape;
-        CellChunkDirty.Add(cc);
     }
 
     // Combined "how lit is this voxel" used by AI visibility checks. Returns

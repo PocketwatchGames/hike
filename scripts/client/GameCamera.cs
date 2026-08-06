@@ -68,13 +68,6 @@ public partial class GameCamera : Camera3D
 	[Export(PropertyHint.Range, "0,1,0.01")] public float capPlaneYBias = 0.05f;
 
 	private const float CLIP_EPSILON = 0.5f;
-	// How far above a rejected overhang hit the cutaway probe resumes — just
-	// enough to clear the surface it already hit so the same triangle isn't
-	// found again.
-	private const float COVER_SKIP_EPSILON = 0.01f;
-	// Cap on overhang hits skipped in one upward probe. Stacked eaves are the
-	// only way past one, and this runs every frame, so it stays bounded.
-	private const int MAX_COVER_SKIPS = 4;
 	// Player eye offset above the foot position. Other systems (minimap
 	// elevation reference, etc.) read this so the height the camera treats
 	// as "looking from" stays consistent across features.
@@ -93,31 +86,24 @@ public partial class GameCamera : Camera3D
 	// position.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] public float clipFadeDownSeconds = 1.5f;
 	[Export(PropertyHint.Range, "0.05,3,0.05")] public float clipFadeUpSeconds = 0.75f;
-	// Number of consecutive frames a new raycast target must match before
-	// UpdateClip routes it to RequestClip. Drops single-frame transient
-	// hits — overhead tree canopies brushing the camera ray, door-frame
-	// tops the player passes under, etc. — that would otherwise cause
-	// mid-iris band shifts and pop the band-edge pixels. Three frames
-	// at 60Hz is ~50ms; too small to feel laggy for genuine ceiling
-	// changes, large enough to absorb a single-frame raycast blip.
+	// Number of consecutive frames a new target must match before SetClip
+	// routes it to RequestClip. Drops single-frame transients — a doorway
+	// threshold where the probe ring is split evenly between the room and
+	// the street, a lintel the player passes under — that would otherwise
+	// cause mid-iris band shifts and pop the band-edge pixels. Three frames
+	// at 60Hz is ~50ms; too small to feel laggy for genuine ceiling changes,
+	// large enough to absorb a blip.
 	[Export(PropertyHint.Range, "1,12,1")] public int clipTargetStabilityFrames = 3;
-	// Which plateau band the visibility cut sits in, as an offset in PLATEAU_STEP
-	// from the band the ceiling path would pick. 0 is the band just above the
-	// player's eyes — which sits ABOVE first-storey windows, so the fan can
-	// never open one. -1 drops a step so the cut reaches window height. Lower
-	// still cuts more of the near wall away.
-	[Export(PropertyHint.Range, "-3,1,1")] public int visibilityCutPlateauSteps = -1;
 
 	private float _pitchRadians => Mathf.DegToRad(pitchDegrees);
 	private float _clip = float.PositiveInfinity;
 	// Source Y for the in-progress fade. While `_clipBlend` < 1, shaders
 	// blend between this and `_clip`. Equal to `_clip` when idle.
 	private float _clipPrev = float.PositiveInfinity;
-	// Most recent raycast target + how many consecutive frames it's
-	// matched. Drives the stability filter in UpdateClip — a new target
-	// has to repeat for `clipTargetStabilityFrames` before it's committed
-	// to RequestClip, so single-frame raycast blips don't trigger band
-	// shifts mid-iris.
+	// Most recent requested target + how many consecutive frames it's
+	// matched. Drives the stability filter in SetClip — a new target has to
+	// repeat for `clipTargetStabilityFrames` before it's committed to
+	// RequestClip, so single-frame blips don't trigger band shifts mid-iris.
 	private float _candidateTarget = float.PositiveInfinity;
 	private int _candidateTargetFrames;
 	// _clipBlend is the EASED value that gets pushed to the shader as
@@ -160,11 +146,8 @@ public partial class GameCamera : Camera3D
 	private float _focusBlend;
 	private bool _focusing;
 	private bool _clipAlways = false;
-	// Lower, independent cut plane the visibility fan applies at. Composes with
-	// _clip rather than replacing it — see UpdateClip.
-	private float _visibilityCutY = float.PositiveInfinity;
 	private MeshInstance3D _clipCapPlane;
-	// Fills the black interior inside the iris disc, where the cut sits lower than
+	// Fills the black interior inside the iris disk, where the cut sits lower than
 	// the base plane the main cap is anchored to.
 	private MeshInstance3D _irisCapPlane;
 	private MeshInstance3D _waterCapPlane;
@@ -318,6 +301,10 @@ public partial class GameCamera : Camera3D
 	public Vector2 RotationBlurDir => _rotationBlurDir;
 
 	public float Clip => _clip;
+	// True once the clip fade has run out and both planes agree. Consumers that
+	// want to act on the SETTLED cutaway rather than on a value still animating
+	// gate on this — acting mid-fade is what makes a second cut flip on and off.
+	public bool ClipSettled => _clipFadeT >= 1f;
 	public float Yaw => _yaw;
 	// True while a Q/E yaw tween is still easing toward its target.
 	public bool IsRotating => _rotating;
@@ -326,22 +313,8 @@ public partial class GameCamera : Camera3D
 	// or `_clipAlways` forcing the next-plateau cutaway. Read by the minimap
 	// to swap to its indoor (slice) view in lockstep with the camera.
 	public bool IsIndoorMode => !float.IsPositiveInfinity(_clip);
-	// Height the visibility fan cuts at — below the ceiling clip and independent
-	// of it, so both can be active at once. Infinite when the feature is off.
-	public float VisibilityCutY => _visibilityCutY;
 	public MeshInstance3D WaterCapPlane => _waterCapPlane;
 	public bool ManualClipMode { get; set; } = false;
-	// Set while ClipColumnMask owns the clip height, so the camera's own upward
-	// ceiling probe stands down and GameClient drives SetClip instead. Distinct
-	// from ManualClipMode, which the world editor holds for its own cursor-driven
-	// clip and must keep working independently.
-	public bool ExternalClipSource { get; set; }
-	// How far above `Clip` the TALLEST cut surface sits — the top of the mask's
-	// per-column height range. The cap plane has to be anchored to that, not to
-	// Clip: a cap left at
-	// the clear height ends up buried inside a wall that is still standing, so the
-	// pixels where the wall was cut get no black fill at all.
-	public float ClipHeightSpan { get; set; }
 
 	// Writes an angle preset's framing into the live camera fields. Called only
 	// on a camera_preset CVar change (and once at Init) — never per frame — so
@@ -499,12 +472,12 @@ public partial class GameCamera : Camera3D
 		_clipCapPlane.Visible = false;
 		parent.AddChild(_clipCapPlane);
 
-		// Second cap, for the iris disc's lower plane. Same shader and same mask —
+		// Second cap, for the iris disk's lower plane. Same shader and same mask —
 		// only the height and which region it fills differ, and the shader's
-		// iris_inside_disc flag is what splits the screen between the two so
+		// iris_inside_disk flag is what splits the screen between the two so
 		// neither draws over the other's fill.
 		var irisCapMaterial = (ShaderMaterial)capMaterial.Duplicate();
-		irisCapMaterial.SetShaderParameter("iris_inside_disc", true);
+		irisCapMaterial.SetShaderParameter("iris_inside_disk", true);
 		_irisCapPlane = new MeshInstance3D();
 		_irisCapPlane.Mesh = planeMesh;
 		_irisCapPlane.MaterialOverride = irisCapMaterial;
@@ -785,18 +758,6 @@ public partial class GameCamera : Camera3D
 			GlobalPosition += shakeOffset;
 		}
 
-		if (ExternalClipSource)
-		{
-			// The column mask owns the clip. The outdoor visibility fan is not
-			// part of that path — its cut plane lands within a metre of the
-			// column clip, so the two cut the same geometry and fight over it.
-			_visibilityCutY = float.PositiveInfinity;
-		}
-		else if (!ManualClipMode)
-		{
-			UpdateClip(playerPosition);
-		}
-
 		AdvanceClipFade((float)deltaTime);
 	}
 
@@ -942,56 +903,19 @@ public partial class GameCamera : Camera3D
 		}
 	}
 
-	private void UpdateClip(Vector3 playerPos)
+	// Commits a base cutaway elevation, resolved by ClipIris from its probe ring.
+	//
+	// The manual reveal floors it: R3 forces the cutaway down to the plateau above
+	// the player's head whatever the world says overhead, so it composes with an
+	// automatic cut rather than fighting it.
+	public void SetClip(float targetClip, Vector3 playerPos)
 	{
-		float cameraY = GlobalPosition.Y;
-
-		float eyeY = playerPos.Y + EYE_HEIGHT;
-		float alwaysClip = Mathf.Ceil(eyeY / PLATEAU_STEP) * PLATEAU_STEP - CLIP_EPSILON;
-
-		// Mode 0 stands the automatic ceiling probe down, but _clipAlways keeps
-		// working: the manual reveal is a player-facing control, not part of the
-		// rule being switched off.
-		var mode = (EClipMode)CVars.cameraClipMode.Value;
-
-		float targetClip;
-		if (mode != EClipMode.Off && TryFindCeiling(playerPos, cameraY, out float ceilingY))
+		if (_clipAlways)
 		{
-			float ceilingClip = ceilingY - CLIP_EPSILON;
-			targetClip = _clipAlways ? Mathf.Min(ceilingClip, alwaysClip) : ceilingClip;
+			float eyeY = playerPos.Y + EYE_HEIGHT;
+			float alwaysClip = Mathf.Ceil(eyeY / PLATEAU_STEP) * PLATEAU_STEP - CLIP_EPSILON;
+			targetClip = Mathf.Min(targetClip, alwaysClip);
 		}
-		else if (_clipAlways)
-		{
-			targetClip = alwaysClip;
-		}
-		else
-		{
-			targetClip = float.PositiveInfinity;
-		}
-
-		// The visibility cut is a SEPARATE, lower plane that composes with the
-		// ceiling clip rather than replacing it. Making them one value made them
-		// mutually exclusive: under the eaves of a two-storey building the
-		// ceiling clip won, the fan switched off, and first-storey windows
-		// stopped opening (and second-storey frames reappeared, which is the
-		// same fact seen from the other side). Plateau-snapped so the cut edge
-		// lands on the authored elevation grid; the step offset picks WHICH
-		// band, since the one above the player's eyes sits above first-storey
-		// windows and cannot open them.
-		// Floored at the sight plane the fan projects onto. Below that the fan
-		// cuts nothing anyway (a fragment under the plane is in front of no
-		// visible ground, so visibility_fan_cut early-outs), while the cap plane
-		// would still follow the value down — underground, where terrain hides
-		// it and the cut shows sky instead of a capped surface.
-		//
-		// Mode 1 ONLY. The iris disc replaces the fan outright rather than
-		// composing with it: the fan's reveal is a visibility polygon, aligned to
-		// the camera, which is the cut direction the disc exists to avoid. Iris
-		// mode falls through to this method for its base height until the disc
-		// lands, so without this gate it would inherit the fan on the way past.
-		_visibilityCutY = CVars.visibilityCutaway.Value && mode == EClipMode.Scalar
-			? Mathf.Max(alwaysClip + visibilityCutPlateauSteps * PLATEAU_STEP, eyeY - CLIP_EPSILON)
-			: float.PositiveInfinity;
 
 		// Stability filter — a new candidate has to match for
 		// clipTargetStabilityFrames consecutive frames before it lands
@@ -1026,59 +950,9 @@ public partial class GameCamera : Camera3D
 	}
 
 
-	// The upward cutaway probe: how high overhead the first thing that counts as
-	// a CEILING sits, straight up from the player's feet to the camera.
-	//
-	// Hits an IClipCover rejects are skipped rather than ending the probe. A
-	// roof's eave and rake overhangs oversail the building by design, and their
-	// underside answers this ray exactly like a soffit does — so treating the
-	// first hit as a ceiling cut the whole roof away while the player was still
-	// outside, standing under the eaves. Nothing about the collider changes; the
-	// overhang still blocks movement, sight and projectiles.
-	private bool TryFindCeiling(Vector3 playerPos, float cameraY, out float ceilingY)
-	{
-		var spaceState = GetWorld3D().DirectSpaceState;
-		float fromY = playerPos.Y;
-		for (int skips = 0; skips <= MAX_COVER_SKIPS && fromY < cameraY; skips++)
-		{
-			using var query = PhysicsRayQueryParameters3D.Create(
-				new Vector3(playerPos.X, fromY, playerPos.Z),
-				new Vector3(playerPos.X, cameraY, playerPos.Z));
-			query.CollisionMask = (uint)ECollisionLayer.Solid;
-			var result = spaceState.IntersectRay(query);
-			if (result.Count == 0)
-			{
-				break;
-			}
-
-			Vector3 hitPosition = (Vector3)result["position"];
-			if (result["collider"].As<GodotObject>() is Node collider
-				&& FindClipCover(collider) is IClipCover cover
-				&& !cover.IsCeilingAt(hitPosition))
-			{
-				fromY = hitPosition.Y + COVER_SKIP_EPSILON;
-				continue;
-			}
-
-			ceilingY = hitPosition.Y;
-			return true;
-		}
-
-		ceilingY = float.PositiveInfinity;
-		return false;
-	}
-
-	// The raycast reports the collider; an entity owns it one level up, since
-	// entities carry their StaticBody3D as a child of the entity node.
-	private static IClipCover FindClipCover(Node collider)
-	{
-		return collider as IClipCover ?? collider.GetParent() as IClipCover;
-	}
-
 	// Approximate equality for clip Y comparisons. Both infinite ⇒ equal;
 	// one infinite ⇒ not equal; finite ⇒ within CLIP_EPSILON. Used by the
-	// stability filter so floating-point raycast jitter doesn't reset the
-	// frame counter.
+	// stability filter so probe jitter doesn't reset the frame counter.
 	private static bool NearlyEqualClip(float a, float b)
 	{
 		bool aInf = float.IsInfinity(a);
@@ -1242,18 +1116,6 @@ public partial class GameCamera : Camera3D
 		// which point AdvanceClipFade sets _clipPrev = _clip and the
 		// next-frame re-apply naturally hides the cap.
 		float effectiveClip = Mathf.Min(_clip, _clipPrev);
-		// With no ceiling the fan is the only thing cutting, so the cap follows
-		// it — otherwise an outdoor cut has no surface filling it. Only when
-		// there is no ceiling: a real one keeps the cap exactly where it has
-		// always been, so interiors are untouched by this.
-		if (float.IsPositiveInfinity(effectiveClip))
-		{
-			effectiveClip = _visibilityCutY;
-		}
-		// Anchored to the TALLEST cut surface. Where a blocked column cuts higher
-		// than a clear one, a cap left at the clear height sits inside the wall
-		// that is still standing and never reaches the pixels the cut exposed.
-		effectiveClip += ClipHeightSpan;
 		if (effectiveClip < float.PositiveInfinity)
 		{
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;
@@ -1323,13 +1185,9 @@ public partial class GameCamera : Camera3D
 		set => _clipAlways = value;
 	}
 
-	public void SetClip(float clipY, Vector3 centerPos)
-	{
-		RequestClip(clipY, centerPos);
-	}
 
-	// Positions the iris disc's cap. Driven every frame rather than from
-	// RequestClip: the disc's radius and height move continuously while it grows,
+	// Positions the iris disk's cap. Driven every frame rather than from
+	// RequestClip: the disk's radius and height move continuously while it grows,
 	// with no clip-height change to hang a callback off.
 	public void UpdateIrisCap(bool active, float targetY, Vector3 centerPos)
 	{

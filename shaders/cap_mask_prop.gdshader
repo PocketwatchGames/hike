@@ -23,17 +23,15 @@ global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
 // Architecture: participates in the visibility-fan cut. See clip_dither.
-#define CLIP_FAN_PARTICIPATES
 #include "res://shaders/clip_dither.gdshaderinc"
 
 // Column-cutaway participation for the whole instance, set by Roof alongside the
 // visible material's. Only roofs use this material, and Roof always sets it — the
 // mask and the geometry have to resolve the cutaway identically or the cap plane
 // paints black over a roof that is still drawn.
-instance uniform float clip_participation;
 
 varying flat vec3 model_origin;
-// Per-fragment world position, needed because the visibility fan resolves per
+// Per-fragment world position, needed because the iris disk resolves per
 // fragment even for props that clip as a unit — see model_lit_body, which must
 // make the identical call or mask and geometry disagree across the fan edge.
 varying vec3 world_vertex;
@@ -44,7 +42,7 @@ void vertex() {
 }
 
 void fragment() {
-	if (clip_dither_should_discard_masked(model_origin, world_vertex, clip_participation, FRAGCOORD.xy)) {
+	if (clip_dither_should_discard_anchored(model_origin, world_vertex, FRAGCOORD.xy)) {
 		discard;
 	}
 	ALBEDO = vec3(0.0);

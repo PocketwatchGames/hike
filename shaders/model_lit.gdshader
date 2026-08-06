@@ -12,5 +12,4 @@ render_mode ambient_light_disabled, depth_draw_opaque, cull_back;
 // Props take part, gated on the mesh origin sitting above the cut plane —
 // ground-standing props are exempt, elevated ones are not. Characters
 // (model_lit_character, model_xray) deliberately do NOT define this.
-#define CLIP_FAN_PARTICIPATES
 #include "res://shaders/model_lit_body.gdshaderinc"

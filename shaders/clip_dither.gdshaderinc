@@ -11,6 +11,11 @@
 // and grows to subsume the band by blend=1. Matches the foliage cutaway
 // aesthetic so the two effects feel like one system.
 //
+// There are TWO cut planes. `camera_clip` is the base, over the whole world.
+// Inside the iris disk — a circle on screen, centred on the player — a lower
+// plane applies instead, revealing a space the player is walking toward before
+// they reach it. See the iris block below.
+//
 // Caller must declare these globals before #include:
 //
 //   global uniform float camera_clip;
@@ -44,170 +49,25 @@ float clip_dither_hash(ivec2 p)
 	return float((n ^ (n >> 16)) & 0xFFFF) / 65535.0;
 }
 
-// --- Player visibility fan -------------------------------------------
-// Removes exactly the geometry standing between the camera and ground the
-// player can see, so an outdoor cutaway is targeted instead of taking every
-// roof in frame off at once.
+// --- Iris disk -------------------------------------------------------------
+// The second, lower cut plane, applied inside a disk around the player. It opens
+// as the player approaches a low space or somewhere the camera cannot see into,
+// so the space reads before they are standing in it; once they actually are
+// hidden, the BASE plane latches down instead and the disk closes itself.
 //
-// VisibilityFan bakes what the player can see at eye level — a star-shaped
-// polygon about the player — into a BIN_COUNT x 1 R32F strip of radii
-// indexed by bearing. The test is NOT "is this fragment over the polygon".
-// It is: continue the fragment's view ray onward to the sight plane, and
-// ask whether it LANDS in the polygon. If it does, this fragment sits
-// between the camera and ground the player can see, and it is what needs to
-// go.
-//
-// That distinction is the whole design. Testing the fragment's own position
-// removes what is ABOVE the visible ground, which both misses a building
-// standing in front of the player and over-removes an entire column above a
-// window. Testing the landing point removes an occluder through its full
-// thickness, and nothing else: geometry that occludes nothing projects past
-// the polygon and survives, so a distant ridgeline or a wall on the far side
-// of the player is never touched. The effect needs no near-field term and no
-// activation gate — it is inert until something is genuinely in the way.
-//
-// visibility_fan_enabled is false whenever the clip comes from a real
-// ceiling, so indoor cutaways are untouched: the cut helper returns 1.0 and
-// every consumer collapses to its previous behavior exactly.
-global uniform bool visibility_fan_enabled;
-// World-anchored, NOT player-polar. The temporal smoothing lives in this
-// texture, and a radial r(theta) strip would anchor it to the player: a
-// lagging radius gets reinterpreted from a new origin every frame, so the
-// stale shape is a different region rather than "where I could see a moment
-// ago", and it wobbles as the player walks. Per world cell, a lagging value
-// means one thing no matter where the player went.
-global uniform sampler2D visibility_fan_tex : filter_linear, repeat_disable;
-// World XZ of the grid's (0,0) corner, and the window's total world size.
-global uniform vec2 visibility_fan_origin_xz;
-global uniform float visibility_fan_extent;
-// World Y of the surface view rays are projected onto (the player's eye
-// level). Fragments at or below it can never be in front of it.
-global uniform float visibility_fan_plane_y;
-// Height the fan cuts from, INDEPENDENT of camera_clip. The two compose: the
-// ceiling clip removes everything above it at full width, the fan removes only
-// occluders above this lower plane. Folding them into one value made them
-// mutually exclusive, so a ceiling overhead switched the fan off and windows
-// under it stopped opening.
-global uniform float visibility_fan_clip_y;
-// Main-camera pose, pushed explicitly rather than read from INV_VIEW_MATRIX
-// so the off-screen mask passes resolve the identical volume the main pass
-// does. dir is the constant forward for the orthographic presets; the
-// perspective presets need a per-fragment direction from the position.
-global uniform vec3 visibility_fan_camera_pos;
-global uniform vec3 visibility_fan_view_dir;
-global uniform bool visibility_fan_perspective;
-
-// 1 where the player can see this patch of ground, 0 where they cannot,
-// fractional across the boundary ramp (written CPU-side while rasterizing).
-// The explicit bounds test is what makes outside-the-window read as unseen —
-// repeat_disable would otherwise smear the edge texel outward forever.
-float visibility_fan_contains(vec2 world_xz)
-{
-	vec2 uv = (world_xz - visibility_fan_origin_xz) / visibility_fan_extent;
-	if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))))
-	{
-		return 0.0;
-	}
-	return texture(visibility_fan_tex, uv).r;
-}
-
-// 1 = this fragment stands between the camera and visible ground (cut it),
-// 0 = it occludes nothing (keep it), fractional across the boundary ramp.
-// The caller folds it into its own visibility so the dither does the stipple.
-float visibility_fan_cut(vec3 world_pos)
-{
-	if (!visibility_fan_enabled)
-	{
-		return 1.0;
-	}
-	vec3 view_dir = visibility_fan_perspective
-		? normalize(world_pos - visibility_fan_camera_pos)
-		: visibility_fan_view_dir;
-	// A ray that isn't descending never reaches the sight plane. Guards the
-	// divide as well as the level-camera degenerate case.
-	if (view_dir.y > -1e-4)
-	{
-		return 0.0;
-	}
-	float travel = (visibility_fan_plane_y - world_pos.y) / view_dir.y;
-	// Negative means the plane is BEHIND this fragment along the ray — the
-	// fragment is at or under eye level, so it is not in front of anything.
-	if (travel <= 0.0)
-	{
-		return 0.0;
-	}
-	return visibility_fan_contains(world_pos.xz + view_dir.xz * travel);
-}
-
-// --- Per-column cutaway mask -----------------------------------------------
-// Which columns the ceiling clip applies to. A column whose vertical band from
-// the player's floor up to head height is entirely air is cut above that
-// height; a column with anything in the band — a wall, a window sill, a door
-// header, a cliff face — is kept whole.
-//
-// The clip HEIGHT stays a single scalar (camera_clip) because the band is
-// measured from the player's floor, so every column that cuts, cuts at the same
-// Y. Only participation varies, which is why this is a 2D mask and not a 3D
-// classification of the geometry.
-//
-// World-anchored, NOT player-polar, for the same reason the visibility fan is:
-// the value is smoothed per world cell on the CPU, and a lagging cell has to
-// mean the same column from frame to frame or it wobbles as the player walks.
-// Outside the window reads 0 = exempt, which is what bounds the rule spatially.
-global uniform bool clip_mask_enabled;
-// R = participation: is this column in play at all, faded at the boundary.
-// G = cut height for this column, as a fraction of clip_mask_height_span ABOVE
-//     camera_clip. 0 = cut at camera_clip itself.
-global uniform sampler2D clip_mask_tex : filter_nearest, repeat_disable;
-global uniform vec2 clip_mask_origin_xz;
-global uniform float clip_mask_extent;
-// Range the G channel spans, in metres. The cut surface is therefore
-// camera_clip + G * span per column, expressed as an offset from the animated
-// scalar rather than as its own pair of clip globals so every height rides the
-// existing iris animation for free.
-//
-// Two producers, one encoding. The column rule uses it as a two-level step
-// (span = WALL_KEEP - HEADROOM, G = 0 for a clear column and 1 for a blocked
-// one). The cell-region rule cuts its whole footprint at one height, so it sets
-// span = 0 and every column resolves to camera_clip.
-//
-// Span is >= 0, which is what keeps the early-out in clip_visibility_smooth
-// sound: camera_clip is the LOWEST plane in play, so anything below it is below
-// all of them. Stage 3 — revealing regions that cut BELOW the player's own —
-// breaks that assumption, and the fix is on the CPU side: camera_clip becomes
-// the minimum over the mask rather than the player's own height. Nothing here
-// changes.
-global uniform float clip_mask_height_span;
-
-// Participation sentinel: "resolve it from the mask per fragment" rather than
-// taking a value the caller decided. Any real participation is in [0,1].
-const float CLIP_COLUMN_FROM_MASK = -1.0;
-
-// --- Iris disc -------------------------------------------------------------
-// The iris cutaway (camera_clip_mode 4) is the scalar clip with ONE disc on top:
-// camera_clip is the base plane over the world, and inside a disc in plan a lower
-// plane applies instead. No mask texture and no per-column heights — a disc is
-// four numbers, so it resolves analytically here.
-//
-// The boundary is a CIRCLE IN PLAN, deliberately. A reveal boundary aligned to
-// the camera axis reads as damage: it exposes faces at arbitrary angles, destroys
-// the poché that lets a player reconstruct a building from its sectioned black
-// interior, and wrecks silhouettes. A circle is aligned to nothing, so it reads
-// as a region rather than as a cut direction. Do not "improve" this into a wedge,
-// cone, fan or visibility polygon.
+// The disk is measured in the CAMERA PLANE, not in world XZ, so it is a true
+// circle on screen — a world-space circle would be squashed into an ellipse by
+// the camera's pitch and stop reading as an iris. Projecting onto the camera's
+// right/up vectors rather than reading SCREEN_UV is what lets the off-screen
+// passes (cap mask, reflections) resolve the identical disk the main pass does,
+// since each renders through its own viewport.
 global uniform bool clip_iris_enabled;
-// The player, and the camera's screen basis. The disk is measured in the CAMERA
-// PLANE, not in world XZ, so it is a true circle ON SCREEN — a world-space circle
-// would be squashed into an ellipse by the 45° pitch and stop reading as an iris.
-// Projecting onto right/up rather than reading SCREEN_UV is what lets the
-// off-screen passes (cap mask, reflections) resolve the identical disk the main
-// pass does, since each renders through its own viewport.
 global uniform vec3 clip_iris_center;
 global uniform vec3 clip_iris_right;
 global uniform vec3 clip_iris_up;
 global uniform float clip_iris_radius;
 // Metres of DITHERED ramp inside the boundary, matching the stipple the height
-// transition already uses so the disk's edge belongs to the same effect.
+// transition uses so the disk's edge belongs to the same effect.
 global uniform float clip_iris_edge;
 // The plane revealed inside the disk. Always below camera_clip while active.
 global uniform float clip_iris_target;
@@ -224,8 +84,8 @@ float clip_iris_coverage(vec3 world_pos)
 	return clamp((clip_iris_radius - length(screen)) / max(clip_iris_edge, 1e-3), 0.0, 1.0);
 }
 
-// Smooth [0,1] version for the volumetric consumers, which have no fragment to
-// dither and need a continuous value.
+// Smooth [0,1] "is the disk removing this point", for the volumetric consumers,
+// which have no fragment to dither and need a continuous value.
 float clip_iris_visibility(vec3 world_pos)
 {
 	if (!clip_iris_enabled || world_pos.y <= clip_iris_target)
@@ -235,7 +95,7 @@ float clip_iris_visibility(vec3 world_pos)
 	return 1.0 - clip_iris_coverage(world_pos);
 }
 
-// Lowest plane anywhere in play. Both discard paths early-out below this without
+// Lowest plane anywhere in play. The discard paths early-out below this without
 // resolving anything, and the disk is what makes camera_clip alone the wrong
 // answer — a fragment under the base can still be above the disk's lower plane.
 float clip_lowest_plane()
@@ -248,28 +108,6 @@ float clip_lowest_plane()
 	return lowest;
 }
 
-// x = participation (1 = full, 0 = exempt, fractional while fading in or out of
-// the mask), y = this column's cut height as a fraction of clip_mask_height_span
-// above camera_clip. filter_nearest because the boundary is a hard column edge —
-// spatial feathering is a later decision, and bilinear would pre-empt it.
-//
-// Outside the window reads exempt, and the height there is irrelevant. Feature
-// off reads fully participating at zero offset, which collapses every consumer
-// to the plain single-plane height test.
-vec2 clip_column_mask(vec2 world_xz)
-{
-	if (!clip_mask_enabled)
-	{
-		return vec2(1.0, 0.0);
-	}
-	vec2 uv = (world_xz - clip_mask_origin_xz) / clip_mask_extent;
-	if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))))
-	{
-		return vec2(0.0, 0.0);
-	}
-	return texture(clip_mask_tex, uv).rg;
-}
-
 // Smooth [0,1] "how much is this point part of the visible interior
 // (below the animating cutaway clip)". 1 = fully drawn / below-clip,
 // 0 = fully cut-away / above-clip; the transition follows the same
@@ -278,37 +116,18 @@ vec2 clip_column_mask(vec2 world_xz)
 // cutaway dissolves into them smoothly rather than snapping at camera_clip.
 float clip_visibility_smooth(vec3 world_pos)
 {
-	// Deliberately ignores the visibility fan: camera_clip is a real ceiling
-	// again, so the "above the clip is removed rock" reasoning volumetrics rely
-	// on holds unchanged, and the fan's ray projection stays out of the fog
-	// raymarch (which calls this once per step, 48-256 per pixel).
-	// Below the LOWEST plane in play on both endpoints, nothing can be cutting
-	// here — so this returns without a fetch, which is what keeps the fog
-	// raymarch (48-256 calls per pixel) off the mask everywhere under the clip.
+	// Below the lowest plane in play on both endpoints, nothing can be cutting
+	// here — so this returns immediately, which is what keeps the fog raymarch
+	// (48-256 calls per pixel) doing no work everywhere under the clip.
 	if (world_pos.y <= clip_lowest_plane())
 	{
 		return 1.0;
 	}
-	vec2 mask = clip_column_mask(world_pos.xz);
-	float column = mask.x;
-	if (column <= 0.0)
-	{
-		return 1.0;
-	}
-	float lift = clip_mask_height_span * mask.y;
-	float clip_new = camera_clip + lift;
-	float clip_prev = camera_clip_prev + lift;
-	bool above_prev = world_pos.y > clip_prev;
-	bool above_new = world_pos.y > clip_new;
-	if (!above_prev && !above_new)
-	{
-		// Under the base plane, so only the iris disk's lower plane can be
-		// removing anything here.
-		return clip_iris_visibility(world_pos);
-	}
+	bool above_prev = world_pos.y > camera_clip_prev;
+	bool above_new = world_pos.y > camera_clip;
 
-	float height_visibility = 0.0;
-	if (!(above_prev && above_new))
+	float height_visibility = above_prev && above_new ? 0.0 : 1.0;
+	if (above_prev != above_new)
 	{
 		// In the transition band — compute a player-centered phase that
 		// normalizes the horizontal distance from the growth center (player
@@ -320,7 +139,7 @@ float clip_visibility_smooth(vec3 world_pos)
 		        + sin(world_pos.x * 0.5 - world_pos.z * 1.7) * 0.04
 		        + sin(world_pos.x * 2.1 + world_pos.z * 0.4) * 0.03;
 		phase = clamp(phase + n, 0.0, 1.0);
-		if (clip_new > clip_prev) {
+		if (camera_clip > camera_clip_prev) {
 			phase = 1.0 - phase;
 		}
 		float softness = max(camera_clip_growth_edge_softness, 1e-3);
@@ -328,9 +147,9 @@ float clip_visibility_smooth(vec3 world_pos)
 		float local_blend = clamp(0.5 - (phase - leading_phase) / (2.0 * softness), 0.0, 1.0);
 		height_visibility = above_new ? (1.0 - local_blend) : local_blend;
 	}
-	// An exempt column keeps the fragment whatever the height says; a partly
-	// faded one scales how much of the cut it takes.
-	return 1.0 - column * (1.0 - height_visibility);
+	// The two planes are INDEPENDENT cuts, composed rather than nested — see the
+	// note on clip_dither_should_discard_anchored.
+	return min(height_visibility, clip_iris_visibility(world_pos));
 }
 
 // Bayer + hash threshold compare, shared by both discard paths below.
@@ -359,9 +178,9 @@ bool clip_dither_test(float clip_visibility, vec2 frag_xy)
 // Does the iris disk cut this fragment, where the base plane did not?
 //
 // Reached only for fragments already BELOW the base clip — so this is purely the
-// second, lower plane, and everything outside the disk is untouched. The boundary
-// stipples through the same Bayer test the height transition uses, so the disk's
-// edge and the cutaway's edge read as one effect rather than two.
+// second, lower plane, and everything outside the disk falls straight back out.
+// The boundary stipples through the same Bayer test the height transition uses,
+// so the disk's edge and the cutaway's edge read as one effect rather than two.
 //
 // Height comes from the anchor (a mesh that must cut as a unit is never sliced
 // horizontally); the disk comes from the fragment, because its boundary is
@@ -380,113 +199,21 @@ bool clip_iris_discard(vec3 height_anchor, vec3 fragment_pos, vec2 frag_xy)
 	return clip_dither_test(1.0 - coverage, frag_xy);
 }
 
-// Two positions, because the axes of the test want different granularity, and
-// the split is by the SHAPE OF EACH BOUNDARY, not by which feature it belongs to:
-//
-//   height_anchor — resolves the HEIGHT clip, whose boundary is horizontal.
-//                   Meshes that must cut as a unit (roofs, props, sprites) pass
-//                   a flat per-instance origin so they are never sliced through
-//                   the middle at that plane.
-//   fragment_pos  — resolves every boundary that is VERTICAL: the column mask
-//                   and the fan. Always the per-fragment world position, even
-//                   for those meshes, because slicing across a vertical boundary
-//                   is exactly what it is for. A roof spans many metres
-//                   horizontally, so anchoring either one at its origin takes the
-//                   whole roof off (or none of it) rather than just the part that
-//                   qualifies — and would make an authored roof disagree with a
-//                   voxel ceiling over the same building, which cuts per column.
-//
-// `column_in` is how much of the cut this mesh takes, in [0,1], or
-// CLIP_COLUMN_FROM_MASK to resolve it from the mask at fragment_pos.
-//
-// Column-local geometry passes the sentinel and lets each fragment answer for
-// itself. A mesh that must cut as ONE OBJECT and spans many columns cannot: no
-// fragment can see the whole footprint, and letting each answer for itself
-// leaves the roof standing in the shape of the building's wall plan — strips
-// over the walls and partitions, floating metres above the walls that justify
-// them. Those callers have the CPU pick one value for the whole mesh (see
-// Roof.UpdateClipParticipation) and pass it here.
-bool clip_dither_should_discard_masked(vec3 height_anchor, vec3 fragment_pos, float column_in, vec2 frag_xy)
+// The BASE plane alone, its animated transition included.
+bool clip_base_discard(vec3 height_anchor, vec2 frag_xy)
 {
-	vec3 world_pos = height_anchor;
-
-	// Resolved only where the height test could cut something. camera_clip is the
-	// LOWER of the two planes (a clear column), so anything below it is below both
-	// and needs no fetch — which is every fragment of open terrain.
-	vec2 mask = vec2(1.0, 1.0);
-	if (world_pos.y > clip_lowest_plane())
-	{
-		mask = column_in < 0.0 ? clip_column_mask(fragment_pos.xz) : vec2(column_in, 1.0);
-	}
-	float column = mask.x;
-	// Blocked columns cut at the taller wall plane instead of keeping to infinity.
-	// Callers that supply their own participation resolve at the clear height:
-	// a roof sits far above both planes, so which one it nominally uses cannot
-	// change the outcome.
-	float lift = clip_mask_height_span * mask.y;
-	float clip_new = camera_clip + lift;
-	float clip_prev = camera_clip_prev + lift;
-	bool above_prev = world_pos.y > clip_prev;
-	bool above_new = world_pos.y > clip_new;
-	// Above the ceiling clip on both endpoints, in a fully-participating column:
-	// gone, full width, before the fan gets a say. A column part-way in or out of
-	// the mask falls through to stipple against it below.
-	if (above_prev && above_new && column >= 1.0)
+	bool above_prev = height_anchor.y > camera_clip_prev;
+	bool above_new = height_anchor.y > camera_clip;
+	// Above the clip on both endpoints: gone, no transition to resolve.
+	if (above_prev && above_new)
 	{
 		return true;
 	}
-
-	// The fan is a SEPARATE cut at its own, lower plane, so it still applies
-	// under an active ceiling clip — that is what lets a first-storey window
-	// open while the player stands under the eaves. Folding the two into one
-	// value made them mutually exclusive, which is the same fact that made
-	// second-storey frames reappear only when a ceiling took over.
-	//
-	// Note the asymmetry: participation is decided by the ANCHOR (a prop's flat
-	// origin), while the cut itself resolves per fragment. So a prop only takes
-	// part when the whole thing is placed above the cut plane — it is elevated
-	// architecture, like a second-storey window frame — and once it qualifies,
-	// only the part actually occluding comes off. A well or a player standing on
-	// the ground is anchored below the plane and is exempt outright, however
-	// tall it is, which is what stopped well.tscn's roof dissolving and the
-	// player's own head being sliced.
-	//
-	// That only holds if the cut plane stays at or above the sight plane; see
-	// the floor on _visibilityCutY in GameCamera, without which the plane can
-	// sink below the player's feet and every ground-standing prop qualifies.
-	//
-	// OPT-IN on top of that: only shaders that #define CLIP_FAN_PARTICIPATES
-	// take part at all. Characters are excluded outright rather than by anchor,
-	// since a flying mob is legitimately anchored high and must never dissolve.
-#ifdef CLIP_FAN_PARTICIPATES
-	if (visibility_fan_enabled && world_pos.y > visibility_fan_clip_y)
-	{
-		float fan = visibility_fan_cut(fragment_pos);
-		if (fan > 0.0 && clip_dither_test(1.0 - fan, frag_xy))
-		{
-			return true;
-		}
-	}
-#endif
-
+	// Below both: the base is not cutting here. The disk still might, but that is
+	// the caller's question, not this one's.
 	if (!above_prev && !above_new)
 	{
-		// Under the base plane — but the iris disk is a SECOND, lower plane, and
-		// this is the only place it can act. Everything above the base was already
-		// cut above; everything outside the disk falls straight back out here.
-		return clip_iris_discard(world_pos, fragment_pos, frag_xy);
-	}
-	// Exempt column — the height says cut, the mask says this column is not part
-	// of the rule, so it stands however high it is.
-	if (column <= 0.0)
-	{
 		return false;
-	}
-	// Fully above the clip in a column still fading into the mask: stipple the
-	// cut in proportion rather than taking all of it at once.
-	if (above_prev && above_new)
-	{
-		return clip_dither_test(1.0 - column, frag_xy);
 	}
 
 	// In the transition band — compute a player-centered phase that
@@ -497,12 +224,12 @@ bool clip_dither_should_discard_masked(vec3 height_anchor, vec3 fragment_pos, fl
 	// read as one system. The noise is parked in world space — notches
 	// stay over the same patches of geometry frame to frame; the ring
 	// sweeps through them as blend rises.
-	vec2 to_center = world_pos.xz - camera_clip_growth_center.xz;
+	vec2 to_center = height_anchor.xz - camera_clip_growth_center.xz;
 	float dist = length(to_center);
 	float phase = dist / max(camera_clip_growth_max_radius, 1e-3);
-	float n = sin(world_pos.x * 1.3 + world_pos.z * 0.7) * 0.06
-	        + sin(world_pos.x * 0.5 - world_pos.z * 1.7) * 0.04
-	        + sin(world_pos.x * 2.1 + world_pos.z * 0.4) * 0.03;
+	float n = sin(height_anchor.x * 1.3 + height_anchor.z * 0.7) * 0.06
+	        + sin(height_anchor.x * 0.5 - height_anchor.z * 1.7) * 0.04
+	        + sin(height_anchor.x * 2.1 + height_anchor.z * 0.4) * 0.03;
 	// Clamp BEFORE the direction flip so the safety applies in both
 	// directions. Pixels beyond max_radius (phase > 1) are forced to
 	// phase = 1 — they sweep with the iris ring's boundary instead of
@@ -523,11 +250,10 @@ bool clip_dither_should_discard_masked(vec3 height_anchor, vec3 fragment_pos, fl
 	// center outward. Revealing case (clip rising): reverse phase so
 	// far-from-player pixels transition first and the hole CLOSES toward
 	// the center — the player-centered patch is the last to reappear.
-	// Detected from this column's own pair so a mid-fade reversal
-	// (GameCamera.RequestClip swaps prev/new + flips blend) gets the new
-	// direction for free, with no visual pop at the swap instant. Both planes
-	// carry the same wall lift, so the comparison is unaffected by it.
-	if (clip_new > clip_prev) {
+	// Detected from the pair itself so a mid-fade reversal (GameCamera.
+	// RequestClip swaps prev/new + flips blend) gets the new direction for
+	// free, with no visual pop at the swap instant.
+	if (camera_clip > camera_clip_prev) {
 		phase = 1.0 - phase;
 	}
 
@@ -548,17 +274,31 @@ bool clip_dither_should_discard_masked(vec3 height_anchor, vec3 fragment_pos, fl
 	// when the fragment is above the new clip but was below the prev,
 	// and from 0 -> 1 (fading in) when above the prev but below the new.
 	float clip_visibility = above_new ? (1.0 - local_blend) : local_blend;
-	// A column mid-fade takes a proportional share of the cut, so the iris and
-	// the mask boundary dither through each other rather than one overriding the
-	// other. At column = 1 this is the plain band result.
-	clip_visibility = 1.0 - column * (1.0 - clip_visibility);
 	return clip_dither_test(clip_visibility, frag_xy);
 }
 
-// Column-local mesh: each fragment resolves its own participation from the mask.
+// Two positions, because the axes of the test want different granularity, and
+// the split is by the SHAPE OF EACH BOUNDARY:
+//
+//   height_anchor — resolves the HEIGHT clip, whose boundary is horizontal.
+//                   Meshes that must cut as a unit (roofs, props, sprites) pass
+//                   a flat per-instance origin so they are never sliced through
+//                   the middle at that plane.
+//   fragment_pos  — resolves the disk, whose boundary is VERTICAL. Always the
+//                   per-fragment world position, even for those meshes, because
+//                   slicing across a vertical boundary is exactly what it is for.
+//
+// The two planes are INDEPENDENT cuts, composed with OR — the disk is NOT a
+// branch of the base test. Nesting it under "below both base planes" excluded it
+// from the entire transition band, and the band spans everything the base is
+// currently changing: the disk went dark for the whole fade and snapped back the
+// instant camera_clip_prev caught up. Walking out of a cave that read as the disk
+// popping in at the end of the animation; walking in, as it popping out at the
+// start. Composed, both directions hand over continuously.
 bool clip_dither_should_discard_anchored(vec3 height_anchor, vec3 fragment_pos, vec2 frag_xy)
 {
-	return clip_dither_should_discard_masked(height_anchor, fragment_pos, CLIP_COLUMN_FROM_MASK, frag_xy);
+	return clip_base_discard(height_anchor, frag_xy)
+		|| clip_iris_discard(height_anchor, fragment_pos, frag_xy);
 }
 
 // One position for both axes — terrain and anything else already testing its

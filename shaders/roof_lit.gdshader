@@ -11,11 +11,9 @@ render_mode ambient_light_disabled, depth_draw_opaque, cull_back;
 
 #define MODEL_SURFACE_DETAIL
 // A roof IS architecture, unlike every other model_lit_body consumer.
-#define CLIP_FAN_PARTICIPATES
 // A roof is one object over one space, so it takes the column cutaway as a unit.
 // Roof.UpdateClipParticipation picks the value from the footprint column nearest
 // the player; a fragment can only see itself, and per-fragment participation
 // leaves the roof standing in the shape of the walls.
 #define CLIP_PARTICIPATION_INSTANCE
-instance uniform float clip_participation;
 #include "res://shaders/model_lit_body.gdshaderinc"

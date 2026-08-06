@@ -268,7 +268,7 @@ void fragment() {
 	// the whole instance and hands it down. Roofs only — everything else resolves
 	// per fragment from the mask.
 #ifdef CLIP_PARTICIPATION_INSTANCE
-	if (clip_dither_should_discard_masked(model_origin, world_pos, clip_participation, FRAGCOORD.xy)) {
+	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
 		discard;
 	}
 #else

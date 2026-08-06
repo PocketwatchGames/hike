@@ -1,67 +1,74 @@
 using System.Collections.Generic;
 using Godot;
 
-// Probe ring for the iris cutaway (camera_clip_mode 4).
+// The ceiling cutaway's probes, and the two planes they resolve.
 //
-// Iris mode is the SCALAR mode with one disc on top: a base clip plane over the
-// world, and a disc in plan inside which a lower target plane applies. This class
-// owns the sampling both heights are derived from — it is deliberately its own
-// code and shares nothing with the column or cell modes, which are on their way
-// out.
+// BASE PLANE — the ceiling of the space the player is standing in, cut
+// world-wide. The MAXIMUM ceiling over the nine columns immediately around them,
+// and both halves of that matter. Max, because too high is safe and too low is
+// not: a plane above the roof leaves the player covered, so the camera cannot see
+// them, so the disk opens and reveals it anyway — while a plane too low just
+// flattens the space with nothing to catch it. Nine columns, because a max over
+// anything wider reaches into whatever is next door and comes back with a ceiling
+// from another building.
 //
-// A ring of samples around the player answers two questions per sample, and the
-// same ring serves both:
+// Sky anywhere in those nine switches the cut off entirely. That is the same max
+// rule taken to its limit — sky is the highest answer there is — and it is what
+// makes standing under a hole in a cave roof read as being outdoors.
 //
-//   WHAT IS THE CEILING HERE — a HEIGHT, not "is something above me". Reading a
-//   bool makes an approached doorway and a wall walked past register identically;
-//   reading the height tells them apart, because a doorway's column has air at
-//   the player's level with a low lintel over it while a wall's column has no air
-//   at that level at all (EProbeSpace.Blocked, and excluded from everything).
+// IRIS PLANE — a fixed elevation above the player's eyes, revealed inside a disk
+// on screen. Deliberately NOT geometry-derived: it is the same plane the manual
+// reveal uses, so it cannot flicker at all, and the disk is free to grow and
+// shrink without dragging a height around with it. The disk is driven by a wide,
+// breathing ring of occlusion samples — a separate question from the ceiling, and
+// so a separate set of samples.
 //
-//   IS THIS SPOT HIDDEN FROM THE CAMERA — march from the sample toward the
-//   camera and look for solid on the way. Nearer samples weigh more, so the
-//   aggregate means "the space I could act in is hidden" rather than "some pixel
-//   of me is behind something", which is what keeps trees and posts from
-//   triggering a full-screen cut.
+// Three kinds of column are excluded from the height entirely, and each was a bug
+// before it was a rule: DOORWAYS AND WINDOWS (authored as VoxelType.Opening,
+// whose lintel and sill read exactly like a low ceiling and dragged the plane
+// down every time the player passed one), WALLS, and columns whose only cover is
+// a roof's OVERSAIL (cover, but neither a room nor open sky — calling that sky
+// switched the whole cutaway off under the eaves).
 //
 // Foliage is invisible here for free: canopy lives in WorldState.CanopyAttenuation
-// and is neither a solid voxel nor SunOpaque, so no probe can ever mistake a tree
-// for a ceiling.
-//
-// Stage 2: the ring and its two queries, plus the debug drawing. Nothing here
-// drives a clip path yet.
+// and is neither a solid voxel nor SunOpaque, so no probe can mistake a tree for a
+// ceiling.
 public class ClipIris
 {
     // What a sample found at the player's level.
     public enum EProbeSpace
     {
-        // Solid through the whole tolerance band — a wall. Contributes to
-        // nothing: it is neither a low space to reveal nor open sky.
+        // Solid through the whole tolerance band — a wall.
         Blocked,
-        // Air at the player's level with a real ceiling over it.
+        // A doorway or window void. Real space, so it still votes on occlusion,
+        // but never on height: its "ceiling" is a lintel or a sill.
+        Opening,
+        // The only cover overhead is a roof's eave or rake oversail. NOT sky —
+        // there is something over this column — but not a room's ceiling either,
+        // so it votes on neither. Reporting it as sky was a bug: sky is a positive
+        // claim of open air, and it switches the whole cutaway off.
+        Oversail,
+        // Plain air with a real ceiling over it. The only kind that votes on
+        // height.
         Open,
-        // Air at the player's level and nothing overhead within the scan.
+        // Plain air with nothing overhead within the scan.
         Sky,
     }
 
     public struct Probe
     {
-        // Where the occlusion march starts: body height above this column's own
-        // floor, so the query asks about the space rather than about the ground.
+        // Body height above this column's own floor. The occlusion march starts
+        // from here but LIFTS first — see IsOccludedFromCamera.
         public Vector3 Point;
-        public float Radius;
-        // Proximity weight for the occlusion vote.
-        public float Weight;
+        // Distance from the player in the CAMERA PLANE — the same measure the
+        // disk uses, so the radius that covers a probe covers it on screen.
+        public float ScreenDistance;
         public EProbeSpace Space;
-        // World Y of the ceiling's underside. Only meaningful when Open;
-        // PositiveInfinity for Sky, unset for Blocked.
+        // World Y of the ceiling's underside. Only meaningful when Open.
         public float CeilingY;
         public bool Occluded;
     }
 
-    // Ceiling of a sample that reached the scan limit without finding anything.
-    // Infinity rather than a sentinel so it sorts correctly in the quantile — a
-    // ring that is mostly sky lands the base on "no clip" with no special case.
     private const float NO_CEILING = float.PositiveInfinity;
     // Voxels the player's own floor resolve will climb looking for air. Their Y is
     // fractional on slopes and the capsule settles into what it stands on, so the
@@ -69,125 +76,93 @@ public class ClipIris
     private const int MAX_FLOOR_CLIMB = 3;
     // Fraction of a voxel the occlusion march advances per step. Coarser than a
     // DDA and can miss a one-voxel diagonal sliver — acceptable, because the
-    // result feeds a weighted percentage rather than a per-pixel decision.
+    // result feeds a count rather than a per-pixel decision.
     private const float OCCLUSION_STEP = 0.5f;
+    // Columns the CEILING is read from: the player's own plus its eight
+    // neighbours. Deliberately tiny — see BuildProbes.
+    private const int CEILING_SAMPLES = 9;
     // Chunks searched around the player for roofs, per axis. A roof's node sits at
     // its footprint CENTRE, so this has to cover half the widest building rather
-    // than the probe ring's own reach. Y is tighter because a roof only matters
-    // here while its eave is near the player's own level.
+    // than the ring's own reach.
+    // Voxels the occlusion probe will climb to find its column's own ground
+    // before lifting. Bounds the search inside a cliff; a column buried deeper
+    // than this resolves to whatever it reached, which is above the player and
+    // therefore clears the same terrain the player is standing in.
+    private const int MAX_SURFACE_CLIMB = 24;
     private const int ROOF_SEARCH_CHUNKS_XZ = 2;
     private const int ROOF_SEARCH_CHUNKS_Y = 1;
 
     // Tuning, copied in by GameClient each tick from its [Export]s.
-    public float[] RingRadii = { 1.5f, 3f, 5f };
     public int RingSampleCount = 12;
+    public int RingCount = 3;
+    // The two iris sizes, in metres. These bound the disk AND set how far the ring
+    // reaches — one pair of numbers for both, because the ring only ever needs to
+    // see as far as the disk could grow, and two pairs could disagree.
+    //
+    // The reach shrinks to the small size while the player is visible and grows to
+    // the large one while they are hidden: when nothing is wrong only the space
+    // immediately around them matters, and when they are covered the question
+    // becomes how far the cover extends.
+    public float RadiusMin = 3.5f;
+    public float RadiusMax = 8f;
+    public float ProbeRangeSeconds = 0.4f;
     public float BodyHeight = 1f;
     public int CeilingScanHeight = 24;
     public int FloorTolerance = 2;
     public float OcclusionScanDistance = 24f;
-    public float OcclusionWeightFalloff = 0.25f;
-    // Quantile of the sorted per-sample ceilings taken as the base height. 0.5
-    // (median) discards a couple of outliers in either direction — one probe
-    // through a doorway must not drag the whole plane down, and one poking into
-    // an alcove must not lift it. Lower biases toward the lowest thing seen,
-    // higher toward the tallest.
-    public float BaseCeilingQuantile = 0.5f;
-    // How far below the base a sample's ceiling has to sit before it counts as a
-    // low space worth revealing. Below this the two planes are close enough that
-    // a disc would be pure noise.
-    public float LowSpaceDrop = 2f;
-    // How far below a ceiling's underside the cut plane parks. A voxel spans
-    // [y, y+1), so a ceiling's underside — the only face visible from beneath it —
-    // sits at exactly its own index, and the shaders cut on `>`. With no clearance
-    // that face survives and the cutaway reads as having done nothing.
+    // Height above the player's FEET that the occlusion march starts from. The
+    // disk's whole qualifier: only geometry taller than this can hide them as far
+    // as the disk is concerned, so a plateau is ignored and a building is not.
+    // Wants to sit just above a plateau step so a single terrace never qualifies.
+    public float OcclusionLift = 4.5f;
     public float Clearance = 0.5f;
-    // Quantile over the samples the disc covers, for the target height. Lower than
-    // the base's: inside the disc we want the low space itself, not the average of
-    // it and its surroundings, but a hard min would let one sample through a
-    // further doorway drag the whole reveal down.
-    public float TargetCeilingQuantile = 0.25f;
-    // Disk radius in SCREEN-PLANE metres, at the two extremes of how strongly the
-    // ring is calling for it: far when the trigger is barely registering, near
-    // when the player is on top of it.
-    public float RadiusFar = 3f;
-    public float RadiusNear = 10f;
-    public float GrowSeconds = 0.35f;
-    // Weighted occluded share that counts as "approaching a region the camera
-    // cannot see into" — what opens the disk. Lower than the base latch, because
-    // the disk is the warning and the latch is the commitment.
-    public float ApproachOcclusion = 0.35f;
-    // Weighted occluded share that latches the BASE elevation down, and the lower
-    // one it releases at. Separate values because a single threshold chatters when
-    // walking along a building edge.
-    public float LatchOnFraction = 0.6f;
-    public float LatchOffFraction = 0.35f;
+    // Metres of margin past the farthest hidden sample, so the reveal clears the
+    // thing doing the hiding rather than stopping on it.
+    public float IrisPadding = 2f;
+    public float IrisGrowSeconds = 0.35f;
+    public float IrisShrinkSeconds = 0.5f;
 
-    // --- Output: two planes and the disk between them ---
-    // The scalar clip over the world — mode 1's plane, latched lower while the
-    // player is obscured. Infinity means no cut at all.
+    // --- Output ---
+    // The voted ceiling of the space the player is in, or infinity for open sky.
     public float BaseClipY { get; private set; } = NO_CEILING;
-    // The lower plane revealed inside the disk.
-    public float TargetClipY { get; private set; } = NO_CEILING;
+    // Fixed plane the disk reveals: the plateau boundary above the player's eyes.
+    public float IrisClipY { get; private set; } = NO_CEILING;
     // Disk radius in screen-plane metres, centred on the player.
-    public float DiscRadius { get; private set; }
-    public bool DiscActive => DiscRadius > 0f && TargetClipY < BaseClipY;
-    // True while the base is being held down because the player is hidden. The
-    // committed state, as against the disk's approaching one.
-    public bool BaseLatched { get; private set; }
+    public float IrisRadius { get; private set; }
+    public bool IrisActive => IrisRadius > 0f;
     // Camera screen basis, resolved once here and handed to the shaders and the
     // debug draw so all three describe the same disk.
     public Vector3 ScreenRight { get; private set; } = Vector3.Right;
     public Vector3 ScreenUp { get; private set; } = Vector3.Up;
+    public Vector3 IrisCenter => _irisCenter;
 
-    // Ring samples, valid for the tick that built them. Sized on first tick and
-    // reused — the ring shape only changes when the tuning does.
-    private Probe[] _probes = System.Array.Empty<Probe>();
-    private int _probeCount;
-    // Sorted scratch for the quantile, so it costs no allocation per tick.
-    private float[] _ceilingScratch = System.Array.Empty<float>();
-    // Unit XZ directions, rebuilt only when RingSampleCount changes so nothing
-    // calls trig per frame.
-    private Vector2[] _directions = System.Array.Empty<Vector2>();
-    private int _directionCount;
-    // Roofs near the player, refreshed each tick. A roof's cover in SunOpaque
-    // includes its eave and rake oversail, and only the roof itself can tell the
-    // room it is the ceiling of from the overhang hanging past it.
-    private readonly List<Roof> _nearbyRoofs = new();
-
-    public System.ReadOnlySpan<Probe> Probes => new(_probes, 0, _probeCount);
     // Voxel index of the lowest air at or above the player's feet — the level
     // every sample is taken from.
     public int PlayerFloorY { get; private set; }
-    // The robust ceiling over the whole ring, or infinity for open sky. This is
-    // the base plane's source; stage 3 turns it into a clip height.
-    public float BaseCeilingY { get; private set; } = NO_CEILING;
-    // Nearest sample sitting LowSpaceDrop or more below the base — the disc's
-    // seed. -1 when nothing qualifies, which is the common outdoor case.
-    public int NearestLowProbe { get; private set; } = -1;
-    // Weighted share of the ring that is hidden from the camera, and whether the
-    // player's own spot is. Promotion needs both (see the design note: a
-    // percentage alone triggers behind trees and posts).
-    public float OccludedWeight { get; private set; }
     public bool PlayerOccluded { get; private set; }
-    // What the player's own column reads as, and how much of the ring is walled
-    // off. Blocked samples take no part in either aggregate, so these are what
-    // make an aggregate legible — a high blocked count means the numbers next to
-    // it were computed from a handful of samples and should not be trusted.
-    public EProbeSpace PlayerSpace { get; private set; }
-    public int BlockedCount { get; private set; }
+    // Live ring reach, and how many samples were usable. A high blocked/opening
+    // count means the numbers beside it came from a handful of samples.
+    public float ProbeRange { get; private set; }
+    public int VotingCount { get; private set; }
+    public int OccludedCount { get; private set; }
+
+    private Probe[] _probes = System.Array.Empty<Probe>();
+    private int _probeCount;
+    private Vector2[] _directions = System.Array.Empty<Vector2>();
+    private int _directionCount;
+    private readonly List<Roof> _nearbyRoofs = new();
+    private Vector3 _irisCenter;
     private float _playerY;
-    // The disk is centred on the player; kept as the exact position the shader
-    // globals were pushed with so the CPU and GPU tests can't drift by a frame.
-    private Vector3 _discCenter;
-    public Vector3 DiscCenter => _discCenter;
+
+    public System.ReadOnlySpan<Probe> Probes => new(_probes, 0, _probeCount);
 
     public void Tick(Sim sim, Vector3 playerPosition, GameCamera camera, float deltaSeconds)
     {
         _probeCount = 0;
-        BaseCeilingY = NO_CEILING;
-        NearestLowProbe = -1;
-        OccludedWeight = 0f;
+        BaseClipY = NO_CEILING;
         PlayerOccluded = false;
+        VotingCount = 0;
+        OccludedCount = 0;
         WorldState world = sim?.WorldState;
         if (world == null || camera == null)
         {
@@ -196,206 +171,264 @@ public class ClipIris
 
         using var _prof = Profiler.Sample("ClipIris.Tick");
 
+        ScreenRight = camera.GlobalBasis.X.Normalized();
+        ScreenUp = camera.GlobalBasis.Y.Normalized();
+        _irisCenter = playerPosition;
+        _playerY = playerPosition.Y;
+
         GatherRoofs(sim, playerPosition);
         PlayerFloorY = ResolvePlayerFloor(world, playerPosition);
+        // The plateau boundary above the player's eyes. A pure function of their
+        // elevation, so it holds perfectly still until they change floor.
+        float step = Mathf.Max(GameCamera.PLATEAU_STEP, 1e-3f);
+        IrisClipY = Mathf.Ceil((PlayerFloorY + GameCamera.EYE_HEIGHT) / step) * step - Clearance;
+
+        BuildProbes(world, camera, playerPosition);
+        BaseClipY = VoteCeiling();
+        TickIris(deltaSeconds, camera);
+    }
+
+    // TWO sample sets, because the two questions want completely different reach.
+    //
+    // The CEILING block is the 3x3 of columns immediately around the player — the
+    // space they are actually standing in. It has to be tight: the height is a max
+    // over these, and a max over anything wider reaches into whatever is next
+    // door. Sampling metres out put the plane above the roof of the house the
+    // player was inside (so only the disk cut anything) and, where a far column
+    // found a taller ceiling through a gap, put it INSIDE the roof slab, showing
+    // the black middle of it.
+    //
+    // The OCCLUSION ring is wide and breathes, because "how far does the thing
+    // hiding me extend" is a question about the surroundings by definition.
+    private void BuildProbes(WorldState world, GameCamera camera, Vector3 playerPosition)
+    {
+        if (ProbeRange <= 0f)
+        {
+            ProbeRange = RadiusMin;
+        }
         EnsureBuffers();
         BuildDirections();
 
-        int wx = Mathf.FloorToInt(playerPosition.X);
-        int wz = Mathf.FloorToInt(playerPosition.Z);
-        // The player's own column first, at index 0 and full weight: promotion
-        // case (A) is entirely about what is directly overhead, and the occlusion
-        // rule needs this one specifically rather than as part of the average.
-        AddProbe(world, camera, wx, wz, 0f, playerPosition);
+        // Index 0 is the player's own column, at their actual position — the one
+        // sample with a real body standing at it.
+        AddProbe(world, camera, playerPosition, playerPosition, 0f);
         PlayerOccluded = _probeCount > 0 && _probes[0].Occluded;
-        PlayerSpace = _probeCount > 0 ? _probes[0].Space : EProbeSpace.Blocked;
-        _playerY = playerPosition.Y;
-
-        for (int r = 0; r < RingRadii.Length; r++)
+        for (int dz = -1; dz <= 1; dz++)
         {
-            float radius = RingRadii[r];
-            if (radius <= 0f)
+            for (int dx = -1; dx <= 1; dx++)
             {
-                continue;
+                if (dx == 0 && dz == 0)
+                {
+                    continue;
+                }
+                var at = new Vector3(playerPosition.X + dx, playerPosition.Y, playerPosition.Z + dz);
+                AddProbe(world, camera, at, playerPosition, 1f);
             }
+        }
+
+        int rings = Mathf.Max(RingCount, 1);
+        for (int r = 0; r < rings; r++)
+        {
+            float radius = ProbeRange * (r + 1) / rings;
             for (int i = 0; i < _directionCount; i++)
             {
                 Vector2 dir = _directions[i];
-                int sx = Mathf.FloorToInt(playerPosition.X + dir.X * radius);
-                int sz = Mathf.FloorToInt(playerPosition.Z + dir.Y * radius);
-                AddProbe(world, camera, sx, sz, radius, playerPosition);
+                var at = new Vector3(
+                    playerPosition.X + dir.X * radius,
+                    playerPosition.Y,
+                    playerPosition.Z + dir.Y * radius);
+                AddProbe(world, camera, at, playerPosition, radius);
             }
         }
-
-        Aggregate(playerPosition);
-        ScreenRight = camera.GlobalBasis.X.Normalized();
-        ScreenUp = camera.GlobalBasis.Y.Normalized();
-        _discCenter = playerPosition;
-        TickDisc(playerPosition, deltaSeconds);
     }
 
-    // Resolves the base plane, the latch, and the disk between the two.
+    // The ceiling the ring agrees on: the HIGHEST plateau band with real support.
     //
-    // Two stages, and they are the same story at different distances. APPROACHING
-    // something the camera cannot see into opens the disk — a screen-space circle
-    // around the player showing the lower plane. Actually BEING hidden latches the
-    // base itself down, at which point the disk has nothing left to reveal and
-    // closes on its own.
-    private void TickDisc(Vector3 playerPosition, float deltaSeconds)
-    {
-        float probed = float.IsPositiveInfinity(BaseCeilingY) ? NO_CEILING : BaseCeilingY - Clearance;
-
-        // Hysteresis on the share; the player-occluded term is a hard gate in both
-        // directions, since once they are visible again there is nothing to
-        // rescue. Both are required — the share alone latches behind trees, posts
-        // and railings, which hide the avatar without hiding the space.
-        float threshold = BaseLatched ? LatchOffFraction : LatchOnFraction;
-        BaseLatched = PlayerOccluded && OccludedWeight >= threshold;
-        BaseClipY = BaseLatched ? Mathf.Min(probed, HeadPlane()) : probed;
-
-        float targetRadius = ResolveDisk();
-
-        // Growth eases; the close does NOT. A contracting reveal of space the
-        // player is walking away from is useless and irritating, so leaving drops
-        // the disk outright and lets the base plane's own dither carry it.
-        if (targetRadius <= 0f)
-        {
-            DiscRadius = 0f;
-            TargetClipY = NO_CEILING;
-            return;
-        }
-        DiscRadius = Mathf.Lerp(DiscRadius, targetRadius,
-            1f - Mathf.Exp(-deltaSeconds / Mathf.Max(GrowSeconds, 1e-3f)));
-    }
-
-    // The disk's radius and the plane it reveals. Zero radius means no disk.
+    // Highest, not most common — biasing high is what stops a low corner of a
+    // space flattening the whole thing, and the max is inherently steadier than a
+    // median because it only moves when a taller ceiling enters the ring or the
+    // current tallest leaves. No sub-voxel jitter, no swing at a threshold.
     //
-    // Centred on the player and growing from them — NOT from whatever the probes
-    // found. The disk is the player's own bubble of readability; seeding it out at
-    // the thing being approached makes it a spotlight on the geometry instead.
-    private float ResolveDisk()
+    // TOO HIGH IS BETTER THAN TOO LOW, and that is not a preference — it is what
+    // makes the raw max safe. If the plane lands above the roof the player is
+    // actually under, they are by definition covered, so the camera cannot see
+    // them, so the iris opens and reveals that space at head height. The iris is
+    // the floor under this decision; the base plane only has to get the big
+    // picture right. Cutting too low has no such backstop — it just flattens the
+    // space.
+    private float VoteCeiling()
     {
-        float target = NO_CEILING;
-        float strength = 0f;
-
-        // Approaching a low ceiling: the nearest low sample supplies the plane,
-        // and how close it is supplies the growth.
-        int seed = NearestLowProbe;
-        if (seed >= 0)
-        {
-            target = Mathf.Min(target, LowSampleHeight() - Clearance);
-            float reach = MaxRingRadius();
-            float distance = _probes[seed].Radius;
-            strength = reach > 1e-3f ? 1f - Mathf.Clamp(distance / reach, 0f, 1f) : 1f;
-        }
-
-        // Approaching somewhere the camera cannot see into. No low ceiling to read
-        // a height from — the player is outdoors walking behind something — so it
-        // falls back to their own head height on the plateau grid, the same plane
-        // the manual reveal uses.
-        if (OccludedWeight >= ApproachOcclusion)
-        {
-            target = Mathf.Min(target, HeadPlane());
-            float span = Mathf.Max(1f - ApproachOcclusion, 1e-3f);
-            strength = Mathf.Max(strength, (OccludedWeight - ApproachOcclusion) / span);
-        }
-
-        TargetClipY = target;
-        // Nothing to reveal if the disk's plane is not actually below the base —
-        // which is exactly what happens once the latch commits, so the disk closes
-        // itself rather than needing to be told.
-        if (!(target < BaseClipY))
-        {
-            return 0f;
-        }
-        return Mathf.Lerp(RadiusFar, RadiusNear, Mathf.Clamp(strength, 0f, 1f));
-    }
-
-    // Lowest ceiling among the low samples, outlier-rejected. A hard minimum lets
-    // one sample that slipped through a further doorway drag the whole reveal down
-    // to a space the player cannot even see yet.
-    private float LowSampleHeight()
-    {
-        int count = 0;
-        for (int i = 0; i < _probeCount; i++)
-        {
-            if (_probes[i].Space == EProbeSpace.Open)
-            {
-                _ceilingScratch[count++] = _probes[i].CeilingY;
-            }
-        }
-        if (count == 0)
+        // WHETHER to cut is the player's own column's decision, not the ring's.
+        // Sky straight up means open air however much cave surrounds them —
+        // standing under a hole in a cave roof reads as outdoors, which is what it
+        // is. Letting the ring outvote that made the clip engage low whenever the
+        // player stood in a shaft, a doorway of a courtyard, or a collapsed room,
+        // because the surrounding thirty-odd samples always outnumber the one that
+        // is actually overhead.
+        //
+        // The ring still decides the HEIGHT. It is only this gate that is a single
+        // sample, and the camera's stability filter absorbs a frame or two of it
+        // flicking as the player crosses the edge of the opening.
+        if (_probeCount > 0 && _probes[0].Space == EProbeSpace.Sky)
         {
             return NO_CEILING;
         }
-        System.Array.Sort(_ceilingScratch, 0, count);
-        int index = Mathf.Clamp(
-            Mathf.RoundToInt(Mathf.Clamp(TargetCeilingQuantile, 0f, 1f) * (count - 1)), 0, count - 1);
-        return _ceilingScratch[index];
-    }
 
-    // The player's head height on the plateau grid — the same plane the manual R3
-    // reveal drops to, so an automatic reveal and a requested one land identically.
-    private float HeadPlane()
-    {
-        float eyeY = PlayerFloorY + GameCamera.EYE_HEIGHT;
-        float step = Mathf.Max(GameCamera.PLATEAU_STEP, 1e-3f);
-        return Mathf.Ceil(eyeY / step) * step - Clearance;
-    }
-
-    private float MaxRingRadius()
-    {
-        float max = 0f;
-        for (int i = 0; RingRadii != null && i < RingRadii.Length; i++)
+        float highest = float.NegativeInfinity;
+        for (int i = 0; i < CEILING_SAMPLES && i < _probeCount; i++)
         {
-            max = Mathf.Max(max, RingRadii[i]);
+            Probe probe = _probes[i];
+            // Sky anywhere in the block means open air overhead — the hole in the
+            // cave roof, the courtyard, the collapsed corner — and switches the
+            // cut off entirely. Consistent with taking the max everywhere else:
+            // sky is simply the highest answer there is.
+            if (probe.Space == EProbeSpace.Sky)
+            {
+                return NO_CEILING;
+            }
+            // Blocked is a wall, Opening a doorway or window whose lintel and sill
+            // are exactly the false ceilings this must not see, Oversail an eave
+            // that is neither a room nor open sky. None of them vote.
+            if (probe.Space != EProbeSpace.Open)
+            {
+                continue;
+            }
+            VotingCount++;
+            highest = Mathf.Max(highest, probe.CeilingY);
         }
-        return max;
+        if (VotingCount == 0)
+        {
+            return NO_CEILING;
+        }
+        // Just under the tallest ceiling in the block, NOT snapped to a plateau
+        // boundary. Snapping up puts the plane above the ceiling and seals the
+        // room — interiors founded on terrain sit off-grid (13, not 12) — and
+        // snapping down cuts up to a whole plateau too deep. The max is already
+        // stable across a block this small: every column of one room reports the
+        // same ceiling.
+        return highest - Clearance;
     }
 
-    // Samples one column and appends it. Blocked columns are still recorded — the
-    // debug view needs to show them, and seeing where the ring is being eaten by
-    // walls is most of what stage 2 is for — but they take no part in either
-    // aggregate.
-    private void AddProbe(WorldState world, GameCamera camera, int wx, int wz, float radius, Vector3 playerPosition)
+    // The disk grows to cover the farthest sample the camera cannot see, and
+    // shrinks back when they clear. Radius rather than a trigger: there is nothing
+    // to latch and nothing to threshold, so it cannot chatter — an occluded sample
+    // appearing at the ring's edge just extends the reach it eases toward.
+    private void TickIris(float deltaSeconds, GameCamera camera)
     {
+        float farthest = 0f;
+        for (int i = 0; i < _probeCount; i++)
+        {
+            if (!_probes[i].Occluded)
+            {
+                continue;
+            }
+            OccludedCount++;
+            farthest = Mathf.Max(farthest, _probes[i].ScreenDistance);
+        }
+
+        // Nothing hidden closes it outright; anything hidden opens it to at least
+        // the small size, since a disk narrower than that reads as a hole rather
+        // than a reveal.
+        float target = OccludedCount > 0
+            ? Mathf.Clamp(farthest + Mathf.Max(IrisPadding, 0f), RadiusMin, RadiusMax)
+            : 0f;
+        float seconds = Mathf.Max(target > IrisRadius ? IrisGrowSeconds : IrisShrinkSeconds, 1e-3f);
+        IrisRadius = Mathf.Lerp(IrisRadius, target, 1f - Mathf.Exp(-deltaSeconds / seconds));
+        // Land on zero rather than idling a hair above it forever, so the disk
+        // actually switches off and the shaders drop its term.
+        if (target <= 0f && IrisRadius < 0.05f)
+        {
+            IrisRadius = 0f;
+        }
+        // Redundant once the base has SETTLED at or below the disk's own plane —
+        // there is nothing left for it to reveal that the base is not revealing
+        // already — so drop it outright instead of leaving it running with its cap
+        // plane and its per-frame prop sweep. Gated on the fade being complete:
+        // the base and the disk straddle each other for the whole of a transition,
+        // and switching the disk off in that window is exactly the flip that made
+        // it pop out the moment the player stepped into a cave.
+        if (camera.ClipSettled && IrisClipY >= camera.Clip)
+        {
+            IrisRadius = 0f;
+        }
+
+        // Reach follows the same signal, between the same two sizes.
+        float rangeTarget = PlayerOccluded ? RadiusMax : RadiusMin;
+        ProbeRange = Mathf.Lerp(ProbeRange, rangeTarget,
+            1f - Mathf.Exp(-deltaSeconds / Mathf.Max(ProbeRangeSeconds, 1e-3f)));
+    }
+
+    private void AddProbe(WorldState world, GameCamera camera, Vector3 at, Vector3 playerPosition, float radius)
+    {
+        int wx = Mathf.FloorToInt(at.X);
+        int wz = Mathf.FloorToInt(at.Z);
+        Vector3 delta = at - playerPosition;
         var probe = new Probe
         {
-            Radius = radius,
-            // Exponential rather than inverse-distance: it stays finite at the
-            // player's own column and decays smoothly, so the far ring can be
-            // extended for reach without diluting the vote.
-            Weight = Mathf.Exp(-radius * Mathf.Max(OcclusionWeightFalloff, 0f)),
+            ScreenDistance = new Vector2(delta.Dot(ScreenRight), delta.Dot(ScreenUp)).Length(),
             CeilingY = NO_CEILING,
         };
 
-        int floorY = ResolveProbeFloor(world, wx, wz);
-        if (floorY < 0)
-        {
-            probe.Space = EProbeSpace.Blocked;
-            // Still needs a point to draw at; park it at the player's level.
-            probe.Point = new Vector3(wx + 0.5f, PlayerFloorY + BodyHeight, wz + 0.5f);
-            Append(probe);
-            return;
-        }
+        // ONE climb, shared by both questions. The column's ground is found by
+        // stepping up out of the terrain until the first air voxel; the ceiling
+        // question then asks whether that ground is close enough to the player's
+        // to be the same floor, and the occlusion question lifts from it.
+        bool isPlayerColumn = radius <= 0f;
+        int ground = ResolveColumnGround(world, wx, wz);
+        // The player's own sample sits where they actually are — resolving it like
+        // any other means a player in a doorway reports nothing about whether they
+        // can be seen, which is when it matters most.
+        probe.Point = isPlayerColumn
+            ? playerPosition + Vector3.Up * BodyHeight
+            : new Vector3(wx + 0.5f, ground + BodyHeight, wz + 0.5f);
+        // Ground more than a step above the player's is a different floor — a
+        // hillside, a rooftop, the far side of a wall — so it says nothing about
+        // the ceiling of the space they are standing in. It still answers the
+        // occlusion question, from its own ground.
+        probe.Space = ground > PlayerFloorY + Mathf.Max(FloorTolerance, 0)
+            ? EProbeSpace.Blocked
+            : ScanColumn(world, wx, wz, ground, out probe.CeilingY);
+        probe.Occluded = IsOccludedFromCamera(world, camera, probe.Point, ground);
+        Append(probe);
+    }
 
-        probe.Point = new Vector3(wx + 0.5f, floorY + BodyHeight, wz + 0.5f);
+    // Walks up from this column's floor. Plain air all the way to the first
+    // occupied voxel gives a real ceiling; an authored Opening anywhere on the way
+    // disqualifies the column outright, because a doorway's lintel and a window's
+    // head are the false ceilings the vote must not see.
+    private EProbeSpace ScanColumn(WorldState world, int wx, int wz, int floorY, out float ceilingY)
+    {
+        ceilingY = NO_CEILING;
         int scanTop = floorY + Mathf.Max(CeilingScanHeight, 1);
-        probe.Space = EProbeSpace.Sky;
-        for (int wy = floorY + 1; wy < scanTop; wy++)
+        bool sawOversail = false;
+        for (int wy = floorY; wy < scanTop; wy++)
         {
-            if (!IsCutawayOccupied(world, wx, wy, wz))
+            if (world.GetVoxelWorld(wx, wy, wz) == VoxelType.Opening)
+            {
+                return EProbeSpace.Opening;
+            }
+            if (wy == floorY)
+            {
+                continue;
+            }
+            ECover cover = CoverAt(world, wx, wy, wz);
+            if (cover == ECover.OversailOnly)
+            {
+                // Keep looking for a real ceiling above it, but remember that this
+                // column is not open to the sky.
+                sawOversail = true;
+                continue;
+            }
+            if (cover == ECover.None)
             {
                 continue;
             }
             // A voxel index y spans world [y, y+1), so its underside — the only
             // face visible from below — is at exactly y.
-            probe.CeilingY = wy;
-            probe.Space = EProbeSpace.Open;
-            break;
+            ceilingY = wy;
+            return EProbeSpace.Open;
         }
-        probe.Occluded = IsOccludedFromCamera(world, camera, probe.Point);
-        Append(probe);
+        return sawOversail ? EProbeSpace.Oversail : EProbeSpace.Sky;
     }
 
     private void Append(in Probe probe)
@@ -405,87 +438,6 @@ public class ClipIris
             return;
         }
         _probes[_probeCount++] = probe;
-    }
-
-    // Base height from the sorted per-sample ceilings, and the nearest low sample
-    // the disc would seed from.
-    //
-    // The quantile is what "eliminates outliers": one probe that slipped through a
-    // doorway or into an alcove moves the sorted position by one slot instead of
-    // taking the whole plane with it. Sky samples carry infinity, so a ring that is
-    // mostly sky lands on "no clip" through the same comparison rather than a
-    // special case — which is exactly right at a cave mouth, where the split
-    // between inside and outside IS the measurement.
-    private void Aggregate(Vector3 playerPosition)
-    {
-        int open = 0;
-        float weighted = 0f;
-        float weightTotal = 0f;
-        BlockedCount = 0;
-        for (int i = 0; i < _probeCount; i++)
-        {
-            Probe probe = _probes[i];
-            if (probe.Space == EProbeSpace.Blocked)
-            {
-                BlockedCount++;
-                continue;
-            }
-            _ceilingScratch[open++] = probe.CeilingY;
-            weightTotal += probe.Weight;
-            if (probe.Occluded)
-            {
-                weighted += probe.Weight;
-            }
-        }
-        OccludedWeight = weightTotal > 0f ? weighted / weightTotal : 0f;
-        if (open == 0)
-        {
-            // Walled in on every side — nothing to measure, and no plane is
-            // better than a wrong one.
-            return;
-        }
-
-        System.Array.Sort(_ceilingScratch, 0, open);
-        int index = Mathf.Clamp(
-            Mathf.RoundToInt(Mathf.Clamp(BaseCeilingQuantile, 0f, 1f) * (open - 1)), 0, open - 1);
-        BaseCeilingY = _ceilingScratch[index];
-
-        if (float.IsPositiveInfinity(BaseCeilingY))
-        {
-            // Sky overhead. A low space alongside is still worth seeding a disc
-            // from — that is the cave mouth and the doorway approached from the
-            // street — so the search below runs against the drop from the SAMPLE
-            // to nothing, which every real ceiling satisfies.
-            FindNearestLow(playerPosition, float.PositiveInfinity);
-            return;
-        }
-        FindNearestLow(playerPosition, BaseCeilingY - Mathf.Max(LowSpaceDrop, 0f));
-    }
-
-    // Nearest Open sample whose ceiling sits at or below `threshold`. Nearest, not
-    // lowest: the disc follows what the player is walking toward, and picking the
-    // lowest would make it jump to whichever distant sample happened to clip a
-    // doorway.
-    private void FindNearestLow(Vector3 playerPosition, float threshold)
-    {
-        float bestDistanceSq = float.MaxValue;
-        for (int i = 0; i < _probeCount; i++)
-        {
-            Probe probe = _probes[i];
-            if (probe.Space != EProbeSpace.Open || probe.CeilingY > threshold)
-            {
-                continue;
-            }
-            float dx = probe.Point.X - playerPosition.X;
-            float dz = probe.Point.Z - playerPosition.Z;
-            float distanceSq = dx * dx + dz * dz;
-            if (distanceSq >= bestDistanceSq)
-            {
-                continue;
-            }
-            bestDistanceSq = distanceSq;
-            NearestLowProbe = i;
-        }
     }
 
     // Lowest air voxel at or above the player's feet. Not floor(playerY): the
@@ -501,30 +453,44 @@ public class ClipIris
         {
             foot++;
         }
+        // Swimming. Water is not solid, so the climb above stops at the feet —
+        // which float well under the surface — and every height in this class
+        // would then be measured from below the waterline. Climb out to the
+        // surface so a swimmer resolves as if standing on it.
+        for (int i = 0; i < MAX_SURFACE_CLIMB && world.GetVoxelWorld(wx, foot, wz) == VoxelType.Water; i++)
+        {
+            foot++;
+        }
         return foot;
     }
 
-    // This column's own floor, or -1 if it is solid through the tolerance band.
-    // The band is what keeps gently stepped ground from reading as a wall on every
-    // side; anything taller than it is a step the player would have to climb, and
-    // reads as blocked on purpose.
-    private int ResolveProbeFloor(WorldState world, int wx, int wz)
+    // This column's ground: step up out of the terrain from the player's floor
+    // until the first air voxel.
+    //
+    // Only upward, deliberately. A column whose ground sits BELOW the player's — a
+    // pit, the far lip of a ravine — reads as air immediately and resolves to the
+    // player's own level, which is above its real ground. Erring that way costs
+    // nothing: it only makes the occlusion lift more generous, and a too-high lift
+    // can merely miss an occluder among thirty-odd samples. A too-low one invents
+    // them, which is what made a gentle slope latch the disk.
+    //
+    // Bounded so it terminates inside a cliff; a column buried deeper resolves to
+    // wherever it reached, still above the player and still clearing the terrain
+    // they are standing in.
+    private int ResolveColumnGround(WorldState world, int wx, int wz)
     {
-        int top = PlayerFloorY + Mathf.Max(FloorTolerance, 0);
-        for (int wy = PlayerFloorY; wy <= top; wy++)
+        int ground = PlayerFloorY;
+        for (int i = 0; i < MAX_SURFACE_CLIMB && IsCover(world, wx, ground, wz); i++)
         {
-            if (!IsCutawayOccupied(world, wx, wy, wz))
-            {
-                return wy;
-            }
+            ground++;
         }
-        return -1;
+        return ground;
     }
 
-    // Roofs whose footprint could reach the probe ring. Looked up by chunk rather
-    // than by walking every active entity: the dictionary is already keyed by
-    // chunk coord, so a bounded neighbourhood costs a few dozen hash lookups
-    // instead of a full sweep of the loaded world every frame.
+    // Roofs whose footprint could reach the ring. Looked up by chunk rather than
+    // by walking every active entity: the dictionary is already keyed by chunk
+    // coord, so a bounded neighbourhood costs a few dozen hash lookups instead of
+    // a full sweep of the loaded world every frame.
     private void GatherRoofs(Sim sim, Vector3 playerPosition)
     {
         _nearbyRoofs.Clear();
@@ -558,21 +524,29 @@ public class ClipIris
     // counts only where the roof says the column is inside the room it covers —
     // its eave and rake oversail are stamped into SunOpaque as well, because they
     // genuinely shade the ground, and treating those as a ceiling cuts the whole
-    // roof away while the player is still outside the house standing under them.
+    // roof away while the player is still outside standing under them.
     //
     // Cover no gathered roof recognises stays a ceiling. That means either a roof
     // further off than the search reaches or a source that is not a roof, and
-    // reading it as open would stop a large hall cutting at all — a far worse
-    // failure than an eave triggering.
-    private bool IsCutawayOccupied(WorldState world, int wx, int wy, int wz)
+    // reading it as open would stop a large hall cutting at all.
+    private enum ECover
+    {
+        None,
+        // A real ceiling: a solid voxel, or roof cover over the room it covers.
+        Ceiling,
+        // A roof's overhang and nothing else.
+        OversailOnly,
+    }
+
+    private ECover CoverAt(WorldState world, int wx, int wy, int wz)
     {
         if (VoxelTypeInfo.IsSolid(world.GetVoxelWorld(wx, wy, wz)))
         {
-            return true;
+            return ECover.Ceiling;
         }
         if (!world.GetSunOpaqueWorld(wx, wy, wz))
         {
-            return false;
+            return ECover.None;
         }
         var point = new Vector3(wx + 0.5f, wy + 0.5f, wz + 0.5f);
         bool oversail = false;
@@ -581,26 +555,81 @@ public class ClipIris
             switch (_nearbyRoofs[i].CoverAt(point))
             {
                 case ERoofCover.Ceiling:
-                    return true;
+                    return ECover.Ceiling;
                 case ERoofCover.Oversail:
                     oversail = true;
                     break;
             }
         }
-        return !oversail;
+        // Cover no gathered roof recognises stays a ceiling — either a roof
+        // further off than the search reaches or a source that is not a roof, and
+        // reading it as open would stop a large hall cutting at all.
+        return oversail ? ECover.OversailOnly : ECover.Ceiling;
     }
 
-    private static int FloorDiv(int value, int divisor)
+    private bool IsCutawayOccupied(WorldState world, int wx, int wy, int wz)
     {
-        int q = value / divisor;
-        return (value % divisor != 0 && (value < 0) != (divisor < 0)) ? q - 1 : q;
+        return CoverAt(world, wx, wy, wz) == ECover.Ceiling;
     }
 
-    // March from the sample toward the camera looking for solid. The direction is
-    // constant for the orthographic presets and per-point for the perspective
-    // ones, matching how the clip shaders resolve their own view direction.
-    private bool IsOccludedFromCamera(WorldState world, GameCamera camera, Vector3 from)
+    // Anything that blocks SIGHT, oversail included — unlike the ceiling test, an
+    // eave is not a room but it does genuinely hide someone standing under it.
+    private static bool IsCover(WorldState world, int wx, int wy, int wz)
     {
+        return VoxelTypeInfo.IsSolid(world.GetVoxelWorld(wx, wy, wz))
+            || world.GetSunOpaqueWorld(wx, wy, wz);
+    }
+
+    // March from the sample toward the camera looking for solid. Every scrap of
+    // roof counts here, oversail included — unlike the ceiling test, because an
+    // eave is not a room but it does genuinely hide someone standing under it.
+    //
+    // The march starts LIFTED, at a fixed height above the player's feet rather
+    // than at the sample's own body height. That is what makes the disk care about
+    // buildings and not about terrain: anything shorter than the lift passes
+    // underneath the ray and never registers, so walking behind a 4m plateau does
+    // nothing while walking behind a house opens the disk.
+    //
+    // It costs one case, deliberately: a wall shorter than the lift that you are
+    // standing right behind will not open the disk even though it does hide you.
+    // That is the same trade as the plateau — the trigger is qualified by height,
+    // and terrain is legible enough to walk out of.
+    //
+    // The lift is TESTED, not teleported through. Anything between the sample and
+    // the lift height is itself cover, and reports occluded on the spot.
+    //
+    // That test is not optional, and the cave mouth is why. A cave ceiling is
+    // often thinner than the lift, so teleporting to 4.5m puts the origin ABOVE
+    // the hill, in open air — the march then sweeps clear ground and reports a
+    // player who is standing under solid rock as perfectly visible. The base plane
+    // does not cover the gap either: at a mouth the nine ceiling columns usually
+    // include sky, so the base is off precisely when the disk is needed most.
+    private bool IsOccludedFromCamera(WorldState world, GameCamera camera, Vector3 from, int ground)
+    {
+        int liftX = Mathf.FloorToInt(from.X);
+        int liftZ = Mathf.FloorToInt(from.Z);
+        // THIS column's own ground, not the player's. On rising terrain a far
+        // sample's point is parked inside the hillside, so a lift anchored to the
+        // player's feet starts underground, hits solid on its first test and
+        // reports occluded — a gently sloping hill reads as an occluder and the
+        // disk latches on open desert. Anchoring per column also gives far samples
+        // a higher lift wherever the ground rises, which is the same fix seen from
+        // the other side: every sample asks the identical question about its own
+        // patch of ground.
+        float liftTo = ground + OcclusionLift;
+        float bodyY = Mathf.Max(from.Y, ground + BodyHeight);
+        if (bodyY < liftTo)
+        {
+            int top = Mathf.FloorToInt(liftTo);
+            for (int wy = Mathf.FloorToInt(bodyY) + 1; wy <= top; wy++)
+            {
+                if (IsCover(world, liftX, wy, liftZ))
+                {
+                    return true;
+                }
+            }
+        }
+        from.Y = Mathf.Max(bodyY, liftTo);
         Vector3 toCamera = camera.Projection == Camera3D.ProjectionType.Perspective
             ? (camera.GlobalPosition - from).Normalized()
             : camera.GlobalBasis.Z.Normalized();
@@ -621,7 +650,7 @@ public class ClipIris
             {
                 continue;
             }
-            if (IsOccupied(world, wx, wy, wz))
+            if (IsCover(world, wx, wy, wz))
             {
                 return true;
             }
@@ -629,24 +658,28 @@ public class ClipIris
         return false;
     }
 
-    // Occupancy for the OCCLUSION march, which wants the opposite of the ceiling
-    // query above: an eave is not a ceiling, but it does genuinely hide someone
-    // standing under it from the camera, so every scrap of roof cover counts here
-    // and no roof is consulted. The second source is the easy one to miss — a roof
-    // is an ENTITY, so a purely voxel test lets a cottage read as open sky.
-    private static bool IsOccupied(WorldState world, int wx, int wy, int wz)
+    // The clip height in force at a world point — the CPU twin of the shader's
+    // resolve, for prop culling and the "can the player see this" gate.
+    public float ClipHeightAt(Vector3 worldPosition)
     {
-        return VoxelTypeInfo.IsSolid(world.GetVoxelWorld(wx, wy, wz))
-            || world.GetSunOpaqueWorld(wx, wy, wz);
+        if (!IrisActive)
+        {
+            return BaseClipY;
+        }
+        Vector3 delta = worldPosition - _irisCenter;
+        float x = delta.Dot(ScreenRight);
+        float y = delta.Dot(ScreenUp);
+        return x * x + y * y <= IrisRadius * IrisRadius
+            ? Mathf.Min(IrisClipY, BaseClipY)
+            : BaseClipY;
     }
 
     private void EnsureBuffers()
     {
-        int capacity = 1 + Mathf.Max(RingSampleCount, 0) * (RingRadii?.Length ?? 0);
+        int capacity = CEILING_SAMPLES + Mathf.Max(RingSampleCount, 0) * Mathf.Max(RingCount, 1);
         if (_probes.Length != capacity)
         {
             _probes = new Probe[capacity];
-            _ceilingScratch = new float[capacity];
         }
     }
 
@@ -669,35 +702,17 @@ public class ClipIris
         _directionCount = count;
     }
 
-    // The clip height that applies at this world point — the CPU twin of the
-    // shader's disc test, for prop culling and the "can the player see this" gate.
-    // Min rather than the disc's own value so the two planes can never invert if
-    // the target ever resolves above the base.
-    public float ClipHeightAt(Vector3 worldPosition)
+    private static int FloorDiv(int value, int divisor)
     {
-        if (!DiscActive)
-        {
-            return BaseClipY;
-        }
-        // Screen-plane distance, matching the shader exactly — the disk is a
-        // circle ON SCREEN, so a world-space test here would disagree with what is
-        // drawn everywhere the camera is pitched.
-        Vector3 delta = worldPosition - _discCenter;
-        float x = delta.Dot(ScreenRight);
-        float y = delta.Dot(ScreenUp);
-        return x * x + y * y <= DiscRadius * DiscRadius ? TargetClipY : BaseClipY;
+        int q = value / divisor;
+        return (value % divisor != 0 && (value < 0) != (divisor < 0)) ? q - 1 : q;
     }
 
     public string Describe()
     {
-        string baseText = float.IsPositiveInfinity(BaseCeilingY) ? "sky" : BaseCeilingY.ToString("0.0");
-        string lowText = NearestLowProbe < 0
-            ? "none"
-            : $"{_probes[NearestLowProbe].CeilingY:0.0}@{_probes[NearestLowProbe].Radius:0.0}m";
-        string discText = DiscActive ? $"r={DiscRadius:0.0} target={TargetClipY:0.0}" : "off";
-        string clipText = float.IsPositiveInfinity(BaseClipY) ? "none" : BaseClipY.ToString("0.0");
-        return $"y={_playerY:0.0} floorY={PlayerFloorY} self={PlayerSpace} ceiling={baseText} low={lowText} "
-            + $"occluded={OccludedWeight:0.00} playerOccluded={PlayerOccluded} "
-            + $"blocked={BlockedCount}/{_probeCount} baseClip={clipText} latched={BaseLatched} disk={discText}";
+        string baseText = float.IsPositiveInfinity(BaseClipY) ? "none" : BaseClipY.ToString("0.0");
+        return $"y={_playerY:0.0} floorY={PlayerFloorY} baseClip={baseText} iris={IrisClipY:0.0} "
+            + $"radius={IrisRadius:0.0} range={ProbeRange:0.0} playerOccluded={PlayerOccluded} "
+            + $"occluded={OccludedCount}/{_probeCount} voting={VotingCount}";
     }
 }
