@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SpawnListData" format=3]
+
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="13_mobentry"]
+[ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_gen/mob_descriptors/dog.tres" id="13_dog"]
+
+[sub_resource type="Resource" id="Dog"]
+script = ExtResource("13_mobentry")
+descriptor = ExtResource("13_dog")
+initialBehavior = null
+metadata/_custom_type_script = "uid://dhkkrl6qof485"
+
+[resource]
+script = ExtResource("2_list")
+entries = Array[ExtResource("1_base")]([SubResource("Dog")])
+metadata/_custom_type_script = "uid://b3yy1yx4hje70"

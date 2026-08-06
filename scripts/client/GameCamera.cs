@@ -164,6 +164,9 @@ public partial class GameCamera : Camera3D
 	// _clip rather than replacing it — see UpdateClip.
 	private float _visibilityCutY = float.PositiveInfinity;
 	private MeshInstance3D _clipCapPlane;
+	// Fills the black interior inside the iris disc, where the cut sits lower than
+	// the base plane the main cap is anchored to.
+	private MeshInstance3D _irisCapPlane;
 	private MeshInstance3D _waterCapPlane;
 	private SubViewport _capMaskViewport;
 	private Camera3D _capMaskCamera;
@@ -333,11 +336,12 @@ public partial class GameCamera : Camera3D
 	// from ManualClipMode, which the world editor holds for its own cursor-driven
 	// clip and must keep working independently.
 	public bool ExternalClipSource { get; set; }
-	// How far above `Clip` the TALLEST cut surface sits — the blocked-column wall
-	// plane. The cap plane has to be anchored to that, not to Clip: a cap left at
+	// How far above `Clip` the TALLEST cut surface sits — the top of the mask's
+	// per-column height range. The cap plane has to be anchored to that, not to
+	// Clip: a cap left at
 	// the clear height ends up buried inside a wall that is still standing, so the
 	// pixels where the wall was cut get no black fill at all.
-	public float WallClipOffset { get; set; }
+	public float ClipHeightSpan { get; set; }
 
 	// Writes an angle preset's framing into the live camera fields. Called only
 	// on a camera_preset CVar change (and once at Init) — never per frame — so
@@ -494,6 +498,19 @@ public partial class GameCamera : Camera3D
 		_clipCapPlane.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
 		_clipCapPlane.Visible = false;
 		parent.AddChild(_clipCapPlane);
+
+		// Second cap, for the iris disc's lower plane. Same shader and same mask —
+		// only the height and which region it fills differ, and the shader's
+		// iris_inside_disc flag is what splits the screen between the two so
+		// neither draws over the other's fill.
+		var irisCapMaterial = (ShaderMaterial)capMaterial.Duplicate();
+		irisCapMaterial.SetShaderParameter("iris_inside_disc", true);
+		_irisCapPlane = new MeshInstance3D();
+		_irisCapPlane.Mesh = planeMesh;
+		_irisCapPlane.MaterialOverride = irisCapMaterial;
+		_irisCapPlane.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+		_irisCapPlane.Visible = false;
+		parent.AddChild(_irisCapPlane);
 
 		var waterCapShader = GD.Load<Shader>("res://shaders/water_clip_cap.gdshader");
 		var waterCapMaterial = new ShaderMaterial();
@@ -932,8 +949,13 @@ public partial class GameCamera : Camera3D
 		float eyeY = playerPos.Y + EYE_HEIGHT;
 		float alwaysClip = Mathf.Ceil(eyeY / PLATEAU_STEP) * PLATEAU_STEP - CLIP_EPSILON;
 
+		// Mode 0 stands the automatic ceiling probe down, but _clipAlways keeps
+		// working: the manual reveal is a player-facing control, not part of the
+		// rule being switched off.
+		var mode = (EClipMode)CVars.cameraClipMode.Value;
+
 		float targetClip;
-		if (TryFindCeiling(playerPos, cameraY, out float ceilingY))
+		if (mode != EClipMode.Off && TryFindCeiling(playerPos, cameraY, out float ceilingY))
 		{
 			float ceilingClip = ceilingY - CLIP_EPSILON;
 			targetClip = _clipAlways ? Mathf.Min(ceilingClip, alwaysClip) : ceilingClip;
@@ -961,7 +983,13 @@ public partial class GameCamera : Camera3D
 		// visible ground, so visibility_fan_cut early-outs), while the cap plane
 		// would still follow the value down — underground, where terrain hides
 		// it and the cut shows sky instead of a capped surface.
-		_visibilityCutY = CVars.visibilityCutaway.Value
+		//
+		// Mode 1 ONLY. The iris disc replaces the fan outright rather than
+		// composing with it: the fan's reveal is a visibility polygon, aligned to
+		// the camera, which is the cut direction the disc exists to avoid. Iris
+		// mode falls through to this method for its base height until the disc
+		// lands, so without this gate it would inherit the fan on the way past.
+		_visibilityCutY = CVars.visibilityCutaway.Value && mode == EClipMode.Scalar
 			? Mathf.Max(alwaysClip + visibilityCutPlateauSteps * PLATEAU_STEP, eyeY - CLIP_EPSILON)
 			: float.PositiveInfinity;
 
@@ -1225,7 +1253,7 @@ public partial class GameCamera : Camera3D
 		// Anchored to the TALLEST cut surface. Where a blocked column cuts higher
 		// than a clear one, a cap left at the clear height sits inside the wall
 		// that is still standing and never reaches the pixels the cut exposed.
-		effectiveClip += WallClipOffset;
+		effectiveClip += ClipHeightSpan;
 		if (effectiveClip < float.PositiveInfinity)
 		{
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;
@@ -1298,6 +1326,23 @@ public partial class GameCamera : Camera3D
 	public void SetClip(float clipY, Vector3 centerPos)
 	{
 		RequestClip(clipY, centerPos);
+	}
+
+	// Positions the iris disc's cap. Driven every frame rather than from
+	// RequestClip: the disc's radius and height move continuously while it grows,
+	// with no clip-height change to hang a callback off.
+	public void UpdateIrisCap(bool active, float targetY, Vector3 centerPos)
+	{
+		if (_irisCapPlane == null)
+		{
+			return;
+		}
+		bool show = active && CVars.ceilingCap.Value && targetY < float.PositiveInfinity;
+		_irisCapPlane.Visible = show;
+		if (show)
+		{
+			_irisCapPlane.GlobalPosition = new Vector3(centerPos.X, targetY - capPlaneYBias, centerPos.Z);
+		}
 	}
 }
 

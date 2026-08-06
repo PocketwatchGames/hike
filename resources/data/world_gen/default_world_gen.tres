@@ -36,7 +36,8 @@
 [ext_resource type="Resource" uid="uid://p8myqetzi5fav" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
 [ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="70_subplace"]
 [ext_resource type="Script" uid="uid://zdnwz72z5aj9h" path="res://scripts/data/SubsceneVariant.cs" id="71_subvariant"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/hub_npcs.tres" id="72_hubnpcs"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/hub_house01.tres" id="72_house01npcs"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/hub_house02.tres" id="73_house02npcs"]
 
 [sub_resource type="Resource" id="Resource_know_cure"]
 script = ExtResource("3_spellteach")
@@ -178,16 +179,20 @@ toPoi = "desert_well"
 texture = ExtResource("57_dirt")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
-[sub_resource type="Resource" id="Variant_hub_npcs"]
+[sub_resource type="Resource" id="Variant_house01_npcs"]
 script = ExtResource("71_subvariant")
 poolTag = "npc"
-content = ExtResource("72_hubnpcs")
+content = ExtResource("72_house01npcs")
+
+[sub_resource type="Resource" id="Variant_house02_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("73_house02npcs")
 
 [sub_resource type="Resource" id="Subscene_town_square"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/town_square01.hikescene"
 anchorXZ = Vector2i(1, 2)
-variants = [SubResource("Variant_hub_npcs")]
 allowFixtures = true
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
@@ -195,12 +200,14 @@ metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house01.hikescene"
 anchorXZ = Vector2i(-2, -15)
+variants = [SubResource("Variant_house01_npcs")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Subscene_house02"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house02.hikescene"
 anchorXZ = Vector2i(-2, 18)
+variants = [SubResource("Variant_house02_npcs")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Subscene_house03"]

@@ -1298,13 +1298,22 @@ public static class CVars
     // camera and ground the player can see.
     public static CVarBool visibilityCutaway = new CVarBool("visibility_cutaway", true);
 
-    // clip_column_mask 1 -> the ceiling cutaway is driven by the per-column band
-    // rule (ClipColumnMask) instead of the upward ceiling raycast in
-    // GameCamera.UpdateClip. An A/B switch while both sources exist; the raycast
-    // path, IClipCover and the eave-skip logic come out once this one is proven.
-    // The outdoor visibility fan does not run on the column path — its cut plane
-    // sits at nearly the same height as the column clip and the two fight.
-    public static CVarBool clipColumnMask = new CVarBool("clip_column_mask", false);
+    // camera_clip_mode N -> which rule drives the ceiling cutaway. See EClipMode.
+    //   0  off — no automatic cutaway (the manual R3 toggle still forces one)
+    //   1  scalar: upward raycast in GameCamera.UpdateClip, one height world-wide
+    //   2  column: the per-column band rule (ClipColumnMask)
+    //   3  cell: the cell-region decomposition (ClipCellMask)
+    //   4  iris: the scalar base plane plus a probe-driven disc revealing a lower
+    //      one. Behaves as mode 1 until ClipIris lands, since iris IS mode 1 with
+    //      a disc on top.
+    //
+    // One cvar rather than a bool per experiment: every mode writes the same
+    // camera_clip globals, so they were never independently selectable and two
+    // bools could express states that had no meaning. The outdoor visibility fan
+    // runs only under mode 1 — its cut plane sits at nearly the same height as
+    // any masked mode's and the two fight — and it stands down on its own
+    // wherever the clip has an external source.
+    public static CVarInt cameraClipMode = new CVarInt("camera_clip_mode", (int)EClipMode.Scalar);
 
     // clip_column_debug 1 -> print the column rule's decision at the player once
     // a second: the band it tested, what blocked it, whether it found cover, and
@@ -1319,6 +1328,93 @@ public static class CVars
     // exempt. Reading it beside the world is the fastest way to tell "why did
     // THAT cut" from "why did that NOT cut".
     public static CVarBool clipColumnOverlay = new CVarBool("clip_column_overlay", false);
+
+    // clip_iris_debug N -> draw the IRIS PROBE RING (camera_clip_mode 4) around
+    // the player. Touches no clip path; needs the mode set to see it, since that
+    // is the only thing that ticks the ring.
+    //   0  off
+    //   1  the ring: a marker per sample, a stem up to the ceiling it found, and
+    //      an ORANGE tick over any sample hidden from the camera. Sample colour is
+    //      the space it landed in — BLUE open, dim blue sky, GREY solid at the
+    //      player's level (a wall; it answers nothing and votes on nothing).
+    //   2  + the GREEN base plane the quantile settled on, the MAGENTA disc seed,
+    //      and the disc itself drawn AT its target height — YELLOW while growing,
+    //      ORANGE once promoted to full screen. Seeing the two planes at their
+    //      real elevations with open distance between them is the read the whole
+    //      design is after.
+    // Read the stems first. The base is a quantile over them, so a base that
+    // twitches while you stand still is a spread problem in the ring, not a
+    // tuning problem — and the stems show the spread directly.
+    public static CVarInt clipIrisDebug = new CVarInt("clip_iris_debug", 0);
+
+    // clip_iris_dump 1 -> print the ring's decision at the player once a second:
+    // resolved base, the seed it picked, and the weighted occlusion share. The
+    // companion to the drawing for anything that has to be read as a number.
+    public static CVarBool clipIrisDump = new CVarBool("clip_iris_dump", false);
+
+    // clip_cell_debug N -> draw the CELL DECOMPOSITION (stage 1 of the cell-region
+    // cutaway) around the player, or around the edit cursor in the world editor.
+    // Independent of camera_clip_mode — the drawing is its own switch, and either
+    // it or mode 3 keeps the cells alive. Nothing is built or ticked at 0.
+    //   0  off
+    //   1  YOUR REGION ONLY — one outline around the space you are standing in,
+    //      a second outline at the height it would cut at, and yellow crosses on
+    //      the wall columns it claimed. Start here; it is the view that answers
+    //      "does this match the space I'd name out loud".
+    //   2  + every other region at your elevation, outlined dim. For comparing
+    //      against neighbours: the room next door must be a different outline.
+    //   3  + per-cell tiles. Everything, and busy by nature — for when the
+    //      question really is about one cell rather than one space.
+    // Outlines, not tiles, because the question is about a BOUNDARY: an edge is
+    // drawn only where the next column belongs to a different region, so a room
+    // reads as one shape rather than forty. Colour is keyed to world position and
+    // not to the region's id, so a colour CHANGE means the segmentation changed
+    // and not that the window scrolled. Your own region is the only saturated
+    // thing on screen. A wall cross turns RED once the wall flood ran to its
+    // safety bound rather than stopping on a wall's far face.
+    //
+    // Touches no clip path. This is the picture the model is judged against
+    // before anything renders from it.
+    public static CVarInt clipCellDebug = new CVarInt("clip_cell_debug", 0);
+
+    // clip_cell_radius N -> how far that drawing reaches, in columns. Your own
+    // region is always drawn whole, so this only bounds levels 2 and 3.
+    public static CVarInt clipCellRadius = new CVarInt("clip_cell_radius", 14);
+
+    // clip_cell_sky 1 -> include sky regions at levels 2 and 3. Off by default:
+    // outdoors every column has one, and they bury the enclosed spaces the
+    // picture exists to show.
+    public static CVarBool clipCellSky = new CVarBool("clip_cell_sky", false);
+
+    // clip_cell_clearance 1 -> add the CLEARANCE term to the region join
+    // predicate, alongside the cut-plane term. Off by default and expected to
+    // stay off: cut height derives from ceilingY alone, so ceiling homogeneity is
+    // the only kind a region needs, and this term only fragments — a room with a
+    // raised platform becomes two regions that cut at the same plane. It is here
+    // because if it does turn out to earn its place, that is a finding worth
+    // understanding rather than a default to have left switched on.
+    public static CVarBool clipCellClearance = new CVarBool("clip_cell_clearance", false);
+
+    // clip_cell_dump -> print the region table around the player / edit cursor:
+    // per region, cell count, floor and ceiling spread, the plateau it would cut
+    // at, and whether it is TRUNCATED by the window. A truncated region's max
+    // ceiling — and therefore its cut height — is measured over the resident part
+    // only, so it drifts as the player walks with no visible cause; that is the
+    // likeliest source of unexplained instability in this design, so read this
+    // column first when a cut height moves for no apparent reason.
+    // Arms a one-shot rather than printing inline, so the same command works from
+    // the command line (where it runs before any world exists) as from the
+    // console — the only way an unattended headless run can ask for the table.
+    public static CVar clipCellDump = new CVar("clip_cell_dump", (cvar) =>
+    {
+        CellRegionDebug.DumpPending = true;
+    });
+
+    // clip_cell_probe -> run the cell-decomposition checks against synthetic
+    // geometry (barn, entity roof, authored Opening, a door shutting over the
+    // player, a party wall, a tunnel through a hill) and print pass/fail. Needs
+    // no world: builds its own, so it runs at startup on the command line.
+    public static CVar clipCellProbe = new CVar("clip_cell_probe", (cvar) => CellRegionProbe.Run());
 
     // ground_stain 0 -> the GroundStainProjector stops rendering and the lit
     // ground shaders branch around the stain sample, so scorch/footprint/blood

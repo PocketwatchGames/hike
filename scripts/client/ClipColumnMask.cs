@@ -23,7 +23,7 @@ using Godot;
 // World-anchored like VisibilityFan, and for the same reason: the per-cell
 // smoothing has to mean the same patch of world from frame to frame, or a
 // lagging cell reads as a different region every time the player moves.
-public class ClipColumnMask
+public class ClipColumnMask : IClipMask
 {
     // Cells per side of the window. One cell is one voxel column — the
     // resolution the occluders actually have. A buffer size the indexing and
@@ -71,10 +71,15 @@ public class ClipColumnMask
     // Fraction of a mesh's footprint that must sit over the player's region
     // before it starts taking the cut; participation reaches full at twice this.
     public float FootprintCoverageThreshold = 0.15f;
-    // How much higher a blocked column cuts than a clear one, mirroring the
-    // camera_clip_wall_offset global so CPU-side consumers (prop culling, HUD
-    // gating) resolve the same two-level surface the shaders do.
+    // How much higher a blocked column cuts than a clear one. Published to the
+    // shared clip_mask_height_span global, so CPU-side consumers (prop culling,
+    // HUD gating) resolve the same two-level surface the shaders do.
     public float WallOffset;
+
+    // The two-level step expressed in the shared encoding: the mask's G channel
+    // is an OFFSET above ClipY scaled by this span, and a blocked column sits one
+    // whole span up. See clip_dither.gdshaderinc — one encoding, two producers.
+    public float HeightSpan => WallOffset;
 
     // Smoothed mask (what the GPU sees) and this tick's raw target. Separate
     // because the clip iris animates HEIGHT changes only — a column crossing the
@@ -708,7 +713,11 @@ public class ClipColumnMask
         for (int i = 0; i < _accumulated.Length; i++)
         {
             _bytes[i * 2] = (byte)Mathf.Clamp(Mathf.RoundToInt(_accumulated[i] * 255f), 0, 255);
-            _bytes[i * 2 + 1] = (byte)Mathf.Clamp(Mathf.RoundToInt(_accumulatedClear[i] * 255f), 0, 255);
+            // INVERTED on the way out: the channel is stored as clearness (1 =
+            // clear band) because that is what the rasterizer computes, but the
+            // shared wire format is a height OFFSET (0 = cut at the base plane).
+            // A clear column cuts at the base, so the two are complements.
+            _bytes[i * 2 + 1] = (byte)Mathf.Clamp(255 - Mathf.RoundToInt(_accumulatedClear[i] * 255f), 0, 255);
         }
         Image image = Image.CreateFromData(GRID_SIZE, GRID_SIZE, false, Image.Format.Rg8, _bytes);
         if (_texture == null)

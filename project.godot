@@ -331,6 +331,34 @@ camera_clip_growth_edge_softness={
 "type": "float",
 "value": 0.2
 }
+clip_iris_enabled={
+"type": "bool",
+"value": false
+}
+clip_iris_center={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+clip_iris_right={
+"type": "vec3",
+"value": Vector3(1, 0, 0)
+}
+clip_iris_up={
+"type": "vec3",
+"value": Vector3(0, 1, 0)
+}
+clip_iris_radius={
+"type": "float",
+"value": 0.0
+}
+clip_iris_edge={
+"type": "float",
+"value": 1.0
+}
+clip_iris_target={
+"type": "float",
+"value": 1e+20
+}
 visibility_fan_enabled={
 "type": "bool",
 "value": false
@@ -383,7 +411,7 @@ clip_mask_extent={
 "type": "float",
 "value": 64.0
 }
-camera_clip_wall_offset={
+clip_mask_height_span={
 "type": "float",
 "value": 0.0
 }

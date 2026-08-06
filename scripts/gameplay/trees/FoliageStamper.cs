@@ -56,6 +56,7 @@ public static class FoliageStamper
                 }
                 propsScanned++;
                 clustersStamped += StampProp(world, prop, baseDensity, shadowDepthVoxels, null);
+                StampPropCover(world, prop, null);
             }
         }
         GD.Print($"[FoliageStamper] props={propsScanned} clusters={clustersStamped} canopyChunks={world.CanopyAttenuation.Count}");
@@ -99,12 +100,79 @@ public static class FoliageStamper
                 else if (bucket[i] is PropSimState prop)
                 {
                     StampProp(world, prop, baseDensity, shadowDepthVoxels, region);
+                    StampPropCover(world, prop, region);
                 }
             }
         }
     }
 
     // Returns the number of clusters stamped.
+    // Prop cover sheets — a prop that IS a ceiling (an arch, a platform, an
+    // awning) declaring itself via a PropCover node. Stamped into SunOpaque, the
+    // same field roofs use, so everything that reads cover off the world rather
+    // than off physics sees it: the cutaway's probes, the sunlight walk, fog.
+    //
+    // Full opacity rather than canopy attenuation, because unlike foliage this is
+    // authored as solid architecture and there is nothing to see through.
+    private static void StampPropCover(WorldState world, PropSimState prop, VoxelBox? clip)
+    {
+        PropCoverPatch[] patches = PropCoverCache.GetPatches(prop.Scene);
+        if (patches.Length == 0)
+        {
+            return;
+        }
+        float cos = Mathf.Cos(prop.RotationY);
+        float sin = Mathf.Sin(prop.RotationY);
+        for (int p = 0; p < patches.Length; p++)
+        {
+            PropCoverPatch patch = patches[p];
+            float rx = cos * patch.CenterLocal.X + sin * patch.CenterLocal.Z;
+            float rz = -sin * patch.CenterLocal.X + cos * patch.CenterLocal.Z;
+            float centerX = prop.WorldPosition.X + rx;
+            float centerZ = prop.WorldPosition.Z + rz;
+            int sheetY = Mathf.FloorToInt(prop.WorldPosition.Y + patch.CenterLocal.Y);
+
+            // Conservative world AABB of the rotated rectangle, then an exact
+            // per-column test inside it — same shape as RoofSunStamper.
+            float reachX = Mathf.Abs(cos) * patch.HalfX + Mathf.Abs(sin) * patch.HalfZ;
+            float reachZ = Mathf.Abs(sin) * patch.HalfX + Mathf.Abs(cos) * patch.HalfZ;
+            int minX = Mathf.FloorToInt(centerX - reachX);
+            int maxX = Mathf.FloorToInt(centerX + reachX);
+            int minZ = Mathf.FloorToInt(centerZ - reachZ);
+            int maxZ = Mathf.FloorToInt(centerZ + reachZ);
+            if (clip.HasValue)
+            {
+                VoxelBox box = clip.Value;
+                if (sheetY < box.Min.Y || sheetY > box.Max.Y)
+                {
+                    continue;
+                }
+                minX = Mathf.Max(minX, box.Min.X);
+                maxX = Mathf.Min(maxX, box.Max.X);
+                minZ = Mathf.Max(minZ, box.Min.Z);
+                maxZ = Mathf.Min(maxZ, box.Max.Z);
+            }
+
+            for (int wx = minX; wx <= maxX; wx++)
+            {
+                for (int wz = minZ; wz <= maxZ; wz++)
+                {
+                    // Column centre, so a rectangle edge lands consistently
+                    // rather than by which corner of the voxel got tested.
+                    float dx = wx + 0.5f - centerX;
+                    float dz = wz + 0.5f - centerZ;
+                    float localX = cos * dx - sin * dz;
+                    float localZ = sin * dx + cos * dz;
+                    if (Mathf.Abs(localX) > patch.HalfX || Mathf.Abs(localZ) > patch.HalfZ)
+                    {
+                        continue;
+                    }
+                    world.SetSunOpaqueWorld(wx, sheetY, wz);
+                }
+            }
+        }
+    }
+
     private static int StampProp(WorldState world, PropSimState prop, int baseDensity, int shadowDepthVoxels, VoxelBox? clip)
     {
         FoliageOccluder[] occluders = FoliageOccluderCache.GetOccluders(prop.Scene);

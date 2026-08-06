@@ -15,7 +15,36 @@ render_mode depth_draw_opaque, cull_back, unshaded;
 global uniform int clip_debug_mode;
 uniform sampler2D cap_mask_tex : filter_nearest, repeat_disable;
 
+// Iris cutaway (camera_clip_mode 4) cuts at two heights at once: a base plane
+// over the world and a lower one inside a disc in plan. A cap is a flat quad and
+// cannot sit at both, so there are TWO of them and each fills only its own
+// region — without this the base cap, being the higher of the two, draws straight
+// over the interior the disc just revealed.
+global uniform bool clip_iris_enabled;
+global uniform vec3 clip_iris_center;
+global uniform vec3 clip_iris_right;
+global uniform vec3 clip_iris_up;
+global uniform float clip_iris_radius;
+// Which region this instance fills: false = outside the disk (at the base
+// height), true = inside it (at the disk's lower plane).
+uniform bool iris_inside_disc = false;
+
 void fragment() {
+	if (clip_iris_enabled && clip_iris_radius > 0.0) {
+		// Same camera-plane measure the clip shaders use, so the two caps meet
+		// exactly on the disk's edge with no seam and no overlap. VERTEX is
+		// view-space in fragment, hence the transform back out to world.
+		vec3 cap_world = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		vec3 delta = cap_world - clip_iris_center;
+		vec2 screen = vec2(dot(delta, clip_iris_right), dot(delta, clip_iris_up));
+		bool inside = length(screen) <= clip_iris_radius;
+		if (inside != iris_inside_disc) {
+			discard;
+		}
+	} else if (iris_inside_disc) {
+		// No disc up: the inner cap has no region to fill.
+		discard;
+	}
 	// 6 = cap disabled outright. 21 = the cut volume is being painted instead of
 	// discarded, so the cap has nothing to fill and would only draw black over
 	// the diagnostic.

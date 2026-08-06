@@ -13,9 +13,6 @@
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="16_villager_m"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="17_palette"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="18_recolor"]
-[ext_resource type="Resource" uid="uid://df3tkp1uue567" path="res://resources/data/world_gen/party/talia.tres" id="19_talia"]
-[ext_resource type="Resource" uid="uid://b2q10suq78qsl" path="res://resources/data/characters/npcs/wanderer_conversation.tres" id="20_wanderconv"]
-[ext_resource type="PackedScene" uid="uid://pkm1b280lc1a" path="res://scenes/characters/friendly_villager_female.tscn" id="21_villager_f"]
 
 [sub_resource type="Resource" id="Stock_leather"]
 script = ExtResource("7_stock")
@@ -68,45 +65,7 @@ descriptor = ExtResource("8_villager")
 initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
-[sub_resource type="Resource" id="Recruit_top"]
-script = ExtResource("18_recolor")
-meshNames = PackedStringArray("F_Archer_Top")
-color = Color(0.28, 0.42, 0.3, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Recruit_bottom"]
-script = ExtResource("18_recolor")
-meshNames = PackedStringArray("F_Archer_Bottom")
-color = Color(0.3, 0.26, 0.2, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Recruit_cape"]
-script = ExtResource("18_recolor")
-meshNames = PackedStringArray("F_Archer_Cape")
-color = Color(0.5, 0.3, 0.2, 1)
-amount = 0.8
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Recruit_palette"]
-script = ExtResource("17_palette")
-recolors = [SubResource("Recruit_top"), SubResource("Recruit_bottom"), SubResource("Recruit_cape")]
-metadata/_custom_type_script = "uid://cicvni6fvcssx"
-
-[sub_resource type="Resource" id="Npc_recruit"]
-script = ExtResource("3_npc")
-conversation = ExtResource("20_wanderconv")
-scene = ExtResource("21_villager_f")
-outfit = PackedStringArray("F_hair_3", "F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")
-palette = SubResource("Recruit_palette")
-idleAnimation = &"idle_neutral"
-recruitTemplate = ExtResource("19_talia")
-descriptor = ExtResource("8_villager")
-initialBehavior = null
-metadata/_custom_type_script = "uid://hp1b1xye8rsv"
-
 [resource]
 script = ExtResource("2_list")
-entries = Array[ExtResource("1_base")]([SubResource("Npc_villager"), SubResource("Npc_recruit")])
+entries = Array[ExtResource("1_base")]([SubResource("Npc_villager")])
 metadata/_custom_type_script = "uid://b3yy1yx4hje70"

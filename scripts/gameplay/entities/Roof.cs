@@ -5,14 +5,37 @@ using Godot;
 // .tscn because there is nothing to author: the shape comes from the footprint
 // the editor dragged, so a scene per size/pitch combination is exactly what
 // this exists to avoid. The surface still comes from an authored material.
+// What a roof contributes over a given column.
+//
+// The distinction has to exist because a roof's cover is recorded once and read
+// for two different questions. RoofSunStamper deliberately stamps the OVERSAIL
+// into SunOpaque — an eave really does shade the ground under it, and really does
+// hide someone standing beneath it from the camera. But the cutaway must not
+// treat it as a ceiling, or standing under the eaves cuts the whole roof away
+// while the player is still outside the house.
+public enum ERoofCover
+{
+    None,
+    // Under the eave or rake oversail: cover, but not a room.
+    Oversail,
+    // Inside the painted footprint — the space this roof is the ceiling of.
+    Ceiling,
+}
+
 [GlobalClass]
 public partial class Roof : Node3D, IWorldEntity, IClipCover
 {
     // Half-extents of the PAINTED footprint, in local X/Z. The mesh oversails
-    // these by the style's eave and rake overhangs; IsCeilingAt uses them to tell
+    // these by the style's eave and rake overhangs; CoverAt uses them to tell
     // the room from the oversail.
     private float _halfFootprintX;
     private float _halfFootprintZ;
+    // Half-extents INCLUDING that oversail — the same reach RoofSunStamper writes
+    // into SunOpaque. Without it a consumer reading the stamp can tell that
+    // something is overhead but not whether this roof is what put it there, so it
+    // cannot distinguish "no roof involved" from "this roof's overhang".
+    private float _halfStampX;
+    private float _halfStampZ;
 
     // Matches CLIP_COLUMN_FROM_MASK in clip_dither.gdshaderinc: "no instance
     // value, resolve participation per fragment". What a roof reports whenever
@@ -53,6 +76,10 @@ public partial class Roof : Node3D, IWorldEntity, IClipCover
         bool alongX = data.SeamAxis == ERoofSeamAxis.AlongX;
         _halfFootprintX = alongX ? size.HalfSeamBody : size.HalfAcrossBody;
         _halfFootprintZ = alongX ? size.HalfAcrossBody : size.HalfSeamBody;
+        // HalfSeam / HalfAcross, not the Body pair — the full reach with overhangs,
+        // which is exactly what RoofSunStamper rasterizes.
+        _halfStampX = alongX ? size.HalfSeam : size.HalfAcross;
+        _halfStampZ = alongX ? size.HalfAcross : size.HalfSeam;
 
         // Everything sits at the node origin, which is the roof's BASE: the mesh
         // is built with Y = 0 at the eave's underside. model_lit resolves the
@@ -148,8 +175,29 @@ public partial class Roof : Node3D, IWorldEntity, IClipCover
     // owns the placement.
     public bool IsCeilingAt(Vector3 worldPos)
     {
+        return CoverAt(worldPos) == ERoofCover.Ceiling;
+    }
+
+    // The three-way form, for consumers reading the SunOpaque stamp rather than
+    // hitting the mesh with a ray. A ray already knows a roof was involved because
+    // it hit one; a stamp reader does not, so it needs Oversail and None told
+    // apart — unrecognised cover has to stay a ceiling (it belongs to a roof
+    // further off, or to something that is not a roof at all), while cover this
+    // roof positively identifies as its own overhang does not.
+    public ERoofCover CoverAt(Vector3 worldPos)
+    {
         Vector3 local = ToLocal(worldPos);
-        return Mathf.Abs(local.X) <= _halfFootprintX && Mathf.Abs(local.Z) <= _halfFootprintZ;
+        float x = Mathf.Abs(local.X);
+        float z = Mathf.Abs(local.Z);
+        if (x <= _halfFootprintX && z <= _halfFootprintZ)
+        {
+            return ERoofCover.Ceiling;
+        }
+        if (x <= _halfStampX && z <= _halfStampZ)
+        {
+            return ERoofCover.Oversail;
+        }
+        return ERoofCover.None;
     }
 
     // How much of the column cutaway this roof takes, decided for the whole mesh
@@ -169,7 +217,7 @@ public partial class Roof : Node3D, IWorldEntity, IClipCover
     // Measured against the AIR REGION specifically: a roof follows the space
     // beneath it, and the house's own walls are carried by the flood as bounds of
     // whatever region the player is in.
-    public void UpdateClipParticipation(ClipColumnMask mask, Vector3 playerPosition)
+    public void UpdateClipParticipation(IClipMask mask, Vector3 playerPosition)
     {
         float participation = CLIP_PARTICIPATION_FROM_MASK;
         if (mask != null)

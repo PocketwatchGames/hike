@@ -584,5 +584,85 @@ public partial class Sim : Node3D
         {
             NavGridDebug.Draw(this, _player.GlobalPosition);
         }
+        TickCellRegions(_player.GlobalPosition);
+    }
+
+    // Cell decomposition of the world around a point, plus its region
+    // segmentation — stage 1 of the cell-region ceiling cutaway. Owned here
+    // rather than by GameClient because the world editor needs the same thing
+    // around its edit cursor and has no GameClient, and because the cells are
+    // world-derived data rather than a client concern.
+    //
+    // Nothing consumes this yet; it exists to be drawn and read. Built lazily and
+    // dropped when the debug cvar is off, so the other cutaway modes never pay
+    // for a structure they don't use.
+    private CellField _cellField;
+    private CellRegions _cellRegions;
+    private Vector3 _cellDebugCenter;
+    private ulong _cellTickedFrame = ulong.MaxValue;
+
+    public CellField CellField => _cellField;
+    public CellRegions CellRegions => _cellRegions;
+
+    // Idempotent per frame. Three callers want this ticked — GameClient before it
+    // builds the clip mask, this node's own _Process for the overlay, and the
+    // world editor at its cursor — and their relative order is a node-tree
+    // accident. Whoever reaches it first does the work; the rest get it free.
+    public void TickCellRegions(Vector3 center)
+    {
+        ulong frame = Engine.GetProcessFrames();
+        if (frame == _cellTickedFrame)
+        {
+            return;
+        }
+        _cellTickedFrame = frame;
+
+        var level = (CellRegionDebug.ELevel)CVars.clipCellDebug.Value;
+        // The overlay and the clip mode both need the cells; either one keeps
+        // them alive, and with neither on nothing is built or ticked at all.
+        if (level <= CellRegionDebug.ELevel.Off
+            && (EClipMode)CVars.cameraClipMode.Value != EClipMode.Cell)
+        {
+            _cellField = null;
+            _cellRegions = null;
+            // Nothing is draining it, so it would otherwise grow for the life of
+            // the session on every editor stroke and every door.
+            _worldState.CellChunkDirty.Clear();
+            return;
+        }
+
+        _cellField ??= new CellField();
+        _cellRegions ??= new CellRegions();
+        _cellDebugCenter = center;
+
+        foreach (Vector3I coord in _worldState.CellChunkDirty)
+        {
+            _cellField.InvalidateChunk(coord);
+        }
+        _worldState.CellChunkDirty.Clear();
+
+        _cellRegions.UseClearanceBucket = CVars.clipCellClearance.Value;
+        if (_player?.data != null)
+        {
+            // Floored at a voxel — see CellRegions.StepVoxels. The authored 0.5m
+            // rounds to zero, which would fragment ordinary terrain per elevation.
+            _cellRegions.StepVoxels = Mathf.Max(1, Mathf.RoundToInt(_player.data.stepHeight));
+        }
+
+        _cellField.Tick(_worldState, center);
+        _cellRegions.Tick(_cellField, _worldState, center, CellRegions.MAX_WALL_DILATE);
+        CellRegionDebug.Draw(_cellField, _cellRegions, center, level,
+            CVars.clipCellRadius.Value, CVars.clipCellSky.Value);
+
+        if (CellRegionDebug.DumpPending)
+        {
+            CellRegionDebug.DumpPending = false;
+            CellRegionDebug.Dump(_cellField, _cellRegions, center);
+        }
+    }
+
+    public void DumpCellRegions()
+    {
+        CellRegionDebug.Dump(_cellField, _cellRegions, _cellDebugCenter);
     }
 }

@@ -352,8 +352,8 @@ public partial class WorldEditor : Node3D
     // before the lighting toggle ever touches it — the flat view only ever
     // turns it OFF, so restoring means restoring what game.tscn ships with.
     private bool _authoredDepthFog;
-    // Q/E orbit state. The camera frames the cursor, but the cursor floats at the
-    // clip level and can sit well above the ground that fills the view — yawing
+    // Q/E orbit state. The camera frames the cursor, but the cursor is wherever
+    // the fly cam left it and can sit well above the ground that fills the view — yawing
     // about its column swings that ground through an arc of (cursorY - groundY) /
     // tan(pitch). So the orbit runs about the geometry under the view centre
     // instead: the cursor is swung around that pivot in lockstep with the eased
@@ -492,7 +492,12 @@ public partial class WorldEditor : Node3D
             GD.PushWarning($"WorldEditor: terrain brush kit '{brushPalette?.terrainBrushKit?.ResourcePath}' is not in this world's kit palette; painting terrain slot 0.");
         }
         _cursorPosition = worldState.Spawn;
-        _clipY = _cursorPosition.Y + CLIP_START_OFFSET;
+        // Open with nothing cut away: the cutaway band just above the world's
+        // highest voxel, so the top of every roof is on screen and R/F only ever
+        // has to travel DOWN to reach the storey being edited. CLIP_START_OFFSET
+        // is the fallback for a world with no voxels at all (a new document).
+        int? highestY = worldState.GetHighestSolidVoxelY();
+        _clipY = highestY.HasValue ? PlateauAbove(highestY.Value) : _cursorPosition.Y + CLIP_START_OFFSET;
         // Before the Sim is built — it latches day/night off the clock.
         ApplyTimeOfDay(editorTimeOfDay);
 
@@ -906,6 +911,12 @@ public partial class WorldEditor : Node3D
         {
             NavGridDebug.Draw(_world, _cursorPosition);
         }
+
+        // Same reasoning, and the same reason Sim's own call can't cover it: the
+        // cell-region overlay follows the edit cursor here. This is where the
+        // structures it exists to be judged against — the barn, the street, the
+        // tunnel — actually get loaded.
+        _world.TickCellRegions(_cursorPosition);
 
         editorHud.UpdateClip(_clipY);
         bool overUi = editorHud.IsPointerOverUi();
@@ -1521,9 +1532,11 @@ public partial class WorldEditor : Node3D
             return;
         }
 
+        // Clip only — the camera stays put. Moving the framing anchor with the
+        // cutaway made every clip change a camera move, which is disorienting
+        // when all you wanted was to see one storey lower.
         if (e.IsActionPressed("EditorUp"))
         {
-            _cursorPosition.Y += 1f;
             _clipY += 1f;
             GetViewport().SetInputAsHandled();
             return;
@@ -1531,7 +1544,6 @@ public partial class WorldEditor : Node3D
 
         if (e.IsActionPressed("EditorDown"))
         {
-            _cursorPosition.Y -= 1f;
             _clipY -= 1f;
             GetViewport().SetInputAsHandled();
             return;
@@ -1893,6 +1905,19 @@ public partial class WorldEditor : Node3D
             return y;
         }
         return Mathf.FloorToInt(y / (float)step) * step;
+    }
+
+    // The band boundary above a voxel level — the lowest clip height that leaves
+    // that voxel fully revealed, landing on the same grid the plateau-snapped
+    // brushes build to.
+    private static int PlateauAbove(int y)
+    {
+        int step = Mathf.RoundToInt(GameCamera.PLATEAU_STEP);
+        if (step <= 0)
+        {
+            return y + 1;
+        }
+        return SnapToPlateau(y) + step;
     }
 
     // The stamp shapes (Voxel / Window / Door), applied at a single click or

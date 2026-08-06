@@ -34,7 +34,11 @@
 [ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="70_subplace"]
 [ext_resource type="Script" uid="uid://zdnwz72z5aj9h" path="res://scripts/data/SubsceneVariant.cs" id="71_subvariant"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/house_hermit.tres" id="72_hermitlist"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/village_npcs_swamp.tres" id="73_villagenpcs"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/village_square_dog.tres" id="73_squaredog"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/village_house01.tres" id="74_house01npcs"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/village_house02.tres" id="75_house02npcs"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/village_house03.tres" id="76_house03npcs"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/village_house04.tres" id="77_house04npcs"]
 
 [sub_resource type="Resource" id="Resource_know_cure"]
 script = ExtResource("3_spellteach")
@@ -144,16 +148,36 @@ toPoi = "swamp_highlands"
 texture = ExtResource("58_cobble")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
-[sub_resource type="Resource" id="Variant_village_npcs"]
+[sub_resource type="Resource" id="Variant_square_dog"]
 script = ExtResource("71_subvariant")
 poolTag = "npc"
-content = ExtResource("73_villagenpcs")
+content = ExtResource("73_squaredog")
+
+[sub_resource type="Resource" id="Variant_house01_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("74_house01npcs")
+
+[sub_resource type="Resource" id="Variant_house02_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("75_house02npcs")
+
+[sub_resource type="Resource" id="Variant_house03_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("76_house03npcs")
+
+[sub_resource type="Resource" id="Variant_house04_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("77_house04npcs")
 
 [sub_resource type="Resource" id="Subscene_town_square"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/town_square01.hikescene"
 anchorXZ = Vector2i(65, 66)
-variants = [SubResource("Variant_village_npcs")]
+variants = [SubResource("Variant_square_dog")]
 allowFixtures = true
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
@@ -161,24 +185,28 @@ metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house01.hikescene"
 anchorXZ = Vector2i(62, 49)
+variants = [SubResource("Variant_house01_npcs")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Subscene_house02"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house02.hikescene"
 anchorXZ = Vector2i(62, 82)
+variants = [SubResource("Variant_house02_npcs")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Subscene_house03"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house03.hikescene"
 anchorXZ = Vector2i(43, 63)
+variants = [SubResource("Variant_house03_npcs")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Subscene_house04"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/subscenes/house04.hikescene"
 anchorXZ = Vector2i(81, 63)
+variants = [SubResource("Variant_house04_npcs")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Variant_hermit"]
