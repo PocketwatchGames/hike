@@ -310,6 +310,10 @@ public partial class GameClient : Node3D
 	// and the large one while they are hidden. They also set how far the probe
 	// ring reaches, since it only ever needs to see as far as the disk could grow.
 	[Export(PropertyHint.Range, "1,16,0.25")] public float clipIrisRadiusMin = 3.5f;
+	// The reach is not just detection range — the disk grows to the farthest OCCLUDED
+	// sample, so a ring reaching the next building along latches on it and then removes
+	// everything between here and there. Keep it near the space the player is actually
+	// walking into.
 	[Export(PropertyHint.Range, "2,32,0.25")] public float clipIrisRadiusMax = 8f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisRangeSeconds = 0.4f;
 	// Height above a sample's own floor that the occlusion march starts from, so
@@ -335,6 +339,13 @@ public partial class GameClient : Node3D
 	// one face you can see from beneath survives, so the cutaway reads as having
 	// done nothing.
 	[Export(PropertyHint.Range, "0.1,1,0.05")] public float clipIrisClearance = 0.5f;
+	// Metres from the player within which a window or door does NOT stop the probe
+	// ring. Openings otherwise block it — a hole is not cover to anything else in the
+	// cutaway, so the ring poured through every window in sight and sampled the room
+	// beyond. Standing IN a doorway or right against a window has to keep working
+	// though; that is the moment the reveal exists for. Wants to stay at about "in it
+	// or touching it" — grow this and distant windows start latching the disk again.
+	[Export(PropertyHint.Range, "0,4,0.25")] public float clipIrisOpeningReach = 1.5f;
 	// Metres of margin past the farthest hidden sample, so the reveal clears the
 	// thing doing the hiding rather than stopping on it.
 	[Export(PropertyHint.Range, "0,8,0.25")] public float clipIrisPadding = 2f;
@@ -343,6 +354,7 @@ public partial class GameClient : Node3D
 	[Export(PropertyHint.Range, "0.05,4,0.05")] public float clipIrisEdgeSoftness = 1f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisGrowSeconds = 0.35f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisShrinkSeconds = 0.5f;
+
 	[ExportGroup("")]
 
 	public Action<Player> onPlayerSpawned;
@@ -1420,6 +1432,7 @@ public partial class GameClient : Node3D
 		_clipIris.OcclusionScanDistance = clipIrisOcclusionDistance;
 		_clipIris.OcclusionLift = clipIrisOcclusionLift;
 		_clipIris.Clearance = clipIrisClearance;
+		_clipIris.OpeningReach = clipIrisOpeningReach;
 		_clipIris.IrisPadding = clipIrisPadding;
 		_clipIris.IrisGrowSeconds = clipIrisGrowSeconds;
 		_clipIris.IrisShrinkSeconds = clipIrisShrinkSeconds;

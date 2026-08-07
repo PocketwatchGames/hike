@@ -12,9 +12,9 @@
 // aesthetic so the two effects feel like one system.
 //
 // There are TWO cut planes. `camera_clip` is the base, over the whole world.
-// Inside the iris disk — a circle on screen, centred on the player — a lower
-// plane applies instead, revealing a space the player is walking toward before
-// they reach it. See the iris block below.
+// Inside the iris — a player-centred region whose SHAPE is swappable, see
+// clip_iris.gdshaderinc — a lower plane applies instead, revealing a space the
+// player is walking toward before they reach it.
 //
 // Caller must declare these globals before #include:
 //
@@ -49,59 +49,21 @@ float clip_dither_hash(ivec2 p)
 	return float((n ^ (n >> 16)) & 0xFFFF) / 65535.0;
 }
 
-// --- Iris disk -------------------------------------------------------------
-// The second, lower cut plane, applied inside a disk around the player. It opens
-// as the player approaches a low space or somewhere the camera cannot see into,
-// so the space reads before they are standing in it; once they actually are
-// hidden, the BASE plane latches down instead and the disk closes itself.
-//
-// The disk is measured in the CAMERA PLANE, not in world XZ, so it is a true
-// circle on screen — a world-space circle would be squashed into an ellipse by
-// the camera's pitch and stop reading as an iris. Projecting onto the camera's
-// right/up vectors rather than reading SCREEN_UV is what lets the off-screen
-// passes (cap mask, reflections) resolve the identical disk the main pass does,
-// since each renders through its own viewport.
-global uniform bool clip_iris_enabled;
-global uniform vec3 clip_iris_center;
-global uniform vec3 clip_iris_right;
-global uniform vec3 clip_iris_up;
-global uniform float clip_iris_radius;
-// Metres of DITHERED ramp inside the boundary, matching the stipple the height
-// transition uses so the disk's edge belongs to the same effect.
-global uniform float clip_iris_edge;
-// The plane revealed inside the disk. Always below camera_clip while active.
-global uniform float clip_iris_target;
-
-// 1 deep inside the disk, 0 outside it, ramped across clip_iris_edge.
-float clip_iris_coverage(vec3 world_pos)
-{
-	if (!clip_iris_enabled || clip_iris_radius <= 0.0)
-	{
-		return 0.0;
-	}
-	vec3 delta = world_pos - clip_iris_center;
-	vec2 screen = vec2(dot(delta, clip_iris_right), dot(delta, clip_iris_up));
-	return clamp((clip_iris_radius - length(screen)) / max(clip_iris_edge, 1e-3), 0.0, 1.0);
-}
-
-// Smooth [0,1] "is the disk removing this point", for the volumetric consumers,
-// which have no fragment to dither and need a continuous value.
-float clip_iris_visibility(vec3 world_pos)
-{
-	if (!clip_iris_enabled || world_pos.y <= clip_iris_target)
-	{
-		return 1.0;
-	}
-	return 1.0 - clip_iris_coverage(world_pos);
-}
+// The iris — the second, lower cut plane, applied inside a player-centred region.
+// It opens as the player approaches a low space or somewhere the camera cannot see
+// into, so the space reads before they are standing in it; once they actually are
+// hidden, the BASE plane latches down instead and the iris closes itself. Its
+// shape (screen disk or visibility fan) and everything that resolves it live in
+// the include; this file only asks whether a fragment is covered.
+#include "res://shaders/clip_iris.gdshaderinc"
 
 // Lowest plane anywhere in play. The discard paths early-out below this without
-// resolving anything, and the disk is what makes camera_clip alone the wrong
-// answer — a fragment under the base can still be above the disk's lower plane.
+// resolving anything, and the iris is what makes camera_clip alone the wrong
+// answer — a fragment under the base can still be above the iris's lower plane.
 float clip_lowest_plane()
 {
 	float lowest = min(camera_clip, camera_clip_prev);
-	if (clip_iris_enabled && clip_iris_radius > 0.0)
+	if (clip_iris_active())
 	{
 		lowest = min(lowest, clip_iris_target);
 	}
@@ -175,19 +137,24 @@ bool clip_dither_test(float clip_visibility, vec2 frag_xy)
 	return clip_visibility <= threshold;
 }
 
-// Does the iris disk cut this fragment, where the base plane did not?
+// Does the iris cut this fragment, where the base plane did not?
 //
 // Reached only for fragments already BELOW the base clip — so this is purely the
-// second, lower plane, and everything outside the disk falls straight back out.
+// second, lower plane, and everything outside the iris falls straight back out.
 // The boundary stipples through the same Bayer test the height transition uses,
-// so the disk's edge and the cutaway's edge read as one effect rather than two.
+// so the iris's edge and the cutaway's edge read as one effect rather than two.
+//
+// BOTH conditions, and neither is negotiable: the shape decides whether a fragment
+// participates, the plateau decides the height it is cut at. Geometry below
+// clip_iris_target is never touched however deep inside the shape it sits, and
+// nothing above it is ever cut at any other elevation.
 //
 // Height comes from the anchor (a mesh that must cut as a unit is never sliced
-// horizontally); the disk comes from the fragment, because its boundary is
+// horizontally); the shape comes from the fragment, because its boundary is
 // VERTICAL and slicing across a vertical boundary is exactly what it is for.
 bool clip_iris_discard(vec3 height_anchor, vec3 fragment_pos, vec2 frag_xy)
 {
-	if (!clip_iris_enabled || height_anchor.y <= clip_iris_target)
+	if (!clip_iris_active() || height_anchor.y <= clip_iris_target)
 	{
 		return false;
 	}

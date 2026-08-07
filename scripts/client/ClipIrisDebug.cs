@@ -35,9 +35,19 @@ public static class ClipIrisDebug
     // Solid at the player's level. Grey because it is not a finding, it is the
     // ring being unable to answer here.
     private static readonly Color BlockedColor = new(0.4f, 0.4f, 0.45f);
+    // Out of the player's own sight — behind a wall, inside the building next door.
+    // The sample exists but describes space the player has no business revealing, so
+    // it votes on nothing.
+    private static readonly Color HiddenColor = new(0.22f, 0.18f, 0.28f);
     // Hidden from the camera. Warm against the cool ring so a lit-up ring reads at
     // a glance without having to count markers.
     private static readonly Color OccludedColor = new(1f, 0.55f, 0.15f);
+    // Where the camera ray actually stopped, and the ray to it. Red so it reads
+    // against both the cool ring and the warm occlusion ticks.
+    private static readonly Color BlockerColor = new(1f, 0.25f, 0.2f);
+    // The player's own camera march when it finds nothing. Cool and dim so a clear
+    // ray recedes and a blocked one reads immediately.
+    private static readonly Color ClearRayColor = new(0.3f, 0.55f, 0.7f);
     private static readonly Color BaseColor = new(0.6f, 1f, 0.5f);
     private static readonly Color IrisColor = new(1f, 0.9f, 0.3f);
 
@@ -65,6 +75,25 @@ public static class ClipIrisDebug
                 ClipIris.EProbeSpace.Sky => SkyColor,
                 _ => OpenColor,
             };
+            // Blocked first, and at full size: it is culled before the visibility
+            // march ever runs, so its Visible flag means "not asked" rather than
+            // "no". Drawn grey as always — the ring being unable to answer here is a
+            // different fact from the ring reaching somewhere it shouldn't, and the
+            // two want to stay tellable apart.
+            if (probe.Space == ClipIris.EProbeSpace.Blocked)
+            {
+                DebugDraw.Cross(probe.Point, MARKER_SIZE, BlockedColor);
+                continue;
+            }
+            // Samples the player cannot see are drawn small and dark, with no stem.
+            // Reading a ring of bright stems standing INSIDE a building is how the
+            // through-the-wall sampling was spotted, so the fix has to be just as
+            // visible: those samples must now recede instead of reporting.
+            if (!probe.Visible)
+            {
+                DebugDraw.Cross(probe.Point, MARKER_SIZE * 0.4f, HiddenColor);
+                continue;
+            }
             DebugDraw.Cross(probe.Point, MARKER_SIZE, color);
 
             // A stem up to what it found. The ceiling is the whole measurement, so
@@ -85,6 +114,25 @@ public static class ClipIrisDebug
                 Vector3 tick = probe.Point + Vector3.Up * (OCCLUDED_TICK * 0.5f);
                 DebugDraw.Line(probe.Point, tick, OccludedColor);
                 DebugDraw.Cross(tick, MARKER_SIZE * 0.5f, OccludedColor);
+                // The ray itself, and what stopped it. WHICH samples are occluded
+                // was never the hard question — WHAT is occluding them is, and
+                // without drawing it the answer is guesswork off a screenshot. The
+                // origin leg is drawn too because the ray starts RAISED off the body,
+                // which is the part nobody remembers.
+                DebugDraw.Line(probe.Point, probe.OcclusionFrom, BlockerColor);
+                DebugDraw.Line(probe.OcclusionFrom, probe.OcclusionHit, BlockerColor);
+                DebugDraw.Cross(probe.OcclusionHit, MARKER_SIZE, BlockerColor);
+            }
+            // The PLAYER's own ray is drawn even when it finds nothing, because
+            // "why is this not latching when I am plainly behind a building" is only
+            // answerable by watching where the ray went. A ray that sails visibly
+            // THROUGH something solid and still reports clear means that thing is not
+            // on the Environment layer — a completely different fault from a ray that
+            // passes over or around it.
+            else if (i == 0)
+            {
+                DebugDraw.Line(probe.Point, probe.OcclusionFrom, ClearRayColor);
+                DebugDraw.Line(probe.OcclusionFrom, probe.OcclusionHit, ClearRayColor);
             }
         }
 
@@ -102,15 +150,16 @@ public static class ClipIrisDebug
                 BASE_RING_RADIUS, BaseColor);
         }
 
+        if (!iris.IrisActive)
+        {
+            return;
+        }
         // The disk, in the CAMERA PLANE — that is literally what it is, so a flat
         // ring would be a picture of a different shape than the one being cut.
-        if (iris.IrisActive)
-        {
-            DrawScreenRing(iris.IrisCenter, iris.ScreenRight, iris.ScreenUp, iris.IrisRadius, IrisColor);
-            // And its plane, so the two elevations can be compared directly.
-            DrawFlatRing(new Vector3(playerPosition.X, iris.IrisClipY, playerPosition.Z),
-                MARKER_SIZE * 6f, IrisColor);
-        }
+        DrawScreenRing(iris.IrisCenter, iris.ScreenRight, iris.ScreenUp, iris.IrisRadius, IrisColor);
+        // The plane, so the two elevations can be compared directly.
+        DrawFlatRing(new Vector3(playerPosition.X, iris.IrisClipY, playerPosition.Z),
+            MARKER_SIZE * 6f, IrisColor);
     }
 
     private static void DrawFlatRing(Vector3 center, float radius, Color color)

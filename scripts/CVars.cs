@@ -1293,8 +1293,14 @@ public static class CVars
     //   0  off
     //   1  the ring: a marker per sample, a stem up to the ceiling it found, and
     //      an ORANGE tick over any sample hidden from the camera. Sample colour is
-    //      the space it landed in — BLUE open, dim blue sky, GREY solid at the
-    //      player's level (a wall; it answers nothing and votes on nothing).
+    //      the space it landed in — BLUE open, dim blue sky, MAGENTA a doorway or
+    //      window, AMBER under an eave only, GREY solid at the player's level (a
+    //      wall; it answers nothing and votes on nothing), and small DARK for a
+    //      sample the player themselves cannot see, which now reports nothing.
+    //      Every occluded sample also draws its camera march in RED, from the
+    //      LIFTED origin to the voxel that stopped it — read that before theorising
+    //      about what is opening the disk, because "which samples are occluded" is
+    //      the easy half and "what is occluding them" is the half that misleads.
     //   2  + the GREEN base plane the quantile settled on, the MAGENTA disc seed,
     //      and the disc itself drawn AT its target height — YELLOW while growing,
     //      ORANGE once promoted to full screen. Seeing the two planes at their

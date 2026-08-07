@@ -1025,13 +1025,13 @@ void fragment() {
 		ALBEDO = vec3(0.0);
 		EMISSION = vec3(0.0, 0.0, 0.4);
 	}
-	// Mode 20: paint the iris disk's footprint onto the ground, so its SHAPE is
-	// directly readable. Sampling coverage at the terrain surface gives the disk
-	// as it lands on the world — a circle on screen, so an ellipse stretched away
-	// from the camera once it falls on the ground. Green inside, fading across
-	// the dithered edge. Via EMISSION so it survives dim/interior lighting like
-	// mode 13 does.
-	if (clip_debug_mode == 20 && clip_iris_enabled) {
+	// Mode 20: paint the iris's footprint onto the ground, so its SHAPE is
+	// directly readable. Sampling coverage at the terrain surface gives the iris
+	// as it lands on the world — for the disk shape, a circle on screen and so an
+	// ellipse stretched away from the camera once it falls on the ground; for the
+	// fan, the blob itself. Green inside, fading across the dithered edge. Via
+	// EMISSION so it survives dim/interior lighting like mode 13 does.
+	if (clip_debug_mode == 20 && clip_iris_active()) {
 		float iris_debug = clip_iris_coverage(world_vertex);
 		ALBEDO = vec3(0.0);
 		EMISSION = mix(EMISSION, vec3(0.05, 0.9, 0.3), iris_debug * 0.8);

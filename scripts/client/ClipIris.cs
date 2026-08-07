@@ -16,12 +16,12 @@ using Godot;
 // rule taken to its limit — sky is the highest answer there is — and it is what
 // makes standing under a hole in a cave roof read as being outdoors.
 //
-// IRIS PLANE — a fixed elevation above the player's eyes, revealed inside a disk
-// on screen. Deliberately NOT geometry-derived: it is the same plane the manual
-// reveal uses, so it cannot flicker at all, and the disk is free to grow and
-// shrink without dragging a height around with it. The disk is driven by a wide,
-// breathing ring of occlusion samples — a separate question from the ceiling, and
-// so a separate set of samples.
+// IRIS PLANE — a fixed elevation above the player's eyes, revealed inside a
+// player-centred region. Deliberately NOT geometry-derived: it is the same plane
+// the manual reveal uses, so it cannot flicker at all, and the region is free to
+// grow and shrink without dragging a height around with it. That region is driven
+// by a wide, breathing ring of occlusion samples — a separate question from the
+// ceiling, and so a separate set of samples.
 //
 // Three kinds of column are excluded from the height entirely, and each was a bug
 // before it was a rule: DOORWAYS AND WINDOWS (authored as VoxelType.Opening,
@@ -30,9 +30,11 @@ using Godot;
 // a roof's OVERSAIL (cover, but neither a room nor open sky — calling that sky
 // switched the whole cutaway off under the eaves).
 //
-// Foliage is invisible here for free: canopy lives in WorldState.CanopyAttenuation
-// and is neither a solid voxel nor SunOpaque, so no probe can mistake a tree for a
-// ceiling.
+// Foliage is excluded on both halves, by two different mechanisms. The CEILING scan
+// reads voxels, and canopy lives in WorldState.CanopyAttenuation rather than as a
+// solid voxel or a SunOpaque one, so no column can mistake a tree for a ceiling. The
+// OCCLUSION query raycasts colliders masked to Environment, and trees are PorousBody
+// on Porous — the same line the project already draws for perched vision and flight.
 public class ClipIris
 {
     // What a sample found at the player's level.
@@ -57,8 +59,8 @@ public class ClipIris
 
     public struct Probe
     {
-        // Body height above this column's own floor. The occlusion march starts
-        // from here but LIFTS first — see IsOccludedFromCamera.
+        // Body height above this column's own floor. The occlusion ray starts here
+        // but rises first — see IsOccludedFromCamera.
         public Vector3 Point;
         // Distance from the player in the CAMERA PLANE — the same measure the
         // disk uses, so the radius that covers a probe covers it on screen.
@@ -66,7 +68,16 @@ public class ClipIris
         public EProbeSpace Space;
         // World Y of the ceiling's underside. Only meaningful when Open.
         public float CeilingY;
+        // Can the PLAYER see this sample? A sample they cannot see describes space
+        // they have no business revealing, and never counts as occluded.
+        public bool Visible;
         public bool Occluded;
+        // Where the camera ray actually started (RAISED off the body — see
+        // IsOccludedFromCamera) and where it stopped. Only so the overlay can draw
+        // WHAT is doing the hiding: which samples are occluded has never been the
+        // hard question, what is occluding them is.
+        public Vector3 OcclusionFrom;
+        public Vector3 OcclusionHit;
     }
 
     private const float NO_CEILING = float.PositiveInfinity;
@@ -74,21 +85,25 @@ public class ClipIris
     // fractional on slopes and the capsule settles into what it stands on, so the
     // feet voxel is often the solid underfoot.
     private const int MAX_FLOOR_CLIMB = 3;
-    // Fraction of a voxel the occlusion march advances per step. Coarser than a
-    // DDA and can miss a one-voxel diagonal sliver — acceptable, because the
-    // result feeds a count rather than a per-pixel decision.
-    private const float OCCLUSION_STEP = 0.5f;
+    // Fraction of a voxel the player-sight march advances per step. Coarser than a
+    // DDA and can miss a one-voxel diagonal sliver — acceptable, because the result
+    // feeds a count rather than a per-pixel decision. Nothing to do with the
+    // occlusion query, which raycasts colliders and takes no steps at all.
+    private const float SIGHT_STEP = 0.5f;
+    // How far under the first cover overhead the lift parks, so the march origin
+    // stays beneath it instead of teleporting through.
+    private const float LIFT_CLEARANCE = 0.1f;
     // Columns the CEILING is read from: the player's own plus its eight
     // neighbours. Deliberately tiny — see BuildProbes.
     private const int CEILING_SAMPLES = 9;
+    // Voxels a sample will climb to find its column's own ground. Bounds the search
+    // inside a cliff; a column buried deeper than this resolves to whatever it
+    // reached, which is above the player and therefore clears the same terrain the
+    // player is standing in.
+    private const int MAX_SURFACE_CLIMB = 24;
     // Chunks searched around the player for roofs, per axis. A roof's node sits at
     // its footprint CENTRE, so this has to cover half the widest building rather
     // than the ring's own reach.
-    // Voxels the occlusion probe will climb to find its column's own ground
-    // before lifting. Bounds the search inside a cliff; a column buried deeper
-    // than this resolves to whatever it reached, which is above the player and
-    // therefore clears the same terrain the player is standing in.
-    private const int MAX_SURFACE_CLIMB = 24;
     private const int ROOF_SEARCH_CHUNKS_XZ = 2;
     private const int ROOF_SEARCH_CHUNKS_Y = 1;
 
@@ -110,12 +125,18 @@ public class ClipIris
     public int CeilingScanHeight = 24;
     public int FloorTolerance = 2;
     public float OcclusionScanDistance = 24f;
-    // Height above the player's FEET that the occlusion march starts from. The
-    // disk's whole qualifier: only geometry taller than this can hide them as far
-    // as the disk is concerned, so a plateau is ignored and a building is not.
-    // Wants to sit just above a plateau step so a single terrace never qualifies.
+    // How far above a sample the occlusion ray tries to start, RAYCAST rather than
+    // assumed. The disk's whole qualifier: only geometry taller than this can hide
+    // the player as far as the disk is concerned, so a plateau is ignored and a
+    // building is not. Wants to sit just above a plateau step so a single terrace
+    // never qualifies. Anything overhead stops the rise short — see
+    // IsOccludedFromCamera.
     public float OcclusionLift = 4.5f;
     public float Clearance = 0.5f;
+    // Metres from the player within which a window or door does NOT stop the ring.
+    // Wants to be about "standing in it or right up against it" — see
+    // IsVisibleFromPlayer.
+    public float OpeningReach = 1.5f;
     // Metres of margin past the farthest hidden sample, so the reveal clears the
     // thing doing the hiding rather than stopping on it.
     public float IrisPadding = 2f;
@@ -140,17 +161,37 @@ public class ClipIris
     // every sample is taken from.
     public int PlayerFloorY { get; private set; }
     public bool PlayerOccluded { get; private set; }
+    // Standing in, or right beside, a doorway or window. Read off the nine centre
+    // columns, which already classify Opening for the height vote, so it costs
+    // nothing — and it is the same one-voxel neighbourhood "beside" ought to mean.
+    public bool AtOpening { get; private set; }
     // Live ring reach, and how many samples were usable. A high blocked/opening
     // count means the numbers beside it came from a handful of samples.
     public float ProbeRange { get; private set; }
     public int VotingCount { get; private set; }
     public int OccludedCount { get; private set; }
+    // Samples the player cannot see, and which therefore reported nothing. A high
+    // count next to a building is the ring spending most of itself on the far side
+    // of a wall — the reach is bigger than the space.
+    public int HiddenCount { get; private set; }
 
     private Probe[] _probes = System.Array.Empty<Probe>();
     private int _probeCount;
     private Vector2[] _directions = System.Array.Empty<Vector2>();
     private int _directionCount;
     private readonly List<Roof> _nearbyRoofs = new();
+    // Physics space for the occlusion rays, refreshed per tick from the camera.
+    private PhysicsDirectSpaceState3D _space;
+    // Reused rather than built per query — IntersectRay already allocates a native
+    // Dictionary per call, and there is no reason to pay for the parameters too.
+    // Environment ALONE: trees and props are PorousBody on Porous, and the cutaway
+    // must never latch on foliage. See ECollisionLayer.
+    private readonly PhysicsRayQueryParameters3D _rayQuery = new()
+    {
+        CollisionMask = (uint)ECollisionLayer.Environment,
+        CollideWithAreas = false,
+        CollideWithBodies = true,
+    };
     private Vector3 _irisCenter;
     private float _playerY;
 
@@ -161,8 +202,10 @@ public class ClipIris
         _probeCount = 0;
         BaseClipY = NO_CEILING;
         PlayerOccluded = false;
+        AtOpening = false;
         VotingCount = 0;
         OccludedCount = 0;
+        HiddenCount = 0;
         WorldState world = sim?.WorldState;
         if (world == null || camera == null)
         {
@@ -173,6 +216,7 @@ public class ClipIris
 
         ScreenRight = camera.GlobalBasis.X.Normalized();
         ScreenUp = camera.GlobalBasis.Y.Normalized();
+        _space = camera.GetWorld3D()?.DirectSpaceState;
         _irisCenter = playerPosition;
         _playerY = playerPosition.Y;
 
@@ -315,14 +359,40 @@ public class ClipIris
     // appearing at the ring's edge just extends the reach it eases toward.
     private void TickIris(float deltaSeconds, GameCamera camera)
     {
+        for (int i = 0; i < CEILING_SAMPLES && i < _probeCount; i++)
+        {
+            if (_probes[i].Space == EProbeSpace.Opening)
+            {
+                AtOpening = true;
+                break;
+            }
+        }
+
         float farthest = 0f;
         for (int i = 0; i < _probeCount; i++)
         {
+            // Blocked samples are excluded from this: they never ran the visibility
+            // march, so their Visible is "not applicable" rather than "no", and
+            // folding them in would hide the number this is for — how much of the
+            // ring is being spent on the far side of a wall.
+            if (!_probes[i].Visible && _probes[i].Space != EProbeSpace.Blocked)
+            {
+                HiddenCount++;
+            }
             if (!_probes[i].Occluded)
             {
                 continue;
             }
             OccludedCount++;
+            // A MAX, so it is set by exactly one sample and has no outlier rejection
+            // at all. That is fine while the ring only sees the space the player is
+            // walking into, and stops being fine the moment it reaches the next
+            // building along: one sample occluded by THAT building sets the radius,
+            // and since the disk is centred on the player it then removes everything
+            // in between — a hole punched in a near building because a far one was
+            // detected. The reach is what keeps this honest; see clipIrisRadiusMax.
+            // If the reach ever has to grow again, this wants to become a high
+            // quantile rather than a max.
             farthest = Mathf.Max(farthest, _probes[i].ScreenDistance);
         }
 
@@ -332,6 +402,13 @@ public class ClipIris
         float target = OccludedCount > 0
             ? Mathf.Clamp(farthest + Mathf.Max(IrisPadding, 0f), RadiusMin, RadiusMax)
             : 0f;
+        // Standing in or beside a doorway or window opens it too, whatever the ring
+        // found. MAX rather than an override: if the player is ALSO hidden and the
+        // ring wants a wider disk than this, that is the better answer and it wins.
+        if (AtOpening)
+        {
+            target = Mathf.Max(target, RadiusMin);
+        }
         float seconds = Mathf.Max(target > IrisRadius ? IrisGrowSeconds : IrisShrinkSeconds, 1e-3f);
         IrisRadius = Mathf.Lerp(IrisRadius, target, 1f - Mathf.Exp(-deltaSeconds / seconds));
         // Land on zero rather than idling a hair above it forever, so the disk
@@ -388,7 +465,33 @@ public class ClipIris
         probe.Space = ground > PlayerFloorY + Mathf.Max(FloorTolerance, 0)
             ? EProbeSpace.Blocked
             : ScanColumn(world, wx, wz, ground, out probe.CeilingY);
-        probe.Occluded = IsOccludedFromCamera(world, camera, probe.Point, ground);
+        // A sample buried in a wall or a hillside is not a hidden PLACE — it is not a
+        // place at all, so it answers neither query and neither march runs for it.
+        // Cheapest cull available (it drops the 48-step camera march outright) and it
+        // removes a spurious trigger with it: a Blocked sample inside a slope came
+        // back "occluded", because of course solid rock hides it from the camera, and
+        // dragged the disk open over otherwise clear ground.
+        //
+        // The player's own column is exempt. It is never legitimately Blocked, and it
+        // is the one sample whose occlusion drives the reach, so it always marches.
+        if (probe.Space == EProbeSpace.Blocked && !isPlayerColumn)
+        {
+            Append(probe);
+            return;
+        }
+
+        // A sample the PLAYER cannot see says nothing about how far the reveal needs
+        // to reach. The ring is placed by bearing and radius with no notion of
+        // reachability, so on the far side of a wall it lands INSIDE the building —
+        // where it is of course hidden from the camera, so it counted as occluded and
+        // dragged the disk out until it covered the whole house, cutting into the
+        // front of it. The camera query is what the disk is FOR; this is the question
+        // of whether the sample is describing the player's space at all, and it has
+        // to be asked first.
+        probe.Visible = isPlayerColumn
+            || IsVisibleFromPlayer(world, playerPosition + Vector3.Up * BodyHeight, probe.Point);
+        probe.Occluded = probe.Visible && IsOccludedFromCamera(camera, probe.Point,
+            out probe.OcclusionFrom, out probe.OcclusionHit);
         Append(probe);
     }
 
@@ -428,7 +531,38 @@ public class ClipIris
             ceilingY = wy;
             return EProbeSpace.Open;
         }
-        return sawOversail ? EProbeSpace.Oversail : EProbeSpace.Sky;
+        if (sawOversail)
+        {
+            return EProbeSpace.Oversail;
+        }
+        // Reached open air — but a BROKEN roof punches its holes out of the sun stamp
+        // (the shaft of light through the gap is the whole point of that), and CoverAt
+        // gates on the stamp before it ever asks the roof. So a column under a hole
+        // walks clear to the top and reports Sky, and Sky anywhere in the nine
+        // switches the base cut off entirely: one decorative hole un-enclosing a
+        // whole building.
+        //
+        // Ask the roof itself. Its footprint test knows nothing about holes, which is
+        // exactly the "is there a structure overhead" answer wanted here — the sun
+        // stamp answers a lighting question, and the two are not the same. Reported as
+        // Oversail: covered, so it cannot switch the cut off, but voting on no height,
+        // since a hole has no ceiling underside to read. The other columns supply it.
+        return RoofOverColumn(wx, wz, floorY) ? EProbeSpace.Oversail : EProbeSpace.Sky;
+    }
+
+    // Does any gathered roof's footprint sit over this column at all, holes included?
+    // Purely structural, unlike CoverAt, which is gated on sunlight.
+    private bool RoofOverColumn(int wx, int wz, int y)
+    {
+        var point = new Vector3(wx + 0.5f, y + 0.5f, wz + 0.5f);
+        for (int i = 0; i < _nearbyRoofs.Count; i++)
+        {
+            if (_nearbyRoofs[i].CoverAt(point) != ERoofCover.None)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void Append(in Probe probe)
@@ -580,82 +714,124 @@ public class ClipIris
             || world.GetSunOpaqueWorld(wx, wy, wz);
     }
 
-    // March from the sample toward the camera looking for solid. Every scrap of
-    // roof counts here, oversail included — unlike the ceiling test, because an
-    // eave is not a room but it does genuinely hide someone standing under it.
+    // Straight march from the player to the sample, at body height on both ends.
+    // Coarse, like the camera march, and for the same reason: it feeds a count of
+    // samples rather than a per-pixel decision, so a missed one-voxel diagonal sliver
+    // costs nothing.
     //
-    // The march starts LIFTED, at a fixed height above the player's feet rather
-    // than at the sample's own body height. That is what makes the disk care about
-    // buildings and not about terrain: anything shorter than the lift passes
-    // underneath the ray and never registers, so walking behind a 4m plateau does
-    // nothing while walking behind a house opens the disk.
-    //
-    // It costs one case, deliberately: a wall shorter than the lift that you are
-    // standing right behind will not open the disk even though it does hide you.
-    // That is the same trade as the plateau — the trigger is qualified by height,
-    // and terrain is legible enough to walk out of.
-    //
-    // The lift is TESTED, not teleported through. Anything between the sample and
-    // the lift height is itself cover, and reports occluded on the spot.
-    //
-    // That test is not optional, and the cave mouth is why. A cave ceiling is
-    // often thinner than the lift, so teleporting to 4.5m puts the origin ABOVE
-    // the hill, in open air — the march then sweeps clear ground and reports a
-    // player who is standing under solid rock as perfectly visible. The base plane
-    // does not cover the gap either: at a mouth the nine ceiling columns usually
-    // include sky, so the base is off precisely when the disk is needed most.
-    private bool IsOccludedFromCamera(WorldState world, GameCamera camera, Vector3 from, int ground)
+    // Oversail counts here as everywhere else — an eave you cannot see past is still
+    // between you and whatever is behind it.
+    private bool IsVisibleFromPlayer(WorldState world, Vector3 from, Vector3 to)
     {
-        int liftX = Mathf.FloorToInt(from.X);
-        int liftZ = Mathf.FloorToInt(from.Z);
-        // THIS column's own ground, not the player's. On rising terrain a far
-        // sample's point is parked inside the hillside, so a lift anchored to the
-        // player's feet starts underground, hits solid on its first test and
-        // reports occluded — a gently sloping hill reads as an occluder and the
-        // disk latches on open desert. Anchoring per column also gives far samples
-        // a higher lift wherever the ground rises, which is the same fix seen from
-        // the other side: every sample asks the identical question about its own
-        // patch of ground.
-        float liftTo = ground + OcclusionLift;
-        float bodyY = Mathf.Max(from.Y, ground + BodyHeight);
-        if (bodyY < liftTo)
+        Vector3 delta = to - from;
+        float distance = delta.Length();
+        if (distance <= SIGHT_STEP)
         {
-            int top = Mathf.FloorToInt(liftTo);
-            for (int wy = Mathf.FloorToInt(bodyY) + 1; wy <= top; wy++)
-            {
-                if (IsCover(world, liftX, wy, liftZ))
-                {
-                    return true;
-                }
-            }
+            return true;
         }
-        from.Y = Mathf.Max(bodyY, liftTo);
-        Vector3 toCamera = camera.Projection == Camera3D.ProjectionType.Perspective
-            ? (camera.GlobalPosition - from).Normalized()
-            : camera.GlobalBasis.Z.Normalized();
+        Vector3 direction = delta / distance;
         int startX = Mathf.FloorToInt(from.X);
         int startY = Mathf.FloorToInt(from.Y);
         int startZ = Mathf.FloorToInt(from.Z);
-        float distance = Mathf.Max(OcclusionScanDistance, OCCLUSION_STEP);
-        for (float t = OCCLUSION_STEP; t <= distance; t += OCCLUSION_STEP)
+        for (float t = SIGHT_STEP; t < distance; t += SIGHT_STEP)
         {
-            Vector3 point = from + toCamera * t;
+            Vector3 point = from + direction * t;
             int wx = Mathf.FloorToInt(point.X);
             int wy = Mathf.FloorToInt(point.Y);
             int wz = Mathf.FloorToInt(point.Z);
-            // The sample's own voxel can't occlude it — the march starts inside
-            // it, and a body-height point in a low space often shares its voxel
-            // with the ceiling it is standing under.
+            // The player's own voxel can't block their view out of it — they are
+            // standing in it, and in a low space it is shared with the ceiling.
             if (wx == startX && wy == startY && wz == startZ)
             {
                 continue;
             }
+            // A window or door is a hole, so nothing else here calls it cover — and
+            // that let the ring pour through every opening in sight and sample the
+            // room beyond, which is not space the player can see in any useful sense.
+            // It stops the ring, but only at a DISTANCE: standing in a doorway or
+            // right up against a window, seeing through it is the whole point, and
+            // that is exactly the moment the reveal is for. From across the street
+            // the same opening is a slot the ring has no business reaching through.
+            if (world.GetVoxelWorld(wx, wy, wz) == VoxelType.Opening)
+            {
+                if (t > OpeningReach)
+                {
+                    return false;
+                }
+                continue;
+            }
             if (IsCover(world, wx, wy, wz))
             {
-                return true;
+                return false;
             }
         }
+        return true;
+    }
+
+    // Is this sample hidden from the camera? TWO honest rays against the world's
+    // COLLIDERS, and nothing proxying for them.
+    //
+    // Masked to Environment alone, which is this project's existing line between
+    // structure and foliage: roofs, walls, doors and terrain sit there, while trees,
+    // bushes, rocks and chests are PorousBody on Porous. That convention is already
+    // load-bearing for perched vision and flight, and it is exactly the rule the
+    // cutaway needs — standing behind a tree must never light the ring up.
+    //
+    // FIRST RAY GOES STRAIGHT UP, and it replaces a blind lift. The lift exists so
+    // short cover passes under the sightline: a 4m terrace must not latch, while a
+    // house must. But raising the origin to a fixed height punched it THROUGH any
+    // roof thinner than the lift, and the march then swept clear sky over a player
+    // standing under solid rock. Raycasting up stops at whatever is really there —
+    // open sky lets the origin rise the full lift and clear the terrace, a roof or a
+    // cave ceiling keeps it underneath.
+    //
+    // SECOND RAY IS THE ACTUAL QUESTION. It used to be a voxel march reading the sun
+    // stamp, and that was the root of a long run of bugs: the stamp answers a
+    // LIGHTING question, so it conflated eaves with ceilings, went missing wherever a
+    // broken roof punched holes for light shafts, and vanished entirely for any roof
+    // style with blocksSun off. The collider is the geometry itself and cannot
+    // disagree with what is drawn.
+    private bool IsOccludedFromCamera(GameCamera camera, Vector3 from,
+        out Vector3 marchFrom, out Vector3 hit)
+    {
+        marchFrom = from;
+        hit = from;
+        if (_space == null)
+        {
+            return false;
+        }
+        Vector3 lifted = from + Vector3.Up * Mathf.Max(OcclusionLift, 0f);
+        if (Raycast(from, lifted, out Vector3 ceiling))
+        {
+            // Just under whatever is overhead, never below the body itself.
+            lifted = new Vector3(from.X, Mathf.Max(ceiling.Y - LIFT_CLEARANCE, from.Y), from.Z);
+        }
+        marchFrom = lifted;
+        Vector3 toCamera = camera.Projection == Camera3D.ProjectionType.Perspective
+            ? (camera.GlobalPosition - lifted).Normalized()
+            : camera.GlobalBasis.Z.Normalized();
+        Vector3 target = lifted + toCamera * Mathf.Max(OcclusionScanDistance, 1f);
+        if (Raycast(lifted, target, out hit))
+        {
+            return true;
+        }
+        // Terminus, so the overlay can draw the ray that found nothing.
+        hit = target;
         return false;
+    }
+
+    private bool Raycast(Vector3 from, Vector3 to, out Vector3 hit)
+    {
+        hit = to;
+        _rayQuery.From = from;
+        _rayQuery.To = to;
+        Godot.Collections.Dictionary result = _space.IntersectRay(_rayQuery);
+        if (result.Count == 0)
+        {
+            return false;
+        }
+        hit = result["position"].AsVector3();
+        return true;
     }
 
     // The clip height in force at a world point — the CPU twin of the shader's
@@ -666,12 +842,16 @@ public class ClipIris
         {
             return BaseClipY;
         }
+        return InsideIris(worldPosition) ? Mathf.Min(IrisClipY, BaseClipY) : BaseClipY;
+    }
+
+    // Twin of clip_iris_inside, so prop culling and the shader agree on the shape.
+    private bool InsideIris(Vector3 worldPosition)
+    {
         Vector3 delta = worldPosition - _irisCenter;
         float x = delta.Dot(ScreenRight);
         float y = delta.Dot(ScreenUp);
-        return x * x + y * y <= IrisRadius * IrisRadius
-            ? Mathf.Min(IrisClipY, BaseClipY)
-            : BaseClipY;
+        return x * x + y * y <= IrisRadius * IrisRadius;
     }
 
     private void EnsureBuffers()
@@ -712,7 +892,8 @@ public class ClipIris
     {
         string baseText = float.IsPositiveInfinity(BaseClipY) ? "none" : BaseClipY.ToString("0.0");
         return $"y={_playerY:0.0} floorY={PlayerFloorY} baseClip={baseText} iris={IrisClipY:0.0} "
-            + $"radius={IrisRadius:0.0} range={ProbeRange:0.0} playerOccluded={PlayerOccluded} "
-            + $"occluded={OccludedCount}/{_probeCount} voting={VotingCount}";
+            + $"radius={IrisRadius:0.0} range={ProbeRange:0.0} "
+            + $"playerOccluded={PlayerOccluded} occluded={OccludedCount}/{_probeCount} "
+            + $"hidden={HiddenCount} voting={VotingCount} atOpening={AtOpening}";
     }
 }
