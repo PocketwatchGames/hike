@@ -115,6 +115,7 @@ _data = {
 
 [node name="Loot" type="RigidBody3D" unique_id=1123862929 node_paths=PackedStringArray("_collisionShape", "_animationPlayer", "_interactArea", "_hurtBox", "_hudNode", "_sprite", "_modelAnchor")]
 collision_layer = 8
+collision_mask = 8193
 axis_lock_angular_x = true
 axis_lock_angular_y = true
 axis_lock_angular_z = true

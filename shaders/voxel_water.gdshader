@@ -587,7 +587,11 @@ void vertex() {
 	// so local Y == world Y.
 	if (NORMAL.y > 0.5 && water_wave_amp > 1e-5) {
 		vec3 wv = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-		vec2 dir = normalize(vec2(wind_dir.x, wind_dir.z) + vec2(1e-4, 0.0));
+		// Must match SkyController's `windXZ` exactly — it compensates
+		// wave_phase against this direction's rotation (see wavePhase there),
+		// and a biased normalize here would desync the two.
+		vec2 wxz_wave = vec2(wind_dir.x, wind_dir.z);
+		vec2 dir = length(wxz_wave) > 1e-4 ? normalize(wxz_wave) : vec2(1.0, 0.0);
 		float gate = wave_gate(wv.xz, TIME);
 		float h = min(wave_height(wv.xz, dir, water_wave_phase) * gate, 0.0);
 		// Damp displacement by local wind: surface goes glassy under cave

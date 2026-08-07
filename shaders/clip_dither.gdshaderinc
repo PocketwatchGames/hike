@@ -69,6 +69,25 @@ float clip_lowest_plane()
 	return lowest;
 }
 
+// The cut HEIGHT in force at a point: the base plane everywhere, dropped to the
+// iris's plane wherever the iris covers it. The shader twin of
+// ClipIris.ClipHeightAt, and what any consumer wanting a height rather than a
+// keep/cut decision must ask — `camera_clip` alone is only the whole answer while
+// the iris is closed, and reading it as one is how a volumetric effect keeps
+// treating an interior the iris has already opened as sealed.
+float clip_height_at(vec3 world_pos)
+{
+	if (!clip_iris_active() || clip_iris_target >= camera_clip)
+	{
+		return camera_clip;
+	}
+	// A THRESHOLD rather than a blend across the edge ramp: the two planes sit far
+	// apart (camera_clip parks at 1e20 outdoors), so any height between them is one
+	// neither cut is at. Half coverage is where the geometry's stipple is half on,
+	// so this boundary sits inside that one.
+	return clip_iris_coverage(world_pos) < 0.5 ? camera_clip : clip_iris_target;
+}
+
 // Smooth [0,1] "how much is this point part of the visible interior
 // (below the animating cutaway clip)". 1 = fully drawn / below-clip,
 // 0 = fully cut-away / above-clip; the transition follows the same

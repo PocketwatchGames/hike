@@ -222,7 +222,8 @@ public class ClipIris
     // Reused rather than built per query — IntersectRay already allocates a native
     // Dictionary per call, and there is no reason to pay for the parameters too.
     // Environment ALONE: trees and props are PorousBody on Porous, and the cutaway
-    // must never latch on foliage. See ECollisionLayer.
+    // must never latch on foliage; the world boundary is on WorldBounds, so the
+    // invisible walls at the map edge are not cover either. See ECollisionLayer.
     private readonly PhysicsRayQueryParameters3D _rayQuery = new()
     {
         CollisionMask = (uint)ECollisionLayer.Environment,
@@ -230,8 +231,6 @@ public class ClipIris
         CollideWithBodies = true,
     };
     private readonly HiddenRay[] _hiddenRays = new HiddenRay[PLAYER_HIDDEN_TESTS];
-    // Rebuilt only when the boundary set changes, which is once per world load.
-    private int _boundaryExcludeCount = -1;
     // Whether the base plane was already cutting at or below the disk's plane last
     // tick, so leaving that state can open the disk at size instead of from nothing.
     private bool _irisRedundant;
@@ -260,15 +259,6 @@ public class ClipIris
         ScreenRight = camera.GlobalBasis.X.Normalized();
         ScreenUp = camera.GlobalBasis.Y.Normalized();
         _space = camera.GetWorld3D()?.DirectSpaceState;
-        // The world's boundary walls sit on Environment like real terrain, so a sight
-        // ray near the map edge hits an invisible slab and reports the player behind
-        // something in open desert. They are built once and handed back as RIDs for
-        // exactly this — the editor's brush picker excludes them the same way.
-        if (_boundaryExcludeCount != sim.BoundaryRids.Count)
-        {
-            _rayQuery.Exclude = new Godot.Collections.Array<Rid>(sim.BoundaryRids);
-            _boundaryExcludeCount = sim.BoundaryRids.Count;
-        }
         _irisCenter = playerPosition;
         _playerY = playerPosition.Y;
 

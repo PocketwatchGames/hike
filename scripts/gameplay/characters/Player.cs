@@ -785,7 +785,7 @@ public partial class Player : CharacterBody3D
 		// must never slow or deflect the player. The reaction (mob lurches
 		// out of the way) is applied in PushTouchedMobs via an overlap
 		// query against MobSpatialHash, not through MoveAndSlide contacts.
-		CollisionMask = (uint)ECollisionLayer.Solid;
+		CollisionMask = (uint)ECollisionLayer.Blocking;
 
 		// Setting current=true in the .tscn is unreliable when a Camera3D
 		// is also in the tree — Godot picks the camera as listener. Force

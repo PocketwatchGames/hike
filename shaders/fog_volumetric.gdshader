@@ -44,7 +44,7 @@ global uniform vec3 light_map_inv_size;
 // sky is directly above a voxel [0..1]: 1 under open sky, 0 under solid overhead
 // cover. The sun shaft samples it at the CLIP PLANE over the backdrop's column
 // (not at the surface) to detect floor revealed by THIS cutaway: a low reading at
-// camera_clip means the clip removed solid that sits right above this floor.
+// the cut means the clip removed solid that sits right above this floor.
 // Sampling at the clip height (rather than the surface) ignores cover BELOW the
 // clip — tree canopy, distant terrain — so only the genuinely clipped interior fades.
 // Ceiling cutaway altitude + animation. Voxel/sprite shaders discard
@@ -55,6 +55,14 @@ global uniform vec3 light_map_inv_size;
 // camera_clip_blend + a player-centered growth iris. clip_dither.gdshaderinc
 // turns those into a smooth clip_visibility_smooth() so the shafts dissolve
 // in sync with the ceiling instead of popping. Default 1e+20 = outdoor.
+//
+// camera_clip is only the BASE plane, so nothing here compares a height against
+// it directly: the iris cuts a second, lower plane inside a player-centred
+// region, and clip_height_at(p) is the height actually in force at a point.
+// Reading the base alone left the air the iris had opened classified as sealed
+// interior, so shafts and haze kept their outdoor strength over a room the player
+// could already see into and snapped the instant the base latched down behind
+// them.
 global uniform float camera_clip;
 global uniform float camera_clip_prev;
 global uniform float camera_clip_blend;
@@ -578,8 +586,9 @@ void fragment()
     // Starts at 1.0 so an in-bounds sample of 0.3 correctly sets min=0.3;
     // rays that never hit the lightmap keep min=1.0 (no dark voxels seen).
     float min_lm_r = 1.0;
-    // Above-clip rock-thickness. Integrated along the march wherever
-    // p.y > camera_clip, weighted by `(1 - lm_r_soft) * step_size` —
+    // Above-clip rock-thickness. Integrated along the march wherever the sample
+    // is above the cut in force AT THAT SAMPLE (clip_height_at, so the iris's
+    // lower plane counts too), weighted by `(1 - lm_r_soft) * step_size` —
     // outdoor sunlit air above the clip contributes 0 (lm ≈ 1), solid
     // cutaway-clipped rock contributes 1 per step (lm = 0), lateral
     // BFS bleed at a cave mouth contributes a fractional value.
@@ -630,6 +639,13 @@ void fragment()
             // band exits at the terminating surface.
             float t = t_band_enter + (float(i) + 0.5) * step_size;
             vec3 p = near_world + ray_dir * t;
+            // The cut height AT THIS SAMPLE, not the world-wide base plane. Inside
+            // the iris the cut sits lower, so the air the iris opened is above the
+            // clip here and below it a metre to the side — which is the whole point
+            // of resolving it per sample. Falls back to camera_clip for free while
+            // the iris is closed.
+            float clip_here = clip_height_at(p);
+            bool above_clip = p.y > clip_here;
             // Windowed fog map is addressed TOROIDALLY: sample directly and let
             // the repeat sampler do the mod. No [0,1] guard — fog_map_origin is 0
             // and fog_map_inv_size spans only the player-centric window, so a
@@ -731,7 +747,7 @@ void fragment()
                 // step. Multiplied at composite time onto ALBEDO/ALPHA
                 // so pre-rock contributions get retroactively dampened
                 // when the ray ends up behind hidden rock.
-                if (p.y > camera_clip)
+                if (above_clip)
                 {
                     rock_thickness += (1.0 - lm_r_soft) * step_size;
                 }
@@ -825,14 +841,13 @@ void fragment()
             // is the split that lets dust reveal shafts without adding haze.
             //
             // Route this step's contribution into the right zone (outdoor
-            // above camera_clip / indoor below). Each zone uses its OWN
+            // above the cut / indoor below). Each zone uses its OWN
             // transmittance for the inscatter weight so extinction stays
             // bounded within the zone — indoor inscatter is not
             // pre-attenuated by outdoor fog, so a tall foggy cave keeps
             // its full fog density even when the camera is looking
             // through cutaway-clipped rock above it. clip_atten at
             // composite time only dampens the outdoor zone.
-            bool above_clip = p.y > camera_clip;
             float zone_transmittance = above_clip ? outdoor_transmittance : indoor_transmittance;
             // Shared inscatter weight (transmittance * scattering * length,
             // with the near-surface fade). Applied to the sun-shaft and
@@ -1064,7 +1079,7 @@ void fragment()
         float clip_fade = clip_visibility_smooth(surface_world);
         //   sky_gate   : fades shafts over floor REVEALED by this cutaway. Probe
         //                the sky-exposure field at the CLIP PLANE above the
-        //                backdrop's column: if solid sits just above camera_clip
+        //                backdrop's column: if solid sits just above the cut
         //                there, the clip removed that ceiling and this floor is
         //                interior. Probing at clip height (not the surface)
         //                ignores cover below the clip — canopy, distant terrain —
@@ -1072,10 +1087,16 @@ void fragment()
         //                Outdoors (clip = +inf) it's a no-op. The 0.5 lifts the
         //                probe just inside the clipped (discarded) region so the
         //                linear filter doesn't blend with open air below.
+        //                At the cut in force over THIS column, iris included:
+        //                probing the base plane found open sky above a roof the
+        //                iris had already cut through, so the beams stayed at full
+        //                strength over the interior it opened and vanished the
+        //                moment the player stepped in and the base latched down.
+        float surface_clip = clip_height_at(surface_world);
         float sky_gate = 1.0;
-        if (camera_clip < 1e9)
+        if (surface_clip < 1e9)
         {
-            vec3 clip_probe = vec3(surface_world.x, camera_clip + 0.5, surface_world.z);
+            vec3 clip_probe = vec3(surface_world.x, surface_clip + 0.5, surface_world.z);
             // Toroidal sky-exposure map: sample directly (repeat sampler wraps).
             // The probe sits over the visible (resident) backdrop column, and a
             // [0,1] guard would leave sky_gate at 1.0 (no fade) away from origin.

@@ -294,6 +294,8 @@ Lantern={
 3d_physics/layer_10="Dead"
 3d_physics/layer_11="DeadHurtBox"
 3d_physics/layer_12="Porous"
+3d_physics/layer_13="Debris"
+3d_physics/layer_14="WorldBounds"
 
 [physics]
 

@@ -670,7 +670,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // is kept because the player's CollisionMask no longer carries
         // Mob; keeping it here is harmless and leaves a single audit
         // point if we ever want one-way physical interaction.
-        CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
+        CollisionMask = (uint)(ECollisionLayer.Blocking | ECollisionLayer.Player | ECollisionLayer.Mob);
         AxisLockAngularY = true;
 
         if (_hurtBox != null)
@@ -2811,7 +2811,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 Freeze = false;
                 CollisionLayer = (uint)ECollisionLayer.Mob;
-                CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
+                CollisionMask = (uint)(ECollisionLayer.Blocking | ECollisionLayer.Player | ECollisionLayer.Mob);
             }
             else
             {
@@ -3138,12 +3138,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 if (airborneIntent && !_flightCollisionDisabled)
                 {
-                    CollisionMask = _simState.MobData.FliesSolid ? (uint)ECollisionLayer.Solid : 0;
+                    CollisionMask = (uint)(_simState.MobData.FliesSolid
+                        ? ECollisionLayer.Blocking
+                        : ECollisionLayer.WorldBounds);
                     _flightCollisionDisabled = true;
                 }
                 else if (!airborneIntent && _flightCollisionDisabled)
                 {
-                    CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
+                    CollisionMask = (uint)(ECollisionLayer.Blocking | ECollisionLayer.Player | ECollisionLayer.Mob);
                     _flightCollisionDisabled = false;
                 }
             }
@@ -4351,7 +4353,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // so future corpse-targeting tools can pick the hurtbox shape
         // without also catching the movement-collision volume.
         CollisionLayer = (uint)ECollisionLayer.Dead;
-        CollisionMask = (uint)ECollisionLayer.Solid;
+        CollisionMask = (uint)ECollisionLayer.Blocking;
         if (_hurtBox != null)
         {
             _hurtBox.CollisionLayer = (uint)ECollisionLayer.DeadHurtBox;
@@ -4689,7 +4691,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Player bit. Environment stays so the body still rests on
             // the ground.
             CollisionLayer = (uint)ECollisionLayer.Burrowed;
-            CollisionMask = (uint)ECollisionLayer.Solid;
+            CollisionMask = (uint)ECollisionLayer.Blocking;
             // Hurtbox moves to its own BurrowedHurtBox layer so attack
             // raycasts (which mask ECollisionLayer.HurtBox) no longer hit
             // it. Keeping it separate from the body's Burrowed movement
@@ -4709,7 +4711,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // _PhysicsProcess keeps it pinned if the mob has no movement
             // intent. Explicitly unfreezing here would race with that.
             CollisionLayer = (uint)ECollisionLayer.Mob;
-            CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
+            CollisionMask = (uint)(ECollisionLayer.Blocking | ECollisionLayer.Player | ECollisionLayer.Mob);
             if (_hurtBox != null)
             {
                 _hurtBox.CollisionLayer = (uint)ECollisionLayer.HurtBox;

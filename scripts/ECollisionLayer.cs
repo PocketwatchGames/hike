@@ -52,9 +52,22 @@ public enum ECollisionLayer
     // it — nor by AimingReticle, so loot never steals the reticle from a mob.
     // Separate from HurtBox for exactly that reason; don't fold it in.
     Debris = 4096,
+    // The invisible walls and floor that box the streamed world in
+    // (WorldBoundary). Its OWN layer, not Environment, because it is felt and
+    // never seen: it exists to stop bodies leaving the world, and nothing that
+    // asks a question ABOUT the world should find it. On Environment it read as
+    // real cover to every sight query, so standing near the map edge in open
+    // desert reported the player hidden behind a wall that is not there — and
+    // every future query would have had to remember to exclude it.
+    WorldBounds = 8192,
     // Convenience combo: "solid to the world" — terrain/walls plus porous
-    // props. Movement bodies and most world raycasts (vision, arrows, aim,
-    // pathing, rain, lightning) mask this so props still block them; the few
-    // queries that should see / smell / fly through props mask Environment alone.
+    // props. World raycasts (vision, arrows, aim, pathing, rain, lightning) mask
+    // this so props still block them; the few queries that should see / smell /
+    // fly through props mask Environment alone. Deliberately WITHOUT WorldBounds,
+    // so no query can see the boundary.
     Solid = Environment | Porous,
+    // What a moving BODY must not pass through — the world's solids plus the
+    // boundary. Every CollisionMask that exists to contain something masks this;
+    // masking Solid instead lets the thing leave the world.
+    Blocking = Solid | WorldBounds,
 }

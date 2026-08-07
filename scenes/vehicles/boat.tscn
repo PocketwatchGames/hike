@@ -43,7 +43,7 @@ size = Vector3(2.6, 1.5, 3.8)
 
 [node name="Boat" type="CharacterBody3D" unique_id=1737708684 node_paths=PackedStringArray("_seatAnchor", "_hudNode", "_modelAnimator")]
 collision_layer = 8
-collision_mask = 2049
+collision_mask = 10241
 script = ExtResource("1_boat")
 _data = ExtResource("2_data")
 _seatAnchor = NodePath("SeatAnchor")

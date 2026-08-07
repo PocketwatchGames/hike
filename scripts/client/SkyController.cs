@@ -365,7 +365,11 @@ public partial class SkyController : Node3D
     // hardly moves even in wind, a stormy sea with low muddiness rolls.
     [Export(PropertyHint.Range, "0,0.5,0.001")] public float waveAmpPerMps = 0.01f;
     // World-units per wave cycle. Lower = choppier, higher = ocean swell.
-    [Export(PropertyHint.Range, "1,32,0.1")] public float waveLength = 1.0f;
+    // The water surface is one vertex per world unit (WaterMesher emits unit
+    // quads), so anything under ~4 is past Nyquist on the mesh it displaces —
+    // what you see is an alias of the authored wave, and its apparent
+    // wavelength swings wildly with small changes in wind direction.
+    [Export(PropertyHint.Range, "4,32,0.1")] public float waveLength = 6.0f;
     // Spatial frequency of the intermittent wave envelope. Smaller = larger
     // patches of active vs calm water; larger = busier surface.
     [Export(PropertyHint.Range, "0.005,0.5,0.001")] public float waveGateScale = 0.005f;
@@ -685,6 +689,10 @@ public partial class SkyController : Node3D
     // `windSpeed * waveSpeedPerMps * dt`. Replaces a fixed `time * 1.2`
     // rate so wave undulation freezes in calm air and whips in gales.
     public float wavePhase;
+    // Wave direction wavePhase was last compensated against. See the rotation
+    // term where wavePhase is integrated.
+    private Vector2 _lastWaveDir;
+    private bool _haveLastWaveDir;
 
     // --- Dynamic-ripple ring buffer ---------------------------------------
     // Active radial ripples emitted by entities moving through water.
@@ -1171,6 +1179,27 @@ public partial class SkyController : Node3D
             foamOffset += foamScroll * steadySpeed * dt;
             // Wave displacement phase. Steady wind only (gusts shouldn't
             // visibly stutter the wave temporal frequency).
+            //
+            // The rotation term is not cosmetic. Unlike every other field
+            // here, the wave is not a translating pattern — the shader
+            // evaluates it as a plane wave at ABSOLUTE world coordinates
+            // (`dot(world_xz, windXZ) * k + wavePhase`). windXZ is the zone
+            // blend re-sampled at the player every frame, so walking rotates
+            // it slightly, and the phase at a point P then moves by
+            // |P| * k * dtheta. At world-scale |P| that dwarfs the wind-speed
+            // rate below by orders of magnitude, and the whole surface reads
+            // as vibrating while you move and correct while you stand still.
+            // Subtracting the same term at the view center pins the wave where
+            // the player is; the residual grows with distance from there, and
+            // only while the wind is actually turning.
+            Vector3 waveRef = Sim.Current?.ViewCenter ?? Vector3.Zero;
+            float waveK = Mathf.Tau / Mathf.Max(waveLength, 0.1f);
+            if (_haveLastWaveDir)
+            {
+                wavePhase -= (windXZ - _lastWaveDir).Dot(new Vector2(waveRef.X, waveRef.Z)) * waveK;
+            }
+            _lastWaveDir = windXZ;
+            _haveLastWaveDir = true;
             wavePhase += steadySpeed * waveSpeedPerMps * dt;
             windPhase += (_palette.WindFrequency + GustedWindSpeed * windFrequencyPerMps) * dt;
             gustPhase += _palette.GustFrequency * Mathf.Tau * dt;

@@ -9,9 +9,9 @@ public static class WorldBoundary
 {
     private const float WALL_THICKNESS = 1f;
 
-    // Returns the bodies' RIDs, for queries that must not see them. They sit on
-    // Environment like real terrain but are invisible and outside the world, so
-    // anything picking a point to act on (the editor's brush) has to skip them.
+    // Returns the bodies' RIDs. They are on their own WorldBounds layer, so a
+    // query simply not masking it never sees them; the RIDs remain for callers
+    // that mask broadly and still need to skip them (the editor's brush picker).
     public static List<Rid> Create(Node3D parent, WorldState worldState)
     {
         Vector3 minWorld = new Vector3(
@@ -57,6 +57,9 @@ public static class WorldBoundary
     private static Rid AddWall(Node3D parent, Vector3 position, Vector3 size)
     {
         var body = new StaticBody3D();
+        // Its own layer, so sight queries never find it — see ECollisionLayer.
+        // Anything that must be CONTAINED masks ECollisionLayer.Blocking.
+        body.CollisionLayer = (uint)ECollisionLayer.WorldBounds;
         body.Position = position;
 
         var shape = new BoxShape3D();
