@@ -123,16 +123,23 @@ public static class ClipIrisDebug
                 DebugDraw.Line(probe.OcclusionFrom, probe.OcclusionHit, BlockerColor);
                 DebugDraw.Cross(probe.OcclusionHit, MARKER_SIZE, BlockerColor);
             }
-            // The PLAYER's own ray is drawn even when it finds nothing, because
-            // "why is this not latching when I am plainly behind a building" is only
-            // answerable by watching where the ray went. A ray that sails visibly
-            // THROUGH something solid and still reports clear means that thing is not
-            // on the Environment layer — a completely different fault from a ray that
-            // passes over or around it.
-            else if (i == 0)
+        }
+
+        // The player-hidden LADDER — one ray per rung, eye upward, unraised. Between
+        // them they decide how far the reach eases from small to large, so seeing
+        // which rungs clear is seeing the reason for the size. Drawn separately from
+        // the ring because the two answer different questions: the ring's samples are
+        // raised so a terrace cannot latch them, these are not, because "am I behind
+        // something" has no such exemption. Reading the ring's raised rays as though
+        // they were these is exactly how the large latch got misdiagnosed.
+        System.ReadOnlySpan<ClipIris.HiddenRay> rungs = iris.PlayerHiddenRays;
+        for (int i = 0; i < rungs.Length; i++)
+        {
+            ClipIris.HiddenRay rung = rungs[i];
+            DebugDraw.Line(rung.From, rung.Hit, rung.Blocked ? BlockerColor : ClearRayColor);
+            if (rung.Blocked)
             {
-                DebugDraw.Line(probe.Point, probe.OcclusionFrom, ClearRayColor);
-                DebugDraw.Line(probe.OcclusionFrom, probe.OcclusionHit, ClearRayColor);
+                DebugDraw.Cross(rung.Hit, MARKER_SIZE, BlockerColor);
             }
         }
 

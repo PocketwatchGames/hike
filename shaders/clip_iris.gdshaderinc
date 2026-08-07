@@ -29,11 +29,41 @@ global uniform float clip_iris_edge;
 // interior of solid still reads as poche and a building stays legible in iso.
 global uniform float clip_iris_target;
 
+// Borrowed from the FOLIAGE cutaway so the two read as one effect. Shared rather
+// than copied: they are the same shape by intent, and two numbers would drift.
+// .x scales the horizontal component, .y the vertical; (1.6, 1.2) is roughly 16:9,
+// slightly wider than tall. See tree_cards_lit.gdshader for the authored meaning.
+global uniform vec2 foliage_player_fade_aspect;
+
 // Is the iris cutting at all? Named rather than inlined because four consumers ask
 // it and they must not drift apart.
 bool clip_iris_active()
 {
 	return clip_iris_enabled && clip_iris_radius > 0.0;
+}
+
+// Distance from the iris centre, compared against clip_iris_radius — the SHAPE,
+// shared by everything that asks where the boundary is.
+//
+// The foliage cutaway's shape, arrived at the same way: an anisotropic ellipse whose
+// edge is wobbled by world-space noise, so the canopy fade and the ceiling reveal
+// look like one system rather than two effects that happen to open around the player.
+// Aspect and noise are both used exactly as tree_cards_lit does, so the two cannot
+// drift into different shapes.
+//
+// The noise is anchored to the WORLD, so a notch sits over the same patch of ground
+// frame to frame and the boundary sweeps through it as the player walks, rather than
+// crawling with the camera. Being the same field means both effects wobble in step
+// where they meet.
+float clip_iris_shape_distance(vec3 world_pos)
+{
+	vec3 delta = world_pos - clip_iris_center;
+	vec2 screen = vec2(dot(delta, clip_iris_right), dot(delta, clip_iris_up));
+	float dist = length(screen / max(foliage_player_fade_aspect, vec2(1e-3)));
+	float n = sin(world_pos.x * 1.3 + world_pos.z * 0.7) * 0.3
+	        + sin(world_pos.x * 0.5 - world_pos.z * 1.7) * 0.2
+	        + sin(world_pos.x * 2.1 + world_pos.y * 1.1 + world_pos.z * 0.4) * 0.15;
+	return dist + n;
 }
 
 // 1 deep inside the iris, 0 outside it, ramped across clip_iris_edge.
@@ -43,9 +73,8 @@ float clip_iris_coverage(vec3 world_pos)
 	{
 		return 0.0;
 	}
-	vec3 delta = world_pos - clip_iris_center;
-	vec2 screen = vec2(dot(delta, clip_iris_right), dot(delta, clip_iris_up));
-	return clamp((clip_iris_radius - length(screen)) / max(clip_iris_edge, 1e-3), 0.0, 1.0);
+	float dist = clip_iris_shape_distance(world_pos);
+	return clamp((clip_iris_radius - dist) / max(clip_iris_edge, 1e-3), 0.0, 1.0);
 }
 
 // Hard in/out, for consumers that fill a REGION rather than stipple a boundary —
@@ -56,9 +85,7 @@ bool clip_iris_inside(vec3 world_pos)
 	{
 		return false;
 	}
-	vec3 delta = world_pos - clip_iris_center;
-	vec2 screen = vec2(dot(delta, clip_iris_right), dot(delta, clip_iris_up));
-	return length(screen) <= clip_iris_radius;
+	return clip_iris_shape_distance(world_pos) <= clip_iris_radius;
 }
 
 // Smooth [0,1] "is the iris removing this point", for the volumetric consumers,

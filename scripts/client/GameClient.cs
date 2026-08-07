@@ -309,12 +309,22 @@ public partial class GameClient : Node3D
 	// The two iris sizes, in metres — the small disk while the player is visible
 	// and the large one while they are hidden. They also set how far the probe
 	// ring reaches, since it only ever needs to see as far as the disk could grow.
+	//
+	// These are the shape's SHORT axis: the foliage cutaway's aspect scales them out
+	// to an ellipse (1.6 wide, 1.2 tall at the defaults), so the disk on screen is
+	// wider than the number here.
 	[Export(PropertyHint.Range, "1,16,0.25")] public float clipIrisRadiusMin = 3.5f;
 	// The reach is not just detection range — the disk grows to the farthest OCCLUDED
 	// sample, so a ring reaching the next building along latches on it and then removes
 	// everything between here and there. Keep it near the space the player is actually
 	// walking into.
 	[Export(PropertyHint.Range, "2,32,0.25")] public float clipIrisRadiusMax = 8f;
+	// What a doorway or window peek opens to on its own, halfway between the two by
+	// default. Its own number because a peek is neither of the other cases: nothing is
+	// hiding the player, so the ring finds no occlusion to size a disk from, yet a room
+	// seen through an opening is worth more than the size that means "nothing is wrong
+	// here". Clamped into the pair, so it can never undercut the small size.
+	[Export(PropertyHint.Range, "1,32,0.25")] public float clipIrisOpeningRadius = 5.75f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisRangeSeconds = 0.4f;
 	// Height above a sample's own floor that the occlusion march starts from, so
 	// the query asks whether the SPACE is hidden rather than whether the ground is.
@@ -329,12 +339,27 @@ public partial class GameClient : Node3D
 	// How far along the camera ray a sample looks for something hiding it. Past
 	// this the occluder is off-screen anyway.
 	[Export(PropertyHint.Range, "4,64,1")] public float clipIrisOcclusionDistance = 24f;
-	// Height above the player's FEET that the occlusion march starts from — the
-	// disk's whole qualifier. Only geometry taller than this can hide them as far
-	// as the disk is concerned, so walking behind a 4m terrain plateau does
-	// nothing while walking behind a house opens it. Wants to sit just above a
-	// PLATEAU_STEP so a single terrace never qualifies.
-	[Export(PropertyHint.Range, "1,12,0.25")] public float clipIrisOcclusionLift = 4.5f;
+	// The two heights the occlusion ray starts from, and the elevation that decides
+	// between them. The LOW raise is asked first, so cover standing right beside the
+	// player still registers; its answer is believed whenever the thing that blocked
+	// it stands taller than clipIrisShortCover above the player's floor, because that
+	// is a building. Only a SHORT blocker gets the question re-asked from the HIGH
+	// raise, where a terrace passes under the ray and reports clear while a building
+	// keeps blocking.
+	//
+	// One raise alone cannot do both: high enough to ignore a terrace is also high
+	// enough to ignore a wall you are standing against.
+	[Export(PropertyHint.Range, "0.5,8,0.25")] public float clipIrisOcclusionLift = 2f;
+	[Export(PropertyHint.Range, "1,12,0.25")] public float clipIrisOcclusionLiftHigh = 4.5f;
+	// Wants to sit just above a PLATEAU_STEP, so one terrace reads as short and two
+	// do not.
+	[Export(PropertyHint.Range, "1,12,0.25")] public float clipIrisShortCover = 4.25f;
+	// Metres each rung of the player-hidden ladder rises above the one below, starting
+	// at the eye. Three rays are cast to the camera and the share of them that come
+	// back blocked eases the reach from its small size to its large one — so being
+	// half behind a wall reads as a partial reveal instead of snapping between two
+	// sizes the instant an edge crosses the eye.
+	[Export(PropertyHint.Range, "0.25,3,0.25")] public float clipIrisHiddenRise = 1f;
 	// How far below a ceiling's underside the cut plane parks. Too small and the
 	// one face you can see from beneath survives, so the cutaway reads as having
 	// done nothing.
@@ -351,7 +376,10 @@ public partial class GameClient : Node3D
 	[Export(PropertyHint.Range, "0,8,0.25")] public float clipIrisPadding = 2f;
 	// Metres of DITHERED ramp at the disk's edge — the same stipple the height
 	// transition uses, so the two read as one effect. Near zero gives a hard edge.
-	[Export(PropertyHint.Range, "0.05,4,0.05")] public float clipIrisEdgeSoftness = 1f;
+	//
+	// Measured on the SHORT axis, like the radius: the shape divides by the aspect, so
+	// the ramp is proportionally wider along the horizontal than the number suggests.
+	[Export(PropertyHint.Range, "0.05,4,0.05")] public float clipIrisEdgeSoftness = 0.5f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisGrowSeconds = 0.35f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisShrinkSeconds = 0.5f;
 
@@ -1425,14 +1453,20 @@ public partial class GameClient : Node3D
 		_clipIris.RingCount = clipIrisRingCount;
 		_clipIris.RadiusMin = clipIrisRadiusMin;
 		_clipIris.RadiusMax = Mathf.Max(clipIrisRadiusMax, clipIrisRadiusMin);
+		_clipIris.OpeningRadius = clipIrisOpeningRadius;
 		_clipIris.ProbeRangeSeconds = clipIrisRangeSeconds;
 		_clipIris.BodyHeight = clipIrisBodyHeight;
 		_clipIris.CeilingScanHeight = clipIrisCeilingScan;
 		_clipIris.FloorTolerance = clipIrisFloorTolerance;
 		_clipIris.OcclusionScanDistance = clipIrisOcclusionDistance;
 		_clipIris.OcclusionLift = clipIrisOcclusionLift;
+		_clipIris.OcclusionLiftHigh = clipIrisOcclusionLiftHigh;
+		_clipIris.ShortCover = clipIrisShortCover;
+		_clipIris.PlayerHiddenRise = clipIrisHiddenRise;
 		_clipIris.Clearance = clipIrisClearance;
 		_clipIris.OpeningReach = clipIrisOpeningReach;
+		// The same numbers the foliage cutaway uses — one authored shape, two effects.
+		_clipIris.ShapeAspect = new Vector2(foliagePlayerFadeAspectHorizontal, foliagePlayerFadeAspectVertical);
 		_clipIris.IrisPadding = clipIrisPadding;
 		_clipIris.IrisGrowSeconds = clipIrisGrowSeconds;
 		_clipIris.IrisShrinkSeconds = clipIrisShrinkSeconds;

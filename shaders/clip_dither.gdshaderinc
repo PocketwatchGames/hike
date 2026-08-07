@@ -12,9 +12,9 @@
 // aesthetic so the two effects feel like one system.
 //
 // There are TWO cut planes. `camera_clip` is the base, over the whole world.
-// Inside the iris — a player-centred region whose SHAPE is swappable, see
-// clip_iris.gdshaderinc — a lower plane applies instead, revealing a space the
-// player is walking toward before they reach it.
+// Inside the iris — a player-centred region, see clip_iris.gdshaderinc — a lower
+// plane applies instead, revealing a space the player is walking toward before
+// they reach it.
 //
 // Caller must declare these globals before #include:
 //
@@ -25,23 +25,22 @@
 //   global uniform float camera_clip_growth_max_radius;
 //   global uniform float camera_clip_growth_edge_softness;
 //
-// 8x8 Bayer over a 4x4 — wider repeat tile reads as noise rather than a
-// visible grid at the brief fade durations the cutaway uses, while still
-// being a single index → one mul-add lookup per fragment.
-const float CLIP_DITHER_BAYER_8[64] = float[](
-	 0.0/64.0, 32.0/64.0,  8.0/64.0, 40.0/64.0,  2.0/64.0, 34.0/64.0, 10.0/64.0, 42.0/64.0,
-	48.0/64.0, 16.0/64.0, 56.0/64.0, 24.0/64.0, 50.0/64.0, 18.0/64.0, 58.0/64.0, 26.0/64.0,
-	12.0/64.0, 44.0/64.0,  4.0/64.0, 36.0/64.0, 14.0/64.0, 46.0/64.0,  6.0/64.0, 38.0/64.0,
-	60.0/64.0, 28.0/64.0, 52.0/64.0, 20.0/64.0, 62.0/64.0, 30.0/64.0, 54.0/64.0, 22.0/64.0,
-	 3.0/64.0, 35.0/64.0, 11.0/64.0, 43.0/64.0,  1.0/64.0, 33.0/64.0,  9.0/64.0, 41.0/64.0,
-	51.0/64.0, 19.0/64.0, 59.0/64.0, 27.0/64.0, 49.0/64.0, 17.0/64.0, 57.0/64.0, 25.0/64.0,
-	15.0/64.0, 47.0/64.0,  7.0/64.0, 39.0/64.0, 13.0/64.0, 45.0/64.0,  5.0/64.0, 37.0/64.0,
-	63.0/64.0, 31.0/64.0, 55.0/64.0, 23.0/64.0, 61.0/64.0, 29.0/64.0, 53.0/64.0, 21.0/64.0
+// The SAME 4x4 Bayer the foliage cutaway stipples with, so the canopy fade and the
+// ceiling reveal grain identically where they meet. It was an 8x8, on the reasoning
+// that a wider repeat tile reads as noise rather than a visible grid — true, but it
+// also spreads the pattern over twice the distance, which at this game's chunky pixel
+// scale reads as loose blotches rather than dither. The hash offset below is what
+// keeps the smaller tile from locking into a visible grid.
+const float CLIP_DITHER_BAYER_4[16] = float[](
+	 0.0/16.0,  8.0/16.0,  2.0/16.0, 10.0/16.0,
+	12.0/16.0,  4.0/16.0, 14.0/16.0,  6.0/16.0,
+	 3.0/16.0, 11.0/16.0,  1.0/16.0,  9.0/16.0,
+	15.0/16.0,  7.0/16.0, 13.0/16.0,  5.0/16.0
 );
 
-// Hash a screen-space pixel coord to a small per-frag rotation/offset so
-// the 8x8 tile doesn't lock to screen alignment — breaks up the residual
-// grid feel without changing the average coverage at any threshold.
+// Hash a screen-space pixel coord to a small per-frag offset so the tile
+// doesn't lock to screen alignment — breaks up the residual grid feel
+// without changing the average coverage at any threshold.
 float clip_dither_hash(ivec2 p)
 {
 	int n = p.x * 374761393 + p.y * 668265263;
@@ -53,8 +52,8 @@ float clip_dither_hash(ivec2 p)
 // It opens as the player approaches a low space or somewhere the camera cannot see
 // into, so the space reads before they are standing in it; once they actually are
 // hidden, the BASE plane latches down instead and the iris closes itself. Its
-// shape (screen disk or visibility fan) and everything that resolves it live in
-// the include; this file only asks whether a fragment is covered.
+// shape, and everything that resolves it, lives in the include; this file only
+// asks whether a fragment is covered.
 #include "res://shaders/clip_iris.gdshaderinc"
 
 // Lowest plane anywhere in play. The discard paths early-out below this without
@@ -119,13 +118,14 @@ float clip_visibility_smooth(vec3 world_pos)
 bool clip_dither_test(float clip_visibility, vec2 frag_xy)
 {
 	ivec2 ip = ivec2(frag_xy);
-	int bx = ip.x & 7;
-	int by = ip.y & 7;
-	// Add a small hash-noise offset (±1/128) to the threshold to break
-	// the residual ordered-pattern feel of pure Bayer. Cheap (one int
-	// hash) and stable per-pixel so the noise isn't temporally noisy.
-	float threshold = CLIP_DITHER_BAYER_8[by * 8 + bx];
-	threshold += (clip_dither_hash(ip) - 0.5) * (1.0 / 64.0);
+	int bx = ip.x & 3;
+	int by = ip.y & 3;
+	// Add a hash-noise offset of half a level to the threshold, to break the
+	// residual ordered-pattern feel of pure Bayer. Cheap (one int hash) and
+	// stable per-pixel so the noise isn't temporally noisy. Scaled to the
+	// table's own step, so it stays half a level whatever the tile size.
+	float threshold = CLIP_DITHER_BAYER_4[by * 4 + bx];
+	threshold += (clip_dither_hash(ip) - 0.5) * (1.0 / 16.0);
 	// Floor at 0 — the Bayer table's lowest cell is exactly 0, and hash
 	// subtraction would otherwise drop the threshold negative there. At
 	// visibility = 0 (end of a fade-out) the test `0 <= negative` is

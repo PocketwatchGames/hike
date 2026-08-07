@@ -57,6 +57,14 @@ public class ClipIris
         Sky,
     }
 
+    // One rung of the player-hidden ladder.
+    public struct HiddenRay
+    {
+        public Vector3 From;
+        public Vector3 Hit;
+        public bool Blocked;
+    }
+
     public struct Probe
     {
         // Body height above this column's own floor. The occlusion ray starts here
@@ -96,6 +104,9 @@ public class ClipIris
     // Columns the CEILING is read from: the player's own plus its eight
     // neighbours. Deliberately tiny — see BuildProbes.
     private const int CEILING_SAMPLES = 9;
+    // Rungs of the player-hidden ladder. Three gives the reach four settling points
+    // between its two sizes, which is enough to read as easing rather than snapping.
+    private const int PLAYER_HIDDEN_TESTS = 3;
     // Voxels a sample will climb to find its column's own ground. Bounds the search
     // inside a cliff; a column buried deeper than this resolves to whatever it
     // reached, which is above the player and therefore clears the same terrain the
@@ -120,28 +131,46 @@ public class ClipIris
     // becomes how far the cover extends.
     public float RadiusMin = 3.5f;
     public float RadiusMax = 8f;
+    // The size a doorway or window peek opens to on its own. Its own number because a
+    // peek is neither of the other two cases: nothing is hiding the player, so the
+    // ring finds no occlusion to size a disk from, but a room seen through an opening
+    // is worth more than the size given to "nothing is wrong here".
+    public float OpeningRadius = 5.75f;
     public float ProbeRangeSeconds = 0.4f;
     public float BodyHeight = 1f;
     public int CeilingScanHeight = 24;
     public int FloorTolerance = 2;
     public float OcclusionScanDistance = 24f;
-    // How far above a sample the occlusion ray tries to start, RAYCAST rather than
-    // assumed. The disk's whole qualifier: only geometry taller than this can hide
-    // the player as far as the disk is concerned, so a plateau is ignored and a
-    // building is not. Wants to sit just above a plateau step so a single terrace
-    // never qualifies. Anything overhead stops the rise short — see
-    // IsOccludedFromCamera.
-    public float OcclusionLift = 4.5f;
+    // The two heights the occlusion ray tries to start from, RAYCAST rather than
+    // assumed, and the elevation that decides between them. See IsOccludedFromCamera:
+    // the low one is asked first so cover right beside the player still registers, and
+    // the high one is only re-asked when the thing that blocked it was short enough to
+    // be terrain. Anything overhead stops either rise short.
+    //
+    // ShortCover wants to sit just above a plateau step, so one terrace is short and
+    // two are not.
+    public float OcclusionLift = 2f;
+    public float OcclusionLiftHigh = 4.5f;
+    public float ShortCover = 4.25f;
     public float Clearance = 0.5f;
     // Metres from the player within which a window or door does NOT stop the ring.
     // Wants to be about "standing in it or right up against it" — see
     // IsVisibleFromPlayer.
     public float OpeningReach = 1.5f;
+    // Metres each rung of the player-hidden ladder rises above the one below. The
+    // ladder starts at the eye, so this is how much of the player's height above it
+    // still counts toward being hidden.
+    public float PlayerHiddenRise = 1f;
     // Metres of margin past the farthest hidden sample, so the reveal clears the
     // thing doing the hiding rather than stopping on it.
     public float IrisPadding = 2f;
     public float IrisGrowSeconds = 0.35f;
     public float IrisShrinkSeconds = 0.5f;
+    // Shape aspect, shared with the FOLIAGE cutaway (foliagePlayerFadeAspect*) so the
+    // canopy fade and the ceiling reveal are the same shape rather than two effects
+    // that happen to open around the player. It scales the radius outright, as it does
+    // there — so RadiusMin/Max are the shape's SHORT axis, not its extent.
+    public Vector2 ShapeAspect = new(1.6f, 1.2f);
 
     // --- Output ---
     // The voted ceiling of the space the player is in, or infinity for open sky.
@@ -160,10 +189,18 @@ public class ClipIris
     // Voxel index of the lowest air at or above the player's feet — the level
     // every sample is taken from.
     public int PlayerFloorY { get; private set; }
-    public bool PlayerOccluded { get; private set; }
-    // Standing in, or right beside, a doorway or window. Read off the nine centre
-    // columns, which already classify Opening for the height vote, so it costs
-    // nothing — and it is the same one-voxel neighbourhood "beside" ought to mean.
+    // HOW hidden the player is, 0 (eye in plain view) to 1 (still hidden a ladder's
+    // height above it). A ladder rather than a flag because being half behind a wall
+    // is a real state and snapping the reach between two sizes made it read as a
+    // twitch; this eases through it instead.
+    public float PlayerHiddenAmount { get; private set; }
+    public bool PlayerOccluded => PlayerHiddenAmount > 0f;
+    // The ladder itself, for the overlay. Kept separate from the ring's rays: these
+    // are unraised, because "am I behind something" has no terrace exemption, and
+    // reading the ring's raised rays as though they were these is how the large latch
+    // got misdiagnosed.
+    public System.ReadOnlySpan<HiddenRay> PlayerHiddenRays => _hiddenRays;
+    // Standing in, or right beside, a doorway or window — see ResolveAtOpening.
     public bool AtOpening { get; private set; }
     // Live ring reach, and how many samples were usable. A high blocked/opening
     // count means the numbers beside it came from a handful of samples.
@@ -192,6 +229,10 @@ public class ClipIris
         CollideWithAreas = false,
         CollideWithBodies = true,
     };
+    private readonly HiddenRay[] _hiddenRays = new HiddenRay[PLAYER_HIDDEN_TESTS];
+    // Whether the base plane was already cutting at or below the disk's plane last
+    // tick, so leaving that state can open the disk at size instead of from nothing.
+    private bool _irisRedundant;
     private Vector3 _irisCenter;
     private float _playerY;
 
@@ -201,7 +242,7 @@ public class ClipIris
     {
         _probeCount = 0;
         BaseClipY = NO_CEILING;
-        PlayerOccluded = false;
+        PlayerHiddenAmount = 0f;
         AtOpening = false;
         VotingCount = 0;
         OccludedCount = 0;
@@ -226,6 +267,8 @@ public class ClipIris
         // elevation, so it holds perfectly still until they change floor.
         float step = Mathf.Max(GameCamera.PLATEAU_STEP, 1e-3f);
         IrisClipY = Mathf.Ceil((PlayerFloorY + GameCamera.EYE_HEIGHT) / step) * step - Clearance;
+
+        AtOpening = ResolveAtOpening(world, playerPosition);
 
         BuildProbes(world, camera, playerPosition);
         BaseClipY = VoteCeiling();
@@ -256,7 +299,32 @@ public class ClipIris
         // Index 0 is the player's own column, at their actual position — the one
         // sample with a real body standing at it.
         AddProbe(world, camera, playerPosition, playerPosition, 0f);
-        PlayerOccluded = _probeCount > 0 && _probes[0].Occluded;
+        // How hidden the player is, asked as a LADDER up their body rather than a
+        // single test. Each rung rises PlayerHiddenRise and casts to the camera; the
+        // share that come back blocked is how far the reach eases from small to large.
+        // The eye alone is a flag, and a flag makes the reach snap the instant a wall
+        // edge crosses one point.
+        //
+        // Unraised, unlike the ring's samples. Those rise so short cover passes beneath
+        // them and a terrace never latches, but applying that here answers a different
+        // question — standing under a roof edge, a raised ray cleared it and called the
+        // player visible, so the reach stayed small and only the tight iris opened.
+        int blockedRungs = 0;
+        for (int i = 0; i < PLAYER_HIDDEN_TESTS; i++)
+        {
+            Vector3 rung = playerPosition
+                + Vector3.Up * (GameCamera.EYE_HEIGHT + i * Mathf.Max(PlayerHiddenRise, 0f));
+            Vector3 target = CameraTarget(camera, rung);
+            Vector3 point = target;
+            bool blocked = _space != null && Raycast(rung, target, out point);
+            if (blocked)
+            {
+                blockedRungs++;
+            }
+            _hiddenRays[i] = new HiddenRay { From = rung, Hit = point, Blocked = blocked };
+        }
+        PlayerHiddenAmount = (float)blockedRungs / PLAYER_HIDDEN_TESTS;
+
         for (int dz = -1; dz <= 1; dz++)
         {
             for (int dx = -1; dx <= 1; dx++)
@@ -359,15 +427,6 @@ public class ClipIris
     // appearing at the ring's edge just extends the reach it eases toward.
     private void TickIris(float deltaSeconds, GameCamera camera)
     {
-        for (int i = 0; i < CEILING_SAMPLES && i < _probeCount; i++)
-        {
-            if (_probes[i].Space == EProbeSpace.Opening)
-            {
-                AtOpening = true;
-                break;
-            }
-        }
-
         float farthest = 0f;
         for (int i = 0; i < _probeCount; i++)
         {
@@ -407,15 +466,7 @@ public class ClipIris
         // ring wants a wider disk than this, that is the better answer and it wins.
         if (AtOpening)
         {
-            target = Mathf.Max(target, RadiusMin);
-        }
-        float seconds = Mathf.Max(target > IrisRadius ? IrisGrowSeconds : IrisShrinkSeconds, 1e-3f);
-        IrisRadius = Mathf.Lerp(IrisRadius, target, 1f - Mathf.Exp(-deltaSeconds / seconds));
-        // Land on zero rather than idling a hair above it forever, so the disk
-        // actually switches off and the shaders drop its term.
-        if (target <= 0f && IrisRadius < 0.05f)
-        {
-            IrisRadius = 0f;
+            target = Mathf.Max(target, Mathf.Clamp(OpeningRadius, RadiusMin, RadiusMax));
         }
         // Redundant once the base has SETTLED at or below the disk's own plane —
         // there is nothing left for it to reveal that the base is not revealing
@@ -424,13 +475,35 @@ public class ClipIris
         // the base and the disk straddle each other for the whole of a transition,
         // and switching the disk off in that window is exactly the flip that made
         // it pop out the moment the player stepped into a cave.
-        if (camera.ClipSettled && IrisClipY >= camera.Clip)
+        bool redundant = camera.ClipSettled && IrisClipY >= camera.Clip;
+        if (redundant)
         {
             IrisRadius = 0f;
         }
+        else if (_irisRedundant)
+        {
+            // Leaving redundancy: a moment ago the base was cutting at or below the
+            // disk's plane, so everything the disk would reveal was ALREADY open.
+            // Growing from zero would animate a reveal of space the player has been
+            // looking at the whole time, which reads as the disk arriving late. Open
+            // at full size and let it ease from there.
+            IrisRadius = target;
+        }
+        else
+        {
+            float seconds = Mathf.Max(target > IrisRadius ? IrisGrowSeconds : IrisShrinkSeconds, 1e-3f);
+            IrisRadius = Mathf.Lerp(IrisRadius, target, 1f - Mathf.Exp(-deltaSeconds / seconds));
+            // Land on zero rather than idling a hair above it forever, so the disk
+            // actually switches off and the shaders drop its term.
+            if (target <= 0f && IrisRadius < 0.05f)
+            {
+                IrisRadius = 0f;
+            }
+        }
+        _irisRedundant = redundant;
 
         // Reach follows the same signal, between the same two sizes.
-        float rangeTarget = PlayerOccluded ? RadiusMax : RadiusMin;
+        float rangeTarget = Mathf.Lerp(RadiusMin, RadiusMax, PlayerHiddenAmount);
         ProbeRange = Mathf.Lerp(ProbeRange, rangeTarget,
             1f - Mathf.Exp(-deltaSeconds / Mathf.Max(ProbeRangeSeconds, 1e-3f)));
     }
@@ -572,6 +645,43 @@ public class ClipIris
             return;
         }
         _probes[_probeCount++] = probe;
+    }
+
+    // Standing in, or right beside, a doorway or window — asked DIRECTLY of the
+    // voxels rather than read off the probe ring.
+    //
+    // The ring is placed by bearing and radius, so whether a window a metre away
+    // happens to land on a sample is luck. It also only ever checked the nine centre
+    // columns, so a window one step further out drew its magenta marker in the overlay
+    // and still never latched. "Am I next to an opening" is a question about the
+    // player's own surroundings and wants a direct answer.
+    //
+    // Deliberately independent of whether any ray gets THROUGH the opening — being
+    // beside one is the whole condition. Uses OpeningReach, the same number that
+    // decides whether the ring may see through one, so "next to" means one thing.
+    //
+    // Banded to the player's own body height, so a second-storey window overhead is
+    // not "next to" anything.
+    private bool ResolveAtOpening(WorldState world, Vector3 playerPosition)
+    {
+        int reach = Mathf.Max(Mathf.CeilToInt(OpeningReach), 0);
+        int px = Mathf.FloorToInt(playerPosition.X);
+        int pz = Mathf.FloorToInt(playerPosition.Z);
+        int top = PlayerFloorY + Mathf.FloorToInt(GameCamera.EYE_HEIGHT);
+        for (int dz = -reach; dz <= reach; dz++)
+        {
+            for (int dx = -reach; dx <= reach; dx++)
+            {
+                for (int wy = PlayerFloorY; wy <= top; wy++)
+                {
+                    if (world.GetVoxelWorld(px + dx, wy, pz + dz) == VoxelType.Opening)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     // Lowest air voxel at or above the player's feet. Not floor(playerY): the
@@ -768,7 +878,7 @@ public class ClipIris
         return true;
     }
 
-    // Is this sample hidden from the camera? TWO honest rays against the world's
+    // Is this sample hidden from the camera? Honest rays against the world's
     // COLLIDERS, and nothing proxying for them.
     //
     // Masked to Environment alone, which is this project's existing line between
@@ -777,20 +887,20 @@ public class ClipIris
     // load-bearing for perched vision and flight, and it is exactly the rule the
     // cutaway needs — standing behind a tree must never light the ring up.
     //
-    // FIRST RAY GOES STRAIGHT UP, and it replaces a blind lift. The lift exists so
-    // short cover passes under the sightline: a 4m terrace must not latch, while a
-    // house must. But raising the origin to a fixed height punched it THROUGH any
-    // roof thinner than the lift, and the march then swept clear sky over a player
-    // standing under solid rock. Raycasting up stops at whatever is really there —
-    // open sky lets the origin rise the full lift and clear the terrace, a roof or a
-    // cave ceiling keeps it underneath.
+    // ASKED TWICE, FROM TWO HEIGHTS. A single raise trades one failure for the other:
+    // raise far enough that a terrace passes under the ray and cover standing right
+    // beside the player passes under it too; keep it low and every bank of earth
+    // latches. So the low raise asks first, and its answer is believed whenever what
+    // stopped it stands taller than ShortCoverHeight above the player's floor — that
+    // is a building, and being close to it is exactly when it matters.
     //
-    // SECOND RAY IS THE ACTUAL QUESTION. It used to be a voxel march reading the sun
-    // stamp, and that was the root of a long run of bugs: the stamp answers a
-    // LIGHTING question, so it conflated eaves with ceilings, went missing wherever a
-    // broken roof punched holes for light shafts, and vanished entirely for any roof
-    // style with blocksSun off. The collider is the geometry itself and cannot
-    // disagree with what is drawn.
+    // Only when the blocker is SHORT is the question re-asked from the high raise. A
+    // terrace the ray now passes over reports clear; a building goes on blocking from
+    // up there too, so nothing tall is lost by asking again.
+    //
+    // Measured against the player's resolved floor rather than each sample's own
+    // ground, so every sample judges "short" against the same elevation the player is
+    // actually standing at.
     private bool IsOccludedFromCamera(GameCamera camera, Vector3 from,
         out Vector3 marchFrom, out Vector3 hit)
     {
@@ -800,17 +910,32 @@ public class ClipIris
         {
             return false;
         }
-        Vector3 lifted = from + Vector3.Up * Mathf.Max(OcclusionLift, 0f);
+        if (!CastToCamera(camera, from, OcclusionLift, out marchFrom, out hit))
+        {
+            return false;
+        }
+        if (hit.Y > PlayerFloorY + ShortCover)
+        {
+            return true;
+        }
+        return CastToCamera(camera, from, OcclusionLiftHigh, out marchFrom, out hit);
+    }
+
+    // Rise, then look toward the camera. The rise is RAYCAST, so it stops at whatever
+    // is actually overhead: assuming a fixed height punched the origin through any
+    // roof thinner than the raise, and the ray then swept clear sky over a player
+    // standing under solid rock.
+    private bool CastToCamera(GameCamera camera, Vector3 from, float lift,
+        out Vector3 marchFrom, out Vector3 hit)
+    {
+        Vector3 lifted = from + Vector3.Up * Mathf.Max(lift, 0f);
         if (Raycast(from, lifted, out Vector3 ceiling))
         {
             // Just under whatever is overhead, never below the body itself.
             lifted = new Vector3(from.X, Mathf.Max(ceiling.Y - LIFT_CLEARANCE, from.Y), from.Z);
         }
         marchFrom = lifted;
-        Vector3 toCamera = camera.Projection == Camera3D.ProjectionType.Perspective
-            ? (camera.GlobalPosition - lifted).Normalized()
-            : camera.GlobalBasis.Z.Normalized();
-        Vector3 target = lifted + toCamera * Mathf.Max(OcclusionScanDistance, 1f);
+        Vector3 target = CameraTarget(camera, lifted);
         if (Raycast(lifted, target, out hit))
         {
             return true;
@@ -818,6 +943,20 @@ public class ClipIris
         // Terminus, so the overlay can draw the ray that found nothing.
         hit = target;
         return false;
+    }
+
+    // Where a sight ray toward the camera ENDS. A perspective camera is a point, so
+    // the ray stops there — running a fixed length along the direction instead
+    // overshoots a near camera (and can hit whatever is behind it) while falling short
+    // of a far one. Orthographic has no point to aim at, so the scan distance is the
+    // only bound available.
+    private Vector3 CameraTarget(GameCamera camera, Vector3 from)
+    {
+        if (camera.Projection == Camera3D.ProjectionType.Perspective)
+        {
+            return camera.GlobalPosition;
+        }
+        return from + camera.GlobalBasis.Z.Normalized() * Mathf.Max(OcclusionScanDistance, 1f);
     }
 
     private bool Raycast(Vector3 from, Vector3 to, out Vector3 hit)
@@ -845,13 +984,20 @@ public class ClipIris
         return InsideIris(worldPosition) ? Mathf.Min(IrisClipY, BaseClipY) : BaseClipY;
     }
 
-    // Twin of clip_iris_inside, so prop culling and the shader agree on the shape.
+    // Twin of clip_iris_shape_distance / clip_iris_inside, so prop culling and the
+    // shader agree on the shape. Kept in step by hand: the aspect normalisation and
+    // the noise field must match the include exactly or a prop near the boundary
+    // vanishes on one side of the line and not the other.
     private bool InsideIris(Vector3 worldPosition)
     {
         Vector3 delta = worldPosition - _irisCenter;
-        float x = delta.Dot(ScreenRight);
-        float y = delta.Dot(ScreenUp);
-        return x * x + y * y <= IrisRadius * IrisRadius;
+        var screen = new Vector2(
+            delta.Dot(ScreenRight) / Mathf.Max(ShapeAspect.X, 1e-3f),
+            delta.Dot(ScreenUp) / Mathf.Max(ShapeAspect.Y, 1e-3f));
+        float noise = Mathf.Sin(worldPosition.X * 1.3f + worldPosition.Z * 0.7f) * 0.3f
+            + Mathf.Sin(worldPosition.X * 0.5f - worldPosition.Z * 1.7f) * 0.2f
+            + Mathf.Sin(worldPosition.X * 2.1f + worldPosition.Y * 1.1f + worldPosition.Z * 0.4f) * 0.15f;
+        return screen.Length() + noise <= IrisRadius;
     }
 
     private void EnsureBuffers()
@@ -893,7 +1039,7 @@ public class ClipIris
         string baseText = float.IsPositiveInfinity(BaseClipY) ? "none" : BaseClipY.ToString("0.0");
         return $"y={_playerY:0.0} floorY={PlayerFloorY} baseClip={baseText} iris={IrisClipY:0.0} "
             + $"radius={IrisRadius:0.0} range={ProbeRange:0.0} "
-            + $"playerOccluded={PlayerOccluded} occluded={OccludedCount}/{_probeCount} "
+            + $"hidden={PlayerHiddenAmount:0.00} occluded={OccludedCount}/{_probeCount} "
             + $"hidden={HiddenCount} voting={VotingCount} atOpening={AtOpening}";
     }
 }
