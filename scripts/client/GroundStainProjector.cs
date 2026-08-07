@@ -95,6 +95,8 @@ public partial class GroundStainProjector : Node3D
     public override void _ExitTree()
     {
         CVars.groundStain.OnChanged -= OnGroundStainChanged;
+        // Unbind the SubViewport texture before it dies with this node.
+        ShaderGlobals.ResetToProjectDefault("ground_stain_tex");
     }
 
     private void OnGroundStainChanged(CVar cvar)

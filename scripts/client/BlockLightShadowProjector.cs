@@ -130,6 +130,8 @@ public partial class BlockLightShadowProjector : Node3D
     public override void _ExitTree()
     {
         CVars.blockLightShadow.OnChanged -= OnBlockLightShadowChanged;
+        // Unbind the SubViewport texture before it dies with this node.
+        ShaderGlobals.ResetToProjectDefault("block_light_shadow_tex");
     }
 
     private void OnBlockLightShadowChanged(CVar cvar)

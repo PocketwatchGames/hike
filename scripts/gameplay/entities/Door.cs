@@ -98,59 +98,10 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         // it), and terrain sun now comes from the light volume rather than the
         // vertex bake, so nothing about the chunk mesh has moved.
         var changed = new List<Vector3I>();
-        ApplyOcclusion(_worldData, _interactiveState, changed);
+        EntityVoxelStamper.Apply(_worldData, _interactiveState.ResolveStamp(_worldData), changed);
         if (changed.Count > 0)
         {
             _world.UpdateLighting(changed);
-        }
-    }
-
-    // Writes the doorway column to match the door's state: Barrier while closed
-    // (opaque to sunlight, block light and navigation), Opening while open.
-    // Shared by the load-time stamp (DoorOcclusionStamper) and the runtime toggle
-    // so the two can never disagree about which cells a door owns. Cells actually
-    // changed are appended to `changed` for the caller's relight.
-    public static void ApplyOcclusion(WorldState world, DoorSimState data, List<Vector3I> changed)
-    {
-        // Active == closed. Door.Create derives its own _open the same way.
-        //
-        // Open writes Opening, not Air. Opening is empty in every sense that
-        // matters here — passable, invisible, transparent to light — but the
-        // ceiling cutaway reads it as wall, so the masonry above a doorway stays
-        // put instead of appearing and disappearing as the door swings.
-        //
-        // This is NOT a substitute for authoring the aperture. Apertures are
-        // painted Opening in the editor, every doorway and window, whatever its
-        // width — a door only ever owns a single column (see ResolveOccluderBase),
-        // so it could not carry a wider one anyway. What this write buys is that
-        // a door can never DESTROY the painted aperture by swinging open, which
-        // is what would happen if the open state reverted to plain Air.
-        VoxelType voxel = data.Active ? VoxelType.Barrier : VoxelType.Opening;
-        Vector3I baseCell = ResolveOccluderBase(world, data);
-        int height = Mathf.Max(1, GetOccluderHeight(data.Scene));
-        for (int i = 0; i < height; i++)
-        {
-            var cell = new Vector3I(baseCell.X, baseCell.Y + i, baseCell.Z);
-            VoxelType existing = world.GetVoxelWorld(cell.X, cell.Y, cell.Z);
-            // Only ever write empty cells or the door's own markers. Authored
-            // geometry is never overwritten: a seat position that resolved onto
-            // a floor or wall block would otherwise erase it on open and leave a
-            // hole the player falls through. Opening has to be accepted here as
-            // well as Air — it is what the open state writes, so rejecting it
-            // would let a door stamp Opening once and then never be able to close
-            // back to Barrier. An Opening an AUTHOR painted is equally fine to
-            // take over: both states the door writes block the cutaway anyway,
-            // which is exactly what that author was asking for.
-            if (existing != VoxelType.Air && existing != VoxelType.Barrier && existing != VoxelType.Opening)
-            {
-                continue;
-            }
-            if (existing == voxel)
-            {
-                continue;
-            }
-            world.SetVoxelWorld(cell.X, cell.Y, cell.Z, voxel);
-            changed?.Add(cell);
         }
     }
 
@@ -195,36 +146,16 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     }
 
     // Per-scene occluder height for callers that hold only a PackedScene — the
-    // load-time stamp runs before any door node exists. Instantiated once per
-    // scene and freed, mirroring FoliageOccluderCache.
-    private static readonly Dictionary<string, int> _occluderHeightByScene = new();
+    // load-time stamp runs before any door node exists. Must match the [Export]
+    // above in both name and default, since a door scene sitting on the default
+    // stores no value to read.
+    private const int DEFAULT_OCCLUDER_HEIGHT = 2;
+    private static readonly ScenePropertyCache _occluderHeights =
+        new ScenePropertyCache("_occluderHeight", DEFAULT_OCCLUDER_HEIGHT);
 
     public static int GetOccluderHeight(PackedScene scene)
     {
-        const int FallbackHeight = 2;
-        if (scene == null)
-        {
-            return FallbackHeight;
-        }
-        string key = scene.ResourcePath;
-        if (!string.IsNullOrEmpty(key) && _occluderHeightByScene.TryGetValue(key, out int cached))
-        {
-            return cached;
-        }
-        int height = FallbackHeight;
-        if (scene.Instantiate() is Node root)
-        {
-            if (root is Door door)
-            {
-                height = door._occluderHeight;
-            }
-            root.Free();
-        }
-        if (!string.IsNullOrEmpty(key))
-        {
-            _occluderHeightByScene[key] = height;
-        }
-        return height;
+        return _occluderHeights.Get(scene);
     }
 
     public static Door Create(Sim sim, DoorSimState data)
@@ -236,8 +167,8 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         instance._world = sim;
         // An unresolved base means no load-time stamp has seen this door — it
         // was placed live in the editor, so it has to stamp itself. Doors from
-        // the world file are already reconciled by DoorOcclusionStamper, and
-        // their voxels persist in WorldState across chunk load/unload.
+        // the world file are already reconciled by EntityVoxelStamper, and their
+        // voxels persist in WorldState across chunk load/unload.
         bool needsStamp = !data.OccluderBase.HasValue;
         instance._baseWorldPos = ResolveOccluderBase(sim.WorldState, data);
         sim.AddChild(instance);
@@ -249,7 +180,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         if (needsStamp)
         {
             var changed = new List<Vector3I>();
-            ApplyOcclusion(sim.WorldState, data, changed);
+            EntityVoxelStamper.Apply(sim.WorldState, data.ResolveStamp(sim.WorldState), changed);
             if (changed.Count > 0)
             {
                 sim.UpdateLighting(changed);

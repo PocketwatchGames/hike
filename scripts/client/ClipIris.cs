@@ -230,6 +230,8 @@ public class ClipIris
         CollideWithBodies = true,
     };
     private readonly HiddenRay[] _hiddenRays = new HiddenRay[PLAYER_HIDDEN_TESTS];
+    // Rebuilt only when the boundary set changes, which is once per world load.
+    private int _boundaryExcludeCount = -1;
     // Whether the base plane was already cutting at or below the disk's plane last
     // tick, so leaving that state can open the disk at size instead of from nothing.
     private bool _irisRedundant;
@@ -258,6 +260,15 @@ public class ClipIris
         ScreenRight = camera.GlobalBasis.X.Normalized();
         ScreenUp = camera.GlobalBasis.Y.Normalized();
         _space = camera.GetWorld3D()?.DirectSpaceState;
+        // The world's boundary walls sit on Environment like real terrain, so a sight
+        // ray near the map edge hits an invisible slab and reports the player behind
+        // something in open desert. They are built once and handed back as RIDs for
+        // exactly this — the editor's brush picker excludes them the same way.
+        if (_boundaryExcludeCount != sim.BoundaryRids.Count)
+        {
+            _rayQuery.Exclude = new Godot.Collections.Array<Rid>(sim.BoundaryRids);
+            _boundaryExcludeCount = sim.BoundaryRids.Count;
+        }
         _irisCenter = playerPosition;
         _playerY = playerPosition.Y;
 
@@ -470,17 +481,32 @@ public class ClipIris
         }
         // Redundant once the base has SETTLED at or below the disk's own plane —
         // there is nothing left for it to reveal that the base is not revealing
-        // already — so drop it outright instead of leaving it running with its cap
-        // plane and its per-frame prop sweep. Gated on the fade being complete:
-        // the base and the disk straddle each other for the whole of a transition,
-        // and switching the disk off in that window is exactly the flip that made
-        // it pop out the moment the player stepped into a cave.
+        // already — so it goes. Gated on the fade being complete: the base and the
+        // disk straddle each other for the whole of a transition, and switching the
+        // disk off in that window is exactly the flip that made it pop out the moment
+        // the player stepped into a cave.
+        //
+        // Retired by its own SHRINK CURVE, never snapped. It used to be zeroed
+        // outright, which tore a hole in the handover: step under a doorframe and the
+        // disk vanished on the frame the ceiling clip was requested, leaving the
+        // interior the player was already looking into uncovered until the base faded
+        // in behind it. The shrink costs nothing to watch — by definition the base is
+        // cutting lower than the disk by the time this fires, so the disk is only
+        // closing over ground that is already open.
         bool redundant = camera.ClipSettled && IrisClipY >= camera.Clip;
         if (redundant)
         {
-            IrisRadius = 0f;
+            target = 0f;
         }
-        else if (_irisRedundant)
+        else if (!camera.ClipSettled)
+        {
+            // The base is mid-fade, so a handover is in flight and the disk is what
+            // is covering the interim. It may still GROW here, but it is not allowed
+            // to shrink until the base has actually arrived.
+            target = Mathf.Max(target, IrisRadius);
+        }
+
+        if (!redundant && _irisRedundant)
         {
             // Leaving redundancy: a moment ago the base was cutting at or below the
             // disk's plane, so everything the disk would reveal was ALREADY open.

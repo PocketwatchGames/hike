@@ -174,6 +174,11 @@ public partial class MoteEffect : Node3D
         {
             MoteMatRuntime = (ShaderMaterial)mat.Duplicate();
             mesh.Material = MoteMatRuntime;
+            // The draw-pass mesh is a shared resource, so this duplicate can
+            // inherit a previous session's fog_map — a texture whose RID died
+            // with that session's ChunkManager. Clear it; Tick rebinds the
+            // live volume from the first frame it has one.
+            MoteMatRuntime.SetShaderParameter("fog_map", default);
         }
     }
 
@@ -183,6 +188,10 @@ public partial class MoteEffect : Node3D
         {
             Current = null;
         }
+        // fog_map is the ChunkManager's volume texture, whose RID is freed
+        // explicitly on teardown — unbind it here or this material's uniform
+        // set is rebuilt against a dangling texture as the world tears down.
+        MoteMatRuntime?.SetShaderParameter("fog_map", default);
     }
 
     // Called by SkyController.ApplyMotes() every frame. `intensity` is the

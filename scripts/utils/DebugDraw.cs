@@ -15,6 +15,13 @@ using Godot;
 //   Cross     — three orthogonal segments centered at point.
 //   Arrow     — line plus a small arrowhead at the tip.
 //
+// Every shape draws twice — full strength where nothing is in front of it,
+// and dimmed where something is. Pass `occludedColor` to say what that dimmed
+// half looks like; the default is the caller's colour at a fixed low alpha,
+// which stays loud for a saturated colour drawn as a dense shape. A shape that
+// wants to recede behind geometry should name a desaturated colour here rather
+// than lean on the default.
+//
 // All are no-ops if no World is running (e.g. on the main menu) or
 // before the renderer has spawned.
 public static class DebugDraw
@@ -22,20 +29,20 @@ public static class DebugDraw
     private const int SphereSegments = 16;
     private const float ArrowHeadFraction = 0.15f;
 
-    public static void Line(Vector3 a, Vector3 b, Color color, float lifetime = 0f)
+    public static void Line(Vector3 a, Vector3 b, Color color, float lifetime = 0f, Color? occludedColor = null)
     {
         DebugDrawRenderer r = DebugDrawRenderer.EnsureInstance();
         if (r == null)
         {
             return;
         }
-        r.Enqueue(a, b, color, lifetime);
+        r.Enqueue(a, b, color, lifetime, occludedColor);
     }
 
     // Polyline: connects points[0]→points[1]→...→points[n-1] as a
     // continuous string of segments. Skips no-ops on empty / 1-element
     // inputs so callers don't need to gate it.
-    public static void Lines(System.Collections.Generic.IList<Vector3> points, Color color, float lifetime = 0f)
+    public static void Lines(System.Collections.Generic.IList<Vector3> points, Color color, float lifetime = 0f, Color? occludedColor = null)
     {
         if (points == null || points.Count < 2)
         {
@@ -48,7 +55,7 @@ public static class DebugDraw
         }
         for (int i = 0; i < points.Count - 1; i++)
         {
-            r.Enqueue(points[i], points[i + 1], color, lifetime);
+            r.Enqueue(points[i], points[i + 1], color, lifetime, occludedColor);
         }
     }
 
@@ -57,7 +64,7 @@ public static class DebugDraw
     // depth-tested now, so without this its edges strobe against them.
     private const float BoxInflate = 0.02f;
 
-    public static void Box(Vector3 min, Vector3 max, Color color, float lifetime = 0f)
+    public static void Box(Vector3 min, Vector3 max, Color color, float lifetime = 0f, Color? occludedColor = null)
     {
         DebugDrawRenderer r = DebugDrawRenderer.EnsureInstance();
         if (r == null)
@@ -76,30 +83,30 @@ public static class DebugDraw
         Vector3 c011 = new(min.X, max.Y, max.Z);
         Vector3 c111 = new(max.X, max.Y, max.Z);
         // 12 edges
-        r.Enqueue(c000, c100, color, lifetime);
-        r.Enqueue(c100, c110, color, lifetime);
-        r.Enqueue(c110, c010, color, lifetime);
-        r.Enqueue(c010, c000, color, lifetime);
-        r.Enqueue(c001, c101, color, lifetime);
-        r.Enqueue(c101, c111, color, lifetime);
-        r.Enqueue(c111, c011, color, lifetime);
-        r.Enqueue(c011, c001, color, lifetime);
-        r.Enqueue(c000, c001, color, lifetime);
-        r.Enqueue(c100, c101, color, lifetime);
-        r.Enqueue(c110, c111, color, lifetime);
-        r.Enqueue(c010, c011, color, lifetime);
+        r.Enqueue(c000, c100, color, lifetime, occludedColor);
+        r.Enqueue(c100, c110, color, lifetime, occludedColor);
+        r.Enqueue(c110, c010, color, lifetime, occludedColor);
+        r.Enqueue(c010, c000, color, lifetime, occludedColor);
+        r.Enqueue(c001, c101, color, lifetime, occludedColor);
+        r.Enqueue(c101, c111, color, lifetime, occludedColor);
+        r.Enqueue(c111, c011, color, lifetime, occludedColor);
+        r.Enqueue(c011, c001, color, lifetime, occludedColor);
+        r.Enqueue(c000, c001, color, lifetime, occludedColor);
+        r.Enqueue(c100, c101, color, lifetime, occludedColor);
+        r.Enqueue(c110, c111, color, lifetime, occludedColor);
+        r.Enqueue(c010, c011, color, lifetime, occludedColor);
     }
 
-    public static void BoxCentered(Vector3 center, Vector3 size, Color color, float lifetime = 0f)
+    public static void BoxCentered(Vector3 center, Vector3 size, Color color, float lifetime = 0f, Color? occludedColor = null)
     {
         Vector3 half = size * 0.5f;
-        Box(center - half, center + half, color, lifetime);
+        Box(center - half, center + half, color, lifetime, occludedColor);
     }
 
     // Three great circles (XY, XZ, YZ) — gives a recognisable wireframe
     // sphere shape with 3 * SphereSegments segments. Cheap enough to
     // render hundreds of these per frame.
-    public static void Sphere(Vector3 center, float radius, Color color, float lifetime = 0f)
+    public static void Sphere(Vector3 center, float radius, Color color, float lifetime = 0f, Color? occludedColor = null)
     {
         DebugDrawRenderer r = DebugDrawRenderer.EnsureInstance();
         if (r == null || radius <= 0f)
@@ -116,15 +123,15 @@ public static class DebugDraw
             float c1 = Mathf.Cos(a1) * radius;
             float s1 = Mathf.Sin(a1) * radius;
             // XY plane (Z = 0)
-            r.Enqueue(center + new Vector3(c0, s0, 0), center + new Vector3(c1, s1, 0), color, lifetime);
+            r.Enqueue(center + new Vector3(c0, s0, 0), center + new Vector3(c1, s1, 0), color, lifetime, occludedColor);
             // XZ plane (Y = 0)
-            r.Enqueue(center + new Vector3(c0, 0, s0), center + new Vector3(c1, 0, s1), color, lifetime);
+            r.Enqueue(center + new Vector3(c0, 0, s0), center + new Vector3(c1, 0, s1), color, lifetime, occludedColor);
             // YZ plane (X = 0)
-            r.Enqueue(center + new Vector3(0, c0, s0), center + new Vector3(0, c1, s1), color, lifetime);
+            r.Enqueue(center + new Vector3(0, c0, s0), center + new Vector3(0, c1, s1), color, lifetime, occludedColor);
         }
     }
 
-    public static void Cross(Vector3 center, float size, Color color, float lifetime = 0f)
+    public static void Cross(Vector3 center, float size, Color color, float lifetime = 0f, Color? occludedColor = null)
     {
         DebugDrawRenderer r = DebugDrawRenderer.EnsureInstance();
         if (r == null)
@@ -132,21 +139,21 @@ public static class DebugDraw
             return;
         }
         float h = size * 0.5f;
-        r.Enqueue(center + new Vector3(-h, 0, 0), center + new Vector3(h, 0, 0), color, lifetime);
-        r.Enqueue(center + new Vector3(0, -h, 0), center + new Vector3(0, h, 0), color, lifetime);
-        r.Enqueue(center + new Vector3(0, 0, -h), center + new Vector3(0, 0, h), color, lifetime);
+        r.Enqueue(center + new Vector3(-h, 0, 0), center + new Vector3(h, 0, 0), color, lifetime, occludedColor);
+        r.Enqueue(center + new Vector3(0, -h, 0), center + new Vector3(0, h, 0), color, lifetime, occludedColor);
+        r.Enqueue(center + new Vector3(0, 0, -h), center + new Vector3(0, 0, h), color, lifetime, occludedColor);
     }
 
     // Line from `from` to `to` with a small two-line arrowhead at the
     // tip. Useful for visualising directions / forces.
-    public static void Arrow(Vector3 from, Vector3 to, Color color, float lifetime = 0f)
+    public static void Arrow(Vector3 from, Vector3 to, Color color, float lifetime = 0f, Color? occludedColor = null)
     {
         DebugDrawRenderer r = DebugDrawRenderer.EnsureInstance();
         if (r == null)
         {
             return;
         }
-        r.Enqueue(from, to, color, lifetime);
+        r.Enqueue(from, to, color, lifetime, occludedColor);
 
         Vector3 dir = to - from;
         float length = dir.Length();
@@ -166,7 +173,7 @@ public static class DebugDraw
 
         float head = length * ArrowHeadFraction;
         Vector3 baseTip = to - dir * head;
-        r.Enqueue(to, baseTip + ortho * head * 0.5f, color, lifetime);
-        r.Enqueue(to, baseTip - ortho * head * 0.5f, color, lifetime);
+        r.Enqueue(to, baseTip + ortho * head * 0.5f, color, lifetime, occludedColor);
+        r.Enqueue(to, baseTip - ortho * head * 0.5f, color, lifetime, occludedColor);
     }
 }

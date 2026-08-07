@@ -212,6 +212,20 @@ public partial class WorldEditor : Node3D
     // The cell a click would target, boxed under the cursor before committing.
     [Export] public Color brushPreviewColor = new Color(1f, 1f, 1f);
 
+    [ExportGroup("Marker Overlay")]
+    // How far around the cursor the invisible Opening / Barrier voxels are
+    // outlined. Every cell in the box is read per frame, so this is a cost knob
+    // as much as a reach one — keep it to a building's worth of voxels.
+    [Export(PropertyHint.Range, "0,64,1")] public int markerOverlayRadiusXZ = 16;
+    [Export(PropertyHint.Range, "0,64,1")] public int markerOverlayRadiusY = 12;
+    [Export] public Color openingMarkerColor = new Color(0.3f, 0.9f, 1f);
+    [Export] public Color barrierMarkerColor = new Color(1f, 0.55f, 0.15f);
+    // What the shells fade to where a wall is in front of them. Desaturated and
+    // near-transparent on purpose: it only has to say "a marker is back there"
+    // without competing with the geometry being worked on. Alpha is absolute
+    // here, not a multiplier — this replaces DebugDraw's default dimming.
+    [Export] public Color markerOccludedColor = new Color(0.6f, 0.65f, 0.7f, 0.1f);
+
     [ExportGroup("Roofs")]
     // Pitch the Roofs tool opens on, and what the HUD slider is seated to. The
     // slider's own range/step are authored on it in the scene.
@@ -910,6 +924,15 @@ public partial class WorldEditor : Node3D
         if (CVars.navGridDebug.Value)
         {
             NavGridDebug.Draw(_world, _cursorPosition);
+        }
+
+        // Alongside it, and for the same reason: the Opening / Barrier markers
+        // are invisible, so they must keep drawing while the view is moved.
+        if (CVars.editorMarkerOverlay.Value)
+        {
+            EditorMarkerOverlay.Draw(_worldState, _cursorPosition, _clipY,
+                markerOverlayRadiusXZ, markerOverlayRadiusY,
+                openingMarkerColor, barrierMarkerColor, markerOccludedColor);
         }
 
         editorHud.UpdateClip(_clipY);
@@ -1851,12 +1874,20 @@ public partial class WorldEditor : Node3D
         return true;
     }
 
-    private static void FinalizeTarget(Vector3 hitPos, Vector3 hitNormal, bool overwriteHitBlock, out Vector3I hitBlock, out Vector3I baseTarget, out Vector3I airTarget)
+    // The solid cell behind a surface hit — half a cell along -normal, so a
+    // grazing hit lands in the block that was actually clicked rather than its
+    // neighbour.
+    private static Vector3I HitBlockOf(Vector3 hitPos, Vector3 hitNormal)
     {
-        hitBlock = new Vector3I(
+        return new Vector3I(
             Mathf.FloorToInt(hitPos.X - hitNormal.X * 0.5f),
             Mathf.FloorToInt(hitPos.Y - hitNormal.Y * 0.5f),
             Mathf.FloorToInt(hitPos.Z - hitNormal.Z * 0.5f));
+    }
+
+    private static void FinalizeTarget(Vector3 hitPos, Vector3 hitNormal, bool overwriteHitBlock, out Vector3I hitBlock, out Vector3I baseTarget, out Vector3I airTarget)
+    {
+        hitBlock = HitBlockOf(hitPos, hitNormal);
 
         airTarget = new Vector3I(
             Mathf.FloorToInt(hitPos.X + hitNormal.X * 0.5f),
@@ -2305,7 +2336,34 @@ public partial class WorldEditor : Node3D
         // the meshed surface, smoothing included), and entity scenes anchor at
         // their base — so the raw hit IS the anchor. Don't offset along the
         // normal the way the voxel path does; that lifts props off the ground.
-        return PlaceEntity(edit, SnapPosition((Vector3)result["position"]));
+        var hitPos = (Vector3)result["position"];
+        Vector3 seat = TryApertureSeat(hitPos, (Vector3)result["normal"], out Vector3 apertureSeat)
+            ? apertureSeat
+            : SnapPosition(hitPos);
+        return PlaceEntity(edit, seat);
+    }
+
+    // An aperture prop (a window frame) IS the hole, so it seats in the wall cell
+    // it was clicked onto rather than on the face of it — both because that's
+    // where a window belongs, and because the cell it carves is derived from
+    // where it stands (PropSimState.ResolveStamp). Centred horizontally, sitting
+    // on the cell's floor; grid snap is skipped because the cell IS the snap.
+    private bool TryApertureSeat(Vector3 hitPos, Vector3 hitNormal, out Vector3 seat)
+    {
+        seat = default;
+        if (_entityTypeIndex < 0 || _entityTypeIndex >= _entityBrushes.Count)
+        {
+            return false;
+        }
+        PropLibraryEntry prop = _entityBrushes[_entityTypeIndex].Prop;
+        if (prop?.scene == null || PropInstance.GetApertureHeight(prop.scene) <= 0)
+        {
+            return false;
+        }
+        const float CELL_MIDPOINT = 0.5f;
+        Vector3I cell = HitBlockOf(hitPos, hitNormal);
+        seat = new Vector3(cell.X + CELL_MIDPOINT, cell.Y, cell.Z + CELL_MIDPOINT);
+        return true;
     }
 
     // ----- Entity snapping -------------------------------------------------
@@ -2833,6 +2891,10 @@ public partial class WorldEditor : Node3D
 
         edit?.TouchEntitiesAt(position);
         _worldState.AddEntity(simState);
+        // Before the spawn: an entity that stamps voxels on spawn (a door) would
+        // otherwise write them itself, outside the undo step and without a
+        // rebuild.
+        StampEntityVoxels(edit, simState);
         // Spawn through the normal streaming path instead of instantiating here.
         // A directly-created node is never filed in Sim.ActiveEntities and never
         // gets its state's RuntimeNode back-reference set, so it's invisible to
@@ -2840,6 +2902,40 @@ public partial class WorldEditor : Node3D
         // editor's own entity picking.
         ReloadChunkEntities(Sim.WorldToChunkCoord(position));
         return simState;
+    }
+
+    // Voxels an entity owns (a window frame's aperture, a door's occluder) are
+    // reconciled at world load by EntityVoxelStamper, which is far too late for
+    // the author who just placed one — so the editor applies the same stamp on
+    // the spot. Touching the cells first is what puts them in the current undo
+    // step, and the refresh is what makes a carved aperture actually appear:
+    // unlike the load pass, this one runs after the chunk has a mesh.
+    private void StampEntityVoxels(EditorEdit edit, EntitySimState state)
+    {
+        if (state is not IVoxelStamper stamper)
+        {
+            return;
+        }
+        VoxelStamp stamp = stamper.ResolveStamp(_worldState);
+        if (!stamp.Any)
+        {
+            return;
+        }
+        var cells = new List<Vector3I>();
+        EntityVoxelStamper.Cells(stamp, cells);
+        foreach (Vector3I cell in cells)
+        {
+            edit?.TouchVoxel(cell);
+        }
+
+        var changed = new List<Vector3I>();
+        EntityVoxelStamper.Apply(_worldState, stamp, changed);
+        if (changed.Count > 0)
+        {
+            var refresh = new EditorRefresh();
+            refresh.AddVoxels(changed);
+            refresh.Apply(_world);
+        }
     }
 
     // Props place the brush's own library entry — worldgen rolls a kit's

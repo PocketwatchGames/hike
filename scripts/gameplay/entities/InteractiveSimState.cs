@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-public class DoorSimState : EntitySimState
+public class DoorSimState : EntitySimState, IVoxelStamper
 {
     public bool Active = true;
 
@@ -22,6 +22,29 @@ public class DoorSimState : EntitySimState
     public override Node3D CreateEntity(Sim sim)
     {
         return Door.Create(sim, this);
+    }
+
+    // The doorway column, following the leaf: Barrier while closed (opaque to
+    // sunlight, block light and navigation), Opening while open. Active ==
+    // closed, the same way Door.Create derives its own _open.
+    //
+    // Open writes Opening, not Air. Opening is empty in every sense that matters
+    // here — passable, invisible, transparent to light — but the ceiling cutaway
+    // reads it as wall, so the masonry above a doorway stays put instead of
+    // appearing and disappearing as the door swings.
+    //
+    // This is NOT a substitute for authoring the aperture. A door owns a single
+    // column (see Door.ResolveOccluderBase), so it could not carry a wider one
+    // anyway, and it never carves: what the stamp buys is that a door can't
+    // DESTROY the aperture by swinging open, which is what would happen if the
+    // open state reverted to plain Air.
+    public VoxelStamp ResolveStamp(WorldState world)
+    {
+        return new VoxelStamp(
+            Door.ResolveOccluderBase(world, this),
+            Mathf.Max(1, Door.GetOccluderHeight(Scene)),
+            Active ? VoxelType.Barrier : VoxelType.Opening,
+            carves: false);
     }
 }
 

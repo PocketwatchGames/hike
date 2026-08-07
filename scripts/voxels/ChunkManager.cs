@@ -436,6 +436,20 @@ public partial class ChunkManager : Node3D
         // a valid texture" per draw call. The process is exiting, so the driver
         // reclaims the memory regardless — skip the free and stay quiet.
         if (Main.IsQuitting) { return; }
+        // Unbind everything still pointing at these textures BEFORE freeing
+        // them, or each consumer's uniform set is rebuilt against a dangling
+        // RID as it dies — see ShaderGlobals.ResetToProjectDefault.
+        ShaderGlobals.ResetToProjectDefault("light_map");
+        ShaderGlobals.ResetToProjectDefault("sky_exposure_map");
+        ShaderGlobals.ResetToProjectDefault("wind_map");
+        ShaderGlobals.ResetToProjectDefault("water_current_map");
+        // fog_map is a per-material uniform; a null Variant erases the
+        // override so the material falls back to the shader's own default.
+        _fogMaterial?.SetShaderParameter("fog_map", default);
+        if (_windAttractor != null)
+        {
+            _windAttractor.Texture = null;
+        }
         _lightMap?.Free();
         _skyExposureMap?.Free();
         _fogMap?.Free();

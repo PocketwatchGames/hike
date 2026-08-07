@@ -33,6 +33,16 @@ public partial class ViewportRig : Node
 		}
 	}
 
+	public override void _ExitTree()
+	{
+		GetTree().Root.SizeChanged -= UpdateViewportSize;
+		// The upscale material outlives this scene (it's a shared resource), so
+		// leaving inner_tex pointing at the SubViewport texture that dies with
+		// us fails uniform_set_create as the RID is freed. _Ready rebinds the
+		// new viewport's texture on the next load.
+		upscaleMaterial?.SetShaderParameter("inner_tex", default);
+	}
+
 	// Maps a world position to a screen-space pixel coordinate that lines up
 	// with the upscaled render. Called by the HUD layers (floating text, mob
 	// bars, interact prompts) via GameClient.ProjectToScreen.

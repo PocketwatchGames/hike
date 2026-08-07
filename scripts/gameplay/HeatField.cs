@@ -62,6 +62,12 @@ public partial class HeatField : Node3D
 		ShaderGlobals.Register("heat_field_size", RenderingServer.GlobalShaderParameterType.Float, sizeMeters);
 	}
 
+	public override void _ExitTree()
+	{
+		// Unbind the per-session ImageTexture before it's collected.
+		ShaderGlobals.ResetToProjectDefault("heat_field");
+	}
+
 	public void Initialize(Sim sim)
 	{
 		_world = sim;

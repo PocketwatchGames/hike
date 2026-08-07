@@ -31,15 +31,43 @@ public static class ShaderGlobals
 {
     private static readonly HashSet<StringName> _registered = new();
 
+    // Seeds (or re-seeds) the value. Deliberately NOT once-only: menu → game →
+    // menu → game re-creates the per-session textures behind the sampler
+    // globals, and skipping the second seed would leave every global pointing
+    // at the freed first-session texture for the rest of the process.
     public static void Register(string name, RenderingServer.GlobalShaderParameterType type, Variant defaultValue)
     {
-        StringName key = name;
-        if (_registered.Contains(key))
+        RenderingServer.GlobalShaderParameterSet(name, defaultValue);
+    }
+
+    // Restores a global to the default declared in project.godot's
+    // [shader_globals] (for samplers, the placeholder texture).
+    //
+    // A sampler global bound to a per-session texture — the windowed volume
+    // maps, the projector SubViewports — MUST be reset before that texture is
+    // freed. The renderer rebuilds the global uniform set of every material
+    // referencing it the instant the RID dies, and a dangling RID fails
+    // `uniform_set_create` once per material ("Texture (binding: N) is not a
+    // valid texture"), leaving each of those materials without a uniform set.
+    public static void ResetToProjectDefault(string name)
+    {
+        Variant declared = ProjectSettings.GetSetting($"shader_globals/{name}");
+        if (declared.VariantType != Variant.Type.Dictionary)
+        {
+            GD.PushWarning($"ShaderGlobals: '{name}' has no [shader_globals] declaration to reset to.");
+            return;
+        }
+        if (!declared.AsGodotDictionary().TryGetValue("value", out Variant value))
         {
             return;
         }
-        RenderingServer.GlobalShaderParameterSet(key, defaultValue);
-        _registered.Add(key);
+        // Sampler defaults are stored as a res:// path; every other type
+        // stores the value itself.
+        if (value.VariantType == Variant.Type.String)
+        {
+            value = ResourceLoader.Load(value.AsString());
+        }
+        RenderingServer.GlobalShaderParameterSet(name, value);
     }
 
     public static void RegisterRuntime(string name, RenderingServer.GlobalShaderParameterType type, Variant value)

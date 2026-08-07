@@ -1045,6 +1045,8 @@ public partial class SkyController : Node3D
     public override void _ExitTree()
     {
         if (Current == this) { Current = null; }
+        // Unbind the per-session ripple ImageTexture before it's collected.
+        ShaderGlobals.ResetToProjectDefault("water_ripple_tex");
     }
 
     public override void _Process(double delta)

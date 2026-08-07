@@ -5,6 +5,7 @@
 
 [node name="PropInstance" type="Node3D" unique_id=1563075394]
 script = ExtResource("1_0drks")
+apertureHeight = 1
 
 [node name="Model" parent="." unique_id=711860529 instance=ExtResource("3_55mea")]
 transform = Transform3D(0.6, 0, 0, 0, 0.4, 0, 0, 0, 0.1, 0.002, 0, 0.6)

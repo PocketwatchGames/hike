@@ -26,6 +26,11 @@ public partial class DebugDrawRenderer : Node3D
         public Vector3 a;
         public Vector3 b;
         public Color color;
+        // What the parts behind geometry draw as. Defaults to `color` at
+        // OCCLUDED_ALPHA; callers drawing dense shapes override it with
+        // something desaturated, since a fifth of a saturated colour is still
+        // loud once the editor's pixel upscale makes each line 2-3 solid pixels.
+        public Color occludedColor;
         // Seconds remaining. <=0 means "this frame only" — drawn once
         // and removed before the next frame's tick. Positive values
         // decrement by frame delta.
@@ -39,10 +44,11 @@ public partial class DebugDrawRenderer : Node3D
     private const int OVERLAY_RENDER_PRIORITY = 100;
     private const int VISIBLE_RENDER_PRIORITY = OVERLAY_RENDER_PRIORITY + 1;
 
-    // Alpha multiplier for the parts of a shape that are behind geometry. They
-    // still draw — that's the point of a debug overlay — but faintly enough to
-    // read as behind rather than in front, which is otherwise impossible to
-    // tell for a box that could be either inside a wall or hovering before it.
+    // Default alpha for the parts of a shape that are behind geometry, when the
+    // caller doesn't name its own occluded colour. They still draw — that's the
+    // point of a debug overlay — but faintly enough to read as behind rather
+    // than in front, which is otherwise impossible to tell for a box that could
+    // be either inside a wall or hovering before it.
     private const float OCCLUDED_ALPHA = 0.22f;
 
     private static DebugDrawRenderer _instance;
@@ -52,12 +58,15 @@ public partial class DebugDrawRenderer : Node3D
     public static DebugDrawRenderer Instance => _instance != null && IsInstanceValid(_instance) ? _instance : null;
 
     private readonly List<Segment> _segments = new();
-    // One mesh, drawn twice: once depth-tested at full strength, once faint
-    // with the depth test off. Every segment therefore appears exactly once —
-    // bright where nothing is in front of it, dim where something is.
+    // The same segments built twice: once depth-tested in the caller's colour,
+    // once with the depth test off in its occluded colour. Every segment
+    // therefore appears exactly once — full strength where nothing is in front
+    // of it, and its own dim variant where something is. Two meshes rather than
+    // one drawn twice, because the occluded colour is per segment now.
     private MeshInstance3D _meshInstance;
     private MeshInstance3D _occludedInstance;
     private ImmediateMesh _mesh;
+    private ImmediateMesh _occludedMesh;
     private StandardMaterial3D _material;
     private StandardMaterial3D _occludedMaterial;
 
@@ -87,19 +96,23 @@ public partial class DebugDrawRenderer : Node3D
         // Material/mesh constructed at runtime is normally discouraged
         // (see CLAUDE.md), but this is a debug-only helper that's gated
         // off in shipping — keeping the .tres for it would just add noise.
-        _material = CreateMaterial(depthTested: true, alpha: 1f, VISIBLE_RENDER_PRIORITY);
-        _occludedMaterial = CreateMaterial(depthTested: false, OCCLUDED_ALPHA, OVERLAY_RENDER_PRIORITY);
+        // Both materials pass vertex colour straight through: the dimming now
+        // lives in the occluded mesh's own vertex colours, not in a material-
+        // wide alpha multiplier, which is what lets it vary per segment.
+        _material = CreateMaterial(depthTested: true, VISIBLE_RENDER_PRIORITY);
+        _occludedMaterial = CreateMaterial(depthTested: false, OVERLAY_RENDER_PRIORITY);
 
         _mesh = new ImmediateMesh();
+        _occludedMesh = new ImmediateMesh();
         // Occluded pass first: the visible pass blends over it, so a line that
         // is in the clear ends up at full strength rather than washed out.
-        _occludedInstance = AddPass(_occludedMaterial);
-        _meshInstance = AddPass(_material);
+        _occludedInstance = AddPass(_occludedMesh, _occludedMaterial);
+        _meshInstance = AddPass(_mesh, _material);
     }
 
-    // Alpha rides on albedo_color, which StandardMaterial3D multiplies into the
-    // vertex color — so one shared mesh serves both passes and callers keep
-    // passing a single opaque color.
+    // Colour AND alpha ride entirely on the vertex color, which
+    // StandardMaterial3D multiplies into albedo_color — so the occluded pass
+    // dims per segment rather than uniformly.
     //
     // Both passes must survive the fullscreen transparent quads that composite
     // on top of the scene, hence the render priority: without it the fog quad
@@ -107,13 +120,12 @@ public partial class DebugDrawRenderer : Node3D
     // the far plane, which is why they vanished against the sky. Without
     // DisableFog the inner environment's black depth fog (88..105m) fades them
     // to black past the camera's focus distance.
-    private static StandardMaterial3D CreateMaterial(bool depthTested, float alpha, int renderPriority)
+    private static StandardMaterial3D CreateMaterial(bool depthTested, int renderPriority)
     {
         var material = new StandardMaterial3D();
         material.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
         material.VertexColorUseAsAlbedo = true;
         material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
-        material.AlbedoColor = new Color(1f, 1f, 1f, alpha);
         material.NoDepthTest = !depthTested;
         material.DisableFog = true;
         material.RenderPriority = renderPriority;
@@ -124,10 +136,10 @@ public partial class DebugDrawRenderer : Node3D
         return material;
     }
 
-    private MeshInstance3D AddPass(Material material)
+    private MeshInstance3D AddPass(Mesh mesh, Material material)
     {
         var instance = new MeshInstance3D();
-        instance.Mesh = _mesh;
+        instance.Mesh = mesh;
         instance.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         instance.MaterialOverride = material;
         AddChild(instance);
@@ -170,12 +182,14 @@ public partial class DebugDrawRenderer : Node3D
     private void Render()
     {
         _mesh.ClearSurfaces();
+        _occludedMesh.ClearSurfaces();
         if (_segments.Count == 0)
         {
             return;
         }
 
         _mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
+        _occludedMesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
         for (int i = 0; i < _segments.Count; i++)
         {
             Segment s = _segments[i];
@@ -183,19 +197,26 @@ public partial class DebugDrawRenderer : Node3D
             _mesh.SurfaceAddVertex(s.a);
             _mesh.SurfaceSetColor(s.color);
             _mesh.SurfaceAddVertex(s.b);
+            _occludedMesh.SurfaceSetColor(s.occludedColor);
+            _occludedMesh.SurfaceAddVertex(s.a);
+            _occludedMesh.SurfaceSetColor(s.occludedColor);
+            _occludedMesh.SurfaceAddVertex(s.b);
         }
         _mesh.SurfaceEnd();
+        _occludedMesh.SurfaceEnd();
     }
 
     // Internal API used by DebugDraw. Exposed so the static class doesn't
-    // need to reach into private state directly.
-    internal void Enqueue(Vector3 a, Vector3 b, Color color, float lifetime)
+    // need to reach into private state directly. A null `occludedColor` takes
+    // the default dim-the-caller's-colour treatment.
+    internal void Enqueue(Vector3 a, Vector3 b, Color color, float lifetime, Color? occludedColor = null)
     {
         _segments.Add(new Segment
         {
             a = a,
             b = b,
             color = color,
+            occludedColor = occludedColor ?? new Color(color.R, color.G, color.B, color.A * OCCLUDED_ALPHA),
             remaining = lifetime,
         });
     }

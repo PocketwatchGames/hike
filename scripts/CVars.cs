@@ -61,6 +61,14 @@ public static class CVars
     // isolates "DebugDraw doesn't render here" from "the pick found nothing".
     public static CVarBool editorPickDebug = new CVarBool("editor_pick_debug", false);
 
+    // Outlines the world editor's invisible voxel markers around the edit
+    // cursor — cyan for Opening (doorway / window void), orange for Barrier
+    // (sightless, lightless solid). Neither type draws any geometry of its own,
+    // so this is the only way to see what has already been marked. On by
+    // default; turn it off (`editor_markers 0`) when the outlines get in the way
+    // of reading the geometry underneath.
+    public static CVarBool editorMarkerOverlay = new CVarBool("editor_markers", true);
+
     // Periodically logs each dangerous hostile near the player with the factors
     // the interactive danger gate reads (Sim.IsDangerNear) — distance, behavior,
     // composed EBehaviorFlags, IsEngaging, and clear-line-to-player — so a stuck

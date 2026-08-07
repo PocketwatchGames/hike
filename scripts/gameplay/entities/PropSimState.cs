@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-public class PropSimState : EntitySimState
+public class PropSimState : EntitySimState, IVoxelStamper
 {
     public readonly PropType Type;
 
@@ -25,6 +25,28 @@ public class PropSimState : EntitySimState
             PropType.Foliage => Foliage.Create(sim, this),
             _ => PropInstance.Create(sim, this),
         };
+    }
+
+    // Aperture props (window frames) carve the wall they stand in; every other
+    // prop resolves to nothing. The carved column starts at the frame's own
+    // cell, so where the frame is IS where the hole is — moving one in the
+    // editor moves the hole it stamps on the next load.
+    public VoxelStamp ResolveStamp(WorldState world)
+    {
+        if (Type == PropType.Foliage)
+        {
+            return VoxelStamp.None;
+        }
+        int height = PropInstance.GetApertureHeight(Scene);
+        if (height <= 0)
+        {
+            return VoxelStamp.None;
+        }
+        var cell = new Vector3I(
+            Mathf.FloorToInt(WorldPosition.X),
+            Mathf.FloorToInt(WorldPosition.Y),
+            Mathf.FloorToInt(WorldPosition.Z));
+        return new VoxelStamp(cell, height, VoxelType.Opening, carves: true);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
