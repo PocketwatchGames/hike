@@ -34,6 +34,13 @@ public partial class CactusData : Resource
     // frame. Gated on the sim clock, so it slows uniformly under slow-mo.
     [Export] public float cooldownSeconds = 1.5f;
 
-    // One-shot fx spawned at the cactus the moment it bursts (spine puff + sound).
+    // Telegraph: seconds between the trigger and the spines actually launching.
+    // warningEffect plays at the start of it, so a creature that notices the
+    // bristle has a beat to back out. On the sim clock like the cooldown.
+    [Export] public float warningSeconds = 0.45f;
+
+    // One-shot fx spawned at the cactus, both at launchHeight: the bristle
+    // rattle when it arms, and the spine puff when the ring actually launches.
+    [Export] public PackedScene warningEffect;
     [Export] public PackedScene burstEffect;
 }

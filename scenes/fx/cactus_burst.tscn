@@ -1,0 +1,104 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="3_puff"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="4_fade"]
+[ext_resource type="AudioStream" uid="uid://c5vnak3o5civ8" path="res://assets/audio/source/weapons/sfx_weapon_bow_attack_light_01.wav" id="5_t01"]
+[ext_resource type="AudioStream" uid="uid://dgfln4ykhffyf" path="res://assets/audio/source/weapons/sfx_weapon_bow_attack_light_02.wav" id="6_t02"]
+[ext_resource type="AudioStream" uid="uid://drjbetu3m5xpw" path="res://assets/audio/source/weapons/sfx_weapon_bow_attack_light_03.wav" id="7_t03"]
+[ext_resource type="AudioStream" uid="uid://b4bm0n4lyci11" path="res://assets/audio/source/weapons/sfx_weapon_bow_attack_light_04.wav" id="8_t04"]
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_spines"]
+emission_shape = 1
+emission_sphere_radius = 0.26
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 3.0
+initial_velocity_max = 6.0
+gravity = Vector3(0, -9, 0)
+damping_min = 0.5
+damping_max = 1.5
+scale_min = 0.4
+scale_max = 1.1
+color_ramp = ExtResource("4_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader_spines"]
+shader = ExtResource("2_shader")
+shader_parameter/albedo_texture = ExtResource("3_puff")
+shader_parameter/albedo = Color(0.86, 0.79, 0.46, 0.9)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad_spines"]
+material = SubResource("Shader_spines")
+size = Vector2(0.07, 0.07)
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.3
+direction = Vector3(0, 1, 0)
+spread = 90.0
+initial_velocity_min = 0.4
+initial_velocity_max = 1.2
+gravity = Vector3(0, -1, 0)
+damping_min = 0.6
+damping_max = 1.6
+scale_min = 1.0
+scale_max = 2.0
+color_ramp = ExtResource("4_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader_dust"]
+shader = ExtResource("2_shader")
+shader_parameter/albedo_texture = ExtResource("3_puff")
+shader_parameter/albedo = Color(0.62, 0.6, 0.44, 0.4)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad_dust"]
+material = SubResource("Shader_dust")
+size = Vector2(0.2, 0.2)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_thwip"]
+playback_mode = 1
+random_pitch = 1.15
+random_volume_offset_db = 2.0
+streams_count = 4
+stream_0/stream = ExtResource("5_t01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("6_t02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("7_t03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("8_t04")
+stream_3/weight = 1.0
+
+[node name="CactusBurst" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Spines" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 26
+lifetime = 0.45
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("Proc_spines")
+draw_pass_1 = SubResource("Quad_spines")
+
+[node name="Dust" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 10
+lifetime = 0.8
+one_shot = true
+explosiveness = 0.9
+randomness = 0.6
+process_material = SubResource("Proc_dust")
+draw_pass_1 = SubResource("Quad_dust")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_thwip")
+unit_size = 5.0
+max_distance = 30.0
+volume_db = 0.0
+bus = &"World3D"

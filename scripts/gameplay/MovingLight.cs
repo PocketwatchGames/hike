@@ -48,9 +48,10 @@ public partial class MovingLight : Node3D
     [Export] public PackedScene lightLoopEffectScene;
 
     private List<(Vector3I pos, ushort r, ushort g, ushort b)> _currentDeposit = new();
-    // Cached flood field (reachable voxels + path optical depth), recomputed
-    // only on voxel crossing. Re-shaded from the sub-voxel position each frame.
-    private readonly List<(Vector3I pos, float opticalDepth, float ao)> _cells = new();
+    // Cached flood field (reachable voxels + path optical depth + detour),
+    // recomputed only on voxel crossing. Re-shaded from the sub-voxel position
+    // each frame.
+    private readonly List<(Vector3I pos, float opticalDepth, float ao, float detour)> _cells = new();
     // Resolved falloff + flood radius, recomputed alongside _cells on crossing
     // and reused by every per-frame reshade (must match the field's radius).
     private LightEngine.BlockLightTuning _tuning;

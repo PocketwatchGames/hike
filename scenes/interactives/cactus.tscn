@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://o855v1a5ij0wo"]
+[gd_scene format=3 uid="uid://dnxj4ujesxene"]
 
 [ext_resource type="Script" uid="uid://86h26u5gs29fp" path="res://scripts/gameplay/entities/Cactus.cs" id="1_cactus"]
 [ext_resource type="Script" uid="uid://jv7xaseb02ujc" path="res://scripts/data/world/CactusData.cs" id="2_data"]
@@ -8,6 +8,8 @@
 [ext_resource type="Script" uid="uid://dsu0nvrw5cdsi" path="res://scripts/gameplay/entities/TriggerSource.cs" id="6_trigger"]
 [ext_resource type="PackedScene" uid="uid://cggycl43ldcah" path="res://scenes/projectiles/cactus_spine.tscn" id="7_spine"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="8_porous"]
+[ext_resource type="PackedScene" path="res://scenes/fx/cactus_warning.tscn" id="9_fx_warning"]
+[ext_resource type="PackedScene" path="res://scenes/fx/cactus_burst.tscn" id="10_fx_burst"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_body"]
 albedo_color = Color(0.22, 0.47, 0.26, 1)
@@ -58,6 +60,9 @@ spineLifetimeSeconds = 1.2
 spineElevationDegrees = 12.0
 launchHeight = 0.6
 cooldownSeconds = 1.5
+warningSeconds = 0.45
+warningEffect = ExtResource("9_fx_warning")
+burstEffect = ExtResource("10_fx_burst")
 
 [node name="Cactus" type="Node3D" node_paths=PackedStringArray("_hurtBox")]
 script = ExtResource("1_cactus")
@@ -98,6 +103,7 @@ collision_mask = 0
 script = ExtResource("6_trigger")
 _targets = [NodePath("..")]
 cooldown = 0.5
+requiresWeight = false
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="TriggerSource"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)

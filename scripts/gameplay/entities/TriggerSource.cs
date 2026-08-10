@@ -30,6 +30,13 @@ public partial class TriggerSource : Area3D, ITriggerable
     // ignores Trigger() calls while it's mid-cycle.
     [Export] public float cooldown = 0.5f;
 
+    // True = pressure-plate semantics: only bodies heavy enough to press a
+    // plate (MobData.triggersTraps) are seen at all. False = contact
+    // semantics: any Player or Mob touching the area fires it, weight
+    // irrelevant — a cactus spines whatever brushes it, and a light critter is
+    // exactly the thing that would blunder into one.
+    [Export] public bool requiresWeight = true;
+
     public IReadOnlyList<Node3D> BodiesInArea => _bodiesInArea;
     public bool Enabled => _enabled;
 
@@ -80,9 +87,10 @@ public partial class TriggerSource : Area3D, ITriggerable
             return;
         }
         // Light/small mobs (MobData.triggersTraps == false) are invisible to
-        // body-driven traps — they neither arm the trap nor end up in the
-        // body list a sprung trap damages.
-        if (body is Mob mob && mob.mobData != null && !mob.mobData.triggersTraps)
+        // weight-driven traps — they neither arm the trap nor end up in the
+        // body list a sprung trap damages. Contact sources (requiresWeight
+        // false) skip the check and take everyone.
+        if (requiresWeight && body is Mob mob && mob.mobData != null && !mob.mobData.triggersTraps)
         {
             return;
         }

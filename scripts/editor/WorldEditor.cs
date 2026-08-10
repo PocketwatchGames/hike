@@ -226,9 +226,9 @@ public partial class WorldEditor : Node3D
     [ExportGroup("Ground Plane")]
     // Translucent sheet on the drafting plane — the surface a click into empty
     // air paints onto. It is the only read on where the brush will build once
-    // the cutaway has been walked below the terrain, so it tracks BuildBaseY()
-    // rather than sitting at a fixed y=0. Recentred on the cursor each frame —
-    // the mesh only has to cover the view, not the world.
+    // the cutaway has been walked below the terrain, so it tracks _buildY rather
+    // than sitting at a fixed y=0. Recentred on the cursor each frame — the mesh
+    // only has to cover the view, not the world.
     [Export] public MeshInstance3D groundPlane;
 
     [ExportGroup("Marker Overlay")]
@@ -360,10 +360,11 @@ public partial class WorldEditor : Node3D
     // and PaintCells all keep working on a real number. Seeded in Init.
     private float _clipY;
     private bool _clipOff = true;
-    // The drafting course: the highest cell the cutaway still lets you write to,
-    // and what a click that hits no geometry resolves against. Held across a
+    // The drafting plane: what a click that hits no geometry resolves against,
+    // and where the ground sheet draws. Always a plateau increment (see
+    // SetClipY), so it reads the same for every brush shape. Held across a
     // clip-off toggle, so looking at the roof doesn't move where the brush
-    // builds. Region shapes snap it onto the band grid — see BuildBaseY.
+    // builds.
     private int _buildY;
     private int _voxelTypeIndex = 0;
     private int _entityTypeIndex = 0;
@@ -542,7 +543,7 @@ public partial class WorldEditor : Node3D
         // clip-driven from the first R/F press.
         _clipOff = true;
         _clipY = ClipCeiling();
-        _buildY = emptyAirPaintY;
+        _buildY = SnapToPlateau(emptyAirPaintY);
         // Before the Sim is built — it latches day/night off the clock.
         ApplyTimeOfDay(editorTimeOfDay);
 
@@ -968,7 +969,7 @@ public partial class WorldEditor : Node3D
         camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
         if (groundPlane != null)
         {
-            groundPlane.GlobalPosition = new Vector3(_cursorPosition.X, BuildBaseY(), _cursorPosition.Z);
+            groundPlane.GlobalPosition = new Vector3(_cursorPosition.X, _buildY, _cursorPosition.Z);
         }
         // Pixel-snap and refresh the upscale uniforms before anything reads the
         // camera pose — SyncCapMaskCamera below and this frame's picking both
@@ -1002,7 +1003,7 @@ public partial class WorldEditor : Node3D
                 openingMarkerColor, barrierMarkerColor, markerOccludedColor);
         }
 
-        editorHud.UpdateClip(_clipY, _clipOff, BuildBaseY());
+        editorHud.UpdateClip(_clipY, _clipOff, _buildY);
         bool overUi = editorHud.IsPointerOverUi();
         // Ahead of the fly-cam bail below: the selection's boxes are immediate-
         // mode, so they'd blink out for the length of every flight.
@@ -2022,19 +2023,6 @@ public partial class WorldEditor : Node3D
         return highestY.HasValue ? PlateauAbove(highestY.Value) : Mathf.CeilToInt(_cursorPosition.Y + CLIP_START_OFFSET);
     }
 
-    // Where a click that hits no geometry bases the current brush: the drafting
-    // course, dropped onto the band grid for the shapes that snap. Mirrors what
-    // ResolveBrushCell does to a hover, so the ground sheet marks the elevation
-    // the brush actually builds at — with the cutaway on a band boundary, a
-    // snapped Floor lands on the band's FLOOR (clip 4 -> y 0), not just under
-    // the cut.
-    private int BuildBaseY()
-    {
-        return SupportsPlateauSnap(_brushShape) && _plateauSnapByShape[(int)_brushShape]
-            ? SnapToPlateau(_buildY)
-            : _buildY;
-    }
-
     // R/F walk the cutaway. A bare press steps a whole storey band — the common
     // case, and the grid the plateau-snapped brushes build to; Shift steps a
     // single course, for terrain, which doesn't sit on the storey grid at all.
@@ -2064,13 +2052,21 @@ public partial class WorldEditor : Node3D
         SetClipY(next);
     }
 
-    // The drafting plane follows the cutaway: the highest course still writable
-    // is the one directly under the cut.
+    // The drafting plane follows the cutaway, but lands on the FLOOR of the band
+    // the cut reveals, not on the course directly under it: with the cut at 4 you
+    // are standing in the storey spanning 0..3, so that storey's floor is y=0.
+    // Keeping it on the band grid also keeps it shape-independent — a Voxel stamp
+    // and a snapped Floor drop onto the same plane, which is the one the ground
+    // sheet draws.
+    //
+    // A fine (Shift) step therefore only moves the drafting plane when it crosses
+    // a band boundary. That's the intent: fine stepping is for seeing one course
+    // more or less, not for drafting off the storey grid.
     private void SetClipY(float clipY)
     {
         _clipOff = false;
         _clipY = clipY;
-        _buildY = Mathf.FloorToInt(clipY) - 1;
+        _buildY = SnapToPlateau(Mathf.FloorToInt(clipY) - 1);
     }
 
     // _buildY deliberately survives — turning the roof back on to look at it
@@ -2340,6 +2336,10 @@ public partial class WorldEditor : Node3D
         // changes and marking a column opaque changes no voxel.
         FoliageStamper.RestampRegion(_worldState, region);
         LightEngine.RelightRegion(_worldState, region);
+        // Block light reads the same cover (LightEngine.IsOpenForLight), and a
+        // roof edit changes no voxel, so nothing else would re-derive the
+        // torches under it.
+        LightEngine.RefloodSourcesIn(_worldState, region);
         // Roofs are cover, so placing or breaking one changes enclosure —
         // re-derive rather than leaving the ambience on the pre-edit bake.
         EnvTagGen.ComputeEnvTagGrid(_worldState, InteriornessGen.ComputeRegion(_worldState, region));

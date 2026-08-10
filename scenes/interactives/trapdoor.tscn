@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://6ed61nomh8wwo"]
+[gd_scene format=3 uid="uid://g38b7clymwuk"]
 
 [ext_resource type="Script" uid="uid://r9qfbdjjhmgxp" path="res://scripts/gameplay/entities/Trapdoor.cs" id="1_trapdoor"]
 [ext_resource type="Script" uid="uid://mzybnn7qgxsxb" path="res://scripts/gameplay/entities/TrapdoorPanel.cs" id="2_panel"]
