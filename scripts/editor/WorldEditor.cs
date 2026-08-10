@@ -204,13 +204,20 @@ public partial class WorldEditor : Node3D
     [Export(PropertyHint.Range, "0,8,1")] public int windowFloorOffset = 1;
     // How far down a column FindFloorY looks for ground before giving up.
     [Export(PropertyHint.Range, "1,128,1")] public int floorSearchDepth = 64;
-    // Elevation the brush resolves against when the ray hits no geometry at all.
-    // A fixed ground line rather than the camera cursor's drifting elevation, so
-    // clicking out over empty air always lands somewhere predictable.
+    // Drafting elevation the editor opens at, before the cutaway has been moved.
+    // From then on R/F drive it (see _buildY), so this is only the seed.
     [Export] public int emptyAirPaintY = 0;
     [Export] public Color regionPreviewColor = new Color(0.3f, 1f, 0.5f);
     // The cell a click would target, boxed under the cursor before committing.
     [Export] public Color brushPreviewColor = new Color(1f, 1f, 1f);
+
+    [ExportGroup("Ground Plane")]
+    // Translucent sheet on the drafting plane — the surface a click into empty
+    // air paints onto. It is the only read on where the brush will build once
+    // the cutaway has been walked below the terrain, so it tracks BuildBaseY()
+    // rather than sitting at a fixed y=0. Recentred on the cursor each frame —
+    // the mesh only has to cover the view, not the world.
+    [Export] public MeshInstance3D groundPlane;
 
     [ExportGroup("Marker Overlay")]
     // How far around the cursor the invisible Opening / Barrier voxels are
@@ -335,7 +342,16 @@ public partial class WorldEditor : Node3D
     private WorldState _worldState;
     private EditorHistory _history;
     private Vector3 _cursorPosition;
-    private float _clipY = float.PositiveInfinity;
+    // The cutaway. Always finite, even when "off" — off parks it above the
+    // world's highest voxel rather than at infinity, so the camera, the cap mask
+    // and PaintCells all keep working on a real number. Seeded in Init.
+    private float _clipY;
+    private bool _clipOff = true;
+    // The drafting course: the highest cell the cutaway still lets you write to,
+    // and what a click that hits no geometry resolves against. Held across a
+    // clip-off toggle, so looking at the roof doesn't move where the brush
+    // builds. Region shapes snap it onto the band grid — see BuildBaseY.
+    private int _buildY;
     private int _voxelTypeIndex = 0;
     private int _entityTypeIndex = 0;
     private int _roofStyleIndex = 0;
@@ -506,12 +522,14 @@ public partial class WorldEditor : Node3D
             GD.PushWarning($"WorldEditor: terrain brush kit '{brushPalette?.terrainBrushKit?.ResourcePath}' is not in this world's kit palette; painting terrain slot 0.");
         }
         _cursorPosition = worldState.Spawn;
-        // Open with nothing cut away: the cutaway band just above the world's
-        // highest voxel, so the top of every roof is on screen and R/F only ever
-        // has to travel DOWN to reach the storey being edited. CLIP_START_OFFSET
-        // is the fallback for a world with no voxels at all (a new document).
-        int? highestY = worldState.GetHighestSolidVoxelY();
-        _clipY = highestY.HasValue ? PlateauAbove(highestY.Value) : _cursorPosition.Y + CLIP_START_OFFSET;
+        // Open with nothing cut away, so the top of every roof is on screen and
+        // R/F only ever has to travel DOWN to reach the storey being edited. The
+        // drafting plane can't be derived from a parked cutaway (it would sit up
+        // in the sky), so it starts at the authored ground line and becomes
+        // clip-driven from the first R/F press.
+        _clipOff = true;
+        _clipY = ClipCeiling();
+        _buildY = emptyAirPaintY;
         // Before the Sim is built — it latches day/night off the clock.
         ApplyTimeOfDay(editorTimeOfDay);
 
@@ -903,6 +921,10 @@ public partial class WorldEditor : Node3D
         camera.pitchDegrees = _cameraPitchDegrees;
         camera.UpdateCamera(deltaTime, _cursorPosition, 0f, tickRotation: false);
         camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
+        if (groundPlane != null)
+        {
+            groundPlane.GlobalPosition = new Vector3(_cursorPosition.X, BuildBaseY(), _cursorPosition.Z);
+        }
         // Pixel-snap and refresh the upscale uniforms before anything reads the
         // camera pose — SyncCapMaskCamera below and this frame's picking both
         // have to match the pose the scene actually renders at.
@@ -935,7 +957,7 @@ public partial class WorldEditor : Node3D
                 openingMarkerColor, barrierMarkerColor, markerOccludedColor);
         }
 
-        editorHud.UpdateClip(_clipY);
+        editorHud.UpdateClip(_clipY, _clipOff, BuildBaseY());
         bool overUi = editorHud.IsPointerOverUi();
         // Ahead of the fly-cam bail below: the selection's boxes are immediate-
         // mode, so they'd blink out for the length of every flight.
@@ -1551,17 +1573,17 @@ public partial class WorldEditor : Node3D
 
         // Clip only — the camera stays put. Moving the framing anchor with the
         // cutaway made every clip change a camera move, which is disorienting
-        // when all you wanted was to see one storey lower.
-        if (e.IsActionPressed("EditorUp"))
+        // when all you wanted was to see one storey lower. The cutaway also
+        // carries the drafting plane (see StepClip), so this is how you get a
+        // floor down to a chosen elevation, below y=0 included.
+        //
+        // Godot matches actions ignoring modifiers, so Shift+R/F arrives here as
+        // a plain EditorUp/EditorDown and the modifier has to be read off the
+        // event.
+        if (e.IsActionPressed("EditorUp") || e.IsActionPressed("EditorDown"))
         {
-            _clipY += 1f;
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        if (e.IsActionPressed("EditorDown"))
-        {
-            _clipY -= 1f;
+            bool fine = e is InputEventWithModifiers modifiers && modifiers.ShiftPressed;
+            StepClip(e.IsActionPressed("EditorUp"), fine);
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -1823,12 +1845,12 @@ public partial class WorldEditor : Node3D
         Vector3 hitPos;
         Vector3 hitNormal;
 
-        // If a clip is active, first check whether the ray starts inside a solid
-        // block at the clip plane. Trimesh colliders are single-sided, so a ray
-        // originating inside geometry would pass through without any hit. Detect
-        // this case by sampling the voxel at the ray/clip-plane intersection and,
-        // if it's solid, synthesize a hit on the top of that block.
-        if (_clipY < float.PositiveInfinity)
+        // First check whether the ray starts inside a solid block at the clip
+        // plane. Trimesh colliders are single-sided, so a ray originating inside
+        // geometry would pass through without any hit. Detect this case by
+        // sampling the voxel at the ray/clip-plane intersection and, if it's
+        // solid, synthesize a hit on the top of that block. With the clip off
+        // the sampled cell is above every voxel, so this falls through.
         {
             Vector3 rayOrigin = camera.ProjectRayOrigin(screenPos);
             Vector3 rayDir = camera.ProjectRayNormal(screenPos);
@@ -1854,10 +1876,11 @@ public partial class WorldEditor : Node3D
         var result = Raycast(screenPos);
         if (result.Count == 0)
         {
-            // No geometry under the mouse — resolve against the fixed ground
-            // plane instead, so a blank world (or a click out over open air)
-            // still has somewhere to paint.
-            if (!ResolvePlaneTarget(screenPos, emptyAirPaintY, out Vector3I planeTarget))
+            // No geometry under the mouse — resolve against the drafting plane
+            // instead, so a blank world, a click out over open air, or a click
+            // into a hollow already dug below the terrain all land on the
+            // elevation the cutaway is parked at (and the ground sheet draws).
+            if (!ResolvePlaneTarget(screenPos, _buildY, out Vector3I planeTarget))
             {
                 return false;
             }
@@ -1943,6 +1966,74 @@ public partial class WorldEditor : Node3D
             return y + 1;
         }
         return SnapToPlateau(y) + step;
+    }
+
+    // Lowest cutaway height that leaves the whole world visible. Stands in for
+    // "no clip" so every consumer keeps a finite number; CLIP_START_OFFSET is
+    // the fallback for a world with no voxels at all (a new document).
+    private int ClipCeiling()
+    {
+        int? highestY = _worldState?.GetHighestSolidVoxelY();
+        return highestY.HasValue ? PlateauAbove(highestY.Value) : Mathf.CeilToInt(_cursorPosition.Y + CLIP_START_OFFSET);
+    }
+
+    // Where a click that hits no geometry bases the current brush: the drafting
+    // course, dropped onto the band grid for the shapes that snap. Mirrors what
+    // ResolveBrushCell does to a hover, so the ground sheet marks the elevation
+    // the brush actually builds at — with the cutaway on a band boundary, a
+    // snapped Floor lands on the band's FLOOR (clip 4 -> y 0), not just under
+    // the cut.
+    private int BuildBaseY()
+    {
+        return SupportsPlateauSnap(_brushShape) && _plateauSnapByShape[(int)_brushShape]
+            ? SnapToPlateau(_buildY)
+            : _buildY;
+    }
+
+    // R/F walk the cutaway. A bare press steps a whole storey band — the common
+    // case, and the grid the plateau-snapped brushes build to; Shift steps a
+    // single course, for terrain, which doesn't sit on the storey grid at all.
+    // Stepping up past the top of the world turns the cutaway off rather than
+    // climbing into empty sky, so roofs are always one keystroke away.
+    private void StepClip(bool up, bool fine)
+    {
+        int step = fine ? 1 : Mathf.RoundToInt(GameCamera.PLATEAU_STEP);
+        int ceiling = ClipCeiling();
+        if (_clipOff)
+        {
+            // Re-engaging drops straight to the world's top band; walking back
+            // down from the ceiling one step at a time would take dozens of
+            // presses on a tall world.
+            if (!up)
+            {
+                SetClipY(ceiling - step);
+            }
+            return;
+        }
+        float next = _clipY + (up ? step : -step);
+        if (up && next >= ceiling)
+        {
+            SetClipOff();
+            return;
+        }
+        SetClipY(next);
+    }
+
+    // The drafting plane follows the cutaway: the highest course still writable
+    // is the one directly under the cut.
+    private void SetClipY(float clipY)
+    {
+        _clipOff = false;
+        _clipY = clipY;
+        _buildY = Mathf.FloorToInt(clipY) - 1;
+    }
+
+    // _buildY deliberately survives — turning the roof back on to look at it
+    // shouldn't move where the next brush stroke lands.
+    private void SetClipOff()
+    {
+        _clipOff = true;
+        _clipY = ClipCeiling();
     }
 
     // The stamp shapes (Voxel / Window / Door), applied at a single click or
@@ -3044,9 +3135,9 @@ public partial class WorldEditor : Node3D
         Vector3 rayOrigin = camera.ProjectRayOrigin(screenPos);
         Vector3 rayDir = camera.ProjectRayNormal(screenPos);
 
-        // If a clip is active, start the ray just below the clip plane so we
-        // don't hit collision geometry above the clip that was culled visually.
-        if (_clipY < float.PositiveInfinity && rayDir.Y < 0f)
+        // Start the ray just below the clip plane so we don't hit collision
+        // geometry above the clip that was culled visually.
+        if (rayDir.Y < 0f)
         {
             const float CLIP_RAY_EXTRA = 0.01f;
             float targetY = _clipY - CLIP_VISUAL_BIAS - CLIP_RAY_EXTRA;
@@ -3342,10 +3433,7 @@ public partial class WorldEditor : Node3D
         }
 
         Vector3 anchor = _cursorPosition;
-        Vector3I worldOriginI = new Vector3I(
-            Mathf.FloorToInt(anchor.X - sub.Anchor.X),
-            Mathf.FloorToInt(anchor.Y - sub.Anchor.Y),
-            Mathf.FloorToInt(anchor.Z - sub.Anchor.Z));
+        Vector3I worldOriginI = SubsceneStamper.ComputeWorldOrigin(sub, anchor);
         Vector3I size = sub.Size;
 
         // Build the changed list so the refresh knows which voxels to recompute
@@ -3373,10 +3461,7 @@ public partial class WorldEditor : Node3D
         {
             foreach (EntitySimState e in sub.Entities)
             {
-                Vector3 worldPos = e.WorldPosition + new Vector3(
-                    anchor.X - sub.Anchor.X,
-                    anchor.Y - sub.Anchor.Y,
-                    anchor.Z - sub.Anchor.Z);
+                Vector3 worldPos = e.WorldPosition + SubsceneStamper.WorldOffset(sub, anchor);
                 entityChunks.Add(Sim.WorldToChunkCoord(worldPos));
             }
         }
@@ -3417,8 +3502,8 @@ public partial class WorldEditor : Node3D
 
     // Chunks allocated, not one voxel written. Subscene authoring saves the
     // bbox of whatever voxels exist, so anything baked in here would end up in
-    // every subscene; the brush falls back to the emptyAirPaintY plane when
-    // there's no geometry to click on (see ComputeVoxelTarget).
+    // every subscene; the brush falls back to the drafting plane when there's no
+    // geometry to click on (see ComputeVoxelTarget).
     public WorldState CreateEmptyWorld(WorldGenData genData)
     {
         return CreateEmptyWorld(genData, emptyWorldMinChunk, emptyWorldMaxChunk);
@@ -3434,11 +3519,11 @@ public partial class WorldEditor : Node3D
         includeEnv = sub.EnvTag != null;
 
         // Where the scene lands when stamped at the origin: local cell
-        // floor(Anchor) sits at (0,0,0), so the bbox starts at -Anchor.
-        var worldMin = new Vector3I(
-            Mathf.FloorToInt(-sub.Anchor.X),
-            Mathf.FloorToInt(-sub.Anchor.Y),
-            Mathf.FloorToInt(-sub.Anchor.Z));
+        // floor(Anchor) sits at (0,0,0), so the bbox starts at -Anchor. Because
+        // the anchor's Y is the y=0 plane, this reopens the scene at the exact
+        // elevation it was authored at — a basement comes back below y=0 rather
+        // than being lifted to rest on it.
+        var worldMin = SubsceneStamper.ComputeWorldOrigin(sub, Vector3.Zero);
         Vector3I worldMax = worldMin + sub.Size - Vector3I.One;
         Vector3I minChunk = ComponentMin(ChunkOf(worldMin) - sceneWorkspacePadChunks, emptyWorldMinChunk);
         Vector3I maxChunk = ComponentMax(ChunkOf(worldMax) + sceneWorkspacePadChunks, emptyWorldMaxChunk);

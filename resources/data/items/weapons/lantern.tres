@@ -13,7 +13,7 @@
 [ext_resource type="Texture2D" uid="uid://dit6x3xeay3qq" path="res://assets/textures/items/BasicLantern.png" id="7_sprite"]
 [ext_resource type="Texture2D" uid="uid://ytounbhlpcqb" path="res://assets/textures/items/BasicLanternActive.png" id="8_sprite_lit"]
 [ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/fx/torch_douse.tscn" id="9_douse"]
-[ext_resource type="PackedScene" uid="uid://pwi4ejb1gusx" path="res://scenes/items/held/lantern_held.tscn" id="10_held"]
+[ext_resource type="PackedScene" uid="uid://pwi4ejb1gusx" path="res://scenes/items/lantern_held.tscn" id="10_held"]
 
 [sub_resource type="Resource" id="Resource_event_drink"]
 script = ExtResource("4_event")

@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://br0ewj5o2768g"]
 
-[ext_resource type="Script" uid="uid://psp7ces4z54jv" path="res://scripts/gui/MerchantScreen.cs" id="1_merchant"]
-[ext_resource type="Texture2D" uid="uid://ui2onktg02cc" path="res://resources/atlases/bellafide_atlas.tres" id="2_ajsop"]
+[ext_resource type="Script" uid="uid://c3px544rdmit" path="res://scripts/gui/MerchantScreen.cs" id="1_merchant"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="2_pl1cs"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="3_32vq5"]
+[ext_resource type="Texture2D" uid="uid://hbuua0cpeohi" path="res://assets/textures/portraits/fairy.png" id="3_pl1cs"]
 [ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="4_pl1cs"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_fvgyx"]
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/drop_count_panel.tscn" id="6_32vq5"]
@@ -70,7 +70,8 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
-texture = ExtResource("2_ajsop")
+texture = ExtResource("3_pl1cs")
+expand_mode = 1
 
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer" unique_id=1272889941]
 layout_mode = 2

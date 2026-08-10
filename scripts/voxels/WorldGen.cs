@@ -2073,9 +2073,9 @@ public static class WorldGen
             (SubsceneState sub, SubscenePlacement placement) = reserved[si];
             Vector3I origin = FootprintOrigin(sub, placement);
             int plateauY = FootprintPlateauY(heightMap, origin, sub.Size, out int levelCount);
-            // Anchored ON the plateau's top voxel, not above it: a scene carries
-            // its own floor, so its bottom layer replaces that voxel instead of
-            // stacking a second floor on top of the ground.
+            // The anchor's y=0 course replaces the plateau's top voxel rather
+            // than stacking on it — a scene carries its own floor. Everything
+            // the scene authored below y=0 goes under the ground from here.
             var anchor = new Vector3(placement.anchorXZ.X, plateauY, placement.anchorXZ.Y);
             // Pulled out BEFORE the stamp: a marker is a position this placement
             // may or may not fill, never an entity the world keeps.
@@ -2084,7 +2084,9 @@ public static class WorldGen
             // A fixture-open scene keeps what is already standing on it: the
             // fixture pass ran earlier and placed there deliberately, and a
             // plaza's stamp only re-paves the ground they stand on.
-            int evicted = placement.allowFixtures ? 0 : ClearEntitiesInVolume(ws, origin, anchor, sub.Size);
+            int evicted = placement.allowFixtures
+                ? 0
+                : ClearEntitiesInVolume(ws, origin, SubsceneStamper.ComputeWorldOrigin(sub, anchor).Y, sub.Size);
             Vector3 markerOffset = SubsceneStamper.WorldOffset(sub, anchor);
             SubsceneStamper.StampVoxels(ws, sub, anchor);
             int fromVariants = SpawnSubsceneVariants(ws, placement, markers, markerOffset,
@@ -2254,9 +2256,10 @@ public static class WorldGen
     // sterilising the whole column down to bedrock. The cave scan is
     // volumetric, so a cave pocket that happens to sit inside the building's
     // band is caught here instead.
-    private static int ClearEntitiesInVolume(WorldState ws, Vector3I origin, Vector3 anchor, Vector3I size)
+    // minY is the stamp's bbox floor, NOT the anchor — the anchor sits at the
+    // scene's y=0 plane and a scene with a basement extends below it.
+    private static int ClearEntitiesInVolume(WorldState ws, Vector3I origin, int minY, Vector3I size)
     {
-        int minY = Mathf.FloorToInt(anchor.Y);
         var doomed = new List<EntitySimState>();
         foreach (EntitySimState e in ws.AllChunkEntities())
         {

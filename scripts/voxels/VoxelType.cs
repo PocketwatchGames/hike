@@ -47,7 +47,7 @@ public static class VoxelTypeInfo
     // Per-block atlas-layer indices come from BlockCatalog now. Use
     // ResolveBlockIndex(name) below to look up a block's AtlasBaseIndex by
     // its authored name. The shader's tile_array layer order in
-    // res://assets/textures/voxels/voxel_tiles.png must agree with the
+    // res://assets/textures/terrain/voxel_tiles.png must agree with the
     // AtlasBaseIndex authored on each BlockData; the catalog asserts the
     // two named slots the shader hardcodes ("Stone" at 0, "GrassTop" at 1).
     //

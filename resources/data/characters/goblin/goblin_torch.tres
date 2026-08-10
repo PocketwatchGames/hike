@@ -13,10 +13,10 @@
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="9_iv4b3"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_qssw7"]
 [ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="10_solidfx"]
-[ext_resource type="PackedScene" uid="uid://c0tanvr8884cb" path="res://scenes/items/held/torch_held.tscn" id="11_held"]
+[ext_resource type="PackedScene" uid="uid://c0tanvr8884cb" path="res://scenes/items/torch_held.tscn" id="11_held"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="12_buildup"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="13_burning"]
-[ext_resource type="Resource" uid="uid://dl57x9sg4t9ks" path="res://resources/data/characters/ability_tells/ability_tell_fire.tres" id="14_tell"]
+[ext_resource type="Resource" uid="uid://dl57yasg4uaks" path="res://resources/data/characters/ability_tells/ability_tell_fire.tres" id="14_tell"]
 
 [sub_resource type="Resource" id="Resource_event_windup_anim"]
 script = ExtResource("4_event")

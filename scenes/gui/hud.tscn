@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
 [ext_resource type="PackedScene" uid="uid://blmj70p54o01u" path="res://scenes/hud/conversation_panel.tscn" id="4_dialogue"]
 [ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
-[ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/interactives/tall_grass_01.png" id="5_gbuxp"]
+[ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="5_gbuxp"]
 [ext_resource type="PackedScene" uid="uid://cfdavtb761i5m" path="res://scenes/gui/stamina_bar.tscn" id="6_552pg"]
 [ext_resource type="Material" uid="uid://dmnmapmatlr1a" path="res://resources/materials/minimap.tres" id="6_minimap_mat"]
 [ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="7_ggjrh"]

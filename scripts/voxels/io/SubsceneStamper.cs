@@ -254,7 +254,11 @@ public static class SubsceneStamper
         StampAll(ws, sub, worldAnchor);
     }
 
-    private static Vector3I ComputeWorldOrigin(SubsceneState sub, Vector3 worldAnchor)
+    // World voxel the subscene's local (0,0,0) lands on for a stamp at
+    // `worldAnchor` — i.e. the bbox min corner. Public because callers that
+    // measure the stamped volume before the stamp (undo capture, entity
+    // eviction) need the same answer the writes will use.
+    public static Vector3I ComputeWorldOrigin(SubsceneState sub, Vector3 worldAnchor)
     {
         // Floor against the anchor so an integer-aligned anchor lands on
         // integer voxel boundaries even when the anchor is a midpoint

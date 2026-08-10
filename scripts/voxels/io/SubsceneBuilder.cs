@@ -41,8 +41,13 @@ public static class SubsceneBuilder
     }
 
     // Every voxel inside the bbox is marked present (= it overwrites the
-    // destination on stamp), so enclosed air overwrites too. Anchor is left at
-    // (0,0,0) — the bbox min corner.
+    // destination on stamp), so enclosed air overwrites too.
+    //
+    // The anchor's Y is the AUTHORING WORLD'S y=0 plane, not the bbox floor:
+    // whatever you built at y=0 lands on the destination ground, and anything
+    // below it stamps below — so a dungeon authored under y=0 embeds instead of
+    // being lifted until its deepest voxel rests on the surface. X/Z stay at the
+    // bbox min corner, which is what footprint placement measures from.
     //
     // filterEntitiesToBox keeps only the entities standing inside the bbox,
     // for carving one piece out of a larger world. Otherwise every entity in
@@ -87,7 +92,7 @@ public static class SubsceneBuilder
         sub.Entities = filterEntitiesToBox
             ? CollectEntitiesInBox(ws, min, max, size)
             : CollectAllEntities(ws, min);
-        sub.Anchor = Vector3.Zero;
+        sub.Anchor = new Vector3(0f, -min.Y, 0f);
         return sub;
     }
 

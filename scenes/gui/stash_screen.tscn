@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dia3226sojhdo" path="res://scripts/gui/StashScreen.cs" id="1_8n8os"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="2_w6lr8"]
-[ext_resource type="Texture2D" uid="uid://cxu0m67ovyyb3" path="res://assets/textures/interactives/chest.png" id="3_w6lr8"]
+[ext_resource type="Texture2D" uid="uid://cxu0m67ovyyb3" path="res://assets/textures/gui/chest.png" id="3_w6lr8"]
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_8n8os"]
 [ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="5_nmwrw"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="6_11unt"]

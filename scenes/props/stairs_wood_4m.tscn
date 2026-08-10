@@ -1,0 +1,17 @@
+[gd_scene uid="uid://be8m51317vp8p" format=3]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_6rrof"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="2_70b6q"]
+[ext_resource type="PackedScene" uid="uid://cjn4x7w1v4adh" path="res://assets/models/furniture/rpgpp_av_stairs_interior_01a_4m.fbx" id="3_tfwas"]
+[ext_resource type="PackedScene" uid="uid://dmo58p80f4ynr" path="res://assets/models/furniture/rpgpp_av_stairs_interior_01a_4m_handrail_01.fbx" id="4_pmlvl"]
+
+[node name="PropInstance" type="Node3D" unique_id=934476939]
+script = ExtResource("1_6rrof")
+
+[node name="Model" type="Node3D" parent="." unique_id=1793399038]
+script = ExtResource("2_70b6q")
+steppable = true
+
+[node name="rpgpp_av_stairs_interior_01a_4m" type="Node3D" parent="Model" unique_id=1766559737 instance=ExtResource("3_tfwas")]
+
+[node name="rpgpp_av_stairs_interior_01a_4m_handrail_01" type="Node3D" parent="Model" unique_id=1938706416 instance=ExtResource("4_pmlvl")]

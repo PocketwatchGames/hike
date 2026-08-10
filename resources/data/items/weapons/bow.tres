@@ -20,7 +20,7 @@
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="17_kwtcm"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
-[ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/held/bow_held.tscn" id="20_kwtcm"]
+[ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/bow_held.tscn" id="20_kwtcm"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]

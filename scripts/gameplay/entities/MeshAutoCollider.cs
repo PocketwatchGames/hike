@@ -36,6 +36,10 @@ public partial class MeshAutoCollider : Node3D
 {
     private const string AutoCollisionPrefix = "AutoCollision_";
 
+    // Forwarded to every generated PorousBody. On for props meant to be walked
+    // up rather than bumped into — stairs, ramps, boardwalks.
+    [Export] public bool steppable;
+
     [ExportToolButton("Bake")]
     public Callable BakeButton => Callable.From(Bake);
 
@@ -53,7 +57,7 @@ public partial class MeshAutoCollider : Node3D
         {
             if (descendant is MeshInstance3D mi && mi.Mesh != null)
             {
-                var body = new PorousBody { Name = AutoCollisionPrefix + mi.Name };
+                var body = new PorousBody { Name = AutoCollisionPrefix + mi.Name, steppable = steppable };
                 mi.AddChild(body);
                 body.AddChild(new CollisionShape3D
                 {
@@ -162,7 +166,7 @@ public partial class MeshAutoCollider : Node3D
         {
             if (descendant is MeshInstance3D mi && mi.Mesh != null)
             {
-                var body = new PorousBody { Name = AutoCollisionPrefix + mi.Name };
+                var body = new PorousBody { Name = AutoCollisionPrefix + mi.Name, steppable = steppable };
                 AddChild(body);
                 body.Owner = sceneRoot;
 

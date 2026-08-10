@@ -1,7 +1,0 @@
-[gd_resource type="AtlasTexture" format=3 uid="uid://ui2onktg02cc"]
-
-[ext_resource type="Texture2D" uid="uid://djgtvyk4mwcyh" path="res://assets/textures/characters/com_bellafide_unarmed.png" id="1_jd2ws"]
-
-[resource]
-atlas = ExtResource("1_jd2ws")
-region = Rect2(17, 41, 36, 33)

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dxysdrsqy2nop" path="res://scripts/gameplay/entities/Loot.cs" id="1_loot"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
-[ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/interactives/loot.png" id="3_hags0"]
+[ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/items/loot.png" id="3_hags0"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_72em6"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_1ntuc"]

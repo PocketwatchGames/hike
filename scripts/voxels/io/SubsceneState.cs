@@ -28,6 +28,12 @@ public class SubsceneState
     // position of (wx, wy, wz) places the subscene so that local cell
     // floor(Anchor) lands at (wx, wy, wz). Stored as Vector3 (not Vector3I)
     // so the anchor can sit between voxels (e.g. on a doorway center).
+    //
+    // SubsceneBuilder puts Y on the authoring world's y=0 plane, so the anchor
+    // is generally INSIDE the bbox rather than at its floor — content authored
+    // below y=0 has a positive Anchor.Y and stamps below the destination ground.
+    // Anything deriving the bbox corner from a stamp position must subtract the
+    // whole anchor (SubsceneStamper.ComputeWorldOrigin), never assume Y is 0.
     public Vector3 Anchor;
 
     // Voxel channels — sized [Size.X, Size.Y, Size.Z], row-major X,Y,Z.

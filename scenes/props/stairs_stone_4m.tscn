@@ -1,0 +1,22 @@
+[gd_scene uid="uid://bkv7hies0vnd5" format=3]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_c86gs"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="2_ih4k8"]
+[ext_resource type="PackedScene" uid="uid://d3eambvj8ocy2" path="res://assets/models/furniture/SM_Env_Steps_01.fbx" id="3_04i8p"]
+[ext_resource type="PackedScene" uid="uid://q8fa4j3sntjw" path="res://assets/models/furniture/SM_Env_Stairs_01.fbx" id="4_tp0fm"]
+
+[node name="PropInstance" type="Node3D" unique_id=134355395]
+script = ExtResource("1_c86gs")
+
+[node name="Model" type="Node3D" parent="." unique_id=1169510500]
+script = ExtResource("2_ih4k8")
+steppable = true
+
+[node name="SM_Env_Steps_01" type="Node3D" parent="Model" unique_id=104877631 instance=ExtResource("3_04i8p")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 0.3, 0, 8.742278e-08, 0, -1, 0, 0, 5)
+
+[node name="SM_Env_Steps_01_2" type="Node3D" parent="Model" unique_id=547807668 instance=ExtResource("3_04i8p")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0.3, 0)
+
+[node name="SM_Env_Stairs_01" type="Node3D" parent="Model" unique_id=1226997154 instance=ExtResource("4_tp0fm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 0)

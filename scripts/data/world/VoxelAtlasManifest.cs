@@ -22,8 +22,8 @@ public partial class VoxelAtlasManifest : Resource
 {
     // Atlas slot size in px. Source art (1024/2048/4096) is downscaled to this.
     public const int Slot = 256;
-    public const string ColorOutPath = "res://assets/textures/voxels/voxel_tiles.png";
-    public const string NormalHeightOutPath = "res://assets/textures/voxels/voxel_tiles_nrm_height.png";
+    public const string ColorOutPath = "res://assets/textures/terrain/voxel_tiles.png";
+    public const string NormalHeightOutPath = "res://assets/textures/terrain/voxel_tiles_nrm_height.png";
 
     // Encoded flat tangent normal (points straight out) for null-Normal slots.
     private static readonly Color FlatNormal = new Color(0.5f, 0.5f, 1.0f, 0.0f);

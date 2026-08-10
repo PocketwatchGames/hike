@@ -152,7 +152,7 @@ public partial class EditorHud : CanvasLayer
     {
         if (helpLabel != null)
         {
-            helpLabel.Text = "LMB: Paint | Ctrl+LMB: Erase | Alt+LMB: Replace | RMB: Fly (WASD/E/Q, Shift boost, Wheel speed) | R/F: Up/Down | Z/C: Rotate | Ctrl+Z/Y: Undo/Redo | Ctrl+S: Save | Ctrl+Shift+S: Save As | Esc: Quit";
+            helpLabel.Text = "LMB: Paint | Ctrl+LMB: Erase | Alt+LMB: Replace | RMB: Fly (WASD/E/Q, Shift boost, Wheel speed) | R/F: Clip+Build Up/Down (Shift: 1m) | Z/C: Rotate | Ctrl+Z/Y: Undo/Redo | Ctrl+S: Save | Ctrl+Shift+S: Save As | Esc: Quit";
         }
         if (toastLabel != null)
         {
@@ -729,18 +729,14 @@ public partial class EditorHud : CanvasLayer
 
     // ----- Readouts --------------------------------------------------------
 
-    public void UpdateClip(float clipY)
+    // buildY is where a click into empty air lands — worth showing alongside the
+    // cutaway, since with the clip off the two no longer imply each other.
+    public void UpdateClip(float clipY, bool clipOff, int buildY)
     {
         if (clipLabel != null)
         {
-            if (clipY >= float.PositiveInfinity)
-            {
-                clipLabel.Text = "Clip: None";
-            }
-            else
-            {
-                clipLabel.Text = $"Clip: Y={clipY:F0}";
-            }
+            string clip = clipOff ? "None" : $"Y={clipY:F0}";
+            clipLabel.Text = $"Clip: {clip} | Build: Y={buildY}";
         }
     }
 

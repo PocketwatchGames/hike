@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cawmscr5pq407" path="res://scripts/gui/WorldMapScreen.cs" id="1_wmap"]
 [ext_resource type="Material" uid="uid://d3wmmatlrun1c" path="res://resources/materials/worldmap.tres" id="2_wmmat"]
-[ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/interactives/tall_grass_01.png" id="3_wmtex"]
+[ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="3_wmtex"]
 [ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wmap"]

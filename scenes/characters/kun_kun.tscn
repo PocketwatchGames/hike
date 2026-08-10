@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="3_mobhud"]
-[ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="8_dfn4c"]
+[ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/effects/footprint.png" id="8_dfn4c"]
 [ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/fx/footstep_grass.tscn" id="11_fstgrass"]
 [ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/fx/footstep_mud.tscn" id="11_fstmud"]
 [ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/fx/footstep_sand.tscn" id="11_fstsand"]

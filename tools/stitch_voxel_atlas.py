@@ -21,7 +21,7 @@ from PIL import Image
 SLOT = 256  # atlas slot size (px). Source art (1024/2048/4096) is downscaled to this.
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 MANIFEST = os.path.join(ROOT, "resources", "data", "blocks", "voxel_atlas_manifest.tres")
-VOXEL_DIR = os.path.join(ROOT, "assets", "textures", "voxels")
+VOXEL_DIR = os.path.join(ROOT, "assets", "textures", "terrain")
 
 # Flat tangent-space normal (points straight out: 0.5,0.5,1.0 encoded) and zero
 # height, used for slots with a null normal/height (e.g. the water placeholder).

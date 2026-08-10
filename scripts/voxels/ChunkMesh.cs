@@ -108,7 +108,7 @@ public partial class ChunkMesh : Node3D
         // pushed onto it below; the authored puddle_ripple_* uniforms are left
         // as-is.
         SharedMaterial = GD.Load<ShaderMaterial>("res://resources/materials/terrain.tres");
-        var tileArray = GD.Load<TextureLayered>("res://assets/textures/voxels/voxel_tiles.png");
+        var tileArray = GD.Load<TextureLayered>("res://assets/textures/terrain/voxel_tiles.png");
         _tileColorArray = tileArray;
         // Pre-warm the per-layer average-color cache (used for detail-sprite
         // GroundTint, flat tiles AND per-voxel overlays) on the main thread at
@@ -129,7 +129,7 @@ public partial class ChunkMesh : Node3D
 
         // Packed per-tile normal (RGB) + height (A) atlas, sampled alongside
         // the color atlas (both nearest-filtered).
-        var nrmHeight = GD.Load<TextureLayered>("res://assets/textures/voxels/voxel_tiles_nrm_height.png");
+        var nrmHeight = GD.Load<TextureLayered>("res://assets/textures/terrain/voxel_tiles_nrm_height.png");
         SharedMaterial.SetShaderParameter("tile_nrm_height", nrmHeight);
 
         // tile_uv_scale, tile_normal_strength, the blend sharpnesses, the wet_*
