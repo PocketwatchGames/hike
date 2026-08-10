@@ -1,0 +1,54 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/entities/ExplodingBarrel.cs" id="1_barrel"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="2_porous"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="3_hurtbox"]
+[ext_resource type="PackedScene" uid="uid://dfayt3jalq0im" path="res://assets/models/furniture/SM_Prop_Barrel_01.fbx" id="4_intact"]
+[ext_resource type="PackedScene" uid="uid://bn6xtn81s3bab" path="res://assets/models/furniture/SM_Prop_Barrel_Broken_01.fbx" id="5_broken"]
+[ext_resource type="Material" uid="uid://bscorchstn4mq" path="res://resources/materials/scorch_stain.tres" id="6_scorch"]
+[ext_resource type="PackedScene" path="res://scenes/fx/barrel_explosion.tscn" id="7_explosion"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_body"]
+size = Vector3(0.7676, 1.0312, 0.7677)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_hurt"]
+size = Vector3(0.85, 1.05, 0.85)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_scorch"]
+size = Vector2(2.5, 2.5)
+
+[node name="ExplodingBarrel" type="Node3D" node_paths=PackedStringArray("_hurtBox", "_bodyCollision", "_intactModel", "_brokenModel", "_scorchStain")]
+script = ExtResource("1_barrel")
+_hurtBox = NodePath("HurtBox")
+_bodyCollision = NodePath("Body/CollisionShape3D")
+_intactModel = NodePath("IntactModel")
+_brokenModel = NodePath("BrokenModel")
+_scorchStain = NodePath("ScorchStain")
+_explosionScene = ExtResource("7_explosion")
+
+[node name="Body" type="StaticBody3D" parent="."]
+script = ExtResource("2_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5156, 0)
+shape = SubResource("BoxShape3D_body")
+
+[node name="IntactModel" type="Node3D" parent="." instance=ExtResource("4_intact")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.0001)
+
+[node name="BrokenModel" type="Node3D" parent="." instance=ExtResource("5_broken")]
+
+[node name="ScorchStain" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+layers = 16
+material_override = ExtResource("6_scorch")
+mesh = SubResource("PlaneMesh_scorch")
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("3_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+shape = SubResource("BoxShape3D_hurt")
