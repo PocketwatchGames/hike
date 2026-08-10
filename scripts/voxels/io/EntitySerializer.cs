@@ -34,6 +34,7 @@ public static class EntitySerializer
         SafetyZone = 21,
         Roof = 22,
         Marker = 23,
+        Cactus = 24,
     }
 
     // How much of the Roof payload a stream carries. Containers map their own
@@ -525,6 +526,12 @@ public static class EntitySerializer
                 w.Write(fire.PhaseOffsetSeconds);
                 break;
 
+            case CactusSimState cactus:
+                w.Write((byte)Tag.Cactus);
+                WriteVec3(w, cactus.WorldPosition);
+                WriteScene(w, cactus.Scene);
+                break;
+
             case WellSimState well:
                 w.Write((byte)Tag.Well);
                 WriteVec3(w, well.WorldPosition);
@@ -920,6 +927,14 @@ public static class EntitySerializer
                 fire.PhaseOffsetSeconds = phaseOffset;
                 fire.HazardRadius = FireTrapSimState.DefaultHazardRadius;
                 return fire;
+            }
+            case Tag.Cactus:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                var cactus = new CactusSimState(pos, scene);
+                cactus.HazardRadius = CactusSimState.DefaultHazardRadius;
+                return cactus;
             }
             case Tag.Well:
             {

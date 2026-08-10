@@ -213,6 +213,35 @@ public class TrapSimState : EntitySimState
     }
 }
 
+// Desert hazard plant. Fires a ring of hazard spines on touch/strike (see
+// Cactus). A solid, path-blocking obstacle with a small danger disc so mobs
+// don't wander into range while idling. No persistent per-instance state — the
+// burst cooldown lives on the runtime node.
+public class CactusSimState : EntitySimState
+{
+    // Danger-zone radius (meters) mobs avoid while wandering and never spawn
+    // inside — sized to the spine reach. Single source for the spawn entry's
+    // [Export] default and the .hike deserialization fallback.
+    public const float DefaultHazardRadius = 2f;
+
+    public CactusSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override bool IsRoadObstacle => true;
+
+    public override Node3D CreateEntity(Sim sim)
+    {
+        return Cactus.Create(sim, this);
+    }
+
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
+    {
+        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
+    }
+}
+
 public class SignpostSimState : EntitySimState
 {
     // Text shown in the HUD panel when the player interacts. Stored on the
