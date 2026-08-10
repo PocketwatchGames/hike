@@ -27,6 +27,7 @@
 [ext_resource type="PackedScene" uid="uid://dtd6fk0wqinab" path="res://scenes/interactives/trapdoor_hidden.tscn" id="24_trapdoor_hidden"]
 [ext_resource type="PackedScene" uid="uid://zaq5utvu4i2b9" path="res://scenes/interactives/crumbling_floor.tscn" id="25_crumbling_floor"]
 [ext_resource type="PackedScene" uid="uid://s3atbr7ftgv9n" path="res://scenes/interactives/lever.tscn" id="26_lever"]
+[ext_resource type="PackedScene" uid="uid://4af08c5087te6" path="res://scenes/interactives/dart_trap.tscn" id="27_darttrap"]
 
 [sub_resource type="Resource" id="ChestLoot_potion"]
 script = ExtResource("7_itemcountrange")
@@ -46,6 +47,7 @@ propLibrary = ExtResource("14_proplibrary")
 roofLibrary = ExtResource("16_rooflibrary")
 doorScene = ExtResource("2_door")
 spikeTrapScene = ExtResource("3_spiketrap")
+dartTrapScene = ExtResource("27_darttrap")
 trapdoorScene = ExtResource("23_trapdoor")
 trapdoorTrapScene = ExtResource("24_trapdoor_hidden")
 crumblingFloorScene = ExtResource("25_crumbling_floor")

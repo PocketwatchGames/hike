@@ -41,6 +41,7 @@ public partial class EditorBrushPalette : Resource
 	[ExportGroup("Interactives")]
 	[Export] public PackedScene doorScene;
 	[Export] public PackedScene spikeTrapScene;
+	[Export] public PackedScene dartTrapScene;
 	// Player-operated floor trapdoor; the perception-gated drop trap; and the
 	// crumbling floor that looks like ground and breaks when stepped on.
 	[Export] public PackedScene trapdoorScene;

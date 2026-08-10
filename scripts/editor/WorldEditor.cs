@@ -39,6 +39,7 @@ public enum EEditorEntityKind
     Torch,
     Door,
     SpikeTrap,
+    DartTrap,
     ClimbableTree,
     Campfire,
     Forge,
@@ -334,7 +335,7 @@ public partial class WorldEditor : Node3D
     {
         EEditorEntityKind.PlayerSpawn, EEditorEntityKind.Loot, EEditorEntityKind.Chest,
         EEditorEntityKind.Torch, EEditorEntityKind.Door, EEditorEntityKind.SpikeTrap,
-        EEditorEntityKind.ClimbableTree, EEditorEntityKind.Campfire, EEditorEntityKind.Forge,
+        EEditorEntityKind.DartTrap, EEditorEntityKind.ClimbableTree, EEditorEntityKind.Campfire, EEditorEntityKind.Forge,
         EEditorEntityKind.Well, EEditorEntityKind.HealingFountain, EEditorEntityKind.ManaFountain,
         EEditorEntityKind.Goblin, EEditorEntityKind.KunKun,
         EEditorEntityKind.Trapdoor, EEditorEntityKind.TrapdoorTrap, EEditorEntityKind.CrumblingFloor,
@@ -798,6 +799,7 @@ public partial class WorldEditor : Node3D
             EEditorEntityKind.Torch => brushPalette?.torchScene,
             EEditorEntityKind.Door => brushPalette?.doorScene,
             EEditorEntityKind.SpikeTrap => brushPalette?.spikeTrapScene,
+            EEditorEntityKind.DartTrap => brushPalette?.dartTrapScene,
             EEditorEntityKind.Trapdoor => brushPalette?.trapdoorScene,
             EEditorEntityKind.LinkedTrapdoor => brushPalette?.trapdoorScene,
             EEditorEntityKind.TrapdoorTrap => brushPalette?.trapdoorTrapScene,
@@ -3113,6 +3115,10 @@ public partial class WorldEditor : Node3D
             case EEditorEntityKind.SpikeTrap:
                 return brushPalette?.spikeTrapScene != null
                     ? new TrapSimState(position, brushPalette.spikeTrapScene)
+                    : null;
+            case EEditorEntityKind.DartTrap:
+                return brushPalette?.dartTrapScene != null
+                    ? new TrapSimState(position, brushPalette.dartTrapScene)
                     : null;
             case EEditorEntityKind.Trapdoor:
                 return brushPalette?.trapdoorScene != null
