@@ -48,6 +48,52 @@ public class DoorSimState : EntitySimState, IVoxelStamper
     }
 }
 
+// Player-operated (and optionally lever-linked) trapdoor. Persists whether the
+// leaf is currently open and the link tag a Lever targets it by.
+public class TrapdoorSimState : EntitySimState
+{
+    // True == leaf swung open. Persisted so a reloaded world snaps back to how
+    // the player left it.
+    public bool Open;
+
+    // Shared key a Lever pulls this trapdoor by. Empty = player-operated only.
+    // Distinct from EntitySimState.Tag, which is the subscene variant pool —
+    // reusing that would make the trapdoor stop spawning unconditionally.
+    public string LinkTag = "";
+
+    public TrapdoorSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+        RotationY = rotationY;
+    }
+
+    public override Node3D CreateEntity(Sim sim)
+    {
+        return Trapdoor.Create(sim, this);
+    }
+}
+
+// A pull-lever that remote-triggers trapdoors sharing its target link tag.
+public class LeverSimState : EntitySimState
+{
+    // LinkTag of the trapdoor(s) this lever throws. Empty = wired to nothing.
+    public string TargetLinkTag = "";
+
+    // Current handle position (persisted so a reloaded lever keeps its throw).
+    public bool On;
+
+    public LeverSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+        RotationY = rotationY;
+    }
+
+    public override Node3D CreateEntity(Sim sim)
+    {
+        return Lever.Create(sim, this);
+    }
+}
+
 public class TorchSimState : EntitySimState
 {
     public bool Active = true;

@@ -23,6 +23,10 @@
 [ext_resource type="PackedScene" uid="uid://dfo7hvqgrcw4g" path="res://scenes/interactives/fountain_healing.tscn" id="20_fountain_healing"]
 [ext_resource type="PackedScene" uid="uid://dvse25ibhjbg6" path="res://scenes/interactives/fountain_mana.tscn" id="21_fountain_mana"]
 [ext_resource type="PackedScene" path="res://scenes/editor/spawn_marker.tscn" id="22_marker"]
+[ext_resource type="PackedScene" uid="uid://6ed61nomh8wwo" path="res://scenes/interactives/trapdoor.tscn" id="23_trapdoor"]
+[ext_resource type="PackedScene" uid="uid://dtd6fk0wqinab" path="res://scenes/interactives/trapdoor_hidden.tscn" id="24_trapdoor_hidden"]
+[ext_resource type="PackedScene" uid="uid://zaq5utvu4i2b9" path="res://scenes/interactives/crumbling_floor.tscn" id="25_crumbling_floor"]
+[ext_resource type="PackedScene" uid="uid://s3atbr7ftgv9n" path="res://scenes/interactives/lever.tscn" id="26_lever"]
 
 [sub_resource type="Resource" id="ChestLoot_potion"]
 script = ExtResource("7_itemcountrange")
@@ -42,6 +46,11 @@ propLibrary = ExtResource("14_proplibrary")
 roofLibrary = ExtResource("16_rooflibrary")
 doorScene = ExtResource("2_door")
 spikeTrapScene = ExtResource("3_spiketrap")
+trapdoorScene = ExtResource("23_trapdoor")
+trapdoorTrapScene = ExtResource("24_trapdoor_hidden")
+crumblingFloorScene = ExtResource("25_crumbling_floor")
+leverScene = ExtResource("26_lever")
+linkTags = PackedStringArray("gate")
 climbableTreeScene = ExtResource("4_climbtree")
 torchScene = ExtResource("5_torch")
 campfireScene = ExtResource("17_campfire")

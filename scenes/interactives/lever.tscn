@@ -1,0 +1,94 @@
+[gd_scene format=3 uid="uid://s3atbr7ftgv9n"]
+
+[ext_resource type="Script" uid="uid://i6w498nbulag4" path="res://scripts/gameplay/entities/Lever.cs" id="1_lever"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_box"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="5_meshhl"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="6_modellit"]
+[ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="7_white"]
+[ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="8_open"]
+
+[sub_resource type="Resource" id="Resource_lv_event_pull"]
+script = ExtResource("4_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_lv_action_pull"]
+script = ExtResource("3_action")
+displayName = &"Pull"
+icon = ExtResource("8_open")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_lv_event_pull")])
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_stone"]
+render_priority = 0
+shader = ExtResource("6_modellit")
+shader_parameter/albedo_tex = ExtResource("7_white")
+shader_parameter/form_strength = 0.3
+shader_parameter/color_tint = Color(0.34, 0.35, 0.38, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_handle"]
+render_priority = 0
+shader = ExtResource("6_modellit")
+shader_parameter/albedo_tex = ExtResource("7_white")
+shader_parameter/form_strength = 0.3
+shader_parameter/color_tint = Color(0.5, 0.22, 0.14, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[sub_resource type="BoxMesh" id="BoxMesh_base"]
+material = SubResource("ShaderMaterial_stone")
+size = Vector3(0.35, 1, 0.35)
+
+[sub_resource type="BoxMesh" id="BoxMesh_arm"]
+material = SubResource("ShaderMaterial_handle")
+size = Vector3(0.12, 0.8, 0.12)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(1.5, 2, 1.5)
+
+[node name="Lever" type="Node3D" node_paths=PackedStringArray("_handle", "_hudNode")]
+script = ExtResource("1_lever")
+_handle = NodePath("Visual/Handle")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_lv_action_pull")])
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Base" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("BoxMesh_base")
+
+[node name="Handle" type="Node3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="Arm" type="MeshInstance3D" parent="Visual/Handle"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+mesh = SubResource("BoxMesh_arm")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_box")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("5_meshhl")
+_collectFrom = NodePath("../Visual")

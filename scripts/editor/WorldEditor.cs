@@ -47,6 +47,17 @@ public enum EEditorEntityKind
     ManaFountain,
     Goblin,
     KunKun,
+    // Player-operated floor trapdoor (interact to toggle). LinkTag empty.
+    Trapdoor,
+    // Perception-gated drop trap and step-and-it-breaks crumbling floor — both
+    // Trap compositions over a TrapdoorPanel, distinguished only by scene.
+    TrapdoorTrap,
+    CrumblingFloor,
+    // Lever + its linked trapdoor. Like Marker these are expanded per tag from
+    // EditorBrushPalette.linkTags: placing "Lever: gate" and "Trapdoor: gate"
+    // shares the "gate" link so the lever throws that trapdoor.
+    Lever,
+    LinkedTrapdoor,
     // A tagged position with no body — the subscene spawn point. One brush per
     // pool name, expanded from EditorBrushPalette.markerTags.
     Marker,
@@ -326,6 +337,7 @@ public partial class WorldEditor : Node3D
         EEditorEntityKind.ClimbableTree, EEditorEntityKind.Campfire, EEditorEntityKind.Forge,
         EEditorEntityKind.Well, EEditorEntityKind.HealingFountain, EEditorEntityKind.ManaFountain,
         EEditorEntityKind.Goblin, EEditorEntityKind.KunKun,
+        EEditorEntityKind.Trapdoor, EEditorEntityKind.TrapdoorTrap, EEditorEntityKind.CrumblingFloor,
     };
 
     // Palette-index-aligned with the entity buttons, which are spread across the
@@ -786,6 +798,11 @@ public partial class WorldEditor : Node3D
             EEditorEntityKind.Torch => brushPalette?.torchScene,
             EEditorEntityKind.Door => brushPalette?.doorScene,
             EEditorEntityKind.SpikeTrap => brushPalette?.spikeTrapScene,
+            EEditorEntityKind.Trapdoor => brushPalette?.trapdoorScene,
+            EEditorEntityKind.LinkedTrapdoor => brushPalette?.trapdoorScene,
+            EEditorEntityKind.TrapdoorTrap => brushPalette?.trapdoorTrapScene,
+            EEditorEntityKind.CrumblingFloor => brushPalette?.crumblingFloorScene,
+            EEditorEntityKind.Lever => brushPalette?.leverScene,
             EEditorEntityKind.ClimbableTree => brushPalette?.climbableTreeScene,
             EEditorEntityKind.Campfire => brushPalette?.campfireScene,
             EEditorEntityKind.Forge => brushPalette?.forgeScene,
@@ -808,7 +825,33 @@ public partial class WorldEditor : Node3D
             _entityBrushes.Add(new EntityBrush(kind.ToString(), kind, EEditorEntityTab.Interactives));
         }
         AddMarkerBrushes();
+        AddLinkedTrapdoorBrushes();
         AddPropBrushes();
+    }
+
+    // One Lever + one linked Trapdoor brush per authored link tag, mirroring
+    // AddMarkerBrushes — placing "Lever: gate" and "Trapdoor: gate" shares the
+    // "gate" link so the lever throws that trapdoor. A new linked pair is a
+    // string in EditorBrushPalette.linkTags, not a code change.
+    private void AddLinkedTrapdoorBrushes()
+    {
+        foreach (string tag in brushPalette?.linkTags ?? System.Array.Empty<string>())
+        {
+            if (string.IsNullOrEmpty(tag))
+            {
+                continue;
+            }
+            if (brushPalette?.leverScene != null)
+            {
+                _entityBrushes.Add(new EntityBrush($"Lever: {tag}", EEditorEntityKind.Lever,
+                    EEditorEntityTab.Interactives, prop: null, tag: tag));
+            }
+            if (brushPalette?.trapdoorScene != null)
+            {
+                _entityBrushes.Add(new EntityBrush($"Trapdoor: {tag}", EEditorEntityKind.LinkedTrapdoor,
+                    EEditorEntityTab.Interactives, prop: null, tag: tag));
+            }
+        }
     }
 
     // One brush per authored pool name. Like the prop brushes these are expanded
@@ -3070,6 +3113,26 @@ public partial class WorldEditor : Node3D
             case EEditorEntityKind.SpikeTrap:
                 return brushPalette?.spikeTrapScene != null
                     ? new TrapSimState(position, brushPalette.spikeTrapScene)
+                    : null;
+            case EEditorEntityKind.Trapdoor:
+                return brushPalette?.trapdoorScene != null
+                    ? new TrapdoorSimState(position, 0f, brushPalette.trapdoorScene)
+                    : null;
+            case EEditorEntityKind.LinkedTrapdoor:
+                return brushPalette?.trapdoorScene != null
+                    ? new TrapdoorSimState(position, 0f, brushPalette.trapdoorScene) { LinkTag = brush.Tag }
+                    : null;
+            case EEditorEntityKind.TrapdoorTrap:
+                return brushPalette?.trapdoorTrapScene != null
+                    ? new TrapSimState(position, brushPalette.trapdoorTrapScene) { HazardRadius = TrapSimState.DefaultHazardRadius }
+                    : null;
+            case EEditorEntityKind.CrumblingFloor:
+                return brushPalette?.crumblingFloorScene != null
+                    ? new TrapSimState(position, brushPalette.crumblingFloorScene) { HazardRadius = TrapSimState.DefaultHazardRadius }
+                    : null;
+            case EEditorEntityKind.Lever:
+                return brushPalette?.leverScene != null
+                    ? new LeverSimState(position, 0f, brushPalette.leverScene) { TargetLinkTag = brush.Tag }
                     : null;
             case EEditorEntityKind.Campfire:
                 // Always unlit: lighting one douses every other, so a placed
