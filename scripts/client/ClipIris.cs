@@ -422,10 +422,12 @@ public class ClipIris
         return highest - Clearance;
     }
 
-    // The disk grows to cover the farthest sample the camera cannot see, and
-    // shrinks back when they clear. Radius rather than a trigger: there is nothing
-    // to latch and nothing to threshold, so it cannot chatter — an occluded sample
-    // appearing at the ring's edge just extends the reach it eases toward.
+    // The disk opens only while the player is themselves hidden or standing at an
+    // opening; once open it grows to cover the farthest sample the camera cannot
+    // see, and shrinks back when they clear. Its SIZE is a radius rather than a
+    // trigger, so it cannot chatter — an occluded sample appearing at the ring's
+    // edge just extends the reach it eases toward — but WHETHER it opens is gated,
+    // so cover the player is nowhere near no longer cuts a hole around them.
     private void TickIris(float deltaSeconds, GameCamera camera)
     {
         float farthest = 0f;
@@ -456,10 +458,20 @@ public class ClipIris
             farthest = Mathf.Max(farthest, _probes[i].ScreenDistance);
         }
 
-        // Nothing hidden closes it outright; anything hidden opens it to at least
-        // the small size, since a disk narrower than that reads as a hole rather
-        // than a reveal.
-        float target = OccludedCount > 0
+        // The disk only opens for one of two reasons: the PLAYER is themselves
+        // hidden, or they are standing at an opening. A ring sample occluded off in
+        // the distance while the player stands in plain sight is not a reason to cut
+        // a hole — that latched the disk over cover the player was nowhere near, the
+        // same failure the reach's clamp guards against. PlayerOccluded is the
+        // unraised hidden-ladder verdict, the codebase's own measure of "is the
+        // player behind something", so it is the one asked here.
+        //
+        // Once it IS open, the ring still SIZES it: the disk grows to the farthest
+        // occluded sample so the reveal spans the whole extent of the cover, not just
+        // the column the player is in. With no occluded ring sample (farthest 0) the
+        // clamp floors it at the small size, since a disk narrower than that reads as
+        // a hole rather than a reveal.
+        float target = PlayerOccluded
             ? Mathf.Clamp(farthest + Mathf.Max(IrisPadding, 0f), RadiusMin, RadiusMax)
             : 0f;
         // Standing in or beside a doorway or window opens it too, whatever the ring
