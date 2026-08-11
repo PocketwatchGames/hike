@@ -2051,10 +2051,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // Perceptible-rain floor below which the simRain noise (≈1e-7 RainIntensity)
-    // is treated as "no rain" — mirrors Player.RainPerceptibleFloor.
-    private const float MobRainPerceptibleFloor = 0.01f;
-
     // Circumstantial wetness for mobs. Drives the SAME shared status_wet
     // ContinuousArm meter the player does (Player.TickWetEffect) — identical
     // arm/disarm mechanism, so the effect means the same thing on both — and
@@ -2092,14 +2088,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // True when falling rain is actually reaching this mob: perceptible rain AND
-    // enough open sky overhead (a roof / dense canopy / cave ceiling shelters
-    // it). The boolean counterpart of the player's RainExposure01 gate — mob
-    // wetness is all-or-nothing, so this is a threshold rather than a ramp.
+    // True when soaking rain is actually reaching this mob: light-or-heavier
+    // rain AND enough open sky overhead (a roof / dense canopy / cave ceiling
+    // shelters it). Drizzle is too fine to wet a mob, matching the player's
+    // wet-status gate. The boolean counterpart of the player's RainExposure01
+    // gate — mob wetness is all-or-nothing, so this is a threshold not a ramp.
     private bool RainedOn()
     {
-        float rain = SkyController.Current?.Palette.RainIntensity ?? 0f;
-        if (rain < MobRainPerceptibleFloor)
+        ERainTier rainTier = SkyController.Current?.Palette.RainTier ?? ERainTier.None;
+        if (rainTier < ERainTier.Light)
         {
             return false;
         }

@@ -460,6 +460,7 @@ public static class WeatherDerivation
         // would, while high values (≈1.0) stay near the authored count.
         p.RainIntensity = rainAmount > 0f ? Mathf.Pow(rainAmount, rainIntensityExp) : 0f;
         p.RainWeight = Mathf.Lerp(rainWeightMin, rainWeightMax, cloudCover);
+        p.RainTier = ClassifyRainTier(p.RainIntensity, simData);
 
         // --- Moon disk color ----------------------------------------
         // Sky shader's moon disk is literally the moon; no phase blend.
@@ -522,6 +523,29 @@ public static class WeatherDerivation
         p.CloudTint = ScaleColor(p.CloudTint, p.Illumination);
 
         return p;
+    }
+
+    // Classify a derived RainIntensity (0..1) into a discrete tier using
+    // SimData's boundaries. Shared source of truth so wet-status gating, HUD,
+    // and audio all agree on where drizzle ends and light/heavy rain begin.
+    public static ERainTier ClassifyRainTier(float rainIntensity, SimData simData)
+    {
+        float drizzle = simData?.rainDrizzleThreshold ?? 0.02f;
+        float light = simData?.rainLightThreshold ?? 0.15f;
+        float heavy = simData?.rainHeavyThreshold ?? 0.6f;
+        if (rainIntensity >= heavy)
+        {
+            return ERainTier.Heavy;
+        }
+        if (rainIntensity >= light)
+        {
+            return ERainTier.Light;
+        }
+        if (rainIntensity >= drizzle)
+        {
+            return ERainTier.Drizzle;
+        }
+        return ERainTier.None;
     }
 
     private static Color ScaleColor(Color c, float k)

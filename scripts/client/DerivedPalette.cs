@@ -1,5 +1,17 @@
 using Godot;
 
+// Discrete rain strength, classified from RainIntensity via SimData's tier
+// thresholds. Ordered low→high so `tier >= Light` cleanly means "raining hard
+// enough to soak": drizzle is visible falling rain that never wets the player,
+// while light and heavy rain do. None is clear weather.
+public enum ERainTier
+{
+    None,
+    Drizzle,
+    Light,
+    Heavy,
+}
+
 // Output of WeatherDerivation.Derive() — every value SkyController pushes
 // to shader globals / fog material / DirectionalLight3D nodes. The
 // time-of-day phase blend (day/sunset/night) happens INSIDE derivation,
@@ -110,6 +122,11 @@ public struct DerivedPalette
     // Rain pass-through + derived weight.
     public float RainIntensity;
     public float RainWeight;
+    // RainIntensity classified into a discrete tier (SimData thresholds).
+    // Gameplay that treats rain as a category — wet-status gating (only
+    // Light/Heavy soak), HUD label, audio layer selection — reads this rather
+    // than re-thresholding RainIntensity.
+    public ERainTier RainTier;
 
     // Zone MoonColor, unblended — the sky shader's moon disk should
     // literally be the moon, not the phase-blended primary.
