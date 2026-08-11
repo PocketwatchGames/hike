@@ -382,6 +382,11 @@ public partial class GameClient : Node3D
 	[Export(PropertyHint.Range, "0.05,4,0.05")] public float clipIrisEdgeSoftness = 0.5f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisGrowSeconds = 0.35f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisShrinkSeconds = 0.5f;
+		// Temporal hysteresis on the disk's open gate: it stays open at least this
+		// long after the player stops being hidden or leaves an opening, so the
+		// quantised hidden-ladder ticking across zero at a wall edge cannot make it
+		// oscillate. Only delays CLOSING; opening stays immediate.
+		[Export(PropertyHint.Range, "0,1,0.05")] public float clipIrisHoldSeconds = 0.25f;
 
 	[ExportGroup("")]
 
@@ -1470,6 +1475,7 @@ public partial class GameClient : Node3D
 		_clipIris.IrisPadding = clipIrisPadding;
 		_clipIris.IrisGrowSeconds = clipIrisGrowSeconds;
 		_clipIris.IrisShrinkSeconds = clipIrisShrinkSeconds;
+		_clipIris.IrisHoldSeconds = clipIrisHoldSeconds;
 
 		Vector3 playerPos = _player.GlobalPosition;
 		_clipIris.Tick(Sim.Current, playerPos, camera, (float)deltaSeconds);

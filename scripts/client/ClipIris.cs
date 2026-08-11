@@ -166,6 +166,12 @@ public class ClipIris
     public float IrisPadding = 2f;
     public float IrisGrowSeconds = 0.35f;
     public float IrisShrinkSeconds = 0.5f;
+    // Temporal hysteresis on the OPEN gate: once the disk opens it stays open at
+    // least this long after the player stops being hidden / leaves the opening.
+    // PlayerHiddenAmount is a quantised ladder that ticks across zero as the player
+    // skirts a wall edge, and without this the gate flipped with it and the disk
+    // oscillated. Release-only — it never delays opening, only closing.
+    public float IrisHoldSeconds = 0.25f;
     // Shape aspect, shared with the FOLIAGE cutaway (foliagePlayerFadeAspect*) so the
     // canopy fade and the ceiling reveal are the same shape rather than two effects
     // that happen to open around the player. It scales the radius outright, as it does
@@ -234,6 +240,9 @@ public class ClipIris
     // Whether the base plane was already cutting at or below the disk's plane last
     // tick, so leaving that state can open the disk at size instead of from nothing.
     private bool _irisRedundant;
+    // Counts down IrisHoldSeconds after the open condition drops; the disk may not
+    // begin shrinking toward closed while this is above zero.
+    private float _openHoldRemaining;
     private Vector3 _irisCenter;
     private float _playerY;
 
@@ -465,17 +474,31 @@ public class ClipIris
         // same failure the reach's clamp guards against. PlayerOccluded is the
         // unraised hidden-ladder verdict, the codebase's own measure of "is the
         // player behind something", so it is the one asked here.
-        //
-        // Once it IS open, the ring still SIZES it: the disk grows to the farthest
-        // occluded sample so the reveal spans the whole extent of the cover, not just
-        // the column the player is in. With no occluded ring sample (farthest 0) the
-        // clamp floors it at the small size, since a disk narrower than that reads as
-        // a hole rather than a reveal.
-        float target = PlayerOccluded
+        bool wantsOpen = PlayerOccluded || AtOpening;
+        // Temporal hysteresis: once open, the disk stays open for IrisHoldSeconds
+        // after the condition drops, so the quantised hidden-ladder ticking across
+        // zero at a wall edge cannot flip the gate back and forth. Release-only —
+        // opening is still immediate; only the CLOSE waits out the hold.
+        if (wantsOpen)
+        {
+            _openHoldRemaining = Mathf.Max(IrisHoldSeconds, 0f);
+        }
+        else if (_openHoldRemaining > 0f)
+        {
+            _openHoldRemaining = Mathf.Max(_openHoldRemaining - deltaSeconds, 0f);
+        }
+        bool open = wantsOpen || _openHoldRemaining > 0f;
+
+        // Once it IS open, the ring SIZES it: the disk grows to the farthest occluded
+        // sample so the reveal spans the whole extent of the cover, not just the
+        // column the player is in. With no occluded ring sample (farthest 0) the clamp
+        // floors it at the small size, since a disk narrower than that reads as a hole
+        // rather than a reveal.
+        float target = open
             ? Mathf.Clamp(farthest + Mathf.Max(IrisPadding, 0f), RadiusMin, RadiusMax)
             : 0f;
-        // Standing in or beside a doorway or window opens it too, whatever the ring
-        // found. MAX rather than an override: if the player is ALSO hidden and the
+        // Standing in or beside a doorway or window opens it wider than the small
+        // floor. MAX rather than an override: if the player is ALSO hidden and the
         // ring wants a wider disk than this, that is the better answer and it wins.
         if (AtOpening)
         {
