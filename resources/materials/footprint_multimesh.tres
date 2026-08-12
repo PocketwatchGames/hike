@@ -4,5 +4,6 @@
 resource_name = "footprint_multimesh"
 transparency = 1
 shading_mode = 0
+disable_fog = true
 vertex_color_use_as_albedo = true
 cull_mode = 2

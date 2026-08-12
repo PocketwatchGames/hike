@@ -1,16 +1,11 @@
-[gd_resource type="Resource" script_class="InteriorAmbienceData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="InteriorAmbienceData" format=3 uid="uid://24yhn7pfp4rl"]
 
-[ext_resource type="Script" uid="uid://o5hlv55zb1osm" path="res://scripts/data/world/InteriorAmbienceData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://dj8y40e8mf2jc" path="res://scripts/data/world/InteriorAmbienceData.cs" id="1_script"]
 
 [resource]
 script = ExtResource("1_script")
 displayName = "Outdoor"
-dustFloor = 0.0
-windSuppression = 0.0
 openness = 1.0
 reverbWet = 0.05
 reverbRoomSize = 0.4
-reverbPredelayMs = 60.0
-reverbDamping = 0.5
-lowpassCutoffHz = 20000.0
 metadata/_custom_type_script = "uid://o5hlv55zb1osm"

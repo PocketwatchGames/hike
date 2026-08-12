@@ -1,0 +1,50 @@
+[gd_resource type="Resource" script_class="CellularTerrainData" format=3 uid="uid://drjqxsedic4nq"]
+
+[ext_resource type="Script" uid="uid://fl30zk2f78vp6" path="res://scripts/data/worldgen/CellularTerrainData.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+zoneElevationUnit = 2
+warpFrequency = 0.004
+warpAmplitude = 60.0
+macroFrequency = 0.005
+macroAmplitude = 4.0
+reliefFrequency = 0.035
+reliefSharpness = 2.0
+reliefAmplitudeScale = 3.4
+reliefRangeExponent = 1.2
+reliefMaskFrequency = 0.0045
+reliefMaskLow = -0.5
+reliefMaskHigh = -0.05
+cellSizeMeters = 72.0
+cellJitter = 0.85
+minCellSizeMeters = 36.0
+subdivideRange = 6.0
+minCellColumns = 16
+cellSizeRandomness = 0.8
+drainageCarveDepth = 3.5
+drainageFlowReference = 4000.0
+drainageSlopeReference = 0.13
+drainageMinFlow = 400.0
+erosionSubdivideDepth = 1.5
+erosionCellSizeMeters = 24.0
+quantizeStep = 2
+flattenCellWeight = 0.9
+maxCellStep = 12
+extraEdgeFraction = 0.6
+rampMinDrop = 4
+rampWidthMinMeters = 4.0
+rampWidthMaxMeters = 8.0
+rampGrade = 0.5
+rampCellSizeMeters = 18.0
+rampMaxHalfLength = 40.0
+continentFrequency = 0.0055
+continentOctaves = 4
+continentSeaLevel = -0.3
+shoreBand = 0.07
+coastalPlainBand = 0.3
+continentCenterBias = 1.2
+continentHeightBias = 0.03
+edgeMarginChunks = 2
+oceanDepth = 3.5
+metadata/_custom_type_script = "uid://fl30zk2f78vp6"

@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="PlateauTerrainData" format=3 uid="uid://85nfqgpg2o16"]
+
+[ext_resource type="Script" uid="uid://07o54rrgpqriv" path="res://scripts/data/worldgen/PlateauTerrainData.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+metadata/_custom_type_script = "uid://07o54rrgpqriv"

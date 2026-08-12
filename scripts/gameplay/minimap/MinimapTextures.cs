@@ -37,6 +37,8 @@ public class MinimapTextures
 
     private readonly int _widthPixels;
     private readonly int _heightPixels;
+    // Subtracted from every stored height; see MinimapData.HeightBias.
+    private readonly int _heightBias;
     // World-XZ corner of pixel (0,0) in the texture, in voxel coords.
     private readonly Vector2I _worldOriginXZ;
     // Chunk-coord origin (Min.X, Min.Z).
@@ -70,6 +72,7 @@ public class MinimapTextures
         _widthPixels = _chunksWide * MinimapData.OutdoorPixelsPerChunk;
         _heightPixels = _chunksTall * MinimapData.OutdoorPixelsPerChunk;
         _worldOriginXZ = new Vector2I(world.Min.X * ChunkState.SIZE, world.Min.Z * ChunkState.SIZE);
+        _heightBias = MinimapData.HeightBias(world);
 
         _surfaceData = new byte[_widthPixels * _heightPixels * BytesPerSurfacePixel];
         _exploration = new byte[_widthPixels * _heightPixels];
@@ -370,7 +373,7 @@ public class MinimapTextures
                 {
                     int wx = _worldOriginXZ.X + x * MinimapData.OutdoorMetersPerPixel;
                     int wz = _worldOriginXZ.Y + z * MinimapData.OutdoorMetersPerPixel;
-                    ushort th = GetHeightAtWorld(wx, wz);
+                    int th = GetHeightAtWorld(wx, wz);
                     int fy = th == 0 ? Mathf.FloorToInt(worldPosXZ.Y) : th - 1;
                     int fog = ws.GetFogWorld(wx, fy, wz);
                     if (fog > 0)
@@ -412,7 +415,7 @@ public class MinimapTextures
         {
             return 1f;
         }
-        ushort th = GetHeightAtWorld(wx, wz);
+        int th = GetHeightAtWorld(wx, wz);
         float targetGroundY = th == 0 ? eyeY : th - 1;
 
         float step = Mathf.Max(los.StepMeters, dist / MinimapData.LosMaxStepsPerRay);
@@ -427,7 +430,7 @@ public class MinimapTextures
         {
             int sx = Mathf.RoundToInt(eyeXZ.X + nx * t);
             int sz = Mathf.RoundToInt(eyeXZ.Y + nz * t);
-            ushort sh = GetHeightAtWorld(sx, sz);
+            int sh = GetHeightAtWorld(sx, sz);
             if (sh != 0)
             {
                 float ang = ((sh - 1) - eyeY) / t;
@@ -565,12 +568,99 @@ public class MinimapTextures
         return idx < outdoor.Length && outdoor[idx] > threshold;
     }
 
-    // Returns the stored top-face Y at world XZ, or 0 if the column is
+    // Diagnostic (`minimap_probe`): what the shader's height-derived terms
+    // actually see. The contour pass and the plateau banding are both authored in
+    // absolute meters, so they silently stop working when the world's vertical
+    // extent changes out from under them — these are the numbers that say by how
+    // much. `metersPerScreenPixel` converts a per-texel delta into the fwidth the
+    // contour anti-aliasing reads.
+    public string FormatHeightStats(float referenceElevation, float metersPerScreenPixel)
+    {
+        int minH = int.MaxValue;
+        int maxH = 0;
+        int stamped = 0;
+        int stepCells = 0;
+        long deltaSum = 0;
+        int maxDelta = 0;
+        int aboveRef = 0;
+        int belowRef = 0;
+        int refPlateau = Mathf.FloorToInt(referenceElevation / MinimapData.PlateauHeight);
+        for (int z = 0; z < _heightPixels; z++)
+        {
+            for (int x = 0; x < _widthPixels; x++)
+            {
+                int h = HeightAtPixel(x, z);
+                if (h == 0)
+                {
+                    continue;
+                }
+                stamped++;
+                minH = Mathf.Min(minH, h);
+                maxH = Mathf.Max(maxH, h);
+                int plateau = h / MinimapData.PlateauHeight;
+                if (plateau > refPlateau) { aboveRef++; }
+                else if (plateau < refPlateau) { belowRef++; }
+
+                int d = 0;
+                d = Mathf.Max(d, NeighborDelta(h, x - 1, z));
+                d = Mathf.Max(d, NeighborDelta(h, x + 1, z));
+                d = Mathf.Max(d, NeighborDelta(h, x, z - 1));
+                d = Mathf.Max(d, NeighborDelta(h, x, z + 1));
+                deltaSum += d;
+                maxDelta = Mathf.Max(maxDelta, d);
+                // Same test as the shader's is_step gate.
+                if (d >= MinimapData.PlateauHeight * 0.9f) { stepCells++; }
+            }
+        }
+        if (stamped == 0)
+        {
+            return "minimap_probe: outdoor heightmap is empty (no chunk has stamped a surface).";
+        }
+        float avgDelta = (float)deltaSum / stamped;
+        // fwidth(h0) the contour AA reads, from the average and worst per-texel rise.
+        float texelsPerScreenPixel = metersPerScreenPixel / MinimapData.OutdoorMetersPerPixel;
+        float fwidthAvg = avgDelta * texelsPerScreenPixel;
+        float fwidthMax = maxDelta * texelsPerScreenPixel;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("=== minimap probe (outdoor heightmap) ===");
+        sb.AppendLine($"  texture           = {_widthPixels}x{_heightPixels} px @ {MinimapData.OutdoorMetersPerPixel} m/px");
+        sb.AppendLine($"  stamped columns   = {stamped} / {_widthPixels * _heightPixels}");
+        sb.AppendLine($"  world Y range     = {minH + _heightBias}..{maxH + _heightBias}  (vertical extent {maxH - minH} m, height bias {_heightBias})");
+        sb.AppendLine($"  neighbor delta    = avg {avgDelta:F2} m, max {maxDelta} m  (per {MinimapData.OutdoorMetersPerPixel} m texel)");
+        sb.AppendLine($"  CONTOUR: is_step gate (delta >= {MinimapData.PlateauHeight * 0.9f:F1} m) passes on {stepCells} cells ({100f * stepCells / stamped:F1}%)");
+        sb.AppendLine($"           fwidth(h) ~ {fwidthAvg:F2} m/px avg, {fwidthMax:F2} m/px worst, at {metersPerScreenPixel:F2} m per screen pixel");
+        sb.AppendLine($"           lines need fwidth well under contour_interval/2; pick contour_interval >= ~{Mathf.Max(4f, Mathf.Ceil(fwidthAvg * 8f)):F0} m");
+        sb.AppendLine($"  BANDING: vs reference elevation {referenceElevation:F1} m -> {100f * aboveRef / stamped:F1}% above, {100f * belowRef / stamped:F1}% below, {100f * (stamped - aboveRef - belowRef) / stamped:F1}% same plateau");
+        return sb.ToString();
+    }
+
+    private int HeightAtPixel(int px, int pz)
+    {
+        int byteIdx = (pz * _widthPixels + px) * BytesPerSurfacePixel;
+        return _surfaceData[byteIdx] | (_surfaceData[byteIdx + 1] << 8);
+    }
+
+    private int NeighborDelta(int h, int px, int pz)
+    {
+        if (px < 0 || pz < 0 || px >= _widthPixels || pz >= _heightPixels)
+        {
+            return 0;
+        }
+        int n = HeightAtPixel(px, pz);
+        return n == 0 ? 0 : Mathf.Abs(n - h);
+    }
+
+    // Returns the ABSOLUTE top-face world Y at world XZ, or 0 if the column is
     // out-of-bounds or hasn't been stamped yet. Used by the slice reveal
     // pass to find the ground elevation under each column it visits, so
     // cliffs / sloping terrain near the player reveal their proper slice
     // exploration even when the player never physically walks there.
-    public ushort GetHeightAtWorld(int wx, int wz)
+    //
+    // The buffer stores biased heights (MinimapData.HeightBias); the bias comes
+    // off here so callers keep working in real world Y — they feed this straight
+    // into voxel/fog lookups. Signed, since a world with terrain below Y=0 has
+    // legitimately negative surface heights.
+    public int GetHeightAtWorld(int wx, int wz)
     {
         int px = (wx - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
         int pz = (wz - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
@@ -578,8 +668,8 @@ public class MinimapTextures
         {
             return 0;
         }
-        int byteIdx = (pz * _widthPixels + px) * BytesPerSurfacePixel;
-        return (ushort)(_surfaceData[byteIdx] | (_surfaceData[byteIdx + 1] << 8));
+        int raw = HeightAtPixel(px, pz);
+        return raw == 0 ? 0 : raw + _heightBias;
     }
 
     // Push CPU buffer changes to the GPU. Full-texture upload — region

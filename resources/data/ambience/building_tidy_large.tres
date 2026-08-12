@@ -1,13 +1,12 @@
-[gd_resource type="Resource" script_class="InteriorAmbienceData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="InteriorAmbienceData" format=3 uid="uid://cilt5hx7v23iu"]
 
-[ext_resource type="Script" uid="uid://o5hlv55zb1osm" path="res://scripts/data/world/InteriorAmbienceData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://dj8y40e8mf2jc" path="res://scripts/data/world/InteriorAmbienceData.cs" id="1_script"]
 
 [resource]
 script = ExtResource("1_script")
 displayName = "Building Tidy Large"
 dustFloor = 0.06
 windSuppression = 0.9
-openness = 0.0
 reverbWet = 0.3
 reverbRoomSize = 0.55
 reverbPredelayMs = 70.0

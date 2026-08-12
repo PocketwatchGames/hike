@@ -20,6 +20,7 @@
 [ext_resource type="Resource" uid="uid://bydps7ac5slb7" path="res://resources/data/items/scrolls/scroll_stew_drake_fortitude.tres" id="rc0"]
 [ext_resource type="Resource" uid="uid://kogvearm5wi2" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="rc1"]
 [ext_resource type="Resource" uid="uid://dh8n7h0pji8hc" path="res://resources/data/items/scrolls/scroll_stew_sparrow_perception.tres" id="rc2"]
+[ext_resource type="Script" uid="uid://3pbpzzvmrk0vy" path="res://scripts/data/worldgen/PlateauZoneTerrainData.cs" id="swamp_highlands_gen_zoneterrain"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
@@ -50,18 +51,23 @@ script = ExtResource("10_grp")
 entries = Array[ExtResource("11_base")]([SubResource("Stone_highlands")])
 metadata/_custom_type_script = "uid://ci23e7ltpsb6o"
 
+[sub_resource type="Resource" id="ZoneTerrain_swamp_highlands_gen"]
+script = ExtResource("swamp_highlands_gen_zoneterrain")
+elevationRange = 4.0
+pathThreshold = 0.1
+pathBlendBand = 0.05
+tunnelThreshold = 0.0
+caveNoiseFrequency = 0.04
+metadata/_custom_type_script = "uid://3pbpzzvmrk0vy"
+
 [resource]
 script = ExtResource("8_4e6x3")
+terrain = SubResource("ZoneTerrain_swamp_highlands_gen")
 zone = ExtResource("14_cpg00")
 surfaceKit = ExtResource("6_4w8xh")
 caveKit = ExtResource("2_5sonw")
 submergedKit = ExtResource("4_b1dty")
 shoreKit = ExtResource("3_q5oop")
-elevationRange = 8.0
-pathThreshold = 0.1
-pathBlendBand = 0.05
-tunnelThreshold = 0.0
-caveNoiseFrequency = 0.04
 grassThreshold = 0.5
 mobLevelMin = 2
 undergroundMobLevelMin = 3

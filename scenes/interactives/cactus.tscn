@@ -8,8 +8,8 @@
 [ext_resource type="Script" uid="uid://dsu0nvrw5cdsi" path="res://scripts/gameplay/entities/TriggerSource.cs" id="6_trigger"]
 [ext_resource type="PackedScene" uid="uid://cggycl43ldcah" path="res://scenes/projectiles/cactus_spine.tscn" id="7_spine"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="8_porous"]
-[ext_resource type="PackedScene" path="res://scenes/fx/cactus_warning.tscn" id="9_fx_warning"]
-[ext_resource type="PackedScene" path="res://scenes/fx/cactus_burst.tscn" id="10_fx_burst"]
+[ext_resource type="PackedScene" uid="uid://v3kxzgx5dlqa8" path="res://scenes/fx/cactus_warning.tscn" id="9_fx_warning"]
+[ext_resource type="PackedScene" uid="uid://6ya965jtvf29c" path="res://scenes/fx/cactus_burst.tscn" id="10_fx_burst"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_body"]
 albedo_color = Color(0.22, 0.47, 0.26, 1)

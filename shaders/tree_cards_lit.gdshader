@@ -206,7 +206,8 @@ global uniform float foliage_player_fade_soft_edge;
 // slightly wider than tall — with a vertical bump that gives the player
 // enough headroom to clear cover while jumping without the boundary
 // snapping back to circular on every hop. Pure isotropy = (1, 1).
-global uniform vec2 foliage_player_fade_aspect;
+// Declared by clip_iris.gdshaderinc, which the ceiling-cutaway include below
+// pulls in — the two effects share the shape deliberately.
 
 // Block-light shadow projector — see shaders/block_light_shadow.gdshaderinc.
 // Multiplies block_lit so a sprite/tree silhouette above this fragment
@@ -227,8 +228,22 @@ global uniform bool block_light_shadow_enabled;
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
 
+// Ceiling cutaway. Anchored on the CARD's own origin, not the tree's — a card
+// is a leaf-cluster-sized unit, so anchoring per card lets a canopy straddling
+// the plane cut at it instead of surviving whole because its trunk base is
+// below. Globals owned by GameCamera; declare before the include.
+global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_edge_softness;
+#include "res://shaders/clip_dither.gdshaderinc"
+
 varying vec3 world_pos;
 varying vec3 world_normal;
+// Per-card world origin, the ceiling cutaway's height anchor.
+varying flat vec3 model_origin;
 // World-space TANGENT and BINORMAL of the card mesh, used in fragment() to
 // rotate the UV-derived dome normal into world space. Same transform as
 // world_normal (MODEL_MATRIX rotation); the card's uniform scale doesn't
@@ -266,6 +281,7 @@ void vertex() {
 	VERTEX.x += sin(wind_phase + phase * TAU) * sway_amplitude * tip_mask;
 
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	model_origin = MODEL_MATRIX[3].xyz;
 
 	// Directional wind bend in world space: push the card's tip downstream
 	// along wind_dir, with magnitude tracking the live gusted wind (via the
@@ -337,6 +353,10 @@ void vertex() {
 }
 
 void fragment() {
+	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
+		discard;
+	}
+
 	// Player-occlusion fade — gated by the per-cluster eligibility bit
 	// (tall grass / decorative ground foliage opts out). Geometry: project
 	// world_pos onto the player capsule axis (feet→head), then test

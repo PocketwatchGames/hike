@@ -1217,14 +1217,35 @@ public static class ChunkMesherDC
 
     // Minimum alignment (dot) for a neighbour to be smoothed against. Cell
     // adjacency is only a PROXY for surface adjacency — two unrelated surfaces
-    // can occupy adjacent cells. The case that matters: ground with a tunnel one
-    // voxel beneath, where the floor cell (normal +Y) and the tunnel-ceiling
-    // cell (normal −Y) are face-neighbours; averaging them would smuggle buried
-    // geometry back into the surface normal, the exact bug geometric normals
-    // exist to kill. Rejecting misaligned neighbours also preserves cliff lips
-    // (floor vs wall dot ≈ 0) while keeping ramps (neighbours within a few
-    // degrees) fully smoothed.
-    internal static float NORMAL_SMOOTH_MIN_DOT = 0.5f;
+    // can occupy adjacent cells. The case that motivated it: ground with a
+    // tunnel one voxel beneath, where the floor cell (normal +Y) and the
+    // tunnel-ceiling cell (normal −Y) are face-neighbours; averaging them would
+    // smuggle buried geometry back into the surface normal, the exact bug
+    // geometric normals exist to kill.
+    //
+    // The value is set by the SHORT WALL, not by the tunnel. A tall wall has
+    // interior rows whose neighbours are also wall, but a 2-voxel riser is all
+    // lip: both its rows touch a tread. At 0.5 those lips were never rejected,
+    // so a 2-voxel wall's normal.y was averaged up to 0.61 — well clear of the
+    // 0.3–0.4 wallBand that picks the wall tile, so short steps rendered as
+    // ground however vertical their geometry was (it is exactly vertical;
+    // measured face vertex X is constant at every drop).
+    //
+    // 0.95 rather than 0.8 because of the DIAGONAL case. A plateau edge running
+    // 45 degrees through the grid is a plan-view staircase whose cells sit at
+    // intermediate orientations, so its lips are far better aligned with the
+    // face than an axis-aligned edge's are — 0.8 fixed axis-aligned 2-voxel
+    // walls (0.61 -> 0.24) and left diagonal ones untouched at 0.60, which is
+    // exactly the "steps texture until the wall turns 45 degrees" symptom.
+    // At 0.95 both read ~0.23 and render identically.
+    //
+    // Ramps do not pay for it: their neighbours are within a few degrees (dot
+    // ~1.0), and the measured banding spread is unchanged on 1-in-2 (0.008) and
+    // slightly BETTER on 1-in-3 (0.031 -> 0.021). The tunnel guard improves,
+    // 0.965 -> 1.000. Past ~0.99 ramps start banding again as genuine slope
+    // neighbours get rejected too. Re-measure with `mesher_wall_sweep`, which
+    // sweeps this against both edge orientations, before moving it.
+    internal static float NORMAL_SMOOTH_MIN_DOT = 0.95f;
 
     internal static int NORMAL_SMOOTH_ITERATIONS = 1;
 

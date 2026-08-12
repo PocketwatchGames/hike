@@ -37,6 +37,7 @@ public static class EntitySerializer
         Cactus = 24,
         Trapdoor = 25,
         Lever = 26,
+        PathHint = 27,
     }
 
     // How much of the Roof payload a stream carries. Containers map their own
@@ -639,6 +640,15 @@ public static class EntitySerializer
                 WriteScene(w, marker.Scene);
                 break;
 
+            // Same shape as a marker, and for the same reason: the hint name
+            // rides the common trailing Tag, so the payload is just where the
+            // path is meant to touch (plus the editor's pin scene).
+            case PathHintSimState hint:
+                w.Write((byte)Tag.PathHint);
+                WriteVec3(w, hint.WorldPosition);
+                WriteScene(w, hint.Scene);
+                break;
+
             default:
                 throw new InvalidOperationException($"EntitySerializer has no writer for {e.GetType().Name}");
         }
@@ -1073,6 +1083,13 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 // Pool tag comes from the common trailing field ReadOne applies.
                 return new MarkerSimState(pos, "", scene);
+            }
+            case Tag.PathHint:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                // Hint name comes from the common trailing field, as above.
+                return new PathHintSimState(pos, "", scene);
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

@@ -24,6 +24,7 @@ public class MinimapSliceAtlas
     private readonly int _heightPixels;
     private readonly Vector2I _worldOriginXZ;
     private readonly Vector2I _chunkOriginXZ;
+    private readonly int _heightBias;
 
     public Vector2I WorldOriginXZ => _worldOriginXZ;
     public int WidthPixels => _widthPixels;
@@ -37,6 +38,7 @@ public class MinimapSliceAtlas
         _widthPixels = chunksWide * MinimapData.IndoorPixelsPerChunk;
         _heightPixels = chunksTall * MinimapData.IndoorPixelsPerChunk;
         _worldOriginXZ = new Vector2I(world.Min.X * ChunkState.SIZE, world.Min.Z * ChunkState.SIZE);
+        _heightBias = MinimapData.HeightBias(world);
     }
 
     // Generate and apply all slice tiles for a chunk that has just loaded.
@@ -131,6 +133,20 @@ public class MinimapSliceAtlas
         }
     }
 
+    // Fully reveal `mask` on every allocated slice layer (the `reveal_map` cheat).
+    // Unallocated slices hold no content, so there is nothing there to chart.
+    public void FillAllSlices(ExplorationMask mask)
+    {
+        if (mask == null)
+        {
+            return;
+        }
+        foreach (int sliceLevel in _layers.Keys)
+        {
+            System.Array.Fill(mask.EnsureSlice(sliceLevel, _widthPixels * _heightPixels), byte.MaxValue);
+        }
+    }
+
     public SliceLayer TryGetLayer(int sliceLevel)
     {
         _layers.TryGetValue(sliceLevel, out SliceLayer layer);
@@ -151,7 +167,7 @@ public class MinimapSliceAtlas
         {
             return layer;
         }
-        layer = new SliceLayer(_widthPixels, _heightPixels, sliceLevel);
+        layer = new SliceLayer(_widthPixels, _heightPixels, sliceLevel, _heightBias);
         _layers[sliceLevel] = layer;
         return layer;
     }
@@ -199,12 +215,14 @@ public class MinimapSliceAtlas
         public ImageTexture ExplorationTexture => _explorationTexture;
         public ImageTexture ExplorationBankedTexture => _explorationBankedTexture;
 
-        public SliceLayer(int width, int height, int sliceLevel)
+        public SliceLayer(int width, int height, int sliceLevel, int heightBias)
         {
             _width = width;
             _height = height;
             _sliceLevel = sliceLevel;
-            _sliceCenterY = (ushort)(sliceLevel * MinimapData.PlateauHeight + MinimapData.PlateauHeight / 2);
+            // Biased like the outdoor heightmap — underground slice levels are
+            // negative and would otherwise wrap the ushort. See MinimapData.HeightBias.
+            _sliceCenterY = (ushort)(sliceLevel * MinimapData.PlateauHeight + MinimapData.PlateauHeight / 2 - heightBias);
             _tileData = new byte[width * height * BytesPerPixel];
             _exploration = new byte[width * height];
             _explorationBanked = new byte[width * height];

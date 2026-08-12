@@ -58,32 +58,28 @@ public partial class WorldGenData : Resource
     // Fixtures (signpost, knowledge stone) placed once within its footprint.
     [Export] public RegionGenData[] regions = System.Array.Empty<RegionGenData>();
 
-    // World extent (in chunks) and seed are passed as arguments to
+    // The terrain approach for this world: a TerrainGenData subclass carrying
+    // that approach's own knobs. THIS CHOICE SELECTS THE ALGORITHM — WorldGen
+    // asks it for the generator that turns noise into the voxel grid, and
+    // nothing else in worldgen knows which approach ran.
+    //
+    // Terrain tuning deliberately does NOT live on this resource. It used to,
+    // and a second approach's fields ended up sitting beside the first's with
+    // nothing marking which belonged to which; adding a third would have made
+    // that worse. Put new terrain knobs on the subclass — see CLAUDE.md in this
+    // folder for the recipe and the HeightMap contract.
+    [Export] public TerrainGenData terrain;
+
+    // Horizontal world extent (in chunks) and seed are passed as arguments to
     // WorldGen.Generate rather than authored on the data resource — they're
     // per-run knobs (a single WorldGenData template should be able to
     // generate worlds of varying size with different seeds). Per-channel
     // noise seeds (terrain, tunnel, cave, etc.) are derived from the run's
     // worldSeed inside Generate.
-
-    // Terrain is quantized to multiples of PlateauStep so the world reads as
-    // tiered plateaus with cliffs between them. Where |path noise| exceeds
-    // PathThreshold the height stays smooth (creating ramps/paths between
-    // plateau levels). Path columns also use VoxelType.TerrainPath so the
-    // shader paints them as dirt instead of grass.
-    [Export] public float plateauStep = 4f;
-    // Tunnels are carved as horizontal slabs at the bottom of each plateau
-    // step (the lowest TunnelLayerHeight voxels of each step boundary), gated
-    // by 3D tunnel noise. This produces tiered tunnel systems whose floors
-    // line up with plateau elevations.
-    [Export] public int tunnelLayerHeight = 3;
-    // Caves are swiss-cheese style holes carved through terrain wherever
-    // |caveNoise3D| > CaveThreshold. Floors are smooth (follow the noise
-    // surface), ceilings snap up to the next plateau-step boundary so caves
-    // remain at least CaveMinHeight tall and can serve as walkable paths.
-    // Caves never breach the surface (no craters) and never connect to
-    // tunnels via half-height openings — by construction they are >=3 tall.
-    [Export] public int caveMinHeight = 3;
-    [Export] public int dirtDepth = 3;
+    //
+    // The VERTICAL extent is not a run knob either: WorldGen fits it to the
+    // heightmap it just built (WorldGen.FitVerticalExtent) from the headroom
+    // values on TerrainGenData. Terrain shape therefore sets world height.
 
     // Where the player spawns. X/Z are world voxel coordinates; a zone placed
     // around this point (a BoxBounds/CircleBounds whose center is the spawn
@@ -157,65 +153,18 @@ public partial class WorldGenData : Resource
     [Export] public Array<TeachableConcept> initialKnowledge = new();
 
     // ─────────────────────────────────────────────────────────────────────
-    // WorldGen tuning. These were `const`s inside WorldGen.cs — the feel /
-    // authoring knobs the generator reads each run. Defaults match the former
-    // constants exactly, so an un-edited WorldGenData generates the same world
-    // as before. Stable internal identifiers (seed/hash salts, skip-flag
-    // bitmasks, storage caps, the staircase pattern) stay as consts in
-    // WorldGen.cs — they are not authoring knobs.
+    // Tuning for the APPROACH-AGNOSTIC passes — scatter, fog, roads, spawns.
+    // Anything a single terrain approach reads belongs on its TerrainGenData
+    // subclass instead. Stable internal identifiers (seed salts, skip-flag
+    // bitmasks, storage caps) stay as consts in WorldGen.cs.
     // ─────────────────────────────────────────────────────────────────────
-
-    [ExportGroup("Terrain Noise")]
-    // Primary terrain height noise. Frequency sets feature scale (lower =
-    // broader hills); octaves add fractal detail.
-    [Export] public float terrainNoiseFrequency = 0.02f;
-    [Export] public int terrainNoiseOctaves = 4;
-    // Low-frequency macro elevation the per-zone terrain noise rides on top of
-    // — broad continental basins / foothills independent of which zone a chunk
-    // belongs to.
-    [Export] public float elevationNoiseFrequency = 0.005f;
-    [Export] public int elevationNoiseOctaves = 1;
-
-    [ExportGroup("Cave & Tunnel Noise")]
-    [Export] public float tunnelNoiseFrequency = 0.025f;
-    [Export] public int tunnelNoiseOctaves = 2;
-    // Cave noise frequency is authored per-zone (ZoneGenData.CaveNoiseFrequency);
-    // only the fractal octave count is world-wide.
-    [Export] public int caveNoiseOctaves = 2;
 
     [ExportGroup("Scatter Noise")]
     [Export] public float grassNoiseFrequency = 0.1f;
     [Export] public int grassNoiseOctaves = 2;
-    // Low-frequency ramp gate whose zero-crossings mark which plateau
-    // boundaries get ramped instead of cliffed.
-    [Export] public float rampGateNoiseFrequency = 0.015f;
-    [Export] public int rampGateNoiseOctaves = 1;
     // Forest noise base frequency stays 1 (per-kit frequency is applied at
     // sample time by scaling input coords); only the octave count is shared.
     [Export] public int forestNoiseOctaves = 2;
-
-    [ExportGroup("Terrain Shaping")]
-    // Horizontal cells per 1 vertical voxel on a ramp skirt. With PlateauStep=4,
-    // slope 1 gives a 4-cell ramp rising one full step (steep but narrow).
-    [Export] public int rampSlope = 1;
-
-    // Largest height difference between horizontally-adjacent columns still
-    // treated as a GRADE (a staircase approximation of a slope, meshed smooth)
-    // rather than a real discontinuity (meshed crisp). Plateau edges jump
-    // plateauStep voxels at once; ramps, graded roads and erosion move at most
-    // one per column. Raise only if you author grades steeper than 1 voxel per
-    // column — they would otherwise harden into visible stairs.
-    [Export] public int maxGradeStep = 1;
-    // |pathNoise| below this marks the core of a ramp zone (thin, sparse
-    // meanders). Authored at sub-0.01 magnitudes — the range hint keeps the
-    // spinbox from snapping the value.
-    [Export(PropertyHint.Range, "0,1,0.0001")] public float rampAnchorBand = 0.015f;
-    // Half-amplitude (in plateau steps) added by the macro elevation noise.
-    [Export] public float macroElevationRangePlateaus = 1f;
-    // Far east of the world drops to ocean over this many chunks, down to
-    // OceanDepthPlateaus below zero at the east edge.
-    [Export] public int shorelineChunks = 2;
-    [Export] public float oceanDepthPlateaus = 3f;
 
     [ExportGroup("Fog")]
     // Per-column "bucket capacity" at humidity = 1, in voxel-depth units.
@@ -302,6 +251,37 @@ public partial class WorldGenData : Resource
     // over a void; the road-overlay pass re-solidifies this many voxels down
     // from the tread so a road always bridges caves/tunnels on solid rock. >= 1.
     [Export(PropertyHint.Range, "1,8,1")] public int roadBedDepth = 2;
+
+    // Deepest inland water (voxels below the surface) a road will FORD. Rivers
+    // partition the island into drainage basins, so treating all water as
+    // impassable silently deletes every route between two of them; a route that
+    // crosses at a shallow point is graded and bedded like any other and comes
+    // out as a causeway. The SEA is never fordable however shallow — a road
+    // wading out into the ocean is always wrong. 0 disables fording.
+    [Export(PropertyHint.Range, "0,8,1")] public int roadFordMaxDepth = 2;
+    // Pathfinding cost multiplier for a ford step, so a road crosses water only
+    // where a crossing genuinely beats going round. Comparable to
+    // roadCliffCostMultiplier: both price a thing the road CAN do but shouldn't
+    // do casually.
+    [Export] public float roadFordCostMultiplier = 20f;
+
+    [ExportGroup("Path Hints")]
+    // Tread per path-hint tag for the spurs worldgen carves itself (a placement
+    // with ConnectPathHints set). Searched by tag; an entry with an EMPTY tag is
+    // the fallback for hints no named profile claims. Nothing here at all means
+    // a spur is a 2-wide RoadDefaultTexture track.
+    [Export] public PathHintProfile[] pathHintProfiles = System.Array.Empty<PathHintProfile>();
+    // Radius (voxels) of the reserved-ground exemption stamped around each path
+    // hint, so a route can reach a hint that sits inside its own scene's
+    // footprint — which a front door always does. Routing only: the tread still
+    // refuses to stamp a reserved column, so a path stops at the wall rather
+    // than regrading the room behind it. Too large and a road threads THROUGH a
+    // building; keep it at the wall thickness the hint is set back by.
+    [Export(PropertyHint.Range, "0,8,1")] public int pathHintPortalRadius = 2;
+    // Longest spur (meters ≈ voxels of route) worldgen will carve to link a hint
+    // to the network. A hint whose nearest road is further than this is left
+    // unconnected with a warning, rather than dragging a track across the map.
+    [Export(PropertyHint.Range, "8,512,1")] public float pathHintMaxSpurMeters = 96f;
 
     [ExportGroup("Zone Leveling")]
     // Feature scale of the two (independent) monster / forge difficulty fields —

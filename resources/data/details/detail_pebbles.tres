@@ -44,5 +44,7 @@ metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 [resource]
 script = ExtResource("5_43chk")
 groupName = "pebbles"
+edgeSetbackVoxels = 0
+minLedgeWidthVoxels = 1
 entries = Array[ExtResource("1_5c3fe")]([SubResource("Resource_pebble_01"), SubResource("Resource_pebble_02"), SubResource("Resource_pebble_03")])
 instancesPerVoxel = 1

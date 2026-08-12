@@ -192,7 +192,7 @@ public partial class Minimap : Node3D
     // content: off-map, or a column whose chunk hasn't stamped yet). A whole-world
     // CPU buffer, so it answers for columns that aren't currently streamed — used
     // to roll a treasure map's dig spot onto real charted land.
-    public ushort SurfaceHeightAt(int wx, int wz) => _textures?.GetHeightAtWorld(wx, wz) ?? 0;
+    public int SurfaceHeightAt(int wx, int wz) => _textures?.GetHeightAtWorld(wx, wz) ?? 0;
 
     public EMinimapMode Mode => _mode;
     public int ActiveSliceLevel => _activeSliceLevel;
@@ -205,15 +205,22 @@ public partial class Minimap : Node3D
     // per-pixel above/below treatment doesn't pop.
     public float ActiveReferenceElevationY => _smoothedReferenceY;
 
+    // In BIASED height space, matching what the surface textures store — the
+    // shader only ever compares this against sampled heights, so both sides must
+    // use the same space. Anything handing a real world Y to the shader as a
+    // reference elevation must bias it too (see WorldMapScreen's treasure map).
     private float ComputeReferenceElevationTarget()
     {
         if (_mode == EMinimapMode.Outdoor)
         {
             float foot = _world?.player?.GlobalPosition.Y ?? 0f;
-            return foot + GameCamera.EYE_HEIGHT;
+            return foot + GameCamera.EYE_HEIGHT - HeightBias;
         }
-        return _activeSliceLevel * MinimapData.PlateauHeight + MinimapData.PlateauHeight * 0.5f;
+        return _activeSliceLevel * MinimapData.PlateauHeight + MinimapData.PlateauHeight * 0.5f - HeightBias;
     }
+
+    // Offset between real world Y and the heights stored in the map textures.
+    public int HeightBias => _world?.WorldState != null ? MinimapData.HeightBias(_world.WorldState) : 0;
 
     // The texture and exploration map currently fronted by the HUD. The
     // shader sees one (surface_texture, exploration_texture) pair regardless
@@ -754,6 +761,61 @@ public partial class Minimap : Node3D
         _sliceAtlas.Flush();
     }
 
+    // Cheat (`reveal_map`): chart the whole world at once. Fills the active
+    // member's field mask — the outdoor buffer plus every allocated slice layer —
+    // names every region, senses every currently-loaded map marker, then runs the
+    // normal campfire bank so all of it graduates into the party pool and shows on
+    // the world map without a trip to a fire. Markers that haven't streamed in yet
+    // aren't sensed; they discover on their usual path.
+    public void RevealEverything()
+    {
+        if (_world == null || _textures == null)
+        {
+            return;
+        }
+        // An armed campfire sweep describes a map that no longer exists — drop it
+        // first, or finalizing it later would overwrite the full reveal.
+        ClearBankedReveal();
+
+        ExplorationMask active = ActiveExplorationMask;
+        if (active != null)
+        {
+            System.Array.Fill(active.EnsureOutdoor(_textures.ExplorationBufferSize), byte.MaxValue);
+            _sliceAtlas.FillAllSlices(active);
+        }
+        WorldState ws = _world.WorldState;
+        foreach (RegionData region in ws.RegionCentroidsXZ.Keys)
+        {
+            _world.DiscoverRegion(region);
+        }
+        Player player = _world.player;
+        if (player != null)
+        {
+            UpdateMarkerDiscovery(player.GlobalPosition);
+        }
+        ws.SimState?.BankActiveKnowledge();
+        RebuildExplorationDisplay();
+        _textures.Flush();
+        _sliceAtlas.Flush();
+    }
+
+    // Diagnostic (`minimap_probe`): print what the shader's height-derived terms
+    // see, at the world map's zoom. `screenWidthPixels` is the on-screen width the
+    // world map panel occupies, used to convert per-texel rise into the fwidth the
+    // contour anti-aliasing reads.
+    public string FormatHeightStats(float screenWidthPixels)
+    {
+        if (_textures == null)
+        {
+            return "minimap_probe: no active world.";
+        }
+        // Matches WorldMapScreen.RenderWorldMap's framing.
+        Vector2 extent = ExtentMeters;
+        float viewRadius = (extent.X + extent.Y) * 0.5f * Mathf.Sqrt2 * 0.5f;
+        float metersPerScreenPixel = viewRadius * 2f / Mathf.Max(screenWidthPixels, 1f);
+        return _textures.FormatHeightStats(ActiveReferenceElevationY, metersPerScreenPixel);
+    }
+
     // Mirror the camera's cutaway state — the minimap and the camera should
     // never disagree about whether we're "indoors". This means the player's
     // Map button (CameraDown → ToggleClipAlways) toggles both at once. Slice
@@ -804,7 +866,7 @@ public partial class Minimap : Node3D
                 }
                 int wx = cx + dx;
                 int wz = cz + dz;
-                ushort height = _textures.GetHeightAtWorld(wx, wz);
+                int height = _textures.GetHeightAtWorld(wx, wz);
                 if (height == 0)
                 {
                     continue;
@@ -1083,7 +1145,7 @@ public partial class Minimap : Node3D
         }
         DetailGroupData[] detailPalette = ChunkMesh.ActiveDetailGroups;
         TerrainData[] terrainPalette = ChunkMesh.ActiveTerrains;
-        MinimapData.GenerateSurfaceRow(chunk, detailPalette, terrainPalette, _surfaceCells);
+        MinimapData.GenerateSurfaceRow(chunk, detailPalette, terrainPalette, _surfaceCells, HeightBias);
         _textures.ApplyChunkSurface(coord, _surfaceCells, _foliageColors);
 
         // Slice tiles for every vertical slice this chunk overlaps. Empty

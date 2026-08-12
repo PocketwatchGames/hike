@@ -18,5 +18,6 @@ resource_name = "ground_shadow_blob"
 transparency = 1
 cull_mode = 2
 shading_mode = 0
+disable_fog = true
 vertex_color_use_as_albedo = true
 albedo_texture = SubResource("GradientTexture2D_blob")

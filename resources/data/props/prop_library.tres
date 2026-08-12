@@ -93,7 +93,7 @@
 [ext_resource type="PackedScene" uid="uid://dssa507kaadak" path="res://scenes/props/barrel_broken.tscn" id="117_barrel_broken"]
 [ext_resource type="PackedScene" uid="uid://ogtrfoxyhjfs" path="res://scenes/props/barrel_staves.tscn" id="118_barrel_staves"]
 [ext_resource type="PackedScene" uid="uid://dmnc5vjf3vetx" path="res://scenes/props/barrel_large.tscn" id="119_barrel_large"]
-[ext_resource type="PackedScene" path="res://scenes/props/barrel_exploding.tscn" id="137_barrel_exploding"]
+[ext_resource type="PackedScene" uid="uid://qnnl3zd5aos4h" path="res://scenes/props/barrel_exploding.tscn" id="137_barrel_exploding"]
 [ext_resource type="PackedScene" uid="uid://bhj4vy232aqfv" path="res://scenes/props/crate_wood_1.tscn" id="120_crate_wood_1"]
 [ext_resource type="PackedScene" uid="uid://dvudg1jcde85x" path="res://scenes/props/crate_wood_2.tscn" id="121_crate_wood_2"]
 [ext_resource type="PackedScene" uid="uid://bhk42menma6ap" path="res://scenes/props/crate_wood_3.tscn" id="122_crate_wood_3"]

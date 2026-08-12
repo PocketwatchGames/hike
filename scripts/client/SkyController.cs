@@ -540,6 +540,22 @@ public partial class SkyController : Node3D
     // higher fill cost. 0.35 m is a good smooth/perf balance.
     [Export(PropertyHint.Range, "0.05,2,0.01")] public float shaftStepSize = 0.35f;
 
+    // Godot's built-in depth fog (Environment.fog_*) — the aerial perspective
+    // that carries everything past the volumetric raymarch's fogMaxDistance.
+    // Wire to the SubViewport's WorldEnvironment. Only the fog COLOR is driven
+    // from here; fog_depth_begin/end stay authored on the Environment because
+    // BirdsEyeController scales and restores them during the overlook, and two
+    // writers would fight. Left unwired, the authored fog_light_color stands.
+    [Export] public WorldEnvironment depthFogEnvironment;
+    // 0 = fog tint (dust-hued haze, matches the volumetric layer), 1 = horizon
+    // sky tint. The horizon end is what makes a far ridge read as distance
+    // rather than as dust hanging in front of it.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float depthFogHorizonBlend = 0.65f;
+    // Scales the palette colour pushed into fog_light_color. Below 1 keeps
+    // distant terrain a little darker than the sky behind it so ridgelines stay
+    // readable instead of dissolving into it.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float depthFogBrightness = 0.9f;
+
     // External "see-farther" multiplier. The bird's-eye driver lerps this up
     // during the fly-up so the overview isn't choked by ground-level fog —
     // fog_max_distance scales linearly with it. 1.0 = unchanged (default
@@ -1831,6 +1847,7 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("foam_threshold", foamThreshold);
         RenderingServer.GlobalShaderParameterSet("foam_sharpness", foamSharpness);
 
+
         // --- Wind --------------------------------------------------------
         // Two-octave low-frequency sin sum for naturally uneven gusts.
         // Output is [0, 1]; added to windSpeed via GustStrength so
@@ -1944,8 +1961,38 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("shaft_ground_fade", shaftGroundFade);
         }
 
+        ApplyDepthFog();
+
         ApplyMotes(washDust, washCloudCover, sunShaftFactor, moonShaftFactor);
         ApplyPrecipitation();
+    }
+
+    // Tints Godot's built-in depth fog with the current sky palette, so terrain
+    // beyond the volumetric layer recedes into the horizon instead of darkening
+    // toward the authored constant. Colour only — the depth range belongs to the
+    // Environment (see depthFogEnvironment).
+    //
+    // Runtime only: the Environment is a sub-resource of game.tscn / editor.tscn,
+    // so writing it under [Tool] would leave a palette-derived colour in the
+    // scene file every time the Godot editor re-saves.
+    private void ApplyDepthFog()
+    {
+        if (Engine.IsEditorHint())
+        {
+            return;
+        }
+
+        Godot.Environment env = depthFogEnvironment?.Environment;
+        if (env == null)
+        {
+            return;
+        }
+
+        Color tint = _palette.FogTint.Lerp(_palette.HorizonTint, depthFogHorizonBlend);
+        env.FogLightColor = new Color(
+            tint.R * depthFogBrightness,
+            tint.G * depthFogBrightness,
+            tint.B * depthFogBrightness);
     }
 
     // Drives the floating dust-mote GPU particle system (MoteEffect). Density

@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://bd2qbk8yxpmjj" path="res://scripts/client/GroundStainProjector.cs" id="8_ground_stain"]
 [ext_resource type="PackedScene" uid="uid://cf4ipeopmfe77" path="res://scenes/gui/editor_tool_button.tscn" id="9_tool_button"]
 [ext_resource type="Script" uid="uid://cjflrpaeqaulr" path="res://scripts/client/ViewportRig.cs" id="10_viewport_rig"]
-[ext_resource type="Material" uid="uid://dc0fchmvyn8ky" path="res://resources/materials/upscale.tres" id="11_upscale"]
+[ext_resource type="Material" uid="uid://ssmvopbv8hql1" path="res://resources/materials/upscale.tres" id="11_upscale"]
 [ext_resource type="Material" uid="uid://bl84gy5kiqaeh" path="res://resources/materials/depth_outline.tres" id="12_outline"]
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="13_post_process"]
 [ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/fx/motes.tscn" id="14_motes"]
@@ -39,12 +39,13 @@ background_color = Color(0.18, 0.22, 0.28, 1)
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.0
 fog_mode = 1
-fog_light_color = Color(0, 0, 0, 1)
-fog_light_energy = 0.75
+fog_light_color = Color(0.55, 0.62, 0.72, 1)
+fog_light_energy = 1.0
 fog_density = 1.0
 fog_sky_affect = 0.0
-fog_depth_begin = 88.0
-fog_depth_end = 105.0
+fog_depth_begin = 70.0
+fog_depth_end = 190.0
+fog_depth_curve = 1.5
 volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
@@ -220,10 +221,11 @@ size = 80.0
 near = 0.1
 far = 200.0
 
-[node name="SkyController" type="Node3D" parent="." unique_id=17739138 node_paths=PackedStringArray("sunLight", "moonLight")]
+[node name="SkyController" type="Node3D" parent="." unique_id=17739138 node_paths=PackedStringArray("sunLight", "moonLight", "depthFogEnvironment")]
 script = ExtResource("5_sky")
 sunLight = NodePath("../SceneViewport/SunLight")
 moonLight = NodePath("../SceneViewport/MoonLight")
+depthFogEnvironment = NodePath("../SceneViewport/InnerEnv")
 shaftFadeAngleDegrees = 2.0
 shaftFadeRangeDegrees = 6.1
 shadowAngularBase = 2.0

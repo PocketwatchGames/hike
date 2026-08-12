@@ -15,6 +15,7 @@
 [ext_resource type="Resource" uid="uid://ikvot05s6se11" path="res://resources/data/spawn/treasure_spot_song_2.tres" id="97_spot"]
 [ext_resource type="Resource" uid="uid://bc3moj7xeffyk" path="res://resources/data/items/scrolls/scroll_stew_goblin_health.tres" id="rc0"]
 [ext_resource type="Resource" uid="uid://dk0h2j6nwppor" path="res://resources/data/items/scrolls/scroll_stew_goblin_stamina.tres" id="rc1"]
+[ext_resource type="Script" uid="uid://3pbpzzvmrk0vy" path="res://scripts/data/worldgen/PlateauZoneTerrainData.cs" id="swamp_village_gen_zoneterrain"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
@@ -28,19 +29,24 @@ item = ExtResource("rc0")
 script = ExtResource("90_countrange")
 item = ExtResource("rc1")
 
-[resource]
-script = ExtResource("8_m0lsp")
-zone = ExtResource("10_kyxs2")
-surfaceKit = ExtResource("7_gyyab")
-caveKit = ExtResource("2_gyyab")
-submergedKit = ExtResource("4_65ay8")
-shoreKit = ExtResource("3_kyxs2")
+[sub_resource type="Resource" id="ZoneTerrain_swamp_village_gen"]
+script = ExtResource("swamp_village_gen_zoneterrain")
 elevationRange = 0.2
 flattenSurface = true
 pathThreshold = 0.1
 pathBlendBand = 0.05
 tunnelThreshold = 0.0
 caveNoiseFrequency = 0.04
+metadata/_custom_type_script = "uid://3pbpzzvmrk0vy"
+
+[resource]
+script = ExtResource("8_m0lsp")
+terrain = SubResource("ZoneTerrain_swamp_village_gen")
+zone = ExtResource("10_kyxs2")
+surfaceKit = ExtResource("7_gyyab")
+caveKit = ExtResource("2_gyyab")
+submergedKit = ExtResource("4_65ay8")
+shoreKit = ExtResource("3_kyxs2")
 grassThreshold = 0.5
 mobLevelMax = 0
 undergroundMobLevelMax = 1

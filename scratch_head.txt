@@ -1,0 +1,739 @@
+using System;
+using System.Collections.Generic;
+using Godot;
+
+// The CELLULAR approach's carving: caves, tunnels and the air under a land
+// bridge. Part of CellularTerrainGen.
+//
+// Everything carved by this approach is decided in BuildHeightMap and written
+// into ONE bitset, which IsCarvedAt then reads. The bitset is never touched
+// again after the height map is returned, which is what satisfies the hook's
+// contract — fill order is not guaranteed and the mesher re-queries the same
+// voxel as a neighbour, so the answer has to be the same however often it is
+// asked. (The alternative the contract also allows, deriving shapes
+// analytically from noise, cannot express the rules below: "this cave reaches
+// daylight" and "this roof is thick enough" are properties of a whole system,
+// not of one voxel.) A 288x256 world with a 40-voxel carve band costs ~360 KB
+// of bits, which is cheaper than the height field beside it.
+//
+// The hard rules, and why each one is here:
+//
+//   CEILINGS on a multiple of HeightMap.LevelStep (interiorLevelStep, 4). That
+//   lattice exists for exactly this — it is the world's vertical grid for
+//   ENCLOSED space, shared with building floors, and the camera cutaway slices
+//   everything on it. A cave ceiling off the lattice is a room the cutaway cuts
+//   through at an arbitrary height. The ONE exception is the arch over an
+//   entrance, which is an opening in a cliff face rather than an enclosed
+//   ceiling, and is three columns deep.
+//
+//   FLOORS on a multiple of quantizeStep (2), plus a smooth 1-voxel swell. That
+//   swell is the one place in this approach where single-voxel vertical detail
+//   is wanted: a dead-flat floor reads as a corridor rather than as a cave.
+//
+//   FOUR VOXELS of headroom everywhere, including under the arch, after the
+//   floor swell is spent.
+//
+//   NEVER the roof of an existing land feature, and never open to the outside
+//   except at an entrance. See the caves section below for how that is enforced,
+//   and for why the version that tried to enforce it with a per-column predicate
+//   produced overhangs anyway.
+public partial class CellularTerrainGen
+{
+    // The carve bitset. Indexed [(lx * sizeZ + lz) * ySpan + (wy - minY)].
+    private ulong[] _carve;
+
+    // The subset of the carve that must stay AIR even below the waterline —
+    // cave interiors, which are enclosed rock on all sides with their one
+    // opening above the sea. Chunk fill floods any carved voxel at or under its
+    // column's waterline, and without this a passage descending below y=0 (which
+    // is where most of this world's rock is) would fill to the ceiling. The air
+    // under a BRIDGE deck is deliberately NOT in here: it is open to the sky,
+    // and a bridge over a channel should have the channel running under it.
+    private ulong[] _sealed;
+    private int _carveMinY;
+    private int _carveYSpan;
+    private int _carveSizeX;
+    private int _carveSizeZ;
+    private int _carveWorldMinX;
+    private int _carveWorldMinZ;
+
+    // Diagnostics, verified as the carve is written rather than trusted. Every
+    // one of these is an invariant this file promises; a number out of band in
+    // the log is a bug, not a tuning problem.
+    private int _caveSystems;
+    private int _caveColumns;
+    private long _carvedVoxels;
+    private int _caveMinHeadroom = int.MaxValue;
+    private int _caveMinRoofRock = int.MaxValue;
+    private int _caveStalagmites;
+    private int _caveDeepestFloor = int.MaxValue;
+    private int _tunnelsTooLong;
+    private int _tunnelsNoRoute;
+    private int _tunnelsTooSteep;
+    private int _entranceTunnels;
+    private int _entrancesLeadingNowhere;
+    private int _bridgeVoxels;
+    private int _bridgeMinDeck = int.MaxValue;
+
+    // Is this voxel carved out despite sitting at or below its column's solid
+    // height? A pure read of a bitset that was complete before the first chunk
+    // existed — see the file header. `columnSolidHeight` is deliberately unused:
+    // the bitset was built against the same height field, so a bit is only ever
+    // set below it.
+    public bool IsCarvedAt(int wx, int wy, int wz, int columnSolidHeight)
+    {
+        if (_carve == null) { return false; }
+        int lx = wx - _carveWorldMinX;
+        int lz = wz - _carveWorldMinZ;
+        int ly = wy - _carveMinY;
+        if (lx < 0 || lx >= _carveSizeX || lz < 0 || lz >= _carveSizeZ) { return false; }
+        if (ly < 0 || ly >= _carveYSpan) { return false; }
+        long bit = ((long)lx * _carveSizeZ + lz) * _carveYSpan + ly;
+        return (_carve[bit >> 6] & (1UL << (int)(bit & 63))) != 0UL;
+    }
+
+    // Must this carved voxel be left dry, even though it sits at or below its
+    // column's waterline? True for cave interiors, false for the air under a
+    // bridge — see the _sealed field.
+    public bool IsSealedFromWaterAt(int wx, int wy, int wz)
+    {
+        if (_sealed == null) { return false; }
+        int lx = wx - _carveWorldMinX;
+        int lz = wz - _carveWorldMinZ;
+        int ly = wy - _carveMinY;
+        if (lx < 0 || lx >= _carveSizeX || lz < 0 || lz >= _carveSizeZ) { return false; }
+        if (ly < 0 || ly >= _carveYSpan) { return false; }
+        long bit = ((long)lx * _carveSizeZ + lz) * _carveYSpan + ly;
+        return (_sealed[bit >> 6] & (1UL << (int)(bit & 63))) != 0UL;
+    }
+
+    // Nothing needs the finished voxel grid to be CARVED: every volume this
+    // approach hollows is known from the height field alone, so it all goes
+    // through IsCarvedAt. What the finished grid is good for is checking that it
+    // worked, which is what this does instead.
+    //
+    // Worth the pass because the failure it catches is silent. A carved voxel at
+    // or below its column's waterline is turned into WATER by chunk fill, not
+    // left as air, so a cave that ran under a river comes out flooded to the
+    // ceiling with nothing in any log to say so — and "the caves are full of
+    // water" is indistinguishable from "the caves did not generate" until
+    // someone walks into one. Scanning the bitset against the voxels that
+    // actually resulted turns that into a number.
+    public void CarveVolumes(WorldState ws)
+    {
+        if (_carve == null) { return; }
+        int air = 0;
+        int seaUnderBridge = 0;
+        int flooded = 0;
+        int stillSolid = 0;
+        for (int lx = 0; lx < _carveSizeX; lx++)
+        {
+            for (int lz = 0; lz < _carveSizeZ; lz++)
+            {
+                long baseBit = ((long)lx * _carveSizeZ + lz) * _carveYSpan;
+                for (int ly = 0; ly < _carveYSpan; ly++)
+                {
+                    long bit = baseBit + ly;
+                    if ((_carve[bit >> 6] & (1UL << (int)(bit & 63))) == 0UL) { continue; }
+                    int wy = ly + _carveMinY;
+                    VoxelType v = ws.GetVoxelWorld(lx + _carveWorldMinX, wy, lz + _carveWorldMinZ);
+                    if (v == VoxelType.Air) { air++; }
+                    else if (v != VoxelType.Water) { stillSolid++; }
+                    // Water BELOW the global waterline is the sea running under
+                    // a bridge deck, which is the whole point of spanning a
+                    // channel. Water ABOVE it is an inland river or lake that
+                    // got into a carve, which is the failure worth shouting
+                    // about — a cave under a river fills to its ceiling and
+                    // looks exactly like a cave that never generated.
+                    else if (wy <= WorldGen.WATER_LEVEL) { seaUnderBridge++; }
+                    else { flooded++; }
+                }
+            }
+        }
+        GD.Print($"[CellularTerrain] carve check: {air} voxels open,"
+            + $" {seaUnderBridge} holding sea under a deck, {stillSolid} still solid,"
+            + $" {flooded} flooded above the waterline"
+            + (flooded + stillSolid > 0
+                ? " — BAD CARVE: something did not come out hollow"
+                : ""));
+    }
+
+    private void AllocateCarveGrid(int[,] height, CellularTerrainData cd,
+        int worldMinX, int worldMinZ)
+    {
+        int sizeX = height.GetLength(0);
+        int sizeZ = height.GetLength(1);
+        int lo = int.MaxValue;
+        int hi = int.MinValue;
+        for (int lx = 0; lx < sizeX; lx++)
+        {
+            for (int lz = 0; lz < sizeZ; lz++)
+            {
+                int h = height[lx, lz];
+                if (h < lo) { lo = h; }
+                if (h > hi) { hi = h; }
+            }
+        }
+
+        _carveSizeX = sizeX;
+        _carveSizeZ = sizeZ;
+        _carveWorldMinX = worldMinX;
+        _carveWorldMinZ = worldMinZ;
+        // The band reaches BELOW the lowest terrain column, because caverns sit
+        // in the solid rock FitVerticalExtent keeps under the world
+        // (undergroundDepthVoxels). Sizing it to the height field alone would
+        // put every deep chamber outside the grid, where SetCarved drops it
+        // silently and the cave simply is not there.
+        _carveMinY = lo - Math.Max(0, cd.undergroundDepthVoxels);
+        _carveYSpan = Math.Max(1, hi - _carveMinY + 1);
+        long bits = (long)sizeX * sizeZ * _carveYSpan;
+        _carve = new ulong[(bits + 63) / 64];
+        _sealed = new ulong[(bits + 63) / 64];
+    }
+
+    private void SetSealed(int lx, int lz, int wy)
+    {
+        int ly = wy - _carveMinY;
+        if (ly < 0 || ly >= _carveYSpan) { return; }
+        long bit = ((long)lx * _carveSizeZ + lz) * _carveYSpan + ly;
+        _sealed[bit >> 6] |= 1UL << (int)(bit & 63);
+    }
+
+    private void SetCarved(int lx, int lz, int wy)
+    {
+        int ly = wy - _carveMinY;
+        if (ly < 0 || ly >= _carveYSpan) { return; }
+        long bit = ((long)lx * _carveSizeZ + lz) * _carveYSpan + ly;
+        ulong mask = 1UL << (int)(bit & 63);
+        // Counted only when the bit is NEWLY set, so the totals in the log
+        // reconcile with the carve check's scan. Two ribbons can overlap, and
+        // counting every call double-counts the shared voxels — a small enough
+        // discrepancy to look like a rounding artefact and waste an hour.
+        if ((_carve[bit >> 6] & mask) != 0UL) { return; }
+        _carve[bit >> 6] |= mask;
+        _carvedVoxels++;
+    }
+
+    // ------------------------------------------------------------ land bridges
+
+    // Ground level under each bridge column before its deck was stamped, or
+    // int.MinValue where no deck covers it. Written by BuildLandBridges and read
+    // by CarveUnderBridges — the height field itself cannot answer it after the
+    // stamp, since the stamp is what overwrote it.
+    private int[,] _bridgeGroundUnder;
+
+    // Hollow out under each bridge deck. The deck itself was written into Height
+    // by BuildLandBridges; this is the other half of it — without the air below,
+    // a "bridge" is a solid causeway filling the gap it was meant to span.
+    //
+    // The slab left under the walking surface is bridgeThickness voxels and is
+    // never allowed to round down to one. A one-voxel deck is the plateau
+    // approach's floating-slab failure: a roof with nothing holding it up, which
+    // the mesher draws as a sheet of paper over a void.
+    private void CarveUnderBridges(List<BridgeRibbon> ribbons, int[,] height, CellularTerrainData cd,
+        int worldMinX, int worldMinZ)
+    {
+        if (ribbons.Count == 0) { return; }
+        int thickness = Math.Max(2, cd.bridgeThickness);
+        int sizeX = height.GetLength(0);
+        int sizeZ = height.GetLength(1);
+
+        long before = _carvedVoxels;
+
+        // The ground the decks were stamped over is gone from `height` by now —
+        // it holds the deck. Re-deriving it is not possible, so each ribbon
+        // carves against the ORIGINAL ground recorded when the deck went down.
+        foreach (BridgeRibbon r in ribbons)
+        {
+            ForEachRibbonColumn(r, sizeX, sizeZ, worldMinX, worldMinZ, (lx, lz) =>
+            {
+                int under = _bridgeGroundUnder[lx, lz];
+                if (under == int.MinValue) { return; }
+                int top = r.DeckY - thickness;
+                if (top <= under) { return; }
+                for (int wy = under + 1; wy <= top; wy++) { SetCarved(lx, lz, wy); }
+                int deck = r.DeckY - top;
+                if (deck < _bridgeMinDeck) { _bridgeMinDeck = deck; }
+            });
+            // One slice per bridge as well as per cave mouth: the deck and the
+            // air under it are the only place in this world where a column is
+            // solid, hollow and solid again, and that is precisely what a
+            // heightfield dump cannot show.
+            _sliceRows.Add(Math.Clamp(Mathf.RoundToInt((r.Z0 + r.Z1) * 0.5f) - worldMinZ, 0, sizeZ - 1));
+        }
+        _bridgeVoxels = (int)(_carvedVoxels - before);
+        GD.Print($"[CellularTerrain] bridge carve: {_bridgeVoxels} voxels under"
+            + $" {ribbons.Count} decks, thinnest deck"
+            + $" {(_bridgeMinDeck == int.MaxValue ? 0 : _bridgeMinDeck)}v (floor 2v)");
+    }
+
+    // ------------------------------------------------------------------ caves
+    //
+    // THREE kinds of space, built separately, because they answer to different
+    // rules — and separating them is what stopped the overhangs.
+    //
+    //   ENTRANCE — the ONE place a cave is allowed to open to the outside world.
+    //              A short arched mouth cut through an existing cell wall.
+    //   CAVERN   — an underground chamber. Enclosed on every side.
+    //   TUNNEL   — a wandering passage joining an entrance to a cavern, or one
+    //              cavern to another. Enclosed everywhere.
+    //
+    // The earlier version had no such distinction. ONE flood grew outward from
+    // the mouth over any column with roof rock above it, and lateral enclosure
+    // was a per-column PREDICATE judging each candidate against a PREDICTED
+    // level for its neighbours. Both halves of that were wrong: a prediction is
+    // not the geometry that ends up built, and the mouth exemption applied to a
+    // RADIUS rather than to an identified doorway. So wherever the flood ran
+    // along a narrow spine of high ground it opened to the air on both sides at
+    // once and left the rock above standing as a slab over open ground.
+    //
+    // The fix is to stop predicting and start VERIFYING. Everything is claimed
+    // first, then a fixpoint deletes any column with a carved voxel facing open
+    // air unless that column belongs to a doorway, and repeats — deleting a
+    // column exposes its neighbour, so one pass is not enough. What survives is
+    // enclosed because it was checked, not because it was argued. A flood from
+    // the entrances then throws away whatever they cannot reach: a sealed
+    // chamber the player can never find is spent budget, not content.
+
+    // A claimed column's air span: solid at Floor, solid at Ceiling, air between.
+    // int.MinValue in _caveFloor means "not claimed".
+    private int[,] _caveFloor;
+    private int[,] _caveCeiling;
+
+    // Columns belonging to a doorway — the only ones allowed to face open air.
+    private bool[,] _caveDoorway;
+
+    // Columns on a level-change ramp — the only interior ground allowed off the
+    // interior lattice.
+    private bool[,] _caveRamp;
+
+    private int _caveDoorwayOffLattice;
+    private int _caveRampColumns;
+    private int _caveStrayOffLattice;
+
+    // Headroom every cave owes the player, in voxels. Not authored: below this a
+    // passage stops being somewhere you can walk and turns into a crawl the
+    // camera cannot follow, so it is a floor on the tuning rather than part of
+    // it. caveClearance, caveFloorPathRise and the mouth arch are all clamped
+    // against it.
+    private const int MIN_CAVE_HEADROOM = 4;
+
+    // One mouth: the buried column just inside a cell wall, the level it opens
+    // at, and which way is inward.
+    private struct CaveEntrance
+    {
+        public int Lx, Lz;
+        public int Floor;
+        public int Ceiling;
+        public int Dx, Dz;      // unit step from the outside column to the inside one
+        public int InnerLx, InnerLz;
+    }
+
+    // One chamber: its anchor column and the levels it sits at.
+    private struct CaveCavern
+    {
+        public int Lx, Lz;
+        public int Floor;
+        public int Ceiling;
+        public float Radius;
+    }
+
+    private void BuildCaves(int[,] height, int[,] water, bool[,] noCarve, CellularTerrainData cd,
+        int worldMinX, int worldMinZ)
+    {
+        if (cd.caveSystemCount <= 0) { return; }
+        int sizeX = height.GetLength(0);
+        int sizeZ = height.GetLength(1);
+        int levelStep = Math.Max(1, cd.interiorLevelStep);
+        int quantize = Math.Max(1, cd.quantizeStep);
+        int clearance = Math.Max(MIN_CAVE_HEADROOM + 1, cd.caveClearance);
+        int roofRock = Math.Max(1, cd.caveRoofRock);
+
+        // Deepest a floor may go. FitVerticalExtent gives the world
+        // undergroundDepthVoxels of solid rock below its lowest column, and a
+        // chamber that ran into the bottom of that would open into the void
+        // under the world.
+        int lowestGround = int.MaxValue;
+        for (int lx = 0; lx < sizeX; lx++)
+        {
+            for (int lz = 0; lz < sizeZ; lz++)
+            {
+                if (height[lx, lz] < lowestGround) { lowestGround = height[lx, lz]; }
+            }
+        }
+        int floorLimit = lowestGround - Math.Max(0, cd.undergroundDepthVoxels) + roofRock;
+
+        _caveFloor = new int[sizeX, sizeZ];
+        _caveCeiling = new int[sizeX, sizeZ];
+        _caveDoorway = new bool[sizeX, sizeZ];
+        _caveRamp = new bool[sizeX, sizeZ];
+        for (int lx = 0; lx < sizeX; lx++)
+        {
+            for (int lz = 0; lz < sizeZ; lz++) { _caveFloor[lx, lz] = int.MinValue; }
+        }
+
+        var wander = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_CAVE),
+            cd.caveWanderFrequency, 2);
+
+        List<CaveEntrance> candidates = FindEntrances(height, water, noCarve, cd,
+            clearance, roofRock, levelStep, quantize, out int candidateMouths);
+        if (candidates.Count == 0)
+        {
+            GD.Print($"[CellularTerrain] caves: 0/{cd.caveSystemCount} — no cell wall in the world"
+                + $" is tall enough to hold a {clearance}v mouth under {roofRock}v of roof."
+                + " Lower caveClearance or caveRoofRock, or raise maxCellStep.");
+            return;
+        }
+
+        // Selection and the porch test are ONE loop, and separating them was a
+        // real bug: picking caveSystemCount candidates by spacing first and
+        // testing them afterwards meant four tries out of sixty-one, and when
+        // all four happened to be slots the world came out with no caves at all
+        // while the log insisted no mouth in it could ever work. A candidate now
+        // only spends a slot if its porch actually reached enclosed rock.
+        float spacing = Math.Max(1f, cd.caveEntranceSpacing);
+        var entrances = new List<CaveEntrance>();
+        int slotRejects = 0;
+        foreach (CaveEntrance candidate in candidates)
+        {
+            if (entrances.Count >= cd.caveSystemCount) { break; }
+            bool clear = true;
+            foreach (CaveEntrance other in entrances)
+            {
+                float dx = other.Lx - candidate.Lx;
+                float dz = other.Lz - candidate.Lz;
+                if (dx * dx + dz * dz < spacing * spacing) { clear = false; break; }
+            }
+            if (!clear) { continue; }
+
+            CaveEntrance e = candidate;
+            if (ClaimEntrance(ref e, height, noCarve, cd, roofRock)) { entrances.Add(e); }
+            else { slotRejects++; }
+        }
+        if (entrances.Count == 0)
+        {
+            GD.Print($"[CellularTerrain] caves: 0 — all {candidateMouths} candidate mouths were"
+                + " slots whose rock never closed in behind them. Raise caveMouthMaxDepth, or"
+                + " caveClearance is too tall for the walls this world has.");
+            return;
+        }
+        // ONE short local system per entrance, and nothing joins them up.
+        int levelsDropped = 0;
+        foreach (CaveEntrance e in entrances)
+        {
+            levelsDropped += GrowSystem(e, height, water, noCarve, wander, cd,
+                clearance, roofRock, levelStep, floorLimit, worldMinX, worldMinZ);
+        }
+
+        int exposed = SealAgainstDaylight(height);
+        int unreachable = KeepOnlyWhatAnEntranceReaches(entrances);
+        EmitCaves(height, cd, worldMinX, worldMinZ);
+
+        foreach (CaveEntrance e in entrances)
+        {
+            if (_caveFloor[e.Lx, e.Lz] != int.MinValue) { _sliceRows.Add(e.Lz); }
+        }
+
+        GD.Print($"[CellularTerrain] caves: {entrances.Count}/{cd.caveSystemCount} systems (of"
+            + $" {candidateMouths} candidate mouths, {slotRejects} rejected as slots),"
+            + $" {levelsDropped} entry ramps -> {_caveColumns} columns,"
+            + $" {_carvedVoxels - _bridgeVoxels} voxels;"
+            + $" floors and ceilings on the {levelStep}v lattice (arch at the mouth, ramp at the"
+            + $" entry drop); min headroom"
+            + $" {(_caveMinHeadroom == int.MaxValue ? 0 : _caveMinHeadroom)}v"
+            + $" (floor {MIN_CAVE_HEADROOM}v), min roof rock"
+            + $" {(_caveMinRoofRock == int.MaxValue ? 0 : _caveMinRoofRock)}v (floor {roofRock}v);"
+            + $" deepest floor y={(_caveDeepestFloor == int.MaxValue ? 0 : _caveDeepestFloor)}"
+            + $" (waterline {WorldGen.WATER_LEVEL}, world floor {floorLimit});"
+            + $" off-lattice floors: {_caveRampColumns} ramp + {_caveDoorwayOffLattice} doorway"
+            + $" (both allowed), {_caveStrayOffLattice} STRAY (must be 0);"
+            + $" enclosure check removed {exposed} columns open to daylight and"
+            + $" {unreachable} no entrance could reach; {_caveStalagmites} stalagmites."
+            + $" Passage width (nearest wall, doubled): {MeasureWidths()}");
+        _caveSystems = entrances.Count;
+    }
+
+    // Lowest ceiling on the interior lattice that still clears the floor by
+    // `clearance`. The lattice is HeightMap.LevelStep — the same grid building
+    // floors sit on, so the camera cutaway slices caves and rooms alike.
+    private static int CeilingFor(int floor, int clearance, int levelStep)
+    {
+        int want = floor + clearance;
+        int q = want >= 0
+            ? (want + levelStep - 1) / levelStep
+            : -((-want) / levelStep);
+        return q * levelStep;
+    }
+
+    // Highest lattice ceiling that still leaves `roofRock` of ground above it.
+    private static int CeilingUnder(int ground, int roofRock, int levelStep)
+    {
+        int want = ground - roofRock;
+        int q = want >= 0 ? want / levelStep : -((-want + levelStep - 1) / levelStep);
+        return q * levelStep;
+    }
+
+    // Floor for a given ceiling, on the SAME lattice. Cave floors sit on
+    // interiorLevelStep rather than on quantizeStep — the 4 m grid building
+    // floors use, so the camera cutaway slices a cave and a room at the same
+    // heights. Both surfaces on the 4 lattice forces the gap to a multiple of 4,
+    // and the smallest one that clears the clearance is 8, so headroom is a
+    // consistent 7 m everywhere instead of alternating 5 and 7.
+    private static int FloorUnderCeiling(int ceiling, int clearance, int levelStep)
+    {
+        int levels = (clearance + levelStep - 1) / levelStep;
+        return ceiling - Math.Max(1, levels) * levelStep;
+    }
+
+    // Round a level onto the interior lattice, away from zero downward.
+    private static int SnapToLevel(int y, int levelStep)
+    {
+        int q = y >= 0 ? y / levelStep : -((-y + levelStep - 1) / levelStep);
+        return q * levelStep;
+    }
+
+    // May a cave with this ceiling claim this column? The roof rule, plus the
+    // one thing that would flood the result.
+    private static bool RoofHolds(int lx, int lz, int ceiling, int roofRock,
+        int[,] height, int[,] water, bool[,] noCarve)
+    {
+        if (noCarve[lx, lz]) { return false; }
+        // Inland water above the cave. A river or lake column is left alone even
+        // though sealing would keep the cave dry: the roof under a lake bed is
+        // only caveRoofRock of rock holding standing water up, and that is a
+        // thinner margin than this pass wants to promise.
+        if (water != null && water[lx, lz] != HeightMap.NoWater) { return false; }
+        // The rule the plateau approach broke. Ground has to stand a full roof
+        // above the ceiling, so no cave ever surfaces as an open pit and no
+        // surface detail on top of it pokes through.
+        return height[lx, lz] >= ceiling + roofRock;
+    }
+
+    // FIRST claim wins. A column holds exactly one air span here, so two spaces
+    // meeting in one column have to resolve to one — and taking min(floor) with
+    // max(ceiling) is the wrong resolution, however natural it looks. Measured:
+    // where a mouth at y=15 shared columns with a tunnel at y=-15 the merge
+    // produced a single 31-voxel shaft joining them, against a normal span of 3
+    // to 9. Keeping the earlier claim instead leaves the two spaces separate,
+    // and DigTunnel refuses to route through a column already claimed at a level
+    // it cannot walk into, so the tunnel goes round rather than through.
+    //
+    // Claim order is entrances, then caverns, then tunnels — most fixed first.
+    private void Claim(int lx, int lz, int floor, int ceiling, bool doorway)
+    {
+        if (_caveFloor[lx, lz] == int.MinValue)
+        {
+            _caveFloor[lx, lz] = floor;
+            _caveCeiling[lx, lz] = ceiling;
+        }
+        if (doorway) { _caveDoorway[lx, lz] = true; }
+    }
+
+    // Can a space at this floor level use a column that may already be claimed?
+    // Either it is free, or what is there is close enough in level to walk
+    // between — which is what makes a tunnel arriving at a chamber join it
+    // rather than stop one column short.
+    private bool LevelCompatible(int lx, int lz, int floor, int quantize)
+    {
+        int had = _caveFloor[lx, lz];
+        return had == int.MinValue || Math.Abs(had - floor) <= quantize;
+    }
+
+    // ---- entrances
+
+    // Candidate mouths are adjacent column pairs where the ground drops far
+    // enough in ONE column to hold a mouth and its roof — that is, an existing
+    // cell wall. Cell tops are flat and their borders vertical, so there is no
+    // intermediate column at the wall and no thin-roof band to cross: the
+    // outside column's ground is at the mouth floor, and the inside column's is
+    // a full roof above the ceiling.
+    private List<CaveEntrance> FindEntrances(int[,] height, int[,] water, bool[,] noCarve,
+        CellularTerrainData cd, int clearance, int roofRock, int levelStep, int quantize,
+        out int candidates)
+    {
+        int sizeX = height.GetLength(0);
+        int sizeZ = height.GetLength(1);
+        var found = new List<CaveEntrance>();
+        for (int lx = 0; lx < sizeX; lx++)
+        {
+            for (int lz = 0; lz < sizeZ; lz++)
+            {
+                for (int d = 0; d < 4; d++)
+                {
+                    int nx = lx + NEIGHBOUR_DX[d];
+                    int nz = lz + NEIGHBOUR_DZ[d];
+                    if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
+
+                    // The OUTSIDE column sets the floor: the mouth comes out
+                    // level with the ground in front of it, so the player walks
+                    // straight in off the terrace below the wall.
+                    int floor = height[nx, nz];
+                    // The DOORWAY must be above the waterline, even though the
+                    // caverns behind it are free to sit well below one. A mouth
+                    // at or under the sea is an opening the water pours through,
+                    // and it would flood the system back up to the waterline
+                    // however well sealed the rest of it is.
+                    if (floor < WorldGen.WATER_LEVEL) { continue; }
+                    // The PORCH takes the terrain's own lattice, not the
+                    // interior one — it has to meet the ground outside, and
+                    // terraces sit on quantizeStep. Requiring the interior
+                    // lattice here instead cut the candidate mouths from 105 to
+                    // 16 for no gain: the tunnel behind the porch snaps to the
+                    // interior lattice on its own (see DigTunnel), so the only
+                    // off-grid ground is the porch itself and the step at its
+                    // inner end — which is at most one quantizeStep, i.e. a lip
+                    // the player walks over.
+                    if (floor % quantize != 0) { continue; }
+
+                    int ceiling = CeilingFor(floor, clearance, levelStep);
+                    if (!RoofHolds(lx, lz, ceiling, roofRock, height, water, noCarve)) { continue; }
+                    // The outside column must be clear too — a river running
+                    // along the foot of the wall would pour into the mouth.
+                    if (water != null && water[nx, nz] != HeightMap.NoWater) { continue; }
+                    if (noCarve[nx, nz]) { continue; }
+
+                    found.Add(new CaveEntrance
+                    {
+                        Lx = lx, Lz = lz, Floor = floor, Ceiling = ceiling,
+                        Dx = lx - nx, Dz = lz - nz, InnerLx = lx, InnerLz = lz,
+                    });
+                }
+            }
+        }
+        candidates = found.Count;
+        if (found.Count == 0) { return found; }
+
+        // LOWEST floor first, then hashed within a level.
+        //
+        // The floor comes from the ground outside the wall, and it decides
+        // everything downstream: the ceiling sits a clearance above it, so a
+        // mouth on a high terrace needs ground above it and walls beside it that
+        // only the tallest handful of columns in the world can offer, and no
+        // tunnel can leave it. Measured: with a pure hash ordering the surviving
+        // entrance sat at floor 8, needed ground of 20 to route out of, and
+        // reached nothing. Low mouths have the most rock over them — and a cave
+        // opening at the foot of a cliff is where one belongs anyway.
+        found.Sort((a, b) =>
+        {
+            int cmp = a.Floor.CompareTo(b.Floor);
+            if (cmp != 0) { return cmp; }
+            int ha = Hash(a.Lx, a.Lz, _worldSeed + SEED_SALT_CAVE);
+            int hb = Hash(b.Lx, b.Lz, _worldSeed + SEED_SALT_CAVE);
+            cmp = ha.CompareTo(hb);
+            if (cmp != 0) { return cmp; }
+            cmp = a.Lx.CompareTo(b.Lx);
+            return cmp != 0 ? cmp : a.Lz.CompareTo(b.Lz);
+        });
+
+        return found;
+    }
+
+    // Cut the mouth: a short passage running inward from the cell wall, with an
+    // ARCHED roof.
+    //
+    // The arch is the one place a ceiling leaves the interior lattice, and it is
+    // deliberate. That lattice exists so the camera cutaway slices enclosed
+    // rooms at shared heights; a mouth is an opening in a cliff face, three
+    // columns deep, and a flat-topped rectangular hole in a cliff reads as a
+    // slab with a gap under it rather than as a cave. The arch rise is clamped
+    // so the shortest part of the opening still clears MIN_CAVE_HEADROOM — the
+    // sides round off by going SOLID, not by going low.
+    // The porch runs inward until the ROCK CLOSES IN, not for a fixed number of
+    // columns, and that is the difference between a mouth and a hole.
+    //
+    // A fixed-depth doorway leaves the first column BEHIND it enclosed only if
+    // the cliff face happens to be straight there. Where it is not, that column
+    // faces daylight, the enclosure check deletes it — correctly — and the
+    // tunnel behind it is severed from its own entrance. Measured: four columns
+    // deleted that way left 3338 columns of cavern with no way in, and the
+    // reachability pass then threw all of it away.
+    //
+    // So the porch is extended while the surrounding ground is still below the
+    // ceiling, and the tunnel starts where it stops. An entrance whose rock
+    // never closes in within the cap is DROPPED, which is exactly the case worth
+    // dropping: it is a slot through a spine, and roofing one is how the old
+    // version made overhangs.
+    private bool ClaimEntrance(ref CaveEntrance e, int[,] height, bool[,] noCarve,
+        CellularTerrainData cd, int roofRock)
+    {
+        int sizeX = height.GetLength(0);
+        int sizeZ = height.GetLength(1);
+        float halfWidth = Math.Max(1f, cd.caveMouthWidth);
+        int maxDepth = Math.Max(1, cd.caveMouthMaxDepth);
+        int fullHeadroom = e.Ceiling - e.Floor - 1;
+        int rise = Math.Clamp(cd.caveMouthArchRise, 0, Math.Max(0, fullHeadroom - MIN_CAVE_HEADROOM));
+
+        // Across the doorway, not along it: the arch is a shape you see in the
+        // cliff face, so it varies with the LATERAL offset from the centre line
+        // and is constant with depth.
+        int px = -e.Dz;
+        int pz = e.Dx;
+        int reach = Mathf.CeilToInt(halfWidth);
+
+        int interiorCeiling = e.Ceiling;
+        // The SAME radius the tunnel router demands, and it has to be the same
+        // or the porch stops one column short of anywhere a tunnel may begin:
+        // the low ground in front of the mouth is still inside the router's
+        // wall disc, so its first step fails and no entrance ever reaches a
+        // cavern. Measured — that is exactly what 0/2 looked like.
+        const int wall = 1;
+        bool Enclosed(int cx, int cz)
+        {
+            for (int dx = -wall; dx <= wall; dx++)
+            {
+                for (int dz = -wall; dz <= wall; dz++)
+                {
+                    if (dx * dx + dz * dz > wall * wall) { continue; }
+                    int nx = cx + dx;
+                    int nz = cz + dz;
+                    if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
+                    if (height[nx, nz] < interiorCeiling) { return false; }
+                }
+            }
+            return true;
+        }
+
+        int depth = 0;
+        while (depth < maxDepth)
+        {
+            int cx = e.Lx + e.Dx * depth;
+            int cz = e.Lz + e.Dz * depth;
+            if (cx < 0 || cx >= sizeX || cz < 0 || cz >= sizeZ) { return false; }
+            if (height[cx, cz] < interiorCeiling + roofRock || noCarve[cx, cz]) { return false; }
+            depth++;
+            // One column PAST the point the rock closes in, so the tunnel
+            // starting there is walled rather than merely on the boundary.
+            if (Enclosed(cx, cz)) { break; }
+        }
+        if (depth >= maxDepth) { return false; }
+
+        for (int along = 0; along < depth; along++)
+        {
+            for (int side = -reach; side <= reach; side++)
+            {
+                int lx = e.Lx + e.Dx * along + px * side;
+                int lz = e.Lz + e.Dz * along + pz * side;
+                if (lx < 0 || lx >= sizeX || lz < 0 || lz >= sizeZ) { continue; }
+
+                float t = Math.Abs(side) / halfWidth;
+                if (t > 1f) { continue; }
+                // Circular profile: full height on the centre line, dropping to
+                // the full rise at the jambs. The sides round off by going
+                // SOLID, not by going low — a column whose arch would leave less
+                // than four voxels of headroom is simply not carved.
+                int drop = Mathf.RoundToInt(rise * (1f - Mathf.Sqrt(Math.Max(0f, 1f - t * t))));
+                int ceiling = e.Ceiling - drop;
+                if (ceiling - e.Floor - 1 < MIN_CAVE_HEADROOM) { continue; }
+                if (noCarve[lx, lz]) { continue; }
+                // The roof over the arch is measured against the arch's OWN
+                // ceiling, which is lower than the interior one — so the jambs
+                // are allowed under slightly shallower ground, which is exactly
+                // where a mouth sits.
+                if (height[lx, lz] < ceiling + roofRock) { continue; }
+                Claim(lx, lz, e.Floor, ceiling, doorway: true);
+            }
+        }
+        e.InnerLx = e.Lx + e.Dx * (depth - 1);
+        e.InnerLz = e.Lz + e.Dz * (depth - 1);
+        return true;
+    }

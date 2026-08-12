@@ -62,6 +62,9 @@ public enum EEditorEntityKind
     // A tagged position with no body — the subscene spawn point. One brush per
     // pool name, expanded from EditorBrushPalette.markerTags.
     Marker,
+    // A tagged position a ROAD should reach — a front door, a square's gate.
+    // One brush per hint name, expanded from EditorBrushPalette.pathHintTags.
+    PathHint,
 }
 
 // What a click does while the entity tool is active.
@@ -98,7 +101,8 @@ public readonly struct EntityBrush
     // Set only for Prop. Carries the scene AND the behavior (PropType) the
     // placed entity gets, so the editor never has to infer one from the other.
     public readonly PropLibraryEntry Prop;
-    // Set only for Marker: the variant pool a placed marker joins.
+    // Set only for Marker (the variant pool a placed marker joins) and PathHint
+    // (the hint's name within the scene).
     public readonly string Tag;
 
     public EntityBrush(string name, EEditorEntityKind kind, EEditorEntityTab tab, PropLibraryEntry prop = null, string tag = "")
@@ -813,6 +817,7 @@ public partial class WorldEditor : Node3D
             EEditorEntityKind.HealingFountain => brushPalette?.healingFountainScene,
             EEditorEntityKind.ManaFountain => brushPalette?.manaFountainScene,
             EEditorEntityKind.Marker => brushPalette?.markerScene,
+            EEditorEntityKind.PathHint => brushPalette?.pathHintScene,
             _ => null,
         };
     }
@@ -828,6 +833,7 @@ public partial class WorldEditor : Node3D
             _entityBrushes.Add(new EntityBrush(kind.ToString(), kind, EEditorEntityTab.Interactives));
         }
         AddMarkerBrushes();
+        AddPathHintBrushes();
         AddLinkedTrapdoorBrushes();
         AddPropBrushes();
     }
@@ -873,6 +879,28 @@ public partial class WorldEditor : Node3D
                 continue;
             }
             _entityBrushes.Add(new EntityBrush($"Spawn: {tag}", EEditorEntityKind.Marker,
+                EEditorEntityTab.Interactives, prop: null, tag: tag));
+        }
+    }
+
+    // One brush per authored path-hint name, same expansion as the marker
+    // brushes. The tag is both the hint's name inside the scene (a road names
+    // "<placement>.<tag>") and what picks the tread an auto-linked spur gets
+    // (WorldGenData.pathHintProfiles), so "door" and "gate" are different
+    // brushes rather than one brush with a setting.
+    private void AddPathHintBrushes()
+    {
+        if (brushPalette?.pathHintScene == null)
+        {
+            return;
+        }
+        foreach (string tag in brushPalette.pathHintTags ?? System.Array.Empty<string>())
+        {
+            if (string.IsNullOrEmpty(tag))
+            {
+                continue;
+            }
+            _entityBrushes.Add(new EntityBrush($"Path: {tag}", EEditorEntityKind.PathHint,
                 EEditorEntityTab.Interactives, prop: null, tag: tag));
         }
     }
@@ -3186,6 +3214,12 @@ public partial class WorldEditor : Node3D
             case EEditorEntityKind.Marker:
                 return brushPalette?.markerScene != null
                     ? new MarkerSimState(position, brush.Tag, brushPalette.markerScene)
+                    : null;
+            // Likewise one button per hint name — stand it in the doorway (or in
+            // the gap in the square's wall) and worldgen brings a path to it.
+            case EEditorEntityKind.PathHint:
+                return brushPalette?.pathHintScene != null
+                    ? new PathHintSimState(position, brush.Tag, brushPalette.pathHintScene)
                     : null;
             default:
                 return null;

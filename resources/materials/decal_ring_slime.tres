@@ -6,6 +6,7 @@
 resource_name = "decal_ring_slime"
 transparency = 1
 shading_mode = 0
+disable_fog = true
 albedo_color = Color(0.9, 0.2, 0.95, 0.8)
 albedo_texture = ExtResource("1_ring")
 cull_mode = 2

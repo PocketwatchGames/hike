@@ -148,14 +148,67 @@ public static class CVars
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
     });
 
+    // The DC mesher's two SHADING smoothers, live for A/B. Both average a
+    // riser's vertex normals into the treads either side of it, which is what
+    // stops a terraced ramp from lighting-banding — and also what decides
+    // whether a SHORT wall can reach the wall tile at all (a 2-voxel riser is
+    // all lip: measured normal.y 0.24 with these off, 0.61 with them on, against
+    // a wallBand that starts at 0.3–0.4). Neither touches the emitted geometry,
+    // silhouette or collision; the cliff face is vertical either way.
+    // Requeues every loaded chunk. Measure with mesher_probe / mesher_sweep.
+    public static CVarInt mesherVertRelax = new CVarInt("mesher_vert_relax", 2, (cvar) =>
+    {
+        ChunkMesherDC.VERT_RELAX_ITERATIONS = ((CVarInt)cvar).Value;
+        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
+    });
+
+    public static CVarInt mesherNormalSmooth = new CVarInt("mesher_normal_smooth", 1, (cvar) =>
+    {
+        ChunkMesherDC.NORMAL_SMOOTH_ITERATIONS = ((CVarInt)cvar).Value;
+        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
+    });
+
+    // Minimum alignment for a neighbour to pull on a cell's normal (and on its
+    // relaxed position) — the crease gate. Raised from 0.5 to 0.8 so it fires on
+    // a short riser, whose lips sit only ~45 degrees away (dot ~0.7); at 0.5 a
+    // 2-voxel wall's normal was averaged up to 0.61 and never reached the
+    // wallBand, and 0.95 rather than 0.8 so DIAGONAL edges (whose lips align far
+    // better with the face) get the same treatment. Ramp banding is unchanged or
+    // slightly better. Keep in sync with
+    // ChunkMesherDC.NORMAL_SMOOTH_MIN_DOT — this callback only fires on a SET,
+    // so the field's own initializer is what a fresh session runs with.
+    public static CVarFloat mesherNormalMinDot = new CVarFloat("mesher_normal_min_dot", 0.95f, (cvar) =>
+    {
+        ChunkMesherDC.NORMAL_SMOOTH_MIN_DOT = ((CVarFloat)cvar).Value;
+        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
+    });
+
+    // How strongly a cell keeps its own normal versus its neighbours'. Higher
+    // preserves more local shape.
+    public static CVarFloat mesherNormalSelfWeight = new CVarFloat("mesher_normal_self_weight", 2f, (cvar) =>
+    {
+        ChunkMesherDC.NORMAL_SMOOTH_SELF_WEIGHT = ((CVarFloat)cvar).Value;
+        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
+    });
+
     public static CVar mesherProbe = new CVar("mesher_probe", (cvar) => MesherProbe.Run());
     public static CVar mesherSweep = new CVar("mesher_sweep", (cvar) => MesherProbe.Sweep());
+    public static CVar mesherWallSweep = new CVar("mesher_wall_sweep", (cvar) => MesherProbe.WallSweep());
+    public static CVar mesherStepTexture = new CVar("mesher_step_texture", (cvar) => MesherProbe.StepTexture());
     public static CVar mesherProbeMaterial = new CVar("mesher_probe_material", (cvar) => MesherProbe.MaterialRegistration());
 
     // Dump the shape-channel decision for a patch of world so a stepped slope
     // can be traced to either the stamping pass or the grade rule itself.
     // Usage: grade_debug "<worldX> <worldZ>"
     public static CVarString gradeDebug = new CVarString("grade_debug", "", (cvar) => GradeDebug.Dump(((CVarString)cvar).Value));
+
+    // Dump the water-current field as an arrow grid around the player:
+    // `water_current_probe`. Reads through the same trilinear sample the shader
+    // does, so it says whether "the river doesn't flow right" is a worldgen
+    // problem or a rendering one. An ACTION cvar, not a string one — the
+    // console only Executes on a bare name for CVarType.None; for every other
+    // type a bare name just prints the value and the callback never fires.
+    public static CVar waterCurrentProbe = new CVar("water_current_probe", (cvar) => CurrentDebug.Dump());
 
     // Debug: cycle control to the next party member. Exercises the party-switch
     // path (GameClient.SwitchControlTo) before the camp Select-Character UI lands.
@@ -164,6 +217,12 @@ public static class CVars
     // Detaches the game camera from the player and lets WASD + right-mouse-look
     // fly it freely. Disables pixel snapping while active so mouse-look is smooth.
     public static CVarBool debugFlyCam = new CVarBool("debug_flycam", false);
+
+    // When true, the F3 overlay shows the player's world position and the voxel
+    // indices it floors to. Both, because the dumps, the carve grid and the
+    // console's voxel commands are all indexed by the latter while the camera
+    // and physics work in the former.
+    public static CVarBool debugPlayerPosition = new CVarBool("debug_player_position", false);
 
     // Slope diagnostics. When true, the F3 overlay shows the current floor
     // angle + the last hit on an upward-facing surface too steep to climb
@@ -661,6 +720,40 @@ public static class CVars
     // gate so you can see where mobs actually are during debug. Compose with
     // debug_mob_perception to verify LOS state vs. actual visibility.
     public static CVarBool revealMobs = new CVarBool("reveal_mobs", false);
+
+    // Prints what the minimap shader's height-derived terms actually see: the
+    // heightmap's world-Y range, per-texel neighbor deltas, how much of the map
+    // passes the contour is_step gate, and the fwidth the contour anti-aliasing
+    // reads at world-map zoom. Both the contour interval and the plateau banding
+    // are authored in absolute meters, so a change to the world's vertical extent
+    // can silently stop them working — this says by how much, and what
+    // contour_interval the current terrain wants.
+    public static CVar minimapProbe = new CVar("minimap_probe", (cvar) =>
+    {
+        Minimap minimap = Sim.Current?.Minimap;
+        if (minimap == null)
+        {
+            Godot.GD.Print("minimap_probe: no active world.");
+            return;
+        }
+        float screenWidth = GameClient.Current?.GetViewport()?.GetVisibleRect().Size.Y ?? 1080f;
+        Godot.GD.Print(minimap.FormatHeightStats(screenWidth));
+    });
+
+    // Cheat: charts the entire map in one shot — the whole outdoor fog-of-war,
+    // every underground/indoor slice the world has content in, every region name,
+    // and every map marker currently loaded. Banks the lot into the party pool
+    // (as a campfire would) so the world map shows it immediately.
+    public static CVar revealMap = new CVar("reveal_map", (cvar) =>
+    {
+        Minimap minimap = Sim.Current?.Minimap;
+        if (minimap == null)
+        {
+            Godot.GD.PushWarning("reveal_map: no active world.");
+            return;
+        }
+        minimap.RevealEverything();
+    });
 
     // When true, Mob._PhysicsProcess prints a diagnostic line each time the
     // torch-conditions block runs — ambientLight, useTorch, discovery state,
@@ -1669,6 +1762,14 @@ public static class CVars
     // fast-feedback debugging loop over the height-field algorithm.
     public static CVarString worldgenDebugDump = new CVarString("worldgen_debug_dump", "");
 
+    // As above, but runs ONLY the terrain approach — no chunks, lighting, fog,
+    // props, mobs, subscenes or roads. Same stats.txt and images out (plus the
+    // raw int16 fields), in a fraction of the time, because none of those
+    // passes change the height field. This is the loop for tuning a
+    // TerrainGenData; use worldgen_debug_dump when you need what the later
+    // passes did to the world (road regrading, in particular).
+    public static CVarString worldgenTerrainDump = new CVarString("worldgen_terrain_dump", "");
+
     // When true, Main loads every .gdshader so the engine parses it, then quits
     // without starting a game. Pair with `--headless` for a ~4s "do the shaders
     // still compile" check instead of a full autostart run.
@@ -1805,6 +1906,21 @@ public static class CVars
             SubsceneDirectory directory = SubsceneFile.ReadDirectory(path);
             SubsceneState sub = SubsceneFile.Read(path);
             Godot.GD.Print($"subscene_info: {path} size={sub.Size} anchor={sub.Anchor} entities={sub.Entities.Count}");
+            // Path hints are read off the entity list rather than the baked
+            // directory: the directory lists variant POOLS, and a hint is a road
+            // endpoint, not a position a variant may fill.
+            var hints = new System.Collections.Generic.List<string>();
+            foreach (EntitySimState entity in sub.Entities)
+            {
+                if (entity is PathHintSimState hint)
+                {
+                    hints.Add(string.IsNullOrEmpty(hint.Tag) ? "<untagged>" : hint.Tag);
+                }
+            }
+            if (hints.Count > 0)
+            {
+                Godot.GD.Print($"  path hints: {string.Join(", ", hints)}");
+            }
             if (directory.Entries.Length == 0)
             {
                 Godot.GD.Print("  pools: none (every entity is unconditional)");

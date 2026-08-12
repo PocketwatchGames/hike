@@ -109,6 +109,16 @@ public static class ChunkDetailScatter
                         continue;
                     }
 
+                    // Hold sprites back from cliff lips and off narrow shelves.
+                    // Runs before the normal / AO / tint work below so a
+                    // rejected voxel skips all of it.
+                    float edgeFactor = ComputeEdgeFactor(chunkWx + x, chunkWy + y, chunkWz + z, group, getVoxel);
+                    strength = (int)(strength * edgeFactor);
+                    if (strength <= 0)
+                    {
+                        continue;
+                    }
+
                     // Estimate the surface normal from neighbour heights once
                     // per painted voxel; all instances scattered on this voxel
                     // share the same normal. The shader uses this to roll
@@ -415,6 +425,100 @@ public static class ChunkDetailScatter
             }
         }
         return wy;
+    }
+
+    // Density multiplier for one painted voxel from the cliff geometry around
+    // it: 1 on open ground, ramping down to 0 at a cliff lip, and a hard 0 for
+    // a voxel the group won't accept at all (the lip column itself, or a shelf
+    // narrower than MinLedgeWidthVoxels).
+    //
+    // Walks the four cardinal directions outward, carrying the ground level
+    // with it, so a long grade stays continuous and only a real step ends a run.
+    private static float ComputeEdgeFactor(int wx, int wy, int wz, DetailGroupData group, System.Func<int, int, int, VoxelType> getVoxel)
+    {
+        int step = group.cliffStepVoxels;
+        int setback = group.edgeSetbackVoxels;
+        int minWidth = group.minLedgeWidthVoxels;
+        if (step <= 0 || (setback <= 0 && minWidth <= 1))
+        {
+            return 1f;
+        }
+        int maxSteps = Math.Max(setback, minWidth - 1);
+
+        int runE = GroundRun(wx, wy, wz, 1, 0, step, maxSteps, getVoxel, out bool dropE);
+        int runW = GroundRun(wx, wy, wz, -1, 0, step, maxSteps, getVoxel, out bool dropW);
+        int runN = GroundRun(wx, wy, wz, 0, 1, step, maxSteps, getVoxel, out bool dropN);
+        int runS = GroundRun(wx, wy, wz, 0, -1, step, maxSteps, getVoxel, out bool dropS);
+
+        // Narrow ground is only a LEDGE when a drop bounds it. Ground pinched
+        // between two walls is a corridor or a cave passage and keeps its
+        // detail; the same width with a drop on one side is the 1m shelf
+        // sticking out of a cliff face that we want bare.
+        if (minWidth > 1
+            && ((runE + runW + 1 < minWidth && (dropE || dropW))
+                || (runN + runS + 1 < minWidth && (dropN || dropS))))
+        {
+            return 0f;
+        }
+
+        if (setback <= 0)
+        {
+            return 1f;
+        }
+        // Undropped runs (walls, or the probe cap) leave the distance beyond the
+        // setback, which reads as full density.
+        int edgeDist = maxSteps + 1;
+        if (dropE) { edgeDist = Math.Min(edgeDist, runE); }
+        if (dropW) { edgeDist = Math.Min(edgeDist, runW); }
+        if (dropN) { edgeDist = Math.Min(edgeDist, runN); }
+        if (dropS) { edgeDist = Math.Min(edgeDist, runS); }
+        return Mathf.Clamp(edgeDist / (float)setback, 0f, 1f);
+    }
+
+    // How many columns can be stepped onto from (wx, wy, wz) heading (dx, dz)
+    // before the ground breaks, capped at maxSteps (0 = the immediate neighbour
+    // already breaks). `dropped` says which way it broke: true = the ground fell
+    // away (a cliff lip), false = a wall rose in front of it or the cap was hit.
+    private static int GroundRun(int wx, int wy, int wz, int dx, int dz, int step, int maxSteps,
+        System.Func<int, int, int, VoxelType> getVoxel, out bool dropped)
+    {
+        int refY = wy;
+        for (int i = 1; i <= maxSteps; i++)
+        {
+            int nx = wx + dx * i;
+            int nz = wz + dz * i;
+            if (TryColumnSurface(nx, refY, nz, step, getVoxel, out int surfaceY))
+            {
+                refY = surfaceY;
+                continue;
+            }
+            // No surface in the band: solid at the reference level means the
+            // column carries on upward (a wall), otherwise it fell away.
+            dropped = !VoxelTypeInfo.IsSolid(getVoxel(nx, refY, nz));
+            return i - 1;
+        }
+        dropped = false;
+        return maxSteps;
+    }
+
+    // Surface height (highest solid voxel with a non-solid one above it) of the
+    // column at (wx, wz) within ±(step - 1) of refY — the band that still counts
+    // as continuous ground. False when the column has no surface in that band.
+    // Water is non-solid, so a shallow shore reads as continuous off its floor
+    // and only a genuine drop-off into deep water counts as an edge.
+    private static bool TryColumnSurface(int wx, int refY, int wz, int step,
+        System.Func<int, int, int, VoxelType> getVoxel, out int surfaceY)
+    {
+        for (int y = refY + step - 1; y >= refY - step + 1; y--)
+        {
+            if (VoxelTypeInfo.IsSolid(getVoxel(wx, y, wz)) && !VoxelTypeInfo.IsSolid(getVoxel(wx, y + 1, wz)))
+            {
+                surfaceY = y;
+                return true;
+            }
+        }
+        surfaceY = refY;
+        return false;
     }
 
     public struct InstanceData

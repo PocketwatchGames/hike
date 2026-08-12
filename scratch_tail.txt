@@ -1,0 +1,369 @@
+    // ---- verification
+
+    // Delete every claimed column with a carved voxel facing OPEN AIR, unless it
+    // is part of a doorway. Repeated to a fixpoint, because removing a column
+    // exposes whatever was behind it.
+    //
+    // This is the check that replaced a per-column predicate, and the difference
+    // is the whole point: the predicate asked "would a neighbour be eligible at
+    // its predicted level", which is a guess about geometry that has not been
+    // built yet. This asks the finished claim what is actually beside each
+    // voxel. A column is walled when its neighbour is either claimed at an
+    // overlapping level (interior) or solid ground at that height; anything else
+    // is a hole in a cliff face, and the rock above it is an overhang.
+    private int SealAgainstDaylight(int[,] height)
+    {
+        int sizeX = height.GetLength(0);
+        int sizeZ = height.GetLength(1);
+        int removed = 0;
+        var doomed = new List<int>();
+
+        while (true)
+        {
+            doomed.Clear();
+            for (int lx = 0; lx < sizeX; lx++)
+            {
+                for (int lz = 0; lz < sizeZ; lz++)
+                {
+                    if (_caveFloor[lx, lz] == int.MinValue || _caveDoorway[lx, lz]) { continue; }
+                    if (!FacesDaylight(lx, lz, height, sizeX, sizeZ)) { continue; }
+                    doomed.Add(lx * sizeZ + lz);
+                }
+            }
+            if (doomed.Count == 0) { break; }
+            foreach (int idx in doomed)
+            {
+                _caveFloor[idx / sizeZ, idx % sizeZ] = int.MinValue;
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    private bool FacesDaylight(int lx, int lz, int[,] height, int sizeX, int sizeZ)
+    {
+        int floor = _caveFloor[lx, lz];
+        int ceiling = _caveCeiling[lx, lz];
+        for (int d = 0; d < 4; d++)
+        {
+            int nx = lx + NEIGHBOUR_DX[d];
+            int nz = lz + NEIGHBOUR_DZ[d];
+            // The world edge is not daylight — nothing can look in from outside
+            // the map.
+            if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
+            int ground = height[nx, nz];
+            bool neighbourClaimed = _caveFloor[nx, nz] != int.MinValue;
+            int nFloor = neighbourClaimed ? _caveFloor[nx, nz] : 0;
+            int nCeiling = neighbourClaimed ? _caveCeiling[nx, nz] : 0;
+            for (int wy = floor + 1; wy < ceiling; wy++)
+            {
+                if (wy <= ground) { continue; }                                  // solid rock beside it
+                if (neighbourClaimed && wy > nFloor && wy < nCeiling) { continue; } // next room along
+                return true;                                                     // open sky
+            }
+        }
+        return false;
+    }
+
+    // Throw away anything no entrance can walk to. A sealed chamber the player
+    // can never find is spent budget, and worse, it is invisible in every dump —
+    // so it would look like the cave pass simply produced less than it did.
+    private int KeepOnlyWhatAnEntranceReaches(List<CaveEntrance> entrances)
+    {
+        int sizeX = _caveFloor.GetLength(0);
+        int sizeZ = _caveFloor.GetLength(1);
+        var reached = new bool[sizeX, sizeZ];
+        var queue = new Queue<int>();
+        foreach (CaveEntrance e in entrances)
+        {
+            if (_caveFloor[e.Lx, e.Lz] == int.MinValue || reached[e.Lx, e.Lz]) { continue; }
+            reached[e.Lx, e.Lz] = true;
+            queue.Enqueue(e.Lx * sizeZ + e.Lz);
+        }
+
+        while (queue.Count > 0)
+        {
+            int idx = queue.Dequeue();
+            int lx = idx / sizeZ;
+            int lz = idx % sizeZ;
+            for (int d = 0; d < 4; d++)
+            {
+                int nx = lx + NEIGHBOUR_DX[d];
+                int nz = lz + NEIGHBOUR_DZ[d];
+                if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
+                if (reached[nx, nz] || _caveFloor[nx, nz] == int.MinValue) { continue; }
+                // Connected only where the two air spans actually overlap —
+                // otherwise a chamber directly under a passage would count as
+                // joined to it through solid rock.
+                if (_caveFloor[nx, nz] + 1 >= _caveCeiling[lx, lz]) { continue; }
+                if (_caveFloor[lx, lz] + 1 >= _caveCeiling[nx, nz]) { continue; }
+                reached[nx, nz] = true;
+                queue.Enqueue(nx * sizeZ + nz);
+            }
+        }
+
+        int dropped = 0;
+        for (int lx = 0; lx < sizeX; lx++)
+        {
+            for (int lz = 0; lz < sizeZ; lz++)
+            {
+                if (_caveFloor[lx, lz] == int.MinValue || reached[lx, lz]) { continue; }
+                _caveFloor[lx, lz] = int.MinValue;
+                dropped++;
+            }
+        }
+        return dropped;
+    }
+
+    // ---- emit
+
+    // Write the verified claim into the carve grid, measuring each invariant as
+    // it goes rather than asserting it was tuned correctly.
+    private void EmitCaves(int[,] height, CellularTerrainData cd, int worldMinX, int worldMinZ)
+    {
+        int sizeX = height.GetLength(0);
+        int sizeZ = height.GetLength(1);
+        int spikeMax = Math.Max(0, cd.stalagmiteHeightMax);
+        float mouthClearance = Math.Max(0f, cd.stalagmiteMouthClearance);
+
+        for (int lx = 0; lx < sizeX; lx++)
+        {
+            for (int lz = 0; lz < sizeZ; lz++)
+            {
+                int baseFloor = _caveFloor[lx, lz];
+                if (baseFloor == int.MinValue) { continue; }
+                int ceiling = _caveCeiling[lx, lz];
+                int wx = lx + worldMinX;
+                int wz = lz + worldMinZ;
+                bool doorway = _caveDoorway[lx, lz];
+                int floor = baseFloor;
+                int headroom = ceiling - floor - 1;
+
+                // Stalagmites: single-column spikes, from a POSITION HASH so the
+                // answer is the same however often IsCarvedAt is asked about the
+                // voxel. Capped two short of the ceiling — a spike that reaches
+                // the roof is a pillar, which reads as structure rather than as
+                // a cave — and kept out of the doorway, where it reads as a bug.
+                int spike = 0;
+                if (spikeMax > 0 && !doorway
+                    && !NearAnyDoorway(lx, lz, mouthClearance, sizeX, sizeZ)
+                    && Hash01Column(wx, wz, SEED_SALT_STALAGMITE) < cd.stalagmiteDensity)
+                {
+                    spike = 1 + (Hash(wx, wz, _worldSeed + SEED_SALT_STALAGMITE + 1)
+                        % Math.Max(1, spikeMax));
+                    spike = Math.Min(spike, Math.Max(0, headroom - 2));
+                    if (spike > 0) { _caveStalagmites++; }
+                }
+
+                for (int wy = floor + 1 + spike; wy < ceiling; wy++)
+                {
+                    SetCarved(lx, lz, wy);
+                    // Sealed: this voxel stays AIR even below the waterline. The
+                    // claim was verified enclosed on every side and its only
+                    // openings are doorways above the waterline, so nothing can
+                    // run in — and chunk fill must not put the sea in it just
+                    // because the column's waterline is higher. Without this
+                    // every chamber below y=0 floods, which is exactly where the
+                    // rock in this world is.
+                    SetSealed(lx, lz, wy);
+                }
+
+                _caveColumns++;
+                // The lattice invariant, counted rather than assumed. Interior
+                // floors sit on interiorLevelStep; the only ground allowed off
+                // it is a doorway (which meets the terrain's own 2-lattice) and
+                // a ramp column (a level change spent one voxel at a time). A
+                // non-zero "stray" here means some other path is writing floors,
+                // which is the bug this number exists to catch.
+                if (floor % _data.interiorLevelStep != 0)
+                {
+                    if (doorway) { _caveDoorwayOffLattice++; }
+                    else if (_caveRamp[lx, lz]) { _caveRampColumns++; }
+                    else { _caveStrayOffLattice++; }
+                }
+                if (headroom < _caveMinHeadroom) { _caveMinHeadroom = headroom; }
+                int rock = height[lx, lz] - ceiling;
+                if (rock < _caveMinRoofRock) { _caveMinRoofRock = rock; }
+                if (floor < _caveDeepestFloor) { _caveDeepestFloor = floor; }
+            }
+        }
+    }
+
+    // How wide the finished spaces actually are, as the distance from every
+    // claimed column to the nearest unclaimed one. A corridor N columns across
+    // peaks at N/2 here, so this reads straight off as width — and it is worth
+    // measuring rather than inferring from caveTunnelHalfWidth, because the
+    // enclosure check trims edges and RoofHolds refuses columns, so the width
+    // that gets BUILT is routinely less than the width that was asked for.
+    private string MeasureWidths()
+    {
+        int sizeX = _caveFloor.GetLength(0);
+        int sizeZ = _caveFloor.GetLength(1);
+        var dist = new int[sizeX, sizeZ];
+        var queue = new Queue<int>();
+        for (int lx = 0; lx < sizeX; lx++)
+        {
+            for (int lz = 0; lz < sizeZ; lz++)
+            {
+                bool claimed = _caveFloor[lx, lz] != int.MinValue;
+                dist[lx, lz] = claimed ? int.MaxValue : 0;
+                if (!claimed) { queue.Enqueue(lx * sizeZ + lz); }
+            }
+        }
+        while (queue.Count > 0)
+        {
+            int idx = queue.Dequeue();
+            int lx = idx / sizeZ;
+            int lz = idx % sizeZ;
+            int next = dist[lx, lz] + 1;
+            for (int d = 0; d < 4; d++)
+            {
+                int nx = lx + NEIGHBOUR_DX[d];
+                int nz = lz + NEIGHBOUR_DZ[d];
+                if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
+                if (dist[nx, nz] <= next) { continue; }
+                dist[nx, nz] = next;
+                queue.Enqueue(nx * sizeZ + nz);
+            }
+        }
+
+        var histogram = new SortedDictionary<int, int>();
+        for (int lx = 0; lx < sizeX; lx++)
+        {
+            for (int lz = 0; lz < sizeZ; lz++)
+            {
+                if (_caveFloor[lx, lz] == int.MinValue) { continue; }
+                int d = dist[lx, lz];
+                histogram.TryGetValue(d, out int had);
+                histogram[d] = had + 1;
+            }
+        }
+        var sb = new System.Text.StringBuilder();
+        foreach (KeyValuePair<int, int> kv in histogram)
+        {
+            if (sb.Length > 0) { sb.Append(' '); }
+            sb.Append(kv.Key * 2 - 1).Append("m:").Append(kv.Value);
+        }
+        return sb.ToString();
+    }
+
+    private bool NearAnyDoorway(int lx, int lz, float radius, int sizeX, int sizeZ)
+    {
+        if (radius <= 0f) { return false; }
+        int r = Mathf.CeilToInt(radius);
+        for (int dx = -r; dx <= r; dx++)
+        {
+            for (int dz = -r; dz <= r; dz++)
+            {
+                int nx = lx + dx;
+                int nz = lz + dz;
+                if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
+                if (dx * dx + dz * dz > radius * radius) { continue; }
+                if (_caveDoorway[nx, nz]) { return true; }
+            }
+        }
+        return false;
+    }
+
+    // Position hash in [0,1) for a column. Separate from Hash01(long, int),
+    // which keys off a packed cell identity rather than a world column.
+    private float Hash01Column(int wx, int wz, int salt)
+    {
+        return (Hash(wx, wz, _worldSeed + salt) & 0xFFFF) / 65536f;
+    }
+
+    // ------------------------------------------------------------ diagnostics
+
+    // Write this approach's own view of the carve into the debug dump: vertical
+    // slices, which are the one thing the height-field images cannot show. A
+    // hillshade of a world with a cave under it looks exactly like a hillshade
+    // of a world without one.
+    public void DumpDiagnostics(string dir)
+    {
+        if (_carve == null || _caveSystems == 0) { return; }
+        System.IO.Directory.CreateDirectory(dir);
+
+        // Roof rock measured against the LIVE height field, which by dump time
+        // has been through the road grader — a pass that runs long after
+        // carving and rewrites terrain in place. Nothing stops it cutting its
+        // tread down over a cave, and if it ever does the symptom is a hole in
+        // a cave ceiling that no carving-side check could have seen. The number
+        // below is the whole test: it must stay at or above caveRoofRock.
+        int minRock = int.MaxValue;
+        for (int lx = 0; lx < _carveSizeX; lx++)
+        {
+            for (int lz = 0; lz < _carveSizeZ; lz++)
+            {
+                // Bridge columns are excluded, and getting that wrong wasted a
+                // round: the rock over the topmost carved voxel of a bridge
+                // column IS the deck, so a 3-voxel deck reports as a 3-voxel
+                // roof and reads as a cave roof shaved below its minimum. They
+                // are different measurements with different floors —
+                // bridgeThickness for one, caveRoofRock for the other.
+                if (_bridgeGroundUnder != null && _bridgeGroundUnder[lx, lz] != int.MinValue)
+                {
+                    continue;
+                }
+                long baseBit = ((long)lx * _carveSizeZ + lz) * _carveYSpan;
+                for (int ly = _carveYSpan - 1; ly >= 0; ly--)
+                {
+                    long bit = baseBit + ly;
+                    if ((_carve[bit >> 6] & (1UL << (int)(bit & 63))) == 0UL) { continue; }
+                    int rock = _sliceHeight[lx, lz] - (ly + _carveMinY);
+                    if (rock < minRock) { minRock = rock; }
+                    break;
+                }
+            }
+        }
+        GD.Print($"[CellularTerrain] roof check against the finished (road-graded) heights:"
+            + $" thinnest rock over any CAVE voxel {minRock}v (carved with at least"
+            + $" {_data.caveRoofRock}v; later passes regrade terrain and may shave it)");
+
+        // One slice through each system's mouth, along X, as text. Text rather
+        // than an image because what is being read is exact voxel heights —
+        // "is this ceiling on a multiple of 4" is a question about digits.
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Cellular terrain carve slices. '#' solid, '.' air (carved), ' ' above ground.");
+        sb.AppendLine($"Carve band y {_carveMinY}..{_carveMinY + _carveYSpan - 1}");
+        sb.AppendLine();
+
+        foreach (int lz in _sliceRows)
+        {
+            sb.AppendLine($"--- slice at world z = {lz + _carveWorldMinZ} ---");
+            for (int wy = _carveMinY + _carveYSpan - 1; wy >= _carveMinY; wy--)
+            {
+                sb.Append($"y={wy,4} ");
+                for (int lx = 0; lx < _carveSizeX; lx++)
+                {
+                    int ground = _sliceHeight[lx, lz];
+                    // Carved wins over "above ground". At a doorway the air
+                    // reaches above the terrace in front of it, and drawing
+                    // those voxels as sky hid the top of every arch — the one
+                    // part of a mouth worth looking at.
+                    if (IsCarvedAt(lx + _carveWorldMinX, wy, lz + _carveWorldMinZ, ground))
+                    {
+                        sb.Append('.');
+                    }
+                    else if (wy > ground) { sb.Append(' '); }
+                    else { sb.Append('#'); }
+                }
+                sb.AppendLine();
+            }
+            sb.AppendLine();
+        }
+        System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "carve_slices.txt"), sb.ToString());
+        GD.Print($"[CellularTerrain] wrote {dir}/carve_slices.txt ({_sliceRows.Count} slices)");
+    }
+
+    private readonly List<int> _sliceRows = new();
+    private int[,] _sliceHeight;
+
+    // Bank what a slice needs: the finished heights, and one row through each
+    // cave mouth. Rows are recorded as the systems are carved rather than
+    // searched for afterwards — the mouth is the interesting part of a cave and
+    // an arbitrary row usually misses every system in the world.
+    private void PrepareCarveSlices(int[,] height)
+    {
+        _sliceHeight = height;
+    }
+}

@@ -533,6 +533,10 @@ public partial class Player : CharacterBody3D
 	// (latched by the caller) holds the pose.
 	private void HandleDeath()
 	{
+		// Where the body ends up is decided here, while the death conditions are
+		// still true; the relocation itself waits for the blackout
+		// (ReturnBodyToLastGroundedPosition).
+		_diedOffGround = !_grounded || _waterState != EWaterState.None;
 		_runner?.TryAbort();
 		_pendingWeaponPressSlot = null;
 		_pendingWeaponPressActionName = null;
@@ -626,6 +630,7 @@ public partial class Player : CharacterBody3D
 		_oneShotOverridesCharge = false;
 		_grounded = false;
 		_coyoteTimeEndMs = 0;
+		_diedOffGround = false;
 		TeleportTo(position);
 		// Force the animator off the Die clip so the first post-respawn frame
 		// shows the idle pose instead of holding the corpse. UpdateAnimation

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SpawnListData" format=3]
+[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://4bb0hjxpuvlbf"]
 
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]

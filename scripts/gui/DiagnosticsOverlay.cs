@@ -262,6 +262,10 @@ public partial class DiagnosticsOverlay : CanvasLayer
         var sb = new System.Text.StringBuilder();
         sb.Append("[code]");
         sb.Append("FPS ").Append(Engine.GetFramesPerSecond().ToString("F0")).Append('\n');
+        if (CVars.debugPlayerPosition.Value)
+        {
+            AppendPlayerPosition(sb);
+        }
         if (CVars.debugSlopes.Value)
         {
             AppendSlopeSection(sb);
@@ -270,6 +274,33 @@ public partial class DiagnosticsOverlay : CanvasLayer
         Profiler.AppendTable(sb, Profiler.View.Latched);
         sb.Append("[/code]");
         return sb.ToString();
+    }
+
+    // Where the player is, in world space and in VOXEL indices.
+    //
+    // Both, because they answer different questions and the conversion is the
+    // easy thing to get wrong: the float is what the camera and the physics
+    // work in, while every worldgen dump, the carve grid and the console's own
+    // voxel commands are indexed by the floor of it. Quoting one when the other
+    // was wanted is how a "the terrain is wrong at x,z" report ends up pointing
+    // at the wrong column.
+    private static void AppendPlayerPosition(System.Text.StringBuilder sb)
+    {
+        Player player = GameClient.Current?.Player;
+        if (player == null)
+        {
+            sb.Append("\npos      : no player\n");
+            return;
+        }
+        Vector3 p = player.GlobalPosition;
+        sb.Append("\npos      : ")
+            .Append(p.X.ToString("F1")).Append(", ")
+            .Append(p.Y.ToString("F1")).Append(", ")
+            .Append(p.Z.ToString("F1")).Append('\n');
+        sb.Append("voxel    : ")
+            .Append(Mathf.FloorToInt(p.X)).Append(", ")
+            .Append(Mathf.FloorToInt(p.Y)).Append(", ")
+            .Append(Mathf.FloorToInt(p.Z)).Append('\n');
     }
 
     // Slope debug readout. "floor" tracks the current standing surface;

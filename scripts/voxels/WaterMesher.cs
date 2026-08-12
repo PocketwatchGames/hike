@@ -1,8 +1,9 @@
 using System;
 using Godot;
 
-// Water stays on the old cubic face-culling mesher. Water only exists at
-// wy <= 0 and presents a planar-ish surface; no reason to deform it with DC.
+// Water stays on the old cubic face-culling mesher. It is mostly planar
+// surface — plus the vertical sheet of a waterfall — so there is no reason to
+// deform it with DC.
 //
 // The water is meshed as ONE contiguous volume, dilated a voxel laterally into
 // the shore, and skinned with unit quads on the voxel grid. The dilation is what
@@ -25,11 +26,15 @@ using Godot;
 // with whatever sits above it. It kills z-fighting at distance where the
 // backface's clip-space bias runs out of precision, and it is also what hides
 // the shell against land that sits flush with the waterline. Uniform across
-// every cell, so it does not reintroduce a mismatch.
+// every cell, so it does not reintroduce a mismatch — and it moves the TOP
+// FACE ONLY, never the upper edge of a side quad, so the stacked side quads of
+// a waterfall still meet exactly instead of cracking open once per voxel.
 public static class WaterMesher
 {
     private const int N = ChunkState.SIZE;
     private const float TOP_EPSILON = 0.02f;
+    private const int MAX_COLUMN_PROBE = 1024;
+    private const int TOP_FACE = 0;   // index into Faces / Normals
 
     private static readonly Vector3[][] Faces =
     {
@@ -68,24 +73,24 @@ public static class WaterMesher
 
         for (int x = 0; x < N; x++)
         {
-            for (int y = 0; y < N; y++)
+            for (int z = 0; z < N; z++)
             {
-                for (int z = 0; z < N; z++)
+                int wx = chunkWorldX + x;
+                int wz = chunkWorldZ + z;
+
+                // Roofed-ness is carried DOWN the column rather than probed per
+                // cell: it only changes at a non-Water voxel, so one step per
+                // cell replaces a rescan of the water stacked above it.
+                bool openAbove = ProbeOpenAbove(getVoxel, wx, chunkWorldY + N - 1, wz);
+
+                for (int y = N - 1; y >= 0; y--)
                 {
-                    int wx = chunkWorldX + x;
                     int wy = chunkWorldY + y;
-                    int wz = chunkWorldZ + z;
+                    VoxelType self = getVoxel(wx, wy, wz);
 
-                    if (!InWaterVolume(getVoxel, wx, wy, wz))
-                    {
-                        continue;
-                    }
-
-                    Vector3 offset = new(x, y, z);
-
-                    // Whether this cell is "roofed" — has anything other than
-                    // air directly above. A roofed cell is in a sealed pocket
-                    // (water under rock with no air gap) and none of its faces
+                    // Whether this cell is "roofed" — sealed under solid, with
+                    // only water between. Such a cell is in a pocket (water
+                    // under rock with no air gap) and none of its faces
                     // represent a real water boundary the player can see;
                     // emitting any of them leaks through the ceiling cutaway
                     // because the clipped solid above no longer writes depth,
@@ -93,16 +98,31 @@ public static class WaterMesher
                     // buffer — water front faces happily pass their depth test
                     // against that and paint over the cap.
                     //
-                    // This also gates the dilated shell for free: a shell cell
+                    // Stacked water is TRANSPARENT to this test, which is what
+                    // skins a waterfall: every cell of a falling column takes
+                    // the state of the free surface above it, so its exposed
+                    // sides emit. Don't narrow this to the voxel directly above
+                    // — water is water's own roof, so every column deeper than
+                    // one voxel then skins nothing but its top quad and a fall
+                    // reads as a gap between two pools.
+                    //
+                    // It also gates the dilated shell for free: a shell cell
                     // buried under tall land has solid above it and drops out,
                     // so only the cells beside a low shore — the ones that
                     // actually cover a dip — survive.
-                    VoxelType above = getVoxel(wx, wy + 1, wz);
-                    bool roofed = above != VoxelType.Air;
-                    if (roofed)
+                    bool roofed = !openAbove;
+                    // Advance the state for the cell below before any skip.
+                    if (self != VoxelType.Water)
+                    {
+                        openAbove = !VoxelTypeInfo.IsSolid(self);
+                    }
+
+                    if (roofed || !InWaterVolume(getVoxel, self, wx, wy, wz))
                     {
                         continue;
                     }
+
+                    Vector3 offset = new(x, y, z);
 
                     for (int f = 0; f < 6; f++)
                     {
@@ -123,13 +143,15 @@ public static class WaterMesher
                         Color custom = new Color(wx + 0.5f, wy + 0.5f, wz + 0.5f, tile);
 
                         // Unit quads on the voxel grid. The TOP_EPSILON drop is
-                        // the only deviation, and it is uniform, so neighbouring
-                        // cells still share vertex positions exactly.
-                        Vector3 drop = new Vector3(0f, TOP_EPSILON, 0f);
-                        Vector3 v0 = verts[0] + offset - (verts[0].Y > 0.5f ? drop : Vector3.Zero);
-                        Vector3 v1 = verts[1] + offset - (verts[1].Y > 0.5f ? drop : Vector3.Zero);
-                        Vector3 v2 = verts[2] + offset - (verts[2].Y > 0.5f ? drop : Vector3.Zero);
-                        Vector3 v3 = verts[3] + offset - (verts[3].Y > 0.5f ? drop : Vector3.Zero);
+                        // the only deviation, it applies to the whole top face
+                        // and to nothing else, and it is uniform — so
+                        // neighbouring cells still share vertex positions
+                        // exactly, in every direction.
+                        Vector3 o = f == TOP_FACE ? offset - new Vector3(0f, TOP_EPSILON, 0f) : offset;
+                        Vector3 v0 = verts[0] + o;
+                        Vector3 v1 = verts[1] + o;
+                        Vector3 v2 = verts[2] + o;
+                        Vector3 v3 = verts[3] + o;
 
                         EmitTri(st, v0, v2, v1, normal, color, custom);
                         EmitTri(st, v0, v3, v2, normal, color, custom);
@@ -157,7 +179,12 @@ public static class WaterMesher
     // a boundary cell always agree and no seam can appear between them.
     private static bool InWaterVolume(Func<int, int, int, VoxelType> getVoxel, int wx, int wy, int wz)
     {
-        VoxelType v = getVoxel(wx, wy, wz);
+        return InWaterVolume(getVoxel, getVoxel(wx, wy, wz), wx, wy, wz);
+    }
+
+    // Overload for callers that already read the cell's own type.
+    private static bool InWaterVolume(Func<int, int, int, VoxelType> getVoxel, VoxelType v, int wx, int wy, int wz)
+    {
         if (v == VoxelType.Water)
         {
             return true;
@@ -170,6 +197,26 @@ public static class WaterMesher
             || getVoxel(wx + 1, wy, wz) == VoxelType.Water
             || getVoxel(wx, wy, wz - 1) == VoxelType.Water
             || getVoxel(wx, wy, wz + 1) == VoxelType.Water;
+    }
+
+    // Is the first non-Water voxel above (wx, wy, wz) something other than
+    // solid — i.e. is the water column this cell belongs to open rather than
+    // capped by rock? Seeds the per-column walk in Build at the chunk's top
+    // cell; every cell below is one step off its neighbour above.
+    //
+    // Missing chunks read as Air, so this terminates at the top of the world;
+    // MAX_COLUMN_PROBE is a runaway guard against a getVoxel that doesn't.
+    private static bool ProbeOpenAbove(Func<int, int, int, VoxelType> getVoxel, int wx, int wy, int wz)
+    {
+        for (int i = 1; i <= MAX_COLUMN_PROBE; i++)
+        {
+            VoxelType v = getVoxel(wx, wy + i, wz);
+            if (v != VoxelType.Water)
+            {
+                return !VoxelTypeInfo.IsSolid(v);
+            }
+        }
+        return true;
     }
 
     private static void EmitTri(SurfaceTool st, Vector3 a, Vector3 b, Vector3 c, Vector3 n, Color col, Color custom)

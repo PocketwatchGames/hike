@@ -13,24 +13,30 @@
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://chvv0wjmu7jh1" path="res://resources/data/items/consumables/treasure_map_hub.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://wzruon1k89ern" path="res://resources/data/spawn/treasure_spot_crowns.tres" id="97_spot"]
+[ext_resource type="Script" uid="uid://61iu4uosbxjog" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="hub_gen_zoneterrain"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
 item = ExtResource("96_map")
 
+[sub_resource type="Resource" id="ZoneTerrain_hub_gen"]
+script = ExtResource("hub_gen_zoneterrain")
+elevation = 1.0
+elevationRange = 0.2
+benchedFraction = 0.0
+cliffScale = 0.3
+flattenSurface = true
+flattenLevel = 1
+metadata/_custom_type_script = "uid://61iu4uosbxjog"
+
 [resource]
 script = ExtResource("1_script")
+terrain = SubResource("ZoneTerrain_hub_gen")
 zone = ExtResource("2_zone")
 surfaceKit = ExtResource("6_vnuep")
 caveKit = ExtResource("4_kit_cave")
 submergedKit = ExtResource("5_kit_underwater")
 shoreKit = ExtResource("6_kit_shore")
-elevation = 1.0
-elevationRange = 1.0
-pathThreshold = 0.1
-pathBlendBand = 0.05
-tunnelThreshold = 0.1
-caveNoiseFrequency = 0.04
 grassThreshold = 0.3
 mobLevelMax = 0
 undergroundMobLevelMax = 1

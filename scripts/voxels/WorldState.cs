@@ -4,8 +4,11 @@ using Godot;
 
 public class WorldState
 {
-    public readonly Vector3I Min;
-    public readonly Vector3I Max;
+    // Chunk-coordinate extent, inclusive. Fixed at construction except for the
+    // Y axis, which worldgen fits to the terrain it built — see
+    // SetVerticalChunkExtent.
+    public Vector3I Min { get; private set; }
+    public Vector3I Max { get; private set; }
     public SimData SimData;
     // This world's authored scripted content (quests). Set at load from
     // WorldGenData.scriptData (GameClient.Init); null on a world with none, or on
@@ -251,6 +254,26 @@ public class WorldState
         HumidityVariance = DayHumidityVariance;
         CloudVariance = DayCloudVariance;
         LightningVariance = DayLightningVariance;
+    }
+
+    // Fit the vertical extent to the terrain worldgen just built. The heightmap
+    // is produced before any chunk exists, so the world doesn't have to guess
+    // its own height up front — see WorldGen.FitVerticalExtent for the headroom
+    // rules. Guarded on emptiness because every chunk's coord, and every
+    // Min.Y-relative scan, would be sized against the old extent.
+    //
+    // A world that reaches its own top voxel has no air above the peaks: the
+    // sunlight column scan breaks on the first solid voxel it meets and the
+    // whole column goes dark, and anything sampling the light_map above the top
+    // wraps back to the underground band. Hence the guaranteed headroom.
+    public void SetVerticalChunkExtent(int minChunkY, int maxChunkY)
+    {
+        if (_chunks.Count > 0)
+        {
+            throw new InvalidOperationException("SetVerticalChunkExtent after chunks exist");
+        }
+        Min = new Vector3I(Min.X, minChunkY, Min.Z);
+        Max = new Vector3I(Max.X, maxChunkY, Max.Z);
     }
 
     // Pre-roll a fresh DAY and NIGHT weather slot from WeatherRng. Called at
@@ -937,6 +960,23 @@ public class WorldState
         int sy = Mod(cellWy, ChunkState.ENV_SUBGRID_SIZE);
         int sz = Mod(cellWz, ChunkState.ENV_SUBGRID_SIZE);
         return chunk.GetCurrent(sx, sy, sz);
+    }
+
+    // Write one env cell's current, addressed in WORLD cell coords. Public
+    // because worldgen bakes the field per column and has to resolve the chunk
+    // per cell; a cell outside the loaded world is dropped rather than faulted in.
+    public void SetCurrentAtCell(int cellWx, int cellWy, int cellWz, float fx, float fz)
+    {
+        Vector3I cc = CellWorldToChunkCoord(cellWx, cellWy, cellWz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return;
+        }
+        chunk.SetCurrent(
+            Mod(cellWx, ChunkState.ENV_SUBGRID_SIZE),
+            Mod(cellWy, ChunkState.ENV_SUBGRID_SIZE),
+            Mod(cellWz, ChunkState.ENV_SUBGRID_SIZE),
+            fx, fz);
     }
 
     private int GetWindFactorAtCell(int cellWx, int cellWy, int cellWz)

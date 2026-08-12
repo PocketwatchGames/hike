@@ -3,9 +3,12 @@ using Godot;
 // Per-zone world generation parameters. WorldGenData.Zones[] holds one of
 // these per zone; each entry's index becomes the ChunkState.ZoneIndex
 // stamped on every chunk it owns. WorldGen blends each per-position scalar
-// (BaseElevation, ElevationRange, thresholds, densities) across a chunk-kernel
-// so transitions between adjacent zones are smooth rather than snapping at
-// chunk borders.
+// across a chunk-kernel so transitions between adjacent zones are smooth
+// rather than snapping at chunk borders.
+//
+// TERRAIN TUNING IS NOT HERE — it lives on the `terrain` sub-resource, one
+// subclass per approach. Adding a terrain field to this class is what let two
+// approaches' knobs end up interleaved with nothing marking which was which.
 //
 // `Zone` is the authored theme + weather profile for this zone. WorldGen
 // copies it into WorldState.Zones[i].Data, where it drives sky/water tinting
@@ -66,32 +69,12 @@ public partial class ZoneGenData : Resource
     // [ShoreSubmergedElevationMin, ShoreSubmergedElevationMax] meters).
     [Export] public TerrainKitData shoreKit;
 
-    // Authored center elevation for the zone, in PlateauStep units. The
-    // value is treated as the elevation at the zone's center; WorldGen
-    // kernel-blends it across (wx, wz) so adjacent zones transition
-    // smoothly. +1 reads as one plateau step above sea level, -1 as one
-    // below. Inland zones sit at +1 by convention; wetlands at -1; sea
-    // shelves at 0.
-    [Export] public float elevation = 0;
-
-    // Half-amplitude of plateau variation, in PlateauStep units. Per-column
-    // plateau height is approximately
-    //   (Elevation + ElevationRange * terrainNoise) × PlateauStep
-    // quantized to a multiple of PlateauStep before the coastal falloff.
-    // Mountain zones push this up for dramatic peaks; flat zones keep
-    // it lower.
-    [Export] public float elevationRange = 2;
-
-    // Force this zone's surface to a fixed flat plateau, overriding the noisy
-    // Elevation/Range/macro height. WorldGen blends the column height toward
-    // FlattenPlateau by the zone's kernel weight, so the zone core is dead flat
-    // while its edge melts back into the surrounding terrain. Used for a
-    // hand-placed clearing (e.g. the starting village pinned to the beach line).
-    [Export] public bool flattenSurface = false;
-    // Target plateau level when FlattenSurface is set, in PlateauStep units
-    // anchored at sea level: 0 = the beach/water line (dry shoreline, no water),
-    // +1 = one step above, -1 = submerged. Ignored unless FlattenSurface.
-    [Export] public int flattenPlateau = 0;
+    // This zone's terrain tuning, as a subclass matching the approach the world
+    // runs (OrganicZoneTerrainData, PlateauZoneTerrainData, ...). Holding it in
+    // one polymorphic slot is what keeps a zone authored for one approach free
+    // of another's knobs — they used to sit side by side here with nothing
+    // marking which was which. Null falls back to the base defaults.
+    [Export] public ZoneTerrainData terrain;
 
     // Per-column random elevation range (in meters) used to pick where
     // ShoreKit is stamped. Shore band above water level is a random value
@@ -103,20 +86,6 @@ public partial class ZoneGenData : Resource
     [Export] public float shoreElevationMax = 1.5f;
     [Export] public float shoreSubmergedElevationMin = -5f;
     [Export] public float shoreSubmergedElevationMax = -1f;
-
-    // Path height-smoothing parameters (currently unused by WorldGen — kept
-    // here as authored knobs reserved for the path/ramp authoring pass).
-    [Export] public float pathThreshold = 0.1f;
-    [Export] public float pathBlendBand = 0.05f;
-
-    [Export] public float tunnelThreshold = 0.1f;
-
-    // Cave 3D-noise frequency. The world-wide cave noise object uses the
-    // first zone's value (one shared FastNoiseLite per worldgen run);
-    // CaveThreshold can still vary per-zone to make some zones cavernous
-    // and others nearly solid.
-    [Export] public float caveNoiseFrequency = 0.04f;
-    [Export] public float caveThreshold = 0.25f;
 
     [Export] public float grassThreshold = 0.3f;
 

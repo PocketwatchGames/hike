@@ -13,7 +13,8 @@ shader_type spatial;
 //      here is to give the player a visible vestige of the branch when the
 //      leaves are gone — without them a deep forest reads as a row of hard
 //      cylinder ends pointing at the camera. Including the cutaway block
-//      would defeat the purpose.
+//      would defeat the purpose. This is ONLY about that fade — the ceiling
+//      clip below is a separate system and twigs take part in it normally.
 //
 //   2. Real rotation around the attach edge instead of an X-shear. Leaves
 //      cheat with `VERTEX.x += sin(...)` because each leaf is small and
@@ -107,9 +108,21 @@ global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
 
+// Ceiling cutaway, anchored on the twig's attach point (the branch tip) so it
+// cuts as a unit with the branch it hangs off. Globals owned by GameCamera;
+// declare before the include.
+global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_edge_softness;
+#include "res://shaders/clip_dither.gdshaderinc"
+
 varying vec3 world_pos;
 varying vec3 world_normal;
 varying vec3 v_card_tint;
+varying flat vec3 model_origin;
 
 float hash13(vec3 p) {
 	p = fract(p * vec3(0.1031, 0.1030, 0.0973));
@@ -140,6 +153,7 @@ void vertex() {
 	VERTEX = rotated;
 
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	model_origin = attach_world;
 
 	// World-space directional bend along wind_dir, gated by tip_mask AND by
 	// height01² — twigs on low branches barely move, twigs near the top
@@ -161,6 +175,10 @@ void vertex() {
 }
 
 void fragment() {
+	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
+		discard;
+	}
+
 	vec4 tex = texture(albedo_tex, UV);
 	if (tex.a < alpha_cutoff) {
 		discard;

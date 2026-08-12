@@ -30,6 +30,7 @@
 [ext_resource type="Resource" uid="uid://bsnxuawbk5idr" path="res://resources/data/items/scrolls/scroll_stew_sparrow_stamina.tres" id="sc5"]
 [ext_resource type="Resource" uid="uid://bn0ddrxc6ktjh" path="res://resources/data/items/scrolls/scroll_stew_lurker_stealth.tres" id="sc6"]
 [ext_resource type="Resource" uid="uid://kogvearm5wi2" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="sc7"]
+[ext_resource type="Script" uid="uid://61iu4uosbxjog" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="swamp_gen_zoneterrain"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -99,19 +100,21 @@ item = ExtResource("93_oil")
 count = 0
 countRange = 1
 
+[sub_resource type="Resource" id="ZoneTerrain_swamp_gen"]
+script = ExtResource("swamp_gen_zoneterrain")
+elevationRange = 0.7
+benchedFraction = 0.45
+cliffScale = 0.8
+metadata/_custom_type_script = "uid://61iu4uosbxjog"
+
 [resource]
 script = ExtResource("1_script")
+terrain = SubResource("ZoneTerrain_swamp_gen")
 zone = ExtResource("2_region")
 surfaceKit = ExtResource("3_kit_temperate")
 caveKit = ExtResource("4_kit_cave")
 submergedKit = ExtResource("5_kit_underwater")
 shoreKit = ExtResource("10_nd86w")
-elevationRange = 4.0
-pathThreshold = 0.1
-pathBlendBand = 0.05
-tunnelThreshold = 0.0
-caveNoiseFrequency = 0.04
-caveThreshold = 1.0
 grassThreshold = 0.5
 mobLevelMax = 1
 undergroundMobLevelMax = 2

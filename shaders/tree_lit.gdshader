@@ -181,8 +181,21 @@ uniform float silhouette_shadow_darkness : hint_range(0.0, 1.0) = 0.5;
 uniform vec3 leaf_tint_a : source_color = vec3(0.78, 1.0, 0.62);
 uniform vec3 leaf_tint_b : source_color = vec3(1.05, 1.0, 0.45);
 
+// Ceiling cutaway: discard above the animating camera clip, tested on the tree
+// ORIGIN so the tree cuts as a unit rather than being sliced at the plane —
+// same contract as model_lit. Globals owned by GameCamera; declare before the
+// include.
+global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_edge_softness;
+#include "res://shaders/clip_dither.gdshaderinc"
+
 varying vec3 world_pos;
 varying vec3 world_normal;
+varying flat vec3 model_origin;
 // Object-space position BEFORE the wind sway displacement is applied — used
 // for the detail noise and sphere-normal direction so both stay glued to the
 // leaves rather than swimming/rotating as the canopy waves.
@@ -236,6 +249,7 @@ void vertex() {
 	// trees a few meters apart land in unrelated cells of the same noise
 	// field — equivalent to giving each tree an independent random tint.
 	vec3 instance_seed = MODEL_MATRIX[3].xyz;
+	model_origin = instance_seed;
 	float instance_mix = value_noise_3d(instance_seed * detail_noise_scale);
 	instance_tint = mix(leaf_tint_a, leaf_tint_b, instance_mix);
 
@@ -259,6 +273,10 @@ void vertex() {
 }
 
 void fragment() {
+	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
+		discard;
+	}
+
 	vec4 tex = texture(albedo_tex, UV);
 	vec3 base = tex.rgb;
 

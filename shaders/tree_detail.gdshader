@@ -91,7 +91,8 @@ global uniform vec3 foliage_player_feet_world;
 global uniform vec3 foliage_player_head_world;
 global uniform float foliage_player_fade_radius;
 global uniform float foliage_player_fade_soft_edge;
-global uniform vec2 foliage_player_fade_aspect;
+// foliage_player_fade_aspect is declared by clip_iris.gdshaderinc, pulled in by
+// the ceiling-cutaway include below — the two effects share the shape.
 
 // Block-light shadow projector — see shaders/block_light_shadow.gdshaderinc.
 global uniform sampler2D block_light_shadow_tex : filter_linear;
@@ -103,6 +104,17 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
+
+// Ceiling cutaway, anchored on the detail's canopy-shell anchor (world_origin)
+// so a berry cuts with the leaves around it. Globals owned by GameCamera;
+// declare before the include.
+global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_edge_softness;
+#include "res://shaders/clip_dither.gdshaderinc"
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
@@ -183,6 +195,10 @@ void vertex() {
 }
 
 void fragment() {
+	if (clip_dither_should_discard_anchored(world_origin, frag_world_pos, FRAGCOORD.xy)) {
+		discard;
+	}
+
 	// Player-occlusion fade — verbatim from tree_cards_lit so details dither
 	// out inside the camera→player cutaway exactly like the leaves they sit
 	// among. See tree_cards_lit.gdshader for the full rationale.

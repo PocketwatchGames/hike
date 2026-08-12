@@ -43,6 +43,25 @@ public partial class SubscenePlacement : Resource
     // occupants.
     [Export] public SubsceneVariant[] variants = System.Array.Empty<SubsceneVariant>();
 
+    // Namespace this stamp's path hints register under: a hint tagged "door" in
+    // a placement named "house01" becomes the POI "house01.door", which a
+    // RoadConnection can name like any other place. Naming the PLACEMENT alone
+    // in a road works too — the route then ends at whichever of its hints lies
+    // nearest the road's other end.
+    //
+    // Empty falls back to the `.hikescene`'s file base name. That is unique
+    // only while the scene is stamped once, so name every placement explicitly
+    // as soon as you reuse a scene (worldgen warns on a collision and drops the
+    // duplicate's hints).
+    [Export] public string placementName = "";
+
+    // Auto-link this stamp's path hints that no authored road already reaches:
+    // worldgen spurs a path from each one to the nearest point of the road
+    // network it has laid so far (see WorldGen.ConnectPathHints), with the tread
+    // chosen per hint tag from WorldGenData.pathHintProfiles. Off = the hints
+    // are addressable POIs and nothing more.
+    [Export] public bool connectPathHints;
+
     // Open ground the scene INVITES worldgen content onto — a plaza, a
     // courtyard — as opposed to a building, where a spawn inside lands in a
     // wall. Lets the one-off fixture passes (a zone's villagers, its well, a

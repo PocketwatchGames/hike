@@ -22,6 +22,7 @@
 [ext_resource type="Resource" uid="uid://cslxq1vlr7qhf" path="res://resources/data/items/scrolls/scroll_stew_kun_kun_perception.tres" id="sc4"]
 [ext_resource type="Resource" uid="uid://dh8n7h0pji8hc" path="res://resources/data/items/scrolls/scroll_stew_sparrow_perception.tres" id="sc5"]
 [ext_resource type="Resource" uid="uid://bydps7ac5slb7" path="res://resources/data/items/scrolls/scroll_stew_drake_fortitude.tres" id="sc6"]
+[ext_resource type="Script" uid="uid://61iu4uosbxjog" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="mountain_gen_zoneterrain"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -67,19 +68,21 @@ item = ExtResource("93_oil")
 count = 0
 countRange = 1
 
+[sub_resource type="Resource" id="ZoneTerrain_mountain_gen"]
+script = ExtResource("mountain_gen_zoneterrain")
+elevation = 1.0
+elevationRange = 4.0
+benchedFraction = 0.7
+metadata/_custom_type_script = "uid://61iu4uosbxjog"
+
 [resource]
 script = ExtResource("1_script")
+terrain = SubResource("ZoneTerrain_mountain_gen")
 zone = ExtResource("2_region")
 surfaceKit = ExtResource("11_w82ce")
 caveKit = ExtResource("4_kit_cave")
 submergedKit = ExtResource("5_kit_underwater")
 shoreKit = ExtResource("9_w82ce")
-elevation = 1.0
-elevationRange = 8.0
-pathThreshold = 0.1
-pathBlendBand = 0.05
-tunnelThreshold = 0.1
-caveNoiseFrequency = 0.04
 grassThreshold = 0.5
 mobLevelMin = 3
 mobLevelMax = 4

@@ -95,6 +95,17 @@ public partial class EditorBrushPalette : Resource
 	// a SubscenePlacement's variants fill these pools by the same name.
 	[Export] public string[] markerTags = System.Array.Empty<string>();
 
+	[ExportGroup("Path Hints")]
+	// Pin drawn where a path hint stands — where a road is meant to touch this
+	// scene. Editor-only art, like the spawn pin: worldgen turns hints into
+	// points of interest at stamp time, so this scene never reaches a game.
+	[Export] public PackedScene pathHintScene;
+	// One brush per hint name. The name is what a RoadConnection addresses
+	// ("<placement>.<tag>") AND what picks the tread an auto-linked spur gets
+	// (WorldGenData.pathHintProfiles) — so "door" and "gate" are separate
+	// brushes. Adding a kind of hint is a string here, not a code change.
+	[Export] public string[] pathHintTags = System.Array.Empty<string>();
+
 	// Forecasts offered by the editor's Weather dropdown, in menu order. The
 	// selected one overrides the zone-blended weather so a scene can be
 	// authored under a chosen sky; the first entry is what the editor opens

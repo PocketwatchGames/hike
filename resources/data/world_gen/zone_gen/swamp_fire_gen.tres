@@ -25,6 +25,7 @@
 [ext_resource type="Resource" uid="uid://dk0h2j6nwppor" path="res://resources/data/items/scrolls/scroll_stew_goblin_stamina.tres" id="rc2"]
 [ext_resource type="Resource" uid="uid://bc3moj7xeffyk" path="res://resources/data/items/scrolls/scroll_stew_goblin_health.tres" id="rc3"]
 [ext_resource type="Resource" uid="uid://dgjdiakyoixma" path="res://resources/data/items/scrolls/scroll_stew_spider_health.tres" id="rc4"]
+[ext_resource type="Script" uid="uid://3pbpzzvmrk0vy" path="res://scripts/data/worldgen/PlateauZoneTerrainData.cs" id="swamp_fire_gen_zoneterrain"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
@@ -70,19 +71,24 @@ scatterRadius = 4.0
 entries = Array[ExtResource("3_e22q0")]([SubResource("Campfire_swamp"), SubResource("Stone_swamp")])
 metadata/_custom_type_script = "uid://ci23e7ltpsb6o"
 
-[resource]
-script = ExtResource("11_dk2qw")
-zone = ExtResource("17_1xuj7")
-surfaceKit = ExtResource("15_e12v7")
-caveKit = ExtResource("2_qsxp7")
-submergedKit = ExtResource("13_5miyb")
-shoreKit = ExtResource("12_vw5yw")
+[sub_resource type="Resource" id="ZoneTerrain_swamp_fire_gen"]
+script = ExtResource("swamp_fire_gen_zoneterrain")
 elevationRange = 4.0
 pathThreshold = 0.1
 pathBlendBand = 0.05
 tunnelThreshold = 0.0
 caveNoiseFrequency = 0.04
 caveThreshold = 1.0
+metadata/_custom_type_script = "uid://3pbpzzvmrk0vy"
+
+[resource]
+script = ExtResource("11_dk2qw")
+terrain = SubResource("ZoneTerrain_swamp_fire_gen")
+zone = ExtResource("17_1xuj7")
+surfaceKit = ExtResource("15_e12v7")
+caveKit = ExtResource("2_qsxp7")
+submergedKit = ExtResource("13_5miyb")
+shoreKit = ExtResource("12_vw5yw")
 grassThreshold = 0.5
 mobLevelMax = 1
 undergroundMobLevelMax = 2

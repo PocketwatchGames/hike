@@ -20,10 +20,12 @@ public partial class Main : Node
 	// Default worldgen run parameters. Fixed so a fresh boot deterministically
 	// reproduces the same world.
 	private const int DEFAULT_WORLD_SEED = 12345;
+	// HORIZONTAL extent in chunks (X, Z). World height is not a run knob — it is
+	// fitted to the generated terrain (WorldGen.FitVerticalExtent).
 	// The shoreline ocean falloff in WorldGen.BuildHeightMap is anchored to the
 	// east world edge (distFromEastEdge = worldMaxX - wx), so the X extent sets
 	// how far out the coast lands — no separate coastline knob to retune.
-	private static readonly Vector3I DEFAULT_WORLD_SIZE = new Vector3I(18, 3, 16);
+	private static readonly Vector2I DEFAULT_WORLD_SIZE = new Vector2I(18, 16);
 
 	Node _currentScreen;
 
@@ -70,6 +72,18 @@ public partial class Main : Node
 		{
 			WorldGen.Generate(defaultWorldGenData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE);
 			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(debugDumpDir));
+			GetTree().Quit();
+			return;
+		}
+
+		// Same dump, terrain only — no chunks, lighting, props or roads. None of
+		// those change the height field, so this is the loop for iterating on a
+		// TerrainGenData.
+		string terrainDumpDir = CVars.worldgenTerrainDump.Value;
+		if (!string.IsNullOrEmpty(terrainDumpDir))
+		{
+			WorldGen.GenerateTerrainOnly(defaultWorldGenData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE);
+			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(terrainDumpDir));
 			GetTree().Quit();
 			return;
 		}

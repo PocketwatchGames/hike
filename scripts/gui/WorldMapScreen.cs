@@ -218,7 +218,9 @@ public partial class WorldMapScreen : Control
 		mat.SetShaderParameter("map_rotation", map.MapRotation);
 		mat.SetShaderParameter("state_transition", 1f);
 		// Read the surrounding terrain relative to the dig site's own elevation.
-		mat.SetShaderParameter("reference_elevation_b", map.DigLocation.Y);
+		// Biased into the map textures' height space (see MinimapData.HeightBias);
+		// a raw world Y here would classify the whole map to one side.
+		mat.SetShaderParameter("reference_elevation_b", map.DigLocation.Y - minimap.HeightBias);
 		mat.SetShaderParameter("min_reveal", 1f);
 
 		EnsureOverlays();

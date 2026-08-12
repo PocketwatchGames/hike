@@ -47,6 +47,13 @@ public sealed class SubsceneDirectory
                 {
                     continue;
                 }
+                // A path hint's tag names a road endpoint, not a spawn pool —
+                // listing it here would offer a variant a position it must
+                // never fill. `subscene_info` reports hints off the entity list.
+                if (entity is PathHintSimState)
+                {
+                    continue;
+                }
                 counts.TryGetValue(entity.Tag, out int existing);
                 counts[entity.Tag] = existing + 1;
             }

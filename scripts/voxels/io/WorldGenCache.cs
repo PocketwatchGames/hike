@@ -18,9 +18,11 @@ public static class WorldGenCache
     // file path. Format / WorldGen logic version is rolled into the
     // fingerprint, not the filename, so a version bump leaves old files
     // orphaned in the cache dir (cleaned by world_cache_clear).
-    public static string GetCachePath(int seed, Vector3I size, string fingerprint)
+    // size is the horizontal extent in chunks; world height is derived from the
+    // terrain and so is already covered by the data fingerprint.
+    public static string GetCachePath(int seed, Vector2I size, string fingerprint)
     {
-        return $"{CACHE_DIR}/world_seed{seed}_size{size.X}x{size.Y}x{size.Z}_{fingerprint}.hike";
+        return $"{CACHE_DIR}/world_seed{seed}_size{size.X}x{size.Y}_{fingerprint}.hike";
     }
 
     public static bool Exists(string resPath)

@@ -35,9 +35,11 @@
 [ext_resource type="Resource" uid="uid://9a30yzgrtp5i4" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
 [ext_resource type="Resource" uid="uid://p8myqetzi5fav" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
 [ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="70_subplace"]
+[ext_resource type="Script" uid="uid://xc26xciarem5d" path="res://scripts/data/worldgen/PathHintProfile.cs" id="74_pathprofile"]
 [ext_resource type="Script" uid="uid://zdnwz72z5aj9h" path="res://scripts/data/SubsceneVariant.cs" id="71_subvariant"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/hub_house01.tres" id="72_house01npcs"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/spawn_lists/hub_house02.tres" id="73_house02npcs"]
+[ext_resource type="Resource" uid="uid://b0rwb5o3crwif" path="res://resources/data/world_gen/spawn_lists/hub_house01.tres" id="72_house01npcs"]
+[ext_resource type="Resource" uid="uid://jcf5m3i0bsw5" path="res://resources/data/world_gen/spawn_lists/hub_house02.tres" id="73_house02npcs"]
+[ext_resource type="Resource" uid="uid://drjqxsedic4nq" path="res://resources/data/world_gen/cellular_terrain.tres" id="80_cellular"]
 
 [sub_resource type="Resource" id="Resource_know_cure"]
 script = ExtResource("3_spellteach")
@@ -179,32 +181,54 @@ toPoi = "desert_well"
 texture = ExtResource("57_dirt")
 metadata/_custom_type_script = "uid://zanft4hzkpfhf"
 
+[sub_resource type="Resource" id="PathProfile_gate"]
+script = ExtResource("74_pathprofile")
+hintTag = "gate"
+minWidth = 3
+maxWidth = 4
+texture = ExtResource("58_cobble")
+metadata/_custom_type_script = "uid://xc26xciarem5d"
+
+[sub_resource type="Resource" id="PathProfile_door"]
+script = ExtResource("74_pathprofile")
+hintTag = "door"
+minWidth = 2
+maxWidth = 2
+texture = ExtResource("57_dirt")
+metadata/_custom_type_script = "uid://xc26xciarem5d"
+
+[sub_resource type="Resource" id="Subscene_town_square"]
+script = ExtResource("70_subplace")
+placementName = "town_square"
+connectPathHints = true
+path = "res://resources/data/subscenes/town_square01.hikescene"
+anchorXZ = Vector2i(1, 2)
+allowFixtures = true
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
 [sub_resource type="Resource" id="Variant_house01_npcs"]
 script = ExtResource("71_subvariant")
 poolTag = "npc"
 content = ExtResource("72_house01npcs")
+
+[sub_resource type="Resource" id="Subscene_house01"]
+script = ExtResource("70_subplace")
+placementName = "house01"
+connectPathHints = true
+path = "res://resources/data/subscenes/house01.hikescene"
+anchorXZ = Vector2i(-2, -15)
+variants = [SubResource("Variant_house01_npcs")]
+metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Variant_house02_npcs"]
 script = ExtResource("71_subvariant")
 poolTag = "npc"
 content = ExtResource("73_house02npcs")
 
-[sub_resource type="Resource" id="Subscene_town_square"]
-script = ExtResource("70_subplace")
-path = "res://resources/data/subscenes/town_square01.hikescene"
-anchorXZ = Vector2i(1, 2)
-allowFixtures = true
-metadata/_custom_type_script = "uid://bdc40uotdg2kx"
-
-[sub_resource type="Resource" id="Subscene_house01"]
-script = ExtResource("70_subplace")
-path = "res://resources/data/subscenes/house01.hikescene"
-anchorXZ = Vector2i(-2, -15)
-variants = [SubResource("Variant_house01_npcs")]
-metadata/_custom_type_script = "uid://bdc40uotdg2kx"
-
 [sub_resource type="Resource" id="Subscene_house02"]
 script = ExtResource("70_subplace")
+placementName = "house02"
+connectPathHints = true
 path = "res://resources/data/subscenes/house02.hikescene"
 anchorXZ = Vector2i(-2, 18)
 variants = [SubResource("Variant_house02_npcs")]
@@ -212,12 +236,16 @@ metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Subscene_house03"]
 script = ExtResource("70_subplace")
+placementName = "house03"
+connectPathHints = true
 path = "res://resources/data/subscenes/house03.hikescene"
 anchorXZ = Vector2i(-21, -1)
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
 [sub_resource type="Resource" id="Subscene_house04"]
 script = ExtResource("70_subplace")
+placementName = "house04"
+connectPathHints = true
 path = "res://resources/data/subscenes/house04.hikescene"
 anchorXZ = Vector2i(17, -1)
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
@@ -271,7 +299,7 @@ metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 
 [sub_resource type="Resource" id="Bounds_hub"]
 script = ExtResource("42_box")
-halfExtentChunks = Vector2i(2, 2)
+halfExtentChunks = Vector2i(3, 3)
 priority = 2
 metadata/_custom_type_script = "uid://ybuh4cg341pyp"
 
@@ -290,6 +318,7 @@ regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), Ext
 playerSpawnPosition = Vector3(8, 0, 8)
 subscenes = [SubResource("Subscene_town_square"), SubResource("Subscene_house01"), SubResource("Subscene_house02"), SubResource("Subscene_house03"), SubResource("Subscene_house04")]
 pointsOfInterestPlacements = [SubResource("Poi_crossroads"), SubResource("Poi_mountain"), SubResource("Poi_desert"), SubResource("Poi_swamp"), SubResource("Poi_forest")]
+pathHintProfiles = [SubResource("PathProfile_gate"), SubResource("PathProfile_door")]
 roads = [SubResource("Road_mountain"), SubResource("Road_forest"), SubResource("Road_desert"), SubResource("Road_swamp"), SubResource("Road_forest_desert")]
 forge = ExtResource("62_forge")
 healingFountain = ExtResource("63_fountain")
@@ -298,3 +327,4 @@ manaFountain = ExtResource("64_mana")
 manaFountainCount = 3
 startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]
 initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_cure"), SubResource("Resource_know_dogtreat"), SubResource("Resource_1pd0y")])
+terrain = ExtResource("80_cellular")

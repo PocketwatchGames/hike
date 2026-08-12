@@ -1,12 +1,12 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://qnnl3zd5aos4h"]
 
-[ext_resource type="Script" path="res://scripts/gameplay/entities/ExplodingBarrel.cs" id="1_barrel"]
+[ext_resource type="Script" uid="uid://bjsflq4w3fdph" path="res://scripts/gameplay/entities/ExplodingBarrel.cs" id="1_barrel"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="2_porous"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="3_hurtbox"]
 [ext_resource type="PackedScene" uid="uid://dfayt3jalq0im" path="res://assets/models/furniture/SM_Prop_Barrel_01.fbx" id="4_intact"]
 [ext_resource type="PackedScene" uid="uid://bn6xtn81s3bab" path="res://assets/models/furniture/SM_Prop_Barrel_Broken_01.fbx" id="5_broken"]
 [ext_resource type="Material" uid="uid://bscorchstn4mq" path="res://resources/materials/scorch_stain.tres" id="6_scorch"]
-[ext_resource type="PackedScene" path="res://scenes/fx/barrel_explosion.tscn" id="7_explosion"]
+[ext_resource type="PackedScene" uid="uid://kv5h72dbtfxcz" path="res://scenes/fx/barrel_explosion.tscn" id="7_explosion"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_body"]
 size = Vector3(0.7676, 1.0312, 0.7677)

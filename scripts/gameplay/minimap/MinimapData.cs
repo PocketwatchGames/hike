@@ -59,6 +59,24 @@ public static class MinimapData
     // contribution (even just 1) overrides it.
     public const ushort NoSurfaceHeight = 0;
 
+    // Heights are stored BIASED by the world's lowest voxel Y, as
+    // `worldY + 1 - heightBias`, so the stored value is always >= 1 and 0 stays
+    // free as the no-surface sentinel.
+    //
+    // The bias exists because the world has negative chunk Y (WorldGen's
+    // FitVerticalExtent sizes the vertical extent to the terrain and digs
+    // undergroundDepthVoxels below it). Storing a raw negative worldY in a ushort
+    // wraps it to ~65520, and since the caller's merge keeps the HIGHEST value,
+    // one underground chunk then outranks every real surface in the world and
+    // flattens the entire heightmap to a constant.
+    //
+    // Nothing in the shader needs to know: every term it computes is either a
+    // difference between heights (contour is_step, fwidth) or a comparison
+    // against reference_elevation, which Minimap biases identically. Callers that
+    // want an absolute world Y go through MinimapTextures.GetHeightAtWorld, which
+    // removes the bias.
+    public static int HeightBias(WorldState world) => world.Min.Y * ChunkState.SIZE;
+
     // Cap on samples marched along a single line-of-sight ray. Keeps per-ray
     // cost O(1) regardless of reveal radius — the march step grows with
     // distance so a huge bird's-eye disk costs the same per cell as a small one.
@@ -101,7 +119,8 @@ public static class MinimapData
         ChunkState chunk,
         DetailGroupData[] detailPalette,
         TerrainData[] terrainPalette,
-        SurfaceCell[] output)
+        SurfaceCell[] output,
+        int heightBias)
     {
         if (output.Length < OutdoorPixelsPerChunkSq)
         {
@@ -131,7 +150,7 @@ public static class MinimapData
             // the surface contribution. A higher chunk above (if also solid)
             // will out-rank this via the caller's monotonic merge.
             int topWorldY = chunkBaseY + ChunkState.SIZE - 1;
-            int height = topWorldY + 1;
+            int height = topWorldY + 1 - heightBias;
             int pureTerrainId = chunk.GetTerrainId(0, ChunkState.SIZE - 1, 0);
             int pureOverlayId = chunk.GetOverlayId(0, ChunkState.SIZE - 1, 0);
             byte tileId = (byte)ResolveSurfaceTileId(pureType, topWorldY, pureTerrainId, pureOverlayId, terrainPalette);
@@ -173,7 +192,7 @@ public static class MinimapData
                                 continue;
                             }
                             int worldY = chunkBaseY + y;
-                            ushort height = (ushort)(worldY + 1);
+                            ushort height = (ushort)(worldY + 1 - heightBias);
                             if (height > bestHeight)
                             {
                                 int TerrainId = chunk.GetTerrainId(x, y, z);

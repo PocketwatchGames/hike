@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="OrganicTerrainData" format=3 uid="uid://bph86p5nb77fr"]
+
+[ext_resource type="Script" uid="uid://b4r3yin58feey" path="res://scripts/data/worldgen/OrganicTerrainData.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+warpFrequency = 0.004
+macroFrequency = 0.005
+reliefFrequency = 0.012
+reliefAmplitudeScale = 1.3
+reliefMaskFrequency = 0.006
+reliefMaskLow = -0.3
+reliefMaskHigh = 0.1
+roughnessFrequency = 0.03
+roughnessAmplitude = 0.6
+drainageSlopeReference = 0.13
+faultFrequency = 0.05
+faultBreachFrequency = 0.006
+faultBreachLow = -0.35
+faultBreachHigh = 0.1
+benchMaskFrequency = 0.03
+benchMaskEdge = 0.06
+benchMaskCenterRange = 0.35
+benchSlopeLow = 0.013
+benchSlopeHigh = 0.045
+benchRiserFraction = 0.15
+benchPhaseFrequency = 0.01
+benchStepFrequency = 0.002
+maxWalkableGrade = 0.45
+metadata/_custom_type_script = "uid://npzpqofww00oa"

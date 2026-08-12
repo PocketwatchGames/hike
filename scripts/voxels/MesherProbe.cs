@@ -25,7 +25,21 @@ public static class MesherProbe
         RUN = 2; RampShadingTerms();
         RUN = 3; RampShadingTerms();
         RUN = 2; RampGeometry();
-        CliffGeometry();
+        foreach (int drop in new[] { 2, 3, 4, 6, 8 }) { CliffGeometry(drop); }
+        // The same sweep with the shading smoothers off. Their whole job is to
+        // stop a terraced RAMP from banding, and they do it by averaging a
+        // riser's vertex normals into the treads it sits between — which also
+        // decides whether a short wall can ever reach the wall tile. The A/B is
+        // what separates "the geometry isn't vertical" (it is, at every drop)
+        // from "the shading normal was averaged away" (it was).
+        int cliffRelax0 = ChunkMesherDC.VERT_RELAX_ITERATIONS;
+        int cliffSmooth0 = ChunkMesherDC.NORMAL_SMOOTH_ITERATIONS;
+        ChunkMesherDC.VERT_RELAX_ITERATIONS = 0;
+        ChunkMesherDC.NORMAL_SMOOTH_ITERATIONS = 0;
+        GD.Print("[probe] --- relax=0 smooth=0 ---");
+        foreach (int drop in new[] { 2, 3, 4 }) { CliffGeometry(drop); }
+        ChunkMesherDC.VERT_RELAX_ITERATIONS = cliffRelax0;
+        ChunkMesherDC.NORMAL_SMOOTH_ITERATIONS = cliffSmooth0;
         RUN = 2; DiagonalWall();
         RUN = 3; DiagonalWall();
         Tunnel();
@@ -239,58 +253,171 @@ public static class MesherProbe
     }
 
     // Vertical cliff face: a plateau top at y=10 for x<8, dropping to y=3.
-    private static void CliffGeometry()
+    // Cliff face geometry AND shading normal, per wall height. The material pick
+    // is smoothstep(wallBand.x, wallBand.y, normal.y) in voxel_clip.gdshader and
+    // the authored bands start at 0.3–0.4, so a face whose normal.y never gets
+    // below that renders as ground however vertical the geometry under it is.
+    // Sweeping the drop is what shows where that threshold is actually crossed —
+    // the terracing approaches pick their quantize step against this.
+    private const int CLIFF_BASE = 3;
+
+    private static void CliffGeometry(int drop)
     {
+        CliffFace(drop, print: true);
+        CliffFace(drop, print: true, diagonal: true);
+    }
+
+    // Flattest normal.y anywhere on the face. This is the number the wall/flat
+    // pick reads: below the terrain's wallBand.x the face renders as wall.
+    //
+    // `diagonal` runs the plateau edge at 45 degrees THROUGH THE XZ GRID instead
+    // of along it. Worth testing separately because the two cases reach the
+    // smoothing gate differently: an axis-aligned riser's face cells all share
+    // one normal, while a diagonal edge is a plan-view staircase of -X and -Z
+    // cells that are 90 degrees apart and therefore reject each other.
+    // `sharpRiser` stamps SharpAxes.All on the riser voxels, which is what makes
+    // DC cut a true cubic face there instead of a Y-snapped one.
+    private static float CliffFace(int drop, bool print, bool diagonal = false, bool sharpRiser = false)
+    {
+        int high = CLIFF_BASE + drop;
         var v = new VoxelType[N, N, N];
-        var top = new int[N];
+        var top = new int[N, N];
         for (int x = 0; x < N; x++)
         {
-            top[x] = x < 8 ? 10 : 3;
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= top[x]; y++) { v[x, y, z] = VoxelType.Terrain; }
+                top[x, z] = (diagonal ? x + z < N : x < 8) ? high : CLIFF_BASE;
+                for (int y = 0; y <= top[x, z]; y++) { v[x, y, z] = VoxelType.Terrain; }
             }
         }
         VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        int Top(int x, int z) => top[Mathf.Clamp(x, 0, N - 1), Mathf.Clamp(z, 0, N - 1)];
         VoxelTypeInfo.SharpAxes Shape(int x, int y, int z)
         {
             if (Get(x, y, z) == VoxelType.Air) { return VoxelTypeInfo.SharpAxes.None; }
+            // A riser voxel: buried under the high tread, exposed sideways to
+            // the low one. Only these get the cubic treatment — the treads stay
+            // Y-snapped so flat ground is unaffected.
+            if (sharpRiser && x >= 0 && x < N && z >= 0 && z < N && y <= Top(x, z) && y > CLIFF_BASE
+                && (Top(x - 1, z) < y || Top(x + 1, z) < y || Top(x, z - 1) < y || Top(x, z + 1) < y))
+            {
+                return VoxelTypeInfo.SharpAxes.All;
+            }
             // A plateau edge jumps more than maxGradeStep, so no column here
             // qualifies as a grade — every surface voxel snaps, as in worldgen.
             return VoxelTypeInfo.SharpAxes.Y;
         }
         var verts = Build(Get, Shape, out Vector3[] norms);
 
-        var maxX = new float[N];
+        int loY = CLIFF_BASE + 1;
         var minX = new float[N];
         var seen = new bool[N];
-        for (int i = 0; i < verts.Length; i++)
-        {
-            Vector3 p = verts[i];
-            if (p.Z < 5f || p.Z > 11f) { continue; }
-            if (p.Y < 4f || p.Y > 10f) { continue; }
-            if (p.X < 6f || p.X > 10f) { continue; }
-            int yi = Mathf.Clamp(Mathf.FloorToInt(p.Y + 0.001f), 0, N - 1);
-            if (!seen[yi]) { maxX[yi] = p.X; minX[yi] = p.X; }
-            else { maxX[yi] = Mathf.Max(maxX[yi], p.X); minX[yi] = Mathf.Min(minX[yi], p.X); }
-            seen[yi] = true;
-        }
-        var sb = new System.Text.StringBuilder("[probe] cliff face vertex X by y: ");
-        for (int y = 4; y <= 10; y++) { sb.Append(seen[y] ? $"{minX[y]:F2} " : " --  "); }
-        GD.Print(sb.ToString());
-
-        var sn = new System.Text.StringBuilder("[probe] cliff face normal.x by y: ");
-        var sum = new float[N];
+        var sumNy = new float[N];
         var cnt = new int[N];
         for (int i = 0; i < verts.Length; i++)
         {
             Vector3 p = verts[i];
-            if (p.Z < 5f || p.Z > 11f || p.Y < 4f || p.Y > 10f || p.X < 6f || p.X > 10f) { continue; }
+            if (p.Y < loY || p.Y > high) { continue; }
+            // Sample away from the chunk border either way; the diagonal edge
+            // runs the whole map, so it is picked out by distance to the line.
+            if (diagonal)
+            {
+                if (p.X < 3f || p.X > 13f || p.Z < 3f || p.Z > 13f) { continue; }
+                if (Mathf.Abs(p.X + p.Z - N) > 1.5f) { continue; }
+            }
+            else
+            {
+                if (p.Z < 5f || p.Z > 11f) { continue; }
+                if (p.X < 6f || p.X > 10f) { continue; }
+            }
             int yi = Mathf.Clamp(Mathf.FloorToInt(p.Y + 0.001f), 0, N - 1);
-            sum[yi] += norms[i].X; cnt[yi]++;
+            minX[yi] = seen[yi] ? Mathf.Min(minX[yi], p.X) : p.X;
+            seen[yi] = true;
+            sumNy[yi] += norms[i].Y;
+            cnt[yi]++;
         }
-        for (int y = 4; y <= 10; y++) { sn.Append(cnt[y] > 0 ? $"{sum[y] / cnt[y]:F2} " : " --  "); }
-        GD.Print(sn.ToString());
+
+        string tag = (diagonal ? "diag" : "axis") + (sharpRiser ? "+sharp" : "");
+        var sn = new System.Text.StringBuilder($"[probe] cliff {tag,10} drop={drop,2} face normal.y by y: ");
+        float best = 1f;
+        for (int y = loY; y <= high; y++)
+        {
+            if (cnt[y] == 0) { sn.Append(" --  "); continue; }
+            float ny = sumNy[y] / cnt[y];
+            best = Mathf.Min(best, ny);
+            sn.Append($"{ny:F2} ");
+        }
+
+        if (print)
+        {
+            var sb = new System.Text.StringBuilder($"[probe] cliff {tag,10} drop={drop,2} face vertex X by y: ");
+            for (int y = loY; y <= high; y++) { sb.Append(seen[y] ? $"{minX[y]:F2} " : " --  "); }
+            GD.Print(sb.ToString());
+            sn.Append($"| flattest {best:F2}");
+            GD.Print(sn.ToString());
+        }
+        return best;
+    }
+
+    // Can a step be given a wall face at ONE voxel — the height every character
+    // walks up without a jump? Two candidate levers, measured against the
+    // wallBand.x (0.3-0.4) the wall tile needs:
+    //   Y-snap   — what worldgen stamps today, but only if the step is not
+    //              classified as a grade first (maxGradeStep must be 0, or a
+    //              1-voxel delta is smoothed by definition and never gets here).
+    //   All-snap — SharpAxes.All on the riser voxels alone. DC then places their
+    //              vertices on the voxel-grid corner, so the face is cubic, and
+    //              the shader takes its face normal verbatim (sharpness = 1)
+    //              instead of an averaged one.
+    public static void StepTexture()
+    {
+        GD.Print("[step] drop | axis Ysnap  axis All | diag Ysnap  diag All   (want < 0.30)");
+        foreach (int drop in new[] { 1, 2, 3 })
+        {
+            float ay = CliffFace(drop, false);
+            float aa = CliffFace(drop, false, sharpRiser: true);
+            float dy = CliffFace(drop, false, diagonal: true);
+            float da = CliffFace(drop, false, diagonal: true, sharpRiser: true);
+            GD.Print($"[step] {drop,4} | {ay,10:F2} {aa,9:F2} | {dy,10:F2} {da,9:F2}");
+        }
+    }
+
+    // The crease gate against both things it has to serve at once: can a SHORT
+    // wall keep a wall-tile normal, and do RAMPS still come out unbanded? The
+    // gate is the only knob that can separate them — a riser's lips sit ~45
+    // degrees away (dot ~0.7) while a ramp's neighbours are within a few degrees
+    // (dot ~1.0), so there is a threshold between the two if the numbers allow.
+    // Wall columns want to be BELOW wallBand.x (0.3-0.4); ramp spreads want to
+    // stay near zero; tunnel wants 1.000 (buried air must not tilt the surface).
+    public static void WallSweep()
+    {
+        float minDot0 = ChunkMesherDC.NORMAL_SMOOTH_MIN_DOT;
+        int relax0 = ChunkMesherDC.VERT_RELAX_ITERATIONS;
+
+        GD.Print("[wall] relax minDot | axis d2 d3 d4 | diag d2 d3 d4 (want <0.30) |"
+            + " ramp 1-in-2 1-in-3 (want ~0) | tunnel (want 1.000)");
+        foreach (int relax in new[] { 0, 1, 2 })
+        {
+            foreach (float minDot in new[] { 0.5f, 0.7f, 0.8f, 0.9f, 0.95f, 0.99f })
+            {
+                ChunkMesherDC.VERT_RELAX_ITERATIONS = relax;
+                ChunkMesherDC.NORMAL_SMOOTH_MIN_DOT = minDot;
+                float a2 = CliffFace(2, false);
+                float a3 = CliffFace(3, false);
+                float a4 = CliffFace(4, false);
+                float g2 = CliffFace(2, false, diagonal: true);
+                float g3 = CliffFace(3, false, diagonal: true);
+                float g4 = CliffFace(4, false, diagonal: true);
+                RUN = 2; float r2 = RampSpread();
+                RUN = 3; float r3 = RampSpread();
+                float tn = TunnelWorstNy();
+                GD.Print($"[wall] {relax,5} {minDot,6:F2} | {a2,5:F2} {a3,5:F2} {a4,5:F2}"
+                    + $" | {g2,5:F2} {g3,5:F2} {g4,5:F2} | {r2,6:F3} {r3,6:F3} | {tn,6:F3}");
+            }
+        }
+
+        ChunkMesherDC.NORMAL_SMOOTH_MIN_DOT = minDot0;
+        ChunkMesherDC.VERT_RELAX_ITERATIONS = relax0;
     }
 
     // The two per-vertex terms that modulate lighting but are invisible in the

@@ -380,9 +380,10 @@ public partial class BirdsEyeController : Node
 		}
 
 		// Recede the scene Environment's built-in DEPTH fog along the same eased
-		// curve. This is a SEPARATE fog system from the custom volumetric pass
-		// (SkyController only drives the latter); its authored ~88–105 m black
-		// wall would otherwise black out all distant ground in the overview.
+		// curve. This is a SEPARATE fog system from the custom volumetric pass;
+		// SkyController drives its COLOUR only, so the depth range is ours to
+		// scale — without it the ground-level range would haze out all distant
+		// ground in the overview.
 		Godot.Environment fogEnv = GameClient.Current?.sceneEnvironment?.Environment;
 		if (fogEnv != null)
 		{

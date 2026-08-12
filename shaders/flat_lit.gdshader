@@ -36,17 +36,35 @@ global uniform float cloud_altitude;
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
 
+// Ceiling cutaway: discard above the animating camera clip, tested on the mesh
+// ORIGIN so the whole piece cuts as a unit rather than being sliced at the
+// plane — same contract as model_lit. Globals owned by GameCamera; declare
+// before the include.
+global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_edge_softness;
+#include "res://shaders/clip_dither.gdshaderinc"
+
 uniform float form_strength : hint_range(0.0, 1.0) = 0.55;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
+varying flat vec3 model_origin;
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	model_origin = MODEL_MATRIX[3].xyz;
 }
 
 void fragment() {
+	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
+		discard;
+	}
+
 	vec3 base = color;
 
 	// Editor-preview fallback: light globals aren't registered until the game

@@ -18,16 +18,17 @@
 [ext_resource type="Resource" uid="uid://b1ee1ch87plrm" path="res://resources/data/weather/weather_clear.tres" id="15_weather_clear"]
 [ext_resource type="Resource" uid="uid://dg6i16eia6jvl" path="res://resources/data/roofs/roof_library.tres" id="16_rooflibrary"]
 [ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="17_campfire"]
-[ext_resource type="PackedScene" uid="uid://ct006vbgwucoe" path="res://scenes/interactives/forge.tscn" id="18_forge"]
+[ext_resource type="PackedScene" uid="uid://8q9ywcnhghcqi" path="res://scenes/interactives/forge.tscn" id="18_forge"]
 [ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="19_well"]
-[ext_resource type="PackedScene" uid="uid://dfo7hvqgrcw4g" path="res://scenes/interactives/fountain_healing.tscn" id="20_fountain_healing"]
-[ext_resource type="PackedScene" uid="uid://dvse25ibhjbg6" path="res://scenes/interactives/fountain_mana.tscn" id="21_fountain_mana"]
-[ext_resource type="PackedScene" path="res://scenes/editor/spawn_marker.tscn" id="22_marker"]
-[ext_resource type="PackedScene" uid="uid://6ed61nomh8wwo" path="res://scenes/interactives/trapdoor.tscn" id="23_trapdoor"]
+[ext_resource type="PackedScene" uid="uid://svcot4fgz5f5i" path="res://scenes/interactives/fountain_healing.tscn" id="20_fountain_healing"]
+[ext_resource type="PackedScene" uid="uid://phz0ub8154wqh" path="res://scenes/interactives/fountain_mana.tscn" id="21_fountain_mana"]
+[ext_resource type="PackedScene" uid="uid://z99zlzrjpchbb" path="res://scenes/editor/spawn_marker.tscn" id="22_marker"]
+[ext_resource type="PackedScene" path="res://scenes/editor/path_hint.tscn" id="23_path_hint"]
+[ext_resource type="PackedScene" uid="uid://g38b7clymwuk" path="res://scenes/interactives/trapdoor.tscn" id="23_trapdoor"]
 [ext_resource type="PackedScene" uid="uid://dtd6fk0wqinab" path="res://scenes/interactives/trapdoor_hidden.tscn" id="24_trapdoor_hidden"]
-[ext_resource type="PackedScene" uid="uid://zaq5utvu4i2b9" path="res://scenes/interactives/crumbling_floor.tscn" id="25_crumbling_floor"]
-[ext_resource type="PackedScene" uid="uid://s3atbr7ftgv9n" path="res://scenes/interactives/lever.tscn" id="26_lever"]
-[ext_resource type="PackedScene" uid="uid://4af08c5087te6" path="res://scenes/interactives/dart_trap.tscn" id="27_darttrap"]
+[ext_resource type="PackedScene" uid="uid://b3bxciedqbsro" path="res://scenes/interactives/crumbling_floor.tscn" id="25_crumbling_floor"]
+[ext_resource type="PackedScene" uid="uid://dmncxkjfkne8l" path="res://scenes/interactives/lever.tscn" id="26_lever"]
+[ext_resource type="PackedScene" uid="uid://b7kw3xqabso3t" path="res://scenes/interactives/dart_trap.tscn" id="27_darttrap"]
 
 [sub_resource type="Resource" id="ChestLoot_potion"]
 script = ExtResource("7_itemcountrange")
@@ -67,5 +68,7 @@ goblinMob = ExtResource("11_goblin")
 kunKunMob = ExtResource("12_kunkun")
 markerScene = ExtResource("22_marker")
 markerTags = PackedStringArray("npc")
+pathHintScene = ExtResource("23_path_hint")
+pathHintTags = PackedStringArray("door", "gate")
 weatherPresets = [ExtResource("15_weather_clear")]
 metadata/_custom_type_script = "uid://bvswblqkqx1yl"

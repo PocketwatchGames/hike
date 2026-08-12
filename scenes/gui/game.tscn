@@ -74,13 +74,14 @@ size = Vector2(2, 2)
 background_mode = 1
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.0
+fog_enabled = true
 fog_mode = 1
-fog_light_color = Color(0, 0, 0, 1)
-fog_light_energy = 0.75
+fog_light_color = Color(0.55, 0.62, 0.72, 1)
 fog_density = 1.0
 fog_sky_affect = 0.0
-fog_depth_begin = 88.0
-fog_depth_end = 105.0
+fog_depth_curve = 1.5
+fog_depth_begin = 70.0
+fog_depth_end = 190.0
 volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
@@ -318,7 +319,7 @@ FoamWindThreshold = 12.0
 BurstsPerSecondMin = 0.25
 BurstsPerSecondMax = 3.0
 
-[node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight", "moonLight")]
+[node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight", "moonLight", "depthFogEnvironment")]
 script = ExtResource("sky_controller_script")
 sunLight = NodePath("../SceneViewport/SunLight")
 moonLight = NodePath("../SceneViewport/MoonLight")
@@ -362,10 +363,15 @@ foamScale = 10.0
 foamStrength = 0.65
 foamThreshold = 0.55
 foamSharpness = 0.55
+flowRibbonStrength = 1.5
+flowRibbonScale = 4.0
+flowRibbonThreshold = 0.26
+currentDominanceSpeed = 0.05
 windToSwayMeters = 0.01
 cloudAltitude = 100.0
 cloudShadowStrength = 0.6
 fogMaterial = ExtResource("fog_volumetric_mat")
+depthFogEnvironment = NodePath("../SceneViewport/InnerEnv")
 
 [node name="HeartbeatAudio" type="AudioStreamPlayer" parent="." unique_id=1349076880]
 stream = ExtResource("heartbeat_sfx")

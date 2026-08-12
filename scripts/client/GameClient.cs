@@ -608,6 +608,10 @@ public partial class GameClient : Node3D
 	// until respawn) isn't released early by a leftover victory timer.
 	ulong _victorySlowMoReleaseMs;
 
+	// The member that just fell, held from OnPlayerDiedInternal until the death
+	// blackout relocates its body; null outside that window.
+	Player _fallenBody;
+
 	// Wall-clock stamp for the post-process pass. The screen effects are
 	// presentation, so they run on real time — the slow-mo death cam's
 	// Engine.TimeScale must not stretch flash decays or the death heartbeat
@@ -2709,6 +2713,9 @@ public partial class GameClient : Node3D
 		_world?.MarkMemberDead(player?.Member);
 		player?.SetActive(false);
 		player?.SetCorpseInteractable(true);
+		// Relocated at the blackout below, not here — the death cam is still on
+		// the body through the fade-out.
+		_fallenBody = player;
 
 		bool anySurvivors = (_world?.Party?.AliveCount ?? 0) > 0;
 		if (deathScreen != null)
@@ -2739,6 +2746,11 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
+		// A body that died in water or in mid-air goes back to the last ground its
+		// owner stood on — done under the black screen so the move is never seen,
+		// and before the day roll, which can retire the member outright.
+		_fallenBody?.ReturnBodyToLastGroundedPosition();
+		_fallenBody = null;
 		// Hand control to a living member FIRST — the death time-skip early-outs on a
 		// dead controlled member, so a survivor must be driving before we roll the day.
 		_world.SetPartyActive(alive);
