@@ -113,10 +113,10 @@ public static class SubsceneRotator
         {
             return shape;
         }
-        var src = (VoxelTypeInfo.SharpAxes)shape;
-        VoxelTypeInfo.SharpAxes rotated = src & VoxelTypeInfo.SharpAxes.Y;
-        if ((src & VoxelTypeInfo.SharpAxes.X) != 0) { rotated |= VoxelTypeInfo.SharpAxes.Z; }
-        if ((src & VoxelTypeInfo.SharpAxes.Z) != 0) { rotated |= VoxelTypeInfo.SharpAxes.X; }
+        var src = (SharpAxes)shape;
+        SharpAxes rotated = src & SharpAxes.Y;
+        if ((src & SharpAxes.X) != 0) { rotated |= SharpAxes.Z; }
+        if ((src & SharpAxes.Z) != 0) { rotated |= SharpAxes.X; }
         return (byte)rotated;
     }
 

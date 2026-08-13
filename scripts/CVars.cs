@@ -140,7 +140,7 @@ public static class CVars
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
     });
 
-    // Global multiplier on every block's authored BlockData.edgeRoughness, for
+    // Global multiplier on every block's authored BlockSurfaceData.edgeRoughness, for
     // dialling the look in live. 0 disables the carve entirely and restores
     // ruler-straight authored surfaces. Requeues every loaded chunk.
     public static CVarFloat voxelEdgeRoughness = new CVarFloat("voxel_edge_roughness", 1f, (cvar) =>
@@ -1081,7 +1081,7 @@ public static class CVars
     // blend sharpnesses) and the wetness model (wet_displacement,
     // wet_roughness_min, wet_chroma) are authored on
     // resources/materials/terrain.tres, not CVars. Per-material porosity (rock
-    // reflects vs soil darkens) is on BlockData.Porosity; the standing-water
+    // reflects vs soil darkens) is on BlockSurfaceData.Porosity; the standing-water
     // (puddle) shape — pool strength, scale, edge, ramp, flatness — and the
     // dynamic ripple feel are on SkyController + that material.
 
@@ -1666,7 +1666,7 @@ public static class CVars
         for (int dy = 0; dy <= 5; dy++)
         {
             int wy = py + dy;
-            VoxelType v = ws.GetVoxelWorld(px, wy, pz);
+            int v = ws.GetBlockWorld(px, wy, pz);
             int sun = ws.GetSunlightWorld(px, wy, pz);
             ws.GetBlockLightWorld(px, wy, pz, out int br, out int bg, out int bb);
             Godot.GD.Print($"  y={wy}: voxel={v} sun={sun} block=({br},{bg},{bb})");
@@ -1698,8 +1698,8 @@ public static class CVars
             for (int dz = -RADIUS; dz <= RADIUS; dz++)
             {
                 int wx = px + dx, wz = pz + dz;
-                VoxelType v = ws.GetVoxelWorld(wx, py, wz);
-                if (v != VoxelType.Air) { continue; }
+                int v = ws.GetBlockWorld(wx, py, wz);
+                if (v != Blocks.AirId) { continue; }
                 int sun = ws.GetSunlightWorld(wx, py, wz);
                 if (sun > playerSun)
                 {
@@ -1774,6 +1774,7 @@ public static class CVars
     // without starting a game. Pair with `--headless` for a ~4s "do the shaders
     // still compile" check instead of a full autostart run.
     public static CVarBool shaderCheck = new CVarBool("shader_check", false);
+    public static CVarBool blockCheck = new CVarBool("block_check", false);
 
     // Console command: dumps the most recently generated world's plateau/
     // height fields to user://worldgen_debug (outside the project tree).

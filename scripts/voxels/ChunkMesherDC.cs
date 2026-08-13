@@ -9,7 +9,7 @@ using Godot;
 //      change, emit a quad using the 4 adjacent cell vertices.
 // The apron means cells on the neighbour side of a chunk boundary are also
 // computed here, so boundary quads connect without seams. Density is a
-// deterministic function of VoxelType, so neighbouring chunks compute the
+// deterministic function of int, so neighbouring chunks compute the
 // same vertex for a shared boundary cell.
 //
 // The sampling lattice is chosen by CVars.voxelCenterSampling. The `density`
@@ -166,7 +166,7 @@ public static class ChunkMesherDC
     // GEOMETRY here", so Barrier — an invisible marker with no surface — can't
     // bake a shut door into a static term that outlives it.
     private static void BakeVertexSunAndOpenness(
-        Func<int, int, int, VoxelType> getVoxel, Func<int, int, int, int> getSunlight,
+        Func<int, int, int, int> getVoxel, Func<int, int, int, int> getSunlight,
         Func<int, int, int, bool> getSunOpaque,
         Vector3 pos, Vector3 n, int cwX, int cwY, int cwZ,
         out float bakedSun, out float openness)
@@ -207,7 +207,7 @@ public static class ChunkMesherDC
                 int wx = cwX + Mathf.RoundToInt(sp.X);
                 int wy = cwY + Mathf.RoundToInt(sp.Y);
                 int wz = cwZ + Mathf.RoundToInt(sp.Z);
-                VoxelType v = getVoxel(wx, wy, wz);
+                int v = getVoxel(wx, wy, wz);
                 // Non-voxel solid cover (a roof) blocks the march exactly as a
                 // solid voxel does. Without it the ray walks straight through
                 // the roof — which is AIR to the voxel grid — into the lit sky
@@ -221,7 +221,7 @@ public static class ChunkMesherDC
                 float grade = (step - 1) / (float)SUN_STEPS;
                 if (!litDone)
                 {
-                    if (VoxelTypeInfo.IsSolid(v) || cover)
+                    if (Blocks.IsSolid(v) || cover)
                     {
                         reachLit *= grade;
                         litDone = true;
@@ -368,8 +368,8 @@ public static class ChunkMesherDC
 
     public static void Build(
         ChunkState data,
-        Func<int, int, int, VoxelType> getVoxel,
-        Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
+        Func<int, int, int, int> getVoxel,
+        Func<int, int, int, SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
         Func<int, int, int, int> getSunlight,
@@ -540,7 +540,7 @@ public static class ChunkMesherDC
                     // reads their tile/kit/overlay — skip that work, which is
                     // what the extra rings would otherwise cost.
                     bool needMaterials = x >= USED_LO && x <= USED_HI && y >= USED_LO && y <= USED_HI && z >= USED_LO && z <= USED_HI;
-                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getTerrainId, getOverlayId, centerSampling, needMaterials, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int TerrainId, out int overlayId, out int softTile, out int softTerrain, out int softOverlay, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant);
+                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getTerrainId, getOverlayId, centerSampling, needMaterials, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int TerrainId, out int overlayId, out int softTile, out int softTerrain, out int softOverlay, out float amp, out SharpAxes sharpMask, out bool anySoftY, out float sharpness, out int dominant);
 
                     // Per-axis majority counts (for snapped coords) and the
                     // edge-midpoint accumulator (for smooth coords). Computed
@@ -577,7 +577,7 @@ public static class ChunkMesherDC
                         count++;
                     }
 
-                    float vx = (sharpMask & VoxelTypeInfo.SharpAxes.X) != 0
+                    float vx = (sharpMask & SharpAxes.X) != 0
                         ? SharpCoord(centerSampling, lowX, highX)
                         : accum.X / count;
                     // Y snap is the default for solid ground; any soft voxel
@@ -590,11 +590,11 @@ public static class ChunkMesherDC
                     // can't re-harden a ramp back into a cliff. X and Z keep
                     // the OR rule so stone walls next to soft terrain still
                     // get crisp vertical creases.
-                    bool ySnap = (sharpMask & VoxelTypeInfo.SharpAxes.Y) != 0 && !anySoftY;
+                    bool ySnap = (sharpMask & SharpAxes.Y) != 0 && !anySoftY;
                     float vy = ySnap
                         ? SharpCoord(centerSampling, lowY, highY)
                         : accum.Y / count;
-                    float vz = (sharpMask & VoxelTypeInfo.SharpAxes.Z) != 0
+                    float vz = (sharpMask & SharpAxes.Z) != 0
                         ? SharpCoord(centerSampling, lowZ, highZ)
                         : accum.Z / count;
 
@@ -608,7 +608,7 @@ public static class ChunkMesherDC
                     // Carve the vertex inward along the cell's coarse outward
                     // normal by a hashed amount, so authored-straight materials
                     // (stone walls) get an irregular silhouette instead of a
-                    // ruled line. See BlockData.edgeRoughness.
+                    // ruled line. See BlockSurfaceData.edgeRoughness.
                     //
                     // The hash reads WORLD cell coords, never chunk-local ones:
                     // two chunks independently compute the cell they share on
@@ -621,8 +621,7 @@ public static class ChunkMesherDC
                     // adjacent cells pushing toward each other invert the quad
                     // between them. Carving toward the solid can't: the coord
                     // moves off the boundary into the cell's interior.
-                    VoxelTypeInfo.EdgeRoughness rough = VoxelTypeInfo.GetEdgeRoughness(dominant);
-                    float roughAmount = rough.Amount * CVars.voxelEdgeRoughness.Value;
+                    float roughAmount = Blocks.EdgeRoughness(dominant) * CVars.voxelEdgeRoughness.Value;
                     if (roughAmount > 0f)
                     {
                         // Corner counts give the outward normal for free: a
@@ -636,7 +635,7 @@ public static class ChunkMesherDC
                             outward /= outLen;
                             float carve = Hash01(chunkWorldX + x, chunkWorldY + y, chunkWorldZ + z) * roughAmount;
                             vx -= outward.X * carve;
-                            vy -= outward.Y * carve * rough.VerticalScale;
+                            vy -= outward.Y * carve * Blocks.EdgeRoughnessVerticalScale(dominant);
                             vz -= outward.Z * carve;
                         }
                     }
@@ -849,13 +848,14 @@ public static class ChunkMesherDC
                 return (false, -1, -1, -1);
             }
             int wx = chunkWorldX + lx, wy = chunkWorldY + ly, wz = chunkWorldZ + lz;
-            VoxelType v = getVoxel(wx, wy, wz);
-            if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier)
+            int v = getVoxel(wx, wy, wz);
+            if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
             {
                 return (false, -1, -1, -1);
             }
-            bool hard = (getShape(wx, wy, wz) & VoxelTypeInfo.SharpAxes.All) == VoxelTypeInfo.SharpAxes.All;
-            return (hard, VoxelTypeInfo.GetTileForFace(v, 0), getTerrainId(wx, wy, wz), getOverlayId(wx, wy, wz));
+            bool hard = (getShape(wx, wy, wz) & SharpAxes.All) == SharpAxes.All;
+            int terrainId = getTerrainId(wx, wy, wz);
+            return (hard, v, terrainId, getOverlayId(wx, wy, wz));
         }
 
         // Emit quads for edges owned by this chunk: all three corner indices of
@@ -1144,7 +1144,7 @@ public static class ChunkMesherDC
     // a cell on a chunk border sums exactly the same quads the neighbouring
     // chunk sums for that same world cell. Both chunks compute identical vertex
     // positions for shared cells (density is a deterministic function of
-    // VoxelType), so both arrive at the same normal and shared vertices don't
+    // int), so both arrive at the same normal and shared vertices don't
     // crease. Skipping this and only summing owned quads is what would produce
     // a lighting seam at every chunk edge.
     private static void AccumulateGeometricNormals(
@@ -1677,14 +1677,14 @@ public static class ChunkMesherDC
     // not in heuristics here.
     private static void PickTileAndAmpForCell(
         ChunkState data, int x, int y, int z,
-        Func<int, int, int, VoxelType> getVoxel,
-        Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
+        Func<int, int, int, int> getVoxel,
+        Func<int, int, int, SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
         bool centerSampling,
         bool needMaterials,
         int cwX, int cwY, int cwZ,
-        out int tile, out int TerrainId, out int overlayId, out int softTile, out int softTerrain, out int softOverlay, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant)
+        out int tile, out int TerrainId, out int overlayId, out int softTile, out int softTerrain, out int softOverlay, out float amp, out SharpAxes sharpMask, out bool anySoftY, out float sharpness, out int dominant)
     {
         // Neighbourhood: one voxel beyond the cell's span on every side. DC
         // cells don't "own" the voxels at their corner positions, and how far
@@ -1720,7 +1720,7 @@ public static class ChunkMesherDC
         Span<int> softCounts = stackalloc int[16];
         Span<int> softTerrainCounts = stackalloc int[256];
         Span<int> softOverlayCounts = stackalloc int[256];
-        sharpMask = VoxelTypeInfo.SharpAxes.None;
+        sharpMask = SharpAxes.None;
         anySoftY = false;
         // anySoftY reads a WIDER window than sharpMask, and deliberately so.
         // The two ORs want opposite things. sharpMask drives flat-shading and
@@ -1738,10 +1738,10 @@ public static class ChunkMesherDC
             {
                 for (int dz = -1; dz <= 1; dz++)
                 {
-                    VoxelType v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
-                    if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier) { continue; }
+                    int v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
+                    if (!Blocks.IsSolid(v) || v == Blocks.BarrierId) { continue; }
                     var shape = getShape(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
-                    if ((shape & VoxelTypeInfo.SharpAxes.Y) == 0) { anySoftY = true; }
+                    if ((shape & SharpAxes.Y) == 0) { anySoftY = true; }
                     if (dx < lo || dy < lo || dz < lo) { continue; }
                     sharpMask |= shape;
                     // The dominant-type vote runs for the spare rings too,
@@ -1752,7 +1752,7 @@ public static class ChunkMesherDC
                     // vertex — a crack, not just a shading seam.
                     counts[(int)v]++;
                     if (!needMaterials) { continue; }
-                    bool soft = (shape & VoxelTypeInfo.SharpAxes.All) != VoxelTypeInfo.SharpAxes.All;
+                    bool soft = (shape & SharpAxes.All) != SharpAxes.All;
                     int terrain = getTerrainId(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     int o = getOverlayId(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     terrainCounts[terrain]++;
@@ -1764,7 +1764,7 @@ public static class ChunkMesherDC
                 }
             }
         }
-        dominant = (VoxelType)Argmax(counts, 0, (int)VoxelType.Air, out _);
+        dominant = (int)Argmax(counts, 0, (int)Blocks.AirId, out _);
 
         if (!needMaterials)
         {
@@ -1785,10 +1785,10 @@ public static class ChunkMesherDC
         // Same three winners over the soft-only window. Falls back to the full
         // vote where the cell holds no soft material at all (deep inside stone),
         // which no soft face can reach anyway.
-        var softDominant = (VoxelType)Argmax(softCounts, 0, (int)VoxelType.Air, out int bestSoftCount);
-        softTile = bestSoftCount > 0 ? VoxelTypeInfo.GetTileForFace(softDominant, 0) : 0;
+        var softDominant = (int)Argmax(softCounts, 0, (int)Blocks.AirId, out int bestSoftCount);
         softTerrain = Argmax(softTerrainCounts, 0, TerrainId, out _);
         softOverlay = Argmax(softOverlayCounts, 1, overlayId, out _);
+        softTile = bestSoftCount > 0 ? softDominant : 0;
 
         // Flat-shading is reserved for architectural material (shape=All).
         // Partial snaps (Y-only, for cave/overworld ground) snap the *coord*
@@ -1796,17 +1796,17 @@ public static class ChunkMesherDC
         // slope-based AUTO material pick uses the fragment normal and
         // fractures when flat-shaded quads give two differently-facing
         // triangles straddling a slope threshold.
-        sharpness = (sharpMask & VoxelTypeInfo.SharpAxes.All) == VoxelTypeInfo.SharpAxes.All ? 1f : 0f;
+        sharpness = (sharpMask & SharpAxes.All) == SharpAxes.All ? 1f : 0f;
 
-        if (dominant == VoxelType.Air)
+        if (dominant == Blocks.AirId)
         {
             tile = 0;
             amp = 0f;
             return;
         }
 
-        tile = VoxelTypeInfo.GetTileForFace(dominant, 0);
-        amp = VoxelTypeInfo.GetBlendNoise(dominant);
+        tile = dominant;
+        amp = Blocks.BlendNoise(tile);
     }
 
     // Winning id of a vote, scanning from `from` (overlay ignores id 0), or

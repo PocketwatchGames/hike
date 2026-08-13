@@ -162,13 +162,23 @@ uniform float wall_blend_sharpness : hint_range(0.0, 1.0) = 0.65;
 uniform float cliff_blend_sharpness : hint_range(0.0, 1.0) = 0.4;
 uniform float ground_blend_sharpness : hint_range(0.0, 1.0) = 0.4;
 
-// Per-atlas-layer class flag: 1.0 = cliff/rock, 0.0 = ground. Uploaded from
-// BlockData.IsCliff. Routes each tile into the cliff or ground accumulator.
+// Tile CLASS is no longer a per-layer flag. It comes from which face slot a
+// candidate was drawn from — top/bottom = ground, side = cliff — so one texture
+// reads as ground on a floor and as cliff on the wall below it.
 const int TILE_CLASS_TABLE_SIZE = 64;
-uniform float tile_is_cliff[TILE_CLASS_TABLE_SIZE];
-// Per-atlas-layer wetness porosity [0,1] (BlockData.Porosity). LOW = rock
+// Per-atlas-layer wetness porosity [0,1] (BlockSurfaceData.porosity). LOW = rock
 // (water beads on top → reflective), HIGH = soil (water soaks in → darkens).
 uniform float tile_porosity[TILE_CLASS_TABLE_SIZE];
+// Per-atlas-layer mean of the height channel, measured from the baked atlas at
+// load (ChunkMesh.UploadTerrainTables). Cavity darkening subtracts this so the
+// term is brightness-neutral: source height maps sit at wildly different means
+// (grass 0.23, cobblestone 0.53), and multiplying by raw height would dim each
+// tile by a different amount — a vendor authoring artifact, not depth.
+uniform float tile_height_mid[TILE_CLASS_TABLE_SIZE];
+// Texture-space cavity: darkens pits and lifts peaks around tile_height_mid.
+// Relief per tile scales with that tile's height CONTRAST, so flat height maps
+// stay flat instead of going uniformly dark. 0 = off.
+uniform float cavity_strength : hint_range(0.0, 2.0) = 0.0;
 
 // Wetness model tuning (material uniforms; live via CVars). The standing-water
 // (puddle) shape lives in the SkyController-driven globals up top, alongside the
@@ -197,18 +207,11 @@ uniform float puddle_ripple_thinness : hint_range(0.5, 20.0) = 2.5;
 uniform float puddle_ripple_size : hint_range(0.2, 1.0) = 0.5;
 uniform float puddle_ripple_rim : hint_range(0.0, 5.0) = 1.2;
 
-// Tile layer indices — must match the AtlasBaseIndex authored on the
-// matching BlockData in resources/data/blocks/. Each block is now exactly one
-// atlas layer (the elevation-band / variant system was removed), so the layer
-// index equals the block's AtlasBaseIndex directly. BlockCatalog.ValidateOrLog
-// asserts the two named slots referenced here ("Stone" at 0, "GrassTop" at 1).
-const float TILE_STONE = 0.0;
-const float TILE_GRASS_TOP = 1.0;
-// "Auto" sentinel — when a vertex carries this id (TILE_AUTO = 255), the
-// fragment picks the real tile from per-kit flat/wall via a smoothstep on
-// surface normal.y. Must match VoxelTypeInfo.TILE_AUTO.
-const float TILE_AUTO_THRESHOLD = 254.5;
-
+// Ids arriving per-vertex are BLOCK ids (BlockData.blockId), resolved to atlas
+// layers here via block_faces[]. There is no auto/literal split any more — every
+// block picks its face by slope, and one that repeats a single surface across
+// its slots simply blends between identical tiles.
+//
 // Global world-to-UV scale shared by every tile. One authored PNG spans
 // 1/tile_uv_scale world units on each axis (the tiling frequency). Uniform
 // across tiles so the same camera distance produces the same texel density
@@ -222,6 +225,14 @@ uniform float tile_uv_scale = 0.3;
 // This is OCCLUSION/shelter darkening; the separate concavity bake (CUSTOM2.w)
 // drives wetness, not shading.
 uniform float ao_strength : hint_range(0.0, 1.0) = 1.0;
+
+// Direct-sun NdotL remap window (see sun_lit in fragment()). Sun-averted
+// surfaces get sun_ndl_floor; fully sun-facing get floor + range. The gap
+// between them is what makes normal-map relief visible at all, so widening it
+// is the primary knob for lighting response; narrowing toward 1.0/0.0 flattens
+// terrain back to unshaded.
+uniform float sun_ndl_floor : hint_range(0.0, 2.0) = 0.55;
+uniform float sun_ndl_range : hint_range(0.0, 2.0) = 0.9;
 
 // Concavity is baked per-vertex into CUSTOM2.w by the DC mesher (signed voxels;
 // positive = a dip/bowl, negative = a bump). It is NO LONGER the puddle shape
@@ -240,21 +251,20 @@ uniform float concavity_threshold : hint_range(0.001, 1.0) = 0.15;
 // sub-voxel magnitudes are visible. Verification aid — see CVars.debugConcavity.
 uniform bool debug_concavity = false;
 
-// Per-terrain palette uploaded by ChunkMesh.SetTerrains at world start.
-//   terrain_tiles[i] = (flat, wall, _, _) tile_array layer indices. .zw are
-//                   reserved (overlay is no longer a terrain property — it
-//                   is authored per-voxel as a direct tile_array base index).
-//   terrain_bands[i] = (wall_lo, wall_hi, _, _). One smoothstep: y<wall_lo = wall,
-//                   y>wall_hi = flat. No intermediate slope tile — authored
-//                   dirt/field/clover/etc. appearance comes from the global
-//                   overlay pass below.
-// Index = the per-vertex TerrainId picked via barycentric argmax (parallel to
-// tile_ids picking). MAX_TERRAINS sized for headroom; only the first
-// (deduplicated palette length) entries are meaningful — see
-// WorldGen.ExtractTerrainPalette and ChunkMesh.SetTerrains.
-const int MAX_TERRAINS = 16;
-uniform vec4 terrain_tiles[MAX_TERRAINS];
-uniform vec4 terrain_bands[MAX_TERRAINS];
+// Per-block tables uploaded by ChunkMesh.SetBlocks at startup. GLOBAL, not
+// per-world: a block id means the same thing in every file.
+//   block_faces[i] = (top, side, bottom, _) tile_array layer indices. A block
+//                    authoring one surface repeats it, so the blend below
+//                    collapses to a single sample.
+//   block_bands[i] = (band_lo, band_hi, _, _). One smoothstep on |normal.y|:
+//                    below band_lo = 100% side, above band_hi = 100% top (or
+//                    bottom, under the horizontal). No intermediate slope tile
+//                    — dirt/field/clover appearance comes from the overlay pass.
+// Index = the per-vertex block id picked via barycentric argmax. Must match
+// BlockCatalog.MAX_BLOCKS.
+const int MAX_BLOCKS = 64;
+uniform vec4 block_faces[MAX_BLOCKS];
+uniform vec4 block_bands[MAX_BLOCKS];
 
 // Two off-axis fill directions + colors. Neither is aligned with the sun.
 // Each darkens surfaces that face away from it; surfaces facing toward it
@@ -308,8 +318,8 @@ const float MIN_AMBIENT = 0.0;
 
 varying vec3 world_vertex;
 varying vec3 world_normal;
-// Tile ids for the 3 corners of this triangle (constant across the tri).
-varying flat vec3 tile_ids;
+// Block ids for the 3 corners of this triangle (constant across the tri).
+varying flat vec3 block_ids;
 // Per-vertex blend-noise amplitude, interpolated to fragments.
 varying float blend_amp;
 // Per-vertex baked ambient occlusion (COLOR.a). 0 = open, 1 = sheltered.
@@ -340,15 +350,10 @@ varying float cloud_dim;
 // Composed in light() with sun_color × sun_intensity and the same shadow
 // gates as DIFFUSE_LIGHT so cast shadows kill the highlight cleanly.
 varying float wet_spec;
-// Terrain ids for the 3 corners of this triangle (constant across the tri).
-// Barycentric argmax picks which corner's terrain wins at each fragment
-// (parallel to tile_ids), so terrain boundaries blend with the same
-// noise-jittered edge as tile boundaries.
-varying flat vec3 terrain_ids;
-// Per-corner authored overlay ids. 0 = no overlay, paint the terrain's flat/wall
-// tile as-is; non-zero = sample the terrain's edge-overlay tile and blend over.
-// Picked by the same barycentric argmax as tile_ids and terrain_ids so boundaries
-// inherit the shared noise-jittered edge.
+// Per-corner authored overlay ids. 0 = no overlay, paint the block's own faces
+// as-is; non-zero = sample that tile and blend over. Picked by the same
+// barycentric argmax as block_ids so boundaries inherit the shared
+// noise-jittered edge.
 varying flat vec3 overlay_ids;
 
 // Tunes the spatial frequency of the per-tile-edge noise. Higher = finer
@@ -359,11 +364,10 @@ const float BLEND_NOISE_FREQ = 1.7;
 void vertex() {
 	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = NORMAL;
-	tile_ids = CUSTOM0.xyz;
+	block_ids = CUSTOM0.xyz;
 	blend_amp = CUSTOM0.w;
 	ao = COLOR.a;
 	sharpness = CUSTOM1.x;
-	terrain_ids = CUSTOM1.yzw;
 	overlay_ids = CUSTOM2.xyz;
 	concavity = CUSTOM2.w;
 	openness = CUSTOM3.x;
@@ -511,17 +515,20 @@ void fragment() {
 	// implicit derivatives are undefined — see sample_tile.
 	vec3 dwp_dx = dFdx(wp);
 	vec3 dwp_dy = dFdy(wp);
-	float s = clamp(shaded_normal.y, 0.0, 1.0);
+	// Signed for the top/bottom pick, magnitude for the slope blend — a ceiling
+	// is as "flat" as a floor, it just wears the other horizontal face.
+	float sy = shaded_normal.y;
+	float s = abs(sy);
 	// Sharpness (higher = sharper) → height-blend depth (lower = tighter).
 	float wall_depth = 1.0 - wall_blend_sharpness;
 	float cliff_depth = 1.0 - cliff_blend_sharpness;
 	float ground_depth = 1.0 - ground_blend_sharpness;
 
 	// Build deduped ground/cliff candidate sets across the triangle's 3 corners.
-	// Each AUTO corner contributes its flat tile (weight·w_flat, ground) and
-	// wall tile (weight·w_wall, cliff); a concrete corner contributes one tile.
-	// Duplicate ids merge (per class), so a single-material interior collapses
-	// to one sample per class. Class comes from tile_is_cliff[].
+	// Every corner contributes its block's horizontal face (weight·wf, ground)
+	// and its side face (weight·(1-wf), cliff). Duplicate ids merge per class,
+	// so a single-material interior collapses to one sample per class and a
+	// single-surface block costs no more than a concrete tile used to.
 	float g_ids[3];
 	float g_wts[3];
 	int g_n = 0;
@@ -536,32 +543,30 @@ void fragment() {
 		if (w <= 0.001) {
 			continue;
 		}
-		// Up to two (id, weight) entries from this corner.
+		// Two (id, weight) entries from every corner: the horizontal face
+		// (top above the equator, bottom below) and the side, split by slope.
+		// A block repeating one surface across its slots yields two identical
+		// ids, which the dedup below merges back into a single sample.
 		float ent_id[2];
 		float ent_w[2];
+		// 1.0 = cliff class, 0.0 = ground. The face slot IS the class.
+		float ent_cliff[2];
 		int cnt;
-		float tid = tile_ids[i];
-		if (tid >= TILE_AUTO_THRESHOLD) {
-			int ti = clamp(int(terrain_ids[i]), 0, MAX_TERRAINS - 1);
-			vec4 tiles = terrain_tiles[ti];
-			vec4 band = terrain_bands[ti];
-			float wf = smoothstep(band.x, band.y, s);
-			ent_id[0] = tiles.x;
-			ent_w[0] = w * wf;
-			ent_id[1] = tiles.y;
-			ent_w[1] = w * (1.0 - wf);
-			cnt = 2;
-			if (overlay_ids[i] > 0.5 && w * wf > ov_w) {
-				ov_id = overlay_ids[i];
-				ov_w = w * wf;
-				ov_cov = wf;
-			}
-		} else {
-			ent_id[0] = tid;
-			ent_w[0] = w;
-			ent_id[1] = 0.0;
-			ent_w[1] = 0.0;
-			cnt = 1;
+		int bi = clamp(int(block_ids[i]), 0, MAX_BLOCKS - 1);
+		vec4 faces = block_faces[bi];
+		vec4 band = block_bands[bi];
+		float wf = smoothstep(band.x, band.y, s);
+		ent_id[0] = sy >= 0.0 ? faces.x : faces.z;
+		ent_w[0] = w * wf;
+		ent_cliff[0] = 0.0;
+		ent_id[1] = faces.y;
+		ent_w[1] = w * (1.0 - wf);
+		ent_cliff[1] = 1.0;
+		cnt = 2;
+		if (overlay_ids[i] > 0.5 && w * wf > ov_w) {
+			ov_id = overlay_ids[i];
+			ov_w = w * wf;
+			ov_cov = wf;
 		}
 		// Route + dedup-append each entry into its class list.
 		for (int j = 0; j < cnt; j++) {
@@ -570,7 +575,7 @@ void fragment() {
 			if (ew <= 0.001) {
 				continue;
 			}
-			if (tile_is_cliff[clamp(int(id), 0, TILE_CLASS_TABLE_SIZE - 1)] > 0.5) {
+			if (ent_cliff[j] > 0.5) {
 				bool merged = false;
 				for (int k = 0; k < c_n; k++) {
 					if (c_ids[k] == id) { c_wts[k] += ew; merged = true; break; }
@@ -595,6 +600,7 @@ void fragment() {
 	float g_h = 0.0;
 	float g_tw = 0.0;
 	float g_por = 0.0;
+	float g_hmid = 0.0;
 	{
 		vec3 cols[3];
 		vec3 nrms[3];
@@ -627,6 +633,7 @@ void fragment() {
 			g_nrm += nrms[k] * wk;
 			g_h += hs[k] * wk;
 			g_por += tile_porosity[clamp(int(g_ids[k]), 0, TILE_CLASS_TABLE_SIZE - 1)] * wk;
+			g_hmid += tile_height_mid[clamp(int(g_ids[k]), 0, TILE_CLASS_TABLE_SIZE - 1)] * wk;
 		}
 		if (g_n > 0) {
 			g_nrm = normalize(g_nrm);
@@ -638,6 +645,7 @@ void fragment() {
 	float c_h = 0.0;
 	float c_tw = 0.0;
 	float c_por = 0.0;
+	float c_hmid = 0.0;
 	{
 		vec3 cols[3];
 		vec3 nrms[3];
@@ -670,6 +678,7 @@ void fragment() {
 			c_nrm += nrms[k] * wk;
 			c_h += hs[k] * wk;
 			c_por += tile_porosity[clamp(int(c_ids[k]), 0, TILE_CLASS_TABLE_SIZE - 1)] * wk;
+			c_hmid += tile_height_mid[clamp(int(c_ids[k]), 0, TILE_CLASS_TABLE_SIZE - 1)] * wk;
 		}
 		if (c_n > 0) {
 			c_nrm = normalize(c_nrm);
@@ -686,6 +695,7 @@ void fragment() {
 		g_col = mix(g_col, oc, ob);
 		g_nrm = normalize(mix(g_nrm, on, ob));
 		g_h = mix(g_h, oh, ob);
+		g_hmid = mix(g_hmid, tile_height_mid[clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1)], ob);
 	}
 
 	// TIGHT cliff↔ground blend, by the slope-aggregated class weights. cliff↔cliff
@@ -694,16 +704,21 @@ void fragment() {
 	vec3 tile_normal;
 	float surface_h;
 	float surface_porosity;
+	// Mean of surface_h's own tile(s), carried through every blend alongside it
+	// so the cavity term always subtracts the mid of whatever mix it landed on.
+	float surface_h_mid;
 	if (c_n == 0) {
 		tex_color = vec4(g_col, 1.0);
 		tile_normal = g_nrm;
 		surface_h = g_h;
 		surface_porosity = g_por;
+		surface_h_mid = g_hmid;
 	} else if (g_n == 0) {
 		tex_color = vec4(c_col, 1.0);
 		tile_normal = c_nrm;
 		surface_h = c_h;
 		surface_porosity = c_por;
+		surface_h_mid = c_hmid;
 	} else {
 		float t = c_tw / max(c_tw + g_tw, 1e-5);
 		float wb = height_blend_weight(t, g_h, c_h, wall_depth);
@@ -711,6 +726,7 @@ void fragment() {
 		tile_normal = normalize(mix(g_nrm, c_nrm, wb));
 		surface_h = mix(g_h, c_h, wb);
 		surface_porosity = mix(g_por, c_por, wb);
+		surface_h_mid = mix(g_hmid, c_hmid, wb);
 	}
 
 	// Per-tile normal map perturbs the shading normal (replaces the old global
@@ -868,13 +884,20 @@ void fragment() {
 		? cloud_shadow_ground(world_vertex, TIME)
 		: cloud_shadow_ground_gated(world_vertex, light_sample_pos, TIME);
 	cloud_dim = debug_no_cloud ? 1.0 : 1.0 - cloud * cloud_shadow_strength;
-	// NdotL multiplier on direct sun. Slopes facing toward the sun get a lift
-	// above the glow HDR threshold so bloom catches them; sun-averted slopes
-	// get a mild cut (still gated by sun_mask, so underground/shadowed doesn't
-	// darken further). Kept narrow (0.9..1.3) — this is a push over the bloom
-	// knee, not a lighting overhaul.
+	// NdotL multiplier on direct sun, remapped into [floor, floor+range] rather
+	// than the raw 0..1 Lambert — sun-facing slopes lift above the glow HDR
+	// threshold so bloom catches them, averted slopes cut (still gated by
+	// sun_mask, so underground/shadowed doesn't darken further).
+	//
+	// The width of that window is the ceiling on how much per-tile normal-map
+	// detail can ever show: at the original 0.9..1.3 a bump big enough to swing
+	// true Lambert 1.0→0.6 moved this only 1.30→1.14 (12%), which is why the
+	// normal maps read as flat. Defaults are chosen to cross the old curve at
+	// sun_ndl≈0.7 (typical sunlit ground) so overall exposure is preserved while
+	// the spread roughly doubles. Widening further pushes more of the range past
+	// the bloom knee — retune glow alongside it.
 	float sun_ndl = max(0.0, dot(shaded_normal, -sun_world_dir));
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color * (0.9 + 0.4 * sun_ndl);
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color * (sun_ndl_floor + sun_ndl_range * sun_ndl);
 	// Flat sun: keeps intensity/colour but discards the BAKED sun mask, so a
 	// band that survives this is not coming from the sunlight volume.
 	if (debug_no_sun) {
@@ -922,6 +945,12 @@ void fragment() {
 	tex_color.rgb = mix(tex_color.rgb, water_deep_tint, pool_mask * water_muddiness);
 
 	vec3 base = tex_color.rgb * fill_a_tint * fill_b_tint;
+	// Texture-space cavity. Mean-centred, so it redistributes brightness (pits
+	// down, peaks up) instead of dimming — average output is unchanged at any
+	// strength. Unlike the normal-map term this is view- and light-independent,
+	// so crevices stay legible at every sun angle. Applied before ground stains
+	// so a scorch mark isn't darkened a second time by the ground under it.
+	base *= max(0.0, 1.0 + cavity_strength * (surface_h - surface_h_mid));
 	// Ground stains (scorch / footprints / blood) composite into base BEFORE
 	// the ALBEDO/EMISSION split so they survive the always-on EMISSION term —
 	// a no-op when the stain projector is off or this fragment is unstained.

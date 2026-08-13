@@ -7,14 +7,14 @@ using Godot;
 // this struct is the only place voxel state is snapshotted.
 public readonly struct VoxelCellState : IEquatable<VoxelCellState>
 {
-    public readonly VoxelType Type;
-    public readonly VoxelTypeInfo.SharpAxes Shape;
+    public readonly int Type;
+    public readonly SharpAxes Shape;
     public readonly byte TerrainId;
     public readonly byte OverlayId;
     public readonly byte DetailGroup;
     public readonly byte DetailStrength;
 
-    private VoxelCellState(VoxelType type, VoxelTypeInfo.SharpAxes shape, byte terrainId, byte overlayId, byte detailGroup, byte detailStrength)
+    private VoxelCellState(int type, SharpAxes shape, byte terrainId, byte overlayId, byte detailGroup, byte detailStrength)
     {
         Type = type;
         Shape = shape;
@@ -27,7 +27,7 @@ public readonly struct VoxelCellState : IEquatable<VoxelCellState>
     public static VoxelCellState Capture(WorldState world, Vector3I cell)
     {
         return new VoxelCellState(
-            world.GetVoxelWorld(cell.X, cell.Y, cell.Z),
+            world.GetBlockWorld(cell.X, cell.Y, cell.Z),
             world.GetShapeWorld(cell.X, cell.Y, cell.Z),
             (byte)world.GetTerrainIdWorld(cell.X, cell.Y, cell.Z),
             (byte)world.GetOverlayIdWorld(cell.X, cell.Y, cell.Z),
@@ -37,10 +37,10 @@ public readonly struct VoxelCellState : IEquatable<VoxelCellState>
 
     public void ApplyTo(WorldState world, Vector3I cell)
     {
-        // The shape-less SetVoxelWorld overload substitutes the material's
+        // The shape-less SetBlockWorld overload substitutes the material's
         // default shape whenever the material changes, which is right for a
         // brush and wrong for restoring an exact snapshot.
-        world.SetVoxelWorld(cell.X, cell.Y, cell.Z, Type, Shape);
+        world.SetBlockWorld(cell.X, cell.Y, cell.Z, Type, Shape);
         world.SetTerrainIdWorld(cell.X, cell.Y, cell.Z, TerrainId);
         world.SetOverlayIdWorld(cell.X, cell.Y, cell.Z, OverlayId);
         world.SetDetailGroupWorld(cell.X, cell.Y, cell.Z, DetailGroup);

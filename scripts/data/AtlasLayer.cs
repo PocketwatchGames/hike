@@ -1,6 +1,6 @@
 using Godot;
 
-// One layer of the stitched voxel terrain atlas: a single BlockData paired with
+// One layer of the stitched voxel terrain atlas: a single BlockSurfaceData paired with
 // the source PBR maps baked into that block's slot in voxel_tiles.png /
 // voxel_tiles_nrm_height.png. Authored only inside a VoxelAtlasManifest — this
 // is an editor-time authoring record, NEVER loaded by the running game (the game
@@ -17,7 +17,7 @@ public partial class AtlasLayer : Resource
     // manifest's Layers array must equal Block.AtlasBaseIndex; the manifest
     // validates this before stitching so the PNG layer order can never silently
     // drift from the authored wire ids.
-    [Export] public BlockData block;
+    [Export] public BlockSurfaceData block;
 
     // Base color (sRGB). Required.
     [Export] public Texture2D color;

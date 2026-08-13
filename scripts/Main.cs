@@ -97,6 +97,14 @@ public partial class Main : Node
 			return;
 		}
 
+		// Same idea for the block catalog: `--headless -- "block_check 1"`
+		// validates it and dumps the resolved table without loading a world.
+		if (CVars.blockCheck.Value)
+		{
+			BlockCheck.RunAndQuit(GetTree());
+			return;
+		}
+
 		// Headless / automated path: skip the menu and launch a new game
 		// immediately via the menu's own standard-new-game path (reuses all the
 		// existing NewGame wiring — StartMainMenu instantiates and connects the
@@ -180,7 +188,9 @@ public partial class Main : Node
 		// ChunkMesh.SetTerrains touches RenderingServer (SetShaderParameter),
 		// so it must run on the main thread. BindActivePalettes above is pure
 		// C# and could move off-thread later if it ever gets expensive.
-		ChunkMesh.SetTerrains(WorldGen.ActiveTerrainPalette);
+		Blocks.Bind();
+		KitBlocks.Bind(WorldGen.ActiveKitPalette);
+		ChunkMesh.SetTerrains();
 		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
 		GD.Print($"[Load] Loading assets: {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
@@ -446,13 +456,15 @@ public partial class Main : Node
 			CVars.worldFile.Value = documentPath;
 		}
 
-		// Same palette bind StartGame does. The editor needs it too: VoxelType
+		// Same palette bind StartGame does. The editor needs it too: int
 		// .Terrain carries no fixed tile (the shader resolves one per voxel from
 		// terrain_tiles), and the Tree / TallGrass brushes read the kit palette
 		// under the cursor. Without this the editor renders and paints against
 		// whatever a previous session happened to leave bound.
 		WorldGen.BindActivePalettes(worldGenData);
-		ChunkMesh.SetTerrains(WorldGen.ActiveTerrainPalette);
+		Blocks.Bind();
+		KitBlocks.Bind(WorldGen.ActiveKitPalette);
+		ChunkMesh.SetTerrains();
 		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
 
 		var editor = editorScene.Instantiate<WorldEditor>();

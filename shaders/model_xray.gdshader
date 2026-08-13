@@ -69,6 +69,11 @@ instance uniform vec3 silhouette_tint : source_color = vec3(0.0);
 // instance-uniform indices stay aligned across the base + this next_pass.
 instance uniform vec3 recolor : source_color = vec3(1.0);
 instance uniform float recolor_amount : hint_range(0.0, 1.0) = 0.0;
+// Read here, and it must be: the silhouette clips against the same anchor the
+// base pass does, or a floating visual whose anchor has been dropped onto its
+// host (see model_lit_body / ClipAnchor.cs) keeps X-raying after the lit mesh
+// has been cut away — or vanishes while the lit mesh stays.
+instance uniform float clip_anchor_offset = 0.0;
 // === xray-only uniforms below — must follow all shared names ===
 // Per-instance fade for the X-ray. Mobs leave this at 1 (silhouette always on
 // whenever occluded); an InteractiveXray-style driver can gate 0→1→0 so a mesh
@@ -79,14 +84,18 @@ instance uniform float xray_amount : hint_range(0.0, 1.0) = 1.0;
 // world position the cutaway test needs. Uniform-scale rig, so MODEL_MATRIX is
 // the right transform.
 varying vec3 world_pos;
+// Same flat per-instance anchor the base pass builds, so the height clip cuts
+// the silhouette as a unit rather than slicing it at the plane.
+varying flat vec3 clip_anchor;
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	clip_anchor = MODEL_MATRIX[3].xyz + vec3(0.0, clip_anchor_offset, 0.0);
 }
 
 void fragment() {
 	// Ceiling cutaway: discard above the clip so the X-ray silhouette is cut away
 	// in lockstep with the lit base pass (which runs the identical test).
-	if (clip_dither_should_discard(world_pos, FRAGCOORD.xy)) {
+	if (clip_dither_should_discard_anchored(clip_anchor, world_pos, FRAGCOORD.xy)) {
 		discard;
 	}
 	// Early out when the per-instance fade has driven X-ray fully off.

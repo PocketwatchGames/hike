@@ -62,14 +62,14 @@ public static class WaterMesher
 
     public static void Build(
         ChunkState data,
-        Func<int, int, int, VoxelType> getVoxel,
+        Func<int, int, int, int> getVoxel,
         SurfaceTool st,
         int chunkWorldX, int chunkWorldY, int chunkWorldZ,
         out bool hasAnyFace)
     {
         hasAnyFace = false;
-        Color color = VoxelTypeInfo.Colors[VoxelType.Water];
-        int tile = VoxelTypeInfo.GetTileForFace(VoxelType.Water, 0);
+        Color color = new Color(1f, 1f, 1f);
+        int tile = Blocks.WaterId;
 
         for (int x = 0; x < N; x++)
         {
@@ -86,7 +86,7 @@ public static class WaterMesher
                 for (int y = N - 1; y >= 0; y--)
                 {
                     int wy = chunkWorldY + y;
-                    VoxelType self = getVoxel(wx, wy, wz);
+                    int self = getVoxel(wx, wy, wz);
 
                     // Whether this cell is "roofed" — sealed under solid, with
                     // only water between. Such a cell is in a pocket (water
@@ -112,9 +112,9 @@ public static class WaterMesher
                     // actually cover a dip — survive.
                     bool roofed = !openAbove;
                     // Advance the state for the cell below before any skip.
-                    if (self != VoxelType.Water)
+                    if (self != Blocks.WaterId)
                     {
-                        openAbove = !VoxelTypeInfo.IsSolid(self);
+                        openAbove = !Blocks.IsSolid(self);
                     }
 
                     if (roofed || !InWaterVolume(getVoxel, self, wx, wy, wz))
@@ -127,7 +127,7 @@ public static class WaterMesher
                     for (int f = 0; f < 6; f++)
                     {
                         Vector3I no = NeighborOffsets[f];
-                        // Cull against the VOLUME, not against VoxelType.Water,
+                        // Cull against the VOLUME, not against Blocks.WaterId,
                         // so the dilated shell is interior and only the outside
                         // of the whole body is skinned.
                         if (InWaterVolume(getVoxel, wx + no.X, wy + no.Y, wz + no.Z))
@@ -167,36 +167,36 @@ public static class WaterMesher
     // skins its top face at the waterline. Nothing above it is a Water voxel,
     // yet its whole DC surface sits under water — placement passes gate upright
     // scatter on this so grass doesn't root in the visible shallows.
-    public static bool IsCoveredShell(Func<int, int, int, VoxelType> getVoxel, int wx, int wy, int wz)
+    public static bool IsCoveredShell(Func<int, int, int, int> getVoxel, int wx, int wy, int wz)
     {
         return InWaterVolume(getVoxel, wx, wy, wz)
-            && getVoxel(wx, wy + 1, wz) == VoxelType.Air;
+            && getVoxel(wx, wy + 1, wz) == Blocks.AirId;
     }
 
     // The water VOLUME: real water, plus a one-voxel lateral shell into the
     // solid it touches. Lateral only — water must not climb over land or seep
     // down into bedrock. A pure function of world voxels, so two chunks sharing
     // a boundary cell always agree and no seam can appear between them.
-    private static bool InWaterVolume(Func<int, int, int, VoxelType> getVoxel, int wx, int wy, int wz)
+    private static bool InWaterVolume(Func<int, int, int, int> getVoxel, int wx, int wy, int wz)
     {
         return InWaterVolume(getVoxel, getVoxel(wx, wy, wz), wx, wy, wz);
     }
 
     // Overload for callers that already read the cell's own type.
-    private static bool InWaterVolume(Func<int, int, int, VoxelType> getVoxel, VoxelType v, int wx, int wy, int wz)
+    private static bool InWaterVolume(Func<int, int, int, int> getVoxel, int v, int wx, int wy, int wz)
     {
-        if (v == VoxelType.Water)
+        if (v == Blocks.WaterId)
         {
             return true;
         }
-        if (!VoxelTypeInfo.IsSolid(v))
+        if (!Blocks.IsSolid(v))
         {
             return false;
         }
-        return getVoxel(wx - 1, wy, wz) == VoxelType.Water
-            || getVoxel(wx + 1, wy, wz) == VoxelType.Water
-            || getVoxel(wx, wy, wz - 1) == VoxelType.Water
-            || getVoxel(wx, wy, wz + 1) == VoxelType.Water;
+        return getVoxel(wx - 1, wy, wz) == Blocks.WaterId
+            || getVoxel(wx + 1, wy, wz) == Blocks.WaterId
+            || getVoxel(wx, wy, wz - 1) == Blocks.WaterId
+            || getVoxel(wx, wy, wz + 1) == Blocks.WaterId;
     }
 
     // Is the first non-Water voxel above (wx, wy, wz) something other than
@@ -206,14 +206,14 @@ public static class WaterMesher
     //
     // Missing chunks read as Air, so this terminates at the top of the world;
     // MAX_COLUMN_PROBE is a runaway guard against a getVoxel that doesn't.
-    private static bool ProbeOpenAbove(Func<int, int, int, VoxelType> getVoxel, int wx, int wy, int wz)
+    private static bool ProbeOpenAbove(Func<int, int, int, int> getVoxel, int wx, int wy, int wz)
     {
         for (int i = 1; i <= MAX_COLUMN_PROBE; i++)
         {
-            VoxelType v = getVoxel(wx, wy + i, wz);
-            if (v != VoxelType.Water)
+            int v = getVoxel(wx, wy + i, wz);
+            if (v != Blocks.WaterId)
             {
-                return !VoxelTypeInfo.IsSolid(v);
+                return !Blocks.IsSolid(v);
             }
         }
         return true;

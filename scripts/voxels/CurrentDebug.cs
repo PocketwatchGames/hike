@@ -73,7 +73,7 @@ public static class CurrentDebug
                 int surfaceY = int.MinValue;
                 for (int wy = worldMaxY; wy >= worldMinY; wy--)
                 {
-                    if (ws.GetVoxelWorld(wx, wy, wz) == VoxelType.Water)
+                    if (ws.GetBlockWorld(wx, wy, wz) == Blocks.WaterId)
                     {
                         surfaceY = wy;
                         break;

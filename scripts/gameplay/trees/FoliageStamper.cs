@@ -8,14 +8,17 @@ using Godot;
 // started as and what most of it still does; it owns the Clear() for both
 // fields, which is why roofs ride this walk instead of a second pass.
 //
-// Stamps prop foliage clusters into WorldState.CanopyAttenuation as
-// sun-attenuating volumes. Walks the entity dictionary for
-// every PropSimState, looks up each scene's cached occluder list via
-// FoliageOccluderCache, transforms by the prop's world position + Y
-// rotation, and stamps each ellipsoid + downward shadow column whose
-// authored FoliageCluster.CastsSunShadow is true. Per-cluster opt-in,
-// so decorative foliage (tall grass, ground cover, low bushes) doesn't
-// silently shelter the player just by sharing the FoliageCluster type.
+// Stamps prop foliage clusters as sun-attenuating volumes. Walks the entity
+// dictionary for every PropSimState, looks up each scene's cached occluder list
+// via FoliageOccluderCache, transforms by the prop's world position + Y
+// rotation, and stamps each ellipsoid whose authored
+// FoliageCluster.CastsSunShadow is true. Per-cluster opt-in, so decorative
+// foliage (tall grass, ground cover, low bushes) doesn't silently shelter the
+// player just by sharing the FoliageCluster type.
+//
+// The leaves land in WorldState.CanopyAttenuation and the shadow beneath them in
+// WorldState.CanopyShade — see StampProp for why those are two fields and not
+// one.
 public static class FoliageStamper
 {
     public static void Stamp(WorldState world)
@@ -27,12 +30,13 @@ public static class FoliageStamper
         // Clean slate — caller may rebuild after a tree-change. Drops
         // every chunk's canopy array; rebuilding is O(n_clusters * n_voxels).
         world.CanopyAttenuation.Clear();
+        world.CanopyShade.Clear();
         world.SunOpaque.Clear();
 
-        // Tuning lives on SimData (Foliage Canopy Shadow group). baseDensity
-        // is authored as a 0..1 float so overlapping clusters stack toward
-        // the byte ceiling — at the default 0.4, two clusters land near
-        // saturated, three+ peg at 255.
+        // Tuning lives on SimData (Foliage Canopy Shadow group). baseDensity is
+        // the density of ONE NOMINAL BLOB, authored as a 0..1 float and scaled
+        // per cluster by FoliageCluster.ShadowDensity; densities add where
+        // clusters (or trees) genuinely overlap, saturating at the byte ceiling.
         int baseDensity = Mathf.Clamp((int)Math.Round(world.SimData.canopyDensity * 255f), 0, 255);
         int shadowDepthVoxels = world.SimData.canopyShadowDepthVoxels;
 
@@ -59,7 +63,7 @@ public static class FoliageStamper
                 StampPropCover(world, prop, null);
             }
         }
-        GD.Print($"[FoliageStamper] props={propsScanned} clusters={clustersStamped} canopyChunks={world.CanopyAttenuation.Count}");
+        GD.Print($"[FoliageStamper] props={propsScanned} clusters={clustersStamped} canopyChunks={world.CanopyAttenuation.Count} shadeChunks={world.CanopyShade.Count}");
     }
 
     // Rebuild the occlusion fields inside one region only, leaving the rest of
@@ -173,6 +177,30 @@ public static class FoliageStamper
         }
     }
 
+    // Rasterize one prop's canopy, then derive the shadow column beneath it.
+    //
+    // TWO fields, because these are two different physical things. A cluster's
+    // ellipsoid is LEAVES — a medium, stamped into CanopyAttenuation, which
+    // charges light once per voxel of leaf it actually crosses. Everything below
+    // the canopy is SHADOW: air the sun already paid to get through, stamped into
+    // CanopyShade, which only the lateral spread reads. Charging the column as a
+    // medium made a tree's darkness a function of its TRUNK HEIGHT rather than of
+    // its foliage, because the same leaves were re-tolled at every voxel on the
+    // way down.
+    //
+    // The column's value is DERIVED — the total leaf density that column passes
+    // through — rather than stamped per cluster. Per cluster, four overlapping
+    // clusters deposited four full-strength columns for the one canopy they
+    // share; as an integral they contribute it exactly once, so densities can add
+    // everywhere (overlapping blobs, neighbouring trees) under a single rule.
+    // Setting it to the canopy integral is also what keeps lateral refill from
+    // ever exceeding the vertical answer: one step into the shadow costs the same
+    // as coming down through the canopy did.
+    //
+    // Bounds are deliberately NOT narrowed by `clip` — the column integral needs
+    // the whole canopy above it even when a regional restamp only rewrites a
+    // slice — so the clip is applied at each write instead, and props that miss
+    // the region are rejected up front.
     private static int StampProp(WorldState world, PropSimState prop, int baseDensity, int shadowDepthVoxels, VoxelBox? clip)
     {
         FoliageOccluder[] occluders = FoliageOccluderCache.GetOccluders(prop.Scene);
@@ -182,60 +210,84 @@ public static class FoliageStamper
         }
         float cos = Mathf.Cos(prop.RotationY);
         float sin = Mathf.Sin(prop.RotationY);
+
+        // Prop-wide bounds over the shadow-casting clusters.
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minZ = int.MaxValue, maxZ = int.MinValue;
+        int canopyBottomY = int.MaxValue, canopyTopY = int.MinValue;
         int stamped = 0;
         for (int o = 0; o < occluders.Length; o++)
         {
-            FoliageOccluder occ = occluders[o];
-            if (!occ.CastsSunShadow)
+            if (!IsStampable(occluders[o], baseDensity))
             {
                 continue;
             }
-            // Rotate occluder's local position around Y by prop's
-            // rotation, then translate to world.
-            float rx = cos * occ.CenterLocal.X + sin * occ.CenterLocal.Z;
-            float rz = -sin * occ.CenterLocal.X + cos * occ.CenterLocal.Z;
-            Vector3 centerWorld = new Vector3(
-                prop.WorldPosition.X + rx,
-                prop.WorldPosition.Y + occ.CenterLocal.Y,
-                prop.WorldPosition.Z + rz);
-            // Floor the shadow column at one voxel below the prop's
-            // base so the player's standing voxel is always covered,
-            // even when the canopy sits 10+ voxels above ground.
-            int columnFloorY = Mathf.FloorToInt(prop.WorldPosition.Y) - 1;
-            StampEllipsoid(world, centerWorld, occ.Radii, cos, sin, columnFloorY, baseDensity, shadowDepthVoxels, clip);
+            FoliageOccluder occ = occluders[o];
+            Vector3 center = OccluderCenterWorld(prop, occ, cos, sin);
+            EllipsoidBoundsXZ(occ.Radii, cos, sin, out float aabbX, out float aabbZ);
+            minX = Math.Min(minX, (int)Mathf.Floor(center.X - aabbX));
+            maxX = Math.Max(maxX, (int)Mathf.Ceil(center.X + aabbX));
+            minZ = Math.Min(minZ, (int)Mathf.Floor(center.Z - aabbZ));
+            maxZ = Math.Max(maxZ, (int)Mathf.Ceil(center.Z + aabbZ));
+            canopyBottomY = Math.Min(canopyBottomY, (int)Mathf.Floor(center.Y - occ.Radii.Y));
+            canopyTopY = Math.Max(canopyTopY, (int)Mathf.Ceil(center.Y + occ.Radii.Y));
             stamped++;
         }
+        if (stamped == 0)
+        {
+            return 0;
+        }
+
+        // Floor the shadow column at one voxel below the prop's base so the
+        // player's standing voxel is always covered, even when the canopy sits
+        // 10+ voxels above ground.
+        int columnFloorY = Mathf.FloorToInt(prop.WorldPosition.Y) - 1;
+        int shadowFloorY = Math.Min(canopyBottomY - shadowDepthVoxels, columnFloorY);
+        if (clip.HasValue && !IntersectsClip(clip.Value, minX, maxX, shadowFloorY, canopyTopY, minZ, maxZ))
+        {
+            return 0;
+        }
+
+        // Per-column canopy integral, and the lowest leaf voxel in each column
+        // (the shadow starts one voxel under it). Indexed [x - minX, z - minZ].
+        int width = maxX - minX + 1;
+        int depth = maxZ - minZ + 1;
+        int[,] columnDensity = new int[width, depth];
+        int[,] columnLeafBottom = new int[width, depth];
+        for (int ix = 0; ix < width; ix++)
+        {
+            for (int iz = 0; iz < depth; iz++)
+            {
+                columnLeafBottom[ix, iz] = int.MaxValue;
+            }
+        }
+
+        for (int o = 0; o < occluders.Length; o++)
+        {
+            if (!IsStampable(occluders[o], baseDensity))
+            {
+                continue;
+            }
+            FoliageOccluder occ = occluders[o];
+            StampLeaves(world, OccluderCenterWorld(prop, occ, cos, sin), occ.Radii, cos, sin,
+                ClusterDensity(baseDensity, occ), clip, minX, minZ, columnDensity, columnLeafBottom);
+        }
+
+        StampShadowColumns(world, clip, minX, minZ, shadowFloorY, columnDensity, columnLeafBottom);
         return stamped;
     }
 
-    private static void StampEllipsoid(WorldState world, Vector3 center, Vector3 radii, float cos, float sin, int columnFloorY, int baseDensity, int shadowDepthVoxels, VoxelBox? clip)
+    // Rasterize one cluster's ellipsoid into CanopyAttenuation, accumulating each
+    // column's total leaf density and lowest leaf voxel for the shadow pass.
+    private static void StampLeaves(WorldState world, Vector3 center, Vector3 radii, float cos, float sin, int density, VoxelBox? clip, int originX, int originZ, int[,] columnDensity, int[,] columnLeafBottom)
     {
-        if (radii.X <= 0f || radii.Y <= 0f || radii.Z <= 0f)
-        {
-            return;
-        }
-        // AABB of the Y-rotated ellipsoid in world XZ. Y is unrotated.
-        float aabbX = Mathf.Sqrt(radii.X * radii.X * cos * cos + radii.Z * radii.Z * sin * sin);
-        float aabbZ = Mathf.Sqrt(radii.X * radii.X * sin * sin + radii.Z * radii.Z * cos * cos);
-
+        EllipsoidBoundsXZ(radii, cos, sin, out float aabbX, out float aabbZ);
         int minX = (int)Mathf.Floor(center.X - aabbX);
         int maxX = (int)Mathf.Ceil(center.X + aabbX);
         int minZ = (int)Mathf.Floor(center.Z - aabbZ);
         int maxZ = (int)Mathf.Ceil(center.Z + aabbZ);
+        int minY = (int)Mathf.Floor(center.Y - radii.Y);
         int maxY = (int)Mathf.Ceil(center.Y + radii.Y);
-        int shadowBottomConst = (int)Mathf.Floor(center.Y - radii.Y) - shadowDepthVoxels;
-        int minY = Math.Min(shadowBottomConst, columnFloorY);
-
-        if (clip.HasValue)
-        {
-            VoxelBox box = clip.Value;
-            minX = Math.Max(minX, box.Min.X);
-            maxX = Math.Min(maxX, box.Max.X);
-            minY = Math.Max(minY, box.Min.Y);
-            maxY = Math.Min(maxY, box.Max.Y);
-            minZ = Math.Max(minZ, box.Min.Z);
-            maxZ = Math.Min(maxZ, box.Max.Z);
-        }
 
         float invRx = 1f / radii.X;
         float invRy = 1f / radii.Y;
@@ -244,12 +296,12 @@ public static class FoliageStamper
         for (int wy = minY; wy <= maxY; wy++)
         {
             float ly = wy + 0.5f - center.Y;
-            // Above the ellipsoid — no occlusion (sun hasn't reached the
-            // canopy yet from this column's angle).
-            if (ly > radii.Y)
+            if (ly > radii.Y || ly < -radii.Y)
             {
                 continue;
             }
+            float ny = ly * invRy;
+            float nySq = ny * ny;
             for (int wz = minZ; wz <= maxZ; wz++)
             {
                 for (int wx = minX; wx <= maxX; wx++)
@@ -257,36 +309,106 @@ public static class FoliageStamper
                     float dx = wx + 0.5f - center.X;
                     float dz = wz + 0.5f - center.Z;
                     // Rotate world-space delta into ellipsoid-local space
-                    // (inverse of the prop's Y rotation).
+                    // (inverse of the prop's Y rotation). Exact at any rotation
+                    // — nothing is resampled, so arbitrary RotationY costs no
+                    // accuracy.
                     float lx = cos * dx + sin * dz;
                     float lzL = -sin * dx + cos * dz;
-
                     float nxSq = (lx * invRx) * (lx * invRx);
                     float nzSq = (lzL * invRz) * (lzL * invRz);
-                    float xzNorm = nxSq + nzSq;
-                    if (xzNorm > 1f)
+                    if (nxSq + nzSq + nySq > 1f)
                     {
-                        // Outside the ellipse silhouette — no canopy here
-                        // and no shadow column either.
                         continue;
                     }
 
-                    if (ly >= -radii.Y)
+                    // The column integral is accumulated UNCLIPPED — a regional
+                    // restamp still needs the whole canopy overhead to derive the
+                    // shadow correctly, even where it only rewrites a slice.
+                    columnDensity[wx - originX, wz - originZ] += density;
+                    ref int leafBottom = ref columnLeafBottom[wx - originX, wz - originZ];
+                    if (wy < leafBottom)
                     {
-                        // Inside the actual ellipsoid (full 3D test).
-                        float ny = ly * invRy;
-                        if (xzNorm + ny * ny > 1f)
-                        {
-                            continue;
-                        }
+                        leafBottom = wy;
                     }
-                    // Below the ellipsoid bottom (ly < -radii.Y): minY's
-                    // floor already bounded the loop, so any voxel reaching
-                    // this point is inside the shadow column.
-
-                    world.AddCanopyAttenuationWorld(wx, wy, wz, baseDensity);
+                    if (!clip.HasValue || clip.Value.Contains(wx, wy, wz))
+                    {
+                        world.AddCanopyAttenuationWorld(wx, wy, wz, density);
+                    }
                 }
             }
         }
+    }
+
+    // Write each column's derived shadow, from just below its lowest leaf voxel
+    // down to the shadow floor.
+    private static void StampShadowColumns(WorldState world, VoxelBox? clip, int originX, int originZ, int shadowFloorY, int[,] columnDensity, int[,] columnLeafBottom)
+    {
+        int width = columnDensity.GetLength(0);
+        int depth = columnDensity.GetLength(1);
+        for (int ix = 0; ix < width; ix++)
+        {
+            for (int iz = 0; iz < depth; iz++)
+            {
+                int density = columnDensity[ix, iz];
+                if (density <= 0)
+                {
+                    continue;
+                }
+                if (density > 255)
+                {
+                    density = 255;
+                }
+                int wx = originX + ix;
+                int wz = originZ + iz;
+                for (int wy = columnLeafBottom[ix, iz] - 1; wy >= shadowFloorY; wy--)
+                {
+                    if (clip.HasValue && !clip.Value.Contains(wx, wy, wz))
+                    {
+                        continue;
+                    }
+                    world.AddCanopyShadeWorld(wx, wy, wz, density);
+                }
+            }
+        }
+    }
+
+    private static bool IsStampable(in FoliageOccluder occ, int baseDensity)
+    {
+        return occ.CastsSunShadow
+            && occ.Radii.X > 0f && occ.Radii.Y > 0f && occ.Radii.Z > 0f
+            && ClusterDensity(baseDensity, occ) > 0;
+    }
+
+    // Per-cluster leaf density: the nominal blob density scaled by the cluster's
+    // authored ShadowDensity.
+    private static int ClusterDensity(int baseDensity, in FoliageOccluder occ)
+    {
+        return Mathf.Clamp((int)Math.Round(baseDensity * occ.ShadowDensity), 0, 255);
+    }
+
+    // Rotate the occluder's local position around Y by the prop's rotation, then
+    // translate to world.
+    private static Vector3 OccluderCenterWorld(PropSimState prop, in FoliageOccluder occ, float cos, float sin)
+    {
+        float rx = cos * occ.CenterLocal.X + sin * occ.CenterLocal.Z;
+        float rz = -sin * occ.CenterLocal.X + cos * occ.CenterLocal.Z;
+        return new Vector3(
+            prop.WorldPosition.X + rx,
+            prop.WorldPosition.Y + occ.CenterLocal.Y,
+            prop.WorldPosition.Z + rz);
+    }
+
+    // Half-extents of the Y-rotated ellipsoid in world XZ. Y is unrotated.
+    private static void EllipsoidBoundsXZ(Vector3 radii, float cos, float sin, out float aabbX, out float aabbZ)
+    {
+        aabbX = Mathf.Sqrt(radii.X * radii.X * cos * cos + radii.Z * radii.Z * sin * sin);
+        aabbZ = Mathf.Sqrt(radii.X * radii.X * sin * sin + radii.Z * radii.Z * cos * cos);
+    }
+
+    private static bool IntersectsClip(VoxelBox box, int minX, int maxX, int minY, int maxY, int minZ, int maxZ)
+    {
+        return maxX >= box.Min.X && minX <= box.Max.X
+            && maxY >= box.Min.Y && minY <= box.Max.Y
+            && maxZ >= box.Min.Z && minZ <= box.Max.Z;
     }
 }

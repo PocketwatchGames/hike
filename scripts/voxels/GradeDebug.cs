@@ -80,14 +80,14 @@ public static class GradeDebug
         Grid("S (stamped shape on surface voxel)", span, (ix, iz) =>
         {
             var s = ws.GetShapeWorld(cx - RADIUS + ix, h[ix, iz], cz - RADIUS + iz);
-            if (s == VoxelTypeInfo.SharpAxes.None) { return "."; }
-            if (s == VoxelTypeInfo.SharpAxes.All) { return "A"; }
-            if (s == VoxelTypeInfo.SharpAxes.Y) { return "Y"; }
+            if (s == SharpAxes.None) { return "."; }
+            if (s == SharpAxes.All) { return "A"; }
+            if (s == SharpAxes.Y) { return "Y"; }
             return "?";
         });
         Grid("V (surface voxel type initial)", span, (ix, iz) =>
         {
-            VoxelType v = ws.GetVoxelWorld(cx - RADIUS + ix, h[ix, iz], cz - RADIUS + iz);
+            int v = ws.GetBlockWorld(cx - RADIUS + ix, h[ix, iz], cz - RADIUS + iz);
             return v.ToString().Substring(0, 1);
         });
         CrossSection(ws, cx, cz, h[RADIUS, RADIUS]);
@@ -111,15 +111,15 @@ public static class GradeDebug
             for (int ix = 0; ix < span; ix++)
             {
                 int wx = cx - RADIUS + ix;
-                VoxelType v = ws.GetVoxelWorld(wx, y, cz);
-                if (v == VoxelType.Air) { sb.Append(' '); continue; }
-                if (v == VoxelType.Water) { sb.Append('~'); continue; }
-                if (v != VoxelType.Terrain && v != VoxelType.Desert && v != VoxelType.Marsh)
+                int v = ws.GetBlockWorld(wx, y, cz);
+                if (v == Blocks.AirId) { sb.Append(' '); continue; }
+                if (v == Blocks.WaterId) { sb.Append('~'); continue; }
+                if (!Blocks.IsNaturalGround(v))
                 {
                     sb.Append('#');
                     continue;
                 }
-                sb.Append(ws.GetShapeWorld(wx, y, cz) == VoxelTypeInfo.SharpAxes.None ? '.' : 'Y');
+                sb.Append(ws.GetShapeWorld(wx, y, cz) == SharpAxes.None ? '.' : 'Y');
             }
             GD.Print(sb.ToString());
         }
@@ -159,8 +159,8 @@ public static class GradeDebug
         int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
         for (int y = maxY; y >= minY; y--)
         {
-            VoxelType v = ws.GetVoxelWorld(wx, y, wz);
-            if (VoxelTypeInfo.IsSolid(v))
+            int v = ws.GetBlockWorld(wx, y, wz);
+            if (Blocks.IsSolid(v))
             {
                 return y;
             }

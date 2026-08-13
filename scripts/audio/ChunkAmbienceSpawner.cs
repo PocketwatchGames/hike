@@ -195,13 +195,13 @@ public partial class ChunkAmbienceSpawner : Node3D
 
     private static bool QualifiesForSpawn(ChunkState chunk, int lx, int ly, int lz, PositionalEmitterData data)
     {
-        VoxelType v = chunk.GetVoxel(lx, ly, lz);
-        if (data.spawnVoxelType != VoxelType.Air && v != data.spawnVoxelType) { return false; }
+        int v = chunk.GetVoxel(lx, ly, lz);
+        if (data.spawnVoxelType != Blocks.AirId && v != data.spawnVoxelType) { return false; }
         if (data.spawnDetailGroupId != 0 && chunk.GetDetailGroup(lx, ly, lz) != data.spawnDetailGroupId) { return false; }
         if (data.requiresAirAbove)
         {
-            VoxelType above = ly < ChunkState.SIZE - 1 ? chunk.GetVoxel(lx, ly + 1, lz) : VoxelType.Air;
-            if (above != VoxelType.Air) { return false; }
+            int above = ly < ChunkState.SIZE - 1 ? chunk.GetVoxel(lx, ly + 1, lz) : Blocks.AirId;
+            if (above != Blocks.AirId) { return false; }
         }
         if (data.requiresAdjacentSolid)
         {
@@ -223,9 +223,9 @@ public partial class ChunkAmbienceSpawner : Node3D
             || IsLand(chunk.GetVoxel(lx, ly, lz - 1));
     }
 
-    private static bool IsLand(VoxelType v)
+    private static bool IsLand(int v)
     {
-        return v != VoxelType.Air && v != VoxelType.Water;
+        return v != Blocks.AirId && v != Blocks.WaterId;
     }
 
     private void SweepEarshotAndTod(Vector3 listenerPos, float tod)

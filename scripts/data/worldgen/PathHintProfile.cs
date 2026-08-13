@@ -26,5 +26,5 @@ public partial class PathHintProfile : Resource
 
     // Overlay block stamped along the tread. Null falls back to
     // WorldGenData.roadDefaultTexture.
-    [Export] public BlockData texture;
+    [Export] public BlockSurfaceData texture;
 }

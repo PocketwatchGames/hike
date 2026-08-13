@@ -239,7 +239,7 @@ public partial class WorldGenData : Resource
     // road does cross are removed. 0 disables prop-aware routing.
     [Export] public float roadPropCostMultiplier = 4f;
     // Overlay block used when a RoadConnection leaves its Texture null.
-    [Export] public BlockData roadDefaultTexture;
+    [Export] public BlockSurfaceData roadDefaultTexture;
     // How far (meters ≈ voxels) a road holds one rolled width before re-rolling
     // a new one in [MinWidth, MaxWidth]. Each stride is a random length in this
     // range, so the tread swells and pinches organically along its length.

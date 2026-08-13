@@ -30,5 +30,5 @@ public partial class RoadConnection : Resource
     // AtlasBaseIndex is the painted value — e.g. a "DirtOverlay" block for a
     // dirt road or a "Cobblestone" block for a stone road. Null falls back to
     // WorldGenData.RoadDefaultTexture.
-    [Export] public BlockData texture;
+    [Export] public BlockSurfaceData texture;
 }

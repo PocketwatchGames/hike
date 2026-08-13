@@ -1,21 +1,22 @@
-[gd_resource type="Resource" script_class="BlockCatalog" format=3 uid="uid://b721sd4co3tit"]
+[gd_resource type="Resource" script_class="BlockCatalog" format=3]
 
-[ext_resource type="Script" uid="uid://0hubpm0rp7ny" path="res://scripts/data/world/BlockCatalog.cs" id="1_catalog"]
-[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockData.cs" id="2_block_script"]
-[ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/blocks/block_stone.tres" id="3_stone"]
-[ext_resource type="Resource" uid="uid://b4ruwi63vpapo" path="res://resources/data/blocks/block_grass_top.tres" id="4_grass"]
-[ext_resource type="Resource" uid="uid://cccq1e0wvo1dr" path="res://resources/data/blocks/block_water.tres" id="5_water"]
-[ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/blocks/block_cobblestone.tres" id="6_cobble"]
-[ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/blocks/block_dirt_overlay.tres" id="7_dirt"]
-[ext_resource type="Resource" uid="uid://d0b71mu3xq5cg" path="res://resources/data/blocks/block_desert_top.tres" id="9_desert_top"]
-[ext_resource type="Resource" uid="uid://chx6p8gf7rf1r" path="res://resources/data/blocks/block_desert_sand.tres" id="10_desert_sand"]
-[ext_resource type="Resource" uid="uid://dpbb3e3o8bi2w" path="res://resources/data/blocks/block_desert_wall.tres" id="11_desert_wall"]
-[ext_resource type="Resource" uid="uid://dqx8riexpk03r" path="res://resources/data/blocks/block_desert_cave.tres" id="12_desert_cave"]
-[ext_resource type="Resource" uid="uid://d22rcvc2fr0jy" path="res://resources/data/blocks/block_marsh.tres" id="13_marsh"]
-[ext_resource type="Resource" uid="uid://cqf7n2cavefl0" path="res://resources/data/blocks/block_cave_floor.tres" id="14_cave_floor"]
+[ext_resource type="Script" uid="uid://o03zr81wmsx63" path="res://scripts/data/world/BlockCatalog.cs" id="1_cat"]
+[ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="2_block"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_air.tres" id="3_air"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_barrier.tres" id="4_barrier"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_opening.tres" id="5_opening"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_water.tres" id="6_water"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_grass.tres" id="7_grass"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_desert_ground.tres" id="8_desert_ground"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_marsh_ground.tres" id="9_marsh_ground"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_cave_limestone.tres" id="10_cave_limestone"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_cave_sandstone.tres" id="11_cave_sandstone"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_sand.tres" id="12_sand"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_stone.tres" id="13_stone"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_cobblestone.tres" id="14_cobblestone"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_dirt.tres" id="15_dirt"]
 
 [resource]
-script = ExtResource("1_catalog")
-blocks = Array[ExtResource("2_block_script")]([ExtResource("3_stone"), ExtResource("4_grass"), ExtResource("5_water"), ExtResource("6_cobble"), ExtResource("7_dirt"), ExtResource("9_desert_top"), ExtResource("10_desert_sand"), ExtResource("11_desert_wall"), ExtResource("12_desert_cave"), ExtResource("13_marsh"), ExtResource("14_cave_floor")])
-defaultFlatTile = ExtResource("4_grass")
-defaultWallTile = ExtResource("3_stone")
+script = ExtResource("1_cat")
+blocks = Array[ExtResource("2_block")]([ExtResource("3_air"), ExtResource("4_barrier"), ExtResource("5_opening"), ExtResource("6_water"), ExtResource("7_grass"), ExtResource("8_desert_ground"), ExtResource("9_marsh_ground"), ExtResource("10_cave_limestone"), ExtResource("11_cave_sandstone"), ExtResource("12_sand"), ExtResource("13_stone"), ExtResource("14_cobblestone"), ExtResource("15_dirt")])
+airBlock = ExtResource("3_air")

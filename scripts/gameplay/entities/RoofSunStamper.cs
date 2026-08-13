@@ -58,6 +58,10 @@ public static class RoofSunStamper
         // stands between the sun and the ground, rather than just the walls.
         float halfSeam = size.HalfSeam;
         float halfAcross = size.HalfAcross;
+        // Where the walls are — the line the full stamp stops at.
+        float halfSeamBody = size.HalfSeamBody;
+        float halfAcrossBody = size.HalfAcrossBody;
+        int eaveAmount = Mathf.Clamp(Mathf.RoundToInt(style.eaveSunOcclusion * 255f), 0, 255);
 
         // Roof-local axes in world XZ, carrying the entity's Y rotation.
         float cos = Mathf.Cos(roof.RotationY);
@@ -112,11 +116,24 @@ public static class RoofSunStamper
                 {
                     continue;
                 }
+                // Only the part standing over the WALLS blocks sun outright. The
+                // overhang ring gets partial cover instead: it is open to the
+                // sky sideways, and a binary stamp there blacks out the strip of
+                // wall under every eave — and the roof's own fascia and gable
+                // end, which stand inside that ring and sample the shadow they
+                // are casting. The angle-correct shadow of the overhang still
+                // comes from the real geometry, via the ShadowsOnly caster in
+                // Roof.Build; this only decides the voxel sun mask.
+                bool overWall = alongSeam <= halfSeamBody && alongAcross <= halfAcrossBody;
                 for (int d = minD; d <= maxD; d++)
                 {
-                    if (style.blocksSun)
+                    if (style.blocksSun && overWall)
                     {
                         world.SetSunOpaqueWorld(wx, baseY - d, wz);
+                    }
+                    else if (style.blocksSun)
+                    {
+                        world.AddCanopyAttenuationWorld(wx, baseY - d, wz, eaveAmount);
                     }
                     else
                     {

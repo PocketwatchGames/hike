@@ -6,7 +6,6 @@
 [ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/interactives/foliage/tall_grass_02.tscn" id="4_p3dd3"]
 [ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/interactives/foliage/tall_grass_03.tscn" id="5_k2mw2"]
 [ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/interactives/foliage/tall_grass_04.tscn" id="6_80dge"]
-[ext_resource type="Resource" uid="uid://pyv6u3yyr1dc" path="res://resources/data/terrain/marsh.tres" id="7_y71q7"]
 [ext_resource type="PackedScene" uid="uid://bj7f8dy86dj1q" path="res://scenes/props/tree_willow.tscn" id="8_qmbwd"]
 [ext_resource type="PackedScene" uid="uid://ble6ry6xb2qgc" path="res://scenes/props/tree_willow_dead.tscn" id="9_o1j2i"]
 [ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="10_8iljw"]
@@ -19,6 +18,7 @@
 [ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="16_qmbwd"]
 [ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="17_o1j2i"]
 [ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="18_8iljw"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_marsh_ground.tres" id="blk_marsh_ground"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("3_fdyad")
@@ -99,7 +99,7 @@ metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
 
 [resource]
 script = ExtResource("14_8rsax")
-terrain = ExtResource("7_y71q7")
+block = ExtResource("blk_marsh_ground")
 defaultDetail = ExtResource("1_ikfms")
 treeScenes = [SubResource("ws_9_veml7"), SubResource("ws_10_c0fex"), SubResource("ws_11_tpi02"), SubResource("ws_12_vum8l"), SubResource("ws_13_c0fex"), SubResource("ws_11_eh5vr"), SubResource("Resource_imr58"), SubResource("Resource_503e6"), SubResource("Resource_xqh23"), SubResource("Resource_8rsax"), SubResource("Resource_yj8yq")]
 tallGrassScenes = [SubResource("ws_4_g01"), SubResource("ws_4_g02"), SubResource("ws_4_g03"), SubResource("ws_4_g04")]

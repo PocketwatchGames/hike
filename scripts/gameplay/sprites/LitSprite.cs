@@ -735,12 +735,12 @@ public partial class LitSprite : SpriteBase
     // water within WaterReflectionSearchDepth either way.
     private float? FindWaterInColumn(WorldState ws, int wx, int startY, int wz)
     {
-        if (ws.GetVoxelWorld(wx, startY, wz) == VoxelType.Water)
+        if (ws.GetBlockWorld(wx, startY, wz) == Blocks.WaterId)
         {
             int maxY = startY + WaterReflectionSearchDepth;
             for (int y = startY + 1; y <= maxY; y++)
             {
-                if (ws.GetVoxelWorld(wx, y, wz) != VoxelType.Water)
+                if (ws.GetBlockWorld(wx, y, wz) != Blocks.WaterId)
                 {
                     return y;
                 }
@@ -751,7 +751,7 @@ public partial class LitSprite : SpriteBase
         int minY = startY - WaterReflectionSearchDepth;
         for (int y = startY - 1; y >= minY; y--)
         {
-            if (ws.GetVoxelWorld(wx, y, wz) == VoxelType.Water)
+            if (ws.GetBlockWorld(wx, y, wz) == Blocks.WaterId)
             {
                 return y + 1;
             }

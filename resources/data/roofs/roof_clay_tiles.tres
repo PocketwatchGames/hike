@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="RoofStyleData" format=3 uid="uid://tu4ca6akjhbf"]
+
+[ext_resource type="Script" uid="uid://buvu4p0i4kr65" path="res://scripts/data/props/RoofStyleData.cs" id="1_style"]
+[ext_resource type="Material" uid="uid://dfhl6kleb361t" path="res://resources/materials/roof_clay_tiles.tres" id="2_material"]
+
+[resource]
+script = ExtResource("1_style")
+displayName = "Clay Tiles"
+material = ExtResource("2_material")
+textureTilesPerMeter = 0.4
+thickness = 0.3
+coursesPerMeter = 3.0
+courseLipHeight = 0.1
+brokenScale = 0.6
+brokenEdgeJagged = 0.55
+brokenInnerShrink = 0.85
+brokenRimDarken = 0.45
+metadata/_custom_type_script = "uid://buvu4p0i4kr65"

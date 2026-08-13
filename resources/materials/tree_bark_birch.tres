@@ -1,7 +1,8 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://b82h0vtdtdjii"]
 
-[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://cg6djkpog44we" path="res://shaders/model_lit_detail.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://cxt8gqo3tdpwi" path="res://assets/models/trees/bark_birch.png" id="2_bark"]
+[ext_resource type="Texture2D" uid="uid://duok1mc4ggub4" path="res://assets/models/trees/bark_birch_nrm.png" id="3_nrm"]
 
 [resource]
 render_priority = 0
@@ -11,3 +12,6 @@ shader_parameter/form_strength = 0.55
 shader_parameter/color_tint = Color(1, 1, 0.98, 1)
 shader_parameter/vertex_ao_strength = 1.0
 shader_parameter/ao_contact_strength = 0.0
+shader_parameter/normal_tex = ExtResource("3_nrm")
+shader_parameter/normal_strength = 1.0
+shader_parameter/height_shade = 0.0

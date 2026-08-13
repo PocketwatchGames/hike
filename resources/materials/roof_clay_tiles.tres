@@ -1,0 +1,40 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://dfhl6kleb361t"]
+
+[ext_resource type="Shader" uid="uid://rlvlta0p26wu" path="res://shaders/roof_lit.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://csmkjynnney7q" path="res://assets/textures/roofs/roof_clay_tiles.png" id="2_clay"]
+[ext_resource type="Texture2D" uid="uid://c6lffj2tllo3f" path="res://assets/textures/roofs/roof_clay_tiles_nrm.png" id="3_clay_nrm"]
+[ext_resource type="Texture2D" uid="uid://bpik5e16fpaqa" path="res://assets/textures/roofs/roof_moss.png" id="9_moss"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_clay")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(0.932, 0.525, 0.265, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/specular_strength = 0.0
+shader_parameter/specular_color = Color(1, 1, 1, 1)
+shader_parameter/specular_shininess = 32.0
+shader_parameter/vertex_ao_strength = 1.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.0
+shader_parameter/normal_tex = ExtResource("3_clay_nrm")
+shader_parameter/normal_strength = 1.0
+shader_parameter/height_shade = 0.35
+shader_parameter/detail_tex = ExtResource("2_clay")
+shader_parameter/detail_scale = 0.11
+shader_parameter/detail_strength = 0.35
+shader_parameter/overlay_tex = ExtResource("9_moss")
+shader_parameter/overlay_tint = Color(0.27, 0.313, 0.026, 1)
+shader_parameter/overlay_scale = 0.55
+shader_parameter/overlay_strength = 0.85
+shader_parameter/overlay_noise_scale = 0.45
+shader_parameter/overlay_coverage = 0.28
+shader_parameter/overlay_edge_softness = 0.3
+shader_parameter/overlay_crevice_bias = 0.45
+shader_parameter/overlay_up_bias = 0.8
+shader_parameter/overlay_flatten = 0.85
+shader_parameter/overlay_shade_bias = 0.18
+shader_parameter/light_normal_bias = 0.6

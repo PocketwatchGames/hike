@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BlockData" format=3]
+
+[ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+blockName = &"Air"
+minimapColor = Color(0.05,0.05,0.06, 1)
+solid = false

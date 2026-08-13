@@ -348,7 +348,7 @@ public partial class Sim
 
         // Nothing buried and nothing burrowed — fall back to the dug block's
         // own yield. Some ground scoops up a material when you dig a bare hole
-        // in it (marsh → mud); the block authors what via BlockData.DigItem.
+        // in it (marsh → mud); the block authors what via BlockSurfaceData.DigItem.
         // Spawn it as loose loot popping out of the hole and report Common so
         // the shovel plays its "found something" cue. Most blocks leave DigItem
         // null and the dig comes up empty.

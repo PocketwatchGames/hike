@@ -28,8 +28,10 @@ public static class LightEngine
 
     // Multiplicative (Beer-Lambert) sun transmittance through one voxel of an
     // attenuating medium (canopy or fog/dust): exp(-density * extinction).
-    // densityByte is 0..255; extinction is the optical depth a fully-dense voxel
-    // adds. Unlike a flat subtraction this compounds with depth and asymptotes
+    // densityByte is 0..255 per source (callers may pass a SUM of sources, e.g.
+    // canopy + its shadow, which simply reads as more optical depth); extinction
+    // is the optical depth a fully-dense voxel adds. Unlike a flat subtraction
+    // this compounds with depth and asymptotes
     // toward — never snaps to — zero, so a lone tree's shadow (or a dusty room)
     // stays dim-but-readable while only deep, dense medium drives it very dark.
     // Mirrors the block-light flood's medium terms.
@@ -106,16 +108,16 @@ public static class LightEngine
                 world.SetSkyExposureWorld(wx, wy, wz, 0);
                 continue;
             }
-            VoxelType v = world.GetVoxelWorld(wx, wy, wz);
+            int v = world.GetBlockWorld(wx, wy, wz);
             // Opaque ceiling — a solid voxel, or non-voxel solid cover such as
             // a roof: this voxel and everything below it are sheltered.
-            if ((v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v)) || world.GetSunOpaqueWorld(wx, wy, wz))
+            if ((v != Blocks.AirId && !Blocks.IsTransparent(v)) || world.GetSunOpaqueWorld(wx, wy, wz))
             {
                 blocked = true;
                 world.SetSkyExposureWorld(wx, wy, wz, 0);
                 continue;
             }
-            level -= VoxelTypeInfo.LightAttenuation(v);
+            level -= Blocks.LightAttenuation(v);
             level *= MediumTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
             int rounded = (int)(level + 0.5f);
             if (rounded <= 0)
@@ -177,8 +179,8 @@ public static class LightEngine
         float sunLevel = MAX_LIGHT;
         for (int wy = topWy; wy >= minWy; wy--)
         {
-            VoxelType v = world.GetVoxelWorld(wx, wy, wz);
-            if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v))
+            int v = world.GetBlockWorld(wx, wy, wz);
+            if (v != Blocks.AirId && !Blocks.IsTransparent(v))
             {
                 break;
             }
@@ -188,8 +190,13 @@ public static class LightEngine
             {
                 break;
             }
-            sunLevel -= VoxelTypeInfo.LightAttenuation(v);
+            sunLevel -= Blocks.LightAttenuation(v);
             sunLevel *= MediumTransmittance(world.GetFogWorld(wx, wy, wz), fogSunExtinction);
+            // Canopy only, never CanopyShade. The scan carries sunLevel down, so
+            // it has already paid for the leaves by the time it is under them;
+            // the air below holds no foliage to charge for again. Reading the
+            // shadow here would re-toll the same canopy once per voxel of trunk
+            // and make a tree's darkness a function of its HEIGHT.
             sunLevel *= MediumTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
             int level = (int)(sunLevel + 0.5f);
             if (level <= 0)
@@ -729,8 +736,8 @@ public static class LightEngine
 
     private static bool IsOpenVoxel(WorldState world, int wx, int wy, int wz)
     {
-        VoxelType v = world.GetVoxelWorld(wx, wy, wz);
-        return v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
+        int v = world.GetBlockWorld(wx, wy, wz);
+        return v == Blocks.AirId || Blocks.IsTransparent(v);
     }
 
     // Can block light cross into this cell? Solid voxels stop it, and so does
@@ -792,17 +799,27 @@ public static class LightEngine
                 int nz = z + offset.Z;
 
                 if (!world.IsInBounds(nx, ny, nz)) { continue; }
-                VoxelType v = world.GetVoxelWorld(nx, ny, nz);
-                if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v)) { continue; }
+                int v = world.GetBlockWorld(nx, ny, nz);
+                if (v != Blocks.AirId && !Blocks.IsTransparent(v)) { continue; }
                 // Non-voxel solid cover (a roof) is a barrier to the flood as
                 // well as to the column scan. Without this the lit air directly
                 // above it spreads straight back down through it — one step, one
                 // level — and refills the room the column scan just darkened.
                 if (world.GetSunOpaqueWorld(nx, ny, nz)) { continue; }
 
-                float stepped = currentLevel - falloffPerVoxel - VoxelTypeInfo.LightAttenuation(v);
+                float stepped = currentLevel - falloffPerVoxel - Blocks.LightAttenuation(v);
                 stepped *= MediumTransmittance(world.GetFogWorld(nx, ny, nz), fogSunExtinction);
-                stepped *= MediumTransmittance(world.GetCanopyAttenuationWorld(nx, ny, nz), canopySunExtinction);
+                // Canopy AND its shadow, unlike the column scan above, which
+                // reads only the canopy. This is the one pass that must see the
+                // shadow: without it a neighbouring un-canopied column refills
+                // the shaded voxel at nearly MAX_LIGHT and the tree casts no
+                // shade at all. Charging the shadow at the canopy's own column
+                // integral means one lateral step in costs what coming down
+                // through the leaves did, so refill can raise a voxel to — but
+                // never above — the vertical answer.
+                stepped *= MediumTransmittance(
+                    world.GetCanopyAttenuationWorld(nx, ny, nz) + world.GetCanopyShadeWorld(nx, ny, nz),
+                    canopySunExtinction);
                 int newLevel = (int)(stepped + 0.5f);
                 if (newLevel <= 0) { continue; }
 
@@ -843,8 +860,8 @@ public static class LightEngine
 
         foreach (Vector3I pos in changedPositions)
         {
-            VoxelType v = world.GetVoxelWorld(pos.X, pos.Y, pos.Z);
-            bool isAir = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
+            int v = world.GetBlockWorld(pos.X, pos.Y, pos.Z);
+            bool isAir = v == Blocks.AirId || Blocks.IsTransparent(v);
             int level = world.GetSunlightWorld(pos.X, pos.Y, pos.Z);
 
             if (isAir && level > 0)

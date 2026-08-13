@@ -160,6 +160,43 @@ public enum EEditorBrushShape
     Room,
 }
 
+// How the mesher is told to treat the painted cells' edges — the authoring face
+// of SharpAxes, which is per-voxel state the brush has until now
+// left to each material's default.
+//   Auto    — the material's DefaultShape (blocky for Stone, Y-snapped for the
+//             natural grounds). Also the only mode that PRESERVES the shape
+//             already on a cell when a paint doesn't change its material.
+//   Blocky  — SharpAxes.All: square edges on every axis, flat-shaded. Buildings.
+//   Stepped — SharpAxes.Y: hard height steps, walls keep their organic curve.
+//             What natural ground uses.
+//   Smooth  — SharpAxes.None: the plain surface-nets average. Ramps and blends.
+// X / Z alone are legal SharpAxes but have no authoring use, so they aren't
+// offered — a shape that needs them can still arrive from worldgen.
+public enum EEditorVoxelEdges
+{
+    Auto,
+    Blocky,
+    Stepped,
+    Smooth,
+}
+
+// One entry in the editor's voxel palette — one button per block in the
+// catalog, in catalog order. Air is absent: erasing writes it.
+public readonly struct VoxelBrush
+{
+    public readonly string Name;
+    public readonly int BlockId;
+    // Resolves the button's tile icon.
+    public readonly BlockData Block;
+
+    public VoxelBrush(BlockData block)
+    {
+        Name = block.blockName.ToString();
+        BlockId = block.blockId;
+        Block = block;
+    }
+}
+
 [GlobalClass]
 public partial class WorldEditor : Node3D
 {
@@ -326,12 +363,6 @@ public partial class WorldEditor : Node3D
     public const string WORLD_FILE_EXTENSION = "hike";
     public const string SCENE_FILE_EXTENSION = "hikescene";
 
-    private static readonly VoxelType[] PlaceableTypes =
-    {
-        VoxelType.Terrain, VoxelType.Stone, VoxelType.Desert, VoxelType.Marsh,
-        VoxelType.Barrier, VoxelType.Water, VoxelType.Opening,
-    };
-
     // Fixed-prefab entity brushes, in palette order. The scene-palette brushes
     // (trees, tall grass) aren't here — they're expanded from the world's kits
     // at Init, one brush per scene, and appended after these.
@@ -344,6 +375,9 @@ public partial class WorldEditor : Node3D
         EEditorEntityKind.Goblin, EEditorEntityKind.KunKun,
         EEditorEntityKind.Trapdoor, EEditorEntityKind.TrapdoorTrap, EEditorEntityKind.CrumblingFloor,
     };
+
+    // Index-aligned with the voxel palette buttons.
+    private readonly List<VoxelBrush> _voxelBrushes = new List<VoxelBrush>();
 
     // Palette-index-aligned with the entity buttons, which are spread across the
     // palette tabs but share one index space (and one selection).
@@ -382,6 +416,7 @@ public partial class WorldEditor : Node3D
     private float _roofBroken;
     private EEditorBrushOperation _operation = EEditorBrushOperation.Paint;
     private EEditorBrushShape _brushShape = EEditorBrushShape.Voxel;
+    private EEditorVoxelEdges _voxelEdges = EEditorVoxelEdges.Auto;
     // Plateau snap, remembered per brush shape — turning it off to drop a floor
     // at an arbitrary height mustn't also unsnap the Room selected next. Every
     // slot starts on; the shapes that can't snap are gated by SupportsPlateauSnap
@@ -516,13 +551,6 @@ public partial class WorldEditor : Node3D
     private string DocumentKindLabel =>
         _documentKind == EEditorDocumentKind.Scene ? "Scene" : "World";
 
-    // Palette slot of brushPalette.terrainBrushKit, resolved once in Init (the
-    // kit palette is bound before the editor scene loads and never changes for
-    // the session). Stamped on every VoxelType.Terrain voxel the brush paints —
-    // an editing-time appearance only, since stamping a scene into a world
-    // replaces it with that world's ground (see SubsceneStamper).
-    private byte _terrainBrushId;
-
     // documentPath is what Ctrl+S writes back to — a real file when the menu
     // opened one, or a not-yet-existing path it minted for a new document
     // (whose extension still fixes the kind). includeEnv only means anything
@@ -535,10 +563,6 @@ public partial class WorldEditor : Node3D
         _documentKind = KindForPath(_documentPath);
         _documentIncludeEnv = includeEnv;
         _worldState = worldState;
-        if (!WorldGen.TryGetTerrainId(brushPalette?.terrainBrushKit, out _terrainBrushId))
-        {
-            GD.PushWarning($"WorldEditor: terrain brush kit '{brushPalette?.terrainBrushKit?.ResourcePath}' is not in this world's kit palette; painting terrain slot 0.");
-        }
         _cursorPosition = worldState.Spawn;
         // Open with nothing cut away, so the top of every roof is on screen and
         // R/F only ever has to travel DOWN to reach the storey being edited. The
@@ -629,6 +653,7 @@ public partial class WorldEditor : Node3D
             PushPlateauSnap();
         };
         editorHud.onPlateauSnapChanged += snap => _plateauSnapByShape[(int)_brushShape] = snap;
+        editorHud.onVoxelEdgesSelected += edges => _voxelEdges = edges;
         editorHud.onLightingChanged += ApplyLighting;
         editorHud.onTimeOfDayChanged += ApplyTimeOfDay;
         editorHud.onWeatherSelected += ApplyWeather;
@@ -721,13 +746,14 @@ public partial class WorldEditor : Node3D
     {
         VoxelAtlasManifest manifest = EditorBrushIcons.LoadManifest(brushPalette?.atlasManifestPath);
 
-        var voxels = new EditorBrushEntry[PlaceableTypes.Length];
-        for (int i = 0; i < PlaceableTypes.Length; i++)
+        BuildVoxelBrushes();
+        var voxels = new EditorBrushEntry[_voxelBrushes.Count];
+        for (int i = 0; i < _voxelBrushes.Count; i++)
         {
-            VoxelType type = PlaceableTypes[i];
+            VoxelBrush brush = _voxelBrushes[i];
             voxels[i] = new EditorBrushEntry(
-                type.ToString(),
-                EditorBrushIcons.ForVoxelType(type, brushPalette?.terrainBrushKit, manifest));
+                brush.Name,
+                EditorBrushIcons.ForBlock(brush.Block, manifest));
         }
 
         BuildEntityBrushes();
@@ -747,6 +773,33 @@ public partial class WorldEditor : Node3D
 
         editorHud.BuildToolButtons(voxels, entities, BuildRoofBrushes());
         iconBaker?.Bake(bakeRequests, _cursorPosition, editorHud.SetEntityIcon);
+    }
+
+    // One button per catalog block, in catalog order. Air is skipped — the
+    // Erase operation writes it — and so is anything the catalog left
+    // unauthored. Painting a block is now the whole story: no kit indirection,
+    // no separate auto/literal split, and every block in the catalog is
+    // reachable rather than just the handful a VoxelType named.
+    private void BuildVoxelBrushes()
+    {
+        _voxelBrushes.Clear();
+        foreach (BlockData block in BlockCatalog.Active.blocks ?? System.Array.Empty<BlockData>())
+        {
+            if (block == null || block.blockId == Blocks.AirId)
+            {
+                continue;
+            }
+            _voxelBrushes.Add(new VoxelBrush(block));
+        }
+        if (_voxelBrushes.Count == 0)
+        {
+            GD.PushWarning("WorldEditor: the block catalog is empty; nothing to paint with.");
+            return;
+        }
+
+        // Open on ordinary ground rather than whatever sorts first.
+        int index = _voxelBrushes.FindIndex(b => b.BlockId == Blocks.GroundId);
+        _voxelTypeIndex = index >= 0 ? index : 0;
     }
 
     // Roof styles are surfaces, not scenes, so there is nothing for the icon
@@ -1936,8 +1989,8 @@ public partial class WorldEditor : Node3D
                 int vx = Mathf.FloorToInt(planeHit.X);
                 int vz = Mathf.FloorToInt(planeHit.Z);
                 int vy = Mathf.FloorToInt(_clipY) - 1;
-                VoxelType voxel = _worldState.GetVoxelWorld(vx, vy, vz);
-                if (voxel != VoxelType.Air && voxel != VoxelType.Water)
+                int voxel = _worldState.GetBlockWorld(vx, vy, vz);
+                if (voxel != Blocks.AirId && voxel != Blocks.WaterId)
                 {
                     hitPos = new Vector3(planeHit.X, clipPlaneY, planeHit.Z);
                     hitNormal = Vector3.Up;
@@ -2432,12 +2485,25 @@ public partial class WorldEditor : Node3D
         for (int dy = 0; dy <= floorSearchDepth; dy++)
         {
             int y = from.Y - dy;
-            if (VoxelTypeInfo.IsSolid(_worldState.GetVoxelWorld(from.X, y, from.Z)))
+            if (Blocks.IsSolid(_worldState.GetBlockWorld(from.X, y, from.Z)))
             {
                 return y + 1;
             }
         }
         return from.Y;
+    }
+
+    // Auto's value is never read — PaintCells routes it to the overload that
+    // resolves the material's own default instead.
+    private static SharpAxes ShapeFor(EEditorVoxelEdges edges)
+    {
+        return edges switch
+        {
+            EEditorVoxelEdges.Blocky => SharpAxes.All,
+            EEditorVoxelEdges.Stepped => SharpAxes.Y,
+            EEditorVoxelEdges.Smooth => SharpAxes.None,
+            _ => SharpAxes.None,
+        };
     }
 
     // Writes one brush's worth of cells and rebuilds. Cells at or above the clip
@@ -2446,7 +2512,13 @@ public partial class WorldEditor : Node3D
     private void PaintCells(EditorEdit edit, List<Vector3I> cells, EEditorBrushOperation operation)
     {
         int clipFloor = Mathf.FloorToInt(_clipY);
-        VoxelType type = operation == EEditorBrushOperation.Erase ? VoxelType.Air : PlaceableTypes[_voxelTypeIndex];
+        bool erasing = operation == EEditorBrushOperation.Erase;
+        VoxelBrush brush = _voxelBrushes[_voxelTypeIndex];
+        int type = erasing ? Blocks.AirId : brush.BlockId;
+        // Air has no edges to shape, and Auto defers to the shape-less overload,
+        // which keeps whatever a repainted cell already carried.
+        bool explicitShape = !erasing && _voxelEdges != EEditorVoxelEdges.Auto;
+        SharpAxes shape = ShapeFor(_voxelEdges);
         var changed = new List<Vector3I>();
 
         foreach (Vector3I target in cells)
@@ -2456,10 +2528,13 @@ public partial class WorldEditor : Node3D
                 continue;
             }
             edit?.TouchVoxel(target);
-            _worldState.SetVoxelWorld(target.X, target.Y, target.Z, type);
-            if (type == VoxelType.Terrain)
+            if (explicitShape)
             {
-                _worldState.SetTerrainIdWorld(target.X, target.Y, target.Z, _terrainBrushId);
+                _worldState.SetBlockWorld(target.X, target.Y, target.Z, type, shape);
+            }
+            else
+            {
+                _worldState.SetBlockWorld(target.X, target.Y, target.Z, type);
             }
             changed.Add(target);
             _lastPaintedBlocks.Add(target);

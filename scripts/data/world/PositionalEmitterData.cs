@@ -31,7 +31,7 @@ public partial class PositionalEmitterData : Resource
 
     // If non-Air, only voxels of this type qualify. Use Water for
     // shoreline emitters, Stone for cave emitters.
-    [Export] public VoxelType spawnVoxelType = VoxelType.Air;
+    [Export] public int spawnVoxelType = Blocks.AirId;
 
     // If non-zero, only voxels with this exact DetailGroup id qualify
     // (matches painted scatter — grass, flowers, etc.).

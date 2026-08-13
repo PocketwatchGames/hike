@@ -1,7 +1,7 @@
 using Godot;
 
-// Resolves a voxel brush's palette icon to the SOURCE tile art behind its atlas
-// layer, via the authoring-only VoxelAtlasManifest.
+// Resolves a block brush's palette icon to the SOURCE tile art behind its top
+// surface, via the authoring-only VoxelAtlasManifest.
 //
 // The manifest and its heavy source PBR maps are deliberately NOT referenced by
 // anything the running game loads — hence LoadManifest taking a path and being
@@ -25,29 +25,21 @@ public static class EditorBrushIcons
         return manifest;
     }
 
-    // Null when the type has no single representative tile (Barrier is invisible
-    // collision, Opening is an invisible doorway/window marker), when the terrain
-    // kit is unresolved, or when the manifest isn't loaded — callers fall back to
-    // the button's name label.
-    public static Texture2D ForVoxelType(VoxelType type, TerrainKitData terrainKit, VoxelAtlasManifest manifest)
+    // Null when the block draws nothing (Barrier is invisible collision, Opening
+    // an invisible doorway/window marker) or the manifest isn't loaded — callers
+    // fall back to the button's name label.
+    public static Texture2D ForBlock(BlockData block, VoxelAtlasManifest manifest)
     {
-        if (manifest?.layers == null || type == VoxelType.Barrier || type == VoxelType.Opening)
+        if (manifest?.layers == null || block == null || block.IsInvisible())
         {
             return null;
         }
-
-        // Terrain carries no fixed tile (TILE_AUTO) — preview the flat tile of
-        // the kit the Terrain brush actually stamps. A kit that leaves flatTile
-        // unauthored renders the catalog default, so mirror that here or the
-        // most-used brush is the one with no icon.
-        int layer = type == VoxelType.Terrain
-            ? BlockCatalog.Active.DefaultFlatTileIndex
-            : VoxelTypeInfo.GetTileForFace(type, 0);
-        if (type == VoxelType.Terrain && terrainKit?.terrain?.flatTile != null)
+        BlockSurfaceData top = block.SurfaceFor(EBlockFace.Top);
+        if (top == null)
         {
-            layer = terrainKit.terrain.flatTile.atlasBaseIndex;
+            return null;
         }
-
+        int layer = top.atlasBaseIndex;
         if (layer < 0 || layer >= manifest.layers.Length)
         {
             return null;

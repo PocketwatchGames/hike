@@ -178,10 +178,10 @@ public partial class SpawnEntryData : Resource
         const int BodyHeight = 2;
         for (int h = 0; h < BodyHeight; h++)
         {
-            if (ws.GetVoxelWorld(vx + 1, vy + h, vz) != VoxelType.Air) { return false; }
-            if (ws.GetVoxelWorld(vx - 1, vy + h, vz) != VoxelType.Air) { return false; }
-            if (ws.GetVoxelWorld(vx, vy + h, vz + 1) != VoxelType.Air) { return false; }
-            if (ws.GetVoxelWorld(vx, vy + h, vz - 1) != VoxelType.Air) { return false; }
+            if (ws.GetBlockWorld(vx + 1, vy + h, vz) != Blocks.AirId) { return false; }
+            if (ws.GetBlockWorld(vx - 1, vy + h, vz) != Blocks.AirId) { return false; }
+            if (ws.GetBlockWorld(vx, vy + h, vz + 1) != Blocks.AirId) { return false; }
+            if (ws.GetBlockWorld(vx, vy + h, vz - 1) != Blocks.AirId) { return false; }
         }
         return true;
     }

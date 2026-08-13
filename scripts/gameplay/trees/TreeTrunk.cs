@@ -165,7 +165,17 @@ public partial class TreeTrunk : MeshInstance3D
     // (so a deep forest doesn't read as a row of bare tips). Null disables.
     [Export] public Mesh twigsMesh;
     [Export] public Texture2D twigsTexture;
+    // Upper bound of a twig card's scale (the mesh is a 1m quad unless the
+    // scene overrides it, so this reads as meters).
     [Export] public float twigsSize = 1.0f;
+    // Lower bound. Each tip picks a size in [TwigsSizeMin, TwigsSize] from its
+    // position hash, mirroring FoliageCluster's CardSizeMin/CardSizeMax for
+    // leaves. The MINIMUM is the one that matters for readability: the twigs
+    // texture is thin branches over transparency, so a card small enough that
+    // those branches land near a pixel makes them crawl and sparkle as the wind
+    // rotates it. Raise this, not the max, when twigs flicker.
+    // 0 = no variation — every twig sits at TwigsSize.
+    [Export] public float twigsSizeMin;
     // Fraction of the twigs quad height pulled back down the branch axis so the
     // texture's visible content meets the branch end.
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float twigsAttachInset = 0.1f;
@@ -609,9 +619,13 @@ public partial class TreeTrunk : MeshInstance3D
             }
             EmitTube(st, lines[li], lines, li);
         }
-        // Smooth normals read the gnarled bark softly. No tangents — the bark
-        // material has no normal map (and they'd spam warnings on thin tips).
+        // Smooth normals read the gnarled bark softly.
         st.GenerateNormals();
+        // Tangents for the bark normal map (model_lit_detail's normal_tex reads
+        // them). The tube's UVs run u around the circumference and v along the
+        // branch, so the frame is well-defined everywhere except the base cap,
+        // whose fan UVs are radial — harmless, it's buried in the ground.
+        st.GenerateTangents();
         // Weld coincident ring vertices (continuous tubes share them) into an
         // indexed surface — fewer unique verts, better GPU vertex-cache reuse.
         st.Index();
@@ -991,10 +1005,15 @@ public partial class TreeTrunk : MeshInstance3D
             int twigSeed = unchecked((int)(tip.Position.X * 73856093f) ^ (int)(tip.Position.Y * 19349663f) ^ (int)(tip.Position.Z * 83492791f));
             RandomNumberGenerator twigRng = new RandomNumberGenerator { Seed = unchecked((ulong)twigSeed) };
             float roll = twigRng.Randf() * Mathf.Tau;
-            Basis twigsBasis = basis.Rotated(tip.Dir, roll).Scaled(new Vector3(twigsSize, twigsSize, twigsSize));
+            // Clamped so an authored min above the max degrades to "all at min"
+            // rather than inverting the range.
+            float sizeMin = Mathf.Min(twigsSizeMin, twigsSize);
+            float size = sizeMin > 0f ? Mathf.Lerp(sizeMin, twigsSize, twigRng.Randf()) : twigsSize;
+            Basis twigsBasis = basis.Rotated(tip.Dir, roll).Scaled(new Vector3(size, size, size));
             // Pull the quad pivot back along the branch axis so the texture's
-            // visible content meets the branch end.
-            Vector3 origin = tip.Position - tip.Dir * (twigsAttachInset * twigsSize);
+            // visible content meets the branch end. Scales with this card's own
+            // size so the attach point stays put whatever size it drew.
+            Vector3 origin = tip.Position - tip.Dir * (twigsAttachInset * size);
             MeshInstance3D twigs = new MeshInstance3D
             {
                 Mesh = twigsMesh,
@@ -1040,6 +1059,22 @@ public partial class TreeTrunk : MeshInstance3D
         mat.SetShaderParameter("albedo_tex", twigsTexture);
         mat.SetShaderParameter("tree_origin", treeOrigin);
         mat.SetShaderParameter("canopy_height", canopyHeight);
+        // Twigs are the same wood as the trunk, so they take the bark's tint
+        // instead of carrying a second authored one. Every species shares one
+        // twigs texture — a flat mask the colour of bark_wood's mean — so
+        // inheriting color_tint lands each tree's twigs on its own trunk colour
+        // (willow dark, oak pale) with nothing to keep in sync by hand. Both
+        // uniforms are vec3 : source_color, so the value round-trips under
+        // identical sRGB conversion. Falls back to the template's tint when the
+        // bark material doesn't declare one.
+        if (branchMaterial is ShaderMaterial barkMaterial)
+        {
+            Variant barkTint = barkMaterial.GetShaderParameter("color_tint");
+            if (barkTint.VariantType != Variant.Type.Nil)
+            {
+                mat.SetShaderParameter("tint", barkTint);
+            }
+        }
         return mat;
     }
 

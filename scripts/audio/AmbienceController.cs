@@ -140,8 +140,8 @@ public partial class AmbienceController : Node3D
                     int wx = lx + dx;
                     totalCount++;
 
-                    VoxelType v = ws.GetVoxelWorld(wx, wy, wz);
-                    if (v == VoxelType.Water)
+                    int v = ws.GetBlockWorld(wx, wy, wz);
+                    if (v == Blocks.WaterId)
                     {
                         waterCount++;
                         if (IsShoreline(ws, wx, wy, wz))
@@ -181,15 +181,15 @@ public partial class AmbienceController : Node3D
     // natural source.
     private static bool IsShoreline(WorldState ws, int wx, int wy, int wz)
     {
-        return IsLand(ws.GetVoxelWorld(wx + 1, wy, wz))
-            || IsLand(ws.GetVoxelWorld(wx - 1, wy, wz))
-            || IsLand(ws.GetVoxelWorld(wx, wy, wz + 1))
-            || IsLand(ws.GetVoxelWorld(wx, wy, wz - 1));
+        return IsLand(ws.GetBlockWorld(wx + 1, wy, wz))
+            || IsLand(ws.GetBlockWorld(wx - 1, wy, wz))
+            || IsLand(ws.GetBlockWorld(wx, wy, wz + 1))
+            || IsLand(ws.GetBlockWorld(wx, wy, wz - 1));
     }
 
-    private static bool IsLand(VoxelType v)
+    private static bool IsLand(int v)
     {
-        return v != VoxelType.Air && v != VoxelType.Water;
+        return v != Blocks.AirId && v != Blocks.WaterId;
     }
 
     private void TickLayers(WorldState ws, Vector3 listenerPos, float deltaTime)

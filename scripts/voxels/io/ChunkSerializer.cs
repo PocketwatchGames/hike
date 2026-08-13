@@ -3,7 +3,7 @@ using System.IO;
 using Godot;
 
 // Single-chunk binary encode/decode. Layout per blob:
-//   voxels   : 4096 bytes (raw VoxelType byte per cell, SIZE^3 row-major X,Y,Z)
+//   voxels   : 4096 bytes (raw int byte per cell, SIZE^3 row-major X,Y,Z)
 //   shape    : 4096 bytes (SharpAxes byte per cell — the mesher's sharp-axis tag)
 //   sunlight : 4096 bytes (one byte per cell, value 0-15)
 //   fog      : 4096 bytes (one byte per cell, 0 = clear, 255 = thickest)
@@ -63,7 +63,7 @@ public static class ChunkSerializer
             {
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
-                    w.Write((byte)chunk.Voxels[x, y, z]);
+                    w.Write(chunk.Voxels[x, y, z]);
                 }
             }
         }
@@ -241,7 +241,7 @@ public static class ChunkSerializer
             {
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
-                    chunk.Voxels[x, y, z] = (VoxelType)r.ReadByte();
+                    chunk.Voxels[x, y, z] = r.ReadByte();
                 }
             }
         }

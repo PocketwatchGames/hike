@@ -1,87 +1,145 @@
 using Godot;
 
-// Per-block authored data: one BlockData represents one named tile group in
-// voxel_tiles.png (e.g. "Stone", "GrassTop", "DesertSand"). All per-block
-// knobs live on one inspector-pickable resource.
+// How a block reaches the screen. Invisibility is NOT a value here — a block
+// with no surfaces authored emits no geometry, which is what Air, Barrier and
+// Opening are.
+public enum EBlockRender
+{
+    // The normal terrain pass (voxel_clip).
+    Opaque = 0,
+    // The separate water pass — its own shader, its own SurfaceTool surface and
+    // hand-tuned render priorities in ChunkMesh. Not derivable from the flags:
+    // "visible and transparent" would also describe stained glass.
+    Water = 1,
+}
+
+// One placeable voxel material: what it looks like on each face, how it behaves
+// in the sim, and what it's made of.
 //
-// AtlasBaseIndex is still the wire id at the storage/shader seam — the
-// per-voxel OverlayId byte and the shader's tile_variants[64] uniform are
-// both indexed by it. BlockData carries it explicitly rather than hiding it
-// so authors see the contract with the PNG layer order.
+// A block owns BOTH appearance and physics because appearance is resolved at
+// AUTHORING time, never at draw time — a scene stamped into another biome is
+// re-textured by rewriting its block ids through a worldgen palette, so a wall
+// can never become non-solid by landing somewhere else.
 //
-// Two BlockData entries may share physical layers in the PNG (e.g.
-// DesertTop[bands=2] occupies layers 27..28 and DesertSand[bands=1] points at
-// layer 28 as a non-banded alias for shore kits). The catalog allows this:
-// uniqueness is enforced on AtlasBaseIndex, not on the layer range.
+// BlockId is the wire id: the per-voxel byte in ChunkState is this value, and
+// the shader's per-block uniform tables are indexed by it. Append new ids;
+// never renumber, or every saved world re-points.
 [GlobalClass]
 public partial class BlockData : Resource
 {
-    // Logical name. Used for catalog lookup-by-name and for the boot-time
-    // assertion that "Stone" maps to atlas 0 and "GrassTop" to atlas 1, since
-    // the shader hardcodes those two ids as float constants.
     [Export] public StringName blockName;
 
-    // The atlas layer in voxel_tiles.png / voxel_tiles_nrm_height.png belonging
-    // to this block. Each block is exactly one layer. Stable wire id — the
-    // per-voxel OverlayId byte is this index. When adding a block, append the
-    // next free index.
-    [Export] public int atlasBaseIndex;
+    // Stable wire id — the per-voxel byte. Append the next free value.
+    [Export] public int blockId;
 
-    // Flat-shaded color for this block on the minimap.
+    // --- Appearance ---------------------------------------------------------
+
+    // Faces. All three null = invisible (no geometry emitted at all). A block
+    // that leaves Side null but authors Top is drawn with Top on every face,
+    // which is the common case for single-tile materials.
+    [Export] public BlockSurfaceData top;
+    [Export] public BlockSurfaceData side;
+    [Export] public BlockSurfaceData bottom;
+
+    // Smoothstep band on |surface normal.y| deciding Top/Bottom vs Side.
+    //   |y| < x        -> 100% Side
+    //   x .. y         -> blend
+    //   |y| > y        -> 100% Top (or Bottom, below the horizontal)
+    // Per-fragment, off the shaded normal — so one block covers both a grassy
+    // plateau and the cliff face falling away from it.
+    [Export] public Vector2 wallBand = new Vector2(0.40f, 0.75f);
+
+    [Export] public EBlockRender render = EBlockRender.Opaque;
+
+    // Flat-shaded color on the minimap.
     [Export] public Color minimapColor = new Color(0.3f, 0.3f, 0.3f);
 
-    // Cliff/rock material? Drives the terrain shader's height-blend ramps:
-    // cliff↔ground blends tightly (sharp interlock), while cliff↔cliff and
-    // ground↔ground blend softly. The shader routes each tile to a "cliff" or
-    // "ground" accumulator by this flag (uploaded as tile_is_cliff[]).
-    [Export] public bool isCliff = false;
+    // Jitter amplitude where this block's tiles meet a neighbour's. 0 = a
+    // straight bisector (man-made walls); higher = jagged (organic ground).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float blendNoise = 0f;
 
-    // Wetness porosity in [0,1] — how absorbent the material is. LOW (rock,
-    // cobble) = water beads on top and reads as reflective standing water; HIGH
-    // (soil, mud, sand) = water soaks in, so the surface darkens/saturates with
-    // little glint. The terrain shader's wet model splits its look by this
-    // (uploaded as tile_porosity[]): albedo darkening scales with porosity,
-    // glint/reflection scales with (1 - porosity).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float porosity = 0.5f;
+    // --- Sim behavior -------------------------------------------------------
+    // Never palette-resolved: a wall is solid in every biome.
 
-    // Movement speed multiplier applied while the player (or a mob) stands on
-    // this block. 1 = normal footing; below 1 slows traversal (mud, deep sand,
-    // snow), above 1 speeds it up (roads, ice). Resolved through
-    // GroundTypeResolver like footsteps, so the overlay block wins over the
-    // base voxel.
+    // Blocks movement, sight and light. False for Air, Water and Opening.
+    [Export] public bool solid = true;
+
+    // Light passes through. Water and Opening; drives the light engine's
+    // transparent path alongside LightAttenuation.
+    [Export] public bool transparent = false;
+
+    // Extra light cost for passing through a transparent block, on top of the
+    // normal per-voxel sun decay. Water is 8; Opening stays 0 so a doorway
+    // still lets the sun in.
+    [Export(PropertyHint.Range, "0,15,1")] public int lightAttenuation = 0;
+
+    // The ceiling cutaway's column rule counts this as part of the wall even
+    // though nothing is drawn — so the wall above a door, or between stacked
+    // windows, is never cut into a slot. This is the whole reason Opening
+    // exists as a distinct block from Air.
+    [Export] public bool cutawayIsWall = false;
+
+    // Ground that worldgen laid down as terrain, as opposed to built material
+    // (stone blockwork, cobbles) or non-ground (water, air). Gates the passes
+    // that only make sense on natural surface: dirt scuff, detail scatter,
+    // road grading, prop placement.
+    [Export] public bool naturalGround = false;
+
+    // Default per-voxel mesher shape stamped when this block is written and the
+    // caller doesn't override. Buildings want All (square edges, flat-shaded);
+    // natural ground wants Y (hard height steps, organic walls); ramps None.
+    [Export] public SharpAxes defaultShape = SharpAxes.None;
+
+    // --- Material -----------------------------------------------------------
+
+    // Movement speed multiplier while standing on this block. Below 1 for mud
+    // and deep sand, above 1 for roads.
     [Export(PropertyHint.Range, "0,2,0.01")] public float speedMultiplier = 1.0f;
 
-    // Logical ground category for footstep dispatch. GroundTypeResolver
-    // resolves the voxel under the player's feet to a BlockData (overlay
-    // wins over the voxel's flat tile) and reads this field. Multiple
-    // blocks may share a category — DesertTop, DesertSand, DesertCave all
-    // resolve to Sand. New categories should append to EGroundType.
+    // Footstep category. Many blocks share one (desert ground and dune sand
+    // both -> Sand).
     [Export] public EGroundType groundType = EGroundType.Grass;
 
-    // Geometric edge roughness, in voxels. The DC mesher carves each surface
-    // vertex of this block INWARD along its outward normal by a hashed amount
-    // in [0, this]. 0 = the exact authored surface (ruler-straight walls);
-    // ~0.2 reads as roughly-hewn stone. Carving inward rather than displacing
-    // both ways is what keeps the mesh safe: the vertex can never leave its own
-    // DC cell, so quads can't invert against a neighbour's.
-    //
-    // Displacement lives on the 1-voxel lattice — one vertex per cell is all DC
-    // emits — so this breaks up the SILHOUETTE at metre scale. Sub-voxel surface
-    // detail is the normal/height atlas's job, not this.
+    // Geometric edge roughness in voxels — the DC mesher carves each surface
+    // vertex INWARD along its outward normal by a hashed amount in [0, this].
+    // Inward-only is what keeps the mesh safe: a vertex can never leave its own
+    // cell, so quads can't invert against a neighbour's. Breaks up the metre-
+    // scale silhouette only; sub-voxel detail is the normal/height atlas's job.
     [Export(PropertyHint.Range, "0,0.45,0.01")] public float edgeRoughness = 0f;
 
     // Damping on the vertical component of that carve, so walkable surfaces
-    // don't get pitted collision. A floor/ceiling cell's normal is all-Y and
-    // scales to nearly nothing; a vertical wall face has no Y component to damp
-    // and is unaffected. Wall-top lips keep their full horizontal carve, which
-    // is where the silhouette break-up actually reads.
+    // don't get pitted collision. A floor cell's normal is all-Y and scales to
+    // nearly nothing; a wall face has no Y component to damp.
     [Export(PropertyHint.Range, "0,1,0.01")] public float edgeRoughnessVerticalScale = 0.35f;
 
-    // Material scooped up when the player digs a bare hole in this block —
-    // i.e. the shovel finds no buried spot or burrowed mob (see Sim.TryDig).
-    // Marsh yields mud; most blocks leave this null (digging bare ground comes
-    // up empty). The item is dropped as loose loot at the dig point and the
-    // shovel reports a Common find. Resolved through GroundTypeResolver, so
-    // the overlay block wins over the base voxel just like footsteps.
+    // Scooped up when the player digs a bare hole here and finds nothing buried
+    // (see Sim.TryDig). Marsh yields mud; most blocks leave this null.
     [Export] public ItemData digItem;
+
+    // Nothing to draw — the mesher emits no geometry for this block, but its
+    // flags are still read (Barrier blocks light while drawing nothing).
+    public bool IsInvisible()
+    {
+        return top == null && side == null && bottom == null;
+    }
+
+    // Face resolution with the single-tile fallback: a block authoring only Top
+    // wears it everywhere.
+    public BlockSurfaceData SurfaceFor(EBlockFace face)
+    {
+        BlockSurfaceData chosen = face switch
+        {
+            EBlockFace.Top => top,
+            EBlockFace.Bottom => bottom ?? side,
+            _ => side,
+        };
+        return chosen ?? top;
+    }
+}
+
+public enum EBlockFace
+{
+    Top,
+    Side,
+    Bottom,
 }

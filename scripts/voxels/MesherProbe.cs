@@ -90,17 +90,17 @@ public static class MesherProbe
     // true normal.y = 0.707.
     private static Vector3[] BuildRamp(out Vector3[] norms)
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         var top = new int[N];
         for (int x = 0; x < N; x++)
         {
             top[x] = Mathf.Clamp(1 + x / RUN, 0, N - 1);
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= top[x]; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= top[x]; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
 
         // Reproduce WorldGen.StampGradeShapes, NOT "the whole ramp top is soft".
         // The difference is the whole point: the grade rule is per-axis and
@@ -115,11 +115,11 @@ public static class MesherProbe
             // The Z axis is uniform in this test body, so it never qualifies.
             return axisX;
         }
-        VoxelTypeInfo.SharpAxes Shape(int x, int y, int z)
+        SharpAxes Shape(int x, int y, int z)
         {
-            if (Get(x, y, z) == VoxelType.Air) { return VoxelTypeInfo.SharpAxes.None; }
-            if (x < 0 || x >= N || y != top[x]) { return VoxelTypeInfo.SharpAxes.Y; }
-            return IsGrade(x) ? VoxelTypeInfo.SharpAxes.None : VoxelTypeInfo.SharpAxes.Y;
+            if (Get(x, y, z) == Blocks.AirId) { return SharpAxes.None; }
+            if (x < 0 || x >= N || y != top[x]) { return SharpAxes.Y; }
+            return IsGrade(x) ? SharpAxes.None : SharpAxes.Y;
         }
         return Build(Get, Shape, out norms);
     }
@@ -168,17 +168,17 @@ public static class MesherProbe
     // min-dot of 0.5 rejects every neighbour that could smooth them.
     private static Vector3[] BuildDiagonalWall(out Vector3[] norms)
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
         {
             for (int z = 0; z < N; z++)
             {
                 if (z >= N - x * RUN) { continue; }
-                for (int y = 0; y < N; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y < N; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
-        return Build(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), out norms);
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
+        return Build(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), out norms);
     }
 
     // Spread of the horizontal normal direction along the diagonal face,
@@ -280,32 +280,32 @@ public static class MesherProbe
     private static float CliffFace(int drop, bool print, bool diagonal = false, bool sharpRiser = false)
     {
         int high = CLIFF_BASE + drop;
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         var top = new int[N, N];
         for (int x = 0; x < N; x++)
         {
             for (int z = 0; z < N; z++)
             {
                 top[x, z] = (diagonal ? x + z < N : x < 8) ? high : CLIFF_BASE;
-                for (int y = 0; y <= top[x, z]; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= top[x, z]; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
         int Top(int x, int z) => top[Mathf.Clamp(x, 0, N - 1), Mathf.Clamp(z, 0, N - 1)];
-        VoxelTypeInfo.SharpAxes Shape(int x, int y, int z)
+        SharpAxes Shape(int x, int y, int z)
         {
-            if (Get(x, y, z) == VoxelType.Air) { return VoxelTypeInfo.SharpAxes.None; }
+            if (Get(x, y, z) == Blocks.AirId) { return SharpAxes.None; }
             // A riser voxel: buried under the high tread, exposed sideways to
             // the low one. Only these get the cubic treatment — the treads stay
             // Y-snapped so flat ground is unaffected.
             if (sharpRiser && x >= 0 && x < N && z >= 0 && z < N && y <= Top(x, z) && y > CLIFF_BASE
                 && (Top(x - 1, z) < y || Top(x + 1, z) < y || Top(x, z - 1) < y || Top(x, z + 1) < y))
             {
-                return VoxelTypeInfo.SharpAxes.All;
+                return SharpAxes.All;
             }
             // A plateau edge jumps more than maxGradeStep, so no column here
             // qualifies as a grade — every surface voxel snaps, as in worldgen.
-            return VoxelTypeInfo.SharpAxes.Y;
+            return SharpAxes.Y;
         }
         var verts = Build(Get, Shape, out Vector3[] norms);
 
@@ -433,19 +433,19 @@ public static class MesherProbe
         st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
 
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         var top = new int[N];
         for (int x = 0; x < N; x++)
         {
             top[x] = Mathf.Clamp(1 + x / RUN, 0, N - 1);
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= top[x]; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= top[x]; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
-            (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)),
+            (x, y, z) => Blocks.DefaultShape(Get(x, y, z)),
             (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace);
         if (!hasAnyFace) { return; }
@@ -494,31 +494,31 @@ public static class MesherProbe
     //   ground above the roof -> 1.0,  cave ceiling under it -> 0.0.
     private static void TunnelSunBake()
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
         {
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= 7; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
         for (int x = 0; x < N; x++)
         {
             for (int z = 4; z <= 7; z++)
             {
-                for (int y = 5; y <= 6; y++) { v[x, y, z] = VoxelType.Air; }
+                for (int y = 5; y <= 6; y++) { v[x, y, z] = Blocks.AirId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
 
         // Mimics LightEngine.ComputeSunlight's column scan: an air voxel is lit
         // only when nothing solid stands between it and the sky.
         int Sun(int x, int y, int z)
         {
-            if (VoxelTypeInfo.IsSolid(Get(x, y, z))) { return 0; }
+            if (Blocks.IsSolid(Get(x, y, z))) { return 0; }
             for (int up = y + 1; up < N; up++)
             {
-                if (VoxelTypeInfo.IsSolid(Get(x, up, z))) { return 0; }
+                if (Blocks.IsSolid(Get(x, up, z))) { return 0; }
             }
             return LightEngine.MAX_LIGHT;
         }
@@ -530,7 +530,7 @@ public static class MesherProbe
         st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
-            (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)),
+            (x, y, z) => Blocks.DefaultShape(Get(x, y, z)),
             (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace);
         if (!hasAnyFace) { GD.Print("[probe] tunnel sun: no faces"); return; }
@@ -559,22 +559,22 @@ public static class MesherProbe
     // down — the wall's own orientation is never accounted for.
     private static void CliffSunBake()
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
         {
             int top = x < 8 ? 10 : 3;
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= top; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= top; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
         int Sun(int x, int y, int z)
         {
-            if (VoxelTypeInfo.IsSolid(Get(x, y, z))) { return 0; }
+            if (Blocks.IsSolid(Get(x, y, z))) { return 0; }
             for (int up = y + 1; up < N; up++)
             {
-                if (VoxelTypeInfo.IsSolid(Get(x, up, z))) { return 0; }
+                if (Blocks.IsSolid(Get(x, up, z))) { return 0; }
             }
             return LightEngine.MAX_LIGHT;
         }
@@ -583,7 +583,7 @@ public static class MesherProbe
         st.Begin(Godot.Mesh.PrimitiveType.Triangles);
         for (int i = 0; i < 4; i++) { st.SetCustomFormat(i, SurfaceTool.CustomFormat.RgbaFloat); }
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
-            (x, y, z) => VoxelTypeInfo.SharpAxes.Y,
+            (x, y, z) => SharpAxes.Y,
             (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace);
         if (!hasAnyFace) { GD.Print("[probe] cliff sun: no faces"); return; }
@@ -617,23 +617,23 @@ public static class MesherProbe
     // so any dip localized there is buried geometry reaching the surface.
     private static void TunnelProfile()
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
         {
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= 7; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
         for (int x = 0; x < N; x++)
         {
             for (int z = 4; z <= 7; z++)
             {
-                for (int y = 5; y <= 6; y++) { v[x, y, z] = VoxelType.Air; }
+                for (int y = 5; y <= 6; y++) { v[x, y, z] = Blocks.AirId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
-        var verts = Build(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), out Vector3[] norms);
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = Build(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), out Vector3[] norms);
         var lo = new float[N];
         for (int i = 0; i < N; i++) { lo[i] = 1f; }
         for (int i = 0; i < verts.Length; i++)
@@ -655,23 +655,23 @@ public static class MesherProbe
 
     private static float TunnelWorstNy()
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
         {
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= 7; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
         for (int x = 0; x < N; x++)
         {
             for (int z = 4; z <= 7; z++)
             {
-                for (int y = 5; y <= 6; y++) { v[x, y, z] = VoxelType.Air; }
+                for (int y = 5; y <= 6; y++) { v[x, y, z] = Blocks.AirId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
-        var verts = Build(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), out Vector3[] norms);
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = Build(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), out Vector3[] norms);
 
         float worst = 1f;
         for (int i = 0; i < verts.Length; i++)
@@ -706,18 +706,18 @@ public static class MesherProbe
     // Stone for x>=8.
     private static void FlatTileSplit()
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
         {
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= 7; y++) { v[x, y, z] = x < 8 ? VoxelType.Terrain : VoxelType.Stone; }
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = x < 8 ? Blocks.GroundId : Blocks.StoneId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
-        var verts = BuildIds(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), (x, y, z) => 1,
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = BuildIds(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), (x, y, z) => 1,
             out int[] tiles, out int[] kits, out Vector3[] norms);
-        int stoneTile = VoxelTypeInfo.GetTileForFace(VoxelType.Stone, 0);
+        int stoneTile = Blocks.StoneId;
         var byX = new SortedDictionary<float, SortedSet<string>>();
         for (int i = 0; i < verts.Length; i++)
         {
@@ -733,16 +733,16 @@ public static class MesherProbe
 
     private static void FlatKitSplit()
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
         {
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= 7; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
-        var verts = BuildIds(Get, (x, y, z) => VoxelTypeInfo.SharpAxes.Y, (x, y, z) => x < 8 ? 1 : 2,
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = BuildIds(Get, (x, y, z) => SharpAxes.Y, (x, y, z) => x < 8 ? 1 : 2,
             out int[] tiles, out int[] kits, out Vector3[] norms);
         var byX = new SortedDictionary<float, SortedSet<int>>();
         for (int i = 0; i < verts.Length; i++)
@@ -762,22 +762,22 @@ public static class MesherProbe
     // stay pure grass rather than gradient into the wall's material.
     private static void WallOnGround()
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
         {
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= 7; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
         for (int z = 0; z < N; z++)
         {
-            for (int y = 8; y <= 10; y++) { v[8, y, z] = VoxelType.Stone; }
+            for (int y = 8; y <= 10; y++) { v[8, y, z] = Blocks.StoneId; }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
-        var verts = BuildIds(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), (x, y, z) => 1,
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = BuildIds(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), (x, y, z) => 1,
             out int[] tiles, out int[] kits, out Vector3[] norms);
-        int stoneTile = VoxelTypeInfo.GetTileForFace(VoxelType.Stone, 0);
+        int stoneTile = Blocks.StoneId;
         var byX = new SortedDictionary<float, SortedSet<string>>();
         for (int i = 0; i < verts.Length; i++)
         {
@@ -797,27 +797,27 @@ public static class MesherProbe
     // -X and +X seams can be compared against each other.
     private static void BuildingCrossSection()
     {
-        var v = new VoxelType[N, N, N];
+        var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
         {
             for (int z = 0; z < N; z++)
             {
-                for (int y = 0; y <= 7; y++) { v[x, y, z] = VoxelType.Terrain; }
+                for (int y = 0; y <= 7; y++) { v[x, y, z] = Blocks.GroundId; }
             }
         }
         for (int x = 4; x <= 12; x++)
         {
-            for (int z = 4; z <= 12; z++) { v[x, 7, z] = VoxelType.Stone; }
+            for (int z = 4; z <= 12; z++) { v[x, 7, z] = Blocks.StoneId; }
         }
         for (int y = 8; y <= 10; y++)
         {
-            for (int z = 4; z <= 12; z++) { v[4, y, z] = VoxelType.Stone; v[12, y, z] = VoxelType.Stone; }
-            for (int x = 4; x <= 12; x++) { v[x, y, 4] = VoxelType.Stone; v[x, y, 12] = VoxelType.Stone; }
+            for (int z = 4; z <= 12; z++) { v[4, y, z] = Blocks.StoneId; v[12, y, z] = Blocks.StoneId; }
+            for (int x = 4; x <= 12; x++) { v[x, y, 4] = Blocks.StoneId; v[x, y, 12] = Blocks.StoneId; }
         }
-        VoxelType Get(int x, int y, int z) => Sample(v, x, y, z);
-        var verts = BuildIds(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), (x, y, z) => 1,
+        int Get(int x, int y, int z) => Sample(v, x, y, z);
+        var verts = BuildIds(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), (x, y, z) => 1,
             out int[] tiles, out int[] kits, out Vector3[] norms);
-        int stoneTile = VoxelTypeInfo.GetTileForFace(VoxelType.Stone, 0);
+        int stoneTile = Blocks.StoneId;
         var byX = new SortedDictionary<float, SortedSet<string>>();
         for (int i = 0; i < verts.Length; i++)
         {
@@ -835,8 +835,8 @@ public static class MesherProbe
     // Build + return each vertex's OWN tile/kit id, decoded from the flat
     // per-triangle id triple (CUSTOM0.xyz / CUSTOM1.yzw) via the vertex's
     // barycentric selector in COLOR.rgb.
-    private static Vector3[] BuildIds(Func<int, int, int, VoxelType> get,
-        Func<int, int, int, VoxelTypeInfo.SharpAxes> shape,
+    private static Vector3[] BuildIds(Func<int, int, int, int> get,
+        Func<int, int, int, SharpAxes> shape,
         Func<int, int, int, int> terrainId,
         out int[] tiles, out int[] kits, out Vector3[] norms)
     {
@@ -875,14 +875,14 @@ public static class MesherProbe
 
     private static void Shapes()
     {
-        var door = new VoxelType[N, N, N];
+        var door = new int[N, N, N];
         for (int x = 4; x <= 12; x++)
         {
-            for (int y = 4; y <= 8; y++) { door[x, y, 8] = VoxelType.Stone; }
+            for (int y = 4; y <= 8; y++) { door[x, y, 8] = Blocks.StoneId; }
         }
-        for (int y = 4; y <= 6; y++) { door[8, y, 8] = VoxelType.Air; }
-        VoxelType Get(int x, int y, int z) => Sample(door, x, y, z);
-        var verts = Build(Get, (x, y, z) => VoxelTypeInfo.GetDefaultShape(Get(x, y, z)), out _);
+        for (int y = 4; y <= 6; y++) { door[8, y, 8] = Blocks.AirId; }
+        int Get(int x, int y, int z) => Sample(door, x, y, z);
+        var verts = Build(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), out _);
         var hits = new SortedSet<float>();
         foreach (Vector3 p in verts)
         {
@@ -892,14 +892,14 @@ public static class MesherProbe
         GD.Print($"[probe] doorway jambs X=[{string.Join(", ", hits)}] (want 8 and 9 present)");
     }
 
-    private static VoxelType Sample(VoxelType[,,] v, int x, int y, int z)
+    private static int Sample(int[,,] v, int x, int y, int z)
     {
-        if (x < 0 || y < 0 || z < 0 || x >= N || y >= N || z >= N) { return VoxelType.Air; }
+        if (x < 0 || y < 0 || z < 0 || x >= N || y >= N || z >= N) { return Blocks.AirId; }
         return v[x, y, z];
     }
 
-    private static Vector3[] Build(Func<int, int, int, VoxelType> get,
-        Func<int, int, int, VoxelTypeInfo.SharpAxes> shape, out Vector3[] norms)
+    private static Vector3[] Build(Func<int, int, int, int> get,
+        Func<int, int, int, SharpAxes> shape, out Vector3[] norms)
     {
         var st = new SurfaceTool();
         st.Begin(Godot.Mesh.PrimitiveType.Triangles);

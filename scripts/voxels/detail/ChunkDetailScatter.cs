@@ -19,12 +19,12 @@ using Godot;
 //                   the sprite's up axis so blades on a slope lean with the
 //                   slope when viewed across the slope, and read as upright
 //                   when viewed along the slope. The .w channel carries the
-//                   ground tile's wetness porosity (BlockData.Porosity) so the
+//                   ground tile's wetness porosity (BlockSurfaceData.Porosity) so the
 //                   sprite's wet darken scales by the same fraction as the
 //                   ground beneath it.
 //   - color       : (r,g,b,1) — ground color of the solid voxel under the
 //                   sprite (a terrain's load-computed flat-tile average, or
-//                   VoxelTypeInfo.GroundTint for authored-override types). The
+//                   the block's own top surface). The
 //                   shader pulls sprite pixels toward this where the entry's
 //                   tint map paints its G channel, so blades read as rooted in
 //                   the ground instead of floating.
@@ -56,10 +56,8 @@ public static class ChunkDetailScatter
     // one MultiMesh per entry. Returns null if the chunk paints no detail.
     public static Dictionary<DetailEntry, List<InstanceData>> Compute(
         ChunkState data,
-        System.Func<int, int, int, VoxelType> getVoxel,
-        System.Func<int, int, int, int> getTerrainId,
-        DetailGroupData[] groups,
-        TerrainData[] terrains)
+        System.Func<int, int, int, int> getVoxel,
+        DetailGroupData[] groups)
     {
         if (groups == null || groups.Length == 0)
         {
@@ -135,30 +133,11 @@ public static class ChunkDetailScatter
                     float ao = ComputeAo(chunkWx + x, chunkWy + y, chunkWz + z, normal, getVoxel);
 
                     // Ground tint for rooting the sprite's base visually. All
-                    // instances on this voxel share the same tint. AUTO-Terrain
-                    // voxels inherit their kit's GroundTint (because the actual
-                    // rendered tile comes from the kit's FlatTile, not from the
-                    // VoxelType); authored-override types and TerrainPath keep
-                    // the fixed VoxelType tint (TerrainPath is always dirt in
-                    // the shader, independent of kit).
-                    VoxelType voxelType = getVoxel(chunkWx + x, chunkWy + y, chunkWz + z);
-                    Color groundTint;
-                    if (voxelType == VoxelType.Terrain && terrains != null)
-                    {
-                        int TerrainId = getTerrainId(chunkWx + x, chunkWy + y, chunkWz + z);
-                        if (TerrainId >= 0 && TerrainId < terrains.Length && terrains[TerrainId] != null)
-                        {
-                            groundTint = terrains[TerrainId].groundTint;
-                        }
-                        else
-                        {
-                            groundTint = VoxelTypeInfo.GetGroundTint(voxelType);
-                        }
-                    }
-                    else
-                    {
-                        groundTint = VoxelTypeInfo.GetGroundTint(voxelType);
-                    }
+                    // instances on this voxel share it — the mean colour of the
+                    // block's own top surface, so a blade always matches the
+                    // ground it grows out of.
+                    int voxelType = getVoxel(chunkWx + x, chunkWy + y, chunkWz + z);
+                    Color groundTint = ChunkMesh.GroundTintFor(voxelType);
 
                     // The visible ground under the sprite is the OVERLAY tile
                     // (dirt path, clover, moss, etc.) wherever one is painted —
@@ -175,7 +154,7 @@ public static class ChunkDetailScatter
                     }
 
                     // Wetness porosity of the ground beneath the sprite — the
-                    // SAME BlockData.Porosity the terrain shader folds into its
+                    // SAME BlockSurfaceData.Porosity the terrain shader folds into its
                     // wet darken (wet_dark = saturation * porosity). Resolved in
                     // lockstep with groundTint above (overlay > terrain FlatTile >
                     // authored voxel tile). The detail shader multiplies its
@@ -184,7 +163,7 @@ public static class ChunkDetailScatter
                     // darken at full strength (porosity 1) and read too dark over
                     // the same wet terrain (which only darkens by its porosity).
                     float groundPorosity = ResolveGroundPorosity(
-                        voxelType, chunkWx + x, chunkWy + y, chunkWz + z, getTerrainId, overlayId, terrains);
+                        voxelType, chunkWx + x, chunkWy + y, chunkWz + z, overlayId);
 
                     palette.Clear();
                     for (int e = 0; e < group.entries.Count; e++)
@@ -267,16 +246,16 @@ public static class ChunkDetailScatter
     }
 
     // Underlying ground porosity for one painted voxel, mirroring
-    // GroundTypeResolver's BlockData resolution order (overlay > terrain
+    // GroundTypeResolver's BlockSurfaceData resolution order (overlay > terrain
     // FlatTile > authored voxel tile) so the value matches the porosity the
-    // terrain shader reads for the same surface. Defaults to BlockData's 0.5
+    // terrain shader reads for the same surface. Defaults to BlockSurfaceData's 0.5
     // when no block resolves.
     private static float ResolveGroundPorosity(
-        VoxelType voxelType, int wx, int wy, int wz,
-        System.Func<int, int, int, int> getTerrainId, int overlayId, TerrainData[] terrains)
+        int voxelType, int wx, int wy, int wz,
+        int overlayId)
     {
         const float DEFAULT_POROSITY = 0.5f;
-        BlockCatalog catalog = BlockCatalog.Active;
+        BlockSurfaceCatalog catalog = BlockSurfaceCatalog.Active;
         if (catalog == null)
         {
             return DEFAULT_POROSITY;
@@ -284,27 +263,15 @@ public static class ChunkDetailScatter
 
         if (overlayId != 0)
         {
-            BlockData overlay = catalog.GetByAtlasIndex(overlayId);
+            BlockSurfaceData overlay = catalog.GetByAtlasIndex(overlayId);
             if (overlay != null)
             {
                 return overlay.porosity;
             }
         }
 
-        if (voxelType == VoxelType.Terrain)
-        {
-            int terrainId = getTerrainId(wx, wy, wz);
-            if (terrains != null && terrainId >= 0 && terrainId < terrains.Length
-                && terrains[terrainId] != null && terrains[terrainId].flatTile != null)
-            {
-                return terrains[terrainId].flatTile.porosity;
-            }
-            BlockData defaultFlat = catalog.defaultFlatTile;
-            return defaultFlat != null ? defaultFlat.porosity : DEFAULT_POROSITY;
-        }
-
-        BlockData block = catalog.GetByAtlasIndex(VoxelTypeInfo.GetTileForFace(voxelType, 0));
-        return block != null ? block.porosity : DEFAULT_POROSITY;
+        BlockSurfaceData top = BlockCatalog.Active.GetById(voxelType)?.SurfaceFor(EBlockFace.Top);
+        return top != null ? top.porosity : DEFAULT_POROSITY;
     }
 
     // FNV-1a 32-bit over the input bytes. Cheap and produces visually
@@ -343,7 +310,7 @@ public static class ChunkDetailScatter
     // at the first solid within AO_STEPS, cosine-weighted by facing. Returns
     // [0,1]: 0 = open flat ground (no occluder above → grass unaffected, matches
     // the terrain), higher under canopy / overhangs / against tall neighbours.
-    // Uses VoxelType solidity (not the mesher's binary density field), which is
+    // Uses int solidity (not the mesher's binary density field), which is
     // the same surface the scatter already queries — close enough since AO is
     // low-frequency and only needs to track the ground beneath the blade.
     private const int AO_STEPS = 2;
@@ -359,7 +326,7 @@ public static class ChunkDetailScatter
         new Vector3( 0.57735026f, -0.57735026f, -0.57735026f), new Vector3(-0.57735026f, -0.57735026f, -0.57735026f),
     };
 
-    private static float ComputeAo(int wx, int wy, int wz, Vector3 n, System.Func<int, int, int, VoxelType> getVoxel)
+    private static float ComputeAo(int wx, int wy, int wz, Vector3 n, System.Func<int, int, int, int> getVoxel)
     {
         // Sample from the air voxel that hosts the sprite (one above the solid
         // surface), so the march never immediately hits the voxel the blade
@@ -379,7 +346,7 @@ public static class ChunkDetailScatter
             for (int step = 1; step <= AO_STEPS; step++)
             {
                 Vector3 sp = p + d * step;
-                if (VoxelTypeInfo.IsSolid(getVoxel(Mathf.RoundToInt(sp.X), Mathf.RoundToInt(sp.Y), Mathf.RoundToInt(sp.Z))))
+                if (Blocks.IsSolid(getVoxel(Mathf.RoundToInt(sp.X), Mathf.RoundToInt(sp.Y), Mathf.RoundToInt(sp.Z))))
                 {
                     occ += nd * (1f - (float)(step - 1) / AO_STEPS);
                     break;
@@ -395,7 +362,7 @@ public static class ChunkDetailScatter
     // surface in range fall back to wy, which produces a flat-direction
     // contribution — correct for cliff edges where we want grass to read as
     // perpendicular to the local surface, not leaning hard down the cliff.
-    private static Vector3 ComputeSurfaceNormal(int wx, int wy, int wz, System.Func<int, int, int, VoxelType> getVoxel)
+    private static Vector3 ComputeSurfaceNormal(int wx, int wy, int wz, System.Func<int, int, int, int> getVoxel)
     {
         float yE = SurfaceYAt(wx + 1, wy, wz, getVoxel);
         float yW = SurfaceYAt(wx - 1, wy, wz, getVoxel);
@@ -410,7 +377,7 @@ public static class ChunkDetailScatter
     // — that voxel's y is the column's surface height. ±NORMAL_SCAN_RANGE
     // tolerates single-voxel ledges; beyond that we treat the column as a
     // cliff and return wy unchanged.
-    private static float SurfaceYAt(int wx, int wy, int wz, System.Func<int, int, int, VoxelType> getVoxel)
+    private static float SurfaceYAt(int wx, int wy, int wz, System.Func<int, int, int, int> getVoxel)
     {
         for (int radius = 0; radius <= NORMAL_SCAN_RANGE; radius++)
         {
@@ -418,7 +385,7 @@ public static class ChunkDetailScatter
             {
                 if (radius == 0 && sign == -1) { continue; }
                 int y = wy + sign * radius;
-                if (VoxelTypeInfo.IsSolid(getVoxel(wx, y, wz)) && !VoxelTypeInfo.IsSolid(getVoxel(wx, y + 1, wz)))
+                if (Blocks.IsSolid(getVoxel(wx, y, wz)) && !Blocks.IsSolid(getVoxel(wx, y + 1, wz)))
                 {
                     return y;
                 }
@@ -434,7 +401,7 @@ public static class ChunkDetailScatter
     //
     // Walks the four cardinal directions outward, carrying the ground level
     // with it, so a long grade stays continuous and only a real step ends a run.
-    private static float ComputeEdgeFactor(int wx, int wy, int wz, DetailGroupData group, System.Func<int, int, int, VoxelType> getVoxel)
+    private static float ComputeEdgeFactor(int wx, int wy, int wz, DetailGroupData group, System.Func<int, int, int, int> getVoxel)
     {
         int step = group.cliffStepVoxels;
         int setback = group.edgeSetbackVoxels;
@@ -480,7 +447,7 @@ public static class ChunkDetailScatter
     // already breaks). `dropped` says which way it broke: true = the ground fell
     // away (a cliff lip), false = a wall rose in front of it or the cap was hit.
     private static int GroundRun(int wx, int wy, int wz, int dx, int dz, int step, int maxSteps,
-        System.Func<int, int, int, VoxelType> getVoxel, out bool dropped)
+        System.Func<int, int, int, int> getVoxel, out bool dropped)
     {
         int refY = wy;
         for (int i = 1; i <= maxSteps; i++)
@@ -494,7 +461,7 @@ public static class ChunkDetailScatter
             }
             // No surface in the band: solid at the reference level means the
             // column carries on upward (a wall), otherwise it fell away.
-            dropped = !VoxelTypeInfo.IsSolid(getVoxel(nx, refY, nz));
+            dropped = !Blocks.IsSolid(getVoxel(nx, refY, nz));
             return i - 1;
         }
         dropped = false;
@@ -507,11 +474,11 @@ public static class ChunkDetailScatter
     // Water is non-solid, so a shallow shore reads as continuous off its floor
     // and only a genuine drop-off into deep water counts as an edge.
     private static bool TryColumnSurface(int wx, int refY, int wz, int step,
-        System.Func<int, int, int, VoxelType> getVoxel, out int surfaceY)
+        System.Func<int, int, int, int> getVoxel, out int surfaceY)
     {
         for (int y = refY + step - 1; y >= refY - step + 1; y--)
         {
-            if (VoxelTypeInfo.IsSolid(getVoxel(wx, y, wz)) && !VoxelTypeInfo.IsSolid(getVoxel(wx, y + 1, wz)))
+            if (Blocks.IsSolid(getVoxel(wx, y, wz)) && !Blocks.IsSolid(getVoxel(wx, y + 1, wz)))
             {
                 surfaceY = y;
                 return true;
@@ -526,7 +493,7 @@ public static class ChunkDetailScatter
         public Transform3D Transform;
         public Vector3 Normal;
         public Color GroundTint;
-        // Porosity of the ground tile under the sprite (BlockData.Porosity).
+        // Porosity of the ground tile under the sprite (BlockSurfaceData.Porosity).
         // Packed into the MultiMesh per-instance custom data's .w channel
         // (INSTANCE_CUSTOM.w) and folded into the detail shader's wet darken.
         public float Porosity;

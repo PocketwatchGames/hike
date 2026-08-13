@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3 uid="uid://8q9ywcnhghcqi"]
+[gd_scene load_steps=28 format=3 uid="uid://8q9ywcnhghcqi"]
 
 [ext_resource type="Script" uid="uid://ua46j2wiqjsm" path="res://scripts/gameplay/entities/Forge.cs" id="1_forge"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_ibox"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
 [ext_resource type="PackedScene" uid="uid://dt4yetfoio86o" path="res://assets/models/forge/Pedestal_02.fbx" id="11_pedestal"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="13_xray"]
+[ext_resource type="Script" uid="uid://x7gbvfcn55bl" path="res://scripts/gameplay/entities/ClipAnchor.cs" id="26_clipanchor"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 [ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="14_mapmarker"]
 [ext_resource type="Texture2D" uid="uid://dk1eq7v1245xm" path="res://assets/textures/map_markers/forge.png" id="15_mapicon"]
@@ -140,6 +141,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.9, 0)
 script = ExtResource("13_xray")
 _meshRoots = [NodePath("../ForgeVisual"), NodePath("../SlotModels")]
 _discoverable = NodePath("../Discoverable")
+
+[node name="ClipAnchor" type="Node3D" parent="." node_paths=PackedStringArray("_anchor", "_meshRoots")]
+script = ExtResource("26_clipanchor")
+_anchor = NodePath("..")
+_meshRoots = [NodePath("../SlotModels")]
 
 [node name="MapMarker" type="Node3D" parent="." node_paths=PackedStringArray("_discoverable")]
 script = ExtResource("14_mapmarker")

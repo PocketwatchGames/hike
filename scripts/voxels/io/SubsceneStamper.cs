@@ -49,7 +49,7 @@ public static class SubsceneStamper
                     int wx = worldOrigin.X + lx;
                     int wy = worldOrigin.Y + ly;
                     int wz = worldOrigin.Z + lz;
-                    ws.SetVoxelWorld(wx, wy, wz, sub.Voxels[lx, ly, lz], (VoxelTypeInfo.SharpAxes)sub.Shape[lx, ly, lz]);
+                    ws.SetBlockWorld(wx, wy, wz, sub.Voxels[lx, ly, lz], (SharpAxes)sub.Shape[lx, ly, lz]);
                     ws.SetTerrainIdWorld(wx, wy, wz, ResolveTerrainId(sub, groundTerrain, footprintGround, lx, ly, lz));
                     ws.SetOverlayIdWorld(wx, wy, wz, sub.OverlayId[lx, ly, lz]);
                     ws.SetDetailGroupWorld(wx, wy, wz, sub.DetailGroup[lx, ly, lz]);
@@ -87,7 +87,7 @@ public static class SubsceneStamper
     // so its natural ground inherits the ground it is stamped onto. The same
     // town square reads as mud in a swamp and grass in a forest, with nothing to
     // author per scene. Deliberate materials go in channels that ARE world-
-    // independent — an explicit VoxelType (Stone, Marsh) or an OverlayId
+    // independent — an explicit int (Stone, Marsh) or an OverlayId
     // (cobblestone, dirt), both of which name a block directly.
     private const int NO_GROUND = -1;
 
@@ -124,7 +124,7 @@ public static class SubsceneStamper
                 for (int depth = 0; depth < GROUND_SEARCH_DEPTH; depth++)
                 {
                     int wy = worldOrigin.Y - depth;
-                    if (!VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy, wz)))
+                    if (!Blocks.IsSolid(ws.GetBlockWorld(wx, wy, wz)))
                     {
                         continue;
                     }

@@ -101,7 +101,7 @@ public class ScentEmitter
                     int vx = Mathf.FloorToInt(desired.X);
                     int vy = Mathf.FloorToInt(desired.Y);
                     int vz = Mathf.FloorToInt(desired.Z);
-                    if (!VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(vx, vy, vz)))
+                    if (!Blocks.IsSolid(ws.GetBlockWorld(vx, vy, vz)))
                     {
                         c.pos = desired;
                     }
@@ -130,7 +130,7 @@ public class ScentEmitter
         int sx = Mathf.FloorToInt(ownerPos.X);
         int sy = Mathf.FloorToInt(ownerPos.Y);
         int sz = Mathf.FloorToInt(ownerPos.Z);
-        if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(sx, sy, sz)))
+        if (Blocks.IsSolid(ws.GetBlockWorld(sx, sy, sz)))
         {
             return;
         }

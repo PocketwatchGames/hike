@@ -342,8 +342,8 @@ public static class NavigationGoals
             {
                 return false;
             }
-            VoxelType here = ws.GetVoxelWorld(wx, wy, wz);
-            if (VoxelTypeInfo.IsSolid(here))
+            int here = ws.GetBlockWorld(wx, wy, wz);
+            if (Blocks.IsSolid(here))
             {
                 continue;
             }
@@ -351,7 +351,7 @@ public static class NavigationGoals
             {
                 return false;
             }
-            if (!VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy - 1, wz)))
+            if (!Blocks.IsSolid(ws.GetBlockWorld(wx, wy - 1, wz)))
             {
                 continue;
             }
@@ -361,7 +361,7 @@ public static class NavigationGoals
             bool headroomBlocked = false;
             for (int h = 1; h < verticalClearance; h++)
             {
-                if (!ws.IsInBounds(wx, wy + h, wz) || VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + h, wz)))
+                if (!ws.IsInBounds(wx, wy + h, wz) || Blocks.IsSolid(ws.GetBlockWorld(wx, wy + h, wz)))
                 {
                     headroomBlocked = true;
                     break;
@@ -374,10 +374,10 @@ public static class NavigationGoals
             // A land mob won't stand at the bottom of a deep water body. The
             // accepted voxel is Water only when the whole column is water over
             // a solid floor; reject it once that column reaches swim depth.
-            if (here == VoxelType.Water && profile.AvoidsDeepWater)
+            if (here == Blocks.WaterId && profile.AvoidsDeepWater)
             {
                 int depth = 1;
-                while (ws.IsInBounds(wx, wy + depth, wz) && ws.GetVoxelWorld(wx, wy + depth, wz) == VoxelType.Water)
+                while (ws.IsInBounds(wx, wy + depth, wz) && ws.GetBlockWorld(wx, wy + depth, wz) == Blocks.WaterId)
                 {
                     depth++;
                 }

@@ -1,29 +1,22 @@
 using Godot;
 using System.Collections.Generic;
 
-// Authored set of all BlockData resources used by the voxel renderer. One
-// BlockCatalog asset (block_catalog.tres) is the single source of truth that
-// downstream systems consult:
-//   - ChunkMesh populates the shader's tile_variants[64] uniform from the
-//     catalog (one atlas layer per AtlasBaseIndex).
-//   - MinimapData reads per-block per-band colors via GetByAtlasIndex.
-//   - TerrainData.FlatTile/WallTile point at BlockData refs; the kit
-//     resolves block.AtlasBaseIndex when uploading kit_tiles[] to the shader.
+// The world's set of placeable blocks — the single source of truth for the
+// per-voxel byte. Unlike the old terrain palette this is GLOBAL and not
+// per-world, so a stored block id means the same thing in every file and can't
+// silently re-point when a world's zone list is reordered.
 //
-// Lookup is built lazily on first call. The atlas-index slot table holds the
-// block whose AtlasBaseIndex matches that slot (NOT every slot in the
-// block's layer range) — this matches the existing shader contract where
-// tile_variants[i] is authored only at base indices, with intermediate slots
-// defaulting to (1,1). It also allows alias entries (e.g. DesertSand@28
-// alongside DesertTop@27..28).
+// Lookup tables are built lazily and never invalidated: block resources are
+// immutable after load.
 [GlobalClass]
 public partial class BlockCatalog : Resource
 {
     public const string CatalogResourcePath = "res://resources/data/blocks/block_catalog.tres";
 
-    // Lazy-loaded canonical catalog. Every runtime consumer (ChunkMesh,
-    // Minimap, MinimapData, worldgen) reads BlockCatalog.Active rather than
-    // GD.Load-ing on its own — single load, single validation pass.
+    // Upper bound on BlockId; sizes the id lookup table and the shader's
+    // per-block uniform arrays. Must match MAX_BLOCKS in voxel_clip.gdshader.
+    public const int MAX_BLOCKS = 64;
+
     private static BlockCatalog _active;
     public static BlockCatalog Active
     {
@@ -40,28 +33,37 @@ public partial class BlockCatalog : Resource
 
     [Export] public BlockData[] blocks;
 
-    // Fallback blocks used when a TerrainData entry doesn't author a FlatTile /
-    // WallTile, or when minimap surface resolution can't map the terrain. Resolved
-    // to int indices once at build time so hot paths read a field instead of
-    // doing a name lookup. Authored on block_catalog.tres so renaming or
-    // re-indexing the underlying block doesn't silently fall back to slot 0.
-    [Export] public BlockData defaultFlatTile;
-    [Export] public BlockData defaultWallTile;
+    // The block a voxel holds when nothing has been written — empty space.
+    // Named rather than assumed at id 0 so the catalog asset owns the choice.
+    [Export] public BlockData airBlock;
 
-    public int DefaultFlatTileIndex { get; private set; }
-    public int DefaultWallTileIndex { get; private set; }
+    public int AirBlockId { get; private set; }
 
-    private BlockData[] _byAtlasIndex;
+    private BlockData[] _byId;
     private Dictionary<StringName, BlockData> _byName;
+    // Atlas layer -> the block wearing it on top. Lets the overlay channel,
+    // which names a LAYER rather than a block, resolve to a block's material
+    // properties. First block wins where several share a top surface.
+    private BlockData[] _byTopSurfaceLayer;
 
-    public BlockData GetByAtlasIndex(int atlasIndex)
+    public BlockData GetById(int blockId)
     {
         EnsureBuilt();
-        if (atlasIndex < 0 || atlasIndex >= _byAtlasIndex.Length)
+        if (blockId < 0 || blockId >= _byId.Length)
         {
             return null;
         }
-        return _byAtlasIndex[atlasIndex];
+        return _byId[blockId];
+    }
+
+    public BlockData GetByTopSurfaceLayer(int atlasLayer)
+    {
+        EnsureBuilt();
+        if (atlasLayer < 0 || atlasLayer >= _byTopSurfaceLayer.Length)
+        {
+            return null;
+        }
+        return _byTopSurfaceLayer[atlasLayer];
     }
 
     public BlockData GetByName(StringName name)
@@ -70,123 +72,113 @@ public partial class BlockCatalog : Resource
         return _byName.TryGetValue(name, out BlockData data) ? data : null;
     }
 
-    // Convenience: resolve a block name straight to its AtlasBaseIndex,
-    // logging an error and returning 0 (Stone in the canonical catalog) if
-    // the block is missing. Used by worldgen overlay-id authoring that still
-    // refers to blocks by name; runtime hot paths read DefaultFlatTileIndex /
-    // DefaultWallTileIndex (cached at build time) instead.
-    public int GetAtlasIndexByName(StringName name)
+    // Name -> wire id, for the fixed-role lookups that must name a block
+    // (worldgen road treads, overlay ids). Logs and falls back to air rather
+    // than throwing, so a partial catalog is still testable.
+    public int GetIdByName(StringName name)
     {
         BlockData block = GetByName(name);
         if (block == null)
         {
             GD.PushError($"BlockCatalog: no block named '{name}'.");
-            return 0;
+            return AirBlockId;
         }
-        return block.atlasBaseIndex;
+        return block.blockId;
     }
 
-    // Boot-time validator. Logs to GD.PushError so issues surface as red in
-    // the Godot console; doesn't throw, since a partial catalog is still
-    // usable for testing.
     public void ValidateOrLog()
     {
         EnsureBuilt();
 
         if (blocks == null || blocks.Length == 0)
         {
-            GD.PushError("BlockCatalog: Blocks array is empty.");
+            GD.PushError("BlockCatalog: blocks array is empty.");
             return;
         }
 
-        var seenIndices = new HashSet<int>();
+        var seenIds = new HashSet<int>();
         var seenNames = new HashSet<StringName>();
-        foreach (var block in blocks)
+        foreach (BlockData block in blocks)
         {
             if (block == null)
             {
-                GD.PushError("BlockCatalog: null entry in Blocks.");
+                GD.PushError("BlockCatalog: null entry in blocks.");
                 continue;
             }
-
-            if (block.atlasBaseIndex < 0 || block.atlasBaseIndex >= VoxelTypeInfo.MAX_ATLAS_LAYERS)
+            if (block.blockId < 0 || block.blockId >= MAX_BLOCKS)
             {
-                GD.PushError($"BlockCatalog: '{block.blockName}' AtlasBaseIndex={block.atlasBaseIndex} out of range [0, {VoxelTypeInfo.MAX_ATLAS_LAYERS}).");
+                GD.PushError($"BlockCatalog: '{block.blockName}' blockId={block.blockId} out of range [0, {MAX_BLOCKS}).");
             }
-
-            if (!seenIndices.Add(block.atlasBaseIndex))
+            if (!seenIds.Add(block.blockId))
             {
-                GD.PushError($"BlockCatalog: duplicate AtlasBaseIndex={block.atlasBaseIndex} (block '{block.blockName}').");
+                GD.PushError($"BlockCatalog: duplicate blockId={block.blockId} (block '{block.blockName}').");
             }
-
             if (block.blockName.IsEmpty)
             {
-                GD.PushError($"BlockCatalog: block at AtlasBaseIndex={block.atlasBaseIndex} has empty BlockName.");
+                GD.PushError($"BlockCatalog: block at blockId={block.blockId} has an empty blockName.");
             }
             else if (!seenNames.Add(block.blockName))
             {
-                GD.PushError($"BlockCatalog: duplicate BlockName='{block.blockName}'.");
+                GD.PushError($"BlockCatalog: duplicate blockName='{block.blockName}'.");
+            }
+            // A visible block with no Top has nothing to fall back to —
+            // SurfaceFor resolves every face through Top last.
+            if (!block.IsInvisible() && block.top == null)
+            {
+                GD.PushError($"BlockCatalog: '{block.blockName}' authors a side/bottom surface but no top.");
+            }
+            if (block.render == EBlockRender.Water && block.IsInvisible())
+            {
+                GD.PushError($"BlockCatalog: '{block.blockName}' renders as Water but has no surfaces.");
             }
         }
 
-        // Shader-side hardcoded constants in voxel_clip.gdshader assume
-        // Stone=0 and GrassTop=1. If the catalog drifts from that, fragment
-        // shading silently picks the wrong tile.
-        AssertNamedAtIndex("Stone", 0);
-        AssertNamedAtIndex("GrassTop", 1);
-
-        if (defaultFlatTile == null)
+        if (airBlock == null)
         {
-            GD.PushError("BlockCatalog: DefaultFlatTile is not assigned.");
+            GD.PushError("BlockCatalog: airBlock is not assigned.");
         }
-        if (defaultWallTile == null)
+        else if (GetById(airBlock.blockId) != airBlock)
         {
-            GD.PushError("BlockCatalog: DefaultWallTile is not assigned.");
+            GD.PushError($"BlockCatalog: airBlock '{airBlock.blockName}' is not in the blocks array.");
         }
-    }
-
-    private void AssertNamedAtIndex(StringName name, int expectedIndex)
-    {
-        var block = GetByName(name);
-        if (block == null)
+        else if (airBlock.solid || !airBlock.IsInvisible())
         {
-            GD.PushError($"BlockCatalog: required block '{name}' is missing.");
-            return;
-        }
-        if (block.atlasBaseIndex != expectedIndex)
-        {
-            GD.PushError($"BlockCatalog: block '{name}' AtlasBaseIndex={block.atlasBaseIndex}, shader expects {expectedIndex}.");
+            GD.PushError($"BlockCatalog: airBlock '{airBlock.blockName}' must be non-solid and invisible.");
         }
     }
 
     private void EnsureBuilt()
     {
-        if (_byAtlasIndex != null)
+        if (_byId != null)
         {
             return;
         }
-        _byAtlasIndex = new BlockData[VoxelTypeInfo.MAX_ATLAS_LAYERS];
+        _byId = new BlockData[MAX_BLOCKS];
         _byName = new Dictionary<StringName, BlockData>();
-        if (blocks == null)
+        _byTopSurfaceLayer = new BlockData[BlockSurfaceCatalog.MAX_ATLAS_LAYERS];
+        if (blocks != null)
         {
-            return;
+            foreach (BlockData block in blocks)
+            {
+                if (block == null)
+                {
+                    continue;
+                }
+                if (block.blockId >= 0 && block.blockId < _byId.Length)
+                {
+                    _byId[block.blockId] = block;
+                }
+                if (!block.blockName.IsEmpty)
+                {
+                    _byName[block.blockName] = block;
+                }
+                int layer = block.top != null ? block.top.atlasBaseIndex : -1;
+                if (layer >= 0 && layer < _byTopSurfaceLayer.Length && _byTopSurfaceLayer[layer] == null)
+                {
+                    _byTopSurfaceLayer[layer] = block;
+                }
+            }
         }
-        foreach (var block in blocks)
-        {
-            if (block == null)
-            {
-                continue;
-            }
-            if (block.atlasBaseIndex >= 0 && block.atlasBaseIndex < _byAtlasIndex.Length)
-            {
-                _byAtlasIndex[block.atlasBaseIndex] = block;
-            }
-            if (!block.blockName.IsEmpty)
-            {
-                _byName[block.blockName] = block;
-            }
-        }
-        DefaultFlatTileIndex = defaultFlatTile != null ? defaultFlatTile.atlasBaseIndex : 0;
-        DefaultWallTileIndex = defaultWallTile != null ? defaultWallTile.atlasBaseIndex : 0;
+        AirBlockId = airBlock != null ? airBlock.blockId : 0;
     }
 }

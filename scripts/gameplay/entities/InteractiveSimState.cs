@@ -43,7 +43,7 @@ public class DoorSimState : EntitySimState, IVoxelStamper
         return new VoxelStamp(
             Door.ResolveOccluderBase(world, this),
             Mathf.Max(1, Door.GetOccluderHeight(Scene)),
-            Active ? VoxelType.Barrier : VoxelType.Opening,
+            Active ? Blocks.BarrierId : Blocks.OpeningId,
             carves: false);
     }
 }

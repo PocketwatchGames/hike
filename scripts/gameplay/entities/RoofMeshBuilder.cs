@@ -161,16 +161,20 @@ public static class RoofMeshBuilder
         private readonly SurfaceTool _surface;
         private readonly RoofDimensions _size;
         private readonly float _tiles;
-        private readonly float _eaveShade;
-        private readonly float _ridgeY;
+        private readonly float _soffitShade;
+        private readonly float _halfAcross;
+        private readonly float _overhang;
 
         public Context(SurfaceTool surface, RoofDimensions size, RoofStyleData style, float tiles)
         {
             _surface = surface;
             _size = size;
             _tiles = tiles;
-            _eaveShade = style.eaveShade;
-            _ridgeY = SOFFIT_LIFT + style.thickness + size.Rise;
+            _soffitShade = style.soffitShade;
+            _halfAcross = size.HalfAcross;
+            // The strip of underside that actually overhangs the wall — the only
+            // part the player ever sees, and what the occlusion grades across.
+            _overhang = Mathf.Max(size.HalfAcross - size.HalfAcrossBody, EDGE_EPSILON);
         }
 
         private Vector3 Point(Vector2 section, float alongSeam)
@@ -178,14 +182,39 @@ public static class RoofMeshBuilder
             return _size.Across * section.X + Vector3.Up * section.Y + _size.Seam * alongSeam;
         }
 
-        // Baked tone: full brightness at the ridge falling to eaveShade at the
-        // edges, so a big roof isn't uniformly flat. model_lit reads COLOR.r as
-        // occlusion (1 = open), gated by the material's vertex_ao_strength.
-        private float Shade(Vector2 section)
+        // Baked sky occlusion, written to COLOR.r (1 = open) and read through
+        // model_lit's vertex_ao_strength.
+        //
+        // Driven by which way the face POINTS, not by how high it sits. A height
+        // ramp gets the soffit dark for the wrong reason — it is merely the
+        // lowest thing — and then darkens the eave fascia and the slope above it
+        // by the same rule, when those are the most sky-open geometry on the
+        // roof. What is actually occluded is the underside: it faces the ground
+        // with the slab over it, and the further in under the overhang, the less
+        // sky it can see. Everything facing up or outward stays open.
+        private float Shade(Vector2 section, Vector2 outwardNormal)
         {
-            float span = _ridgeY - SOFFIT_LIFT;
-            float t = span > EDGE_EPSILON ? Mathf.Clamp((section.Y - SOFFIT_LIFT) / span, 0f, 1f) : 1f;
-            return Mathf.Lerp(_eaveShade, 1f, t);
+            // Downward-facing fraction, but RAMPED rather than taken raw. The
+            // bevel along the bottom of the fascia points mostly outward and only
+            // slightly down (about -0.45 Y at the default bevel); taken raw that
+            // reads as 45% occluded and paints a dark strip along the bottom edge
+            // of the vertical face — which is a convex, sky-open corner and the
+            // least occluded part of the whole eave. Only a face that genuinely
+            // turns under the roof should count, so hold near-horizontal normals
+            // at zero and let the term climb as the face rolls over to face down.
+            float down = Mathf.SmoothStep(0.4f, 0.92f, -outwardNormal.Y);
+            if (down <= EDGE_EPSILON)
+            {
+                return 1f;
+            }
+
+            // How far in from the eave lip, normalised over the overhang. At the
+            // lip the underside still sees sky sideways; against the wall it is
+            // closed on two sides. Falls back to the lip value when there is no
+            // overhang to grade across.
+            float depth = _halfAcross - Mathf.Abs(section.X);
+            float t = _overhang > EDGE_EPSILON ? Mathf.Clamp(depth / _overhang, 0f, 1f) : 1f;
+            return Mathf.Lerp(1f, _soffitShade, down * t);
         }
 
         // The cross-section extruded straight along the seam, with vertical end
@@ -302,8 +331,9 @@ public static class RoofMeshBuilder
         {
             Ring(lower, out float lowAcross, out float lowSeam);
             Ring(upper, out float highAcross, out float highSeam);
-            float shadeLower = Shade(lower);
-            float shadeUpper = Shade(upper);
+            var ringNormal = new Vector2(slope.Y, slope.X);
+            float shadeLower = Shade(lower, ringNormal);
+            float shadeUpper = Shade(upper, ringNormal);
             for (int side = 0; side < CORNER_SIGNS.Length; side++)
             {
                 Vector2 startSign = CORNER_SIGNS[side];
@@ -360,7 +390,10 @@ public static class RoofMeshBuilder
                 return;
             }
             Vector3 normal = facingUp ? Vector3.Up : Vector3.Down;
-            float shade = Shade(station);
+            // NOT Vector2.Up/Down — those are Godot's 2D SCREEN convention, where
+            // Up is (0,-1). This cross-section's Y is genuinely up, so using them
+            // would hand the ridge the soffit's occlusion and vice versa.
+            float shade = Shade(station, new Vector2(0f, facingUp ? 1f : -1f));
             var corners = new Vector3[CORNER_SIGNS.Length];
             var uvs = new Vector2[CORNER_SIGNS.Length];
             for (int i = 0; i < CORNER_SIGNS.Length; i++)
@@ -395,7 +428,7 @@ public static class RoofMeshBuilder
                 // turned a quarter turn counter-clockwise.
                 Vector2 normal2D = new Vector2(-edge.Y, edge.X) / length;
                 Vector3 normal = _size.Across * normal2D.X + Vector3.Up * normal2D.Y;
-                AddQuad(normal, Shade(a), Shade(b), Shade(b), Shade(a),
+                AddQuad(normal, Shade(a, normal2D), Shade(b, normal2D), Shade(b, normal2D), Shade(a, normal2D),
                     Point(a, seamFrom), Point(b, seamFrom), Point(b, seamTo), Point(a, seamTo),
                     new Vector2(arc, seamFrom) * _tiles, new Vector2(arc + length, seamFrom) * _tiles,
                     new Vector2(arc + length, seamTo) * _tiles, new Vector2(arc, seamTo) * _tiles);
@@ -415,6 +448,9 @@ public static class RoofMeshBuilder
         public void AddChainCap(Vector2[] upper, Vector2[] lower, float alongSeam, bool facingPositive)
         {
             Vector3 normal = facingPositive ? _size.Seam : -_size.Seam;
+            // The gable end walls face along the SEAM, so in cross-section terms
+            // they point neither up nor down and take no under-eave occlusion.
+            Vector2 capN = Vector2.Zero;
             for (int i = 0; i < upper.Length - 1; i++)
             {
                 Vector2 upperA = upper[i];
@@ -440,14 +476,14 @@ public static class RoofMeshBuilder
                     // Corner order that faces +seam; reversed for the far end.
                     if (facingPositive)
                     {
-                        AddQuad(normal, Shade(upperA), Shade(upperB), Shade(lowerB), Shade(lowerA),
+                        AddQuad(normal, Shade(upperA, capN), Shade(upperB, capN), Shade(lowerB, capN), Shade(lowerA, capN),
                             Point(upperA, alongSeam), Point(upperB, alongSeam),
                             Point(lowerB, alongSeam), Point(lowerA, alongSeam),
                             upperA * _tiles, upperB * _tiles, lowerB * _tiles, lowerA * _tiles);
                     }
                     else
                     {
-                        AddQuad(normal, Shade(lowerA), Shade(lowerB), Shade(upperB), Shade(upperA),
+                        AddQuad(normal, Shade(lowerA, capN), Shade(lowerB, capN), Shade(upperB, capN), Shade(upperA, capN),
                             Point(lowerA, alongSeam), Point(lowerB, alongSeam),
                             Point(upperB, alongSeam), Point(upperA, alongSeam),
                             lowerA * _tiles, lowerB * _tiles, upperB * _tiles, upperA * _tiles);
@@ -458,15 +494,17 @@ public static class RoofMeshBuilder
 
         private void AddCapTriangle(Vector3 normal, bool facingPositive, float alongSeam, Vector2 a, Vector2 b, Vector2 c)
         {
+            // Gable end wall — faces along the seam, so no under-eave occlusion.
+            Vector2 capN = Vector2.Zero;
             if (facingPositive)
             {
-                AddTriangle(normal, Shade(a), Shade(b), Shade(c),
+                AddTriangle(normal, Shade(a, capN), Shade(b, capN), Shade(c, capN),
                     Point(a, alongSeam), Point(b, alongSeam), Point(c, alongSeam),
                     a * _tiles, b * _tiles, c * _tiles);
             }
             else
             {
-                AddTriangle(normal, Shade(c), Shade(b), Shade(a),
+                AddTriangle(normal, Shade(c, capN), Shade(b, capN), Shade(a, capN),
                     Point(c, alongSeam), Point(b, alongSeam), Point(a, alongSeam),
                     c * _tiles, b * _tiles, a * _tiles);
             }

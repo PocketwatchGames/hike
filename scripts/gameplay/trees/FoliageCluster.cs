@@ -17,15 +17,28 @@ public partial class FoliageCluster : Node3D
 {
     [Export] public Vector3 ellipsoidRadii = new Vector3(1.5f, 1.5f, 1.5f);
 
-    // When true, FoliageStamper rasterizes this cluster's ellipsoid plus a
-    // downward shadow column into WorldState.CanopyAttenuation, which
-    // LightEngine then reads as extra sun + block-light falloff. Net effect:
-    // the cluster's XZ footprint reads as "indoors" for rain coverage and
-    // any other GetSkyLight01 probe — i.e. standing under it shelters from
-    // rain. Defaults OFF so decorative foliage (tall grass, ground cover,
-    // bushes) is opt-out by default — set true per-cluster on trees whose
-    // canopies are tall enough to actually shelter the player.
+    // When true, FoliageStamper rasterizes this cluster's ellipsoid into
+    // WorldState.CanopyAttenuation (and derives a shadow column beneath the
+    // whole tree), which LightEngine then reads as extra sun + block-light
+    // falloff. Net effect: the cluster's XZ footprint reads as "indoors" for
+    // rain coverage and any other GetSkyLight01 probe — i.e. standing under it
+    // shelters from rain. Defaults OFF so decorative foliage (tall grass,
+    // ground cover, bushes) is opt-out by default — set true per-cluster on
+    // trees whose canopies are tall enough to actually shelter the player.
     [Export] public bool castsSunShadow;
+
+    // How thick this blob's leaves are, as a multiple of SimData.canopyDensity
+    // (the density of one nominal canopy blob). 1 = nominal; a sparse airy blob
+    // wants less, a dense conifer bough more.
+    //
+    // This exists because shade must follow the FOLIAGE, not the authoring. With
+    // one global density, how dark a tree read depended on how finely its canopy
+    // had been subdivided: a pine built from one big cluster shaded far less than
+    // a maple built from four small ones covering the same volume. Densities add
+    // where clusters genuinely overlap in 3D (that voxel really does hold two
+    // blobs' worth of leaves), which is the same rule that makes neighbouring
+    // trees stack — so tune this down when adding clusters to an existing tree.
+    [Export(PropertyHint.Range, "0,4,0.05")] public float shadowDensity = 1.0f;
 
     // When true, FoliageMultiMesh drives a Bayer-dither fade-out on this
     // cluster's cards while it sits between the camera and the player —

@@ -135,8 +135,8 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         int z = Mathf.FloorToInt(position.Z);
         for (int i = 0; i < MaxStepUp; i++)
         {
-            VoxelType v = world.GetVoxelWorld(x, y, z);
-            if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier)
+            int v = world.GetBlockWorld(x, y, z);
+            if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
             {
                 break;
             }

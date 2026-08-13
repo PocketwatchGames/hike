@@ -27,7 +27,7 @@ public class ChunkState
         Pure = 2,    // every voxel is the same type — read FillType
     }
     private EChunkFill _fill = EChunkFill.Unknown;
-    private VoxelType _fillType;
+    private int _fillType;
 
     // Index into WorldState.Zones[]. Picks the zone this chunk
     // belongs to — drives ZoneBlend.Sample's per-chunk weighting so
@@ -43,10 +43,10 @@ public class ChunkState
     // a future editor) at world creation.
     public byte RegionIndex;
 
-    public readonly VoxelType[,,] Voxels;
+    public readonly byte[,,] Voxels;
 
-    // Per-voxel shape tag: stores VoxelTypeInfo.SharpAxes flags as a byte.
-    // This is the shape channel — orthogonal to VoxelType (the material
+    // Per-voxel shape tag: stores SharpAxes flags as a byte.
+    // This is the shape channel — orthogonal to int (the material
     // channel). Worldgen writes it when placing voxels; the DC mesher reads
     // it to decide per-axis Y/X/Z snapping.
     // Authoring map:
@@ -58,7 +58,7 @@ public class ChunkState
     // Per-voxel terrain id. Index into the active world's terrain palette
     // (derived from the kit palette built by deduplicating each zone's
     // SurfaceKit/CaveKit/SubmergedKit refs and uploaded globally via
-    // ChunkMesh.SetTerrains). Orthogonal to VoxelType: a voxel tagged
+    // ChunkMesh.SetTerrains). Orthogonal to int: a voxel tagged
     // VoxelType.Terrain with TerrainId=2 means "AUTO land that reads from
     // palette slot 2's terrain." Per-voxel (not per-column) so caves beneath
     // overhangs can use a different terrain than the surface above. The DC
@@ -71,7 +71,7 @@ public class ChunkState
     // features the per-fragment shader slope can't see on a box-smoothed normal
     // — 1-voxel bumps, walkable ramps, eroded edges — which worldgen detects
     // via per-voxel neighborhood slope and stamps here. Majority-voted in the
-    // mesher parallel to VoxelType and TerrainId.
+    // mesher parallel to int and TerrainId.
     public readonly byte[,,] OverlayId;
 
     // Painted detail-sprite scatter. Stored on the SOLID surface voxel (same
@@ -190,7 +190,7 @@ public class ChunkState
     public ChunkState(Vector3I chunkCoord)
     {
         ChunkCoord = chunkCoord;
-        Voxels = new VoxelType[SIZE, SIZE, SIZE];
+        Voxels = new byte[SIZE, SIZE, SIZE];
         Shape = new byte[SIZE, SIZE, SIZE];
         TerrainId = new byte[SIZE, SIZE, SIZE];
         OverlayId = new byte[SIZE, SIZE, SIZE];
@@ -345,25 +345,25 @@ public class ChunkState
         EnvTag[sx, sy, sz] = ambienceIndex;
     }
 
-    public VoxelType GetVoxel(int x, int y, int z)
+    public int GetVoxel(int x, int y, int z)
     {
         if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
         {
-            return VoxelType.Air;
+            return Blocks.AirId;
         }
         return Voxels[x, y, z];
     }
 
-    public VoxelTypeInfo.SharpAxes GetShape(int x, int y, int z)
+    public SharpAxes GetShape(int x, int y, int z)
     {
         if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
         {
-            return VoxelTypeInfo.SharpAxes.None;
+            return SharpAxes.None;
         }
-        return (VoxelTypeInfo.SharpAxes)Shape[x, y, z];
+        return (SharpAxes)Shape[x, y, z];
     }
 
-    public void SetShape(int x, int y, int z, VoxelTypeInfo.SharpAxes shape)
+    public void SetShape(int x, int y, int z, SharpAxes shape)
     {
         Shape[x, y, z] = (byte)shape;
     }
@@ -517,7 +517,7 @@ public class ChunkState
     // Returns this chunk's fill classification. Computes on first call;
     // subsequent calls hit the cache until InvalidateFill() is called.
     // When the result is Pure, fillType holds the uniform voxel type.
-    public EChunkFill GetFill(out VoxelType fillType)
+    public EChunkFill GetFill(out int fillType)
     {
         if (_fill == EChunkFill.Unknown)
         {
@@ -534,7 +534,7 @@ public class ChunkState
 
     private void ComputeFill()
     {
-        VoxelType first = Voxels[0, 0, 0];
+        int first = Voxels[0, 0, 0];
         for (int x = 0; x < SIZE; x++)
         {
             for (int y = 0; y < SIZE; y++)
@@ -575,7 +575,7 @@ public class ChunkState
         // Dust is airborne; solids keep only whatever fog was authored into
         // them, so the fog volume's linear filter falls off across a wall face
         // instead of hazing through it.
-        if (Voxels[x, y, z] != VoxelType.Air)
+        if (Voxels[x, y, z] != Blocks.AirId)
         {
             return fog;
         }

@@ -53,45 +53,45 @@ public static class EditorMarkerOverlay
             {
                 for (int x = cx - radiusXZ; x <= cx + radiusXZ; x++)
                 {
-                    VoxelType type = ws.GetVoxelWorld(x, y, z);
-                    if (type != VoxelType.Opening && type != VoxelType.Barrier)
+                    int type = ws.GetBlockWorld(x, y, z);
+                    if (type != Blocks.OpeningId && type != Blocks.BarrierId)
                     {
                         continue;
                     }
                     DrawCell(ws, x, y, z, type,
-                        type == VoxelType.Opening ? openingColor : barrierColor, occludedColor);
+                        type == Blocks.OpeningId ? openingColor : barrierColor, occludedColor);
                 }
             }
         }
     }
 
-    private static void DrawCell(WorldState ws, int x, int y, int z, VoxelType type, Color color, Color occludedColor)
+    private static void DrawCell(WorldState ws, int x, int y, int z, int type, Color color, Color occludedColor)
     {
         float x0 = x + FaceInset, x1 = x + 1f - FaceInset;
         float y0 = y + FaceInset, y1 = y + 1f - FaceInset;
         float z0 = z + FaceInset, z1 = z + 1f - FaceInset;
 
-        if (ws.GetVoxelWorld(x - 1, y, z) != type)
+        if (ws.GetBlockWorld(x - 1, y, z) != type)
         {
             DrawQuad(new Vector3(x0, y0, z0), new Vector3(x0, y1, z0), new Vector3(x0, y1, z1), new Vector3(x0, y0, z1), color, occludedColor);
         }
-        if (ws.GetVoxelWorld(x + 1, y, z) != type)
+        if (ws.GetBlockWorld(x + 1, y, z) != type)
         {
             DrawQuad(new Vector3(x1, y0, z0), new Vector3(x1, y1, z0), new Vector3(x1, y1, z1), new Vector3(x1, y0, z1), color, occludedColor);
         }
-        if (ws.GetVoxelWorld(x, y - 1, z) != type)
+        if (ws.GetBlockWorld(x, y - 1, z) != type)
         {
             DrawQuad(new Vector3(x0, y0, z0), new Vector3(x1, y0, z0), new Vector3(x1, y0, z1), new Vector3(x0, y0, z1), color, occludedColor);
         }
-        if (ws.GetVoxelWorld(x, y + 1, z) != type)
+        if (ws.GetBlockWorld(x, y + 1, z) != type)
         {
             DrawQuad(new Vector3(x0, y1, z0), new Vector3(x1, y1, z0), new Vector3(x1, y1, z1), new Vector3(x0, y1, z1), color, occludedColor);
         }
-        if (ws.GetVoxelWorld(x, y, z - 1) != type)
+        if (ws.GetBlockWorld(x, y, z - 1) != type)
         {
             DrawQuad(new Vector3(x0, y0, z0), new Vector3(x1, y0, z0), new Vector3(x1, y1, z0), new Vector3(x0, y1, z0), color, occludedColor);
         }
-        if (ws.GetVoxelWorld(x, y, z + 1) != type)
+        if (ws.GetBlockWorld(x, y, z + 1) != type)
         {
             DrawQuad(new Vector3(x0, y0, z1), new Vector3(x1, y0, z1), new Vector3(x1, y1, z1), new Vector3(x0, y1, z1), color, occludedColor);
         }

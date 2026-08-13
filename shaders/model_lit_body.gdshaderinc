@@ -65,6 +65,16 @@ global uniform float camera_clip_growth_edge_softness;
 // look while giving the mesh enough shading to read as 3D.
 uniform float form_strength : hint_range(0.0, 1.0) = 0.55;
 
+// Pushes the light-map sample OUT ALONG THE SURFACE NORMAL, on top of the fixed
+// half-voxel lift below. For a mesh that casts its own occlusion into the light
+// map, the half-voxel lift alone is not enough: a roof stamps its sheet in the
+// very voxel row its eave fascia stands in, so the fascia samples the shadow it
+// is itself casting and goes dark from the base upward. Offsetting along the
+// normal walks the sample out of that column into open air, the same normal-bias
+// trick shadow maps use for acne. 0 = exact previous behaviour, so every
+// material that does not opt in is untouched.
+uniform float light_normal_bias : hint_range(0.0, 2.0) = 0.0;
+
 // Per-material multiplicative tint applied to the sampled albedo BEFORE the
 // lighting math. Default (1,1,1) leaves the texture untouched (back-compatible
 // for character materials). Used by rock_lit.tres to brighten/warm the Synty
@@ -128,6 +138,17 @@ instance uniform vec3 silhouette_tint : source_color = vec3(0.0);
 // these two as placeholders for the same reason).
 instance uniform vec3 recolor : source_color = vec3(1.0);
 instance uniform float recolor_amount : hint_range(0.0, 1.0) = 0.0;
+
+// --- Ceiling-clip anchor (instance uniform) ---------------------------------
+// Metres added to the mesh origin's Y before the cutaway height test below.
+// A visual that FLOATS above the thing it belongs to (the forge's hovering
+// upgrade preview) otherwise clips on its own, metres before the prop under it
+// does — the peek iris eats the floating model while the pedestal stays. A
+// negative offset drops its anchor back onto the host so the two cut as one
+// piece. Driven from ClipAnchor.cs; 0 = clip at the mesh's own origin, which is
+// every other mesh. Declared after the shared names and before the xray-only
+// ones so the instance-uniform indices stay aligned with model_xray.gdshader.
+instance uniform float clip_anchor_offset = 0.0;
 
 // --- Ambient occlusion ------------------------------------------------------
 // AO is a multiplicative darken on the diffuse lighting (the same place the
@@ -194,7 +215,94 @@ uniform float height_shade : hint_range(0.0, 1.0) = 0.0;
 uniform sampler2D detail_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float detail_scale = 0.11;
 uniform float detail_strength : hint_range(0.0, 1.0) = 0.0;
+#endif
 
+#ifdef MODEL_SURFACE_OVERLAY
+// --- Growth overlay: moss, snow, soot ---------------------------------------
+// A REPLACEMENT layer, unlike detail_tex above. detail_tex multiplies, so it can
+// only modulate the base's own value — it can never put a light material on a
+// dark one. This mixes toward its own albedo instead, which is what lets moss
+// sit on dark wood and still read as moss.
+//
+// Its own #define, nested under MODEL_SURFACE_DETAIL's samplers rather than
+// added to them, so shaders that only want the normal map (model_lit_detail)
+// don't pay for two more.
+uniform sampler2D overlay_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform vec3 overlay_tint : source_color = vec3(1.0, 1.0, 1.0);
+uniform float overlay_scale = 1.0;
+uniform float overlay_strength : hint_range(0.0, 1.0) = 0.0;
+
+// WHERE it grows. PROCEDURAL, not a mask texture: a tiling mask repeats its own
+// silhouette across a big roof and the eye locks onto the shape long before it
+// notices the albedo repeating. Sampled on world XZ (like roof_broken) rather
+// than UV, so patches also stay put when a roof is resized and never line up
+// with the texture's own tiling.
+//
+// Patches per meter. Low = a few broad colonies, high = speckle.
+uniform float overlay_noise_scale = 0.09;
+// Slides the threshold: 0 = bare, 1 = fully overgrown. One slider ages a whole
+// village.
+uniform float overlay_coverage : hint_range(0.0, 1.0) = 0.35;
+// Width of the transition band. Wide reads as moss thinning out at the fringe
+// rather than being cut off at an edge.
+uniform float overlay_edge_softness : hint_range(0.005, 0.6) = 0.3;
+
+// Moss takes the LOW GROUND first — crevices hold water and trap debris, so it
+// creeps along the grout and plank gaps before it ever covers a proud face.
+// Driven by the height packed in the normal map's alpha (1 = proud, 0 = deep).
+// Inert on a normal map with no height, where alpha samples as 1.
+uniform float overlay_crevice_bias : hint_range(0.0, 1.0) = 0.45;
+
+// Moss collects on surfaces that hold water and debris — it does not cling to a
+// vertical fascia or the underside of a soffit. Weighting by upward-facing-ness
+// is what keeps it off those without needing a second mask.
+uniform float overlay_up_bias : hint_range(0.0, 1.0) = 0.8;
+
+// Moss is soft: it should bury the base's crevices, not inherit them. Flattens
+// the tangent normal and cancels the height crevice darkening where it grows.
+uniform float overlay_flatten : hint_range(0.0, 1.0) = 0.85;
+
+// Favour the side that is shaded on average: it stays damp longest, which is
+// why moss picks a side of a roof at all. Keyed to the NOON sun's bearing, so
+// the "mossy side" is whichever way faces away from it — correct for either
+// hemisphere without hardcoding one. 0 = no directional preference.
+global uniform vec3 sun_noon_horizontal;
+uniform float overlay_shade_bias : hint_range(0.0, 1.0) = 0.0;
+
+// Three octaves of the same integer-hashed value noise the derelict-hole mask
+// uses (roof_broken.gdshaderinc, already included above) — no second hash to
+// keep in step. The octave steps are deliberately NON-INTEGER: at 2.0 and 4.0
+// the lattices share grid lines and the sum grows a faint square grid of its
+// own, which is the very artefact this replaces.
+float overlay_growth_field(vec2 p, float scale)
+{
+	float f = roof_broken_noise(p * scale);
+	f += roof_broken_noise(p * scale * 2.03) * 0.5;
+	f += roof_broken_noise(p * scale * 4.11) * 0.25;
+	return f * (1.0 / 1.75);
+}
+
+// TRIPLANAR, because a single XZ projection collapses on anything vertical: an
+// eave fascia has no XZ variation down its height, so the field goes constant
+// and the growth smears into vertical bands. Projecting per axis also stops a
+// steep pitch stretching the patches by 1/cos(pitch).
+//
+// The near-zero-weight planes are branched out rather than summed. A roof is
+// large and coherent, so whole slopes take the same branch and the divergence
+// cost is nil — a flat slope pays for one projection, exactly as before.
+float overlay_growth_triplanar(vec3 world_pos, vec3 n, float scale)
+{
+	vec3 w = abs(n);
+	w /= max(w.x + w.y + w.z, 1e-4);
+	float f = 0.0;
+	if (w.y > 0.001) { f += overlay_growth_field(world_pos.xz, scale) * w.y; }
+	if (w.x > 0.001) { f += overlay_growth_field(world_pos.zy, scale) * w.x; }
+	if (w.z > 0.001) { f += overlay_growth_field(world_pos.xy, scale) * w.z; }
+	return f;
+}
+#endif
+
+#ifdef MODEL_SURFACE_DETAIL
 // How far gone a derelict roof is: 0 = intact, 1 = nothing left. Procedural
 // rather than a mask texture, specifically so the CPU can evaluate the same
 // function — that is what lets the sun-occlusion pass leave the matching voxel
@@ -226,11 +334,12 @@ varying vec3 world_normal;
 varying float object_y;
 // Baked per-vertex occlusion brightness (COLOR.r): 1 = open, <1 = occluded.
 varying float vert_brightness;
-// Mesh origin (world space) — flat, so the ceiling-clip test resolves once
-// per instance instead of per fragment. Keeps a mesh from being sliced at the
-// clip plane: the whole model dithers/culls as a unit, matching sprites (which
-// clip against their flat per-sprite anchor). See fragment().
-varying flat vec3 model_origin;
+// Where the ceiling clip resolves this mesh: its world origin, shifted by
+// clip_anchor_offset. Flat, so the test resolves once per instance instead of
+// per fragment — that's what keeps a mesh from being sliced at the clip plane;
+// the whole model dithers/culls as a unit, matching sprites (which clip against
+// their flat per-sprite anchor). See fragment().
+varying flat vec3 clip_anchor;
 
 #ifdef MODEL_SURFACE_DETAIL
 // World-space tangent frame for the normal map. Same uniform-scale assumption
@@ -241,7 +350,7 @@ varying vec3 world_binormal;
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	model_origin = MODEL_MATRIX[3].xyz;
+	clip_anchor = MODEL_MATRIX[3].xyz + vec3(0.0, clip_anchor_offset, 0.0);
 	object_y = VERTEX.y;
 	vert_brightness = COLOR.r;
 	// Uniform-scale rig, so transforming the normal by MODEL_MATRIX (without
@@ -254,7 +363,7 @@ void vertex() {
 }
 
 void fragment() {
-	// Ceiling cutaway: test the whole mesh against the clip by its origin (a
+	// Ceiling cutaway: test the whole mesh against the clip by its anchor (a
 	// flat varying), NOT the per-fragment world_pos — otherwise a mesh
 	// straddling the clip gets sliced at the plane. A prop should either fully
 	// dither out or stay, as a unit, like sprites do (which clip against their
@@ -268,11 +377,11 @@ void fragment() {
 	// the whole instance and hands it down. Roofs only — everything else resolves
 	// per fragment from the mask.
 #ifdef CLIP_PARTICIPATION_INSTANCE
-	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
+	if (clip_dither_should_discard_anchored(clip_anchor, world_pos, FRAGCOORD.xy)) {
 		discard;
 	}
 #else
-	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
+	if (clip_dither_should_discard_anchored(clip_anchor, world_pos, FRAGCOORD.xy)) {
 		discard;
 	}
 #endif
@@ -328,12 +437,64 @@ void fragment() {
 	}
 
 	vec4 nh = texture(normal_tex, UV);
-	vec3 tangent_normal = nh.xyz * 2.0 - 1.0;
-	tangent_normal.xy *= normal_strength;
+
+	// Resolved after the normal SAMPLE (it reads the packed height) but before
+	// the normal is USED, because a growth layer has to flatten what it fills.
+	float overlay_amount = 0.0;
+#ifdef MODEL_SURFACE_OVERLAY
+	if (overlay_strength > 0.0)
+	{
+		// Geometry normal, not the mapped one: whether moss can settle here is a
+		// property of the surface, not of the bump detail sitting on it.
+		vec3 geo_n = normalize(world_normal);
+		float patch = overlay_growth_triplanar(world_pos, geo_n, overlay_noise_scale);
+		// Let the crevices pull the field over the threshold, so growth reaches
+		// into the grout well before it covers the faces either side of it.
+		patch += (1.0 - nh.a) * overlay_crevice_bias;
+		// +1 facing fully away from the noon sun, -1 facing into it, and ~0 on a
+		// flat roof or one whose slopes run along the sun's bearing — which is
+		// the right answer for all three without a special case.
+		float shade_facing = -dot(geo_n, normalize(sun_noon_horizontal));
+		patch += shade_facing * overlay_shade_bias;
+		// coverage drives the threshold DOWN, so 1 floods and 0 leaves bare.
+		float threshold = 1.0 - overlay_coverage;
+		overlay_amount = smoothstep(threshold - overlay_edge_softness,
+			threshold + overlay_edge_softness, patch);
+		// SIGNED remap, not clamp(n.y): clamping sends a vertical face and a
+		// soffit to the same 0, so there is no bias value that gives a wall moss
+		// while keeping it off the underside. Mapped -1..1 into 0..1 they
+		// separate — soffit 0, vertical 0.5, upward 1 — and one knob orders all
+		// three the way they actually weather.
+		float upness = geo_n.y * 0.5 + 0.5;
+		overlay_amount *= mix(1.0, upness, overlay_up_bias);
+		overlay_amount *= overlay_strength;
+	}
+#endif
+
+	// Z is RECONSTRUCTED, never read. A normal map imported as "Normal Map"
+	// compresses to RGTC/BC5, which stores only RG and samples blue as 0 — read
+	// directly that would give z = -1 and turn the surface inside out. Rebuilding
+	// it from xy is exact for any unit normal, so both BC5 and full-RGB maps work.
+	vec2 tangent_xy = (nh.xy * 2.0 - 1.0) * normal_strength;
+	float base_crevice = 1.0 - (1.0 - nh.a) * height_shade;
+#ifdef MODEL_SURFACE_OVERLAY
+	{
+		float soften = overlay_amount * overlay_flatten;
+		tangent_xy = mix(tangent_xy, vec2(0.0), soften);
+		base_crevice = mix(base_crevice, 1.0, soften);
+	}
+#endif
+	vec3 tangent_normal = vec3(tangent_xy,
+		sqrt(max(1.0 - dot(tangent_xy, tangent_xy), 0.0)));
 	shading_normal = normalize(world_tangent * tangent_normal.x
 		+ world_binormal * tangent_normal.y
 		+ shading_normal * tangent_normal.z);
-	base *= 1.0 - (1.0 - nh.a) * height_shade;
+	base *= base_crevice;
+#ifdef MODEL_SURFACE_OVERLAY
+	// Mix, not multiply — this is the whole point of a second real layer.
+	base = mix(base, texture(overlay_tex, UV * overlay_scale).rgb * overlay_tint,
+		overlay_amount);
+#endif
 #endif
 
 	// Editor-preview fallback: light globals aren't registered until the game
@@ -351,7 +512,10 @@ void fragment() {
 		// Push the sample point up half a voxel into the air above the surface
 		// so we read the adjacent air voxel's light instead of zero inside a
 		// solid (same trick the sprite / particle shaders use).
-		vec3 light_sample_pos = world_pos + vec3(0.0, 0.5, 0.0);
+		// Geometry normal, not the mapped one — this is about which voxel column
+		// to read, and a bump map must not move the sample.
+		vec3 light_sample_pos = world_pos + vec3(0.0, 0.5, 0.0)
+			+ normalize(world_normal) * light_normal_bias;
 		vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 		vec4 lm = textureLod(light_map, uvw, 0.0);
 		float sun_mask = pow(lm.r, light_falloff_exp);

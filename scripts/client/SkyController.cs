@@ -937,6 +937,11 @@ public partial class SkyController : Node3D
         if (!Engine.IsEditorHint())
         {
             ShaderGlobals.Register("sun_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
+            // Horizontal bearing of the NOON sun. Static for a world, unlike
+            // sun_world_dir which swings all day — growth has to key off the
+            // side that is shaded on average, or moss would crawl around a roof
+            // between sunrise and sunset.
+            ShaderGlobals.Register("sun_noon_horizontal", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.707f, 0f, 0.707f));
             ShaderGlobals.Register("fill_a_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
             ShaderGlobals.Register("fill_b_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
             // Sky-only globals for the sun/moon disks.
@@ -1346,6 +1351,12 @@ public partial class SkyController : Node3D
             Mathf.Sin(azimuthRad + Mathf.Pi * 0.5f),
             0f,
             Mathf.Cos(azimuthRad + Mathf.Pi * 0.5f));
+
+        // Noon's horizontal bearing, for surface growth that favours the shaded
+        // side. Derived from noonAzimuthDegrees rather than authored separately
+        // so it can't drift from the sun the world actually has.
+        RenderingServer.GlobalShaderParameterSet("sun_noon_horizontal",
+            new Vector3(Mathf.Sin(azimuthRad), 0f, Mathf.Cos(azimuthRad)));
 
         // --- Sky disk: unchanged full-orbit great circle ---------------
         // θ = 0 at t=0.25 (east horizon), π/2 at noon, π at t=0.75 (west

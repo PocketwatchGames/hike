@@ -30,7 +30,7 @@ public partial class ChunkMesh : Node3D
     // the script-class registry at editor startup (via the source-gen-
     // emitted GetGodotMethodList / GetGodotPropertyList statics), and at
     // that point user C# resource types may not be registered yet —
-    // `GD.Load<BlockCatalog>(...)` would come back as a plain Godot.Resource
+    // `GD.Load<BlockSurfaceCatalog>(...)` would come back as a plain Godot.Resource
     // and the cast throws. Deferring to first use guarantees registration
     // is complete and keeps the cctor from triggering during introspection.
     private static ShaderMaterial SharedMaterial;
@@ -46,8 +46,8 @@ public partial class ChunkMesh : Node3D
     private static bool _materialsInitialized;
 
     // The terrain color atlas (voxel_tiles.png as a Texture2DArray), kept so
-    // SetTerrains can sample each terrain's flat-tile average for its detail
-    // GroundTint. Same resource the shader binds to `tile_array`.
+    // GroundTintFor samples a block's top-surface average from it. Same
+    // resource the shader binds to `tile_array`.
     private static TextureLayered _tileColorArray;
     // Per-atlas-layer cached linear-space average color. Keyed by layer index
     // so terrains sharing a flat tile decode the layer only once.
@@ -136,19 +136,30 @@ public partial class ChunkMesh : Node3D
         // model params and concavity pooling are authored on terrain.tres — not
         // re-pushed here, so the material's values win.
 
-        // Per-atlas-layer cliff/ground class (BlockData.IsCliff) and wetness
-        // porosity (BlockData.Porosity), for the shader's height-blend routing
+        // Per-atlas-layer cliff/ground class (BlockSurfaceData.IsCliff) and wetness
+        // porosity (BlockSurfaceData.Porosity), for the shader's height-blend routing
         // and wet-look split. Both indexed by AtlasBaseIndex.
-        var cliffTable = new Godot.Collections.Array();
+        // Per-atlas-layer mean height, measured from the atlas rather than
+        // authored — source height maps sit at very different means (grass 0.23,
+        // cobblestone 0.53), and the cavity term subtracts this so it darkens
+        // pits without dimming whole tiles by that arbitrary offset. Derived at
+        // load like GroundTint above, so re-baking a height map keeps it in sync
+        // with no authoring step.
         var porosityTable = new Godot.Collections.Array();
-        for (int i = 0; i < VoxelTypeInfo.MAX_ATLAS_LAYERS; i++)
+        var heightMidTable = new Godot.Collections.Array();
+        for (int i = 0; i < BlockSurfaceCatalog.MAX_ATLAS_LAYERS; i++)
         {
-            BlockData block = BlockCatalog.Active.GetByAtlasIndex(i);
-            cliffTable.Add((block != null && block.isCliff) ? 1f : 0f);
-            porosityTable.Add(block != null ? block.porosity : 0.5f);
+            BlockSurfaceData surface = BlockSurfaceCatalog.Active.GetByAtlasIndex(i);
+            porosityTable.Add(surface != null ? surface.porosity : 0.5f);
+            heightMidTable.Add(GetLayerHeightMid(nrmHeight, i));
         }
-        SharedMaterial.SetShaderParameter("tile_is_cliff", cliffTable);
         SharedMaterial.SetShaderParameter("tile_porosity", porosityTable);
+        SharedMaterial.SetShaderParameter("tile_height_mid", heightMidTable);
+
+        // Per-block face/band tables. Global and static, so unlike the old
+        // per-world terrain palette this is uploaded once here rather than
+        // re-pushed at every world load.
+        UploadBlockTables();
 
         var shadowCasterShader = GD.Load<Shader>("res://shaders/voxel_shadow_caster.gdshader");
         ShadowCasterMaterial = new ShaderMaterial();
@@ -199,62 +210,66 @@ public partial class ChunkMesh : Node3D
         WaterBackfaceMaterial.RenderPriority = -2;
     }
 
-    // Must match MAX_TERRAINS in voxel_clip.gdshader.
-    private const int MAX_TERRAINS = 16;
-
     // World-scoped detail palette cached statically so ChunkMesh.Create can
     // pass it to ChunkDetailScatter without threading it through every
     // chunk-build call. Set once at world start (Main.StartGame).
     private static DetailGroupData[] _activeDetailGroups;
     public static DetailGroupData[] ActiveDetailGroups => _activeDetailGroups;
 
-    // World-scoped kit palette. Cached alongside _activeDetailGroups so
-    // ChunkDetailScatter can resolve each painted voxel's kit to its
-    // GroundTint without threading the array through every chunk-build call.
-    private static TerrainData[] _activeTerrains;
-    public static TerrainData[] ActiveTerrains => _activeTerrains;
+    // Upload the global block catalog's face/band tables. Indexed by the
+    // per-vertex block id the mesher packs into CUSTOM0.xyz.
+    //   block_faces[i] = (top, side, bottom, _) atlas layers, each resolved
+    //     through BlockData.SurfaceFor so a block authoring only a top wears it
+    //     on every slot and the blend collapses to one sample.
+    //   block_bands[i] = (lo, hi, _, _) — the smoothstep on |normal.y|.
+    private static void UploadBlockTables()
+    {
+        var faces = new Vector4[BlockCatalog.MAX_BLOCKS];
+        var bands = new Vector4[BlockCatalog.MAX_BLOCKS];
+        BlockCatalog catalog = BlockCatalog.Active;
+        for (int id = 0; id < BlockCatalog.MAX_BLOCKS; id++)
+        {
+            BlockData block = catalog.GetById(id);
+            if (block == null || block.IsInvisible())
+            {
+                continue;
+            }
+            faces[id] = new Vector4(
+                LayerOf(block.SurfaceFor(EBlockFace.Top)),
+                LayerOf(block.SurfaceFor(EBlockFace.Side)),
+                LayerOf(block.SurfaceFor(EBlockFace.Bottom)),
+                0f);
+            bands[id] = new Vector4(block.wallBand.X, block.wallBand.Y, 0f, 0f);
+        }
+        SharedMaterial.SetShaderParameter("block_faces", faces);
+        SharedMaterial.SetShaderParameter("block_bands", bands);
+    }
 
-    // Upload the active world's environment kit palette to the terrain
-    // material's uniform arrays. The shader indexes these arrays via the
-    // per-vertex TerrainId packed into CUSTOM1.yzw by the mesher. Call once at
-    // world start after WorldGenData is available and before any chunk mesh
-    // first renders; subsequent calls are a no-op if kits haven't changed.
-    public static void SetTerrains(TerrainData[] terrains)
+    // Mean colour of a block's top surface, for rooting detail sprites into the
+    // ground they sit on. Measured from the atlas at load rather than authored,
+    // so re-importing a tile keeps it in sync with no bake step.
+    public static Color GroundTintFor(int blockId)
+    {
+        BlockData block = BlockCatalog.Active.GetById(blockId);
+        BlockSurfaceData top = block?.SurfaceFor(EBlockFace.Top);
+        if (top != null && TryGetLayerAverageLinear(top.atlasBaseIndex, out Color average))
+        {
+            return average;
+        }
+        return new Color(0.4f, 0.4f, 0.4f);
+    }
+
+    private static float LayerOf(BlockSurfaceData surface)
+    {
+        return surface != null ? surface.atlasBaseIndex : 0f;
+    }
+
+    // Kept as the explicit "the world is starting, build the terrain material
+    // now" hook. The block tables it uploads are global, so unlike the old
+    // per-world terrain palette there is nothing world-specific to pass in.
+    public static void SetTerrains()
     {
         EnsureMaterialsInitialized();
-        _activeTerrains = terrains;
-        // terrain_tiles[i] = (flat, wall, _, _). The shader reads .x/.y for
-        //   the flat↔wall smoothstep blend. Overlays are authored per-voxel
-        //   as a direct tile_array base-layer index (see OverlayId), not
-        //   owned by the terrain, so .z/.w are reserved.
-        // terrain_bands[i] = (wall_lo, wall_hi, _, _). One transition:
-        //   y < wall_lo → 100% wall; y > wall_hi → 100% flat.
-        var tiles = new Vector4[MAX_TERRAINS];
-        var bands = new Vector4[MAX_TERRAINS];
-        int n = terrains != null ? Math.Min(terrains.Length, MAX_TERRAINS) : 0;
-        for (int i = 0; i < n; i++)
-        {
-            var terrain = terrains[i];
-            if (terrain == null) { continue; }
-            int flat = terrain.flatTile != null ? terrain.flatTile.atlasBaseIndex : BlockCatalog.Active.GetAtlasIndexByName("GrassTop");
-            int wall = terrain.wallTile != null ? terrain.wallTile.atlasBaseIndex : BlockCatalog.Active.GetAtlasIndexByName("Stone");
-            tiles[i] = new Vector4(flat, wall, 0f, 0f);
-            bands[i] = new Vector4(terrain.wallBand.X, terrain.wallBand.Y, 0f, 0f);
-
-            // Detail-sprite ground tint = the average color of the exact flat
-            // tile the shader renders for this terrain, so grass roots blended
-            // toward it (the tint map's G channel) match the ground beneath
-            // them. Computed at load from the atlas rather than hand-authored,
-            // so re-importing a tile texture keeps the tint in sync with no
-            // bake step. Falls back to the authored GroundTint if the layer
-            // can't be decoded (logged once in TryGetLayerAverageLinear).
-            if (TryGetLayerAverageLinear(flat, out Color flatAverage))
-            {
-                terrain.groundTint = flatAverage;
-            }
-        }
-        SharedMaterial.SetShaderParameter("terrain_tiles", tiles);
-        SharedMaterial.SetShaderParameter("terrain_bands", bands);
     }
 
     // Average color of one atlas layer in voxel_tiles.png, in LINEAR space.
@@ -324,6 +339,47 @@ public partial class ChunkMesh : Node3D
         return true;
     }
 
+    // Mean of one voxel_tiles_nrm_height layer's ALPHA (height) channel.
+    //
+    // Averaged in stored space with no sRGB decode, unlike the color atlas
+    // above: the shader binds tile_nrm_height WITHOUT source_color, so the raw
+    // stored value is what the cavity term compares against. Decoding here
+    // would bias every mid low and reintroduce the per-tile dimming this exists
+    // to cancel. Not alpha-weighted for the same reason — alpha IS the payload.
+    //
+    // Returns 0.5 (a no-op mid for a mean-centred term) if the layer can't be
+    // decoded, so an unreadable atlas costs relief, never a brightness shift.
+    private static float GetLayerHeightMid(TextureLayered nrmHeight, int layer)
+    {
+        const float NeutralMid = 0.5f;
+        if (nrmHeight == null || layer < 0 || layer >= nrmHeight.GetLayers())
+        {
+            return NeutralMid;
+        }
+        Image img = nrmHeight.GetLayerData(layer);
+        if (img == null || (img.IsCompressed() && img.Decompress() != Error.Ok))
+        {
+            GD.PushWarning($"ChunkMesh: could not read tile_nrm_height layer {layer} for cavity mid; using {NeutralMid}.");
+            return NeutralMid;
+        }
+
+        int w = img.GetWidth();
+        int h = img.GetHeight();
+        if (w <= 0 || h <= 0)
+        {
+            return NeutralMid;
+        }
+        double sum = 0.0;
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                sum += img.GetPixel(x, y).A;
+            }
+        }
+        return (float)(sum / (w * (double)h));
+    }
+
     // Detail-sprite palette for ChunkDetailScatter. Index 0 of the per-voxel
     // DetailGroup channel means "no detail", so groups[0] is referenced as
     // DetailGroup=1. See DetailGroupData / ChunkDetailScatter for the scatter
@@ -377,8 +433,8 @@ public partial class ChunkMesh : Node3D
     // only, and unload when the overview ends.
     public static ChunkMesh Create(
         ChunkState data,
-        Func<int, int, int, VoxelType> getVoxel,
-        Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
+        Func<int, int, int, int> getVoxel,
+        Func<int, int, int, SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
         Func<int, int, int, int> getSunlight,
@@ -402,8 +458,8 @@ public partial class ChunkMesh : Node3D
 
     private void BuildMesh(
         ChunkState data,
-        Func<int, int, int, VoxelType> getVoxel,
-        Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
+        Func<int, int, int, int> getVoxel,
+        Func<int, int, int, SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
         Func<int, int, int, int> getSunlight,
@@ -456,7 +512,7 @@ public partial class ChunkMesh : Node3D
             Dictionary<DetailEntry, List<ChunkDetailScatter.InstanceData>> scatterContrib;
             using (Profiler.Sample("ChunkMesh.DetailScatter"))
             {
-                scatterContrib = ChunkDetailScatter.Compute(data, getVoxel, getTerrainId, _activeDetailGroups, _activeTerrains);
+                scatterContrib = ChunkDetailScatter.Compute(data, getVoxel, _activeDetailGroups);
             }
             Sim.Current?.DetailScatter?.SetChunk(data.ChunkCoord, scatterContrib);
             _scatterPosted = scatterContrib != null;

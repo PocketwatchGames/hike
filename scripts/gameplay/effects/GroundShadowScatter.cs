@@ -274,7 +274,7 @@ public partial class GroundShadowScatter : Node3D
         int bottom = top - GroundScanDown;
         for (int y = top; y >= bottom; y--)
         {
-            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, y, wz)))
+            if (Blocks.IsSolid(ws.GetBlockWorld(wx, y, wz)))
             {
                 groundY = y + 1f;
                 return true;

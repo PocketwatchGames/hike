@@ -6,7 +6,7 @@ using System.Collections.Generic;
 //
 //     EditorEdit edit = history.Begin("Paint Wall");
 //     edit.TouchVoxel(cell);              // BEFORE the write, always
-//     worldState.SetVoxelWorld(...);
+//     worldState.SetBlockWorld(...);
 //     history.Commit();                   // dropped if nothing actually changed
 //
 // A whole drag is one edit: Begin on press, Commit on release. Nothing here

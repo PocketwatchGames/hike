@@ -37,7 +37,7 @@ public class SubsceneState
     public Vector3 Anchor;
 
     // Voxel channels — sized [Size.X, Size.Y, Size.Z], row-major X,Y,Z.
-    public readonly VoxelType[,,] Voxels;
+    public readonly byte[,,] Voxels;
     public readonly byte[,,] Shape;
     public readonly byte[,,] TerrainId;
     public readonly byte[,,] OverlayId;
@@ -60,7 +60,7 @@ public class SubsceneState
     public SubsceneState(Vector3I size)
     {
         Size = size;
-        Voxels = new VoxelType[size.X, size.Y, size.Z];
+        Voxels = new byte[size.X, size.Y, size.Z];
         Shape = new byte[size.X, size.Y, size.Z];
         TerrainId = new byte[size.X, size.Y, size.Z];
         OverlayId = new byte[size.X, size.Y, size.Z];

@@ -201,40 +201,42 @@ public class WorldMapState
 
         for (int wy = Data.WorldMinY; wy <= Data.WorldMaxY; wy++)
         {
-            VoxelType desired;
+            int desired;
             if (IsTunnel(px, pz, wy))
             {
-                desired = VoxelType.Air;   // carve wins (air pocket, no flood sim)
+                desired = Blocks.AirId;   // carve wins (air pocket, no flood sim)
             }
             else if (wy <= th)
             {
-                desired = VoxelType.Terrain;
+                desired = KitBlocks.ForKit(WorldState.GetTerrainIdWorld(wx, wy, wz));
             }
             else if (wy <= wsurf)
             {
-                desired = VoxelType.Water;
+                desired = Blocks.WaterId;
             }
             else
             {
-                desired = VoxelType.Air;
+                desired = Blocks.AirId;
             }
 
             if (changed != null)
             {
-                if (WorldState.GetVoxelWorld(wx, wy, wz) == desired)
+                if (WorldState.GetBlockWorld(wx, wy, wz) == desired)
                 {
                     continue;
                 }
                 changed.Add(new Vector3I(wx, wy, wz));
             }
 
-            if (desired == VoxelType.Terrain)
+            // Ground snaps on Y so the painted terraces read as clean steps;
+            // air and water take their block's own default.
+            if (Blocks.IsNaturalGround(desired))
             {
-                WorldState.SetVoxelWorld(wx, wy, wz, VoxelType.Terrain, VoxelTypeInfo.SharpAxes.Y);
+                WorldState.SetBlockWorld(wx, wy, wz, desired, SharpAxes.Y);
             }
             else
             {
-                WorldState.SetVoxelWorld(wx, wy, wz, desired);
+                WorldState.SetBlockWorld(wx, wy, wz, desired);
             }
         }
     }

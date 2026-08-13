@@ -10,16 +10,6 @@ using Godot;
 [GlobalClass]
 public partial class EditorBrushPalette : Resource
 {
-	// What the Terrain brush looks like WHILE AUTHORING — VoxelType.Terrain has
-	// no fixed tile, so the editor needs some kit to resolve one from. It is not
-	// scene content: a stamped scene's natural ground inherits the ground it
-	// lands on (see SubsceneStamper), so a town square reads as mud in a swamp
-	// and grass in a forest with nothing authored per scene. Pick whatever kit
-	// makes the workspace legible; it must be referenced by some zone in the
-	// loaded WorldGenData or it has no palette slot (see WorldGen.TryGetTerrainId).
-	[ExportGroup("Terrain")]
-	[Export] public TerrainKitData terrainBrushKit;
-
 	// Source of the voxel brush-button icons. A PATH, not a resource reference,
 	// on purpose — see EditorBrushIcons: a typed [Export] would drag the
 	// manifest and every source PBR map into memory whenever main.tscn loads.

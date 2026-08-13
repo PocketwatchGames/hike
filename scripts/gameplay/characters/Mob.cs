@@ -796,7 +796,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
-        bool inWater = ws.GetVoxelWorld(fx, fy, fz) == VoxelType.Water;
+        bool inWater = ws.GetBlockWorld(fx, fy, fz) == Blocks.WaterId;
         if (inWater)
         {
             return;
@@ -1970,10 +1970,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return false;
         }
         Vector3 pos = GlobalPosition;
-        return ws.GetVoxelWorld(
+        return ws.GetBlockWorld(
             Mathf.FloorToInt(pos.X),
             Mathf.FloorToInt(pos.Y),
-            Mathf.FloorToInt(pos.Z)) == VoxelType.Water;
+            Mathf.FloorToInt(pos.Z)) == Blocks.WaterId;
     }
 
     // Local water "muddiness" (ZoneData.WaterOpacity, 0 = glassy → 1 = opaque)
@@ -2027,18 +2027,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
-        if (ws.GetVoxelWorld(fx, fy, fz) != VoxelType.Water)
+        if (ws.GetBlockWorld(fx, fy, fz) != Blocks.WaterId)
         {
             _swimming = false;
             return;
         }
         int topY = fy;
-        while (ws.GetVoxelWorld(fx, topY + 1, fz) == VoxelType.Water)
+        while (ws.GetBlockWorld(fx, topY + 1, fz) == Blocks.WaterId)
         {
             topY++;
         }
         int bottomY = fy;
-        while (ws.GetVoxelWorld(fx, bottomY - 1, fz) == VoxelType.Water)
+        while (ws.GetBlockWorld(fx, bottomY - 1, fz) == Blocks.WaterId)
         {
             bottomY--;
         }
@@ -2466,8 +2466,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int minY = centerY - FlightSurfaceLookDown;
         for (int y = startY; y > minY; y--)
         {
-            VoxelType v = ws.GetVoxelWorld(wx, y, wz);
-            if (VoxelTypeInfo.IsSolid(v) || (includeWater && v == VoxelType.Water))
+            int v = ws.GetBlockWorld(wx, y, wz);
+            if (Blocks.IsSolid(v) || (includeWater && v == Blocks.WaterId))
             {
                 return y + 1;
             }
@@ -2482,7 +2482,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         const int MaxScan = 16;
         for (int y = startY; y < startY + MaxScan; y++)
         {
-            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, y, wz)))
+            if (Blocks.IsSolid(ws.GetBlockWorld(wx, y, wz)))
             {
                 return y;
             }
@@ -3439,7 +3439,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // No world to sample (transient load states) → fall back to the old
         // location-agnostic behavior: allow the settle-freeze, never unfreeze.
         bool grounded = freezeWs == null
-            || (!inWater && VoxelTypeInfo.IsSolid(freezeWs.GetVoxelWorld(
+            || (!inWater && Blocks.IsSolid(freezeWs.GetBlockWorld(
                 Mathf.FloorToInt(freezePos.X),
                 Mathf.FloorToInt(freezePos.Y - GroundProbeDepth),
                 Mathf.FloorToInt(freezePos.Z))));
@@ -4900,7 +4900,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int bottom = Mathf.FloorToInt(centerY) - GroundNormalScanDown;
         for (int y = top; y >= bottom; y--)
         {
-            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, y, wz)))
+            if (Blocks.IsSolid(ws.GetBlockWorld(wx, y, wz)))
             {
                 surfaceY = y + 1f;
                 return true;
@@ -5037,14 +5037,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
-        bool inWater = ws.GetVoxelWorld(fx, fy, fz) == VoxelType.Water;
+        bool inWater = ws.GetBlockWorld(fx, fy, fz) == Blocks.WaterId;
         if (!inWater)
         {
             _rippleEmitter.Update(pos, false, 0f, 1f);
             return;
         }
         int scanY = fy;
-        while (ws.GetVoxelWorld(fx, scanY, fz) == VoxelType.Water)
+        while (ws.GetBlockWorld(fx, scanY, fz) == Blocks.WaterId)
         {
             scanY++;
         }
@@ -5067,7 +5067,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
-        bool inWater = ws.GetVoxelWorld(fx, fy, fz) == VoxelType.Water;
+        bool inWater = ws.GetBlockWorld(fx, fy, fz) == Blocks.WaterId;
         Vector2 horizVel = new(LinearVelocity.X, LinearVelocity.Z);
         float horizSpeedSq = horizVel.LengthSquared();
 

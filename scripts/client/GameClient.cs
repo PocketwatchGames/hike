@@ -1891,10 +1891,12 @@ public partial class GameClient : Node3D
 		int sun = ws.GetSunlightWorld(wx, wy, wz);
 		float sun01 = ws.GetSkyLight01(pos);
 		int canopy = ws.GetCanopyAttenuationWorld(wx, wy, wz);
-		GD.Print($"[SkyLight] voxel=({wx},{wy},{wz}) sun={sun}/{LightEngine.MAX_LIGHT} sky01={sun01:F2} canopy={canopy}/255");
-		// Walk the column upward from the player and dump (Y, sun, canopy)
-		// so we can see whether canopy density is present at the cluster
-		// altitude and whether ComputeSunlight attenuated through it.
+		int shade = ws.GetCanopyShadeWorld(wx, wy, wz);
+		GD.Print($"[SkyLight] voxel=({wx},{wy},{wz}) sun={sun}/{LightEngine.MAX_LIGHT} sky01={sun01:F2} canopy={canopy}/255 shade={shade}/255");
+		// Walk the column upward from the player and dump (Y, sun, canopy,
+		// shade) so we can see whether canopy density is present at the cluster
+		// altitude, whether ComputeSunlight attenuated through it, and where the
+		// leaves end and the derived shadow column begins.
 		var col = new System.Text.StringBuilder();
 		col.Append("[SkyLight column up]");
 		for (int dy = 0; dy <= 14; dy++)
@@ -1902,7 +1904,8 @@ public partial class GameClient : Node3D
 			int yy = wy + dy;
 			int s = ws.GetSunlightWorld(wx, yy, wz);
 			int c = ws.GetCanopyAttenuationWorld(wx, yy, wz);
-			col.Append($" y{yy}:s={s},c={c}");
+			int sh = ws.GetCanopyShadeWorld(wx, yy, wz);
+			col.Append($" y{yy}:s={s},c={c},sh={sh}");
 		}
 		GD.Print(col.ToString());
 	}

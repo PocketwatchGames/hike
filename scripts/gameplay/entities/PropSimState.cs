@@ -46,7 +46,7 @@ public class PropSimState : EntitySimState, IVoxelStamper
             Mathf.FloorToInt(WorldPosition.X),
             Mathf.FloorToInt(WorldPosition.Y),
             Mathf.FloorToInt(WorldPosition.Z));
-        return new VoxelStamp(cell, height, VoxelType.Opening, carves: true);
+        return new VoxelStamp(cell, height, Blocks.OpeningId, carves: true);
     }
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)

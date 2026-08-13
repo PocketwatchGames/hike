@@ -328,8 +328,8 @@ public class WalkabilityGrid
                 }
                 return;
             }
-            VoxelType here = ws.GetVoxelWorld(wx, wy, wz);
-            if (VoxelTypeInfo.IsSolid(here))
+            int here = ws.GetBlockWorld(wx, wy, wz);
+            if (Blocks.IsSolid(here))
             {
                 wy--;
                 continue;
@@ -345,21 +345,21 @@ public class WalkabilityGrid
                 return;
             }
 
-            if (here == VoxelType.Water)
+            if (here == Blocks.WaterId)
             {
                 // Only the top voxel of a water body is a surface; we hit it
                 // first scanning top-down. Find the body's bottom so we can
                 // skip past it (and price wade vs swim by depth).
                 int waterBottom = wy;
                 while (waterBottom - 1 >= floorY && ws.IsInBounds(wx, waterBottom - 1, wz)
-                    && ws.GetVoxelWorld(wx, waterBottom - 1, wz) == VoxelType.Water)
+                    && ws.GetBlockWorld(wx, waterBottom - 1, wz) == Blocks.WaterId)
                 {
                     waterBottom--;
                 }
                 // Wade vs swim by column depth (mirrors Mob.UpdateWaterState).
                 int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold));
                 int probeY = wy - (thresholdVoxels - 1);
-                bool swimming = ws.IsInBounds(wx, probeY, wz) && ws.GetVoxelWorld(wx, probeY, wz) == VoxelType.Water;
+                bool swimming = ws.IsInBounds(wx, probeY, wz) && ws.GetBlockWorld(wx, probeY, wz) == Blocks.WaterId;
                 // A land mob (avoidsDeepWater) wades shallow water but treats a
                 // swim-depth column as a wall — it only ends up swimming when
                 // knocked in, so we never route it there.
@@ -385,7 +385,7 @@ public class WalkabilityGrid
             }
 
             // Dry surface: air over solid.
-            if (!VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy - 1, wz)))
+            if (!Blocks.IsSolid(ws.GetBlockWorld(wx, wy - 1, wz)))
             {
                 wy--;
                 continue;
@@ -405,7 +405,7 @@ public class WalkabilityGrid
             bool blocked = false;
             for (int h = 1; h < profile.verticalClearance; h++)
             {
-                if (!ws.IsInBounds(wx, wy + h, wz) || VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + h, wz)))
+                if (!ws.IsInBounds(wx, wy + h, wz) || Blocks.IsSolid(ws.GetBlockWorld(wx, wy + h, wz)))
                 {
                     blocked = true;
                     break;
@@ -534,7 +534,7 @@ public class WalkabilityGrid
                     int sz = wz + ndz;
                     // Unknown (unloaded) neighbours are treated as non-blocking;
                     // column-level OutOfBounds already gates do-not-enter.
-                    if (ws.IsInBounds(sx, sy, sz) && VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(sx, sy, sz)))
+                    if (ws.IsInBounds(sx, sy, sz) && Blocks.IsSolid(ws.GetBlockWorld(sx, sy, sz)))
                     {
                         solid = true;
                         break;

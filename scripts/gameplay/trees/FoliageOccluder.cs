@@ -16,6 +16,7 @@ public struct FoliageOccluder
     public Vector3 CenterLocal;
     public Vector3 Radii;
     public bool CastsSunShadow;
+    public float ShadowDensity;
     public bool FadesWhenOccludingPlayer;
 }
 
@@ -82,6 +83,7 @@ public static class FoliageOccluderCache
                 CenterLocal = xform.Origin,
                 Radii = cluster.ellipsoidRadii,
                 CastsSunShadow = cluster.castsSunShadow,
+                ShadowDensity = cluster.shadowDensity,
                 FadesWhenOccludingPlayer = cluster.fadesWhenOccludingPlayer,
             });
         }

@@ -1,20 +1,18 @@
 using Godot;
 
-// Resolves the EGroundType under a world-space position. Looks up the voxel
-// just below the feet, picks its BlockData, and returns block.GroundType.
+// Resolves the BlockData under a world-space position — the material a body is
+// standing on. Footsteps read its GroundType, locomotion its SpeedMultiplier,
+// the shovel its DigItem.
 //
-// Resolution order for the BlockData (most-specific wins):
-//   1) OverlayId on the voxel — if non-zero, the overlay block (e.g.
-//      flowers, dirt patch) is what the player is actually standing on.
-//   2) For VoxelType.Terrain — the kit's FlatTile, falling back to the
-//      catalog's DefaultFlatTile if the kit doesn't author one.
-//   3) For other authored types (Stone / Desert / Marsh / Water) — the
-//      block at the top-face atlas index from VoxelTypeInfo.Tiles.
+// Most-specific wins: an OverlayId painted on the voxel (dirt path, cobbled
+// road) is what you are actually standing on, so it beats the voxel's own
+// block. Overlays name an atlas LAYER rather than a block, so they resolve
+// through the catalog's top-surface reverse lookup.
 //
-// The query samples the voxel just below `pos` (a tinyEpsilon under the
-// feet) so a body whose origin sits right on the surface picks up the floor,
-// not the air column it's standing in. If that voxel is Air, falls through
-// to one cell lower as a safety net for slight float drift on slopes.
+// The query samples the voxel just below `pos` (a tiny epsilon under the feet)
+// so a body whose origin sits right on the surface picks up the floor, not the
+// air column it is standing in. If that voxel is empty, it falls through one
+// cell lower as a safety net for float drift on slopes.
 public static class GroundTypeResolver
 {
     public static EGroundType Resolve(WorldState ws, Vector3 worldPos)
@@ -23,11 +21,7 @@ public static class GroundTypeResolver
         return block != null ? block.groundType : EGroundType.Stone;
     }
 
-    // Resolves the BlockData under a world-space position, most-specific wins
-    // (overlay → terrain flat tile → base type top face). Returns null when the
-    // world is unavailable or the column under `worldPos` is empty. Shared by
-    // the footstep ground-type query above and the shovel's bare-ground dig
-    // yield (Sim.TryDig reads block.DigItem).
+    // Null when the world is unavailable or the column under `worldPos` is empty.
     public static BlockData ResolveBlock(WorldState ws, Vector3 worldPos)
     {
         if (ws == null)
@@ -39,11 +33,11 @@ public static class GroundTypeResolver
         int fz = Mathf.FloorToInt(worldPos.Z);
         int fy = Mathf.FloorToInt(worldPos.Y - 0.05f);
 
-        VoxelType v = ws.GetVoxelWorld(fx, fy, fz);
-        if (VoxelTypeInfo.IsEmpty(v))
+        int v = ws.GetBlockWorld(fx, fy, fz);
+        if (Blocks.IsEmpty(v))
         {
             fy -= 1;
-            v = ws.GetVoxelWorld(fx, fy, fz);
+            v = ws.GetBlockWorld(fx, fy, fz);
         }
 
         BlockCatalog catalog = BlockCatalog.Active;
@@ -51,34 +45,13 @@ public static class GroundTypeResolver
         int overlayId = ws.GetOverlayIdWorld(fx, fy, fz);
         if (overlayId != 0)
         {
-            BlockData overlay = catalog.GetByAtlasIndex(overlayId);
+            BlockData overlay = catalog.GetByTopSurfaceLayer(overlayId);
             if (overlay != null)
             {
                 return overlay;
             }
         }
 
-        return ResolveBaseBlock(ws, catalog, v, fx, fy, fz);
-    }
-
-    private static BlockData ResolveBaseBlock(WorldState ws, BlockCatalog catalog, VoxelType v, int fx, int fy, int fz)
-    {
-        if (v == VoxelType.Terrain)
-        {
-            int terrainId = ws.GetTerrainIdWorld(fx, fy, fz);
-            TerrainData[] terrains = ChunkMesh.ActiveTerrains;
-            if (terrains != null && terrainId >= 0 && terrainId < terrains.Length && terrains[terrainId] != null)
-            {
-                BlockData flat = terrains[terrainId].flatTile;
-                if (flat != null)
-                {
-                    return flat;
-                }
-            }
-            return catalog.defaultFlatTile;
-        }
-
-        int atlasIndex = VoxelTypeInfo.GetTileForFace(v, 0);
-        return catalog.GetByAtlasIndex(atlasIndex);
+        return catalog.GetById(v);
     }
 }

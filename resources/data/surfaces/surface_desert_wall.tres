@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://dpbb3e3o8bi2w"]
+
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_block"]
+
+[resource]
+script = ExtResource("1_block")
+surfaceName = &"DesertWall"
+atlasBaseIndex = 8
+porosity = 0.1

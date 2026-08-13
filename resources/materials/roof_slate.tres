@@ -2,14 +2,15 @@
 
 [ext_resource type="Shader" uid="uid://rlvlta0p26wu" path="res://shaders/roof_lit.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://t656kw6cxmjq" path="res://assets/textures/roofs/roof_slate_tiles.png" id="2_slate"]
-[ext_resource type="Texture2D" uid="uid://2dsx05wu3g7o" path="res://assets/textures/roofs/roof_slate_tiles_nrm.png" id="3_slate_nrm"]
+[ext_resource type="Texture2D" uid="uid://rnwetcxi555" path="res://assets/textures/roofs/roof_slate_tiles_nrm.png" id="3_slate_nrm"]
+[ext_resource type="Texture2D" uid="uid://bpik5e16fpaqa" path="res://assets/textures/roofs/roof_moss.png" id="9_moss"]
 
 [resource]
 render_priority = 0
 shader = ExtResource("1_shader")
 shader_parameter/albedo_tex = ExtResource("2_slate")
 shader_parameter/form_strength = 0.55
-shader_parameter/color_tint = Color(0.42, 0.46, 0.55, 1)
+shader_parameter/color_tint = Color(0.249, 0.272, 0.325, 1)
 shader_parameter/emission_tint = Color(0, 0, 0, 1)
 shader_parameter/emission_strength = 0.0
 shader_parameter/specular_strength = 0.0
@@ -25,3 +26,15 @@ shader_parameter/height_shade = 0.0
 shader_parameter/detail_tex = ExtResource("2_slate")
 shader_parameter/detail_scale = 0.11
 shader_parameter/detail_strength = 0.35
+shader_parameter/overlay_tex = ExtResource("9_moss")
+shader_parameter/overlay_tint = Color(0.27, 0.313, 0.026, 1)
+shader_parameter/overlay_scale = 0.55
+shader_parameter/overlay_strength = 0.85
+shader_parameter/overlay_noise_scale = 0.4
+shader_parameter/overlay_coverage = 0.34
+shader_parameter/overlay_edge_softness = 0.3
+shader_parameter/overlay_crevice_bias = 0.55
+shader_parameter/overlay_up_bias = 0.8
+shader_parameter/overlay_flatten = 0.85
+shader_parameter/overlay_shade_bias = 0.18
+shader_parameter/light_normal_bias = 0.6

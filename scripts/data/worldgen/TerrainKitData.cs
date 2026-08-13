@@ -1,31 +1,26 @@
 using Godot;
 
-// Worldgen-only "kit" — a bundle of a TerrainData (visual ground) plus the
-// scatter/flora palette and tuning fields that WorldGen reads while stamping
-// voxels but that the running game never needs after the world is built
-// (tree placement, detail scatter mask, tree palette per cell, per-chunk
-// baseline tree count).
+// Worldgen-only "kit" — the block a patch of ground is stamped with, plus the
+// scatter/flora palette and tuning that WorldGen reads while stamping voxels
+// and the running game never needs afterwards (tree placement, detail scatter
+// mask, tree palette per cell, per-chunk baseline tree count).
 //
-// One kit wraps one runtime TerrainData via Terrain. ZoneGenData references
-// kits; WorldGen builds its terrain-id palette from those kits and derives a
-// parallel runtime palette by reading Terrain on each. Two zones referencing
-// the same TerrainKitData share both gen and runtime slots; two kits whose
-// Terrain points at the same TerrainData each get their own slot, which is
-// the feature — sibling kits in one zone (e.g. shore vs inland) can scatter
-// independently while sharing visual ground.
+// ZoneGenData references kits; WorldGen builds its TerrainId palette from them.
+// Two zones referencing the same kit share a slot; two kits naming the SAME
+// block each keep their own, which is the feature — sibling kits in one zone
+// (shore vs inland) scatter independently while painting identical ground.
 //
-// Splitting these fields off lets a future streaming world skip loading the
-// kit palette entirely once a `.hike` file has been authored — TreeScenes in
-// particular drag in PackedScene trees the runtime never needs.
+// The kit channel outlives generation for exactly two reasons: EKitPurpose
+// ("is this the zone's surface ground?") and these scatter tunings. Appearance
+// is not among them — that moved to the block.
 [GlobalClass]
 public partial class TerrainKitData : Resource
 {
-    // The runtime visual / footstep / tile entry this kit wraps. Required —
-    // WorldGen.BuildKitPalette derives the runtime palette by reading Terrain
-    // per slot, so a null Terrain produces a null runtime entry and any
-    // voxel stamped with that slot will fall back to the no-terrain
-    // appearance.
-    [Export] public TerrainData terrain;
+    // The block worldgen stamps for this kit — what the ground actually renders
+    // as. Required. Several kits legitimately share one (the four shore /
+    // submerged kits are all Sand); they stay distinct kits because their
+    // scatter tunings below differ.
+    [Export] public BlockData block;
 
     // Detail-sprite group seeded by worldgen on voxels that carry this kit.
     // A forest kit points its DefaultDetail at detail_grass, a cave kit

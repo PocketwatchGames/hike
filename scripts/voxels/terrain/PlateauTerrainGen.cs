@@ -351,8 +351,8 @@ public class PlateauTerrainGen : ITerrainGenerator
         {
             for (int wy = worldMaxY; wy >= worldMinY; wy--)
             {
-                var v = ws.GetVoxelWorld(wx, wy, wz);
-                if (v != VoxelType.Air && v != VoxelType.Water)
+                var v = ws.GetBlockWorld(wx, wy, wz);
+                if (v != Blocks.AirId && v != Blocks.WaterId)
                 {
                     return wy;
                 }
@@ -414,8 +414,8 @@ public class PlateauTerrainGen : ITerrainGenerator
 
                     for (int cy = runLo; cy < ceilingY; cy++)
                     {
-                        var fill = cy <= WorldGen.WATER_LEVEL ? VoxelType.Water : VoxelType.Air;
-                        ws.SetVoxelWorld(wx, cy, wz, fill);
+                        var fill = cy <= WorldGen.WATER_LEVEL ? Blocks.WaterId : Blocks.AirId;
+                        ws.SetBlockWorld(wx, cy, wz, fill);
                     }
 
                     // Force Y on the solid voxels bracketing the carved run
@@ -423,10 +423,10 @@ public class PlateauTerrainGen : ITerrainGenerator
                     // cave surface snaps flat regardless of whether this
                     // column's outdoor height came from the ramp branch of the
                     // height function. Cave interior geometry is its own ruleset.
-                    ws.SetShapeWorld(wx, ceilingY, wz, VoxelTypeInfo.SharpAxes.Y);
+                    ws.SetShapeWorld(wx, ceilingY, wz, SharpAxes.Y);
                     if (runLo - 1 >= worldMinY)
                     {
-                        ws.SetShapeWorld(wx, runLo - 1, wz, VoxelTypeInfo.SharpAxes.Y);
+                        ws.SetShapeWorld(wx, runLo - 1, wz, SharpAxes.Y);
                     }
                 }
             }

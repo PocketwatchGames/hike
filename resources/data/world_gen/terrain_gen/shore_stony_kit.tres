@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://plfdm4z98g767"]
 
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="1_script"]
-[ext_resource type="Resource" uid="uid://r3tudnim5evn" path="res://resources/data/terrain/shore_stony.tres" id="2_kit"]
 [ext_resource type="Resource" uid="uid://dtyfpjg382mt8" path="res://resources/data/details/detail_pebbles.tres" id="3_detail"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_sand.tres" id="blk_sand"]
 
 [resource]
 script = ExtResource("1_script")
-terrain = ExtResource("2_kit")
+block = ExtResource("blk_sand")
 defaultDetail = ExtResource("3_detail")

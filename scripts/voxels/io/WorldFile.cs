@@ -172,7 +172,9 @@ public static class WorldFile
     //      int. Traps carry no level of their own — they read as identical wherever
     //      they sit, so their damage is sized to the victim (DamageData.hazardProfile)
     //      rather than to the zone.
-    public const uint VERSION = 41;
+    // v42: the per-voxel byte is a BlockData.blockId, not a VoxelType. Same
+    //      width, different meaning — v41 and earlier cannot be read.
+    public const uint VERSION = 42;
 
     public struct IndexEntry
     {

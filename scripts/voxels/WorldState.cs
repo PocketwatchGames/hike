@@ -215,6 +215,25 @@ public class WorldState
     // on world load so OnVoxelsChanged re-propagation still sees foliage.
     public readonly Dictionary<Vector3I, byte[,,]> CanopyAttenuation = new();
 
+    // The SHADOW cast below a canopy, as distinct from the canopy itself.
+    // CanopyAttenuation is a medium — actual leaves, which absorb light passing
+    // through them. The air under a tree contains no leaves, so the vertical
+    // column scan must not charge it again: it already paid for the canopy on
+    // the way down, and re-charging per voxel made a tree's shade a function of
+    // its TRUNK HEIGHT (a 10m birch went black at the base, a 4m pine didn't)
+    // rather than of its foliage.
+    //
+    // But the lateral BFS still has to be stopped, or a neighbouring un-canopied
+    // column refills the shaded voxel at MAX_LIGHT minus a couple of levels and
+    // the tree casts no shade at all. That is this field's ONLY job: it is read
+    // by SpreadSunlight and by nothing else — not the column scan, not sky
+    // exposure, not the block-light flood (a torch under a tree is not shining
+    // through leaves). FoliageStamper derives it per column as the total canopy
+    // density that column passes through, so lateral refill can never exceed the
+    // vertical answer. Same sparse layout, lifetime and non-serialization as
+    // CanopyAttenuation.
+    public readonly Dictionary<Vector3I, byte[,,]> CanopyShade = new();
+
     // Voxels that stop sunlight DEAD, as a solid voxel does, for cover that
     // isn't made of voxels — a roof. Distinct from CanopyAttenuation because
     // that field can only ever attenuate: its transmittance is
@@ -314,12 +333,12 @@ public class WorldState
         return _chunks.ContainsKey(cc);
     }
 
-    public VoxelType GetVoxelWorld(int wx, int wy, int wz)
+    public int GetBlockWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
-            return VoxelType.Air;
+            return Blocks.AirId;
         }
         return chunk.Voxels[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)];
     }
@@ -342,17 +361,17 @@ public class WorldState
         return chunk.GetWindVelocity(sx, sy, sz) * WindGen.WIND_VELOCITY_SCALE;
     }
 
-    public VoxelTypeInfo.SharpAxes GetShapeWorld(int wx, int wy, int wz)
+    public SharpAxes GetShapeWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
-            return VoxelTypeInfo.SharpAxes.None;
+            return SharpAxes.None;
         }
         return chunk.GetShape(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
     }
 
-    public void SetShapeWorld(int wx, int wy, int wz, VoxelTypeInfo.SharpAxes shape)
+    public void SetShapeWorld(int wx, int wy, int wz, SharpAxes shape)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
@@ -631,6 +650,19 @@ public class WorldState
         return arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)];
     }
 
+    // Canopy SHADOW below a tree at a world voxel, byte 0-255. Lateral-transport
+    // only — see the CanopyShade field comment for why the column scan must not
+    // read this.
+    public int GetCanopyShadeWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!CanopyShade.TryGetValue(cc, out byte[,,] arr))
+        {
+            return 0;
+        }
+        return arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)];
+    }
+
     // True if a non-voxel occluder blocks the sky at this voxel outright.
     public bool GetSunOpaqueWorld(int wx, int wy, int wz)
     {
@@ -672,6 +704,10 @@ public class WorldState
         if (CanopyAttenuation.TryGetValue(cc, out byte[,,] canopy))
         {
             canopy[lx, ly, lz] = 0;
+        }
+        if (CanopyShade.TryGetValue(cc, out byte[,,] shade))
+        {
+            shade[lx, ly, lz] = 0;
         }
         if (SunOpaque.TryGetValue(cc, out bool[,,] opaque))
         {
@@ -722,6 +758,31 @@ public class WorldState
         arr[lx, ly, lz] = (byte)(sum > 255 ? 255 : sum);
     }
 
+    // Saturating add for the canopy shadow field. Separate trees shading the
+    // same column stack, exactly as their canopies do.
+    public void AddCanopyShadeWorld(int wx, int wy, int wz, int amount)
+    {
+        if (amount <= 0)
+        {
+            return;
+        }
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.ContainsKey(cc))
+        {
+            return;
+        }
+        if (!CanopyShade.TryGetValue(cc, out byte[,,] arr))
+        {
+            arr = new byte[ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE];
+            CanopyShade[cc] = arr;
+        }
+        int lx = Mod(wx, ChunkState.SIZE);
+        int ly = Mod(wy, ChunkState.SIZE);
+        int lz = Mod(wz, ChunkState.SIZE);
+        int sum = arr[lx, ly, lz] + amount;
+        arr[lx, ly, lz] = (byte)(sum > 255 ? 255 : sum);
+    }
+
     // Rewriting a voxel with the SAME material keeps its shape tag; changing
     // the material resets to the new material's default.
     //
@@ -731,15 +792,15 @@ public class WorldState
     // Stone through this overload and depends on the default SharpAxes.All
     // for its cubic edges, so painting stone over terrain would inherit Y and
     // round the wall off. Callers wanting a non-default shape use the 5-arg form.
-    public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type)
+    public void SetBlockWorld(int wx, int wy, int wz, int type)
     {
-        VoxelTypeInfo.SharpAxes shape = GetVoxelWorld(wx, wy, wz) == type
+        SharpAxes shape = GetBlockWorld(wx, wy, wz) == type
             ? GetShapeWorld(wx, wy, wz)
-            : VoxelTypeInfo.GetDefaultShape(type);
-        SetVoxelWorld(wx, wy, wz, type, shape);
+            : Blocks.DefaultShape(type);
+        SetBlockWorld(wx, wy, wz, type, shape);
     }
 
-    public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type, VoxelTypeInfo.SharpAxes shape)
+    public void SetBlockWorld(int wx, int wy, int wz, int type, SharpAxes shape)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
@@ -749,7 +810,7 @@ public class WorldState
         int lx = Mod(wx, ChunkState.SIZE);
         int ly = Mod(wy, ChunkState.SIZE);
         int lz = Mod(wz, ChunkState.SIZE);
-        chunk.Voxels[lx, ly, lz] = type;
+        chunk.Voxels[lx, ly, lz] = (byte)type;
         chunk.Shape[lx, ly, lz] = (byte)shape;
     }
 
@@ -1153,7 +1214,7 @@ public class WorldState
         {
             for (int z = 0; z < ChunkState.SIZE; z++)
             {
-                if (chunk.Voxels[x, y, z] != VoxelType.Air)
+                if (chunk.Voxels[x, y, z] != Blocks.AirId)
                 {
                     return true;
                 }

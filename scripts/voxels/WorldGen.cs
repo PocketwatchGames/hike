@@ -19,7 +19,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 101;
+    public const int WORLDGEN_VERSION = 106;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -60,7 +60,6 @@ public static class WorldGen
     // passes that need scatter / forest tunings call ResolveKit for the
     // gen-side data.
     private static TerrainKitData[] _activeKitPalette;
-    private static TerrainData[] _activeTerrainPalette;
     private static System.Collections.Generic.Dictionary<TerrainKitData, byte> _kitIndex;
     private static DetailGroupData[] _activeDetailPalette;
     private static System.Collections.Generic.Dictionary<DetailGroupData, byte> _detailIndex;
@@ -131,7 +130,6 @@ public static class WorldGen
     // Both arrays mirror each other in shape — same length, same indices.
     // ActiveDetailPalette is what ChunkMesh.SetDetailGroups consumes; per-voxel
     // DetailGroup bytes are 1-based indices into it.
-    public static TerrainData[] ActiveTerrainPalette => _activeTerrainPalette;
     public static TerrainKitData[] ActiveKitPalette => _activeKitPalette;
     public static DetailGroupData[] ActiveDetailPalette => _activeDetailPalette;
 
@@ -165,16 +163,6 @@ public static class WorldGen
     {
         id = TerrainIdOf(kit);
         return kit != null && _kitIndex != null && _kitIndex.ContainsKey(kit);
-    }
-
-    // Inverse of TerrainIdOf — resolve a stored TerrainId byte to its runtime
-    // TerrainData. Used by anything that needs FlatTile/WallTile/GroundTint/etc.
-    // Out-of-range or empty palette returns null.
-    private static TerrainData ResolveTerrain(int TerrainId)
-    {
-        if (_activeTerrainPalette == null) { return null; }
-        if (TerrainId < 0 || TerrainId >= _activeTerrainPalette.Length) { return null; }
-        return _activeTerrainPalette[TerrainId];
     }
 
     // Resolve a stored TerrainId byte to its gen kit. Used by worldgen passes that
@@ -231,21 +219,6 @@ public static class WorldGen
             }
         }
         return list.ToArray();
-    }
-
-    // Derive the runtime kit palette parallel to a gen palette by reading Kit
-    // on each entry. Same length, same indices — TerrainId bytes index either
-    // array. A null entry (gen-kit slot with no Kit authored) lands as null in
-    // the runtime palette; consumers fall back to the no-kit defaults.
-    public static TerrainData[] ExtractTerrainPalette(TerrainKitData[] gen)
-    {
-        if (gen == null) { return System.Array.Empty<TerrainData>(); }
-        var arr = new TerrainData[gen.Length];
-        for (int i = 0; i < gen.Length; i++)
-        {
-            arr[i] = gen[i]?.terrain;
-        }
-        return arr;
     }
 
     // Walks a gen kit palette and returns a deduplicated detail-group palette
@@ -484,7 +457,7 @@ public static class WorldGen
         int wz = Mathf.FloorToInt(position.Z);
         for (int dy = 1; dy <= probe; dy++)
         {
-            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + dy, wz)))
+            if (Blocks.IsSolid(ws.GetBlockWorld(wx, wy + dy, wz)))
             {
                 return true;
             }
@@ -503,7 +476,6 @@ public static class WorldGen
     public static void BindActivePalettes(WorldGenData genData)
     {
         _activeKitPalette = BuildKitPalette(genData?.ZoneGens);
-        _activeTerrainPalette = ExtractTerrainPalette(_activeKitPalette);
         _kitIndex = new System.Collections.Generic.Dictionary<TerrainKitData, byte>();
         for (int i = 0; i < _activeKitPalette.Length; i++)
         {
@@ -1173,9 +1145,9 @@ public static class WorldGen
         // it to fixtures — a village square wants the villagers standing in it.
         if (heightMap.IsNoSpawn(wx, wz) && !heightMap.IsFixtureGround(wx, wz)) { return false; }
         int sy = heightMap.GetSurface(wx, wz);
-        VoxelType ground = ws.GetVoxelWorld(wx, sy, wz);
-        if (ground == VoxelType.Air || ground == VoxelType.Water) { return false; }
-        return ws.GetVoxelWorld(wx, sy + 1, wz) == VoxelType.Air;
+        int ground = ws.GetBlockWorld(wx, sy, wz);
+        if (ground == Blocks.AirId || ground == Blocks.WaterId) { return false; }
+        return ws.GetBlockWorld(wx, sy + 1, wz) == Blocks.AirId;
     }
 
     // One-off per-zone fixture clusters. Each zone's ZoneGenData.Fixtures group
@@ -1581,7 +1553,7 @@ public static class WorldGen
                 continue;
             }
 
-            BlockData tex = conn.texture ?? genData.roadDefaultTexture;
+            BlockSurfaceData tex = conn.texture ?? genData.roadDefaultTexture;
             byte overlay = tex != null ? (byte)tex.atlasBaseIndex : OVERLAY_DIRT;
             var widthRng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_ROAD), connIndex, 0));
             GradeCarvePaintRoad(ws, genData, heightMap, path, minWidth, maxWidth, overlay, widthRng, obstacleColumns, protectedColumns);
@@ -1744,7 +1716,7 @@ public static class WorldGen
                 continue;
             }
 
-            BlockData tex = profile?.texture ?? genData.roadDefaultTexture;
+            BlockSurfaceData tex = profile?.texture ?? genData.roadDefaultTexture;
             byte overlay = tex != null ? (byte)tex.atlasBaseIndex : OVERLAY_DIRT;
             var widthRng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_PATH_HINT), hi, 0));
             GradeCarvePaintRoad(ws, genData, heightMap, path, minWidth, maxWidth, overlay, widthRng,
@@ -2122,15 +2094,15 @@ public static class WorldGen
     // architecture (Stone/Wood walls) and Barrier so they never read as ground.
     private static bool IsNaturalGround(WorldState ws, int wx, int wy, int wz)
     {
-        VoxelType v = ws.GetVoxelWorld(wx, wy, wz);
-        return v == VoxelType.Terrain || v == VoxelType.Desert || v == VoxelType.Marsh;
+        int v = ws.GetBlockWorld(wx, wy, wz);
+        return Blocks.IsNaturalGround(v);
     }
 
     // Re-derive the surface shape channel from the FINISHED geometry.
     //
     // Every pass that moves terrain — plateaus, ramp skirts, road grading —
     // used to be individually responsible for tagging what it built, and each
-    // one that forgot (or defaulted through the 4-arg SetVoxelWorld) left a
+    // one that forgot (or defaulted through the 4-arg SetBlockWorld) left a
     // slope stair-stepping. Deriving it once at the end instead means the tag
     // always matches the geometry actually present, and a new height-modifying
     // pass gets correct shading for free.
@@ -2179,7 +2151,7 @@ public static class WorldGen
                 bool aboveSolid = false;
                 for (int wy = maxY; wy >= minY; wy--)
                 {
-                    bool solid = VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy, wz));
+                    bool solid = Blocks.IsSolid(ws.GetBlockWorld(wx, wy, wz));
                     if (solid && !aboveSolid)
                     {
                         surfaces.Add(wy);
@@ -2235,20 +2207,20 @@ public static class WorldGen
                     int y = surfaces[k];
 
                     // Every natural surface material, not just Terrain — desert
-                    // and marsh columns are their own VoxelType and were being
+                    // and marsh columns are their own int and were being
                     // skipped, so their grades never got re-derived.
-                    VoxelType surface = ws.GetVoxelWorld(wx, y, wz);
-                    if (surface != VoxelType.Terrain && surface != VoxelType.Desert && surface != VoxelType.Marsh)
+                    int surface = ws.GetBlockWorld(wx, y, wz);
+                    if (!Blocks.IsNaturalGround(surface))
                     {
                         continue;
                     }
-                    if (y > minY && !VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, y - 1, wz)))
+                    if (y > minY && !Blocks.IsSolid(ws.GetBlockWorld(wx, y - 1, wz)))
                     {
                         continue;
                     }
                     ws.SetShapeWorld(wx, y, wz, IsGradeAt(wx, wz, y)
-                        ? VoxelTypeInfo.SharpAxes.None
-                        : VoxelTypeInfo.SharpAxes.Y);
+                        ? SharpAxes.None
+                        : SharpAxes.Y);
                 }
             }
         }
@@ -2278,7 +2250,7 @@ public static class WorldGen
         for (int by = hNew + 1; by <= hOld && by <= worldMaxY; by++)
         {
             if (by < worldMinY) { continue; }
-            ws.SetVoxelWorld(wx, by, wz, VoxelType.Air);
+            ws.SetBlockWorld(wx, by, wz, Blocks.AirId);
             ws.SetOverlayIdWorld(wx, by, wz, 0);
             ws.SetDetailGroupWorld(wx, by, wz, 0);
             ws.SetDetailStrengthWorld(wx, by, wz, 0);
@@ -2287,24 +2259,24 @@ public static class WorldGen
         for (int by = hOld + 1; by <= hNew && by <= worldMaxY; by++)
         {
             if (by < worldMinY) { continue; }
-            ws.SetVoxelWorld(wx, by, wz, VoxelType.Terrain, VoxelTypeInfo.SharpAxes.Y);
+            ws.SetBlockWorld(wx, by, wz, KitBlocks.ForKit(kitId), SharpAxes.Y);
             ws.SetTerrainIdWorld(wx, by, wz, kitId);
         }
         // Bed: guarantee solid rock under the deck (refill cave/tunnel hollows).
         for (int by = hNew; by > hNew - bedDepth && by >= worldMinY; by--)
         {
             if (by > worldMaxY) { continue; }
-            VoxelType v = ws.GetVoxelWorld(wx, by, wz);
-            if (v == VoxelType.Air || v == VoxelType.Water)
+            int v = ws.GetBlockWorld(wx, by, wz);
+            if (v == Blocks.AirId || v == Blocks.WaterId)
             {
-                ws.SetVoxelWorld(wx, by, wz, VoxelType.Terrain, VoxelTypeInfo.SharpAxes.Y);
+                ws.SetBlockWorld(wx, by, wz, KitBlocks.ForKit(kitId), SharpAxes.Y);
                 ws.SetTerrainIdWorld(wx, by, wz, kitId);
             }
         }
         // Surface: flat deck, no detail scatter, road overlay on top.
         if (hNew >= worldMinY && hNew <= worldMaxY)
         {
-            ws.SetVoxelWorld(wx, hNew, wz, VoxelType.Terrain, VoxelTypeInfo.SharpAxes.Y);
+            ws.SetBlockWorld(wx, hNew, wz, KitBlocks.ForKit(kitId), SharpAxes.Y);
             ws.SetTerrainIdWorld(wx, hNew, wz, kitId);
             ws.SetDetailGroupWorld(wx, hNew, wz, 0);
             ws.SetDetailStrengthWorld(wx, hNew, wz, 0);
@@ -4016,8 +3988,8 @@ public static class WorldGen
                 // from the finished geometry at the end of generation, and that
                 // pass — not this one — is authoritative.
                 byte surfaceShape = (byte)(heightMap.IsGrade(wx, wz, TerrainOf(genData).maxGradeStep)
-                    ? VoxelTypeInfo.SharpAxes.None
-                    : VoxelTypeInfo.SharpAxes.Y);
+                    ? SharpAxes.None
+                    : SharpAxes.Y);
 
                 // Per-column kit pick + above-water shore band, hoisted out of
                 // the y loop because both depend only on (wx, wz). The shore
@@ -4069,7 +4041,7 @@ public static class WorldGen
                         // carve nothing, which answer false.
                         if (wy <= waterY && !terrainGen.IsSealedFromWaterAt(wx, wy, wz))
                         {
-                            data.Voxels[x, y, z] = VoxelType.Water;
+                            data.Voxels[x, y, z] = (byte)Blocks.WaterId;
                         }
                         // Fog isn't placed here — it's a separate pass after
                         // GenerateCaves so it can see the final geometry and
@@ -4084,8 +4056,9 @@ public static class WorldGen
                     // walls, and seabeds all flow through the AUTO branch and
                     // read from their kit's palette. Explicit materials
                     // (Wood/Stone walls from structures) overwrite this later
-                    // via SetVoxelWorld and take the non-AUTO shader path.
-                    data.Voxels[x, y, z] = VoxelType.Terrain;
+                    // via SetBlockWorld and take the non-AUTO shader path.
+                    int kit = (wy > waterY && wy <= shoreUpperY) ? shoreTerrainId : surfaceTerrainId;
+                    data.Voxels[x, y, z] = (byte)KitBlocks.ForKit(kit);
 
                     // Cave interior surfaces always snap flat, regardless of
                     // whether the outdoor ridge above this column is a plateau
@@ -4099,9 +4072,9 @@ public static class WorldGen
                         && terrainGen.IsCarvedAt(wx, wy + 1, wz, solidHeight);
                     bool belowIsCarved = wy - 1 >= 0
                         && terrainGen.IsCarvedAt(wx, wy - 1, wz, solidHeight);
-                    byte voxelShape = wy == solidHeight ? surfaceShape : (byte)VoxelTypeInfo.SharpAxes.Y;
+                    byte voxelShape = wy == solidHeight ? surfaceShape : (byte)SharpAxes.Y;
                     data.Shape[x, y, z] = (aboveIsCarved || belowIsCarved)
-                        ? (byte)VoxelTypeInfo.SharpAxes.Y
+                        ? (byte)SharpAxes.Y
                         : voxelShape;
 
                     // Kit assignment: default every solid voxel to the zone's
@@ -4115,9 +4088,7 @@ public static class WorldGen
                     // shore band (wy in (WATER_LEVEL, shoreUpperY]) take the
                     // zone's ShoreKit so the beach lip at water's edge reads
                     // as sand even on land.
-                    data.TerrainId[x, y, z] = (wy > waterY && wy <= shoreUpperY)
-                        ? shoreTerrainId
-                        : surfaceTerrainId;
+                    data.TerrainId[x, y, z] = (byte)kit;
                 }
             }
         }
@@ -4259,7 +4230,7 @@ public static class WorldGen
                 int highestNonAir = worldMinY - 1;
                 for (int wy = worldMaxY; wy >= worldMinY; wy--)
                 {
-                    if (ws.GetVoxelWorld(wx, wy, wz) != VoxelType.Air)
+                    if (ws.GetBlockWorld(wx, wy, wz) != Blocks.AirId)
                     {
                         highestNonAir = wy;
                         break;
@@ -4288,7 +4259,7 @@ public static class WorldGen
 
                 for (int wy = fogStartY; wy <= ceilingY && wy <= worldMaxY; wy++)
                 {
-                    if (ws.GetVoxelWorld(wx, wy, wz) != VoxelType.Air)
+                    if (ws.GetBlockWorld(wx, wy, wz) != Blocks.AirId)
                     {
                         continue;
                     }
@@ -4396,8 +4367,8 @@ public static class WorldGen
                 int naturalSurfaceY = worldMinY - 1;
                 for (int wy = worldMaxY; wy >= worldMinY; wy--)
                 {
-                    var v = ws.GetVoxelWorld(wx, wy, wz);
-                    if (v != VoxelType.Air && v != VoxelType.Water)
+                    var v = ws.GetBlockWorld(wx, wy, wz);
+                    if (v != Blocks.AirId && v != Blocks.WaterId)
                     {
                         naturalSurfaceY = wy;
                         break;
@@ -4407,8 +4378,8 @@ public static class WorldGen
                 int topCarve = Math.Min(ceilingY - 1, naturalSurfaceY);
                 for (int wy = FloorY + 1; wy <= topCarve; wy++)
                 {
-                    var fill = wy <= WATER_LEVEL ? VoxelType.Water : VoxelType.Air;
-                    ws.SetVoxelWorld(wx, wy, wz, fill);
+                    var fill = wy <= WATER_LEVEL ? Blocks.WaterId : Blocks.AirId;
+                    ws.SetBlockWorld(wx, wy, wz, fill);
                 }
 
                 // Stamp a solid floor only where the natural seabed sat
@@ -4417,8 +4388,8 @@ public static class WorldGen
                 // merges seamlessly with the sea.
                 if (naturalSurfaceY > FloorY)
                 {
-                    ws.SetVoxelWorld(wx, FloorY, wz, VoxelType.Terrain,
-                        VoxelTypeInfo.SharpAxes.Y);
+                    ws.SetBlockWorld(wx, FloorY, wz,
+                        KitBlocks.ForKit(ws.GetTerrainIdWorld(wx, FloorY, wz)), SharpAxes.Y);
                 }
             }
         }
@@ -4455,8 +4426,8 @@ public static class WorldGen
                 int t = worldMinY - 1;
                 for (int wy = worldMaxY; wy >= worldMinY; wy--)
                 {
-                    var v = ws.GetVoxelWorld(wx, wy, wz);
-                    if (VoxelTypeInfo.IsSolid(v) && v != VoxelType.Barrier)
+                    var v = ws.GetBlockWorld(wx, wy, wz);
+                    if (Blocks.IsSolid(v) && v != Blocks.BarrierId)
                     {
                         t = wy;
                         break;
@@ -4471,8 +4442,8 @@ public static class WorldGen
             int ax = wx - worldMinX;
             int az = wz - worldMinZ;
             if (ax < 0 || ax >= sizeX || az < 0 || az >= sizeZ) { return false; }
-            var v = ws.GetVoxelWorld(wx, wy, wz);
-            if (v != VoxelType.Air && v != VoxelType.Water) { return false; }
+            var v = ws.GetBlockWorld(wx, wy, wz);
+            if (v != Blocks.AirId && v != Blocks.WaterId) { return false; }
             // "Has solid above" = under a ceiling = cave interior, not cliff-side open sky.
             return wy < columnTopY[ax, az];
         }
@@ -4489,8 +4460,8 @@ public static class WorldGen
 
                 for (int wy = worldMinY; wy < topY; wy++)
                 {
-                    var v = ws.GetVoxelWorld(wx, wy, wz);
-                    if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier)
+                    var v = ws.GetBlockWorld(wx, wy, wz);
+                    if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
                     {
                         continue;
                     }
@@ -4501,7 +4472,7 @@ public static class WorldGen
                         || IsCaveAirOrWater(wx, wy, wz - 1)
                         || IsCaveAirOrWater(wx, wy, wz + 1))
                     {
-                        ws.SetShapeWorld(wx, wy, wz, VoxelTypeInfo.SharpAxes.Y);
+                        ws.SetShapeWorld(wx, wy, wz, SharpAxes.Y);
                         // Stamp this chunk's zone CaveKit so the shader
                         // can paint it distinctly from the surface above.
                         // Overrides SubmergedKit for submerged caves — the
@@ -4517,7 +4488,7 @@ public static class WorldGen
     // Re-tag solid voxels at or below WATER_LEVEL to KIT_UNDERWATER iff they
     // sit within WorldGenData.SubmergedKitRadius of a water voxel. Runs after every
     // chunk exists so the water pass has already filled every non-solid
-    // wy<=WATER_LEVEL cell with VoxelType.Water. Semantic "near water" beats
+    // wy<=WATER_LEVEL cell with Blocks.WaterId. Semantic "near water" beats
     // the old "wy<=WATER_LEVEL" rule because the latter paints deeply buried
     // rock under cliffs as underwater — then the mesher's 27-voxel kit vote
     // for nearby DC cells drags that sand onto the visible cliff face.
@@ -4564,8 +4535,8 @@ public static class WorldGen
 
                 for (int wy = worldMinY; wy <= waterY; wy++)
                 {
-                    var v = ws.GetVoxelWorld(wx, wy, wz);
-                    if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier)
+                    var v = ws.GetBlockWorld(wx, wy, wz);
+                    if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
                     {
                         continue;
                     }
@@ -4577,7 +4548,7 @@ public static class WorldGen
                         {
                             for (int dz = -submergedRadius; dz <= submergedRadius && !nearWater; dz++)
                             {
-                                if (ws.GetVoxelWorld(wx + dx, wy + dy, wz + dz) == VoxelType.Water)
+                                if (ws.GetBlockWorld(wx + dx, wy + dy, wz + dz) == Blocks.WaterId)
                                 {
                                     nearWater = true;
                                 }
@@ -4604,22 +4575,16 @@ public static class WorldGen
 
     // Overlay id values. 0 = no overlay. A non-zero OverlayId is a direct
     // tile_array base-layer index sampled by voxel_clip.gdshader with its
-    // own alpha channel driving blend strength. Any block in the BlockCatalog
+    // own alpha channel driving blend strength. Any block in the BlockSurfaceCatalog
     // can be used as an overlay — add new OVERLAY_* fields by name rather
     // than reusing numbers so .hike files written with old values keep
     // mapping to the right block when new blocks are added ahead of them.
     private const byte OVERLAY_NONE = 0;
     private static readonly byte OVERLAY_DIRT = ResolveOverlayIndex("DirtOverlay");
 
-    private static byte ResolveOverlayIndex(StringName blockName)
+    private static byte ResolveOverlayIndex(StringName surfaceName)
     {
-        BlockData block = BlockCatalog.Active.GetByName(blockName);
-        if (block == null)
-        {
-            GD.PushError($"WorldGen: BlockCatalog has no block named '{blockName}'.");
-            return 0;
-        }
-        return (byte)block.atlasBaseIndex;
+        return (byte)BlockSurfaceCatalog.Active.GetAtlasIndexByName(surfaceName);
     }
 
     // Edge-overlay scan window / diff band (EdgeScanWindow, EdgeMinDiff,
@@ -4713,7 +4678,7 @@ public static class WorldGen
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
         // Hoisted so the shell test below doesn't allocate a delegate per voxel.
-        Func<int, int, int, VoxelType> getVoxel = ws.GetVoxelWorld;
+        Func<int, int, int, int> getVoxel = ws.GetBlockWorld;
 
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
@@ -4746,7 +4711,7 @@ public static class WorldGen
                     // runs — the lake floor still carries SurfaceKit and
                     // would otherwise spawn grass inside the water. Reject
                     // any surface voxel whose air-above slot is water.
-                    if (ws.GetVoxelWorld(wx, wy + 1, wz) == VoxelType.Water)
+                    if (ws.GetBlockWorld(wx, wy + 1, wz) == Blocks.WaterId)
                     {
                         continue;
                     }
@@ -4898,13 +4863,13 @@ public static class WorldGen
     // the overlay pass — applies to plateau tops, cave floors, ledges alike.
     private static bool IsSurfaceVoxel(WorldState ws, int wx, int wy, int wz)
     {
-        var self = ws.GetVoxelWorld(wx, wy, wz);
-        if (!VoxelTypeInfo.IsSolid(self) || self == VoxelType.Barrier)
+        var self = ws.GetBlockWorld(wx, wy, wz);
+        if (!Blocks.IsSolid(self) || self == Blocks.BarrierId)
         {
             return false;
         }
-        var above = ws.GetVoxelWorld(wx, wy + 1, wz);
-        return !VoxelTypeInfo.IsSolid(above) || above == VoxelType.Barrier;
+        var above = ws.GetBlockWorld(wx, wy + 1, wz);
+        return !Blocks.IsSolid(above) || above == Blocks.BarrierId;
     }
 
     // Returns the vertical distance from `wy` to the nearest surface voxel in
@@ -4955,12 +4920,12 @@ public static class WorldGen
                 return false;
             }
             int sy = SurfaceYAt(wx, wz);
-            var ground = ws.GetVoxelWorld(wx, sy, wz);
-            if (ground == VoxelType.Air || ground == VoxelType.Water)
+            var ground = ws.GetBlockWorld(wx, sy, wz);
+            if (ground == Blocks.AirId || ground == Blocks.WaterId)
             {
                 return false;
             }
-            return ws.GetVoxelWorld(wx, sy + 1, wz) == VoxelType.Air;
+            return ws.GetBlockWorld(wx, sy + 1, wz) == Blocks.AirId;
         }
         ChunkState data = ws._chunks[chunkCoord];
         var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_PROPS), chunkCoord.X, chunkCoord.Z));
@@ -5193,8 +5158,8 @@ public static class WorldGen
             {
                 for (int wy = waterMaxY; wy > waterMinY; wy--)
                 {
-                    if (ws.GetVoxelWorld(wx, wy, wz) == VoxelType.Water
-                        && ws.GetVoxelWorld(wx, wy + 1, wz) != VoxelType.Water)
+                    if (ws.GetBlockWorld(wx, wy, wz) == Blocks.WaterId
+                        && ws.GetBlockWorld(wx, wy + 1, wz) != Blocks.WaterId)
                     {
                         return wy;
                     }
@@ -5231,7 +5196,7 @@ public static class WorldGen
                     int surfaceY = WaterSurfaceYAt(wx, wz);
                     if (surfaceY == int.MinValue) { continue; }
                     // Reject puddles too shallow for a swimmer to occupy.
-                    if (ws.GetVoxelWorld(wx, surfaceY - (MIN_WATER_DEPTH - 1), wz) != VoxelType.Water) { continue; }
+                    if (ws.GetBlockWorld(wx, surfaceY - (MIN_WATER_DEPTH - 1), wz) != Blocks.WaterId) { continue; }
 
                     // Anchor inside the top water voxel, NOT on its top face
                     // (surfaceY + 1f) — that boundary floors into the air voxel
@@ -5293,17 +5258,17 @@ public static class WorldGen
                     // gate on anything deeper than 1 voxel. Mid-voxel (+0.5) so the
                     // mob's feet sample water on its first tick and buoyancy fires
                     // — same reason the open-water pass anchors that way.
-                    if (ws.GetVoxelWorld(wx, wy, wz) == VoxelType.Water
-                        && ws.GetVoxelWorld(wx, wy + 1, wz) != VoxelType.Water)
+                    if (ws.GetBlockWorld(wx, wy, wz) == Blocks.WaterId
+                        && ws.GetBlockWorld(wx, wy + 1, wz) != Blocks.WaterId)
                     {
-                        if (ws.GetVoxelWorld(wx, wy - (CAVE_WATER_MIN_DEPTH - 1), wz) != VoxelType.Water)
+                        if (ws.GetBlockWorld(wx, wy - (CAVE_WATER_MIN_DEPTH - 1), wz) != Blocks.WaterId)
                         {
                             continue;
                         }
                         bool roofed = false;
                         for (int c = 1; c <= CAVE_CEILING_PROBE; c++)
                         {
-                            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + c, wz)))
+                            if (Blocks.IsSolid(ws.GetBlockWorld(wx, wy + c, wz)))
                             {
                                 roofed = true;
                                 break;
@@ -5331,15 +5296,15 @@ public static class WorldGen
                         continue;
                     }
 
-                    var below = ws.GetVoxelWorld(wx, wy - 1, wz);
-                    if (below == VoxelType.Air || below == VoxelType.Water)
+                    var below = ws.GetBlockWorld(wx, wy - 1, wz);
+                    if (below == Blocks.AirId || below == Blocks.WaterId)
                     {
                         continue;
                     }
                     bool clear = true;
                     for (int c = 0; c < HEAD_CLEARANCE; c++)
                     {
-                        if (ws.GetVoxelWorld(wx, wy + c, wz) != VoxelType.Air)
+                        if (ws.GetBlockWorld(wx, wy + c, wz) != Blocks.AirId)
                         {
                             clear = false;
                             break;
@@ -5352,7 +5317,7 @@ public static class WorldGen
                     bool isCave = false;
                     for (int c = HEAD_CLEARANCE; c <= CAVE_CEILING_PROBE; c++)
                     {
-                        if (ws.GetVoxelWorld(wx, wy + c, wz) != VoxelType.Air)
+                        if (ws.GetBlockWorld(wx, wy + c, wz) != Blocks.AirId)
                         {
                             isCave = true;
                             break;

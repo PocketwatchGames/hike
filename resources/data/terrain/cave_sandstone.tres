@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://cwn2meyk24pmn"]
 
 [ext_resource type="Script" uid="uid://dm7cuarr7hpl7" path="res://scripts/data/world/TerrainData.cs" id="1_kit"]
-[ext_resource type="Resource" uid="uid://dqx8riexpk03r" path="res://resources/data/blocks/block_desert_cave.tres" id="3_block_flat"]
+[ext_resource type="Resource" uid="uid://dqx8riexpk03r" path="res://resources/data/surfaces/surface_desert_cave.tres" id="3_block_flat"]
 
 [resource]
 script = ExtResource("1_kit")

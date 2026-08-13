@@ -951,26 +951,28 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,2,0.01")] public float blockLightCanopyExtinction = 0.15f;
 
     [ExportGroup("Foliage Canopy Shadow")]
-    // FoliageStamper rasterizes every CastsSunShadow cluster's ellipsoid
-    // plus a downward shadow column into WorldState.CanopyAttenuation;
-    // LightEngine reads that field as extra sun + block-light falloff during
-    // propagation. The four knobs below shape how much a tree shelters.
+    // FoliageStamper rasterizes every CastsSunShadow cluster's ellipsoid into
+    // WorldState.CanopyAttenuation (leaves) and derives the shadow beneath the
+    // tree into WorldState.CanopyShade; LightEngine reads them as extra sun +
+    // block-light falloff during propagation. The knobs below shape how much a
+    // tree shelters; per-cluster relative thickness is FoliageCluster.
+    // ShadowDensity.
 
-    // Per-cluster density (0..1) deposited into the canopy field. Stored as
-    // a byte 0..255 and saturating-added across overlapping clusters, so a
-    // lone tree contributes this fraction while two stacked clusters land
-    // near saturation. 0.4 puts a single tree at "dappled" coverage (~half
-    // sun under the shadow column) and a 2+ cluster overlap at the dense-
-    // forest "proper shelter" reading.
+    // Density (0..1) of ONE NOMINAL canopy blob, before the cluster's own
+    // ShadowDensity scales it. Stored as a byte 0..255 and saturating-added
+    // wherever foliage genuinely overlaps — clusters stacked in 3D on one tree,
+    // or neighbouring trees' canopies — so this is the scalar that sets how much
+    // a single blob's worth of leaves dims the sun, and thickness does the rest.
     [Export(PropertyHint.Range, "0,1,0.01")] public float canopyDensity = 0.4f;
 
-    // Minimum voxels of constant-density shadow stamped directly below
-    // each cluster's ellipsoid. The actual column extends down to whichever
-    // is LOWER: this fixed depth, or one voxel below the prop's base — the
-    // base anchor keeps shadow columns reaching the ground under tall-trunk
-    // trees (birch at ~10m foliage) without authoring per-species depths.
-    // Without the column at all, lateral BFS spread from un-canopied
-    // neighbor columns refills the player's voxel with near-full sun.
+    // Minimum voxels of shadow stamped below the canopy. The column extends down
+    // to whichever is LOWER: this fixed depth, or one voxel below the prop's base
+    // — the base anchor keeps shadows reaching the ground under tall-trunk trees
+    // (birch at ~10m foliage) without authoring per-species depths. Without the
+    // column at all, lateral BFS spread from un-canopied neighbor columns refills
+    // the player's voxel with near-full sun. It costs nothing in DEPTH of shade:
+    // the column carries the canopy's own integral and only the lateral pass
+    // reads it, so a taller trunk spreads the same shadow further, never darker.
     [Export(PropertyHint.Range, "0,32,1")] public int canopyShadowDepthVoxels = 6;
 
     // Sun-channel canopy extinction: the Beer-Lambert optical depth added per

@@ -52,7 +52,6 @@ public class MinimapSliceAtlas
         Vector3I chunkCoord,
         ChunkState chunk,
         DetailGroupData[] detailPalette,
-        TerrainData[] terrainPalette,
         WorldState worldState,
         MinimapFoliageColors foliagePalette,
         MinimapData.SliceCell[] buffer)
@@ -60,7 +59,7 @@ public class MinimapSliceAtlas
         int chunkBaseSliceLevel = chunkCoord.Y * MinimapData.SlicesPerChunk;
         for (int s = 0; s < MinimapData.SlicesPerChunk; s++)
         {
-            MinimapData.GenerateSliceTile(chunk, s, detailPalette, terrainPalette, worldState, buffer);
+            MinimapData.GenerateSliceTile(chunk, s, detailPalette, worldState, buffer);
             if (IsBufferAllEmpty(buffer))
             {
                 continue;
@@ -384,7 +383,7 @@ public class MinimapSliceAtlas
             {
                 int sx = Mathf.RoundToInt(eyeX + nx * t);
                 int sz = Mathf.RoundToInt(eyeZ + nz * t);
-                if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(sx, eyeY, sz)))
+                if (Blocks.IsSolid(ws.GetBlockWorld(sx, eyeY, sz)))
                 {
                     return 0f;
                 }

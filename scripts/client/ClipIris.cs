@@ -24,7 +24,7 @@ using Godot;
 // ceiling, and so a separate set of samples.
 //
 // Three kinds of column are excluded from the height entirely, and each was a bug
-// before it was a rule: DOORWAYS AND WINDOWS (authored as VoxelType.Opening,
+// before it was a rule: DOORWAYS AND WINDOWS (authored as Blocks.OpeningId,
 // whose lintel and sill read exactly like a low ceiling and dragged the plane
 // down every time the player passed one), WALLS, and columns whose only cover is
 // a roof's OVERSAIL (cover, but neither a room nor open sky — calling that sky
@@ -630,7 +630,7 @@ public class ClipIris
         bool sawOversail = false;
         for (int wy = floorY; wy < scanTop; wy++)
         {
-            if (world.GetVoxelWorld(wx, wy, wz) == VoxelType.Opening)
+            if (world.GetBlockWorld(wx, wy, wz) == Blocks.OpeningId)
             {
                 return EProbeSpace.Opening;
             }
@@ -725,7 +725,7 @@ public class ClipIris
             {
                 for (int wy = PlayerFloorY; wy <= top; wy++)
                 {
-                    if (world.GetVoxelWorld(px + dx, wy, pz + dz) == VoxelType.Opening)
+                    if (world.GetBlockWorld(px + dx, wy, pz + dz) == Blocks.OpeningId)
                     {
                         return true;
                     }
@@ -752,7 +752,7 @@ public class ClipIris
         // which float well under the surface — and every height in this class
         // would then be measured from below the waterline. Climb out to the
         // surface so a swimmer resolves as if standing on it.
-        for (int i = 0; i < MAX_SURFACE_CLIMB && world.GetVoxelWorld(wx, foot, wz) == VoxelType.Water; i++)
+        for (int i = 0; i < MAX_SURFACE_CLIMB && world.GetBlockWorld(wx, foot, wz) == Blocks.WaterId; i++)
         {
             foot++;
         }
@@ -835,7 +835,7 @@ public class ClipIris
 
     private ECover CoverAt(WorldState world, int wx, int wy, int wz)
     {
-        if (VoxelTypeInfo.IsSolid(world.GetVoxelWorld(wx, wy, wz)))
+        if (Blocks.IsSolid(world.GetBlockWorld(wx, wy, wz)))
         {
             return ECover.Ceiling;
         }
@@ -871,7 +871,7 @@ public class ClipIris
     // eave is not a room but it does genuinely hide someone standing under it.
     private static bool IsCover(WorldState world, int wx, int wy, int wz)
     {
-        return VoxelTypeInfo.IsSolid(world.GetVoxelWorld(wx, wy, wz))
+        return Blocks.IsSolid(world.GetBlockWorld(wx, wy, wz))
             || world.GetSunOpaqueWorld(wx, wy, wz);
     }
 
@@ -913,7 +913,7 @@ public class ClipIris
             // right up against a window, seeing through it is the whole point, and
             // that is exactly the moment the reveal is for. From across the street
             // the same opening is a slot the ring has no business reaching through.
-            if (world.GetVoxelWorld(wx, wy, wz) == VoxelType.Opening)
+            if (world.GetBlockWorld(wx, wy, wz) == Blocks.OpeningId)
             {
                 if (t > OpeningReach)
                 {

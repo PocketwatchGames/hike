@@ -1144,15 +1144,14 @@ public partial class Minimap : Node3D
             return;
         }
         DetailGroupData[] detailPalette = ChunkMesh.ActiveDetailGroups;
-        TerrainData[] terrainPalette = ChunkMesh.ActiveTerrains;
-        MinimapData.GenerateSurfaceRow(chunk, detailPalette, terrainPalette, _surfaceCells, HeightBias);
+        MinimapData.GenerateSurfaceRow(chunk, detailPalette, _surfaceCells, HeightBias);
         _textures.ApplyChunkSurface(coord, _surfaceCells, _foliageColors);
 
         // Slice tiles for every vertical slice this chunk overlaps. Empty
         // slices (from pure-air chunks, etc.) are skipped inside the atlas.
         // WorldState is passed so the top-slice "is the column above solid"
         // test can peek into the chunk above this one.
-        _sliceAtlas.ApplyChunkSlices(coord, chunk, detailPalette, terrainPalette, _world.WorldState, _foliageColors, _sliceCells);
+        _sliceAtlas.ApplyChunkSlices(coord, chunk, detailPalette, _world.WorldState, _foliageColors, _sliceCells);
 
         // Try prop stamping in case entities are already loaded (e.g. catch-up
         // pass during Initialize where chunks pre-existed). Normal flow is
@@ -1201,12 +1200,14 @@ public partial class Minimap : Node3D
     // X axis to pick by tile id. Built once at Initialize; the catalog is
     // authored, not mutated at runtime.
     //
-    // Each block is one atlas layer, painted at its AtlasBaseIndex with the
-    // block's MinimapColor. WallSlotIndex paints the authored wall color;
-    // unauthored slots stay magenta as a sanity-check.
+    // Cells store a resolved atlas LAYER, so the LUT is per layer — but the
+    // colour is a per-BLOCK property. Each block paints its colour into every
+    // layer it wears, so a block's side tile is coloured for wall cells too.
+    // WallSlotIndex paints the authored wall color; unauthored slots stay
+    // magenta as a sanity-check.
     private static Texture2D BuildTileLutTexture(BlockCatalog catalog, Color wallSlotColor)
     {
-        const int W = VoxelTypeInfo.MAX_ATLAS_LAYERS;
+        const int W = BlockSurfaceCatalog.MAX_ATLAS_LAYERS;
         Color[] table = new Color[W];
         Color unauthored = new Color(1f, 0f, 1f);
         for (int i = 0; i < W; i++)
@@ -1218,11 +1219,16 @@ public partial class Minimap : Node3D
         {
             foreach (BlockData block in catalog.blocks)
             {
-                if (block == null) { continue; }
-                int idx = block.atlasBaseIndex;
-                if (idx >= 0 && idx < W)
+                if (block == null || block.IsInvisible()) { continue; }
+                foreach (EBlockFace face in new[] { EBlockFace.Top, EBlockFace.Side, EBlockFace.Bottom })
                 {
-                    table[idx] = block.minimapColor;
+                    BlockSurfaceData surface = block.SurfaceFor(face);
+                    if (surface == null) { continue; }
+                    int idx = surface.atlasBaseIndex;
+                    if (idx >= 0 && idx < W)
+                    {
+                        table[idx] = block.minimapColor;
+                    }
                 }
             }
         }

@@ -134,9 +134,9 @@ The world loads from a packed `.hike` file (`WorldFile` / `WorldFileChunkSource`
 
 The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`). See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
 
-### Voxel Terrain Atlas (`scripts/data/BlockData.cs`, `resources/data/blocks/`, `tools/stitch_voxel_atlas.py`)
+### Voxel Terrain Atlas (`scripts/data/BlockSurfaceData.cs`, `resources/data/surfaces/`, `tools/stitch_voxel_atlas.py`)
 
-Each `BlockData` carries an `AtlasBaseIndex` into two baked `Texture2DArray` strips (color + normal/height) that `ChunkMesh` indexes by id; blocks never reference source textures directly. The layer→texture mapping is owned by one authoring-only resource, `resources/data/blocks/voxel_atlas_manifest.tres` (the single source of truth — edit it, not the Python/GDScript mirrors, to repoint a block). See [resources/data/blocks/CLAUDE.md](resources/data/blocks/CLAUDE.md).
+Each `BlockSurfaceData` carries an `AtlasBaseIndex` into two baked `Texture2DArray` strips (color + normal/height) that `ChunkMesh` indexes by id; blocks never reference source textures directly. The layer→texture mapping is owned by one authoring-only resource, `resources/data/surfaces/voxel_atlas_manifest.tres` (the single source of truth — edit it, not the Python/GDScript mirrors, to repoint a block). See [resources/data/surfaces/CLAUDE.md](resources/data/surfaces/CLAUDE.md).
 
 ### Save/Load System (`scripts/SaveGame.cs`)
 

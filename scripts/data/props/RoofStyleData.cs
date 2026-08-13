@@ -96,11 +96,14 @@ public partial class RoofStyleData : Resource
     // the bevel starts eating the shingle courses.
     [Export(PropertyHint.Range, "5,90,1")] public float bevelMinTurnDegrees = 45f;
 
-    // Baked tone at the eave relative to the ridge, written into vertex COLOR
-    // and read by model_lit's vertex_ao_strength path. Under 1 the roof darkens
-    // toward its edges, which stops a big surface reading as uniformly flat.
+    // Baked sky occlusion UNDER the overhang, written into vertex COLOR and read
+    // by model_lit's vertex_ao_strength path. 1 = no shadow under the eaves; low
+    // values darken the soffit where it meets the wall, easing back to open at
+    // the eave lip. Only downward-facing geometry takes it — the fascia, the
+    // slopes and the ridge are sky-open and stay at full brightness.
+    //
     // The material must set vertex_ao_strength for this to do anything.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float eaveShade = 0.72f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float soffitShade = 0.55f;
 
     // Whether the roof stops sunlight dead at its base, exactly as a solid
     // voxel ceiling does. On by default, because a roof IS solid.
@@ -111,6 +114,16 @@ public partial class RoofStyleData : Resource
     // it, sun shafts pour straight through a solid roof and the air beneath
     // glows — glaring, because a roof is a large overhead occluder.
     [Export] public bool blocksSun = true;
+
+    // Sun cover under the OVERHANG ring — the part of the roof standing over
+    // open ground rather than over the walls. Always partial, even when
+    // blocksSun is true: an eave is open to the sky sideways, so blocking it
+    // outright blacks out the strip of wall beneath every overhang, and the
+    // roof's own fascia and gable end (which stand inside that ring) sample the
+    // shadow they are casting. This is the soft ambient shading under an eave;
+    // the overhang's real, angle-correct shadow comes from the roof geometry via
+    // the ShadowsOnly caster, not from here. 0 = eaves cast no ambient shade.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float eaveSunOcclusion = 0.45f;
 
     // Used only when blocksSun is false: partial cover that dims rather than
     // blocks. Depth matters because the light column attenuates once per voxel

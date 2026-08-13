@@ -737,6 +737,10 @@ sun_world_dir={
 "type": "vec3",
 "value": Vector3(-0.215, -0.819, -0.532)
 }
+sun_noon_horizontal={
+"type": "vec3",
+"value": Vector3(0.707, 0, 0.707)
+}
 sky_sun_dir={
 "type": "vec3",
 "value": Vector3(-0.215, -0.819, -0.532)

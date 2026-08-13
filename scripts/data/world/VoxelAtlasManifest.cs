@@ -169,7 +169,7 @@ public partial class VoxelAtlasManifest : Resource
             }
             if (layer.block != null && layer.block.atlasBaseIndex != i)
             {
-                GD.PushError($"VoxelAtlasManifest: layer {i} is block '{layer.block.blockName}' with AtlasBaseIndex={layer.block.atlasBaseIndex}; array position must equal AtlasBaseIndex.");
+                GD.PushError($"VoxelAtlasManifest: layer {i} is block '{layer.block.surfaceName}' with AtlasBaseIndex={layer.block.atlasBaseIndex}; array position must equal AtlasBaseIndex.");
                 ok = false;
             }
         }
@@ -178,6 +178,6 @@ public partial class VoxelAtlasManifest : Resource
 
     private static string LayerName(AtlasLayer layer)
     {
-        return layer.block != null ? layer.block.blockName.ToString() : "<no block>";
+        return layer.block != null ? layer.block.surfaceName.ToString() : "<no block>";
     }
 }

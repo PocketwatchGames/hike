@@ -1,12 +1,16 @@
-[gd_resource type="Resource" script_class="BlockData" format=3 uid="uid://d3lu8tr346xm"]
+[gd_resource type="Resource" script_class="BlockData" format=3]
 
-[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockData.cs" id="1_block"]
+[ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
+[ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/surfaces/surface_stone.tres" id="2_stone"]
 
 [resource]
-script = ExtResource("1_block")
+script = ExtResource("1_s")
 blockName = &"Stone"
-minimapColor = Color(0.4608, 0.4608, 0.48, 1)
-isCliff = true
-porosity = 0.1
-edgeRoughness = 0.2
+blockId = 10
+top = ExtResource("2_stone")
+side = ExtResource("2_stone")
+wallBand = Vector2(0.4, 0.65)
+minimapColor = Color(0.4608,0.4608,0.48, 1)
+defaultShape = 7
 groundType = 1
+edgeRoughness = 0.2

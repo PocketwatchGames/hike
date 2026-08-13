@@ -2163,12 +2163,14 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 int bottom = int.MaxValue;
                 long sumX = 0;
                 long sumZ = 0;
+                var members = new List<int>();
                 while (stack.Count > 0)
                 {
                     int idx = stack.Pop();
                     int cx = idx / sizeZ;
                     int cz = idx % sizeZ;
                     columns++;
+                    members.Add(idx);
                     sumX += cx + worldMinX;
                     sumZ += cz + worldMinZ;
                     if (sheet[cx, cz] > top) { top = sheet[cx, cz]; }
@@ -2186,8 +2188,25 @@ public partial class CellularTerrainGen : ITerrainGenerator
                         stack.Push(nx * sizeZ + nz);
                     }
                 }
+                // The centroid is where the sheet is ON AVERAGE, which for a
+                // curved or L-shaped group is not one of its own columns — the
+                // 12 m fall's centroid landed in the channel BESIDE the drop, so
+                // anything placed there would sit in the river rather than at the
+                // lip. Snap to the member column nearest it, the same fix
+                // ResolveLandformPois makes for the same reason.
+                float cxAvg = sumX / (float)columns;
+                float czAvg = sumZ / (float)columns;
+                int bestIdx = members[0];
+                float bestD = float.MaxValue;
+                foreach (int idx in members)
+                {
+                    float dx = idx / sizeZ + worldMinX - cxAvg;
+                    float dz = idx % sizeZ + worldMinZ - czAvg;
+                    float d = dx * dx + dz * dz;
+                    if (d < bestD) { bestD = d; bestIdx = idx; }
+                }
                 sites.Add(new WaterfallSite(
-                    new Vector3(sumX / (float)columns + 0.5f, top, sumZ / (float)columns + 0.5f),
+                    new Vector3(bestIdx / sizeZ + worldMinX + 0.5f, top, bestIdx % sizeZ + worldMinZ + 0.5f),
                     bottom, columns));
                 stats.FallColumns += columns;
             }

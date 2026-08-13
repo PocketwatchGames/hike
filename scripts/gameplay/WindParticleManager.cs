@@ -14,7 +14,7 @@ using System.Collections.Generic;
 //   - SAND and FOAM are procedural — no authored nodes. The manager owns a pool
 //     for each and repositions them over the matching voxel surface near the
 //     player at irregular intervals (sand over VoxelType.Desert, foam over
-//     VoxelType.Water), the way RainEffect disc-scatters ground splashes.
+//     Blocks.WaterId), the way RainEffect disc-scatters ground splashes.
 //
 // All three share one gate: active only when windSpeed > WindThreshold AND
 // rainAmount < RainSuppressThreshold; emission frequency (AmountRatio) scales
@@ -330,11 +330,11 @@ public partial class WindParticleManager : Node3D
                 float th = _rng.Randf() * Mathf.Tau;
                 float x = pp.X + r * Mathf.Cos(th);
                 float z = pp.Z + r * Mathf.Sin(th);
-                if (!TryFindSurface(ws, x, z, pp.Y, out Vector3 hit, out VoxelType topType)) { continue; }
+                if (!TryFindSurface(ws, x, z, pp.Y, out Vector3 hit, out int topType)) { continue; }
 
                 bool match = sand
                     ? GroundTypeResolver.Resolve(ws, hit) == EGroundType.Sand
-                    : topType == VoxelType.Water;
+                    : topType == Blocks.WaterId;
                 if (!match) { continue; }
                 if (SuppressIndoors && ws.GetSkyLight01(hit) <= 0f) { continue; }
 
@@ -350,7 +350,7 @@ public partial class WindParticleManager : Node3D
     // Scan the column at (x,z) top-down; the first non-air voxel is the surface.
     // Returns the world point on its top face plus that voxel's type. The caller
     // decides whether it's a valid surface for the variant.
-    private bool TryFindSurface(WorldState ws, float x, float z, float centerY, out Vector3 pos, out VoxelType topType)
+    private bool TryFindSurface(WorldState ws, float x, float z, float centerY, out Vector3 pos, out int topType)
     {
         int wx = Mathf.FloorToInt(x);
         int wz = Mathf.FloorToInt(z);
@@ -358,14 +358,14 @@ public partial class WindParticleManager : Node3D
         int bottom = Mathf.FloorToInt(centerY) - SurfaceScanDown;
         for (int y = top; y >= bottom; y--)
         {
-            VoxelType t = ws.GetVoxelWorld(wx, y, wz);
-            if (t == VoxelType.Air) { continue; }
+            int t = ws.GetBlockWorld(wx, y, wz);
+            if (t == Blocks.AirId) { continue; }
             pos = new Vector3(x, y + 1f, z);
             topType = t;
             return true;
         }
         pos = default;
-        topType = VoxelType.Air;
+        topType = Blocks.AirId;
         return false;
     }
 

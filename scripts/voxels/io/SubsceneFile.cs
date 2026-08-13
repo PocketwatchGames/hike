@@ -17,7 +17,7 @@ using Godot;
 //   [v6+] Directory (dirLength bytes)
 //     tagCount     : 7-bit int, then (string tag, 7-bit int count) per pool
 //   Body (in fixed order; arrays sized to size.X * size.Y * size.Z unless noted)
-//     voxels         : SX*SY*SZ bytes (VoxelType row-major X,Y,Z)
+//     voxels         : SX*SY*SZ bytes (int row-major X,Y,Z)
 //     shape          : SX*SY*SZ bytes (SharpAxes byte per cell)
 //     terrainId      : SX*SY*SZ bytes
 //     overlayId      : SX*SY*SZ bytes
@@ -55,7 +55,8 @@ public static class SubsceneFile
     // v6: entities gained a trailing variant pool tag, and the header gained a
     //     directory summarizing those tags. v5 and earlier still read — their
     //     entities load untagged, i.e. unconditional, which is what they were.
-    public const uint VERSION = 7;
+    // v8: the per-voxel byte is a BlockData.blockId, not a VoxelType.
+    public const uint VERSION = 8;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.
@@ -99,7 +100,7 @@ public static class SubsceneFile
         w.Write(directory);
 
         Vector3I size = sub.Size;
-        WriteVoxelChannel(w, sub.Voxels, size);
+        WriteByteChannel(w, sub.Voxels, size);
         WriteByteChannel(w, sub.Shape, size);
         WriteByteChannel(w, sub.TerrainId, size);
         WriteByteChannel(w, sub.OverlayId, size);
@@ -158,7 +159,7 @@ public static class SubsceneFile
         }
 
         var sub = new SubsceneState(size) { Anchor = anchor };
-        ReadVoxelChannel(r, sub.Voxels, size);
+        ReadByteChannel(r, sub.Voxels, size);
         ReadByteChannel(r, sub.Shape, size);
         ReadByteChannel(r, sub.TerrainId, size);
         ReadByteChannel(r, sub.OverlayId, size);
@@ -256,34 +257,6 @@ public static class SubsceneFile
             };
         }
         return directory;
-    }
-
-    private static void WriteVoxelChannel(BinaryWriter w, VoxelType[,,] arr, Vector3I size)
-    {
-        for (int x = 0; x < size.X; x++)
-        {
-            for (int y = 0; y < size.Y; y++)
-            {
-                for (int z = 0; z < size.Z; z++)
-                {
-                    w.Write((byte)arr[x, y, z]);
-                }
-            }
-        }
-    }
-
-    private static void ReadVoxelChannel(BinaryReader r, VoxelType[,,] arr, Vector3I size)
-    {
-        for (int x = 0; x < size.X; x++)
-        {
-            for (int y = 0; y < size.Y; y++)
-            {
-                for (int z = 0; z < size.Z; z++)
-                {
-                    arr[x, y, z] = (VoxelType)r.ReadByte();
-                }
-            }
-        }
     }
 
     private static void WriteByteChannel(BinaryWriter w, byte[,,] arr, Vector3I size)

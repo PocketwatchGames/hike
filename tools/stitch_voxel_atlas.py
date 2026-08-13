@@ -1,5 +1,5 @@
 """Headless mirror of the in-editor "Rebuild Atlas" button on
-resources/data/blocks/voxel_atlas_manifest.tres (VoxelAtlasManifest.cs).
+resources/data/surfaces/voxel_atlas_manifest.tres (VoxelAtlasManifest.cs).
 
 Stitches the PBR terrain source maps into two vertical Texture2DArray strips:
 
@@ -10,7 +10,7 @@ The layer list is NOT duplicated here — it is parsed from the manifest .tres s
 the editor button and this CLI/CI path stay in lockstep. To change which source
 texture a block uses, edit the manifest in the Godot inspector (or the .tres),
 not this script. Layer order in the manifest must match the atlasBaseIndex on
-each BlockData and the slices/vertical count in both .import files.
+each BlockSurfaceData and the slices/vertical count in both .import files.
 
 Reads only; never overwrites source art.
 """

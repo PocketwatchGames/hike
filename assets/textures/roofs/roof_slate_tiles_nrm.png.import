@@ -2,7 +2,7 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://2dsx05wu3g7o"
+uid="uid://rnwetcxi555"
 path.s3tc="res://.godot/imported/roof_slate_tiles_nrm.png-1555f591ef6fb5bc6c337901b1f3e84b.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
@@ -22,7 +22,7 @@ compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=1
+compress/normal_map=2
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

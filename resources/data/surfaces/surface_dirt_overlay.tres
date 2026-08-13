@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://c07ky0t60tpta"]
+
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_block"]
+
+[resource]
+script = ExtResource("1_block")
+surfaceName = &"DirtOverlay"
+atlasBaseIndex = 4
+porosity = 0.8

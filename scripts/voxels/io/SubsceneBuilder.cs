@@ -25,7 +25,7 @@ public static class SubsceneBuilder
                 {
                     for (int z = 0; z < ChunkState.SIZE; z++)
                     {
-                        if (chunk.Voxels[x, y, z] == VoxelType.Air)
+                        if (chunk.Voxels[x, y, z] == Blocks.AirId)
                         {
                             continue;
                         }
@@ -72,7 +72,7 @@ public static class SubsceneBuilder
                     int wx = min.X + dx;
                     int wy = min.Y + dy;
                     int wz = min.Z + dz;
-                    sub.Voxels[dx, dy, dz] = ws.GetVoxelWorld(wx, wy, wz);
+                    sub.Voxels[dx, dy, dz] = (byte)ws.GetBlockWorld(wx, wy, wz);
                     sub.Shape[dx, dy, dz] = (byte)ws.GetShapeWorld(wx, wy, wz);
                     sub.TerrainId[dx, dy, dz] = (byte)ws.GetTerrainIdWorld(wx, wy, wz);
                     sub.OverlayId[dx, dy, dz] = (byte)ws.GetOverlayIdWorld(wx, wy, wz);

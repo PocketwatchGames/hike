@@ -1680,13 +1680,13 @@ public partial class AimingReticle : Node3D
 	{
 		int ay = Mathf.FloorToInt(anchorY);
 		int maxScan = Mathf.Max(1, _undulationMaxScanVoxels);
-		if (VoxelTypeInfo.IsSolid(voxels.GetVoxelWorld(vx, ay, vz)))
+		if (Blocks.IsSolid(voxels.GetBlockWorld(vx, ay, vz)))
 		{
 			// Inside terrain — climb to the first air voxel; its base is the
 			// surface (top of the solid below it).
 			for (int k = 1; k <= maxScan; k++)
 			{
-				if (!VoxelTypeInfo.IsSolid(voxels.GetVoxelWorld(vx, ay + k, vz)))
+				if (!Blocks.IsSolid(voxels.GetBlockWorld(vx, ay + k, vz)))
 				{
 					return ay + k;
 				}
@@ -1697,7 +1697,7 @@ public partial class AimingReticle : Node3D
 			// In open air — drop to the first solid voxel; its top is the surface.
 			for (int k = 1; k <= maxScan; k++)
 			{
-				if (VoxelTypeInfo.IsSolid(voxels.GetVoxelWorld(vx, ay - k, vz)))
+				if (Blocks.IsSolid(voxels.GetBlockWorld(vx, ay - k, vz)))
 				{
 					return ay - k + 1;
 				}

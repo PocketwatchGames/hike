@@ -88,6 +88,11 @@ public partial class EditorHud : CanvasLayer
     [Export] public Button windowShapeButton;
     [Export] public Button doorShapeButton;
     [Export] public Button plateauSnapButton;
+    // Per-voxel edge shaping. Auto is the one pressed at startup.
+    [Export] public Button autoEdgesButton;
+    [Export] public Button blockyEdgesButton;
+    [Export] public Button steppedEdgesButton;
+    [Export] public Button smoothEdgesButton;
 
     [ExportGroup("View")]
     [Export] public CheckButton lightingButton;
@@ -120,6 +125,7 @@ public partial class EditorHud : CanvasLayer
     public Action<bool> onSnapRotationChanged;
     public Action<EEditorBrushOperation> onOperationSelected;
     public Action<EEditorBrushShape> onShapeSelected;
+    public Action<EEditorVoxelEdges> onVoxelEdgesSelected;
     public Action<bool> onPlateauSnapChanged;
     public Action<bool> onLightingChanged;
     public Action<float> onTimeOfDayChanged;
@@ -192,6 +198,10 @@ public partial class EditorHud : CanvasLayer
         BindShapeButton(roomShapeButton, EEditorBrushShape.Room);
         BindShapeButton(windowShapeButton, EEditorBrushShape.Window);
         BindShapeButton(doorShapeButton, EEditorBrushShape.Door);
+        BindVoxelEdgesButton(autoEdgesButton, EEditorVoxelEdges.Auto);
+        BindVoxelEdgesButton(blockyEdgesButton, EEditorVoxelEdges.Blocky);
+        BindVoxelEdgesButton(steppedEdgesButton, EEditorVoxelEdges.Stepped);
+        BindVoxelEdgesButton(smoothEdgesButton, EEditorVoxelEdges.Smooth);
         if (plateauSnapButton != null)
         {
             plateauSnapButton.Toggled += pressed => onPlateauSnapChanged?.Invoke(pressed);
@@ -242,6 +252,14 @@ public partial class EditorHud : CanvasLayer
         if (button != null)
         {
             button.Pressed += () => onShapeSelected?.Invoke(shape);
+        }
+    }
+
+    private void BindVoxelEdgesButton(Button button, EEditorVoxelEdges edges)
+    {
+        if (button != null)
+        {
+            button.Pressed += () => onVoxelEdgesSelected?.Invoke(edges);
         }
     }
 

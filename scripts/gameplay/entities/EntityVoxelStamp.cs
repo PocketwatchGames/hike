@@ -8,14 +8,14 @@ public readonly struct VoxelStamp
 {
     public readonly Vector3I BaseCell;
     public readonly int Height;
-    public readonly VoxelType Type;
+    public readonly int Type;
     // Whether this stamp may replace authored geometry. A door must not: a seat
     // position that resolved onto a floor or wall block would erase it and leave
     // a hole to fall through. An aperture is nothing BUT a hole in a wall, so it
     // carves what it covers.
     public readonly bool Carves;
 
-    public VoxelStamp(Vector3I baseCell, int height, VoxelType type, bool carves)
+    public VoxelStamp(Vector3I baseCell, int height, int type, bool carves)
     {
         BaseCell = baseCell;
         Height = height;
@@ -23,7 +23,7 @@ public readonly struct VoxelStamp
         Carves = carves;
     }
 
-    public static readonly VoxelStamp None = new VoxelStamp(Vector3I.Zero, 0, VoxelType.Air, false);
+    public static readonly VoxelStamp None = new VoxelStamp(Vector3I.Zero, 0, Blocks.AirId, false);
 
     public bool Any => Height > 0;
 }
@@ -101,12 +101,12 @@ public static class EntityVoxelStamper
         for (int i = 0; i < stamp.Height; i++)
         {
             var cell = new Vector3I(stamp.BaseCell.X, stamp.BaseCell.Y + i, stamp.BaseCell.Z);
-            VoxelType existing = world.GetVoxelWorld(cell.X, cell.Y, cell.Z);
+            int existing = world.GetBlockWorld(cell.X, cell.Y, cell.Z);
             if (existing == stamp.Type || !CanOverwrite(existing, stamp.Carves))
             {
                 continue;
             }
-            world.SetVoxelWorld(cell.X, cell.Y, cell.Z, stamp.Type);
+            world.SetBlockWorld(cell.X, cell.Y, cell.Z, stamp.Type);
             changed?.Add(cell);
         }
         return true;
@@ -117,12 +117,12 @@ public static class EntityVoxelStamper
     // back to Barrier. Solid geometry only gives way to a carving stamp, and
     // water never does: an aperture punched through a water volume would drain a
     // hole in it rather than make a window.
-    private static bool CanOverwrite(VoxelType existing, bool carves)
+    private static bool CanOverwrite(int existing, bool carves)
     {
-        if (existing == VoxelType.Air || existing == VoxelType.Barrier || existing == VoxelType.Opening)
+        if (existing == Blocks.AirId || existing == Blocks.BarrierId || existing == Blocks.OpeningId)
         {
             return true;
         }
-        return carves && existing != VoxelType.Water;
+        return carves && existing != Blocks.WaterId;
     }
 }

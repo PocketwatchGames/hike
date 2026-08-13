@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_fcrvo"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="6_profile"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="6_state"]
-[ext_resource type="PackedScene" uid="uid://c4mn7ch0one8x" path="res://scenes/fx/summon_channel.tscn" id="7_channel"]
+[ext_resource type="PackedScene" uid="uid://c4mn7chzone8x" path="res://scenes/fx/summon_channel.tscn" id="7_channel"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="8_4hxt3"]
 [ext_resource type="PackedScene" uid="uid://mt0fme7pe5yp" path="res://scenes/items/scroll_held.tscn" id="9_held"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="9_xlfev"]

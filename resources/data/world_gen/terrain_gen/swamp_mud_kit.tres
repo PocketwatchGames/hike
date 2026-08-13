@@ -2,11 +2,11 @@
 
 [ext_resource type="Resource" uid="uid://ckhiesfv77y2b" path="res://resources/data/details/detail_grass_swamp.tres" id="1_sk7ie"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="3_76umd"]
-[ext_resource type="Resource" uid="uid://pyv6u3yyr1dc" path="res://resources/data/terrain/marsh.tres" id="7_ctox4"]
 [ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="10_fwg3n"]
 [ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="11_rqfc1"]
 [ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="13_q55et"]
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="14_4vdwx"]
+[ext_resource type="Resource" path="res://resources/data/blocks/block_marsh_ground.tres" id="blk_marsh_ground"]
 
 [sub_resource type="Resource" id="ws_11_tpi02"]
 script = ExtResource("3_76umd")
@@ -27,7 +27,7 @@ metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]
 script = ExtResource("14_4vdwx")
-terrain = ExtResource("7_ctox4")
+block = ExtResource("blk_marsh_ground")
 defaultDetail = ExtResource("1_sk7ie")
 forestDensity = 0.25
 treeScenes = [SubResource("ws_11_tpi02"), SubResource("ws_12_vum8l"), SubResource("ws_11_eh5vr")]

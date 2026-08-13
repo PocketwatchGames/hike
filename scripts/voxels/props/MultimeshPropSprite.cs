@@ -326,7 +326,7 @@ public partial class MultimeshPropSprite : Sprite3D
         int minY = waterTopY - WaterReflectionSearchDepth;
         for (int y = waterTopY - 1; y >= minY; y--)
         {
-            if (ws.GetVoxelWorld(wx, y, wz) != VoxelType.Water)
+            if (ws.GetBlockWorld(wx, y, wz) != Blocks.WaterId)
             {
                 return y + 1;
             }
@@ -341,12 +341,12 @@ public partial class MultimeshPropSprite : Sprite3D
     // no water within WaterReflectionSearchDepth either way.
     private float? FindWaterInColumn(WorldState ws, int wx, int startY, int wz)
     {
-        if (ws.GetVoxelWorld(wx, startY, wz) == VoxelType.Water)
+        if (ws.GetBlockWorld(wx, startY, wz) == Blocks.WaterId)
         {
             int maxY = startY + WaterReflectionSearchDepth;
             for (int y = startY + 1; y <= maxY; y++)
             {
-                if (ws.GetVoxelWorld(wx, y, wz) != VoxelType.Water)
+                if (ws.GetBlockWorld(wx, y, wz) != Blocks.WaterId)
                 {
                     return y;
                 }
@@ -357,7 +357,7 @@ public partial class MultimeshPropSprite : Sprite3D
         int minY = startY - WaterReflectionSearchDepth;
         for (int y = startY - 1; y >= minY; y--)
         {
-            if (ws.GetVoxelWorld(wx, y, wz) == VoxelType.Water)
+            if (ws.GetBlockWorld(wx, y, wz) == Blocks.WaterId)
             {
                 return y + 1;
             }

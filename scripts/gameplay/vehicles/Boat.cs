@@ -114,10 +114,10 @@ public partial class Boat : RideableVehicle
 
         for (int y = startY + WaterSearchVertical; y >= startY - WaterSearchVertical; y--)
         {
-            if (ws.GetVoxelWorld(fx, y, fz) == VoxelType.Water)
+            if (ws.GetBlockWorld(fx, y, fz) == Blocks.WaterId)
             {
                 int s = y;
-                while (ws.GetVoxelWorld(fx, s + 1, fz) == VoxelType.Water)
+                while (ws.GetBlockWorld(fx, s + 1, fz) == Blocks.WaterId)
                 {
                     s++;
                 }
@@ -171,9 +171,9 @@ public partial class Boat : RideableVehicle
         pos = Vector3.Zero;
         for (int y = yNear + 2; y >= yNear - 2; y--)
         {
-            VoxelType v = ws.GetVoxelWorld(x, y, z);
-            VoxelType above = ws.GetVoxelWorld(x, y + 1, z);
-            if (VoxelTypeInfo.IsSolid(v) && above == VoxelType.Air)
+            int v = ws.GetBlockWorld(x, y, z);
+            int above = ws.GetBlockWorld(x, y + 1, z);
+            if (Blocks.IsSolid(v) && above == Blocks.AirId)
             {
                 pos = new Vector3(x + 0.5f, y + 1f, z + 0.5f);
                 return true;

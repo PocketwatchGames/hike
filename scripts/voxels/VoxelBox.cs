@@ -19,6 +19,14 @@ public readonly struct VoxelBox : System.IEquatable<VoxelBox>
 
     public bool IsEmpty => Max.X < Min.X || Max.Y < Min.Y || Max.Z < Min.Z;
 
+    // Inclusive on both bounds, matching Min/Max. An empty box contains nothing.
+    public bool Contains(int x, int y, int z)
+    {
+        return x >= Min.X && x <= Max.X
+            && y >= Min.Y && y <= Max.Y
+            && z >= Min.Z && z <= Max.Z;
+    }
+
     public VoxelBox Expand(int voxels)
     {
         if (IsEmpty)
