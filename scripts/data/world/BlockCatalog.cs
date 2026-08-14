@@ -150,6 +150,21 @@ public partial class BlockCatalog : Resource
             {
                 GD.PushError($"BlockCatalog: '{block.blockName}' renders as Water but has no surfaces.");
             }
+            // An index only VoxelAtlasManifest assigns, so an unassigned one
+            // means the surface never made it into the manifest (or the atlas
+            // was never rebuilt after it was added). ChunkMesh would upload it
+            // into block_faces as-is.
+            foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom })
+            {
+                if (surface == null)
+                {
+                    continue;
+                }
+                if (surface.atlasBaseIndex < 0 || surface.atlasBaseIndex >= MAX_ATLAS_LAYERS)
+                {
+                    GD.PushError($"BlockCatalog: '{block.blockName}' wears surface '{surface.surfaceName}' with AtlasBaseIndex={surface.atlasBaseIndex}; add it to voxel_atlas_manifest.tres and Rebuild Atlas.");
+                }
+            }
         }
 
         if (airBlock == null)

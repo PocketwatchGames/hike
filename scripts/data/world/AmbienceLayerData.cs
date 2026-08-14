@@ -12,6 +12,8 @@ using Godot;
 // Wind layers are an exception: NO time-of-day curve, entirely sim-
 // driven. Set timeOfDayVolume to a flat 1.0 curve in that case (or
 // leave null, which is treated the same).
+// [Tool] to match ZoneAmbienceData, which holds these.
+[Tool]
 [GlobalClass]
 public partial class AmbienceLayerData : Resource
 {

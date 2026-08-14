@@ -8,6 +8,8 @@ using Godot;
 // Layer arrays are sets, not slots — a zone can have any number of
 // each kind, and overlapping layers add. A null entry in any array is
 // safely ignored.
+// [Tool] to match ZoneData, which holds one of these.
+[Tool]
 [GlobalClass]
 public partial class ZoneAmbienceData : Resource
 {

@@ -5,6 +5,9 @@ using Godot;
 // reference one as the language their text is written in. The shared resource
 // instance is the key used in Player.LearnedLanguages, so two mobs that share
 // a LanguageData are mutually intelligible to a player who has learned it.
+// [Tool] because ItemEvent is [Tool] and holds one of these — see the
+// [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class LanguageData : Resource
 {

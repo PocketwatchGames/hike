@@ -19,7 +19,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 106;
+    public const int WORLDGEN_VERSION = 107;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -626,7 +626,7 @@ public static class WorldGen
         // so plateau vs. ramp behavior at the surface is preserved.
         MarkCaveSurfaceShapes(ws, genData);
 
-        // Per-voxel neighborhood slope pass: stamp OverlayId=dirt on 1-voxel
+        // Per-voxel neighborhood slope pass: stamp Dirt on 1-voxel
         // bumps, walkable ramps, and small plateau steps. The shader's
         // per-fragment slope on a box-smoothed normal cannot see features the
         // smoothing averages away; this authored signal puts them back.
@@ -635,13 +635,15 @@ public static class WorldGen
         // overlays end up in the wrong places. Revisit once we have a clearer
         // read on which features need the dirt treatment (probably driven by
         // authored tags from the editor rather than derived from geometry).
-        // StampEdgeOverlays(ws);
+        // StampEdgeDirt(ws);
 
-        // Scatter procedural overlays (dirt patches, field/clover patches) on
-        // Surface-kit voxels. Noise-driven placement is a rough
-        // starting point so the authored overlay art shows up in generated
+        // Scatter dirt patches on Surface-kit voxels. Noise-driven placement is
+        // a rough starting point so the authored dirt art shows up in generated
         // worlds; replace with authored tags once the custom editor lands.
-        StampProceduralOverlays(ws, genData);
+        // Runs BEFORE the road pass, which walks columns by Blocks.IsNaturalGround
+        // — so Dirt has to be flagged naturalGround or roads mis-grade across a
+        // patch.
+        StampDirtPatches(ws, genData);
 
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
         // the worldgen_skip CVar (bitmask — see SKIP_* flags). Each category is
@@ -4579,6 +4581,13 @@ public static class WorldGen
     // can be used as an overlay — add new OVERLAY_* fields by name rather
     // than reusing numbers so .hike files written with old values keep
     // mapping to the right block when new blocks are added ahead of them.
+    //
+    // An overlay is an ADDITIVE SKIN over whatever block is underneath: the road
+    // tread below, creeping moss later. It names a LAYER, not a block, so it
+    // carries no material properties (footstep, speed, dig yield), and there is
+    // only ONE slot per voxel. A material that wants to BE the ground is a block
+    // — which is why dirt patches write Dirt through StampDirtPatches rather
+    // than taking the slot moss will need.
     private const byte OVERLAY_NONE = 0;
     private static readonly byte OVERLAY_DIRT = ResolveOverlayIndex("Dirt");
 
@@ -4591,6 +4600,19 @@ public static class WorldGen
             return 0;
         }
         return (byte)block.top.atlasBaseIndex;
+    }
+
+    private static readonly byte DIRT_BLOCK = ResolveBlockId("Dirt");
+
+    private static byte ResolveBlockId(StringName blockName)
+    {
+        BlockData block = BlockCatalog.Active.GetByName(blockName);
+        if (block == null)
+        {
+            GD.PushError($"WorldGen: block '{blockName}' is missing from the catalog.");
+            return 0;
+        }
+        return (byte)block.blockId;
     }
 
     // Edge-overlay scan window / diff band (EdgeScanWindow, EdgeMinDiff,
@@ -4611,11 +4633,18 @@ public static class WorldGen
     // directly above. Selection is by kit.Purpose at sample time.
     private const int SUBSURFACE_NOISE_SEED = 9192;
 
-    // Noise-scatter dirt overlays on Surface-kit voxels.
+    // Noise-scatter dirt patches on Surface-kit voxels.
     // Only top-surface voxels (solid with air above) are candidates so buried
     // geometry and cliff faces stay untouched. Kit gate restricts placement
     // to Surface kits — sand (underwater/cave) and cave palette stay clean.
-    private static void StampProceduralOverlays(WorldState ws, WorldGenData genData)
+    //
+    // Writes the Dirt BLOCK, not an overlay: dirt is the ground here, so it
+    // should carry its own footstep type, speed and dig yield, and it must not
+    // occupy the single overlay slot. The voxel's authored SHAPE is preserved —
+    // a ramp voxel re-stamped at the block's default Y would re-harden into a
+    // 1-voxel step. TerrainId (the kit channel) is left alone too, so detail
+    // scatter and the kit tunings still see the terrain they were authored for.
+    private static void StampDirtPatches(WorldState ws, WorldGenData genData)
     {
         var dirtNoise = new FastNoiseLite();
         dirtNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
@@ -4647,7 +4676,7 @@ public static class WorldGen
 
                     if (dirtNoise.GetNoise2D(wx, wz) > genData.overlayDirtThreshold)
                     {
-                        ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_DIRT);
+                        ws.SetBlockWorld(wx, wy, wz, DIRT_BLOCK, ws.GetShapeWorld(wx, wy, wz));
                     }
                 }
             }
@@ -4811,13 +4840,13 @@ public static class WorldGen
         return best >= 0 ? zones[best]?.surfaceKit : null;
     }
 
-    // Stamp OVERLAY_DIRT on "surface voxels" (solid with air directly above)
+    // Stamp Dirt on "surface voxels" (solid with air directly above)
     // whose local neighborhood slope is in [EdgeMinDiff, EdgeMaxDiff-1].
     // Per-voxel, not per-column: correctly handles cave floors, overhangs, and
     // ledges because the ±EdgeScanWindow clip keeps each voxel's comparison
     // local to its own walkable layer. Currently unused (see the disabled call
     // in Generate); reads its tuning from the active WorldGenData.
-    private static void StampEdgeOverlays(WorldState ws)
+    private static void StampEdgeDirt(WorldState ws)
     {
         int edgeScanWindow = _activeGenData?.edgeScanWindow ?? 4;
         int edgeMinDiff = _activeGenData?.edgeMinDiff ?? 1;
@@ -4857,7 +4886,7 @@ public static class WorldGen
 
                     if (maxDiff >= edgeMinDiff && maxDiff < edgeMaxDiff)
                     {
-                        ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_DIRT);
+                        ws.SetBlockWorld(wx, wy, wz, DIRT_BLOCK, ws.GetShapeWorld(wx, wy, wz));
                     }
                 }
             }

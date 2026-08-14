@@ -15,6 +15,8 @@ using Godot;
 //
 // Multiple emitters per zone are independent — each rolls its own
 // instance positions from a per-emitter seed salt.
+// [Tool] to match ZoneAmbienceData, which holds these.
+[Tool]
 [GlobalClass]
 public partial class PositionalEmitterData : Resource
 {

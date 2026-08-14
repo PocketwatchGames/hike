@@ -162,6 +162,15 @@ uniform float wall_blend_sharpness : hint_range(0.0, 1.0) = 0.65;
 uniform float cliff_blend_sharpness : hint_range(0.0, 1.0) = 0.4;
 uniform float ground_blend_sharpness : hint_range(0.0, 1.0) = 0.4;
 
+// How hard a tile's texture relief pushes the boundary around, against the
+// transition width the sharpnesses above set. 0 = ignore the height maps and
+// blend on geometry alone (a straight ramp); higher = the interlocking, eroded
+// edge. Needs a gain because relief is a tile's deviation from its OWN mean and
+// authored maps only deviate by ~0.05-0.07, which against a 0.6-wide ground
+// transition would be an invisible wobble. Raise this OR the sharpnesses to
+// tighten an edge — this keeps the soft ramp and adds bite, they narrow the ramp.
+uniform float height_relief_strength : hint_range(0.0, 8.0) = 3.0;
+
 // Tile CLASS is no longer a per-layer flag. It comes from which face slot a
 // candidate was drawn from — top/bottom = ground, side = cliff — so one texture
 // reads as ground on a floor and as cliff on the wall below it.
@@ -439,9 +448,11 @@ void sample_tile(float layer, vec3 wp, vec3 dwp_dx, vec3 dwp_dy, vec3 blend,
 
 // Height-aware blend weight toward tile B. `t` is the geometric weight [0,1]
 // toward B (e.g. the wall fraction, or overlay coverage); ha/hb are the two
-// height samples [0,1]; `depth` sets the transition width — small = tight
-// interlock (cliffs), large = smooth ramp (ground overlays). Returns the
-// resolved A→B weight, used identically for color and normal so they agree.
+// tiles' RELIEF — height minus that tile's own mean, so a tile authored bright
+// can't win the comparison everywhere (see the class blends); `depth` sets the
+// transition width — small = tight interlock (cliffs), large = smooth ramp
+// (ground overlays). Returns the resolved A→B weight, used identically for
+// color and normal so they agree.
 float height_blend_weight(float t, float ha, float hb, float depth) {
 	float wa = (1.0 - t) + ha;
 	float wb = t + hb;
@@ -535,14 +546,21 @@ void fragment() {
 	float c_ids[3];
 	float c_wts[3];
 	int c_n = 0;
-	float ov_id = 0.0;
-	float ov_w = 0.0;
-	float ov_cov = 0.0;
+	// Overlays get the same deduped treatment as the two classes. Coverage has
+	// to be the overlay corners' SHARE of the triangle, so it needs the total
+	// corner weight as a denominator — using the slope fraction alone made a
+	// single overlay corner paint the whole triangle at full strength, which is
+	// what read as a hard un-feathered dirt/road edge on flat ground.
+	float ov_ids[3];
+	float ov_wts[3];
+	int ov_n = 0;
+	float w_total = 0.0;
 	for (int i = 0; i < 3; i++) {
 		float w = max(weights[i], 0.0);
 		if (w <= 0.001) {
 			continue;
 		}
+		w_total += w;
 		// Two (id, weight) entries from every corner: the horizontal face
 		// (top above the equator, bottom below) and the side, split by slope.
 		// A block repeating one surface across its slots yields two identical
@@ -563,10 +581,15 @@ void fragment() {
 		ent_w[1] = w * (1.0 - wf);
 		ent_cliff[1] = 1.0;
 		cnt = 2;
-		if (overlay_ids[i] > 0.5 && w * wf > ov_w) {
-			ov_id = overlay_ids[i];
-			ov_w = w * wf;
-			ov_cov = wf;
+		if (overlay_ids[i] > 0.5) {
+			float ow = w * wf;
+			if (ow > 0.001) {
+				bool merged = false;
+				for (int k = 0; k < ov_n; k++) {
+					if (ov_ids[k] == overlay_ids[i]) { ov_wts[k] += ow; merged = true; break; }
+				}
+				if (!merged && ov_n < 3) { ov_ids[ov_n] = overlay_ids[i]; ov_wts[ov_n] = ow; ov_n += 1; }
+			}
 		}
 		// Route + dedup-append each entry into its class list.
 		for (int j = 0; j < cnt; j++) {
@@ -591,10 +614,26 @@ void fragment() {
 		}
 	}
 
+	// Winning overlay, and its share of the triangle.
+	float ov_id = 0.0;
+	float ov_cov = 0.0;
+	for (int k = 0; k < ov_n; k++) {
+		if (ov_wts[k] > ov_cov) { ov_cov = ov_wts[k]; ov_id = ov_ids[k]; }
+	}
+	ov_cov = ov_cov / max(w_total, 1e-5);
+
 	// Soft height-blend within each class. Ground and cliff blocks are identical
 	// apart from arrays/depth — inlined twice since the shader language has no
 	// array-parameter functions. Each samples its unique tiles once and weights
-	// them by (normalized geometric weight + height) with a max-cutoff = depth.
+	// them by (normalized geometric weight + RELIEF) with a max-cutoff = depth.
+	//
+	// Relief is height MINUS that tile's own mean (tile_height_mid), never raw
+	// height. Authored maps sit at wildly different mean levels — grass averages
+	// 0.23, forest soil 0.40 — and against a per-tile relief of only ~0.06 a raw
+	// comparison is decided by that constant offset, so the higher-mean tile wins
+	// everywhere and the interlock flattens into a plain ramp. The two happened to
+	// match in the swamp (marsh 0.376 vs mud 0.399), which is the one place the
+	// interlock was visible.
 	vec3 g_col = vec3(0.0);
 	vec3 g_nrm = vec3(0.0, 1.0, 0.0);
 	float g_h = 0.0;
@@ -605,6 +644,7 @@ void fragment() {
 		vec3 cols[3];
 		vec3 nrms[3];
 		float hs[3];
+		float mids[3];
 		float gw[3];
 		for (int k = 0; k < g_n; k++) {
 			vec3 cc;
@@ -614,11 +654,12 @@ void fragment() {
 			cols[k] = cc;
 			nrms[k] = nn;
 			hs[k] = hh;
+			mids[k] = tile_height_mid[clamp(int(g_ids[k]), 0, TILE_CLASS_TABLE_SIZE - 1)];
 			g_tw += g_wts[k];
 		}
 		float gmax = -1.0;
 		for (int k = 0; k < g_n; k++) {
-			gw[k] = g_wts[k] / max(g_tw, 1e-5) + hs[k];
+			gw[k] = g_wts[k] / max(g_tw, 1e-5) + (hs[k] - mids[k]) * height_relief_strength;
 			gmax = max(gmax, gw[k]);
 		}
 		float mm = gmax - ground_depth;
@@ -650,6 +691,7 @@ void fragment() {
 		vec3 cols[3];
 		vec3 nrms[3];
 		float hs[3];
+		float mids[3];
 		float gw[3];
 		for (int k = 0; k < c_n; k++) {
 			vec3 cc;
@@ -659,11 +701,12 @@ void fragment() {
 			cols[k] = cc;
 			nrms[k] = nn;
 			hs[k] = hh;
+			mids[k] = tile_height_mid[clamp(int(c_ids[k]), 0, TILE_CLASS_TABLE_SIZE - 1)];
 			c_tw += c_wts[k];
 		}
 		float gmax = -1.0;
 		for (int k = 0; k < c_n; k++) {
-			gw[k] = c_wts[k] / max(c_tw, 1e-5) + hs[k];
+			gw[k] = c_wts[k] / max(c_tw, 1e-5) + (hs[k] - mids[k]) * height_relief_strength;
 			gmax = max(gmax, gw[k]);
 		}
 		float mm = gmax - cliff_depth;
@@ -686,12 +729,13 @@ void fragment() {
 	}
 
 	// Overlay (dirt/mud/field) feathers onto the ground result with the SMOOTH
-	// depth where authored — coverage follows its flat-ground fraction.
+	// depth where authored — coverage is its corners' share of the triangle.
 	if (ov_id > 0.5 && g_n > 0) {
 		vec3 oc, on;
 		float oh;
 		sample_tile(ov_id, wp, dwp_dx, dwp_dy, blend, oc, on, oh);
-		float ob = height_blend_weight(ov_cov, g_h, oh, ground_depth);
+		float o_mid = tile_height_mid[clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1)];
+		float ob = height_blend_weight(ov_cov, (g_h - g_hmid) * height_relief_strength, (oh - o_mid) * height_relief_strength, ground_depth);
 		g_col = mix(g_col, oc, ob);
 		g_nrm = normalize(mix(g_nrm, on, ob));
 		g_h = mix(g_h, oh, ob);
@@ -721,7 +765,7 @@ void fragment() {
 		surface_h_mid = c_hmid;
 	} else {
 		float t = c_tw / max(c_tw + g_tw, 1e-5);
-		float wb = height_blend_weight(t, g_h, c_h, wall_depth);
+		float wb = height_blend_weight(t, (g_h - g_hmid) * height_relief_strength, (c_h - c_hmid) * height_relief_strength, wall_depth);
 		tex_color = vec4(mix(g_col, c_col, wb), 1.0);
 		tile_normal = normalize(mix(g_nrm, c_nrm, wb));
 		surface_h = mix(g_h, c_h, wb);

@@ -5,6 +5,10 @@ using Godot;
 // colors, but the *weather* (cloud cover, wind, rain, etc.) blowing
 // across them stays the same. See WeatherDerivation for the full map
 // of (zone × weather × time-of-day) → visual output.
+// [Tool] because SkyController is [Tool] and holds one of these as previewZone
+// — see the [Tool]-parent rule in the root CLAUDE.md. Everything ZoneData
+// references is [Tool] for the same reason.
+[Tool]
 [GlobalClass]
 public partial class ZoneData : Resource
 {

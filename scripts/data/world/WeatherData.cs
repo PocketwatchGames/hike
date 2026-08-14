@@ -15,6 +15,8 @@ using Godot;
 // ZoneData, not here, so a single weather forecast plays out across
 // differently-themed zones by recoloring only the palette while the
 // weather variables stay the same.
+// [Tool] to match ZoneData, which holds one of these.
+[Tool]
 [GlobalClass]
 public partial class WeatherData : Resource
 {
