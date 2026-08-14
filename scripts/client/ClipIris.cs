@@ -16,12 +16,14 @@ using Godot;
 // rule taken to its limit — sky is the highest answer there is — and it is what
 // makes standing under a hole in a cave roof read as being outdoors.
 //
-// IRIS PLANE — a fixed elevation above the player's eyes, revealed inside a
-// player-centred region. Deliberately NOT geometry-derived: it is the same plane
-// the manual reveal uses, so it cannot flicker at all, and the region is free to
-// grow and shrink without dragging a height around with it. That region is driven
-// by a wide, breathing ring of occlusion samples — a separate question from the
-// ceiling, and so a separate set of samples.
+// IRIS PLANE — a fixed height above the feet of a player standing on their own
+// floor, revealed inside a player-centred region. Deliberately NOT geometry-derived:
+// it is the same plane the manual reveal uses, so it cannot flicker at all, and the
+// region is free to grow and shrink without dragging a height around with it. It
+// tracks the floor the player is STANDING on rather than wherever their body
+// currently is, so a jump does not lift it, and it eases toward a new storey rather
+// than cutting to it. That region is driven by a wide, breathing ring of occlusion
+// samples — a separate question from the ceiling, and so a separate set of samples.
 //
 // Three kinds of column are excluded from the height entirely, and each was a bug
 // before it was a rule: DOORWAYS AND WINDOWS (authored as Blocks.OpeningId,
@@ -89,6 +91,10 @@ public class ClipIris
     }
 
     private const float NO_CEILING = float.PositiveInfinity;
+    // Metres the disk's plane sits below where the base plane lands on flat lattice
+    // ground. The disk exists to reveal the space the player is IN, so it wants to
+    // cut just over their head rather than a full plateau step up.
+    private const float IRIS_UNDERCUT = 1f;
     // Voxels the player's own floor resolve will climb looking for air. Their Y is
     // fractional on slopes and the capsule settles into what it stands on, so the
     // feet voxel is often the solid underfoot.
@@ -152,6 +158,10 @@ public class ClipIris
     public float OcclusionLift = 2f;
     public float OcclusionLiftHigh = 4.5f;
     public float ShortCover = 4.25f;
+    // How far below the surface overhead a clip plane parks. ONE number for all three
+    // planes — the voted ceiling, the disk, and the camera's manual reveal (via
+    // GameCamera.ClipClearance) — so tuning it cannot leave them cutting at different
+    // heights over the same floor.
     public float Clearance = 0.5f;
     // Metres from the player within which a window or door does NOT stop the ring.
     // Wants to be about "standing in it or right up against it" — see
@@ -166,6 +176,10 @@ public class ClipIris
     public float IrisPadding = 2f;
     public float IrisGrowSeconds = 0.35f;
     public float IrisShrinkSeconds = 0.5f;
+    // Time constant the disk's PLANE eases toward the player's floor over. The
+    // target is quantised to the plateau lattice, so a change of storey arrives as
+    // a whole step and cutting straight to it reads as a pop.
+    public float IrisHeightSeconds = 0.25f;
     // Temporal hysteresis on the OPEN gate: once the disk opens it stays open at
     // least this long after the player stops being hidden / leaves the opening.
     // PlayerHiddenAmount is a quantised ladder that ticks across zero as the player
@@ -181,7 +195,8 @@ public class ClipIris
     // --- Output ---
     // The voted ceiling of the space the player is in, or infinity for open sky.
     public float BaseClipY { get; private set; } = NO_CEILING;
-    // Fixed plane the disk reveals: the plateau boundary above the player's eyes.
+    // Plane the disk reveals: a plateau step above PlayerGroundY less Clearance and
+    // IRIS_UNDERCUT, eased in over IrisHeightSeconds.
     public float IrisClipY { get; private set; } = NO_CEILING;
     // Disk radius in screen-plane metres, centred on the player.
     public float IrisRadius { get; private set; }
@@ -195,6 +210,13 @@ public class ClipIris
     // Voxel index of the lowest air at or above the player's feet — the level
     // every sample is taken from.
     public int PlayerFloorY { get; private set; }
+    // Elevation of the player's FEET on the floor they are standing on: their own Y
+    // latched while they are supported, held while they are not. Continuous, not a
+    // voxel index — a grade block or a stair puts the feet off the voxel grid, and
+    // the plane is a fixed height above them wherever they are. Only the iris plane
+    // reads it; the probes want the voxel level the body is at, which is
+    // PlayerFloorY.
+    public float PlayerGroundY { get; private set; }
     // HOW hidden the player is, 0 (eye in plain view) to 1 (still hidden a ladder's
     // height above it). A ladder rather than a flag because being half behind a wall
     // is a real state and snapping the reach between two sizes made it read as a
@@ -245,10 +267,16 @@ public class ClipIris
     private float _openHoldRemaining;
     private Vector3 _irisCenter;
     private float _playerY;
+    // Has PlayerGroundY ever been latched? Spawning in mid-air would otherwise hold
+    // a floor of zero until the player first touched down.
+    private bool _groundResolved;
 
     public System.ReadOnlySpan<Probe> Probes => new(_probes, 0, _probeCount);
 
-    public void Tick(Sim sim, Vector3 playerPosition, GameCamera camera, float deltaSeconds)
+    // playerSupported: is the player standing on (or floating in) something, rather
+    // than airborne? Only the iris plane's floor uses it — see PlayerGroundY.
+    public void Tick(Sim sim, Vector3 playerPosition, bool playerSupported, GameCamera camera,
+        float deltaSeconds)
     {
         _probeCount = 0;
         BaseClipY = NO_CEILING;
@@ -273,10 +301,29 @@ public class ClipIris
 
         GatherRoofs(sim, playerPosition);
         PlayerFloorY = ResolvePlayerFloor(world, playerPosition);
-        // The plateau boundary above the player's eyes. A pure function of their
-        // elevation, so it holds perfectly still until they change floor.
-        float step = Mathf.Max(GameCamera.PLATEAU_STEP, 1e-3f);
-        IrisClipY = Mathf.Ceil((PlayerFloorY + GameCamera.EYE_HEIGHT) / step) * step - Clearance;
+        // The plane follows the feet of a player STANDING on their floor, so it is
+        // only latched while they are actually on one — the raw body Y rises with a
+        // hop and drops through a fall, and the plane went with it. Airborne, the
+        // last supported elevation is held: it is the ground they left and the one
+        // they will land on.
+        if (playerSupported || !_groundResolved)
+        {
+            PlayerGroundY = playerPosition.Y;
+            _groundResolved = true;
+        }
+        // A flat height above those feet, built from the SAME offsets the base plane
+        // uses so the two stay aligned when Clearance is tuned: a plateau step above
+        // the floor less the clearance is exactly where the base lands on flat
+        // lattice ground, and the disk undercuts that by IRIS_UNDERCUT. Not snapped
+        // to the lattice itself — interiors founded on terrain sit off-grid, so the
+        // snap left the plane anywhere from 1.5 m to 5.5 m over the player's head
+        // depending on where their floor happened to fall between two bands.
+        float irisTarget = PlayerGroundY - IRIS_UNDERCUT + GameCamera.PLATEAU_STEP - Clearance;
+        // First tick starts at NO_CEILING, and there is no easing from infinity.
+        IrisClipY = float.IsInfinity(IrisClipY)
+            ? irisTarget
+            : Mathf.Lerp(IrisClipY, irisTarget,
+                1f - Mathf.Exp(-deltaSeconds / Mathf.Max(IrisHeightSeconds, 1e-3f)));
 
         AtOpening = ResolveAtOpening(world, playerPosition);
 
@@ -1088,7 +1135,8 @@ public class ClipIris
     public string Describe()
     {
         string baseText = float.IsPositiveInfinity(BaseClipY) ? "none" : BaseClipY.ToString("0.0");
-        return $"y={_playerY:0.0} floorY={PlayerFloorY} baseClip={baseText} iris={IrisClipY:0.0} "
+        return $"y={_playerY:0.0} floorY={PlayerFloorY} groundY={PlayerGroundY:0.0} "
+            + $"baseClip={baseText} iris={IrisClipY:0.0} "
             + $"radius={IrisRadius:0.0} range={ProbeRange:0.0} "
             + $"hidden={PlayerHiddenAmount:0.00} occluded={OccludedCount}/{_probeCount} "
             + $"hidden={HiddenCount} voting={VotingCount} atOpening={AtOpening}";

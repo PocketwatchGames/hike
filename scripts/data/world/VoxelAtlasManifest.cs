@@ -13,9 +13,11 @@ using Godot;
 // tools/stitch_voxel_atlas.py parses THIS .tres, so the Python/CI path and the
 // editor button share one layer list.
 //
-// When adding a layer: append an AtlasLayer with the next AtlasBaseIndex, then
-// bump slices/vertical in BOTH voxel_tiles.png.import and
-// voxel_tiles_nrm_height.png.import to match the new layer count.
+// When adding a layer: append an AtlasLayer with the next AtlasBaseIndex and
+// rebuild. RebuildAtlas rewrites slices/vertical in both .import files to match
+// the layer count — it used to be a manual step, and missing it silently
+// mis-slices EVERY tile (a 16-layer strip read as 12 gives 341px slabs), which
+// looks like corrupted art rather than a stale number.
 [Tool]
 [GlobalClass]
 public partial class VoxelAtlasManifest : Resource
@@ -85,11 +87,42 @@ public partial class VoxelAtlasManifest : Resource
             return;
         }
 
+        SyncImportSliceCount(ColorOutPath, n);
+        SyncImportSliceCount(NormalHeightOutPath, n);
+
         GD.Print($"VoxelAtlasManifest: wrote {n} layers to {ColorOutPath} + {NormalHeightOutPath}.");
         if (Engine.IsEditorHint())
         {
             EditorInterface.Singleton.GetResourceFilesystem().Scan();
         }
+    }
+
+    // Point the texture's .import at the layer count we just baked. The importer
+    // slices the strip by this number, so a stale value corrupts every tile.
+    private static void SyncImportSliceCount(string texturePath, int layerCount)
+    {
+        string importPath = ProjectSettings.GlobalizePath(texturePath + ".import");
+        if (!System.IO.File.Exists(importPath))
+        {
+            GD.PushWarning($"VoxelAtlasManifest: no .import beside {texturePath}; slices/vertical not updated.");
+            return;
+        }
+        string[] lines = System.IO.File.ReadAllLines(importPath);
+        bool found = false;
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].StartsWith("slices/vertical="))
+            {
+                lines[i] = $"slices/vertical={layerCount}";
+                found = true;
+            }
+        }
+        if (!found)
+        {
+            GD.PushWarning($"VoxelAtlasManifest: {texturePath}.import has no slices/vertical line.");
+            return;
+        }
+        System.IO.File.WriteAllLines(importPath, lines);
     }
 
     // True if the baked color atlas is missing or older than any source map.

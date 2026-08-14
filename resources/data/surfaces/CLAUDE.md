@@ -1,8 +1,10 @@
 # Voxel Terrain Atlas
 
-Covers block texture authoring across `scripts/data/BlockSurfaceData.cs`, `resources/data/surfaces/` (the manifest + block `.tres`), `tools/stitch_voxel_atlas.py`, and `addons/voxel_atlas_stitcher/`.
+Covers surface-texture authoring across `scripts/data/world/BlockSurfaceData.cs`, `resources/data/surfaces/` (the manifest + surface `.tres`), `tools/stitch_voxel_atlas.py`, and `addons/voxel_atlas_stitcher/`.
 
-Each `BlockSurfaceData` carries an `AtlasBaseIndex` — a layer index into the two baked `Texture2DArray` strips `assets/textures/terrain/voxel_tiles.png` (color) and `voxel_tiles_nrm_height.png` (RGB normal + A height), which `ChunkMesh` loads and indexes by that id. Blocks do NOT reference source textures directly.
+A **surface** is one baked atlas layer. A **block** (`resources/data/blocks/`) wears up to three of them — top, side, bottom — and owns every per-voxel property. Only `porosity` stays on the surface, because the shader uploads it as `tile_porosity[]` indexed by atlas layer and blends it per fragment. See the root `CLAUDE.md` for the block model.
+
+Each `BlockSurfaceData` carries an `atlasBaseIndex` — a layer index into the two baked `Texture2DArray` strips `assets/textures/terrain/voxel_tiles.png` (color) and `voxel_tiles_nrm_height.png` (RGB normal + A height), which `ChunkMesh` loads and indexes by that id. Surfaces do NOT reference source textures directly.
 
 The layer→source-texture mapping is owned by a single editor-visible resource: **`resources/data/surfaces/voxel_atlas_manifest.tres`** (`VoxelAtlasManifest`). Open it in the inspector to see every layer (`AtlasLayer`: a `BlockSurfaceData` paired with its color/normal/height `Texture2D` refs, with thumbnails) and press **"Rebuild Atlas"** to re-stitch both strips from the source art under `assets/textures/terrain/`. This manifest is authoring-only — it is never loaded by the running game.
 

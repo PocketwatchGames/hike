@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://2fxll1oeroha"]
 
+[ext_resource type="Resource" uid="uid://bveu2uy5pjcn5" path="res://resources/data/blocks/block_forest_soil.tres" id="1_dp3f2"]
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/details/detail_grass.tres" id="3_detail"]
 [ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/interactives/foliage/tall_grass_01.tscn" id="4_g01"]
@@ -16,7 +17,6 @@
 [ext_resource type="PackedScene" uid="uid://b3eik2wv087fj" path="res://scenes/props/tree_sequoia_dead.tscn" id="17_qpata"]
 [ext_resource type="PackedScene" uid="uid://7bdgoyo1ve4m" path="res://scenes/props/tree_birch.tscn" id="20_3r3jf"]
 [ext_resource type="PackedScene" uid="uid://bdgsvwohjn47w" path="res://scenes/props/tree_birch_dead.tscn" id="20_elbrs"]
-[ext_resource type="Resource" path="res://resources/data/blocks/block_grass.tres" id="blk_grass"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("6_weighted")
@@ -90,7 +90,7 @@ metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]
 script = ExtResource("1_script")
-block = ExtResource("blk_grass")
+block = ExtResource("1_dp3f2")
 defaultDetail = ExtResource("3_detail")
 detailNoiseThreshold = -0.5
 forestDensity = 0.1

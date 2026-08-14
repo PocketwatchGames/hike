@@ -120,7 +120,7 @@ The runtime node/scene skeleton (`Main` → `GameClient` → `World` → `ChunkM
 
 ### World (`scripts/World.cs`) and Voxel System (`scripts/voxels/`)
 
-`World` (Node3D) is the central hub that all world simulation entities (Player, Mob, Loot, Door, Torch, Chest) reference. It owns entity dictionaries for loaded props, mobs, and interactives, manages entity spawning/cleanup, world boundary walls, and delegates voxel operations to `ChunkManager`. `ChunkManager` (Node3D, child of World) handles streaming chunk mesh loading/unloading with frustum culling, the mesh rebuild queue, and the `LightMap`. It notifies World via `OnChunkLoaded`/`OnChunkUnloaded` callbacks so World can spawn or clean up entities for each chunk. `ChunkState` stores a 16x16x16 voxel array per chunk. `ChunkMesh` generates a culled mesh via `SurfaceTool` with per-vertex colors and trimesh collision. `VoxelType` enum defines voxel types (Air, Stone, Grass, Dirt, Sand). Player spawning is deferred until the spawn chunk's collision is ready.
+`World` (Node3D) is the central hub that all world simulation entities (Player, Mob, Loot, Door, Torch, Chest) reference. It owns entity dictionaries for loaded props, mobs, and interactives, manages entity spawning/cleanup, world boundary walls, and delegates voxel operations to `ChunkManager`. `ChunkManager` (Node3D, child of World) handles streaming chunk mesh loading/unloading with frustum culling, the mesh rebuild queue, and the `LightMap`. It notifies World via `OnChunkLoaded`/`OnChunkUnloaded` callbacks so World can spawn or clean up entities for each chunk. `ChunkState` stores a 16x16x16 array of **block ids** per chunk (one byte, a `BlockData.blockId`). `ChunkMesh` generates a culled mesh via `SurfaceTool` with per-vertex colors and trimesh collision. Player spawning is deferred until the spawn chunk's collision is ready.
 
 ## Subsystems
 
@@ -134,9 +134,28 @@ The world loads from a packed `.hike` file (`WorldFile` / `WorldFileChunkSource`
 
 The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`). See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
 
-### Voxel Terrain Atlas (`scripts/data/BlockSurfaceData.cs`, `resources/data/surfaces/`, `tools/stitch_voxel_atlas.py`)
+### Blocks — the voxel material model (`scripts/data/world/`, `resources/data/blocks/`)
 
-Each `BlockSurfaceData` carries an `AtlasBaseIndex` into two baked `Texture2DArray` strips (color + normal/height) that `ChunkMesh` indexes by id; blocks never reference source textures directly. The layer→texture mapping is owned by one authoring-only resource, `resources/data/surfaces/voxel_atlas_manifest.tres` (the single source of truth — edit it, not the Python/GDScript mirrors, to repoint a block). See [resources/data/surfaces/CLAUDE.md](resources/data/surfaces/CLAUDE.md).
+**The per-voxel byte is a `BlockData.blockId`.** There is no `VoxelType` enum — it used to carry physics AND appearance, and both moved:
+
+| Concept | Lives on | Is |
+|---|---|---|
+| `BlockSurfaceData` | `resources/data/surfaces/` | one baked atlas layer + `porosity` (the only genuinely per-TEXTURE property) |
+| `BlockData` | `resources/data/blocks/` | `top`/`side`/`bottom` surfaces, `wallBand`, sim flags, and every per-VOXEL material property |
+| `BlockCatalog` | `resources/data/blocks/block_catalog.tres` | global id→block registry; ids are the wire format |
+| `Blocks` | `scripts/voxels/Blocks.cs` | flattened `bool[]`/`int[]` tables for the hot paths |
+
+Rules:
+- **Hot-path physics reads `Blocks.IsSolid(id)` etc., never `BlockCatalog.GetById(id).solid`** — the tables exist because those loops run per voxel per chunk build.
+- **A block's face is picked per FRAGMENT by slope**, not by the mesher: `block_faces[]` / `block_bands[]` uniforms, smoothstepped on `|normal.y|`. There is no auto/literal split — a block repeating one surface just blends between identical tiles.
+- **Tile class (ground vs cliff) comes from the face slot**, top/bottom = ground, side = cliff. One texture can therefore be ground on a floor and cliff on the wall below it.
+- **`Blocks.IsEmpty(id)` is not `id == AirId`** — an Opening is empty in every sense except the ceiling cutaway's.
+- **Appearance is never resolved at draw time.** Re-texturing a stamped scene rewrites block ids at stamp time, which is why a block can own physics and appearance together without a wall going soft in another biome.
+- **`block_check`** (`--headless -- "block_check 1"`, ~3s) validates the catalog and dumps the resolved table — the data twin of `shader_check`.
+
+Worldgen still keeps a parallel **kit** channel (`TerrainId`): `KitBlocks.ForKit(id)` maps a slot to its block, and the channel survives generation only because `EKitPurpose` and the per-kit scatter tunings need it. Appearance is not among its jobs.
+
+See [resources/data/surfaces/CLAUDE.md](resources/data/surfaces/CLAUDE.md) for the atlas-baking half.
 
 ### Save/Load System (`scripts/SaveGame.cs`)
 

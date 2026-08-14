@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://1ioflbw7upfl"]
+
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_x5krw"]
+
+[resource]
+script = ExtResource("1_x5krw")
+surfaceName = &"Mud"
+atlasBaseIndex = 13
+porosity = 0.7

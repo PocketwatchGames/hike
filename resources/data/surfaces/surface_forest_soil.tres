@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://ykuhwegfov6s"]
+
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_2klly"]
+
+[resource]
+script = ExtResource("1_2klly")
+surfaceName = &"ForestSoil"
+atlasBaseIndex = 12
+porosity = 0.7

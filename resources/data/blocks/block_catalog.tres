@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="BlockCatalog" format=3]
+[gd_resource type="Resource" script_class="BlockCatalog" format=3 uid="uid://c0jlp8i6xnkit"]
 
-[ext_resource type="Script" uid="uid://o03zr81wmsx63" path="res://scripts/data/world/BlockCatalog.cs" id="1_cat"]
+[ext_resource type="Script" uid="uid://dfve03a5w7cws" path="res://scripts/data/world/BlockCatalog.cs" id="1_cat"]
 [ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="2_block"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_air.tres" id="3_air"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_barrier.tres" id="4_barrier"]
@@ -15,8 +15,12 @@
 [ext_resource type="Resource" path="res://resources/data/blocks/block_stone.tres" id="13_stone"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_cobblestone.tres" id="14_cobblestone"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_dirt.tres" id="15_dirt"]
+[ext_resource type="Resource" uid="uid://bveu2uy5pjcn5" path="res://resources/data/blocks/block_forest_soil.tres" id="15_ib0p2"]
+[ext_resource type="Resource" uid="uid://ctpxwkdfcfgco" path="res://resources/data/blocks/block_mud.tres" id="16_hga1k"]
+[ext_resource type="Resource" uid="uid://c5dhmh506je36" path="res://resources/data/blocks/block_road.tres" id="17_pbmxp"]
+[ext_resource type="Resource" uid="uid://bfesysba4f43f" path="res://resources/data/blocks/block_rock.tres" id="18_4gbbr"]
 
 [resource]
 script = ExtResource("1_cat")
-blocks = Array[ExtResource("2_block")]([ExtResource("3_air"), ExtResource("4_barrier"), ExtResource("5_opening"), ExtResource("6_water"), ExtResource("7_grass"), ExtResource("8_desert_ground"), ExtResource("9_marsh_ground"), ExtResource("10_cave_limestone"), ExtResource("11_cave_sandstone"), ExtResource("12_sand"), ExtResource("13_stone"), ExtResource("14_cobblestone"), ExtResource("15_dirt")])
+blocks = Array[ExtResource("2_block")]([ExtResource("3_air"), ExtResource("4_barrier"), ExtResource("5_opening"), ExtResource("6_water"), ExtResource("7_grass"), ExtResource("8_desert_ground"), ExtResource("9_marsh_ground"), ExtResource("10_cave_limestone"), ExtResource("11_cave_sandstone"), ExtResource("12_sand"), ExtResource("13_stone"), ExtResource("14_cobblestone"), ExtResource("15_dirt"), ExtResource("15_ib0p2"), ExtResource("16_hga1k"), ExtResource("17_pbmxp"), ExtResource("18_4gbbr")])
 airBlock = ExtResource("3_air")

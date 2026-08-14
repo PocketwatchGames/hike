@@ -17,6 +17,10 @@ public partial class BlockCatalog : Resource
     // per-block uniform arrays. Must match MAX_BLOCKS in voxel_clip.gdshader.
     public const int MAX_BLOCKS = 64;
 
+    // Upper bound on BlockSurfaceData.atlasBaseIndex; sizes the per-layer
+    // lookups and the shader's per-layer uniform arrays.
+    public const int MAX_ATLAS_LAYERS = 64;
+
     private static BlockCatalog _active;
     public static BlockCatalog Active
     {
@@ -45,6 +49,10 @@ public partial class BlockCatalog : Resource
     // which names a LAYER rather than a block, resolve to a block's material
     // properties. First block wins where several share a top surface.
     private BlockData[] _byTopSurfaceLayer;
+    // Atlas layer -> the surface baked there, gathered from every face of every
+    // block. There is no separate surface catalog: a surface no block wears is
+    // unreachable at runtime by definition.
+    private BlockSurfaceData[] _surfaceByLayer;
 
     public BlockData GetById(int blockId)
     {
@@ -64,6 +72,17 @@ public partial class BlockCatalog : Resource
             return null;
         }
         return _byTopSurfaceLayer[atlasLayer];
+    }
+
+    // The surface baked at an atlas layer, or null if no block wears it.
+    public BlockSurfaceData GetSurfaceByLayer(int atlasLayer)
+    {
+        EnsureBuilt();
+        if (atlasLayer < 0 || atlasLayer >= _surfaceByLayer.Length)
+        {
+            return null;
+        }
+        return _surfaceByLayer[atlasLayer];
     }
 
     public BlockData GetByName(StringName name)
@@ -155,7 +174,8 @@ public partial class BlockCatalog : Resource
         }
         _byId = new BlockData[MAX_BLOCKS];
         _byName = new Dictionary<StringName, BlockData>();
-        _byTopSurfaceLayer = new BlockData[BlockSurfaceCatalog.MAX_ATLAS_LAYERS];
+        _byTopSurfaceLayer = new BlockData[MAX_ATLAS_LAYERS];
+        _surfaceByLayer = new BlockSurfaceData[MAX_ATLAS_LAYERS];
         if (blocks != null)
         {
             foreach (BlockData block in blocks)
@@ -176,6 +196,15 @@ public partial class BlockCatalog : Resource
                 if (layer >= 0 && layer < _byTopSurfaceLayer.Length && _byTopSurfaceLayer[layer] == null)
                 {
                     _byTopSurfaceLayer[layer] = block;
+                }
+                foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom })
+                {
+                    if (surface == null) { continue; }
+                    int sl = surface.atlasBaseIndex;
+                    if (sl >= 0 && sl < _surfaceByLayer.Length)
+                    {
+                        _surfaceByLayer[sl] = surface;
+                    }
                 }
             }
         }

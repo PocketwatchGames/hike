@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://cyly3mswgokab"]
+
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_amopx"]
+
+[resource]
+script = ExtResource("1_amopx")
+surfaceName = &"Rock"
+atlasBaseIndex = 15
+porosity = 0.0

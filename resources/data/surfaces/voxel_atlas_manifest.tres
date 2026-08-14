@@ -8,6 +8,18 @@
 [ext_resource type="Texture2D" uid="uid://dypx1q55emfe2" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_normal.png" id="11_okjbu"]
 [ext_resource type="Texture2D" uid="uid://bc1od0np46rpi" path="res://assets/textures/terrain/Stylized_Stone_Floor_002_4K/Stylized_Stone_Floor_002_basecolor.png" id="27_7bd13"]
 [ext_resource type="Script" uid="uid://bqq7rbtrsn0xx" path="res://scripts/data/world/VoxelAtlasManifest.cs" id="29_04t8j"]
+[ext_resource type="Texture2D" uid="uid://drbebvuwy7irf" path="res://assets/textures/terrain/Stylized_Forest_Soil/Forest_soil_diffuse.png" id="29_ik2ek"]
+[ext_resource type="Texture2D" uid="uid://bhdbwutmdsokn" path="res://assets/textures/terrain/Stylized_Forest_Soil/Forest_soil_height.png" id="30_kt3dx"]
+[ext_resource type="Texture2D" uid="uid://btlll2mw471yi" path="res://assets/textures/terrain/Stylized_Forest_Soil/Forest_soil_normal.png" id="31_jjlkl"]
+[ext_resource type="Texture2D" uid="uid://kg77bq35yi33" path="res://assets/textures/terrain/Stylized_Mud/ForestMud_baseColor.png" id="32_e4adb"]
+[ext_resource type="Texture2D" uid="uid://ciycn3btsb3pq" path="res://assets/textures/terrain/Stylized_Mud/ForestMud_height.png" id="33_qgvoj"]
+[ext_resource type="Texture2D" uid="uid://d2qvlb6thht5n" path="res://assets/textures/terrain/Stylized_Mud/ForestMud_Normal.png" id="34_j2gry"]
+[ext_resource type="Texture2D" uid="uid://dgde5gmf0dlf" path="res://assets/textures/terrain/Stylized_Road/ForestRoad_diffuse.png" id="35_h62sw"]
+[ext_resource type="Texture2D" uid="uid://3f2gmv4dscyg" path="res://assets/textures/terrain/Stylized_Road/ForestRoad_Height.png" id="36_kk7ln"]
+[ext_resource type="Texture2D" uid="uid://dudrflrltk436" path="res://assets/textures/terrain/Stylized_Road/ForestRoad_Normal.png" id="37_jvnm8"]
+[ext_resource type="Texture2D" uid="uid://bg043ep85lars" path="res://assets/textures/terrain/Stylized_Rock/ForestRock_basecolor.png" id="38_0tfky"]
+[ext_resource type="Texture2D" uid="uid://d7jyuicv4wsw" path="res://assets/textures/terrain/Stylized_Rock/ForestRock_height.png" id="39_mmk0u"]
+[ext_resource type="Texture2D" uid="uid://dp7usht2hhgr8" path="res://assets/textures/terrain/Stylized_Rock/ForestRock_normal.png" id="40_sxe8n"]
 [ext_resource type="Texture2D" uid="uid://dcqwhfn1c7cp2" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_basecolor.png" id="col_cliff006"]
 [ext_resource type="Texture2D" uid="uid://bl5yg2bpbsd0j" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_basecolor.jpg" id="col_drymud"]
 [ext_resource type="Texture2D" uid="uid://qq6qrvynirjl" path="res://assets/textures/terrain/Sand 001/Sand_001_COLOR.png" id="col_sand001"]
@@ -29,27 +41,46 @@
 [ext_resource type="Texture2D" uid="uid://70vo857fycfl" path="res://assets/textures/terrain/Stylized_Stone_Floor_002_4K/Stylized_Stone_Floor_002_normal.png" id="nrm_stonefloor"]
 [ext_resource type="Texture2D" uid="uid://h05wnobg7klq" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_normal.jpg" id="nrm_wet"]
 [ext_resource type="Script" uid="uid://cxtdv6d8mndtk" path="res://scripts/data/AtlasLayer.cs" id="s_layer"]
+[ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/surfaces/surface_stone.tres" id="surf_0"]
+[ext_resource type="Resource" uid="uid://b4ruwi63vpapo" path="res://resources/data/surfaces/surface_grass_top.tres" id="surf_1"]
+[ext_resource type="Resource" uid="uid://cccq1e0wvo1dr" path="res://resources/data/surfaces/surface_water.tres" id="surf_2"]
+[ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/surfaces/surface_cobblestone.tres" id="surf_3"]
+[ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/surfaces/surface_dirt_overlay.tres" id="surf_4"]
+[ext_resource type="Resource" uid="uid://d0b71mu3xq5cg" path="res://resources/data/surfaces/surface_desert_top.tres" id="surf_6"]
+[ext_resource type="Resource" uid="uid://chx6p8gf7rf1r" path="res://resources/data/surfaces/surface_desert_sand.tres" id="surf_7"]
+[ext_resource type="Resource" uid="uid://dpbb3e3o8bi2w" path="res://resources/data/surfaces/surface_desert_wall.tres" id="surf_8"]
+[ext_resource type="Resource" uid="uid://dqx8riexpk03r" path="res://resources/data/surfaces/surface_desert_cave.tres" id="surf_9"]
+[ext_resource type="Resource" uid="uid://d22rcvc2fr0jy" path="res://resources/data/surfaces/surface_marsh.tres" id="surf_10"]
+[ext_resource type="Resource" uid="uid://cqf7n2cavefl0" path="res://resources/data/surfaces/surface_cave_floor.tres" id="surf_11"]
+[ext_resource type="Resource" uid="uid://ykuhwegfov6s" path="res://resources/data/surfaces/surface_forest_soil.tres" id="surf_12"]
+[ext_resource type="Resource" uid="uid://1ioflbw7upfl" path="res://resources/data/surfaces/surface_mud.tres" id="surf_13"]
+[ext_resource type="Resource" uid="uid://dd70pnlby8te8" path="res://resources/data/surfaces/surface_road.tres" id="surf_14"]
+[ext_resource type="Resource" uid="uid://cyly3mswgokab" path="res://resources/data/surfaces/surface_rock.tres" id="surf_15"]
 
 [sub_resource type="Resource" id="layer_0"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_0")
 color = ExtResource("col_stone")
 normal = ExtResource("nrm_stone")
 height = ExtResource("hgt_stone")
 
 [sub_resource type="Resource" id="layer_1"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_1")
 color = ExtResource("5_04t8j")
 normal = ExtResource("7_2suoy")
 height = ExtResource("6_7bd13")
 
 [sub_resource type="Resource" id="layer_3"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_2")
 color = ExtResource("9_7bd13")
 normal = ExtResource("11_okjbu")
 height = ExtResource("10_2suoy")
 
 [sub_resource type="Resource" id="Resource_04t8j"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_3")
 color = ExtResource("col_wet")
 normal = ExtResource("nrm_wet")
 height = ExtResource("hgt_wet")
@@ -57,6 +88,7 @@ metadata/_custom_type_script = "uid://cxtdv6d8mndtk"
 
 [sub_resource type="Resource" id="layer_4"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_4")
 color = ExtResource("col_drymud")
 normal = ExtResource("nrm_drymud")
 height = ExtResource("hgt_drymud")
@@ -69,40 +101,78 @@ height = ExtResource("hgt_drymud")
 
 [sub_resource type="Resource" id="layer_6"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_6")
 color = ExtResource("col_sand002")
 normal = ExtResource("nrm_sand002")
 height = ExtResource("hgt_sand002")
 
 [sub_resource type="Resource" id="layer_7"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_7")
 color = ExtResource("col_sand001")
 normal = ExtResource("nrm_sand001")
 height = ExtResource("hgt_sand001")
 
 [sub_resource type="Resource" id="layer_8"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_8")
 color = ExtResource("col_cliff006")
 normal = ExtResource("nrm_cliff006")
 height = ExtResource("hgt_cliff006")
 
 [sub_resource type="Resource" id="layer_9"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_9")
 color = ExtResource("col_drymud")
 normal = ExtResource("nrm_drymud")
 height = ExtResource("hgt_drymud")
 
 [sub_resource type="Resource" id="layer_10"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_10")
 color = ExtResource("col_wet")
 normal = ExtResource("nrm_wet")
 height = ExtResource("hgt_wet")
 
 [sub_resource type="Resource" id="layer_11"]
 script = ExtResource("s_layer")
+block = ExtResource("surf_11")
 color = ExtResource("27_7bd13")
 normal = ExtResource("nrm_stonefloor")
 height = ExtResource("hgt_stonefloor")
 
+[sub_resource type="Resource" id="Resource_f3wyc"]
+script = ExtResource("s_layer")
+block = ExtResource("surf_12")
+color = ExtResource("29_ik2ek")
+normal = ExtResource("31_jjlkl")
+height = ExtResource("30_kt3dx")
+metadata/_custom_type_script = "uid://cxtdv6d8mndtk"
+
+[sub_resource type="Resource" id="Resource_auws8"]
+script = ExtResource("s_layer")
+block = ExtResource("surf_13")
+color = ExtResource("32_e4adb")
+normal = ExtResource("34_j2gry")
+height = ExtResource("33_qgvoj")
+metadata/_custom_type_script = "uid://cxtdv6d8mndtk"
+
+[sub_resource type="Resource" id="Resource_njij0"]
+script = ExtResource("s_layer")
+block = ExtResource("surf_14")
+color = ExtResource("35_h62sw")
+normal = ExtResource("37_jvnm8")
+height = ExtResource("36_kk7ln")
+metadata/_custom_type_script = "uid://cxtdv6d8mndtk"
+
+[sub_resource type="Resource" id="Resource_a7rev"]
+script = ExtResource("s_layer")
+block = ExtResource("surf_15")
+color = ExtResource("38_0tfky")
+normal = ExtResource("40_sxe8n")
+height = ExtResource("39_mmk0u")
+metadata/_custom_type_script = "uid://cxtdv6d8mndtk"
+
 [resource]
 script = ExtResource("29_04t8j")
-layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_3"), SubResource("Resource_04t8j"), SubResource("layer_4"), SubResource("layer_5"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11")]
+layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_3"), SubResource("Resource_04t8j"), SubResource("layer_4"), SubResource("layer_5"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11"), SubResource("Resource_f3wyc"), SubResource("Resource_auws8"), SubResource("Resource_njij0"), SubResource("Resource_a7rev")]

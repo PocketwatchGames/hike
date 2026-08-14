@@ -147,9 +147,9 @@ public partial class ChunkMesh : Node3D
         // with no authoring step.
         var porosityTable = new Godot.Collections.Array();
         var heightMidTable = new Godot.Collections.Array();
-        for (int i = 0; i < BlockSurfaceCatalog.MAX_ATLAS_LAYERS; i++)
+        for (int i = 0; i < BlockCatalog.MAX_ATLAS_LAYERS; i++)
         {
-            BlockSurfaceData surface = BlockSurfaceCatalog.Active.GetByAtlasIndex(i);
+            BlockSurfaceData surface = BlockCatalog.Active.GetSurfaceByLayer(i);
             porosityTable.Add(surface != null ? surface.porosity : 0.5f);
             heightMidTable.Add(GetLayerHeightMid(nrmHeight, i));
         }

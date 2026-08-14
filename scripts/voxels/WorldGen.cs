@@ -4580,11 +4580,17 @@ public static class WorldGen
     // than reusing numbers so .hike files written with old values keep
     // mapping to the right block when new blocks are added ahead of them.
     private const byte OVERLAY_NONE = 0;
-    private static readonly byte OVERLAY_DIRT = ResolveOverlayIndex("DirtOverlay");
+    private static readonly byte OVERLAY_DIRT = ResolveOverlayIndex("Dirt");
 
-    private static byte ResolveOverlayIndex(StringName surfaceName)
+    private static byte ResolveOverlayIndex(StringName blockName)
     {
-        return (byte)BlockSurfaceCatalog.Active.GetAtlasIndexByName(surfaceName);
+        BlockData block = BlockCatalog.Active.GetByName(blockName);
+        if (block?.top == null)
+        {
+            GD.PushError($"WorldGen: overlay block '{blockName}' is missing or has no top surface.");
+            return 0;
+        }
+        return (byte)block.top.atlasBaseIndex;
     }
 
     // Edge-overlay scan window / diff band (EdgeScanWindow, EdgeMinDiff,

@@ -10,7 +10,8 @@ The layer list is NOT duplicated here — it is parsed from the manifest .tres s
 the editor button and this CLI/CI path stay in lockstep. To change which source
 texture a block uses, edit the manifest in the Godot inspector (or the .tres),
 not this script. Layer order in the manifest must match the atlasBaseIndex on
-each BlockSurfaceData and the slices/vertical count in both .import files.
+each BlockSurfaceData. The slices/vertical count in both .import files is
+rewritten automatically to match the layer count.
 
 Reads only; never overwrites source art.
 """
@@ -85,6 +86,32 @@ def _load_slot(path, mode):
     return img
 
 
+def sync_import_slice_count(texture_path, layer_count):
+    """Point the texture's .import at the layer count just baked.
+
+    The importer slices the strip by this number, so a stale value silently
+    mis-slices every tile (a 16-layer strip read as 12 gives 341px slabs).
+    Mirrors VoxelAtlasManifest.SyncImportSliceCount on the C# side.
+    """
+    import_path = texture_path + ".import"
+    if not os.path.exists(import_path):
+        print(f"  warning: no .import beside {texture_path}; slices/vertical not updated")
+        return
+    with open(import_path, encoding="utf-8") as fh:
+        lines = fh.readlines()
+    found = False
+    for i, line in enumerate(lines):
+        if line.startswith("slices/vertical="):
+            lines[i] = f"slices/vertical={layer_count}
+"
+            found = True
+    if not found:
+        print(f"  warning: {import_path} has no slices/vertical line")
+        return
+    with open(import_path, "w", encoding="utf-8", newline="") as fh:
+        fh.writelines(lines)
+
+
 def main():
     layers = _parse_manifest(MANIFEST)
     color_strip = Image.new("RGB", (SLOT, SLOT * len(layers)))
@@ -112,6 +139,8 @@ def main():
     nh_out = os.path.join(VOXEL_DIR, "voxel_tiles_nrm_height.png")
     color_strip.save(color_out)
     nh_strip.save(nh_out)
+    sync_import_slice_count(color_out, len(layers))
+    sync_import_slice_count(nh_out, len(layers))
     print(f"Wrote {len(layers)} layers to {color_out}")
     print(f"Wrote {len(layers)} layers to {nh_out}")
 

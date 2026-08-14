@@ -67,7 +67,14 @@ public partial class GameCamera : Camera3D
 	// at the cutaway height.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float capPlaneYBias = 0.05f;
 
-	private const float CLIP_EPSILON = 0.5f;
+	// Tolerance the stability filter treats two clip heights as the same within.
+	// Purely a jitter band — it used to double as the manual reveal's offset below
+	// the plateau, so tuning that silently retuned the filter.
+	private const float CLIP_MATCH_EPSILON = 0.5f;
+	// How far below the surface overhead every clip plane parks. NOT an [Export]:
+	// GameClient owns the one knob (clipClearance) and pushes it here, so the base
+	// plane, the disk and this manual reveal cannot drift apart.
+	public float ClipClearance = 0.5f;
 	// Player eye offset above the foot position. Other systems (minimap
 	// elevation reference, etc.) read this so the height the camera treats
 	// as "looking from" stays consistent across features.
@@ -913,7 +920,7 @@ public partial class GameCamera : Camera3D
 		if (_clipAlways)
 		{
 			float eyeY = playerPos.Y + EYE_HEIGHT;
-			float alwaysClip = Mathf.Ceil(eyeY / PLATEAU_STEP) * PLATEAU_STEP - CLIP_EPSILON;
+			float alwaysClip = Mathf.Ceil(eyeY / PLATEAU_STEP) * PLATEAU_STEP - ClipClearance;
 			targetClip = Mathf.Min(targetClip, alwaysClip);
 		}
 
@@ -922,7 +929,7 @@ public partial class GameCamera : Camera3D
 		// in RequestClip. Targets that match what we last committed
 		// (_clip or _clipPrev) bypass the wait because they're either a
 		// no-op or a reversal, both of which already handle continuity
-		// cleanly. Approximate equality (within CLIP_EPSILON) treats
+		// cleanly. Approximate equality (within CLIP_MATCH_EPSILON) treats
 		// floating-point jitter from the raycast as the "same" target.
 		bool matchesCommitted = NearlyEqualClip(targetClip, _clip) || NearlyEqualClip(targetClip, _clipPrev);
 		if (matchesCommitted)
@@ -951,7 +958,7 @@ public partial class GameCamera : Camera3D
 
 
 	// Approximate equality for clip Y comparisons. Both infinite ⇒ equal;
-	// one infinite ⇒ not equal; finite ⇒ within CLIP_EPSILON. Used by the
+	// one infinite ⇒ not equal; finite ⇒ within CLIP_MATCH_EPSILON. Used by the
 	// stability filter so probe jitter doesn't reset the frame counter.
 	private static bool NearlyEqualClip(float a, float b)
 	{
@@ -961,7 +968,7 @@ public partial class GameCamera : Camera3D
 		{
 			return aInf && bInf;
 		}
-		return Mathf.Abs(a - b) < CLIP_EPSILON;
+		return Mathf.Abs(a - b) < CLIP_MATCH_EPSILON;
 	}
 
 	// Routes a target clip Y through the fade state. Three branches:

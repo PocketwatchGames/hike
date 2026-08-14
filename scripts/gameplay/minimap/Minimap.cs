@@ -1207,7 +1207,7 @@ public partial class Minimap : Node3D
     // magenta as a sanity-check.
     private static Texture2D BuildTileLutTexture(BlockCatalog catalog, Color wallSlotColor)
     {
-        const int W = BlockSurfaceCatalog.MAX_ATLAS_LAYERS;
+        const int W = BlockCatalog.MAX_ATLAS_LAYERS;
         Color[] table = new Color[W];
         Color unauthored = new Color(1f, 0f, 1f);
         for (int i = 0; i < W; i++)

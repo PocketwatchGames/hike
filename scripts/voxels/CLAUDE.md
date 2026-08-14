@@ -2,7 +2,7 @@
 
 Covers `scripts/voxels/io/` (`.hike` file format and disk loading) and the streaming-large-world roadmap.
 
-For high-level voxel architecture (`World`, `ChunkManager`, `ChunkState`, `ChunkMesh`, `VoxelType`), see the root `CLAUDE.md`.
+For high-level voxel architecture (`World`, `ChunkManager`, `ChunkState`, `ChunkMesh`, `BlockData`), see the root `CLAUDE.md`.
 
 ## World File & Disk Loading (`scripts/voxels/io/`)
 

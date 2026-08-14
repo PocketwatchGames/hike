@@ -360,10 +360,15 @@ public partial class GameClient : Node3D
 	// half behind a wall reads as a partial reveal instead of snapping between two
 	// sizes the instant an edge crosses the eye.
 	[Export(PropertyHint.Range, "0.25,3,0.25")] public float clipIrisHiddenRise = 1f;
-	// How far below a ceiling's underside the cut plane parks. Too small and the
-	// one face you can see from beneath survives, so the cutaway reads as having
-	// done nothing.
-	[Export(PropertyHint.Range, "0.1,1,0.05")] public float clipIrisClearance = 0.5f;
+	// How far below the surface overhead a cut plane parks. Too small and the one
+	// face you can see from beneath survives, so the cutaway reads as having done
+	// nothing.
+	//
+	// THE one clearance: it sets the base plane (under the voted ceiling), the disk's
+	// plane, and the camera's manual reveal (under the plateau) alike, so changing it
+	// moves all three together instead of leaving them cutting at different heights
+	// over the same floor.
+	[Export(PropertyHint.Range, "0.1,1,0.05")] public float clipClearance = 0.5f;
 	// Metres from the player within which a window or door does NOT stop the probe
 	// ring. Openings otherwise block it — a hole is not cover to anything else in the
 	// cutaway, so the ring poured through every window in sight and sampled the room
@@ -382,6 +387,10 @@ public partial class GameClient : Node3D
 	[Export(PropertyHint.Range, "0.05,4,0.05")] public float clipIrisEdgeSoftness = 0.5f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisGrowSeconds = 0.35f;
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisShrinkSeconds = 0.5f;
+	// Time constant the disk's PLANE eases toward its height over. That height is
+	// derived from clipClearance rather than authored here — see ClipIris — so the
+	// disk and the base plane cannot be tuned apart.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisHeightSeconds = 0.25f;
 		// Temporal hysteresis on the disk's open gate: it stays open at least this
 		// long after the player stops being hidden or leaves an opening, so the
 		// quantised hidden-ladder ticking across zero at a wall edge cannot make it
@@ -1445,6 +1454,12 @@ public partial class GameClient : Node3D
 	// only part that bypasses them, because its growth IS its transition.
 	private void TickClipIris(double deltaSeconds)
 	{
+		// Pushed before the bail: the camera's manual reveal parks under the plateau
+		// by this same clearance, and it runs in exactly the modes this returns from.
+		if (camera != null)
+		{
+			camera.ClipClearance = clipClearance;
+		}
 		// ManualClipMode means someone else owns the height — the world editor
 		// driving it from its cursor, or the bird's-eye lift holding it open.
 		if (_player == null || camera == null || camera.ManualClipMode)
@@ -1472,7 +1487,7 @@ public partial class GameClient : Node3D
 		_clipIris.OcclusionLiftHigh = clipIrisOcclusionLiftHigh;
 		_clipIris.ShortCover = clipIrisShortCover;
 		_clipIris.PlayerHiddenRise = clipIrisHiddenRise;
-		_clipIris.Clearance = clipIrisClearance;
+		_clipIris.Clearance = clipClearance;
 		_clipIris.OpeningReach = clipIrisOpeningReach;
 		// The same numbers the foliage cutaway uses — one authored shape, two effects.
 		_clipIris.ShapeAspect = new Vector2(foliagePlayerFadeAspectHorizontal, foliagePlayerFadeAspectVertical);
@@ -1480,9 +1495,15 @@ public partial class GameClient : Node3D
 		_clipIris.IrisGrowSeconds = clipIrisGrowSeconds;
 		_clipIris.IrisShrinkSeconds = clipIrisShrinkSeconds;
 		_clipIris.IrisHoldSeconds = clipIrisHoldSeconds;
+		_clipIris.IrisHeightSeconds = clipIrisHeightSeconds;
 
 		Vector3 playerPos = _player.GlobalPosition;
-		_clipIris.Tick(Sim.Current, playerPos, camera, (float)deltaSeconds);
+		// Swimmers and riders count as supported: they are held at a floor (the
+		// waterline, the deck) as much as a grounded player is, and holding the plane
+		// at the last shore they stood on for a whole crossing is not it. Only genuine
+		// free flight — a jump, a fall — holds it.
+		bool supported = _player.IsGrounded || _player.IsInWater || _player.IsMounted;
+		_clipIris.Tick(Sim.Current, playerPos, supported, camera, (float)deltaSeconds);
 		ClipIrisDebug.Draw(_clipIris, playerPos, (ClipIrisDebug.ELevel)CVars.clipIrisDebug.Value);
 
 		camera.SetClip(_clipIris.BaseClipY, playerPos);

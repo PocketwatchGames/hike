@@ -255,15 +255,9 @@ public static class ChunkDetailScatter
         int overlayId)
     {
         const float DEFAULT_POROSITY = 0.5f;
-        BlockSurfaceCatalog catalog = BlockSurfaceCatalog.Active;
-        if (catalog == null)
-        {
-            return DEFAULT_POROSITY;
-        }
-
         if (overlayId != 0)
         {
-            BlockSurfaceData overlay = catalog.GetByAtlasIndex(overlayId);
+            BlockSurfaceData overlay = BlockCatalog.Active.GetSurfaceByLayer(overlayId);
             if (overlay != null)
             {
                 return overlay.porosity;

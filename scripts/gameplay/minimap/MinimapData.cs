@@ -86,7 +86,7 @@ public static class MinimapData
     {
         // World Y of the top face (= Y_topSolid + 1). 0 = no surface.
         public ushort Height;
-        // Resolved tile layer id (0..BlockSurfaceCatalog.MAX_ATLAS_LAYERS-1).
+        // Resolved tile layer id (0..BlockCatalog.MAX_ATLAS_LAYERS-1).
         // Indexed into the BlockSurfaceCatalog-driven tile LUT at render time
         // (see Minimap.BuildTileLutTexture).
         public byte TileId;
