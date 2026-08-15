@@ -1594,10 +1594,35 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	// Same unattended-diagnostic idea for world composition. Its own delay
+	// rather than the census's, because the two answer different questions and
+	// a run usually wants one or the other.
+	private double _worldHistogramElapsed;
+	private bool _worldHistogramDone;
+
+	private void TickWorldHistogramDelay(double deltaTime)
+	{
+		float delay = CVars.worldHistogramDelay.Value;
+		if (_worldHistogramDone || delay <= 0f)
+		{
+			return;
+		}
+		_worldHistogramElapsed += deltaTime;
+		if (_worldHistogramElapsed >= delay)
+		{
+			_worldHistogramDone = true;
+			if (Sim.Current?.WorldState != null)
+			{
+				GD.Print(Sim.Current.WorldState.DescribeBlockHistogram());
+			}
+		}
+	}
+
 	public override void _Process(double deltaTime)
 	{
 		using var _profProcess = Profiler.Sample("GameClient.Process");
 		TickNodeCensusDelay(deltaTime);
+		TickWorldHistogramDelay(deltaTime);
 
 		// Push the foliage player-occlusion fade globals before the pause /
 		// console gates — even while paused the camera or player anchors

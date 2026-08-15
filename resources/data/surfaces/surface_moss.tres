@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://8h4it463afvd"]
+
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_block"]
+
+[resource]
+script = ExtResource("1_block")
+surfaceName = &"Moss"
+atlasBaseIndex = 16
+porosity = 0.85
+overlayOnCliffs = true
+minimapColor = Color(0.24, 0.32, 0.16, 1)

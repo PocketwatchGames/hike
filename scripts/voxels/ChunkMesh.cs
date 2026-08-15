@@ -147,14 +147,17 @@ public partial class ChunkMesh : Node3D
         // with no authoring step.
         var porosityTable = new Godot.Collections.Array();
         var heightMidTable = new Godot.Collections.Array();
+        var overlayCliffTable = new Godot.Collections.Array();
         for (int i = 0; i < BlockCatalog.MAX_ATLAS_LAYERS; i++)
         {
             BlockSurfaceData surface = BlockCatalog.Active.GetSurfaceByLayer(i);
             porosityTable.Add(surface != null ? surface.porosity : 0.5f);
             heightMidTable.Add(GetLayerHeightMid(nrmHeight, i));
+            overlayCliffTable.Add(surface != null && surface.overlayOnCliffs ? 1f : 0f);
         }
         SharedMaterial.SetShaderParameter("tile_porosity", porosityTable);
         SharedMaterial.SetShaderParameter("tile_height_mid", heightMidTable);
+        SharedMaterial.SetShaderParameter("tile_overlay_cliff", overlayCliffTable);
 
         // Per-block face/band tables. Global and static, so unlike the old
         // per-world terrain palette this is uploaded once here rather than

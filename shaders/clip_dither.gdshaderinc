@@ -25,28 +25,9 @@
 //   global uniform float camera_clip_growth_max_radius;
 //   global uniform float camera_clip_growth_edge_softness;
 //
-// The SAME 4x4 Bayer the foliage cutaway stipples with, so the canopy fade and the
-// ceiling reveal grain identically where they meet. It was an 8x8, on the reasoning
-// that a wider repeat tile reads as noise rather than a visible grid — true, but it
-// also spreads the pattern over twice the distance, which at this game's chunky pixel
-// scale reads as loose blotches rather than dither. The hash offset below is what
-// keeps the smaller tile from locking into a visible grid.
-const float CLIP_DITHER_BAYER_4[16] = float[](
-	 0.0/16.0,  8.0/16.0,  2.0/16.0, 10.0/16.0,
-	12.0/16.0,  4.0/16.0, 14.0/16.0,  6.0/16.0,
-	 3.0/16.0, 11.0/16.0,  1.0/16.0,  9.0/16.0,
-	15.0/16.0,  7.0/16.0, 13.0/16.0,  5.0/16.0
-);
-
-// Hash a screen-space pixel coord to a small per-frag offset so the tile
-// doesn't lock to screen alignment — breaks up the residual grid feel
-// without changing the average coverage at any threshold.
-float clip_dither_hash(ivec2 p)
-{
-	int n = p.x * 374761393 + p.y * 668265263;
-	n = (n ^ (n >> 13)) * 1274126177;
-	return float((n ^ (n >> 16)) & 0xFFFF) / 65535.0;
-}
+// The Bayer table and the hash that breaks up its grid live in dither.gdshaderinc:
+// the poche fill uses the same two, and it abuts this stipple on screen.
+#include "res://shaders/dither.gdshaderinc"
 
 // The iris — the second, lower cut plane, applied inside a player-centred region.
 // It opens as the player approaches a low space or somewhere the camera cannot see
@@ -143,8 +124,8 @@ bool clip_dither_test(float clip_visibility, vec2 frag_xy)
 	// residual ordered-pattern feel of pure Bayer. Cheap (one int hash) and
 	// stable per-pixel so the noise isn't temporally noisy. Scaled to the
 	// table's own step, so it stays half a level whatever the tile size.
-	float threshold = CLIP_DITHER_BAYER_4[by * 4 + bx];
-	threshold += (clip_dither_hash(ip) - 0.5) * (1.0 / 16.0);
+	float threshold = DITHER_BAYER_4[by * 4 + bx];
+	threshold += (dither_hash(ip) - 0.5) * (1.0 / 16.0);
 	// Floor at 0 — the Bayer table's lowest cell is exactly 0, and hash
 	// subtraction would otherwise drop the threshold negative there. At
 	// visibility = 0 (end of a fade-out) the test `0 <= negative` is

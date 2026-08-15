@@ -29,7 +29,7 @@ public class ItemState
 	// lives — backpack, hotbar, or an equipped slot. 0 = no scheduled removal
 	// (the default). A time-limited drop (e.g. the fairy corpse) stamps this to a
 	// future day directly, so it vanishes at the next sleep-to-sunrise (there is no
-	// wall-clock sunrise to project toward — the clock stops at midnight). The
+	// wall-clock sunrise to project toward — the clock stops at the day's end). The
 	// player checks it in TickItemExpiry and a dropped instance honors it in Loot.
 	// Distinct from the per-cohort spoil deadlines: this is a whole-item lifespan
 	// for non-material special drops, not perishable-food spoilage.

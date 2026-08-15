@@ -1233,6 +1233,18 @@ public partial class Minimap : Node3D
             }
         }
 
+        // Overlay-only surfaces (moss) are worn by no block, so the loop above
+        // never reaches them and they stay magenta. They carry their own colour.
+        foreach (BlockSurfaceData surface in catalog?.overlaySurfaces ?? System.Array.Empty<BlockSurfaceData>())
+        {
+            if (surface == null) { continue; }
+            int idx = surface.atlasBaseIndex;
+            if (idx >= 0 && idx < W)
+            {
+                table[idx] = surface.minimapColor;
+            }
+        }
+
         if (MinimapData.WallSlotIndex >= 0 && MinimapData.WallSlotIndex < W)
         {
             table[MinimapData.WallSlotIndex] = wallSlotColor;

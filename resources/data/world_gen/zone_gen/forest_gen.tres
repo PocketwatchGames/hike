@@ -3,9 +3,9 @@
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://bhp47lcmdmcdg" path="res://resources/data/zones/forest.tres" id="2_region"]
 [ext_resource type="Resource" uid="uid://bfhjbpklk11v1" path="res://resources/data/world_gen/terrain_gen/forest_kit.tres" id="3_kit_temperate"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="4_kit_cave"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="5_kit_underwater"]
-[ext_resource type="Resource" uid="uid://plfdm4z98g767" path="res://resources/data/world_gen/terrain_gen/shore_stony_kit.tres" id="10_ile67"]
+[ext_resource type="Resource" uid="uid://bg3737i70mdv" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="4_kit_cave"]
+[ext_resource type="Resource" uid="uid://dkql170kxil1" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://dy6quyajjulww" path="res://resources/data/world_gen/terrain_gen/shore_stony_kit.tres" id="10_ile67"]
 [ext_resource type="Resource" uid="uid://crwit7upct6if" path="res://resources/data/world_gen/spawn_lists/surface_entities_forest.tres" id="11_surface"]
 [ext_resource type="Resource" uid="uid://dg0htvagvnyp5" path="res://resources/data/world_gen/spawn_lists/cave_entities_forest.tres" id="12_cave"]
 [ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/fixtures/zone_campfire_fixtures.tres" id="13_fixtures"]
@@ -14,7 +14,8 @@
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
 [ext_resource type="Resource" uid="uid://i5d76l1m67a5" path="res://resources/data/items/consumables/treasure_map_forest.tres" id="96_map"]
-[ext_resource type="Resource" uid="uid://xmew3vh89yk20" path="res://resources/data/spawn/treasure_spot_song_4.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://fxpkjyqvrcjf" path="res://resources/data/spawn/treasure_spot_song_4.tres" id="97_spot"]
+[ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="forest_gen_zoneterrain"]
 [ext_resource type="Resource" uid="uid://csrlgrkkra006" path="res://resources/data/items/scrolls/scroll_grilled_kun_kun.tres" id="sc0"]
 [ext_resource type="Resource" uid="uid://pap3pg64kjlv" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="sc1"]
 [ext_resource type="Resource" uid="uid://bvwbp0bcuwn4i" path="res://resources/data/items/scrolls/scroll_grilled_sparrow.tres" id="sc2"]
@@ -25,7 +26,6 @@
 [ext_resource type="Resource" uid="uid://dh8n7h0pji8hc" path="res://resources/data/items/scrolls/scroll_stew_sparrow_perception.tres" id="sc7"]
 [ext_resource type="Resource" uid="uid://bsnxuawbk5idr" path="res://resources/data/items/scrolls/scroll_stew_sparrow_stamina.tres" id="sc8"]
 [ext_resource type="Resource" uid="uid://dgjdiakyoixma" path="res://resources/data/items/scrolls/scroll_stew_spider_health.tres" id="sc9"]
-[ext_resource type="Script" uid="uid://61iu4uosbxjog" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="forest_gen_zoneterrain"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -90,12 +90,14 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 
 [resource]
 script = ExtResource("1_script")
-terrain = SubResource("ZoneTerrain_forest_gen")
 zone = ExtResource("2_region")
 surfaceKit = ExtResource("3_kit_temperate")
 caveKit = ExtResource("4_kit_cave")
 submergedKit = ExtResource("5_kit_underwater")
 shoreKit = ExtResource("10_ile67")
+terrain = SubResource("ZoneTerrain_forest_gen")
+mossSurfaceCoverage = 0.4
+mossCaveCoverage = 0.5
 grassThreshold = 0.3
 mobLevelMin = 1
 mobLevelMax = 2

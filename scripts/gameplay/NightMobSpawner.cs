@@ -135,8 +135,9 @@ public partial class NightMobSpawner : Node
 
     // Danger [0,1] = max(time-of-day term, darkness dwell). The time term is
     // pow(nightProgress, curve): 0 all day (nightProgress clamps to 0 before
-    // sunset), ramping to 1 at midnight. The darkness dwell (Sim.DarknessDwell)
-    // supplies danger in dark places regardless of the hour.
+    // sunset), ramping to 1 at midnight and held there through the dark hours
+    // after it. The darkness dwell (Sim.DarknessDwell) supplies danger in dark
+    // places regardless of the hour.
     private static float Danger(Sim sim, SimData data)
     {
         float t = (float)((sim.WorldState.TimeOfDay01 - WorldState.SunsetTimeOfDay01)

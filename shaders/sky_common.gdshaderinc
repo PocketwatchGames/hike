@@ -49,6 +49,11 @@ global uniform float cloud_altitude;
 // regardless so the moon still reads as a bright object against black
 // sky. The starfield also keys off this so stars only appear at night.
 global uniform float sky_night_factor;
+// Horizon→zenith blend exponent, phase-driven from C# (DerivedPalette.
+// SkyGradientExponent). Below 1 squeezes the horizon band into a few degrees
+// above the horizon; above 1 spreads it up the dome. Sunset runs it wide so the
+// warm band reaches the elevations water reflections actually sample.
+global uniform float sky_gradient_exponent;
 // Starfield. Equirectangular panoramic texture (2:1 aspect) sampled by
 // view direction: U = azimuth around +Y, V = elevation (0.5 = horizon,
 // 1.0 = zenith). Additive above the horizon, gated by sky_night_factor,
@@ -104,7 +109,7 @@ vec3 sample_sky_clouds_at_xz(vec3 dir, vec2 cloud_sample_xz, vec3 pre_cloud_add,
 	// toward night variants by nightT), so no separate sky_night_factor pass
 	// — the palette is the single source of truth for time-of-day color.
 	float up = clamp(dir.y, 0.0, 1.0);
-	vec3 base = mix(horizon_color, zenith_color, pow(up, 0.6));
+	vec3 base = mix(horizon_color, zenith_color, pow(up, max(sky_gradient_exponent, 0.01)));
 	base += pre_cloud_add;
 
 	vec2 cuv = cloud_sample_xz * SKY_CLOUD_GROUND_TILING + cloud_offset;
@@ -162,7 +167,7 @@ vec3 sample_sky_clouds(vec3 origin, vec3 dir, float t, vec3 pre_cloud_add)
 	if (origin.y >= cloud_altitude)
 	{
 		float up = clamp(dir.y, 0.0, 1.0);
-		vec3 base = mix(horizon_color, zenith_color, pow(up, 0.6));
+		vec3 base = mix(horizon_color, zenith_color, pow(up, max(sky_gradient_exponent, 0.01)));
 		return base + pre_cloud_add;
 	}
 	float t_plane = (cloud_altitude - origin.y) / max(dir.y, 0.05);

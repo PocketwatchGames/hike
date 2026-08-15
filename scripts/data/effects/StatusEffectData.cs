@@ -143,8 +143,8 @@ public partial class StatusEffectData : Resource
 	// Sustained, the grace window it lingers after the sustaining condition clears.
 	[Export] public float duration;
 
-	// TimeOfDay only: normalized time-of-day the effect expires at on the awake
-	// day (0 = sunrise, 1/3 = noon, 2/3 = sunset, 1 = midnight). The effect lasts
+	// TimeOfDay only: normalized time-of-day the effect expires at (0 = sunrise,
+	// 0.25 = noon, 0.5 = sunset, 0.75 = midnight). The effect lasts
 	// until the next occurrence of this time; the default (sunrise) is the common
 	// "until sunrise" boon, which the sleep-to-sunrise then crosses. See
 	// WorldState.TimeOfDay01.

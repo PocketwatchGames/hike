@@ -13,15 +13,25 @@ using Godot;
 // answer either — several kits legitimately share one block.
 public static class KitBlocks
 {
+    // The kit channel is ChunkState.TerrainId, a byte — so it addresses 0..255.
+    // This table used to be sized by BlockCatalog.MAX_BLOCKS, a different id
+    // space that merely happened to be bigger than the kit count; past 64 kits
+    // it would have silently dropped the rest to the fallback ground.
+    public const int MAX_KITS = 256;
+
     private static int[] _byKit;
 
     public static void Bind(TerrainKitData[] kits)
     {
         int fallback = Blocks.GroundId;
-        _byKit = new int[BlockCatalog.MAX_BLOCKS];
+        _byKit = new int[MAX_KITS];
         for (int i = 0; i < _byKit.Length; i++)
         {
             _byKit[i] = fallback;
+        }
+        if (kits != null && kits.Length > MAX_KITS)
+        {
+            GD.PushError($"KitBlocks: {kits.Length} kits exceeds the {MAX_KITS} the TerrainId byte can address; the excess will render as default ground.");
         }
         for (int i = 0; kits != null && i < kits.Length && i < _byKit.Length; i++)
         {

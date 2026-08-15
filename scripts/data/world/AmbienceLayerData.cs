@@ -38,8 +38,8 @@ public partial class AmbienceLayerData : Resource
     // pitch up under heavy gusts.
     [Export] public Curve pitchCurve;
 
-    // Time-of-day envelope. X = TimeOfDay01 on the awake day (0=sunrise,
-    // 1/3=noon, 2/3=sunset, 1=midnight), Y = additional volume multiplier.
+    // Time-of-day envelope. X = TimeOfDay01 (0=sunrise, 0.25=noon, 0.5=sunset,
+    // 0.75=midnight, 1=the next sunrise), Y = additional volume multiplier.
     // Insect bed layers gate themselves entirely on this (high near dusk, low
     // at noon). Wind layers should leave this null (treated as flat 1.0) so
     // wind responds to sim, not clock.

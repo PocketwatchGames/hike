@@ -65,14 +65,14 @@ public partial class MusicManager : Node
     // Master music level, stacked on top of each track's own volumeDb.
     [Export(PropertyHint.Range, "-40,6,0.5")] public float masterVolumeDb = 0f;
 
-    // Awake-day time-of-day (0 = sunrise, 1/3 = noon, 2/3 = sunset, 1 = midnight)
-    // phase boundaries. [sunrise, daytime) → Sunrise cue; [daytime, sunset) →
-    // Daytime; [sunset, night) → Sunset; the rest → Night.
+    // Time-of-day (0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight,
+    // 1 = the next sunrise) phase boundaries. [sunrise, daytime) → Sunrise cue;
+    // [daytime, sunset) → Daytime; [sunset, night) → Sunset; the rest → Night.
     [ExportGroup("Time Of Day Phases")]
     [Export(PropertyHint.Range, "0,1,0.01")] public float sunriseTimeOfDay = 0.0f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float daytimeTimeOfDay = 0.12f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float sunsetTimeOfDay = 0.67f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float nightTimeOfDay = 0.75f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float daytimeTimeOfDay = 0.09f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float sunsetTimeOfDay = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float nightTimeOfDay = 0.5625f;
 
     private const string MUSIC_BUS = "Music";
     private const float DB_FLOOR = -80f;

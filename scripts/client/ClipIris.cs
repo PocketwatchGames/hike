@@ -37,6 +37,10 @@ using Godot;
 // solid voxel or a SunOpaque one, so no column can mistake a tree for a ceiling. The
 // OCCLUSION query raycasts colliders masked to Environment, and trees are PorousBody
 // on Porous — the same line the project already draws for perched vision and flight.
+//
+// So is geometry the BASE PLANE HAS ALREADY CUT — see RaycastBelowCut. Colliders
+// outlive the cutaway that removed them, and a ceiling the world is drawing straight
+// through hides nobody.
 public class ClipIris
 {
     // What a sample found at the player's level.
@@ -267,6 +271,11 @@ public class ClipIris
     private float _openHoldRemaining;
     private Vector3 _irisCenter;
     private float _playerY;
+    // Elevation the base cutaway is already discarding everything above. One frame
+    // stale — this runs before GameCamera.SetClip — which costs nothing, since the
+    // camera's own stability filter and fade mean the value it holds is the one that
+    // has actually been on screen.
+    private float _clipCutAboveY = NO_CEILING;
     // Has PlayerGroundY ever been latched? Spawning in mid-air would otherwise hold
     // a floor of zero until the player first touched down.
     private bool _groundResolved;
@@ -296,6 +305,7 @@ public class ClipIris
         ScreenRight = camera.GlobalBasis.X.Normalized();
         ScreenUp = camera.GlobalBasis.Y.Normalized();
         _space = camera.GetWorld3D()?.DirectSpaceState;
+        _clipCutAboveY = camera.ClipCutAboveY;
         _irisCenter = playerPosition;
         _playerY = playerPosition.Y;
 
@@ -373,7 +383,7 @@ public class ClipIris
                 + Vector3.Up * (GameCamera.EYE_HEIGHT + i * Mathf.Max(PlayerHiddenRise, 0f));
             Vector3 target = CameraTarget(camera, rung);
             Vector3 point = target;
-            bool blocked = _space != null && Raycast(rung, target, out point);
+            bool blocked = _space != null && RaycastBelowCut(rung, target, out point);
             if (blocked)
             {
                 blockedRungs++;
@@ -1034,7 +1044,7 @@ public class ClipIris
         }
         marchFrom = lifted;
         Vector3 target = CameraTarget(camera, lifted);
-        if (Raycast(lifted, target, out hit))
+        if (RaycastBelowCut(lifted, target, out hit))
         {
             return true;
         }
@@ -1055,6 +1065,44 @@ public class ClipIris
             return camera.GlobalPosition;
         }
         return from + camera.GlobalBasis.Z.Normalized() * Mathf.Max(OcclusionScanDistance, 1f);
+    }
+
+    // A sight ray STOPPED at the base cutaway's plane.
+    //
+    // The colliders know nothing about the cut, so a roof the world is already
+    // drawing straight through still stopped every ray that met it: the player stood
+    // in a room whose ceiling was gone, in plain view, and the ring reported them
+    // hidden — so the disk opened and cut a second, lower hole through the space
+    // around them for nothing.
+    //
+    // A segment's Y is monotonic and the camera is above, so the ray crosses the
+    // plane exactly once: everything before the crossing is drawn, everything after
+    // is cut. Truncating there is the whole fix — there is no need to look past the
+    // crossing for another occluder, because anything up there is cut too.
+    //
+    // The BASE plane only, never the disk's own. Dismissing an occluder because the
+    // DISK is cutting it is circular — the disk would close, the occluder would come
+    // back, and it would open again.
+    private bool RaycastBelowCut(Vector3 from, Vector3 to, out Vector3 hit)
+    {
+        hit = to;
+        if (float.IsPositiveInfinity(_clipCutAboveY))
+        {
+            return Raycast(from, to, out hit);
+        }
+        // The origin is already in the removed volume and the ray only climbs
+        // further into it, so nothing along it is being drawn. Reachable because the
+        // occlusion lift parks just under a ceiling and the plane sits Clearance
+        // BELOW that ceiling.
+        if (from.Y > _clipCutAboveY)
+        {
+            return false;
+        }
+        if (to.Y > _clipCutAboveY)
+        {
+            to = from + (to - from) * ((_clipCutAboveY - from.Y) / (to.Y - from.Y));
+        }
+        return Raycast(from, to, out hit);
     }
 
     private bool Raycast(Vector3 from, Vector3 to, out Vector3 hit)
@@ -1135,8 +1183,9 @@ public class ClipIris
     public string Describe()
     {
         string baseText = float.IsPositiveInfinity(BaseClipY) ? "none" : BaseClipY.ToString("0.0");
+        string cutText = float.IsPositiveInfinity(_clipCutAboveY) ? "none" : _clipCutAboveY.ToString("0.0");
         return $"y={_playerY:0.0} floorY={PlayerFloorY} groundY={PlayerGroundY:0.0} "
-            + $"baseClip={baseText} iris={IrisClipY:0.0} "
+            + $"baseClip={baseText} cutAbove={cutText} iris={IrisClipY:0.0} "
             + $"radius={IrisRadius:0.0} range={ProbeRange:0.0} "
             + $"hidden={PlayerHiddenAmount:0.00} occluded={OccludedCount}/{_probeCount} "
             + $"hidden={HiddenCount} voting={VotingCount} atOpening={AtOpening}";

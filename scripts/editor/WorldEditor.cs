@@ -239,14 +239,18 @@ public partial class WorldEditor : Node3D
     // The sim clock never advances here (no Sim.Tick), so the world sits at
     // whatever the slider was last dragged to. Without this it would stay at
     // whatever the world was seeded with — SimData.initialTimeOfDay, i.e.
-    // dawn, a grazing sun and a very dark scene. Just shy of noon (1/3) is
+    // dawn, a grazing sun and a very dark scene. Just shy of noon (0.25) is
     // the neutral default: high sun, but still enough of an angle to read
     // voxel face orientation off the shading.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float editorTimeOfDay = 0.3f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float editorTimeOfDay = 0.225f;
     // Flat-view readability: how far the eye-adaptation tone curve lifts
     // unlit interiors when Lighting is unchecked. 1 = no lift.
     [Export(PropertyHint.Range, "1,16,0.1")] public float flatViewDarkGain = 12f;
-    [Export(PropertyHint.Range, "1,8,0.05")] public float flatViewLightGain = 1.5f;
+    // Keep this at 1. The game's night-eyes curve deliberately pushes BRIGHT
+    // fragments past 1.0 so the filmic tonemap blows them out — the opposite of
+    // what the flat authoring view wants. Above the knee every sunlit surface is
+    // already near clipping, so any lift here whites out the whole scene.
+    [Export(PropertyHint.Range, "1,8,0.05")] public float flatViewLightGain = 1f;
     [Export(PropertyHint.Range, "0.1,3,0.05")] public float flatViewKnee = 1.5f;
 
     [ExportGroup("Brush Shapes")]

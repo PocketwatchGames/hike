@@ -8,8 +8,8 @@ _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 0), 0.0, 0.0, 0, 0, Vector
 point_count = 4
 
 [sub_resource type="Curve" id="Curve_tod_nighttime"]
-_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.12, 1), 0.0, 0.0, 0, 0, Vector2(0.22, 0.4), 0.0, 0.0, 0, 0, Vector2(0.32, 0), 0.0, 0.0, 0, 0, Vector2(0.68, 0), 0.0, 0.0, 0, 0, Vector2(0.78, 0.4), 0.0, 0.0, 0, 0, Vector2(0.88, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
-point_count = 8
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.09, 1), 0.0, 0.0, 0, 0, Vector2(0.165, 0.4), 0.0, 0.0, 0, 0, Vector2(0.24, 0), 0.0, 0.0, 0, 0, Vector2(0.51, 0), 0.0, 0.0, 0, 0, Vector2(0.585, 0.4), 0.0, 0.0, 0, 0, Vector2(0.66, 1), 0.0, 0.0, 0, 0, Vector2(0.75, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 9
 
 [resource]
 script = ExtResource("layer_script")

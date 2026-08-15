@@ -12,6 +12,7 @@ shader_parameter/cavity_strength = 0.5
 shader_parameter/wall_blend_sharpness = 0.65
 shader_parameter/cliff_blend_sharpness = 0.4
 shader_parameter/ground_blend_sharpness = 0.4
+shader_parameter/overlay_blend_sharpness = 0.6
 shader_parameter/tile_porosity = PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 shader_parameter/wet_displacement = 0.5
 shader_parameter/wet_roughness_min = 0.25

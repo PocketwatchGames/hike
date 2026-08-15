@@ -33,6 +33,14 @@ public struct DerivedPalette
     // moon disk, moon shafts). Clock-driven — it says where the night is, not
     // how lit the world is. For "is there light here", use Illumination.
     public float SkyLight;
+
+    // Exponent shaping the dome's horizon→zenith blend, `mix(horizon, zenith,
+    // pow(up, e))`. Below 1 squeezes the horizon band into a few degrees; above
+    // 1 spreads it well up the dome. Phase-blended so sunset can throw its warm
+    // band high enough to be seen (and reflected in water) while day and night
+    // keep a tight one — the same widening at night would smear the bright night
+    // horizon across the whole sky.
+    public float SkyGradientExponent;
     // Normalized "is there light in the open air", 1 under any normally-lit
     // condition and → 0 only as light genuinely vanishes. Derived from the
     // blended direct intensity, so it responds to ANY cause of darkness
@@ -81,19 +89,20 @@ public struct DerivedPalette
     // time-of-day. One authored RGBA drives all of these via the muddiness
     // (alpha) channel and zone atmosphere colors. See WeatherDerivation.
     public float RippleStrength;
-    // Per-zone shallow & deep tints. Shallow is the authored WaterColor.rgb;
-    // deep is derived (red-absorbed physics for clear water, dust-tinted
-    // sediment for murky water) from WaterColor + DustColor + muddiness.
+    // The zone's authored WaterColor.rgb, unmodified. Used as the foam tint base;
+    // the water VOLUME reads WaterScatterColor below.
     public Color WaterShallowTint;
+
+    // Colour the water VOLUME settles to once the bottom is fully extinguished —
+    // the scatter term of the Beer-Lambert model. At muddiness 0 this is the
+    // zone's authored waterColor exactly; muddiness pulls it toward the regional
+    // sediment tint, because silt is a different material and scatters what the
+    // DustColor carries, not just more of the same water.
+    public Color WaterScatterColor;
+    // Alias of WaterScatterColor kept as its own field because other shaders
+    // (sprite reflections, voxel_clip puddles) ask "what colour is deep water
+    // here" — which is exactly what the volume settles to.
     public Color WaterDeepTint;
-    // Surface alpha floor (WaterColor.a). The effective value pushed to
-    // the shader is further modulated by sun-vs-ambient clarity in
-    // SkyController.Apply().
-    public float WaterAlphaMin;
-    // Exponent applied to the depth_factor in the shader before it drives
-    // the alpha ramp. Clear water uses > 1 (stays translucent longer);
-    // muddy water uses < 1 (hits opaque quickly within ~1 voxel of depth).
-    public float WaterTurbidityExp;
     // Muddiness (= WaterColor.a) — passed through so SkyController can
     // apply its own muddy-modulation to exports (reflection boost,
     // refraction damp, whitecap threshold lift, wave amplitude damp).

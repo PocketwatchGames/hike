@@ -20,7 +20,7 @@
 [ext_resource type="PackedScene" uid="uid://w7si8tgx547d" path="res://scenes/props/tree_pine_dead.tscn" id="20_0nyyd"]
 [ext_resource type="PackedScene" uid="uid://csthx76rtxtec" path="res://scenes/props/tree_oak_dead.tscn" id="20_1c0cr"]
 [ext_resource type="PackedScene" uid="uid://b3eik2wv087fj" path="res://scenes/props/tree_sequoia_dead.tscn" id="21_1c0cr"]
-[ext_resource type="Resource" path="res://resources/data/blocks/block_grass.tres" id="blk_grass"]
+[ext_resource type="Resource" uid="uid://bm35ijghdsfpe" path="res://resources/data/blocks/block_grass.tres" id="blk_grass"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("6_weighted")

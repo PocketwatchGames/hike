@@ -67,47 +67,53 @@ public class WorldState
     // AI timers, etc. survive save/load.
     public ulong GameTimeMs;
 
-    // Normalized time-of-day of the AWAKE portion of a day, in [0, 1]:
-    // 0 = sunrise, 1/3 = noon, 2/3 = sunset, 1 = midnight. Advanced by
-    // Sim.Tick scaled by SimData.DayLengthSeconds and the time_scale CVar,
-    // and CLAMPED at 1 (midnight) — the celestial cycle pauses there and only
-    // a sleep advances to the next day's sunrise (see Sim.AdvanceToNextSunrise).
-    // The pre-dawn gap (midnight → sunrise) is elided; you sleep through it.
-    // SkyController remaps this to the orbit phase (0.25 + 0.75·tod) to drive
-    // the sun/moon arc. Seeded from SimData.InitialTimeOfDay at world creation.
+    // Normalized time-of-day, in [0, 1], spanning a FULL 24-hour cycle:
+    // 0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight, 1 = the next
+    // sunrise. Advanced by Sim.Tick scaled by SimData.DayLengthSeconds and the
+    // time_scale CVar, and CLAMPED at 1 — the cycle pauses on the threshold of
+    // sunrise and only a sleep starts the next day (see Sim.AdvanceToNextSunrise).
+    // The last quarter (midnight → sunrise) is played, not elided, but the sun
+    // never comes back up over it: the palette stays on its night colors and
+    // slides to black (see WeatherDerivation's nightfall pass).
+    // SkyController remaps this to the orbit phase (0.25 + tod) to drive the
+    // sun/moon arc. Seeded from SimData.InitialTimeOfDay at world creation.
     public double TimeOfDay01;
 
     // The single source of truth for the day's key normalized-time positions,
     // so spawn gating, the day/night refresh, weather, and ad-hoc checks all
-    // agree. Sunrise is the start of the awake day; there is no pre-dawn night.
+    // agree. Evenly spaced because the clock is a true 24-hour cycle: 6am, 12pm,
+    // 6pm, 12am, 6am.
     public const double SunriseTimeOfDay01 = 0.0;
-    public const double NoonTimeOfDay01 = 1.0 / 3.0;
-    public const double SunsetTimeOfDay01 = 2.0 / 3.0;
-    public const double MidnightTimeOfDay01 = 1.0;
+    public const double NoonTimeOfDay01 = 0.25;
+    public const double SunsetTimeOfDay01 = 0.5;
+    public const double MidnightTimeOfDay01 = 0.75;
+    // Where the clock stops and waits for a sleep. Celestially the next
+    // sunrise, but the sun does not rise on it — the day ends here instead.
+    public const double EndOfDayTimeOfDay01 = 1.0;
 
-    // Night is everything from sunset to midnight (the clock never runs before
-    // sunrise, so there is no early-morning night band anymore).
+    // Night is everything from sunset onward, which now includes the post-
+    // midnight quarter up to the end-of-day hold.
     public static bool IsNight(double timeOfDay01) => timeOfDay01 >= SunsetTimeOfDay01;
 
-    // Map the awake-day clock [0,1] (0 = sunrise … 1 = midnight) onto the
-    // ORIGINAL celestial orbit phase (0.25 = sunrise, 0.5 = noon, 0.75 = sunset,
-    // 1.0 = midnight). The sun/moon arc math and the diurnal weather curve are
-    // written in orbit-phase terms, so anything driving them from TimeOfDay01
-    // remaps through here. The pre-dawn quarter (phase [0, 0.25)) is never
-    // produced — you sleep through it.
-    public static double OrbitPhase01(double timeOfDay01) => 0.25 + 0.75 * timeOfDay01;
+    // Map the day clock [0,1] (0 = sunrise … 1 = the next sunrise) onto the
+    // celestial orbit phase (0.25 = sunrise, 0.5 = noon, 0.75 = sunset, 1.0/0 =
+    // midnight). The sun/moon arc math and the diurnal weather curve are written
+    // in orbit-phase terms, so anything driving them from TimeOfDay01 remaps
+    // through here. Wraps: the post-midnight quarter lands on phase [0, 0.25),
+    // where the moon descends to its setting point exactly as the clock hits 1.
+    public static double OrbitPhase01(double timeOfDay01) => Mathf.PosMod(0.25 + timeOfDay01, 1.0);
 
     // Explicit whole-day counter. Starts at 0 and is incremented ONLY by the
     // sleep-to-sunrise path (Sim.AdvanceToNextSunrise) — the day cycle no
     // longer rolls over on its own, so this can't be derived from the clock.
     // Dawn-expiring deadlines (time-limited items, forge cooldown) compare against
     // this rather than projecting a wall-clock sunrise (there is no such time
-    // now — the clock stops at midnight until the player sleeps).
+    // now — the clock stops at the end of the day until the player sleeps).
     public int DayNumber;
 
     // Unwrapping day+fraction coordinate = DayNumber + TimeOfDay01. Still used
     // by "until sunrise" status-effect expiry (StatusEffectState) and the sky
-    // disk-fade windows. Advances with TimeOfDay01 during the awake day and
+    // disk-fade windows. Advances with TimeOfDay01 during the day and
     // jumps to (DayNumber+1) + 0 on a sleep-to-sunrise.
     public double TimeOfDayAbsolute;
 
@@ -129,9 +135,9 @@ public class WorldState
     public Vector3 WindDirection = new Vector3(0.7f, 0f, 0.7f);
 
     // Per-day weather variance, in [0, 1]. 0 = stormy / unstable (cool),
-    // 1 = fair / stable (warm). Each awake day pre-rolls TWO weather states
+    // 1 = fair / stable (warm). Each day pre-rolls TWO weather states
     // at sunrise (Sim.RollDailyWeather, on OnNewDay): a DAY slot (active
-    // sunrise → sunset) and a NIGHT slot (active sunset → midnight), with a
+    // sunrise → sunset) and a NIGHT slot (active sunset → the day's end), with a
     // crossfade between them across the sunset window. Four independent
     // channels each: WeatherVariance drives temperature (+wind transient via
     // its sunset-crossfade slope); Humidity and Cloud are wind-gated advection
@@ -1234,6 +1240,104 @@ public class WorldState
     // reset (Sim.ResetSpawns), never per-frame. When the world becomes streamed
     // (a bounded resident set rather than all chunks loaded) this only sees
     // resident chunks; revisit then if a global sweep must reach evicted chunks.
+    // Block-id census over every resident chunk, most common first. Answers
+    // "did this material actually get placed?" — the question no amount of
+    // reading the catalog or the atlas can settle, and the one that catches a
+    // worldgen pass silently writing the wrong block. See CVars.worldHistogram.
+    public string DescribeBlockHistogram()
+    {
+        var counts = new long[BlockCatalog.MAX_BLOCKS];
+        long total = 0;
+        foreach (ChunkState chunk in _chunks.Values)
+        {
+            for (int x = 0; x < ChunkState.SIZE; x++)
+            {
+                for (int y = 0; y < ChunkState.SIZE; y++)
+                {
+                    for (int z = 0; z < ChunkState.SIZE; z++)
+                    {
+                        int id = chunk.Voxels[x, y, z];
+                        if (id == Blocks.AirId) { continue; }
+                        counts[id]++;
+                        total++;
+                    }
+                }
+            }
+        }
+
+        var order = new List<int>();
+        for (int id = 0; id < counts.Length; id++)
+        {
+            if (counts[id] > 0) { order.Add(id); }
+        }
+        order.Sort((a, b) => counts[b].CompareTo(counts[a]));
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"[world_histogram] {_chunks.Count} chunks, {total} non-air voxels");
+        foreach (int id in order)
+        {
+            BlockData block = BlockCatalog.Active.GetById(id);
+            string name = block != null ? block.blockName.ToString() : "<unknown>";
+            sb.AppendLine($"  {id,2}  {name,-16} {counts[id],10}  {100.0 * counts[id] / Math.Max(total, 1),5:0.00}%");
+        }
+
+        // Overlays are a separate channel and invisible to the block counts —
+        // a moss or road pass that placed nothing looks identical above.
+        var overlayCounts = new long[BlockCatalog.MAX_ATLAS_LAYERS];
+        long overlayTotal = 0;
+        foreach (ChunkState chunk in _chunks.Values)
+        {
+            for (int x = 0; x < ChunkState.SIZE; x++)
+            {
+                for (int y = 0; y < ChunkState.SIZE; y++)
+                {
+                    for (int z = 0; z < ChunkState.SIZE; z++)
+                    {
+                        int ov = chunk.OverlayId[x, y, z];
+                        if (ov == 0 || ov >= overlayCounts.Length) { continue; }
+                        overlayCounts[ov]++;
+                        overlayTotal++;
+                    }
+                }
+            }
+        }
+        sb.AppendLine($"  overlays: {overlayTotal} voxels");
+        // Per zone as well: a scatter gated by a per-zone knob can be authored
+        // correctly and still land nowhere, and a global count cannot show that.
+        var byZone = new Dictionary<int, long>();
+        foreach (KeyValuePair<Vector3I, ChunkState> kv in _chunks)
+        {
+            ChunkState chunk = kv.Value;
+            long n = 0;
+            for (int x = 0; x < ChunkState.SIZE; x++)
+            {
+                for (int y = 0; y < ChunkState.SIZE; y++)
+                {
+                    for (int z = 0; z < ChunkState.SIZE; z++)
+                    {
+                        if (chunk.OverlayId[x, y, z] != 0) { n++; }
+                    }
+                }
+            }
+            byZone.TryGetValue(chunk.ZoneIndex, out long prev);
+            byZone[chunk.ZoneIndex] = prev + n;
+        }
+        foreach (KeyValuePair<int, long> kv in byZone)
+        {
+            bool named = kv.Key >= 0 && kv.Key < Zones.Length && Zones[kv.Key].Data != null;
+            string zoneName = named ? Zones[kv.Key].Data.ResourcePath.GetFile() : "-";
+            sb.AppendLine($"    zone {kv.Key,2} {zoneName,-28} {kv.Value,10}");
+        }
+        for (int layer = 0; layer < overlayCounts.Length; layer++)
+        {
+            if (overlayCounts[layer] == 0) { continue; }
+            BlockSurfaceData surface = BlockCatalog.Active.GetSurfaceByLayer(layer);
+            string name = surface != null ? surface.surfaceName.ToString() : "<unknown layer>";
+            sb.AppendLine($"    layer {layer,2}  {name,-16} {overlayCounts[layer],10}");
+        }
+        return sb.ToString();
+    }
+
     public IEnumerable<EntitySimState> AllChunkEntities()
     {
         foreach (List<EntitySimState> list in _entities.Values)

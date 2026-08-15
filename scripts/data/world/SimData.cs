@@ -259,12 +259,12 @@ public partial class SimData : Resource
     // The time_scale CVar multiplies this advancement for fast-forward testing.
     [Export] public float dayLengthSeconds = 600f;
 
-    // Normalized time the awake day starts at: 0 = sunrise, 1/3 = noon,
-    // 2/3 = sunset, 1 = midnight. Applied when a fresh game is started; a small
-    // value starts the player just after dawn. Sunrise/noon/sunset/midnight
+    // Normalized time the day starts at: 0 = sunrise, 0.25 = noon, 0.5 = sunset,
+    // 0.75 = midnight, 1 = the next sunrise. Applied when a fresh game is started;
+    // a small value starts the player just after dawn. Sunrise/noon/sunset/midnight
     // positions themselves are fixed constants on WorldState (the clock's shape),
     // not authored here.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float initialTimeOfDay = 0.05f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float initialTimeOfDay = 0.0375f;
 
     // Sun's elevation above the horizon at noon. 90 = sun passes through
     // zenith; lower values produce a shallower arc (higher-latitude look).
@@ -309,6 +309,28 @@ public partial class SimData : Resource
     // stealth/perception consumes.
     [Export(PropertyHint.Range, "1,45,0.5")] public float sunsetColorRangeDegrees = 10f;
 
+    // Half-width (degrees) of the band around the horizon crossing where the
+    // sunset colour is at FULL strength, before SunsetColorRangeDegrees fades it
+    // out. Deliberately independent of (and much smaller than)
+    // SunsetAngleDegrees: the sunset weight is applied as the final blend and
+    // overrides the day/night mix wherever it saturates, so a wide plateau pins
+    // the sky at sunset colour long after dark. Keep it small enough that the
+    // night blend has taken over by the time this releases.
+    [Export(PropertyHint.Range, "0,20,0.5")] public float sunsetColorPlateauDegrees = 4f;
+
+    // Direct-sun intensity falls off as the sun descends:
+    //     elevFactor = lerp(SunHorizonIntensityFactor, 1, s^SunElevationFalloffExponent)
+    // where s = sin(elev) / sin(SunMaxElevationDegrees), clamped to [0,1].
+    // Without this the sun is EQUALLY bright at 8am, noon and sunset — the only
+    // dimming is the day→night color crossfade, which is why low sun used to read
+    // as bright and flat. The floor keeps the sun from vanishing before that
+    // crossfade takes over; 0 = fully dark at the horizon.
+    // NOTE: SunsetIntensityFactor stacks multiplicatively on top of this.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float sunHorizonIntensityFactor = 0.25f;
+    // <1 holds brightness high and drops it late (a long plateau then a fast
+    // dusk); >1 dims early and lingers. 1 = straight sine falloff.
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float sunElevationFalloffExponent = 0.75f;
+
     [ExportGroup("Weather Derivation Tuning")]
     // Every knob below shapes how WeatherDerivation turns (zone,
     // weather, time-of-day) into the concrete visual outputs pushed
@@ -330,14 +352,43 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float dayHorizonHumidityHaze = 0.4f;
     // Scale applied to SkyColor at the night zenith. 0.05 = deep
     // near-black; 0.3 = moonlit blue.
+    // Master brightness of the whole sunset DOME — horizon band and zenith
+    // together. The two bands have independent scales (SunsetHorizonBrightness
+    // and SunsetZenithSkyScale) which shape their RATIO; this is the one knob for
+    // "the sunset sky is too bright", so pulling it down can't leave the other
+    // band glowing behind. Dome only: the sunset LIGHT on the world is untouched,
+    // and day/night are unaffected because it rides the sunset phase weight.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float sunsetSkyBrightness = 0.5f;
+
+    // Brightness of the sunset HORIZON band. Every other phase/band derives its
+    // sky colour from SkyColor with an explicit scale (day 1.2, night 0.05,
+    // sunset zenith 0.4); the sunset horizon alone was the raw sunsetPrimary —
+    // the LIGHT colour used directly as a SKY colour, pegged at 1.0 in red and
+    // unscalable. That is why sunset was the one phase that read too bright.
+    // Scales only the dome, so it never touches how the sunset lights the world.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float sunsetHorizonBrightness = 0.55f;
+
     [Export(PropertyHint.Range, "0,1,0.01")] public float nightZenithSkyScale = 0.05f;
     // Scale applied to SkyColor at the night horizon (before MoonColor
     // bleed adds on top). Brighter than the zenith since the atmosphere
     // scatters even faint moonlight toward the horizon.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float nightHorizonSkyScale = 0.18f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float nightHorizonSkyScale = 0.05f;
     // How much of the zone's MoonColor bleeds into the night horizon.
-    // 0 = horizon is a pure dark sky; 0.3 = visible moonlit wash.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float nightHorizonMoonBleed = 0.15f;
+    // 0 = horizon is a pure dark sky; 0.3 = visible moonlit wash. Keep this
+    // small: it is ADDITIVE brightness on the brightest part of the night sky,
+    // and at 0.15 it was over half the night horizon's total value — the single
+    // biggest reason the night sky read as glowing blue rather than black.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float nightHorizonMoonBleed = 0.04f;
+
+    // Horizon→zenith blend exponent for the sky dome, per phase. Below 1 the
+    // horizon band is only a few degrees tall; above 1 it climbs the dome.
+    // Sunset wants it WIDE so the warm band is actually visible (and lands in
+    // water reflections, which under the iso camera sample 35-50° up and
+    // otherwise only ever see the cool zenith). Night wants it tight so the
+    // brighter horizon doesn't wash the whole sky.
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float skyGradientExponentDay = 0.6f;
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float skyGradientExponentSunset = 2.0f;
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float skyGradientExponentNight = 0.5f;
     // Sunset zenith is a mid-dark sky with a violet twilight push.
     // This scales the underlying SkyColor before mixing in purple.
     [Export(PropertyHint.Range, "0,1,0.01")] public float sunsetZenithSkyScale = 0.4f;
@@ -355,7 +406,7 @@ public partial class SimData : Resource
     // Base sunset warmth: how strongly SunColor shifts toward the
     // amber target even in zero-dust air. 0 = sunset IS SunColor;
     // 1 = sunset IS the amber target.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float sunsetWarmthBias = 0.35f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float sunsetWarmthBias = 0.7f;
     // Additional dust-driven push toward DustColor on the sunset
     // horizon and primary. Explains why "red sky at night" tracks with
     // atmospheric dust.
@@ -553,16 +604,21 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float nightAmbientHumidityLift = 0.05f;
 
     [ExportSubgroup("Nightfall")]
-    // Skylight decays across the sunset→midnight window as
+    // Time-of-day the slide into full darkness begins. The moonlit night holds
+    // its brightness up to here; from here to the end of the day (1 = where the
+    // sun would rise) the sky fades out and then stays out. Sits after midnight
+    // (0.75) by default so the dark stretch is the pre-dawn hours.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float nightfallStartTimeOfDay = 0.85f;
+    // Skylight decays across the NightfallStartTimeOfDay→end-of-day window as
     //     skyLight = (1 - t)^NightfallFalloff
-    // where t is 0 at sunset and 1 at midnight. 1 = linear; >1 dims fast in the
-    // early evening then lingers dim; <1 holds the dusk brightness and plunges
-    // near midnight. Everything the sky lights rides this curve — ambient,
+    // where t is 0 at the window's start and 1 at the end of the day. 1 = linear;
+    // >1 dims fast then lingers dim; <1 holds the brightness and plunges at the
+    // end. Everything the sky lights rides this curve — ambient,
     // sun/moon intensity, the dome, stars, the moon disk (and so its water
     // reflection), moon shafts, and the water-foam light floor.
     [Export(PropertyHint.Range, "0.1,4,0.05")] public float nightfallFalloff = 0.5f;
-    // Skylight remaining at midnight. 0 = utterly black, block lights only —
-    // raise it if pitch dark reads as unplayable rather than tense.
+    // Skylight remaining once the window has closed. 0 = utterly black, block
+    // lights only — raise it if pitch dark reads as unplayable rather than tense.
     [Export(PropertyHint.Range, "0,1,0.01")] public float nightfallSkylightFloor = 0f;
     // Direct-light intensity at or above which the open air counts as FULLY
     // lit, for the palette's Illumination scalar (fog haze color, water-foam
@@ -1180,7 +1236,7 @@ public partial class SimData : Resource
     // (dayLengthSeconds). Once a fairy has lived past this it despawns — but only
     // while it is not currently visible to the player, so it never pops out of
     // sight mid-frame. Measured on the sim clock, so the countdown keeps running
-    // through the midnight hold rather than freezing until the player sleeps.
+    // through the end-of-day hold rather than freezing until the player sleeps.
     // 0.2 ≈ a fifth of a day.
     [Export(PropertyHint.Range, "0.02,1,0.01")] public float fairyLifetimeDayFraction = 0.2f;
 

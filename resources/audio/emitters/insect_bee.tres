@@ -4,8 +4,8 @@
 [ext_resource type="AudioStream" uid="uid://chdvjkcnvvnwa" path="res://assets/audio/source/ambience/insect_bee/amb_loc_bee_a_01.wav" id="stream_bee"]
 
 [sub_resource type="Curve" id="Curve_tod_day"]
-_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 0), 0.0, 0.0, 0, 0, Vector2(0.4, 1), 0.0, 0.0, 0, 0, Vector2(0.55, 1), 0.0, 0.0, 0, 0, Vector2(0.7, 0.4), 0.0, 0.0, 0, 0, Vector2(0.8, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
-point_count = 7
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.1875, 0), 0.0, 0.0, 0, 0, Vector2(0.3, 1), 0.0, 0.0, 0, 0, Vector2(0.4125, 1), 0.0, 0.0, 0, 0, Vector2(0.525, 0.4), 0.0, 0.0, 0, 0, Vector2(0.6, 0), 0.0, 0.0, 0, 0, Vector2(0.75, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 8
 
 [resource]
 script = ExtResource("emitter_script")

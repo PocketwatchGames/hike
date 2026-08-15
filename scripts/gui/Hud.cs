@@ -693,11 +693,13 @@ public partial class Hud : Control
 	// slots, and an alpha-fade when the player is buried far enough underground
 	// that no sunlight reaches their voxel.
 	//
-	// Rotation: 135° at sunrise (tod 0) → -135° at midnight (tod 1).
+	// Rotation: 135° at sunrise (tod 0) → -135° at midnight (tod 0.75) → -225° at
+	//   the day's end (tod 1) — one full turn, 15°/hour.
+
 	// Day icon alpha:  fades in [0, 2·halfWidth], holds 1 to sunsetStart, fades
 	//   out [sunsetStart, sunsetEnd], then 0 through the night.
 	// Night icon alpha: 0 until sunsetStart, ramps 0→1 across the sunset window,
-	//   holds 1 to midnight. At a fresh sunrise both are ~0, so the previous day's
+	//   holds 1 to the day's end. At a fresh sunrise both are ~0, so the previous day's
 	//   night icon is gone rather than lingering into the new day.
 	void UpdateWeatherWidget(double delta)
 	{
@@ -718,10 +720,11 @@ public partial class Hud : Control
 		float sunsetEnd = (float)WorldState.SunsetTimeOfDay01 + halfWidth;
 		float sunriseFadeEnd = 2f * halfWidth;
 
-		// Celestial dial: sweep the icons with the actual sun. The awake day runs
-		// sunrise (tod 0) → midnight (tod 1), and the orbit spans 270° over it, so
-		// the container rotates 135° → -135°.
-		_weatherContainer.RotationDegrees = 135f - 270f * tod;
+		// Celestial dial: sweep the icons with the actual sun. The day runs
+		// sunrise (tod 0) → the next sunrise (tod 1) and the orbit spans a full
+		// turn over it, so the container rotates 135° → -225° (still 15°/hour,
+		// and still -135° at midnight).
+		_weatherContainer.RotationDegrees = 135f - 360f * tod;
 		// Day icon fades in from sunrise and out at sunset; the night icon is
 		// absent until sunset, then fades in and holds through midnight. At a fresh
 		// sunrise (tod ≈ 0) both start at ~0 — the previous day's night icon is

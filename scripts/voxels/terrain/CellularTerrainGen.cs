@@ -1763,6 +1763,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
         public int PinnedCrossings;
         public int RampCrossings;
         public int BankRejects;
+        public int DropRejects;
         public int DeepestLake;
         public int BasinsSeen;
         public int BreachPasses;
@@ -1803,6 +1804,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 + $" {LakesTooBig} oversized, {LakesOnPinned} on pinned ground;"
                 + $" {PinnedCrossings} columns crossing pinned ground,"
                 + $" {BankRejects} refused as bank (>{cd.riverBankCut}v above water),"
+                + $" {DropRejects} refused below a drop (>{cd.riverDepth}v under water),"
                 + $" {RampCrossings} ramp crossings;"
                 + $" {FallColumns} waterfall columns (tallest {TallestFall}v);"
                 + $" {CurrentColumns} columns carrying a current (fastest {FastestCurrent:F2},"
@@ -2115,6 +2117,18 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 // cut back — without it a channel running at the foot of a
                 // 12-voxel scarp would trench straight through it.
                 if (height[lx, lz] - level > cd.riverBankCut) { stats.BankRejects++; continue; }
+                // The mirror of the bank rule, and the one that keeps a cascade
+                // from standing as solid water. The disc spreads a pool's level
+                // ACROSS the lip of a drop — the tie-break above deliberately
+                // keeps the HIGHER of two competing stamps — so a column at the
+                // foot of the fall is handed the upper pool's surface while its
+                // own bed stays where it is, and the chunk fill then fills every
+                // voxel between the two. Only ground within the channel's own
+                // notch belongs to this pool. Without it the fall is also
+                // INVISIBLE to the sheet test in BuildWaterfallSites, since that
+                // reports a cascade where the scratch surface ends up above the
+                // real water field and this had already raised the real one.
+                if (level - height[lx, lz] > depth) { stats.DropRejects++; continue; }
                 if (onRamp[lx, lz]) { stats.RampCrossings++; }
 
                 int bed = Math.Min(height[lx, lz], level - depth);

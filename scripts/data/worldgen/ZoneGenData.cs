@@ -82,6 +82,14 @@ public partial class ZoneGenData : Resource
     // a random value in [ShoreSubmergedElevationMin,
     // ShoreSubmergedElevationMax]. Defaults yield a thin beach lip just
     // above sea level and a wider underwater shelf below it.
+    // Fraction of exposed voxels this zone dresses with the moss overlay, on
+    // open ground and on cliff faces respectively. 0 disables the pass here.
+    // Caves are keyed separately because they are damp and want far more of it
+    // than the surface above them — and because a zone can want mossy caves
+    // with a bare surface, or the reverse (the desert wants neither).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float mossSurfaceCoverage = 0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float mossCaveCoverage = 0f;
+
     [Export] public float shoreElevationMin = 1f;
     [Export] public float shoreElevationMax = 1.5f;
     [Export] public float shoreSubmergedElevationMin = -5f;

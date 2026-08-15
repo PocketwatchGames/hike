@@ -48,10 +48,10 @@ public class StatusEffectState
 	public double expireTimeOfDayAbsolute;
 
 	// Expiry as an explicit (DayNumber, time-of-day fraction) pair. Kept separate
-	// from the summed absolute above because the awake clock stops at midnight
+	// from the summed absolute above because the day clock stops at its end
 	// (tod 1.0), whose absolute (DayNumber + 1.0) numerically COLLIDES with the
 	// next day's sunrise ((DayNumber+1) + 0.0). Comparing the sum would expire an
-	// "until sunrise" boon at midnight — before the sleep-to-sunrise that is meant
+	// "until sunrise" boon at the day's end — before the sleep-to-sunrise that is meant
 	// to end it. IsExpired compares the day explicitly to avoid that.
 	private int _expireDay;
 	private double _expireTimeOfDay01;

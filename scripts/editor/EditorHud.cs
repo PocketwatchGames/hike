@@ -96,8 +96,8 @@ public partial class EditorHud : CanvasLayer
 
     [ExportGroup("View")]
     [Export] public CheckButton lightingButton;
-    // Normalized awake-day clock: 0 = sunrise, 1/3 = noon, 2/3 = sunset,
-    // 1 = midnight. Range/step are authored on the slider itself.
+    // Normalized day clock: 0 = sunrise, 0.25 = noon, 0.5 = sunset,
+    // 0.75 = midnight, 1 = the next sunrise. Range/step authored on the slider.
     [Export] public HSlider timeOfDaySlider;
     // Items are filled from the brush palette's presets at startup, so the
     // dropdown is authored in the .tres rather than in the scene.

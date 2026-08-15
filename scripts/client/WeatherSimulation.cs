@@ -169,7 +169,7 @@ public static class WeatherSimulation
         float destLightning = headingNight ? ws.NightLightningVariance : ws.DayLightningVariance;
         // The inner overload's timeOfDay01 feeds only DiurnalCurve, which is
         // authored in orbit-phase (peak at noon = 0.5), so pass the remapped
-        // phase rather than the raw awake-day tod.
+        // phase rather than the raw day-clock tod.
         Apply(weather, zone, elevation, simData, (float)WorldState.OrbitPhase01(tod),
             ws.WeatherVariance, ws.WeatherVarianceSlope,
             ws.HumidityVariance, ws.CloudVariance, ws.LightningVariance,

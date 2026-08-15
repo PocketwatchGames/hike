@@ -19,7 +19,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 107;
+    public const int WORLDGEN_VERSION = 114;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -184,6 +184,13 @@ public static class WorldGen
         if (_kitPurposes == null) { return false; }
         if (TerrainId < 0 || TerrainId >= _kitPurposes.Length) { return false; }
         return _kitPurposes[TerrainId] == (byte)EKitPurpose.Surface;
+    }
+
+    private static bool IsCaveKit(int TerrainId)
+    {
+        if (_kitPurposes == null) { return false; }
+        if (TerrainId < 0 || TerrainId >= _kitPurposes.Length) { return false; }
+        return _kitPurposes[TerrainId] == (byte)EKitPurpose.Cave;
     }
 
     // Resolve a detail-group ref to its 1-based stamp value for
@@ -645,6 +652,10 @@ public static class WorldGen
         // patch.
         StampDirtPatches(ws, genData);
 
+        // Moss overlay over exposed rock/ground. Before the road pass so a road
+        // tread stamps over it rather than the reverse.
+        StampMossPatches(ws, genData);
+
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
         // the worldgen_skip CVar (bitmask — see SKIP_* flags). Each category is
         // checked independently so e.g. setting just "details" strips grass
@@ -781,7 +792,133 @@ public static class WorldGen
         _lastHeightMap = heightMap;
         _lastPlateauStep = heightMap.LevelStep;
         _lastTerrainGen = terrainGen;
+        DumpStandingWater(ws, heightMap);
         return ws;
+    }
+
+    // TEMPORARY DIAGNOSTIC — find every tall vertical run of water in the
+    // finished world. Deliberately independent of HeightMap.Waterfalls: the
+    // sheet test only flags a column where the scratch surface ended up ABOVE
+    // the real water field, so a column that actually stands water is excluded
+    // from that list by construction and cannot be found through it.
+    private static void DumpStandingWater(WorldState ws, HeightMap heightMap)
+    {
+        const int REPORT_RUN = 4;    // runs at least this tall are interesting
+        const int TOP_N = 8;
+        const int STRIP = 4;
+
+        var histogram = new Dictionary<int, int>();
+        var tallest = new List<(int run, int wx, int topY, int wz)>();
+
+        // Min/Max are CHUNK coordinates, not voxels — scale before walking.
+        int minX = ws.Min.X * ChunkState.SIZE;
+        int maxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int minY = ws.Min.Y * ChunkState.SIZE;
+        int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int minZ = ws.Min.Z * ChunkState.SIZE;
+        int maxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+        GD.Print($"[StandingWater] scanning voxels x[{minX}..{maxX}] y[{minY}..{maxY}] z[{minZ}..{maxZ}]");
+
+        for (int wx = minX; wx <= maxX; wx++)
+        {
+            for (int wz = minZ; wz <= maxZ; wz++)
+            {
+                int run = 0;
+                int runTop = 0;
+                for (int wy = maxY; wy >= minY; wy--)
+                {
+                    if (ws.GetBlockWorld(wx, wy, wz) == Blocks.WaterId)
+                    {
+                        if (run == 0) { runTop = wy; }
+                        run++;
+                        continue;
+                    }
+                    if (run >= REPORT_RUN)
+                    {
+                        histogram[run] = histogram.GetValueOrDefault(run) + 1;
+                        tallest.Add((run, wx, runTop, wz));
+                    }
+                    run = 0;
+                }
+                if (run >= REPORT_RUN)
+                {
+                    histogram[run] = histogram.GetValueOrDefault(run) + 1;
+                    tallest.Add((run, wx, runTop, wz));
+                }
+            }
+        }
+
+        var buckets = new List<string>();
+        foreach (int depth in histogram.Keys.OrderBy(k => k))
+        {
+            buckets.Add($"{depth}v x{histogram[depth]}");
+        }
+        GD.Print($"[StandingWater] {tallest.Count} runs >= {REPORT_RUN}v: {string.Join(", ", buckets)}");
+
+        tallest.Sort((a, b) => b.run.CompareTo(a.run));
+        for (int i = 0; i < Math.Min(TOP_N, tallest.Count); i++)
+        {
+            (int run, int wx, int topY, int wz) = tallest[i];
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"[StandingWater] {run}v run at ({wx}, {topY}, {wz})"
+                + $" heightmap h={heightMap.GetHeight(wx, wz)}"
+                + $" water={heightMap.GetWaterY(wx, wz)}\n");
+            for (int wy = topY + 2; wy >= topY - run - 2; wy--)
+            {
+                sb.Append($"  y{wy,4} ");
+                for (int d = -STRIP; d <= STRIP; d++)
+                {
+                    int v = ws.GetBlockWorld(wx + d, wy, wz);
+                    sb.Append(v == Blocks.WaterId ? 'W' : Blocks.IsSolid(v) ? '#' : '.');
+                }
+                sb.Append('\n');
+            }
+            GD.Print(sb.ToString());
+        }
+    }
+
+    // TEMPORARY DIAGNOSTIC — dumps the finished voxels through each cascade so a
+    // standing column can be told from two separated pools. Remove once the
+    // waterfall work is done.
+    private static void DumpWaterfallColumns(WorldState ws, HeightMap heightMap)
+    {
+        const int STRIP = 4;   // columns either side of the site
+        const int ABOVE = 2;   // rows above the lip
+        const int BELOW = 3;   // rows below the landing
+
+        foreach (WaterfallSite site in heightMap.Waterfalls)
+        {
+            int sx = Mathf.RoundToInt(site.Top.X - 0.5f);
+            int sz = Mathf.RoundToInt(site.Top.Z - 0.5f);
+            int topY = Mathf.RoundToInt(site.Top.Y);
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"[FallDump] site ({sx}, {topY}, {sz}) {site.Height}v/{site.Columns}col\n");
+
+            // Per-column heightmap state, so a voxel stack can be attributed to
+            // the water field rather than to the chunk fill.
+            for (int d = -STRIP; d <= STRIP; d++)
+            {
+                int wx = sx + d;
+                int h = heightMap.GetHeight(wx, sz);
+                int w = heightMap.GetWaterY(wx, sz);
+                sb.Append($"  x{wx,5} h={h,4} water={(w == HeightMap.NoWater ? "none" : w.ToString()),5}"
+                    + $" stack={(w == HeightMap.NoWater ? 0 : Math.Max(0, w - h)),3}\n");
+            }
+
+            // The voxels themselves, along X through the site. W=water, #=solid,
+            // .=air. A cascade that still stands reads as an unbroken W column.
+            for (int wy = topY + ABOVE; wy >= topY - site.Height - BELOW; wy--)
+            {
+                sb.Append($"  y{wy,4} ");
+                for (int d = -STRIP; d <= STRIP; d++)
+                {
+                    int v = ws.GetBlockWorld(sx + d, wy, sz);
+                    sb.Append(v == Blocks.WaterId ? 'W' : Blocks.IsSolid(v) ? '#' : '.');
+                }
+                sb.Append('\n');
+            }
+            GD.Print(sb.ToString());
+        }
     }
 
     // Spread each zone's ZoneGenData.distributedLoot across that zone's chests.
@@ -1556,7 +1693,11 @@ public static class WorldGen
             }
 
             BlockSurfaceData tex = conn.texture ?? genData.roadDefaultTexture;
-            byte overlay = tex != null ? (byte)tex.atlasBaseIndex : OVERLAY_DIRT;
+            if (tex == null)
+            {
+                GD.PushWarning("WorldGen: no road texture authored (WorldGenData.roadDefaultTexture); the road will show its kit block untreaded.");
+            }
+            byte overlay = tex != null ? (byte)tex.atlasBaseIndex : OVERLAY_NONE;
             var widthRng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_ROAD), connIndex, 0));
             GradeCarvePaintRoad(ws, genData, heightMap, path, minWidth, maxWidth, overlay, widthRng, obstacleColumns, protectedColumns);
             // Only now: a connection that failed to route left its door as
@@ -1719,7 +1860,11 @@ public static class WorldGen
             }
 
             BlockSurfaceData tex = profile?.texture ?? genData.roadDefaultTexture;
-            byte overlay = tex != null ? (byte)tex.atlasBaseIndex : OVERLAY_DIRT;
+            if (tex == null)
+            {
+                GD.PushWarning("WorldGen: no road texture authored (WorldGenData.roadDefaultTexture); the road will show its kit block untreaded.");
+            }
+            byte overlay = tex != null ? (byte)tex.atlasBaseIndex : OVERLAY_NONE;
             var widthRng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_PATH_HINT), hi, 0));
             GradeCarvePaintRoad(ws, genData, heightMap, path, minWidth, maxWidth, overlay, widthRng,
                 obstacleColumns, protectedColumns);
@@ -4480,7 +4625,7 @@ public static class WorldGen
                         // Overrides SubmergedKit for submerged caves — the
                         // cave palette wins there.
                         int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
-                        ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.caveKit));
+                        RestampKit(ws, wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.caveKit));
                     }
                 }
             }
@@ -4562,12 +4707,12 @@ public static class WorldGen
                     {
                         if (hasShore && wy >= shoreLowerY)
                         {
-                            ws.SetTerrainIdWorld(wx, wy, wz, shoreTerrainId);
+                            RestampKit(ws, wx, wy, wz, shoreTerrainId);
                         }
                         else
                         {
                             int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
-                            ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.submergedKit));
+                            RestampKit(ws, wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.submergedKit));
                         }
                     }
                 }
@@ -4589,17 +4734,22 @@ public static class WorldGen
     // — which is why dirt patches write Dirt through StampDirtPatches rather
     // than taking the slot moss will need.
     private const byte OVERLAY_NONE = 0;
-    private static readonly byte OVERLAY_DIRT = ResolveOverlayIndex("Dirt");
 
-    private static byte ResolveOverlayIndex(StringName blockName)
+    // Re-stamp a voxel's kit AND the block that kit resolves to.
+    //
+    // Appearance lives on the BLOCK now, not on the kit channel — so a pass that
+    // writes only TerrainId changes nothing you can see: the voxel keeps
+    // whatever block the column fill gave it. Every later kit re-stamp
+    // (submerged shell, underwater shore band, cave surfaces) has to go through
+    // here, the way the road pass already writes both.
+    //
+    // Shape is PRESERVED. These voxels carry authored terrain shapes (a ramp
+    // column's None), and re-stamping at the block's default Y would re-harden
+    // them into 1-voxel steps.
+    private static void RestampKit(WorldState ws, int wx, int wy, int wz, int kitId)
     {
-        BlockData block = BlockCatalog.Active.GetByName(blockName);
-        if (block?.top == null)
-        {
-            GD.PushError($"WorldGen: overlay block '{blockName}' is missing or has no top surface.");
-            return 0;
-        }
-        return (byte)block.top.atlasBaseIndex;
+        ws.SetTerrainIdWorld(wx, wy, wz, kitId);
+        ws.SetBlockWorld(wx, wy, wz, KitBlocks.ForKit(kitId), ws.GetShapeWorld(wx, wy, wz));
     }
 
     private static readonly byte DIRT_BLOCK = ResolveBlockId("Dirt");
@@ -4619,7 +4769,16 @@ public static class WorldGen
     // EdgeMaxDiff) and the procedural overlay scatter frequencies / thresholds
     // are authored on WorldGenData. The scatter SEEDS stay fixed here — they're
     // stable RNG salts (like the SEED_SALT_* channels), not feel knobs.
-    private const int OVERLAY_DIRT_SEED = 4242;
+    private const int DIRT_PATCH_SEED = 4242;
+    private const int MOSS_PATCH_SEED = 4243;
+    private const int MOSS_CAPILLARY_SEED = 4244;
+    private const int MOSS_PATCHINESS_SEED = 4245;
+
+    // FastNoiseLite's fractal Perlin does not reach ±1 — the river width channel
+    // measured only -0.38..0.51 on this world (see WIDTH_NOISE_GAIN), and the
+    // moss channel is the same shape. |noise| therefore spans well under 0..1,
+    // so the gain restores the authored coverage's reach over the vein width.
+    private const float MOSS_NOISE_GAIN = 2.2f;
 
     // Test placement for detail-sprite scatter. Each kit advertises its own
     // DefaultDetail group; this pass walks every surface voxel, reads the
@@ -4648,8 +4807,8 @@ public static class WorldGen
     {
         var dirtNoise = new FastNoiseLite();
         dirtNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        dirtNoise.Seed = OVERLAY_DIRT_SEED;
-        dirtNoise.Frequency = genData.overlayDirtFrequency;
+        dirtNoise.Seed = DIRT_PATCH_SEED;
+        dirtNoise.Frequency = genData.dirtPatchFrequency;
         dirtNoise.FractalOctaves = 2;
 
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
@@ -4674,7 +4833,7 @@ public static class WorldGen
                         continue;
                     }
 
-                    if (dirtNoise.GetNoise2D(wx, wz) > genData.overlayDirtThreshold)
+                    if (dirtNoise.GetNoise2D(wx, wz) > genData.dirtPatchThreshold)
                     {
                         ws.SetBlockWorld(wx, wy, wz, DIRT_BLOCK, ws.GetShapeWorld(wx, wy, wz));
                     }
@@ -4838,6 +4997,178 @@ public static class WorldGen
             }
         }
         return best >= 0 ? zones[best]?.surfaceKit : null;
+    }
+
+    // Scatter the moss OVERLAY over exposed rock and ground.
+    //
+    // Moss is an overlay, not a block: it is a skin over whatever is underneath,
+    // so the stone stays stone underfoot and in the sim. Coverage is per zone and
+    // split surface/cave, because caves are damp and want much more of it (and
+    // the desert wants none, above or below).
+    //
+    // Unlike the dirt pass this walks every AIR-EXPOSED voxel, not just the ones
+    // with air above — cliff faces are the whole point, and a face has air to the
+    // side. Whether a given layer is allowed onto a wall is the shader's call via
+    // BlockSurfaceData.overlayOnCliffs, so this pass just marks the rock.
+    //
+    // SHAPE: moss creeps in strands, so the field is a VEIN distance, not a
+    // blob threshold. Thresholding noise itself keeps whichever side of the
+    // contour is above the cut — a filled region, hence round patches, and no
+    // amount of frequency tuning makes it stringy. |noise| instead measures
+    // distance from the noise's ZERO SET, a curved sheet through the world
+    // whose intersection with the terrain is a meandering line, so a low cut
+    // keeps a thin band either side of it. Three things then make that read as
+    // growth: a domain warp so the strands crook rather than flow, a second
+    // finer network unioned in (min = the union of both bands) for hairlines
+    // branching off the trunks, and a long-wavelength coverage modulation so a
+    // strand thins and dies along its length.
+    private static void StampMossPatches(WorldState ws, WorldGenData genData)
+    {
+        BlockSurfaceData moss = genData.mossSurface;
+        if (moss == null)
+        {
+            return;
+        }
+        if (moss.atlasBaseIndex <= 0)
+        {
+            GD.PushError($"WorldGen: moss surface '{moss.surfaceName}' has no atlas layer; add it to voxel_atlas_manifest.tres and rebuild.");
+            return;
+        }
+        byte mossOverlay = (byte)moss.atlasBaseIndex;
+
+        FastNoiseLite trunkNoise = CreateMossVeinNoise(genData, MOSS_PATCH_SEED, genData.mossPatchFrequency);
+        FastNoiseLite capillaryNoise = CreateMossVeinNoise(genData, MOSS_CAPILLARY_SEED,
+            genData.mossPatchFrequency * Mathf.Max(genData.mossCapillaryFrequencyScale, 1f));
+        // Unwarped: this one says how much moss a REGION carries, so it wants
+        // to stay smooth — warping it just adds noise no one can read.
+        var patchinessNoise = new FastNoiseLite();
+        patchinessNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        patchinessNoise.Seed = MOSS_PATCHINESS_SEED;
+        patchinessNoise.Frequency = genData.mossPatchinessFrequency;
+        patchinessNoise.FractalOctaves = 2;
+
+        float capillaryWidth = Mathf.Max(genData.mossCapillaryWidth, 0.05f);
+        float yStretch = Mathf.Max(genData.mossVerticalStretch, 0.01f);
+
+        long surfaceCandidates = 0, surfaceStamped = 0, caveCandidates = 0, caveStamped = 0;
+
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                int columnZone = PickKitZone(wx, wz, genData.ZoneGens, 0);
+                ZoneGenData zone = columnZone >= 0 ? genData.ZoneGens[columnZone] : null;
+                if (zone == null)
+                {
+                    continue;
+                }
+                if (zone.mossSurfaceCoverage <= 0f && zone.mossCaveCoverage <= 0f)
+                {
+                    continue;
+                }
+
+                for (int wy = worldMinY; wy <= worldMaxY; wy++)
+                {
+                    var v = ws.GetBlockWorld(wx, wy, wz);
+                    if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
+                    {
+                        continue;
+                    }
+                    // Leave an authored overlay (a road tread) alone.
+                    if (ws.GetOverlayIdWorld(wx, wy, wz) != OVERLAY_NONE)
+                    {
+                        continue;
+                    }
+                    if (!IsAirExposed(ws, wx, wy, wz))
+                    {
+                        continue;
+                    }
+
+                    bool isCave = IsCaveKit(ws.GetTerrainIdWorld(wx, wy, wz));
+                    float coverage = isCave ? zone.mossCaveCoverage : zone.mossSurfaceCoverage;
+                    if (coverage <= 0f)
+                    {
+                        continue;
+                    }
+                    // 3D noise, so a cliff face gets vertical variation instead
+                    // of the whole column inheriting one 2D sample. Squashing Y
+                    // stretches the strands taller than they are wide, which is
+                    // what makes moss run DOWN a wall rather than around it.
+                    float sy = wy * yStretch;
+                    float trunk = Mathf.Abs(trunkNoise.GetNoise3D(wx, sy, wz)) * MOSS_NOISE_GAIN;
+                    float capillary = Mathf.Abs(capillaryNoise.GetNoise3D(wx, sy, wz))
+                        * MOSS_NOISE_GAIN / capillaryWidth;
+                    float veinDist = Mathf.Min(trunk, capillary);
+
+                    // Mean-preserving swing about 1, so raising patchiness
+                    // redistributes coverage instead of adding or removing it.
+                    float patch01 = Mathf.Clamp(
+                        0.5f + patchinessNoise.GetNoise3D(wx, sy, wz) * MOSS_NOISE_GAIN * 0.5f, 0f, 1f);
+                    float localCoverage = coverage * genData.mossStrandWidth
+                        * Mathf.Lerp(1f, patch01 * 2f, genData.mossPatchinessAmount);
+
+                    if (isCave) { caveCandidates++; } else { surfaceCandidates++; }
+                    if (veinDist < localCoverage)
+                    {
+                        ws.SetOverlayIdWorld(wx, wy, wz, mossOverlay);
+                        if (isCave) { caveStamped++; } else { surfaceStamped++; }
+                    }
+                }
+            }
+        }
+
+        GD.Print($"WorldGen: moss surface {surfaceStamped}/{surfaceCandidates}"
+            + $" ({100.0 * surfaceStamped / Math.Max(surfaceCandidates, 1):0.0}%),"
+            + $" cave {caveStamped}/{caveCandidates}"
+            + $" ({100.0 * caveStamped / Math.Max(caveCandidates, 1):0.0}%).");
+    }
+
+    // One strand network. The warp is applied by FastNoiseLite inside GetNoise,
+    // so callers sample world position and get a crooked field for free. BOTH
+    // networks warp off the TRUNK wavelength, not their own — a capillary warped
+    // at its own finer scale shakes itself into specks.
+    private static FastNoiseLite CreateMossVeinNoise(WorldGenData genData, int seed, float frequency)
+    {
+        float baseFrequency = Mathf.Max(genData.mossPatchFrequency, 1e-4f);
+        var noise = new FastNoiseLite();
+        noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        noise.Seed = seed;
+        noise.Frequency = frequency;
+        noise.FractalOctaves = 2;
+        noise.DomainWarpEnabled = genData.mossWarpWavelengths > 0f;
+        noise.DomainWarpType = FastNoiseLite.DomainWarpTypeEnum.Simplex;
+        noise.DomainWarpAmplitude = genData.mossWarpWavelengths / baseFrequency;
+        noise.DomainWarpFrequency = baseFrequency * genData.mossWarpFrequencyScale;
+        // One warp application, not FastNoiseLite's default 5-octave progressive
+        // one: this pass samples two networks per air-exposed voxel in the world,
+        // and the extra octaves buy detail far under a voxel.
+        noise.DomainWarpFractalType = FastNoiseLite.DomainWarpFractalTypeEnum.None;
+        return noise;
+    }
+
+    // Solid voxel with air or water on any of its six sides — the definition of
+    // "you can see this face", covering ground tops and cliff faces alike.
+    private static bool IsAirExposed(WorldState ws, int wx, int wy, int wz)
+    {
+        return !IsSolidOpaque(ws, wx + 1, wy, wz)
+            || !IsSolidOpaque(ws, wx - 1, wy, wz)
+            || !IsSolidOpaque(ws, wx, wy + 1, wz)
+            || !IsSolidOpaque(ws, wx, wy - 1, wz)
+            || !IsSolidOpaque(ws, wx, wy, wz + 1)
+            || !IsSolidOpaque(ws, wx, wy, wz - 1);
+    }
+
+    private static bool IsSolidOpaque(WorldState ws, int wx, int wy, int wz)
+    {
+        var v = ws.GetBlockWorld(wx, wy, wz);
+        return Blocks.IsSolid(v) && v != Blocks.BarrierId;
     }
 
     // Stamp Dirt on "surface voxels" (solid with air directly above)

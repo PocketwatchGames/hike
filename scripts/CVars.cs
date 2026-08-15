@@ -527,10 +527,12 @@ public static class CVars
     // cooldowns, AI timers, etc. stay at real speed.
     public static CVarFloat timeScale = new CVarFloat("time_scale", 1f);
 
-    // Set/read the current normalized time-of-day on the active world (the awake
-    // day). 0 = sunrise, 1/3 = noon, 2/3 = sunset, 1 = midnight. Clamped to
-    // [0, 1] (the clock never runs before sunrise and pauses at midnight);
+    // Set/read the current normalized time-of-day on the active world.
+    // 0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight, 1 = the next
+    // sunrise (where the clock pauses until a sleep). Clamped to [0, 1];
     // setting via console jumps the sun/moon orbit immediately within the day.
+    // NOTE: this only takes effect with a world loaded, so setting it from
+    // cvars.txt or the command line is dropped — use the in-game console.
     public static CVarFloat timeOfDay = new CVarFloat("time_of_day", 0.05f, (cvar) =>
     {
         WorldState ws = Sim.Current?.WorldState;
@@ -808,6 +810,40 @@ public static class CVars
     // capture a census once the world has settled:
     //   -- "autostart 1" "node_census_delay 20"
     public static CVarFloat nodeCensusDelay = new CVarFloat("node_census_delay", 0f);
+
+    // Console action: re-stitches the voxel terrain atlas from its source art,
+    // the headless twin of the editor's "Rebuild Atlas" button. Needs no world
+    // and no renderer, so a CI or agent run can bake the atlas — which is also
+    // the only path that mints an AtlasBaseIndex for a newly added surface.
+    public static CVar atlasRebuild = new CVar("atlas_rebuild", (cvar) =>
+    {
+        var manifest = Godot.GD.Load<VoxelAtlasManifest>(VoxelAtlasManifest.ManifestResourcePath);
+        if (manifest == null)
+        {
+            Godot.GD.PrintErr($"atlas_rebuild: could not load {VoxelAtlasManifest.ManifestResourcePath}.");
+            return;
+        }
+        manifest.RebuildAtlas();
+    });
+
+    // Console action: dumps a block-id census of the loaded world, most common
+    // first. The check for "is this material actually being placed?" — reading
+    // the catalog and the atlas only proves the material COULD render.
+    public static CVar worldHistogram = new CVar("world_histogram", (cvar) =>
+    {
+        if (Sim.Current?.WorldState == null)
+        {
+            Godot.GD.PrintErr("world_histogram: no active world (start a game first).");
+            return;
+        }
+        Godot.GD.Print(Sim.Current.WorldState.DescribeBlockHistogram());
+    });
+
+    // Seconds after the game scene loads to run world_histogram once, for
+    // unattended runs with no console to type into. Same slot as
+    // node_census_delay:
+    //   -- "autostart 1" "world_histogram_delay 20"
+    public static CVarFloat worldHistogramDelay = new CVarFloat("world_histogram_delay", 0f);
 
     // Console action: prints the active Fx instance count broken down by
     // source scene. Pair with the `fx_active` engine monitor to identify
@@ -1307,6 +1343,18 @@ public static class CVars
     //       3600s, configurable via rendering/limits/time/time_rollover_secs).
     //  14 = caustic pattern at a FIXED sun_uv. Strips out spatial variation
     //       so any visible pop here is purely time-source.
+    //  15-20 = PER-LAYER ISOLATION. The water surface stacks five contributors
+    //       and they are impossible to tell apart by eye; these show each one's
+    //       ACTUAL contribution to the final pixel (already multiplied by the
+    //       alpha/reflection weights it is composited with), so 15+16+17+18 sum
+    //       to the normal image. Step through them to find which layer is
+    //       making the water too bright before changing any tuning:
+    //   15 = seabed seen THROUGH the water (the screen-texture sample)
+    //   16 = underwater caustics only
+    //   17 = the water body itself (its tint × the light on it, foam included)
+    //   18 = the sky reflection on the surface
+    //   19 = foam mask (greyscale coverage, not colour)
+    //   20 = water_alpha (white = opaque water, black = see-through)
     public static CVarInt waterDebug = new CVarInt("water_debug", 0, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("water_debug_mode", ((CVarInt)cvar).Value);
@@ -1470,6 +1518,18 @@ public static class CVars
     public static CVarInt reflectionDebug = new CVarInt("reflection_debug", 0, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("reflection_debug_mode", ((CVarInt)cvar).Value);
+    });
+
+    // Bisection toggle: remove all foam coverage from the water surface —
+    // shoreline surf, the contiguous rim band at the water/land edge, and
+    // whitecaps. Colour and lighting are untouched; only the mask goes to zero,
+    // which also releases water_alpha (foam otherwise forces it to 1 at the
+    // shore, making the band fully opaque). Use it to answer "is the bright
+    // shoreline foam at all?" in one step, rather than reading it off
+    // `water_debug 17`/`19`.
+    public static CVarBool waterDisableFoam = new CVarBool("water_disable_foam", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("water_disable_foam", ((CVarBool)cvar).Value);
     });
 
     // Force the water surface to use a flat +Y normal — disables the

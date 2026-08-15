@@ -142,7 +142,10 @@ global uniform float reflection_pixel_jitter_max;
 global uniform vec3 water_shallow_tint : source_color;
 global uniform vec3 water_deep_tint : source_color;
 global uniform float water_depth_scale;
-global uniform float water_alpha_max;
+// How far a reflection tints toward the deep-water colour at depth_scale
+// below the surface. Named for what it does here; the water body no longer
+// has an alpha model (see voxel_water.gdshader's Beer-Lambert absorption).
+global uniform float water_deep_blend;
 global uniform float water_edge_opacity;
 // Drives reflection ALPHA so muddy water lets its own surface dominate
 // instead of stamping the sprite reflection over it. See the prop
@@ -492,12 +495,12 @@ void fragment() {
 	// queue now, so water's blend_mix doesn't get to tint us — recreate
 	// it here. Same two-component mix as sprite_prop_reflection_multimesh:
 	// surface tint at the waterline (water_edge_opacity), ramping up
-	// toward water_alpha_max at depth_scale below the surface.
+	// toward water_deep_blend at depth_scale below the surface.
 	float depth_below = max(0.0, water_y - vertex_world_var.y);
 	float depth_t = clamp(depth_below / max(water_depth_scale, 0.01), 0.0, 1.0);
 	vec3 tint_target = mix(water_shallow_tint, water_deep_tint, depth_t) * light;
 	float surface_blend = clamp(water_edge_opacity, 0.0, 1.0);
-	float blend = mix(surface_blend, water_alpha_max, depth_t);
+	float blend = mix(surface_blend, water_deep_blend, depth_t);
 	vec3 tinted = mix(base, tint_target, blend);
 
 		ALBEDO = tinted * reflection_tint;

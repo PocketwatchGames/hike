@@ -4,8 +4,8 @@
 [ext_resource type="AudioStream" uid="uid://cc1m0bxp41mol" path="res://assets/audio/source/ambience/insect_cicada/amb_loc_cicadas_a_01.wav" id="stream_cicada"]
 
 [sub_resource type="Curve" id="Curve_tod_afternoon"]
-_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.4, 0), 0.0, 0.0, 0, 0, Vector2(0.55, 1), 0.0, 0.0, 0, 0, Vector2(0.7, 0.6), 0.0, 0.0, 0, 0, Vector2(0.8, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
-point_count = 6
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.3, 0), 0.0, 0.0, 0, 0, Vector2(0.4125, 1), 0.0, 0.0, 0, 0, Vector2(0.525, 0.6), 0.0, 0.0, 0, 0, Vector2(0.6, 0), 0.0, 0.0, 0, 0, Vector2(0.75, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 7
 
 [resource]
 script = ExtResource("emitter_script")

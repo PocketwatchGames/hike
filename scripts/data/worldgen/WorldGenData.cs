@@ -186,9 +186,60 @@ public partial class WorldGenData : Resource
     // voxels fall back to a chunk-aligned hard seam. See WorldGen.PickKitZone.
     [Export] public float kitBlendRadius = 2.0f;
 
-    [ExportGroup("Overlay Scatter")]
-    [Export] public float overlayDirtFrequency = 0.2f;
-    [Export(PropertyHint.Range, "0,1,0.001")] public float overlayDirtThreshold = 0.9f;
+    [ExportGroup("Moss Scatter")]
+    // The surface painted as the moss overlay. Its atlasBaseIndex is the wire
+    // value written into OverlayId, so this must be a surface the atlas
+    // manifest actually bakes.
+    [Export] public BlockSurfaceData mossSurface;
+    // Spatial frequency of the TRUNK strand network. Lower = longer, lazier
+    // strands wandering across a whole hillside; higher = a tighter mesh.
+    //
+    // There is a hard floor here that no amount of width tuning escapes: a
+    // strand thinner than ONE VOXEL comes out as scattered specks instead of a
+    // line. Measured on the preview, isolated-voxel share runs 2.6% at 0.02,
+    // 6.6% at 0.035 and 10% at 0.055 for the same width — so make strands
+    // sparse by narrowing them, and make them THIN by lowering this, never by
+    // raising it.
+    [Export] public float mossPatchFrequency = 0.025f;
+    // Converts a zone's authored coverage into a strand half-width. Coverage
+    // stays the per-zone "how mossy is this place" dial; this globally trades
+    // wide ribbons for hairlines. Measured: 0.20 turns an authored 0.4 into
+    // ~22% of exposed rock. Above ~0.35 the strands merge and it reads as
+    // noise rather than as growth.
+    [Export(PropertyHint.Range, "0.02,1,0.01")] public float mossStrandWidth = 0.2f;
+    // The capillary network is the same field at a higher frequency, unioned
+    // with the trunks so hairlines branch off them. Width is a FRACTION of the
+    // trunk width — at 1.0 the two networks are indistinguishable and the
+    // result reads as one dense mesh, which is the blobby look again. Its
+    // frequency is subject to the same one-voxel floor as the trunks.
+    [Export] public float mossCapillaryFrequencyScale = 1.8f;
+    [Export(PropertyHint.Range, "0.05,1,0.01")] public float mossCapillaryWidth = 0.4f;
+    // Domain warp, in units of the strand WAVELENGTH rather than in voxels, so
+    // retuning mossPatchFrequency doesn't silently change the character. This
+    // is what turns clean contour lines into crooked creeping ones — but only
+    // if the warp is as coarse as the strands it moves. Warping at a higher
+    // frequency than the network vibrates each strand into noise instead of
+    // wandering it, which is why the scale defaults to 1.
+    [Export] public float mossWarpWavelengths = 0.35f;
+    [Export] public float mossWarpFrequencyScale = 1.0f;
+    // Vertical squash of the sample position: below 1 stretches the strands
+    // taller than they are wide, so moss on a cliff face runs DOWN it like a
+    // drip instead of ringing it horizontally. 1 = isotropic.
+    [Export(PropertyHint.Range, "0.1,2,0.01")] public float mossVerticalStretch = 0.6f;
+    // Long-wavelength modulation of coverage, so a strand thins out and dies
+    // along its length instead of running forever at one width. 0 = uniform,
+    // 1 = swings between bare and double coverage.
+    [Export] public float mossPatchinessFrequency = 0.012f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float mossPatchinessAmount = 0.6f;
+
+    [ExportGroup("Dirt Patch Scatter")]
+    [Export] public float dirtPatchFrequency = 0.2f;
+
+    // Perlin value a column must exceed to become a dirt patch. The noise is a
+    // 2-octave fractal, which in practice tops out well short of 1 — the old
+    // 0.9 was unreachable, so the pass produced nothing at all. Lower = more
+    // dirt; around 0.35 gives scattered patches, 0.6 gives rare ones.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float dirtPatchThreshold = 0.45f;
     // Edge-overlay heuristic (the StampEdgeOverlays pass, currently disabled):
     // how far up/down to scan a neighbour column for its surface, and the
     // diff band that counts as a ramp/step rather than a flat or a cliff.

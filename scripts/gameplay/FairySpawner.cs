@@ -7,7 +7,7 @@ using Godot;
 // into worldgen. The daytime sibling of NightMobSpawner; a global mechanic, not
 // zone-list authoring.
 //
-// The day (sunrise → midnight, WorldState.TimeOfDay01 in [0,1]) is split into
+// The stretch from sunrise to midnight is split into
 // SimData.fairyDayPeriods equal blocks. Crossing into each block AFTER the first
 // makes ONE spawn decision: if the player's current zone allows fairies
 // (ZoneData.canSpawnFairy) a roll against that zone's ZoneData.fairySpawnChance
@@ -21,8 +21,8 @@ using Godot;
 // the player and vanish with their chunk, never persisted. Dormant (no cost) when
 // SimData has no fairySpawnDescriptor.
 //
-// Each fairy also has a bounded lifetime (SimData.fairyLifetimeDayFraction of the
-// awake day). Once a fairy outlives it, ReapExpired despawns it — but only while it
+// Each fairy also has a bounded lifetime (SimData.fairyLifetimeDayFraction of a
+// day). Once a fairy outlives it, ReapExpired despawns it — but only while it
 // isn't currently drawn for the player, so it never blinks out on screen.
 [GlobalClass]
 public partial class FairySpawner : Node
@@ -53,9 +53,9 @@ public partial class FairySpawner : Node
     // Live spawned fairies paired with the GameTimeMs deadline at which their
     // lifetime lapses. Once lapsed a fairy is despawned, but only while it is not
     // currently visible to the player (checked each frame). The deadline rides the
-    // sim clock (not TimeOfDay01, which clamps at the midnight hold), so a fairy's
-    // life keeps counting down through the night rather than freezing until the
-    // player sleeps. Transient fairies that vanish on their own (fled/killed/
+    // sim clock (not TimeOfDay01, which clamps at the end-of-day hold), so a
+    // fairy's life keeps counting down through the night rather than freezing
+    // until the player sleeps. Transient fairies that vanish on their own (fled/killed/
     // chunk-unloaded) drop out as their node dies.
     private readonly List<(Mob mob, ulong expireMs)> _living = new();
 
@@ -120,11 +120,13 @@ public partial class FairySpawner : Node
             return;
         }
 
-        // Which day-period are we in? Equal slices of [0,1]; the clock holds at 1
-        // (midnight) so the final block covers up to midnight.
+        // Which day-period are we in? Equal slices of sunrise→midnight, not of the
+        // whole clock — the post-midnight hours are the dark run-out to the day's
+        // end, and a daytime spawner has no business making decisions in them.
         int periods = Mathf.Max(1, data.fairyDayPeriods);
         int currentPeriod = Mathf.Clamp(
-            Mathf.FloorToInt((float)sim.WorldState.TimeOfDay01 * periods), 0, periods - 1);
+            Mathf.FloorToInt((float)(sim.WorldState.TimeOfDay01 / WorldState.MidnightTimeOfDay01) * periods),
+            0, periods - 1);
 
         // Crossing into a new block makes one spawn decision for it. Skipped blocks
         // (fast time_scale) collapse into a single decision — fine for an ambient
@@ -157,7 +159,7 @@ public partial class FairySpawner : Node
                 _pendingSpawn = false;
                 _spawnedToday++;
                 // Lifetime = a fraction of a day's worth of clock, converted to a
-                // GameTimeMs deadline so it keeps ticking through the midnight hold.
+                // GameTimeMs deadline so it keeps ticking through the end-of-day hold.
                 float dayLengthSec = Mathf.Max(1f, data.dayLengthSeconds);
                 ulong lifetimeMs = (ulong)(Mathf.Max(0.001f, data.fairyLifetimeDayFraction) * dayLengthSec * 1000f);
                 _living.Add((spawned, sim.GameTimeMs + lifetimeMs));

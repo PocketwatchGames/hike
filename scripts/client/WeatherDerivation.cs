@@ -12,22 +12,36 @@ using Godot;
 public static class WeatherDerivation
 {
     // Blend weights for the three time-of-day phases from sun elevation.
-    // sunsetT is a symmetric trapezoid centered on the horizon: full
-    // warmth across |elev| <= SunsetAngleDegrees (so pre-dawn and
-    // post-dawn both stay warm across horizon crossing), fading out
-    // over SunsetColorRangeDegrees on each side.
-    private static void PhaseWeights(float sunElevDeg, float sunsetAngle, float colorRange, out float nightT, out float sunsetT)
+    // sunsetT is a symmetric trapezoid centered on the horizon: full warmth
+    // across |elev| <= plateau (so pre-dawn and post-dawn both stay warm across
+    // the horizon crossing), fading out over SunsetColorRangeDegrees on each side.
+    //
+    // The plateau is its OWN knob, deliberately narrow, and NOT SunsetAngleDegrees
+    // (25°). Every caller applies sunsetT as the final lerp — `day.Lerp(night,
+    // nightT).Lerp(sunset, sunsetT)` — so wherever sunsetT saturates it discards
+    // the day/night blend entirely. Keyed to SunsetAngleDegrees it saturated
+    // across a 50°-wide band around the horizon, which held the sky at full
+    // near-white sunset colour from well before sunset until long after (measured:
+    // still (1.0, 0.896, 0.794) at tod 0.554), and the water mirrored that as a
+    // sheet of white. Keep the plateau small enough that nightT has taken over by
+    // the time it releases.
+    private static void PhaseWeights(float sunElevDeg, float sunsetAngle, float colorRange, float sunsetPlateau, out float nightT, out float sunsetT)
     {
         colorRange = Mathf.Max(colorRange, 0.01f);
         float dayNightThreshold = sunsetAngle + colorRange;
         nightT = 1f - Mathf.SmoothStep(-dayNightThreshold, dayNightThreshold, sunElevDeg);
 
-        sunsetT = 1f - Mathf.SmoothStep(sunsetAngle, sunsetAngle + colorRange, Mathf.Abs(sunElevDeg));
+        sunsetPlateau = Mathf.Max(sunsetPlateau, 0f);
+        sunsetT = 1f - Mathf.SmoothStep(sunsetPlateau, sunsetPlateau + colorRange, Mathf.Abs(sunElevDeg));
     }
 
+    // `timeOfDay01` is the day clock (0 = sunrise … 1 = the next sunrise), NOT the
+    // orbit phase — the nightfall pass at the bottom keys off clock position, and
+    // only the diurnal weather curve wants the remapped phase.
     public static DerivedPalette Derive(ZoneData zone, WeatherData weather, float sunElevationDegrees, float timeOfDay01, SimData simData)
     {
         DerivedPalette p = default;
+        float orbitPhase01 = (float)WorldState.OrbitPhase01(timeOfDay01);
 
         // Safe fallbacks so editor previews render even before zones
         // / weather / sim are fully wired.
@@ -80,7 +94,7 @@ public static class WeatherDerivation
         float fogFromHumidity = simData?.fogFromHumidity ?? 1.5f;
         float radiationFogSharpness = simData?.radiationFogSharpness ?? 1.0f;
         float evaporativeStrength = simData?.evaporativeFogStrength ?? 0.35f;
-        float coolDiurnal = 1f - WeatherSimulation.DiurnalCurve(timeOfDay01, simData);
+        float coolDiurnal = 1f - WeatherSimulation.DiurnalCurve(orbitPhase01, simData);
         // Air-mass moisture: the wetter of this place's climate humidity (the value
         // worldgen bakes the fog_map from) and the live advected humidity. Editor
         // preview has no zone, so it falls back to the live value alone.
@@ -109,7 +123,8 @@ public static class WeatherDerivation
         // Phase weights (day / sunset / night).
         float sunsetAngle = simData?.sunsetAngleDegrees ?? 15f;
         float colorRange = simData?.sunsetColorRangeDegrees ?? 10f;
-        PhaseWeights(sunElevationDegrees, sunsetAngle, colorRange, out float nightT, out float sunsetT);
+        float sunsetPlateau = simData?.sunsetColorPlateauDegrees ?? 4f;
+        PhaseWeights(sunElevationDegrees, sunsetAngle, colorRange, sunsetPlateau, out float nightT, out float sunsetT);
 
         // Combined atmospheric haze — used everywhere fills / fog / etc.
         // need to shift with "how thick is the air today".
@@ -122,7 +137,12 @@ public static class WeatherDerivation
         float sunsetWarmth = simData?.sunsetWarmthBias ?? 0.35f;
         float sunsetDustBias = simData?.sunsetDustBias ?? 0.35f;
         Color sunsetAmber = simData?.sunsetAmberTarget ?? new Color(1.0f, 0.5f, 0.2f);
-        Color sunsetPrimary = sunC.Lerp(sunsetAmber, sunsetWarmth * (0.5f + 0.5f * dustAmount));
+        // Dust DEEPENS the amber; it is not a prerequisite for it. The old
+        // (0.5 + 0.5*dust) factor halved the warmth in clean air, so a clear
+        // sunset landed only ~17% of the way to amber — measured (1.0, 0.896,
+        // 0.794), which is white with a faint peach cast rather than a sunset.
+        Color sunsetPrimary = sunC.Lerp(sunsetAmber,
+            Mathf.Clamp(sunsetWarmth * (1f + sunsetDustBias * dustAmount), 0f, 1f));
         sunsetPrimary = sunsetPrimary.Lerp(dustC, sunsetDustBias * dustAmount);
 
         // --- Phase primary (SunTint) --------------------------------
@@ -166,7 +186,19 @@ public static class WeatherDerivation
         float aridFactor = Mathf.Min(1f - humidity, 1f - cloudCover);
         float aridBoost = Mathf.Lerp(1f, aridBoostMax, aridFactor);
 
-        float dayIntensity = dayIntBase * cloudIntensityScale * humidityIntensityScale * aridBoost;
+        // Elevation falloff — the sun genuinely dims as it descends, rather than
+        // holding full noon intensity right up to the horizon and relying on the
+        // colour crossfade alone to sell dusk. Normalized against the day's peak
+        // so noon is always 1.0 whatever the world's max elevation is.
+        float sinMaxElevSafe = Mathf.Max(
+            Mathf.Sin(Mathf.DegToRad(simData?.sunMaxElevationDegrees ?? 60f)), 1e-4f);
+        float elevNorm = Mathf.Clamp(
+            Mathf.Sin(Mathf.DegToRad(sunElevationDegrees)) / sinMaxElevSafe, 0f, 1f);
+        float elevFalloffExp = Mathf.Max(simData?.sunElevationFalloffExponent ?? 0.75f, 0.01f);
+        float horizonFactor = Mathf.Clamp(simData?.sunHorizonIntensityFactor ?? 0.25f, 0f, 1f);
+        float elevFactor = Mathf.Lerp(horizonFactor, 1f, Mathf.Pow(elevNorm, elevFalloffExp));
+
+        float dayIntensity = dayIntBase * cloudIntensityScale * humidityIntensityScale * aridBoost * elevFactor;
         float sunsetIntensity = dayIntensity * sunsetIntFactor;
         // Night moonlight is NOT arid-boosted — moonlight is already
         // dim; scaling it up would make dry nights feel unnaturally
@@ -223,9 +255,16 @@ public static class WeatherDerivation
 
         // Sunset horizon is the already-computed sunsetPrimary — same
         // warm band, same dust influence.
-        Color sunsetHorizon = sunsetPrimary;
-        Color sunsetZenith = ScaleColor(skyC, sunsetZenithScale)
-            .Lerp(sunsetPurple, humidity * sunsetHumidityPurple);
+        // Scaled like every other band. sunsetPrimary is the LIGHT colour; using it
+        // raw as the sky made the sunset dome the one phase with no brightness
+        // control, and the brightest horizon of the day.
+        float sunsetSkyBrightness = Mathf.Max(simData?.sunsetSkyBrightness ?? 1f, 0f);
+        Color sunsetHorizon = ScaleColor(sunsetPrimary,
+            (simData?.sunsetHorizonBrightness ?? 0.55f) * sunsetSkyBrightness);
+        // Scaled by the same master as the horizon — otherwise pulling the horizon
+        // down just leaves the zenith as the bright blue thing the water mirrors.
+        Color sunsetZenith = ScaleColor(skyC, sunsetZenithScale * sunsetSkyBrightness)
+            .Lerp(ScaleColor(sunsetPurple, sunsetSkyBrightness), humidity * sunsetHumidityPurple);
 
         Color nightHorizon = ScaleColor(skyC, nightHorizonScale)
             .Lerp(moonC, nightHorizonMoonBleed);
@@ -233,6 +272,13 @@ public static class WeatherDerivation
 
         p.HorizonTint = dayHorizon.Lerp(nightHorizon, nightT).Lerp(sunsetHorizon, sunsetT);
         p.ZenithTint = dayZenith.Lerp(nightZenith, nightT).Lerp(sunsetZenith, sunsetT);
+
+        // Band width follows the same phase weights as the colours it blends.
+        float gradDay = simData?.skyGradientExponentDay ?? 0.6f;
+        float gradSunset = simData?.skyGradientExponentSunset ?? 2.0f;
+        float gradNight = simData?.skyGradientExponentNight ?? 0.5f;
+        p.SkyGradientExponent = Mathf.Max(
+            Mathf.Lerp(Mathf.Lerp(gradDay, gradNight, nightT), gradSunset, sunsetT), 0.01f);
 
         // --- Fills --------------------------------------------------
         float fillASkyBias = simData?.fillAFromSkyBias ?? 0.7f;
@@ -275,9 +321,21 @@ public static class WeatherDerivation
         //   CloudTint   = blend — mostly lit, some shadow bias
         // At night, SunTint has already blended toward MoonColor so clouds
         // pick up cool tones automatically. No phase-specific branches here.
-        float cloudLightFactor = Mathf.Clamp(p.PrimaryIntensity, 0.15f, 2.0f);
+        //
+        // The intensity has to be the NIGHT-BLENDED one, not p.PrimaryIntensity:
+        // that field is the day side only (the day/night pick happens downstream
+        // via NightT), so using it lit the clouds with the sun's brightness in the
+        // moon's color and blew the dome — and its water reflection — past white
+        // all night.
+        float cloudLightFactor = Mathf.Clamp(
+            Mathf.Lerp(p.PrimaryIntensity, p.NightPrimaryIntensity, nightT), 0.15f, 2.0f);
         Color cloudLit = ScaleColor(p.SunTint, cloudLightFactor);
-        Color cloudShadow = ScaleColor(skyC, 0.7f);
+        // The bounce half is the sky the cloud is actually sitting under, so it
+        // has to follow the dome into night (nightHorizonScale, the same knob the
+        // gradient uses) — the raw authored skyColor is a DAY blue and left the
+        // undersides glowing after the lit half had gone dim.
+        Color cloudShadow = ScaleColor(skyC, 0.7f)
+            .Lerp(ScaleColor(skyC, 0.7f * nightHorizonScale), nightT);
         // Shadow weight rises with cloudCover so overcast clouds read as
         // the flat gray-blue of their underside rather than sun-tinted white.
         float shadowMix = Mathf.Clamp(0.25f + cloudCover * 0.35f, 0.2f, 0.7f);
@@ -411,20 +469,17 @@ public static class WeatherDerivation
         //                 the regional DustColor carries (ochre desert pond,
         //                 cool violet glacial melt, green swamp).
         p.WaterShallowTint = new Color(waterC.R, waterC.G, waterC.B, 1f);
-        Color clearDeep = new Color(waterC.R * 0.15f, waterC.G * 0.40f, waterC.B * 0.55f, 1f);
-        Color murkyBase = new Color(waterC.R * 0.30f, waterC.G * 0.30f, waterC.B * 0.30f, 1f);
-        Color murkySediment = new Color(dustC.R * 0.40f, dustC.G * 0.40f, dustC.B * 0.40f, 1f);
-        Color murkyDeep = murkyBase.Lerp(murkySediment, 0.6f);
-        p.WaterDeepTint = clearDeep.Lerp(murkyDeep, muddy);
-
-        // Alpha floor is muddiness directly — authored RGBA.a IS the
-        // "how opaque is the surface from directly above" number.
-        p.WaterAlphaMin = muddy;
-        // Turbidity exponent on depth_factor: clear water rides well > 1 so
-        // alpha stays low through many voxels of depth (lets the player
-        // read terrain shape through a tropical lagoon); muddy water rides
-        // < 1 so alpha rushes to 1 within a voxel or two.
-        p.WaterTurbidityExp = Mathf.Lerp(3.5f, 0.5f, muddy);
+        // Volume scatter colour. At muddiness 0 this IS the authored waterColor,
+        // so a zone's specific water colour survives untouched. Muddiness pulls it
+        // toward the regional sediment tint — silt is a genuinely different
+        // material, scattering whatever the zone's DustColor carries (ochre desert
+        // pond, green swamp) rather than simply more of the same water. Depth
+        // colour is NOT authored separately any more: absorption is tinted by the
+        // complement of this colour, so the column reddens out on its own.
+        Color sediment = new Color(dustC.R * 0.40f, dustC.G * 0.40f, dustC.B * 0.40f, 1f);
+        p.WaterScatterColor = p.WaterShallowTint.Lerp(sediment, muddy * 0.6f);
+        // Deep-water colour IS the scatter colour — one derivation, not two.
+        p.WaterDeepTint = p.WaterScatterColor;
 
         // Ripple strength: wind-driven with a quadratic curve so low-wind
         // scenes stay near-mirror (the sun disk reflects coherently) and
@@ -466,23 +521,25 @@ public static class WeatherDerivation
         p.MoonDiskColor = moonC;
 
         // --- Nightfall ----------------------------------------------
-        // The awake day ends at midnight, so the whole playable night is one
-        // monotonic slide from moonlit dusk into pitch dark: skylight ramps to
-        // NightfallSkylightFloor (0 = utterly black) by midnight, leaving block
-        // lights as the only thing the player can see by. Deliberately runs
+        // The day ends where the sun would have risen, so the last stretch of the
+        // clock is where the light goes: skylight holds through the moonlit night
+        // and then slides to NightfallSkylightFloor (0 = utterly black) across the
+        // sunrise hours, leaving block lights as the only thing the player can see
+        // by. It stays there — the clock stops at 1 and only a sleep starts the
+        // next day, so no dawn ever arrives on this side of it. Deliberately runs
         // after the whole day/sunset/night model above — that computes each
         // channel normally and this is a pure dimming pass over the result, so
         // the curve can't perturb any of that logic.
         //
         // Applied here rather than folded into the night phase weights because
-        // those key off sun ELEVATION (saturated well before midnight) while
-        // this keys off clock POSITION in the sunset→midnight window.
-        float nightfallFalloff = Mathf.Max(simData?.nightfallFalloff ?? 1.5f, 0.01f);
+        // those key off sun ELEVATION (saturated well before midnight) while this
+        // keys off clock POSITION in the closing window.
+        float nightfallFalloff = Mathf.Max(simData?.nightfallFalloff ?? 0.5f, 0.01f);
         float nightfallFloor = Mathf.Clamp(simData?.nightfallSkylightFloor ?? 0f, 0f, 1f);
-        float sunsetPhase = (float)WorldState.OrbitPhase01(WorldState.SunsetTimeOfDay01);
-        float midnightPhase = (float)WorldState.OrbitPhase01(WorldState.MidnightTimeOfDay01);
+        float nightfallStart = Mathf.Clamp(simData?.nightfallStartTimeOfDay ?? 0.85f, 0f, 0.999f);
         float nightfall01 = Mathf.Clamp(
-            (timeOfDay01 - sunsetPhase) / Mathf.Max(midnightPhase - sunsetPhase, 1e-4f), 0f, 1f);
+            (timeOfDay01 - nightfallStart)
+            / Mathf.Max((float)WorldState.EndOfDayTimeOfDay01 - nightfallStart, 1e-4f), 0f, 1f);
         p.SkyLight = Mathf.Lerp(nightfallFloor, 1f, Mathf.Pow(1f - nightfall01, nightfallFalloff));
 
         p.Ambient *= p.SkyLight;
@@ -502,24 +559,32 @@ public static class WeatherDerivation
         float skyLightRef = Mathf.Max(simData?.skyLightReference ?? 0.35f, 1e-4f);
         p.Illumination = Mathf.SmoothStep(0f, skyLightRef, litIntensity);
 
-        // Haze is lit air, so its COLOR is the light present in that air. The
-        // fog shader gates haze on light_map.r — whether sky REACHES a voxel,
-        // not how much light the sky is giving — so a sealed cave already
-        // contributes no haze, but open ground holds that gate at ~1 through
-        // any darkness and would go on washing the world toward a
-        // full-brightness fog_color. Illumination supplies the missing half.
-        // Density is deliberately NOT scaled (it reads the pre-nightfall
-        // PrimaryIntensity above): dark air still occludes, so distant block
-        // lights fade toward black rather than toward white haze.
-        p.FogTint = ScaleColor(p.FogTint, p.Illumination);
-
-        // The dome, its clouds, and with them the water / wet-fresnel
-        // reflections that sample these colors. Same argument as the haze —
-        // all three are air lit by the sky, so they ride the light, not the
-        // clock, and go black whenever it does.
-        p.HorizonTint = ScaleColor(p.HorizonTint, p.Illumination);
-        p.ZenithTint = ScaleColor(p.ZenithTint, p.Illumination);
-        p.CloudTint = ScaleColor(p.CloudTint, p.Illumination);
+        // Air that the sky lights — haze, the dome, its clouds, and with them
+        // every water / wet-fresnel reflection sampling those colors. All of it
+        // rides BOTH scalars, and the pair are not interchangeable:
+        //   SkyLight     — the nightfall curve, the same one already applied to
+        //                  Ambient / PrimaryIntensity above. Without it the sky
+        //                  stays at full brightness while everything it lights
+        //                  dims, so water mirrors a bright sky over black land.
+        //   Illumination — a SATURATING gate (smoothstep against a reference
+        //                  BELOW moonlight), so on its own it holds at exactly 1
+        //                  through most of nightfall and then dumps the whole
+        //                  fade into the last few percent of the clock. It is the
+        //                  "is there any light at all" backstop — catching causes
+        //                  of darkness the clock doesn't know about — not the
+        //                  dimming curve.
+        // The fog shader in particular gates haze on light_map.r (whether sky
+        // REACHES a voxel, not how much it is giving), so a sealed cave already
+        // contributes no haze but open ground would hold that gate at ~1 through
+        // any darkness and go on washing the world toward a full-brightness
+        // fog_color. Density is deliberately NOT scaled (it reads the
+        // pre-nightfall PrimaryIntensity above): dark air still occludes, so
+        // distant block lights fade toward black rather than toward white haze.
+        float skyColorScale = p.SkyLight * p.Illumination;
+        p.FogTint = ScaleColor(p.FogTint, skyColorScale);
+        p.HorizonTint = ScaleColor(p.HorizonTint, skyColorScale);
+        p.ZenithTint = ScaleColor(p.ZenithTint, skyColorScale);
+        p.CloudTint = ScaleColor(p.CloudTint, skyColorScale);
 
         return p;
     }

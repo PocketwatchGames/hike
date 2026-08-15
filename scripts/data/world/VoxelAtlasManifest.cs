@@ -28,6 +28,8 @@ using Godot;
 [GlobalClass]
 public partial class VoxelAtlasManifest : Resource
 {
+    public const string ManifestResourcePath = "res://resources/data/surfaces/voxel_atlas_manifest.tres";
+
     // Atlas slot size in px. Source art (1024/2048/4096) is downscaled to this.
     public const int Slot = 256;
     public const string ColorOutPath = "res://assets/textures/terrain/voxel_tiles.png";

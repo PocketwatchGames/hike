@@ -153,14 +153,19 @@ uniform sampler2DArray tile_nrm_height : filter_nearest_mipmap, repeat_enable;
 // How strongly the per-tile normal map perturbs the shading normal.
 uniform float tile_normal_strength : hint_range(0.0, 1.0) = 0.6;
 // Height-blend sharpness in [0,1]: HIGHER = sharper/tighter interlock, LOWER =
-// softer ramp (converted to a blend depth = 1 - sharpness in fragment()). Three
+// softer ramp (converted to a blend depth = 1 - sharpness in fragment()). Four
 // regimes, by the cliff/ground class of the tiles meeting:
-//   wall_blend_sharpness   — cliff ↔ ground (SHARPEST; the slope cliff/ground seam)
-//   cliff_blend_sharpness  — cliff ↔ cliff  (soft; two rock walls meeting)
-//   ground_blend_sharpness — ground ↔ ground & overlay-on-ground (soft)
+//   wall_blend_sharpness    — cliff ↔ ground (SHARPEST; the slope cliff/ground seam)
+//   cliff_blend_sharpness   — cliff ↔ cliff  (soft; two rock walls meeting)
+//   ground_blend_sharpness  — ground ↔ ground (soft)
+//   overlay_blend_sharpness — the overlay pass, on ground and cliff alike. Its
+//     own knob because a wide ramp rounds off whatever SHAPE the overlay was
+//     stamped in — moss strands need a tight edge that the moss tile's own
+//     height map can then fray, while a road tread wants the soft ground ramp.
 uniform float wall_blend_sharpness : hint_range(0.0, 1.0) = 0.65;
 uniform float cliff_blend_sharpness : hint_range(0.0, 1.0) = 0.4;
 uniform float ground_blend_sharpness : hint_range(0.0, 1.0) = 0.4;
+uniform float overlay_blend_sharpness : hint_range(0.0, 1.0) = 0.4;
 
 // How hard a tile's texture relief pushes the boundary around, against the
 // transition width the sharpnesses above set. 0 = ignore the height maps and
@@ -184,6 +189,10 @@ uniform float tile_porosity[TILE_CLASS_TABLE_SIZE];
 // (grass 0.23, cobblestone 0.53), and multiplying by raw height would dim each
 // tile by a different amount — a vendor authoring artifact, not depth.
 uniform float tile_height_mid[TILE_CLASS_TABLE_SIZE];
+// 1 = this layer, used as an overlay, also creeps onto cliff faces; 0 = it
+// stops at flat ground. Moss breaks up a bare wall; a road tread must not run
+// up one. From BlockSurfaceData.overlayOnCliffs.
+uniform float tile_overlay_cliff[TILE_CLASS_TABLE_SIZE];
 // Texture-space cavity: darkens pits and lifts peaks around tile_height_mid.
 // Relief per tile scales with that tile's height CONTRAST, so flat height maps
 // stay flat instead of going uniformly dark. 0 = off.
@@ -215,6 +224,16 @@ uniform float puddle_ripple_amp : hint_range(0.0, 3.0) = 0.5;
 uniform float puddle_ripple_thinness : hint_range(0.5, 20.0) = 2.5;
 uniform float puddle_ripple_size : hint_range(0.2, 1.0) = 0.5;
 uniform float puddle_ripple_rim : hint_range(0.0, 5.0) = 1.2;
+
+// Puddle sky-reflection gains. Both sit OUTSIDE the Fresnel term (see fragment):
+// the camera pitch is fixed and a pool's normal is forced level, so Fresnel there
+// is pinned near wet_fresnel_base (~4%) and cannot carry either of these.
+//   pool_mirror_strength — sky mirrored by the pool interior; the "this is water" cue.
+//   waterline_strength   — the brighter rim at the pool edge. Keep it near or below
+//                          the interior gain, else the puddle reads as an outline
+//                          drawn around nothing.
+uniform float pool_mirror_strength : hint_range(0.0, 1.0) = 0.25;
+uniform float waterline_strength : hint_range(0.0, 1.0) = 0.25;
 
 // Ids arriving per-vertex are BLOCK ids (BlockData.blockId), resolved to atlas
 // layers here via block_faces[]. There is no auto/literal split any more — every
@@ -534,6 +553,7 @@ void fragment() {
 	float wall_depth = 1.0 - wall_blend_sharpness;
 	float cliff_depth = 1.0 - cliff_blend_sharpness;
 	float ground_depth = 1.0 - ground_blend_sharpness;
+	float overlay_depth = 1.0 - overlay_blend_sharpness;
 
 	// Build deduped ground/cliff candidate sets across the triangle's 3 corners.
 	// Every corner contributes its block's horizontal face (weight·wf, ground)
@@ -582,7 +602,14 @@ void fragment() {
 		ent_cliff[1] = 1.0;
 		cnt = 2;
 		if (overlay_ids[i] > 0.5) {
-			float ow = w * wf;
+			// ONE weight spanning both faces. wf is the flat share; the wall
+			// share is admitted only for layers authored to climb (moss yes,
+			// road tread no). Splitting this into separate ground and cliff
+			// overlays is what put a visible seam along every wall/floor join:
+			// two coverages resolved at two different depths cannot agree
+			// where they meet.
+			float climb = tile_overlay_cliff[clamp(int(overlay_ids[i]), 0, TILE_CLASS_TABLE_SIZE - 1)];
+			float ow = w * (wf + (1.0 - wf) * climb);
 			if (ow > 0.001) {
 				bool merged = false;
 				for (int k = 0; k < ov_n; k++) {
@@ -728,20 +755,6 @@ void fragment() {
 		}
 	}
 
-	// Overlay (dirt/mud/field) feathers onto the ground result with the SMOOTH
-	// depth where authored — coverage is its corners' share of the triangle.
-	if (ov_id > 0.5 && g_n > 0) {
-		vec3 oc, on;
-		float oh;
-		sample_tile(ov_id, wp, dwp_dx, dwp_dy, blend, oc, on, oh);
-		float o_mid = tile_height_mid[clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1)];
-		float ob = height_blend_weight(ov_cov, (g_h - g_hmid) * height_relief_strength, (oh - o_mid) * height_relief_strength, ground_depth);
-		g_col = mix(g_col, oc, ob);
-		g_nrm = normalize(mix(g_nrm, on, ob));
-		g_h = mix(g_h, oh, ob);
-		g_hmid = mix(g_hmid, tile_height_mid[clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1)], ob);
-	}
-
 	// TIGHT cliff↔ground blend, by the slope-aggregated class weights. cliff↔cliff
 	// and ground↔ground were already blended softly within their classes above.
 	vec4 tex_color;
@@ -771,6 +784,28 @@ void fragment() {
 		surface_h = mix(g_h, c_h, wb);
 		surface_porosity = mix(g_por, c_por, wb);
 		surface_h_mid = mix(g_hmid, c_hmid, wb);
+	}
+
+	// Overlay (moss / dirt / road tread) feathers onto the RESOLVED surface,
+	// after cliff and ground have already been combined. Applying it once here
+	// rather than separately per class is what keeps a wall and the floor it
+	// meets continuous: one coverage, one depth, one height comparison, so the
+	// moss crossing the join is the same moss on both sides of it.
+	if (ov_id > 0.5) {
+		vec3 oc, on;
+		float oh;
+		sample_tile(ov_id, wp, dwp_dx, dwp_dy, blend, oc, on, oh);
+		float o_mid = tile_height_mid[clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1)];
+		float ob = height_blend_weight(
+			ov_cov,
+			(surface_h - surface_h_mid) * height_relief_strength,
+			(oh - o_mid) * height_relief_strength,
+			overlay_depth);
+		tex_color = vec4(mix(tex_color.rgb, oc, ob), tex_color.a);
+		tile_normal = normalize(mix(tile_normal, on, ob));
+		surface_porosity = mix(surface_porosity, tile_porosity[clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1)], ob);
+		surface_h = mix(surface_h, oh, ob);
+		surface_h_mid = mix(surface_h_mid, o_mid, ob);
 	}
 
 	// Per-tile normal map perturbs the shading normal (replaces the old global
@@ -859,8 +894,12 @@ void fragment() {
 	// Water clarity from the zone/weather muddiness: clear pools mirror the sky
 	// strongly; murky pools mostly show their (zone-tinted) body color.
 	float water_clarity = 1.0 - clamp(water_muddiness, 0.0, 1.0);
-	// Waterline: a thin brighter sky-tinted rim at the pool edge (band on pool_mask).
-	float waterline = smoothstep(0.02, 0.18, pool_mask) * (1.0 - smoothstep(0.18, 0.4, pool_mask)) * saturation;
+	// Waterline: a thin brighter sky-tinted rim at the pool edge. Banded on
+	// pool_shape, NOT pool_mask — pool_mask carries the porosity scale, so banding on
+	// it makes the rim ~1.8x wider on marsh than on rock and the gain below stops
+	// meaning one thing. Re-apply the flatness / sky gates pool_mask would have.
+	float waterline = smoothstep(0.02, 0.18, pool_shape) * (1.0 - smoothstep(0.18, 0.4, pool_shape))
+		* pool_flat * sun_mask * saturation;
 
 	// Roughness synthesized from wetness — no static map. Dry = rough (1); wetting
 	// drops it toward wet_roughness_min; a pool goes to ~mirror. This one term
@@ -895,9 +934,11 @@ void fragment() {
 	float spec_power = mix(24.0, 400.0, smoothness);
 	wet_spec = pow(wet_ndoth, spec_power) * saturation * mix(reflectivity, 1.0, pool_mask);
 	// Fresnel SKY reflection — wet ground as a partial mirror of the sky gradient.
-	// Strength scales with smoothness (sharper when smoother) and reflectivity,
-	// and is forced near-full inside pools. Added to EMISSION (a reflection, not
-	// diffuse, so NOT multiplied by albedo) and cloud-dimmed below.
+	// Strength scales with smoothness (sharper when smoother) and reflectivity.
+	// Added to EMISSION (a reflection, not diffuse, so NOT multiplied by albedo)
+	// and cloud-dimmed below. This term carries the sheen on tilted wet ground; the
+	// pool interior and its waterline are added separately after it, because a pool
+	// forces a level normal and so has no Fresnel response left to modulate.
 	float wet_fresnel = wet_fresnel_base + (1.0 - wet_fresnel_base) * pow(1.0 - max(dot(wet_view, wet_n), 0.0), 5.0);
 	vec3 wet_refl_dir = reflect(-wet_view, wet_n);
 	float wet_sky_t = clamp(wet_refl_dir.y * 0.5 + 0.5, 0.0, 1.0);
@@ -908,11 +949,17 @@ void fragment() {
 	float pool_reflect = pool_mask * mix(0.15, 1.0, water_clarity);
 	float reflect_amount = max(saturation * smoothness * mix(reflectivity, 1.0, pool_mask), pool_reflect);
 	vec3 wet_reflect = wet_sky * (wet_fresnel * wet_reflect_strength * reflect_amount);
+	// Pool interior and its rim, both outside the Fresnel multiply above — at this
+	// camera's fixed pitch against a level pool normal, Schlick sits at ~4% and
+	// would scale pool_reflect away to nothing, leaving the puddle a hole inside
+	// its own waterline. Rim gain is separate so it can stay near the interior's.
+	wet_reflect += wet_sky * (pool_reflect * wet_reflect_strength * pool_mirror_strength);
+	wet_reflect += wet_sky * (waterline * wet_reflect_strength * waterline_strength
+		* mix(0.15, 1.0, water_clarity));
 	if (debug_no_wet) {
 		wet_reflect = vec3(0.0);
 		ripple_rim = 0.0;
 	}
-	wet_reflect += wet_sky * (waterline * wet_reflect_strength * 0.5);
 	// Cloud shadow: pass to light() via cloud_dim so it composes with
 	// ATTENUATION as min() (darkest occluder wins) rather than multiplying
 	// onto the direct-sun term. Ambient sky-bounce (EMISSION half) is still

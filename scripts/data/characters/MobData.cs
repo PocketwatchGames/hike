@@ -334,13 +334,13 @@ public partial class MobData : Resource
     [Export] public StatusEffectData dugUpStun;
 
     [ExportGroup("Audio")]
-    // Time-of-day window on the awake day (normalized [0,1]: 0 = sunrise,
-    // 1/3 = noon, 2/3 = sunset, 1 = midnight) during which this mob plays its
-    // idle anim-audio loop (the _idleLoopFx chirp/hum). Outside the window the
-    // idle loop is suppressed — a sparrow set to 0.0..0.6 chirps from sunrise
-    // to late afternoon and falls silent the rest of the day. When Start == End
-    // the window is the whole day (always active, the default). Start > End wraps
-    // (e.g. a nocturnal mob at 2/3..1 = sunset to midnight is simplest without a
+    // Time-of-day window (normalized [0,1]: 0 = sunrise, 0.25 = noon,
+    // 0.5 = sunset, 0.75 = midnight, 1 = the next sunrise) during which this mob
+    // plays its idle anim-audio loop (the _idleLoopFx chirp/hum). Outside the
+    // window the idle loop is suppressed — a sparrow set to 0.0..0.45 chirps from
+    // sunrise to late afternoon and falls silent the rest of the day. When
+    // Start == End the window is the whole day (always active, the default).
+    // Start > End wraps (a nocturnal mob at 0.5..1 = sunset to sunrise needs no
     // wrap). Only the idle loop is gated; the idle animation itself still plays.
     [Export(PropertyHint.Range, "0,1,0.001")] public float idleLoopStartTimeOfDay = 0f;
     [Export(PropertyHint.Range, "0,1,0.001")] public float idleLoopEndTimeOfDay = 0f;

@@ -653,29 +653,33 @@ reflection_pixel_jitter_max={
 "type": "float",
 "value": 2.0
 }
-water_alpha_max={
-"type": "float",
-"value": 1.0
-}
 water_depth_scale={
 "type": "float",
 "value": 3.0
 }
-water_alpha_min={
-"type": "float",
-"value": 0.3
-}
 water_shallow_tint={
 "type": "vec3",
-"value": Vector3(0.35, 0.7, 0.7)
+"value": Vector3(0.3, 0.45, 0.55)
 }
 water_deep_tint={
 "type": "vec3",
-"value": Vector3(0.05, 0.15, 0.4)
+"value": Vector3(0.11, 0.2, 0.25)
 }
-water_turbidity_exp={
+water_deep_blend={
 "type": "float",
-"value": 1.0
+"value": 0.8
+}
+water_edge_opacity={
+"type": "float",
+"value": 0.3
+}
+water_scatter_color={
+"type": "vec3",
+"value": Vector3(0.3, 0.45, 0.55)
+}
+water_absorption={
+"type": "vec3",
+"value": Vector3(0.084, 0.066, 0.054)
 }
 water_muddiness={
 "type": "float",
@@ -789,6 +793,10 @@ cloud_altitude={
 "type": "float",
 "value": 60.0
 }
+sky_gradient_exponent={
+"type": "float",
+"value": 0.6
+}
 cloud_shadow_strength={
 "type": "float",
 "value": 1.0
@@ -853,10 +861,6 @@ reflection_fov_v_center={
 "type": "float",
 "value": 0.3
 }
-water_edge_opacity={
-"type": "float",
-"value": 0.3
-}
 water_rim_width={
 "type": "float",
 "value": 0.2
@@ -870,6 +874,10 @@ water_debug_mode={
 "value": 0
 }
 water_disable_ripples={
+"type": "bool",
+"value": false
+}
+water_disable_foam={
 "type": "bool",
 "value": false
 }

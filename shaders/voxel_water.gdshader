@@ -47,17 +47,29 @@ global uniform float cloud_shadow_strength;
 // Per-zone water styling — all globals driven by ZoneData.WaterColor
 // through WeatherDerivation + SkyController.Apply. Authoring one RGBA per
 // zone controls muddiness, depth color, foam tint, ripple/wave behavior.
-global uniform float water_alpha_min;
-global uniform float water_alpha_max;
+// Volumetric water model (Beer-Lambert), replacing the old "diffuse layer with
+// an albedo alpha-blended over the bottom". Water has no diffuse albedo: what
+// you see is the bottom attenuated by the column, plus light scattered back out
+// of the volume, plus a Fresnel reflection on the surface.
+//   water_absorption    — per-channel extinction, 1/metre. Red is absorbed
+//                         fastest in clear water, which is why depth goes
+//                         blue-green on its own. Muddiness raises the magnitude
+//                         (you see less far in) without changing the colour.
+//   water_scatter_color — the colour the volume settles to once the bottom is
+//                         fully extinguished. This IS the zone's authored
+//                         waterColor, so specific water colours are preserved.
+// At zero thickness transmittance is 1 and in-scatter is 0, so the water's edge
+// shows the ground EXACTLY — the shoreline is continuous by construction, with
+// no alpha floor to step off. And `behind * transmittance` can only ever darken
+// the bottom, so shallow water can no longer brighten dark ground.
+global uniform vec3 water_absorption;
+global uniform vec3 water_scatter_color : source_color;
 global uniform float water_depth_scale;
-global uniform float water_turbidity_exp;
 
 // Water term-isolation toggles - see the fragment tail.
 global uniform bool debug_water_flat;
 global uniform bool debug_water_thickness;
 global uniform float water_muddiness;
-global uniform vec3 water_shallow_tint : source_color;
-global uniform vec3 water_deep_tint : source_color;
 
 // Ripple / reflection tuning — registered as globals by SkyController so
 // inspector tweaks propagate live to every water material at once.
@@ -125,7 +137,6 @@ global uniform float water_refraction_strength;
 // Minimum surface alpha at the water's edge (thickness → 0). Clamps the
 // authored WaterColor.a from below so clean water still reads as visible
 // color along the shoreline instead of fading to full transparency.
-global uniform float water_edge_opacity;
 // Contiguous shoreline rim — a solid band of foam-colored pixels right at
 // the water/land boundary, on top of the noisy shoreline foam. _width is
 // world-units from the edge; _strength is how strong the rim reads.
@@ -136,6 +147,10 @@ global uniform float water_rim_strength;
 global uniform int water_debug_mode;
 // Force the shading normal flat — bypasses ripple texture perturbation.
 global uniform bool water_disable_ripples;
+// Bisection toggle: force foam coverage to zero (shoreline surf, the contiguous
+// rim band and whitecaps alike) without touching foam's colour or lighting. Also
+// releases water_alpha, which foam_amount otherwise drives to 1 at the shore.
+global uniform bool water_disable_foam;
 // Max mip LOD bias applied to the reflected starfield at full ripple
 // strength. 0 = stars stay sharp on rippled water (aliases/flickers). Higher
 // values trade detail for stability as ripples scatter neighboring
@@ -337,6 +352,14 @@ float caustic_pattern(vec3 world_pos)
 	float n2 = vnoise(p2);
 	float c = 1.0 - abs(n1 - n2) * 2.0;
 	return pow(clamp(c, 0.0, 1.0), max(caustic_sharpness, 0.01));
+}
+
+// Fraction of the through-water (`behind`) term that survives compositing:
+// the Beer-Lambert transmittance, then (1 - refl_mix) under the reflection.
+// Used by the water_debug isolation modes so each layer shows its ACTUAL
+// contribution to the final pixel rather than its raw value.
+vec3 water_behind_complement(vec3 transmittance, float refl_mix) {
+	return transmittance * (1.0 - refl_mix);
 }
 
 // Quantize noise UVs to a pixel grid. Used for the shoreline foam mask
@@ -775,7 +798,7 @@ void fragment() {
 	// rushes toward opaque within a voxel or two. Smoothstep softens the
 	// near-edge transition so shoreline opacity fades gradually instead
 	// of ramping linearly from the very first fragment.
-	float depth_factor = pow(smoothstep(0.0, 1.0, depth_factor_raw), water_turbidity_exp);
+	float depth_factor = smoothstep(0.0, 1.0, depth_factor_raw);
 
 	// Foam mask + water_alpha hoisted above the lighting block: the rippled
 	// normal's contribution to direct sunlight is gated by surface opacity
@@ -804,10 +827,19 @@ void fragment() {
 		float noisy_foam = shallow * mask * foam_strength * wind_factor;
 		foam_amount = max(max(noisy_foam, rim), whitecap_foam_amt);
 	}
+	if (water_disable_foam) { foam_amount = 0.0; }
 	// Edge-opacity floor + depth ramp + foam union — same formula as the
 	// final compositing alpha; computed once here and reused below.
-	float effective_edge_alpha = max(water_alpha_min, water_edge_opacity);
-	float water_alpha = max(mix(effective_edge_alpha, water_alpha_max, depth_factor), foam_amount);
+	// Beer-Lambert transmittance through the water column: the fraction of the
+	// bottom that survives to the eye, per channel. Falls out of thickness alone —
+	// no authored alpha floor, so a vanishing film of water is genuinely invisible
+	// and the waterline needs no special case.
+	vec3 transmittance = exp(-water_absorption * thickness);
+	// "How much of this pixel is water surface rather than see-through" — the
+	// stand-in for the old water_alpha wherever a scalar opacity is wanted (ripple
+	// N·L weighting, the behind-sample gate). Foam is opaque surface, so it unions in.
+	float water_opacity = clamp(1.0 - dot(transmittance, vec3(1.0 / 3.0)), 0.0, 1.0);
+	float water_alpha = max(water_opacity, foam_amount);
 
 	// Sample lightmap per-pixel for smooth interpolation across the face.
 	// Water samples from itself: push 0.5 along -world_normal (the flat
@@ -842,17 +874,12 @@ void fragment() {
 	vec3 light = max(min(vec3(1.0), sun_lit + block_lit), vec3(MIN_AMBIENT));
 	vec3 shaded_light = face_shade * light;
 
-	// Deeper water is darker and more opaque
-	vec3 base_color = mix(water_shallow_tint, water_deep_tint, depth_factor);
-	vec3 water_col = base_color * shaded_light;
+	// The volume's own contribution: light scattered back out of the water,
+	// saturating toward water_scatter_color as the bottom is extinguished. This
+	// is what gives deep water its colour; it is NOT an albedo over the ground.
+	vec3 in_scatter = water_scatter_color * shaded_light * (1.0 - transmittance);
+	vec3 water_col = in_scatter;
 
-	// Foam color compositing (split out from foam_amount above so the
-	// lighting block could see water_alpha first). Same light floor as
-	// before — clear day = crisp white foam, dim night = block-lit only.
-	if (is_top && foam_amount > 1e-4) {
-		vec3 foam_light = max(light, vec3(foam_min_light * sun_mask));
-		water_col = mix(water_col, foam_color * foam_light, foam_amount);
-	}
 
 	// Reflection path. Values hoisted above the is_top branch so the
 	// water_debug visualizer can sample them uniformly.
@@ -1012,11 +1039,15 @@ void fragment() {
 	// water_alpha computed above (hoisted alongside foam_amount so the
 	// lighting block could weight ripple N·L by surface opacity).
 	vec3 behind = vec3(0.0);
-	// Only sample the screen texture when the water body is actually
-	// going to show what's behind it (water_alpha < 1 somewhere on the
-	// fragment OR we're on a side face where compositing always runs).
-	// Fully-opaque muddy water at depth can skip the sample entirely.
-	bool needs_behind = water_alpha < 0.999;
+	// Per-layer captures for the water_debug isolation modes (15-20). Free in
+	// release: the compiler drops them when water_debug_mode is a constant 0.
+	vec3 dbg_caustic = vec3(0.0);
+	// Skip the screen sample when the column extinguishes the bottom entirely
+	// (deep and/or muddy) — the transmittance IS the visibility, so this is an
+	// exact test rather than the old alpha heuristic. Worth more than it looks:
+	// the branch it guards costs up to 4 depth fetches plus a screen fetch, and
+	// it also gates the caustic block below.
+	bool needs_behind = max(max(transmittance.r, transmittance.g), transmittance.b) > 0.004;
 	if (needs_behind) {
 		if (is_top && water_refraction_strength > 1e-5) {
 			// Scale the UV offset by how far the ray travels through water —
@@ -1040,6 +1071,8 @@ void fragment() {
 			behind = textureLod(screen_tex, SCREEN_UV, 0.0).rgb;
 		}
 	}
+
+	vec3 dbg_seabed = behind;
 
 	// Underwater caustics. Reconstruct the seabed world position from the
 	// depth buffer, sample the procedural ribbon pattern in world-space XZ
@@ -1069,7 +1102,15 @@ void fragment() {
 		vec3 caustic_sample_pos = world_vertex + view_dir_world * thickness;
 
 		float pattern = caustic_pattern(caustic_sample_pos);
-		float depth_attn = exp(-thickness / max(caustic_depth_fade, 0.01));
+		// Caustics are sunlight LENSED by the surface, so they need a column to
+		// focus through: at zero thickness there is no water above the bottom and
+		// therefore no lensing. A bare exp(-thickness) peaks exactly where the
+		// water vanishes, putting the brightest caustics on the shoreline — a
+		// glowing rim, which is backwards. Ramp in over the first third of the
+		// fade distance, then decay as before.
+		float caustic_fade = max(caustic_depth_fade, 0.01);
+		float depth_attn = smoothstep(0.0, caustic_fade * 0.35, thickness)
+			* exp(-thickness / caustic_fade);
 
 		// Total-light luminance proxy: max channel of the composited surface
 		// light (sun_lit + block_lit, clamped). Sun-lit AND torch-lit
@@ -1087,8 +1128,13 @@ void fragment() {
 		// `light_amt` only reaches ~0.3-0.5 in caves so linear was over-
 		// representing the contribution). MIN_AMBIENT also gets squashed
 		// here, so true-shadow water fades cleanly to zero.
-		float light_amt = max(max(light.r, light.g), light.b);
-		behind += caustic_color * pattern * caustic_strength * depth_attn * light_amt * light_amt;
+		// DIMMEST channel, not brightest. Moonlight is strongly blue, so max()
+		// reads its blue channel and overstates how much light is actually
+		// present — the same overstatement that had the foam floor glowing at
+		// night. min() makes caustics vanish with the scene rather than lag it.
+		float light_amt = min(min(light.r, light.g), light.b);
+		dbg_caustic = caustic_color * pattern * caustic_strength * depth_attn * light_amt * light_amt;
+		behind += dbg_caustic;
 	}
 
 	// Two-layer compositing: water body first, reflection on top. Water
@@ -1101,14 +1147,46 @@ void fragment() {
 	//   composited = mix(water_body, refl_col, refl_mix)  -- surface reflection on top
 	// Foam already boosts water_alpha to ~1 at the shoreline, and foam's
 	// color is in water_col, so foam still wins there.
-	vec3 water_body = mix(behind, water_col, water_alpha);
-	vec3 composited = mix(water_body, refl_col, refl_mix);
+	// Volumetric composite: the bottom attenuated by the column, plus the light
+	// the column scattered back out. No alpha blend — `behind * transmittance`
+	// can only darken the bottom, which is why shallow water no longer brightens
+	// dark ground, and why the water's edge needs no opacity floor.
+	// `behind` is the SCREEN TEXTURE — whatever drew it (terrain) has ALREADY
+	// applied eye adaptation to it. Track that fraction separately so the final
+	// gain below is applied only to light this shader generates; multiplying the
+	// whole composite would SQUARE the gain on the see-through part, weighted by
+	// transmittance — brightest exactly where the water is thinnest, i.e. a
+	// glowing band along every shoreline that no shading parameter can dim.
+	vec3 seen_through = behind * transmittance;
+	vec3 own_light = in_scatter;
+	// Foam sits ON the surface, above the whole volume, and keeps its own alpha.
+	if (is_top && foam_amount > 1e-4) {
+		vec3 foam_light = max(light, vec3(foam_min_light * sun_mask));
+		own_light = mix(own_light, foam_color * foam_light, foam_amount);
+		seen_through *= (1.0 - foam_amount);
+	}
+	own_light = mix(own_light, refl_col, refl_mix);
+	seen_through *= (1.0 - refl_mix);
+	vec3 water_body = seen_through + in_scatter;
+	vec3 composited = own_light + seen_through;
+	// Exempted from eye adaptation at the bottom of fragment().
+	vec3 ea_exempt = seen_through;
 
 	// Debug visualizer. When non-zero, replaces the composited output on
 	// top faces only (side faces stay normal so shorelines remain readable).
 	// See CVars.cs `water_debug` for mode documentation.
 	if (is_top && water_debug_mode > 0) {
-		if (water_debug_mode == 1) { composited = refl_col; }
+		ea_exempt = vec3(0.0);
+		// 15-20: per-layer isolation — which of the stacked contributors is
+		// actually making the surface bright. Each shows ONLY that layer's
+		// contribution to the final pixel, so they sum to the normal output.
+		if (water_debug_mode == 15) { composited = dbg_seabed * water_behind_complement(transmittance, refl_mix); }
+		else if (water_debug_mode == 16) { composited = dbg_caustic * water_behind_complement(transmittance, refl_mix); }
+		else if (water_debug_mode == 17) { composited = (water_body - behind * transmittance) * (1.0 - refl_mix); }
+		else if (water_debug_mode == 18) { composited = refl_col * refl_mix; }
+		else if (water_debug_mode == 19) { composited = vec3(foam_amount); }
+		else if (water_debug_mode == 20) { composited = vec3(1.0) - transmittance; }
+		else if (water_debug_mode == 1) { composited = refl_col; }
 		else if (water_debug_mode == 2) { composited = sky_col; }
 		else if (water_debug_mode == 3) { composited = sky_col; } // SSR removed; mode 3 now == sky
 		else if (water_debug_mode == 4) { composited = vec3(fresnel); }
@@ -1202,7 +1280,9 @@ void fragment() {
 	// `unshaded`, so scaling the composite directly is the final adaptation; no
 	// ALBEDO/EMISSION split here. No-op when eye_adaptation == 0.
 	float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
-	ALBEDO = composited * ea_gain;
+	// Adapt only what this shader generated; ea_exempt already carries the
+	// adaptation of whatever drew it into the screen texture (see above).
+	ALBEDO = max(composited - ea_exempt, vec3(0.0)) * ea_gain + ea_exempt;
 	ALPHA = 1.0;
 
 	// Term isolation, the same approach that located the sun banding. Each

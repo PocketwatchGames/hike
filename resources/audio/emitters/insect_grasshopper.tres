@@ -4,8 +4,8 @@
 [ext_resource type="AudioStream" uid="uid://bxq1lvdqfog0s" path="res://assets/audio/source/ambience/insect_grasshopper/amb_loc_grasshopper_a_01.wav" id="stream_grasshopper"]
 
 [sub_resource type="Curve" id="Curve_tod_day"]
-_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.28, 0), 0.0, 0.0, 0, 0, Vector2(0.45, 1), 0.0, 0.0, 0, 0, Vector2(0.65, 1), 0.0, 0.0, 0, 0, Vector2(0.8, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
-point_count = 6
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.21, 0), 0.0, 0.0, 0, 0, Vector2(0.3375, 1), 0.0, 0.0, 0, 0, Vector2(0.4875, 1), 0.0, 0.0, 0, 0, Vector2(0.6, 0), 0.0, 0.0, 0, 0, Vector2(0.75, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 7
 
 [resource]
 script = ExtResource("emitter_script")

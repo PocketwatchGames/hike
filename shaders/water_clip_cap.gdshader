@@ -24,12 +24,13 @@ global uniform float cloud_shadow_strength;
 // All water styling comes from region-driven globals — same authored set
 // as voxel_water.gdshader so the cap reads continuously with the water
 // below when the ceiling cutaway reveals both.
-global uniform vec3 water_shallow_tint : source_color;
-global uniform vec3 water_deep_tint : source_color;
-global uniform float water_alpha_min;
-global uniform float water_alpha_max;
+// Same volumetric model as voxel_water so the cap can't drift from the surface
+// it caps. The cap has nothing behind it to attenuate, so it renders the
+// scatter colour directly and lets its ALPHA carry how much of the column
+// obscures what's beyond.
+global uniform vec3 water_absorption;
+global uniform vec3 water_scatter_color : source_color;
 global uniform float water_depth_scale;
-global uniform float water_turbidity_exp;
 
 global uniform float ripple_scale_a;
 global uniform float ripple_scale_b;
@@ -139,10 +140,11 @@ void fragment() {
 
 	float thickness = abs(scene_view.z - frag_view.z);
 	float depth_factor_raw = clamp(thickness / water_depth_scale, 0.0, 1.0);
-	float depth_factor = pow(smoothstep(0.0, 1.0, depth_factor_raw), water_turbidity_exp);
+	float depth_factor = smoothstep(0.0, 1.0, depth_factor_raw);
+	vec3 transmittance = exp(-water_absorption * thickness);
 
 	// Deeper water is darker and more opaque — matches front face logic.
-	vec3 base_color = mix(water_shallow_tint, water_deep_tint, depth_factor);
+	vec3 base_color = water_scatter_color;
 	vec3 water_col = base_color * light;
 
 	// Shoreline foam — scrolling noise band where thickness < foam_depth.
@@ -164,6 +166,6 @@ void fragment() {
 	vec3 final_col = mix(water_col, refl_col, refl_mix);
 
 	ALBEDO = final_col;
-	ALPHA = max(mix(water_alpha_min, water_alpha_max, depth_factor), foam_amount);
+	ALPHA = max(clamp(1.0 - dot(transmittance, vec3(1.0 / 3.0)), 0.0, 1.0), foam_amount);
 	}
 }

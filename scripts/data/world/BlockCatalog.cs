@@ -37,6 +37,11 @@ public partial class BlockCatalog : Resource
 
     [Export] public BlockData[] blocks;
 
+    // Surfaces that exist only as OVERLAYS, so no block's top/side/bottom names
+    // them. They still occupy an atlas layer and still need their per-layer
+    // properties uploaded — list them here or they read as defaults.
+    [Export] public BlockSurfaceData[] overlaySurfaces;
+
     // The block a voxel holds when nothing has been written — empty space.
     // Named rather than assumed at id 0 so the catalog asset owns the choice.
     [Export] public BlockData airBlock;
@@ -50,8 +55,10 @@ public partial class BlockCatalog : Resource
     // properties. First block wins where several share a top surface.
     private BlockData[] _byTopSurfaceLayer;
     // Atlas layer -> the surface baked there, gathered from every face of every
-    // block. There is no separate surface catalog: a surface no block wears is
-    // unreachable at runtime by definition.
+    // block PLUS overlaySurfaces. Block faces alone are not enough: an
+    // overlay-only surface (moss) is worn by nothing, and the per-layer tables
+    // the shader reads — tile_porosity, tile_overlay_cliff — are indexed by
+    // layer, so a missing entry silently hands it another surface's defaults.
     private BlockSurfaceData[] _surfaceByLayer;
 
     public BlockData GetById(int blockId)
@@ -167,6 +174,15 @@ public partial class BlockCatalog : Resource
             }
         }
 
+        foreach (BlockSurfaceData surface in overlaySurfaces ?? System.Array.Empty<BlockSurfaceData>())
+        {
+            if (surface == null) { continue; }
+            if (surface.atlasBaseIndex < 0 || surface.atlasBaseIndex >= MAX_ATLAS_LAYERS)
+            {
+                GD.PushError($"BlockCatalog: overlay surface '{surface.surfaceName}' has AtlasBaseIndex={surface.atlasBaseIndex}; add it to voxel_atlas_manifest.tres and Rebuild Atlas.");
+            }
+        }
+
         if (airBlock == null)
         {
             GD.PushError("BlockCatalog: airBlock is not assigned.");
@@ -220,6 +236,18 @@ public partial class BlockCatalog : Resource
                     {
                         _surfaceByLayer[sl] = surface;
                     }
+                }
+            }
+        }
+        if (overlaySurfaces != null)
+        {
+            foreach (BlockSurfaceData surface in overlaySurfaces)
+            {
+                if (surface == null) { continue; }
+                int sl = surface.atlasBaseIndex;
+                if (sl >= 0 && sl < _surfaceByLayer.Length)
+                {
+                    _surfaceByLayer[sl] = surface;
                 }
             }
         }

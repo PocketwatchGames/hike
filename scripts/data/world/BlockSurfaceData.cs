@@ -42,6 +42,18 @@ public partial class BlockSurfaceData : Resource
     // glint/reflection scales with (1 - porosity).
     [Export(PropertyHint.Range, "0,1,0.01")] public float porosity = 0.5f;
 
+    // When this surface is used as an OVERLAY, whether it also creeps onto cliff
+    // faces instead of stopping at flat ground. Moss wants this (it breaks up a
+    // bare wall); a dirt or road tread does not, and would read as mud running
+    // up a vertical rock face. Uploaded per layer as tile_overlay_cliff[].
+    [Export] public bool overlayOnCliffs = false;
+
+    // Minimap colour for this surface when it is drawn as an OVERLAY. The
+    // minimap indexes its lookup by atlas layer and an overlay wins outright
+    // over the block under it, so a layer worn by no block has no colour to
+    // fall back on and paints the unauthored magenta.
+    [Export] public Color minimapColor = new Color(0.3f, 0.3f, 0.3f);
+
     // Show atlasBaseIndex but forbid editing it. Kept visible rather than hidden
     // because it is the wire id you need when reading OverlayId bytes out of a
     // .hike or chasing a mis-textured row.

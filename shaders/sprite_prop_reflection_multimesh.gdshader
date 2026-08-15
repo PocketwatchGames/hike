@@ -105,7 +105,10 @@ global uniform vec3 wind_map_inv_size;
 global uniform vec3 water_shallow_tint : source_color;
 global uniform vec3 water_deep_tint : source_color;
 global uniform float water_depth_scale;
-global uniform float water_alpha_max;
+// How far a reflection tints toward the deep-water colour at depth_scale
+// below the surface. Named for what it does here; the water body no longer
+// has an alpha model (see voxel_water.gdshader's Beer-Lambert absorption).
+global uniform float water_deep_blend;
 global uniform float water_edge_opacity;
 // Clarity / muddiness, driven from ZoneData.WaterColor.a in
 // SkyController.Apply (clearer on the zone-clear end, opaque on
@@ -523,14 +526,14 @@ void fragment() {
     //     when the reflection is right at the waterline.
     //   - Depth tint: ramps the target color from shallow→deep tint with
     //     depth below the surface, and bumps the mix factor up toward
-    //     water_alpha_max so deep reflections sit close to the deep-water
+    //     water_deep_blend so deep reflections sit close to the deep-water
     //     color (matching what water's blend_mix would do over a sprite
     //     visible through deep water).
     float depth_below = max(0.0, water_y_var - vertex_world_var.y);
     float depth_t = clamp(depth_below / max(water_depth_scale, 0.01), 0.0, 1.0);
     vec3 tint_target = mix(water_shallow_tint, water_deep_tint, depth_t) * light;
     float surface_blend = clamp(water_edge_opacity, 0.0, 1.0);
-    float blend = mix(surface_blend, water_alpha_max, depth_t);
+    float blend = mix(surface_blend, water_deep_blend, depth_t);
     vec3 tinted = mix(reflected, tint_target, blend);
 
         ALBEDO = tinted * reflection_tint;

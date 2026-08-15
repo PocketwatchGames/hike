@@ -10,9 +10,9 @@
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
-[ext_resource type="PackedScene" uid="uid://carxk5v82cy87" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
+[ext_resource type="PackedScene" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
 [ext_resource type="PackedScene" uid="uid://blq0cn2x7hpke" path="res://scenes/gui/camp_screen.tscn" id="40_30f04"]
-[ext_resource type="PackedScene" uid="uid://iclwdeljyf5oi" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
+[ext_resource type="PackedScene" uid="uid://lr56aq1t1e5y" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
 [ext_resource type="Script" uid="uid://bt6ru7ovpj28n" path="res://scripts/gui/ScreenFade.cs" id="42_screenfade"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://assets/audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
@@ -24,7 +24,7 @@
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="Script" uid="uid://bd2qbk8yxpmjj" path="res://scripts/client/GroundStainProjector.cs" id="ground_stain_projector_script"]
 [ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://assets/audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
-[ext_resource type="PackedScene" uid="uid://chtfieldscene7y2b" path="res://scenes/subsystems/heat_field.tscn" id="heat_field_scene"]
+[ext_resource type="PackedScene" uid="uid://cwdqs8t0vrv7l" path="res://scenes/subsystems/heat_field.tscn" id="heat_field_scene"]
 [ext_resource type="Material" uid="uid://bodv5gd4psxkh" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
 [ext_resource type="PackedScene" uid="uid://cuyfeo5we7vxp" path="res://scenes/hud/hud_text_backstab.tscn" id="hud_text_backstab"]
 [ext_resource type="PackedScene" uid="uid://bv6kkm02f7457" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
@@ -36,16 +36,16 @@
 [ext_resource type="PackedScene" uid="uid://wrdegol14u0e" path="res://scenes/hud/hud_text_heal_heavy.tscn" id="hud_text_heal_heavy"]
 [ext_resource type="PackedScene" uid="uid://daw07fd8ckjrx" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
 [ext_resource type="PackedScene" uid="uid://bajbqjuap3wxc" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
-[ext_resource type="PackedScene" uid="uid://cmnmapscene7x1a" path="res://scenes/subsystems/minimap.tscn" id="minimap_scene"]
+[ext_resource type="PackedScene" uid="uid://3ufqfjj386am" path="res://scenes/subsystems/minimap.tscn" id="minimap_scene"]
 [ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/fx/motes.tscn" id="mote_scene"]
-[ext_resource type="Material" uid="uid://pr8w6684ve7dm" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
-[ext_resource type="Material" uid="uid://piugapxcfo8bk" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
+[ext_resource type="Material" uid="uid://cmgtyk4mlpck" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
+[ext_resource type="Material" uid="uid://dwmtij6kp3l1a" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="post_process_mat"]
 [ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/fx/rain.tscn" id="rain_scene"]
 [ext_resource type="Script" uid="uid://bi7rs3e700k6x" path="res://scripts/client/ScreenEffectsController.cs" id="screen_effects_script"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
 [ext_resource type="Script" uid="uid://cselyavrn014a" path="res://scripts/client/SlowMotionController.cs" id="slow_motion_script"]
-[ext_resource type="Material" uid="uid://ssmvopbv8hql1" path="res://resources/materials/upscale.tres" id="upscale_mat"]
+[ext_resource type="Material" uid="uid://dc0fchmvyn8ky" path="res://resources/materials/upscale.tres" id="upscale_mat"]
 [ext_resource type="Script" uid="uid://cjflrpaeqaulr" path="res://scripts/client/ViewportRig.cs" id="viewport_rig_script"]
 [ext_resource type="PackedScene" uid="uid://bwfoam4m5n6o7" path="res://scenes/fx/wind_foam.tscn" id="wind_foam_scene"]
 [ext_resource type="Script" uid="uid://cd6m5lgxxf0tx" path="res://scripts/gameplay/WindParticleManager.cs" id="wind_particle_manager_script"]
@@ -59,7 +59,7 @@ tonemap_exposure = 1.2
 tonemap_white = 2.0
 glow_enabled = true
 glow_intensity = 0.8
-glow_hdr_threshold = 1.5
+glow_bloom = 0.1
 
 [sub_resource type="QuadMesh" id="QuadMesh_bloom"]
 size = Vector2(2, 2)
@@ -86,7 +86,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
+[node name="SkyController" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
 mobLevelColors = PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0.48000002, 1, 0.48, 0, 0, 1, 0.49866652, 0, 0.68, 1)
 camera = NodePath("SceneViewport/MainCamera")
@@ -208,6 +208,11 @@ followTimeSprinting = 1.0
 followTimeAirAscending = 0.65
 followTimeDashing = 1.5
 clipTargetStabilityFrames = 6
+pocheColor = Color(0.0336, 0.0336, 0.04, 1)
+pocheSwirlColor = Color(0.0567, 0.0567, 0.07, 1)
+pocheSwirlScale = 0.12
+pocheSwirlWarp = 4.0
+pocheSwirlSpeed = 0.05
 campDistance = 20.0
 campFov = 20.0
 campZoomPixelSteps = 4
@@ -244,8 +249,10 @@ mesh = SubResource("QuadMesh_fog")
 environment = SubResource("Environment_scene")
 
 [node name="SunLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209991]
-transform = Transform3D(0.9824063, 0.13033769, -0.13375247, 0, 0.71619004, 0.6979053, 0.18675554, -0.6856267, 0.7035897, 0, 0, 0)
-light_angular_distance = 4.6323805
+transform = Transform3D(0.8079839, 0.15249728, -0.56912786, 0, 0.9659259, 0.25881892, 0.58920443, -0.20912156, 0.78045267, 0, 0, 0)
+visible = false
+light_energy = 0.49999905
+light_angular_distance = 5.1318517
 light_bake_mode = 0
 light_cull_mask = 11
 shadow_enabled = true
@@ -258,9 +265,8 @@ sky_mode = 1
 
 [node name="MoonLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209992]
 transform = Transform3D(-0.58920443, -0.20912163, 0.780452, 0, 0.9659258, 0.25881886, -0.8079838, 0.15249734, -0.5691274, 0, 0, 0)
-visible = false
 light_energy = 0.37500018
-light_angular_distance = 4.6323805
+light_angular_distance = 5.1318517
 light_bake_mode = 0
 light_cull_mask = 11
 shadow_enabled = true
@@ -323,6 +329,7 @@ BurstsPerSecondMax = 3.0
 script = ExtResource("sky_controller_script")
 sunLight = NodePath("../SceneViewport/SunLight")
 moonLight = NodePath("../SceneViewport/MoonLight")
+previewTimeOfDay = 0.5
 shaftFadeAngleDegrees = 2.0
 shaftFadeRangeDegrees = 6.1
 shadowAngularBase = 2.0
@@ -334,10 +341,13 @@ moonAngularSizeDeg = 12.0
 moonDiskIntensity = 5.0
 starIntensity = 1.5
 waterDepthScale = 12.0
-waterEdgeOpacity = 0.5
-waterAlphaMaxClean = 0.0
-rimWidth = 1.0
-rimStrength = 0.8
+foamWhiteness = 0.0
+foamAmbientShare = 0.0
+waterEdgeOpacity = 0.0
+waterClearAbsorption = 0.05
+waterMuddyAbsorption = 1.0
+rimWidth = 0.5
+rimStrength = 0.3
 rippleScaleA = 0.1
 rippleScaleB = 0.06
 rippleAngleOffsetB = 65.0
@@ -345,8 +355,6 @@ dynamicRippleLifetime = 1.5
 dynamicRippleFalloff = 60.0
 dynamicRippleTilt = 0.25
 reflectionFovVerticalCenter = 0.35
-fresnelPower = 0.5
-reflectionStrength = 1.5
 waveStreakStrength = 0.2
 waveStreakScaleA = 0.5
 waveStreakScaleB = 0.4
@@ -368,6 +376,7 @@ cloudAltitude = 100.0
 cloudShadowStrength = 0.6
 fogMaterial = ExtResource("fog_volumetric_mat")
 depthFogEnvironment = NodePath("../SceneViewport/InnerEnv")
+puddleEdge = 0.15
 
 [node name="HeartbeatAudio" type="AudioStreamPlayer" parent="." unique_id=1349076880]
 stream = ExtResource("heartbeat_sfx")

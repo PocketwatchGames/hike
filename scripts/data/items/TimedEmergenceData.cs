@@ -10,12 +10,13 @@ using Godot;
 [GlobalClass]
 public partial class TimedEmergenceData : Resource
 {
-    // Time-of-day window on the awake day (normalized [0,1]: 0 = sunrise,
-    // 1/3 = noon, 2/3 = sunset, 1 = midnight) during which the loot is emerged.
-    // The window wraps when Begin > End, but the clock never runs before sunrise,
-    // so the defaults below mean "night" as sunset (2/3) -> midnight (1); set
-    // 0/2/3 for daytime, 0/0.15 for early morning, etc. Begin == End = never emerges.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float beginTimeOfDay = 0.667f;
+    // Time-of-day window (normalized [0,1]: 0 = sunrise, 0.25 = noon,
+    // 0.5 = sunset, 0.75 = midnight, 1 = the next sunrise) during which the loot
+    // is emerged. The window wraps when Begin > End, but the clock never runs
+    // past 1, so the defaults below mean "all night" as sunset (0.5) -> sunrise
+    // (1); set 0/0.5 for daytime, 0/0.11 for early morning, etc.
+    // Begin == End = never emerges.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float beginTimeOfDay = 0.5f;
     [Export(PropertyHint.Range, "0,1,0.001")] public float endTimeOfDay = 1.0f;
 
     // Seconds the scale-up + rise (and the reverse retract) takes. Runs on the

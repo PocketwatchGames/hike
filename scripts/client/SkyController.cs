@@ -63,7 +63,7 @@ public partial class SkyController : Node3D
     // Editor preview only — no WorldState exists in the editor, so the
     // orbit needs a manual parameter to preview nighttime / sunset looks.
     // At runtime this is ignored and WorldState.TimeOfDay01 drives the orbit.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float previewTimeOfDay = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float previewTimeOfDay = 0.375f;
 
     [ExportSubgroup("Fades")]
     // Each phenomenon's horizon fade is a PAIR:
@@ -233,19 +233,40 @@ public partial class SkyController : Node3D
     // regardless of clarity), so the effective depth scale floats roughly
     // in [0.3, base × 1.5] meters.
     [Export(PropertyHint.Range, "0.5,30,0.1")] public float waterDepthScale = 6.0f;
-    // Minimum alpha at the water's edge (thickness → 0). Clamps the
-    // authored WaterColor.a from below so clean water still reads as
-    // visible color along the shoreline. Set to 0 for fully-glassy water
-    // that disappears at the edge.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float waterEdgeOpacity = 0.3f;
     // Maximum surface alpha at full depth, separately for clean and muddy
     // water. Capping clean water below 1.0 lets deep tropical water stay
     // partly see-through even straight down through several meters —
     // without this, depth_factor saturates and the surface goes fully
     // opaque regardless of clarity. Lerped by muddiness in Apply() so
     // clean water stays glassy and silty water occludes.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float waterAlphaMaxClean = 0.55f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float waterAlphaMaxMuddy = 1.0f;
+    // How far foam's albedo is pulled toward pure white from the zone's
+    // particulate (DustColor) tint. 0 = foam IS the regional tint; 1 = pure white
+    // surf. This is an ALBEDO floor no lighting condition can dim, so raising it
+    // makes shorelines read pale at night.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float foamWhiteness = 0.15f;
+    // Fraction of foam brightness present with no direct light on it — the
+    // unlit/ambient share. Also a floor nothing dims; the rest is modulated by
+    // the (light-scaled) sun/moon tint so foam warms at sunset and cools at night.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float foamAmbientShare = 0.25f;
+
+    // Extinction per metre of water column at zero / full muddiness. 0.12/m lets
+    // clear water read to roughly 25 m before the bottom is gone; 1.5/m puts silty
+    // water at about 2 m. These set how FAR you see in; the zone's waterColor sets
+    // what colour it is, and the two are now independent.
+    // Waterline tint blend for REFLECTED SPRITES (sprite_reflection /
+    // sprite_prop_reflection_multimesh): how strongly a mirrored sprite picks up
+    // the water surface colour at the waterline. Nothing to do with the water
+    // body's transparency any more — that comes from water_absorption.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float waterEdgeOpacity = 0.3f;
+    // How far a reflected sprite tints toward the deep-water colour at depth.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float waterDeepReflectionBlend = 0.8f;
+    // Fraction of the light the water column removes that it scatters BACK to the
+    // eye (the rest is absorbed). Small for clear water; turbid water scatters
+    // hard, which is what makes silt look like silt.
+    [Export(PropertyHint.Range, "0,1,0.005")] public float waterClearScatterAlbedo = 0.05f;
+    [Export(PropertyHint.Range, "0,1,0.005")] public float waterMuddyScatterAlbedo = 0.6f;
+    [Export(PropertyHint.Range, "0.01,2,0.005")] public float waterClearAbsorption = 0.12f;
+    [Export(PropertyHint.Range, "0.05,6,0.05")] public float waterMuddyAbsorption = 1.5f;
 
     [ExportSubgroup("Shoreline Rim")]
     // Contiguous foam-colored band at the water/land boundary — drawn on
@@ -775,10 +796,12 @@ public partial class SkyController : Node3D
     // (in PSSM mode) splitting atlas resolution between two bodies.
     private bool _sunIsPrimary = true;
 
-    // Normalized time-of-day used by UpdateSunAndMoon this frame. Cached
-    // here so Apply() can compute time-based disk fades without repeating
-    // the same Sim/editor fallback lookup.
-    private double _timeOfDay01 = 0.5;
+    // Time-of-day resolved by UpdateSunAndMoon this frame, in both forms:
+    // the day clock (0 = sunrise … 1 = the next sunrise) and the celestial orbit
+    // phase it maps to. Cached here so Apply() can compute time-based disk fades
+    // without repeating the same Sim/editor fallback lookup.
+    private double _dayClock01 = 0.375;
+    private double _orbitPhase01 = 0.625;
 
     // Current blended zone + weather (runtime). In editor mode these
     // stay null; the preview path reads previewZone / previewZone.weather
@@ -975,13 +998,16 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("star_intensity", RenderingServer.GlobalShaderParameterType.Float, 1.0f);
             ShaderGlobals.Register("star_ripple_blur_lod", RenderingServer.GlobalShaderParameterType.Float, 4f);
             ShaderGlobals.Register("sky_night_factor", RenderingServer.GlobalShaderParameterType.Float, 0f);
+            ShaderGlobals.Register("sky_gradient_exponent", RenderingServer.GlobalShaderParameterType.Float, 0.6f);
             // Water globals pushed by Apply() — seed with sensible defaults so
             // shaders compile before the first Apply() runs without dropping
             // into "global was removed" warnings.
-            ShaderGlobals.Register("water_shallow_tint", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.35f, 0.7f, 0.7f));
-            ShaderGlobals.Register("water_deep_tint", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.05f, 0.15f, 0.4f));
-            ShaderGlobals.Register("water_alpha_min", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
-            ShaderGlobals.Register("water_turbidity_exp", RenderingServer.GlobalShaderParameterType.Float, 1f);
+            ShaderGlobals.Register("water_shallow_tint", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.3f, 0.45f, 0.55f));
+            ShaderGlobals.Register("water_deep_tint", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.11f, 0.2f, 0.25f));
+            ShaderGlobals.Register("water_deep_blend", RenderingServer.GlobalShaderParameterType.Float, 0.8f);
+            ShaderGlobals.Register("water_edge_opacity", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
+            ShaderGlobals.Register("water_scatter_color", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.3f, 0.45f, 0.55f));
+            ShaderGlobals.Register("water_absorption", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.084f, 0.066f, 0.054f));
             ShaderGlobals.Register("water_muddiness", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
             ShaderGlobals.Register("water_refraction_strength", RenderingServer.GlobalShaderParameterType.Float, 0.05f);
             ShaderGlobals.Register("caustic_strength", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
@@ -1005,13 +1031,13 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("whitecap_foam_threshold", RenderingServer.GlobalShaderParameterType.Float, 0.02f);
             ShaderGlobals.Register("foam_min_light", RenderingServer.GlobalShaderParameterType.Float, 0.4f);
             ShaderGlobals.Register("water_depth_scale", RenderingServer.GlobalShaderParameterType.Float, 6f);
-            ShaderGlobals.Register("water_edge_opacity", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
             ShaderGlobals.Register("water_rim_width", RenderingServer.GlobalShaderParameterType.Float, 0.2f);
             ShaderGlobals.Register("water_rim_strength", RenderingServer.GlobalShaderParameterType.Float, 0.6f);
             ShaderGlobals.Register("ripple_pixel_size", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
             ShaderGlobals.Register("reflection_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
             ShaderGlobals.Register("water_disable_ripples", RenderingServer.GlobalShaderParameterType.Bool, false);
+            ShaderGlobals.Register("water_disable_foam", RenderingServer.GlobalShaderParameterType.Bool, false);
             ShaderGlobals.Register("reflection_min", RenderingServer.GlobalShaderParameterType.Float, 0.2f);
             ShaderGlobals.Register("reflection_fov_h_deg", RenderingServer.GlobalShaderParameterType.Float, 90f);
             ShaderGlobals.Register("reflection_fov_v_deg", RenderingServer.GlobalShaderParameterType.Float, 90f);
@@ -1137,7 +1163,7 @@ public partial class SkyController : Node3D
 
         // Derive. A null zone/weather still produces a palette with
         // fallback values so editor preview works without wiring.
-        _palette = WeatherDerivation.Derive(currentZone, currentWeather, _sunElevationDegrees, (float)_timeOfDay01, simData);
+        _palette = WeatherDerivation.Derive(currentZone, currentWeather, _sunElevationDegrees, (float)_dayClock01, simData);
 
         // Advance lingering surface wetness from the post-Derive inputs
         // (palette.Fog is computed inside Derive). Runs only when a real
@@ -1315,15 +1341,16 @@ public partial class SkyController : Node3D
         {
             todAwake = previewTimeOfDay;
         }
-        // WorldState.TimeOfDay01 is the AWAKE-day clock (0 = sunrise … 1 =
-        // midnight). All the orbit math below is written in the ORIGINAL orbit
-        // phase (0.25 = sunrise, 0.5 = noon, 0.75 = sunset, 1.0/0 = midnight), so
-        // remap once here (WorldState.OrbitPhase01) and everything downstream
-        // keeps working unchanged. The pre-dawn quarter (phase [0, 0.25)) is
-        // never produced — the awake day ends at midnight (phase 1.0) and the
-        // next sunrise resets to phase 0.25.
+        // WorldState.TimeOfDay01 is the day clock (0 = sunrise … 1 = the next
+        // sunrise). All the orbit math below is written in celestial orbit phase
+        // (0.25 = sunrise, 0.5 = noon, 0.75 = sunset, 1.0/0 = midnight), so remap
+        // once here (WorldState.OrbitPhase01) and everything downstream keeps
+        // working unchanged. The post-midnight quarter wraps onto phase
+        // [0, 0.25), where the moon rides down to its setting point and the sun
+        // climbs back toward — but never reaches — the eastern horizon.
         double t = WorldState.OrbitPhase01(todAwake);
-        _timeOfDay01 = t;
+        _dayClock01 = todAwake;
+        _orbitPhase01 = t;
 
         SimData simData = Sim.Current?.WorldState?.SimData;
         float sunMaxElev = simData?.sunMaxElevationDegrees ?? 60f;
@@ -1367,6 +1394,19 @@ public partial class SkyController : Node3D
         _sunActualDir = (-sunDiskPos).Normalized();
         _sunElevationDegrees = Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(sunDiskPos.Y, -1f, 1f)));
 
+        // Everything that reads _sunElevationDegrees is asking "how far into the
+        // day are we" for COLOR and intensity, and after midnight the honest
+        // answer stops being the arc: the sun climbing back toward the horizon
+        // would walk the palette into a second dawn we deliberately never play
+        // (the day ends in darkness and only a sleep starts the next one). Hold
+        // it at the midnight nadir so the phase weights stay pinned to full
+        // night and the sky just fades out. The disk arc above is untouched, so
+        // the moon still visibly sets as the clock runs out.
+        if (todAwake > WorldState.MidnightTimeOfDay01)
+        {
+            _sunElevationDegrees = Mathf.Min(_sunElevationDegrees, -sunMaxElev);
+        }
+
         // --- Light directions: remapped so rise/set land at
         //     SunsetAngleDegrees exactly at t=0.25 / 0.75 -----------------
         // Pick θ₀ so sin(θ₀) · sin(SunMaxElev) == sin(SunsetAngle), then
@@ -1398,8 +1438,11 @@ public partial class SkyController : Node3D
 
         // Primary switches by time-of-day half, not elevation — both
         // directions are clamped to sunsetAngle in their off-half, so an
-        // elevation test can't tell them apart.
-        bool isDay = t >= 0.25 && t < 0.75;
+        // elevation test can't tell them apart. Read off the day CLOCK rather
+        // than the orbit phase: the phase wraps back to 0.25 (sunrise) at the
+        // end-of-day hold, which would hand primacy to a sun that never rose,
+        // and the clock parks there until the player sleeps.
+        bool isDay = todAwake < WorldState.SunsetTimeOfDay01;
         _primaryLightDir = isDay ? sunLightDir : moonLightDir;
         _sunIsPrimary = isDay;
 
@@ -1548,8 +1591,8 @@ public partial class SkyController : Node3D
         // rather than overlapping past 1.
         float dayLengthSec = Mathf.Max(simData?.dayLengthSeconds ?? 600f, 0.01f);
         float fadeTod = Mathf.Clamp(sunDiskFadeTime / dayLengthSec, 0f, 0.25f);
-        float sunDiskFade = ComputeDiskFade(_timeOfDay01, 0.25, 0.75, fadeTod);
-        float moonDiskFade = ComputeDiskFade(_timeOfDay01, 0.75, 1.25, fadeTod);
+        float sunDiskFade = ComputeDiskFade(_orbitPhase01, 0.25, 0.75, fadeTod);
+        float moonDiskFade = ComputeDiskFade(_orbitPhase01, 0.75, 1.25, fadeTod);
 
         float effSunDiskIntensity = Mathf.Lerp(sunsetDiskIntensity, sunDiskIntensity, sunPhaseT) * humidityAtten * dustAtten * sunDiskFade;
 
@@ -1586,6 +1629,7 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("star_intensity", effStarIntensity);
         RenderingServer.GlobalShaderParameterSet("star_ripple_blur_lod", starRippleBlurLod);
         RenderingServer.GlobalShaderParameterSet("sky_night_factor", nightT);
+        RenderingServer.GlobalShaderParameterSet("sky_gradient_exponent", _palette.SkyGradientExponent);
         RenderingServer.GlobalShaderParameterSet("cloud_offset", cloudOffset);
         RenderingServer.GlobalShaderParameterSet("cloud_threshold", _palette.CloudThreshold);
         RenderingServer.GlobalShaderParameterSet("cloud_sharpness", _palette.CloudSharpness);
@@ -1628,16 +1672,16 @@ public partial class SkyController : Node3D
         //   - foam tint toward water color (done in derivation)
         float muddy = _palette.WaterMuddiness;
 
-        // Sun-vs-ambient clarity modulates surface alpha: direct sun penetrates
-        // and lights the bottom (reads more translucent); overcast/ambient-only
-        // bounces off the surface (reads more opaque). Gated by sun elevation
-        // so the moon doesn't count — moonlight doesn't penetrate water
-        // meaningfully, so night water should read opaque at its authored alpha.
+        // Sun-vs-ambient clarity: direct sun penetrates and lights the bottom, so
+        // the surface reads as a window; overcast / ambient-only light bounces off
+        // it and reads as a mirror. Gated by sun elevation so the moon doesn't
+        // count — moonlight doesn't penetrate water meaningfully. Feeds the
+        // "glassy" reflection sculpt below; water TRANSPARENCY is no longer an
+        // authored alpha at all, it falls out of the absorption model.
         float sunAbove = Mathf.SmoothStep(0f, 12f, _sunElevationDegrees);
         float primaryLit = Mathf.Max(CurrentPrimaryIntensity, 0f);
         float ambientLit = Mathf.Max(CurrentAmbient, 0f);
         float sunClarity = sunAbove * primaryLit / (primaryLit + ambientLit * 2f + 1e-4f);
-        float effAlphaMin = Mathf.Clamp(_palette.WaterAlphaMin * Mathf.Lerp(1.0f, 0.6f, sunClarity), 0f, 1f);
 
         // Light-level factor: direct-light proxy used to dim reflection and
         // glint when the scene is dim. Without this, night water reads as a
@@ -1718,16 +1762,38 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("water_ripple_fade_in", Mathf.Max(dynamicRippleFadeIn, 0.001f));
         RenderingServer.GlobalShaderParameterSet("water_ripple_falloff", dynamicRippleFalloff);
         RenderingServer.GlobalShaderParameterSet("water_ripple_tilt", dynamicRippleTilt);
-        RenderingServer.GlobalShaderParameterSet("water_shallow_tint", ColorToVec3(_palette.WaterShallowTint));
-        RenderingServer.GlobalShaderParameterSet("water_deep_tint", ColorToVec3(_palette.WaterDeepTint));
-        RenderingServer.GlobalShaderParameterSet("water_alpha_min", effAlphaMin);
-        // Lerp the depth-saturated alpha cap by muddiness so clean water
-        // never reaches full opacity even through deep columns.
-        float effAlphaMax = Mathf.Lerp(waterAlphaMaxClean, waterAlphaMaxMuddy, muddy);
-        RenderingServer.GlobalShaderParameterSet("water_alpha_max", effAlphaMax);
-        RenderingServer.GlobalShaderParameterSet("water_turbidity_exp", _palette.WaterTurbidityExp);
+        // Volumetric water. The zone's authored waterColor IS the scatter colour —
+        // what the volume settles to once the bottom is extinguished — so specific
+        // water colours survive this model unchanged.
+        Color scatter = _palette.WaterScatterColor;
+        // Single-scattering albedo: of the light the column REMOVES, the fraction
+        // it sends back to the eye rather than absorbing. Natural water absorbs
+        // most of it, so this is small — without it the volume returned 30-55% of
+        // everything it extinguished and read as a glow sitting on top of terrain
+        // that looked correct with the water hidden. This is also the honest home
+        // for muddiness: turbidity IS a high scattering albedo, so silt scatters
+        // strongly while clear water barely does, independent of its colour.
+        float scatterAlbedo = Mathf.Lerp(waterClearScatterAlbedo, waterMuddyScatterAlbedo, muddy);
+        RenderingServer.GlobalShaderParameterSet("water_scatter_color",
+            ColorToVec3(scatter) * scatterAlbedo);
+        // Absorption per metre. Tinted by the COMPLEMENT of the scatter colour: a
+        // channel the water doesn't send back is one it swallows, so clear blue-green
+        // water absorbs red fastest and depth goes blue on its own — no second
+        // authored "deep tint" needed. Muddiness scales the magnitude only, so it
+        // controls how far you can see IN without touching what colour it is:
+        // that is the difference between silty water and a different water.
+        float absorbPerMetre = Mathf.Lerp(waterClearAbsorption, waterMuddyAbsorption, muddy);
+        RenderingServer.GlobalShaderParameterSet("water_absorption", new Vector3(
+            Mathf.Max(1f - scatter.R, 0.02f) * absorbPerMetre,
+            Mathf.Max(1f - scatter.G, 0.02f) * absorbPerMetre,
+            Mathf.Max(1f - scatter.B, 0.02f) * absorbPerMetre));
         RenderingServer.GlobalShaderParameterSet("water_depth_scale", effDepthScale);
         RenderingServer.GlobalShaderParameterSet("water_edge_opacity", waterEdgeOpacity);
+        // Consumed by the sprite-reflection shaders and voxel_clip's puddles —
+        // "what colour is this water", not part of the body compositing.
+        RenderingServer.GlobalShaderParameterSet("water_shallow_tint", ColorToVec3(_palette.WaterShallowTint));
+        RenderingServer.GlobalShaderParameterSet("water_deep_tint", ColorToVec3(_palette.WaterDeepTint));
+        RenderingServer.GlobalShaderParameterSet("water_deep_blend", waterDeepReflectionBlend);
         RenderingServer.GlobalShaderParameterSet("water_rim_width", rimWidth);
         RenderingServer.GlobalShaderParameterSet("water_rim_strength", rimStrength);
         RenderingServer.GlobalShaderParameterSet("water_muddiness", muddy);
@@ -1823,17 +1889,29 @@ public partial class SkyController : Node3D
         // No foamColor export — white foam under every condition fights
         // too many regional palettes. Lightness baseline (0.9) keeps clean
         // shoreline surf readably bright against deep water.
-        Color foamParticulate = _palette.FogTint.Lerp(new Color(1f, 1f, 1f), 0.4f);
+        //
+        // Built from DustColor (the zone's intrinsic particulate tint), NOT
+        // FogTint. FogTint is a RADIANCE — it rides SkyLight/Illumination and
+        // collapses toward black at night — while this is an ALBEDO the shader
+        // multiplies by foam_light. Feeding a radiance in made the mix drift:
+        // as the light died the tinted half went to zero while the hardcoded
+        // white half did not, so foam DESATURATED TOWARD PURE GREY exactly when
+        // it was darkest, which is what read as a pale band on night water.
+        Color foamParticulate = _palette.DustColor.Lerp(new Color(1f, 1f, 1f), foamWhiteness);
         Color foamBase = foamParticulate.Lerp(_palette.WaterShallowTint, muddy * 0.7f);
         Color sunTintLit = new Color(
             _palette.SunTint.R * lightLevel,
             _palette.SunTint.G * lightLevel,
             _palette.SunTint.B * lightLevel,
             1f);
+        // foamAmbientShare is the fraction of foam's brightness that survives with
+        // NO direct light on it. It is a floor nothing can dim, so keep it low —
+        // at 0.55 foam kept over half its albedo in pitch dark.
+        float foamLitShare = 1f - foamAmbientShare;
         Color effFoam = new Color(
-            Mathf.Clamp(foamBase.R * (0.55f + 0.5f * sunTintLit.R), 0f, 1f),
-            Mathf.Clamp(foamBase.G * (0.55f + 0.5f * sunTintLit.G), 0f, 1f),
-            Mathf.Clamp(foamBase.B * (0.55f + 0.5f * sunTintLit.B), 0f, 1f),
+            Mathf.Clamp(foamBase.R * (foamAmbientShare + foamLitShare * sunTintLit.R), 0f, 1f),
+            Mathf.Clamp(foamBase.G * (foamAmbientShare + foamLitShare * sunTintLit.G), 0f, 1f),
+            Mathf.Clamp(foamBase.B * (foamAmbientShare + foamLitShare * sunTintLit.B), 0f, 1f),
             1f);
         RenderingServer.GlobalShaderParameterSet("foam_color", ColorToVec3(effFoam));
         // Foam lighting floor — a small base so foam never collapses to
@@ -1843,13 +1921,25 @@ public partial class SkyController : Node3D
         // looks emissive on dark stormy nights (a constant 0.7 floor was
         // higher than ambient sky light, making foam glow against
         // surrounding water that was lit by dim moonlight only).
-        // Scaled by Illumination: this is a SKY-light floor, and both terms
-        // feeding it bottom out well above zero (the 0.18 base, and lightLevel's
-        // 0.2 clamp), so without it foam glows white on black water wherever the
-        // sky light dies. Illumination rather than the nightfall clock so that
-        // holds for any cause, not just midnight.
+        // Both terms feeding it bottom out well above zero (the 0.18 base, and
+        // lightLevel's 0.2 clamp), so the floor has to be driven to zero from
+        // outside or foam glows white on black water. It rides SkyLight — the
+        // nightfall curve the scene's own light rides — NOT Illumination alone:
+        // Illumination is a saturating gate that holds near 1 through most of
+        // nightfall, which left this floor ABOVE the actual light level and made
+        // the shoreline read as an emissive band brighter than the water beside
+        // it. Illumination stays on as the "no light at all" backstop.
+        // Hard ceiling: foam is lit by the same sky as the water beside it, so the
+        // floor must never exceed what that sky is actually delivering, or foam
+        // reads as a light source. Compare against the DIMMEST channel of the
+        // primary (moonlight is strongly blue, so its red channel is what makes a
+        // too-high floor show up as a white-hot rim on blue water).
         float clarity = (1f - cloudCover01 * 0.7f) * (1f - fog01 * 0.5f);
-        float effFoamMinLight = (0.18f + 0.45f * lightLevel * clarity) * _palette.Illumination;
+        float primaryMinChannel = CurrentPrimaryIntensity * Mathf.Min(
+            _palette.SunTint.R, Mathf.Min(_palette.SunTint.G, _palette.SunTint.B));
+        float effFoamMinLight = Mathf.Min(
+            (0.18f + 0.45f * lightLevel * clarity) * _palette.SkyLight * _palette.Illumination,
+            primaryMinChannel);
         RenderingServer.GlobalShaderParameterSet("foam_min_light", effFoamMinLight);
         RenderingServer.GlobalShaderParameterSet("foam_depth", foamDepth);
         RenderingServer.GlobalShaderParameterSet("foam_scale", foamScale);

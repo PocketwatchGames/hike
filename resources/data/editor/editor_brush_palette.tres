@@ -15,6 +15,8 @@
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun/kun_kun.tres" id="12_kunkun"]
 [ext_resource type="Resource" uid="uid://cnpf73berpwgg" path="res://resources/data/props/prop_library.tres" id="14_proplibrary"]
 [ext_resource type="Resource" uid="uid://b1ee1ch87plrm" path="res://resources/data/weather/weather_clear.tres" id="15_weather_clear"]
+[ext_resource type="Resource" path="res://resources/data/weather/weather_temperate.tres" id="16_weather_temperate"]
+[ext_resource type="Resource" path="res://resources/data/weather/weather_overcast.tres" id="17_weather_overcast"]
 [ext_resource type="Resource" uid="uid://dg6i16eia6jvl" path="res://resources/data/roofs/roof_library.tres" id="16_rooflibrary"]
 [ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="17_campfire"]
 [ext_resource type="PackedScene" uid="uid://8q9ywcnhghcqi" path="res://scenes/interactives/forge.tscn" id="18_forge"]
@@ -68,5 +70,5 @@ markerScene = ExtResource("22_marker")
 markerTags = PackedStringArray("npc")
 pathHintScene = ExtResource("23_path_hint")
 pathHintTags = PackedStringArray("door", "gate")
-weatherPresets = [ExtResource("15_weather_clear")]
+weatherPresets = [ExtResource("16_weather_temperate"), ExtResource("15_weather_clear"), ExtResource("17_weather_overcast")]
 metadata/_custom_type_script = "uid://bvswblqkqx1yl"
