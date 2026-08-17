@@ -38,6 +38,7 @@ public static class EntitySerializer
         Trapdoor = 25,
         Lever = 26,
         PathHint = 27,
+        Waterfall = 28,
     }
 
     // How much of the Roof payload a stream carries. Containers map their own
@@ -649,6 +650,26 @@ public static class EntitySerializer
                 WriteScene(w, hint.Scene);
                 break;
 
+            // No scene ref and no style ref: a waterfall is the edge its water
+            // pours over, swept into a sheet at spawn, and everything else about
+            // how it looks comes off SimData. The edge has to be stored because
+            // it can't be re-derived — the drop is air, which is what a river
+            // ending at a cliff looks like too.
+            case WaterfallSimState waterfall:
+                w.Write((byte)Tag.Waterfall);
+                WriteVec3(w, waterfall.WorldPosition);
+                w.Write(waterfall.TopY);
+                w.Write(waterfall.BottomY);
+                w.Write(waterfall.Lips.Length);
+                foreach (WaterfallLip lip in waterfall.Lips)
+                {
+                    w.Write(lip.X);
+                    w.Write(lip.Z);
+                    w.Write((sbyte)lip.DirX);
+                    w.Write((sbyte)lip.DirZ);
+                }
+                break;
+
             default:
                 throw new InvalidOperationException($"EntitySerializer has no writer for {e.GetType().Name}");
         }
@@ -1090,6 +1111,21 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 // Hint name comes from the common trailing field, as above.
                 return new PathHintSimState(pos, "", scene);
+            }
+            case Tag.Waterfall:
+            {
+                Vector3 pos = ReadVec3(r);
+                float topY = r.ReadSingle();
+                float bottomY = r.ReadSingle();
+                int count = r.ReadInt32();
+                var lips = new WaterfallLip[count];
+                for (int i = 0; i < count; i++)
+                {
+                    int x = r.ReadInt32();
+                    int z = r.ReadInt32();
+                    lips[i] = new WaterfallLip(x, z, r.ReadSByte(), r.ReadSByte());
+                }
+                return new WaterfallSimState(pos, topY, bottomY, lips);
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

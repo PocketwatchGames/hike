@@ -26,6 +26,8 @@ using Godot;
 //     presenceMask   : ceil(SX*SY*SZ / 8) bytes  — 1 bit per cell, MSB-first within each byte
 //     [if WIND   bit] windFactor : EX*EY*EZ bytes (env-subgrid resolution; ENV_VOXELS_PER_CELL voxels per cell)
 //     [if ENVTAG bit] envTag     : EX*EY*EZ bytes
+//     [if OVERLAYFACES bit] overlayFaces : SX*SY*SZ bytes (EVoxelFace bits per
+//                    cell, 0 = all faces)
 //     entities      : type-tagged list (see EntitySerializer; positions are subscene-local)
 //
 // Wire-format additions: append new optional channels by allocating a new
@@ -70,6 +72,7 @@ public static class SubsceneFile
         // rename. Read and discarded, never written. See Read().
         Legacy = 1u << 0,
         EnvTag = 1u << 1,
+        OverlayFaces = 1u << 2,
     }
 
     public static void Write(string path, SubsceneState sub)
@@ -86,6 +89,7 @@ public static class SubsceneFile
 
         ChannelMask mask = ChannelMask.None;
         if (sub.EnvTag != null) { mask |= ChannelMask.EnvTag; }
+        if (sub.OverlayFaces != null) { mask |= ChannelMask.OverlayFaces; }
 
         // Buffered so its length can precede it — the length is what makes the
         // block skippable by a full read and bounded by a directory-only read.
@@ -111,6 +115,10 @@ public static class SubsceneFile
         if ((mask & ChannelMask.EnvTag) != 0)
         {
             WriteByteChannel(w, sub.EnvTag, sub.EnvSize);
+        }
+        if ((mask & ChannelMask.OverlayFaces) != 0)
+        {
+            WriteByteChannel(w, sub.OverlayFaces, size);
         }
 
         EntitySerializer.WriteList(w, sub.Entities);
@@ -183,6 +191,11 @@ public static class SubsceneFile
         {
             sub.EnsureEnvTag();
             ReadByteChannel(r, sub.EnvTag, sub.EnvSize);
+        }
+        if ((mask & ChannelMask.OverlayFaces) != 0)
+        {
+            sub.EnsureOverlayFaces();
+            ReadByteChannel(r, sub.OverlayFaces, size);
         }
 
         int roofFormat = version >= 5 ? EntitySerializer.ROOF_FORMAT_FORM

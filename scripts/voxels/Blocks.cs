@@ -30,6 +30,7 @@ public static class Blocks
     private static bool[] _cutawayIsWall;
     private static bool[] _invisible;
     private static bool[] _naturalGround;
+    private static bool[] _climbable;
     private static int[] _attenuation;
     private static SharpAxes[] _defaultShape;
     private static float[] _blendNoise;
@@ -46,6 +47,7 @@ public static class Blocks
         _cutawayIsWall = new bool[n];
         _invisible = new bool[n];
         _naturalGround = new bool[n];
+        _climbable = new bool[n];
         _attenuation = new int[n];
         _defaultShape = new SharpAxes[n];
         _blendNoise = new float[n];
@@ -70,6 +72,7 @@ public static class Blocks
             _cutawayIsWall[id] = b.cutawayIsWall;
             _invisible[id] = b.IsInvisible();
             _naturalGround[id] = b.naturalGround;
+            _climbable[id] = b.climbable;
             _attenuation[id] = b.lightAttenuation;
             _defaultShape[id] = b.defaultShape;
             _blendNoise[id] = b.blendNoise;
@@ -110,6 +113,23 @@ public static class Blocks
     // Terrain worldgen laid down, as opposed to built material or non-ground.
     // Gates dirt scuff, detail scatter, road grading and prop placement.
     public static bool IsNaturalGround(int id) => _naturalGround[id];
+
+    // A wall face of this block can be climbed. Note the usual carrier is an
+    // overlay painted over some other block, so gameplay asks ClimbProbe rather
+    // than calling this with the raw voxel id.
+    public static bool IsClimbable(int id) => _climbable[id];
+
+    // Debug scaffolding for the `climb_mark` console command: makes an ordinary
+    // wall climbable for the running session so surface climbing can be played
+    // before an ivy overlay is authored. Not persisted anywhere — the authored
+    // path is BlockData.climbable, reached through an overlay.
+    public static void SetClimbableForDebug(int id, bool value)
+    {
+        if (_climbable != null && id >= 0 && id < _climbable.Length)
+        {
+            _climbable[id] = value;
+        }
+    }
 
     // The ceiling cutaway's column rule reads this as part of the wall.
     public static bool CutawayIsWall(int id) => _cutawayIsWall[id];

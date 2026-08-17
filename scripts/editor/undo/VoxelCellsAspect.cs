@@ -13,8 +13,9 @@ public readonly struct VoxelCellState : IEquatable<VoxelCellState>
     public readonly byte OverlayId;
     public readonly byte DetailGroup;
     public readonly byte DetailStrength;
+    public readonly byte OverlayFaces;
 
-    private VoxelCellState(int type, SharpAxes shape, byte terrainId, byte overlayId, byte detailGroup, byte detailStrength)
+    private VoxelCellState(int type, SharpAxes shape, byte terrainId, byte overlayId, byte detailGroup, byte detailStrength, byte overlayFaces)
     {
         Type = type;
         Shape = shape;
@@ -22,6 +23,7 @@ public readonly struct VoxelCellState : IEquatable<VoxelCellState>
         OverlayId = overlayId;
         DetailGroup = detailGroup;
         DetailStrength = detailStrength;
+        OverlayFaces = overlayFaces;
     }
 
     public static VoxelCellState Capture(WorldState world, Vector3I cell)
@@ -32,7 +34,8 @@ public readonly struct VoxelCellState : IEquatable<VoxelCellState>
             (byte)world.GetTerrainIdWorld(cell.X, cell.Y, cell.Z),
             (byte)world.GetOverlayIdWorld(cell.X, cell.Y, cell.Z),
             (byte)world.GetDetailGroupWorld(cell.X, cell.Y, cell.Z),
-            (byte)world.GetDetailStrengthWorld(cell.X, cell.Y, cell.Z));
+            (byte)world.GetDetailStrengthWorld(cell.X, cell.Y, cell.Z),
+            (byte)world.GetOverlayFacesWorld(cell.X, cell.Y, cell.Z));
     }
 
     public void ApplyTo(WorldState world, Vector3I cell)
@@ -45,6 +48,7 @@ public readonly struct VoxelCellState : IEquatable<VoxelCellState>
         world.SetOverlayIdWorld(cell.X, cell.Y, cell.Z, OverlayId);
         world.SetDetailGroupWorld(cell.X, cell.Y, cell.Z, DetailGroup);
         world.SetDetailStrengthWorld(cell.X, cell.Y, cell.Z, DetailStrength);
+        world.SetOverlayFacesWorld(cell.X, cell.Y, cell.Z, OverlayFaces);
     }
 
     public bool Equals(VoxelCellState other)
@@ -54,7 +58,8 @@ public readonly struct VoxelCellState : IEquatable<VoxelCellState>
             && TerrainId == other.TerrainId
             && OverlayId == other.OverlayId
             && DetailGroup == other.DetailGroup
-            && DetailStrength == other.DetailStrength;
+            && DetailStrength == other.DetailStrength
+            && OverlayFaces == other.OverlayFaces;
     }
 }
 

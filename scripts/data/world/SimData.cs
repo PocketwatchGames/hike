@@ -106,6 +106,13 @@ public partial class SimData : Resource
     // Null = sunlight never ignites anything. See Mob.TickSunburn.
     [Export] public StatusEffectData mobSunburnStatusEffect;
 
+    // How every cascade in the world is drawn and heard — the ribbon material,
+    // the size tiers, and the spray spacing. Where each one IS comes from
+    // worldgen (HeightMap.Waterfalls) and rides the entity; this is the authored
+    // half. Null = cascades stay invisible holes in the water, as they were
+    // before the effect existed.
+    [Export] public WaterfallData waterfalls;
+
     // Anti-cheese for safety zones: while the player stands in any safety zone
     // (Player.IsSafe), every wounded hostile regenerates this fraction of its
     // max health per second toward full, so the player can't pop in and out of

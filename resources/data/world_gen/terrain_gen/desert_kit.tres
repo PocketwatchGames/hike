@@ -12,7 +12,7 @@
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="6_weighted"]
 [ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="15_3vcyj"]
 [ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="16_o5gs6"]
-[ext_resource type="Resource" path="res://resources/data/blocks/block_desert_ground.tres" id="blk_desert_ground"]
+[ext_resource type="Resource" uid="uid://ci7rrwqv2nhn" path="res://resources/data/blocks/block_desert_ground.tres" id="blk_desert_ground"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("6_weighted")

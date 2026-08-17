@@ -34,6 +34,10 @@ public static class SubsceneRotator
         Vector3I size = src.Size;
         Vector3I dstSize = turns % 2 == 0 ? size : new Vector3I(size.Z, size.Y, size.X);
         var dst = new SubsceneState(dstSize);
+        if (src.OverlayFaces != null)
+        {
+            dst.EnsureOverlayFaces();
+        }
 
         for (int lx = 0; lx < size.X; lx++)
         {
@@ -49,6 +53,11 @@ public static class SubsceneRotator
                     dst.DetailGroup[nx, ly, nz] = src.DetailGroup[lx, ly, lz];
                     dst.DetailStrength[nx, ly, nz] = src.DetailStrength[lx, ly, lz];
                     dst.PresenceMask[nx, ly, nz] = src.PresenceMask[lx, ly, lz];
+                    if (dst.OverlayFaces != null)
+                    {
+                        dst.OverlayFaces[nx, ly, nz] = (byte)VoxelFaces.RotateQuarterTurns(
+                            (EVoxelFace)src.OverlayFaces[lx, ly, lz], turns);
+                    }
                 }
             }
         }

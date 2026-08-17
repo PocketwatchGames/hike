@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://bda2llytofan5"]
 
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="1_input"]
-[ext_resource type="Resource" uid="uid://khjswp5qnpnm" path="res://resources/data/items/loot/drake_meat.tres" id="2_meat"]
-[ext_resource type="Resource" uid="uid://2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="3_mushroom"]
+[ext_resource type="Resource" uid="uid://pz3055e5zg7oo" path="res://resources/data/items/loot/drake_meat.tres" id="2_meat"]
+[ext_resource type="Resource" uid="uid://a2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="3_mushroom"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="4_recipe"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_effect_script"]
 [ext_resource type="Resource" uid="uid://d4gn17jpro1oy" path="res://resources/data/status_effects/well_fed_damage.tres" id="6_status"]

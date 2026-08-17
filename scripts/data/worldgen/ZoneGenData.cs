@@ -90,6 +90,13 @@ public partial class ZoneGenData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float mossSurfaceCoverage = 0f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float mossCaveCoverage = 0f;
 
+    // Fraction of this zone's cliff CELLS dressed as climbable. Unlike the moss
+    // pair this defaults non-zero, because the whole pass is already gated on
+    // WorldGenData.climbSurface being assigned — so a world that has not opted
+    // in gets nothing, and one that has gets climbable cliffs everywhere until a
+    // zone says otherwise. A sheer desert mesa wants 0.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float climbCoverage = 0.25f;
+
     [Export] public float shoreElevationMin = 1f;
     [Export] public float shoreElevationMax = 1.5f;
     [Export] public float shoreSubmergedElevationMin = -5f;

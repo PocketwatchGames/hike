@@ -39,6 +39,16 @@ public static class BlockCheck
             flags.Append($"shape={b.defaultShape} band={b.wallBand.X:0.##}..{b.wallBand.Y:0.##}");
             sb.AppendLine($"  {id,2}  {b.blockName,-16} {faces,-26} {flags}");
         }
+        // Overlay-only surfaces wear no block face, so the table above never
+        // shows them — but they still claim an atlas layer and still feed the
+        // shader's per-layer tables. Printed so a missing or unassigned one is
+        // visible here rather than as a silently unrendered overlay.
+        sb.Append("  overlays:");
+        foreach (BlockSurfaceData surface in catalog.overlaySurfaces ?? System.Array.Empty<BlockSurfaceData>())
+        {
+            sb.Append($" {Layer(surface)}");
+        }
+        sb.AppendLine($"   climbLedge: {Layer(catalog.climbLedgeSurface)}");
         GD.Print(sb.ToString());
         GD.Print("[block_check] done");
         tree.Quit();

@@ -1,0 +1,77 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_particle_lit"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="4_puff"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_mist"]
+emission_shape = 3
+emission_box_extents = Vector3(0.6, 0.2, 0.6)
+direction = Vector3(0, 1, 0)
+spread = 45.0
+initial_velocity_min = 0.5
+initial_velocity_max = 1.4
+gravity = Vector3(0, 0.5, 0)
+damping_min = 0.4
+damping_max = 1.0
+scale_min = 1.08
+scale_max = 1.8
+color = Color(0.92, 0.96, 1, 0.4)
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mist"]
+render_priority = 0
+shader = ExtResource("2_particle_lit")
+shader_parameter/albedo_texture = ExtResource("4_puff")
+shader_parameter/albedo = Color(0.93, 0.97, 1, 0.32)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_mist"]
+material = SubResource("ShaderMaterial_mist")
+size = Vector2(1.1, 1.1)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_spray"]
+emission_shape = 3
+emission_box_extents = Vector3(0.5, 0.1, 0.5)
+direction = Vector3(0, 1, 0)
+spread = 60.0
+initial_velocity_min = 1.2
+initial_velocity_max = 3.0
+gravity = Vector3(0, -7, 0)
+scale_min = 0.7
+scale_max = 1.5
+color = Color(0.88, 0.95, 1, 1)
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_spray"]
+render_priority = 0
+shader = ExtResource("2_particle_lit")
+shader_parameter/albedo = Color(0.9, 0.96, 1, 0.95)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_spray"]
+material = SubResource("ShaderMaterial_spray")
+size = Vector2(0.055, 0.055)
+
+[node name="WaterfallBase" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Mist" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+amount = 12
+lifetime = 2.4
+randomness = 0.6
+process_material = SubResource("ParticleProcessMaterial_mist")
+draw_pass_1 = SubResource("QuadMesh_mist")
+
+[node name="Spray" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+amount = 16
+lifetime = 0.9
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_spray")
+draw_pass_1 = SubResource("QuadMesh_spray")

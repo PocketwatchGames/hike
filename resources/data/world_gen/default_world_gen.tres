@@ -41,7 +41,8 @@
 [ext_resource type="Resource" uid="uid://jcf5m3i0bsw5" path="res://resources/data/world_gen/spawn_lists/hub_house02.tres" id="73_house02npcs"]
 [ext_resource type="Resource" uid="uid://drjqxsedic4nq" path="res://resources/data/world_gen/cellular_terrain.tres" id="80_cellular"]
 [ext_resource type="Resource" uid="uid://dd70pnlby8te8" path="res://resources/data/surfaces/surface_road.tres" id="81_surface_road"]
-[ext_resource type="Resource" path="res://resources/data/surfaces/surface_moss.tres" id="82_surface_moss"]
+[ext_resource type="Resource" uid="uid://8h4it463afvd" path="res://resources/data/surfaces/surface_moss.tres" id="82_surface_moss"]
+[ext_resource type="Resource" path="res://resources/data/surfaces/surface_climb_lichen.tres" id="83_surface_climb"]
 
 [sub_resource type="Resource" id="Resource_know_cure"]
 script = ExtResource("3_spellteach")
@@ -331,4 +332,5 @@ startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]
 initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_cure"), SubResource("Resource_know_dogtreat"), SubResource("Resource_1pd0y")])
 terrain = ExtResource("80_cellular")
 roadDefaultTexture = ExtResource("81_surface_road")
+climbSurface = ExtResource("83_surface_climb")
 mossSurface = ExtResource("82_surface_moss")

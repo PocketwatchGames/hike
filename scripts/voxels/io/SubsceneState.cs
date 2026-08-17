@@ -44,6 +44,11 @@ public class SubsceneState
     public readonly byte[,,] DetailGroup;
     public readonly byte[,,] DetailStrength;
 
+    // Which faces each voxel's OverlayId dresses (EVoxelFace bits; 0 = all).
+    // Lazy for the same reason as ChunkState.OverlayFaces — most scenes carry
+    // none. Rotating a scene must PERMUTE these bits; see SubsceneRotator.
+    public byte[,,] OverlayFaces;
+
     // Per-voxel "this cell belongs to the subscene." Cells with mask=false
     // are skipped on stamp — the destination voxel is left untouched.
     public readonly bool[,,] PresenceMask;
@@ -96,6 +101,14 @@ public class SubsceneState
         {
             Vector3I es = EnvSize;
             EnvTag = new byte[es.X, es.Y, es.Z];
+        }
+    }
+
+    public void EnsureOverlayFaces()
+    {
+        if (OverlayFaces == null)
+        {
+            OverlayFaces = new byte[Size.X, Size.Y, Size.Z];
         }
     }
 }

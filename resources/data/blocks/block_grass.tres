@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="BlockData" format=3 uid="uid://bm35ijghdsfpe"]
 
-[ext_resource type="Script" uid="uid://bk2b2c57xwhte" path="res://scripts/data/world/BlockData.cs" id="1_s"]
+[ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
 [ext_resource type="Resource" uid="uid://b4ruwi63vpapo" path="res://resources/data/surfaces/surface_grass_top.tres" id="2_grass_top"]
 [ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/surfaces/surface_stone.tres" id="3_stone"]
 

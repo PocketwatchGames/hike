@@ -9,6 +9,11 @@ using Godot;
 //   fog      : 4096 bytes (one byte per cell, 0 = clear, 255 = thickest)
 //   TerrainId    : 4096 bytes (environment-kit index per cell)
 //   overlay  : 4096 bytes (authored per-voxel overlay id; 0 = none)
+//   overlayFaces   : 1 byte present-flag, then 4096 bytes ONLY if set (which
+//                    of each voxel's six faces the overlay dresses, EVoxelFace
+//                    bits; 0 = all). Optional because it is sparse — see
+//                    ChunkState.OverlayFaces. Written last, after the entity
+//                    list, per the append-only rule below.
 //   detailGroup    : 4096 bytes (1-based DetailGroups index; 0 = none)
 //   detailStrength : 4096 bytes (0..255 scatter density)
 //   windFactor     : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, 0 = no wind,
@@ -226,6 +231,24 @@ public static class ChunkSerializer
         w.Write(chunk.RegionIndex);
 
         EntitySerializer.WriteList(w, entities);
+
+        // Trails the entity list only because the append-only rule above puts
+        // every addition at the end of the blob, never mid-stream.
+        bool hasOverlayFaces = chunk.OverlayFaces != null;
+        w.Write(hasOverlayFaces);
+        if (hasOverlayFaces)
+        {
+            for (int x = 0; x < ChunkState.SIZE; x++)
+            {
+                for (int y = 0; y < ChunkState.SIZE; y++)
+                {
+                    for (int z = 0; z < ChunkState.SIZE; z++)
+                    {
+                        w.Write(chunk.OverlayFaces[x, y, z]);
+                    }
+                }
+            }
+        }
     }
 
     // `pathTable` is the containing file's shared resource-path table when the
@@ -405,5 +428,20 @@ public static class ChunkSerializer
         chunk.RegionIndex = r.ReadByte();
 
         entities = EntitySerializer.ReadList(r, pathTable);
+
+        if (r.ReadBoolean())
+        {
+            chunk.OverlayFaces = new byte[ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE];
+            for (int x = 0; x < ChunkState.SIZE; x++)
+            {
+                for (int y = 0; y < ChunkState.SIZE; y++)
+                {
+                    for (int z = 0; z < ChunkState.SIZE; z++)
+                    {
+                        chunk.OverlayFaces[x, y, z] = r.ReadByte();
+                    }
+                }
+            }
+        }
     }
 }

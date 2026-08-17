@@ -1500,9 +1500,13 @@ public partial class GameClient : Node3D
 		Vector3 playerPos = _player.GlobalPosition;
 		// Swimmers and riders count as supported: they are held at a floor (the
 		// waterline, the deck) as much as a grounded player is, and holding the plane
-		// at the last shore they stood on for a whole crossing is not it. Only genuine
-		// free flight — a jump, a fall — holds it.
-		bool supported = _player.IsGrounded || _player.IsInWater || _player.IsMounted;
+		// at the last shore they stood on for a whole crossing is not it. So do
+		// climbers and mantlers — a traversal owns position and is neither grounded
+		// nor falling, and holding the plane at the foot of the wall cut the climber
+		// (and the wall) away once they passed it. Only genuine free flight — a jump,
+		// a fall — holds it.
+		bool supported = _player.IsGrounded || _player.IsInWater || _player.IsMounted
+			|| _player.Climbing || _player.Mantling;
 		_clipIris.Tick(Sim.Current, playerPos, supported, camera, (float)deltaSeconds);
 		ClipIrisDebug.Draw(_clipIris, playerPos, (ClipIrisDebug.ELevel)CVars.clipIrisDebug.Value);
 

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WaterfallTierData" load_steps=5 format=3]
+
+[ext_resource type="Script" uid="uid://d22mljy5hjoq0" path="res://scripts/data/world/WaterfallTierData.cs" id="1_tier"]
+[ext_resource type="AudioStream" uid="uid://bd41x08qrdowp" path="res://assets/audio/source/ambience/waterfall/amb_loc_waterfall_large_loop.wav" id="2_sound"]
+[ext_resource type="PackedScene" path="res://scenes/fx/waterfall_lip.tscn" id="3_lip"]
+[ext_resource type="PackedScene" path="res://scenes/fx/waterfall_base_large.tscn" id="4_base"]
+
+[resource]
+script = ExtResource("1_tier")
+displayName = "Great Falls"
+minFallHeight = 12.0
+sound = ExtResource("2_sound")
+volumeDb = -3.0
+maxDistance = 70.0
+unitSize = 16.0
+lipFx = ExtResource("3_lip")
+baseFx = ExtResource("4_base")
+sheetThickness = 0.55
+foam = 0.65
+metadata/_custom_type_script = "uid://d22mljy5hjoq0"

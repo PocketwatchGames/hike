@@ -20,6 +20,34 @@ using Godot;
 //   Surface: where the ground actually ended up after carving.
 //
 //   Water:   the per-column INLAND water surface (rivers, lakes), or NoWater.
+// One column of a cascade's sheet: the voxel span the falling water occupies,
+// as the run of cells BottomY..TopY inclusive. The drop itself is left as air
+// (see HeightMap.Waterfalls), so this is the only record of where the sheet is
+// — the ribbon mesh is skinned from the set of them, exactly the way the water
+// mesher skins a body of water voxels.
+// One metre of the edge water pours over: the column it leaves from and the
+// horizontal direction it leaves in. A cascade is a LINE of these, and the sheet
+// is swept from them — the fall is a jet leaving a lip, not the block of water
+// that would stand in the drop if the drop were filled.
+//
+// Direction is one of the four axis steps, pointing AWAY from the pool that
+// feeds this column, so the sweep knows which way is "out over the edge".
+public readonly struct WaterfallLip
+{
+    public readonly int X;
+    public readonly int Z;
+    public readonly int DirX;
+    public readonly int DirZ;
+
+    public WaterfallLip(int x, int z, int dirX, int dirZ)
+    {
+        X = x;
+        Z = z;
+        DirX = dirX;
+        DirZ = dirZ;
+    }
+}
+
 // One cascade: where the water leaves the lip, where it lands, and how wide the
 // sheet is. What a waterfall effect needs to place itself, and all a terrain
 // approach can honestly say about a drop it routed.
@@ -32,12 +60,19 @@ public readonly struct WaterfallSite
     // Columns the sheet spans, so a five-wide fall reads as one wide effect
     // rather than five narrow ones stacked side by side.
     public readonly int Columns;
+    // The edge the water actually pours over: the columns of this cascade that
+    // touch the pool feeding them, each with the direction it leaves in. The
+    // sheet is swept from this line, so it is all the geometry needs — the
+    // columns the fall passes THROUGH are not recorded, because a fall is a jet
+    // hanging off a lip and not the block of water that would stand in the drop.
+    public readonly IReadOnlyList<WaterfallLip> Lips;
 
-    public WaterfallSite(Vector3 top, int bottomY, int columns)
+    public WaterfallSite(Vector3 top, int bottomY, int columns, IReadOnlyList<WaterfallLip> lips)
     {
         Top = top;
         BottomY = bottomY;
         Columns = columns;
+        Lips = lips ?? System.Array.Empty<WaterfallLip>();
     }
 
     public int Height => Mathf.RoundToInt(Top.Y) - BottomY;

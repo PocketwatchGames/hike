@@ -79,6 +79,13 @@ public static class SubsceneBuilder
                     sub.DetailGroup[dx, dy, dz] = (byte)ws.GetDetailGroupWorld(wx, wy, wz);
                     sub.DetailStrength[dx, dy, dz] = (byte)ws.GetDetailStrengthWorld(wx, wy, wz);
                     sub.PresenceMask[dx, dy, dz] = true;
+
+                    int overlayFaces = ws.GetOverlayFacesWorld(wx, wy, wz);
+                    if (overlayFaces != 0)
+                    {
+                        sub.EnsureOverlayFaces();
+                        sub.OverlayFaces[dx, dy, dz] = (byte)overlayFaces;
+                    }
                 }
             }
         }

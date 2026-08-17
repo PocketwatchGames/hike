@@ -54,6 +54,10 @@ public static class SubsceneStamper
                     ws.SetOverlayIdWorld(wx, wy, wz, sub.OverlayId[lx, ly, lz]);
                     ws.SetDetailGroupWorld(wx, wy, wz, sub.DetailGroup[lx, ly, lz]);
                     ws.SetDetailStrengthWorld(wx, wy, wz, sub.DetailStrength[lx, ly, lz]);
+                    // Written unconditionally so a stamp CLEARS any face mask
+                    // already on the destination voxel, the way every other
+                    // channel here overwrites rather than merges.
+                    ws.SetOverlayFacesWorld(wx, wy, wz, sub.OverlayFaces == null ? 0 : sub.OverlayFaces[lx, ly, lz]);
                 }
             }
         }

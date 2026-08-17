@@ -2221,7 +2221,8 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 }
                 sites.Add(new WaterfallSite(
                     new Vector3(bestIdx / sizeZ + worldMinX + 0.5f, top, bestIdx % sizeZ + worldMinZ + 0.5f),
-                    bottom, columns));
+                    bottom, columns,
+                    BuildLips(members, sheet, water, height, worldMinX, worldMinZ, sizeX, sizeZ)));
                 stats.FallColumns += columns;
             }
         }
@@ -2233,6 +2234,64 @@ public partial class CellularTerrainGen : ITerrainGenerator
         }
         GD.Print($"[CellularTerrain] waterfall sites ({sites.Count}): {string.Join("; ", parts)}");
         return sites;
+    }
+
+    // The EDGE one cascade pours over: the metre-wide steps of the boundary
+    // between the pool feeding it and the drop beyond, each with the direction
+    // the water leaves in.
+    //
+    // A column is on that edge when a neighbour holds REAL water standing at the
+    // level this column's sheet carries — that neighbour is the pool, and the
+    // step away from it is the way out over the lip. Everything else about the
+    // fall (the staircase of columns the pass walked the level down, the rock
+    // beside them) is deliberately not recorded: the sheet is a jet hanging off
+    // this line, so those columns describe where the water ISN'T standing.
+    //
+    // The fallback matters more than it looks. A cascade whose feeding pool got
+    // trimmed by a later pass would otherwise have no lip and draw nothing, so
+    // the tallest column pours toward its lowest neighbour instead.
+    private static List<WaterfallLip> BuildLips(List<int> members, int[,] sheet, int[,] water,
+        int[,] height, int worldMinX, int worldMinZ, int sizeX, int sizeZ)
+    {
+        var lips = new List<WaterfallLip>();
+        foreach (int idx in members)
+        {
+            int cx = idx / sizeZ;
+            int cz = idx % sizeZ;
+            int level = sheet[cx, cz];
+            for (int d = 0; d < 4; d++)
+            {
+                int nx = cx + NEIGHBOUR_DX[d];
+                int nz = cz + NEIGHBOUR_DZ[d];
+                if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
+                if (water[nx, nz] != level) { continue; }
+                lips.Add(new WaterfallLip(cx + worldMinX, cz + worldMinZ, cx - nx, cz - nz));
+            }
+        }
+        if (lips.Count > 0) { return lips; }
+
+        int bestIdx = members[0];
+        foreach (int idx in members)
+        {
+            if (sheet[idx / sizeZ, idx % sizeZ] > sheet[bestIdx / sizeZ, bestIdx % sizeZ]) { bestIdx = idx; }
+        }
+        int bx = bestIdx / sizeZ;
+        int bz = bestIdx % sizeZ;
+        int lowest = int.MaxValue;
+        int dirX = 1;
+        int dirZ = 0;
+        for (int d = 0; d < 4; d++)
+        {
+            int nx = bx + NEIGHBOUR_DX[d];
+            int nz = bz + NEIGHBOUR_DZ[d];
+            if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
+            if (height[nx, nz] >= lowest) { continue; }
+            lowest = height[nx, nz];
+            dirX = NEIGHBOUR_DX[d];
+            dirZ = NEIGHBOUR_DZ[d];
+        }
+        lips.Add(new WaterfallLip(bx + worldMinX, bz + worldMinZ, dirX, dirZ));
+        return lips;
     }
 
     // Smoothing passes over the raw current field. Needed because the drainage

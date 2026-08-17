@@ -376,7 +376,14 @@ public partial class Player : CharacterBody3D
 
 		if (Input.IsActionJustPressed("Dash"))
 		{
-			TryStartDash();
+			// Overloaded, not shared: a wall in front or already held consumes the
+			// press, and only a press with nothing to climb becomes a dash. Sprint is
+			// unaffected — it reads the button HELD (UpdateSprintState), and a climb
+			// suspends locomotion anyway.
+			if (!TryTraversalPress())
+			{
+				TryStartDash();
+			}
 		}
 
 		// Convert a pending pre-cooldown press if the player is still holding

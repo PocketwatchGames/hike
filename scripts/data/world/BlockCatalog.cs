@@ -42,6 +42,13 @@ public partial class BlockCatalog : Resource
     // properties uploaded — list them here or they read as defaults.
     [Export] public BlockSurfaceData[] overlaySurfaces;
 
+    // The surface the terrain shader paints over the lip of every wall the
+    // player can mantle (see ClimbLedgeMarker). Named here rather than looked up
+    // by path because the catalog already owns the layer→surface mapping; it is
+    // folded into the layer table below exactly like overlaySurfaces, so it does
+    // NOT also need listing there.
+    [Export] public BlockSurfaceData climbLedgeSurface;
+
     // The block a voxel holds when nothing has been written — empty space.
     // Named rather than assumed at id 0 so the catalog asset owns the choice.
     [Export] public BlockData airBlock;
@@ -183,6 +190,12 @@ public partial class BlockCatalog : Resource
             }
         }
 
+        if (climbLedgeSurface != null
+            && (climbLedgeSurface.atlasBaseIndex < 0 || climbLedgeSurface.atlasBaseIndex >= MAX_ATLAS_LAYERS))
+        {
+            GD.PushError($"BlockCatalog: climbLedgeSurface '{climbLedgeSurface.surfaceName}' has AtlasBaseIndex={climbLedgeSurface.atlasBaseIndex}; add it to voxel_atlas_manifest.tres and Rebuild Atlas.");
+        }
+
         if (airBlock == null)
         {
             GD.PushError("BlockCatalog: airBlock is not assigned.");
@@ -249,6 +262,14 @@ public partial class BlockCatalog : Resource
                 {
                     _surfaceByLayer[sl] = surface;
                 }
+            }
+        }
+        if (climbLedgeSurface != null)
+        {
+            int cl = climbLedgeSurface.atlasBaseIndex;
+            if (cl >= 0 && cl < _surfaceByLayer.Length)
+            {
+                _surfaceByLayer[cl] = climbLedgeSurface;
             }
         }
         AirBlockId = airBlock != null ? airBlock.blockId : 0;

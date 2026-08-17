@@ -19,7 +19,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 114;
+    public const int WORLDGEN_VERSION = 117;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -654,6 +654,10 @@ public static class WorldGen
 
         // Moss overlay over exposed rock/ground. Before the road pass so a road
         // tread stamps over it rather than the reverse.
+        // Before moss: moss skips any voxel that already carries an overlay, so
+        // running the cliffs first lets ivy own the tall faces and moss fill in
+        // around it. Reversed, moss claims the faces and the cliffs come out bare.
+        StampClimbSurfaces(ws, genData);
         StampMossPatches(ws, genData);
 
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
@@ -777,6 +781,7 @@ public static class WorldGen
         // bytes and never reach here.
         GenerateAmbientWaterCurrents(ws);
         StampRiverCurrents(ws, heightMap);
+        PlaceWaterfalls(ws, heightMap);
 
         // Test override demonstrating the wind-velocity authoring path.
         // Amplifies a small region around the origin to ~3× the default
@@ -874,6 +879,38 @@ public static class WorldGen
                 sb.Append('\n');
             }
             GD.Print(sb.ToString());
+        }
+    }
+
+    // Turn the terrain approach's measured cascades into entities. This is the
+    // only consumer of HeightMap.Waterfalls, and it is where a drop stops being a
+    // hole in the water field and becomes something you can see and hear.
+    //
+    // The entity is filed at the LIP rather than at the landing: that is where
+    // the fall reads from above, and it keeps a cascade in the same chunk as the
+    // river that feeds it. A tall one still spans several chunks vertically, so
+    // its sheet is drawn while the lip's chunk is resident and not otherwise —
+    // acceptable while the load radius is generous, and the same bargain roofs
+    // and other tall entities already make.
+    private static void PlaceWaterfalls(WorldState ws, HeightMap heightMap)
+    {
+        int placed = 0;
+        foreach (WaterfallSite site in heightMap.Waterfalls)
+        {
+            if (site.Lips.Count == 0) { continue; }
+            var lips = new WaterfallLip[site.Lips.Count];
+            for (int i = 0; i < lips.Length; i++)
+            {
+                lips[i] = site.Lips[i];
+            }
+            // Both Y values name a water SURFACE, and a surface sits one voxel
+            // above the topmost voxel it caps — the site records voxels.
+            ws.AddEntity(new WaterfallSimState(site.Top, site.Top.Y + 1f, site.BottomY + 1f, lips));
+            placed++;
+        }
+        if (placed > 0)
+        {
+            GD.Print($"[WorldGen] placed {placed} waterfalls");
         }
     }
 
@@ -4773,6 +4810,7 @@ public static class WorldGen
     private const int MOSS_PATCH_SEED = 4243;
     private const int MOSS_CAPILLARY_SEED = 4244;
     private const int MOSS_PATCHINESS_SEED = 4245;
+    private const int CLIMB_PATCH_SEED = 4246;
 
     // FastNoiseLite's fractal Perlin does not reach ±1 — the river width channel
     // measured only -0.38..0.51 on this world (see WIDTH_NOISE_GAIN), and the
@@ -5022,6 +5060,163 @@ public static class WorldGen
     // finer network unioned in (min = the union of both bands) for hairlines
     // branching off the trunks, and a long-wavelength coverage modulation so a
     // strand thins and dies along its length.
+    // The four horizontal faces a wall can present. Vertical faces are excluded
+    // deliberately: a floor or a ceiling is not something the climb affordance
+    // attaches to, and dressing them would put ivy on every cliff TOP.
+    private static readonly (int dx, int dz, EVoxelFace face)[] ClimbFaces =
+    {
+        (1, 0, EVoxelFace.PosX),
+        (-1, 0, EVoxelFace.NegX),
+        (0, 1, EVoxelFace.PosZ),
+        (0, -1, EVoxelFace.NegZ),
+    };
+
+    // Dresses tall cliff faces with a climbable overlay, in cellular patches.
+    //
+    // Height is measured as an unbroken run of exposure on ONE face, walked up
+    // the column, rather than from the heightfield: the heightfield knows what a
+    // column's top is, not how much of a given side of it stands open, and those
+    // differ at every overhang, bench and cave mouth. Runs also cost nothing
+    // extra — the walk is already happening.
+    //
+    // Cellular rather than the vein noise moss uses, because the shapes want to
+    // read differently: moss is strands seeping down a face, ivy is colonies
+    // that own a patch of it. CellValue gives one random value per cell, so a
+    // threshold keeps WHOLE cells and their irregular borders; a distance return
+    // would give circular blooms with soft edges instead.
+    private static void StampClimbSurfaces(WorldState ws, WorldGenData genData)
+    {
+        BlockSurfaceData climb = genData.climbSurface;
+        if (climb == null)
+        {
+            return;
+        }
+        if (climb.atlasBaseIndex <= 0)
+        {
+            GD.PushError($"WorldGen: climb surface '{climb.surfaceName}' has no atlas layer; add it to voxel_atlas_manifest.tres and rebuild.");
+            return;
+        }
+        byte climbOverlay = (byte)climb.atlasBaseIndex;
+        int minHeight = Mathf.Max(genData.climbMinCliffHeight, 2);
+        float yStretch = Mathf.Max(genData.climbVerticalStretch, 0.01f);
+
+        var patchNoise = new FastNoiseLite();
+        patchNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Cellular;
+        patchNoise.Seed = CLIMB_PATCH_SEED;
+        patchNoise.Frequency = genData.climbCellFrequency;
+        patchNoise.CellularDistanceFunction = FastNoiseLite.CellularDistanceFunctionEnum.Euclidean;
+        patchNoise.CellularReturnType = FastNoiseLite.CellularReturnTypeEnum.CellValue;
+        patchNoise.CellularJitter = genData.climbCellJitter;
+
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        long faceRuns = 0, faceVoxels = 0, stamped = 0;
+        var runStart = new int[ClimbFaces.Length];
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                int columnZone = PickKitZone(wx, wz, genData.ZoneGens, 0);
+                ZoneGenData zone = columnZone >= 0 ? genData.ZoneGens[columnZone] : null;
+                if (zone == null || zone.climbCoverage <= 0f)
+                {
+                    continue;
+                }
+
+                for (int f = 0; f < runStart.Length; f++)
+                {
+                    runStart[f] = int.MinValue;
+                }
+
+                // One extra step past the top so a run ending at the world
+                // ceiling is flushed by the same branch as any other.
+                for (int wy = worldMinY; wy <= worldMaxY + 1; wy++)
+                {
+                    bool inRange = wy <= worldMaxY;
+                    int v = inRange ? ws.GetBlockWorld(wx, wy, wz) : Blocks.AirId;
+                    bool wall = inRange && Blocks.IsSolid(v) && v != Blocks.BarrierId;
+
+                    for (int f = 0; f < ClimbFaces.Length; f++)
+                    {
+                        (int dx, int dz, EVoxelFace face) = ClimbFaces[f];
+                        bool exposed = wall
+                            && Blocks.IsEmpty(ws.GetBlockWorld(wx + dx, wy, wz + dz));
+                        if (exposed)
+                        {
+                            if (runStart[f] == int.MinValue)
+                            {
+                                runStart[f] = wy;
+                            }
+                            continue;
+                        }
+                        if (runStart[f] == int.MinValue)
+                        {
+                            continue;
+                        }
+
+                        int start = runStart[f];
+                        runStart[f] = int.MinValue;
+                        if (wy - start < minHeight)
+                        {
+                            continue;
+                        }
+                        faceRuns++;
+                        faceVoxels += wy - start;
+                        stamped += StampClimbRun(ws, genData, patchNoise, zone.climbCoverage,
+                            climbOverlay, face, wx, wz, start, wy, yStretch);
+                    }
+                }
+            }
+        }
+
+        GD.Print($"WorldGen: climbable cliffs — {faceRuns} qualifying faces "
+            + $"(>= {minHeight} voxels), {stamped}/{faceVoxels} voxels dressed "
+            + $"({100.0 * stamped / Math.Max(faceVoxels, 1):0.0}%)");
+    }
+
+    // Dresses one exposed run [startY, endY). Returns how many voxels took the
+    // overlay.
+    private static long StampClimbRun(WorldState ws, WorldGenData genData, FastNoiseLite patchNoise,
+        float coverage, byte climbOverlay, EVoxelFace face, int wx, int wz,
+        int startY, int endY, float yStretch)
+    {
+        long stamped = 0;
+        for (int wy = startY; wy < endY; wy++)
+        {
+            // Leave an authored overlay (a road tread) alone, but let our own
+            // pass revisit a voxel — a corner voxel is a face on two sides and
+            // has to accumulate both bits.
+            int existingOverlay = ws.GetOverlayIdWorld(wx, wy, wz);
+            if (existingOverlay != OVERLAY_NONE && existingOverlay != climbOverlay)
+            {
+                continue;
+            }
+
+            float value = patchNoise.GetNoise3D(wx, wy * yStretch, wz);
+            if (value * 0.5f + 0.5f >= coverage)
+            {
+                continue;
+            }
+
+            ws.SetOverlayIdWorld(wx, wy, wz, climbOverlay);
+            // OR, never assign: the two faces of a corner are found by separate
+            // runs, and the second must not erase the first.
+            int faces = ws.GetOverlayFacesWorld(wx, wy, wz);
+            ws.SetOverlayFacesWorld(wx, wy, wz, faces | (int)face);
+            if (existingOverlay != climbOverlay)
+            {
+                stamped++;
+            }
+        }
+        return stamped;
+    }
+
     private static void StampMossPatches(WorldState ws, WorldGenData genData)
     {
         BlockSurfaceData moss = genData.mossSurface;

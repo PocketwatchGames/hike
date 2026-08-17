@@ -51,6 +51,21 @@ public static class ChunkMesherDC
     private const int CORNER_HI = N + 3;
     private const int CORNER_DIM = N + 7;
 
+    // Voxel window the climb-lip bake scans: one past the emitted cell range on
+    // each side, so a lip just outside this chunk still writes distance into the
+    // cells near the boundary and the band doesn't stop at a chunk edge.
+    private const int CLIMB_LO = USED_LO - CLIMB_SPLAT_R;
+    private const int CLIMB_HI = USED_HI + CLIMB_SPLAT_R;
+
+    // Distance stored where nothing is near — must exceed any band width the
+    // shader cuts, or the band clips flat at this value instead of falling off.
+    // Kept only just above that: it sets CLIMB_SPLAT_R, and the splat is cubic
+    // in that radius, so spare headroom here is expensive.
+    private const float CLIMB_MAX_DIST = 2f;
+    // Cell radius a lip writes into. Covers CLIMB_MAX_DIST plus the sub-voxel
+    // slack of where a DC vertex actually sits inside its cell.
+    private const int CLIMB_SPLAT_R = 2;
+
     private static int CellIdx(int c) => c - CELL_LO;
     private static int CornerIdx(int c) => c - CORNER_LO;
 
@@ -832,6 +847,77 @@ public static class ChunkMesherDC
             }
         }
 
+        // --- Climbable-ledge distance field ----------------------------------
+        // Per-vertex DISTANCE, in metres, to the nearest lip edge of a wall the
+        // player can mantle (see ClimbLedgeMarker); voxel_clip.gdshader grows
+        // lichen in a narrow band around zero.
+        //
+        // Distance rather than an on/off flag because vertices sit a metre apart:
+        // a boolean interpolates over a whole cell, so the thinnest strip it can
+        // draw is ~1m tall AND ~1m wide, which reads as a wide sash down the wall
+        // instead of a line along the lip. A distance field is near-linear
+        // between samples, so the shader can cut a band of any width out of it —
+        // and one field handles both directions at once, since it measures from
+        // the EDGE, not from the wall or the floor.
+        //
+        // Splatted from each lip rather than searched per cell: lips are rare
+        // (only 2-voxel walls with flat ground both sides qualify) while surface
+        // cells are not, so iterating lips and touching the cells near them is
+        // far less work than every cell scanning its neighbourhood for lips.
+        // Read once per chunk so a mid-build toggle can't leave one mesh half
+        // marked, same reason centerSampling is latched above.
+        bool climbMarks = CVars.climbLedgeMarks.Value;
+        var cellClimb = new float[CELL_DIM, CELL_DIM, CELL_DIM];
+        for (int i = 0; i < CELL_DIM; i++)
+        {
+            for (int j = 0; j < CELL_DIM; j++)
+            {
+                for (int k = 0; k < CELL_DIM; k++)
+                {
+                    cellClimb[i, j, k] = CLIMB_MAX_DIST;
+                }
+            }
+        }
+
+        if (climbMarks)
+        {
+            for (int vx = CLIMB_LO; vx <= CLIMB_HI; vx++)
+            {
+                for (int vy = CLIMB_LO; vy <= CLIMB_HI; vy++)
+                {
+                    for (int vz = CLIMB_LO; vz <= CLIMB_HI; vz++)
+                    {
+                        // Pre-filter off the density field this pass already
+                        // sampled: a lip is solid with its own column open above,
+                        // which is exactly FindClimbLip's first two tests. Two
+                        // array reads instead of two cross-chunk getVoxel
+                        // delegates, and it drops the ~95% of the window that is
+                        // buried solid or open air — without it the bake cost
+                        // more than half of chunk-mesh fill.
+                        //
+                        // Centre sampling only: there a lattice coord IS a voxel.
+                        // The corner lattice's min-rule describes no single
+                        // voxel, so it pays full price rather than risk dropping
+                        // a real lip. (Barriers read OUTSIDE here despite being
+                        // solid, so they never mark — which is what we want.)
+                        if (centerSampling
+                            && (density[CornerIdx(vx), CornerIdx(vy), CornerIdx(vz)] >= 0
+                                || density[CornerIdx(vx), CornerIdx(vy + 1), CornerIdx(vz)] < 0))
+                        {
+                            continue;
+                        }
+                        int mask = ClimbLedgeMarker.FindClimbLip(getVoxel,
+                            chunkWorldX + vx, chunkWorldY + vy, chunkWorldZ + vz);
+                        if (mask == 0)
+                        {
+                            continue;
+                        }
+                        SplatLipEdges(cellHas, cellVert, cellClimb, mask, vx, vy, vz);
+                    }
+                }
+            }
+        }
+
         // The voxel a quad's face belongs to — the solid endpoint of its
         // sign-change edge — and whether that voxel is a HARD-edged block
         // (shape All, i.e. authored architectural: stone, wood). Hardness is
@@ -877,7 +963,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity, cellClimb,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 OwnerIds(a < 0 ? cx : cx + 1, cy, cz),
                                 cx, cy - 1, cz - 1,
@@ -902,7 +988,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity, cellClimb,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 OwnerIds(cx, a < 0 ? cy : cy + 1, cz),
                                 cx - 1, cy, cz - 1,
@@ -924,7 +1010,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity, cellClimb,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 OwnerIds(cx, cy, a < 0 ? cz : cz + 1),
                                 cx - 1, cy - 1, cz,
@@ -960,7 +1046,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity, cellClimb,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(a < 0 ? cx : cx + 1, cy, cz),
                             cx, cy - 1, cz - 1,
@@ -990,7 +1076,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity, cellClimb,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(cx, a < 0 ? cy : cy + 1, cz),
                             cx - 1, cy, cz - 1,
@@ -1020,7 +1106,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity, cellClimb,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(cx, cy, a < 0 ? cz : cz + 1),
                             cx - 1, cy - 1, cz,
@@ -1054,7 +1140,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity, cellClimb,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(a < 0 ? cx : cx + 1, cy, cz),
                             cx, cy - 1, cz - 1,
@@ -1084,7 +1170,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity, cellClimb,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(cx, a < 0 ? cy : cy + 1, cz),
                             cx - 1, cy, cz - 1,
@@ -1114,7 +1200,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity, cellClimb,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(cx, cy, a < 0 ? cz : cz + 1),
                             cx - 1, cy - 1, cz,
@@ -1400,6 +1486,77 @@ public static class ChunkMesherDC
         cellNormal[CellIdx(x3), CellIdx(y3), CellIdx(z3)] += n;
     }
 
+    // Writes distance-to-lip-edge into every cell vertex near the lip voxel
+    // (vx,vy,vz). `mask` is the set of its sides that qualify; each contributes
+    // the top edge of that face as a unit segment, and each cell keeps the
+    // minimum distance to any of them.
+    //
+    // Coordinates are the mesher's EMIT space, where voxel (vx,vy,vz) occupies
+    // [vx, vx+1] on every axis — true in BOTH lattices, because centre
+    // sampling's half-voxel shift is already carried in cellVert's
+    // latticeOffset. So the voxel's top face sits at y = vy + 1.
+    private static void SplatLipEdges(bool[,,] cellHas, Vector3[,,] cellVert, float[,,] cellClimb,
+        int mask, int vx, int vy, int vz)
+    {
+        float top = vy + 1f;
+        int loX = Mathf.Max(vx - CLIMB_SPLAT_R, USED_LO);
+        int hiX = Mathf.Min(vx + CLIMB_SPLAT_R, USED_HI);
+        int loY = Mathf.Max(vy - CLIMB_SPLAT_R, USED_LO);
+        int hiY = Mathf.Min(vy + CLIMB_SPLAT_R, USED_HI);
+        int loZ = Mathf.Max(vz - CLIMB_SPLAT_R, USED_LO);
+        int hiZ = Mathf.Min(vz + CLIMB_SPLAT_R, USED_HI);
+
+        for (int x = loX; x <= hiX; x++)
+        {
+            for (int y = loY; y <= hiY; y++)
+            {
+                for (int z = loZ; z <= hiZ; z++)
+                {
+                    int ix = CellIdx(x), iy = CellIdx(y), iz = CellIdx(z);
+                    if (!cellHas[ix, iy, iz])
+                    {
+                        continue;
+                    }
+                    Vector3 p = new Vector3(x, y, z) + cellVert[ix, iy, iz];
+                    // Compare squared, then take ONE root for the winner — up to
+                    // four edges per lip and a few hundred cells each makes the
+                    // per-edge sqrt the inner loop's dominant cost.
+                    float bestSq = float.MaxValue;
+                    if ((mask & ClimbLedgeMarker.DirPosX) != 0) { bestSq = Mathf.Min(bestSq, EdgeDistSqAlongZ(p, vx + 1f, top, vz)); }
+                    if ((mask & ClimbLedgeMarker.DirNegX) != 0) { bestSq = Mathf.Min(bestSq, EdgeDistSqAlongZ(p, vx, top, vz)); }
+                    if ((mask & ClimbLedgeMarker.DirPosZ) != 0) { bestSq = Mathf.Min(bestSq, EdgeDistSqAlongX(p, vz + 1f, top, vx)); }
+                    if ((mask & ClimbLedgeMarker.DirNegZ) != 0) { bestSq = Mathf.Min(bestSq, EdgeDistSqAlongX(p, vz, top, vx)); }
+                    float existing = cellClimb[ix, iy, iz];
+                    if (bestSq >= existing * existing)
+                    {
+                        continue;
+                    }
+                    cellClimb[ix, iy, iz] = Mathf.Sqrt(bestSq);
+                }
+            }
+        }
+    }
+
+    // Squared distance from p to the unit segment at (edgeX, edgeY) spanning
+    // z0..z0+1.
+    private static float EdgeDistSqAlongZ(Vector3 p, float edgeX, float edgeY, float z0)
+    {
+        float dx = edgeX - p.X;
+        float dy = edgeY - p.Y;
+        float dz = Mathf.Clamp(p.Z, z0, z0 + 1f) - p.Z;
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    // Squared distance from p to the unit segment at (edgeZ, edgeY) spanning
+    // x0..x0+1.
+    private static float EdgeDistSqAlongX(Vector3 p, float edgeZ, float edgeY, float x0)
+    {
+        float dz = edgeZ - p.Z;
+        float dy = edgeY - p.Y;
+        float dx = Mathf.Clamp(p.X, x0, x0 + 1f) - p.X;
+        return dx * dx + dy * dy + dz * dz;
+    }
+
     private static bool InRange(int x, int y, int z, int lo, int hi)
     {
         return x >= lo && x <= hi && y >= lo && y <= hi && z >= lo && z <= hi;
@@ -1445,7 +1602,7 @@ public static class ChunkMesherDC
 
     private static void EmitQuad(
         SurfaceTool st,
-        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, int[,,] cellSoftTile, int[,,] cellSoftTerrain, int[,,] cellSoftOverlay, float[,,] cellAmp, float[,,] cellSharpness, float[,,] cellAo, float[,,] cellSun, float[,,] cellOpenness, float[,,] cellConcavity,
+        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, int[,,] cellSoftTile, int[,,] cellSoftTerrain, int[,,] cellSoftOverlay, float[,,] cellAmp, float[,,] cellSharpness, float[,,] cellAo, float[,,] cellSun, float[,,] cellOpenness, float[,,] cellConcavity, float[,,] cellClimb,
         int cwX, int cwY, int cwZ,
         (bool Hard, int Tile, int Terrain, int Overlay) owner,
         int x0, int y0, int z0,
@@ -1540,6 +1697,11 @@ public static class ChunkMesherDC
         float con2 = cellConcavity[i2x, i2y, i2z];
         float con3 = cellConcavity[i3x, i3y, i3z];
 
+        float cl0 = cellClimb[i0x, i0y, i0z];
+        float cl1 = cellClimb[i1x, i1y, i1z];
+        float cl2 = cellClimb[i2x, i2y, i2z];
+        float cl3 = cellClimb[i3x, i3y, i3z];
+
         Vector3 n0 = cellNormal[i0x, i0y, i0z];
         Vector3 n1 = cellNormal[i1x, i1y, i1z];
         Vector3 n2 = cellNormal[i2x, i2y, i2z];
@@ -1556,26 +1718,26 @@ public static class ChunkMesherDC
         {
             if (splitV1V3)
             {
-                AddTri(st, v1, v3, v2, n1, n3, n2, t1, t3, t2, k1, k3, k2, o1, o3, o2, a1, a3, a2, s1, s3, s2, ao1, ao3, ao2, sun1, sun3, sun2, con1, con3, con2);
-                AddTri(st, v1, v0, v3, n1, n0, n3, t1, t0, t3, k1, k0, k3, o1, o0, o3, a1, a0, a3, s1, s0, s3, ao1, ao0, ao3, sun1, sun0, sun3, con1, con0, con3);
+                AddTri(st, v1, v3, v2, n1, n3, n2, t1, t3, t2, k1, k3, k2, o1, o3, o2, a1, a3, a2, s1, s3, s2, ao1, ao3, ao2, sun1, sun3, sun2, con1, con3, con2, cl1, cl3, cl2);
+                AddTri(st, v1, v0, v3, n1, n0, n3, t1, t0, t3, k1, k0, k3, o1, o0, o3, a1, a0, a3, s1, s0, s3, ao1, ao0, ao3, sun1, sun0, sun3, con1, con0, con3, cl1, cl0, cl3);
             }
             else
             {
-                AddTri(st, v0, v2, v1, n0, n2, n1, t0, t2, t1, k0, k2, k1, o0, o2, o1, a0, a2, a1, s0, s2, s1, ao0, ao2, ao1, sun0, sun2, sun1, con0, con2, con1);
-                AddTri(st, v0, v3, v2, n0, n3, n2, t0, t3, t2, k0, k3, k2, o0, o3, o2, a0, a3, a2, s0, s3, s2, ao0, ao3, ao2, sun0, sun3, sun2, con0, con3, con2);
+                AddTri(st, v0, v2, v1, n0, n2, n1, t0, t2, t1, k0, k2, k1, o0, o2, o1, a0, a2, a1, s0, s2, s1, ao0, ao2, ao1, sun0, sun2, sun1, con0, con2, con1, cl0, cl2, cl1);
+                AddTri(st, v0, v3, v2, n0, n3, n2, t0, t3, t2, k0, k3, k2, o0, o3, o2, a0, a3, a2, s0, s3, s2, ao0, ao3, ao2, sun0, sun3, sun2, con0, con3, con2, cl0, cl3, cl2);
             }
         }
         else
         {
             if (splitV1V3)
             {
-                AddTri(st, v1, v2, v3, n1, n2, n3, t1, t2, t3, k1, k2, k3, o1, o2, o3, a1, a2, a3, s1, s2, s3, ao1, ao2, ao3, sun1, sun2, sun3, con1, con2, con3);
-                AddTri(st, v1, v3, v0, n1, n3, n0, t1, t3, t0, k1, k3, k0, o1, o3, o0, a1, a3, a0, s1, s3, s0, ao1, ao3, ao0, sun1, sun3, sun0, con1, con3, con0);
+                AddTri(st, v1, v2, v3, n1, n2, n3, t1, t2, t3, k1, k2, k3, o1, o2, o3, a1, a2, a3, s1, s2, s3, ao1, ao2, ao3, sun1, sun2, sun3, con1, con2, con3, cl1, cl2, cl3);
+                AddTri(st, v1, v3, v0, n1, n3, n0, t1, t3, t0, k1, k3, k0, o1, o3, o0, a1, a3, a0, s1, s3, s0, ao1, ao3, ao0, sun1, sun3, sun0, con1, con3, con0, cl1, cl3, cl0);
             }
             else
             {
-                AddTri(st, v0, v1, v2, n0, n1, n2, t0, t1, t2, k0, k1, k2, o0, o1, o2, a0, a1, a2, s0, s1, s2, ao0, ao1, ao2, sun0, sun1, sun2, con0, con1, con2);
-                AddTri(st, v0, v2, v3, n0, n2, n3, t0, t2, t3, k0, k2, k3, o0, o2, o3, a0, a2, a3, s0, s2, s3, ao0, ao2, ao3, sun0, sun2, sun3, con0, con2, con3);
+                AddTri(st, v0, v1, v2, n0, n1, n2, t0, t1, t2, k0, k1, k2, o0, o1, o2, a0, a1, a2, s0, s1, s2, ao0, ao1, ao2, sun0, sun1, sun2, con0, con1, con2, cl0, cl1, cl2);
+                AddTri(st, v0, v2, v3, n0, n2, n3, t0, t2, t3, k0, k2, k3, o0, o2, o3, a0, a2, a3, s0, s2, s3, ao0, ao2, ao3, sun0, sun2, sun3, con0, con2, con3, cl0, cl2, cl3);
             }
         }
 
@@ -1632,6 +1794,9 @@ public static class ChunkMesherDC
     //    jitter. .w is per-vertex baked concavity (signed voxels; + = dip), read
     //    by the wetness term. Unlike xyz it is genuinely per-vertex, not a flat
     //    triangle constant, so each vertex carries its own overlay color.
+    //  - CUSTOM3.z = distance in metres to the nearest mantleable lip edge (see
+    //    ClimbLedgeMarker), clamped at CLIMB_MAX_DIST. Per-vertex; the shader
+    //    cuts a narrow band out of it.
     //  - COLOR.rgb = bary indicator (1,0,0)/(0,1,0)/(0,0,1). Linearly interpolated
     //    by the rasterizer so fragment.COLOR.rgb is the barycentric weight vector.
     //  - COLOR.a = baked ambient occlusion (0 = open, 1 = sheltered). Independent
@@ -1646,7 +1811,8 @@ public static class ChunkMesherDC
         float sharpA, float sharpB, float sharpC,
         float aoA, float aoB, float aoC,
         Vector2 sunA, Vector2 sunB, Vector2 sunC,
-        float conA, float conB, float conC)
+        float conA, float conB, float conC,
+        float climbA, float climbB, float climbC)
     {
         Color custA = new Color(ta, tb, tc, ampA);
         Color custB = new Color(ta, tb, tc, ampB);
@@ -1659,10 +1825,10 @@ public static class ChunkMesherDC
         Color overlayCustA = new Color(oa, ob, oc, conA);
         Color overlayCustB = new Color(oa, ob, oc, conB);
         Color overlayCustC = new Color(oa, ob, oc, conC);
-        // CUSTOM3 = (static sky openness, legacy baked sun); zw reserved.
-        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, aoA)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCustA); st.SetCustom(3, new Color(sunA.X, sunA.Y, 0f, 0f)); st.AddVertex(a);
-        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, aoB)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCustB); st.SetCustom(3, new Color(sunB.X, sunB.Y, 0f, 0f)); st.AddVertex(b);
-        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, aoC)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCustC); st.SetCustom(3, new Color(sunC.X, sunC.Y, 0f, 0f)); st.AddVertex(c);
+        // CUSTOM3 = (static sky openness, legacy baked sun, climb-ledge mark); w reserved.
+        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, aoA)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCustA); st.SetCustom(3, new Color(sunA.X, sunA.Y, climbA, 0f)); st.AddVertex(a);
+        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, aoB)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCustB); st.SetCustom(3, new Color(sunB.X, sunB.Y, climbB, 0f)); st.AddVertex(b);
+        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, aoC)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCustC); st.SetCustom(3, new Color(sunC.X, sunC.Y, climbC, 0f)); st.AddVertex(c);
     }
 
     // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,

@@ -427,6 +427,26 @@ public class WorldState
         chunk.SetOverlayId(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), overlayId);
     }
 
+    public int GetOverlayFacesWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return 0;
+        }
+        return chunk.GetOverlayFaces(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
+    }
+
+    public void SetOverlayFacesWorld(int wx, int wy, int wz, int faces)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return;
+        }
+        chunk.SetOverlayFaces(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), faces);
+    }
+
     public int GetDetailGroupWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);

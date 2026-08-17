@@ -74,6 +74,15 @@ public class ChunkState
     // mesher parallel to int and TerrainId.
     public readonly byte[,,] OverlayId;
 
+    // Which of a voxel's six faces its OverlayId dresses (EVoxelFace bits).
+    // 0 = all faces — see EVoxelFace for why zero cannot mean "none".
+    //
+    // The only LAZY channel here: null until something writes a non-zero mask.
+    // Face-qualified overlay is sparse (a few ivy patches in a world), so the
+    // 4 KB every other channel costs unconditionally would be paid by every
+    // chunk to store nothing. Read through GetOverlayFaces, never the field.
+    public byte[,,] OverlayFaces;
+
     // Painted detail-sprite scatter. Stored on the SOLID surface voxel (same
     // location convention as OverlayId) — the scatter pass places sprites on
     // top of the voxel.
@@ -394,6 +403,30 @@ public class ChunkState
     public void SetOverlayId(int x, int y, int z, int overlayId)
     {
         OverlayId[x, y, z] = (byte)overlayId;
+    }
+
+    public int GetOverlayFaces(int x, int y, int z)
+    {
+        if (OverlayFaces == null || x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
+        {
+            return 0;
+        }
+        return OverlayFaces[x, y, z];
+    }
+
+    public void SetOverlayFaces(int x, int y, int z, int faces)
+    {
+        if (OverlayFaces == null)
+        {
+            // 0 is the default this chunk already reads as, so storing one
+            // must not be what forces the allocation.
+            if (faces == 0)
+            {
+                return;
+            }
+            OverlayFaces = new byte[SIZE, SIZE, SIZE];
+        }
+        OverlayFaces[x, y, z] = (byte)faces;
     }
 
     public int GetDetailGroup(int x, int y, int z)

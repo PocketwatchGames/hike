@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WaterfallData" load_steps=6 format=3]
+
+[ext_resource type="Script" uid="uid://b46mvny4mewbr" path="res://scripts/data/world/WaterfallData.cs" id="1_data"]
+[ext_resource type="Material" path="res://resources/materials/waterfall.tres" id="2_material"]
+[ext_resource type="Resource" path="res://resources/data/waterfalls/waterfall_small.tres" id="3_small"]
+[ext_resource type="Resource" path="res://resources/data/waterfalls/waterfall_medium.tres" id="4_medium"]
+[ext_resource type="Resource" path="res://resources/data/waterfalls/waterfall_large.tres" id="5_large"]
+
+[resource]
+script = ExtResource("1_data")
+sheetMaterial = ExtResource("2_material")
+tiers = [ExtResource("3_small"), ExtResource("4_medium"), ExtResource("5_large")]
+pourReach = 1.0
+landingDepth = 1.0
+edgeInset = 0.2
+metersPerEmitter = 3.0
+maxEmittersPerEdge = 4
+metadata/_custom_type_script = "uid://b46mvny4mewbr"

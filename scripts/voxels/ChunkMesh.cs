@@ -82,6 +82,20 @@ public partial class ChunkMesh : Node3D
         }
     }
 
+    // Climb-ledge mark debug visualization toggle (CUSTOM3.z). Diagnostic, kept
+    // as a CVar; the wear look (climb_wear_*) is authored on
+    // resources/materials/terrain.tres.
+    private static bool _debugClimbLedge = false;
+
+    public static void SetDebugClimbLedge(bool value)
+    {
+        _debugClimbLedge = value;
+        if (_materialsInitialized && SharedMaterial != null)
+        {
+            SharedMaterial.SetShaderParameter("debug_climb_ledge", value);
+        }
+    }
+
     // Terrain atlas + wetness tuning (tile_uv_scale, tile_normal_strength, the
     // three blend sharpnesses, wet_displacement/roughness_min/chroma, concavity
     // pooling) is authored on resources/materials/terrain.tres rather than via
@@ -126,6 +140,9 @@ public partial class ChunkMesh : Node3D
         // Concavity-bake debug viz toggle (CVar; the pooling tuning is authored
         // on the material).
         SharedMaterial.SetShaderParameter("debug_concavity", _debugConcavity);
+        // Climb-ledge mark debug viz toggle (CVar; the wear look is authored on
+        // the material).
+        SharedMaterial.SetShaderParameter("debug_climb_ledge", _debugClimbLedge);
 
         // Packed per-tile normal (RGB) + height (A) atlas, sampled alongside
         // the color atlas (both nearest-filtered).
@@ -155,6 +172,14 @@ public partial class ChunkMesh : Node3D
             heightMidTable.Add(GetLayerHeightMid(nrmHeight, i));
             overlayCliffTable.Add(surface != null && surface.overlayOnCliffs ? 1f : 0f);
         }
+        // Atlas layer the climbable-ledge mark samples. -1 when the catalog names
+        // no surface, which the shader reads as "mark disabled" — so removing the
+        // reference turns the feature off without touching the shader.
+        SharedMaterial.SetShaderParameter("climb_mark_layer",
+            BlockCatalog.Active.climbLedgeSurface != null
+                ? BlockCatalog.Active.climbLedgeSurface.atlasBaseIndex
+                : -1);
+
         SharedMaterial.SetShaderParameter("tile_porosity", porosityTable);
         SharedMaterial.SetShaderParameter("tile_height_mid", heightMidTable);
         SharedMaterial.SetShaderParameter("tile_overlay_cliff", overlayCliffTable);
@@ -607,8 +632,9 @@ public partial class ChunkMesh : Node3D
         // CUSTOM2: (overlay_a, overlay_b, overlay_c, _). Per-corner authored
         // overlay ids for the AUTO terrain branch.
         st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
-        // CUSTOM3: (baked_sun, _, _, _). Per-vertex sun read from the air the
-        // surface faces — see ChunkMesherDC.BakeVertexSun.
+        // CUSTOM3: (openness, baked_sun, climb_mark, _). Per-vertex sun read
+        // from the air the surface faces — see ChunkMesherDC.BakeVertexSun — and
+        // the climbable-ledge mark, see ClimbLedgeMarker.
         st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetMaterial(SharedMaterial);
 

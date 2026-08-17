@@ -232,6 +232,33 @@ public partial class WorldGenData : Resource
     [Export] public float mossPatchinessFrequency = 0.012f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float mossPatchinessAmount = 0.6f;
 
+    [ExportGroup("Climbable Cliffs")]
+    // The surface painted as the climbable overlay. Its atlasBaseIndex is the
+    // wire value written into OverlayId, so this must be a surface the atlas
+    // manifest actually bakes. Leave unassigned to disable the pass entirely.
+    //
+    // For the overlay to confer CLIMBABILITY as well as a look, the catalog also
+    // needs a BlockData whose top surface is this one, with climbable set —
+    // ClimbProbe resolves the overlay through GetByTopSurfaceLayer, the same
+    // bridge road overlays use to carry ground type.
+    [Export] public BlockSurfaceData climbSurface;
+    // Minimum unbroken height of an exposed wall face, in voxels, before any of
+    // it is dressed. Measured PER FACE, so a boulder's tall north side qualifies
+    // while its two-voxel east side does not. Below this a wall is a mantle, and
+    // dressing it would advertise a climb that the ledge affordance already owns.
+    [Export(PropertyHint.Range, "2,32,1")] public int climbMinCliffHeight = 4;
+    // Cell size of the patch network. Lower = fewer, broader colonies; 0.05 puts
+    // a cell at roughly 20 voxels, so a tall cliff carries two or three.
+    [Export] public float climbCellFrequency = 0.05f;
+    // How far a cell's feature point may wander from its lattice slot. 0 is a
+    // visible grid; 1 is fully irregular, which is what makes the patches read
+    // as growth rather than as tiling.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float climbCellJitter = 1.0f;
+    // Vertical squash of the sample position, same trick as moss: below 1
+    // stretches each cell taller than it is wide, so a colony hangs DOWN the
+    // face instead of belting around it.
+    [Export(PropertyHint.Range, "0.1,2,0.01")] public float climbVerticalStretch = 0.5f;
+
     [ExportGroup("Dirt Patch Scatter")]
     [Export] public float dirtPatchFrequency = 0.2f;
 

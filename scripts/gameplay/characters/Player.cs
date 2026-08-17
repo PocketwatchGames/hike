@@ -1746,6 +1746,14 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		// Clinging to a climbable wall. Same bargain as a mantle, held open for
+		// as long as the player stays on the face rather than for a fixed span.
+		if (Climbing)
+		{
+			TickClimb(dt);
+			return;
+		}
+
 		UpdateTerrainSpeed(dt);
 		UpdateWaterState();
 		UpdateSprintState();

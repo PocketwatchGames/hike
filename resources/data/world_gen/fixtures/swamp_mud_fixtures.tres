@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
-[ext_resource type="Resource" uid="uid://1td133j0mecv" path="res://resources/data/languages/muddish.tres" id="9_lang"]
+[ext_resource type="Resource" uid="uid://irm377w14z4uf" path="res://resources/data/languages/muddish.tres" id="9_lang"]
 [ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="11_stone"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="12_stonescene"]
 

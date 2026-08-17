@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3]
+
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_block"]
+
+[resource]
+script = ExtResource("1_block")
+surfaceName = &"ClimbLichen"
+atlasBaseIndex = 17
+porosity = 0.6
+overlayOnCliffs = true
+minimapColor = Color(0.78, 0.4, 0.11, 1)
+climbable = true

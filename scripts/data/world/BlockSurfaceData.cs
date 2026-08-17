@@ -48,6 +48,13 @@ public partial class BlockSurfaceData : Resource
     // up a vertical rock face. Uploaded per layer as tile_overlay_cliff[].
     [Export] public bool overlayOnCliffs = false;
 
+    // A wall face wearing this can be climbed. Lives here rather than only on
+    // BlockData because climbability travels with the TEXTURE — lichen is
+    // climbable wherever it grows — which is the same test porosity passes.
+    // Without it an overlay could only confer this through a proxy block whose
+    // top surface happened to be this one.
+    [Export] public bool climbable = false;
+
     // Minimap colour for this surface when it is drawn as an OVERLAY. The
     // minimap indexes its lookup by atlas layer and an overlay wins outright
     // over the block under it, so a layer worn by no block has no colour to

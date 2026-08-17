@@ -1,0 +1,19 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" uid="uid://brd3pmyfmrf8x" path="res://shaders/waterfall.gdshader" id="1_shader"]
+
+[resource]
+resource_name = "waterfall"
+render_priority = -1
+shader = ExtResource("1_shader")
+shader_parameter/flow_speed = 9.0
+shader_parameter/streak_scale_across = 1.6
+shader_parameter/streak_scale_along = 0.12
+shader_parameter/streak_depth = 0.8
+shader_parameter/base_foam_fraction = 0.3
+shader_parameter/base_foam_height = 3.0
+shader_parameter/churn_scale = 1.7
+shader_parameter/lip_smooth_height = 1.5
+shader_parameter/lip_thickness_scale = 6.0
+shader_parameter/refraction_strength = 0.015
+shader_parameter/lip_brightness = 1.0

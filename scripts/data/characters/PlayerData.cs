@@ -91,6 +91,33 @@ public partial class PlayerData : Resource
 	// Smoothing time for the prompt. Covers the one discontinuity the offset
 	// above cannot: the landing HEIGHT still changes in whole voxels.
 	[Export] public float mantlePromptSmoothTime = 0.08f;
+
+	// --- Surface climbing ---------------------------------------------------
+	// How far in front to look for a climbable wall face. Same constraint as
+	// mantleReach: must clear the capsule radius.
+	[Export] public float climbReach = 0.7f;
+	// Height above the player's origin the hands grip at. Sampled here rather
+	// than at the feet so a one-voxel lip underfoot isn't read as a wall.
+	[Export] public float climbGripHeight = 1f;
+	// How far the body floats off the wall plane while attached.
+	[Export] public float climbWallOffset = 0.35f;
+	// Metres per second along the wall. Slower than walking — climbing is a
+	// deliberate detour, not a faster route.
+	[Export] public float climbSpeed = 2.2f;
+	// Seconds to pull onto the wall, and to push back off it. Timed like a
+	// mantle (and driven by the same lerp) so attaching reads as a move rather
+	// than a snap.
+	[Export] public float climbEnterDuration = 0.3f;
+	[Export] public float climbExitDuration = 0.25f;
+	// How near a standable surface has to be, vertically, before the climb
+	// releases onto it. This is what ends a descent when the feet reach the
+	// ground, and what lets a climb step sideways onto a ledge.
+	[Export] public float climbStepOffDistance = 0.6f;
+	// Widest angle between facing and the wall that still attaches. Same job as
+	// mantleFacingAngle — stops a wall grabbing a player running past it.
+	[Export(PropertyHint.Range, "0,180,1,radians_as_degrees")]
+	public float climbFacingAngle = Mathf.Pi / 3f;
+
 	[Export] public float sneakSpeed = 3f;
 	// How strongly foliage (bushes, tall grass) slows the player. The foliage's
 	// own speed multiplier applies at full strength at 1, is ignored at 0, and

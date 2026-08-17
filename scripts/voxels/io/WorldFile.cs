@@ -174,7 +174,18 @@ public static class WorldFile
     //      rather than to the zone.
     // v42: the per-voxel byte is a BlockData.blockId, not a VoxelType. Same
     //      width, different meaning — v41 and earlier cannot be read.
-    public const uint VERSION = 42;
+    // v43: new Waterfall entity tag — the voxel columns a cascade's sheet hangs
+    //      in, so the ribbon can be skinned at spawn. The drop stays air.
+    // v44: chunks append an optional per-voxel overlay FACE mask — a present
+    //      flag, then the block only when a chunk actually carries one. Says
+    //      which of a voxel's six faces its overlay dresses, so ivy (and the
+    //      climbability that rides on it) can sit on one wall of a corner.
+    // v45: the Waterfall payload carries the LIP the water pours over (the water
+    //      surface above and below, plus the metre-wide steps of the edge and
+    //      the direction each pours in) instead of the columns of v43. The sheet
+    //      is swept off that edge as a jet; the columns described where water
+    //      would STAND if the drop were filled, which is a slab, not a fall.
+    public const uint VERSION = 45;
 
     public struct IndexEntry
     {

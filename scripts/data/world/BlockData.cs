@@ -90,6 +90,12 @@ public partial class BlockData : Resource
     // natural ground wants Y (hard height steps, organic walls); ramps None.
     [Export] public SharpAxes defaultShape = SharpAxes.None;
 
+    // The player can climb a wall face made of this. Usually reached through an
+    // OVERLAY rather than the voxel's own block — ivy painted over whatever the
+    // wall is already made of — which is why ClimbProbe resolves the overlay
+    // first, exactly as GroundTypeResolver does for ground type.
+    [Export] public bool climbable = false;
+
     // --- Material -----------------------------------------------------------
 
     // Movement speed multiplier while standing on this block. Below 1 for mud

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/details/detail_grass.tres" id="3_detail"]
-[ext_resource type="Resource" path="res://resources/data/blocks/block_sand.tres" id="blk_sand"]
+[ext_resource type="Resource" uid="uid://on84p7ahcbow" path="res://resources/data/blocks/block_sand.tres" id="blk_sand"]
 
 [resource]
 script = ExtResource("1_script")

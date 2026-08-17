@@ -1,0 +1,76 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_particle_lit"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="4_puff"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lipdrops"]
+emission_shape = 3
+emission_box_extents = Vector3(0.5, 0.1, 0.5)
+direction = Vector3(0, 1, 0)
+spread = 55.0
+initial_velocity_min = 0.4
+initial_velocity_max = 1.2
+gravity = Vector3(0, -6, 0)
+scale_min = 0.6
+scale_max = 1.3
+color = Color(0.85, 0.93, 1, 1)
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lipdrops"]
+render_priority = 0
+shader = ExtResource("2_particle_lit")
+shader_parameter/albedo = Color(0.88, 0.95, 1, 0.9)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_lipdrops"]
+material = SubResource("ShaderMaterial_lipdrops")
+size = Vector2(0.05, 0.05)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lipmist"]
+emission_shape = 3
+emission_box_extents = Vector3(0.5, 0.05, 0.5)
+direction = Vector3(0, 1, 0)
+spread = 30.0
+initial_velocity_min = 0.2
+initial_velocity_max = 0.5
+gravity = Vector3(0, 0.2, 0)
+damping_min = 0.3
+damping_max = 0.8
+scale_min = 0.8
+scale_max = 1.6
+color = Color(0.9, 0.95, 1, 0.35)
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lipmist"]
+render_priority = 0
+shader = ExtResource("2_particle_lit")
+shader_parameter/albedo_texture = ExtResource("4_puff")
+shader_parameter/albedo = Color(0.92, 0.96, 1, 0.3)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_lipmist"]
+material = SubResource("ShaderMaterial_lipmist")
+size = Vector2(0.5, 0.5)
+
+[node name="WaterfallLip" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Drops" type="GPUParticles3D" parent="."]
+amount = 10
+lifetime = 0.7
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_lipdrops")
+draw_pass_1 = SubResource("QuadMesh_lipdrops")
+
+[node name="Mist" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+amount = 5
+lifetime = 1.4
+randomness = 0.6
+process_material = SubResource("ParticleProcessMaterial_lipmist")
+draw_pass_1 = SubResource("QuadMesh_lipmist")

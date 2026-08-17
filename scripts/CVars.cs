@@ -734,6 +734,22 @@ public static class CVars
     // Log every mantle start and completion, with the resolved landing and rise.
     public static CVarBool mantleDebug = new CVarBool("mantle_debug", false);
 
+    // Console command: `climb_mark <height>` stamps a climbable face up the wall
+    // the player is looking at, `climb_mark 0` clears it. Test scaffolding until
+    // the editor grows a face-paint tool — it writes the real OverlayFaces
+    // channel, but it also flips the wall block climbable for the session
+    // (see Blocks.SetClimbableForDebug) because no ivy overlay is authored yet.
+    public static CVarInt climbMark = new CVarInt("climb_mark", 0,
+        (cvar) => ClimbMarkDebug.Apply(((CVarInt)cvar).Value));
+
+    // Log climb attach and release.
+    public static CVarBool climbDebug = new CVarBool("climb_debug", false);
+
+    // Console command: walk the climb probe's gates for the wall in front of the
+    // player and print each verdict. "It won't attach" is always one specific
+    // gate; this names it instead of leaving it to bisection.
+    public static CVar climbProbe = new CVar("climb_probe", (cvar) => ClimbMarkDebug.Probe());
+
     // When true, MobHUD shows a two-line text overlay over each visible mob
     // breaking down PLAYER-perceives-MOB. Top line: V/H/S sense deltas
     // (smell is always 0 — player doesn't smell). Bottom line: L (light at
@@ -1151,6 +1167,26 @@ public static class CVars
     public static CVarBool debugConcavity = new CVarBool("debug_concavity", false, (cvar) =>
     {
         ChunkMesh.SetDebugConcavity(((CVarBool)cvar).Value);
+    });
+
+    // Bakes the climbable-ledge mark into the terrain mesh (ClimbLedgeMarker),
+    // which voxel_clip.gdshader wears so a mantleable wall is visibly different
+    // from a cliff. 0 skips the bake entirely — the A/B for what the extra
+    // mesher pass costs, and the off switch if the look isn't wanted. Toggling
+    // requeues every loaded chunk, since the mark is baked, not resolved at draw.
+    public static CVarBool climbLedgeMarks = new CVarBool("climb_ledge_marks", true, (cvar) =>
+    {
+        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
+    });
+
+    // Debug: paint the climbable-ledge bake on terrain — green = the raw mark
+    // the mesher baked, red = the wear that survives the wall gate and noise.
+    // Use to tell "the ledge was never marked" from "the mark is there but the
+    // look is too subtle". The wear tuning (climb_wear_*) is authored on
+    // resources/materials/terrain.tres.
+    public static CVarBool debugClimbLedge = new CVarBool("debug_climb_ledge", false, (cvar) =>
+    {
+        ChunkMesh.SetDebugClimbLedge(((CVarBool)cvar).Value);
     });
 
     // Terrain texture tuning (tile_uv_scale, tile_normal_strength, the three
