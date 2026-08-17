@@ -4,6 +4,8 @@
 [ext_resource type="Resource" uid="uid://bbr2g5iqvgi7r" path="res://resources/data/status_effects/status_cold.tres" id="4_cold"]
 [ext_resource type="Resource" uid="uid://bgra13f0vo0vi" path="res://resources/data/status_effects/status_hot.tres" id="5_hot"]
 [ext_resource type="Resource" uid="uid://b5x8h2qkvr3wm" path="res://resources/data/actions/dash_action.tres" id="6_dash"]
+[ext_resource type="Resource" uid="uid://dofncd682i14n" path="res://resources/data/actions/mantle_up_action.tres" id="30_mantle_up"]
+[ext_resource type="Resource" uid="uid://dwk6aa74jfi6k" path="res://resources/data/actions/mantle_down_action.tres" id="31_mantle_down"]
 [ext_resource type="Resource" uid="uid://ct4ntwjta4pai" path="res://resources/data/characters/human/anim_sets/unarmed.tres" id="7_unarmed"]
 [ext_resource type="Resource" uid="uid://b8nf3qkxr7m2p" path="res://resources/data/items/weapons/fists.tres" id="8_fists"]
 [ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/weapons/lantern.tres" id="9_lantern"]
@@ -64,3 +66,5 @@ outfits = Dictionary[StringName, ExtResource("10_outfit_script")]({
 &"mage": ExtResource("11_outfit_mage"),
 &"swordsman": ExtResource("15_outfit_swordsman")
 })
+mantleUpAction = ExtResource("30_mantle_up")
+mantleDownAction = ExtResource("31_mantle_down")

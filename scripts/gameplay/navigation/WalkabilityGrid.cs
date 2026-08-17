@@ -96,6 +96,31 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
         verticalClearance = data?.verticalClearance ?? 2;
     }
 
+    // Explicit-value constructor for actors with no MobData — the player.
+    // Exists so the player resolves standability through the SAME sampler mobs
+    // use: one definition of "can a body stand here", so the ledge guard can
+    // never disagree with where a mob will path.
+    //
+    // AvoidsDeepWater is false and CanSwim true: the player swims, so a deep
+    // water column must stay standable or the ledge guard would wall off every
+    // lake. Costs are neutral — the player never runs A* over this.
+    public TraversalProfile(int maxStepHeight, int maxFallHeight, float clearanceRadius,
+        int verticalClearance, float swimDepthThreshold)
+    {
+        this.maxStepHeight = maxStepHeight;
+        this.maxFallHeight = maxFallHeight;
+        this.clearanceRadius = clearanceRadius;
+        this.verticalClearance = verticalClearance;
+        this.swimDepthThreshold = swimDepthThreshold;
+        CanClimb = false;
+        CanSwim = true;
+        CanTraverseLand = true;
+        AvoidsDeepWater = false;
+        CanFly = false;
+        waterCost = 1f;
+        swimCost = 1f;
+    }
+
     // IEquatable so SharedWalkabilityCache can key on the profile without
     // boxing through default object.Equals. Most mobs share a small handful
     // of profiles, so structural equality means a swarm of the same species
@@ -499,7 +524,7 @@ public class WalkabilityGrid
     // rule is self-tuning by body size: a 0.4 mob clears a wall-flush 1m cell
     // (0.1m gap) but a 0.6 mob does not, and a 1-wide tunnel stays passable
     // for the former because every cell is penalized equally.
-    private static bool ColumnFits(WorldState ws, in TraversalProfile profile, int wx, int wy, int wz, out float wallCostMultiplier)
+    internal static bool ColumnFits(WorldState ws, in TraversalProfile profile, int wx, int wy, int wz, out float wallCostMultiplier)
     {
         wallCostMultiplier = 1f;
         float radius = profile.clearanceRadius;

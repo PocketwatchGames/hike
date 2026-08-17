@@ -580,7 +580,7 @@ public partial class Sim : Node3D
 
         if (CVars.navGridDebug.Value)
         {
-            NavGridDebug.Draw(this, _player.GlobalPosition);
+            NavGridDebug.Draw(this, _player.GlobalPosition, _player.TraversalProfileForQuery());
         }
     }
 

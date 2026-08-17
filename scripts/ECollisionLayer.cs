@@ -60,6 +60,15 @@ public enum ECollisionLayer
     // desert reported the player hidden behind a wall that is not there — and
     // every future query would have had to remember to exclude it.
     WorldBounds = 8192,
+    // Invisible barriers standing at the top edge of every drop taller than a
+    // legal step, generated per chunk alongside terrain collision. Its OWN
+    // layer, and deliberately outside Solid and Blocking, for the same reason
+    // WorldBounds is: it is felt and never seen, so nothing that asks a question
+    // ABOUT the world — sight, aim, pathing, projectiles — may find it. Only a
+    // body that has explicitly opted in collides with it, so the barriers can be
+    // switched on for the player without becoming cover, walls, or obstacles for
+    // everything else.
+    LedgeBarrier = 16384,
     // Convenience combo: "solid to the world" — terrain/walls plus porous
     // props. World raycasts (vision, arrows, aim, pathing, rain, lightning) mask
     // this so props still block them; the few queries that should see / smell /

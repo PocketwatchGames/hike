@@ -7,11 +7,13 @@ using Godot;
 // player from Sim._Process, the world editor around its edit cursor (there is no
 // player there, so Sim's call bails before reaching this).
 //
-// It samples the NEAREST loaded mob's TraversalProfile (its real maxStepHeight /
-// clearance / headroom), so walking a companion up to a spot shows that mob's
-// view of the world. With no mob loaded — the usual case in the editor — it
-// falls back to a default ground walker, which is what the humanoid NPC entries
-// resolve to anyway.
+// In game it draws the PLAYER's profile, so the cells shown are exactly the
+// ones the ledge guard reads when deciding whether a step would walk off a
+// drop. The editor has no player and passes none, falling back to the NEAREST
+// loaded mob's TraversalProfile (its real maxStepHeight / clearance / headroom)
+// so walking a companion up to a spot shows that mob's view of the world — and
+// to a default ground walker when no mob is loaded, which is what the humanoid
+// NPC entries resolve to anyway.
 //
 // It calls WalkabilityGrid.SampleColumn directly rather than going through
 // WalkabilityGrid.Sample — deliberately. Sample reads the process-wide
@@ -53,7 +55,10 @@ public static class NavGridDebug
     private static readonly Color HazardColor = new(1f, 0.2f, 1f);
     private static readonly Color RejectColor = new(1f, 0.2f, 0.2f);
 
-    public static void Draw(Sim sim, Vector3 center)
+    // profileOverride pins the drawn field to a specific body. The game passes
+    // the PLAYER's profile so the overlay shows the exact cells the ledge guard
+    // is reading; the editor passes none and falls back to the nearest mob.
+    public static void Draw(Sim sim, Vector3 center, TraversalProfile? profileOverride = null)
     {
         WorldState ws = sim?.WorldState;
         if (ws == null)
@@ -61,7 +66,7 @@ public static class NavGridDebug
             return;
         }
 
-        TraversalProfile profile = ProfileForNearestMob(sim, center);
+        TraversalProfile profile = profileOverride ?? ProfileForNearestMob(sim, center);
 
         int anchorX = Mathf.FloorToInt(center.X);
         int anchorY = Mathf.FloorToInt(center.Y);

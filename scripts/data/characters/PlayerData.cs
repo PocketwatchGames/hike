@@ -41,6 +41,56 @@ public partial class PlayerData : Resource
 	[Export] public float stepProbeReach = 0.25f;
 	[Export] public float coyoteTime = 0.25f;
 	[Export] public float moveSpeed = 7f;
+
+	// --- Standability queries ----------------------------------------------
+	// The mantle probe resolves "is there ground there?" through the same
+	// sampler the mob pathfinder uses (WalkabilityGrid), so these describe the
+	// player's body to that sampler. They mirror the movement capsule in
+	// player.tscn (radius 0.25, height 1.5) — keep them in step with it.
+	[Export] public float navClearanceRadius = 0.25f;
+	// Headroom the player needs, in voxels. 2 covers the 1.5m capsule.
+	[Export] public int navVerticalClearance = 2;
+
+	// --- Mantle ------------------------------------------------------------
+	// How far in front of the player to look for a climbable ledge face, in
+	// metres. Must clear the movement capsule radius (0.25) or the probe lands
+	// in the column the player already stands in.
+	[Export] public float mantleReach = 0.7f;
+	// Rises at or below this are ordinary walking and are not offered as a
+	// mantle; above maxRise the player needs a marked climbable surface.
+	// Defaults bracket the one-to-two voxel band. The same band applies
+	// downwards (interact to climb DOWN a drop the ledge guard refuses to walk
+	// off) and upwards out of water, where minRise is ignored because there is
+	// no walking alternative — any bank within maxRise of the surface counts.
+	[Export] public float mantleMinRise = 1.05f;
+	[Export] public float mantleMaxRise = 2.05f;
+	// Seconds to carry the player over the ledge. Sim-clock, so it slows with
+	// slow-mo like any other timed world action.
+	[Export] public float mantleDuration = 0.45f;
+	// The interact entries surfaced when a ledge is in front — one per
+	// direction, so each carries its own arrow icon and label. Their
+	// completionEvents must include OpenInteractive; that is what starts the
+	// traversal. Leaving either unassigned simply stops that direction being
+	// offered.
+	[Export] public InteractiveAction mantleUpAction;
+	[Export] public InteractiveAction mantleDownAction;
+	// Widest angle between the player's facing and the ledge that still offers a
+	// climb (radians; the inspector shows degrees). Stops a ledge being offered
+	// while running past it — the player has to be looking at the thing they
+	// would climb, not merely standing near it.
+	[Export(PropertyHint.Range, "0,180,1,radians_as_degrees")]
+	public float mantleFacingAngle = Mathf.Pi / 3f;
+	// Where the climb prompt sits: this far from the player ALONG the climb
+	// direction. Its position orthogonal to that direction is simply the
+	// player's, which is what keeps the prompt gliding sideways along a ledge
+	// instead of snapping between voxel centres as they walk.
+	[Export] public float mantlePromptForwardOffset = 0.9f;
+	// Height above the landing surface, so the prompt floats over the ledge
+	// rather than sitting in the ground the player is about to stand on.
+	[Export] public float mantlePromptLift = 1f;
+	// Smoothing time for the prompt. Covers the one discontinuity the offset
+	// above cannot: the landing HEIGHT still changes in whole voxels.
+	[Export] public float mantlePromptSmoothTime = 0.08f;
 	[Export] public float sneakSpeed = 3f;
 	// How strongly foliage (bushes, tall grass) slows the player. The foliage's
 	// own speed multiplier applies at full strength at 1, is ignored at 0, and

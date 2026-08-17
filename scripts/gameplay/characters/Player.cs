@@ -1733,6 +1733,19 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		// An interact action that resolved to "climb the ledge" starts here, once
+		// the runner that ran it has finished.
+		TickPendingMantle();
+
+		// Mantling a short ledge: the traversal owns position for its duration,
+		// same as riding. Input and gravity stay out of the way until it
+		// completes.
+		if (Mantling)
+		{
+			TickMantle(dt);
+			return;
+		}
+
 		UpdateTerrainSpeed(dt);
 		UpdateWaterState();
 		UpdateSprintState();
@@ -2176,6 +2189,12 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		// Walking off a ledge is prevented geometrically: invisible barriers are
+		// generated at every drop edge (LedgeBarrierMesher) and the player opts
+		// into colliding with them while grounded, so MoveAndSlide does the
+		// stopping and the sliding.
+		UpdateLedgeBarrierMask();
+
 		// Step up: lift the player before moving so they can clear small obstacles.
 		// Disabled while swimming — the player is floating, not walking. Uses
 		// MoveAndCollide so the lift stops at contact; raw teleport would clip
@@ -2371,7 +2390,7 @@ public partial class Player : CharacterBody3D
 		UpdateEyeDilation(dt);
 
 		// Update highlight interactive
-		UpdateHighlightInteractive();
+		UpdateHighlightInteractive(dt);
 
 		UpdateAnimation();
 

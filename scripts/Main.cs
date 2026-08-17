@@ -59,6 +59,10 @@ public partial class Main : Node
 			CVarRegistry.ProcessCommand(arg);
 		}
 		AudioVolume.ApplyAll();
+		// After the config file and CLI args, so the bindings match the movement
+		// model actually in force. The cvar's own change callback covers later
+		// toggles from the console.
+		InputBindings.Apply(CVars.climbMovement.Value);
 		Loc.Init(CVars.language.Value);
 		AddChild(new ConsoleUI());
 		AddChild(new DiagnosticsOverlay());

@@ -325,7 +325,11 @@ public partial class Player : CharacterBody3D
 			ReleaseUseLantern();
 		}
 
-		if (Input.IsActionJustPressed("Jump"))
+		// Jumping belongs to the legacy movement model only; the climb model
+		// replaces it with interact-to-climb. Gated here as well as unbound in
+		// InputBindings so a stray ActionPress (the headless bot pulses "Jump")
+		// cannot launch the player in a model that has no jump.
+		if (!CVars.climbMovement.Value && Input.IsActionJustPressed("Jump"))
 		{
 			bool swimSurfaceJump = _waterState == EWaterState.Swimming && GlobalPosition.Y >= _waterSurfaceY - data.waterJumpOffset;
 			// Skating routes to the ground-jump branch (preserves XZ momentum)

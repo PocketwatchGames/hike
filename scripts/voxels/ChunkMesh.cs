@@ -394,6 +394,14 @@ public partial class ChunkMesh : Node3D
 
     public override void _ExitTree()
     {
+        // Drop the static debug-visual registration so evicted chunks don't
+        // linger in it as freed instances.
+        if (_ledgeBarrierVisual != null)
+        {
+            _barrierVisualChunks.Remove(this);
+            _ledgeBarrierVisual = null;
+        }
+
         // Pull this chunk's contributions out of the global detail-scatter
         // manager so they don't linger in the multimesh after eviction.
         // World may already be torn down on game shutdown — guard accordingly.
@@ -457,6 +465,112 @@ public partial class ChunkMesh : Node3D
         );
         chunk.BuildMesh(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, buildCollision, buildDetails, outOfLightWindow);
         return chunk;
+    }
+
+    // Invisible barriers at the top edge of every drop taller than a legal
+    // step. Always built with terrain collision; whether anything collides with
+    // them is a mask decision on the body (see ECollisionLayer.LedgeBarrier), so
+    // toggling them costs nothing and needs no rebuild.
+    private void BuildLedgeBarriers(Func<int, int, int, int> getVoxel, int worldX, int worldY, int worldZ)
+    {
+        using var _prof = Profiler.Sample("ChunkMesh.LedgeBarriers");
+        System.Collections.Generic.List<Vector3> tris =
+            LedgeBarrierMesher.Build(getVoxel, worldX, worldY, worldZ);
+        if (tris == null)
+        {
+            return;
+        }
+
+        // Chunk-local, like the terrain mesh — this node's Position is already
+        // the chunk origin, so applying it again here would place the barriers a
+        // whole chunk away from the ground they guard.
+        Vector3[] verts = tris.ToArray();
+
+        var shape = new ConcavePolygonShape3D();
+        shape.BackfaceCollision = true;
+        shape.Data = verts;
+
+        var body = new StaticBody3D();
+        body.CollisionLayer = (uint)ECollisionLayer.LedgeBarrier;
+        body.CollisionMask = 0;
+        var col = new CollisionShape3D();
+        col.Shape = shape;
+        body.AddChild(col);
+        AddChild(body);
+
+        BuildLedgeBarrierVisual(verts);
+
+        LedgeBarrierChunks++;
+        LedgeBarrierFaces += verts.Length / 6;
+        if (LedgeBarrierChunks == 1)
+        {
+            // One line, once per session, so a run's log shows whether ledge
+            // barriers were generated at all. They are invisible and opt-in, so
+            // silence is otherwise indistinguishable from them never running.
+            GD.Print($"[ledge_barrier] first chunk generated {verts.Length / 6} faces");
+        }
+    }
+
+    // Running totals across every chunk built this session. Barriers are
+    // invisible, so these are the only way to confirm they were generated at
+    // all, and to size their cost. Read with `ledge_barrier_stats`.
+    public static int LedgeBarrierChunks;
+    public static int LedgeBarrierFaces;
+
+    // Visible stand-in for the barriers, off unless `ledge_barrier_debug` is on.
+    // Invisible collision that silently lands in the wrong place looks exactly
+    // like collision that does not exist — which cost two rounds of debugging
+    // here — so being able to SEE where a barrier ended up is the difference
+    // between a five-second answer and a guess.
+    private MeshInstance3D _ledgeBarrierVisual;
+    private static readonly List<ChunkMesh> _barrierVisualChunks = new();
+    private static StandardMaterial3D _barrierDebugMaterial;
+
+    private void BuildLedgeBarrierVisual(Vector3[] verts)
+    {
+        // Built in code rather than authored: it is a dev visualizer with
+        // nothing a designer would tune, and giving it a .tres would mint a
+        // resource UID this repo would then have to carry.
+        if (_barrierDebugMaterial == null)
+        {
+            _barrierDebugMaterial = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+                AlbedoColor = new Color(1f, 0.35f, 0.1f, 0.35f),
+            };
+        }
+
+        var arrays = new Godot.Collections.Array();
+        arrays.Resize((int)Mesh.ArrayType.Max);
+        arrays[(int)Mesh.ArrayType.Vertex] = verts;
+        var mesh = new ArrayMesh();
+        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+
+        _ledgeBarrierVisual = new MeshInstance3D();
+        _ledgeBarrierVisual.Mesh = mesh;
+        _ledgeBarrierVisual.MaterialOverride = _barrierDebugMaterial;
+        _ledgeBarrierVisual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        _ledgeBarrierVisual.Visible = CVars.ledgeBarrierDebug.Value;
+        AddChild(_ledgeBarrierVisual);
+        _barrierVisualChunks.Add(this);
+    }
+
+    // Driven by the `ledge_barrier_debug` cvar's change callback, so toggling is
+    // one pass over loaded chunks rather than a per-chunk _Process.
+    public static void SetLedgeBarrierDebugVisible(bool visible)
+    {
+        for (int i = _barrierVisualChunks.Count - 1; i >= 0; i--)
+        {
+            ChunkMesh chunk = _barrierVisualChunks[i];
+            if (chunk == null || !GodotObject.IsInstanceValid(chunk) || chunk._ledgeBarrierVisual == null)
+            {
+                _barrierVisualChunks.RemoveAt(i);
+                continue;
+            }
+            chunk._ledgeBarrierVisual.Visible = visible;
+        }
     }
 
     private void BuildMesh(
@@ -617,6 +731,11 @@ public partial class ChunkMesh : Node3D
                     visual.CreateTrimeshCollision();
                 }
             }
+        }
+
+        if (buildCollision)
+        {
+            BuildLedgeBarriers(getVoxel, chunkWorldX, chunkWorldY, chunkWorldZ);
         }
 
         HasWater = hasAnyWaterFace;

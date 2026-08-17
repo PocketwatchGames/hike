@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="InteractiveAction" format=3 uid="uid://dwk6aa74jfi6k"]
+
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="1_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Texture2D" uid="uid://cfvy8crkavs5m" path="res://assets/textures/interactions/climb_down.png" id="3_icon"]
+
+[sub_resource type="Resource" id="Resource_event_mantle_down"]
+script = ExtResource("2_event")
+type = 256
+
+[resource]
+script = ExtResource("1_action")
+verb = 0
+displayName = &"Climb Down"
+icon = ExtResource("3_icon")
+completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_event_mantle_down")])
+durationSeconds = 0.0

@@ -694,6 +694,46 @@ public static class CVars
     // in-game console (`nav_grid 1`).
     public static CVarBool navGridDebug = new CVarBool("nav_grid", false);
 
+    // Which traversal model the player uses. The two are a package, not a set of
+    // independent toggles, because they only make sense together: the climb
+    // model removes jumping and replaces it with interact-to-climb over short
+    // ledges, which is only playable because the generated edge barriers stop
+    // you walking off drops in the first place. Turning any one of the three on
+    // alone gives a worse game than either complete model.
+    //
+    //   1 = climb model  — no jump, mantle up/down/out-of-water, ledge barriers
+    //   0 = legacy model — jump (+ wall jump, air jump), no mantle, no barriers
+    //
+    // Also swaps the input bindings the two models need (see InputBindings),
+    // since removing jump frees the spacebar and the pad's A button.
+    public static CVarBool climbMovement = new CVarBool("climb_movement", true,
+        (cvar) => InputBindings.Apply(((CVarBool)cvar).Value));
+
+    // Draw the generated ledge barriers as translucent orange quads. They are
+    // invisible collision, so this is the only way to see WHERE one ended up —
+    // a barrier in the wrong place is indistinguishable from a missing one.
+    public static CVarBool ledgeBarrierDebug = new CVarBool("ledge_barrier_debug", false,
+        (cvar) => ChunkMesh.SetLedgeBarrierDebugVisible(((CVarBool)cvar).Value));
+
+    // Console command: how many chunks generated ledge barriers and how many
+    // faces they cost. The barriers are invisible, so this is the only way to
+    // confirm generation ran and to size it.
+    public static CVar ledgeBarrierStats = new CVar("ledge_barrier_stats", (cvar) =>
+    {
+        Godot.GD.Print($"[ledge_barrier] chunks={ChunkMesh.LedgeBarrierChunks} "
+            + $"faces={ChunkMesh.LedgeBarrierFaces}");
+    });
+
+    // Console command: dump the walkability sampler's view of the 3x3 columns
+    // around the player, alongside the raw voxel stack, with a verdict for every
+    // air-over-solid candidate. Answers which gate discarded a surface the
+    // player is demonstrably standing on — which the nav_grid overlay cannot,
+    // since it draws the conclusion rather than the reasoning.
+    public static CVar navColumn = new CVar("nav_column", (cvar) => NavColumnDebug.Dump());
+
+    // Log every mantle start and completion, with the resolved landing and rise.
+    public static CVarBool mantleDebug = new CVarBool("mantle_debug", false);
+
     // When true, MobHUD shows a two-line text overlay over each visible mob
     // breaking down PLAYER-perceives-MOB. Top line: V/H/S sense deltas
     // (smell is always 0 — player doesn't smell). Bottom line: L (light at

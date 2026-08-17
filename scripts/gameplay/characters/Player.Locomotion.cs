@@ -76,6 +76,291 @@ public partial class Player : CharacterBody3D
 		_sprinting = false;
 	}
 
+	// Active mantle. While _mantleEndMs is non-zero the player is being carried
+	// over a short ledge and normal locomotion is suspended — the same shape as
+	// the _mount gate, for the same reason: something other than input owns
+	// position this tick.
+	//
+	// Deadlines are on the SIM clock, not accumulated wall-clock delta: a mantle
+	// is a gameplay event, so it has to slow with slow-mo and survive save/load
+	// like every other timed world action.
+	private ulong _mantleStartMs;
+	private ulong _mantleEndMs;
+	private Vector3 _mantleFrom;
+	private Vector3 _mantleTo;
+	// Throttle for the per-tick `mantle_debug` trace.
+	private ulong _mantleLogLastMs;
+
+	// The ledge in front, surfaced through the ordinary interact path so it gets
+	// tap-vs-hold, the prompt, and an authored icon for free.
+	private MantleInteractive _mantleInteract;
+	public MantleInteractive MantleInteract => _mantleInteract ??= new MantleInteractive(this);
+
+	// Set when the interact action's completion event fires. The mantle starts
+	// on the NEXT tick rather than inside Complete(): the runner is still
+	// tearing the action down at that point, so TryFindMantle would see
+	// _runner.IsBusy and refuse.
+	private bool _mantlePending;
+
+	public void OnMantleInteractComplete()
+	{
+		_mantlePending = true;
+	}
+
+	// Consume a pending mantle once the runner has finished. Re-queries rather
+	// than trusting the candidate captured at press time, so a player who moved
+	// during the action gets the ledge in front of them now, or none.
+	private void TickPendingMantle()
+	{
+		if (!_mantlePending)
+		{
+			return;
+		}
+		if (_runner != null && _runner.IsBusy)
+		{
+			return;
+		}
+		_mantlePending = false;
+		TryStartMantle();
+	}
+
+	public bool Mantling => _mantleEndMs != 0;
+
+	// True when an interact press here would mantle rather than do nothing —
+	// the prompt layer reads this to show a climb hint.
+	public bool CanMantle()
+	{
+		return TryFindMantle(out MantleProbe.Candidate _);
+	}
+
+	private bool TryFindMantle(out MantleProbe.Candidate candidate)
+	{
+		candidate = default;
+		if (!CVars.climbMovement.Value || data == null || _world == null || Mantling)
+		{
+			return false;
+		}
+		// Swimming is a legitimate start state: hauling out of water onto a bank
+		// is the same traversal, and _grounded is false out there by definition.
+		bool swimming = _waterState == EWaterState.Swimming;
+		if ((!_grounded && !swimming) || _mount != null)
+		{
+			return false;
+		}
+		if (_runner != null && _runner.IsBusy)
+		{
+			return false;
+		}
+
+		// Face the ledge by movement input when there is any, else by body yaw —
+		// same fallback the wall-jump probe uses, so the two agree about which
+		// way "forward" is when the stick is neutral.
+		Vector3 facing;
+		if (_inputMove.LengthSquared() > 0.0001f)
+		{
+			facing = new Vector3(_inputMove.X, 0f, _inputMove.Z);
+		}
+		else
+		{
+			float yaw = Rotation.Y;
+			facing = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+		}
+
+		TraversalProfile profile = TraversalProfileForQuery();
+		_walkField.Refresh(_world.WorldState, _world, profile, GlobalPosition);
+
+		// Anchor to the field's own surface under the player — the same anchor
+		// the ledge guard measures drops from, so the two agree on where "here"
+		// is. In water that layer IS the water surface (water columns are
+		// standable for the player profile), so climbing out needs no separate
+		// height convention.
+		if (!_walkField.TryGetSurface(GlobalPosition, out float refY, out bool _))
+		{
+			return false;
+		}
+
+		// In water there is no walking alternative, so any reachable bank counts
+		// — no minimum rise. And there is nothing to climb DOWN to from a swim.
+		MantleProbe.Settings settings = new(
+			data.mantleReach,
+			swimming ? 0f : data.mantleMinRise,
+			data.mantleMaxRise,
+			allowDescend: !swimming);
+		if (!MantleProbe.TryFind(_walkField, GlobalPosition, facing, refY, settings, out candidate))
+		{
+			return false;
+		}
+
+		// Facing gate. The search above can find a ledge the player is merely
+		// moving past; this requires they are actually looking at it. Measured
+		// against BODY yaw, not the search direction, so strafing past a wall
+		// while facing along it offers nothing.
+		Vector3 toLedge = candidate.landing - GlobalPosition;
+		toLedge.Y = 0f;
+		if (toLedge.LengthSquared() < 1e-6f)
+		{
+			// Degenerate (the ledge is directly overhead or underfoot) — nothing
+			// to face, so let it through.
+			return true;
+		}
+		return BodyForward().Dot(toLedge.Normalized()) >= Mathf.Cos(data.mantleFacingAngle);
+	}
+
+	// Horizontal facing from body yaw. Continuous as the player turns, which is
+	// why the climb prompt is placed along it rather than along the direction to
+	// the ledge — the ledge is a voxel CENTRE, so that direction steps.
+	private Vector3 BodyForward()
+	{
+		float yaw = Rotation.Y;
+		return new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+	}
+
+	// Begin a mantle if there's a ledge in front. Returns false when there isn't,
+	// so the interact handler can fall through to its next meaning.
+	private bool TryStartMantle()
+	{
+		if (!TryFindMantle(out MantleProbe.Candidate candidate))
+		{
+			return false;
+		}
+
+		_mantleFrom = GlobalPosition;
+		_mantleTo = candidate.landing;
+		_mantleStartMs = _world.GameTimeMs;
+		_mantleEndMs = _mantleStartMs + (ulong)(data.mantleDuration * 1000f);
+		Velocity = Vector3.Zero;
+		CancelDashAndSprint();
+
+		// Face the ledge for the duration so the traversal doesn't read as a
+		// sideways slide.
+		Vector3 flat = new Vector3(_mantleTo.X - _mantleFrom.X, 0f, _mantleTo.Z - _mantleFrom.Z);
+		if (flat.LengthSquared() > 1e-6f)
+		{
+			Rotation = new Vector3(Rotation.X, Mathf.Atan2(flat.X, flat.Z), Rotation.Z);
+		}
+
+		// Jump is the nearest existing traversal clip; there is no authored
+		// mantle animation yet, so this stands in until one exists.
+		PlayOneShot(EAnimation.Jump);
+
+		if (CVars.mantleDebug.Value)
+		{
+			GD.Print($"[mantle] start t0={_mantleStartMs} t1={_mantleEndMs} "
+				+ $"from=({_mantleFrom.X:F2},{_mantleFrom.Y:F2},{_mantleFrom.Z:F2}) "
+				+ $"to=({_mantleTo.X:F2},{_mantleTo.Y:F2},{_mantleTo.Z:F2}) rise={candidate.rise:F2}");
+		}
+		return true;
+	}
+
+	// Carry the player through an in-flight mantle. Rise leads and the forward
+	// translation trails it, so the body clears the lip instead of cutting
+	// through the corner of it.
+	//
+	// Mirrors TickMounted: while something other than input owns position, the
+	// upkeep that must not stall (status effects, night vision, animation) still
+	// ticks. Skipping it would pause DoT and buff timers for the traversal.
+	private void TickMantle(float dt)
+	{
+		TickMantleMotion();
+		_statusEffects?.Tick(dt);
+		UpdateNightVisionShaderGlobal();
+		UpdateAnimation();
+	}
+
+	private void TickMantleMotion()
+	{
+		ulong now = _world.GameTimeMs;
+		ulong span = _mantleEndMs - _mantleStartMs;
+		float t = span == 0 ? 1f : Mathf.Clamp((now - _mantleStartMs) / (float)span, 0f, 1f);
+
+		// One axis leads and the other trails. Climbing UP leads with the rise so
+		// the body clears the lip before moving over it; climbing DOWN leads with
+		// the forward carry so the player steps off the edge and then lowers,
+		// rather than sinking through the ledge they are standing on.
+		const float LeadFraction = 0.6f;
+		const float TrailStart = 0.25f;
+		float lead = Mathf.SmoothStep(0f, 1f, Mathf.Clamp(t / LeadFraction, 0f, 1f));
+		float trail = Mathf.SmoothStep(0f, 1f, Mathf.Clamp((t - TrailStart) / (1f - TrailStart), 0f, 1f));
+
+		bool descending = _mantleTo.Y < _mantleFrom.Y;
+		float vertT = descending ? trail : lead;
+		float fwdT = descending ? lead : trail;
+
+		GlobalPosition = new Vector3(
+			Mathf.Lerp(_mantleFrom.X, _mantleTo.X, fwdT),
+			Mathf.Lerp(_mantleFrom.Y, _mantleTo.Y, vertT),
+			Mathf.Lerp(_mantleFrom.Z, _mantleTo.Z, fwdT));
+		Velocity = Vector3.Zero;
+
+		if (CVars.mantleDebug.Value && now - _mantleLogLastMs >= 100)
+		{
+			_mantleLogLastMs = now;
+			GD.Print($"[mantle] tick now={now} t={t:F3} pos=({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2})");
+		}
+
+		if (t >= 1f)
+		{
+			_mantleStartMs = 0;
+			_mantleEndMs = 0;
+			_grounded = true;
+			_airJumpsRemaining = AirJumpsMax;
+			_coyoteTimeEndMs = 0;
+			if (CVars.mantleDebug.Value)
+			{
+				GD.Print($"[mantle] complete at ({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2})");
+			}
+		}
+	}
+
+	// Whether the LedgeBarrier bit is currently set in our collision mask.
+	// Tracked so the toggle is a comparison per tick rather than a native
+	// property write, and so the mask authored in player.tscn is left alone
+	// while the barriers are off.
+	private bool _ledgeBarrierMaskOn;
+
+	private void UpdateLedgeBarrierMask()
+	{
+		// Barriers exist to stop a WALKING body stepping off an edge, so they
+		// apply only while grounded. Airborne they would be invisible walls in
+		// mid-air — catching a fall against the cliff it just left, blocking a
+		// knockback arc, or stopping a launch dead. Anything already off the
+		// ground has committed to its trajectory and the barrier has no business
+		// in it. Swimming is covered too, since that forces _grounded false.
+		bool want = CVars.climbMovement.Value && _grounded;
+		if (want == _ledgeBarrierMaskOn)
+		{
+			return;
+		}
+		_ledgeBarrierMaskOn = want;
+		uint bit = (uint)ECollisionLayer.LedgeBarrier;
+		CollisionMask = want ? (CollisionMask | bit) : (CollisionMask & ~bit);
+	}
+
+	// Player-local standability memo over the shared WalkabilityGrid sampler.
+	private readonly PlayerWalkField _walkField = new();
+	private TraversalProfile _traversalProfile;
+	private bool _traversalProfileBuilt;
+
+	// Describes the player's body to WalkabilityGrid — the same sampler mobs
+	// resolve standability through, so the guard can never disagree with where a
+	// mob will path. maxStepHeight / maxFallHeight are read only by
+	// LocalPathfinder's edge expansion, never by SampleColumn, so they don't
+	// affect this query; they're set permissive so nothing is hidden from it.
+	public TraversalProfile TraversalProfileForQuery()
+	{
+		if (!_traversalProfileBuilt)
+		{
+			_traversalProfile = new TraversalProfile(
+				1,
+				WalkabilityGrid.SurfaceSearchRadius,
+				data.navClearanceRadius,
+				data.navVerticalClearance,
+				data.swimDepthThreshold);
+			_traversalProfileBuilt = true;
+		}
+		return _traversalProfile;
+	}
+
 	private void UpdateTerrainSpeed(float dt)
 	{
 		_terrainSpeed = 1f;

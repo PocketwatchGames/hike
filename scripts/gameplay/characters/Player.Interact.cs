@@ -179,7 +179,7 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	private void UpdateHighlightInteractive()
+	private void UpdateHighlightInteractive(float dt)
 	{
 		// Bird's-eye and camp both suppress interactive highlighting entirely — no
 		// outline, no interact prompt. Clear any target held when the state began
@@ -224,6 +224,36 @@ public partial class Player : CharacterBody3D
 				}
 			}
 			_highlightInteractive = closest;
+		}
+
+		// Nothing real in range — offer the ledge in front, if there is one.
+		// Ranked strictly below world interactives so standing at a chest on a
+		// ledge still opens the chest.
+		if (_highlightInteractive == null)
+		{
+			bool canMantle = TryFindMantle(out MantleProbe.Candidate candidate);
+			// The prompt is placed purely from the player: a fixed offset along
+			// body facing. Nothing in the horizontal position comes from the
+			// candidate, because the candidate's landing is a voxel CENTRE — any
+			// dependence on it makes the prompt step a metre sideways whenever
+			// the target cell changes, which no amount of smoothing hides.
+			// Height is the exception: it has to sit at the ledge, so it is the
+			// one term that steps, and the only one that is eased.
+			Vector3 anchor = Vector3.Zero;
+			if (canMantle)
+			{
+				anchor = GlobalPosition + BodyForward() * data.mantlePromptForwardOffset;
+				anchor.Y = candidate.landing.Y + data.mantlePromptLift;
+			}
+			MantleInteract.SetCandidate(canMantle, candidate, anchor, dt);
+			if (canMantle)
+			{
+				_highlightInteractive = MantleInteract;
+			}
+		}
+		else
+		{
+			MantleInteract.SetCandidate(false, default, Vector3.Zero, dt);
 		}
 
 		if (_highlightInteractive != prevHighlight)
