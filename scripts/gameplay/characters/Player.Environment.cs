@@ -73,9 +73,10 @@ public partial class Player : CharacterBody3D
 	// Sources, in priority order:
 	//   • In water     — every meter (player + each equipped armor) snaps
 	//                    to 1 the moment the player enters water.
-	//   • In rain (sky-exposed, not in a warmth zone) — every meter
-	//                    accumulates at 1 / wetnessRainSoakSeconds scaled
-	//                    by RainIntensity.
+	//   • In soaking rain (light/heavy tier, sky-exposed, not in a warmth
+	//                    zone) — every meter accumulates at
+	//                    1 / wetnessRainSoakSeconds scaled by RainIntensity.
+	//                    Drizzle is too fine to soak and is treated as clear.
 	//   • Otherwise    — every meter drains at its OWN rate. The player's
 	//                    drains at baseDryRate × ComposeStat(WetnessDryRate)
 	//                    so equipped wet wool slows it; each armor drains
@@ -102,10 +103,15 @@ public partial class Player : CharacterBody3D
 		// dense enough canopy), up to 1 in fully open sky. A partial canopy
 		// gives partial shelter, so rain soak scales by it.
 		float rainExposure = (!inWater && !inWarmth) ? RainExposure01() : 0f;
-		bool inRain = rainExposure > 0f;
+		// Only light and heavy rain soak the player — drizzle is visible falling
+		// rain too fine to register as wetness, so it neither wets nor blocks
+		// drying (the player dries in a drizzle as if it were clear). Swimming
+		// still soaks unconditionally via the inWater branch below.
+		ERainTier rainTier = SkyController.Current?.Palette.RainTier ?? ERainTier.None;
+		bool inSoakingRain = rainExposure > 0f && rainTier >= ERainTier.Light;
 
 		float rainAccum = 0f;
-		if (inRain && data.wetnessRainSoakSeconds > 0f)
+		if (inSoakingRain && data.wetnessRainSoakSeconds > 0f)
 		{
 			float rainIntensity = Mathf.Clamp(SkyController.Current?.Palette.RainIntensity ?? 0f, 0f, 1f);
 			rainAccum = (dt / data.wetnessRainSoakSeconds) * rainIntensity * rainExposure;
@@ -117,7 +123,7 @@ public partial class Player : CharacterBody3D
 		// being soaked).
 		float baseDryRate = 0f;
 		float warmthRate = 0f;
-		if (!inWater && !inRain)
+		if (!inWater && !inSoakingRain)
 		{
 			float windSpeed = _world?.SampleWindSpeed(GlobalPosition) ?? 0f;
 			float airTemp = _world?.SampleAirTemperature(GlobalPosition) ?? data.dryRateReferenceTempF;

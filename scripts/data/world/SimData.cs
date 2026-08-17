@@ -952,6 +952,17 @@ public partial class SimData : Resource
     // suggest), while high values stay near the authored amount.
     [Export(PropertyHint.Range, "0.3,3,0.01")] public float rainIntensityExponent = 1.25f;
 
+    // Rain-tier boundaries on the derived RainIntensity (0..1), the same scale
+    // the wetness and lantern-douse paths already read. Below drizzle reads as
+    // clear (no rain); [drizzle, light) is "drizzle" — visible falling rain too
+    // fine to soak the player; [light, heavy) is "light rain"; at/above heavy is
+    // "heavy rain". Only light and heavy rain accumulate the player's Wet status
+    // (drizzle never does; swimming soaks regardless). Keep drizzle < light <
+    // heavy. See WeatherDerivation.ClassifyRainTier.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float rainDrizzleThreshold = 0.02f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float rainLightThreshold = 0.15f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float rainHeavyThreshold = 0.6f;
+
     [ExportGroup("Block Light")]
     // ACTIVE model: a geodesic flood (LightEngine.ComputeFloodField/ShadeFloodField).
     // Each block light (torches, campfires, the carried player torch) floods
