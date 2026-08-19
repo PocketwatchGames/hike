@@ -96,6 +96,27 @@ public partial class BlockData : Resource
     // first, exactly as GroundTypeResolver does for ground type.
     [Export] public bool climbable = false;
 
+    // What GROWS on this rock where it is climbable: the overlay worldgen paints
+    // down tall cliff faces (WorldGen.StampClimbSurfaces) AND the crust the
+    // shader marks every mantleable lip with. One field feeds both, which is
+    // what keeps a lip matching the wall it is the top of.
+    //
+    // Keyed per BLOCK rather than per zone because the rock already carries the
+    // distinction and the zone cannot: CaveSandstone and CaveLimestone are one
+    // zone's caves and everyone else's, so "lichen in desert caves, moss in the
+    // rest" is a block split and not a zone one. Per block also means no seam —
+    // ChunkState.ZoneIndex is per CHUNK, so a zone-keyed mark would step along
+    // 16 m boundaries instead of following the terrain.
+    //
+    // NOT on BlockSurfaceData: wall surfaces are shared far too widely to carry
+    // it (surface_stone is the side of Grass, MarshGround and both cave blocks),
+    // and it is a property of the voxel rather than of the texture — the test
+    // the root CLAUDE.md sets for that split.
+    //
+    // Null falls back to BlockCatalog.defaultClimbGrowth; null on both draws no
+    // mark at all.
+    [Export] public BlockSurfaceData climbGrowthSurface;
+
     // --- Material -----------------------------------------------------------
 
     // Movement speed multiplier while standing on this block. Below 1 for mud

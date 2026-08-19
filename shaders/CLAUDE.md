@@ -22,3 +22,11 @@ The runtime `RenderingServer.GlobalShaderParameterGet`/`GetList` APIs are editor
 **Sampler globals trap:** do NOT put a sampler global in `project.godot` with `value: null` — Godot will try to load `res://<null>` as a resource on startup. Either give it a real texture path (use a `PlaceholderTexture*` `.tres` if the runtime value is computed — `Register` will swap it in), or skip the `project.godot` declaration entirely and create the global at runtime via `RegisterRuntime`.
 
 **Unshaded fragment output formula:** Godot 4 outputs `ALBEDO + EMISSION` for materials with `render_mode unshaded`. If your shader writes only `EMISSION = composited`, `ALBEDO` defaults to white and saturates the surface. Either explicitly `ALBEDO = vec3(0.0)` or write the composite to `ALBEDO` and zero `EMISSION`. The same applies to other render-mode-stripped paths — be deliberate about which output channel carries the color and zero the other.
+
+## Shared shading paths (`water_shading.gdshaderinc`)
+
+Where two shaders draw the SAME material, they share the code rather than each keeping a copy. `voxel_water` (pools, rivers) and `waterfall` (falling sheets) both call `water_shading.gdshaderinc` — it owns the lightmap / cloud-shadow / block-light globals, the per-zone `water_absorption` + `water_scatter_color` + `foam_*` set, and `water_light` / `water_in_scatter` / `water_compose` / `water_adapt`.
+
+**A consumer must not redeclare or re-include anything the shared file owns** — that includes `sky_common`, `cloud_shadow`, `block_light_shadow` and `eye_adaptation`, which it pulls in itself. Duplicating a `global uniform` is a compile error, so `shader_check` catches it in ~4s; a *missing* one is a windowed-only warning (see above), so run windowed once after moving any global between files.
+
+The copy-per-shader version of this lasted one afternoon: the waterfall's copy silently omitted the sky reflection, and since water's look is mostly fresnel-weighted sky, the top of every cascade stopped reading as water at all.

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://c2kcyv7do7ixy"]
+
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_block"]
+
+[resource]
+script = ExtResource("1_block")
+surfaceName = &"ClimbMoss"
+atlasBaseIndex = 19
+porosity = 0.85
+overlayOnCliffs = true
+overlayErodeGround = 0.35
+overlayErodeCliff = 0.35
+overlayFeather = 0.85
+overlayRelief = 0.35
+climbable = true
+minimapColor = Color(0.2, 0.35, 0.19, 1)

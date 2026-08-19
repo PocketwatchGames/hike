@@ -69,4 +69,11 @@ public enum EAnimation
     // into human_anims.res by the PlayerAnimManifest rebuild.
     Throw = 37,
     SitIdle = 38,
+    // Wall climbing. All three are the one climb.fbx cycle: Climb is the haul
+    // up, ClimbDown the same cycle baked in reverse, ClimbIdle its first frame
+    // held (see the anims folder README) — so the player freezes on a grip when
+    // they stop and the limbs run backwards on the way down.
+    Climb = 39,
+    ClimbDown = 40,
+    ClimbIdle = 41,
 }

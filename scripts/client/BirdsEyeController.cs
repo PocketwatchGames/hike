@@ -207,7 +207,7 @@ public partial class BirdsEyeController : Node
 			// false after FlyDown so the player has to re-enable it manually
 			// if they want it back.
 			camera.ClipAlways = false;
-			camera.SetClip(float.PositiveInfinity, player.GlobalPosition);
+			camera.SetClip(float.PositiveInfinity, player.GlobalPosition, allowMaxClip: false);
 			// Cloud quad renders only while the overview is active AND the `clouds`
 			// CVar is enabled (default off — the moderate overview reads cleaner
 			// without it). UpdateCamera re-checks every frame so a CVar toggle

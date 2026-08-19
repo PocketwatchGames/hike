@@ -19,7 +19,9 @@
 [ext_resource type="Texture2D" uid="uid://dp7usht2hhgr8" path="res://assets/textures/terrain/Stylized_Rock/ForestRock_normal.png" id="40_sxe8n"]
 [ext_resource type="Texture2D" uid="uid://dcqwhfn1c7cp2" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_basecolor.png" id="col_cliff006"]
 [ext_resource type="Texture2D" uid="uid://d1m7euyk5ddq6" path="res://assets/textures/terrain/Climb_Lichen/ClimbLichen_basecolor.png" id="col_climb"]
+[ext_resource type="Texture2D" uid="uid://bpflwgjk8mass" path="res://assets/textures/terrain/Climb_Moss/ClimbMoss_basecolor.png" id="col_cmoss"]
 [ext_resource type="Texture2D" uid="uid://bl5yg2bpbsd0j" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_basecolor.jpg" id="col_drymud"]
+[ext_resource type="Texture2D" uid="uid://cer1dib676bn0" path="res://assets/textures/terrain/Climb_Ivy/ClimbIvy_basecolor.png" id="col_ivy"]
 [ext_resource type="Texture2D" uid="uid://cxeaevayklevm" path="res://assets/textures/terrain/Stylized_Moss/ForestMoss_basecolor.png" id="col_moss"]
 [ext_resource type="Texture2D" uid="uid://qq6qrvynirjl" path="res://assets/textures/terrain/Sand 001/Sand_001_COLOR.png" id="col_sand001"]
 [ext_resource type="Texture2D" uid="uid://idcbnnh454ld" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_basecolor.png" id="col_sand002"]
@@ -27,7 +29,9 @@
 [ext_resource type="Texture2D" uid="uid://brgbyamnnon7e" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_basecolor.jpg" id="col_wet"]
 [ext_resource type="Texture2D" uid="uid://cwuu2ck6m30qs" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_height.png" id="hgt_cliff006"]
 [ext_resource type="Texture2D" uid="uid://bxvixai3og2yc" path="res://assets/textures/terrain/Climb_Lichen/ClimbLichen_height.png" id="hgt_climb"]
+[ext_resource type="Texture2D" uid="uid://c1p2481bxme1o" path="res://assets/textures/terrain/Climb_Moss/ClimbMoss_height.png" id="hgt_cmoss"]
 [ext_resource type="Texture2D" uid="uid://ddviirne3gc0a" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_height.png" id="hgt_drymud"]
+[ext_resource type="Texture2D" uid="uid://bng464tlq1ryr" path="res://assets/textures/terrain/Climb_Ivy/ClimbIvy_height.png" id="hgt_ivy"]
 [ext_resource type="Texture2D" uid="uid://f8fuvblll7lb" path="res://assets/textures/terrain/Stylized_Moss/ForestMoss_Height.png" id="hgt_moss"]
 [ext_resource type="Texture2D" uid="uid://dno57on7ybxdk" path="res://assets/textures/terrain/Sand 001/Sand_001_DISP.png" id="hgt_sand001"]
 [ext_resource type="Texture2D" uid="uid://7oimftra0sb0" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_height.png" id="hgt_sand002"]
@@ -36,7 +40,9 @@
 [ext_resource type="Texture2D" uid="uid://be4m032wbishi" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_height.png" id="hgt_wet"]
 [ext_resource type="Texture2D" uid="uid://c5rai0rlqryoo" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_normal.png" id="nrm_cliff006"]
 [ext_resource type="Texture2D" uid="uid://cjs6ben3o30g7" path="res://assets/textures/terrain/Climb_Lichen/ClimbLichen_normal.png" id="nrm_climb"]
+[ext_resource type="Texture2D" uid="uid://0g2ab1rayiqc" path="res://assets/textures/terrain/Climb_Moss/ClimbMoss_normal.png" id="nrm_cmoss"]
 [ext_resource type="Texture2D" uid="uid://bqdpkgmr8sf5x" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_normal.jpg" id="nrm_drymud"]
+[ext_resource type="Texture2D" uid="uid://c6xxsfkyg8wwj" path="res://assets/textures/terrain/Climb_Ivy/ClimbIvy_normal.png" id="nrm_ivy"]
 [ext_resource type="Texture2D" uid="uid://dcd2monddnkwi" path="res://assets/textures/terrain/Stylized_Moss/ForestMoss_normal.png" id="nrm_moss"]
 [ext_resource type="Texture2D" uid="uid://bkqxq8fhiu2rt" path="res://assets/textures/terrain/Sand 001/Sand_001_NRM.png" id="nrm_sand001"]
 [ext_resource type="Texture2D" uid="uid://dveve0ftgtfpj" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_normal.png" id="nrm_sand002"]
@@ -58,7 +64,9 @@
 [ext_resource type="Resource" uid="uid://1ioflbw7upfl" path="res://resources/data/surfaces/surface_mud.tres" id="surf_13"]
 [ext_resource type="Resource" uid="uid://dd70pnlby8te8" path="res://resources/data/surfaces/surface_road.tres" id="surf_14"]
 [ext_resource type="Resource" uid="uid://cyly3mswgokab" path="res://resources/data/surfaces/surface_rock.tres" id="surf_15"]
-[ext_resource type="Resource" path="res://resources/data/surfaces/surface_climb_lichen.tres" id="surf_climb"]
+[ext_resource type="Resource" uid="uid://fou5abjylf85" path="res://resources/data/surfaces/surface_climb_lichen.tres" id="surf_climb"]
+[ext_resource type="Resource" uid="uid://b67xqsirxsem6" path="res://resources/data/surfaces/surface_climb_ivy.tres" id="surf_climb_ivy"]
+[ext_resource type="Resource" uid="uid://c2kcyv7do7ixy" path="res://resources/data/surfaces/surface_climb_moss.tres" id="surf_climb_moss"]
 [ext_resource type="Resource" uid="uid://8h4it463afvd" path="res://resources/data/surfaces/surface_moss.tres" id="surf_moss"]
 [ext_resource type="Script" uid="uid://cxtdv6d8mndtk" path="res://scripts/data/AtlasLayer.cs" id="s_layer"]
 
@@ -183,6 +191,20 @@ color = ExtResource("col_climb")
 normal = ExtResource("nrm_climb")
 height = ExtResource("hgt_climb")
 
+[sub_resource type="Resource" id="layer_climb_ivy"]
+script = ExtResource("s_layer")
+surface = ExtResource("surf_climb_ivy")
+color = ExtResource("col_ivy")
+normal = ExtResource("nrm_ivy")
+height = ExtResource("hgt_ivy")
+
+[sub_resource type="Resource" id="layer_climb_moss"]
+script = ExtResource("s_layer")
+surface = ExtResource("surf_climb_moss")
+color = ExtResource("col_cmoss")
+normal = ExtResource("nrm_cmoss")
+height = ExtResource("hgt_cmoss")
+
 [resource]
 script = ExtResource("29_04t8j")
-layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_3"), SubResource("Resource_04t8j"), SubResource("layer_4"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11"), SubResource("Resource_f3wyc"), SubResource("Resource_auws8"), SubResource("Resource_njij0"), SubResource("Resource_a7rev"), SubResource("layer_moss"), SubResource("layer_climb")]
+layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_3"), SubResource("Resource_04t8j"), SubResource("layer_4"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11"), SubResource("Resource_f3wyc"), SubResource("Resource_auws8"), SubResource("Resource_njij0"), SubResource("Resource_a7rev"), SubResource("layer_moss"), SubResource("layer_climb"), SubResource("layer_climb_ivy"), SubResource("layer_climb_moss")]

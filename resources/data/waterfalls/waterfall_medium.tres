@@ -15,6 +15,6 @@ maxDistance = 40.0
 unitSize = 9.0
 lipFx = ExtResource("3_lip")
 baseFx = ExtResource("4_base")
-sheetThickness = 0.3
+sheetThickness = 0.6
 foam = 0.5
 metadata/_custom_type_script = "uid://d22mljy5hjoq0"

@@ -74,6 +74,15 @@ public partial class Main : Node
 		string debugDumpDir = CVars.worldgenDebugDump.Value;
 		if (!string.IsNullOrEmpty(debugDumpDir))
 		{
+			// Generate reads the flat block tables (Blocks.IsSolid and friends)
+			// from its very first pass, and this path reaches it long before the
+			// game-start binds below. Missing them, the dump died in
+			// TagSubmergedKits on a null table rather than on anything to do with
+			// terrain. ChunkMesh.SetTerrains is deliberately NOT called here — it
+			// touches RenderingServer and generation has no use for it.
+			WorldGen.BindActivePalettes(defaultWorldGenData);
+			Blocks.Bind();
+			KitBlocks.Bind(WorldGen.ActiveKitPalette);
 			WorldGen.Generate(defaultWorldGenData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE);
 			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(debugDumpDir));
 			GetTree().Quit();

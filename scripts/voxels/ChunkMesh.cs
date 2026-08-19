@@ -73,6 +73,18 @@ public partial class ChunkMesh : Node3D
     // concavity_threshold) is now authored on resources/materials/terrain.tres.
     private static bool _debugConcavity = false;
 
+    // Overlay-coverage debug visualization. See debug_overlay_cov in the shader.
+    private static bool _debugOverlayCov = false;
+
+    public static void SetDebugOverlayCov(bool value)
+    {
+        _debugOverlayCov = value;
+        if (_materialsInitialized && SharedMaterial != null)
+        {
+            SharedMaterial.SetShaderParameter("debug_overlay_cov", value);
+        }
+    }
+
     public static void SetDebugConcavity(bool value)
     {
         _debugConcavity = value;
@@ -82,25 +94,13 @@ public partial class ChunkMesh : Node3D
         }
     }
 
-    // Climb-ledge mark debug visualization toggle (CUSTOM3.z). Diagnostic, kept
-    // as a CVar; the wear look (climb_wear_*) is authored on
-    // resources/materials/terrain.tres.
-    private static bool _debugClimbLedge = false;
-
-    public static void SetDebugClimbLedge(bool value)
-    {
-        _debugClimbLedge = value;
-        if (_materialsInitialized && SharedMaterial != null)
-        {
-            SharedMaterial.SetShaderParameter("debug_climb_ledge", value);
-        }
-    }
-
     // Terrain atlas + wetness tuning (tile_uv_scale, tile_normal_strength, the
     // three blend sharpnesses, wet_displacement/roughness_min/chroma, concavity
     // pooling) is authored on resources/materials/terrain.tres rather than via
     // CVars — see that material. ao_strength stays a CVar because it also feeds
     // the detail-sprite material (DetailEntry), keeping ground + props in lockstep.
+
+    private const string TerrainMaterialPath = "res://resources/materials/terrain.tres";
 
     private static void EnsureMaterialsInitialized()
     {
@@ -121,7 +121,7 @@ public partial class ChunkMesh : Node3D
         // params (texture arrays, class/porosity tables) and CVar knobs are
         // pushed onto it below; the authored puddle_ripple_* uniforms are left
         // as-is.
-        SharedMaterial = GD.Load<ShaderMaterial>("res://resources/materials/terrain.tres");
+        SharedMaterial = GD.Load<ShaderMaterial>(TerrainMaterialPath);
         var tileArray = GD.Load<TextureLayered>("res://assets/textures/terrain/voxel_tiles.png");
         _tileColorArray = tileArray;
         // Pre-warm the per-layer average-color cache (used for detail-sprite
@@ -132,22 +132,11 @@ public partial class ChunkMesh : Node3D
         {
             TryGetLayerAverageLinear(layer, out _);
         }
-        SharedMaterial.SetShaderParameter("tile_array", tileArray);
-        // Seed AO darkening strength (honors any CVar set before this ran).
-        // Stays a CVar — DetailEntry feeds the same value to detail sprites so
-        // ground and props darken in lockstep.
-        SharedMaterial.SetShaderParameter("ao_strength", _aoStrength);
-        // Concavity-bake debug viz toggle (CVar; the pooling tuning is authored
-        // on the material).
-        SharedMaterial.SetShaderParameter("debug_concavity", _debugConcavity);
-        // Climb-ledge mark debug viz toggle (CVar; the wear look is authored on
-        // the material).
-        SharedMaterial.SetShaderParameter("debug_climb_ledge", _debugClimbLedge);
 
         // Packed per-tile normal (RGB) + height (A) atlas, sampled alongside
         // the color atlas (both nearest-filtered).
         var nrmHeight = GD.Load<TextureLayered>("res://assets/textures/terrain/voxel_tiles_nrm_height.png");
-        SharedMaterial.SetShaderParameter("tile_nrm_height", nrmHeight);
+        PushRuntimeMaterialParams(tileArray, nrmHeight);
 
         // tile_uv_scale, tile_normal_strength, the blend sharpnesses, the wet_*
         // model params and concavity pooling are authored on terrain.tres — not
@@ -162,27 +151,6 @@ public partial class ChunkMesh : Node3D
         // pits without dimming whole tiles by that arbitrary offset. Derived at
         // load like GroundTint above, so re-baking a height map keeps it in sync
         // with no authoring step.
-        var porosityTable = new Godot.Collections.Array();
-        var heightMidTable = new Godot.Collections.Array();
-        var overlayCliffTable = new Godot.Collections.Array();
-        for (int i = 0; i < BlockCatalog.MAX_ATLAS_LAYERS; i++)
-        {
-            BlockSurfaceData surface = BlockCatalog.Active.GetSurfaceByLayer(i);
-            porosityTable.Add(surface != null ? surface.porosity : 0.5f);
-            heightMidTable.Add(GetLayerHeightMid(nrmHeight, i));
-            overlayCliffTable.Add(surface != null && surface.overlayOnCliffs ? 1f : 0f);
-        }
-        // Atlas layer the climbable-ledge mark samples. -1 when the catalog names
-        // no surface, which the shader reads as "mark disabled" — so removing the
-        // reference turns the feature off without touching the shader.
-        SharedMaterial.SetShaderParameter("climb_mark_layer",
-            BlockCatalog.Active.climbLedgeSurface != null
-                ? BlockCatalog.Active.climbLedgeSurface.atlasBaseIndex
-                : -1);
-
-        SharedMaterial.SetShaderParameter("tile_porosity", porosityTable);
-        SharedMaterial.SetShaderParameter("tile_height_mid", heightMidTable);
-        SharedMaterial.SetShaderParameter("tile_overlay_cliff", overlayCliffTable);
 
         // Per-block face/band tables. Global and static, so unlike the old
         // per-world terrain palette this is uploaded once here rather than
@@ -250,6 +218,105 @@ public partial class ChunkMesh : Node3D
     //     through BlockData.SurfaceFor so a block authoring only a top wears it
     //     on every slot and the blend collapses to one sample.
     //   block_bands[i] = (lo, hi, _, _) — the smoothstep on |normal.y|.
+    // Everything the terrain material carries that is NOT authored on
+    // terrain.tres. Kept in one place because reloading that .tres resets the
+    // material to its authored state, so every runtime value has to go back on.
+    private static void PushRuntimeMaterialParams(TextureLayered tileArray, TextureLayered nrmHeight)
+    {
+        SharedMaterial.SetShaderParameter("tile_array", tileArray);
+        SharedMaterial.SetShaderParameter("tile_nrm_height", nrmHeight);
+        // AO stays a CVar — DetailEntry feeds the same value to detail sprites so
+        // ground and props darken in lockstep.
+        SharedMaterial.SetShaderParameter("ao_strength", _aoStrength);
+        SharedMaterial.SetShaderParameter("debug_concavity", _debugConcavity);
+        SharedMaterial.SetShaderParameter("debug_overlay_cov", _debugOverlayCov);
+        UploadSurfaceTables(nrmHeight);
+        UploadBlockTables();
+    }
+
+    // Per-atlas-layer tables: everything the shader indexes by atlasBaseIndex.
+    // Split out from material init so `surface_reload` can re-push it against
+    // freshly re-read .tres without rebuilding anything else.
+    private static void UploadSurfaceTables(TextureLayered nrmHeight)
+    {
+        var porosityTable = new Godot.Collections.Array();
+        var heightMidTable = new Godot.Collections.Array();
+        var overlayCliffTable = new Godot.Collections.Array();
+        // Sub-voxel overlay edge shaping. Identity defaults for a layer that
+        // authors nothing, and for one no surface claims at all.
+        var overlayErodeGroundTable = new Godot.Collections.Array();
+        var overlayErodeCliffTable = new Godot.Collections.Array();
+        var overlayFeatherTable = new Godot.Collections.Array();
+        var overlayReliefTable = new Godot.Collections.Array();
+        for (int i = 0; i < BlockCatalog.MAX_ATLAS_LAYERS; i++)
+        {
+            BlockSurfaceData surface = BlockCatalog.Active.GetSurfaceByLayer(i);
+            porosityTable.Add(surface != null ? surface.porosity : 0.5f);
+            heightMidTable.Add(GetLayerHeightMid(nrmHeight, i));
+            overlayCliffTable.Add(surface != null && surface.overlayOnCliffs ? 1f : 0f);
+            overlayErodeGroundTable.Add(surface != null ? surface.overlayErodeGround : 0f);
+            overlayErodeCliffTable.Add(surface != null ? surface.overlayErodeCliff : 0f);
+            overlayFeatherTable.Add(surface != null ? surface.overlayFeather : 1f);
+            overlayReliefTable.Add(surface != null ? surface.overlayRelief : 1f);
+        }
+        SharedMaterial.SetShaderParameter("tile_porosity", porosityTable);
+        SharedMaterial.SetShaderParameter("tile_height_mid", heightMidTable);
+        SharedMaterial.SetShaderParameter("tile_overlay_cliff", overlayCliffTable);
+        SharedMaterial.SetShaderParameter("tile_overlay_erode_ground", overlayErodeGroundTable);
+        SharedMaterial.SetShaderParameter("tile_overlay_erode_cliff", overlayErodeCliffTable);
+        SharedMaterial.SetShaderParameter("tile_overlay_feather", overlayFeatherTable);
+        SharedMaterial.SetShaderParameter("tile_overlay_relief", overlayReliefTable);
+    }
+
+    // Live tuning hook for the `surface_reload` console command: re-reads every
+    // surface .tres AND both atlas strips from disk, then re-pushes the per-layer
+    // tables. Edit a value (or re-stitch the atlas) and see it without a restart.
+    //
+    // CacheMode.Replace updates the EXISTING cached resource in place rather than
+    // handing back a new instance, so BlockCatalog's references stay valid and
+    // nothing has to be rebound. Only visual per-layer properties are re-read —
+    // block ids, Blocks' flattened tables and the meshed geometry are untouched,
+    // which is why this needs no re-mesh and cannot desync the sim.
+    public static void ReloadSurfaceTables()
+    {
+        // Deliberately does NOT force material init: there is nothing to re-push
+        // before a world has built the terrain material, and doing it from
+        // Main._Ready runs the loads far too early to succeed.
+        if (!_materialsInitialized || SharedMaterial == null)
+        {
+            GD.Print("[surface_reload] no terrain material yet — start a game first.");
+            return;
+        }
+
+        var seen = new HashSet<string>();
+        for (int i = 0; i < BlockCatalog.MAX_ATLAS_LAYERS; i++)
+        {
+            BlockSurfaceData surface = BlockCatalog.Active.GetSurfaceByLayer(i);
+            string path = surface?.ResourcePath;
+            if (!string.IsNullOrEmpty(path) && seen.Add(path))
+            {
+                ResourceLoader.Load(path, "", ResourceLoader.CacheMode.Replace);
+            }
+        }
+
+        var tileArray = ResourceLoader.Load<TextureLayered>(
+            "res://assets/textures/terrain/voxel_tiles.png", "", ResourceLoader.CacheMode.Replace);
+        var nrmHeight = ResourceLoader.Load<TextureLayered>(
+            "res://assets/textures/terrain/voxel_tiles_nrm_height.png", "", ResourceLoader.CacheMode.Replace);
+        _tileColorArray = tileArray;
+        // Averages are measured from the atlas, so a re-stitch invalidates them.
+        _layerAverageCache.Clear();
+
+        // The material itself, so the authored blend tuning on terrain.tres —
+        // overlay_blend_sharpness, height_relief_strength, the wet model — is live
+        // too. Replace updates the cached resource in place, so SharedMaterial
+        // still points at it; but it comes back in its AUTHORED state, which is
+        // why every runtime parameter is pushed again below.
+        ResourceLoader.Load(TerrainMaterialPath, "", ResourceLoader.CacheMode.Replace);
+        PushRuntimeMaterialParams(tileArray, nrmHeight);
+        GD.Print($"[surface_reload] re-read {seen.Count} surfaces, the atlas and terrain.tres");
+    }
+
     private static void UploadBlockTables()
     {
         var faces = new Vector4[BlockCatalog.MAX_BLOCKS];
@@ -496,11 +563,11 @@ public partial class ChunkMesh : Node3D
     // step. Always built with terrain collision; whether anything collides with
     // them is a mask decision on the body (see ECollisionLayer.LedgeBarrier), so
     // toggling them costs nothing and needs no rebuild.
-    private void BuildLedgeBarriers(Func<int, int, int, int> getVoxel, int worldX, int worldY, int worldZ)
+    private void BuildLedgeBarriers(Func<int, int, int, int> getVoxel, DcCellSurface surface, int worldX, int worldY, int worldZ)
     {
         using var _prof = Profiler.Sample("ChunkMesh.LedgeBarriers");
         System.Collections.Generic.List<Vector3> tris =
-            LedgeBarrierMesher.Build(getVoxel, worldX, worldY, worldZ);
+            LedgeBarrierMesher.Build(getVoxel, surface, worldX, worldY, worldZ);
         if (tris == null)
         {
             return;
@@ -632,16 +699,19 @@ public partial class ChunkMesh : Node3D
         // CUSTOM2: (overlay_a, overlay_b, overlay_c, _). Per-corner authored
         // overlay ids for the AUTO terrain branch.
         st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
-        // CUSTOM3: (openness, baked_sun, climb_mark, _). Per-vertex sun read
-        // from the air the surface faces — see ChunkMesherDC.BakeVertexSun — and
-        // the climbable-ledge mark, see ClimbLedgeMarker.
+        // CUSTOM3: (openness, baked_sun, _, _). Per-vertex sun read from the air
+        // the surface faces — see ChunkMesherDC.BakeVertexSun. zw are free: the
+        // climbable-ledge mark used to live in .z and is now an overlay.
         st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetMaterial(SharedMaterial);
 
         bool hasAnyFace;
+        // Hoisted: the ledge barriers are built further down, outside this
+        // scope, and must stand on the same surface the terrain mesh just made.
+        DcCellSurface dcSurface = null;
         using (Profiler.Sample("ChunkMesh.MesherDC"))
         {
-            ChunkMesherDC.Build(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out hasAnyFace);
+            ChunkMesherDC.Build(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out hasAnyFace, out dcSurface);
         }
 
         // Detail-sprite scatter (grass, flowers, etc.). Compute the per-entry
@@ -761,7 +831,7 @@ public partial class ChunkMesh : Node3D
 
         if (buildCollision)
         {
-            BuildLedgeBarriers(getVoxel, chunkWorldX, chunkWorldY, chunkWorldZ);
+            BuildLedgeBarriers(getVoxel, dcSurface, chunkWorldX, chunkWorldY, chunkWorldZ);
         }
 
         HasWater = hasAnyWaterFace;

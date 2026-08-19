@@ -19,7 +19,7 @@ public static class BlockCheck
 
         var sb = new StringBuilder();
         sb.AppendLine($"[block_check] {catalog.blocks?.Length ?? 0} blocks, air={catalog.AirBlockId}");
-        sb.AppendLine("  id  name             top/side/bottom            flags");
+        sb.AppendLine("  id  name             top/side/bottom            climbGrowth         flags");
         for (int id = 0; id < BlockCatalog.MAX_BLOCKS; id++)
         {
             BlockData b = catalog.GetById(id);
@@ -37,7 +37,10 @@ public static class BlockCheck
             flags.Append(b.render == EBlockRender.Water ? "water " : "");
             flags.Append(b.lightAttenuation > 0 ? $"atten={b.lightAttenuation} " : "");
             flags.Append($"shape={b.defaultShape} band={b.wallBand.X:0.##}..{b.wallBand.Y:0.##}");
-            sb.AppendLine($"  {id,2}  {b.blockName,-16} {faces,-26} {flags}");
+            // Resolved, not authored: shows the catalog default a block inherits
+            // rather than the null it stores, which is what the shader uploads.
+            string growth = Layer(catalog.ClimbGrowthFor(id));
+            sb.AppendLine($"  {id,2}  {b.blockName,-16} {faces,-26} {growth,-19} {flags}");
         }
         // Overlay-only surfaces wear no block face, so the table above never
         // shows them — but they still claim an atlas layer and still feed the
@@ -48,7 +51,7 @@ public static class BlockCheck
         {
             sb.Append($" {Layer(surface)}");
         }
-        sb.AppendLine($"   climbLedge: {Layer(catalog.climbLedgeSurface)}");
+        sb.AppendLine();
         GD.Print(sb.ToString());
         GD.Print("[block_check] done");
         tree.Quit();

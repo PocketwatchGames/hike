@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
 [ext_resource type="Resource" uid="uid://b4ruwi63vpapo" path="res://resources/data/surfaces/surface_grass_top.tres" id="2_grass_top"]
 [ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/surfaces/surface_stone.tres" id="3_stone"]
+[ext_resource type="Resource" uid="uid://b67xqsirxsem6" path="res://resources/data/surfaces/surface_climb_ivy.tres" id="surf_climb_growth"]
 
 [resource]
 script = ExtResource("1_s")
@@ -16,3 +17,4 @@ blendNoise = 0.55
 naturalGround = true
 defaultShape = 2
 speedMultiplier = 0.9
+climbGrowthSurface = ExtResource("surf_climb_growth")

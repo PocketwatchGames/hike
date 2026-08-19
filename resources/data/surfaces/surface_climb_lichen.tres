@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BlockSurfaceData" format=3]
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://fou5abjylf85"]
 
 [ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_block"]
 
@@ -8,5 +8,9 @@ surfaceName = &"ClimbLichen"
 atlasBaseIndex = 17
 porosity = 0.6
 overlayOnCliffs = true
-minimapColor = Color(0.78, 0.4, 0.11, 1)
+overlayErodeGround = 0.35
+overlayErodeCliff = 0.5
+overlayFeather = 0.3
+overlayRelief = 0.35
 climbable = true
+minimapColor = Color(0.78, 0.4, 0.11, 1)

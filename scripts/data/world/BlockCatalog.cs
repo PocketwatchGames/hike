@@ -42,12 +42,6 @@ public partial class BlockCatalog : Resource
     // properties uploaded — list them here or they read as defaults.
     [Export] public BlockSurfaceData[] overlaySurfaces;
 
-    // The surface the terrain shader paints over the lip of every wall the
-    // player can mantle (see ClimbLedgeMarker). Named here rather than looked up
-    // by path because the catalog already owns the layer→surface mapping; it is
-    // folded into the layer table below exactly like overlaySurfaces, so it does
-    // NOT also need listing there.
-    [Export] public BlockSurfaceData climbLedgeSurface;
 
     // The block a voxel holds when nothing has been written — empty space.
     // Named rather than assumed at id 0 so the catalog asset owns the choice.
@@ -97,6 +91,26 @@ public partial class BlockCatalog : Resource
             return null;
         }
         return _surfaceByLayer[atlasLayer];
+    }
+
+    // What grows on this block's climbable rock, or null if nothing does.
+    //
+    // Deliberately has NO catalog-wide fallback. One used to exist and it was a
+    // trap: a block that named nothing silently inherited it, so Sand — the
+    // shoreline AND underwater block of every zone, not a desert block — grew
+    // desert lichen along every waterline in the world. An unauthored block now
+    // grows nothing, which is both the safer default and visible in block_check.
+    public BlockSurfaceData ClimbGrowthFor(int blockId)
+    {
+        BlockData block = GetById(blockId);
+        // Air and friends emit no geometry and are never a wall, so the fallback
+        // must not hand them one — it would read as a growth surface in
+        // block_check and upload a layer for a block no fragment can carry.
+        if (block == null || block.IsInvisible())
+        {
+            return null;
+        }
+        return block.climbGrowthSurface;
     }
 
     public BlockData GetByName(StringName name)
@@ -168,7 +182,7 @@ public partial class BlockCatalog : Resource
             // means the surface never made it into the manifest (or the atlas
             // was never rebuilt after it was added). ChunkMesh would upload it
             // into block_faces as-is.
-            foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom })
+            foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom, block.climbGrowthSurface })
             {
                 if (surface == null)
                 {
@@ -179,6 +193,13 @@ public partial class BlockCatalog : Resource
                     GD.PushError($"BlockCatalog: '{block.blockName}' wears surface '{surface.surfaceName}' with AtlasBaseIndex={surface.atlasBaseIndex}; add it to voxel_atlas_manifest.tres and Rebuild Atlas.");
                 }
             }
+            // Growth is painted onto walls the player holds, so a surface that
+            // can't confer climbability makes the crust a lie: it would mark a
+            // ledge the mantle affordance never grants.
+            if (block.climbGrowthSurface != null && !block.climbGrowthSurface.climbable)
+            {
+                GD.PushError($"BlockCatalog: '{block.blockName}' grows '{block.climbGrowthSurface.surfaceName}' on climbable rock, but that surface is not marked climbable.");
+            }
         }
 
         foreach (BlockSurfaceData surface in overlaySurfaces ?? System.Array.Empty<BlockSurfaceData>())
@@ -188,12 +209,6 @@ public partial class BlockCatalog : Resource
             {
                 GD.PushError($"BlockCatalog: overlay surface '{surface.surfaceName}' has AtlasBaseIndex={surface.atlasBaseIndex}; add it to voxel_atlas_manifest.tres and Rebuild Atlas.");
             }
-        }
-
-        if (climbLedgeSurface != null
-            && (climbLedgeSurface.atlasBaseIndex < 0 || climbLedgeSurface.atlasBaseIndex >= MAX_ATLAS_LAYERS))
-        {
-            GD.PushError($"BlockCatalog: climbLedgeSurface '{climbLedgeSurface.surfaceName}' has AtlasBaseIndex={climbLedgeSurface.atlasBaseIndex}; add it to voxel_atlas_manifest.tres and Rebuild Atlas.");
         }
 
         if (airBlock == null)
@@ -241,7 +256,7 @@ public partial class BlockCatalog : Resource
                 {
                     _byTopSurfaceLayer[layer] = block;
                 }
-                foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom })
+                foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom, block.climbGrowthSurface })
                 {
                     if (surface == null) { continue; }
                     int sl = surface.atlasBaseIndex;
@@ -262,14 +277,6 @@ public partial class BlockCatalog : Resource
                 {
                     _surfaceByLayer[sl] = surface;
                 }
-            }
-        }
-        if (climbLedgeSurface != null)
-        {
-            int cl = climbLedgeSurface.atlasBaseIndex;
-            if (cl >= 0 && cl < _surfaceByLayer.Length)
-            {
-                _surfaceByLayer[cl] = climbLedgeSurface;
             }
         }
         AirBlockId = airBlock != null ? airBlock.blockId : 0;

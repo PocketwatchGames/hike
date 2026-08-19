@@ -1,0 +1,61 @@
+[gd_scene format=3 uid="uid://2cnsawfrsby4"]
+
+[ext_resource type="Script" uid="uid://bg2q3sabuhalo" path="res://scripts/gui/ClimbHUD.cs" id="1_k8h8a"]
+[ext_resource type="Texture2D" uid="uid://42ev2wn2d4t5" path="res://assets/textures/interactions/climb_up.png" id="3_d25ia"]
+[ext_resource type="Texture2D" uid="uid://o5hwqlxrrmty" path="res://assets/textures/gui/mob_hud_bg.png" id="3_tt8y5"]
+[ext_resource type="Texture2D" uid="uid://cfvy8crkavs5m" path="res://assets/textures/interactions/climb_down.png" id="4_40pc1"]
+
+[node name="ClimbHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_climbUpIcon", "_climbDownIcon")]
+script = ExtResource("1_k8h8a")
+_climbUpIcon = NodePath("MarginContainer/HBoxContainer/MarginContainer/TextureRect/MarginContainer/UpIcon")
+_climbDownIcon = NodePath("MarginContainer/HBoxContainer/MarginContainer/TextureRect/MarginContainer/DownIcon")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=10288936]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=435562407]
+layout_mode = 2
+alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1225584601]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=695983701]
+layout_mode = 2
+texture = ExtResource("3_tt8y5")
+expand_mode = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/MarginContainer/TextureRect" unique_id=1496135944]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 3
+theme_override_constants/margin_bottom = 3
+
+[node name="UpIcon" type="TextureRect" parent="MarginContainer/HBoxContainer/MarginContainer/TextureRect/MarginContainer" unique_id=275025233]
+layout_mode = 2
+texture = ExtResource("3_d25ia")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="DownIcon" type="TextureRect" parent="MarginContainer/HBoxContainer/MarginContainer/TextureRect/MarginContainer" unique_id=1846255569]
+visible = false
+layout_mode = 2
+texture = ExtResource("4_40pc1")
+expand_mode = 3
+stretch_mode = 5

@@ -101,6 +101,15 @@ public partial class GameCamera : Camera3D
 	// at 60Hz is ~50ms; too small to feel laggy for genuine ceiling changes,
 	// large enough to absorb a blip.
 	[Export(PropertyHint.Range, "1,12,1")] public int clipTargetStabilityFrames = 3;
+	// Ceiling on how far above the player the base cutaway will ever sit,
+	// plateau-aligned like every other cut. Outdoors the resolved clip is
+	// infinite and nothing is cut — but geometry tall enough to cross the
+	// camera's NEAR PLANE (`orbitDistance - Near` metres of headroom, so
+	// roughly 117 m up in normal play and 39 m while camped) gets sliced by
+	// that instead, at a camera-aligned angle that slides as the camera moves.
+	// This caps it at a stable horizontal plane first, so a tower or a sky
+	// castle sections cleanly. 0 disables the cap entirely.
+	[Export(PropertyHint.Range, "0,200,4")] public float maxClipHeightAbovePlayer = 20f;
 	// Fill colour of the cut-open interior (the poche), for both cap planes.
 	// Near-black but slightly lifted and cool so a sectioned building reads as
 	// solid rather than as a hole punched in the world.
@@ -176,6 +185,10 @@ public partial class GameCamera : Camera3D
 	private float _focusBlend;
 	private bool _focusing;
 	private bool _clipAlways = false;
+	// Whether the committed `_clip` came from a real ceiling (or the manual
+	// reveal) rather than from the maxClipHeightAbovePlayer backstop. Drives
+	// IsIndoorMode; see the note there.
+	private bool _clipFromCeiling;
 	private MeshInstance3D _clipCapPlane;
 	// Fills the black interior inside the iris disk, where the cut sits lower than
 	// the base plane the main cap is anchored to.
@@ -354,7 +367,13 @@ public partial class GameCamera : Camera3D
 	// either an auto-detected ceiling raycast hit between player and camera
 	// or `_clipAlways` forcing the next-plateau cutaway. Read by the minimap
 	// to swap to its indoor (slice) view in lockstep with the camera.
-	public bool IsIndoorMode => !float.IsPositiveInfinity(_clip);
+	//
+	// Deliberately NOT `_clip` being finite: maxClipHeightAbovePlayer makes it
+	// finite everywhere, including open ground, and reading that as "indoors"
+	// would leave the minimap stuck in its slice view for the whole game. The
+	// cap is a rendering backstop, not a statement about the space the player
+	// is standing in.
+	public bool IsIndoorMode => _clipFromCeiling && !float.IsPositiveInfinity(_clip);
 	public MeshInstance3D WaterCapPlane => _waterCapPlane;
 	public bool ManualClipMode { get; set; } = false;
 
@@ -955,13 +974,34 @@ public partial class GameCamera : Camera3D
 	// The manual reveal floors it: R3 forces the cutaway down to the plateau above
 	// the player's head whatever the world says overhead, so it composes with an
 	// automatic cut rather than fighting it.
-	public void SetClip(float targetClip, Vector3 playerPos)
+	//
+	// `allowMaxClip` is false for the passes that deliberately switch clipping
+	// OFF (the bird's-eye lift, the fly camera, the editor's own clip control).
+	// They request positive infinity, which is exactly what the backstop would
+	// otherwise clamp — so it has to be refused by the caller, not detected from
+	// the value: open ground requests infinity too, and that IS the case the
+	// backstop exists for.
+	public void SetClip(float targetClip, Vector3 playerPos, bool allowMaxClip = true)
 	{
+		float eyeY = playerPos.Y + EYE_HEIGHT;
+		// A real ceiling overhead, or the manual reveal. Latched before the
+		// backstop clamps, so the backstop can never read as "indoors".
+		bool fromCeiling = _clipAlways || !float.IsPositiveInfinity(targetClip);
+
 		if (_clipAlways)
 		{
-			float eyeY = playerPos.Y + EYE_HEIGHT;
 			float alwaysClip = Mathf.Ceil(eyeY / PLATEAU_STEP) * PLATEAU_STEP - ClipClearance;
 			targetClip = Mathf.Min(targetClip, alwaysClip);
+		}
+
+		// Near-plane backstop. Snapped to the same plateau grid as every other
+		// cut, so the section it makes lines up with authored walls instead of
+		// tracking the player's exact Y up and down a hill.
+		if (allowMaxClip && maxClipHeightAbovePlayer > 0f)
+		{
+			float capY = eyeY + maxClipHeightAbovePlayer;
+			float maxClip = Mathf.Ceil(capY / PLATEAU_STEP) * PLATEAU_STEP - ClipClearance;
+			targetClip = Mathf.Min(targetClip, maxClip);
 		}
 
 		// Stability filter — a new candidate has to match for
@@ -976,6 +1016,7 @@ public partial class GameCamera : Camera3D
 		{
 			_candidateTarget = targetClip;
 			_candidateTargetFrames = clipTargetStabilityFrames;
+			_clipFromCeiling = fromCeiling;
 			RequestClip(targetClip, playerPos);
 			return;
 		}
@@ -992,6 +1033,7 @@ public partial class GameCamera : Camera3D
 
 		if (_candidateTargetFrames >= clipTargetStabilityFrames)
 		{
+			_clipFromCeiling = fromCeiling;
 			RequestClip(targetClip, playerPos);
 		}
 	}

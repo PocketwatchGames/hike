@@ -39,9 +39,9 @@ public static class InputBindings
             // No jump: the spacebar goes to dash, and interact takes the pad's
             // primary face button where a player expects a context action.
             SetBindings(Jump);
-            SetBindings(Interact, Key.E, JoyButton.A);
-            SetBindings(Dash, Key.Space, JoyButton.B);
-            SetBindings(Lantern, Key.Q, JoyButton.Y);
+            SetBindings(Interact, Key.E, JoyButton.Y);
+            SetBindings(Dash, Key.Space, JoyButton.A);
+            SetBindings(Lantern, Key.Q, JoyButton.B);
             SetBindings(UseItem, Key.Ctrl, JoyButton.RightShoulder);
             SetBindings(Sneak, Key.Shift, JoyAxis.TriggerLeft);
         }

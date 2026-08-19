@@ -31,6 +31,7 @@ public static class Blocks
     private static bool[] _invisible;
     private static bool[] _naturalGround;
     private static bool[] _climbable;
+    private static int[] _climbGrowthLayer;
     private static int[] _attenuation;
     private static SharpAxes[] _defaultShape;
     private static float[] _blendNoise;
@@ -48,6 +49,7 @@ public static class Blocks
         _invisible = new bool[n];
         _naturalGround = new bool[n];
         _climbable = new bool[n];
+        _climbGrowthLayer = new int[n];
         _attenuation = new int[n];
         _defaultShape = new SharpAxes[n];
         _blendNoise = new float[n];
@@ -73,6 +75,8 @@ public static class Blocks
             _invisible[id] = b.IsInvisible();
             _naturalGround[id] = b.naturalGround;
             _climbable[id] = b.climbable;
+            BlockSurfaceData growth = catalog.ClimbGrowthFor(id);
+            _climbGrowthLayer[id] = growth != null ? growth.atlasBaseIndex : -1;
             _attenuation[id] = b.lightAttenuation;
             _defaultShape[id] = b.defaultShape;
             _blendNoise[id] = b.blendNoise;
@@ -118,6 +122,10 @@ public static class Blocks
     // overlay painted over some other block, so gameplay asks ClimbProbe rather
     // than calling this with the raw voxel id.
     public static bool IsClimbable(int id) => _climbable[id];
+
+    // Atlas layer of the crust this block grows where it is climbable, or -1.
+    // Read per voxel by the mesher's lip scan, hence the flattened table.
+    public static int ClimbGrowthLayer(int id) => _climbGrowthLayer[id];
 
     // Debug scaffolding for the `climb_mark` console command: makes an ordinary
     // wall climbable for the running session so surface climbing can be played

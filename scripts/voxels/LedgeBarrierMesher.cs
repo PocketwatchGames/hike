@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -34,6 +35,16 @@ public static class LedgeBarrierMesher
     // step-up lift, which raises the body by stepHeight before moving.
     private const float BarrierHeight = 2f;
 
+    // Drop of the base below the surface points the wall is strung between, so a
+    // cell that snapped down between them cannot open a gap underneath.
+    private const float BaseSink = 0.6f;
+
+    // How far the wall is pulled back from the contour, in metres. Bounded above
+    // by the movement capsule's radius doubled (0.5) or a one-voxel ledge with
+    // drops on both sides stops being walkable.
+    private const float LedgeInset = 0.2f;
+
+
     // How far below the surface to look for the neighbour's ground before
     // calling it a drop. Only has to cover the legal step plus a voxel of slack;
     // anything deeper is a ledge regardless of how much deeper.
@@ -44,32 +55,86 @@ public static class LedgeBarrierMesher
         new(1, 0, 0), new(-1, 0, 0), new(0, 0, 1), new(0, 0, -1),
     };
 
-    // Emits two triangles for the vertical face shared with the neighbour in
-    // direction `dir`, spanning the full cell width and BarrierHeight upward
-    // from the surface.
-    //
-    // Coordinates are CHUNK-LOCAL, matching the terrain mesh: ChunkMesh sets its
-    // node Position to the chunk origin and the mesher emits local vertices, so
-    // anything emitted in world space lands a whole chunk origin away. Note this
-    // is the opposite convention to getVoxel, which is world-indexed.
-    private static void AddFace(List<Vector3> tris, Vector3I dir, float x, float y, float z)
+    // Marching-squares edge table over the four cell-centre samples of a 2x2
+    // block. Bit 0 = (x,z), 1 = (x+1,z), 2 = (x+1,z+1), 3 = (x,z+1); the four
+    // crossing points E0..E3 lie between consecutive samples going round.
+    // -1 terminates. The two diagonal cases resolve with the centre treated as
+    // INSIDE, so a diagonal run of walkable cells stays connected instead of
+    // being pinched into separate islands.
+    private static readonly int[][] MarchCases =
     {
-        float top = y + BarrierHeight;
-        Vector3 a, b;
-        if (dir.X != 0)
+        new[] { -1 },              // 0000
+        new[] { 0, 3, -1 },        // 0001
+        new[] { 0, 1, -1 },        // 0010
+        new[] { 1, 3, -1 },        // 0011
+        new[] { 1, 2, -1 },        // 0100
+        new[] { 0, 1, 2, 3 },      // 0101 diagonal
+        new[] { 0, 2, -1 },        // 0110
+        new[] { 2, 3, -1 },        // 0111
+        new[] { 2, 3, -1 },        // 1000
+        new[] { 0, 2, -1 },        // 1001
+        new[] { 0, 3, 1, 2 },      // 1010 diagonal
+        new[] { 1, 2, -1 },        // 1011
+        new[] { 1, 3, -1 },        // 1100
+        new[] { 0, 1, -1 },        // 1101
+        new[] { 0, 3, -1 },        // 1110
+        new[] { -1 },              // 1111
+    };
+
+    // Crossing point of edge `e` of the block anchored at (x, z), in cell-centre
+    // sample space, already pulled toward the walkable side by LedgeInset.
+    //
+    // The inset is applied HERE, to the shared point, rather than to each
+    // segment afterwards. Offsetting whole segments along their own normals
+    // moves a shared endpoint to two different places — that is what tore gaps
+    // at convex turns, and what padding the ends to close them turned into
+    // heavy overlap on every straight joint. An edge belongs to exactly two
+    // blocks and both derive the same displacement from it (the direction toward
+    // whichever of its two samples is walkable), so the point simply moves, and
+    // the contour stays watertight with no padding at all.
+    private static Vector2 EdgePoint(int e, int x, int z, bool[] inside)
+    {
+        switch (e)
         {
-            float fx = dir.X > 0 ? x + 1f : x;
-            a = new Vector3(fx, y, z);
-            b = new Vector3(fx, y, z + 1f);
+            // E0 spans samples 0..1 along X; E2 spans 3..2 along X.
+            case 0: return new Vector2(x + 1.0f + (inside[0] ? -LedgeInset : LedgeInset), z + 0.5f);
+            case 2: return new Vector2(x + 1.0f + (inside[2] ? LedgeInset : -LedgeInset), z + 1.5f);
+            // E1 spans samples 1..2 along Z; E3 spans 3..0 along Z.
+            case 1: return new Vector2(x + 1.5f, z + 1.0f + (inside[1] ? -LedgeInset : LedgeInset));
+            default: return new Vector2(x + 0.5f, z + 1.0f + (inside[3] ? LedgeInset : -LedgeInset));
         }
-        else
+    }
+
+    // The dual-contoured ground point for the cell standing at (x, y, z), in
+    // chunk-local space. The surface vertex for a floor can land in the cell
+    // below the air or in the air cell itself depending on where the density
+    // crossing fell, so both are tried and the one nearest this level wins.
+    private static bool TryGroundPoint(DcCellSurface surface, int x, int y, int z, out Vector3 p)
+    {
+        bool below = surface.TryGetLocal(x, y - 1, z, out Vector3 pb);
+        bool here = surface.TryGetLocal(x, y, z, out Vector3 ph);
+        if (below && here)
         {
-            float fz = dir.Z > 0 ? z + 1f : z;
-            a = new Vector3(x, y, fz);
-            b = new Vector3(x + 1f, y, fz);
+            p = Mathf.Abs(pb.Y - y) <= Mathf.Abs(ph.Y - y) ? pb : ph;
+            return true;
         }
-        Vector3 aTop = new(a.X, top, a.Z);
-        Vector3 bTop = new(b.X, top, b.Z);
+        if (below) { p = pb; return true; }
+        if (here) { p = ph; return true; }
+        p = default;
+        return false;
+    }
+
+    // Emits one wall segment, extruded from the ground it guards. The points
+    // arrive already inset, so nothing is offset or padded here.
+    private static void AddSegment(List<Vector3> tris, Vector2 p0, Vector2 p1, float groundY)
+    {
+        Vector2 a2 = p0;
+        Vector2 b2 = p1;
+
+        Vector3 a = new(a2.X, groundY - BaseSink, a2.Y);
+        Vector3 b = new(b2.X, groundY - BaseSink, b2.Y);
+        Vector3 aTop = new(a2.X, groundY + BarrierHeight, a2.Y);
+        Vector3 bTop = new(b2.X, groundY + BarrierHeight, b2.Y);
 
         // Winding is irrelevant here — the shape is built with backface
         // collision on, since a barrier must be felt from whichever side a body
@@ -113,36 +178,100 @@ public static class LedgeBarrierMesher
     // null when the chunk has no ledges, which is the common case for flat
     // terrain and lets the caller skip creating a body at all.
     //
+    // The walls are the CONTOUR of the walkable region at each level, extracted
+    // by marching squares over cell-centre samples — not one axis-aligned quad
+    // per guarded cell face.
+    //
+    // That difference is the whole point. A per-face wall can only ever run
+    // along a lattice axis, so a ledge cutting diagonally across the grid gets a
+    // staircase of walls whose corners stick out past the ground into thin air;
+    // a body walks to the real edge, falls through the notch beside the wall,
+    // and is never touched by it. Marching squares puts a single 45-degree
+    // segment across a diagonal block instead, so the wall follows the ledge.
+    //
+    // The field is NeighbourIsReachable rather than IsSurface: it already
+    // answers "could a body at this level be here" including the legal step down
+    // and water, so its boundary is exactly the set of real drops. A block is
+    // skipped unless some cell in it is a genuine surface, which keeps contours
+    // out of the open air above a cliff.
+    //
     // The two coordinate spaces in play are easy to conflate: getVoxel is
     // world-indexed (it resolves across chunk boundaries) while emitted vertices
     // must be chunk-local (the node transform places them). So the origin is
     // added for lookups and NOT for output.
     public static List<Vector3> Build(System.Func<int, int, int, int> getVoxel,
-        int chunkWorldX, int chunkWorldY, int chunkWorldZ)
+        DcCellSurface surface, int chunkWorldX, int chunkWorldY, int chunkWorldZ)
     {
         List<Vector3> tris = null;
+        var inside = new bool[4];
+        var real = new bool[4];
+
         for (int y = 0; y < N; y++)
         {
             int wy = chunkWorldY + y;
+            // Blocks anchored inside the chunk only. The block at N-1 covers the
+            // seam with the next chunk, whose own blocks start at 0 — so every
+            // seam is emitted exactly once, by the chunk on its low side.
             for (int z = 0; z < N; z++)
             {
-                int wz = chunkWorldZ + z;
                 for (int x = 0; x < N; x++)
                 {
-                    int wx = chunkWorldX + x;
-                    if (!IsSurface(getVoxel, wx, wy, wz))
+                    int i = 0;
+                    bool anyReal = false;
+                    bool anyOut = false;
+                    bool anyIn = false;
+                    for (int c = 0; c < 4; c++)
+                    {
+                        // Sample order must match the bit order of MarchCases:
+                        // (x,z), (x+1,z), (x+1,z+1), (x,z+1).
+                        int ox = c == 1 || c == 2 ? 1 : 0;
+                        int oz = c >= 2 ? 1 : 0;
+                        int wx = chunkWorldX + x + ox;
+                        int wz = chunkWorldZ + z + oz;
+                        inside[c] = NeighbourIsReachable(getVoxel, wx, wy, wz);
+                        real[c] = IsSurface(getVoxel, wx, wy, wz);
+                        anyReal |= real[c];
+                        anyIn |= inside[c];
+                        anyOut |= !inside[c];
+                        if (inside[c]) { i |= 1 << c; }
+                    }
+                    if (!anyReal || !anyIn || !anyOut)
                     {
                         continue;
                     }
-                    for (int i = 0; i < Horizontal.Length; i++)
+
+                    // Ground height for this block: the surface the walkable
+                    // cells actually sit on, so the wall stands on the drawn
+                    // terrain rather than on the lattice.
+                    float groundY = y;
+                    int found = 0;
+                    float sumY = 0f;
+                    for (int c = 0; c < 4; c++)
                     {
-                        Vector3I dir = Horizontal[i];
-                        if (NeighbourIsReachable(getVoxel, wx + dir.X, wy, wz + dir.Z))
+                        int ox = c == 1 || c == 2 ? 1 : 0;
+                        int oz = c >= 2 ? 1 : 0;
+                        if (!real[c])
                         {
                             continue;
                         }
+                        if (TryGroundPoint(surface, x + ox, y, z + oz, out Vector3 gp))
+                        {
+                            sumY += gp.Y;
+                            found++;
+                        }
+                    }
+                    if (found > 0)
+                    {
+                        groundY = sumY / found;
+                    }
+
+                    int[] edges = MarchCases[i];
+                    for (int e = 0; e + 1 < edges.Length && edges[e] >= 0; e += 2)
+                    {
+                        Vector2 p0 = EdgePoint(edges[e], x, z, inside);
+                        Vector2 p1 = EdgePoint(edges[e + 1], x, z, inside);
                         tris ??= new List<Vector3>();
-                        AddFace(tris, dir, x, y, z);
+                        AddSegment(tris, p0, p1, groundY);
                     }
                 }
             }

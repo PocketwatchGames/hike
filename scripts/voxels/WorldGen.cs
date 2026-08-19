@@ -19,7 +19,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 117;
+    public const int WORLDGEN_VERSION = 126;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -652,12 +652,14 @@ public static class WorldGen
         // patch.
         StampDirtPatches(ws, genData);
 
+        // Climbable dressing on tall cliff faces. Ahead of moss because moss
+        // skips any voxel that already carries an overlay: this way the cliffs
+        // are claimed first and moss fills in around them, where reversing the
+        // two leaves every tall face bare.
+        StampClimbSurfaces(ws, genData, heightMap);
+
         // Moss overlay over exposed rock/ground. Before the road pass so a road
         // tread stamps over it rather than the reverse.
-        // Before moss: moss skips any voxel that already carries an overlay, so
-        // running the cliffs first lets ivy own the tall faces and moss fill in
-        // around it. Reversed, moss claims the faces and the cliffs come out bare.
-        StampClimbSurfaces(ws, genData);
         StampMossPatches(ws, genData);
 
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
@@ -4203,6 +4205,38 @@ public static class WorldGen
                     shoreUpperY = waterY + (int)Math.Round(shoreUpperMeters);
                 }
 
+                // Sand is a BEACH, not a contour line. The elevation band alone
+                // dressed every solid voxel inside it, which put sand on the FACE
+                // of any cliff rising out of the sea and on lowland plains nowhere
+                // near water — and because the block carries footsteps and climb
+                // growth, all of that followed the wrong material too.
+                //
+                // Two extra tests, hoisted here because both depend only on the
+                // column: its top must be the voxel in the band (a wall face is
+                // not a beach, so the surface voxel alone qualifies below), and it
+                // must actually be beside water. The submerged pass answers that
+                // by finding a Water voxel; up here the grid is still being
+                // written, so the heightmap answers instead — a neighbouring
+                // column holds water when its ground sits below its own waterline.
+                bool columnIsBeach = false;
+                if (kitZoneData != null && kitZoneData.shoreKit != null
+                    && solidHeight > waterY && solidHeight <= shoreUpperY)
+                {
+                    int shoreReach = Math.Max(kitZoneData.shoreWaterDistance, 1);
+                    for (int dx = -shoreReach; dx <= shoreReach && !columnIsBeach; dx++)
+                    {
+                        for (int dz = -shoreReach; dz <= shoreReach && !columnIsBeach; dz++)
+                        {
+                            int nx = wx + dx;
+                            int nz = wz + dz;
+                            if (heightMap.GetHeight(nx, nz) < WaterYAt(heightMap, nx, nz))
+                            {
+                                columnIsBeach = true;
+                            }
+                        }
+                    }
+                }
+
                 for (int y = 0; y < ChunkState.SIZE; y++)
                 {
                     int wy = chunkWorldY + y;
@@ -4241,7 +4275,7 @@ public static class WorldGen
                     // read from their kit's palette. Explicit materials
                     // (Wood/Stone walls from structures) overwrite this later
                     // via SetBlockWorld and take the non-AUTO shader path.
-                    int kit = (wy > waterY && wy <= shoreUpperY) ? shoreTerrainId : surfaceTerrainId;
+                    int kit = (columnIsBeach && wy == solidHeight) ? shoreTerrainId : surfaceTerrainId;
                     data.Voxels[x, y, z] = (byte)KitBlocks.ForKit(kit);
 
                     // Cave interior surfaces always snap flat, regardless of
@@ -4686,6 +4720,7 @@ public static class WorldGen
         int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+        long dressed = 0, skippedCliff = 0;
 
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
@@ -4706,15 +4741,23 @@ public static class WorldGen
                 byte shoreTerrainId = 0;
                 int shoreLowerY = waterY;
                 bool hasShore = columnZoneData != null && columnZoneData.shoreKit != null;
-                if (hasShore)
+
+                // Sand belongs to columns that ARE seabed. A CLIFF column — ground
+                // standing above the waterline — is not one at any depth, and
+                // dressing the rock buried inside it is precisely what the
+                // mesher's 27-voxel vote then bleeds onto the visible face (see
+                // the note at the call site). Measured: 6000 such voxels inside
+                // mountain cliffs running into the sea, which is what put beach —
+                // and beach's lichen — at their base.
+                //
+                // Skipping the whole column rather than just the visible face is
+                // what keeps the SEABED winning that same vote: a seabed column
+                // stays dressed to full depth, so its surface is not one lonely
+                // sand voxel against the rock beneath it.
+                if (heightMap.GetHeight(wx, wz) > waterY)
                 {
-                    shoreTerrainId = TerrainIdOf(columnZoneData.shoreKit);
-                    float shoreLowerR = HashFloat01(wx, wz, SHORE_LOWER_HASH_SALT);
-                    float shoreLowerMeters = Mathf.Lerp(
-                        columnZoneData.shoreSubmergedElevationMin,
-                        columnZoneData.shoreSubmergedElevationMax,
-                        shoreLowerR);
-                    shoreLowerY = waterY + (int)Math.Round(shoreLowerMeters);
+                    skippedCliff++;
+                    continue;
                 }
 
                 for (int wy = worldMinY; wy <= waterY; wy++)
@@ -4740,8 +4783,20 @@ public static class WorldGen
                         }
                     }
 
+                    // Sand dresses the TOP of the seabed, never the FACE of a
+                    // wall descending through it. Without this a cliff running
+                    // down into the water took a band of beach across its face —
+                    // and with it beach's climb growth, so a wall meant to be
+                    // climbable from the water up broke into the cliff's own
+                    // growth, a gap, then lichen at the waterline.
+                    //
+                    // Mirrors the above-water rule in chunk fill, which asks the
+                    // same question as `wy == solidHeight`. A sloped seabed still
+                    // qualifies at every step, because each of those voxels does
+                    // have its top open — only true verticals are excluded.
                     if (nearWater)
                     {
+                        dressed++;
                         if (hasShore && wy >= shoreLowerY)
                         {
                             RestampKit(ws, wx, wy, wz, shoreTerrainId);
@@ -4755,6 +4810,9 @@ public static class WorldGen
                 }
             }
         }
+
+        GD.Print($"WorldGen: submerged kits — {dressed} seabed voxels dressed, "
+            + $"{skippedCliff} cliff columns skipped");
     }
 
     // Overlay id values. 0 = no overlay. A non-zero OverlayId is a direct
@@ -4811,6 +4869,14 @@ public static class WorldGen
     private const int MOSS_CAPILLARY_SEED = 4244;
     private const int MOSS_PATCHINESS_SEED = 4245;
     private const int CLIMB_PATCH_SEED = 4246;
+    // FastNoiseLite's CellValue is BELL-SHAPED, not uniform. Measured over 576k
+    // samples it spans -0.96..0.90, but the middle is only ~0.56 as wide as a
+    // uniform field would be, so thresholding it directly at the authored
+    // coverage delivered 9% for an authored 25%. Remapping about the median
+    // makes the knob mean what it says across the useful range. Same class of
+    // correction as MOSS_NOISE_GAIN, and measured the same way — re-measure it
+    // if the cellular settings change, don't assume it carries over.
+    private const float CLIMB_CELL_SPREAD = 0.563f;
 
     // FastNoiseLite's fractal Perlin does not reach ±1 — the river width channel
     // measured only -0.38..0.51 on this world (see WIDTH_NOISE_GAIN), and the
@@ -5084,19 +5150,38 @@ public static class WorldGen
     // that own a patch of it. CellValue gives one random value per cell, so a
     // threshold keeps WHOLE cells and their irregular borders; a distance return
     // would give circular blooms with soft edges instead.
-    private static void StampClimbSurfaces(WorldState ws, WorldGenData genData)
+    private static void StampClimbSurfaces(WorldState ws, WorldGenData genData, HeightMap heightMap)
     {
-        BlockSurfaceData climb = genData.climbSurface;
-        if (climb == null)
+        // Which crust each block grows, flattened to an id-indexed table once —
+        // the walk below asks per voxel, and OVERLAY_NONE means "this rock grows
+        // nothing", which skips it. Resolving per block rather than per zone is
+        // what lets one zone's caves differ from its surface (desert sandstone
+        // keeps lichen where the limestone everyone else's caves are cut from
+        // takes moss) and what keeps a mantle lip matching the wall under it.
+        var growthByBlock = new byte[BlockCatalog.MAX_BLOCKS];
+        bool anyGrowth = false;
+        BlockCatalog catalog = BlockCatalog.Active;
+        for (int id = 0; id < growthByBlock.Length; id++)
+        {
+            BlockSurfaceData growth = catalog.ClimbGrowthFor(id);
+            if (growth == null)
+            {
+                growthByBlock[id] = OVERLAY_NONE;
+                continue;
+            }
+            if (growth.atlasBaseIndex <= 0)
+            {
+                GD.PushError($"WorldGen: climb growth surface '{growth.surfaceName}' has no atlas layer; add it to voxel_atlas_manifest.tres and rebuild.");
+                growthByBlock[id] = OVERLAY_NONE;
+                continue;
+            }
+            growthByBlock[id] = (byte)growth.atlasBaseIndex;
+            anyGrowth = true;
+        }
+        if (!anyGrowth)
         {
             return;
         }
-        if (climb.atlasBaseIndex <= 0)
-        {
-            GD.PushError($"WorldGen: climb surface '{climb.surfaceName}' has no atlas layer; add it to voxel_atlas_manifest.tres and rebuild.");
-            return;
-        }
-        byte climbOverlay = (byte)climb.atlasBaseIndex;
         int minHeight = Mathf.Max(genData.climbMinCliffHeight, 2);
         float yStretch = Mathf.Max(genData.climbVerticalStretch, 0.01f);
 
@@ -5129,6 +5214,11 @@ public static class WorldGen
                     continue;
                 }
 
+                // Deepest voxel this column may still mark climbable, from its
+                // OWN waterline — so a lake or river bounds its walls the same
+                // way the sea does.
+                int climbLowestY = WaterYAt(heightMap, wx, wz) - genData.climbUnderwaterVoxels;
+
                 for (int f = 0; f < runStart.Length; f++)
                 {
                     runStart[f] = int.MinValue;
@@ -5145,8 +5235,15 @@ public static class WorldGen
                     for (int f = 0; f < ClimbFaces.Length; f++)
                     {
                         (int dx, int dz, EVoxelFace face) = ClimbFaces[f];
+                        // Air exposes a face. Water does too, but only down to
+                        // climbUnderwaterVoxels below the waterline: the rock a
+                        // swimmer can reach is climbable, anything drowned deeper
+                        // is not. IsEmpty excludes water ("non-solid but it is
+                        // content"), so water has to be admitted explicitly.
+                        int neighbour = ws.GetBlockWorld(wx + dx, wy, wz + dz);
                         bool exposed = wall
-                            && Blocks.IsEmpty(ws.GetBlockWorld(wx + dx, wy, wz + dz));
+                            && (Blocks.IsEmpty(neighbour)
+                                || (Blocks.IsWater(neighbour) && wy > climbLowestY));
                         if (exposed)
                         {
                             if (runStart[f] == int.MinValue)
@@ -5169,26 +5266,38 @@ public static class WorldGen
                         faceRuns++;
                         faceVoxels += wy - start;
                         stamped += StampClimbRun(ws, genData, patchNoise, zone.climbCoverage,
-                            climbOverlay, face, wx, wz, start, wy, yStretch);
+                            growthByBlock, face, wx, wz, start, wy, yStretch);
                     }
                 }
             }
         }
 
+        // The denominator is FACE-voxels: a corner column stands in two runs and
+        // is counted once per face, while `stamped` counts each voxel once. So
+        // the percentage reads a little under the true share of dressed rock.
         GD.Print($"WorldGen: climbable cliffs — {faceRuns} qualifying faces "
-            + $"(>= {minHeight} voxels), {stamped}/{faceVoxels} voxels dressed "
-            + $"({100.0 * stamped / Math.Max(faceVoxels, 1):0.0}%)");
+            + $"(>= {minHeight} voxels), {stamped} voxels dressed of {faceVoxels} "
+            + $"face-voxels ({100.0 * stamped / Math.Max(faceVoxels, 1):0.0}%)");
     }
 
     // Dresses one exposed run [startY, endY). Returns how many voxels took the
     // overlay.
     private static long StampClimbRun(WorldState ws, WorldGenData genData, FastNoiseLite patchNoise,
-        float coverage, byte climbOverlay, EVoxelFace face, int wx, int wz,
+        float coverage, byte[] growthByBlock, EVoxelFace face, int wx, int wz,
         int startY, int endY, float yStretch)
     {
         long stamped = 0;
         for (int wy = startY; wy < endY; wy++)
         {
+            // Per voxel, not per run: a run is one face of one column, but a
+            // cliff can change block partway up it (a limestone shoulder over
+            // sandstone), and the crust has to follow the rock it grows on.
+            byte climbOverlay = growthByBlock[
+                Mathf.Clamp(ws.GetBlockWorld(wx, wy, wz), 0, growthByBlock.Length - 1)];
+            if (climbOverlay == OVERLAY_NONE)
+            {
+                continue;
+            }
             // Leave an authored overlay (a road tread) alone, but let our own
             // pass revisit a voxel — a corner voxel is a face on two sides and
             // has to accumulate both bits.
@@ -5198,8 +5307,8 @@ public static class WorldGen
                 continue;
             }
 
-            float value = patchNoise.GetNoise3D(wx, wy * yStretch, wz);
-            if (value * 0.5f + 0.5f >= coverage)
+            float value = patchNoise.GetNoise3D(wx, wy * yStretch, wz) * 0.5f + 0.5f;
+            if (value >= 0.5f + CLIMB_CELL_SPREAD * (coverage - 0.5f))
             {
                 continue;
             }

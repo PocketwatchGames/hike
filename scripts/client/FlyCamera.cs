@@ -40,7 +40,7 @@ public partial class FlyCamera : Node
 			Vector3 rot = camera.GlobalRotation;
 			_pitch = rot.X;
 			_yaw = rot.Y;
-			camera.SetClip(float.PositiveInfinity, camera.GlobalPosition);
+			camera.SetClip(float.PositiveInfinity, camera.GlobalPosition, allowMaxClip: false);
 			_initialized = true;
 		}
 

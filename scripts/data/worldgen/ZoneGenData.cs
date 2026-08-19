@@ -91,15 +91,27 @@ public partial class ZoneGenData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float mossCaveCoverage = 0f;
 
     // Fraction of this zone's cliff CELLS dressed as climbable. Unlike the moss
-    // pair this defaults non-zero, because the whole pass is already gated on
-    // WorldGenData.climbSurface being assigned — so a world that has not opted
-    // in gets nothing, and one that has gets climbable cliffs everywhere until a
-    // zone says otherwise. A sheer desert mesa wants 0.
+    // pair this defaults non-zero, because the pass is already gated on the rock
+    // naming a BlockData.climbGrowthSurface — so a world whose blocks have not
+    // opted in gets nothing, and one whose blocks have gets climbable cliffs
+    // everywhere until a zone says otherwise. A sheer desert mesa wants 0.
+    // This is the how-MUCH knob only; what grows comes from the block.
     [Export(PropertyHint.Range, "0,1,0.01")] public float climbCoverage = 0.25f;
+
+    // How far a column may sit from actual water and still be dressed as beach,
+    // in metres (Chebyshev). The elevation band alone is NOT enough: it is a
+    // contour line, so without this every lowland plain sitting a metre above sea
+    // level turned to sand however far inland it was. The submerged pass has
+    // always insisted on real adjacent water (WorldGenData.submergedKitRadius);
+    // this is the same rule for the half above the waterline.
+    [Export(PropertyHint.Range, "1,16,1")] public int shoreWaterDistance = 3;
 
     [Export] public float shoreElevationMin = 1f;
     [Export] public float shoreElevationMax = 1.5f;
-    [Export] public float shoreSubmergedElevationMin = -5f;
+    // Depth the wet shore band reaches below the waterline. Held shallow on
+    // purpose: this band is beach, and 5 m of it climbed far enough up anything
+    // steep to read as a stripe painted across the shoreline.
+    [Export] public float shoreSubmergedElevationMin = -2f;
     [Export] public float shoreSubmergedElevationMax = -1f;
 
     [Export] public float grassThreshold = 0.3f;

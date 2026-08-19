@@ -447,7 +447,7 @@ public static class MesherProbe
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => Blocks.DefaultShape(Get(x, y, z)),
             (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
-            st, 0, 0, 0, out bool hasAnyFace);
+            st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace) { return; }
 
         var arrays = st.Commit().SurfaceGetArrays(0);
@@ -532,7 +532,7 @@ public static class MesherProbe
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => Blocks.DefaultShape(Get(x, y, z)),
             (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
-            st, 0, 0, 0, out bool hasAnyFace);
+            st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace) { GD.Print("[probe] tunnel sun: no faces"); return; }
 
         var arrays = st.Commit().SurfaceGetArrays(0);
@@ -585,7 +585,7 @@ public static class MesherProbe
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => SharpAxes.Y,
             (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
-            st, 0, 0, 0, out bool hasAnyFace);
+            st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace) { GD.Print("[probe] cliff sun: no faces"); return; }
 
         var arrays = st.Commit().SurfaceGetArrays(0);
@@ -848,7 +848,7 @@ public static class MesherProbe
         st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), get, shape,
             terrainId, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
-            st, 0, 0, 0, out bool hasAnyFace);
+            st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace)
         {
             tiles = Array.Empty<int>();
@@ -909,7 +909,7 @@ public static class MesherProbe
         st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), get, shape,
             (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
-            st, 0, 0, 0, out bool hasAnyFace);
+            st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace)
         {
             norms = Array.Empty<Vector3>();

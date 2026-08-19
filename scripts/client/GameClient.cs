@@ -147,6 +147,9 @@ public partial class GameClient : Node3D
 	[Export] public ViewportRig viewportRig;
 	[Export] public ShaderMaterial fogMaterial;
 	[Export] public PackedScene interactHudScene;
+	// Climb/mantle prompt for the Dash button. Spawned off Player.TraversalPreview
+	// rather than off a highlight, since a ledge is not an interactive.
+	[Export] public PackedScene climbHudScene;
 	// Shared world-pickup scene. Every dropped or spawned item materializes
 	// through this one scene with its sprite swapped to the item's
 	// worldSprite on spawn. The Loot runtime decides per-player whether to
@@ -592,6 +595,7 @@ public partial class GameClient : Node3D
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
+	ClimbHUD _climbHUD;
 
 	// Per-frame entity-spawn budget for the loading-screen-opaque window.
 	// World defaults to 8/frame for hitch-free in-game streaming; 64 burns
@@ -1827,6 +1831,8 @@ public partial class GameClient : Node3D
 			}
 		}
 
+		UpdateClimbHUD();
+
 		// Service the deferred input-suppress clear AFTER ProcessInput has
 		// been gated for this frame. See InputSuppressed property docs.
 		if (_inputSuppressClearPending)
@@ -2309,6 +2315,26 @@ public partial class GameClient : Node3D
 		if (_interactHUD == null && interactHudScene != null)
 		{
 			_interactHUD = InteractHUD.Create(interactHudScene, camera, _player, target, worldHUD);
+		}
+	}
+
+	// Spawn / free the climb prompt from the player's traversal preview. Driven
+	// per-frame rather than from a change signal: the preview is a per-tick probe
+	// of the terrain in front, not a state the player pushes.
+	void UpdateClimbHUD()
+	{
+		// No prompt during the bird's-eye overview shot, matching the interact one.
+		bool wanted = _player != null && !_player.IsBirdsEye
+			&& _player.TraversalPreview != ETraversalPreview.None;
+		if (_climbHUD != null && (!wanted || _climbHUD.Player != _player))
+		{
+			_climbHUD.QueueFree();
+			_climbHUD = null;
+			return;
+		}
+		if (_climbHUD == null && wanted && climbHudScene != null)
+		{
+			_climbHUD = ClimbHUD.Create(climbHudScene, camera, _player, worldHUD);
 		}
 	}
 

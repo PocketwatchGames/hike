@@ -601,7 +601,7 @@ public partial class WorldEditor : Node3D
         camera.ManualClipMode = true;
         ApplyEditorCameraSettings();
         camera.SetInitialPosition(_cursorPosition);
-        camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
+        camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition, allowMaxClip: false);
 
         // Enter in the name field confirms the dialog.
         if (saveDialog != null && saveNameEdit != null)
@@ -1051,7 +1051,7 @@ public partial class WorldEditor : Node3D
 
         camera.pitchDegrees = _cameraPitchDegrees;
         camera.UpdateCamera(deltaTime, _cursorPosition, 0f, tickRotation: false);
-        camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
+        camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition, allowMaxClip: false);
         if (groundPlane != null)
         {
             groundPlane.GlobalPosition = new Vector3(_cursorPosition.X, _buildY, _cursorPosition.Z);

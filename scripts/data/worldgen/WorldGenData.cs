@@ -233,15 +233,24 @@ public partial class WorldGenData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float mossPatchinessAmount = 0.6f;
 
     [ExportGroup("Climbable Cliffs")]
-    // The surface painted as the climbable overlay. Its atlasBaseIndex is the
-    // wire value written into OverlayId, so this must be a surface the atlas
-    // manifest actually bakes. Leave unassigned to disable the pass entirely.
+    // WHICH surface is painted is not authored here — it comes from the rock, via
+    // BlockData.climbGrowthSurface, so a cliff wears what its own block grows and
+    // the mantle-lip crust the shader draws on top of it matches automatically.
+    // A block growing nothing is skipped. This group only tunes WHERE and HOW
+    // MUCH; ZoneGenData.climbCoverage carries the per-zone share.
     //
-    // For the overlay to confer CLIMBABILITY as well as a look, the catalog also
-    // needs a BlockData whose top surface is this one, with climbable set —
-    // ClimbProbe resolves the overlay through GetByTopSurfaceLayer, the same
-    // bridge road overlays use to carry ground type.
-    [Export] public BlockSurfaceData climbSurface;
+    // For the overlay to confer CLIMBABILITY as well as a look, the growth
+    // surface must have climbable set (BlockCatalog.ValidateOrLog enforces it),
+    // or the catalog needs a BlockData whose top surface is this one with
+    // climbable set — ClimbProbe resolves the overlay through
+    // GetByTopSurfaceLayer, the same bridge road overlays use for ground type.
+
+    // How deep below the waterline a wall face may still be marked climbable, in
+    // voxels. 0 stops the affordance at the last dry voxel; 1 lets it reach the
+    // rock a swimmer can grab. Anything drowned deeper than this is not somewhere
+    // to climb, so worldgen does not mark it.
+    [Export(PropertyHint.Range, "0,4,1")] public int climbUnderwaterVoxels = 1;
+
     // Minimum unbroken height of an exposed wall face, in voxels, before any of
     // it is dressed. Measured PER FACE, so a boulder's tall north side qualifies
     // while its two-voxel east side does not. Below this a wall is a mantle, and

@@ -1713,6 +1713,11 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		// Ahead of every early return below — riding, mantling and climbing all
+		// own the tick, and the climb prompt has to keep updating (and clear
+		// itself) through them rather than freeze on the last thing it offered.
+		UpdateTraversalPreview(dt);
+
 		// Inactive party members skip the entire controlled-player tick and just
 		// stand where placed (settle under gravity + idle pose). None of the
 		// input / aim / scent / ripple / combat / status systems below run for

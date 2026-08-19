@@ -193,6 +193,34 @@ uniform float tile_height_mid[TILE_CLASS_TABLE_SIZE];
 // stops at flat ground. Moss breaks up a bare wall; a road tread must not run
 // up one. From BlockSurfaceData.overlayOnCliffs.
 uniform float tile_overlay_cliff[TILE_CLASS_TABLE_SIZE];
+// Sub-voxel edge shaping for a layer used as an OVERLAY, applied as a linear
+// remap of its coverage (see ov_cov below). Coverage is already a soft mask of
+// the overlay REGION — 1 deep inside, ramping to 0 across the boundary triangle
+// — so remapping it erodes or hardens the edge with no distance field, no
+// mesher pass and no vertex channel.
+//   erode   — coverage below this is cut. Pulls the boundary INWARD, up to
+//     about one triangle (~1m), which is the sub-voxel range a per-voxel
+//     overlay cannot otherwise reach. It cannot DILATE: coverage saturates at 1
+//     inside the region, so mark the voxels you want and trim down from there.
+//   feather — width of the ramp in coverage units. Smaller = harder edge.
+// Split ground/cliff because the two shares are already separated above, which
+// on a mantle lip means the terrace and the wall can be trimmed independently —
+// that is the knob for "half a voxel each side of the edge".
+// Defaults erode 0 / feather 1 are an EXACT identity, so a layer that authors
+// nothing renders byte-identically to before this existed. That is why the
+// remap is linear rather than a smoothstep, which would curve even at defaults.
+uniform float tile_overlay_erode_ground[TILE_CLASS_TABLE_SIZE];
+uniform float tile_overlay_erode_cliff[TILE_CLASS_TABLE_SIZE];
+uniform float tile_overlay_feather[TILE_CLASS_TABLE_SIZE];
+// How much the height maps arbitrate this overlay against the rock under it,
+// as a multiplier on height_relief_strength for the overlay pass only.
+//   1 = the shared interlock (identity — what every overlay did before this).
+//   0 = coverage decides outright; the rock's texture never punches through.
+// The blend compares (rock relief) against (overlay relief) and BOTH are
+// mean-subtracted, so raising an overlay tile's CONTRAST does not reduce
+// punch-through — it makes the overlay lose harder in its own dark areas. This
+// is the knob for "less rock showing through my growth"; contrast is not.
+uniform float tile_overlay_relief[TILE_CLASS_TABLE_SIZE];
 // Texture-space cavity: darkens pits and lifts peaks around tile_height_mid.
 // Relief per tile scales with that tile's height CONTRAST, so flat height maps
 // stay flat instead of going uniformly dark. 0 = off.
@@ -278,59 +306,20 @@ uniform float concavity_threshold : hint_range(0.001, 1.0) = 0.15;
 // (pools water), blue = convex bump/ridge, black ≈ flat. Scaled up so the
 // sub-voxel magnitudes are visible. Verification aid — see CVars.debugConcavity.
 uniform bool debug_concavity = false;
+// Debug: paint the overlay pass's three stages, so "no growth here" can be told
+// apart from "growth that lost the height blend".
+//   RED   = coverage AFTER erode (what the blend is actually given)
+//   GREEN = coverage BEFORE erode (what the mesher/worldgen marked)
+//   BLUE  = the resolved blend weight (how much of the overlay survived relief)
+// Black = this fragment carries no overlay at all. Red without blue = covered
+// but the rock won on height. Green without red = erode ate it.
+uniform bool debug_overlay_cov = false;
 
 // --- Climbable-ledge mark ------------------------------------------------
-// The mesher marks the lip of every wall the player can mantle in CUSTOM3.z
-// (ClimbLedgeMarker); that scalar is the COVERAGE of a real atlas layer, so the
-// mark is a textured lichen crust with its own normal + height, not a shader
-// effect painted over the rock.
-//   climb_mark_layer     — atlas layer to sample, pushed from
-//     BlockCatalog.climbLedgeSurface by ChunkMesh. -1 disables the mark, so
-//     clearing that reference turns it off without editing this shader.
-//   climb_mark_strength  — master coverage scale. 0 = off.
-//   climb_mark_sharpness — height-blend interlock, same meaning as the
-//     overlay/cliff sharpnesses above: HIGHER = tighter, more frayed edge where
-//     the crust meets bare rock; LOWER = a softer ramp.
-//   climb_mark_gloss     — small sun sheen so the crust catches light against
-//     matte rock. Composed in light() beside the wetness glint. 0 = matte.
-//   climb_band_width     — half-width of the strip in METRES, measured from the
-//     lip edge. This is the knob for "how much ledge is marked"; it governs the
-//     reach down the wall AND onto the floor above at once, because the mesher
-//     bakes distance from the EDGE rather than from either surface. Keep it
-//     under ChunkMesherDC.CLIMB_MAX_DIST or the band clips flat.
-//   climb_band_feather   — how far past that the crust fades out, in metres.
-//   climb_band_noise_*   — world-space wobble on the band edge, so the strip
-//     wanders instead of running parallel to the lip. Amount is in metres.
-uniform int climb_mark_layer = -1;
-// Held below 1.0 on purpose: at full coverage the crust wins everywhere along
-// the lip and reads as a painted line again. Leaving headroom lets the tile's
-// own height decide, so bare rock shows between colonies even at the edge.
-uniform float climb_mark_strength : hint_range(0.0, 1.0) = 0.75;
-uniform float climb_mark_sharpness : hint_range(0.0, 1.0) = 0.5;
-// How opaque the crust is where it DOES win the height blend. Distinct from
-// strength, which is coverage: lowering strength shrinks the colonies, lowering
-// this lets the rock read through the ones that are there. 1.0 replaces the rock
-// outright, which is what made the orange read as a solid decal.
-uniform float climb_mark_opacity : hint_range(0.0, 1.0) = 0.5;
-uniform float climb_mark_gloss : hint_range(0.0, 8.0) = 0.6;
-// Hue for the crust, applied as a LUMINANCE-PRESERVING recolor rather than a
-// multiply: the baked tile is an orange lichen, and multiplying that by green
-// lands on mud, not on green. The tile keeps carrying the colony detail; this
-// only carries the hue. Amount 0 restores the tile's own color exactly.
-uniform vec3 climb_mark_tint : source_color = vec3(0.55, 0.55, 0.25);
-uniform float climb_mark_tint_amount : hint_range(0.0, 1.0) = 1.0;
-const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
-uniform float climb_band_width : hint_range(0.0, 2.0) = 0.207;
-uniform float climb_band_feather : hint_range(0.0, 2.0) = 0.22;
-// Amount is deliberately kept near the band width: much larger and the wobble
-// swings the edge clear past the strip, cutting it into islands that no longer
-// read as one ledge. Raise the SCALE to break it up more finely, not this.
-uniform float climb_band_noise : hint_range(0.0, 2.0) = 0.35;
-uniform float climb_band_noise_scale : hint_range(0.1, 16.0) = 3.0;
-// Debug: paint the raw baked mark (CUSTOM3.z) green via EMISSION, alongside the
-// coverage that actually resolved, so the bake can be confirmed independently of
-// the blend. See CVars.debugClimbLedge.
-uniform bool debug_climb_ledge = false;
+// There is no separate mark any more. A mantleable lip wears the SAME overlay
+// the climbable-wall pass paints, injected into the overlay channel per cell by
+// ChunkMesherDC, so it resolves through the overlay pass below with no uniforms,
+// no vertex channel and no second blend of its own. See ClimbLedgeMarker.
 
 // Per-block tables uploaded by ChunkMesh.SetBlocks at startup. GLOBAL, not
 // per-world: a block id means the same thing in every file.
@@ -417,10 +406,6 @@ varying float openness;
 // each ray reached, frozen at mesh-build time. Only backdrop geometry outside
 // the light-map window shades with it.
 varying float baked_sun;
-// Per-vertex distance in metres to the nearest mantleable lip edge (CUSTOM3.z),
-// clamped at the mesher's CLIMB_MAX_DIST. A distance field rather than a flag so
-// the band below can be narrower than the 1m vertex spacing.
-varying float climb_dist;
 // Per-vertex sharpness in [0,1]. 0 = use interpolated smooth NORMAL,
 // 1 = use dFdx/dFdy-derived face normal (hard flat-shaded crease). Authored
 // per-cell by the DC mesher: 1 for authored-sharp materials (Stone/Wood),
@@ -435,11 +420,6 @@ varying float cloud_dim;
 // Composed in light() with sun_color × sun_intensity and the same shadow
 // gates as DIFFUSE_LIGHT so cast shadows kill the highlight cleanly.
 varying float wet_spec;
-// Fragment→light varying. The climbable-ledge band's sheen, composed in light()
-// under the same shadow gates as wet_spec. Its own varying rather than a term
-// folded into wet_spec: this one must show on dry rock, which is the whole
-// point, and wet_spec is multiplied through by wetness.
-varying float climb_spec;
 // Per-corner authored overlay ids. 0 = no overlay, paint the block's own faces
 // as-is; non-zero = sample that tile and blend over. Picked by the same
 // barycentric argmax as block_ids so boundaries inherit the shared
@@ -462,7 +442,6 @@ void vertex() {
 	concavity = CUSTOM2.w;
 	openness = CUSTOM3.x;
 	baked_sun = CUSTOM3.y;
-	climb_dist = CUSTOM3.z;
 }
 
 // Hash-based 3D value noise. Good enough for breaking up tile-edge seams; we
@@ -636,6 +615,11 @@ void fragment() {
 	// what read as a hard un-feathered dirt/road edge on flat ground.
 	float ov_ids[3];
 	float ov_wts[3];
+	// The part of each overlay's weight that came from the FLAT share, so the
+	// fragment can tell how much of what it is looking at is terrace versus wall
+	// and pick between the two erode values. Accumulated rather than re-derived
+	// from the fragment normal so it matches the coverage exactly.
+	float ov_flat[3];
 	int ov_n = 0;
 	float w_total = 0.0;
 	for (int i = 0; i < 3; i++) {
@@ -676,9 +660,9 @@ void fragment() {
 			if (ow > 0.001) {
 				bool merged = false;
 				for (int k = 0; k < ov_n; k++) {
-					if (ov_ids[k] == overlay_ids[i]) { ov_wts[k] += ow; merged = true; break; }
+					if (ov_ids[k] == overlay_ids[i]) { ov_wts[k] += ow; ov_flat[k] += w * wf; merged = true; break; }
 				}
-				if (!merged && ov_n < 3) { ov_ids[ov_n] = overlay_ids[i]; ov_wts[ov_n] = ow; ov_n += 1; }
+				if (!merged && ov_n < 3) { ov_ids[ov_n] = overlay_ids[i]; ov_wts[ov_n] = ow; ov_flat[ov_n] = w * wf; ov_n += 1; }
 			}
 		}
 		// Route + dedup-append each entry into its class list.
@@ -707,10 +691,21 @@ void fragment() {
 	// Winning overlay, and its share of the triangle.
 	float ov_id = 0.0;
 	float ov_cov = 0.0;
+	float ov_flat_win = 0.0;
 	for (int k = 0; k < ov_n; k++) {
-		if (ov_wts[k] > ov_cov) { ov_cov = ov_wts[k]; ov_id = ov_ids[k]; }
+		if (ov_wts[k] > ov_cov) { ov_cov = ov_wts[k]; ov_id = ov_ids[k]; ov_flat_win = ov_flat[k]; }
 	}
+	float ov_wt_win = ov_cov;
 	ov_cov = ov_cov / max(w_total, 1e-5);
+	float ov_cov_raw = ov_cov;
+	float ov_blend_dbg = 0.0;
+	// Sub-voxel edge shaping. Identity at the defaults (erode 0, feather 1).
+	if (ov_cov > 0.0) {
+		int ovi = clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1);
+		float flat_share = clamp(ov_flat_win / max(ov_wt_win, 1e-5), 0.0, 1.0);
+		float ov_erode = mix(tile_overlay_erode_cliff[ovi], tile_overlay_erode_ground[ovi], flat_share);
+		ov_cov = clamp((ov_cov - ov_erode) / max(tile_overlay_feather[ovi], 1e-4), 0.0, 1.0);
+	}
 
 	// Soft height-blend within each class. Ground and cliff blocks are identical
 	// apart from arrays/depth — inlined twice since the shader language has no
@@ -859,74 +854,19 @@ void fragment() {
 		float oh;
 		sample_tile(ov_id, wp, dwp_dx, dwp_dy, blend, oc, on, oh);
 		float o_mid = tile_height_mid[clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1)];
+		float ov_relief = height_relief_strength
+			* tile_overlay_relief[clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1)];
 		float ob = height_blend_weight(
 			ov_cov,
-			(surface_h - surface_h_mid) * height_relief_strength,
-			(oh - o_mid) * height_relief_strength,
+			(surface_h - surface_h_mid) * ov_relief,
+			(oh - o_mid) * ov_relief,
 			overlay_depth);
+		ov_blend_dbg = ob;
 		tex_color = vec4(mix(tex_color.rgb, oc, ob), tex_color.a);
 		tile_normal = normalize(mix(tile_normal, on, ob));
 		surface_porosity = mix(surface_porosity, tile_porosity[clamp(int(ov_id), 0, TILE_CLASS_TABLE_SIZE - 1)], ob);
 		surface_h = mix(surface_h, oh, ob);
 		surface_h_mid = mix(surface_h_mid, o_mid, ob);
-	}
-
-	// --- Climbable-ledge mark -----------------------------------------------
-	// Applied AFTER the overlay pass, on the resolved surface, so a mantleable
-	// ledge is marked whatever it is made of and whatever is already growing on
-	// it — the affordance has to survive moss and road tread, not queue behind
-	// them. Blended through the same relief-aware weight as the overlay, so the
-	// crust interlocks with the rock's own height instead of ending on a ruled
-	// line, and contributes its normal map to the shading below.
-	//
-	// Deliberately NOT gated to wall-facing normals. At this camera a ledge
-	// facing away shows only its top surface, so the strip has to straddle the
-	// lip — a little down the wall and a little onto the floor above — or it
-	// disappears exactly when the player most needs it. Measuring from the edge
-	// gets both halves from one number.
-	float climb_cov = 0.0;
-	if (climb_mark_layer >= 0) {
-		// Wobble the band edge in world space so the strip wanders instead of
-		// running perfectly parallel to the lip. Perturbing the DISTANCE rather
-		// than masking the result keeps the crust connected along the ledge.
-		float band_n = vnoise(world_vertex * climb_band_noise_scale) - 0.5;
-		float d = climb_dist + band_n * climb_band_noise;
-		climb_cov = (1.0 - smoothstep(climb_band_width, climb_band_width + climb_band_feather, d))
-			* climb_mark_strength;
-	}
-	if (climb_cov > 0.001) {
-		vec3 lichen_col, lichen_nrm;
-		float lichen_h;
-		sample_tile(float(climb_mark_layer), wp, dwp_dx, dwp_dy, blend, lichen_col, lichen_nrm, lichen_h);
-		// Normalizing the tint by its own luminance makes it a pure hue
-		// direction, so the recolored crust keeps the tile's brightness instead
-		// of darkening wherever the tint is saturated.
-		float lichen_lum = dot(lichen_col, LUMA);
-		vec3 climb_hue = climb_mark_tint / max(dot(climb_mark_tint, LUMA), 1e-4);
-		lichen_col = mix(lichen_col, climb_hue * lichen_lum, climb_mark_tint_amount);
-		int li = clamp(climb_mark_layer, 0, TILE_CLASS_TABLE_SIZE - 1);
-		float lichen_mid = tile_height_mid[li];
-		float lb = height_blend_weight(
-			climb_cov,
-			(surface_h - surface_h_mid) * height_relief_strength,
-			(lichen_h - lichen_mid) * height_relief_strength,
-			1.0 - climb_mark_sharpness);
-		// The height blend above chose WHERE; this scales HOW MUCH, so the crust
-		// tints the rock rather than replacing it. Applied to every channel below
-		// (not just color) so a half-opacity crust also perturbs the normal and
-		// shifts porosity by half — otherwise it would light like solid lichen
-		// while looking translucent.
-		lb *= climb_mark_opacity;
-		tex_color = vec4(mix(tex_color.rgb, lichen_col, lb), tex_color.a);
-		tile_normal = normalize(mix(tile_normal, lichen_nrm, lb));
-		surface_porosity = mix(surface_porosity, tile_porosity[li], lb);
-		surface_h = mix(surface_h, lichen_h, lb);
-		surface_h_mid = mix(surface_h_mid, lichen_mid, lb);
-		// Carry forward what actually landed, not the requested coverage — the
-		// sheen below must follow the crust's frayed edge, not the bake's.
-		climb_cov = lb;
-	} else {
-		climb_cov = 0.0;
 	}
 
 	// Per-tile normal map perturbs the shading normal (replaces the old global
@@ -1054,10 +994,9 @@ void fragment() {
 	float wet_ndoth = max(dot(wet_n, wet_h), 0.0);
 	float spec_power = mix(24.0, 400.0, smoothness);
 	wet_spec = pow(wet_ndoth, spec_power) * saturation * mix(reflectivity, 1.0, pool_mask);
-	// Lichen sheen. Same half-vector, but no wetness gate — the crust should
+	// Climb-crust sheen. Same half-vector, but no wetness gate — the crust should
 	// catch a little sun against matte dry rock. Broad rather than tight: this is
 	// a slightly waxy surface, not a polished one.
-	climb_spec = pow(max(dot(shaded_normal, wet_h), 0.0), 16.0) * climb_cov * climb_mark_gloss;
 	// Fresnel SKY reflection — wet ground as a partial mirror of the sky gradient.
 	// Strength scales with smoothness (sharper when smoother) and reflectivity.
 	// Added to EMISSION (a reflection, not diffuse, so NOT multiplied by albedo)
@@ -1219,7 +1158,6 @@ void fragment() {
 		ALBEDO = vec3(0.0);
 		EMISSION = debug_solid;
 		wet_spec = 0.0;
-		climb_spec = 0.0;
 	}
 	if (debug_concavity) {
 		// Red = concave dip (positive), blue = convex bump (negative), black ≈
@@ -1227,19 +1165,21 @@ void fragment() {
 		ALBEDO = vec3(0.0);
 		EMISSION = vec3(max(concavity, 0.0), 0.0, max(-concavity, 0.0)) * 4.0;
 		wet_spec = 0.0;
-		climb_spec = 0.0;
+	}
+	if (debug_overlay_cov) {
+		ALBEDO = vec3(0.0);
+		EMISSION = vec3(ov_cov, ov_cov_raw, ov_blend_dbg);
+		wet_spec = 0.0;
 	}
 	if (debug_normals) {
 		ALBEDO = vec3(0.0);
 		EMISSION = shaded_normal * 0.5 + 0.5;
 		wet_spec = 0.0;
-		climb_spec = 0.0;
 	}
 	if (debug_unlit) {
 		ALBEDO = vec3(0.0);
 		EMISSION = tex_color.rgb;
 		wet_spec = 0.0;
-		climb_spec = 0.0;
 	}
 	if (debug_wet_spec) {
 		// RGB channel breakdown of the wetness pipeline:
@@ -1257,16 +1197,6 @@ void fragment() {
 		ALBEDO = vec3(0.0);
 		EMISSION = vec3(wetness_level, sun_mask * wet_slope, wet_geom);
 		wet_spec = 0.0;
-		climb_spec = 0.0;
-	}
-	if (debug_climb_ledge) {
-		// Green = the baked distance field (bright AT the lip edge), red = the
-		// coverage the band + height blend actually resolved. Split so a missing
-		// crust can be attributed to the bake, the band, or the blend.
-		ALBEDO = vec3(0.0);
-		EMISSION = vec3(climb_cov, max(0.0, 1.0 - climb_dist / 2.0), 0.0);
-		wet_spec = 0.0;
-		climb_spec = 0.0;
 	}
 	// Mode 21 keeps cut fragments alive so they can be painted below — the cut
 	// VOLUME is otherwise invisible by construction.
@@ -1338,7 +1268,4 @@ void light() {
 	// lighting model under specular_disabled. Amplitude tuned via
 	// SkyController's wet_spec_strength.
 	DIFFUSE_LIGHT += wet_spec_strength * sun_color * sun_intensity * wet_spec * light_gate;
-	// Worn-ledge sheen, on the same shadow gate. Amplitude is already folded
-	// into climb_spec by climb_mark_gloss, so there is no second strength here.
-	DIFFUSE_LIGHT += sun_color * sun_intensity * climb_spec * light_gate;
 }

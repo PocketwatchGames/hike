@@ -35,8 +35,17 @@ public partial class WaterfallData : Resource
 
     // How far the outer edge of the sheet is tucked in where there is no
     // neighbouring strip beside it, in metres (max 0.45 of the metre-wide step).
-    // Without it a curtain ends on a hard square corner.
-    [Export(PropertyHint.Range, "0,0.45,0.01")] public float edgeInset = 0.2f;
+    // Zero by default: the sheet should fill the whole metre of lip it pours
+    // over, so it lines up with the water surface feeding it.
+    [Export(PropertyHint.Range, "0,0.45,0.01")] public float edgeInset = 0f;
+
+    // How hard the sweep's samples are bunched toward the lip. The jet leaves
+    // the edge HORIZONTALLY and only turns down as it accelerates, so evenly
+    // spaced samples put the first polygon well past the turn and the sheet
+    // reads as leaving the pool at an angle. Raising this packs several
+    // polygons into the first few centimetres, where the surface is still flat
+    // — which is what makes the top of the fall continuous with the pool.
+    [Export(PropertyHint.Range, "1,6,0.1")] public float shoulderBias = 3f;
 
     // Spacing of spray emitters along the lip and the landing line. A five-wide
     // sheet wants more than one plume, and a one-wide sheet wants exactly one;

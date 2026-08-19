@@ -722,6 +722,19 @@ public static class CVars
     {
         Godot.GD.Print($"[ledge_barrier] chunks={ChunkMesh.LedgeBarrierChunks} "
             + $"faces={ChunkMesh.LedgeBarrierFaces}");
+        // Generation and COLLISION are separate failures that look identical
+        // from the player's side: barriers can exist in the right place and
+        // still do nothing if the body is not masking their layer this tick.
+        Player player = Sim.Current?.player;
+        if (player == null)
+        {
+            Godot.GD.Print("  no player — cannot report collision state");
+            return;
+        }
+        uint bit = (uint)ECollisionLayer.LedgeBarrier;
+        Godot.GD.Print($"  player mask=0x{player.CollisionMask:X} "
+            + $"masksBarrier={((player.CollisionMask & bit) != 0)} "
+            + $"grounded={player.IsGrounded} climb_movement={climbMovement.Value}");
     });
 
     // Console command: dump the walkability sampler's view of the 3x3 columns
@@ -1169,24 +1182,39 @@ public static class CVars
         ChunkMesh.SetDebugConcavity(((CVarBool)cvar).Value);
     });
 
-    // Bakes the climbable-ledge mark into the terrain mesh (ClimbLedgeMarker),
-    // which voxel_clip.gdshader wears so a mantleable wall is visibly different
-    // from a cliff. 0 skips the bake entirely — the A/B for what the extra
-    // mesher pass costs, and the off switch if the look isn't wanted. Toggling
-    // requeues every loaded chunk, since the mark is baked, not resolved at draw.
-    public static CVarBool climbLedgeMarks = new CVarBool("climb_ledge_marks", true, (cvar) =>
+    // Console action: re-read every surface .tres and both atlas strips from disk
+    // and re-push the per-layer shader tables — porosity, overlay cliff routing,
+    // and the overlay edge knobs (erode / feather / relief). The live-tuning loop
+    // for surface blends: edit the .tres (or re-run tools/stitch_voxel_atlas.py),
+    // run this, see it immediately. No restart, no re-mesh, no rebuild.
+    public static CVar surfaceReload = new CVar("surface_reload", (cvar) =>
     {
-        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
+        ChunkMesh.ReloadSurfaceTables();
     });
 
-    // Debug: paint the climbable-ledge bake on terrain — green = the raw mark
-    // the mesher baked, red = the wear that survives the wall gate and noise.
-    // Use to tell "the ledge was never marked" from "the mark is there but the
-    // look is too subtle". The wear tuning (climb_wear_*) is authored on
-    // resources/materials/terrain.tres.
-    public static CVarBool debugClimbLedge = new CVarBool("debug_climb_ledge", false, (cvar) =>
+    // Debug: paint the overlay pass. RED = coverage after erode, GREEN = coverage
+    // before erode, BLUE = the blend weight that survived the height interlock.
+    // Black means no overlay reached this fragment at all — which is the one
+    // conclusion the final image cannot give you, since bare rock and a fully
+    // out-blended overlay look identical.
+    public static CVarBool debugOverlayCov = new CVarBool("debug_overlay_cov", false, (cvar) =>
     {
-        ChunkMesh.SetDebugClimbLedge(((CVarBool)cvar).Value);
+        ChunkMesh.SetDebugOverlayCov(((CVarBool)cvar).Value);
+    });
+
+    // How many voxel rows of a mantleable wall wear the climb-growth overlay
+    // (ClimbLedgeMarker + ChunkMesherDC). WIDTH is not set here — that is the
+    // surface's overlayErode*/overlayFeather, which trim the coverage gradient
+    // sub-voxel. This only decides how much region there is to trim.
+    //   0 = off. Skips the pass entirely — the A/B for what it costs.
+    //   1 = lip row. Coverage is full AT the edge and ramps to nothing a metre
+    //       down the wall, so erode can cut it back to any width either side.
+    //   2 = full rise. Both rows, for maximum coverage before trimming.
+    // Changing this requeues every loaded chunk; the mark is baked, not resolved
+    // at draw time.
+    public static CVarInt climbLedgeMarks = new CVarInt("climb_ledge_marks", 1, (cvar) =>
+    {
+        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
     });
 
     // Terrain texture tuning (tile_uv_scale, tile_normal_strength, the three

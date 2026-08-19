@@ -229,6 +229,13 @@ public partial class Player : CharacterBody3D
 			// speed / ground state below are irrelevant here.
 			loopAnim = _mount.IsPropelling ? _mount.MoveAnim : _mount.IdleAnim;
 		}
+		else if (Climbing)
+		{
+			// Hanging on a wall: the climb cycle forward / reversed / held, per
+			// the direction the body is travelling. Nothing below applies — the
+			// climb owns position and gates out actions and ground state.
+			loopAnim = ClimbAnim();
+		}
 		else if (chargeAnimOverride.HasValue)
 		{
 			loopAnim = chargeAnimOverride.Value;

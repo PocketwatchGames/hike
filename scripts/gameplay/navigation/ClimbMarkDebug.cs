@@ -57,7 +57,19 @@ public static class ClimbMarkDebug
             {
                 break;
             }
-            ws.SetOverlayFacesWorld(wall.X, y, wall.Z, (int)face);
+            // Every EXPOSED horizontal face, not just the one aimed at — the
+            // same set worldgen stamps. Marking one face makes a wall that
+            // cannot be wrapped around, so corner handling would be untestable
+            // with this command.
+            int faces = ExposedFaces(ws, wall.X, y, wall.Z);
+            if (faces == 0)
+            {
+                // Buried voxel. Must NOT be stamped: 0 means ALL faces, so
+                // writing it would make the inside of a thick wall climbable on
+                // every side. Skipped, not counted.
+                continue;
+            }
+            ws.SetOverlayFacesWorld(wall.X, y, wall.Z, faces);
             blocks.Add(id);
             marked++;
         }
@@ -89,7 +101,12 @@ public static class ClimbMarkDebug
 
         GD.Print($"[climb_probe] pos=({p.X:F2},{p.Y:F2},{p.Z:F2}) "
             + $"facing=({dir.X:F2},{dir.Z:F2}) grounded={player.IsGrounded} "
-            + $"climb_movement={CVars.climbMovement.Value}");
+            + $"water={player.WaterStateForDebug()} climb_movement={CVars.climbMovement.Value}");
+        GD.Print($"  gates: attach={player.DescribeClimbGates(false)} "
+            + $"| lip-descent={player.DescribeClimbGates(true)}");
+        GD.Print($"  grip samples y={Mathf.FloorToInt(p.Y + data.climbGripHeight)} "
+            + $"(feet {p.Y:F2} + gripHeight {data.climbGripHeight:F2}); "
+            + $"reach {data.climbReach:F2} along facing");
 
         Vector3 ahead = p + dir * data.climbReach;
         int wx = Mathf.FloorToInt(ahead.X);
@@ -126,6 +143,21 @@ public static class ClimbMarkDebug
         bool canMantle = player.CanMantle();
         GD.Print($"  VERDICT canClimb={player.CanClimb()} canMantle={canMantle}"
             + (canMantle ? "  <- mantle takes the Dash press; climb is not reached" : ""));
+    }
+
+    // The horizontal faces of a voxel that stand open to air.
+    private static int ExposedFaces(WorldState ws, int wx, int wy, int wz)
+    {
+        int mask = 0;
+        foreach (EVoxelFace face in new[] { EVoxelFace.PosX, EVoxelFace.NegX, EVoxelFace.PosZ, EVoxelFace.NegZ })
+        {
+            Vector3I d = VoxelFaces.Delta(face);
+            if (Blocks.IsEmpty(ws.GetBlockWorld(wx + d.X, wy, wz + d.Z)))
+            {
+                mask |= (int)face;
+            }
+        }
+        return mask;
     }
 
     // The first solid voxel in the column ahead, scanning up from the player's

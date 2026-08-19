@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
 [ext_resource type="Resource" uid="uid://cqf7n2cavefl0" path="res://resources/data/surfaces/surface_cave_floor.tres" id="2_cave_floor"]
 [ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/surfaces/surface_stone.tres" id="3_stone"]
+[ext_resource type="Resource" uid="uid://c2kcyv7do7ixy" path="res://resources/data/surfaces/surface_climb_moss.tres" id="surf_climb_growth"]
 
 [resource]
 script = ExtResource("1_s")
@@ -16,3 +17,4 @@ minimapColor = Color(0.5,0.5,0.52, 1)
 blendNoise = 0.55
 defaultShape = 2
 groundType = 1
+climbGrowthSurface = ExtResource("surf_climb_growth")

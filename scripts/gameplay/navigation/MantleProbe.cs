@@ -26,13 +26,20 @@ public static class MantleProbe
         // Whether a drop of the same size is also a candidate. Off when
         // swimming: climbing DOWN out of water is not a thing.
         public readonly bool allowDescend;
+        // Which band to test first where a column offers both. The caller reads
+        // it off what the player is FACING — rock at wall height means up, open
+        // air means down — because the answer is otherwise arbitrary and the two
+        // traversals go opposite ways.
+        public readonly bool preferDescend;
 
-        public Settings(float reach, float minRise, float maxRise, bool allowDescend)
+        public Settings(float reach, float minRise, float maxRise, bool allowDescend,
+            bool preferDescend = false)
         {
             this.reach = reach;
             this.minRise = minRise;
             this.maxRise = maxRise;
             this.allowDescend = allowDescend;
+            this.preferDescend = preferDescend;
         }
     }
 
@@ -75,10 +82,14 @@ public static class MantleProbe
         // flicker as the player walks up to it.
         const float BandEpsilon = 0.001f;
 
-        // Climb up first. A wall in front is the common intent, and a column
-        // offering both an up and a down target (a ledge with a terrace below)
-        // should read as "climb the wall", not "hop off it".
-        if (field.TryGetSurfaceInBand(wx, wz,
+        // Up unless the caller says otherwise. A wall in front is the common
+        // intent, and a column offering both an up and a down target (a ledge
+        // with a terrace below) reads as "climb the wall" — but a player facing
+        // out over open air means the opposite, which is what preferDescend
+        // carries.
+        bool descendFirst = settings.preferDescend && settings.allowDescend;
+
+        if (!descendFirst && field.TryGetSurfaceInBand(wx, wz,
             refY + settings.minRise + BandEpsilon, refY + settings.maxRise, refY, out float upY))
         {
             candidate = new Candidate(new Vector3(wx + 0.5f, upY, wz + 0.5f), upY - refY);
@@ -89,6 +100,15 @@ public static class MantleProbe
             refY - settings.maxRise, refY - settings.minRise - BandEpsilon, refY, out float downY))
         {
             candidate = new Candidate(new Vector3(wx + 0.5f, downY, wz + 0.5f), downY - refY);
+            return true;
+        }
+
+        // Only reachable when descent was preferred and found nothing — fall
+        // back to the wall rather than refusing a traversal that exists.
+        if (descendFirst && field.TryGetSurfaceInBand(wx, wz,
+            refY + settings.minRise + BandEpsilon, refY + settings.maxRise, refY, out float upFallback))
+        {
+            candidate = new Candidate(new Vector3(wx + 0.5f, upFallback, wz + 0.5f), upFallback - refY);
             return true;
         }
 

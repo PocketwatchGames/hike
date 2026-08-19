@@ -158,7 +158,13 @@ public partial class Player : CharacterBody3D
 			return false;
 		}
 
-		Vector3 facing = InputOrBodyFacing();
+		// BODY facing, not movement input. The gate at the bottom measures against
+		// body yaw, so searching along anything else lets the two disagree — aim
+		// at a wall while drifting sideways and the probe looks where you are
+		// going while the gate judges where you are looking, so the ledge you are
+		// staring at is never offered. Where the player is not aiming the body
+		// already turns to follow movement, so this is the same direction anyway.
+		Vector3 facing = BodyForward();
 
 		TraversalProfile profile = TraversalProfileForQuery();
 		_walkField.Refresh(_world.WorldState, _world, profile, GlobalPosition);
@@ -173,13 +179,26 @@ public partial class Player : CharacterBody3D
 			return false;
 		}
 
+		// Which way the player is FACING decides up or down where a column offers
+		// both: meeting rock at wall height means they are at the foot of
+		// something and want to go up, meeting open air means they are at an edge
+		// and want to go down. Horizontal facing cannot say "up" or "down" on its
+		// own — what it can say is what is in front of it, and that is the same
+		// answer.
+		Vector3 ahead = GlobalPosition + facing * data.mantleReach;
+		bool rockAhead = Blocks.IsSolid(_world.WorldState.GetBlockWorld(
+			Mathf.FloorToInt(ahead.X),
+			Mathf.FloorToInt(refY + data.mantleMinRise),
+			Mathf.FloorToInt(ahead.Z)));
+
 		// In water there is no walking alternative, so any reachable bank counts
 		// — no minimum rise. And there is nothing to climb DOWN to from a swim.
 		MantleProbe.Settings settings = new(
 			data.mantleReach,
 			swimming ? 0f : data.mantleMinRise,
 			data.mantleMaxRise,
-			allowDescend: !swimming);
+			allowDescend: !swimming,
+			preferDescend: !rockAhead);
 		if (!MantleProbe.TryFind(_walkField, GlobalPosition, facing, refY, settings, out candidate))
 		{
 			return false;
@@ -212,18 +231,6 @@ public partial class Player : CharacterBody3D
 	// BodyForward for the climb_mark console command, which has to aim at the
 	// same wall the climb probe would.
 	public Vector3 BodyForwardForDebug() => BodyForward();
-
-	// Where a traversal probe should look: movement input when there is any,
-	// else body yaw — the same fallback the wall-jump probe uses, so all three
-	// agree about which way "forward" is when the stick is neutral.
-	private Vector3 InputOrBodyFacing()
-	{
-		if (_inputMove.LengthSquared() > 0.0001f)
-		{
-			return new Vector3(_inputMove.X, 0f, _inputMove.Z);
-		}
-		return BodyForward();
-	}
 
 	// Yaw the body to look along a horizontal direction, so a traversal doesn't
 	// read as a sideways slide.
@@ -354,6 +361,13 @@ public partial class Player : CharacterBody3D
 	private Vector3 _climbTo;
 	private ulong _climbStartMs;
 	private ulong _climbEndMs;
+	// Which way the climb cycle is running: +1 up, -1 down, 0 held on a frame.
+	// Drives the clip pick (ClimbAnim) and nothing else.
+	private int _climbAnimSign;
+
+	// Below this much lean away from the wall the move reads as sideways rather
+	// than a descent, so the cycle keeps playing forward.
+	private const float ClimbDescendAnimThreshold = 0.1f;
 
 	public bool Climbing => _climbPhase != EClimbPhase.None;
 
@@ -372,22 +386,12 @@ public partial class Player : CharacterBody3D
 	private bool TryFindClimb(out ClimbProbe.Attachment attachment)
 	{
 		attachment = default;
-		if (!CVars.climbMovement.Value || data == null || _world == null || Climbing || Mantling)
-		{
-			return false;
-		}
-		// Unlike a mantle there is no swimming case: hauling out of water is the
-		// mantle's job, and a wall face is not reachable from a swim.
-		if (!_grounded || _mount != null || _waterState == EWaterState.Swimming)
-		{
-			return false;
-		}
-		if (_runner != null && _runner.IsBusy)
+		if (!ClimbGatesOpen(needsFooting: false))
 		{
 			return false;
 		}
 
-		if (!ClimbProbe.TryFind(_world.WorldState, GlobalPosition, InputOrBodyFacing(), ClimbSettings(), out attachment))
+		if (!ClimbProbe.TryFind(_world.WorldState, GlobalPosition, BodyForward(), ClimbSettings(), out attachment))
 		{
 			return false;
 		}
@@ -403,27 +407,134 @@ public partial class Player : CharacterBody3D
 		{
 			return false;
 		}
+		BeginClimbEntry(attachment, WallAnchor(attachment.voxel, attachment.normal, GlobalPosition), "wall");
+		return true;
+	}
 
+	// Stepping backwards off the top of a climbable wall onto its face. The
+	// inverse approach to TryStartClimb — there the wall is ahead and the player
+	// walks into it, here the wall is underfoot and the drop is ahead.
+	//
+	// Runs LAST in TryTraversalPress, which is what keeps it from stealing short
+	// drops: a ledge inside the mantle band is a hop down and reads better as
+	// one, so mantle claims it first and only a wall too tall to hop reaches here.
+	private bool TryStartClimbDescent()
+	{
+		if (!TryFindClimbDescent(out ClimbProbe.Attachment attachment, out float feetY))
+		{
+			return false;
+		}
+
+		Vector3 landing = WallAnchor(attachment.voxel, attachment.normal, GlobalPosition);
+		landing.Y = feetY;
+		BeginClimbEntry(attachment, landing, "lip");
+		return true;
+	}
+
+	// The query half of TryStartClimbDescent, split out so the prompt can ask
+	// the same question without backing over the edge to find the answer.
+	// `feetY` is where the body would end up hanging under the lip.
+	private bool TryFindClimbDescent(out ClimbProbe.Attachment attachment, out float feetY)
+	{
+		attachment = default;
+		feetY = 0f;
+		if (!ClimbGatesOpen(needsFooting: true))
+		{
+			return false;
+		}
+		if (!ClimbProbe.TryFindDescent(_world.WorldState, GlobalPosition, BodyForward(),
+			ClimbSettings(), out attachment, out feetY))
+		{
+			return false;
+		}
+
+		// Facing gate, sign-flipped from TryFindClimb: the face here points the
+		// way the player is GOING (out over the edge), not back at them, so
+		// agreement is a positive dot.
+		return BodyForward().Dot(attachment.normal) >= Mathf.Cos(data.climbFacingAngle);
+	}
+
+	// The gates both climb entries share. Kept apart from the probes so the two
+	// cannot drift into disagreeing about when a climb is legal at all.
+	// `needsFooting` is for entries that have to be STANDING on something — the
+	// lip descent, which backs off ground the player is on. Attaching to a face
+	// in front does not: swimming up to a cliff and climbing out of the water is
+	// the same move as walking up to one, and the mantle already treats water as
+	// a legitimate start state for exactly that reason.
+	// Which gate refuses a climb right now, or "open". Names the specific test
+	// rather than reporting a bare false — a refusal is never "cannot climb", it
+	// is one condition, and swimming in particular fails a different one than
+	// standing does.
+	public string DescribeClimbGates(bool needsFooting)
+	{
+		if (!CVars.climbMovement.Value) { return "climb_movement is off"; }
+		if (data == null) { return "no PlayerData"; }
+		if (_world == null) { return "no world"; }
+		if (Climbing) { return "already climbing"; }
+		if (Mantling) { return "mantling"; }
+		if (_mount != null) { return "mounted"; }
+		bool swimming = _waterState == EWaterState.Swimming;
+		if (needsFooting ? !_grounded : (!_grounded && !swimming))
+		{
+			return $"no footing (grounded={_grounded} water={_waterState}"
+				+ (needsFooting ? ", this entry REQUIRES footing)" : ")");
+		}
+		if (_runner != null && _runner.IsBusy) { return $"runner busy ({_runner.Phase})"; }
+		return "open";
+	}
+
+	// Water state, for the climb diagnostic — a swim attach fails differently
+	// from a standing one and the console has no other way to see it.
+	public string WaterStateForDebug() => _waterState.ToString();
+
+	private bool ClimbGatesOpen(bool needsFooting)
+	{
+		if (!CVars.climbMovement.Value || data == null || _world == null || Climbing || Mantling)
+		{
+			return false;
+		}
+		if (_mount != null)
+		{
+			return false;
+		}
+		bool swimming = _waterState == EWaterState.Swimming;
+		if (needsFooting ? !_grounded : (!_grounded && !swimming))
+		{
+			return false;
+		}
+		return _runner == null || !_runner.IsBusy;
+	}
+
+	private void BeginClimbEntry(in ClimbProbe.Attachment attachment, Vector3 landing, string how)
+	{
 		_climbNormal = attachment.normal;
 		_climbFrom = GlobalPosition;
-		_climbTo = WallAnchor(attachment.voxel, attachment.normal, GlobalPosition);
+		_climbTo = landing;
 		_climbStartMs = _world.GameTimeMs;
 		_climbEndMs = _climbStartMs + (ulong)(data.climbEnterDuration * 1000f);
 		_climbPhase = EClimbPhase.Entering;
 		Velocity = Vector3.Zero;
 		_grounded = false;
 		CancelDashAndSprint();
-		FaceAlong(-_climbNormal);
+		// Drop any world interactive that was highlighted. UpdateHighlightInteractive
+		// is gated out for the whole climb (the Climbing branch returns before it),
+		// so a prompt left standing here hangs on screen until the climb ends —
+		// and Dash no longer means "interact", so it reads as a button that does
+		// nothing. Mount() clears it for the same reason.
+		ClearInteractive();
+		// Face the wall, which is opposite the outward normal in both entries —
+		// walking into a face and backing over a lip end up in the same pose.
+		FaceAlong(-attachment.normal);
 
-		// Placeholder, as with a mantle — no climb clip is authored yet.
-		PlayOneShot(EAnimation.Jump);
+		// The carry onto the wall animates in whichever direction it travels:
+		// backing over a lip lowers the body, walking onto a face holds a grip.
+		_climbAnimSign = ClimbCarrySign(_climbFrom.Y, landing.Y);
 
 		if (CVars.climbDebug.Value)
 		{
-			GD.Print($"[climb] attach voxel=({attachment.voxel.X},{attachment.voxel.Y},{attachment.voxel.Z}) "
-				+ $"face={attachment.face} to=({_climbTo.X:F2},{_climbTo.Y:F2},{_climbTo.Z:F2})");
+			GD.Print($"[climb] attach ({how}) voxel=({attachment.voxel.X},{attachment.voxel.Y},{attachment.voxel.Z}) "
+				+ $"face={attachment.face} to=({landing.X:F2},{landing.Y:F2},{landing.Z:F2})");
 		}
-		return true;
 	}
 
 	// Where the body sits while gripping a face. Only the axis THROUGH the wall
@@ -439,6 +550,36 @@ public partial class Player : CharacterBody3D
 			normal.Z != 0f ? voxel.Z + 0.5f + normal.Z * offset : current.Z);
 	}
 
+	// Sign of a carry's vertical travel — also the direction the climb cycle
+	// plays while that carry runs.
+	private static int ClimbCarrySign(float fromY, float toY)
+	{
+		if (toY > fromY)
+		{
+			return 1;
+		}
+		if (toY < fromY)
+		{
+			return -1;
+		}
+		return 0;
+	}
+
+	// The climb slot to show: one authored cycle played forward, reversed, or
+	// held (the three clips are baked from the same climb.fbx).
+	private EAnimation ClimbAnim()
+	{
+		if (_climbAnimSign > 0)
+		{
+			return EAnimation.Climb;
+		}
+		if (_climbAnimSign < 0)
+		{
+			return EAnimation.ClimbDown;
+		}
+		return EAnimation.ClimbIdle;
+	}
+
 	// Mirrors TickMantle: while something other than input owns position, the
 	// upkeep that must not stall still ticks.
 	private void TickClimb(float dt)
@@ -451,6 +592,19 @@ public partial class Player : CharacterBody3D
 		{
 			TickClimbCarry();
 		}
+		// Ledge barriers are invisible walls standing at the top of every drop,
+		// and the climb sweep is a real capsule cast, so leaving them masked in
+		// would catch the body on nothing the player can see — exactly the class
+		// of bug the voxel-grid version could not have had. Recomputed here (the
+		// climb keeps _grounded false, so this clears the bit) because the normal
+		// tick that maintains it is skipped for the whole climb.
+		UpdateLedgeBarrierMask();
+		// Locomotion's continuous loops are driven by a method the climb branch
+		// returns before, so whatever was running at the moment of attaching
+		// would play for the whole climb — the swim loop being the audible one,
+		// since attaching out of water is a normal way in.
+		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopFx, false);
+		UpdateLoopEffect(ref _foliageMovementLoop, _foliageMovementLoopFx, false);
 		_statusEffects?.Tick(dt);
 		UpdateNightVisionShaderGlobal();
 		UpdateAnimation();
@@ -488,58 +642,432 @@ public partial class Player : CharacterBody3D
 		_coyoteTimeEndMs = 0;
 	}
 
+	// Climb motion, driven by the COLLIDER rather than by the voxel grid.
+	//
+	// The grid version quantized every hold to one of four axis faces, which is
+	// why uneven rock misbehaved: the body followed a stepped approximation of a
+	// surface the mesher had already smoothed, so it faced the wrong way, caught
+	// on geometry the collider did not actually have, and jumped whenever the
+	// quantized face flipped. Sweeping the real capsule against the real trimesh
+	// gets the true surface normal for free.
+	//
+	// Per tick: build the motion in the wall's own basis, sweep the capsule along
+	// it (sliding along whatever it hits and spending the remainder), then confirm
+	// from the eye that there is still climbable rock to hold, and adopt its
+	// normal. Failing that last step the whole move is rolled back — better to
+	// stick for a tick than to slide off into the air.
+	// Throttle for the per-tick `climb_debug` trace. 60 Hz of multi-line output
+	// buries the one tick that matters.
+	private ulong _climbTraceLastMs;
+
+	private bool ClimbTracing()
+	{
+		if (!CVars.climbDebug.Value || _world == null)
+		{
+			return false;
+		}
+		ulong now = _world.GameTimeMs;
+		if (now - _climbTraceLastMs < 100)
+		{
+			return false;
+		}
+		_climbTraceLastMs = now;
+		return true;
+	}
+
 	private void TickClimbAttached(float dt)
 	{
 		Velocity = Vector3.Zero;
 
+		Vector3 right = WallRight(_climbNormal);
+		Vector3 wallUp = _climbNormal.Cross(right).Normalized();
+
 		// Pressing INTO the wall climbs, pressing away from it descends. There is
 		// no separate vertical axis to read on a dual-stick pad, and it continues
 		// the lean the player already used to attach.
-		Vector3 right = Vector3.Up.Cross(_climbNormal).Normalized();
 		float into = -_inputMove.Dot(_climbNormal);
 		float lateral = _inputMove.Dot(right);
+		Vector3 motion = (wallUp * into + right * lateral) * data.climbSpeed * dt;
 
-		Vector3 step = (Vector3.Up * into + right * lateral) * data.climbSpeed * dt;
-		if (step.LengthSquared() < 1e-8f)
+		// Climbing stops AT the waterline. A swimmer can hold the face where it
+		// meets the surface — that is how they attach — but hauling yourself down
+		// a submerged cliff is not a thing, and the descent would otherwise run
+		// as far as the rock stays dressed, which it now does one voxel under.
+		if (motion.Y < 0f && _world?.WorldState != null)
+		{
+			int fy = Mathf.FloorToInt(GlobalPosition.Y + motion.Y);
+			if (Blocks.IsWater(_world.WorldState.GetBlockWorld(
+				Mathf.FloorToInt(GlobalPosition.X), fy, Mathf.FloorToInt(GlobalPosition.Z))))
+			{
+				motion.Y = Mathf.Max(motion.Y, fy + 1f - GlobalPosition.Y);
+			}
+		}
+
+		bool moving = motion.LengthSquared() > 1e-10f;
+		// Pressing into the wall runs the cycle forward, pressing away runs it
+		// reversed, and a still stick holds one frame of it.
+		if (!moving)
+		{
+			_climbAnimSign = 0;
+		}
+		else
+		{
+			_climbAnimSign = into < -ClimbDescendAnimThreshold ? -1 : 1;
+		}
+		bool trace = moving && ClimbTracing();
+		if (trace)
+		{
+			GD.Print($"[climb] pos=({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2}) "
+				+ $"n=({_climbNormal.X:F2},{_climbNormal.Y:F2},{_climbNormal.Z:F2}) "
+				+ $"right=({right.X:F2},{right.Y:F2},{right.Z:F2}) into={into:F2} lat={lateral:F2} "
+				+ $"mot=({motion.X:F3},{motion.Y:F3},{motion.Z:F3})");
+		}
+
+		// The whole state, not just position. Restoring position while keeping a
+		// normal adopted from a glancing ray is what made a failed move
+		// IRREVERSIBLE: the body came back but the search cone stayed rotated, so
+		// it drifted further every tick until nothing was in front of it.
+		Vector3 goodPosition = GlobalPosition;
+		Vector3 goodNormal = _climbNormal;
+
+		bool hitWall = false;
+		Vector3 sweptNormal = Vector3.Zero;
+		if (moving)
+		{
+			SweepClimbMotion(motion, out sweptNormal, out hitWall, trace);
+		}
+
+		// Aim the eye fan down whatever the capsule just hit, if it hit a wall.
+		// That is what carries a hold around a concave corner; with nothing hit,
+		// the fan searches about the hold already had.
+		Vector3 searchAbout = hitWall ? sweptNormal : _climbNormal;
+		if (trace)
+		{
+			GD.Print($"  moved to ({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2}) "
+				+ $"searchAbout=({searchAbout.X:F2},{searchAbout.Y:F2},{searchAbout.Z:F2}) "
+				+ $"(from {(hitWall ? "SWEEP" : "current normal")})");
+		}
+
+		// The fan DISCOVERS a candidate normal; SettleAgainstWall then has to
+		// confirm the rock is straight in front along it. Both must pass.
+		bool held = TryFindClimbContact(searchAbout, out Vector3 contactNormal, out Vector3 _, trace)
+			&& SettleAgainstWall(contactNormal, dt, trace);
+		if (held)
+		{
+			_climbNormal = contactNormal;
+			if (trace)
+			{
+				GD.Print($"  RESULT adopt n=({contactNormal.X:F2},{contactNormal.Y:F2},{contactNormal.Z:F2})");
+			}
+		}
+		else if (moving)
+		{
+			GlobalPosition = goodPosition;
+			_climbNormal = goodNormal;
+			if (trace)
+			{
+				GD.Print("  RESULT REVERTED to last held state (position and normal)");
+			}
+		}
+
+		AlignToWall(dt);
+	}
+
+	// Settle the body a fixed distance off the rock DIRECTLY along `normal`, and
+	// confirm that rock is climbable.
+	//
+	// This is the post-condition of a successful tick, and it is what makes a
+	// climb impossible to strand: after every accepted tick the straight-in ray
+	// hits dressed rock, so next tick's ray[0] cannot miss. Without it an
+	// off-axis fan ray could re-aim the normal and HoldOffWall would then correct
+	// the body ALONG that rotated normal — pushing it sideways instead of toward
+	// the wall, a little further every tick, until the climber sat in a nook with
+	// the wall 35 degrees off and only undressed rock in reach.
+	private bool SettleAgainstWall(Vector3 normal, float dt, bool trace)
+	{
+		Vector3 eye = GlobalPosition + Vector3.Up * data.climbGripHeight;
+		float reach = data.climbWallOffset + data.climbContactReach;
+
+		PhysicsDirectSpaceState3D space = GetWorld3D().DirectSpaceState;
+		using var query = PhysicsRayQueryParameters3D.Create(
+			eye, eye - normal * reach, (uint)ECollisionLayer.Solid);
+		query.CollideWithBodies = true;
+		query.CollideWithAreas = false;
+		query.Exclude = new Godot.Collections.Array<Rid> { GetRid() };
+		Godot.Collections.Dictionary result = space.IntersectRay(query);
+		if (result.Count == 0)
+		{
+			if (trace)
+			{
+				GD.Print($"  settle: perpendicular ray along ({-normal.X:F2},{-normal.Y:F2},{-normal.Z:F2}) MISS "
+					+ "— candidate normal does not face the rock");
+			}
+			return false;
+		}
+
+		var point = (Vector3)result["position"];
+		var hitNormal = (Vector3)result["normal"];
+		if (!IsClimbableContact(point, hitNormal))
+		{
+			if (trace)
+			{
+				GD.Print("  settle: rock straight ahead is not climbable");
+			}
+			return false;
+		}
+
+		HoldOffWall(point, normal, dt);
+		return true;
+	}
+
+	// Sweep the capsule along `motion`, sliding along each surface met and
+	// spending what is left, so a climber crossing a corner keeps the part of
+	// their movement that the new face can still take.
+	//
+	// Reports the last WALL-like surface it ran into. That hit is the whole
+	// answer at a concave corner: the eye fan only spans a few tens of degrees
+	// about the normal it already has, so a face at right angles is invisible to
+	// it — but the capsule runs straight into that face, and its normal is
+	// exactly the hold the climber should transfer to. Floors and ceilings met in
+	// passing are filtered out by slope, or climbing down onto ground would
+	// re-aim the search at the dirt underfoot.
+	private void SweepClimbMotion(Vector3 motion, out Vector3 wallNormal, out bool hitWall, bool trace)
+	{
+		const int MaxSlides = 4;
+		wallNormal = Vector3.Zero;
+		hitWall = false;
+
+		for (int i = 0; i < MaxSlides; i++)
+		{
+			KinematicCollision3D hit = MoveAndCollide(motion);
+			if (hit == null)
+			{
+				if (trace)
+				{
+					GD.Print($"  sweep[{i}] clear, travelled all of ({motion.X:F3},{motion.Y:F3},{motion.Z:F3})");
+				}
+				return;
+			}
+			Vector3 normal = hit.GetNormal();
+			bool wallLike = Mathf.Abs(normal.Y) <= data.climbWallNormalMaxY;
+			if (trace)
+			{
+				GD.Print($"  sweep[{i}] HIT n=({normal.X:F2},{normal.Y:F2},{normal.Z:F2}) "
+					+ $"|y|={Mathf.Abs(normal.Y):F2} wallLike={(wallLike ? "yes" : "no (slope)")} "
+					+ $"collider={hit.GetCollider()?.GetType().Name ?? "null"}");
+			}
+			if (wallLike)
+			{
+				wallNormal = normal;
+				hitWall = true;
+			}
+			motion = hit.GetRemainder().Slide(normal);
+			if (motion.LengthSquared() < 1e-10f)
+			{
+				return;
+			}
+		}
+	}
+
+	// Fan of rays out of the climber's eye looking for rock to hold. Rays rather
+	// than a single probe along the normal because an uneven face falls away from
+	// wherever the last normal pointed; spreading the fan across the wall plane
+	// finds the surface again instead of declaring the hold lost.
+	//
+	// Only surfaces whose voxel is marked climbable count, so bare rock beside an
+	// ivy patch reads as the edge of the patch — which is what stops a climb
+	// wandering off onto undressed cliff.
+	private bool TryFindClimbContact(Vector3 aboutNormal, out Vector3 contactNormal, out Vector3 contactPoint, bool trace = false)
+	{
+		contactNormal = aboutNormal;
+		contactPoint = GlobalPosition;
+		if (_world?.WorldState == null)
+		{
+			return false;
+		}
+
+		Vector3 right = WallRight(aboutNormal);
+		Vector3 wallUp = aboutNormal.Cross(right).Normalized();
+		Vector3 eye = GlobalPosition + Vector3.Up * data.climbGripHeight;
+		if (trace)
+		{
+			GD.Print($"  fan from eye=({eye.X:F2},{eye.Y:F2},{eye.Z:F2}) about "
+				+ $"({aboutNormal.X:F2},{aboutNormal.Y:F2},{aboutNormal.Z:F2}) spread={data.climbContactFanAngle:F0}deg");
+		}
+		float spread = Mathf.DegToRad(data.climbContactFanAngle);
+		float reach = data.climbWallOffset + data.climbContactReach;
+
+		// Straight in first: on flat wall it answers immediately, and it is the
+		// direction whose normal best matches the hold the player already has.
+		Span<Vector3> dirs = stackalloc Vector3[5];
+		dirs[0] = -aboutNormal;
+		dirs[1] = (-aboutNormal).Rotated(wallUp, spread).Normalized();
+		dirs[2] = (-aboutNormal).Rotated(wallUp, -spread).Normalized();
+		dirs[3] = (-aboutNormal).Rotated(right, spread).Normalized();
+		dirs[4] = (-aboutNormal).Rotated(right, -spread).Normalized();
+
+		PhysicsDirectSpaceState3D space = GetWorld3D().DirectSpaceState;
+		var exclude = new Godot.Collections.Array<Rid> { GetRid() };
+		for (int i = 0; i < dirs.Length; i++)
+		{
+			using var query = PhysicsRayQueryParameters3D.Create(
+				eye, eye + dirs[i] * reach, (uint)ECollisionLayer.Solid);
+			query.CollideWithBodies = true;
+			query.CollideWithAreas = false;
+			query.Exclude = exclude;
+			Godot.Collections.Dictionary result = space.IntersectRay(query);
+			if (result.Count == 0)
+			{
+				if (trace)
+				{
+					GD.Print($"    ray[{i}] dir=({dirs[i].X:F2},{dirs[i].Y:F2},{dirs[i].Z:F2}) MISS (reach {reach:F2})");
+				}
+				continue;
+			}
+
+			var normal = (Vector3)result["normal"];
+			var point = (Vector3)result["position"];
+			if (trace)
+			{
+				GD.Print($"    ray[{i}] dir=({dirs[i].X:F2},{dirs[i].Y:F2},{dirs[i].Z:F2}) "
+					+ $"HIT p=({point.X:F2},{point.Y:F2},{point.Z:F2}) d={(point - eye).Length():F2} "
+					+ $"n=({normal.X:F2},{normal.Y:F2},{normal.Z:F2})");
+				if (TryResolveContactVoxel(point, normal, out Vector3I traced))
+				{
+					GD.Print($"           march->({traced.X},{traced.Y},{traced.Z}) "
+						+ ClimbProbe.Describe(_world.WorldState, traced.X, traced.Y, traced.Z,
+							ClimbProbe.FromNormal(normal)));
+				}
+				else
+				{
+					GD.Print($"           march found no solid within {data.climbContactDepthSearch:F2}m");
+				}
+			}
+			if (!IsClimbableContact(point, normal))
+			{
+				continue;
+			}
+			contactNormal = normal;
+			contactPoint = point;
+			return true;
+		}
+		return false;
+	}
+
+	// Keep the body a fixed distance off whatever it is actually touching.
+	//
+	// The attach anchor comes from the voxel grid, but the DC hull bulges off the
+	// voxel face plane, so a body placed by that arithmetic can start out already
+	// inside the mesh — and on uneven rock it drifts nearer and further as it
+	// moves along. Correcting only along the contact normal leaves the climber's
+	// own movement across the wall untouched, and the per-tick clamp is what
+	// keeps a sudden change of surface from reading as a teleport.
+	private void HoldOffWall(Vector3 contactPoint, Vector3 normal, float dt)
+	{
+		Vector3 eye = GlobalPosition + Vector3.Up * data.climbGripHeight;
+		float distance = (eye - contactPoint).Dot(normal);
+		float correction = data.climbWallOffset - distance;
+		float maxStep = data.climbSpeed * dt;
+		GlobalPosition += normal * Mathf.Clamp(correction, -maxStep, maxStep);
+	}
+
+	// Is the rock under a contact point dressed for climbing? Steps a little way
+	// INTO the surface before flooring, because the hit sits exactly on the
+	// boundary and floors to whichever voxel the float lands in.
+	// Spacing of the inward march below. Fine enough not to skip a voxel.
+	private const float ContactMarchStep = 0.15f;
+
+	// Is the rock behind a contact point dressed for climbing?
+	private bool IsClimbableContact(Vector3 point, Vector3 normal)
+	{
+		return TryResolveContactVoxel(point, normal, out Vector3I voxel)
+			&& ClimbProbe.IsClimbableFace(_world.WorldState, voxel.X, voxel.Y, voxel.Z,
+				ClimbProbe.FromNormal(normal));
+	}
+
+	// The SOLID voxel that produced a contact point, found by marching inward
+	// along the surface normal.
+	//
+	// A fixed step does not work, and this cost a debugging round. Dual
+	// contouring puts ONE vertex per cell at the density minimizer, so the drawn
+	// surface can sit as much as a whole voxel off the air/solid boundary — and
+	// it leans furthest at a CONCAVE corner, where the vertex is pulled into the
+	// crease. A fixed 0.2 m step therefore floors back into the air voxel and
+	// every concave corner reads as NOT-SOLID, while flat and convex rock (whose
+	// vertices sit near the boundary) works fine. Marching until rock is actually
+	// found is independent of that displacement.
+	private bool TryResolveContactVoxel(Vector3 point, Vector3 normal, out Vector3I voxel)
+	{
+		voxel = default;
+		if (_world?.WorldState == null)
+		{
+			return false;
+		}
+		int steps = Mathf.Max(1, Mathf.CeilToInt(data.climbContactDepthSearch / ContactMarchStep));
+		for (int i = 1; i <= steps; i++)
+		{
+			Vector3 inside = point - normal * (ContactMarchStep * i);
+			var v = new Vector3I(
+				Mathf.FloorToInt(inside.X), Mathf.FloorToInt(inside.Y), Mathf.FloorToInt(inside.Z));
+			if (Blocks.IsSolid(_world.WorldState.GetBlockWorld(v.X, v.Y, v.Z)))
+			{
+				voxel = v;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Lateral axis of the wall plane. A normal that has gone near-vertical (an
+	// overhang rolling into a ceiling) leaves world-up parallel to it and the
+	// cross product degenerate, so fall back to the body's own facing.
+	private Vector3 WallRight(Vector3 normal)
+	{
+		Vector3 right = Vector3.Up.Cross(normal);
+		if (right.LengthSquared() < 1e-6f)
+		{
+			right = BodyForward().Cross(normal);
+		}
+		return right.LengthSquared() < 1e-6f ? Vector3.Right : right.Normalized();
+	}
+
+	// Turn the body to face the wall. Smoothed rather than snapped: on uneven
+	// rock the contact normal changes every tick, and following it exactly makes
+	// the body jitter.
+	private void AlignToWall(float dt)
+	{
+		// A contact normal that has gone near-vertical (the lip of an overhang)
+		// has almost no horizontal component left, so its yaw is numerical noise.
+		// Hold the current facing rather than spinning the body on rounding error.
+		Vector2 flat = new(_climbNormal.X, _climbNormal.Z);
+		if (flat.LengthSquared() < 1e-4f)
 		{
 			return;
 		}
-		Vector3 target = GlobalPosition + step;
 
-		TraversalProfile profile = TraversalProfileForQuery();
-		_walkField.Refresh(_world.WorldState, _world, profile, target);
-
-		// Descending tests the ground FIRST. Ivy that runs all the way down to
-		// the floor keeps offering a grip after the feet have already arrived, so
-		// checking the grip first would leave the player unable to let go.
-		if (step.Y < 0f && TryClimbStepOff(target))
-		{
-			return;
-		}
-
-		if (ClimbProbe.TryFind(_world.WorldState, target, -_climbNormal, ClimbSettings(), out ClimbProbe.Attachment held))
-		{
-			_climbNormal = held.normal;
-			GlobalPosition = WallAnchor(held.voxel, held.normal, target);
-			return;
-		}
-
-		// The face ran out. Climbing past its top becomes a mantle over the lip.
-		if (step.Y > 0f && TryClimbTopOut(target))
-		{
-			return;
-		}
-		if (TryClimbStepOff(target))
-		{
-			return;
-		}
-		// Nowhere to go — hold position rather than sliding off the face.
+		float targetYaw = Mathf.Atan2(-_climbNormal.X, -_climbNormal.Z);
+		float tau = data.climbFaceAlignTime;
+		float yaw = tau > 0f
+			? Mathf.LerpAngle(Rotation.Y, targetYaw, 1f - Mathf.Exp(-dt / tau))
+			: targetYaw;
+		Rotation = new Vector3(Rotation.X, yaw, Rotation.Z);
 	}
 
 	// Over the top of the wall, using the same band query and the same carry the
 	// ledge affordance uses.
 	private bool TryClimbTopOut(Vector3 pos)
 	{
+		if (!TryFindClimbTopOut(pos, out Vector3 landing))
+		{
+			return false;
+		}
+		BeginClimbExit(landing);
+		return true;
+	}
+
+	private bool TryFindClimbTopOut(Vector3 pos, out Vector3 landing)
+	{
+		landing = default;
 		Vector3 into = -_climbNormal;
 		int wx = Mathf.FloorToInt(pos.X + into.X * data.climbReach);
 		int wz = Mathf.FloorToInt(pos.Z + into.Z * data.climbReach);
@@ -548,7 +1076,7 @@ public partial class Player : CharacterBody3D
 		{
 			return false;
 		}
-		BeginClimbExit(new Vector3(wx + 0.5f, y, wz + 0.5f));
+		landing = new Vector3(wx + 0.5f, y, wz + 0.5f);
 		return true;
 	}
 
@@ -557,9 +1085,31 @@ public partial class Player : CharacterBody3D
 	// moving into standable near the height it is moving to.
 	private bool TryClimbStepOff(Vector3 pos)
 	{
+		if (!TryFindClimbStepOff(pos, out Vector3 landing, out bool ontoWater))
+		{
+			return false;
+		}
+		// Water is a place to drop INTO, not a ledge to step onto. Carrying the
+		// body to the water's surface and marking it grounded lands the player
+		// exactly where they were already hanging, which is why releasing over
+		// water looked like the button did nothing. Letting go instead drops them
+		// in, and the swim state picks them up on the next ordinary tick.
+		if (ontoWater)
+		{
+			ReleaseClimbIntoFall();
+			return true;
+		}
+		BeginClimbExit(landing);
+		return true;
+	}
+
+	private bool TryFindClimbStepOff(Vector3 pos, out Vector3 landing, out bool ontoWater)
+	{
+		landing = default;
+		ontoWater = false;
 		int wx = Mathf.FloorToInt(pos.X);
 		int wz = Mathf.FloorToInt(pos.Z);
-		if (!_walkField.TryGetSurface(wx, wz, pos.Y, out float y, out bool _))
+		if (!_walkField.TryGetSurface(wx, wz, pos.Y, out float y, out ontoWater))
 		{
 			return false;
 		}
@@ -567,8 +1117,23 @@ public partial class Player : CharacterBody3D
 		{
 			return false;
 		}
-		BeginClimbExit(new Vector3(pos.X, y, pos.Z));
+		landing = new Vector3(pos.X, y, pos.Z);
 		return true;
+	}
+
+	// Let go with nothing to step onto — over a drop, or over water. Clears the
+	// state by hand rather than through EndClimb, which lands the player grounded.
+	private void ReleaseClimbIntoFall()
+	{
+		_climbPhase = EClimbPhase.None;
+		_climbStartMs = 0;
+		_climbEndMs = 0;
+		_grounded = false;
+		Velocity = Vector3.Zero;
+		if (CVars.climbDebug.Value)
+		{
+			GD.Print("[climb] released into a fall");
+		}
 	}
 
 	private void BeginClimbExit(Vector3 landing)
@@ -582,14 +1147,20 @@ public partial class Player : CharacterBody3D
 		_climbStartMs = _world.GameTimeMs;
 		_climbEndMs = _climbStartMs + (ulong)(data.climbExitDuration * 1000f);
 		_climbPhase = EClimbPhase.Exiting;
+		_climbAnimSign = ClimbCarrySign(_climbFrom.Y, landing.Y);
 		FaceAlong(landing - _climbFrom);
 	}
 
 	// Traversal, as an overload on the Dash button rather than a button of its
-	// own. Order is by commitment: a wall already held answers first, then a
-	// ledge (the short hop is nearly always what was meant where both are
-	// offered), then a climbable face. Returns false when none applied, which is
-	// what lets the same press fall through and become an ordinary dash.
+	// own. Order is by commitment, most-committed first:
+	//   held wall   — release, since a press while hanging can mean nothing else
+	//   ledge       — the short hop, nearly always what was meant where a mantle
+	//                 and a climb are both offered
+	//   wall ahead  — walk into a face and attach
+	//   lip underfoot — back over the edge onto the face below
+	// The last two cannot both be true (one needs rock ahead, the other air), so
+	// their order is only a tie-break on paper. Returns false when none applied,
+	// which is what lets the same press fall through and become an ordinary dash.
 	public bool TryTraversalPress()
 	{
 		if (Climbing)
@@ -600,7 +1171,11 @@ public partial class Player : CharacterBody3D
 		{
 			return true;
 		}
-		return TryStartClimb();
+		if (TryStartClimb())
+		{
+			return true;
+		}
+		return TryStartClimbDescent();
 	}
 
 	// Voluntary let-go. Steps off onto anything standable within reach and
@@ -609,33 +1184,172 @@ public partial class Player : CharacterBody3D
 	// from a face that leads nowhere.
 	private bool TryReleaseClimb()
 	{
+		bool trace = CVars.climbDebug.Value;
+
 		// Mid-transition presses are swallowed, not queued. The carry owns position
 		// for its span, and cutting it short leaves the body inside the wall it was
 		// moving through.
 		if (_climbPhase != EClimbPhase.Attached)
 		{
+			if (trace)
+			{
+				GD.Print($"[climb] release press ignored — phase is {_climbPhase}, not Attached");
+			}
 			return true;
 		}
 
 		TraversalProfile profile = TraversalProfileForQuery();
 		_walkField.Refresh(_world.WorldState, _world, profile, GlobalPosition);
-		if (TryClimbStepOff(GlobalPosition))
+
+		// Near the top of a wall BOTH answer — the lip is over the head and the
+		// ground is within step-off reach — so the stick decides. Holding into
+		// the wall is the same input that climbs, and it means up; holding away
+		// is the input that descends, and it means down. Neutral keeps the lip,
+		// since a press with no input up there reads as pulling up.
+		float into = -_inputMove.Dot(_climbNormal);
+		bool wantsDown = into < -data.climbReleaseInputDeadzone;
+		if (trace)
 		{
+			bool surfaceHere = _walkField.TryGetSurface(
+				Mathf.FloorToInt(GlobalPosition.X), Mathf.FloorToInt(GlobalPosition.Z),
+				GlobalPosition.Y, out float sy, out bool sWater);
+			GD.Print($"[climb] release at ({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2}) "
+				+ $"into={into:F2} wantsDown={wantsDown}; column surface="
+				+ (surfaceHere
+					? $"y={sy:F2} dy={sy - GlobalPosition.Y:F2} water={sWater} (max {data.climbStepOffDistance:F2})"
+					: "NONE"));
+		}
+		bool released = wantsDown
+			? TryClimbStepOff(GlobalPosition) || TryClimbTopOut(GlobalPosition)
+			: TryClimbTopOut(GlobalPosition) || TryClimbStepOff(GlobalPosition);
+		if (released)
+		{
+			if (trace)
+			{
+				GD.Print($"  released to ({_climbTo.X:F2},{_climbTo.Y:F2},{_climbTo.Z:F2})");
+			}
 			return true;
 		}
 
-		// Nothing under us: clear the state by hand rather than through EndClimb,
-		// which lands the player grounded.
-		_climbPhase = EClimbPhase.None;
-		_climbStartMs = 0;
-		_climbEndMs = 0;
-		_grounded = false;
-		Velocity = Vector3.Zero;
-		if (CVars.climbDebug.Value)
-		{
-			GD.Print("[climb] released into a fall");
-		}
+		ReleaseClimbIntoFall();
 		return true;
+	}
+
+	// What a Dash press would traverse to from here, refreshed once per tick and
+	// read by the ClimbHUD. Every branch runs the SAME find the press runs, in
+	// the same order — a prompt that disagrees with the button is worse than no
+	// prompt — so this is a preview, never a second opinion.
+	private ETraversalPreview _traversalPreview;
+	private Vector3 _traversalPromptAnchor;
+	private bool _traversalPromptAnchorValid;
+
+	public ETraversalPreview TraversalPreview => _traversalPreview;
+
+	// Where the prompt is drawn. Meaningless while TraversalPreview is None.
+	public Vector3 TraversalPromptPosition => _traversalPromptAnchor;
+
+	// Called ahead of every early return in _PhysicsProcess, so riding a boat or
+	// being carried through a traversal clears the prompt instead of freezing the
+	// last one on screen.
+	private void UpdateTraversalPreview(float dt)
+	{
+		ETraversalPreview preview = ETraversalPreview.None;
+		// Nobody is looking at an inactive party member's affordances, and the
+		// probes below are not free.
+		if (!IsActive)
+		{
+			_traversalPreview = preview;
+			_traversalPromptAnchorValid = false;
+			return;
+		}
+		// Height of what the press would put the player on; the prompt floats
+		// mantlePromptLift above it.
+		float targetY = 0f;
+
+		if (Climbing)
+		{
+			preview = PreviewClimbRelease(out targetY);
+		}
+		else if (TryFindMantle(out MantleProbe.Candidate candidate))
+		{
+			preview = candidate.rise >= 0f ? ETraversalPreview.Up : ETraversalPreview.Down;
+			targetY = candidate.landing.Y;
+		}
+		else if (TryFindClimb(out ClimbProbe.Attachment _))
+		{
+			// A climb has no landing yet, so the prompt hangs at the grip — which
+			// is where the hands go and reads as "up this face".
+			preview = ETraversalPreview.Up;
+			targetY = GlobalPosition.Y + data.climbGripHeight;
+		}
+		else if (TryFindClimbDescent(out ClimbProbe.Attachment _, out float feetY))
+		{
+			preview = ETraversalPreview.Down;
+			targetY = feetY;
+		}
+
+		_traversalPreview = preview;
+		if (preview == ETraversalPreview.None)
+		{
+			_traversalPromptAnchorValid = false;
+			return;
+		}
+
+		// Placement is taken from the PLAYER — a fixed offset along body facing —
+		// not from the target, whose XZ is a voxel centre and would step a metre
+		// sideways as the target cell changes. Height has to sit at the target, so
+		// it is the one term that steps, and the only one eased.
+		Vector3 target = GlobalPosition + BodyForward() * data.mantlePromptForwardOffset;
+		target.Y = targetY + data.mantlePromptLift;
+		if (!_traversalPromptAnchorValid)
+		{
+			_traversalPromptAnchor = target;
+			_traversalPromptAnchorValid = true;
+			return;
+		}
+		_traversalPromptAnchor.X = target.X;
+		_traversalPromptAnchor.Z = target.Z;
+		float tau = data.mantlePromptSmoothTime;
+		float k = tau > 0f ? 1f - Mathf.Exp(-dt / tau) : 1f;
+		_traversalPromptAnchor.Y = Mathf.Lerp(_traversalPromptAnchor.Y, target.Y, k);
+	}
+
+	// On a wall the press is a release, so the preview answers the question
+	// TryReleaseClimb asks — including the stick, which is what decides it where
+	// both a lip and the ground are in reach. Topping out is the Up arrow;
+	// stepping off the face is the Down one, whichever way the ground goes.
+	private ETraversalPreview PreviewClimbRelease(out float targetY)
+	{
+		targetY = 0f;
+		// Mid-carry presses are swallowed rather than queued, so there is nothing
+		// to promise until the body is actually hanging.
+		if (_climbPhase != EClimbPhase.Attached)
+		{
+			return ETraversalPreview.None;
+		}
+
+		_walkField.Refresh(_world.WorldState, _world, TraversalProfileForQuery(), GlobalPosition);
+		float into = -_inputMove.Dot(_climbNormal);
+		bool wantsDown = into < -data.climbReleaseInputDeadzone;
+
+		if (!wantsDown && TryFindClimbTopOut(GlobalPosition, out Vector3 top))
+		{
+			targetY = top.Y;
+			return ETraversalPreview.Up;
+		}
+		if (TryFindClimbStepOff(GlobalPosition, out Vector3 off, out bool _))
+		{
+			targetY = off.Y;
+			return ETraversalPreview.Down;
+		}
+		if (wantsDown && TryFindClimbTopOut(GlobalPosition, out Vector3 topFallback))
+		{
+			targetY = topFallback.Y;
+			return ETraversalPreview.Up;
+		}
+		// A release with nothing under us is a fall. It still happens on the
+		// press; it just isn't an affordance to advertise.
+		return ETraversalPreview.None;
 	}
 
 	// Whether the LedgeBarrier bit is currently set in our collision mask.

@@ -48,6 +48,34 @@ public partial class BlockSurfaceData : Resource
     // up a vertical rock face. Uploaded per layer as tile_overlay_cliff[].
     [Export] public bool overlayOnCliffs = false;
 
+    // Sub-voxel edge shaping when this surface is used as an OVERLAY. The
+    // terrain shader remaps the overlay's coverage — already a soft 0..1 mask of
+    // the region, ramping across the boundary triangle — so these trim the edge
+    // without any distance field, mesher pass or vertex channel.
+    //
+    // erode pulls the boundary INWARD (it cannot grow the region past the voxels
+    // that carry it: mark what you want, then trim). Ground and cliff are
+    // separate because the shader already splits those shares, which on a mantle
+    // lip is the difference between the terrace and the wall.
+    //
+    // Defaults erode 0 / feather 1 are an EXACT identity — a surface that
+    // authors nothing looks exactly as it did before this existed.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float overlayErodeGround = 0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float overlayErodeCliff = 0f;
+    // Ramp width in COVERAGE units, not metres. Smaller = harder edge.
+    [Export(PropertyHint.Range, "0.01,1,0.01")] public float overlayFeather = 1f;
+
+    // How much the height maps arbitrate this overlay against the rock beneath,
+    // scaling height_relief_strength for the overlay pass only. 1 = the shared
+    // interlock (identity). 0 = coverage decides outright and the rock's texture
+    // never punches through.
+    //
+    // This is the knob for "too much rock showing through my growth" —
+    // NOT the tile's contrast. The blend compares the two reliefs and both are
+    // mean-subtracted, so more contrast makes the overlay lose harder in its own
+    // dark areas, which is the opposite of what it looks like it should do.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float overlayRelief = 1f;
+
     // A wall face wearing this can be climbed. Lives here rather than only on
     // BlockData because climbability travels with the TEXTURE — lichen is
     // climbable wherever it grows — which is the same test porosity passes.

@@ -17,6 +17,34 @@ All of these are **browse/source-only**, outside this repo, and not committed. S
 2. Copy only the chosen source file(s) into the appropriate `res://` subfolder (`assets/textures/...`, `scenes/props/`, etc.). These are **committed**, not gitignored — the game and teammates need them.
 3. Wire them up following the repo conventions (`.import` sidecars, `.tscn`/`.tres`, and the Godot UID Invariants in CLAUDE.md).
 
+## Search by the material's ROLE, not by the name in the request
+
+A request names a *look* ("an ivy texture"); the library files are named for what they **are**
+in a terrain set. Searching the literal word finds mesh atlases and alpha cards — `Generic_Ivy`
+is a UV atlas for the ivy models, `Vines_01` a hanging card — and concluding "the library has
+no ivy, I'll generate one" from that is wrong twice: it is, and the real art was better.
+
+The tiling terrain art lives in per-pack `Terrain/` folders under compound material names —
+`Rock_Moss`, `Moss_Rock`, `Rock_Rough_Moss_Red`. Enumerate those folders before deciding
+something does not exist. Note what a compound name is telling you: `Rock_Moss` is growth ON
+rock, which is a different (and usually more useful) tile than a plain `Moss` carpet, because
+the rock showing through is what makes an overlay read as growth rather than as paint.
+
+Two standing caveats for that art: Synty terrain packs ship **colour + normal only, no height**,
+so anything needing displacement has to derive one; and a colour variant usually **reuses its
+base tile's normal map** (`Rock_Rough_Moss_Red` has no normal of its own).
+
+## Deriving a reversed / held / in-place animation clip
+
+A character clip that is another clip **played backwards**, **one pose held**, or the same
+clip with its **root motion stripped** has no import-time expression — Godot's scene importer
+can trim, slice and retime, but not reverse or de-root. Bake it as its own FBX with
+`tools/derive_anim_clips.py` (Blender, headless) and let the `PlayerAnimManifest` merge it
+like any other clip, rather than reversing, freezing or cancelling motion at runtime. The
+three climb clips are derived from one source this way; the recipe and its two gotchas (a
+held pose needs `animation/remove_immutable_tracks=false`; root motion sits on the armature
+OBJECT, not a bone) are in `assets/models/characters/polysplit/anims/README.md`.
+
 ## Wiring a Synty FBX model (material override + scale)
 
 - Synty FBX embed a texture path that doesn't exist in the project (e.g. `PolygonNatureBiomes_Texture_01_Tom.png`), so import logs a harmless `Resource file not found: res://`. Override the material in the `.fbx.import` `_subresources.materials` block (`use_external`), pointing at a `model_lit` `.tres`. See `signpost.tscn` / `scenes/interactives/campfire.tscn` / `well.tscn` for the canonical wiring.

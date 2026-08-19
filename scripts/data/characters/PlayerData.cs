@@ -109,10 +109,36 @@ public partial class PlayerData : Resource
 	// than a snap.
 	[Export] public float climbEnterDuration = 0.3f;
 	[Export] public float climbExitDuration = 0.25f;
-	// How near a standable surface has to be, vertically, before the climb
-	// releases onto it. This is what ends a descent when the feet reach the
-	// ground, and what lets a climb step sideways onto a ledge.
+	// How near a standable surface has to be, vertically, for a Dash press to
+	// release onto it. Nothing detaches on its own — this only decides which
+	// landings the press can find.
 	[Export] public float climbStepOffDistance = 0.6f;
+	// Spread of the fan of rays cast out of the climber's eye to find the wall,
+	// in degrees either side of the last known normal. Wide enough to re-find a
+	// surface that has fallen away under an uneven face; too wide and it starts
+	// finding rock around corners the body cannot actually reach.
+	[Export(PropertyHint.Range, "0,89,1")] public float climbContactFanAngle = 35f;
+	// How far past the body's hold-off distance those rays reach. This is the
+	// slack for uneven rock — the budget for how far a face may fall away before
+	// the hold is considered lost.
+	[Export] public float climbContactReach = 0.75f;
+	// How far from vertical a surface the capsule runs into may lean and still
+	// count as a wall to transfer the hold to. Keeps a floor met while climbing
+	// down, or a ceiling met going up, from re-aiming the contact search at it.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float climbWallNormalMaxY = 0.6f;
+	// How deep past a ray contact to look for the solid voxel that produced it.
+	// Dual contouring can draw a surface up to a whole voxel off the air/solid
+	// boundary, so this must exceed 1 or concave corners — where the displacement
+	// is worst — read as empty air.
+	[Export(PropertyHint.Range, "0.2,3,0.05")] public float climbContactDepthSearch = 1.4f;
+	// Stick lean, along the climb axis, needed to say "down" rather than "up"
+	// when a Dash press could mean either. Purely a deadzone — without it stick
+	// drift decides whether the player tops out or drops off.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float climbReleaseInputDeadzone = 0.3f;
+	// Easing time for turning the body to face the wall. On uneven rock the
+	// contact normal moves every tick, so following it exactly jitters; 0
+	// disables the easing.
+	[Export(PropertyHint.Range, "0,0.5,0.005")] public float climbFaceAlignTime = 0.09f;
 	// Widest angle between facing and the wall that still attaches. Same job as
 	// mantleFacingAngle — stops a wall grabbing a player running past it.
 	[Export(PropertyHint.Range, "0,180,1,radians_as_degrees")]

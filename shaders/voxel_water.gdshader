@@ -28,21 +28,13 @@ global uniform bool water_hide;
 // stays sharp at object edges instead of bleeding their colors into water.
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest_mipmap;
 uniform sampler2D screen_tex : hint_screen_texture, filter_nearest_mipmap;
-global uniform sampler3D light_map : filter_linear, repeat_enable;
-global uniform vec3 light_map_origin;
-global uniform vec3 light_map_inv_size;
-global uniform float light_falloff_exp;
-global uniform float sun_intensity;
-// sky_common.gdshaderinc owns: sun_world_dir, sun_color, horizon_color,
-// zenith_color, cloud_offset, cloud_scale, cloud_threshold,
-// cloud_sharpness, cloud_color. Including it here makes the SSR miss
-// fallback sample the SAME sky the sky dome shows — so reflections carry
-// clouds + sun disk + horizon gradient, not a flat gradient.
-#include "res://shaders/sky_common.gdshaderinc"
-// Cloud shadow include needs sun_world_dir and the cloud_* uniforms (all
-// declared above by sky_common) plus cloud_shadow_strength.
-global uniform float cloud_shadow_strength;
-#include "res://shaders/cloud_shadow.gdshaderinc"
+// The shared water shading path — the lightmap + cloud-shadow + block-light
+// globals, the volumetric composite and the adaptation tail, all of which the
+// waterfall calls too so the two cannot drift. It also owns sky_common (and so
+// sun_world_dir / sky_sun_dir / the cloud_* set, which the sky sampling below
+// still uses) and cloud_shadow / block_light_shadow / eye_adaptation, so none
+// of those may be declared or included again here.
+#include "res://shaders/water_shading.gdshaderinc"
 
 // Per-zone water styling — all globals driven by ZoneData.WaterColor
 // through WeatherDerivation + SkyController.Apply. Authoring one RGBA per
@@ -62,8 +54,7 @@ global uniform float cloud_shadow_strength;
 // shows the ground EXACTLY — the shoreline is continuous by construction, with
 // no alpha floor to step off. And `behind * transmittance` can only ever darken
 // the bottom, so shallow water can no longer brighten dark ground.
-global uniform vec3 water_absorption;
-global uniform vec3 water_scatter_color : source_color;
+// water_absorption + water_scatter_color: see water_shading.gdshaderinc.
 global uniform float water_depth_scale;
 
 // Water term-isolation toggles - see the fragment tail.
@@ -192,7 +183,7 @@ global uniform float water_current_phase_period;
 global uniform bool water_currents_enabled;
 // Shoreline foam — lighter noise band where water thickness falls below
 // `foam_depth`, so shallow edges of water bodies read as surf.
-global uniform vec3 foam_color;
+// foam_color: see water_shading.gdshaderinc.
 global uniform float foam_depth;
 global uniform float foam_scale;
 // World-XZ scroll offset for the shoreline foam noise UVs. Integrated in
@@ -202,12 +193,7 @@ global uniform vec2 foam_offset;
 global uniform float foam_strength;
 global uniform float foam_threshold;
 global uniform float foam_sharpness;
-// Lower bound on foam lighting — prevents foam from collapsing to black
-// in dim scenes while letting overcast / foggy / nighttime weather pull
-// it down to "dim white" instead of "emissive white". SkyController
-// computes this per-frame from clarity × lightLevel so a clear sunny
-// day keeps foam crisp and a heavy overcast night dims it accordingly.
-global uniform float foam_min_light;
+// foam_min_light: see water_shading.gdshaderinc.
 
 // Wave streaks — a second layer of scrolling noise (similar to ripples but
 // at coarser scales and slower drift) that compounds with the base ripple
@@ -235,22 +221,7 @@ global uniform vec2 wave_streak_offset_b;
 global uniform float whitecap_foam_strength;
 global uniform float whitecap_foam_threshold;
 
-// Block-light shadow projector — see shaders/block_light_shadow.gdshaderinc.
-// Sampled in fragment() at world_vertex; the returned factor multiplies
-// the block_lit term in the water composite so a sprite standing above
-// dims the surface here without affecting open water elsewhere.
-global uniform sampler2D block_light_shadow_tex : filter_linear;
-global uniform vec3 block_light_shadow_origin;
-global uniform vec3 block_light_shadow_right;
-global uniform vec3 block_light_shadow_up;
-global uniform float block_light_shadow_size;
-global uniform float block_light_shadow_strength;
-global uniform float block_light_shadow_blur_uv;
-global uniform bool block_light_shadow_enabled;
-#include "res://shaders/block_light_shadow.gdshaderinc"
-// Dark-adaptation ("night eyes") tone curve. Driven by the player sim
-// (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
-#include "res://shaders/eye_adaptation.gdshaderinc"
+// Block-light shadow + eye adaptation: see water_shading.gdshaderinc.
 
 // Underwater caustics — fake focused-sunlight bands projected onto the seabed
 // reconstructed from the depth buffer. Strength=0 skips the sample entirely.
@@ -274,7 +245,6 @@ global uniform vec3 caustic_color : source_color;
 // sliding past.
 global uniform vec3 caustic_offset;
 
-const float MIN_AMBIENT = 0.0;
 
 // Trilinear wind-factor sample at a world-space point. Texture sampler
 // clamps to edge so out-of-bounds positions read the boundary cell —
@@ -845,14 +815,6 @@ void fragment() {
 	// Water samples from itself: push 0.5 along -world_normal (the flat
 	// face normal — not the ripple-perturbed one) to land inside the cell.
 	vec3 light_sample_pos = world_vertex - world_normal * 0.5;
-	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
-	vec4 lm = texture(light_map, uvw);
-	float sun_mask = pow(lm.r, light_falloff_exp);
-	// Water is `unshaded` (no light() stage / no ATTENUATION available), so
-	// cloud shadow multiplies sun_lit directly. Block light (lm.gba) stays
-	// unaffected — torches shining on water don't care about clouds.
-	float cloud = cloud_shadow_ground_gated(world_vertex, light_sample_pos, TIME);
-	float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
 	// Rippled-normal lighting modifier, weighted by water_alpha. Transparent
 	// water reads as "we're seeing through to the seabed" — its surface
 	// orientation should not visibly redirect direct sunlight, because the
@@ -867,17 +829,14 @@ void fragment() {
 	float flat_dot_sun = max(0.0, to_sun_dir_lit.y);
 	float ripple_dot_sun = max(0.0, dot(n, to_sun_dir_lit));
 	float ripple_light_factor = mix(1.0, ripple_dot_sun / max(flat_dot_sun, 0.01), water_alpha);
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun * ripple_light_factor;
-	// Per-fragment block_lit dim from the shadow projector — a sprite
-	// standing above the water dims its surface here.
-	vec3 block_lit = lm.gba * block_light_shadow_factor(world_vertex);
-	vec3 light = max(min(vec3(1.0), sun_lit + block_lit), vec3(MIN_AMBIENT));
+	float sun_mask;
+	vec3 sun_lit;
+	vec3 block_lit;
+	vec3 light;
+	water_light(world_vertex, light_sample_pos, TIME, ripple_light_factor,
+		sun_mask, sun_lit, block_lit, light);
 	vec3 shaded_light = face_shade * light;
-
-	// The volume's own contribution: light scattered back out of the water,
-	// saturating toward water_scatter_color as the bottom is extinguished. This
-	// is what gives deep water its colour; it is NOT an albedo over the ground.
-	vec3 in_scatter = water_scatter_color * shaded_light * (1.0 - transmittance);
+	vec3 in_scatter = water_in_scatter(shaded_light, transmittance);
 	vec3 water_col = in_scatter;
 
 
@@ -1157,20 +1116,12 @@ void fragment() {
 	// whole composite would SQUARE the gain on the see-through part, weighted by
 	// transmittance — brightest exactly where the water is thinnest, i.e. a
 	// glowing band along every shoreline that no shading parameter can dim.
-	vec3 seen_through = behind * transmittance;
-	vec3 own_light = in_scatter;
-	// Foam sits ON the surface, above the whole volume, and keeps its own alpha.
-	if (is_top && foam_amount > 1e-4) {
-		vec3 foam_light = max(light, vec3(foam_min_light * sun_mask));
-		own_light = mix(own_light, foam_color * foam_light, foam_amount);
-		seen_through *= (1.0 - foam_amount);
-	}
-	own_light = mix(own_light, refl_col, refl_mix);
-	seen_through *= (1.0 - refl_mix);
-	vec3 water_body = seen_through + in_scatter;
-	vec3 composited = own_light + seen_through;
-	// Exempted from eye adaptation at the bottom of fragment().
-	vec3 ea_exempt = seen_through;
+	vec3 composited;
+	vec3 ea_exempt;    // exempted from eye adaptation at the bottom of fragment()
+	water_compose(behind, transmittance, in_scatter, light, sun_mask,
+		is_top ? foam_amount : 0.0, refl_col, refl_mix, composited, ea_exempt);
+	// Only the water_debug isolation modes want the body on its own.
+	vec3 water_body = ea_exempt + in_scatter;
 
 	// Debug visualizer. When non-zero, replaces the composited output on
 	// top faces only (side faces stay normal so shorelines remain readable).
@@ -1279,10 +1230,7 @@ void fragment() {
 	// bright. light_est = local water illuminance (sun + block). The water is
 	// `unshaded`, so scaling the composite directly is the final adaptation; no
 	// ALBEDO/EMISSION split here. No-op when eye_adaptation == 0.
-	float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
-	// Adapt only what this shader generated; ea_exempt already carries the
-	// adaptation of whatever drew it into the screen texture (see above).
-	ALBEDO = max(composited - ea_exempt, vec3(0.0)) * ea_gain + ea_exempt;
+	ALBEDO = water_adapt(composited, ea_exempt, sun_lit, block_lit);
 	ALPHA = 1.0;
 
 	// Term isolation, the same approach that located the sun banding. Each
