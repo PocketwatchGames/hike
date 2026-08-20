@@ -46,6 +46,8 @@ public class TunnelTool : IWorldMapTool
         });
     }
 
+    public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
+    public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
         CarveHeight = Mathf.Clamp(CarveHeight + dir, 1, 8);
@@ -63,7 +65,6 @@ public class TunnelTool : IWorldMapTool
 public class TunnelView : IWorldMapView
 {
     public ESpawnPreview PreviewLayer => ESpawnPreview.None;
-    public bool ShowsClimb => false;
 
     // Colour is a cross-section slice, not a height.
     public bool ShowsAllSteps => true;

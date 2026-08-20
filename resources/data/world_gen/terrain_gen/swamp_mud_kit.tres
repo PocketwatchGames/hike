@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="13_q55et"]
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="14_4vdwx"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_marsh_ground.tres" id="blk_marsh_ground"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/prop_sets/swamp_mud.tres" id="set_forest"]
+[ext_resource type="Resource" uid="uid://duhbyv7bnv3p7" path="res://resources/data/worldmap/prop_sets/swamp_mud.tres" id="set_forest"]
 
 [sub_resource type="Resource" id="ws_11_tpi02"]
 script = ExtResource("3_76umd")

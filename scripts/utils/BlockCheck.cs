@@ -7,8 +7,30 @@ using System.Text;
 // shader_check. Needs no world, no menu and no renderer.
 public static class BlockCheck
 {
-    public static void RunAndQuit(SceneTree tree)
+    // The kit palette is data, and it is the .hike's WIRE FORMAT — every
+    // TerrainId byte indexes it — so a change to it re-textures every world
+    // already baked. Dumped here, beside the block table, because a diff of this
+    // output is the cheapest proof that a palette edit only APPENDED.
+    private static void DumpKitPalette(WorldGenData genData)
     {
+        KitPalette palette = KitPalette.Build(genData?.kitPalette, genData?.ZoneGens);
+        var sb = new StringBuilder();
+        sb.AppendLine($"[block_check] kit palette: {palette.Kits.Length} slots"
+            + $", {palette.DetailGroups.Length} detail groups");
+        for (int i = 0; i < palette.Kits.Length; i++)
+        {
+            TerrainKitData kit = palette.Kits[i];
+            string purpose = palette.IsSurfaceKit(i) ? "surface"
+                : palette.IsCaveKit(i) ? "cave" : "-";
+            sb.AppendLine($"  {i,2}  {StringExtensions.GetFile(kit?.ResourcePath ?? "<null>"),-24} "
+                + $"block={palette.BlockFor(i),-3} {purpose}");
+        }
+        GD.Print(sb.ToString().TrimEnd());
+    }
+
+    public static void RunAndQuit(SceneTree tree, WorldGenData genData = null)
+    {
+        DumpKitPalette(genData);
         BlockCatalog catalog = BlockCatalog.Active;
         if (catalog == null)
         {

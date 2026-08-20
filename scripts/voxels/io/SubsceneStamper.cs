@@ -49,8 +49,11 @@ public static class SubsceneStamper
                     int wx = worldOrigin.X + lx;
                     int wy = worldOrigin.Y + ly;
                     int wz = worldOrigin.Z + lz;
-                    ws.SetBlockWorld(wx, wy, wz, sub.Voxels[lx, ly, lz], (SharpAxes)sub.Shape[lx, ly, lz]);
-                    ws.SetTerrainIdWorld(wx, wy, wz, ResolveTerrainId(sub, groundTerrain, footprintGround, lx, ly, lz));
+                    int inherited = InheritedTerrainId(groundTerrain, footprintGround, lx, lz);
+                    int terrainId = inherited != NO_GROUND ? inherited : sub.TerrainId[lx, ly, lz];
+                    ws.SetBlockWorld(wx, wy, wz,
+                        RetexturedBlock(ws.Kits, sub.Voxels[lx, ly, lz], inherited), (SharpAxes)sub.Shape[lx, ly, lz]);
+                    ws.SetTerrainIdWorld(wx, wy, wz, terrainId);
                     ws.SetOverlayIdWorld(wx, wy, wz, sub.OverlayId[lx, ly, lz]);
                     ws.SetDetailGroupWorld(wx, wy, wz, sub.DetailGroup[lx, ly, lz]);
                     ws.SetDetailStrengthWorld(wx, wy, wz, sub.DetailStrength[lx, ly, lz]);
@@ -100,17 +103,39 @@ public static class SubsceneStamper
     // hits; the rest covers columns whose ground sits a step or two lower.
     private const int GROUND_SEARCH_DEPTH = 8;
 
-    private static int ResolveTerrainId(SubsceneState sub, int[,] groundTerrain, int footprintGround, int lx, int ly, int lz)
+    // The destination kit under a column, or NO_GROUND when there is nothing to
+    // inherit from — a stamp into open air, or the editor's blank workspace where
+    // the scene IS the world and its own byte is the only index there is.
+    private static int InheritedTerrainId(int[,] groundTerrain, int footprintGround, int lx, int lz)
     {
         int inherited = groundTerrain[lx, lz];
-        if (inherited == NO_GROUND)
+        return inherited != NO_GROUND ? inherited : footprintGround;
+    }
+
+    // The block a stamped voxel actually gets.
+    //
+    // Inheriting the kit BYTE is not enough on its own: appearance lives on the
+    // BLOCK, so a scene authored on forest soil kept its forest soil in a desert
+    // and only an invisible channel changed — the same trap WorldGen.RestampKit
+    // exists to avoid. So a voxel whose authored block is natural ground is
+    // re-textured to the block the destination kit resolves to.
+    //
+    // What separates the two cases is whether the authored block is SOME kit's
+    // ground (KitPalette.IsKitGround). Kit ground is a biome statement and the
+    // scene has no biome, so it adopts the one it lands in; anything else — a
+    // stone wall, a plank floor, cobbles, a dirt path — is a deliberate material
+    // that survives unchanged.
+    //
+    // NOT BlockData.naturalGround, which answers "may the road pass grade across
+    // this?" and is true of Road and Dirt: using it re-textured a town square's
+    // paths into whatever grass the destination happened to have.
+    private static byte RetexturedBlock(KitPalette kits, byte authored, int inheritedTerrainId)
+    {
+        if (inheritedTerrainId == NO_GROUND || !kits.IsKitGround(authored))
         {
-            inherited = footprintGround;
+            return authored;
         }
-        // Nothing under any of it — a stamp into open air, or the editor's blank
-        // workspace where the scene IS the world and its own byte is the only
-        // index there is.
-        return inherited != NO_GROUND ? inherited : sub.TerrainId[lx, ly, lz];
+        return (byte)kits.BlockFor(inheritedTerrainId);
     }
 
     // Per-column TerrainId of the destination ground under the stamp's footprint,

@@ -94,6 +94,8 @@ public class MobLevelTool : IWorldMapTool
         });
     }
 
+    public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
+    public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
         int n = ctx.MobLevelCount;
@@ -114,7 +116,6 @@ public class MobLevelView : IWorldMapView
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.None;
-    public bool ShowsClimb => false;
 
     public Color ColorAt(WorldMapState ctx, int px, int pz)
     {

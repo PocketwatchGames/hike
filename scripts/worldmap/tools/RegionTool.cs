@@ -58,6 +58,8 @@ public class RegionTool : IWorldMapTool
         });
     }
 
+    public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
+    public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
         if (ctx.RegionCount > 0)
@@ -75,18 +77,23 @@ public class RegionTool : IWorldMapTool
 public class RegionView : IWorldMapView
 {
     public ESpawnPreview PreviewLayer => ESpawnPreview.None;
-    public bool ShowsClimb => false;
 
     // Colour is a region index, so every step is worth a line.
     public bool ShowsAllSteps => true;
-    public bool DrawsWater => false;
+    // Water is not composited over the region wash, but it IS shown — every
+    // submerged column is darkened below. That counts: the outlines follow the
+    // water surface (the seabed's shape is no more readable under a flat
+    // darkened wash than under an opaque blue one) and spill edges are inked,
+    // so a region map answers "where does this water pour" like every other map
+    // that shows water.
+    public bool DrawsWater => true;
 
     public Color ColorAt(WorldMapState ctx, int px, int pz)
     {
         Vector2I ct = ctx.Data.ColumnTexelToChunkTexel(px, pz);
         int idx = Mathf.RoundToInt(ctx.Region.GetPixel(ct.X, ct.Y).R * 255f);
         Color c = WorldMapState.RegionColor(idx);
-        if (ctx.Ocean(px, pz))
+        if (ctx.Underwater(px, pz))
         {
             c = new Color(c.R * 0.5f, c.G * 0.5f, c.B * 0.5f);
         }

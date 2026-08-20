@@ -7,7 +7,7 @@ using Godot;
 // the .hike is never hand-edited. Mirrors the VoxelAtlasManifest pattern.
 //
 // Layers: elevation (per-column height in voxels relative to seaLevel, signed),
-// water (per-column water surface, same encoding),
+// water (per-column water surface, same encoding; below the range = none),
 // region (per-chunk index), zone (per-chunk index), tunnels (per-voxel carve).
 //
 // NOT [Tool], and it must stay that way. WorldGenData is not [Tool], so under
@@ -49,16 +49,50 @@ public partial class WorldMapData : Resource
         new Color(0.50f, 0.18f, 0.45f),
     };
 
+    // A hand-placed entity, and the player spawn. Both are single metres on the
+    // map, so they are drawn as flat marks rather than washes.
+    [Export] public Color entityInk = new Color(1f, 0.55f, 0.15f);
+    [Export] public Color spawnInk = new Color(0.3f, 1f, 1f);
+
+    // Wash over a placed subscene's footprint. The alpha is the SELECTED
+    // strength; an unselected stamp gets a fraction of it, so which one a drag
+    // is about is never in doubt.
+    [Export] public Color placementInk = new Color(1f, 0.85f, 0.35f, 0.7f);
+
     // A painted climbing route, inked over the step outline in place of its
     // height ink — so a route reads as the white edge you clicked turning
     // magenta, and nothing else about the map changes.
     [Export] public Color climbInk = new Color(1f, 0.2f, 0.9f, 1f);
 
-    // Shortest wall a route may be painted on. Matches the ">2m" bucket the
-    // outline pass draws in edgeInkOver2m, because "paint the white edges" is the
-    // rule the tool is teaching — deliberately NOT WorldGenData.climbMinCliffHeight,
-    // which is the minimum for the PROCEDURAL pass and has no say over a wall
-    // someone drew a route on.
+    // Roughen: the shortest step it treats as a cliff, and the band of wall that
+    // always survives. A cliff of height h has h - band voxels of erosion to
+    // give: at 4m that is a single voxel, at 5m two, and so on. The band is what
+    // keeps an eroded cliff a cliff.
+    [Export(PropertyHint.Range, "2,32,1")] public int roughenMinCliffVoxels = 4;
+    [Export(PropertyHint.Range, "0,16,1")] public int roughenKeepBandVoxels = 3;
+
+    // Metres of run per voxel of talus. 1 is a 45-degree scree cone; higher
+    // spreads the same rubble further out. At least 1 is what keeps every new
+    // step to a single voxel: erosion piled into ONE column is a 2m step, and a
+    // 2m step is something the player can mantle.
+    [Export(PropertyHint.Range, "1,8,1")] public int roughenTalusRunPerVoxel = 1;
+
+    // How far weathering may reach from a cliff, in metres. Bounds the cost of
+    // the spread on a very tall wall.
+    [Export(PropertyHint.Range, "1,32,1")] public int roughenMaxSpreadVoxels = 8;
+
+    // Splits that budget between the lip and the foot — 1 puts it all in talus
+    // at the base, 0 takes it all off the top. Sampled at world coordinates from
+    // a fixed seed, so the same cliff always weathers the same way and two
+    // people opening the document see the same thing.
+    [Export] public int roughenNoiseSeed = 8891;
+    [Export(PropertyHint.Range, "0.01,4,0.001")] public float roughenNoiseFrequency = 0.6f;
+
+    // Shortest wall a route may be painted on. THREE: 3m is the shortest wall
+    // that can be MARKED climbable, and it is also the band weathering leaves
+    // standing, so an eroded cliff stays markable.
+    // Deliberately NOT WorldGenData.climbMinCliffHeight, which is the minimum for
+    // the PROCEDURAL pass and has no say over a wall someone drew a route on.
     [Export(PropertyHint.Range, "2,32,1")] public int climbRouteMinWallVoxels = 3;
 
     // Ground for columns with none painted. Replaces "inherit the zone's kits",
@@ -75,6 +109,19 @@ public partial class WorldMapData : Resource
     // painted anywhere — the whole point of pulling "pine stand" out of the kit
     // it used to be inlined in.
     [Export] public SpawnSetData[] propSets = System.Array.Empty<SpawnSetData>();
+
+    // Entries the entity tool can place one at a time. The same
+    // `SpawnEntryData` the scatter layers use, so one palette covers props,
+    // mobs, chests, loot and NPCs, and a hand-placed chest spawns through
+    // exactly the path a scattered one does.
+    [Export] public SpawnEntryData[] entityPalette = System.Array.Empty<SpawnEntryData>();
+
+    // Blocks this document can pave a column's surface with — roads, plazas,
+    // building floors. A BlockData directly, not a kit or a surface: appearance
+    // IS the block now, and a paved column wants the block's material properties
+    // too (footstep sound, speed multiplier, dig yield), which the overlay skin
+    // worldgen's road pass uses cannot carry.
+    [Export] public BlockData[] pavingBlocks = System.Array.Empty<BlockData>();
 
     // Mob sets this document can paint. The SAME resource type as propSets —
     // "a weighted set of things placed at an area rate" describes both — but a
@@ -93,21 +140,28 @@ public partial class WorldMapData : Resource
     [Export(PropertyHint.Range, "-8,0,1")] public int floorChunkY = -1;
     [Export(PropertyHint.Range, "0,32,1")] public int ceilChunkY = 4;
 
-    // World voxel Y of the waterline (matches WorldGen.WATER_LEVEL). A document
-    // constant, not a live knob: the elevation layer is measured RELATIVE to it,
-    // so terrain is raised and lowered past the shore without moving the sea.
+    // World voxel Y that 0 means in both height layers (matches
+    // WorldGen.WATER_LEVEL). It is the ORIGIN of the signed encoding and the
+    // level an unpainted water column reads as — not a waterline rule: nothing
+    // asks "is this ground below the sea", the water layer alone says where
+    // water is. Which also makes it the elevation the world is prefilled with
+    // water at, since a blank layer is zeros.
     [Export] public int seaLevel = 0;
 
-    // Vertical range the elevation layer can express, in voxels relative to
-    // seaLevel. Negative is seabed — painting below the waterline is how oceans
-    // and lake beds are dug, so this must stay negative. Deepening it past the
-    // floor chunk does nothing: SnapVoxels also clamps to the world extent.
+    // Vertical range BOTH height layers can express, in voxels relative to
+    // seaLevel. Negative is seabed — digging below the sea is how ocean and lake
+    // beds are made, so this must stay negative. Deepening it past the floor
+    // chunk does nothing: SnapVoxels also clamps to the world extent. One value
+    // below the floor is reserved as the water layer's "no water" sentinel
+    // (WorldMapState.NoWaterVoxels), so the range is what an author can paint.
     [Export(PropertyHint.Range, "-512,0,1")] public float minElevationVoxels = -16f;
     [Export(PropertyHint.Range, "1,512,1")] public float maxElevationVoxels = 64f;
 
     // How the painted terrain picks a zone kit. A column at or within
-    // shoreBandVoxels above the waterline is shore; anything the water stands
-    // over is submerged; the rest is surface. Below the top surfaceDepthVoxels
+    // shoreBandVoxels above THE WATER BESIDE IT is shore; anything the water
+    // stands over is submerged; the rest is surface. Measured from the water
+    // rather than from seaLevel, so a drained basin below zero is not sand and a
+    // mountain lake gets a beach. Below the top surfaceDepthVoxels
     // the column switches to the zone's cave kit, so a tunnel bored through a
     // hillside has rock walls rather than a cross-section of grass.
     [Export(PropertyHint.Range, "0,16,1")] public int shoreBandVoxels = 2;
@@ -119,6 +173,13 @@ public partial class WorldMapData : Resource
     // lattice on top. Raise it to force terracing, mirroring the plateau lattice
     // the terrain generator snaps enclosed space to.
     [Export(PropertyHint.Range, "1,16,1")] public int elevationStepVoxels = 1;
+
+    // How far the TOP metre of a band is lerped toward white. The metres between
+    // spread evenly up to it, so this is the whole contrast range of a band in
+    // one number: 1 would take the highest metre to pure white and lose the hue
+    // that says which band it is, while 0 would flatten every metre onto the
+    // authored base and lose the step. Half keeps both readable.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float elevationBandMaxBrightness = 0.5f;
 
     // Elevation palette. Height is read as bands of `metersPerBand`: the band
     // picks a colour from this cycle, and the metre within the band lifts it
@@ -143,12 +204,26 @@ public partial class WorldMapData : Resource
     // Submerged ground is drawn as flat water, NOT as a tinted seabed: depth and
     // height would otherwise speak the same colour language and the eye cannot
     // separate "low" from "underwater". Two shades only — down to
-    // shallowWaterDepth under the surface, then plain blue however deep it gets.
+    // waterDeepAtVoxels under the surface, lerped between the two stops.
     // Step outlines still draw over both, so the bed's shape is readable without
     // its height being legible.
     [Export] public Color shallowWaterColor = new Color(0.35f, 0.60f, 0.90f);
     [Export] public Color deepWaterColor = new Color(0.10f, 0.20f, 0.60f);
-    [Export(PropertyHint.Range, "1,8,1")] public int shallowWaterDepth = 1;
+    // Depth at which water reaches deepWaterColor; shallower lerps toward
+    // shallowWaterColor, so a shoreline is pale and anything past this is dark.
+    [Export(PropertyHint.Range, "1,32,1")] public int waterDeepAtVoxels = 4;
+
+    // Edge of water that pours over a bare drop — a waterfall. Bright, because
+    // it is a thing to notice rather than to read past.
+    // Waterfall edges are drawn WIDER than a contour line and at full alpha.
+    // They are a warning, not a height cue: a spill is the one thing about
+    // painted water the depth shading cannot show, and at the ordinary
+    // edgeWidthFraction (a single pixel at 3 px/m) a bright teal reads as a
+    // faint fringe on the shoreline it is trying to flag. As a fraction of a
+    // metre cell, like edgeWidthFraction; 1 floods the whole cell.
+    [Export(PropertyHint.Range, "0.05,1,0.01")] public float waterfallEdgeWidthFraction = 0.67f;
+
+    [Export] public Color waterfallInk = new Color(0.25f, 1f, 0.9f, 1f);
 
     // Ink for the outline drawn on a voxel edge where the height changes, by how
     // big that change is: under 2m, exactly 2m, over 2m. ALPHA IS PART OF THE
@@ -170,6 +245,8 @@ public partial class WorldMapData : Resource
     [Export] public string zoneImagePath = "";         // .png, R8, per chunk
     [Export] public string scatterImagePath = "";      // .png, Rgba8, per column (R=set+1, G=density)
     [Export] public string groundImagePath = "";       // .png, R8, per column (ground set + 1, 0 = default)
+    [Export] public string pavingImagePath = "";       // .png, R8, per column (paving block + 1, 0 = none)
+    [Export] public string placementsPath = "";        // .tres, WorldMapPlacements (subscene stamps)
     [Export] public string mobImagePath = "";          // .png, Rgba8, per column (R=mob set+1, G=density)
 
     // Per-column SCALAR layers, packed one per channel of a single image rather
@@ -262,7 +339,14 @@ public partial class WorldMapData : Resource
 
     public Image LoadOrCreateGround()
     {
-        Image img = TryLoad(groundImagePath);
+        return LoadOrCreateIndexImage(groundImagePath);
+    }
+
+    // A per-column INDEX layer: R8, storing a palette index + 1 so 0 can mean
+    // "nothing painted". Ground and paving are the same shape.
+    private Image LoadOrCreateIndexImage(string path)
+    {
+        Image img = TryLoad(path);
         if (img != null)
         {
             if (img.GetWidth() != ImageWidth || img.GetHeight() != ImageHeight)
@@ -278,6 +362,16 @@ public partial class WorldMapData : Resource
         Image blank = Image.CreateEmpty(ImageWidth, ImageHeight, false, Image.Format.R8);
         blank.Fill(new Color(0f, 0f, 0f, 1f));
         return blank;
+    }
+
+    public Image LoadOrCreatePaving()
+    {
+        return LoadOrCreateIndexImage(pavingImagePath);
+    }
+
+    public void SavePaving(Image img)
+    {
+        SavePng(pavingImagePath, img, "paving");
     }
 
     public void SaveGround(Image img)

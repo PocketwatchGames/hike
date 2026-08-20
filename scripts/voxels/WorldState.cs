@@ -10,6 +10,14 @@ public class WorldState
     public Vector3I Min { get; private set; }
     public Vector3I Max { get; private set; }
     public SimData SimData;
+
+    // This world's kit palette: the slot table every ChunkState.TerrainId byte
+    // indexes, plus the detail groups derived from it. Owned HERE rather than on
+    // a static, because it is world state — it outlives generation, it is the
+    // .hike's wire format, and a second world (a painter bake on a background
+    // thread) must not be able to rebind the one the live world is reading.
+    // Never null; a world built without one gets KitPalette.Empty.
+    public readonly KitPalette Kits;
     // This world's authored scripted content (quests). Set at load from
     // WorldGenData.scriptData (GameClient.Init); null on a world with none, or on
     // a .hike load (the file format doesn't bake it yet). Read by Sim.Quests.
@@ -260,11 +268,12 @@ public class WorldState
     // texture, so a change to either marks the chunk for re-encode.
     public readonly HashSet<Vector3I> WindChunkDirty = new();
 
-    public WorldState(Vector3I min, Vector3I max, SimData simData)
+    public WorldState(Vector3I min, Vector3I max, SimData simData, KitPalette kits = null)
     {
         Min = min;
         Max = max;
         SimData = simData;
+        Kits = kits ?? KitPalette.Empty;
         // Seed the scripting-variable bank from the authored registry before
         // any save data loads; harmless when no registry is authored.
         SimState.ScriptVars.Initialize(simData?.scriptVariables);

@@ -13,6 +13,14 @@ public sealed class WorldFileChunkSource : IChunkSource
     public Vector3 Spawn { get; }
     public SimData SimData { get; }
     public ZoneState[] Zones { get; }
+
+    // The kit palette this file was baked against, one resource path per slot.
+    // Main.LoadWorldFromFile checks it against the palette the world is about to
+    // be read with — see WorldFile VERSION v46.
+    public string[] KitSlots { get; }
+
+    // Detail-palette slots, same contract — DetailGroup bytes index this.
+    public string[] DetailSlots { get; }
     public RegionState[] Regions { get; }
     // Non-chunked always-resident entity states (the player's companion), read
     // from the world file's global section. Main.LoadWorldFromFile files these
@@ -38,6 +46,8 @@ public sealed class WorldFileChunkSource : IChunkSource
         Max = header.Max;
         Spawn = header.Spawn;
         SimData = string.IsNullOrEmpty(header.SimDataPath) ? null : GD.Load<SimData>(header.SimDataPath);
+        KitSlots = header.KitSlots ?? System.Array.Empty<string>();
+        DetailSlots = header.DetailSlots ?? System.Array.Empty<string>();
 
         Zones = new ZoneState[header.Zones.Length];
         for (int i = 0; i < header.Zones.Length; i++)

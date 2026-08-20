@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="KitPaletteData" load_steps=16 format=3]
+
+[ext_resource type="Script" uid="uid://jb2i2kz7ridrk" path="res://scripts/data/worldgen/KitPaletteData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://2fxll1oeroha" path="res://resources/data/world_gen/terrain_gen/mountain_kit.tres" id="2_mountain_kit"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="3_cave_limestone_kit"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_underwater_kit"]
+[ext_resource type="Resource" uid="uid://emqrvij6sly9m" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="5_shore_sand_kit"]
+[ext_resource type="Resource" uid="uid://dsq8h2o3n55es" path="res://resources/data/world_gen/terrain_gen/desert_kit.tres" id="6_desert_kit"]
+[ext_resource type="Resource" uid="uid://cvb6vwn8y1eav" path="res://resources/data/world_gen/terrain_gen/cave_sandstone_kit.tres" id="7_cave_sandstone_kit"]
+[ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_gen/terrain_gen/marsh_kit.tres" id="8_marsh_kit"]
+[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_gen/terrain_gen/shore_swamp_kit.tres" id="9_shore_swamp_kit"]
+[ext_resource type="Resource" uid="uid://bfhjbpklk11v1" path="res://resources/data/world_gen/terrain_gen/forest_kit.tres" id="10_forest_kit"]
+[ext_resource type="Resource" uid="uid://plfdm4z98g767" path="res://resources/data/world_gen/terrain_gen/shore_stony_kit.tres" id="11_shore_stony_kit"]
+[ext_resource type="Resource" uid="uid://buowgujm0up6j" path="res://resources/data/world_gen/terrain_gen/hub_kit.tres" id="12_hub_kit"]
+[ext_resource type="Resource" uid="uid://csjvdcg5sawpo" path="res://resources/data/world_gen/terrain_gen/swamp_highlands_kit.tres" id="13_swamp_highlands_kit"]
+[ext_resource type="Resource" uid="uid://dyxoe4k26a80k" path="res://resources/data/world_gen/terrain_gen/swamp_mud_kit.tres" id="14_swamp_mud_kit"]
+[ext_resource type="Resource" uid="uid://ds1ldsisnfc4e" path="res://resources/data/world_gen/terrain_gen/swamp_village_kit.tres" id="15_swamp_village_kit"]
+
+[resource]
+script = ExtResource("1_script")
+kits = [ExtResource("2_mountain_kit"), ExtResource("3_cave_limestone_kit"), ExtResource("4_underwater_kit"), ExtResource("5_shore_sand_kit"), ExtResource("6_desert_kit"), ExtResource("7_cave_sandstone_kit"), ExtResource("8_marsh_kit"), ExtResource("9_shore_swamp_kit"), ExtResource("10_forest_kit"), ExtResource("11_shore_stony_kit"), ExtResource("12_hub_kit"), ExtResource("13_swamp_highlands_kit"), ExtResource("14_swamp_mud_kit"), ExtResource("15_swamp_village_kit")]
+metadata/_custom_type_script = "uid://jb2i2kz7ridrk"

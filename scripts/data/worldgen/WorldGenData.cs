@@ -12,6 +12,12 @@ public partial class WorldGenData : Resource
     // scripted content in this world.
     [Export] public WorldScriptData scriptData;
 
+    // This world's kit palette — the slot table ChunkState.TerrainId indexes.
+    // Authored, and APPEND-ONLY: see KitPaletteData. It used to be derived by
+    // walking `zones` and collecting each zone's four kit slots, which made the
+    // .hike's wire format a side effect of zone placement.
+    [Export] public KitPaletteData kitPalette;
+
     // Per-zone placement list. Each PlacedZone pairs a reusable ZoneGenData
     // template with the ZoneBounds describing where it goes in THIS world; the
     // index in this array becomes the ChunkState.ZoneIndex stamped on each

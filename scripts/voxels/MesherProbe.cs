@@ -14,8 +14,17 @@ public static class MesherProbe
     private const int N = ChunkState.SIZE;
     private static int RUN = 2;
 
+    // The probe reads the flat block tables from its very first synthetic
+    // voxel, so it must bind them itself: run from a launch argument there is
+    // no game start to have done it, and it died in Blocks.IsSolid instead.
+    private static void EnsureBound()
+    {
+        Blocks.Bind();
+    }
+
     public static void Run()
     {
+        EnsureBound();
         GD.Print($"[probe] === voxel_center_sampling = {CVars.voxelCenterSampling.Value} ===");
         RUN = 1; Ramp();
         RUN = 2; Ramp();
@@ -58,6 +67,7 @@ public static class MesherProbe
     // back in is a worse bug than the banding.
     public static void Sweep()
     {
+        EnsureBound();
         float selfW0 = ChunkMesherDC.NORMAL_SMOOTH_SELF_WEIGHT;
         float minDot0 = ChunkMesherDC.NORMAL_SMOOTH_MIN_DOT;
         int iters0 = ChunkMesherDC.NORMAL_SMOOTH_ITERATIONS;
@@ -391,6 +401,7 @@ public static class MesherProbe
     // stay near zero; tunnel wants 1.000 (buried air must not tilt the surface).
     public static void WallSweep()
     {
+        EnsureBound();
         float minDot0 = ChunkMesherDC.NORMAL_SMOOTH_MIN_DOT;
         int relax0 = ChunkMesherDC.VERT_RELAX_ITERATIONS;
 

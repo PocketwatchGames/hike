@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 
 public partial class Main : Node
@@ -46,6 +47,7 @@ public partial class Main : Node
 	}
 
 	// Called when the node enters the scene tree for the first time.
+
 	public override void _Ready()
 	{
 		CVarRegistry.Init();
@@ -80,9 +82,7 @@ public partial class Main : Node
 			// TagSubmergedKits on a null table rather than on anything to do with
 			// terrain. ChunkMesh.SetTerrains is deliberately NOT called here — it
 			// touches RenderingServer and generation has no use for it.
-			WorldGen.BindActivePalettes(defaultWorldGenData);
 			Blocks.Bind();
-			KitBlocks.Bind(WorldGen.ActiveKitPalette);
 			WorldGen.Generate(defaultWorldGenData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE);
 			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(debugDumpDir));
 			GetTree().Quit();
@@ -114,7 +114,16 @@ public partial class Main : Node
 		// validates it and dumps the resolved table without loading a world.
 		if (CVars.blockCheck.Value)
 		{
-			BlockCheck.RunAndQuit(GetTree());
+			BlockCheck.RunAndQuit(GetTree(), defaultWorldGenData);
+			return;
+		}
+
+		// And for a painted world-map document: `--headless -- "worldmap_check
+		// res://.../world_map.tres"` reports its water and its cascades off the
+		// layer images alone, without opening the painter or baking a .hike.
+		if (!string.IsNullOrEmpty(CVars.worldMapCheck.Value))
+		{
+			WorldMapCheck.RunAndQuit(GetTree(), CVars.worldMapCheck.Value);
 			return;
 		}
 
@@ -197,14 +206,19 @@ public partial class Main : Node
 		// builds the water material — so no material ever binds an unready
 		// (invalid) texture. See WaterRipples.
 		await WaterRipples.EnsureReady(this);
-		WorldGen.BindActivePalettes(worldGenData);
-		// ChunkMesh.SetTerrains touches RenderingServer (SetShaderParameter),
-		// so it must run on the main thread. BindActivePalettes above is pure
-		// C# and could move off-thread later if it ever gets expensive.
+		// This world's kit palette, resolved ONCE here and handed to whatever
+		// builds the world — the generator, the cache loader, or the .hike
+		// loader. It is world state (WorldState.Kits), not process state; the
+		// only piece of it that has to become process state is the detail-group
+		// table below, because there is a single terrain material.
+		//
+		// ChunkMesh.SetTerrains touches RenderingServer (SetShaderParameter), so
+		// it must run on the main thread. Building the palette is pure C# and
+		// could move off-thread later if it ever gets expensive.
+		KitPalette kitPalette = KitPalette.Build(worldGenData?.kitPalette, worldGenData?.ZoneGens);
 		Blocks.Bind();
-		KitBlocks.Bind(WorldGen.ActiveKitPalette);
 		ChunkMesh.SetTerrains();
-		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
+		ChunkMesh.SetDetailGroups(kitPalette.DetailGroups);
 		GD.Print($"[Load] Loading assets: {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
 
@@ -251,7 +265,7 @@ public partial class Main : Node
 		{
 			if (loadingFromFile)
 			{
-				worldState = await RunOffThread(() => LoadWorldFromFile(worldFilePath));
+				worldState = await RunOffThread(() => LoadWorldFromFile(worldFilePath, kitPalette));
 				playerPosition = worldState.Spawn;
 			}
 			else if (cacheHit)
@@ -263,7 +277,7 @@ public partial class Main : Node
 				try
 				{
 					string loadPath = cachePath;
-					worldState = await RunOffThread(() => LoadWorldFromFile(loadPath));
+					worldState = await RunOffThread(() => LoadWorldFromFile(loadPath, kitPalette));
 					playerPosition = worldState.Spawn;
 				}
 				catch (Exception e)
@@ -419,10 +433,42 @@ public partial class Main : Node
 		return task.Result;
 	}
 
-	public static WorldState LoadWorldFromFile(string path)
+	// `kits` is the palette the caller intends this world to be read with. NULL
+	// means "not building a playable world" (the subscene converter, which only
+	// reads block ids) and skips the check below.
+	public static WorldState LoadWorldFromFile(string path, KitPalette kits = null)
 	{
 		var source = new WorldFileChunkSource(path);
-		var worldState = new WorldState(source.Min, source.Max, source.SimData);
+		// Every TerrainId byte in this file is an index into the palette it was
+		// BAKED with. Nothing stops that palette from having moved since, and
+		// nothing about the stored bytes would look wrong if it had — they would
+		// simply mean a different kit, and the world would come back re-textured
+		// with no error anywhere. So the file records its slot names and we
+		// refuse a world whose palette no longer matches, naming the slot.
+		if (kits != null)
+		{
+			int bad = kits.FirstMismatch(source.KitSlots);
+			if (bad >= 0)
+			{
+				string was = bad < source.KitSlots.Length ? source.KitSlots[bad] : "<past the end>";
+				string now = bad < kits.Kits.Length ? kits.Kits[bad]?.ResourcePath ?? "<null>" : "<missing>";
+				throw new InvalidDataException(
+					$"'{path}' was baked against a different kit palette: slot {bad} was '{was}' and is "
+					+ $"now '{now}'. Every TerrainId in the file indexes that table, so the world would "
+					+ "load re-textured. The palette is APPEND-ONLY (KitPaletteData) — restore the slot, "
+					+ "or re-bake the world.");
+			}
+			int badDetail = kits.FirstDetailMismatch(source.DetailSlots);
+			if (badDetail >= 0)
+			{
+				throw new InvalidDataException(
+					$"'{path}' was baked against a different DETAIL palette at slot {badDetail}. That "
+					+ "palette is derived from the kits' defaultDetail, so repointing one moves it "
+					+ "without moving the kit palette; every DetailGroup byte in the file indexes it. "
+					+ "Restore the detail group, or re-bake the world.");
+			}
+		}
+		var worldState = new WorldState(source.Min, source.Max, source.SimData, kits);
 		worldState.Spawn = source.Spawn;
 		worldState.Zones = source.Zones;
 		worldState.Regions = source.Regions;
@@ -474,11 +520,10 @@ public partial class Main : Node
 		// terrain_tiles), and the Tree / TallGrass brushes read the kit palette
 		// under the cursor. Without this the editor renders and paints against
 		// whatever a previous session happened to leave bound.
-		WorldGen.BindActivePalettes(worldGenData);
+		KitPalette editorPalette = KitPalette.Build(worldGenData?.kitPalette, worldGenData?.ZoneGens);
 		Blocks.Bind();
-		KitBlocks.Bind(WorldGen.ActiveKitPalette);
 		ChunkMesh.SetTerrains();
-		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
+		ChunkMesh.SetDetailGroups(editorPalette.DetailGroups);
 
 		var editor = editorScene.Instantiate<WorldEditor>();
 
@@ -491,7 +536,7 @@ public partial class Main : Node
 			{
 				worldState = isScene
 					? editor.CreateSubsceneWorld(worldGenData, documentPath, out includeEnv)
-					: LoadWorldFromFile(documentPath);
+					: LoadWorldFromFile(documentPath, editorPalette);
 			}
 			catch (System.Exception e)
 			{

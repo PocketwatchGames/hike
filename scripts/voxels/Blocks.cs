@@ -38,23 +38,33 @@ public static class Blocks
     private static float[] _edgeRoughness;
     private static float[] _edgeRoughnessVerticalScale;
 
+    // Fills LOCAL tables and publishes them at the end, so a reader on another
+    // thread only ever sees a finished set.
+    //
+    // The catalog is genuinely global — block ids are the same in every world,
+    // which is what lets a scene stamped from one world be recognised in
+    // another — but the TABLES are rebuilt on every world activation, and the
+    // world-map painter's bake does that from a background thread while a live
+    // main thread is reading `Blocks.IsSolid`. Assigning the fields first and
+    // filling them afterwards, which is what this did, left a window where a
+    // reader saw an all-false array and every voxel in the world was empty.
     public static void Bind()
     {
         int n = BlockCatalog.MAX_BLOCKS;
-        _solid = new bool[n];
-        _empty = new bool[n];
-        _water = new bool[n];
-        _transparent = new bool[n];
-        _cutawayIsWall = new bool[n];
-        _invisible = new bool[n];
-        _naturalGround = new bool[n];
-        _climbable = new bool[n];
-        _climbGrowthLayer = new int[n];
-        _attenuation = new int[n];
-        _defaultShape = new SharpAxes[n];
-        _blendNoise = new float[n];
-        _edgeRoughness = new float[n];
-        _edgeRoughnessVerticalScale = new float[n];
+        var solid = new bool[n];
+        var empty = new bool[n];
+        var water = new bool[n];
+        var transparent = new bool[n];
+        var cutawayIsWall = new bool[n];
+        var invisible = new bool[n];
+        var naturalGround = new bool[n];
+        var climbable = new bool[n];
+        var climbGrowthLayer = new int[n];
+        var attenuation = new int[n];
+        var defaultShape = new SharpAxes[n];
+        var blendNoise = new float[n];
+        var edgeRoughness = new float[n];
+        var edgeRoughnessVerticalScale = new float[n];
 
         BlockCatalog catalog = BlockCatalog.Active;
         for (int id = 0; id < n; id++)
@@ -64,28 +74,44 @@ public static class Blocks
             {
                 // An unauthored slot behaves as empty space, so a world holding
                 // a stale id renders nothing rather than a solid black cube.
-                _empty[id] = true;
-                _invisible[id] = true;
+                empty[id] = true;
+                invisible[id] = true;
                 continue;
             }
-            _solid[id] = b.solid;
-            _water[id] = b.render == EBlockRender.Water;
-            _transparent[id] = b.transparent;
-            _cutawayIsWall[id] = b.cutawayIsWall;
-            _invisible[id] = b.IsInvisible();
-            _naturalGround[id] = b.naturalGround;
-            _climbable[id] = b.climbable;
+            solid[id] = b.solid;
+            water[id] = b.render == EBlockRender.Water;
+            transparent[id] = b.transparent;
+            cutawayIsWall[id] = b.cutawayIsWall;
+            invisible[id] = b.IsInvisible();
+            naturalGround[id] = b.naturalGround;
+            climbable[id] = b.climbable;
             BlockSurfaceData growth = catalog.ClimbGrowthFor(id);
-            _climbGrowthLayer[id] = growth != null ? growth.atlasBaseIndex : -1;
-            _attenuation[id] = b.lightAttenuation;
-            _defaultShape[id] = b.defaultShape;
-            _blendNoise[id] = b.blendNoise;
-            _edgeRoughness[id] = b.edgeRoughness;
-            _edgeRoughnessVerticalScale[id] = b.edgeRoughnessVerticalScale;
+            climbGrowthLayer[id] = growth != null ? growth.atlasBaseIndex : -1;
+            attenuation[id] = b.lightAttenuation;
+            defaultShape[id] = b.defaultShape;
+            blendNoise[id] = b.blendNoise;
+            edgeRoughness[id] = b.edgeRoughness;
+            edgeRoughnessVerticalScale[id] = b.edgeRoughnessVerticalScale;
             // "Nothing here" — space you can stand in, see through and walk out
             // of. Water is NOT empty: it is non-solid but it is content.
-            _empty[id] = !b.solid && b.IsInvisible();
+            empty[id] = !b.solid && b.IsInvisible();
         }
+
+        // Published only now that every table is complete.
+        _solid = solid;
+        _empty = empty;
+        _water = water;
+        _transparent = transparent;
+        _cutawayIsWall = cutawayIsWall;
+        _invisible = invisible;
+        _naturalGround = naturalGround;
+        _climbable = climbable;
+        _climbGrowthLayer = climbGrowthLayer;
+        _attenuation = attenuation;
+        _defaultShape = defaultShape;
+        _blendNoise = blendNoise;
+        _edgeRoughness = edgeRoughness;
+        _edgeRoughnessVerticalScale = edgeRoughnessVerticalScale;
 
         AirId = catalog.GetIdByName("Air");
         WaterId = catalog.GetIdByName("Water");

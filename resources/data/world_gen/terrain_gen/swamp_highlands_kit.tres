@@ -19,7 +19,7 @@
 [ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="17_o1j2i"]
 [ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="18_8iljw"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_marsh_ground.tres" id="blk_marsh_ground"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/prop_sets/swamp_highlands.tres" id="set_forest"]
+[ext_resource type="Resource" uid="uid://558a5fhxihqs" path="res://resources/data/worldmap/prop_sets/swamp_highlands.tres" id="set_forest"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("3_fdyad")

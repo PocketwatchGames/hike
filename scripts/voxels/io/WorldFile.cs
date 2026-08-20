@@ -185,7 +185,20 @@ public static class WorldFile
     //      the direction each pours in) instead of the columns of v43. The sheet
     //      is swept off that edge as a jet; the columns described where water
     //      would STAND if the drop were filled, which is a slab, not a fall.
-    public const uint VERSION = 45;
+    // v46: the header records the KIT PALETTE this world was baked against, as
+    //      the resource path of each slot. Every ChunkState.TerrainId byte is an
+    //      index into that table, and until now nothing in the file named it —
+    //      so reordering the palette (which was itself derived from the zone
+    //      list, and therefore moved whenever a zone was added) silently
+    //      re-textured every world already baked. The bytes stay valid, they
+    //      just mean a different kit, which is exactly the failure a version
+    //      number cannot catch. Main.LoadWorldFromFile compares and refuses.
+    //      Slots APPENDED after the bake are fine and deliberately accepted.
+    // v47: the DETAIL palette's slots are recorded the same way. DetailGroup
+    //      bytes index it 1-based, and it is derived from the kits'
+    //      defaultDetail — so repointing one kit's detail moves that table
+    //      without moving the kit palette, which the v46 check would pass.
+    public const uint VERSION = 47;
 
     public struct IndexEntry
     {
@@ -214,6 +227,13 @@ public static class WorldFile
         public string SimDataPath;
         public ZoneEntry[] Zones;
         public RegionEntry[] Regions;
+        // Resource path per kit-palette slot, in slot order — what every
+        // TerrainId byte in this file indexes. See VERSION v46.
+        public string[] KitSlots;
+        // The same for the detail palette, which DetailGroup bytes index
+        // 1-based. Recorded separately because it is derived from the kits'
+        // defaultDetail and so can move without the kit palette moving.
+        public string[] DetailSlots;
         // Shared by every entity list in the file. Chunk reads must pass it to
         // ChunkSerializer.Read or their path indices resolve against nothing.
         public EntitySerializer.ReadPathTable PathTable;
@@ -290,6 +310,19 @@ public static class WorldFile
         w.Write(worldState.Spawn.Y);
         w.Write(worldState.Spawn.Z);
         w.Write(worldState.SimData != null ? worldState.SimData.ResourcePath : "");
+        KitPalette palette = worldState.Kits ?? KitPalette.Empty;
+        string[] kitSlots = palette.SlotNames();
+        w.Write((uint)kitSlots.Length);
+        for (int i = 0; i < kitSlots.Length; i++)
+        {
+            w.Write(kitSlots[i]);
+        }
+        string[] detailSlots = palette.DetailSlotNames();
+        w.Write((uint)detailSlots.Length);
+        for (int i = 0; i < detailSlots.Length; i++)
+        {
+            w.Write(detailSlots[i]);
+        }
         ZoneState[] zones = worldState.Zones ?? [];
         w.Write((uint)zones.Length);
         for (int i = 0; i < zones.Length; i++)
@@ -357,6 +390,18 @@ public static class WorldFile
             Spawn = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
             SimDataPath = r.ReadString(),
         };
+        uint kitSlotCount = r.ReadUInt32();
+        header.KitSlots = new string[kitSlotCount];
+        for (uint i = 0; i < kitSlotCount; i++)
+        {
+            header.KitSlots[i] = r.ReadString();
+        }
+        uint detailSlotCount = r.ReadUInt32();
+        header.DetailSlots = new string[detailSlotCount];
+        for (uint i = 0; i < detailSlotCount; i++)
+        {
+            header.DetailSlots[i] = r.ReadString();
+        }
         uint zoneCount = r.ReadUInt32();
         header.Zones = new ZoneEntry[zoneCount];
         for (uint i = 0; i < zoneCount; i++)

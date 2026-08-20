@@ -37,6 +37,14 @@ public partial class SubscenePlacement : Resource
     // the world editor if you want a rotation to stay put.
     [Export] public ESubsceneRotation rotation;
 
+    // Voxels up (or down) from the height the footprint resolves to. A NUDGE,
+    // not an absolute Y: the seat is recomputed from the ground under the
+    // footprint, so a scene follows terrain that moves under it, and this says
+    // "and a metre lower than that" — sunk into a hillside, raised on a plinth.
+    // An absolute Y would pin the building while the hill walked out from under
+    // it.
+    [Export] public int yOffset;
+
     // What this stamp puts in the scene's marker pools (see SubsceneVariant).
     // Empty means every marker in the scene stays empty here — which is what
     // makes one `.hikescene` reusable across placements that want different

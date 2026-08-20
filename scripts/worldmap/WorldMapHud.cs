@@ -172,13 +172,19 @@ public partial class WorldMapHud : CanvasLayer
     // alone is guesswork, and the number is what the author is actually aiming.
     // Water is called out only where it actually stands over the ground, since
     // "my land is flat at +2 and still submerged" is unreadable from colour.
-    public void SetCoords(Vector2I texel, int worldY, int level, int waterY)
+    // Water is reported even where the ground hides it: a column can hold water
+    // BELOW its surface, which is invisible on the map by design and becomes a
+    // lake the moment the land above it is carved away. Without this the author
+    // has no way to find water they painted under a hill.
+    public void SetCoords(Vector2I texel, int worldY, int level, int waterY, bool hasWater)
     {
         if (coordsLabel == null)
         {
             return;
         }
-        string water = waterY > worldY ? $"   WATER Y={waterY} (depth {waterY - worldY})" : "";
+        string water = waterY > worldY ? $"   WATER Y={waterY} (depth {waterY - worldY})"
+            : hasWater ? $"   water Y={waterY} (buried)"
+            : "   no water";
         coordsLabel.Text = $"Texel: ({texel.X}, {texel.Y})   Y={worldY}  (level {level:+#;-#;0}){water}";
     }
 }

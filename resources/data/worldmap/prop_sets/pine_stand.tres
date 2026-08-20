@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SpawnSetData" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://bp8eo5akx45iq"]
 
 [ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
@@ -13,7 +13,6 @@ weight = 4.0
 [sub_resource type="Resource" id="e_1"]
 script = ExtResource("2_ws")
 scene = ExtResource("4_pinedead")
-weight = 1.0
 
 [resource]
 script = ExtResource("1_set")
@@ -21,7 +20,4 @@ displayName = "Pine Stand"
 mapColor = Color(0.16, 0.45, 0.22, 1)
 forestNoiseFrequency = 0.05
 forestThreshold = 0.01
-forestDensity = 0.5
-treesPerChunkMin = 0
-treesPerChunkMax = 4
 treeScenes = [SubResource("e_0"), SubResource("e_1")]

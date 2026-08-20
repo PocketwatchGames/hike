@@ -30,6 +30,10 @@ public partial class WorldMapCanvas : Control
     // (texel, modifiers) on button press, before the stroke paints.
     public Action<Vector2I, EStrokeMods> OnStrokeStart;
 
+    // Button released (or the press ended any other way). The whole drag is one
+    // undoable edit, so this is where it closes.
+    public Action OnStrokeEnd;
+
     // Texel coord under the cursor on mouse motion (for the HUD readout).
     public Action<Vector2I> OnHover;
 
@@ -126,8 +130,13 @@ public partial class WorldMapCanvas : Control
                 }
                 else
                 {
+                    bool was = _painting;
                     _painting = false;
                     _holdingPick = false;
+                    if (was)
+                    {
+                        OnStrokeEnd?.Invoke();
+                    }
                 }
                 AcceptEvent();
             }

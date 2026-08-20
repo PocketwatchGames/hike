@@ -94,6 +94,8 @@ public class MobTool : IWorldMapTool
         });
     }
 
+    public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
+    public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
         int n = Mathf.Max(1, ctx.MobSets.Length);
@@ -112,8 +114,7 @@ public class MobView : IWorldMapView
 {
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
-    public ESpawnPreview PreviewLayer => ESpawnPreview.Mobs;
-    public bool ShowsClimb => false;
+    public ESpawnPreview PreviewLayer => ESpawnPreview.Props | ESpawnPreview.Mobs;
 
     public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
 }

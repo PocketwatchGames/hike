@@ -106,6 +106,8 @@ public class ScatterTool : IWorldMapTool
         });
     }
 
+    public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
+    public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
         int n = Mathf.Max(1, ctx.PropSets.Length);
@@ -127,7 +129,6 @@ public class ScatterView : IWorldMapView
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
-    public bool ShowsClimb => false;
 
     public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
 }

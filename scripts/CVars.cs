@@ -745,6 +745,10 @@ public static class CVars
     public static CVar navColumn = new CVar("nav_column", (cvar) => NavColumnDebug.Dump());
 
     // Log every mantle start and completion, with the resolved landing and rise.
+    // Dumps the last ~2.5s of position ownership when the player ends up with no
+    // world beneath them — the only way to see what caused a fall-through, since
+    // it is always noticed after the fact.
+    public static CVarBool fallTrace = new CVarBool("fall_trace", false);
     public static CVarBool mantleDebug = new CVarBool("mantle_debug", false);
 
     // Console command: `climb_mark <height>` stamps a climbable face up the wall
@@ -2015,6 +2019,114 @@ public static class CVars
     // Outdoor cells are never touched: the class describes interiors, and a
     // scene's open-air margin should keep taking the destination's ambience.
     public static CVarInt subsceneInteriorClass = new CVarInt("subscene_interior_class", -1);
+
+    // Action: RESCALES a painted world-map document and every layer file it
+    // points at — the same world, bigger or smaller. Resampling is categorical,
+    // so no value is ever averaged into existence: an elevation 6 beside an 8
+    // stays a wall and never grows a 7 between them. Heights are not scaled with
+    // the footprint. Acts on the document the painter has open — which is saved
+    // and reopened around the change, so it is safe to run while painting.
+    // Usage: `worldmap_resize <chunksX> <chunksZ> [res://path/to/world_map.tres]`
+    public static CVarString worldMapResize = new CVarString("worldmap_resize", "", (cvar) =>
+    {
+        RunWorldMapExtentCommand((CVarString)cvar, "worldmap_resize", WorldMapResize.Run);
+    });
+
+    // Action: changes a painted world-map document's EXTENT without resampling
+    // anything — every painted metre stays where it is in world space and the
+    // map gains (or loses) ground around it. The one to reach for when a world
+    // needs more room; `worldmap_resize` is for making the same world bigger.
+    // Usage: `worldmap_canvas <chunksX> <chunksZ> [res://path/to/world_map.tres]`
+    public static CVarString worldMapCanvas = new CVarString("worldmap_canvas", "", (cvar) =>
+    {
+        RunWorldMapExtentCommand((CVarString)cvar, "worldmap_canvas", WorldMapResize.Recanvas);
+    });
+
+    // Headless self-check for a painted world-map document: what the bake would
+    // make of its water and which cascades it would file, without baking. The
+    // painter's shader_check / block_check — a value, not an action, so Main
+    // reads it after the command line is processed and quits on it.
+    // Usage: `--headless -- "worldmap_check res://path/to/world_map.tres"`
+    public static CVarString worldMapCheck = new CVarString("worldmap_check", "");
+
+    // Action: prints the size of the open world-map document.
+    //
+    // Its own command because the console cannot route a bare `worldmap_resize`
+    // here: a value CVar with no argument PRINTS its value rather than running
+    // its callback (CVarRegistry.ProcessCommand), so "no size given" never
+    // reaches the code below.
+    public static CVar worldMapSize = new CVar("worldmap_size", (cvar) =>
+    {
+        PrintWorldMapSize(WorldMapPainter.LastDocument, "worldmap_size");
+    });
+
+    private static void PrintWorldMapSize(WorldMapData doc, string name)
+    {
+        if (doc == null)
+        {
+            Godot.GD.PrintErr($"{name}: no world map open — open the painter once, or pass a path.");
+            return;
+        }
+        Godot.GD.Print($"{name}: {doc.sizeChunksX}x{doc.sizeChunksZ} chunks "
+            + $"({doc.ImageWidth}x{doc.ImageHeight} m) — {Godot.StringExtensions.GetFile(doc.ResourcePath)}");
+    }
+
+    // Shared plumbing for the two extent commands: they take the same arguments
+    // and differ only in what they do with them.
+    //
+    // The document defaults to the one the painter has open, so the usual call
+    // is two numbers. A path can still be given as a third argument, for a
+    // document that has not been opened this session.
+    private static void RunWorldMapExtentCommand(CVarString cvar, string name,
+        System.Func<WorldMapData, int, int, bool> action)
+    {
+        string[] parts = (cvar.Value ?? "").Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+        WorldMapData doc = WorldMapPainter.LastDocument;
+        if (parts.Length >= 3)
+        {
+            doc = Godot.ResourceLoader.Load<WorldMapData>(parts[2]);
+            if (doc == null)
+            {
+                Godot.GD.PrintErr($"{name}: could not load '{parts[2]}' as a WorldMapData.");
+                return;
+            }
+        }
+        if (doc == null)
+        {
+            Godot.GD.PrintErr($"{name}: no world map open — open the painter once, or pass a path. "
+                + $"Usage `{name} <chunksX> <chunksZ> [res://path/to/world_map.tres]`");
+            return;
+        }
+        // No size, or a size that does not parse: say what the size IS, which is
+        // the question anyone is about to ask before choosing a new one.
+        if (parts.Length < 2
+            || !int.TryParse(parts[0], out int chunksX)
+            || !int.TryParse(parts[1], out int chunksZ))
+        {
+            PrintWorldMapSize(doc, name);
+            Godot.GD.Print($"{name}: usage `{name} <chunksX> <chunksZ> [res://path/to/world_map.tres]`");
+            return;
+        }
+        try
+        {
+            // With the painter open, go through it: it holds unsaved painting
+            // and every buffer sized by the map, so it has to save first and
+            // reopen the result. Closed, the plain call is enough.
+            WorldMapPainter painter = WorldMapPainter.Current;
+            if (painter != null && Godot.GodotObject.IsInstanceValid(painter) && painter.Document == doc)
+            {
+                painter.ApplyExtentChange(action, chunksX, chunksZ);
+            }
+            else
+            {
+                action(doc, chunksX, chunksZ);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Godot.GD.PrintErr($"{name} failed: {e.Message}");
+        }
+    }
 
     // Action: converts a packed world file into a subscene file, auto-fitting
     // the bbox to its voxels — the headless equivalent of opening the world in

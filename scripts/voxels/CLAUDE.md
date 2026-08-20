@@ -8,7 +8,11 @@ For high-level voxel architecture (`World`, `ChunkManager`, `ChunkState`, `Chunk
 
 The game can load its world from a packed `.hike` file instead of running `WorldGen` at startup. This is the foundation for shipping a large hand-authored world produced by a custom editor.
 
-**Format** (`WorldFile.cs`): single file per world, header + per-chunk index + payload. Each chunk's payload is independently addressable via `(offset, length)` in the index, so a future streaming loader can `Seek` to any chunk without loading or rewriting the file. Header carries world `Min`/`Max`, default `Spawn`, and the `SimData` resource path. Lighting is **baked into each chunk blob** so the runtime never has to recompute light at load.
+**Format** (`WorldFile.cs`): single file per world, header + per-chunk index + payload. Each chunk's payload is independently addressable via `(offset, length)` in the index, so a future streaming loader can `Seek` to any chunk without loading or rewriting the file. Header carries world `Min`/`Max`, default `Spawn`, the `SimData` resource path, and **the kit palette this world was baked against** (one resource path per slot).
+
+That last one is not bookkeeping. `ChunkState.TerrainId` is a byte per voxel holding an index into the kit palette, so a file's voxels only mean what they meant at bake if that table has not moved. Nothing about the stored bytes looks wrong when it has — they stay valid and simply name a different kit — which is precisely the failure a version number cannot catch, so the file names its slots and `Main.LoadWorldFromFile` refuses a world whose palette moved, pointing at the slot. Slots APPENDED since the bake are accepted, because appending is the one edit that moves nothing. See `KitPaletteData`.
+
+Lighting is **baked into each chunk blob** so the runtime never has to recompute light at load.
 
 **Components**:
 - `IChunkSource` — interface (Min/Max/Spawn + `EnumerateChunkCoords` + `TryLoadChunk`). The seam where future streaming and save-delta layers will plug in.

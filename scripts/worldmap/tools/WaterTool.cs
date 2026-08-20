@@ -1,21 +1,34 @@
 using Godot;
 
-// Paints standing water bodies (lakes, rivers) by writing a per-column water
-// surface height, independent of the global ocean elevation. AdjustLevel sets
-// the surface Y the brush paints; erase removes painted water (back to ocean).
+// Paints water: every column the brush touches is filled from its ground up to
+// the level you have selected.
+//
+// A BRUSH, not a fill. The fill that came before answered a question the author
+// had already answered by clicking, and it could not tell a lake from a river
+// without being told which it was looking at — a seed high in the mountains has
+// no way to know whether it should pond to its own height or run downhill. A
+// brush has nothing to decide: water goes where you put it, at the level you
+// chose, and a lake and a river are the same act with a different shape of
+// stroke.
+//
+// What the fill was really providing was FEEDBACK, and the map provides it
+// directly instead: water is shaded by depth, so a shoreline reads pale and a
+// bed dark, and any edge where water pours over a bare drop is inked as a
+// waterfall. Between them you can see what you painted without having to run it.
 public class WaterTool : IWorldMapTool
 {
     public string Name => "Water";
-    public IWorldMapView View { get; }
-    public float Radius { get; set; } = 10f;
 
-    // Painted water surface, in voxels ABOVE sea level — same frame as
-    // ElevationTool.TargetVoxels, so it defaults to 0 = the shore no matter what
-    // Y the document puts the waterline at. Never negative: water below sea
-    // level is just ocean, which every column already gets for free, so 0 and
-    // "unpainted" mean the same thing and this layer only expresses water held
-    // ABOVE the sea (a highland lake). Terrain is what you lower to make sea.
-    public int SurfaceVoxels = 0;
+    public IWorldMapView View { get; }
+
+    public float Radius { get; set; } = 6f;
+
+    // Surface the brush fills to, in voxels relative to sea level — the same
+    // encoding the elevation layer uses, so the number in the HUD means the same
+    // thing on both tools. Signed, like the elevation layer: the world is
+    // prefilled with water at 0, and painting below that is how a basin holds
+    // water lower than the sea around it.
+    public int SurfaceVoxels = 1;
 
     public WaterTool()
     {
@@ -23,73 +36,93 @@ public class WaterTool : IWorldMapTool
     }
 
     public string[] Options(WorldMapState ctx) => System.Array.Empty<string>();
+
     public Color[] OptionColors(WorldMapState ctx) => null;
 
     public int OptionIndex { get => 0; set { } }
 
-    public string HintText(WorldMapState ctx) => "";
+    public Color CursorColor(WorldMapState ctx) => ctx.Data.shallowWaterColor;
 
-    public Color CursorColor(WorldMapState ctx) => Colors.White;
+    public string HintText(WorldMapState ctx)
+        => "R/F set the surface, alt+click samples a height, RMB removes the water entirely";
 
-    public string StatusText(WorldMapState ctx) => "Paint Water";
+    public string StatusText(WorldMapState ctx) => "Fills each column to the surface";
+
     public string LevelText(WorldMapState ctx)
         => $"Surface {SurfaceVoxels:+#;-#;0}v (Y={ctx.SeaLevel + SurfaceVoxels})";
 
+    public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
+    public Rect2I? LastPaintRect => null;
+
+    // alt+click aims the brush at a height already on the map — the same
+    // eyedropper the elevation tool has, and for the same reason: picking the
+    // terrace you want the water to meet beats stepping R/F forty times.
     public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
     {
-        // No eyedropper or constraint yet; this tool reads nothing off the map.
+        if ((mods & EStrokeMods.Pick) != 0)
+        {
+            // The water under the cursor, or the ground where it has none —
+            // pointing at the terrace you want the surface to meet is the fast
+            // way to aim, the same as the elevation tool's pick.
+            int picked = ctx.Underwater(texel.X, texel.Y)
+                ? ctx.WaterSurface(texel.X, texel.Y)
+                : ctx.TerrainHeight(texel.X, texel.Y);
+            SurfaceVoxels = ClampSurface(ctx, picked - ctx.SeaLevel);
+        }
     }
 
+    // LMB sets the column's water surface, RMB removes its water outright.
+    //
+    // A stroke writes every column it covers, including ones whose ground stands
+    // above the surface — that water is LATENT, and it is the point: carve the
+    // land away later and the lake you painted is already there. (The map still
+    // draws only water you could actually see, so it never shows a shoreline the
+    // bake does not produce; the hover readout is where latent water shows up.)
     public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
     {
-        // Same encoding as the elevation layer: voxels relative to sea level.
-        // 0 erases back to plain ocean (WaterSurface floors at the waterline).
-        float voxels = erase
-            ? 0f
-            : Mathf.Clamp(SurfaceVoxels, 0f, ctx.Data.maxElevationVoxels);
-
+        // Hard-edged, ignoring the falloff: a water surface is LEVEL, and easing
+        // it in by weight would tilt the rim of every stroke into a ring of
+        // half-steps — the same reason Flatten ignores it.
+        float voxels = erase ? ctx.NoWaterVoxels : ClampSurface(ctx, SurfaceVoxels);
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             ctx.Water.SetPixel(px, pz, new Color(voxels, 0f, 0f, 1f));
         });
     }
 
-    public void Cycle(WorldMapState ctx, int dir)
+    private static int ClampSurface(WorldMapState ctx, int voxels)
     {
-        // No secondary parameter — AdjustLevel drives the surface height.
+        return Mathf.Clamp(voxels,
+            Mathf.RoundToInt(ctx.Data.minElevationVoxels),
+            Mathf.RoundToInt(ctx.Data.maxElevationVoxels));
     }
 
-    // Steps the lattice, so a painted surface lands on the same bands the
-    // elevation map draws. Floors at the shore for the reason above.
+    public void Cycle(WorldMapState ctx, int dir)
+    {
+        AdjustLevel(ctx, dir);
+    }
+
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
-        SurfaceVoxels = Mathf.Clamp(
-            SurfaceVoxels + dir * ctx.StepVoxels,
-            0,
-            Mathf.RoundToInt(ctx.Data.maxElevationVoxels));
+        SurfaceVoxels = ClampSurface(ctx, SurfaceVoxels + dir * ctx.StepVoxels);
     }
 }
 
-// Painted/ocean water shown as blue by depth; dry land as a faint elevation grey.
+// Water shaded by depth over dimmed land — the map for deciding where water goes
+// and how deep it is.
 public class WaterView : IWorldMapView
 {
-    public ESpawnPreview PreviewLayer => ESpawnPreview.None;
-    public bool ShowsClimb => false;
-
-    // Dry land is drawn with the elevation palette, dimmed.
-    public bool ShowsAllSteps => false;
+    public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
+    public ESpawnPreview PreviewLayer => ESpawnPreview.None;
 
     public Color ColorAt(WorldMapState ctx, int px, int pz)
     {
-        int th = ctx.TerrainHeight(px, pz);
-        int surf = ctx.WaterSurface(px, pz);
-        if (surf > th)
+        if (ctx.Underwater(px, pz))
         {
-            float t = Mathf.Clamp((surf - th) / 24f, 0.15f, 0.9f);
-            return new Color(0.25f, 0.5f, 0.85f).Lerp(new Color(0.02f, 0.08f, 0.3f), t);
+            return ctx.WithWater(ctx.ElevationColor(px, pz), px, pz);
         }
         Color land = ctx.ElevationColor(px, pz);
-        return new Color(land.R * 0.5f, land.G * 0.5f, land.B * 0.5f);
+        return new Color(land.R * 0.45f, land.G * 0.45f, land.B * 0.45f);
     }
 }

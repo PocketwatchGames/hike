@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WorldMapPlacements" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapPlacements.cs" id="1_62klx"]
+[ext_resource type="Script" path="res://scripts/data/SubscenePlacement.cs" id="1_rkdci"]
+
+[sub_resource type="Resource" id="Resource_tbjbl"]
+script = ExtResource("1_rkdci")
+path = "res://resources/data/subscenes/house01.hikescene"
+anchorXZ = Vector2i(-6, 2)
+
+[sub_resource type="Resource" id="Resource_hd6tq"]
+script = ExtResource("1_rkdci")
+path = "res://resources/data/subscenes/house04.hikescene"
+anchorXZ = Vector2i(5, -21)
+
+[resource]
+script = ExtResource("1_62klx")
+placements = [SubResource("Resource_tbjbl"), SubResource("Resource_hd6tq")]

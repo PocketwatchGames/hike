@@ -19,7 +19,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 126;
+    public const int WORLDGEN_VERSION = 127;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -29,40 +29,6 @@ public static class WorldGen
     public const int SKIP_MOBS = 4;          // goblins, kun_kun (surface + cave)
     public const int SKIP_INTERACTIVES = 8;  // loot (surface + cave) + chests (cave)
     public const int SKIP_ALL = SKIP_DETAILS | SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES;
-
-    // What role a kit plays in worldgen. Not authored on the kit itself —
-    // derived at palette-build time from how each zone references the kit
-    // (SurfaceKit / CaveKit / SubmergedKit), so the kit doesn't have to repeat
-    // information the zone already encodes. WorldGen builds a parallel
-    // purpose-by-paletteIndex array and the worldgen passes that need to gate
-    // on "is this voxel on a surface kit?" (field/dirt overlays, scatter noise
-    // pick, road suppression) read that array.
-    public enum EKitPurpose
-    {
-        Surface = 0,
-        Cave = 1,
-        Submerged = 2,
-        Shore = 3,
-    }
-
-
-    // Active kit and terrain palettes for the run currently inside Generate().
-    // Built once at the top of Generate from the supplied WorldGenData and
-    // used by per-pass kit-stamp helpers. Static because WorldGen is a static
-    // class with many free-standing methods; lifetime is one Generate call
-    // (the kit palette is also kept resident afterwards so authoring tools
-    // like WorldEditor can read TreeScenes etc. via ActiveKitPalette).
-    //
-    // The terrain id stored in voxels indexes both arrays at the same slot:
-    // _activeKitPalette[i] is the worldgen-side wrapper (TerrainKitData),
-    // _activeTerrainPalette[i] is its `.Terrain` (the runtime visual / footstep
-    // / tile entry). ChunkMesh uploads only _activeTerrainPalette; worldgen
-    // passes that need scatter / forest tunings call ResolveKit for the
-    // gen-side data.
-    private static TerrainKitData[] _activeKitPalette;
-    private static System.Collections.Generic.Dictionary<TerrainKitData, byte> _kitIndex;
-    private static DetailGroupData[] _activeDetailPalette;
-    private static System.Collections.Generic.Dictionary<DetailGroupData, byte> _detailIndex;
 
     // The WorldGenData for the run currently inside Generate(). Set at the top
     // of Generate alongside the palettes, so the many free-standing static
@@ -122,155 +88,6 @@ public static class WorldGen
         }
 
         public (int, int) Column => (Mathf.FloorToInt(Position.X), Mathf.FloorToInt(Position.Z));
-    }
-
-    // Public read-only views of the active palettes. The terrain array is
-    // what ChunkMesh uploads to the shader; the kit palette is for authoring
-    // tools (e.g. the editor's spawn dropdown reads TreeScenes from here).
-    // Both arrays mirror each other in shape — same length, same indices.
-    // ActiveDetailPalette is what ChunkMesh.SetDetailGroups consumes; per-voxel
-    // DetailGroup bytes are 1-based indices into it.
-    public static TerrainKitData[] ActiveKitPalette => _activeKitPalette;
-    public static DetailGroupData[] ActiveDetailPalette => _activeDetailPalette;
-
-    // Per-paletteIndex purpose classification, derived from how each zone
-    // references its kits at palette-build time. A kit referenced as
-    // SurfaceKit lands as Surface, CaveKit as Cave, SubmergedKit as
-    // Submerged. The same kit referenced in multiple slots across zones
-    // takes the first-encountered classification (zones declared earlier
-    // win); current data has no such overlap. byte values: 0/1/2 follow
-    // EKitPurpose; 0xFF means "not classified" (kit is in the palette but
-    // no zone listed it in any slot — defensive only, since BuildKitPalette
-    // only adds kits via zone refs).
-    private static byte[] _kitPurposes;
-    private const byte KIT_PURPOSE_NONE = 0xFF;
-
-    // Resolve a gen kit ref to its global palette byte for stamping into
-    // ChunkState.TerrainId. Null or unknown kits map to 0 — palette index 0 is
-    // a debug fallback (no kit configured). The byte indexes both the runtime
-    // (_activeTerrainPalette) and gen (_activeKitPalette) arrays.
-    private static byte TerrainIdOf(TerrainKitData kit)
-    {
-        if (kit == null || _kitIndex == null) { return 0; }
-        return _kitIndex.TryGetValue(kit, out byte i) ? i : (byte)0;
-    }
-
-    // TerrainIdOf for authoring tools that stamp a chosen kit (WorldEditor's
-    // Terrain brush). Returns false when the kit has no palette slot — no zone
-    // in the loaded WorldGenData references it — so the caller can warn rather
-    // than silently paint palette slot 0.
-    public static bool TryGetTerrainId(TerrainKitData kit, out byte id)
-    {
-        id = TerrainIdOf(kit);
-        return kit != null && _kitIndex != null && _kitIndex.ContainsKey(kit);
-    }
-
-    // Resolve a stored TerrainId byte to its gen kit. Used by worldgen passes that
-    // need DefaultDetail / DetailNoise* / Forest* / TreeScenes etc.
-    private static TerrainKitData ResolveKit(int TerrainId)
-    {
-        if (_activeKitPalette == null) { return null; }
-        if (TerrainId < 0 || TerrainId >= _activeKitPalette.Length) { return null; }
-        return _activeKitPalette[TerrainId];
-    }
-
-    // True iff the kit at this palette index was classified as Surface at
-    // palette-build time. False for Cave / Submerged / out-of-range. Used
-    // by passes that gate on "is this voxel on walkable above-water ground?"
-    // — field/dirt overlay stamping, surface scatter noise pick, road
-    // suppression on the scatter pass.
-    private static bool IsSurfaceKit(int TerrainId)
-    {
-        if (_kitPurposes == null) { return false; }
-        if (TerrainId < 0 || TerrainId >= _kitPurposes.Length) { return false; }
-        return _kitPurposes[TerrainId] == (byte)EKitPurpose.Surface;
-    }
-
-    private static bool IsCaveKit(int TerrainId)
-    {
-        if (_kitPurposes == null) { return false; }
-        if (TerrainId < 0 || TerrainId >= _kitPurposes.Length) { return false; }
-        return _kitPurposes[TerrainId] == (byte)EKitPurpose.Cave;
-    }
-
-    // Resolve a detail-group ref to its 1-based stamp value for
-    // ChunkState.DetailGroup. Returns 0 ("no detail") if the group is null
-    // or wasn't included in the active palette.
-    private static byte DetailIndexOf(DetailGroupData group)
-    {
-        if (group == null || _detailIndex == null) { return 0; }
-        // Stored 0-based; the per-voxel channel is 1-based with 0 = none.
-        return _detailIndex.TryGetValue(group, out byte i) ? (byte)(i + 1) : (byte)0;
-    }
-
-    // Walks the zone array and returns a deduplicated GEN kit palette in zone
-    // declaration order (zone 0's SurfaceKit first, then CaveKit, then
-    // SubmergedKit, then ShoreKit, then zone 1's, etc.) skipping nulls and any
-    // gen kit already present. Two zones that share a gen kit cost one palette
-    // slot. Index 0 is the first non-null kit encountered. TerrainId bytes stored
-    // per voxel index into both this array and its runtime sibling (see
-    // ExtractTerrainPalette) — both are uploaded by Main / ChunkMesh.
-    public static TerrainKitData[] BuildKitPalette(ZoneGenData[] zones)
-    {
-        var list = new System.Collections.Generic.List<TerrainKitData>();
-        var seen = new System.Collections.Generic.HashSet<TerrainKitData>();
-        if (zones != null)
-        {
-            foreach (ZoneGenData z in zones)
-            {
-                if (z == null) { continue; }
-                AddIfNew(z.surfaceKit, list, seen);
-                AddIfNew(z.caveKit, list, seen);
-                AddIfNew(z.submergedKit, list, seen);
-                AddIfNew(z.shoreKit, list, seen);
-            }
-        }
-        return list.ToArray();
-    }
-
-    // Walks a gen kit palette and returns a deduplicated detail-group palette
-    // built from each gen kit's DefaultDetail. Same dedup rule as
-    // BuildKitPalette. The returned array is uploaded via
-    // ChunkMesh.SetDetailGroups; per-voxel DetailGroup bytes are 1-based
-    // indices into this array.
-    public static DetailGroupData[] BuildDetailPalette(TerrainKitData[] kits)
-    {
-        var list = new System.Collections.Generic.List<DetailGroupData>();
-        var seen = new System.Collections.Generic.HashSet<DetailGroupData>();
-        if (kits != null)
-        {
-            foreach (TerrainKitData k in kits)
-            {
-                if (k == null) { continue; }
-                if (k.defaultDetail != null && seen.Add(k.defaultDetail))
-                {
-                    list.Add(k.defaultDetail);
-                }
-            }
-        }
-        return list.ToArray();
-    }
-
-    private static void AddIfNew(TerrainKitData k, System.Collections.Generic.List<TerrainKitData> list, System.Collections.Generic.HashSet<TerrainKitData> seen)
-    {
-        if (k == null) { return; }
-        if (seen.Add(k)) { list.Add(k); }
-    }
-
-    // Stamp the purpose for a kit IF it's still unclassified. First-zone-wins
-    // semantics: a kit referenced as SurfaceKit in zone 0 stays Surface even
-    // if zone 1 lists the same .tres as its CaveKit. Skips nulls and kits
-    // missing from the active palette (defensive — only kits added by
-    // BuildKitPalette get a slot, and we only call this with refs taken from
-    // the same zone array).
-    private static void ClassifyKit(TerrainKitData kit, EKitPurpose purpose)
-    {
-        if (kit == null || _kitIndex == null) { return; }
-        if (!_kitIndex.TryGetValue(kit, out byte idx)) { return; }
-        if (_kitPurposes[idx] == KIT_PURPOSE_NONE)
-        {
-            _kitPurposes[idx] = (byte)purpose;
-        }
     }
 
     // ZoneIndex of the chunk owning (wx, wy, wz). Falls back to 0 if the
@@ -439,18 +256,14 @@ public static class WorldGen
     // Sunlight isn't baked yet when mobs are placed (it runs after prop/mob
     // scatter), so "underground" is a direct upward solid scan rather than a
     // sky-exposure read. Called per worldgen mob spawn.
-    // Set by a baker that supplies its own difficulty field — the world-map
-    // painter paints one per column — and null in normal generation. It exists
-    // because the zone bands and noise this function otherwise reads belong to a
-    // Generate() run: a painted world never calls that, so without the seam
-    // every painted mob spawns at its species base level.
-    public static System.Func<Vector3, int, int> MobLevelOverride;
-
-    public static int ComputeMobLevel(WorldState ws, Vector3 position, int baseLevel)
+    // A baker supplying its own difficulty field (the world-map painter) answers
+    // this itself through the context — see SpawnContext.MobLevelOverride.
+    public static int ComputeMobLevel(WorldState ws, Vector3 position, int baseLevel,
+        SpawnContext context)
     {
-        if (MobLevelOverride != null)
+        if (context?.MobLevelOverride != null)
         {
-            return MobLevelOverride(position, baseLevel);
+            return context.MobLevelOverride(position, baseLevel);
         }
 
         WorldGenData genData = _activeGenData;
@@ -484,50 +297,6 @@ public static class WorldGen
         return false;
     }
 
-    // Resolve the kit / detail palettes for `genData` and store them on the
-    // WorldGen statics so per-voxel kit and detail stamps can do a dictionary
-    // lookup instead of slot math. The gen palette is the dedup'd source of
-    // truth; the runtime palette is derived parallel to it (same indices) for
-    // ChunkMesh upload. Generate() calls this; Main.StartGame also calls it
-    // before LoadWorldFromFile so authoring tools (WorldEditor) see the gen
-    // palette regardless of whether the world came from disk or a fresh
-    // Generate() run.
-    public static void BindActivePalettes(WorldGenData genData)
-    {
-        _activeKitPalette = BuildKitPalette(genData?.ZoneGens);
-        _kitIndex = new System.Collections.Generic.Dictionary<TerrainKitData, byte>();
-        for (int i = 0; i < _activeKitPalette.Length; i++)
-        {
-            TerrainKitData k = _activeKitPalette[i];
-            if (k != null) { _kitIndex[k] = (byte)i; }
-        }
-        _activeDetailPalette = BuildDetailPalette(_activeKitPalette);
-        _detailIndex = new System.Collections.Generic.Dictionary<DetailGroupData, byte>();
-        for (int i = 0; i < _activeDetailPalette.Length; i++)
-        {
-            DetailGroupData g = _activeDetailPalette[i];
-            if (g != null) { _detailIndex[g] = (byte)i; }
-        }
-
-        // Derive purpose-by-paletteIndex from zone refs. The first zone that
-        // claims a kit sets its classification; later zones referencing the
-        // same kit are ignored (current data has no cross-slot overlap, but
-        // the rule is deterministic in case it ever does).
-        _kitPurposes = new byte[_activeKitPalette.Length];
-        for (int i = 0; i < _kitPurposes.Length; i++) { _kitPurposes[i] = KIT_PURPOSE_NONE; }
-        if (genData?.ZoneGens != null)
-        {
-            foreach (ZoneGenData z in genData.ZoneGens)
-            {
-                if (z == null) { continue; }
-                ClassifyKit(z.surfaceKit, EKitPurpose.Surface);
-                ClassifyKit(z.caveKit, EKitPurpose.Cave);
-                ClassifyKit(z.submergedKit, EKitPurpose.Submerged);
-                ClassifyKit(z.shoreKit, EKitPurpose.Shore);
-            }
-        }
-    }
-
     // worldSize is the HORIZONTAL extent in chunks. The vertical one isn't a run
     // parameter — FitVerticalExtent sizes it to the heightmap once terrain is
     // built, so terrain can't outgrow its own world. The extent below is a
@@ -535,14 +304,14 @@ public static class WorldGen
     // Y before the fit.
     public static WorldState Generate(WorldGenData genData, int worldSeed, Vector2I worldSize)
     {
-        BindActivePalettes(genData);
         _activeGenData = genData;
         _mobLevelNoise = MakePerlin(DeriveSeed(worldSeed, SEED_SALT_MOBLEVEL), genData.zoneLevelNoiseFrequency, 2);
         _forgeLevelNoise = MakePerlin(DeriveSeed(worldSeed, SEED_SALT_FORGELEVEL), genData.zoneLevelNoiseFrequency, 2);
 
         var min = new Vector3I(-worldSize.X / 2, 0, -worldSize.Y / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, 0, min.Z + worldSize.Y - 1);
-        var ws = new WorldState(min, max, genData.simData);
+        var ws = new WorldState(min, max, genData.simData,
+            KitPalette.Build(genData.kitPalette, genData.ZoneGens));
 
         // Zone-placement context. The edge-noise channel wobbles box/circle zone
         // borders; sampled at chunk coords so the border resolves per chunk and
@@ -749,7 +518,7 @@ public static class WorldGen
         // Roads suppress their own detail here rather than clearing it after.
         if ((skipFlags & SKIP_DETAILS) == 0)
         {
-            StampDetailScatter(ws, genData, heightMap);
+            StampDetailScatter(ws, genData, (wx, wz) => _roadColumns.Contains((wx, wz)), true);
         }
 
         // Player spawn point, resolved after road grading so a road crossing the
@@ -803,7 +572,7 @@ public static class WorldGen
         // bytes and never reach here.
         GenerateAmbientWaterCurrents(ws);
         StampRiverCurrents(ws, heightMap);
-        PlaceWaterfalls(ws, heightMap);
+        PlaceWaterfalls(ws, heightMap.Waterfalls);
 
         // Test override demonstrating the wind-velocity authoring path.
         // Amplifies a small region around the origin to ~3× the default
@@ -904,9 +673,11 @@ public static class WorldGen
         }
     }
 
-    // Turn the terrain approach's measured cascades into entities. This is the
-    // only consumer of HeightMap.Waterfalls, and it is where a drop stops being a
-    // hole in the water field and becomes something you can see and hear.
+    // Turn measured cascades into entities — where a drop stops being a hole in
+    // the water field and becomes something you can see and hear. Takes the
+    // SITES rather than the HeightMap: the world-map painter measures its own
+    // (WorldMapState.BuildWaterfallSites, off the painted water layer) and files
+    // them through here, so the surface-Y convention below has one home.
     //
     // The entity is filed at the LIP rather than at the landing: that is where
     // the fall reads from above, and it keeps a cascade in the same chunk as the
@@ -914,10 +685,10 @@ public static class WorldGen
     // its sheet is drawn while the lip's chunk is resident and not otherwise —
     // acceptable while the load radius is generous, and the same bargain roofs
     // and other tall entities already make.
-    private static void PlaceWaterfalls(WorldState ws, HeightMap heightMap)
+    public static void PlaceWaterfalls(WorldState ws, IReadOnlyList<WaterfallSite> sites)
     {
         int placed = 0;
-        foreach (WaterfallSite site in heightMap.Waterfalls)
+        foreach (WaterfallSite site in sites)
         {
             if (site.Lips.Count == 0) { continue; }
             var lips = new WaterfallLip[site.Lips.Count];
@@ -1268,7 +1039,7 @@ public static class WorldGen
                     var chunk = new ChunkState(coord);
                     chunk.ZoneIndex = PickZoneIndex(coord, ws.Zones.Length);
                     chunk.RegionIndex = PickRegionIndex(coord, ws.Regions.Length);
-                    GenerateChunk(chunk, genData, terrainGen, heightMap);
+                    GenerateChunk(chunk, genData, ws.Kits, terrainGen, heightMap);
                     ws._chunks[coord] = chunk;
                 }
             }
@@ -2331,10 +2102,27 @@ public static class WorldGen
     // ceiling and stays snapped (the same guard the per-chunk fill applies).
     private static void StampGradeShapes(WorldState ws, HeightMap hm, int maxGradeStep)
     {
+        StampGradeShapes(ws, hm.WorldMinX, hm.WorldMaxX, hm.WorldMinZ, hm.WorldMaxZ, maxGradeStep);
+
+        if (!string.IsNullOrWhiteSpace(CVars.gradeDebug.Value))
+        {
+            GradeDebug.Dump(CVars.gradeDebug.Value, ws,
+                (x, z) => hm.GetSurface(x, z), (x, z) => hm.IsGrade(x, z, maxGradeStep));
+        }
+    }
+
+    // Bounds-taking form, so a painted world can run the identical pass. The
+    // height field was only ever used for horizontal extent here; everything
+    // else is read off the finished voxels, which is what lets the painter —
+    // which has no HeightMap at all — get the same grades as worldgen instead
+    // of a second implementation that drifts.
+    public static void StampGradeShapes(WorldState ws, int worldMinX, int worldMaxX,
+        int worldMinZ, int worldMaxZ, int maxGradeStep)
+    {
         int minY = ws.Min.Y * ChunkState.SIZE;
         int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int sizeX = hm.WorldMaxX - hm.WorldMinX + 1;
-        int sizeZ = hm.WorldMaxZ - hm.WorldMinZ + 1;
+        int sizeX = worldMaxX - worldMinX + 1;
+        int sizeZ = worldMaxZ - worldMinZ + 1;
 
         // Every floor surface in the world (solid voxel with a non-solid voxel
         // directly above), grouped by column: column n owns
@@ -2350,8 +2138,8 @@ public static class WorldGen
             for (int iz = 0; iz < sizeZ; iz++)
             {
                 starts[ix * sizeZ + iz] = surfaces.Count;
-                int wx = hm.WorldMinX + ix;
-                int wz = hm.WorldMinZ + iz;
+                int wx = worldMinX + ix;
+                int wz = worldMinZ + iz;
                 // Above the world ceiling is open sky, so a column that reaches
                 // maxY still registers its top voxel as a surface.
                 bool aboveSolid = false;
@@ -2378,8 +2166,8 @@ public static class WorldGen
         // surface at all) the axis falls out of the window and stays snapped.
         int FacingSurfaceY(int wx, int wz, int y)
         {
-            int ix = Math.Clamp(wx, hm.WorldMinX, hm.WorldMaxX) - hm.WorldMinX;
-            int iz = Math.Clamp(wz, hm.WorldMinZ, hm.WorldMaxZ) - hm.WorldMinZ;
+            int ix = Math.Clamp(wx, worldMinX, worldMaxX) - worldMinX;
+            int iz = Math.Clamp(wz, worldMinZ, worldMaxZ) - worldMinZ;
             int n = ix * sizeZ + iz;
             int bestY = y + NO_SURFACE;
             for (int k = starts[n]; k < starts[n + 1]; k++)
@@ -2405,8 +2193,8 @@ public static class WorldGen
         {
             for (int iz = 0; iz < sizeZ; iz++)
             {
-                int wx = hm.WorldMinX + ix;
-                int wz = hm.WorldMinZ + iz;
+                int wx = worldMinX + ix;
+                int wz = worldMinZ + iz;
                 int n = ix * sizeZ + iz;
                 for (int k = starts[n]; k < starts[n + 1]; k++)
                 {
@@ -2431,11 +2219,6 @@ public static class WorldGen
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(CVars.gradeDebug.Value))
-        {
-            GradeDebug.Dump(CVars.gradeDebug.Value, ws,
-                (x, z) => hm.GetSurface(x, z), (x, z) => hm.IsGrade(x, z, maxGradeStep));
-        }
     }
 
     // Rewrite one tread column to the graded height: cut solid above / fill solid
@@ -2465,7 +2248,7 @@ public static class WorldGen
         for (int by = hOld + 1; by <= hNew && by <= worldMaxY; by++)
         {
             if (by < worldMinY) { continue; }
-            ws.SetBlockWorld(wx, by, wz, KitBlocks.ForKit(kitId), SharpAxes.Y);
+            ws.SetBlockWorld(wx, by, wz, ws.Kits.BlockFor(kitId), SharpAxes.Y);
             ws.SetTerrainIdWorld(wx, by, wz, kitId);
         }
         // Bed: guarantee solid rock under the deck (refill cave/tunnel hollows).
@@ -2475,14 +2258,14 @@ public static class WorldGen
             int v = ws.GetBlockWorld(wx, by, wz);
             if (v == Blocks.AirId || v == Blocks.WaterId)
             {
-                ws.SetBlockWorld(wx, by, wz, KitBlocks.ForKit(kitId), SharpAxes.Y);
+                ws.SetBlockWorld(wx, by, wz, ws.Kits.BlockFor(kitId), SharpAxes.Y);
                 ws.SetTerrainIdWorld(wx, by, wz, kitId);
             }
         }
         // Surface: flat deck, no detail scatter, road overlay on top.
         if (hNew >= worldMinY && hNew <= worldMaxY)
         {
-            ws.SetBlockWorld(wx, hNew, wz, KitBlocks.ForKit(kitId), SharpAxes.Y);
+            ws.SetBlockWorld(wx, hNew, wz, ws.Kits.BlockFor(kitId), SharpAxes.Y);
             ws.SetTerrainIdWorld(wx, hNew, wz, kitId);
             ws.SetDetailGroupWorld(wx, hNew, wz, 0);
             ws.SetDetailStrengthWorld(wx, hNew, wz, 0);
@@ -2725,7 +2508,8 @@ public static class WorldGen
             // never rewritten after BuildHeightMap), so resolve it now — the
             // path-hint POIs registered before the stamp need the scene's final
             // world position, and the stamp itself just reads it back.
-            int plateauY = FootprintPlateauY(heightMap, origin, sub.Size, out int levelCount);
+            int plateauY = FootprintPlateauY((x, z) => heightMap.GetPlateau(x, z),
+                heightMap.LevelStep, origin, sub.Size, out int levelCount);
             loaded.Add(new ReservedSubscene
             {
                 Sub = sub,
@@ -2751,7 +2535,8 @@ public static class WorldGen
         // The anchor's y=0 course replaces the plateau's top voxel rather than
         // stacking on it — a scene carries its own floor. Everything the scene
         // authored below y=0 goes under the ground from here.
-        public Vector3 Anchor => new Vector3(Placement.anchorXZ.X, PlateauY, Placement.anchorXZ.Y);
+        public Vector3 Anchor => new Vector3(Placement.anchorXZ.X,
+            PlateauY + Placement.yOffset, Placement.anchorXZ.Y);
     }
 
     // Turn every stamped scene's authored path hints into named points of
@@ -3090,15 +2875,19 @@ public static class WorldGen
     // surface happened to reach. Snapping down rather than to nearest keeps the
     // existing bias: the stamp overwrites its whole bbox, so cutting into the
     // ground is self-correcting where floating over it is not.
-    private static int FootprintPlateauY(HeightMap heightMap, Vector3I origin, Vector3I size, out int levelCount)
+    // Takes the ground lookup rather than a HeightMap so the world-map painter,
+    // which has no HeightMap, seats its stamps at the same height by the same
+    // rule instead of inventing a second one.
+    public static int FootprintPlateauY(Func<int, int, int> plateauAt, int levelStep,
+        Vector3I origin, Vector3I size, out int levelCount)
     {
-        int step = heightMap.LevelStep;
+        int step = Math.Max(1, levelStep);
         var counts = new Dictionary<int, int>();
         for (int dx = 0; dx < size.X; dx++)
         {
             for (int dz = 0; dz < size.Z; dz++)
             {
-                int raw = heightMap.GetPlateau(origin.X + dx, origin.Z + dz);
+                int raw = plateauAt(origin.X + dx, origin.Z + dz);
                 int plateau = (int)Math.Floor((double)raw / step) * step;
                 counts.TryGetValue(plateau, out int seen);
                 counts[plateau] = seen + 1;
@@ -3527,12 +3316,12 @@ public static class WorldGen
     // voxel. Anything that wants voxels wants the real Generate.
     public static HeightMap GenerateTerrainOnly(WorldGenData genData, int worldSeed, Vector2I worldSize)
     {
-        BindActivePalettes(genData);
         _activeGenData = genData;
 
         var min = new Vector3I(-worldSize.X / 2, 0, -worldSize.Y / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, 0, min.Z + worldSize.Y - 1);
-        var ws = new WorldState(min, max, genData.simData);
+        var ws = new WorldState(min, max, genData.simData,
+            KitPalette.Build(genData.kitPalette, genData.ZoneGens));
 
         // The zone-placement context and the zone/region states are the only
         // setup a terrain approach reads — SampleBlendedZoneGen resolves through
@@ -4167,7 +3956,7 @@ public static class WorldGen
         return true;
     }
 
-    private static void GenerateChunk(ChunkState data, WorldGenData genData,
+    private static void GenerateChunk(ChunkState data, WorldGenData genData, KitPalette palette,
         ITerrainGenerator terrainGen, HeightMap heightMap)
     {
         int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
@@ -4211,12 +4000,12 @@ public static class WorldGen
                 int waterY = WaterYAt(heightMap, wx, wz);
                 int kitZone = PickKitZone(wx, wz, genData.ZoneGens, data.ZoneIndex);
                 ZoneGenData kitZoneData = kitZone >= 0 ? genData.ZoneGens[kitZone] : null;
-                byte surfaceTerrainId = TerrainIdOf(kitZoneData?.surfaceKit);
+                byte surfaceTerrainId = palette.SlotOf(kitZoneData?.surfaceKit);
                 byte shoreTerrainId = surfaceTerrainId;
                 int shoreUpperY = waterY;
                 if (kitZoneData != null && kitZoneData.shoreKit != null)
                 {
-                    shoreTerrainId = TerrainIdOf(kitZoneData.shoreKit);
+                    shoreTerrainId = palette.SlotOf(kitZoneData.shoreKit);
                     float shoreUpperR = HashFloat01(wx, wz, SHORE_UPPER_HASH_SALT);
                     float shoreUpperMeters = Mathf.Lerp(
                         kitZoneData.shoreElevationMin,
@@ -4296,7 +4085,7 @@ public static class WorldGen
                     // (Wood/Stone walls from structures) overwrite this later
                     // via SetBlockWorld and take the non-AUTO shader path.
                     int kit = (columnIsBeach && wy == solidHeight) ? shoreTerrainId : surfaceTerrainId;
-                    data.Voxels[x, y, z] = (byte)KitBlocks.ForKit(kit);
+                    data.Voxels[x, y, z] = (byte)palette.BlockFor(kit);
 
                     // Cave interior surfaces always snap flat, regardless of
                     // whether the outdoor ridge above this column is a plateau
@@ -4627,7 +4416,7 @@ public static class WorldGen
                 if (naturalSurfaceY > FloorY)
                 {
                     ws.SetBlockWorld(wx, FloorY, wz,
-                        KitBlocks.ForKit(ws.GetTerrainIdWorld(wx, FloorY, wz)), SharpAxes.Y);
+                        ws.Kits.BlockFor(ws.GetTerrainIdWorld(wx, FloorY, wz)), SharpAxes.Y);
                 }
             }
         }
@@ -4716,7 +4505,7 @@ public static class WorldGen
                         // Overrides SubmergedKit for submerged caves — the
                         // cave palette wins there.
                         int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
-                        RestampKit(ws, wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.caveKit));
+                        RestampKit(ws, wx, wy, wz, ws.Kits.SlotOf(genData.ZoneGens[zoneIdx]?.caveKit));
                     }
                 }
             }
@@ -4824,7 +4613,7 @@ public static class WorldGen
                         else
                         {
                             int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
-                            RestampKit(ws, wx, wy, wz, TerrainIdOf(genData.ZoneGens[zoneIdx]?.submergedKit));
+                            RestampKit(ws, wx, wy, wz, ws.Kits.SlotOf(genData.ZoneGens[zoneIdx]?.submergedKit));
                         }
                     }
                 }
@@ -4864,7 +4653,7 @@ public static class WorldGen
     private static void RestampKit(WorldState ws, int wx, int wy, int wz, int kitId)
     {
         ws.SetTerrainIdWorld(wx, wy, wz, kitId);
-        ws.SetBlockWorld(wx, wy, wz, KitBlocks.ForKit(kitId), ws.GetShapeWorld(wx, wy, wz));
+        ws.SetBlockWorld(wx, wy, wz, ws.Kits.BlockFor(kitId), ws.GetShapeWorld(wx, wy, wz));
     }
 
     private static readonly byte DIRT_BLOCK = ResolveBlockId("Dirt");
@@ -4952,7 +4741,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    if (!IsSurfaceKit(ws.GetTerrainIdWorld(wx, wy, wz)))
+                    if (!ws.Kits.IsSurfaceKit(ws.GetTerrainIdWorld(wx, wy, wz)))
                     {
                         continue;
                     }
@@ -4974,7 +4763,16 @@ public static class WorldGen
     // object is sampled at base frequency 1, with coords pre-scaled by the
     // kit's DetailNoiseFrequency, so kits within a single zone read
     // different noise patterns (sharp transitions where kits change).
-    private static void StampDetailScatter(WorldState ws, WorldGenData genData, HeightMap heightMap)
+    //
+    // Two knobs, because the painter's bake runs this same pass over a painted
+    // world (see WorldMapState.BuildWorld): `skipColumn` names the columns whose
+    // surface is a deliberate tread — worldgen's roads, the painter's paving —
+    // and `dominantZoneKit` is off there, since a painted world assigns kits per
+    // column deterministically and has no zone-weight kernel to take an argmax
+    // of. Everything else — the surface walk, the gates, the noise, the strength
+    // ramp — is shared rather than reimplemented per caller.
+    public static void StampDetailScatter(WorldState ws, WorldGenData genData,
+        Func<int, int, bool> skipColumn, bool dominantZoneKit)
     {
         var surfaceNoise = new FastNoiseLite();
         surfaceNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
@@ -5005,7 +4803,7 @@ public static class WorldGen
                 // A road tread is bare dirt, and this pass runs after it is laid
                 // — so the road is kept clear here rather than by clearing the
                 // detail channel again after the fact.
-                if (_roadColumns.Contains((wx, wz)))
+                if (skipColumn != null && skipColumn(wx, wz))
                 {
                     continue;
                 }
@@ -5060,10 +4858,10 @@ public static class WorldGen
                     // reported problem). The chosen kit's DetailNoise* thresholds
                     // still drive presence/strength below.
                     int voxelTerrainId = ws.GetTerrainIdWorld(wx, wy, wz);
-                    bool isSurface = IsSurfaceKit(voxelTerrainId);
-                    TerrainKitData kit = isSurface
-                        ? (DominantZoneSurfaceKit(wx, wz, genData.ZoneGens) ?? ResolveKit(voxelTerrainId))
-                        : ResolveKit(voxelTerrainId);
+                    bool isSurface = ws.Kits.IsSurfaceKit(voxelTerrainId);
+                    TerrainKitData kit = isSurface && dominantZoneKit
+                        ? (DominantZoneSurfaceKit(wx, wz, genData.ZoneGens) ?? ws.Kits.KitAt(voxelTerrainId))
+                        : ws.Kits.KitAt(voxelTerrainId);
                     if (kit == null || kit.defaultDetail == null)
                     {
                         continue;
@@ -5089,7 +4887,7 @@ public static class WorldGen
                         continue;
                     }
 
-                    ws.SetDetailGroupWorld(wx, wy, wz, DetailIndexOf(kit.defaultDetail));
+                    ws.SetDetailGroupWorld(wx, wy, wz, ws.Kits.DetailSlotOf(kit.defaultDetail));
                     ws.SetDetailStrengthWorld(wx, wy, wz, strength);
                 }
             }
@@ -5433,7 +5231,7 @@ public static class WorldGen
                         continue;
                     }
 
-                    bool isCave = IsCaveKit(ws.GetTerrainIdWorld(wx, wy, wz));
+                    bool isCave = ws.Kits.IsCaveKit(ws.GetTerrainIdWorld(wx, wy, wz));
                     float coverage = isCave ? zone.mossCaveCoverage : zone.mossSurfaceCoverage;
                     if (coverage <= 0f)
                     {
@@ -5649,7 +5447,7 @@ public static class WorldGen
         int chunkCenterWx = chunkCoord.X * ChunkState.SIZE + ChunkState.SIZE / 2;
         int chunkCenterWz = chunkCoord.Z * ChunkState.SIZE + ChunkState.SIZE / 2;
         int chunkCenterSy = SurfaceYAt(chunkCenterWx, chunkCenterWz);
-        TerrainKitData chunkCenterKit = ResolveKit(ws.GetTerrainIdWorld(chunkCenterWx, chunkCenterSy, chunkCenterWz));
+        TerrainKitData chunkCenterKit = ws.Kits.KitAt(ws.GetTerrainIdWorld(chunkCenterWx, chunkCenterSy, chunkCenterWz));
         int treesPerChunkMin = chunkCenterKit?.TreesPerChunkMin ?? 0;
         int treesPerChunkMax = chunkCenterKit?.TreesPerChunkMax ?? 0;
         int treeCount = treesPerChunkMax >= treesPerChunkMin
@@ -5676,7 +5474,7 @@ public static class WorldGen
                 return false;
             }
             int sy = SurfaceYAt(wx, wz);
-            TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
+            TerrainKitData cellKit = ws.Kits.KitAt(ws.GetTerrainIdWorld(wx, sy, wz));
             WeightedScene.Fill(scenePalette, cellKit?.Trees);
             if (scenePalette.Count == 0)
             {
@@ -5721,7 +5519,7 @@ public static class WorldGen
                     int wx = chunkCoord.X * ChunkState.SIZE + localX;
                     int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
                     int sy = SurfaceYAt(wx, wz);
-                    TerrainKitData kit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
+                    TerrainKitData kit = ws.Kits.KitAt(ws.GetTerrainIdWorld(wx, sy, wz));
                     if (kit == null)
                     {
                         continue;
@@ -5759,7 +5557,7 @@ public static class WorldGen
                     }
 
                     int sy = SurfaceYAt(wx, wz);
-                    TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
+                    TerrainKitData cellKit = ws.Kits.KitAt(ws.GetTerrainIdWorld(wx, sy, wz));
                     WeightedScene.Fill(scenePalette, cellKit?.Foliage);
                     if (scenePalette.Count == 0)
                     {

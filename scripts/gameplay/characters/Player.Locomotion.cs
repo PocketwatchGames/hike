@@ -174,9 +174,18 @@ public partial class Player : CharacterBody3D
 		// is. In water that layer IS the water surface (water columns are
 		// standable for the player profile), so climbing out needs no separate
 		// height convention.
-		if (!_walkField.TryGetSurface(GlobalPosition, out float refY, out bool _))
+		if (!_walkField.TryGetSurface(GlobalPosition, out float refY, out bool refIsWater))
 		{
 			return false;
+		}
+		// ...but that convention only holds for a SWIMMER, who is at the surface.
+		// A wading player stands on the BED, often a metre or two below it, and
+		// anchoring their bands to the surface shifts every rise by the water's
+		// depth — which reads the dry bank beside a river as a descend target and
+		// carries the body down into it.
+		if (refIsWater && !swimming)
+		{
+			refY = GlobalPosition.Y;
 		}
 
 		// Which way the player is FACING decides up or down where a column offers
@@ -265,12 +274,147 @@ public partial class Player : CharacterBody3D
 			Mathf.Lerp(from.Z, to.Z, fwdT));
 	}
 
+	// --- Fall-through tripwire (`fall_trace`) -------------------------------
+	// Records what owned the player's position each tick and dumps the last
+	// couple of seconds the moment the body ends up somewhere with no world
+	// under it at all. Exists because falling through the map is only ever seen
+	// AFTER the fact — by then the state that caused it is several ticks gone.
+	private struct FallTraceEntry
+	{
+		public ulong ms;
+		public Vector3 pos;
+		public Vector3 vel;
+		public bool grounded;
+		public EWaterState water;
+		public bool dash;
+		public string owner;
+	}
+
+	private const int FallTraceLength = 150;
+	private readonly FallTraceEntry[] _fallTrace = new FallTraceEntry[FallTraceLength];
+	private int _fallTraceNext;
+	private int _fallTraceCount;
+	private bool _fallTraceFired;
+	private int _fallTraceProbeCountdown;
+	// Set by whichever branch placed the body this tick; cleared as it is read.
+	private string _fallTraceOwner;
+
+	// Tag the current tick with the branch that owns the body's position.
+	// Cheap enough to leave in unconditionally: a literal assignment.
+	private void FallTraceMark(string owner)
+	{
+		_fallTraceOwner = owner;
+	}
+
+	private void FallTraceTick()
+	{
+		string owner = _fallTraceOwner ?? (_grounded ? "grounded" : "air");
+		_fallTraceOwner = null;
+		if (!CVars.fallTrace.Value || _fallTraceFired)
+		{
+			return;
+		}
+
+		_fallTrace[_fallTraceNext] = new FallTraceEntry
+		{
+			ms = _world?.GameTimeMs ?? 0,
+			pos = GlobalPosition,
+			vel = Velocity,
+			grounded = _grounded,
+			water = _waterState,
+			dash = _dashTimeRemaining > 0f,
+			owner = owner,
+		};
+		_fallTraceNext = (_fallTraceNext + 1) % FallTraceLength;
+		_fallTraceCount = Mathf.Min(_fallTraceCount + 1, FallTraceLength);
+
+		// Only a body already falling hard can be outside the world, and the
+		// probe is a long raycast — so gate it on that and rate-limit it.
+		if (_grounded || Velocity.Y > -4f)
+		{
+			return;
+		}
+		if (--_fallTraceProbeCountdown > 0)
+		{
+			return;
+		}
+		_fallTraceProbeCountdown = 10;
+		Vector3 from = GlobalPosition;
+		using var query = PhysicsRayQueryParameters3D.Create(
+			from, from + Vector3.Down * FallTraceProbeDepth, (uint)ECollisionLayer.Solid);
+		if (GetWorld3D().DirectSpaceState.IntersectRay(query).Count != 0)
+		{
+			return;
+		}
+
+		_fallTraceFired = true;
+		GD.Print($"[fall_trace] NO WORLD BELOW at ({from.X:F2},{from.Y:F2},{from.Z:F2})"
+			+ $" — last {_fallTraceCount} ticks, oldest first:");
+		int start = (_fallTraceNext - _fallTraceCount + FallTraceLength) % FallTraceLength;
+		for (int k = 0; k < _fallTraceCount; k++)
+		{
+			FallTraceEntry e = _fallTrace[(start + k) % FallTraceLength];
+			GD.Print($"  {e.ms} {e.owner,-16} pos=({e.pos.X:F2},{e.pos.Y:F2},{e.pos.Z:F2})"
+				+ $" vel=({e.vel.X:F1},{e.vel.Y:F1},{e.vel.Z:F1})"
+				+ $" grounded={(e.grounded ? 1 : 0)} water={e.water} dash={(e.dash ? 1 : 0)}");
+		}
+	}
+
+	// How far down the tripwire looks for any world at all.
+	private const float FallTraceProbeDepth = 400f;
+
+	// How far a landing may be lifted to clear geometry before it is refused,
+	// and the step the search takes. A dual-contoured surface sits within half a
+	// voxel of the grid height the probe reported, so the budget only has to
+	// cover that plus the capsule's own margin.
+	private const float LandingClearMaxLift = 0.6f;
+	private const float LandingClearStep = 0.1f;
+
+	// Whether the movement capsule fits at a candidate landing, nudging it up in
+	// small steps if it is shallowly buried. Uses the body's own shape against
+	// the real collision world, which is the only thing that knows where the
+	// meshed surface actually is.
+	private bool TryClearLanding(ref MantleProbe.Candidate candidate)
+	{
+		Vector3 landing = candidate.landing;
+		for (float lift = 0f; lift <= LandingClearMaxLift; lift += LandingClearStep)
+		{
+			Transform3D at = GlobalTransform;
+			at.Origin = new Vector3(landing.X, landing.Y + lift, landing.Z);
+			if (!TestMove(at, Vector3.Zero, null, 0.001f, recoveryAsCollision: true))
+			{
+				candidate = new MantleProbe.Candidate(
+					new Vector3(landing.X, landing.Y + lift, landing.Z),
+					candidate.rise + lift);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	// Begin a mantle if there's a ledge in front. Returns false when there isn't,
 	// so the interact handler can fall through to its next meaning.
 	private bool TryStartMantle()
 	{
 		if (!TryFindMantle(out MantleProbe.Candidate candidate))
 		{
+			return false;
+		}
+
+		// A traversal writes GlobalPosition directly for its whole duration, so a
+		// landing the capsule does not fit in is a teleport into rock — and the
+		// probe reads the nav grid's INTEGER column heights, which the dual
+		// contoured mesh only approximates. Verify against the real collision
+		// shape and lift the landing clear if it is shallowly buried; refuse
+		// outright if it cannot be cleared, so the press falls through to a
+		// plain dash instead of burying the player.
+		if (!TryClearLanding(ref candidate))
+		{
+			if (CVars.mantleDebug.Value)
+			{
+				GD.Print($"[mantle] refused — landing ({candidate.landing.X:F2},"
+					+ $"{candidate.landing.Y:F2},{candidate.landing.Z:F2}) is not clear");
+			}
 			return false;
 		}
 
@@ -308,6 +452,7 @@ public partial class Player : CharacterBody3D
 	private void TickMantle(float dt)
 	{
 		TickMantleMotion();
+		FallTraceTick();
 		_statusEffects?.Tick(dt);
 		UpdateNightVisionShaderGlobal();
 		UpdateAnimation();
@@ -321,6 +466,7 @@ public partial class Player : CharacterBody3D
 
 		GlobalPosition = TraversalCarry(_mantleFrom, _mantleTo, t);
 		Velocity = Vector3.Zero;
+		FallTraceMark("mantle");
 
 		if (CVars.mantleDebug.Value && now - _mantleLogLastMs >= 100)
 		{
@@ -584,6 +730,8 @@ public partial class Player : CharacterBody3D
 	// upkeep that must not stall still ticks.
 	private void TickClimb(float dt)
 	{
+		FallTraceMark("climb");
+		FallTraceTick();
 		if (_climbPhase == EClimbPhase.Attached)
 		{
 			TickClimbAttached(dt);

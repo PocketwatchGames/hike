@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SpawnSetData" load_steps=29 format=3]
+[gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://cdgwwdoxj3xkk"]
 
 [ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
@@ -16,20 +16,33 @@
 [ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/interactives/foliage/tall_grass_03.tscn" id="sc_11"]
 [ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/interactives/foliage/tall_grass_04.tscn" id="sc_12"]
 
+[sub_resource type="Resource" id="e_9"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_9")
+
+[sub_resource type="Resource" id="e_10"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_10")
+
+[sub_resource type="Resource" id="e_11"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_11")
+
+[sub_resource type="Resource" id="e_12"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_12")
+
 [sub_resource type="Resource" id="e_0"]
 script = ExtResource("2_ws")
 scene = ExtResource("sc_0")
-weight = 1.0
 
 [sub_resource type="Resource" id="e_1"]
 script = ExtResource("2_ws")
 scene = ExtResource("sc_1")
-weight = 1.0
 
 [sub_resource type="Resource" id="e_2"]
 script = ExtResource("2_ws")
 scene = ExtResource("sc_2")
-weight = 1.0
 
 [sub_resource type="Resource" id="e_3"]
 script = ExtResource("2_ws")
@@ -59,27 +72,7 @@ weight = 2.0
 [sub_resource type="Resource" id="e_8"]
 script = ExtResource("2_ws")
 scene = ExtResource("sc_8")
-weight = 1.0
 
-[sub_resource type="Resource" id="e_9"]
-script = ExtResource("2_ws")
-scene = ExtResource("sc_9")
-weight = 1.0
-
-[sub_resource type="Resource" id="e_10"]
-script = ExtResource("2_ws")
-scene = ExtResource("sc_10")
-weight = 1.0
-
-[sub_resource type="Resource" id="e_11"]
-script = ExtResource("2_ws")
-scene = ExtResource("sc_11")
-weight = 1.0
-
-[sub_resource type="Resource" id="e_12"]
-script = ExtResource("2_ws")
-scene = ExtResource("sc_12")
-weight = 1.0
 [resource]
 script = ExtResource("1_set")
 displayName = "Mountain"
@@ -87,10 +80,8 @@ mapColor = Color(0.35, 0.45, 0.38, 1)
 forestNoiseFrequency = 0.05
 forestThreshold = 0.01
 forestDensity = 0.1
-treesPerChunkMin = 0
-treesPerChunkMax = 4
 treeScenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8")]
 grassNoiseFrequency = 0.1
 grassThreshold = 0.5
-positionJitter = 0.2
 foliageScenes = [SubResource("e_9"), SubResource("e_10"), SubResource("e_11"), SubResource("e_12")]
+positionJitter = 0.2

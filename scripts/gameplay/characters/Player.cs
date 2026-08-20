@@ -844,6 +844,9 @@ public partial class Player : CharacterBody3D
 	// Real lands (jumps, ledge drops) easily clear it — a neutral jump arc
 	// returns at ~6 m/s.
 	const float LandSoftSpeedThreshold = 1.5f;
+	// Slack above the step-down probe's start height, so the floor ray begins
+	// clear of the surface even when the sweep started flush against it.
+	private const float FloorProbeLift = 0.05f;
 
 	// Inbound vertical speed at which entering water flips from a wade-style
 	// splash to a full plunge (deeper SFX + bigger spray). Lower than
@@ -2081,7 +2084,15 @@ public partial class Player : CharacterBody3D
 		// the grounded branch's -1 downward so step-down still hugs slopes
 		// (and walks off cliffs by clearing _grounded when no floor is found).
 		// Swim dash keeps normal water physics so buoyancy and drag still apply.
+		// ...but the hang is a JUMP-MODEL affordance: it pairs with air movement
+		// and air dashing, which the climb model removed along with the jump
+		// button. There, a dash sticks to the ground — it rides the grounded
+		// branch's downward nudge so the step-down keeps hugging terrain, and
+		// losing footing mid-dash drops the body instead of launching it. The
+		// climb model inherited this hang by accident, and it is what turns
+		// dashing off a river bank into sailing out over open air.
 		bool dashFreezeY = _dashTimeRemaining > 0f && _dashFreezeGravity
+			&& !CVars.climbMovement.Value
 			&& !_grounded && _waterState != EWaterState.Swimming;
 		if (dashFreezeY)
 		{
@@ -2258,6 +2269,10 @@ public partial class Player : CharacterBody3D
 			Vector3 horizDelta = GlobalPosition - posBeforeStep;
 			horizDelta.Y = 0f;
 			float maxSlopeDrop = horizDelta.Length() * Mathf.Tan(FloorMaxAngle);
+			// Where the probe sweep starts. The body is airborne here whenever
+			// the step-up lifted it, so this is above the ground by construction
+			// — which is what makes it a safe origin for the ray fallback below.
+			float yBeforeProbe = GlobalPosition.Y;
 			using KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * (data.stepHeight + maxSlopeDrop));
 			// Match the body's own floor classifier — same threshold MoveAndSlide
 			// and IsOnFloor use, editor-tunable via FloorMaxAngle on the node.
@@ -2265,24 +2280,47 @@ public partial class Player : CharacterBody3D
 			bool foundFloor = stepDownResult != null && stepDownResult.GetNormal().Dot(Vector3.Up) >= floorDotMin;
 			if (foundFloor)
 			{
+				FallTraceMark("stepdown-floor");
 				_grounded = true;
 			}
 			else if (stepDownResult != null)
 			{
 				// Hit a non-floor surface during step-down (mob capsule
-				// flank, steep slope). The lift+slide bumped us into the
-				// obstacle; revert Y to the pre-step floor and stay
-				// grounded. Going airborne here was the bug behind the
-				// land sound spamming every other tick when running into
-				// a mob — wasOnFloor=true → step-up lifts → MoveAndSlide
-				// hits the mob → step-down hits the mob's side → we used
-				// to set _grounded=false, then next tick IsOnFloor() came
-				// back true and counted as a fresh land.
-				GlobalPosition = new Vector3(
-					GlobalPosition.X,
-					posBeforeStep.Y,
-					GlobalPosition.Z
-				);
+				// flank, steep slope). Staying grounded here is deliberate:
+				// going airborne made the land sound fire every other tick
+				// while running into a mob.
+				//
+				// The sweep tests the whole capsule, so it also stops on a
+				// wall or prop merely GRAZED on the way down, with the floor
+				// still right below. Re-probe along the body's axis before
+				// giving up — a face beside us cannot intercept that.
+				if (TryProbeFloorBelow(yBeforeProbe, data.stepHeight + maxSlopeDrop, out float probedFloorY))
+				{
+					FallTraceMark("stepdown-probe");
+					GlobalPosition = new Vector3(
+						GlobalPosition.X,
+						probedFloorY,
+						GlobalPosition.Z
+					);
+				}
+				else
+				{
+					// Neither the sweep nor the ray can name a floor, so we do
+					// not know where the ground is — and the body has ALREADY
+					// been carried horizontally this tick. Pinning only its Y
+					// leaves it wherever that carry ended, which on rising
+					// ground is inside the hill. Give the whole tick back: a
+					// one-tick stall is recoverable, being put inside the world
+					// is not.
+					FallTraceMark("stepdown-revert");
+					GlobalPosition = posBeforeStep;
+					if (CVars.debugSlopes.Value)
+					{
+						GD.Print($"[stepdown] no floor under body at "
+							+ $"({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2}) "
+							+ $"dash={_dashTimeRemaining > 0f}");
+					}
+				}
 				_grounded = true;
 			}
 			else
@@ -2290,12 +2328,21 @@ public partial class Player : CharacterBody3D
 				// No collision at all — we walked off a ledge. The
 				// step-down moved us the full stepHeight before stopping,
 				// which is fine; gravity will continue the fall next tick.
+				FallTraceMark("stepdown-nohit");
 				GlobalPosition = new Vector3(
 					GlobalPosition.X,
 					posBeforeStep.Y,
 					GlobalPosition.Z
 				);
 				_grounded = false;
+				// With no jump there is no way to ASK to leave the ground, so a
+				// dash that has just run out of floor stops driving the body
+				// forward — gravity takes it from here rather than the dash
+				// carrying it across the gap at full speed.
+				if (CVars.climbMovement.Value && _dashTimeRemaining > 0f)
+				{
+					EndDash();
+				}
 			}
 		}
 		else
@@ -2326,6 +2373,7 @@ public partial class Player : CharacterBody3D
 		// from the just-completed MoveAndSlide, then evaluate skating start /
 		// exit based on (sliding, _grounded, velocity) so the Fx wiring below
 		// sees the resolved state for this tick.
+		FallTraceTick();
 		UpdateSlideState();
 		UpdateSkating(wasOnFloor, inboundFallSpeed);
 		UpdateSlideLoop((_sliding || _skating || _skidding) && _waterState == EWaterState.None);
@@ -2409,6 +2457,32 @@ public partial class Player : CharacterBody3D
 
 		UpdateHeldItemVisual();
 	}
+	// Ray probe for the floor under the body, used when the step-down SWEEP is
+	// stopped by something that isn't a floor. The sweep tests the whole capsule,
+	// so a wall or prop alongside it counts as a contact even when the motion is
+	// parallel to that face; a ray down the body's axis only sees what is
+	// actually underfoot. Cast from the pre-sweep height (the body is airborne
+	// there whenever the step-up lifted it) down the same distance the sweep had.
+	// Masks Solid, so ledge barriers can never answer as ground.
+	private bool TryProbeFloorBelow(float fromY, float distance, out float floorY)
+	{
+		floorY = 0f;
+		Vector3 from = new(GlobalPosition.X, fromY + FloorProbeLift, GlobalPosition.Z);
+		Vector3 to = from + Vector3.Down * (distance + FloorProbeLift);
+		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
+		Godot.Collections.Dictionary hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
+		if (hit.Count == 0)
+		{
+			return false;
+		}
+		if (hit["normal"].AsVector3().Dot(Vector3.Up) < Mathf.Cos(FloorMaxAngle))
+		{
+			return false;
+		}
+		floorY = hit["position"].AsVector3().Y;
+		return true;
+	}
+
 
 	// Gate for the per-tick step-up lift: is this tick's horizontal motion
 	// obstructed at the UNLIFTED position? The lift exists only to climb

@@ -71,6 +71,8 @@ public class ClimbTool : IWorldMapTool
         });
     }
 
+    public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
+    public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
     }
@@ -88,7 +90,6 @@ public class ClimbView : IWorldMapView
     public bool ShowsAllSteps => false;
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.None;
-    public bool ShowsClimb => true;
 
     public Color ColorAt(WorldMapState ctx, int px, int pz)
     {

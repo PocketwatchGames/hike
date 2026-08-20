@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SpawnSetData" load_steps=37 format=3]
+[gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://qop38fcqf4o7"]
 
 [ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
@@ -19,6 +19,22 @@
 [ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/interactives/foliage/tall_grass_02.tscn" id="sc_14"]
 [ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/interactives/foliage/tall_grass_03.tscn" id="sc_15"]
 [ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/interactives/foliage/tall_grass_04.tscn" id="sc_16"]
+
+[sub_resource type="Resource" id="e_13"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_13")
+
+[sub_resource type="Resource" id="e_14"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_14")
+
+[sub_resource type="Resource" id="e_15"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_15")
+
+[sub_resource type="Resource" id="e_16"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_16")
 
 [sub_resource type="Resource" id="e_0"]
 script = ExtResource("2_ws")
@@ -53,17 +69,14 @@ weight = 2.0
 [sub_resource type="Resource" id="e_6"]
 script = ExtResource("2_ws")
 scene = ExtResource("sc_6")
-weight = 1.0
 
 [sub_resource type="Resource" id="e_7"]
 script = ExtResource("2_ws")
 scene = ExtResource("sc_7")
-weight = 1.0
 
 [sub_resource type="Resource" id="e_8"]
 script = ExtResource("2_ws")
 scene = ExtResource("sc_8")
-weight = 1.0
 
 [sub_resource type="Resource" id="e_9"]
 script = ExtResource("2_ws")
@@ -78,43 +91,19 @@ weight = 2.0
 [sub_resource type="Resource" id="e_11"]
 script = ExtResource("2_ws")
 scene = ExtResource("sc_11")
-weight = 1.0
 
 [sub_resource type="Resource" id="e_12"]
 script = ExtResource("2_ws")
 scene = ExtResource("sc_12")
-weight = 1.0
 
-[sub_resource type="Resource" id="e_13"]
-script = ExtResource("2_ws")
-scene = ExtResource("sc_13")
-weight = 1.0
-
-[sub_resource type="Resource" id="e_14"]
-script = ExtResource("2_ws")
-scene = ExtResource("sc_14")
-weight = 1.0
-
-[sub_resource type="Resource" id="e_15"]
-script = ExtResource("2_ws")
-scene = ExtResource("sc_15")
-weight = 1.0
-
-[sub_resource type="Resource" id="e_16"]
-script = ExtResource("2_ws")
-scene = ExtResource("sc_16")
-weight = 1.0
 [resource]
 script = ExtResource("1_set")
 displayName = "Forest"
 mapColor = Color(0.16, 0.45, 0.22, 1)
 forestNoiseFrequency = 0.05
 forestThreshold = 0.01
-forestDensity = 0.5
-treesPerChunkMin = 0
-treesPerChunkMax = 4
 treeScenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8"), SubResource("e_9"), SubResource("e_10"), SubResource("e_11"), SubResource("e_12")]
 grassNoiseFrequency = 0.1
 grassThreshold = 0.3
-positionJitter = 0.2
 foliageScenes = [SubResource("e_13"), SubResource("e_14"), SubResource("e_15"), SubResource("e_16")]
+positionJitter = 0.2

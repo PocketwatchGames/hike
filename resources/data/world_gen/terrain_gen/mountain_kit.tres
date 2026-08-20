@@ -17,7 +17,7 @@
 [ext_resource type="PackedScene" uid="uid://b3eik2wv087fj" path="res://scenes/props/tree_sequoia_dead.tscn" id="17_qpata"]
 [ext_resource type="PackedScene" uid="uid://7bdgoyo1ve4m" path="res://scenes/props/tree_birch.tscn" id="20_3r3jf"]
 [ext_resource type="PackedScene" uid="uid://bdgsvwohjn47w" path="res://scenes/props/tree_birch_dead.tscn" id="20_elbrs"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/prop_sets/mountain.tres" id="set_forest"]
+[ext_resource type="Resource" uid="uid://cdgwwdoxj3xkk" path="res://resources/data/worldmap/prop_sets/mountain.tres" id="set_forest"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("6_weighted")

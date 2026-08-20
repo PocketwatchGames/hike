@@ -13,7 +13,7 @@
 [ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="11_tpi02"]
 [ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="12_vum8l"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_marsh_ground.tres" id="blk_marsh_ground"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/prop_sets/marsh.tres" id="set_forest"]
+[ext_resource type="Resource" uid="uid://wwydvupgfm6a" path="res://resources/data/worldmap/prop_sets/marsh.tres" id="set_forest"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("6_weighted")

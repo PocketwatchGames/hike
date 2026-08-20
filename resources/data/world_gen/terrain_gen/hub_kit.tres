@@ -15,7 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="18_j4gvg"]
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="21_6q5nr"]
 [ext_resource type="Resource" uid="uid://bm35ijghdsfpe" path="res://resources/data/blocks/block_grass.tres" id="blk_grass"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/prop_sets/hub.tres" id="set_forest"]
+[ext_resource type="Resource" uid="uid://ifg4vfpafedc" path="res://resources/data/worldmap/prop_sets/hub.tres" id="set_forest"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("3_yghhh")

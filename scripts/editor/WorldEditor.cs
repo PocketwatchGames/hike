@@ -3749,7 +3749,11 @@ public partial class WorldEditor : Node3D
 
     private static WorldState CreateEmptyWorld(WorldGenData genData, Vector3I min, Vector3I max)
     {
-        var ws = new WorldState(min, max, genData.simData);
+        // Its own palette, like any other world. A scratch world used to inherit
+        // whatever the process happened to have bound, which worked only because
+        // Main had bound the same genData moments earlier.
+        var ws = new WorldState(min, max, genData.simData,
+            KitPalette.Build(genData.kitPalette, genData.ZoneGens));
 
         // Mirror WorldGen's zone setup so the sky preview has something
         // to blend in the editor. ZoneIndex stays 0 across all chunks

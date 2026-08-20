@@ -42,6 +42,7 @@
 [ext_resource type="Resource" uid="uid://drjqxsedic4nq" path="res://resources/data/world_gen/cellular_terrain.tres" id="80_cellular"]
 [ext_resource type="Resource" uid="uid://dd70pnlby8te8" path="res://resources/data/surfaces/surface_road.tres" id="81_surface_road"]
 [ext_resource type="Resource" uid="uid://8h4it463afvd" path="res://resources/data/surfaces/surface_moss.tres" id="82_surface_moss"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/kit_palette.tres" id="83_kit_palette"]
 
 [sub_resource type="Resource" id="Resource_know_cure"]
 script = ExtResource("3_spellteach")
@@ -314,6 +315,7 @@ metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 script = ExtResource("1_script")
 simData = ExtResource("2_sim")
 scriptData = ExtResource("60_worldscript")
+kitPalette = ExtResource("83_kit_palette")
 zones = [SubResource("Placed_mountain"), SubResource("Placed_desert"), SubResource("Placed_swamp"), SubResource("Placed_forest"), SubResource("Placed_hub")]
 regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), ExtResource("3_region_swamp"), ExtResource("3_region_forest")]
 terrain = ExtResource("80_cellular")

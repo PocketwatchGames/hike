@@ -43,6 +43,19 @@ public sealed class SpawnContext
     // through this context.)
     public ItemCountRange[] ZonePerChestLoot;
 
+    // A baker that carries its OWN difficulty field answers the level question
+    // itself: the world-map painter paints a level per column, and the zone
+    // bands and noise WorldGen.ComputeMobLevel otherwise reads belong to a
+    // Generate() run that a painted world never makes — so without this seam
+    // every painted mob would spawn at its species base.
+    //
+    // It rides the CONTEXT rather than a static on WorldGen, which is where it
+    // started. The painter bakes on a background thread, so a static meant a
+    // process-wide behaviour switch installed from off the main thread: while it
+    // was set, every mob placed anywhere took its level from a document that
+    // isn't even loaded. Here it reaches exactly the pass that installed it.
+    public Func<Vector3, int, int> MobLevelOverride;
+
     // True when the position was hand-authored (a subscene marker) rather than
     // sampled off a column. It turns OFF the placement heuristics that exist to
     // judge whether an AUTO-PICKED spot is sensible — chiefly the 4-neighbour

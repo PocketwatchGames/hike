@@ -25,7 +25,9 @@ public class MarkerSimState : EntitySimState
 
     public override Node3D CreateEntity(Sim sim)
     {
-        if (Scene == null)
+        // The chunk-streaming spawn queue calls CreateEntity directly, so the
+        // gate has to be re-checked here or the pin materializes in a game.
+        if (Scene == null || !ShouldSpawn(sim))
         {
             return null;
         }

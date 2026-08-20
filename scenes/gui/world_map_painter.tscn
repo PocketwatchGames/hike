@@ -12,6 +12,7 @@ canvas = NodePath("MapLayer/Canvas")
 hud = NodePath("Hud")
 data = ExtResource("5_data")
 brush = ExtResource("6_brush")
+maxPixelsPerMeter = 16
 
 [node name="MapLayer" type="CanvasLayer" parent="." unique_id=1012413076]
 

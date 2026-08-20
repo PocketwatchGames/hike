@@ -73,6 +73,35 @@ field to `BlendedZoneGen` — that struct deliberately does not grow per approac
 A zone carrying another approach's resource should contribute *defaults*, not
 drop out of the sum, or it silently skews its neighbours' share.
 
+## The kit palette is a WIRE FORMAT (`KitPaletteData`)
+
+`WorldGenData.kitPalette` is the slot table `ChunkState.TerrainId` indexes — one
+byte per voxel, in memory and in every `.hike`. Three rules follow, and none of
+them is a style preference:
+
+- **APPEND ONLY.** Insert, remove or reorder a slot and every world already baked
+  comes back re-textured. Nothing about the stored bytes looks wrong when that
+  happens — they stay valid and simply name a different kit. `WorldFile` v47
+  records the slot paths (and the detail palette's, which is derived from the
+  kits' `defaultDetail` and can move on its own) and `Main.LoadWorldFromFile`
+  refuses a world whose palette moved, naming the slot.
+- **It is authored, not derived.** It used to be built by walking `zones` and
+  collecting each zone's four kit slots in declaration order, which made the wire
+  format a side effect of zone *placement* — adding a zone re-textured every
+  baked world — and gave no slot at all to a kit no zone referenced, so anything
+  naming one silently fell back to slot 0.
+- **It belongs to the world.** `WorldState.Kits` (a `KitPalette`) resolves it to
+  the flat slot→block / slot→purpose tables the per-voxel loops read. It is not
+  process state: two worlds can exist at once (the map painter bakes one on a
+  background thread while another is live), and it outlives generation.
+
+`EKitPurpose` stays DERIVED from the zones, because nothing outside worldgen
+reads it — it answers "is this voxel the zone's surface ground?" for the scatter
+and overlay passes, and a painted world that places no zones simply has none.
+
+**`block_check` dumps the resolved palette** (`--headless -- "block_check 1"`,
+~3s), which is how you prove an edit only appended: diff the slot list.
+
 ## The HeightMap contract
 
 Everything downstream reads `HeightMap` and nothing else about the approach, so

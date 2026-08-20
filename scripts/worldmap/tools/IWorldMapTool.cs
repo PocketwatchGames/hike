@@ -66,9 +66,22 @@ public interface IWorldMapTool
     // predictable.
     void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods);
 
-    // Apply one stamp at the given column texel. The tool stamps its layer and,
-    // if it changed voxels, drives the live re-bake (ctx.Commit).
+    // Apply one stamp at the given column texel. A tool writes its LAYER IMAGE
+    // and nothing else — there is no live voxel world to update, and the bake
+    // reads the images back at the end.
     void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase);
+
+    // Columns this tool is ABOUT to change, when they are not the brush disk the
+    // host would otherwise assume. Consulted BEFORE Paint, so the undo snapshot
+    // covers them: a tool that writes outside this is a tool whose edit cannot be
+    // undone. Null means "the brush".
+    Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase);
+
+    // Columns the last Paint changed, when they are NOT the brush disk the host
+    // would otherwise assume — a stamp moves its whole footprint, which can sit
+    // well outside the cursor. Null means "the brush", which is every tool that
+    // paints a layer under its own ring.
+    Rect2I? LastPaintRect { get; }
 
     // Cycle the primary parameter (e.g. brush op, region index, carve height).
     void Cycle(WorldMapState ctx, int dir);
@@ -77,12 +90,17 @@ public interface IWorldMapTool
     void AdjustLevel(WorldMapState ctx, int dir);
 }
 
-// Which spawn layer a view previews as dots.
+// Which spawn layers a view previews as dots. A SET, not a choice: every view
+// drawing ground shows the props, because props are what the ground is
+// furnished with and nothing else on that map answers "is this spot already
+// occupied". Mob dots stay with the layers that paint mobs — they are about
+// encounters, not about terrain.
+[System.Flags]
 public enum ESpawnPreview
 {
-    None,
-    Props,
-    Mobs,
+    None = 0,
+    Props = 1,
+    Mobs = 2,
 }
 
 // A tool's visualization: the colour of column texel (px, pz) for the 2D map.
@@ -104,13 +122,8 @@ public interface IWorldMapView
     // the two were only ever coincidentally the same set of views.
     bool DrawsWater { get; }
 
-    // Which spawn layer, if any, this view draws dots for. Only the view whose
-    // layer the spawns belong to wants them; elsewhere they would be noise over
-    // an unrelated question.
+    // Which spawn layers this view draws dots for. Views whose colour answers an
+    // unrelated question (elevation, water, tunnels, region, zone, danger) draw
+    // none — there the dots would be noise.
     ESpawnPreview PreviewLayer { get; }
-
-    // Ink the wall faces the climb pass would dress? Only the climb view wants
-    // them: everywhere else they would claim the step outlines, which are the
-    // one height cue the index views have.
-    bool ShowsClimb { get; }
 }

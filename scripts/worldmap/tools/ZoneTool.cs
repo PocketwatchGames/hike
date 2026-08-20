@@ -57,6 +57,8 @@ public class ZoneTool : IWorldMapTool
         });
     }
 
+    public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
+    public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
         if (ctx.ZoneCount > 0)
@@ -75,7 +77,6 @@ public class ZoneTool : IWorldMapTool
 public class ZoneView : IWorldMapView
 {
     public ESpawnPreview PreviewLayer => ESpawnPreview.None;
-    public bool ShowsClimb => false;
 
     // Colour is a zone index, so every step is worth a line.
     public bool ShowsAllSteps => true;
