@@ -66,6 +66,29 @@ public partial class TerrainKitData : Resource
     // WeightedList from these and draws one per tree, so a commoner tree just
     // carries a higher Frequency instead of being listed multiple times. The
     // tall-grass palette works the same way.
+    // The kit's ambient scatter, as a shared asset. Referencing one is what lets
+    // a pine stand be defined ONCE and used by several kits and by the world-map
+    // painter, instead of every kit carrying its own copy of the same list —
+    // which is exactly how the two drifted apart.
+    //
+    // The inline fields below remain as the fallback for kits that have not been
+    // migrated, and are what this resolves to when `forest` is null.
+    [Export] public SpawnSetData forest;
+
+    public WeightedScene[] Trees => forest != null && forest.treeScenes.Length > 0 ? forest.treeScenes : treeScenes;
+
+    public WeightedScene[] Foliage => forest != null && forest.foliageScenes.Length > 0 ? forest.foliageScenes : tallGrassScenes;
+
+    public float ForestFrequency => forest != null ? forest.forestNoiseFrequency : forestNoiseFrequency;
+
+    public float ForestThreshold => forest != null ? forest.forestThreshold : forestThreshold;
+
+    public float ForestDensity => forest != null ? forest.forestDensity : forestDensity;
+
+    public int TreesPerChunkMin => forest != null ? forest.treesPerChunkMin : treesPerChunkMin;
+
+    public int TreesPerChunkMax => forest != null ? forest.treesPerChunkMax : treesPerChunkMax;
+
     [Export] public WeightedScene[] treeScenes = System.Array.Empty<WeightedScene>();
     [Export] public WeightedScene[] tallGrassScenes = System.Array.Empty<WeightedScene>();
     [Export] public int treesPerChunkMin = 0;

@@ -16,8 +16,35 @@ public class RegionTool : IWorldMapTool
         View = new RegionView();
     }
 
-    public string StatusText(WorldMapState ctx) => $"Region {RegionIndex}";
+    public string[] Options(WorldMapState ctx)
+    {
+        var names = new string[ctx.RegionCount];
+        for (int i = 0; i < names.Length; i++)
+        {
+            names[i] = ctx.RegionName(i);
+        }
+        return names;
+    }
+
+    public Color[] OptionColors(WorldMapState ctx) => null;
+
+    public int OptionIndex
+    {
+        get => RegionIndex;
+        set => RegionIndex = Mathf.Max(0, value);
+    }
+
+    public string HintText(WorldMapState ctx) => "";
+
+    public Color CursorColor(WorldMapState ctx) => Colors.White;
+
+    public string StatusText(WorldMapState ctx) => $"Region: {ctx.RegionName(RegionIndex)}";
     public string LevelText(WorldMapState ctx) => "";
+
+    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    {
+        // No eyedropper or constraint yet; this tool reads nothing off the map.
+    }
 
     public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
     {
@@ -47,6 +74,13 @@ public class RegionTool : IWorldMapTool
 // Region colour per chunk; 50% darker where the column is open ocean.
 public class RegionView : IWorldMapView
 {
+    public ESpawnPreview PreviewLayer => ESpawnPreview.None;
+    public bool ShowsClimb => false;
+
+    // Colour is a region index, so every step is worth a line.
+    public bool ShowsAllSteps => true;
+    public bool DrawsWater => false;
+
     public Color ColorAt(WorldMapState ctx, int px, int pz)
     {
         Vector2I ct = ctx.Data.ColumnTexelToChunkTexel(px, pz);

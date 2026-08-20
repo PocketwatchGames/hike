@@ -52,11 +52,17 @@ public static class LightEngine
     // is the whole reason they are separable. Everywhere else there is nothing
     // to put in the middle, and calling only one of the pair is a silent bug:
     // stale SkyExposure leaves rain falling through a new roof.
-    public static void Relight(WorldState world)
+    // `progress` (0..1) is optional and exists for offline bakes, which are long
+    // enough to need a progress bar; the runtime callers pass nothing.
+    public static void Relight(WorldState world, System.Action<float> progress = null)
     {
-        ComputeSkyExposure(world);
-        ComputeSunlight(world);
+        ComputeSkyExposure(world, progress == null ? null : p => progress(p * SKY_SHARE));
+        ComputeSunlight(world, progress == null ? null : p => progress(SKY_SHARE + p * (1f - SKY_SHARE)));
     }
+
+    // Measured on an 18x16 chunk bake: sky exposure is a small fraction of a
+    // relight, the sunlight pass is the rest.
+    private const float SKY_SHARE = 0.15f;
 
     // Geometry-only vertical cover, written into SkyExposure: solid voxels,
     // non-voxel cover (roofs) and canopy, with NO fog term.
@@ -72,7 +78,7 @@ public static class LightEngine
     // fog-attenuated signal would feed itself.
     //
     // Cheap relative to ComputeSunlight — one column per XZ, no BFS flood.
-    public static void ComputeSkyExposure(WorldState world)
+    public static void ComputeSkyExposure(WorldState world, System.Action<float> progress = null)
     {
         world.ClearSkyExposureAll();
 
@@ -87,6 +93,10 @@ public static class LightEngine
             for (int wz = minWz; wz < maxWz; wz++)
             {
                 ScanSkyExposureColumn(world, wx, wz, canopySunExtinction);
+            }
+            if (progress != null && (wx & 15) == 0)
+            {
+                progress((wx - minWx) / (float)Mathf.Max(1, maxWx - minWx));
             }
         }
     }
@@ -133,7 +143,7 @@ public static class LightEngine
     // The lighting signal: same column walk, plus fog attenuation, plus the
     // lateral BFS spread. Does NOT write SkyExposure — that field is owned by
     // ComputeSkyExposure above and is a different question (cover, not light).
-    public static void ComputeSunlight(WorldState world)
+    public static void ComputeSunlight(WorldState world, System.Action<float> progress = null)
     {
         // Reset first — the column scan breaks when sunLevel reaches zero,
         // so voxels below the break aren't overwritten. Without a reset,
@@ -157,9 +167,15 @@ public static class LightEngine
             {
                 ScanSunlightColumn(world, wx, wz, canopySunExtinction, fogSunExtinction, queue, int.MaxValue);
             }
+            if (progress != null && (wx & 15) == 0)
+            {
+                progress(SCAN_SHARE * (wx - minWx) / Mathf.Max(1, maxWx - minWx));
+            }
         }
 
-        SpreadSunlight(world, queue);
+        progress?.Invoke(SCAN_SHARE);
+        SpreadSunlight(world, queue, progress == null ? null : p => progress(SCAN_SHARE + p * (1f - SCAN_SHARE)));
+        progress?.Invoke(1f);
     }
 
     // Direct sun down one XZ column, top-down to the first thing that stops it.
@@ -229,6 +245,15 @@ public static class LightEngine
     // Leaves SunlightChunkDirty naming exactly the chunks whose sunlight moved,
     // which is what the caller has to re-mesh (terrain sun is a per-vertex bake)
     // and upload.
+    // Share of the sunlight pass spent scanning columns before the flood.
+    // Measured on an 18x16 chunk bake: the scan is ~4s of a ~19s pass, the flood
+    // the remaining ~15s, so the flood is where a bake actually spends its time.
+    private const float SCAN_SHARE = 0.2f;
+
+    // Report roughly every 64k dequeues; often enough to animate, rare enough to
+    // stay off the flood's hot path.
+    private const long PROGRESS_POP_MASK = 0xFFFF;
+
     public static void RelightRegion(WorldState world, VoxelBox region)
     {
         if (world == null || region.IsEmpty)
@@ -781,15 +806,32 @@ public static class LightEngine
 
     // --- Sunlight propagation (max-fill BFS) -------------------------------
 
-    private static void SpreadSunlight(WorldState world, Queue<(int x, int y, int z)> queue)
+    // `progress` is for offline bakes only (see Relight). The flood has no total
+    // to count against, so progress is the queue's drain ratio,
+    // processed / (processed + pending): the seeded queue is huge and the ratio
+    // rises as it empties. Tracked as a high-water mark, since a burst of
+    // re-enqueues can push the ratio back down and a bar must not walk backwards.
+    // (Fading light level was tried first and is useless here: the column scan
+    // seeds voxels at every level at once, so the dimmest is hit within the first
+    // few thousand pops and the bar pins itself at ~93% for the whole flood.)
+    private static void SpreadSunlight(WorldState world, Queue<(int x, int y, int z)> queue, System.Action<float> progress = null)
     {
         float canopySunExtinction = world.SimData.canopySunExtinction;
         float fogSunExtinction = world.SimData.fogSunExtinction;
         int falloffPerVoxel = Math.Max(1, world.SimData.sunFalloffPerVoxel);
+        bool report = progress != null;
+        float drained = 0f;
+        long popped = 0;
         while (queue.Count > 0)
         {
             var (x, y, z) = queue.Dequeue();
             int currentLevel = world.GetSunlightWorld(x, y, z);
+            if (report && (++popped & PROGRESS_POP_MASK) == 0)
+            {
+                float ratio = popped / (float)(popped + queue.Count);
+                if (ratio > drained) { drained = ratio; }
+                progress(Mathf.Clamp(drained, 0f, 1f));
+            }
             if (currentLevel <= falloffPerVoxel) { continue; }
 
             foreach (Vector3I offset in Neighbors)

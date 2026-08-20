@@ -41,9 +41,10 @@ public partial class GuiMainMenu : Node
 	private const int NEW_WORLD_INDEX = 1;
 
 	private SelectorMode _mode = SelectorMode.NewGame;
-	// Editor-mode entries parallel to worldList items; null = one of the two
-	// "new document" rows, whose path is minted on Continue.
-	private readonly List<string> _editorWorldPaths = new List<string>();
+	// Document path per worldList row, parallel to the items. Null means the row
+	// is not a file: a worldgen template in new-game mode, or one of the two
+	// "new document" rows in editor mode (whose path is minted on Continue).
+	private readonly List<string> _documentPaths = new List<string>();
 
 	public override void _Ready()
 	{
@@ -134,6 +135,15 @@ public partial class GuiMainMenu : Node
 
 	public void NewGameStandard()
 	{
+		// StartGame loads world_file when it's set and generates when it isn't,
+		// so picking a row IS setting that cvar — a .hike row to its path, a
+		// template row back to empty. Only a real selection writes it: autostart
+		// calls this with no selector shown and must keep its CLI world_file.
+		int index = SelectedIndex();
+		if (_mode == SelectorMode.NewGame && index >= 0 && index < _documentPaths.Count)
+		{
+			CVars.worldFile.Value = _documentPaths[index] ?? "";
+		}
 		EmitSignal(SignalName.OnNewGame, new Vector3(0, 24, 0), playerScene, SelectedWorldGen());
 	}
 
@@ -151,9 +161,10 @@ public partial class GuiMainMenu : Node
 			return;
 		}
 		worldList.Clear();
-		_editorWorldPaths.Clear();
+		_documentPaths.Clear();
 		for (int i = 0; i < worldOptions.Length; i++)
 		{
+			_documentPaths.Add(null);   // a template generates; it has no file
 			string label = i < worldOptionLabels.Length ? worldOptionLabels[i] : null;
 			if (string.IsNullOrEmpty(label))
 			{
@@ -165,7 +176,10 @@ public partial class GuiMainMenu : Node
 			}
 			worldList.AddItem(label);
 		}
-		if (worldOptions.Length > 0)
+		// Baked worlds play directly — the painter's .hike and anything saved
+		// out of the editor, listed from the same dirs the editor picker scans.
+		AddDocuments(worldFileSearchDirs, WorldEditor.WORLD_FILE_EXTENSION);
+		if (worldList.ItemCount > 0)
 		{
 			worldList.Select(0);
 		}
@@ -181,11 +195,11 @@ public partial class GuiMainMenu : Node
 			return;
 		}
 		worldList.Clear();
-		_editorWorldPaths.Clear();
+		_documentPaths.Clear();
 		worldList.AddItem(newSceneLabel);
-		_editorWorldPaths.Add(null);
+		_documentPaths.Add(null);
 		worldList.AddItem(newWorldLabel);
-		_editorWorldPaths.Add(null);
+		_documentPaths.Add(null);
 		AddDocuments(sceneFileSearchDirs, WorldEditor.SCENE_FILE_EXTENSION);
 		AddDocuments(worldFileSearchDirs, WorldEditor.WORLD_FILE_EXTENSION);
 		worldList.Select(0);
@@ -210,7 +224,7 @@ public partial class GuiMainMenu : Node
 				worldList.AddItem(fileName);
 				// PathJoin, not manual concat: trimming slashes off a bare
 				// "user://" leaves "user:", which globalizes to a bogus path.
-				_editorWorldPaths.Add(dir.PathJoin(fileName));
+				_documentPaths.Add(dir.PathJoin(fileName));
 			}
 		}
 	}
@@ -232,7 +246,9 @@ public partial class GuiMainMenu : Node
 		{
 			return worldOptions[index];
 		}
-		// Direct launch (autostart) never opens the selector, so honour the
+		// Reached by a picked .hike row (which carries no template) and by a
+		// direct launch (autostart never opens the selector). A world file still
+		// needs a WorldGenData for the kit/block palette bind, so honour the
 		// world_gen_index cvar and otherwise fall back to the menu's default.
 		int forced = CVars.worldGenIndex.Value;
 		if (forced >= 0 && forced < worldOptions.Length)
@@ -253,9 +269,9 @@ public partial class GuiMainMenu : Node
 			return CVars.worldFile.Value;
 		}
 		int index = SelectedIndex();
-		if (index >= 0 && index < _editorWorldPaths.Count && _editorWorldPaths[index] != null)
+		if (index >= 0 && index < _documentPaths.Count && _documentPaths[index] != null)
 		{
-			return _editorWorldPaths[index];
+			return _documentPaths[index];
 		}
 		return UnusedDocumentPath(index == NEW_WORLD_INDEX ? newWorldPath : newScenePath);
 	}

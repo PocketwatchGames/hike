@@ -15,6 +15,7 @@
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
 [ext_resource type="Resource" uid="uid://ctesgesob0omv" path="res://resources/data/items/consumables/treasure_map_desert.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://ikvot05s6se11" path="res://resources/data/spawn/treasure_spot_song_2.tres" id="97_spot"]
+[ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="desert_gen_zoneterrain"]
 [ext_resource type="Resource" uid="uid://csrlgrkkra006" path="res://resources/data/items/scrolls/scroll_grilled_kun_kun.tres" id="sc0"]
 [ext_resource type="Resource" uid="uid://pap3pg64kjlv" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="sc1"]
 [ext_resource type="Resource" uid="uid://bante0m1vlh6a" path="res://resources/data/items/scrolls/scroll_grilled_drake.tres" id="sc2"]
@@ -23,7 +24,6 @@
 [ext_resource type="Resource" uid="uid://q7jtqpkrub8l" path="res://resources/data/items/scrolls/scroll_stew_kun_kun_damage.tres" id="sc5"]
 [ext_resource type="Resource" uid="uid://dfpa4q2wonauo" path="res://resources/data/items/scrolls/scroll_stew_drake_damage.tres" id="sc6"]
 [ext_resource type="Resource" uid="uid://dgjdiakyoixma" path="res://resources/data/items/scrolls/scroll_stew_spider_health.tres" id="sc7"]
-[ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="desert_gen_zoneterrain"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -80,12 +80,12 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 
 [resource]
 script = ExtResource("28_8kxn4")
-terrain = SubResource("ZoneTerrain_desert_gen")
 zone = ExtResource("5_25es0")
 surfaceKit = ExtResource("2_qtgnd")
 caveKit = ExtResource("3_nc5be")
 submergedKit = ExtResource("4_uxbjh")
 shoreKit = ExtResource("9_25es0")
+terrain = SubResource("ZoneTerrain_desert_gen")
 grassThreshold = 0.67
 mobLevelMin = 2
 undergroundMobLevelMin = 3

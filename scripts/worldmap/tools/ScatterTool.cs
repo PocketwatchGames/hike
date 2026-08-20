@@ -1,40 +1,96 @@
 using Godot;
 
-// What a scatter cell places. Props (Tree/TallGrass) resolve from the column's
-// zone surface kit; interactives (Loot/Chest/Torch) from the zone spawn lists —
-// same resolution WorldEditor uses, so a painted world matches hand placement.
-public enum EScatterKind
-{
-    Tree = 0,
-    TallGrass = 1,
-    Loot = 2,
-    Chest = 3,
-    Torch = 4,
-}
-
-// Density brush for props + interactives. Paints a per-column (kind, density)
-// raster; the bake scatters one entity per column with probability == density,
-// deterministically (hash-seeded), on dry land.
+// Paints which SpawnSetData covers a column, and how much of its authored rate
+// applies there. The raster is (set index + 1, density); index 0 means nothing
+// painted, which is why the palette is stored one-based.
+//
+// Density is a MULTIPLIER on each entry's authored rate, not a per-column
+// chance. That distinction is the whole fix for the forest nothing could walk
+// through: a chance tops out at one spawn per square metre, while a rate says
+// "one tree per 40 m" and means it.
 public class ScatterTool : IWorldMapTool
 {
-    public string Name => "Scatter";
+    public string Name => "Props";
     public IWorldMapView View { get; }
     public float Radius { get; set; } = 16f;
 
-    public EScatterKind Kind = EScatterKind.Tree;
-    public float Density = 0.5f;
+    public int SetIndex = 0;
+    public float Density = 1f;
 
     public ScatterTool()
     {
         View = new ScatterView();
     }
 
-    public string StatusText(WorldMapState ctx) => Kind.ToString();
-    public string LevelText(WorldMapState ctx) => $"Density {Mathf.RoundToInt(Density * 100f)}%";
+    public string[] Options(WorldMapState ctx)
+    {
+        SpawnSetData[] sets = ctx.PropSets;
+        var names = new string[sets.Length];
+        for (int i = 0; i < names.Length; i++)
+        {
+            names[i] = sets[i]?.Label ?? $"Set {i}";
+        }
+        return names;
+    }
+
+    public Color[] OptionColors(WorldMapState ctx)
+    {
+        SpawnSetData[] sets = ctx.PropSets;
+        var colors = new Color[sets.Length];
+        for (int i = 0; i < colors.Length; i++)
+        {
+            colors[i] = sets[i]?.mapColor ?? Colors.White;
+        }
+        return colors;
+    }
+
+    public int OptionIndex
+    {
+        get => SetIndex;
+        set => SetIndex = Mathf.Max(0, value);
+    }
+
+    // The palette entry's own colour, so the toolbar button doubles as the map
+    // legend rather than something to memorise.
+    public Color CursorColor(WorldMapState ctx)
+    {
+        SpawnSetData[] sets = ctx.PropSets;
+        return SetIndex >= 0 && SetIndex < sets.Length && sets[SetIndex] != null
+            ? sets[SetIndex].mapColor
+            : Colors.White;
+    }
+
+    public string HintText(WorldMapState ctx) => "";
+
+    public string StatusText(WorldMapState ctx)
+    {
+        SpawnSetData[] sets = ctx.PropSets;
+        string label = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex]?.Label : null;
+        return string.IsNullOrEmpty(label) ? "No prop sets authored" : label;
+    }
+
+    public string LevelText(WorldMapState ctx)
+    {
+        SpawnSetData[] sets = ctx.PropSets;
+        SpawnSetData set = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex] : null;
+        if (set == null)
+        {
+            return "";
+        }
+        string trees = set.treeScenes.Length > 0
+            ? $"forest {set.forestDensity:0.##}@{set.forestThreshold:0.##} +{set.treesPerChunkMin}-{set.treesPerChunkMax}/chunk "
+            : "";
+        string grass = set.foliageScenes.Length > 0 ? $"grass @{set.grassThreshold:0.##}" : "";
+        return $"Density {Mathf.RoundToInt(Density * 100f)}%  ({trees}{grass})".TrimEnd();
+    }
+
+    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    {
+    }
 
     public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
     {
-        byte kindId = (byte)((int)Kind + 1);
+        byte id = (byte)Mathf.Clamp(SetIndex + 1, 1, 255);
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             if (erase)
@@ -42,16 +98,18 @@ public class ScatterTool : IWorldMapTool
                 ctx.Scatter.SetPixel(px, pz, new Color(0f, 0f, 0f, 1f));
                 return;
             }
-            float existing = ctx.Scatter.GetPixel(px, pz).G;
-            float d = Mathf.Max(existing, Density * weight);
-            ctx.Scatter.SetPixel(px, pz, new Color(kindId / 255f, d, 0f, 1f));
+            // Max regardless of which set was here: density is a multiplier on
+            // the set's own rate, so it carries over harmlessly, and a stroke
+            // that can only raise it never makes dots blink out mid-drag.
+            float d = Mathf.Max(ctx.Scatter.GetPixel(px, pz).G, Density * weight);
+            ctx.Scatter.SetPixel(px, pz, new Color(id / 255f, d, 0f, 1f));
         });
     }
 
     public void Cycle(WorldMapState ctx, int dir)
     {
-        int n = System.Enum.GetValues<EScatterKind>().Length;
-        Kind = (EScatterKind)(((int)Kind + dir + n) % n);
+        int n = Mathf.Max(1, ctx.PropSets.Length);
+        SetIndex = ((SetIndex + dir) % n + n) % n;
     }
 
     public void AdjustLevel(WorldMapState ctx, int dir)
@@ -60,125 +118,16 @@ public class ScatterTool : IWorldMapTool
     }
 }
 
-// Dim terrain backdrop with scatter coverage tinted by kind + density, so you
-// can see where things land relative to the land/water shape.
+// Ground type as the base, exactly as the ground view draws it — what a prop
+// stands on is the context you judge it against. The prop set's colour appears
+// ONLY in the spawn dots, so the dots read as objects on the ground rather than
+// as a second wash competing with it.
 public class ScatterView : IWorldMapView
 {
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
-    {
-        Color land = WorldMapState.Hypsometric(ctx.Elevation01(px, pz));
-        Color bg = new Color(land.R * 0.45f, land.G * 0.45f, land.B * 0.45f);
-        if (ctx.Underwater(px, pz))
-        {
-            bg = new Color(0.06f, 0.12f, 0.22f);
-        }
+    public bool ShowsAllSteps => true;
+    public bool DrawsWater => true;
+    public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
+    public bool ShowsClimb => false;
 
-        Color sc = ctx.Scatter.GetPixel(px, pz);
-        int kindId = Mathf.RoundToInt(sc.R * 255f);
-        float density = sc.G;
-        if (kindId <= 0 || density <= 0f)
-        {
-            return bg;
-        }
-        return bg.Lerp(KindColor(kindId - 1), 0.3f + 0.7f * density);
-    }
-
-    private static Color KindColor(int kindIndex)
-    {
-        switch ((EScatterKind)kindIndex)
-        {
-            case EScatterKind.Tree: return new Color(0.15f, 0.6f, 0.2f);
-            case EScatterKind.TallGrass: return new Color(0.55f, 0.8f, 0.3f);
-            case EScatterKind.Loot: return new Color(0.95f, 0.85f, 0.25f);
-            case EScatterKind.Chest: return new Color(0.85f, 0.55f, 0.2f);
-            case EScatterKind.Torch: return new Color(0.95f, 0.45f, 0.15f);
-            default: return Colors.Magenta;
-        }
-    }
-}
-
-// Resolves a scatter kind to an EntitySimState. Mirrors WorldEditor's entity
-// resolution: props from the zone's SurfaceKit scene lists, interactives from
-// the zone's spawn lists. Picks are hash-seeded so the bake is deterministic.
-public static class ScatterFactory
-{
-    public static EntitySimState Create(EScatterKind kind, WorldMapData data, int zoneIdx, Vector3 pos, uint hash)
-    {
-        ZoneGenData[] zones = data.genData?.ZoneGens;
-        ZoneGenData zone = (zones != null && zoneIdx >= 0 && zoneIdx < zones.Length) ? zones[zoneIdx] : null;
-        TerrainKitData kit = zone?.surfaceKit;
-
-        switch (kind)
-        {
-            case EScatterKind.Tree:
-            {
-                WeightedList<PackedScene> w = WeightedScene.BuildList(kit?.treeScenes);
-                return w.Count > 0
-                    ? new PropSimState(PropType.Tree, pos, w.Choose(HashF(hash, 1u) * w.TotalWeight))
-                    : null;
-            }
-            case EScatterKind.TallGrass:
-            {
-                WeightedList<PackedScene> w = WeightedScene.BuildList(kit?.tallGrassScenes);
-                return w.Count > 0
-                    ? new PropSimState(PropType.Foliage, pos, w.Choose(HashF(hash, 2u) * w.TotalWeight))
-                    : null;
-            }
-            case EScatterKind.Loot:
-            {
-                LootSpawnEntry e = FindFirst<LootSpawnEntry>(zone?.surfaceEntities);
-                if (e?.item?.item == null)
-                {
-                    return null;
-                }
-                var sim = new LootSimState(pos, e.item.item);
-                if (e.item.NeedsComposedState)
-                {
-                    sim.Item = e.item.CreateState();
-                }
-                return sim;
-            }
-            case EScatterKind.Chest:
-            {
-                ChestSpawnEntry e = FindFirst<ChestSpawnEntry>(zone?.caveEntities);
-                return e?.scene != null
-                    ? new ChestSimState(pos, e.scene) { LootItems = ChestSpawnEntry.Resolve(e.lootItems, new System.Random((int)hash)) }
-                    : null;
-            }
-            case EScatterKind.Torch:
-            {
-                TorchSpawnEntry e = FindFirst<TorchSpawnEntry>(zone?.caveEntities);
-                return e?.scene != null ? new TorchSimState(pos, e.scene) : null;
-            }
-            default:
-                return null;
-        }
-    }
-
-    private static T FindFirst<T>(SpawnListData list) where T : SpawnEntryData
-    {
-        if (list?.entries == null)
-        {
-            return null;
-        }
-        foreach (SpawnEntryData entry in list.entries)
-        {
-            if (entry is T match)
-            {
-                return match;
-            }
-        }
-        return null;
-    }
-
-    private static float HashF(uint h, uint salt)
-    {
-        unchecked
-        {
-            uint v = h ^ (salt * 0x9E3779B1u);
-            v = ((v >> 16) ^ v) * 0x045D9F3Bu;
-            v = (v >> 16) ^ v;
-            return (v & 0xFFFFFFu) / 16777216f;
-        }
-    }
+    public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
 }

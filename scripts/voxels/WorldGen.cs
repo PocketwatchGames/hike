@@ -439,8 +439,20 @@ public static class WorldGen
     // Sunlight isn't baked yet when mobs are placed (it runs after prop/mob
     // scatter), so "underground" is a direct upward solid scan rather than a
     // sky-exposure read. Called per worldgen mob spawn.
+    // Set by a baker that supplies its own difficulty field — the world-map
+    // painter paints one per column — and null in normal generation. It exists
+    // because the zone bands and noise this function otherwise reads belong to a
+    // Generate() run: a painted world never calls that, so without the seam
+    // every painted mob spawns at its species base level.
+    public static System.Func<Vector3, int, int> MobLevelOverride;
+
     public static int ComputeMobLevel(WorldState ws, Vector3 position, int baseLevel)
     {
+        if (MobLevelOverride != null)
+        {
+            return MobLevelOverride(position, baseLevel);
+        }
+
         WorldGenData genData = _activeGenData;
         if (genData == null || _mobLevelNoise == null)
         {
@@ -656,7 +668,15 @@ public static class WorldGen
         // skips any voxel that already carries an overlay: this way the cliffs
         // are claimed first and moss fills in around them, where reversing the
         // two leaves every tall face bare.
-        StampClimbSurfaces(ws, genData, heightMap);
+        StampClimbSurfaces(ws, genData,
+            (wx, wz) =>
+            {
+                int zi = PickKitZone(wx, wz, genData.ZoneGens, 0);
+                ZoneGenData zone = zi >= 0 ? genData.ZoneGens[zi] : null;
+                return zone?.climbCoverage ?? 0f;
+            },
+            (wx, wz) => WaterYAt(heightMap, wx, wz),
+            genData.climbMinCliffHeight, true);
 
         // Moss overlay over exposed rock/ground. Before the road pass so a road
         // tread stamps over it rather than the reverse.
@@ -5150,7 +5170,20 @@ public static class WorldGen
     // that own a patch of it. CellValue gives one random value per cell, so a
     // threshold keeps WHOLE cells and their irregular borders; a distance return
     // would give circular blooms with soft edges instead.
-    private static void StampClimbSurfaces(WorldState ws, WorldGenData genData, HeightMap heightMap)
+    // The two per-column answers are supplied rather than read, because the
+    // world-map painter runs this same pass over a world it built itself: it has
+    // no HeightMap and its coverage is a painted scalar, not a zone's. Everything
+    // else — the face walk, the run heights, the patch noise, the per-block
+    // growth table — is identical for both, and reimplementing it painter-side is
+    // how the waterfall shading ended up as two copies that drifted.
+    // minWallVoxels is the shortest wall worth dressing, and `patchy` decides
+    // whether coverage means "this fraction of the face, in cellular patches" or
+    // "dress the whole face". Worldgen wants patches — a zone of cliffs where
+    // some are climbable. The painter marks INDIVIDUAL routes, and a route with
+    // holes in it is not a route.
+    public static void StampClimbSurfaces(WorldState ws, WorldGenData genData,
+        Func<int, int, float> coverageAt, Func<int, int, int> waterYAt,
+        int minWallVoxels, bool patchy)
     {
         // Which crust each block grows, flattened to an id-indexed table once —
         // the walk below asks per voxel, and OVERLAY_NONE means "this rock grows
@@ -5182,7 +5215,7 @@ public static class WorldGen
         {
             return;
         }
-        int minHeight = Mathf.Max(genData.climbMinCliffHeight, 2);
+        int minHeight = Mathf.Max(minWallVoxels, 2);
         float yStretch = Mathf.Max(genData.climbVerticalStretch, 0.01f);
 
         var patchNoise = new FastNoiseLite();
@@ -5207,9 +5240,8 @@ public static class WorldGen
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                int columnZone = PickKitZone(wx, wz, genData.ZoneGens, 0);
-                ZoneGenData zone = columnZone >= 0 ? genData.ZoneGens[columnZone] : null;
-                if (zone == null || zone.climbCoverage <= 0f)
+                float coverage = coverageAt(wx, wz);
+                if (coverage <= 0f)
                 {
                     continue;
                 }
@@ -5217,7 +5249,7 @@ public static class WorldGen
                 // Deepest voxel this column may still mark climbable, from its
                 // OWN waterline — so a lake or river bounds its walls the same
                 // way the sea does.
-                int climbLowestY = WaterYAt(heightMap, wx, wz) - genData.climbUnderwaterVoxels;
+                int climbLowestY = waterYAt(wx, wz) - genData.climbUnderwaterVoxels;
 
                 for (int f = 0; f < runStart.Length; f++)
                 {
@@ -5265,7 +5297,7 @@ public static class WorldGen
                         }
                         faceRuns++;
                         faceVoxels += wy - start;
-                        stamped += StampClimbRun(ws, genData, patchNoise, zone.climbCoverage,
+                        stamped += StampClimbRun(ws, genData, patchy ? patchNoise : null, coverage,
                             growthByBlock, face, wx, wz, start, wy, yStretch);
                     }
                 }
@@ -5307,10 +5339,16 @@ public static class WorldGen
                 continue;
             }
 
-            float value = patchNoise.GetNoise3D(wx, wy * yStretch, wz) * 0.5f + 0.5f;
-            if (value >= 0.5f + CLIMB_CELL_SPREAD * (coverage - 0.5f))
+            // No noise = an authored route: dress every voxel of the face. Even
+            // at coverage 1 the cellular test still drops ~a fifth of them, which
+            // is right for a hillside and wrong for a line someone drew.
+            if (patchNoise != null)
             {
-                continue;
+                float value = patchNoise.GetNoise3D(wx, wy * yStretch, wz) * 0.5f + 0.5f;
+                if (value >= 0.5f + CLIMB_CELL_SPREAD * (coverage - 0.5f))
+                {
+                    continue;
+                }
             }
 
             ws.SetOverlayIdWorld(wx, wy, wz, climbOverlay);
@@ -5612,8 +5650,8 @@ public static class WorldGen
         int chunkCenterWz = chunkCoord.Z * ChunkState.SIZE + ChunkState.SIZE / 2;
         int chunkCenterSy = SurfaceYAt(chunkCenterWx, chunkCenterWz);
         TerrainKitData chunkCenterKit = ResolveKit(ws.GetTerrainIdWorld(chunkCenterWx, chunkCenterSy, chunkCenterWz));
-        int treesPerChunkMin = chunkCenterKit?.treesPerChunkMin ?? 0;
-        int treesPerChunkMax = chunkCenterKit?.treesPerChunkMax ?? 0;
+        int treesPerChunkMin = chunkCenterKit?.TreesPerChunkMin ?? 0;
+        int treesPerChunkMax = chunkCenterKit?.TreesPerChunkMax ?? 0;
         int treeCount = treesPerChunkMax >= treesPerChunkMin
             ? rng.Next(treesPerChunkMin, treesPerChunkMax + 1)
             : 0;
@@ -5639,7 +5677,7 @@ public static class WorldGen
             }
             int sy = SurfaceYAt(wx, wz);
             TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
-            WeightedScene.Fill(scenePalette, cellKit?.treeScenes);
+            WeightedScene.Fill(scenePalette, cellKit?.Trees);
             if (scenePalette.Count == 0)
             {
                 return false;
@@ -5688,13 +5726,13 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    float f = forestNoise.GetNoise2D(wx * kit.forestNoiseFrequency, wz * kit.forestNoiseFrequency);
-                    if (f < kit.forestThreshold)
+                    float f = forestNoise.GetNoise2D(wx * kit.ForestFrequency, wz * kit.ForestFrequency);
+                    if (f < kit.ForestThreshold)
                     {
                         continue;
                     }
-                    float t = (f - kit.forestThreshold) / Math.Max(0.0001f, 1f - kit.forestThreshold);
-                    float density = kit.forestDensity * Mathf.Clamp(t, 0f, 1f);
+                    float t = (f - kit.ForestThreshold) / Math.Max(0.0001f, 1f - kit.ForestThreshold);
+                    float density = kit.ForestDensity * Mathf.Clamp(t, 0f, 1f);
                     if (rng.NextDouble() >= density)
                     {
                         continue;
@@ -5722,7 +5760,7 @@ public static class WorldGen
 
                     int sy = SurfaceYAt(wx, wz);
                     TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
-                    WeightedScene.Fill(scenePalette, cellKit?.tallGrassScenes);
+                    WeightedScene.Fill(scenePalette, cellKit?.Foliage);
                     if (scenePalette.Count == 0)
                     {
                         continue;

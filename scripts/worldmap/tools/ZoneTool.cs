@@ -15,8 +15,35 @@ public class ZoneTool : IWorldMapTool
         View = new ZoneView();
     }
 
-    public string StatusText(WorldMapState ctx) => $"Zone {ZoneIndex}";
+    public string[] Options(WorldMapState ctx)
+    {
+        var names = new string[ctx.ZoneCount];
+        for (int i = 0; i < names.Length; i++)
+        {
+            names[i] = ctx.ZoneName(i);
+        }
+        return names;
+    }
+
+    public Color[] OptionColors(WorldMapState ctx) => null;
+
+    public int OptionIndex
+    {
+        get => ZoneIndex;
+        set => ZoneIndex = Mathf.Max(0, value);
+    }
+
+    public string HintText(WorldMapState ctx) => "";
+
+    public Color CursorColor(WorldMapState ctx) => Colors.White;
+
+    public string StatusText(WorldMapState ctx) => $"Zone: {ctx.ZoneName(ZoneIndex)}";
     public string LevelText(WorldMapState ctx) => "";
+
+    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    {
+        // No eyedropper or constraint yet; this tool reads nothing off the map.
+    }
 
     public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
     {
@@ -43,15 +70,21 @@ public class ZoneTool : IWorldMapTool
     }
 }
 
-// Zone colour per chunk, brightness modulated by the column's elevation.
+// Flat zone colour per chunk — the terrain underneath reads from the relief
+// shading and step outlines the painter composites over every view.
 public class ZoneView : IWorldMapView
 {
+    public ESpawnPreview PreviewLayer => ESpawnPreview.None;
+    public bool ShowsClimb => false;
+
+    // Colour is a zone index, so every step is worth a line.
+    public bool ShowsAllSteps => true;
+    public bool DrawsWater => false;
+
     public Color ColorAt(WorldMapState ctx, int px, int pz)
     {
         Vector2I ct = ctx.Data.ColumnTexelToChunkTexel(px, pz);
         int idx = Mathf.RoundToInt(ctx.Zone.GetPixel(ct.X, ct.Y).R * 255f);
-        Color c = WorldMapState.ZoneColor(idx);
-        float b = 0.35f + 0.65f * ctx.Elevation01(px, pz);
-        return new Color(c.R * b, c.G * b, c.B * b);
+        return WorldMapState.ZoneColor(idx);
     }
 }

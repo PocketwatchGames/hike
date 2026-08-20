@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" uid="uid://b3eik2wv087fj" path="res://scenes/props/tree_sequoia_dead.tscn" id="17_qpata"]
 [ext_resource type="PackedScene" uid="uid://7bdgoyo1ve4m" path="res://scenes/props/tree_birch.tscn" id="20_3r3jf"]
 [ext_resource type="PackedScene" uid="uid://bdgsvwohjn47w" path="res://scenes/props/tree_birch_dead.tscn" id="20_elbrs"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/prop_sets/mountain.tres" id="set_forest"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("6_weighted")
@@ -94,5 +95,6 @@ block = ExtResource("1_dp3f2")
 defaultDetail = ExtResource("3_detail")
 detailNoiseThreshold = -0.5
 forestDensity = 0.1
-treeScenes = [SubResource("ws_5_t04"), SubResource("ws_5_t05"), SubResource("ws_5_t06"), SubResource("ws_13_3t0o8"), SubResource("ws_14_elbrs"), SubResource("ws_15_pag05"), SubResource("ws_17_qpata"), SubResource("ws_20_3r3jf"), SubResource("ws_20_elbrs")]
-tallGrassScenes = [SubResource("ws_4_g01"), SubResource("ws_4_g02"), SubResource("ws_4_g03"), SubResource("ws_4_g04")]
+forest = ExtResource("set_forest")
+treeScenes = []
+tallGrassScenes = []

@@ -1,0 +1,72 @@
+[gd_resource type="Resource" script_class="SpawnSetData" load_steps=21 format=3]
+
+[ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
+[ext_resource type="PackedScene" uid="uid://bj7f8dy86dj1q" path="res://scenes/props/tree_willow.tscn" id="sc_0"]
+[ext_resource type="PackedScene" uid="uid://ble6ry6xb2qgc" path="res://scenes/props/tree_willow_dead.tscn" id="sc_1"]
+[ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="sc_2"]
+[ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="sc_3"]
+[ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="sc_4"]
+[ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/interactives/foliage/tall_grass_01.tscn" id="sc_5"]
+[ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/interactives/foliage/tall_grass_02.tscn" id="sc_6"]
+[ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/interactives/foliage/tall_grass_03.tscn" id="sc_7"]
+[ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/interactives/foliage/tall_grass_04.tscn" id="sc_8"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_0")
+weight = 1.0
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_1")
+weight = 1.0
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_2")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_3"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_3")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_4"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_4")
+weight = 1.0
+
+[sub_resource type="Resource" id="e_5"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_5")
+weight = 1.0
+
+[sub_resource type="Resource" id="e_6"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_6")
+weight = 1.0
+
+[sub_resource type="Resource" id="e_7"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_7")
+weight = 1.0
+
+[sub_resource type="Resource" id="e_8"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_8")
+weight = 1.0
+[resource]
+script = ExtResource("1_set")
+displayName = "Marsh"
+mapColor = Color(0.3, 0.42, 0.2, 1)
+forestNoiseFrequency = 0.05
+forestThreshold = 0.01
+forestDensity = 0.4
+treesPerChunkMin = 0
+treesPerChunkMax = 4
+treeScenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4")]
+grassNoiseFrequency = 0.1
+grassThreshold = 0.5
+positionJitter = 0.2
+foliageScenes = [SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8")]

@@ -24,6 +24,26 @@ dotnet build hike.sln
 - Godot.NET.Sdk 4.6.0 (Jolt Physics engine)
 - No test framework is configured; testing is done through manual play
 
+### Verification Cost Discipline
+
+Measured warm on this machine, so the choice is by cost rather than by feel:
+
+| Step | Cost |
+|---|---|
+| `dotnet build hike.sln` (no-op or small edit) | ~8s |
+| Godot headless **boot floor** (`--quit-after 1`) | ~3.5s |
+| `block_check` / `shader_check` (boot included) | ~3s |
+| `autostart` to `[Load] Total (to fade start)`, worldgen cache HIT | ~21s |
+| Worldgen cache MISS, or a full `.hike` bake (world build + relight) | minutes |
+
+**The boot is not the expensive part — building a world is.** So:
+
+- **`dotnet build` is the default verification.** Run the game only for a failure the compiler cannot report. A rename, a signature change, a refactor that compiles is verified when it compiles.
+- **Prefer a self-quitting check to a gameplay run.** When iterating on a subsystem that has none, add one — `ShaderCheck` / `BlockCheck` are the template (a `CVarBool`, an early return in `Main._Ready`, `GetTree().Quit()`), and it pays for itself on the second run.
+- **One world-building run per task, at the end** — not per iteration. In particular, do NOT spend a run reproducing a bug that is already localized: when the exception names a file and line, fix it and verify once. An A/B "prove it was broken before" run is for a diagnosis that is still a guess.
+- **A run over ~30s is announced and backgrounded**, never silently blocking. Say what it costs and why it is needed, then keep working while it runs.
+- **Temporary instrumentation beats a bigger run.** A throwaway hook plus `GD.Print` reaches a code path in one 12s boot where driving the real UI to it costs minutes — just remove it in the same session.
+
 ### Running Headless (Automated Play)
 
 The full game can run end-to-end with no window (dummy renderer) for smoke-testing and CI:
@@ -36,7 +56,7 @@ Godot ... --path . --headless -- "autostart 1" "autoplay 1"
 - `autostart` skips the main menu and launches a new game (respects `world_file` if set, else the default `WorldGenData`). `autoplay` spawns a `HeadlessBot` ([scripts/client/HeadlessBot.cs](scripts/client/HeadlessBot.cs)) that drives the player via synthesized global `Input` actions (wander + jump/dash/melee).
 - The sim is renderer-independent (gameplay reads CPU `WorldState` arrays; volume maps are visual-only and no-op when `RenderingServer.GetRenderingDevice()` is null under the dummy renderer). SubViewport passes render nothing headless but don't crash. `ChunkMesh … GroundTint … tile_array` warnings under headless are **benign** (texture-array CPU readback is unavailable, so authored tints are kept).
 - **`--quit-after N` counts FRAMES, not seconds.** Headless spins frames far faster than wall-clock worldgen completes, so a small frame cap quits mid-generation — use a wall-clock timeout (or a large frame budget) when you need the world to finish loading.
-- **Don't sit on a fixed multi-minute timeout — kill on the last load marker.** A warm run prints `[Load] Total (to fade start)` at ~21s (`[Load] WorldGen cache HIT`; a MISS regenerates and is where the minutes go). Stream the output and kill on that line instead of waiting out a timeout.
+- **Don't sit on a fixed multi-minute timeout — size it from the marker.** A warm run prints `[Load] Total (to fade start)` at ~21s from cache, ~30s loading a `.hike` (`[Load] WorldGen cache HIT`; a MISS regenerates and is where the minutes go). Note that piping into `awk .. exit` / `grep -m1` does NOT stop the run here — Godot does not die of SIGPIPE under Git Bash, so the pipeline returns while the process keeps going to the full timeout. Either background it and `kill` the PID once the marker lands, or set the `timeout` from the numbers above (~60s) rather than minutes.
 
 ### Checking That Shaders Still Compile
 

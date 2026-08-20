@@ -1,21 +1,21 @@
-[gd_scene load_steps=6 format=3 uid="uid://6ts7a61xu00z"]
+[gd_scene format=3 uid="uid://6ts7a61xu000"]
 
-[ext_resource type="Script" uid="uid://djesz7e6r3zs" path="res://scripts/worldmap/WorldMapPainter.cs" id="1_painter"]
+[ext_resource type="Script" uid="uid://djes07e6r30s" path="res://scripts/worldmap/WorldMapPainter.cs" id="1_painter"]
 [ext_resource type="Script" uid="uid://r8m80ixy1m3t" path="res://scripts/worldmap/WorldMapCanvas.cs" id="3_canvas"]
-[ext_resource type="Script" uid="uid://3uruphfvq89k" path="res://scripts/worldmap/WorldMapHud.cs" id="4_hud"]
+[ext_resource type="Script" uid="uid://3uruphfvraak" path="res://scripts/worldmap/WorldMapHud.cs" id="4_hud"]
 [ext_resource type="Resource" uid="uid://e8dg4qt8u74x" path="res://resources/data/worldmap/default_world_map.tres" id="5_data"]
 [ext_resource type="Resource" uid="uid://8kjoldme1z4f" path="res://resources/data/worldmap/default_world_map_brush.tres" id="6_brush"]
 
-[node name="WorldMapPainter" type="Node3D" node_paths=PackedStringArray("canvas", "hud")]
+[node name="WorldMapPainter" type="Node3D" unique_id=376435995 node_paths=PackedStringArray("canvas", "hud")]
 script = ExtResource("1_painter")
 canvas = NodePath("MapLayer/Canvas")
 hud = NodePath("Hud")
 data = ExtResource("5_data")
 brush = ExtResource("6_brush")
 
-[node name="MapLayer" type="CanvasLayer" parent="."]
+[node name="MapLayer" type="CanvasLayer" parent="." unique_id=1012413076]
 
-[node name="Canvas" type="Control" parent="MapLayer"]
+[node name="Canvas" type="Control" parent="MapLayer" unique_id=1649392016]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -24,45 +24,72 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_canvas")
 
-[node name="Hud" type="CanvasLayer" parent="." node_paths=PackedStringArray("viewLabel", "layerLabel", "toolLabel", "radiusLabel", "coordsLabel", "helpLabel")]
+[node name="Hud" type="CanvasLayer" parent="." unique_id=445149964 node_paths=PackedStringArray("layerLabel", "toolLabel", "coordsLabel", "bakePanel", "bakeLabel", "bakeBar", "toolButtonBar", "optionButtonBar", "hintLabel")]
 script = ExtResource("4_hud")
-viewLabel = NodePath("MarginContainer/VBoxContainer/ViewLabel")
 layerLabel = NodePath("MarginContainer/VBoxContainer/LayerLabel")
 toolLabel = NodePath("MarginContainer/VBoxContainer/ToolLabel")
-radiusLabel = NodePath("MarginContainer/VBoxContainer/RadiusLabel")
 coordsLabel = NodePath("MarginContainer/VBoxContainer/CoordsLabel")
-helpLabel = NodePath("MarginContainer/VBoxContainer/HelpLabel")
+bakePanel = NodePath("BakePanel")
+bakeLabel = NodePath("BakePanel/BakeLabel")
+bakeBar = NodePath("BakePanel/BakeBar")
+toolButtonBar = NodePath("MarginContainer/VBoxContainer/ToolBar")
+optionButtonBar = NodePath("MarginContainer/VBoxContainer/OptionBar")
+hintLabel = NodePath("MarginContainer/VBoxContainer/HintLabel")
 
-[node name="MarginContainer" type="MarginContainer" parent="Hud"]
-anchors_preset = 0
+[node name="MarginContainer" type="MarginContainer" parent="Hud" unique_id=479690019]
 offset_right = 700.0
 offset_bottom = 200.0
+mouse_filter = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Hud/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Hud/MarginContainer" unique_id=461207712]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ToolBar" type="HBoxContainer" parent="Hud/MarginContainer/VBoxContainer" unique_id=1190384163]
 layout_mode = 2
 
-[node name="ViewLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+[node name="OptionBar" type="HBoxContainer" parent="Hud/MarginContainer/VBoxContainer" unique_id=109338921]
 layout_mode = 2
-text = "View: 2D Map"
 
-[node name="LayerLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+[node name="LayerLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=1918106656]
 layout_mode = 2
-text = "Layer: Elevation"
+text = "[Tab] Layer: Elevation"
 
-[node name="ToolLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+[node name="ToolLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=623507482]
 layout_mode = 2
-text = "Tool: Raise"
+text = "[Q/E] Tool: Raise"
 
-[node name="RadiusLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+[node name="CoordsLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=1465641328]
 layout_mode = 2
-text = "Brush: 12.0"
+text = "[R/F] Texel: (0, 0)"
 
-[node name="CoordsLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+[node name="HintLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=1410644965]
 layout_mode = 2
-text = "Texel: (0, 0)"
+theme_override_colors/font_color = Color(0.8, 0.8, 0.85, 0.75)
 
-[node name="HelpLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+[node name="BakePanel" type="VBoxContainer" parent="Hud" unique_id=291447619]
+visible = false
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -336.0
+offset_top = -76.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="BakeLabel" type="Label" parent="Hud/BakePanel" unique_id=222775041]
 layout_mode = 2
-text = "LMB: Paint | RMB: Erase | Tab: Tool | Q/E: Param | R/F: Level | [ ]: Brush | Ctrl+S: Save | Esc: Quit"
+text = "Baking..."
+
+[node name="BakeBar" type="ProgressBar" parent="Hud/BakePanel" unique_id=2008951359]
+layout_mode = 2
+max_value = 1.0
+step = 0.001
+show_percentage = false

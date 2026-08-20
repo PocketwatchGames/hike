@@ -1,0 +1,178 @@
+using Godot;
+
+// The composite brush: one stroke writing every per-column layer a
+// PaintPresetData names (ground and props; zone is painted on its own).
+//
+// It exists because the layers are independent. Splitting ground, props and
+// zone apart is what makes a pine stand reusable across grounds — but it also
+// means the ORDINARY stroke ("this is boreal forest") would otherwise be three
+// strokes that have to agree with each other across the whole map. The preset
+// restores that one stroke; every layer stays independently repaintable after
+// it, which is the half a bundled zone could never give.
+//
+// Null slots on the preset are skipped rather than cleared, so a preset can
+// deliberately touch only some layers.
+public class PresetTool : IWorldMapTool
+{
+    public string Name => "Preset";
+    public IWorldMapView View { get; }
+    public float Radius { get; set; } = 16f;
+
+    public int PresetIndex = 0;
+
+    public PresetTool()
+    {
+        View = new PresetView();
+    }
+
+    public string[] Options(WorldMapState ctx)
+    {
+        PaintPresetData[] sets = ctx.Presets;
+        var names = new string[sets.Length];
+        for (int i = 0; i < names.Length; i++)
+        {
+            names[i] = sets[i]?.Label ?? $"Preset {i}";
+        }
+        return names;
+    }
+
+    public Color[] OptionColors(WorldMapState ctx)
+    {
+        PaintPresetData[] sets = ctx.Presets;
+        var colors = new Color[sets.Length];
+        for (int i = 0; i < colors.Length; i++)
+        {
+            colors[i] = sets[i]?.mapColor ?? Colors.White;
+        }
+        return colors;
+    }
+
+    public int OptionIndex
+    {
+        get => PresetIndex;
+        set => PresetIndex = Mathf.Max(0, value);
+    }
+
+    public Color CursorColor(WorldMapState ctx)
+    {
+        PaintPresetData preset = Active(ctx);
+        return preset?.mapColor ?? Colors.White;
+    }
+
+    public string HintText(WorldMapState ctx)
+        => "Writes ground, props and mobs together; repaint any after. Zone is its own tool";
+
+    public string StatusText(WorldMapState ctx)
+    {
+        PaintPresetData preset = Active(ctx);
+        if (preset == null)
+        {
+            return "No presets authored";
+        }
+        string layers = (preset.ground != null ? "ground " : "")
+            + (preset.props != null ? "props " : "")
+            + (preset.mobs != null ? "mobs" : "");
+        return $"{preset.Label}  [{layers.Trim()}]";
+    }
+
+    public string LevelText(WorldMapState ctx) => "";
+
+    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    {
+    }
+
+    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    {
+        PaintPresetData preset = Active(ctx);
+        if (preset == null)
+        {
+            return;
+        }
+
+        int groundValue = IndexOf(ctx.GroundSets, preset.ground);
+        int propValue = IndexOf(ctx.PropSets, preset.props);
+        int mobValue = IndexOf(ctx.MobSets, preset.mobs);
+
+        brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
+        {
+            if (preset.ground != null || erase)
+            {
+                float v = erase ? 0f : Mathf.Clamp(groundValue + 1, 1, 255) / 255f;
+                ctx.Ground.SetPixel(px, pz, new Color(v, 0f, 0f, 1f));
+            }
+            if (preset.props != null || erase)
+            {
+                WriteSpawn(ctx.Scatter, propValue, preset.propDensity, weight, px, pz, erase);
+            }
+            if (preset.mobs != null || erase)
+            {
+                WriteSpawn(ctx.Mobs, mobValue, preset.mobDensity, weight, px, pz, erase);
+            }
+        });
+    }
+
+    // Both spawn layers are written the same way, so the rule lives in one place.
+    //
+    // Density is taken as the MAX against what is already there, never the raw
+    // falloff weight: writing the weight outright means a column under the brush
+    // centre one moment and at its rim the next has its density DROP as the
+    // stroke moves on, so its dots blink out and return as you drag. Carried
+    // across a set change too, because density is a MULTIPLIER on the set's own
+    // rate rather than an absolute count — resetting it would let the rim thin a
+    // dense region it overpaints.
+    private static void WriteSpawn(Image layer, int index, float density, float weight, int px, int pz, bool erase)
+    {
+        if (erase)
+        {
+            layer.SetPixel(px, pz, new Color(0f, 0f, 0f, 1f));
+            return;
+        }
+        int id = Mathf.Clamp(index + 1, 1, 255);
+        float d = Mathf.Max(layer.GetPixel(px, pz).G, density * weight);
+        layer.SetPixel(px, pz, new Color(id / 255f, d, 0f, 1f));
+    }
+
+    public void Cycle(WorldMapState ctx, int dir)
+    {
+        int n = Mathf.Max(1, ctx.Presets.Length);
+        PresetIndex = ((PresetIndex + dir) % n + n) % n;
+    }
+
+    public void AdjustLevel(WorldMapState ctx, int dir)
+    {
+    }
+
+    private PaintPresetData Active(WorldMapState ctx)
+    {
+        PaintPresetData[] sets = ctx.Presets;
+        return PresetIndex >= 0 && PresetIndex < sets.Length ? sets[PresetIndex] : null;
+    }
+
+    private static int IndexOf<T>(T[] array, T value) where T : class
+    {
+        if (value == null || array == null)
+        {
+            return -1;
+        }
+        for (int i = 0; i < array.Length; i++)
+        {
+            if (ReferenceEquals(array[i], value))
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+}
+
+// Shows the ground layer, since that is the layer a preset always paints and
+// the one whose regions read as the map's shape.
+public class PresetView : IWorldMapView
+{
+    public bool ShowsAllSteps => true;
+    public bool DrawsWater => true;
+    public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
+    public bool ShowsClimb => false;
+
+    public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
+}

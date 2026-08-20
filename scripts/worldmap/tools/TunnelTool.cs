@@ -18,8 +18,22 @@ public class TunnelTool : IWorldMapTool
         View = new TunnelView(this);
     }
 
+    public string[] Options(WorldMapState ctx) => System.Array.Empty<string>();
+    public Color[] OptionColors(WorldMapState ctx) => null;
+
+    public int OptionIndex { get => 0; set { } }
+
+    public string HintText(WorldMapState ctx) => "";
+
+    public Color CursorColor(WorldMapState ctx) => Colors.White;
+
     public string StatusText(WorldMapState ctx) => $"Carve h={CarveHeight}";
     public string LevelText(WorldMapState ctx) => $"Section Y={CrossSectionY}";
+
+    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    {
+        // No eyedropper or constraint yet; this tool reads nothing off the map.
+    }
 
     public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
     {
@@ -48,6 +62,13 @@ public class TunnelTool : IWorldMapTool
 // an existing carve at the current slice, near-black = open space.
 public class TunnelView : IWorldMapView
 {
+    public ESpawnPreview PreviewLayer => ESpawnPreview.None;
+    public bool ShowsClimb => false;
+
+    // Colour is a cross-section slice, not a height.
+    public bool ShowsAllSteps => true;
+    public bool DrawsWater => false;
+
     private readonly TunnelTool _tool;
 
     public TunnelView(TunnelTool tool)

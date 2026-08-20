@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="18_j4gvg"]
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="21_6q5nr"]
 [ext_resource type="Resource" uid="uid://bm35ijghdsfpe" path="res://resources/data/blocks/block_grass.tres" id="blk_grass"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/prop_sets/hub.tres" id="set_forest"]
 
 [sub_resource type="Resource" id="ws_4_g01"]
 script = ExtResource("3_yghhh")
@@ -84,5 +85,6 @@ defaultDetail = ExtResource("1_gpld7")
 detailNoiseThreshold = -0.5
 detailStrengthMin = 180
 forestDensity = 0.1
-treeScenes = [SubResource("ws_5_t04"), SubResource("ws_5_t05"), SubResource("ws_5_t06"), SubResource("ws_5_t16"), SubResource("ws_20_1c0cr"), SubResource("ws_18_g2lcu"), SubResource("ws_19_tavw8")]
-tallGrassScenes = [SubResource("ws_4_g01"), SubResource("ws_4_g02"), SubResource("ws_4_g03"), SubResource("ws_4_g04")]
+forest = ExtResource("set_forest")
+treeScenes = []
+tallGrassScenes = []
