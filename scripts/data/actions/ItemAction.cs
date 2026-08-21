@@ -187,7 +187,7 @@ public partial class ItemAction : Resource
 	// split by phase and mutually exclusive (only one phase is live at a time).
 	// `maxSpeedCharging` caps the player's move speed at a named gait for the
 	// ENTIRE Charging phase, press through release (Stationary = a drinking
-	// consumable roots at 0; Sneak = the summoner's channel crawl; Sprint =
+	// consumable roots at 0; Sneak = the summoner's channel crawl; Unrestricted =
 	// effectively unrestricted). `chargedSpeedMax` is the same kind of cap but
 	// engages only once THIS tier is fully charged — its own chargeTime window
 	// complete, the hold sitting at max — so the bow draws at full speed and
@@ -203,8 +203,8 @@ public partial class ItemAction : Resource
 	// while charging only when the EFFECTIVE cap (including an engaged
 	// chargedSpeedMax) is Stationary, and while Active when
 	// speedMultiplierActive <= 0.
-	[Export] public EChargeSpeedCap maxSpeedCharging = EChargeSpeedCap.Sprint;
-	[Export] public EChargeSpeedCap chargedSpeedMax = EChargeSpeedCap.Sprint;
+	[Export] public EChargeSpeedCap maxSpeedCharging = EChargeSpeedCap.Unrestricted;
+	[Export] public EChargeSpeedCap chargedSpeedMax = EChargeSpeedCap.Unrestricted;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float speedMultiplierActive = 1f;
 
 	// Turn-speed multipliers the actor retains while this is the selected tier,

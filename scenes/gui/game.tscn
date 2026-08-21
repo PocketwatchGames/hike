@@ -204,7 +204,6 @@ pitchDegrees = -40.0
 rotationTime = 0.35
 rotationBlurDuration = 0.35
 followTimeNormal = 0.35
-followTimeSprinting = 1.0
 followTimeAirAscending = 0.65
 followTimeDashing = 1.5
 clipTargetStabilityFrames = 6

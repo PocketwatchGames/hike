@@ -27,16 +27,40 @@ public partial class WorldMapPainter : Node3D
     [Export(PropertyHint.Range, "16,512,1")] public float maxBrushRadius = 256f;
     [Export(PropertyHint.Range, "0.01,1,0.01")] public float brushStepFraction = 0.15f;
 
-    // Screen pixels per metre of map. The map is rendered at this resolution
-    // rather than scaled up on display, so a step outline can be a thin line on
-    // a voxel edge instead of a whole metre-wide block.
-    [Export(PropertyHint.Range, "1,16,1")] public int pixelsPerMeter = 3;
+    // Pixels per metre the map is RASTERISED at — the detail in the buffer, not
+    // the size on screen. Rendering rather than scaling is what lets a step
+    // outline be a thin line on a voxel edge instead of a metre-wide block.
+    [Export(PropertyHint.Range, "1,8,1")] public int rasterPixelsPerMeter = 3;
 
-    // Zoom limits for ctrl+wheel. The buffer grows with the SQUARE of this, so
-    // the ceiling is a memory bound, not a taste one: at 8 px/m a 288x256 map is
-    // already ~19MB of RGBA.
-    [Export(PropertyHint.Range, "1,4,1")] public int minPixelsPerMeter = 1;
-    [Export(PropertyHint.Range, "4,16,1")] public int maxPixelsPerMeter = 8;
+    // How far past the raster ctrl+wheel may magnify. These steps are FREE — the
+    // same buffer drawn bigger with nearest filtering — so this is a taste bound
+    // rather than a memory one.
+    [Export(PropertyHint.Range, "1,8,1")] public int maxZoomFactor = 4;
+
+    // Ctrl+wheel walks one ladder of SCREEN pixels per metre: 1..raster-1, then
+    // the raster magnified 1..maxZoomFactor. So at raster 3 it is 1, 2, 3, 6, 9,
+    // 12.
+    //
+    // The split is the whole point. Rasterising at the on-screen size made every
+    // notch reallocate the buffer, repaint all ~295k cells into it, and re-upload
+    // the result: 72 MB and ~240 ms of CPU at 8 px/m before the GPU saw any of
+    // it. Above the raster nothing about the IMAGE changes when you zoom, only
+    // how big it is drawn — so those steps now cost one QueueRedraw. Below it the
+    // buffer shrinks, so the steps that do re-rasterise are the cheap ones.
+    private int _zoomIndex;
+
+    private int BelowRasterSteps => Mathf.Max(0, rasterPixelsPerMeter - 1);
+
+    private int MaxZoomIndex => BelowRasterSteps + Mathf.Max(1, maxZoomFactor) - 1;
+
+    private int ScreenPerMeter => _zoomIndex < BelowRasterSteps
+        ? _zoomIndex + 1
+        : rasterPixelsPerMeter * (_zoomIndex - BelowRasterSteps + 1);
+
+    // What the buffer is rasterised at, and how much bigger it is drawn.
+    private int pixelsPerMeter => Mathf.Min(ScreenPerMeter, rasterPixelsPerMeter);
+
+    private int ZoomFactor => Mathf.Max(1, ScreenPerMeter / Mathf.Max(1, pixelsPerMeter));
 
     // Relief shading, OFF by default. Light from the NW at 45 degrees is the
     // cartographic convention, but hillshading fights the banded palette on two
@@ -53,6 +77,12 @@ public partial class WorldMapPainter : Node3D
     // instead of staying a hairline that vanishes against 8px cells. Always at
     // least one pixel, never more than the cell.
     [Export(PropertyHint.Range, "0.05,1,0.01")] public float edgeWidthFraction = 0.34f;
+
+    // Metres of headroom the cutaway keeps above the ground it is aimed at —
+    // both when a tool asks for a plane on being picked up and when alt+RMB
+    // aims one at a clicked floor. Enough to stand in, so the cut lands inside
+    // the space you are about to make rather than in the rock over it.
+    [Export(PropertyHint.Range, "1,16,1")] public int cutawayHeadroom = 3;
 
     // How long the finished-bake readout stays up before the panel hides.
     [Export(PropertyHint.Range, "0.5,10,0.5")] public float bakeResultHoldSeconds = 3f;
@@ -105,7 +135,7 @@ public partial class WorldMapPainter : Node3D
 
     // Bindings that mean the same thing whichever tool is active.
     private const string GLOBAL_HINT =
-        "Tab tool  |  1-9 option  |  R/F level  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save";
+        "Tab tool  |  1-9 option  |  Q/E param  |  R/F level  |  T/G cutaway  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save";
 
     // The document this painter is editing, for the console commands that act on
     // "whatever is open".
@@ -128,8 +158,10 @@ public partial class WorldMapPainter : Node3D
             new ElevationTool(),
             new WaterTool(),
             new TunnelTool(),
+            new BlockTool(),
             new RegionTool(),
             new ZoneTool(),
+            new WindTool(),
             new GroundTool(),
             new ScatterTool(),
             new MobTool(),
@@ -141,6 +173,8 @@ public partial class WorldMapPainter : Node3D
         };
         _toolIndex = 0;
 
+        // Opens at 1:1 — the raster drawn at its own size.
+        _zoomIndex = BelowRasterSteps;
         AllocateDisplay();
         canvas.CursorRadiusTexels = ActiveTool.Radius;
         canvas.OnPaint = OnCanvasPaint;
@@ -151,8 +185,7 @@ public partial class WorldMapPainter : Node3D
         // own (smaller / bigger) sense.
         canvas.OnAdjustRadius = notch => AdjustRadius(-notch);
         canvas.OnZoom = AdjustZoom;
-        canvas.OnHover = t => hud.SetCoords(t, _ctx.TerrainHeight(t.X, t.Y), _ctx.LevelAt(t.X, t.Y),
-            _ctx.WaterSurface(t.X, t.Y), _ctx.HasWater(t.X, t.Y));
+        canvas.OnHover = ReportHover;
 
         var toolNames = new string[_tools.Length];
         for (int i = 0; i < _tools.Length; i++)
@@ -160,7 +193,36 @@ public partial class WorldMapPainter : Node3D
             toolNames[i] = _tools[i].Name;
         }
         hud.BuildToolButtons(toolNames, SelectTool);
+        if (hud.entityInspector != null)
+        {
+            // One property change is one undo step, bracketed here because the
+            // history belongs to the painter and the widgets belong to the panel.
+            hud.entityInspector.BeforeEdit = () => _history.Begin(ActiveTool.Name).TouchPlacements(_ctx);
+            hud.entityInspector.AfterEdit = () =>
+            {
+                _history.Commit();
+                UpdateHud();
+            };
+        }
         SelectTool(0);
+    }
+
+    // What the MAP IS SHOWING at a column, not the raw height field. Under a
+    // cutaway the two differ by a whole mountain, and a readout that reports the
+    // hilltop while the map draws the passage beneath it makes every alt+click
+    // look like it sampled the wrong thing — which is exactly how it read.
+    private void ReportHover(Vector2I t)
+    {
+        int clip = ActiveTool.View.CutsAway ? _ctx.CutawayY : int.MaxValue;
+        int shown = _ctx.CutawayFloor(t.X, t.Y, clip, out _);
+        // Solid rock at the plane has no floor to report; fall back to the ground
+        // above it rather than leaving the readout blank.
+        if (shown < data.WorldMinY)
+        {
+            shown = _ctx.TerrainHeight(t.X, t.Y);
+        }
+        hud.SetCoords(t, shown, (shown - _ctx.SeaLevel) / _ctx.StepVoxels,
+            _ctx.WaterSurface(t.X, t.Y), _ctx.HasWater(t.X, t.Y));
     }
 
     // The single way the active tool changes — buttons, Tab and the number keys
@@ -172,6 +234,12 @@ public partial class WorldMapPainter : Node3D
             return;
         }
         _toolIndex = index;
+        // A tool that works under the ground brings the plane with it.
+        int? wantCutaway = ActiveTool.CutawayFor(cutawayHeadroom);
+        if (wantCutaway.HasValue)
+        {
+            SetCutaway(wantCutaway.Value);
+        }
         canvas.CursorRadiusTexels = ActiveTool.Radius;
         hud.SetActiveTool(index);
         hud.BuildOptionButtons(ActiveTool.Options(_ctx), ActiveTool.OptionColors(_ctx), SelectOption);
@@ -193,6 +261,28 @@ public partial class WorldMapPainter : Node3D
         UpdateHud();
     }
 
+    // T/G. A view setting rather than a tool parameter, so it lives on the state
+    // beside ShowWater: every cutting view cuts at the same plane, and switching
+    // between them keeps the slice you were reading.
+    private void AdjustCutaway(int dir)
+    {
+        SetCutaway(_ctx.CutawayY + dir);
+    }
+
+    private void SetCutaway(int y)
+    {
+        _ctx.CutawayY = Mathf.Clamp(y, data.WorldMinY, data.WorldMaxY);
+    }
+
+    // Q/E. The option row is refreshed as well as the HUD, since a tool whose
+    // Cycle moves its option index would otherwise leave a stale button lit.
+    private void CycleParameter(int dir)
+    {
+        ActiveTool.Cycle(_ctx, dir);
+        hud.SetActiveOption(ActiveTool.OptionIndex);
+        UpdateHud();
+    }
+
     public override void _UnhandledInput(InputEvent e)
     {
         if (ConsoleUI.IsOpen)
@@ -206,28 +296,41 @@ public partial class WorldMapPainter : Node3D
             GetViewport().SetInputAsHandled();
             return;
         }
-        // Q/E only reach parameters the option row CANNOT show: a region or zone
-        // index, a carve height. Where the parameter is a small fixed set, the
-        // buttons and 1-9 own it and cycling is just a second way to be wrong
-        // about which is selected.
-        if (ActiveTool.Options(_ctx).Length == 0)
+        // Q/E step the tool's Cycle parameter. For most tools that IS the option
+        // index and the keys are simply a second way to reach the row; where the
+        // row is already spoken for they reach the parameter it cannot show (the
+        // tunnel tool's carve height).
+        if (e.IsActionPressed("EditorParamLeft"))   // Q
         {
-            if (e.IsActionPressed("UseItem"))   // Q
-            {
-                ActiveTool.Cycle(_ctx, -1);
-                UpdateHud();
-                GetViewport().SetInputAsHandled();
-                return;
-            }
-            if (e.IsActionPressed("Interact"))  // E
-            {
-                ActiveTool.Cycle(_ctx, 1);
-                UpdateHud();
-                GetViewport().SetInputAsHandled();
-                return;
-            }
+            CycleParameter(-1);
+            GetViewport().SetInputAsHandled();
+            return;
         }
-        if (e.IsActionPressed("EditorUp"))  // R — active elevation / cross-section up
+        if (e.IsActionPressed("EditorParamRight"))  // E
+        {
+            CycleParameter(1);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        // T/G. NOT bracketed as an edit: a cutaway is what the map is showing,
+        // not anything the document holds, so there is nothing to undo.
+        if (e.IsActionPressed("EditorClipUp"))    // T
+        {
+            AdjustCutaway(1);
+            RebuildFull();
+            UpdateHud();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (e.IsActionPressed("EditorClipDown"))  // G
+        {
+            AdjustCutaway(-1);
+            RebuildFull();
+            UpdateHud();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (e.IsActionPressed("EditorUp"))  // R — active elevation / carve level up
         {
             // Bracketed like a stroke: for most tools this only moves a tool
             // parameter and the edit drops itself, but the scene tool turns the
@@ -240,7 +343,7 @@ public partial class WorldMapPainter : Node3D
             GetViewport().SetInputAsHandled();
             return;
         }
-        if (e.IsActionPressed("EditorDown"))  // F — active elevation / cross-section down
+        if (e.IsActionPressed("EditorDown"))  // F — active elevation / carve level down
         {
             _history.Begin(ActiveTool.Name).TouchPlacements(_ctx);
             ActiveTool.AdjustLevel(_ctx, -1);
@@ -390,20 +493,29 @@ public partial class WorldMapPainter : Node3D
         _display.SetData(DisplayWidth, DisplayHeight, false, Image.Format.Rgba8, _pixels);
         _displayTex = ImageTexture.CreateFromImage(_display);
         canvas.PixelsPerTexel = pixelsPerMeter;
+        canvas.Zoom = ZoomFactor;
         canvas.SetDisplay(_displayTex, DisplayWidth, DisplayHeight);
     }
 
     // Ctrl+wheel. The canvas anchors the pan on the metre under the cursor once
-    // this returns, so it has to see the new scale on canvas.PixelsPerTexel.
+    // this returns, so it has to see the new scale before it does.
     private void AdjustZoom(int dir)
     {
-        int next = Mathf.Clamp(pixelsPerMeter + dir, Mathf.Max(1, minPixelsPerMeter), maxPixelsPerMeter);
-        if (next == pixelsPerMeter)
+        int next = Mathf.Clamp(_zoomIndex + dir, 0, MaxZoomIndex);
+        if (next == _zoomIndex)
         {
             return;
         }
-        pixelsPerMeter = next;
-        AllocateDisplay();
+        int wasRaster = pixelsPerMeter;
+        _zoomIndex = next;
+        // Only a change of RASTER touches the buffer. Magnifying is a draw-time
+        // property, so those notches reallocate nothing and repaint nothing.
+        if (pixelsPerMeter != wasRaster)
+        {
+            AllocateDisplay();
+        }
+        canvas.Zoom = ZoomFactor;
+        canvas.Refresh();
         UpdateHud();
     }
 
@@ -470,6 +582,24 @@ public partial class WorldMapPainter : Node3D
 
     private void OnCanvasStrokeStart(Vector2I texel, EStrokeMods mods)
     {
+        // alt+RMB aims the CUTAWAY at the floor under it, with headroom to stand
+        // in — the one gesture that moves the plane without hunting for T/G.
+        // Only where a cutaway is on screen: elsewhere it would silently consume
+        // a press whose effect nothing can show, so alt+RMB keeps its ordinary
+        // tool-pick meaning there.
+        if ((mods & (EStrokeMods.Pick | EStrokeMods.Secondary))
+            == (EStrokeMods.Pick | EStrokeMods.Secondary)
+            && ActiveTool.View.CutsAway)
+        {
+            int floor = _ctx.CutawayFloor(texel.X, texel.Y, _ctx.CutawayY, out _);
+            if (floor >= data.WorldMinY)
+            {
+                SetCutaway(floor + cutawayHeadroom);
+                RebuildFull();
+            }
+            // Withheld from the tool: this press aimed the plane, not the brush.
+            mods &= ~EStrokeMods.Pick;
+        }
         // Opened on every press, including ones that paint nothing (an
         // alt+click pick, a click on empty ground): an edit that captured no
         // change is dropped at commit rather than costing an undo slot.
@@ -501,11 +631,17 @@ public partial class WorldMapPainter : Node3D
         PushDisplay();
     }
 
+    // Deferred to _Process, so several calls in one frame cost ONE rebuild. Key
+    // repeat is why: T/G scrubs the cutaway and every press rebuilt the whole
+    // map synchronously, so holding the key queued rebuilds faster than they
+    // could run and the painter stopped answering the keyboard.
     private void RebuildFull()
     {
-        RebuildDisplay(new Rect2I(0, 0, data.ImageWidth, data.ImageHeight));
+        _fullRebuildPending = true;
         PushDisplay();
     }
+
+    private bool _fullRebuildPending;
 
     // Colour every metre cell in the rect, then outline the voxel edges inside
     // it. Two passes, because an edge is drawn into one of the two cells that
@@ -546,20 +682,56 @@ public partial class WorldMapPainter : Node3D
         _clipX1 = x1 * pixelsPerMeter;
         _clipZ1 = z1 * pixelsPerMeter;
 
+        // Stamps draw on EVERY view, not only the scene tool's. A building is a
+        // fact about the ground you need while painting the things that sit
+        // beside it — the same argument climbing routes and spill edges are
+        // inked everywhere — and a footprint you cannot see is one you scatter
+        // props into. Resolved ONCE per rebuild: the hit test walks the
+        // placement list, and asking per texel would make drawing the map cost
+        // more the more buildings the document holds.
+        bool cut = view.CutsAway && _ctx.IsCutAway;
+        int clipY = cut ? _ctx.CutawayY : int.MaxValue;
+        WorldMapState.StampPlan stamps =
+            _ctx.PlanStamps(new Rect2I(x0, z0, x1 - x0, z1 - z0), clipY);
+        // Only the scene tool answers with a selection, so the highlight shows
+        // while stamps are being edited and the plan stays plain elsewhere.
+        SubscenePlacement selectedStamp = ActiveTool.SelectedPlacement;
+
+        // The cutaway's per-cell answers, resolved once and read by BOTH the
+        // fill and the outline pass. CutawayFloor was being asked four times per
+        // cell — once for the colour and three times over as each cell's
+        // neighbours recomputed it.
+        if (cut)
+        {
+            ResolveCutaway(x0, z0, x1, z1, clipY, _ctx.ShowWater && view.DrawsWater);
+        }
+
+        // OFF by default, and the guard is the point: C# evaluates arguments
+        // eagerly, so `Lerp(1, ReliefShade(...), 0)` still paid for the hillshade
+        // — four Image.GetPixel calls per cell, 120 ms of a 620 ms rebuild — to
+        // multiply it by zero.
+        bool relief = reliefStrength > 0f;
+
         for (int px = x0; px < x1; px++)
         {
             for (int pz = z0; pz < z1; pz++)
             {
-                Color c = view.ColorAt(_ctx, px, pz);
-                // Shading water would put the seabed's shape straight back into
-                // a colour whose whole job is to say you cannot see the ground.
-                float mul = _ctx.IsSubmerged(px, pz)
-                    ? 1f
-                    : Mathf.Lerp(1f, _ctx.ReliefShade(px, pz, light) / flat, reliefStrength);
-                FillCell(px, pz, new Color(
-                    Mathf.Clamp(c.R * mul, 0f, 1f),
-                    Mathf.Clamp(c.G * mul, 0f, 1f),
-                    Mathf.Clamp(c.B * mul, 0f, 1f)));
+                Color c = _ctx.StampColorAt(stamps, px, pz,
+                    view.ColorAt(_ctx, px, pz), selectedStamp);
+                if (relief)
+                {
+                    // Shading water would put the seabed's shape straight back
+                    // into a colour whose whole job is to say you cannot see the
+                    // ground.
+                    float mul = _ctx.IsSubmerged(px, pz)
+                        ? 1f
+                        : Mathf.Lerp(1f, _ctx.ReliefShade(px, pz, light) / flat, reliefStrength);
+                    c = new Color(
+                        Mathf.Clamp(c.R * mul, 0f, 1f),
+                        Mathf.Clamp(c.G * mul, 0f, 1f),
+                        Mathf.Clamp(c.B * mul, 0f, 1f));
+                }
+                FillCell(px, pz, c, cut && _buried[pz * data.ImageWidth + px]);
             }
         }
 
@@ -582,7 +754,7 @@ public partial class WorldMapPainter : Node3D
         {
             for (int pz = Mathf.Max(0, z0 - 1); pz < z1; pz++)
             {
-                DrawStepEdges(px, pz, showMinor, waterVisible);
+                DrawStepEdges(px, pz, showMinor, waterVisible, cut);
             }
         }
 
@@ -611,6 +783,50 @@ public partial class WorldMapPainter : Node3D
         }
     }
 
+    // Per-cell cutaway answers for the rebuild in progress: the surface the map
+    // DREW at each cell, and whether it was found through rock. Map-sized and
+    // reused, so a rebuild allocates nothing; only the rect being rebuilt is
+    // written, and only the cells it wrote are read back.
+    private int[] _cutSurface;
+    private bool[] _buried;
+
+    // One CutawayFloor per cell for the whole rebuild. Reaches one cell further
+    // out on EVERY side than the fill: the outline pass starts a cell back,
+    // because a cell's -X and -Z edges are owned by its left and upper
+    // neighbours, and it also asks its +X and +Z neighbours for their height.
+    // Leave either margin out and the outline reads a cell this pass never
+    // wrote, which inks the rebuilt rect's own border wrong — a partial-rebuild
+    // artefact that only shows where two rebuilds meet.
+    private void ResolveCutaway(int x0, int z0, int x1, int z1, int clipY, bool waterVisible)
+    {
+        int w = data.ImageWidth;
+        if (_cutSurface == null || _cutSurface.Length != w * data.ImageHeight)
+        {
+            _cutSurface = new int[w * data.ImageHeight];
+            _buried = new bool[w * data.ImageHeight];
+        }
+        int ex1 = Mathf.Min(data.ImageWidth, x1 + 1);
+        int ez1 = Mathf.Min(data.ImageHeight, z1 + 1);
+        for (int px = Mathf.Max(0, x0 - 1); px < ex1; px++)
+        {
+            for (int pz = Mathf.Max(0, z0 - 1); pz < ez1; pz++)
+            {
+                int floor = _ctx.CutawayFloor(px, pz, clipY, out bool roofed);
+                int i = pz * w + px;
+                _buried[i] = roofed;
+                // Rock with no floor under it reads as ONE flat level above
+                // everything drawn, so only its edge inks and never a contour
+                // inside it. Water only where the cut is open to it: a floor
+                // seen through rock is not under the pool standing on that rock.
+                _cutSurface[i] = floor < data.WorldMinY
+                    ? clipY + 1
+                    : waterVisible && !roofed
+                        ? Mathf.Max(floor, Mathf.Min(_ctx.WaterSurface(px, pz), clipY))
+                        : floor;
+            }
+        }
+    }
+
     private Vector3 LightVector()
     {
         float az = Mathf.DegToRad(reliefLightAzimuth);
@@ -623,12 +839,12 @@ public partial class WorldMapPainter : Node3D
 
     // The line goes on the HIGHER side of the boundary, so it reads as the rim
     // of the plateau rather than a fence between two cells.
-    private void DrawStepEdges(int px, int pz, bool showMinor, bool waterVisible)
+    private void DrawStepEdges(int px, int pz, bool showMinor, bool waterVisible, bool cut)
     {
-        int h = SurfaceHeight(px, pz, waterVisible);
+        int h = SurfaceHeight(px, pz, waterVisible, cut);
         if (px + 1 < data.ImageWidth)
         {
-            int hn = SurfaceHeight(px + 1, pz, waterVisible);
+            int hn = SurfaceHeight(px + 1, pz, waterVisible, cut);
             if (EdgeInk(h - hn, showMinor, IsRoutedWall(h, hn, px, pz, px + 1, pz),
                 Spills(waterVisible, px, pz, px + 1, pz), out Color ink, out int w))
             {
@@ -646,7 +862,7 @@ public partial class WorldMapPainter : Node3D
         }
         if (pz + 1 < data.ImageHeight)
         {
-            int hn = SurfaceHeight(px, pz + 1, waterVisible);
+            int hn = SurfaceHeight(px, pz + 1, waterVisible, cut);
             if (EdgeInk(h - hn, showMinor, IsRoutedWall(h, hn, px, pz, px, pz + 1),
                 Spills(waterVisible, px, pz, px, pz + 1), out Color ink, out int w))
             {
@@ -662,9 +878,16 @@ public partial class WorldMapPainter : Node3D
         }
     }
 
-    private int SurfaceHeight(int px, int pz, bool waterVisible)
+    // What the outlines follow — whatever the view actually DREW, or they would
+    // contour one surface while the colours show another. Off a cutaway that is
+    // the top of the solid world with the edit layer included (a bridge deck
+    // stands above the height map, a carved roof below it); on one it is the
+    // per-cell answer ResolveCutaway already worked out for the fill pass.
+    private int SurfaceHeight(int px, int pz, bool waterVisible, bool cut)
     {
-        return waterVisible ? _ctx.VisibleSurface(px, pz) : _ctx.TerrainHeight(px, pz);
+        return cut
+            ? _cutSurface[pz * data.ImageWidth + px]
+            : _ctx.DisplaySurface(px, pz, waterVisible, int.MaxValue);
     }
 
     // Which authored ink an edge gets, by the size of its step: under 2m, exactly
@@ -772,20 +995,34 @@ public partial class WorldMapPainter : Node3D
         }
     }
 
-    private void FillCell(int px, int pz, Color c)
+    // `dither` checkerboards the cell against the rock colour, which is how a
+    // floor seen THROUGH rock is drawn: the band underneath keeps the exact
+    // colour it was authored as — a tint would put it in a shade some other
+    // height already owns — while the texture says you are looking at it through
+    // something. Keyed on ABSOLUTE display pixels, not on the cell, so the
+    // pattern runs continuously across a whole buried passage instead of
+    // restarting every metre.
+    private void FillCell(int px, int pz, Color c, bool dither = false)
     {
         byte r = (byte)(c.R * 255f);
         byte g = (byte)(c.G * 255f);
         byte b = (byte)(c.B * 255f);
+        Color rock = data.cutawayRockColor;
+        byte rr = (byte)(rock.R * 255f);
+        byte rg = (byte)(rock.G * 255f);
+        byte rb = (byte)(rock.B * 255f);
         for (int dz = 0; dz < pixelsPerMeter; dz++)
         {
-            int row = (pz * pixelsPerMeter + dz) * DisplayWidth;
+            int y = pz * pixelsPerMeter + dz;
+            int row = y * DisplayWidth;
             for (int dx = 0; dx < pixelsPerMeter; dx++)
             {
-                int i = (row + px * pixelsPerMeter + dx) * 4;
-                _pixels[i] = r;
-                _pixels[i + 1] = g;
-                _pixels[i + 2] = b;
+                int x = px * pixelsPerMeter + dx;
+                int i = (row + x) * 4;
+                bool ink = dither && ((x + y) & 1) == 0;
+                _pixels[i] = ink ? rr : r;
+                _pixels[i + 1] = ink ? rg : g;
+                _pixels[i + 2] = ink ? rb : b;
                 _pixels[i + 3] = 255;
             }
         }
@@ -826,6 +1063,11 @@ public partial class WorldMapPainter : Node3D
             return;
         }
         _displayDirty = false;
+        if (_fullRebuildPending)
+        {
+            _fullRebuildPending = false;
+            RebuildDisplay(new Rect2I(0, 0, data.ImageWidth, data.ImageHeight));
+        }
         _display.SetData(DisplayWidth, DisplayHeight, false, Image.Format.Rgba8, _pixels);
         _displayTex.Update(_display);
         canvas.Refresh();
@@ -865,7 +1107,9 @@ public partial class WorldMapPainter : Node3D
         string status = ActiveTool.StatusText(_ctx);
         string level = ActiveTool.LevelText(_ctx);
         hud.SetStatus(string.IsNullOrEmpty(level) ? status : $"{status}  |  {level}");
-        hud.SetRadius(ActiveTool.Radius, pixelsPerMeter);
+        hud.SetRadius(ActiveTool.Radius, ScreenPerMeter);
+
+        hud.entityInspector?.Show(ActiveTool.SelectedEntity);
 
         // Global bindings first, then whatever the active tool answers to.
         string toolHint = ActiveTool.HintText(_ctx);

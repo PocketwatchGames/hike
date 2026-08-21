@@ -44,12 +44,15 @@ public class WaterTool : IWorldMapTool
     public Color CursorColor(WorldMapState ctx) => ctx.Data.shallowWaterColor;
 
     public string HintText(WorldMapState ctx)
-        => "R/F set the surface, alt+click samples a height, RMB removes the water entirely";
+        => "R/F set the surface  |  T/G cutaway (paint water inside a tunnel)  |  "
+        + "alt+LMB samples a height, alt+RMB aims the cutaway  |  "
+        + "RMB removes the water entirely";
 
     public string StatusText(WorldMapState ctx) => "Fills each column to the surface";
 
     public string LevelText(WorldMapState ctx)
-        => $"Surface {SurfaceVoxels:+#;-#;0}v (Y={ctx.SeaLevel + SurfaceVoxels})";
+        => $"Surface {SurfaceVoxels:+#;-#;0}v (Y={ctx.SeaLevel + SurfaceVoxels})"
+        + $"  |  Cutaway Y={ctx.CutawayY}";
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
@@ -63,10 +66,21 @@ public class WaterTool : IWorldMapTool
         {
             // The water under the cursor, or the ground where it has none —
             // pointing at the terrace you want the surface to meet is the fast
-            // way to aim, the same as the elevation tool's pick.
-            int picked = ctx.Underwater(texel.X, texel.Y)
-                ? ctx.WaterSurface(texel.X, texel.Y)
-                : ctx.TerrainHeight(texel.X, texel.Y);
+            // way to aim, the same as the elevation tool's pick. Read UNDER the
+            // cutaway, so pointing into a tunnel picks that tunnel's floor
+            // rather than the hilltop over it.
+            int clip = ctx.CutawayY;
+            int floor = ctx.CutawayFloor(texel.X, texel.Y, clip, out _);
+            if (floor < ctx.Data.WorldMinY)
+            {
+                return;   // solid rock at the cut: nothing to sample
+            }
+            // The column's water counts only where it is VISIBLE under the cut.
+            // Its surface is otherwise a pool standing on top of the rock you are
+            // looking through, and aiming at a tunnel would hand back the lake
+            // above it — or, clamped to the plane, the plane itself.
+            int ws = ctx.WaterSurface(texel.X, texel.Y);
+            int picked = ws > floor && ws <= clip ? ws : floor;
             SurfaceVoxels = ClampSurface(ctx, picked - ctx.SeaLevel);
         }
     }
@@ -110,19 +124,37 @@ public class WaterTool : IWorldMapTool
 
 // Water shaded by depth over dimmed land — the map for deciding where water goes
 // and how deep it is.
+//
+// It CUTS AWAY like the voxel-edit views, so the same T/G that drops the plane
+// into a passage lets you paint water in it. Harmless on the surface: the cutaway
+// starts at the top of the world, where every column's floor is its own ground
+// and nothing reads as roofed, so the map is exactly what it always was until you
+// lower the plane.
 public class WaterView : IWorldMapView
 {
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
+    public bool CutsAway => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.None;
+
+    // How far dry land is dimmed, so the water reads as the subject of this map.
+    private const float DryLandShade = 0.45f;
 
     public Color ColorAt(WorldMapState ctx, int px, int pz)
     {
-        if (ctx.Underwater(px, pz))
+        int clip = ctx.CutawayY;
+        int floor = ctx.CutawayFloor(px, pz, clip, out bool roofed);
+        if (floor < ctx.Data.WorldMinY)
         {
-            return ctx.WithWater(ctx.ElevationColor(px, pz), px, pz);
+            return ctx.Data.cutawayRockColor;
         }
-        Color land = ctx.ElevationColor(px, pz);
-        return new Color(land.R * 0.45f, land.G * 0.45f, land.B * 0.45f);
+        Color band = ctx.ElevationColorAt(floor - ctx.SeaLevel);
+        if (roofed)
+        {
+            return band;   // the painter dithers it
+        }
+        return Mathf.Min(ctx.WaterSurface(px, pz), clip) > floor
+            ? ctx.WithWaterOver(band, px, pz, floor, clip)
+            : new Color(band.R * DryLandShade, band.G * DryLandShade, band.B * DryLandShade);
     }
 }

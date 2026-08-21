@@ -1,0 +1,8 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="1_entry"]
+[ext_resource type="PackedScene" uid="uid://bfdv5jjcu2h5d" path="res://scenes/interactives/chest_poison.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_entry")
+scene = ExtResource("2_scene")

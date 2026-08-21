@@ -191,9 +191,9 @@ public partial class PlayerData : Resource
 	// airDragXZ is a QUADRATIC coefficient (1/m). Per-tick horizontal
 	// deceleration scales as airDragXZ * |v_rel|² along v_rel, where
 	// v_rel = velocityXZ − wind drift. Picking a small value keeps drag
-	// imperceptible at sprint speeds and very strong past them — at
-	// k = 0.02 the decel at sprint (~11 m/s) is ~2.4 m/s² (subtle) while
-	// 2× sprint hits ~10 m/s² (firm), so skate / dash-launch excess speed
+	// imperceptible at running speeds and very strong past them — at
+	// k = 0.02 the decel at ~11 m/s is ~2.4 m/s² (subtle) while
+	// twice that hits ~10 m/s² (firm), so skate / dash-launch excess speed
 	// bleeds off hard while sustained-input top speed is essentially
 	// untouched. Computed in the WIND-RELATIVE frame so a player at rest
 	// in strong wind drifts to the wind's drift target rather than zero
@@ -245,7 +245,7 @@ public partial class PlayerData : Resource
 	// against -Velocity.Y captured just before MoveAndSlide.
 	[Export] public float skateInitiationMinFallSpeed = 5f;
 	// Hard cap on speed while skating — prevents runaway acceleration on
-	// long slopes. Higher than sprintSpeed so skating is the fastest ground
+	// long slopes. Higher than moveSpeed so skating is the fastest ground
 	// mode by design.
 	[Export] public float skateMaxSpeed = 18f;
 	// Steering authority while skating. Per-second yaw rotation applied to
@@ -555,23 +555,17 @@ public partial class PlayerData : Resource
 	// the player slides along it at full speed.
 	[Export] public float dashWallHeadOnAngle = 0.785f;
 
-	[ExportGroup("Sprint")]
-	// Sprint: continuous movement modifier engaged by holding Dash past the
-	// initial dash burst. Sprint is intent-based (any hold + move input);
-	// stamina gates the speed boost but not the intent — holding Dash with
-	// depleted stamina drops to moveSpeed but still arms the recharge delay,
-	// so the player can't refill while gripping the sprint button.
-	[Export] public float sprintSpeed = 12f;
-	[Export] public float sprintStaminaDrainPerSecond = 0.6f;
-	// Sprint speed while swimming. Used by the dash-exit clamp when the
-	// player ends a dash in water; the moving swim anim (SwimSprint) is
-	// authored separately and selected by _sprinting alone.
-	[Export] public float swimSprintSpeed = 6f;
-	// Fallback speeds when stamina runs out and the player isn't actively
-	// sprinting. tiredRunSpeed is the on-foot "exhausted run" — slower than
-	// moveSpeed; tiredSwimSpeed is the swim equivalent. Sprinting with empty
-	// stamina uses moveSpeed (not tiredRunSpeed) so the player is rewarded
-	// for the effort while paying the recharge-delay cost.
+	// Horizontal speed a dash hands off into when it ends (EndDash clamps to
+	// this in place rather than opening a separate glide window). Above
+	// moveSpeed, so the burst still reads as one after the dash proper.
+	[Export] public float dashExitSpeed = 12f;
+	// Same, for a dash that ends in water.
+	[Export] public float swimDashExitSpeed = 6f;
+
+	[ExportGroup("Exhaustion")]
+	// Fallback speeds when stamina runs out. tiredRunSpeed is the on-foot
+	// "exhausted run" — slower than moveSpeed; tiredSwimSpeed is the swim
+	// equivalent.
 	[Export] public float tiredRunSpeed = 4.5f;
 	[Export] public float tiredSwimSpeed = 2f;
 	// Continuous stamina drain (per second) while swimming and trying to move.

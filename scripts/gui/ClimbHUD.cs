@@ -1,6 +1,6 @@
 using Godot;
 
-// Previews the traversal a Dash press would perform — an up arrow over a ledge
+// Previews the traversal a context-button press would perform — an up arrow over a ledge
 // or wall the player can climb, a down arrow over one they can drop from.
 // Exactly one of the two is ever visible, because Player.TraversalPreview names
 // a single direction (see ETraversalPreview); the HUD only draws what the press

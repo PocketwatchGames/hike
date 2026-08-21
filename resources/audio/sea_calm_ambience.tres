@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ZoneAmbienceData" format=3]
+
+[ext_resource type="Script" uid="uid://vovph8nbb6ae" path="res://scripts/data/world/ZoneAmbienceData.cs" id="ambience_script"]
+[ext_resource type="Resource" uid="uid://kbtsmbjt1c5" path="res://resources/audio/layers/base_daytime.tres" id="layer_day"]
+[ext_resource type="Resource" uid="uid://cnsnxco3uanpe" path="res://resources/audio/layers/base_sunset.tres" id="layer_sunset"]
+[ext_resource type="Resource" uid="uid://b0lik6uvxl616" path="res://resources/audio/layers/base_nighttime.tres" id="layer_night"]
+[ext_resource type="Resource" uid="uid://pte0myjn1jg4" path="res://resources/audio/layers/base_underground.tres" id="layer_underground"]
+[ext_resource type="Resource" uid="uid://bxp775h2dxyw7" path="res://resources/audio/layers/wind_light.tres" id="layer_wind_light"]
+[ext_resource type="Resource" uid="uid://dbh7iblyn0w6w" path="res://resources/audio/layers/wind_med.tres" id="layer_wind_med"]
+[ext_resource type="Resource" uid="uid://1l2f58w6y4hk" path="res://resources/audio/layers/rain_light.tres" id="layer_rain_light"]
+[ext_resource type="Resource" uid="uid://dkqwxtbykl8c4" path="res://resources/audio/layers/rain_medium.tres" id="layer_rain_medium"]
+[ext_resource type="Resource" uid="uid://wak0099uxpxya" path="res://resources/audio/emitters/water_shore.tres" id="emitter_water_shore"]
+
+[resource]
+script = ExtResource("ambience_script")
+globalLayers = [ExtResource("layer_day"), ExtResource("layer_sunset"), ExtResource("layer_night"), ExtResource("layer_underground"), ExtResource("layer_wind_light"), ExtResource("layer_wind_med"), ExtResource("layer_rain_light"), ExtResource("layer_rain_medium")]
+positionalEmitters = [ExtResource("emitter_water_shore")]

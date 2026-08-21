@@ -66,6 +66,18 @@ public sealed class PlacementsAspect : IMapEditAspect
         return values;
     }
 
+    // The values inside a placement-OWNED entry (see EntityPlacement.EditableEntry).
+    // An entry still pointing at its palette file is shared with every other
+    // placement using it and is not ours to restore — there the `entry` reference
+    // is the whole of the change, and it is captured as an EntityPlacement
+    // property like any other.
+    private static Variant[] CaptureEntry(EntityPlacement e)
+    {
+        return e?.entry != null && string.IsNullOrEmpty(e.entry.ResourcePath)
+            ? Capture(e.entry)
+            : null;
+    }
+
     private static void Write(Resource r, Variant[] values)
     {
         if (r == null || values == null)
@@ -113,6 +125,7 @@ public sealed class PlacementsAspect : IMapEditAspect
 
         public readonly EntityPlacement[] Entities;
         public readonly Variant[][] EntityValues;
+        public readonly Variant[][] EntryValues;
 
         public readonly bool HasSpawn;
         public readonly Vector2I SpawnXZ;
@@ -128,9 +141,11 @@ public sealed class PlacementsAspect : IMapEditAspect
 
             Entities = (EntityPlacement[])p.entities.Clone();
             EntityValues = new Variant[Entities.Length][];
+            EntryValues = new Variant[Entities.Length][];
             for (int i = 0; i < Entities.Length; i++)
             {
                 EntityValues[i] = Capture(Entities[i]);
+                EntryValues[i] = CaptureEntry(Entities[i]);
             }
 
             HasSpawn = p.hasSpawn;
@@ -157,7 +172,8 @@ public sealed class PlacementsAspect : IMapEditAspect
             for (int i = 0; i < Entities.Length; i++)
             {
                 if (!ReferenceEquals(Entities[i], other.Entities[i])
-                    || !SameValues(EntityValues[i], other.EntityValues[i]))
+                    || !SameValues(EntityValues[i], other.EntityValues[i])
+                    || !SameValues(EntryValues[i], other.EntryValues[i]))
                 {
                     return false;
                 }
@@ -176,7 +192,12 @@ public sealed class PlacementsAspect : IMapEditAspect
             ctx.Placements.entities = (EntityPlacement[])Entities.Clone();
             for (int i = 0; i < Entities.Length; i++)
             {
+                // Placement first: it carries the `entry` reference, so the
+                // values below land in the entry this placement is holding
+                // again — which for the undo of a first edit is the palette
+                // entry, and for its redo is the fork.
                 Write(Entities[i], EntityValues[i]);
+                Write(Entities[i]?.entry, EntryValues[i]);
             }
 
             ctx.Placements.hasSpawn = HasSpawn;

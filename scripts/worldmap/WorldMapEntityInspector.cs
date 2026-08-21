@@ -1,0 +1,385 @@
+using Godot;
+using System.Collections.Generic;
+
+// Property editor for the entity tool's selected placement, top-right of the
+// painter.
+//
+// A hand-placed entity's properties ARE its SpawnEntryData's — the text on a
+// signpost, the conditions on a chest — so this REFLECTS the entry rather than
+// naming fields: an entry type written tomorrow is editable the day it is
+// written, and there is no parallel list of overrides to keep in step with the
+// spawn entries.
+//
+// Scalars only (string, number, bool, enum, flags). Anything resource-shaped —
+// a loot table, a mob descriptor, a language — shows as a read-only row: varying
+// it per placement would need a resource picker, and picking a ready-made
+// variant off the palette is the faster authoring move anyway. The row is there
+// rather than hidden so the panel never implies the entry holds less than it
+// does.
+[GlobalClass]
+public partial class WorldMapEntityInspector : PanelContainer
+{
+    [Export] public Label titleLabel;
+    [Export] public Container rows;
+    // Width of the name column, so the editors line up down the panel.
+    [Export] public int labelWidth = 130;
+    // Height of the box a multiline string gets.
+    [Export] public int multilineHeight = 72;
+    [Export] public Color readOnlyColor = new Color(0.75f, 0.75f, 0.8f, 0.6f);
+
+    // Bracket one property change as one undo step. The painter owns the
+    // history; this owns the widgets.
+    public System.Action BeforeEdit;
+    public System.Action AfterEdit;
+
+    // What the rows were built for. Rebuilding every frame would destroy the
+    // widget being typed into, so the panel rebuilds only when the selection —
+    // or the entry under it, which the first edit forks — actually changes.
+    private EntityPlacement _shown;
+    private SpawnEntryData _shownEntry;
+    private readonly List<System.Action> _refreshers = new();
+
+    // The selected placement, or null for "nothing selected". Called every
+    // frame.
+    public void Show(EntityPlacement placement)
+    {
+        SpawnEntryData entry = placement?.entry;
+        if (entry == null)
+        {
+            if (_shown != null)
+            {
+                _shown = null;
+                _shownEntry = null;
+                Clear();
+            }
+            Visible = false;
+            return;
+        }
+        Visible = true;
+        if (ReferenceEquals(placement, _shown) && ReferenceEquals(entry, _shownEntry))
+        {
+            // Same rows, possibly different values — an undo changes what the
+            // entry holds without touching which entry it is.
+            if (titleLabel != null)
+            {
+                titleLabel.Text = DisplayName(entry);
+            }
+            foreach (System.Action refresh in _refreshers)
+            {
+                refresh();
+            }
+            return;
+        }
+        _shown = placement;
+        _shownEntry = entry;
+        Rebuild();
+    }
+
+    private void Clear()
+    {
+        _refreshers.Clear();
+        if (rows == null)
+        {
+            return;
+        }
+        foreach (Node child in rows.GetChildren())
+        {
+            // Detached now rather than at the free, or the old rows share the
+            // panel with the new ones for a frame.
+            rows.RemoveChild(child);
+            child.QueueFree();
+        }
+    }
+
+    private void Rebuild()
+    {
+        Clear();
+        if (rows == null || _shownEntry == null)
+        {
+            return;
+        }
+        if (titleLabel != null)
+        {
+            titleLabel.Text = DisplayName(_shownEntry);
+        }
+        foreach (Godot.Collections.Dictionary property in _shownEntry.GetPropertyList())
+        {
+            // ScriptVariable is the flag Godot sets on a script's own exports, so
+            // engine bookkeeping (resource_path, script) never reaches the panel.
+            var usage = (PropertyUsageFlags)(long)property["usage"];
+            if ((usage & PropertyUsageFlags.ScriptVariable) == 0)
+            {
+                continue;
+            }
+            var name = new StringName(property["name"].AsString());
+            if (!SpawnEntryData.IsHandPlacedProperty(name))
+            {
+                continue;
+            }
+            AddRow(name, (Variant.Type)(long)property["type"],
+                (PropertyHint)(long)property["hint"], property["hint_string"].AsString());
+        }
+    }
+
+    // The palette file the entry came from — its path while it is still shared,
+    // the name the fork kept once it was customized.
+    private static string DisplayName(SpawnEntryData entry)
+    {
+        if (!string.IsNullOrEmpty(entry.ResourcePath))
+        {
+            return entry.ResourcePath.GetFile().GetBaseName();
+        }
+        return !string.IsNullOrEmpty(entry.ResourceName) ? $"{entry.ResourceName} *" : entry.GetType().Name;
+    }
+
+    private void AddRow(StringName name, Variant.Type type, PropertyHint hint, string hintString)
+    {
+        var row = new HBoxContainer();
+        row.AddChild(new Label
+        {
+            Text = name.ToString(),
+            CustomMinimumSize = new Vector2(labelWidth, 0f),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        Control editor = BuildEditor(name, type, hint, hintString);
+        editor.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddChild(editor);
+        rows.AddChild(row);
+    }
+
+    private Control BuildEditor(StringName name, Variant.Type type, PropertyHint hint, string hintString)
+    {
+        switch (type)
+        {
+            case Variant.Type.String or Variant.Type.StringName:
+                return hint == PropertyHint.MultilineText
+                    ? BuildMultiline(name)
+                    : BuildLine(name);
+            case Variant.Type.Bool:
+                return BuildCheck(name);
+            case Variant.Type.Int when hint == PropertyHint.Enum:
+                return BuildEnum(name, hintString);
+            case Variant.Type.Int when hint == PropertyHint.Flags:
+                return BuildFlags(name, hintString);
+            case Variant.Type.Int or Variant.Type.Float:
+                return BuildNumber(name, type == Variant.Type.Int, hint, hintString);
+            default:
+                return BuildReadOnly(name);
+        }
+    }
+
+    // Reading and writing always go through the placement, never through a
+    // captured entry reference: the first edit REPLACES the entry with a fork and
+    // every row must follow it there.
+    private Variant Read(StringName name)
+    {
+        return _shown?.entry != null ? _shown.entry.Get(name) : default;
+    }
+
+    private void Commit(StringName name, Variant value)
+    {
+        if (_shown == null)
+        {
+            return;
+        }
+        BeforeEdit?.Invoke();
+        SpawnEntryData target = _shown.EditableEntry();
+        _shownEntry = target;
+        target.Set(name, value);
+        AfterEdit?.Invoke();
+    }
+
+    private Control BuildLine(StringName name)
+    {
+        var edit = new LineEdit { Text = Read(name).AsString() };
+        // Committed on Enter or on leaving the field, not per keystroke: a word
+        // typed a letter at a time would otherwise be a dozen undo steps.
+        edit.TextSubmitted += _ => Commit(name, edit.Text);
+        edit.FocusExited += () => Commit(name, edit.Text);
+        _refreshers.Add(() =>
+        {
+            if (!edit.HasFocus())
+            {
+                edit.Text = Read(name).AsString();
+            }
+        });
+        return edit;
+    }
+
+    private Control BuildMultiline(StringName name)
+    {
+        var edit = new TextEdit
+        {
+            Text = Read(name).AsString(),
+            CustomMinimumSize = new Vector2(0f, multilineHeight),
+            WrapMode = TextEdit.LineWrappingMode.Boundary,
+        };
+        edit.FocusExited += () => Commit(name, edit.Text);
+        _refreshers.Add(() =>
+        {
+            if (!edit.HasFocus())
+            {
+                edit.Text = Read(name).AsString();
+            }
+        });
+        return edit;
+    }
+
+    private Control BuildCheck(StringName name)
+    {
+        var check = new CheckBox { ButtonPressed = Read(name).AsBool() };
+        check.Toggled += on => Commit(name, on);
+        _refreshers.Add(() => check.SetPressedNoSignal(Read(name).AsBool()));
+        return check;
+    }
+
+    private Control BuildNumber(StringName name, bool integer, PropertyHint hint, string hintString)
+    {
+        var spin = new SpinBox
+        {
+            // Wide open unless the property authored a range — a SpinBox's own
+            // 0..100 default would silently clamp a radius or a count.
+            MinValue = -1e9,
+            MaxValue = 1e9,
+            Step = integer ? 1d : 0.001d,
+            Value = integer ? Read(name).AsInt32() : Read(name).AsSingle(),
+        };
+        if (hint == PropertyHint.Range)
+        {
+            string[] parts = hintString.Split(',');
+            if (parts.Length >= 2 && float.TryParse(parts[0], out float min) && float.TryParse(parts[1], out float max))
+            {
+                spin.MinValue = min;
+                spin.MaxValue = max;
+                // or_greater / or_less on the end of the hint mean the range is a
+                // suggestion, not a wall.
+                spin.AllowGreater = hintString.Contains("or_greater");
+                spin.AllowLesser = hintString.Contains("or_less");
+            }
+            if (parts.Length >= 3 && float.TryParse(parts[2], out float step) && step > 0f)
+            {
+                spin.Step = step;
+            }
+        }
+        spin.ValueChanged += v => Commit(name, integer ? Variant.From((int)v) : Variant.From((float)v));
+        _refreshers.Add(() =>
+        {
+            if (!spin.GetLineEdit().HasFocus())
+            {
+                spin.SetValueNoSignal(integer ? Read(name).AsInt32() : Read(name).AsSingle());
+            }
+        });
+        return spin;
+    }
+
+    private Control BuildEnum(StringName name, string hintString)
+    {
+        var option = new OptionButton();
+        foreach ((string label, int value) in ParseHintItems(hintString))
+        {
+            option.AddItem(label, value);
+        }
+        option.ItemSelected += index => Commit(name, option.GetItemId((int)index));
+        _refreshers.Add(() =>
+        {
+            int current = Read(name).AsInt32();
+            for (int i = 0; i < option.ItemCount; i++)
+            {
+                if (option.GetItemId(i) == current)
+                {
+                    option.Selected = i;
+                    return;
+                }
+            }
+            option.Selected = -1;
+        });
+        return option;
+    }
+
+    // One checkbox per bit rather than a dropdown, because the value is a SET —
+    // "day AND clear" is a normal thing to want from a chest.
+    private Control BuildFlags(StringName name, string hintString)
+    {
+        var box = new HFlowContainer();
+        var boxes = new List<(CheckBox Check, int Bit)>();
+        foreach ((string label, int value) in ParseHintItems(hintString))
+        {
+            var check = new CheckBox { Text = label };
+            int bit = value;
+            check.Toggled += on =>
+            {
+                int mask = Read(name).AsInt32();
+                Commit(name, on ? mask | bit : mask & ~bit);
+            };
+            box.AddChild(check);
+            boxes.Add((check, bit));
+        }
+        _refreshers.Add(() =>
+        {
+            int mask = Read(name).AsInt32();
+            foreach ((CheckBox check, int bit) in boxes)
+            {
+                check.SetPressedNoSignal((mask & bit) == bit);
+            }
+        });
+        return box;
+    }
+
+    // An enum/flags hint is "Name,Other" or "Name:4,Other:8" — the explicit form
+    // appears whenever the values are not 0,1,2..., which is every [Flags] enum.
+    private static List<(string Label, int Value)> ParseHintItems(string hintString)
+    {
+        var items = new List<(string, int)>();
+        if (string.IsNullOrEmpty(hintString))
+        {
+            return items;
+        }
+        string[] parts = hintString.Split(',');
+        for (int i = 0; i < parts.Length; i++)
+        {
+            string part = parts[i];
+            int colon = part.LastIndexOf(':');
+            if (colon >= 0 && int.TryParse(part[(colon + 1)..], out int value))
+            {
+                items.Add((part[..colon], value));
+            }
+            else
+            {
+                items.Add((part, 1 << i));
+            }
+        }
+        return items;
+    }
+
+    private Control BuildReadOnly(StringName name)
+    {
+        var label = new Label { VerticalAlignment = VerticalAlignment.Center };
+        label.AddThemeColorOverride("font_color", readOnlyColor);
+        _refreshers.Add(() => label.Text = Summarize(Read(name)));
+        label.Text = Summarize(Read(name));
+        return label;
+    }
+
+    // Enough to recognise what is in a field the panel cannot edit.
+    private static string Summarize(Variant value)
+    {
+        switch (value.VariantType)
+        {
+            case Variant.Type.Nil:
+                return "—";
+            case Variant.Type.Object:
+                var resource = value.As<Resource>();
+                if (resource == null)
+                {
+                    return "—";
+                }
+                return !string.IsNullOrEmpty(resource.ResourcePath)
+                    ? resource.ResourcePath.GetFile().GetBaseName()
+                    : resource.GetType().Name;
+            case Variant.Type.Array:
+                return $"{value.AsGodotArray().Count} item(s)";
+            default:
+                return value.ToString();
+        }
+    }
+}

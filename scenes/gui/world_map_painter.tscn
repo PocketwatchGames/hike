@@ -4,7 +4,8 @@
 [ext_resource type="Script" uid="uid://r8m80ixy1m3t" path="res://scripts/worldmap/WorldMapCanvas.cs" id="3_canvas"]
 [ext_resource type="Script" uid="uid://3uruphfvraak" path="res://scripts/worldmap/WorldMapHud.cs" id="4_hud"]
 [ext_resource type="Resource" uid="uid://e8dg4qt8u74x" path="res://resources/data/worldmap/default_world_map.tres" id="5_data"]
-[ext_resource type="Resource" uid="uid://8kjoldme1z4f" path="res://resources/data/worldmap/default_world_map_brush.tres" id="6_brush"]
+[ext_resource type="Resource" uid="uid://8kjoldme104f" path="res://resources/data/worldmap/default_world_map_brush.tres" id="6_brush"]
+[ext_resource type="Script" uid="uid://cost64s6twxhj" path="res://scripts/worldmap/WorldMapEntityInspector.cs" id="7_inspector"]
 
 [node name="WorldMapPainter" type="Node3D" unique_id=376435995 node_paths=PackedStringArray("canvas", "hud")]
 script = ExtResource("1_painter")
@@ -12,7 +13,6 @@ canvas = NodePath("MapLayer/Canvas")
 hud = NodePath("Hud")
 data = ExtResource("5_data")
 brush = ExtResource("6_brush")
-maxPixelsPerMeter = 16
 
 [node name="MapLayer" type="CanvasLayer" parent="." unique_id=1012413076]
 
@@ -25,7 +25,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_canvas")
 
-[node name="Hud" type="CanvasLayer" parent="." unique_id=445149964 node_paths=PackedStringArray("layerLabel", "toolLabel", "coordsLabel", "bakePanel", "bakeLabel", "bakeBar", "toolButtonBar", "optionButtonBar", "hintLabel")]
+[node name="Hud" type="CanvasLayer" parent="." unique_id=445149964 node_paths=PackedStringArray("layerLabel", "toolLabel", "coordsLabel", "bakePanel", "bakeLabel", "bakeBar", "toolButtonBar", "optionButtonBar", "hintLabel", "entityInspector")]
 script = ExtResource("4_hud")
 layerLabel = NodePath("MarginContainer/VBoxContainer/LayerLabel")
 toolLabel = NodePath("MarginContainer/VBoxContainer/ToolLabel")
@@ -36,10 +36,11 @@ bakeBar = NodePath("BakePanel/BakeBar")
 toolButtonBar = NodePath("MarginContainer/VBoxContainer/ToolBar")
 optionButtonBar = NodePath("MarginContainer/VBoxContainer/OptionBar")
 hintLabel = NodePath("MarginContainer/VBoxContainer/HintLabel")
+entityInspector = NodePath("EntityInspector")
 
 [node name="MarginContainer" type="MarginContainer" parent="Hud" unique_id=479690019]
 offset_right = 700.0
-offset_bottom = 200.0
+offset_bottom = 300.0
 mouse_filter = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 16
@@ -51,7 +52,7 @@ mouse_filter = 2
 [node name="ToolBar" type="HBoxContainer" parent="Hud/MarginContainer/VBoxContainer" unique_id=1190384163]
 layout_mode = 2
 
-[node name="OptionBar" type="HBoxContainer" parent="Hud/MarginContainer/VBoxContainer" unique_id=109338921]
+[node name="OptionBar" type="HFlowContainer" parent="Hud/MarginContainer/VBoxContainer" unique_id=2637423]
 layout_mode = 2
 
 [node name="LayerLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=1918106656]
@@ -94,3 +95,34 @@ layout_mode = 2
 max_value = 1.0
 step = 0.001
 show_percentage = false
+
+[node name="EntityInspector" type="PanelContainer" parent="Hud" unique_id=915880909 node_paths=PackedStringArray("titleLabel", "rows")]
+visible = false
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -436.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 16.0
+grow_horizontal = 0
+script = ExtResource("7_inspector")
+titleLabel = NodePath("Margin/VBoxContainer/TitleLabel")
+rows = NodePath("Margin/VBoxContainer/Rows")
+
+[node name="Margin" type="MarginContainer" parent="Hud/EntityInspector" unique_id=118425607]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Hud/EntityInspector/Margin" unique_id=1121284877]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Hud/EntityInspector/Margin/VBoxContainer" unique_id=1351735276]
+layout_mode = 2
+text = "Entity"
+
+[node name="Rows" type="VBoxContainer" parent="Hud/EntityInspector/Margin/VBoxContainer" unique_id=718857789]
+layout_mode = 2

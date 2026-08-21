@@ -21,7 +21,7 @@ public class ClimbTool : IWorldMapTool
 
     public ClimbTool()
     {
-        View = new ClimbView();
+        View = new CutawayElevationView();
     }
 
     // No option row: a route is on or off, and the brush is the whole interface.
@@ -85,14 +85,4 @@ public class ClimbTool : IWorldMapTool
 // The elevation map, unchanged — with routed edges inked in climbInk instead of
 // their height ink (ShowsClimb). Nothing else is recoloured: a route is judged
 // against the terrain's shape, so the shape has to keep reading normally.
-public class ClimbView : IWorldMapView
-{
-    public bool ShowsAllSteps => false;
-    public bool DrawsWater => true;
-    public ESpawnPreview PreviewLayer => ESpawnPreview.None;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
-    {
-        return ctx.WithWater(ctx.ElevationColor(px, pz), px, pz);
-    }
-}

@@ -84,6 +84,9 @@ public sealed class TunnelTilesAspect : IMapEditAspect
 
     private static void Write(WorldMapState ctx, Vector2I tile, byte[,,] slab)
     {
+        // Written straight into the array, so the per-column summary of where
+        // the edits reach has to be dropped rather than maintained.
+        ctx.InvalidateVoxelEdits();
         int h = ctx.Data.VoxelHeight;
         int ox = tile.X * ChunkState.SIZE;
         int oz = tile.Y * ChunkState.SIZE;

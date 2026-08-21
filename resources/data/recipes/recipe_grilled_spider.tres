@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://wxsxjjd5j6nu"]
 
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="1_input"]
-[ext_resource type="Resource" uid="uid://hvewntq061b85" path="res://resources/data/items/loot/spider_legs.tres" id="2_meat"]
+[ext_resource type="Resource" uid="uid://d0y12rtrmtgie" path="res://resources/data/items/loot/spider_legs.tres" id="2_meat"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="4_recipe"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_effect_script"]
 [ext_resource type="Resource" uid="uid://dwfk3naq2pr5x" path="res://resources/data/status_effects/status_well_fed.tres" id="6_status"]

@@ -3,6 +3,17 @@
 [ext_resource type="Script" uid="uid://q4y8a0jvwr2y" path="res://scripts/data/worldmap/WorldMapData.cs" id="1_wmd"]
 [ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="2_gen"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/ground_sets/mountain_ground.tres" id="dg"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/campfire.tres" id="ep_0"]
+[ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="ep_1"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/well.tres" id="ep_2"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/chest.tres" id="ep_3"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/climbable_tree.tres" id="ep_4"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/spike_trap.tres" id="ep_5"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/fire_trap.tres" id="ep_6"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/fountain_health.tres" id="ep_7"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/fountain_mana.tres" id="ep_8"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/signpost.tres" id="ep_9"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/poison_chest.tres" id="ep_10"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/ground_sets/desert_ground.tres" id="gs_0"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/ground_sets/forest_ground.tres" id="gs_1"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/ground_sets/hub_ground.tres" id="gs_2"]
@@ -46,14 +57,25 @@
 [ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/zones/swamp.tres" id="zd_2"]
 [ext_resource type="Resource" uid="uid://bhp47lcmdmcdg" path="res://resources/data/zones/forest.tres" id="zd_3"]
 [ext_resource type="Resource" uid="uid://0s8pv7vuphq0" path="res://resources/data/zones/hub.tres" id="zd_4"]
+[ext_resource type="Resource" path="res://resources/data/zones/ocean_deep.tres" id="zd_5"]
+[ext_resource type="Resource" path="res://resources/data/zones/sea_stormy.tres" id="zd_6"]
+[ext_resource type="Resource" path="res://resources/data/zones/sea_tropical.tres" id="zd_7"]
+[ext_resource type="Resource" path="res://resources/data/zones/sea_foggy.tres" id="zd_8"]
+[ext_resource type="Resource" path="res://resources/data/zones/sea_temperate.tres" id="zd_9"]
+[ext_resource type="Resource" path="res://resources/data/zones/forest_summer.tres" id="zd_10"]
+[ext_resource type="Resource" path="res://resources/data/zones/forest_glade.tres" id="zd_11"]
+[ext_resource type="Resource" path="res://resources/data/zones/mountain_peaceful.tres" id="zd_12"]
+[ext_resource type="Resource" path="res://resources/data/zones/mountain_winter.tres" id="zd_13"]
+[ext_resource type="Resource" path="res://resources/data/zones/desert_howling.tres" id="zd_14"]
 
 [resource]
 script = ExtResource("1_wmd")
 genData = ExtResource("2_gen")
-zones = [ExtResource("zd_0"), ExtResource("zd_1"), ExtResource("zd_2"), ExtResource("zd_3"), ExtResource("zd_4")]
+zones = [ExtResource("zd_0"), ExtResource("zd_1"), ExtResource("zd_2"), ExtResource("zd_3"), ExtResource("zd_4"), ExtResource("zd_5"), ExtResource("zd_6"), ExtResource("zd_7"), ExtResource("zd_8"), ExtResource("zd_9"), ExtResource("zd_10"), ExtResource("zd_11"), ExtResource("zd_12"), ExtResource("zd_13"), ExtResource("zd_14")]
 defaultGround = ExtResource("dg")
 groundSets = [ExtResource("gs_0"), ExtResource("gs_1"), ExtResource("gs_2"), ExtResource("dg"), ExtResource("gs_4"), ExtResource("gs_5"), ExtResource("gs_6"), ExtResource("gs_7"), ExtResource("gs_8")]
 propSets = [ExtResource("ps_0"), ExtResource("ps_1"), ExtResource("ps_2"), ExtResource("ps_3"), ExtResource("ps_4"), ExtResource("ps_5"), ExtResource("ps_6"), ExtResource("ps_7")]
+entityPalette = [ExtResource("ep_0"), ExtResource("ep_1"), ExtResource("ep_2"), ExtResource("ep_3"), ExtResource("ep_4"), ExtResource("ep_5"), ExtResource("ep_6"), ExtResource("ep_7"), ExtResource("ep_8"), ExtResource("ep_9"), ExtResource("ep_10")]
 pavingBlocks = [ExtResource("pb_0"), ExtResource("pb_1"), ExtResource("pb_2"), ExtResource("pb_3")]
 mobSets = [ExtResource("ms_0"), ExtResource("ms_1"), ExtResource("ms_2"), ExtResource("ms_3"), ExtResource("ms_4"), ExtResource("ms_5"), ExtResource("ms_6"), ExtResource("ms_7"), ExtResource("ms_8")]
 presets = [ExtResource("pr_0"), ExtResource("pr_1"), ExtResource("pr_2"), ExtResource("pr_3"), ExtResource("pr_4"), ExtResource("pr_5"), ExtResource("pr_6"), ExtResource("pr_7"), ExtResource("pr_8")]
@@ -66,6 +88,7 @@ elevationImagePath = "res://resources/data/worldmap/elevation.exr"
 waterImagePath = "res://resources/data/worldmap/water.exr"
 regionImagePath = "res://resources/data/worldmap/region.png"
 zoneImagePath = "res://resources/data/worldmap/zone.png"
+windImagePath = "res://resources/data/worldmap/wind.png"
 scatterImagePath = "res://resources/data/worldmap/scatter.png"
 groundImagePath = "res://resources/data/worldmap/ground.png"
 pavingImagePath = "res://resources/data/worldmap/paving.png"

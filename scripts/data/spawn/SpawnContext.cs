@@ -56,6 +56,18 @@ public sealed class SpawnContext
     // isn't even loaded. Here it reaches exactly the pass that installed it.
     public Func<Vector3, int, int> MobLevelOverride;
 
+    // The same seam for forge tiers, and it exists for the same reason: the
+    // zone band and noise field ComputeForgeLevel reads are per-Generate-run
+    // state, so a painted world would bake every forge at level 0 — no pips,
+    // the mildest upgrade, wherever it stood.
+    //
+    // It answers with a raw tier; the entry still clamps into its own
+    // [levelMin, levelMax]. Separate from MobLevelOverride because the two are
+    // deliberately independent fields in a generated world (a zone's forges and
+    // its monsters vary apart) even though a painted world feeds both from the
+    // one difficulty layer it paints.
+    public Func<Vector3, int> ForgeLevelOverride;
+
     // True when the position was hand-authored (a subscene marker) rather than
     // sampled off a column. It turns OFF the placement heuristics that exist to
     // judge whether an AUTO-PICKED spot is sensible — chiefly the 4-neighbour

@@ -22,7 +22,6 @@ public partial class GameCamera : Camera3D
 	// motion_blur_strength uniform from 1 → 0 after a Q/E press.
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float rotationBlurDuration = 0.5f;
 	[Export] public float followTimeNormal = 0.2f;
-	[Export] public float followTimeSprinting = 0.4f;
 	[Export] public float followTimeAirAscending = 0.5f;
 	[Export] public float followTimeDashing = 1f;
 

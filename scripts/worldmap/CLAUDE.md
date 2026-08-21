@@ -27,6 +27,9 @@ Layers:
   `minElevationVoxels` is the "no water at all" sentinel the erase brush writes,
   which is what makes a DRY basin below sea level expressible.
 - **Region** / **Zone** — `.png` `R8`, per **chunk** (index → `ChunkState.RegionIndex` / `ZoneIndex`).
+- **Wind** — `.png` `Rgba8`, per **chunk**: R = compass angle over a full turn,
+  G = strength, with **0 reserved for UNPAINTED**. Per chunk because that is the
+  granularity the bake seeds `ChunkState`'s wind-velocity subgrid at.
 - **Props** / **Mobs** — `.png` `Rgba8`, per column (R = set index + 1,
   G = density multiplier), indexing `propSets` / `mobSets`.
 - **Ground** — `.png` `R8`, per column (ground set + 1; 0 = `defaultGround`).
@@ -37,14 +40,16 @@ Layers:
   hand-placed entities, and the player spawn. Not a raster: a per-column byte
   cannot hold "this scene, facing that way", nor two of them overlapping, nor a
   footprint that moves as one thing.
-- **Tunnels** — `.bin`, per-voxel carve mask (`byte[px,ly,pz]`), too 3D to be a
-  useful image; the carved result is captured in the baked `.hike`.
+- **Tunnels** — `.bin`, per-voxel EDIT mask (`byte[px,ly,pz]`: 0 untouched,
+  1 carved away, 2 added), too 3D to be a useful image; the result is captured
+  in the baked `.hike`.
 
 ## Runtime + bake (`WorldMapState`)
 
 The mutable runtime document: owns every layer's data, the queries the
 tools/views read (`TerrainHeight`, `WaterSurface`, `Underwater`, `Ocean`,
-`SolidAt`, `IsTunnel`, `ColumnHeight` against the live `SeaLevel`), and the
+`SolidAt`, `SurfaceBelow`, `VoxelEdit`, `ColumnHeight` against the live
+`SeaLevel`), and the
 deterministic `BuildWorld` bake. **The painter edits only the 2D layer images —
 no live voxel `World` is kept.** The `WorldState` is materialized on demand:
 `BuildWorld` creates every chunk, stamps regions/zones, stamps all columns,
@@ -62,9 +67,10 @@ writing into. One bake at a time, and the reason is narrower than it used to be:
 the kit palette is no longer process state (the bake builds its own and hands it
 to the `WorldState` it creates), and `EntitySerializer`'s path tables are
 `[ThreadStatic]`, so neither is a hazard. What remains is **`Blocks.Bind()`**,
-which REASSIGNS the global block tables a live main thread is reading, and
-**`WorldGen.MobLevelOverride`**, a static delegate the bake installs and clears
-around its scatter pass.
+which REASSIGNS the global block tables a live main thread is reading. (The
+difficulty seams are no longer among the reasons: they moved off `WorldGen`
+statics onto `SpawnContext`, so they reach exactly the pass that installed them
+instead of switching behaviour process-wide from a background thread.)
 
 **The bake does NOT light the world.** Every consumer of a `.hike` relights on
 open — `Main` on both load branches, `WorldEditor` on both its open paths —
@@ -73,8 +79,18 @@ because baked light is only as good as the pipeline was at save time, and
 load. Lighting was ~19s of a ~22s bake and was discarded every time. (A consumer
 that ever loads a `.hike` without relighting would get a black world and should
 relight, not move the pass back here.) `LightEngine.Relight` keeps its optional
-progress callback, which the editor and any future long relight can use. `StampColumns` stamps each column: tunnel-carve → `Air`, else `Terrain`
-up to `TerrainHeight`, else `Water` up to `WaterSurface`, else `Air`.
+progress callback, which the editor and any future long relight can use. `StampColumns` stamps each column: carved → `Water` where it is under the
+column's water surface and `Air` above it, else `Terrain` up to `TerrainHeight`
+**or wherever the edit layer added a voxel**, else `Water` up to `WaterSurface`,
+else `Air`. A carve removes GROUND and what stands in the space it opens is the
+water layer's business, exactly as it is above the terrain — so a passage bored
+below a painted surface comes out FLOODED. That is the only way to paint water in
+a tunnel at all, and it is undone the way water is undone anywhere else, by
+erasing the column's water. The limit is that the water layer is per COLUMN, so a
+dry passage cannot run under a lake: the erase that drains the tunnel drains the
+lake above it too. Added geometry takes the zone's surface kit
+(its submerged one where it stands under water), since it is ground standing
+above the ground.
 
 **The bake ends on `WorldGen.StampGradeShapes`, and must.** `StampColumns`
 writes every ground voxel with a blanket `SharpAxes.Y`, which is right for a
@@ -116,6 +132,36 @@ painting IS the placement and a zone's bounds, fixtures and terrain tuning
 describe how worldgen would place it. Ground for an unpainted column comes from
 `WorldMapData.defaultGround`, not from the zone, so the two layers are genuinely
 independent.
+
+**Wind direction is PAINTED, not derived.** The tool writes a per-chunk angle
+and strength, and the bake turns each chunk's pixel into the uniform velocity
+`WindGen` seeds that chunk's subgrid with; an unpainted chunk falls back to
+`ZoneState.WindDirection` exactly as worldgen does for every chunk it bakes.
+
+Three consequences worth knowing:
+
+- **Direction is a GESTURE.** `Stroke` lays the wind along the drag, `Inward` /
+  `Outward` aim every texel in the stamp at the brush centre. "Everything blows
+  toward the middle of the map" is therefore one `Inward` stamp at map scale,
+  not an angle worked out per zone — which is what a per-zone constant could
+  not express anyway: one vector for a sea that RINGS the map blows the same way
+  on the west shore and the east.
+- **The runtime wind follows it**, because `ZoneBlend` now takes the direction
+  from each chunk in its kernel (`ChunkState.GetWindVelocity` at the centre
+  cell) instead of from the zone table, weighted by the same smoothstep — so a
+  convergent field reads as a smooth turn rather than a 16 m staircase, and
+  everything downstream of `ws.WindDirection` (cloud scroll, rain tilt, water
+  ripple drift, scent, player wind drag) follows without its own copy of the
+  rule. A world baked before the layer existed has a zero subgrid, falls back to
+  the zone, and behaves exactly as it did.
+- **The bake seeds wind at all now.** It never called `WindGen`, so every
+  painted `.hike` shipped a subgrid of signed zeros — not a wrong wind, no wind:
+  grass sway, motes and mob drift had nothing to read.
+
+Strength is normalized in the image and scaled by `WorldMapData.windPaintMaxSpeed`,
+so the authored range lives in one place. It feeds the baked velocity only —
+`WeatherData.windSpeed` is still what the weather simulation blends per zone, so
+painting a gale changes what the grass and the motes do, not the forecast.
 
 **A ground set may only name kits reachable from the document's `genData`
 zones.** The per-voxel `TerrainId` is an index into the kit palette, and the game
@@ -448,8 +494,8 @@ is not a step backwards:
   spill is a fact about the terrain you need while painting the things beside it,
   the same argument climbing routes are drawn everywhere. The gate is
   `IWorldMapView.DrawsWater` (and **W**), never the active tool, so the only maps
-  without it are the ones where water is not on screen to be poured: zone and
-  tunnel. The region map counts as showing water — it does not composite blue
+  without it are the ones where water is not on screen to be poured: zone.
+  The region map counts as showing water — it does not composite blue
   over the region wash, but it darkens every submerged column, which is why it
   declares `DrawsWater` and takes both the water-surface outlines and the teal.
 
@@ -480,23 +526,245 @@ neighbourhood to spread through. Weathering still measures against it
 (`StandHeight`) while it measures against RAW heights, which is what keeps the
 two from depending on each other.
 
+## Carving and building (`VoxelEditTool`)
+
+The one layer that is not a heightfield: a per-voxel byte saying either "this
+voxel the height map would have filled is gone" (`EditCarve`) or "this voxel it
+would have left as air is solid" (`EditAdd`).
+
+**It is plain block drawing, and it is TWO tools over one implementation.** The
+brush is a BOX — `Radius` wide, `Height` tall (**Q/E**, 3 m by default), hung off
+`PaintY` (**R/F**, or alt+click).
+
+**The box hangs off the level in the direction the tool writes**: a carve runs UP
+from it, so `PaintY` is the first metre removed; a fill runs DOWN from it, so
+`PaintY` is the new surface and the thickness goes under it out of sight. Either
+way `PaintY` is the voxel you are acting ON, which is what lets one eyedropper
+serve both.
+
+**alt+LMB lands `PaintY` EXACTLY on the elevation sampled** — the highest floor
+under the cut. Not one above it: that was tried, so a carve would preserve the
+floor it sampled rather than take it, and it made the HUD disagree with every
+pick. An eyedropper whose value is not the value you pointed at is not an
+eyedropper. Two things about which floor: a FLOOR, not merely the highest solid
+voxel, because on rock the latter is the cut plane itself, which is not a surface
+anyone pointed at (there the pick is a no-op); and under the CUT, because
+sampling the column's true top hands back the hilltop over a corridor instead of
+the corridor's own floor, which is the one place the eyedropper is most useful.
+
+**The hover readout reports the same number.** It read `TerrainHeight` — the raw
+height field — so inside a passage it named the hilltop overhead while the map
+drew the floor beneath and the pick sampled that floor. Three answers to one
+question, and the two that were wrong were the ones an author checks a pick
+against. Anything the painter says about "the elevation here" now comes from
+`CutawayFloor` at the active view's plane. **`Tunnel` turns the box to
+air on LMB; `Block` turns it to ground.** RMB, on both, reverts the box to the
+height field.
+
+One direction per tool, because that is the painter's convention everywhere
+else: **LMB does the thing and RMB undoes it** — water fills / removes, climb
+marks / unmarks, paving lays / lifts. Carve-on-one-button and build-on-the-other
+made RMB a second POSITIVE action, the one shape no other tool has, and it left
+the tool's own name lying about which button it was for. The two differ by
+`PaintsSolid` and nothing else, so `BlockTool` is a six-line subclass rather than
+a second tool to keep in step.
+
+**The layer records only a DISAGREEMENT with the height field.** Carving a voxel
+that is already air writes nothing, filling one the terrain already fills writes
+nothing, and RMB writes `EditNone` outright. Three things fall out, and the first
+is the one that matters:
+
+- **Erasing a tunnel restores the hillside and cannot leave blocks standing
+  where the height field has none.** A box straddling the surface carves only
+  the solid half, so reverting it has nothing above the terrain to put back.
+- Drawing a block back into a hole you cut leaves the mask genuinely *empty*
+  rather than holding a cancelling pair, so there is no separate "revert to
+  natural" binding to find.
+- `CanSpawnAt` stays honest, because it asks whether the top solid voxel is
+  still the painted ground.
+
+**The cutaway is INDEPENDENT of the floor being painted** — **T/G**
+(`EditorClipUp` / `EditorClipDown`), not R/F. That is the whole reason a 2D map
+can answer "how tall is this corridor": sweep the plane up through one you have
+cut and the metre it stops being drawn as open is its ceiling. While the plane
+was pinned to the height being written it could only ever show the one slice
+being painted into, which is what made an existing tunnel's height unreadable
+and a too-tall one hard to fix.
+
+It lives on `WorldMapState` beside `ShowWater` — display-only, never saved —
+rather than on any tool, so every cutting view cuts at the same plane and
+switching between them keeps the slice you were reading. `IWorldMapView.CutsAway`
+is the one thing a view declares; the painter resolves the clip once per rebuild
+and passes `int.MaxValue` for anything drawing the world from above.
+
+**Five views cut**: the two voxel-edit tools, the **water** tool (so a passage can
+be flooded deliberately), the **climb** tool (so a route can be painted on a
+passage's walls) and the **entity** tool (so a chest can stand in one). The
+voxel-edit and climb tools share ONE `CutawayElevationView` — they differ in what
+they paint and in the ink the outline pass lays over them, not in how the terrain
+is drawn, so copies would only drift. Both remaining per-column layers are worth
+knowing about: a climb route and a water surface are both per COLUMN, so marking
+one inside a passage marks the whole column, exactly as draining a passage drains
+the lake above it.
+
+**An entity remembers the floor it was placed on** (`EntityPlacement.floorY`),
+because nothing about the column describes where a passage's floor is. Two cases,
+and the split is whether the floor is the TOP of the column:
+
+- **On top** — the surface, or a deck you built. It records `OnTheGround` and is
+  re-seated from the column at every bake, so it follows: raise the hill under it
+  and it rises, dig a pit and it drops in, delete the deck and it lands on the
+  ground. Seated from the top SOLID VOXEL, not from `TerrainHeight` — the two
+  differ wherever something was carved or built, and an entity that says it
+  stands on the ground should stand on the ground that is actually there rather
+  than hang at the height the height field still claims.
+- **Under something** — a passage, the underside of a deck. It records the
+  ABSOLUTE Y, because re-seating would put it on the roof, and an offset from the
+  ground would drag it around when the hill above is repainted. A passage is
+  carved at a fixed Y and stays there.
+
+`OnTheGround` is also what a document written before the field existed loads
+with, since a field absent from a `.tres` keeps its C# initializer. The seat is
+re-resolved as an entity is dragged, so sliding one along a passage keeps it on
+that floor and sliding it out of the mouth puts it back on the ground.
+
+The entity map itself switches: **lowering the plane turns it from the ground
+layer into the cutaway**, because underground there is no ground TYPE to show —
+the question becomes which floor is down there to stand something on. Entity
+MARKERS stay visible whatever the plane is doing. They are single texels and the
+thing you need most from them is where they are; hiding them the way stamps hide
+would make an entity you are looking for impossible to find.
+
+**It starts parked at the top of the world, i.e. NOT CUT**, and `IsCutAway` says
+so. A cutting view is then EXACTLY an uncut one until the plane is lowered, which
+is what lets a tool whose ordinary job is the surface — the water tool — share
+the mechanism without opening full of rock.
+
+**Two gestures bring it down to where you are working**, because a plane parked in
+the sky is useless and hunting for it with T/G is worse. `IWorldMapTool.CutawayFor`
+lets a tool ask for a plane when it is picked up — the voxel-edit tools want
+`PaintY + cutawayHeadroom` (3), just over the level they paint at — and **alt+RMB**
+aims it at the floor under the cursor plus the same headroom. The alt+RMB gesture
+is live only where a cutaway is actually on screen; elsewhere it would swallow a
+press whose effect nothing can show, so there it keeps its ordinary tool-pick
+meaning. It reaches `BeginStroke` through `EStrokeMods.Secondary`, which is not a
+modifier key but arrives the same way and is the only thing that distinguishes
+alt+LMB (aim the brush) from alt+RMB (aim the plane).
+
+**The view draws the highest FLOOR under the cut** — `WorldMapState.CutawayFloor`,
+the highest solid voxel with air above it at or below the plane, in its own
+elevation band. Where the cut is open that is simply the ground; where the cut
+passes through rock it is the floor of the highest hollow beneath, so **the map
+sees THROUGH the mountain to the passage under it** instead of stopping at the
+rock. Only a column solid the whole way down with nothing hollow anywhere beneath
+draws `cutawayRockColor` — the one case with no floor to draw at all.
+
+**A floor found through rock keeps its EXACT band and is DITHERED** against
+`cutawayRockColor`, checkerboarded on absolute display pixels (so the pattern
+runs continuously across a whole buried passage instead of restarting every
+metre). Not tinted: a tint moves the band into a shade some other height already
+owns, which is the one thing an exactly-banded palette exists to prevent, so the
+buried passage would start lying about its depth. The texture says "you are
+looking at this through something" without touching the colour. It is the same
+distinction the erase refuses to act on.
+
+Step outlines follow the same floor, or they would contour one surface while the
+colours show another; rock with no floor reads as a single flat level so that
+only its edge inks and never a contour inside it. Water is composited only where
+the cut is open to it, since a floor seen through rock is not under the pool
+standing on top of that rock.
+
+**RMB removes the WHOLE thing you made at a column** — the contiguous run of that
+tool's own edit touching the exposed floor, however far it reaches ABOVE the cut
+(a carve stands above the floor it left; an added slab IS the floor and stacks
+below it). A box-shaped bite out of a passage leaves a metre of it behind and
+needs the brush aimed at a height you may not know; "undo what is here" needs
+neither. Undo covers it for free, because `TunnelTilesAspect` snapshots
+whole-height columns.
+
+**It refuses to erase what the cut is not open to** — a dimmed, roofed passage is
+left alone. You are seeing it *through* something, and erasing what you cannot
+see the top of is how a network loses a corridor silently. Lower the cutaway into
+it and it erases like anything else.
+
+**Stamps are cut away with everything else** — but only when the plane drops
+BELOW them (`StampBaseY` against `ClipY`). The cut has taken the building away at
+that point, and its roof plan would otherwise paint over whatever the cut exposed
+underneath, which is the passage you are boring under the house. At or above its
+base it still draws, footprint wash included, because you are looking down at
+something that is still there — so a plane parked over everything renders exactly
+what no plane at all would.
+
+It was briefly hidden from BOTH sides, on the theory that a stamp entirely under
+the cut is not what you are looking at either. That is wrong twice: a cutaway
+shows you everything at or below the plane, so a building under it is precisely
+what you SHOULD see; and it made every stamp vanish the moment the plane moved
+at all, since the plane starts above the world and almost nothing reaches it.
+
+The seats come from the per-rebuild `StampPlan` — `SeatY` walks the whole
+footprint, so asking per texel would put that scan in the map's hottest loop.
+`worldmap_check` runs its partial-vs-full comparison a second time WITH a clip,
+because pairing a candidate list with a parallel seat array is exactly the shape
+the prefilter could break.
+
+**Edits are visible on EVERY view, not only this one** — a bridge deck standing
+above the height map is a fact about the ground you need while painting the
+things beside it, the same argument stamps and climbing routes are drawn
+everywhere. The seam is `WorldMapState.SurfaceBelow` / `DisplaySurface`, which
+every view colour and every step outline reads instead of `TerrainHeight`;
+`IWorldMapView.ClipY` is `int.MaxValue` on all of them but the tunnel one, so
+only that view cuts anything away.
+
+**`TerrainHeight` is deliberately NOT moved by the edit layer.** It is the
+painted heightfield — what erosion is measured against, what the bake stamps
+terrain up to, what a stamp seats on. A carve is a hole in that surface, not a
+lower surface, and folding the two together would make weathering and grading
+read a hillside that is not there. The one place the two meet is `CanSpawnAt`,
+which asks that the top solid voxel still BE the painted ground: it refuses a
+column whose top was carved away (the scatter would hang over a hole) and one
+built over (the scatter would grow under a deck).
+
+The per-column summary of how high the edits reach (`_topEdit`) is what keeps
+this cheap: an unedited column answers every surface query with one array read,
+and only edited ones walk their voxels. Anything rewriting the mask wholesale —
+an undo restore, a resize — calls `InvalidateVoxelEdits` rather than maintaining
+it.
+
 ## How the map is drawn (relief + step outlines)
 
-The painter renders the map at **`pixelsPerMeter` (3) pixels per metre** into a
-managed `byte[]`, and the canvas draws that 1:1 rather than fitting it to the
-window. Both halves matter: the sub-metre resolution is what lets a step outline
+The painter renders the map at **`rasterPixelsPerMeter` (3) pixels per metre**
+into a managed `byte[]`, and the canvas draws that at an integer scale rather
+than fitting it to the window. Both halves matter: the sub-metre resolution is what lets a step outline
 be a thin line on a voxel edge instead of a metre-wide block, and drawing it
 unscaled is what keeps those one-pixel lines crisp (a fitted map resamples metres
 to fractional pixels and smears them).
 
-**Ctrl+wheel zooms** between `minPixelsPerMeter` and `maxPixelsPerMeter`, and
-**middle-drag pans** once the map overflows the window. A zoom anchors on the
-metre under the cursor — the canvas records which metre that is, lets the painter
-rescale, then solves the pan that puts the same metre back under the pointer, so
-zooming into a feature cannot throw it off screen. Zooming reallocates the
-buffer, the image and the texture; their cost grows with the SQUARE of the scale,
-so the ceiling is a memory bound rather than a taste one (at 8 px/m a 288x256 map
-is already ~19MB of RGBA).
+**Ctrl+wheel zooms** and **middle-drag pans** once the map overflows the window.
+A zoom anchors on the metre under the cursor — the canvas records which metre
+that is, lets the painter rescale, then solves the pan that puts the same metre
+back under the pointer, so zooming into a feature cannot throw it off screen.
+
+**Rasterising and magnifying are SEPARATE, and that is what makes zoom cheap.**
+`rasterPixelsPerMeter` (3) is the resolution the buffer is drawn at;
+`WorldMapCanvas.Zoom` is an integer multiple applied at DRAW time, with nearest
+filtering, so an integer multiple cannot resample a metre onto fractional pixels
+and the one-pixel outlines stay exact. Ctrl+wheel walks one ladder of screen
+pixels per metre — 1, 2, then the raster magnified 1..`maxZoomFactor`, i.e.
+3, 6, 9, 12 — and **only a change of RASTER touches the buffer**:
+
+| screen px/m | raster x zoom | buffer | cost |
+|---|---|---|---|
+| 1, 2 | 1x1, 2x1 | 1 MB, 4 MB | rebuild (the cheap end) |
+| 3 | 3x1 | 10 MB | rebuild |
+| 6, 9, 12 | 3x2, 3x3, 3x4 | 10 MB | **one QueueRedraw** |
+
+The two were one number before, so every notch reallocated the buffer, repainted
+all ~295k cells into it, and re-uploaded the result — 72 MB and ~240 ms of CPU at
+8 px/m before the GPU saw any of it, which is why zooming in was the slowest
+thing in the painter. Nothing about the IMAGE changes when you magnify, only how
+big it is drawn. Peak memory fell with it, from 72 MB to a fixed 10 MB, so the
+ceiling on zoom is now taste rather than memory — which is why it reaches 12 px/m
+where it used to stop at 8.
 
 Over whatever colour the active view returns, the painter composites two things,
 so every tool gets the same terrain readability:
@@ -530,6 +798,46 @@ outside a stroke owns the edge it shares with one inside), and run base colour
 and outlines as two passes so a line is never overpainted. The texture upload is
 flagged and done once per frame in `_Process`, not per motion event.
 
+## What a display rebuild costs
+
+**A full rebuild is ~295k texels, and everything resolved per texel is multiplied
+by that.** It matters because **T/G rebuilds the whole map** — the cutaway changes
+every cell — so scrubbing it is the worst case the painter has. Measured on the
+default document, a full rebuild was ~620 ms, which under key repeat queued
+faster than it could run and stopped the painter answering the keyboard at all.
+Four things were wrong, and each is a shape worth not reintroducing:
+
+- **A string-keyed dictionary lookup in the texel loop.** Every texel rebuilt each
+  candidate stamp's footprint and hashed a `(path, rotation)` key to find its
+  cached plan: 277 ms, scaling with how many buildings the document holds.
+  `WorldMapState.StampPlan` (from `PlanStamps`) resolves footprints, plan colours,
+  per-column tops and seats ONCE per rebuild, so the per-texel cost is a rect test
+  and two array reads — **19 ms**.
+- **An argument computed to be multiplied by zero.** `Lerp(1, ReliefShade(…), 0)`
+  still ran the hillshade — four `Image.GetPixel` calls per cell — because C#
+  evaluates arguments eagerly. 120 ms for a feature that is off by default, plus
+  30 ms for the `IsSubmerged` test that only exists to gate it. Both are behind
+  `reliefStrength > 0` now.
+- **The same query asked four times per cell.** `CutawayFloor` ran once for the
+  colour and three times more as each cell's neighbours recomputed it for the
+  outlines. `ResolveCutaway` fills a map-sized scratch pair (`_cutSurface`,
+  `_buried`) once, which both passes then index. It must reach **one cell past
+  the fill on every side** — the outline pass starts a cell back AND asks its +X
+  and +Z neighbours — or the rebuilt rect's own border inks against a cell this
+  pass never wrote.
+- **No coalescing.** `RebuildFull` now only sets a flag; `_Process` does the work,
+  so several calls in one frame cost one rebuild.
+
+Two cheaper reads fell out of the same pass and are worth keeping: `ElevationColorAt`
+memoises its banding math over the document's signed range (the palette is
+authored and immutable at runtime), and `WithWaterOver` lets a caller that already
+knows the surface skip resolving it a second time.
+
+The rebuild is ~4x cheaper for it. If it needs to get cheaper again, the lever is
+rebuilding only the **visible** region rather than the whole map — the canvas
+draws unscaled with pan, so a window typically shows a small fraction of a large
+document — which needs dirty-tracking so panning rebuilds what it exposes.
+
 ## Undo / redo (`scripts/worldmap/undo/`)
 
 **Snapshot-on-touch, the same contract as the world editor's** (`IMapEditAspect`
@@ -558,7 +866,7 @@ Three aspects, split by what a snapshot naturally costs:
 - **`TunnelTilesAspect`** — the carve mask, as whole-height columns over a tile.
   Separate because it is the one 3D layer and the one where a whole-layer copy
   would really hurt (~6MB on an 18x16 map). Whole-height because the tunnel tool
-  can move its cross-section mid-stroke, and taking the column entire costs one
+  can move its level mid-stroke, and taking the column entire costs one
   snapshot instead of per-slice bookkeeping.
 - **`PlacementsAspect`** — everything in `WorldMapPlacements` (stamps, entities,
   spawn), snapshotted whole: a handful of entries, and add / delete / move /
@@ -577,6 +885,13 @@ Three aspects, split by what a snapshot naturally costs:
   compare as TEXT because `Variant` does not compare by value here (measured:
   two Variants holding the same `Vector2I` are not `Equal`, which made every
   press register as a change and cost an undo slot).
+
+  The same capture reaches one level DEEPER for entities, into a
+  placement-OWNED entry — otherwise editing a signpost's text would be outside
+  undo, since `entry` is captured as a reference and the reference does not move
+  when a field inside it does. An entry still pointing at its palette file is
+  skipped: it is shared with every other placement using it and is not ours to
+  restore, and there the reference IS the change (the fork replaces it).
 
 R/F are bracketed like a stroke, because for the scene tool they turn the
 selected stamp — document state — while for every other tool they move a tool
@@ -638,11 +953,11 @@ Shrinking takes the **mode** of the region each destination pixel covers, ties t
 the centre sample: lossy but never stepped, and picking one sample instead would
 drop thin features at random.
 
-**Tunnels are resampled in XZ like everything else** — they have to be, or a
+**Voxel edits are resampled in XZ like everything else** — they have to be, or a
 passage would no longer meet the hillside it was bored into. Only their Y is left
-alone, for the same reason heights are. They take *any* carve over the region
-rather than a mode, because a passage that silently seals is worse than one that
-comes out a metre wide.
+alone, for the same reason heights are. They take *any* edit over the region
+rather than a mode, and a carve beats an add, because a passage that silently
+seals is worse than one that comes out a metre wide.
 
 Two more things do not follow the images. **Heights are not scaled** — doubling the
 map's width must not double how tall its walls are, since wall height is a
@@ -660,17 +975,19 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | Tool | Paints | Extra vars | View |
 |------|--------|-----------|------|
 | `ElevationTool` | elevation (raise/lower/flatten/flatten-soft/smooth/lift/smear) **and** cliff weathering (roughen) | `Op`, `VoxelsPerStroke`, `TargetVoxels`, `RoughenStopIndex`; `AdjustLevel` steps whichever number the op uses | one band per lattice step, eroded heights, water overlaid when `ShowWater` (**W**) |
-| `WaterTool` | sets each painted column's water surface (RMB removes it) | `SurfaceVoxels` (R/F, signed; alt+click samples) | water shaded by depth, dry land dimmed |
-| `TunnelTool` | carve at a cross-section | `CrossSectionY`, `CarveHeight` | white=land at slice, grey=2 below, blue=2 above, red=existing carve |
+| `WaterTool` | sets each painted column's water surface (RMB removes it) | `SurfaceVoxels` (R/F, signed; alt+click samples) | water shaded by depth, dry land dimmed — **cuts away** (T/G), so water can be painted inside a passage |
+| `TunnelTool` | LMB carves the box UP from `PaintY`; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `ctx.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
+| `BlockTool` | the same box, LMB filling it DOWN from `PaintY` | the same | the same view |
 | `RegionTool` | per-chunk region index | `RegionIndex`, named in the option row | region colours, **50% darker under water** |
 | `ZoneTool` | per-chunk zone index | `ZoneIndex`, named in the option row | zone colours, **brightness by elevation** |
+| `WindTool` | per-chunk wind direction + strength (RMB clears back to the zone's) | `Mode` (Stroke / Inward / Outward), `AdjustLevel` = strength in m/s; alt+click samples | hue = compass angle, a sawtooth ramp ALONG the flow, unpainted chunks flat grey |
 | `ScatterTool` | which `SpawnSetData` covers a column + density | `SetIndex`, `Density` | ground colour + a dot per prop spawn |
 | `MobTool` | the same, on the mob layer | `SetIndex`, `Density` | ground colour + a dot per mob spawn |
 | `MobLevelTool` | per-column danger level | `Level` | terrain recoloured, one shade per level |
-| `ClimbTool` | climbing route on a column's walls | none | the elevation map, routed edges inked magenta |
+| `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
 | `PaveTool` | a block on the column's top voxel | `BlockIndex` | the ground map (paving resolves inside `GroundColorAt`) |
-| `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete | `SceneIndex`, `Selected` | the ground map, footprints washed, selected one stronger |
-| `EntityTool` | individual entities, and the player spawn | `PaletteIndex`, `Selected` | the ground map, a mark per entity |
+| `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete | `SceneIndex`, `Selected` | the ground map (the stamps themselves draw on EVERY view) |
+| `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map, a mark per entity |
 
 A spawn brush writes only its raster; `RescatterColumns` resolves it during the
 bake, running **worldgen's own placement math** per column — the two-pass tree
@@ -703,6 +1020,41 @@ They need separate LAYERS rather than separate types because a raster holds one
 set per column: sharing a layer would make painting wolves erase the pine stand
 under them. A mob set is simply a set whose tree and foliage slots are empty and
 whose `entities` list carries the mobs.
+
+**A mob set's `entities` is a PAINTER-OWNED list, forked from worldgen's.**
+`mob_sets/*.tres` point at `resources/data/worldmap/spawn_lists/ambient_*.tres`,
+not at the `surface_entities_*.tres` that `zone_gen/*.tres` uses, even though the
+ambient lists were filtered out of exactly those files. The split is by how a
+thing wants to be placed: a brush places by AREA, which suits what you want many
+of and do not care about the exact spot of — mobs, forage, traps, berry trees,
+cacti. A well, a climbable tree, a chest or a goblin camp is a landmark, and the
+map is the place to AIM one, so those live in `entityPalette` and go down one at
+a time. Painting and hand-placing are not two qualities of content, they are two
+questions about where it goes.
+
+It is a fork rather than shared entries, and the reason is that worldgen is
+frozen rather than co-maintained. Sharing would mean promoting the embedded
+`[sub_resource]` entries to standalone files and rewriting worldgen's lists to
+reference them — and there is no `spawn_check` to prove that rewrite preserved
+what those lists resolve to, only reading the diff. Copies are the honest
+encoding now that the two lists genuinely mean different things: worldgen's is
+"everything a generated forest contains", the painter's is "the ambient stuff a
+brush may produce". Rebalancing one SHOULD NOT move the other.
+
+**Hiding a list from the painter needs no mechanism** — `propSets`, `mobSets` and
+`entityPalette` are explicit authored arrays and are the only doors in. There is
+no discovery and no scan (`SceneTool` globbing `.hikescene` is the one directory
+scan in the painter), so a worldgen list is invisible the moment nothing names
+it, and moving files between directories filters nothing.
+
+A palette entry deliberately leaves `squareMetersPerSpawn` at its 0 default:
+`TrySpawn` — the path `EntityPlacement` takes — never consults it, while
+`RollAreaChance` returns false at 0, so an entry meant for hand placement is
+inert if it is ever dropped into a spawn list by mistake. `SpawnEntryData.IsHandPlacedProperty`
+is the other side of that: the property panel hides `squareMetersPerSpawn` and
+`placeAtAnchor`, since neither is read on the path a placement takes. Which
+fields that path reads is the entry class's business, so the answer lives there
+rather than in the UI.
 
 Difficulty is deliberately not on the set — it is its own scalar layer, so
 "which creatures" and "how dangerous" are painted apart. A level band on the set
@@ -743,6 +1095,24 @@ resource is one that gets forgotten), and `IWorldMapTool.LastPaintRect` lets a
 tool report the columns it actually changed — a stamp moves its whole footprint,
 which is nowhere near the cursor's disk, and the move has to repaint the ground
 it LEFT as well as the ground it arrived on.
+
+**Stamps draw on EVERY view, not only the scene tool's.** A building is a fact
+about the ground you need while painting the things that sit beside it — the
+same argument climbing routes and spill edges are inked everywhere — and a
+footprint you cannot see is one you scatter props into. The one view that
+holds anything back is the tunnel cutaway, which shows a stamp only where it
+reaches the cut plane — see Carving and building. The composite lives in
+the painter's fill pass (`WorldMapState.StampColorAt`) rather than in `SceneView`,
+which is now just the plain ground map; the selection highlight comes from
+`IWorldMapTool.SelectedPlacement`, which only the scene tool answers, so the plan
+stays plain while another tool is active.
+
+The candidate stamps are resolved ONCE per rebuild (`StampsIn`) instead of per
+texel. The hit test walks the placement list, and a full rebuild is ~295k texels,
+so asking per texel would make drawing the map cost more the more buildings the
+document holds. That prefilter is also the thing most able to break the
+partial-rebuild invariant, so `worldmap_check` reports
+`partial-vs-full disagreements` over chunk-sized rects and it must be 0.
 
 **A stamp draws its own contents**, seen from above: the topmost solid voxel of
 each footprint column in its block's `minimapColor`, shaded by height within the
@@ -786,6 +1156,32 @@ one palette covers props, mobs, chests, loot and NPCs, and a hand-placed chest
 spawns through exactly the `TrySpawn` path a scattered one does. A placement
 references its entry DIRECTLY rather than by palette index, so reordering the
 palette cannot silently turn every chest in the world into a goblin.
+
+**A placed entity's properties ARE its entry's**, edited in the panel top-right
+(`WorldMapEntityInspector`) — the text on a signpost, the conditions on a chest,
+the descriptor on a mob. There is no parallel set of per-placement overrides,
+because a `SpawnEntryData` subclass already exports exactly the fields its entity
+type needs; the panel REFLECTS them, so an entry type written tomorrow is
+editable the day it is written.
+
+**The entry is copy-on-write** (`EntityPlacement.EditableEntry`). A placement
+starts out pointing at the palette's shared `.tres`, so a chest nobody has
+customized keeps tracking whatever that entry is retuned to; the first edit forks
+it, and the fork — path cleared, palette file kept as its `resource_name` — saves
+into `placements.tres` as a `[sub_resource]` belonging to that placement alone.
+Clearing the path is not optional: a duplicate that kept it saves as an
+`ext_resource` pointing back at the palette and the fork is silently thrown away
+on the next load. `worldmap_check` reports the entity list by entry with a
+`(n customized)` count, which is where that failure would show.
+
+Scalars only — string, number, bool, enum, flags. Anything resource-shaped (a
+loot table, a language, a mob descriptor) is a read-only row: varying it per
+placement needs a resource picker, and picking a ready-made variant off the
+palette is the faster authoring move anyway. Rows are committed on Enter or on
+leaving the field rather than per keystroke, so a typed sentence is one undo step
+and not a dozen. Bare-key shortcuts are safe while typing for free — the painter
+reads keys in `_UnhandledInput`, and a focused `LineEdit` has already consumed
+them.
 
 **The player spawn is the first palette entry, not a tool of its own.** There is
 exactly one of it, so placing it MOVES it — a tool whose whole job is to move a
@@ -857,10 +1253,22 @@ biome, and neither does where the player is MEANT to be able to climb — both a
 route-design decisions, so folding them in would tie together the layers that
 most want to vary independently.
 
-Mobs read it through `WorldGen.MobLevelOverride`, a seam the bake installs and
-clears. `MobSpawnEntry` asks `ComputeMobLevel` for its level, and that reads zone
-bands and noise a `Generate()` run leaves behind — which a painted world never
-produces, so without the seam every painted mob spawned at its species base.
+**Mobs AND forges read it, through two seams on `SpawnContext`.**
+`MobSpawnEntry` asks `ComputeMobLevel` and `ForgeSpawnEntry` asks
+`ComputeForgeLevel`; both otherwise read zone bands and noise fields that a
+`Generate()` run leaves behind and a painted world never produces. Without the
+seams a painted mob spawned at its species base and a painted forge baked at
+level 0 — no pips, the mildest upgrade, wherever it stood.
+
+The two stay SEPARATE delegates (`MobLevelOverride`, `ForgeLevelOverride`)
+because in a generated world they are deliberately independent noise fields — a
+zone's forges and its monsters vary apart. A painted world simply feeds both from
+the one difficulty layer it has, which is also the scale a forge is authored
+against ("a forge sits at the same tier as monsters in its zone").
+
+`worldmap_check` reports the layer as the rounded tiers those seams hand out
+(`danger: L0:… L1:…`), because a document that reads all-zero there bakes flat
+and nothing says so until you are standing in it.
 
 The **preset brush writes every per-column layer** — ground, props and mobs — so
 the ordinary "this is boreal forest" stroke stays one stroke, and each layer is
@@ -894,9 +1302,11 @@ middle-drag pan, draws the cursor, reports texel strokes via `OnPaint`, hover vi
 images directly, so nothing here needs the voxel world.
 
 Keys: LMB paint / RMB erase · **1-9** pick the active tool's option · **Tab** or
-the HUD toolbar cycle tool (+view) · **Q/E** step a parameter the option row
-cannot show (carve height) · **R/F** Flatten target level /
-cross-section · **W** show/hide
+the HUD toolbar cycle tool (+view) · **Q/E** step the tool's `Cycle`
+parameter — the option index on most tools, and the parameter the option row
+cannot show on the ones whose row is empty (the tunnel brush's
+height) · **R/F** Flatten target level / tunnel floor · **T/G** cutaway
+level · **W** show/hide
 water · **Ctrl+Z** undo, **Ctrl+Shift+Z** / **Ctrl+Y** redo
 · **alt+click** pick a height (alt+drag spreads it) · **shift+drag**
 constrain to that one height · **ctrl+drag** constrain to that height and above
@@ -904,6 +1314,18 @@ constrain to that one height · **ctrl+drag** constrain to that height and above
 **`[` `]`** brush size (proportional step) ·
 **ctrl+wheel** zoom (cursor-anchored) · **middle-drag** pan
 · **Ctrl+S** save layers, then bake the `.hike` in the background.
+
+**The painter binds EDITOR-ONLY actions, never gameplay ones.**
+`InputBindings.Apply` remaps `UseItem` / `Interact` / `Lantern` / `Dash` /
+`Sneak` per movement model, so an editor bound to one of those gets a different
+key — and a key that means something else — the moment the model changes. Q/E
+were bound to `UseItem` / `Interact`, and under the climb model Q had become
+`Lantern` while `UseItem` had moved onto **Ctrl**: Q did nothing here, and every
+Ctrl press (the one held for Ctrl+Z and Ctrl+S included) cycled the tool's
+parameter. They are `EditorParamLeft` / `EditorParamRight` now, alongside
+`EditorUp` / `EditorDown` and `EditorClipUp` / `EditorClipDown` — actions
+nothing remaps, which is what makes them rebindable in the input map without
+touching this file.
 
 ## Verifying a change to the painter
 
@@ -967,7 +1389,9 @@ reintroduce:
 - **Not yet exercised in a bake or in game:** mob sets, climbing routes, paving,
   placements, undo/redo by hand, `worldmap_resize` on a real document, composite
   `SpawnGroupData` entries and chest loot, and the water/waterfall model. The
-  last full game load predates all of it.
+  last full game load predates all of it. The per-placement property panel is
+  verified only as far as `worldmap_check` reaches — the entry types reflect and
+  fork correctly and the scene wiring resolves; nobody has typed into it yet.
 
 ## Not yet (future steps)
 
@@ -985,7 +1409,6 @@ full voxel `WorldState` made the tool slow to open and taxed every brush stroke.
 When it returns it should reuse `BuildWorld` to materialize a transient world,
 not re-couple the tools to a live one.
 
-Also: point-placement of singular interactives (signposts/doors/specific
-chests), in-world 3D region/zone tint overlay (a `ShaderGlobals` LUT + terrain
+Also: in-world 3D region/zone tint overlay (a `ShaderGlobals` LUT + terrain
 shader), and tiling the per-column images per chunk-footprint for streaming-scale
 worlds (see `scripts/voxels/CLAUDE.md`).

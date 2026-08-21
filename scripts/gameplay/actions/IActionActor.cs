@@ -26,7 +26,7 @@ public interface IActionActor
 	// Stamina gate for ItemAction.staminaCost. HasStamina is a non-mutating
 	// peek used at press time to refuse an action the actor can't afford.
 	// ConsumeStamina is an unconditional spend at EnterActive; actors are
-	// expected to allow negative stamina (matching sprint/swim drain).
+	// expected to allow negative stamina (matching dash/swim drain).
 	bool HasStamina(float amount);
 	void ConsumeStamina(float amount);
 

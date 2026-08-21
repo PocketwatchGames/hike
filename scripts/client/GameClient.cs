@@ -147,7 +147,7 @@ public partial class GameClient : Node3D
 	[Export] public ViewportRig viewportRig;
 	[Export] public ShaderMaterial fogMaterial;
 	[Export] public PackedScene interactHudScene;
-	// Climb/mantle prompt for the Dash button. Spawned off Player.TraversalPreview
+	// Climb/mantle prompt for the context button. Spawned off Player.TraversalPreview
 	// rather than off a highlight, since a ledge is not an interactive.
 	[Export] public PackedScene climbHudScene;
 	// Shared world-pickup scene. Every dropped or spawned item materializes
@@ -1756,10 +1756,6 @@ public partial class GameClient : Node3D
 			else if (!_player.IsGrounded && _player.Velocity.Y > 0f)
 			{
 				followTime = camera.followTimeAirAscending;
-			}
-			else if (_player.IsSprinting)
-			{
-				followTime = camera.followTimeSprinting;
 			}
 			else
 			{

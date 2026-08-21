@@ -257,12 +257,9 @@ public partial class Player : CharacterBody3D
 		}
 		else if (_waterState == EWaterState.Swimming)
 		{
-			// Sprint underwater swaps the moving variant only — the idle pose
-			// is the same whether or not Dash is held. (Holding Dash while
-			// idle in water is still "sprint intent" per UpdateSprintState,
-			// but visually there's nothing to differentiate from a normal
-			// tread until the player starts moving.)
-			EAnimation swimMove = _sprinting ? EAnimation.SwimSprint : EAnimation.Swim;
+			// A dash in water reads as a hard swim, the same way a dash on land
+			// falls back to the Sprint clip below.
+			EAnimation swimMove = _dashTimeRemaining > 0f ? EAnimation.SwimSprint : EAnimation.Swim;
 			loopAnim = PickMoveLoop(speedSq, intentMoving, swimMove, EAnimation.SwimIdle);
 		}
 		else if (_dashTimeRemaining > 0f)
@@ -291,13 +288,6 @@ public partial class Player : CharacterBody3D
 		else if (_sneaking)
 		{
 			loopAnim = PickMoveLoop(speedSq, intentMoving, EAnimation.Sneak, EAnimation.SneakIdle);
-		}
-		else if (_sprinting)
-		{
-			// Sprint replaces run as the moving variant; idle stays the same
-			// (sprint intent without movement is a transient state that
-			// resolves to one or the other within a frame).
-			loopAnim = PickMoveLoop(speedSq, intentMoving, EAnimation.Sprint, EAnimation.Idle);
 		}
 		else
 		{

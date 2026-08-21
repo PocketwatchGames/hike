@@ -1,0 +1,78 @@
+[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://g5rkcyh3vnl1"]
+
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_entry_base"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
+[ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="3_forage_entry"]
+[ext_resource type="Script" uid="uid://dy4evm7tom40j" path="res://scripts/data/spawn/FireTrapSpawnEntry.cs" id="5_firetrap_entry"]
+[ext_resource type="Resource" uid="uid://cmdgobswamp01" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp.tres" id="6_goblin_data"]
+[ext_resource type="Resource" uid="uid://cmdgobswelt1" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp_elite.tres" id="6_goblin_elite"]
+[ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="6_purple"]
+[ext_resource type="PackedScene" uid="uid://clba532cprsy" path="res://scenes/interactives/fire_trap.tscn" id="11_firetrap_scene"]
+[ext_resource type="Resource" uid="uid://067l7ldr00xa" path="res://resources/data/world_gen/mob_descriptors/spider_swamp.tres" id="20_spider"]
+[ext_resource type="Resource" uid="uid://cm4i5dh8vtdwf" path="res://resources/data/world_gen/mob_descriptors/sparrow_swamp.tres" id="21_sparrow"]
+[ext_resource type="PackedScene" uid="uid://mmebyrpme26l" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
+[ext_resource type="Resource" uid="uid://d0ghc0filpfpn" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
+[ext_resource type="Resource" uid="uid://bnm2tuwp6a1ap" path="res://resources/data/items/loot/mushroom_green.tres" id="m_green"]
+[ext_resource type="Resource" uid="uid://drykavgefoqa7" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
+
+[sub_resource type="Resource" id="Resource_goblin_night"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("6_goblin_data")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 500.0
+
+[sub_resource type="Resource" id="Resource_goblin_elite"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("6_goblin_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 1429.0
+
+[sub_resource type="Resource" id="Resource_spider"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("20_spider")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 800.0
+
+[sub_resource type="Resource" id="Resource_sparrow"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("21_sparrow")
+initialBehavior = null
+squareMetersPerSpawn = 250.0
+spawnConditions = 9
+
+[sub_resource type="Resource" id="Resource_m_green"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_green")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_m_black"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_black")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_purple"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("6_purple")
+squareMetersPerSpawn = 200.0
+
+[sub_resource type="Resource" id="Resource_m_red"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_red")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_firetrap"]
+script = ExtResource("5_firetrap_entry")
+scene = ExtResource("11_firetrap_scene")
+squareMetersPerSpawn = 250.0
+
+[resource]
+script = ExtResource("1_list")
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_spider"), SubResource("Resource_sparrow"), SubResource("Resource_m_green"), SubResource("Resource_m_black"), SubResource("Resource_purple"), SubResource("Resource_m_red"), SubResource("Resource_firetrap")])

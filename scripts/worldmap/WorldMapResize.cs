@@ -96,8 +96,10 @@ public static class WorldMapResize
         // Per-CHUNK layers scale by the chunk count, not the texel count.
         state.Region = Resample(state.Region, newChunksX, newChunksZ);
         state.Zone = Resample(state.Zone, newChunksX, newChunksZ);
+        state.Wind = Resample(state.Wind, newChunksX, newChunksZ);
 
         state.Tunnels = ResampleTunnels(state.Tunnels, oldW, oldH, newW, newH, data.VoxelHeight);
+        state.InvalidateVoxelEdits();
 
         MovePlacements(state, oldW, oldH, newW, newH, oldChunksX, oldChunksZ, data);
 
@@ -174,7 +176,9 @@ public static class WorldMapResize
         state.Scalars = Recanvas(state.Scalars, newW, newH, texelShift);
         state.Region = Recanvas(state.Region, newChunksX, newChunksZ, chunkShift);
         state.Zone = Recanvas(state.Zone, newChunksX, newChunksZ, chunkShift);
+        state.Wind = Recanvas(state.Wind, newChunksX, newChunksZ, chunkShift);
         state.Tunnels = RecanvasTunnels(state.Tunnels, oldW, oldH, newW, newH, texelShift, data.VoxelHeight);
+        state.InvalidateVoxelEdits();
 
         state.Save();
         if (!string.IsNullOrEmpty(data.ResourcePath))
@@ -272,9 +276,10 @@ public static class WorldMapResize
         }
     }
 
-    // Any carve wins over the covered region, and nothing is smoothed: a tunnel
+    // Any EDIT wins over the covered region, and nothing is smoothed: a tunnel
     // that shrinks out of existence is a passage that silently seals, which is
-    // worse than one that comes out a metre wide.
+    // worse than one that comes out a metre wide. A carve beats an added voxel
+    // for the same reason — a sealed passage is the worse of the two failures.
     private static byte[,,] ResampleTunnels(byte[,,] src, int oldW, int oldH, int newW, int newH, int voxelHeight)
     {
         if (src == null)
@@ -292,12 +297,16 @@ public static class WorldMapResize
                 int sz1 = Mathf.Max(sz0 + 1, (z + 1) * oldH / newH);
                 for (int y = 0; y < voxelHeight; y++)
                 {
-                    byte v = 0;
-                    for (int sx = sx0; sx < sx1 && v == 0; sx++)
+                    byte v = WorldMapState.EditNone;
+                    for (int sx = sx0; sx < sx1 && v != WorldMapState.EditCarve; sx++)
                     {
-                        for (int sz = sz0; sz < sz1 && v == 0; sz++)
+                        for (int sz = sz0; sz < sz1 && v != WorldMapState.EditCarve; sz++)
                         {
-                            v = src[sx, y, sz];
+                            byte sv = src[sx, y, sz];
+                            if (sv != WorldMapState.EditNone)
+                            {
+                                v = sv;
+                            }
                         }
                     }
                     dst[x, y, z] = v;

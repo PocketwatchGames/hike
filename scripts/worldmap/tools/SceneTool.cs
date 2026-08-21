@@ -26,6 +26,8 @@ public class SceneTool : IWorldMapTool
     public int SceneIndex = 0;
     public SubscenePlacement Selected;
 
+    public SubscenePlacement SelectedPlacement => Selected;
+
     private string[] _paths;
     private SubscenePlacement _pressHit;
     private Vector2I _grabOffset;
@@ -34,7 +36,7 @@ public class SceneTool : IWorldMapTool
 
     public SceneTool()
     {
-        View = new SceneView(this);
+        View = new SceneView();
     }
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
@@ -232,44 +234,16 @@ public class SceneTool : IWorldMapTool
     }
 }
 
-// The ground map with every stamp's footprint washed over it, the selected one
-// stronger. Ground rather than elevation: a building is placed against what is
-// around it — the road it fronts, the props it displaces — and the terrain shape
-// still reads through the step outlines.
+// The plain ground map. The stamps themselves are drawn by the painter over
+// whatever view is active (WorldMapState.StampColorAt), so this view only has to
+// choose the ground UNDER them — and ground rather than elevation, because a
+// building is placed against what is around it: the road it fronts, the props it
+// displaces. The terrain shape still reads through the step outlines.
 public class SceneView : IWorldMapView
 {
-    private readonly SceneTool _tool;
-
-    public SceneView(SceneTool tool)
-    {
-        _tool = tool;
-    }
-
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
-    {
-        Color ground = ctx.GroundColorAt(px, pz);
-        SubscenePlacement hit = ctx.PlacementAt(px, pz);
-        if (hit == null)
-        {
-            return ground;
-        }
-        bool selected = hit == _tool.Selected;
-        Color content = ctx.SubscenePreviewAt(hit, px, pz);
-        if (content.A > 0f)
-        {
-            // The scene's own contents, seen from above. Selected is lifted
-            // toward white rather than recoloured, so the plan stays readable
-            // while the selection is obvious.
-            return selected ? content.Lerp(Colors.White, 0.35f) : content;
-        }
-        // Inside the footprint but empty — a courtyard, the gap around a tower.
-        // Still washed, or a stamp's extent would be invisible where its scene
-        // happens to author nothing.
-        Color ink = ctx.Data.placementInk;
-        return ground.Lerp(new Color(ink.R, ink.G, ink.B), selected ? ink.A * 0.5f : ink.A * 0.2f);
-    }
+    public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
 }

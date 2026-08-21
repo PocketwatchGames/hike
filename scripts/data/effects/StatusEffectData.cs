@@ -246,7 +246,7 @@ public partial class StatusEffectData : Resource
 	// Null = none. See AreaBurstData.
 	[Export] public AreaBurstData dashBurst;
 
-	// While dashing/sprinting, drop a hazard patch at the actor's feet on an interval.
+	// While dashing, drop a hazard patch at the actor's feet on an interval.
 	// Null = none. See MovementTrailData.
 	[Export] public MovementTrailData trail;
 

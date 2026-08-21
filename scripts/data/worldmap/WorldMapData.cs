@@ -234,6 +234,15 @@ public partial class WorldMapData : Resource
     // elevation (see IWorldMapView.ColorShowsElevation): on the elevation map it
     // would run a line along every metre of every slope, saying nothing the
     // bands have not already said.
+    // Solid rock at a cutaway view's clip level with nothing hollow anywhere
+    // beneath it — the one case with no floor to draw. Flat and dark by design:
+    // it is the ABSENCE of a readable surface, and anything with hue in it would
+    // enter the elevation palette's colour language and start looking like a
+    // height. It is also the ink a BURIED floor is dithered against, which is
+    // what makes the dither mean "seen through rock" rather than merely "dark".
+    [Export] public Color cutawayRockColor = new Color(0.03f, 0.03f, 0.05f);
+
+
     [Export] public Color edgeInkSub2m = new Color(0f, 0f, 0f, 0.0902f);
     [Export] public Color edgeInk2m = new Color(0f, 0f, 0f, 0.5961f);
     [Export] public Color edgeInkOver2m = new Color(1f, 1f, 1f, 0.8314f);
@@ -243,6 +252,21 @@ public partial class WorldMapData : Resource
     [Export] public string waterImagePath = "";        // .exr, Rf, per column (voxels rel. sea, signed)
     [Export] public string regionImagePath = "";       // .png, R8, per chunk
     [Export] public string zoneImagePath = "";         // .png, R8, per chunk
+    // Prevailing wind, per CHUNK — the same grid the zone index is painted on,
+    // because that is the granularity the bake seeds ChunkState's wind velocity
+    // subgrid at. R = compass angle (0..255 spans a full turn), G = strength
+    // (0 = UNPAINTED, inherit the zone's prevailing direction; 1..255 = calm
+    // through gale). The strength byte doubling as the painted-mask is what
+    // makes an unpainted document behave exactly as it did before the layer
+    // existed.
+    [Export] public string windImagePath = "";         // .png, Rgba8, per chunk (R=angle, G=strength+1)
+
+    // World m/s the wind layer's full strength paints. The layer stores a
+    // normalized strength, so this is the only place the authored range lives;
+    // WindGen.DEFAULT_BASE_SPEED (5 m/s) is the calm-day magnitude an unpainted
+    // chunk inherits from its zone, so a max several times that is what makes
+    // painting a gale worth doing.
+    [Export(PropertyHint.Range, "0,40,0.5")] public float windPaintMaxSpeed = 20f;
     [Export] public string scatterImagePath = "";      // .png, Rgba8, per column (R=set+1, G=density)
     [Export] public string groundImagePath = "";       // .png, R8, per column (ground set + 1, 0 = default)
     [Export] public string pavingImagePath = "";       // .png, R8, per column (paving block + 1, 0 = none)
@@ -389,6 +413,11 @@ public partial class WorldMapData : Resource
         return LoadOrCreateChunkImage(zoneImagePath);
     }
 
+    public Image LoadOrCreateWind()
+    {
+        return LoadOrCreateChunkRgbaImage(windImagePath);
+    }
+
     public Image LoadOrCreateScatter()
     {
         return LoadOrCreateSpawnImage(scatterImagePath);
@@ -456,6 +485,28 @@ public partial class WorldMapData : Resource
         return blank;
     }
 
+    // Per-chunk again, but four channels: a layer that needs to carry a value AND
+    // a painted-or-not flag cannot fit in the R8 index images.
+    private Image LoadOrCreateChunkRgbaImage(string path)
+    {
+        Image img = TryLoad(path);
+        if (img != null)
+        {
+            if (img.GetWidth() != sizeChunksX || img.GetHeight() != sizeChunksZ)
+            {
+                img.Resize(sizeChunksX, sizeChunksZ, Image.Interpolation.Nearest);
+            }
+            if (img.GetFormat() != Image.Format.Rgba8)
+            {
+                img.Convert(Image.Format.Rgba8);
+            }
+            return img;
+        }
+        Image blank = Image.CreateEmpty(sizeChunksX, sizeChunksZ, false, Image.Format.Rgba8);
+        blank.Fill(new Color(0f, 0f, 0f, 1f));
+        return blank;
+    }
+
     // Per-voxel tunnel carve mask, indexed [px, ly, pz] (ly = wy - WorldMinY).
     // Stored as a tiny raw .bin (dims header + bytes) — too sparse/3D to be a
     // useful image, and the carved result is captured in the baked .hike anyway.
@@ -511,6 +562,11 @@ public partial class WorldMapData : Resource
     public void SaveZone(Image img)
     {
         SavePng(zoneImagePath, img, "zone");
+    }
+
+    public void SaveWind(Image img)
+    {
+        SavePng(windImagePath, img, "wind");
     }
 
     public void SaveScatter(Image img)

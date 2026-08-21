@@ -1,7 +1,7 @@
 using Godot;
 
 // Hazard wake a status effect drops behind the carrying actor while it dashes or
-// sprints (StatusEffectController.TickMovementTrail). Null on StatusEffectData.trail = none.
+// dashes (StatusEffectController.TickMovementTrail). Null on StatusEffectData.trail = none.
 // [Tool] so the editor can bind it under its [Tool] parent StatusEffectData.
 [Tool]
 [GlobalClass]

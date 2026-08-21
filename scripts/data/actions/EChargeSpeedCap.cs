@@ -12,9 +12,9 @@ public enum EChargeSpeedCap
 	Stationary,
 	// Capped at PlayerData.sneakSpeed — a heavy windup / ranged draw crawl.
 	Sneak,
-	// Capped at PlayerData.moveSpeed — can jog but not sprint while charging.
+	// Capped at PlayerData.moveSpeed — the player's full running gait.
 	Run,
-	// Capped at PlayerData.sprintSpeed — effectively unrestricted (the player
-	// can't exceed sprint speed anyway). The default for un-authored tiers.
-	Sprint,
+	// Uncapped: moveSpeed is the fastest the player travels under their own
+	// input, so nothing is clamped. The default for un-authored tiers.
+	Unrestricted,
 }

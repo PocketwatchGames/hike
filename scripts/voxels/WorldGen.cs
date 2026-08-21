@@ -234,8 +234,15 @@ public static class WorldGen
     // the monster field so a zone's forges and monsters vary in difficulty
     // separately. The band is kernel-blended across zone borders so it crossfades
     // rather than snapping at a biome seam. Returns 0 outside a Generate run.
-    public static int ComputeForgeLevel(WorldState ws, Vector3 position)
+    // A baker supplying its own difficulty field (the world-map painter) answers
+    // this itself through the context — see SpawnContext.ForgeLevelOverride.
+    public static int ComputeForgeLevel(WorldState ws, Vector3 position, SpawnContext context)
     {
+        if (context?.ForgeLevelOverride != null)
+        {
+            return context.ForgeLevelOverride(position);
+        }
+
         WorldGenData genData = _activeGenData;
         if (genData == null || _forgeLevelNoise == null)
         {

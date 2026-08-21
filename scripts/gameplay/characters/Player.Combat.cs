@@ -543,7 +543,6 @@ public partial class Player : CharacterBody3D
 		_contextSensitiveAttackSlot = null;
 		ClearQueuedInput();
 		_dashTimeRemaining = 0f;
-		_sprinting = false;
 		_sneaking = false;
 		_aiming = false;
 		_hitstunTime = 0f;
@@ -622,7 +621,6 @@ public partial class Player : CharacterBody3D
 		_knockbackTime = 0f;
 		_knockbackVelocity = Vector3.Zero;
 		_sneaking = false;
-		_sprinting = false;
 		_aiming = false;
 		_jumpHeld = false;
 		_oneShotClip = default;

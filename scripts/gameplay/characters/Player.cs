@@ -365,17 +365,6 @@ public partial class Player : CharacterBody3D
 	// GetSneakBlockWeapon so a re-crouch inside the window neither soaks nor
 	// parries.
 	ulong _blockCooldownEndMs;
-	// Active while Dash is held past the initial dash burst with move input
-	// and positive stamina. Drains stamina continuously and rearms the
-	// recharge delay each tick. Blocks aim, ends on Dash release / stamina
-	// depletion / attack press / weapon Active. Set each frame in ProcessInput
-	// from current conditions — not latched.
-	bool _sprinting;
-	// Latched true when sprint ended because stamina ran out while Dash was
-	// still held. Prevents the held button from auto-re-engaging sprint the
-	// moment stamina refills — the player has to release Dash and press it
-	// again. Cleared when Dash is released.
-	bool _sprintLockout;
 	EWaterState _waterState = EWaterState.None;
 	float _waterSurfaceY;
 	int _waterOverlapCount;
@@ -531,7 +520,7 @@ public partial class Player : CharacterBody3D
 	// horizontal velocity with _dashDir * _dashSpeed (terrain-scaled) and,
 	// if _dashFreezeGravity, zeros Y and skips gravity. When the timer
 	// hits zero, EndDash clamps velocity in-place to a context-dependent
-	// cap (sprintSpeed on ground, swimSprintSpeed in water, uncapped in
+	// cap (dashExitSpeed on ground, swimDashExitSpeed in water, uncapped in
 	// air) so the dash hands off into normal motion without a separate
 	// glide window. _dashCooldownEndMs gates re-activation.
 	Vector3 _dashDir;
@@ -637,7 +626,6 @@ public partial class Player : CharacterBody3D
 	public bool IsGrounded => _grounded;
 	public bool IsSliding => _sliding;
 	public bool IsSkating => _skating;
-	public bool IsSprinting => _sprinting;
 	public bool IsDead => _health <= 0f;
 	public EWaterState WaterState => _waterState;
 	// IActionActor — surfaces the swim state through a flat bool so action
@@ -762,6 +750,9 @@ public partial class Player : CharacterBody3D
 	public bool InteractMenuOpen { get; private set; }
 	public Action onInteractMenuOpenRequested;
 	bool _interactPressActive;
+	// Which InputMap action the in-progress hold is being polled against —
+	// either the dedicated Interact button or the combined context button.
+	string _interactPressAction;
 	ulong _interactHoldStartMs;
 	// Shared hold threshold (milliseconds) for the context-button hold gestures
 	// — interact-options and the consumable wheel — sourced from the
@@ -1691,9 +1682,7 @@ public partial class Player : CharacterBody3D
 		{
 			EChargeSpeedCap.Stationary => 0f,
 			EChargeSpeedCap.Sneak => data.sneakSpeed,
-			EChargeSpeedCap.Run => data.moveSpeed,
-			EChargeSpeedCap.Sprint => data.sprintSpeed,
-			_ => data.sprintSpeed,
+			_ => data.moveSpeed,
 		};
 	}
 
@@ -1764,7 +1753,6 @@ public partial class Player : CharacterBody3D
 
 		UpdateTerrainSpeed(dt);
 		UpdateWaterState();
-		UpdateSprintState();
 		TickArmor(dt);
 		TickBlockArmor(dt);
 		TickParryWindow();
@@ -1772,15 +1760,14 @@ public partial class Player : CharacterBody3D
 		TickItemExpiry();
 		TickStamina(dt);
 		TickSwimStamina(dt);
-		TickSprintStamina(dt);
 		TickStaminaExhaustion();
 		TickBloodDrain(dt);
 		TickHitstun(dt);
 		_statusEffects.Tick(dt);
 		// Drop movement-trail hazards (e.g. the fairy-corpse buff's burning
-		// fairy-fire) while dashing or sprinting. No-op unless an active effect
-		// authors a trailZoneScene.
-		_statusEffects.TickMovementTrail(this, IsDashing || IsSprinting, GlobalPosition, dt);
+		// fairy-fire) while dashing. No-op unless an active effect authors a
+		// trailZoneScene.
+		_statusEffects.TickMovementTrail(this, IsDashing, GlobalPosition, dt);
 		UpdateNightVisionShaderGlobal();
 		TickWetEffect(dt);
 		DouseCarriedLantern();
@@ -1861,19 +1848,14 @@ public partial class Player : CharacterBody3D
 				|| chargingRightWeapon);
 
 		// Stamina-gated speed table:
-		//   sneaking                         → sneakSpeed
-		//   sprinting                        → sprintSpeed  (gated on stamina>0 in UpdateSprintState)
-		//   not sprinting + stamina ≤ 0      → tiredRunSpeed
-		//   else                             → moveSpeed
+		//   sneaking      → sneakSpeed
+		//   stamina ≤ 0   → tiredRunSpeed
+		//   else          → moveSpeed
 		bool exhausted = _stamina <= 0f;
 		float speed = data.moveSpeed;
 		if (_sneaking)
 		{
 			speed = data.sneakSpeed;
-		}
-		else if (_sprinting)
-		{
-			speed = data.sprintSpeed;
 		}
 		else if (exhausted)
 		{

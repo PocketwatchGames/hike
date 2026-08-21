@@ -15,6 +15,10 @@ public enum EStrokeMods
     // one that scales: lifting a continent means "everything from the shoreline
     // up", across ground of every height, which equality cannot express.
     ConstrainAbove = 4,
+    // The stroke was started with the RIGHT button. Not a modifier key, but it
+    // reaches BeginStroke the same way and the press has to be able to tell:
+    // alt+LMB aims the tool and alt+RMB aims the cutaway.
+    Secondary = 8,
 }
 
 // A painting tool. Each tool owns its parameters (radius, op, active elevation,
@@ -88,6 +92,22 @@ public interface IWorldMapTool
 
     // Move the active elevation / cross-section (e.g. tunnel slice, ocean level).
     void AdjustLevel(WorldMapState ctx, int dir);
+
+    // Where this tool wants the cutaway when it becomes active, or null to leave
+    // it where it is. A tool that works under the ground wants the plane just
+    // over the height it is about to paint at — otherwise picking it up means
+    // finding the plane first, which on a fresh session is parked in the sky.
+    int? CutawayFor(int headroom) => null;
+
+    // The stamp this tool has selected, or null. Stamps are composited onto
+    // EVERY view, so the painter needs to know which one to highlight without
+    // caring which tool is active; only the scene tool answers with anything.
+    SubscenePlacement SelectedPlacement => null;
+
+    // The hand-placed ENTITY this tool has selected, or null. Drives the
+    // property panel, which edits the selection's spawn entry — only the entity
+    // tool answers with anything.
+    EntityPlacement SelectedEntity => null;
 }
 
 // Which spawn layers a view previews as dots. A SET, not a choice: every view
@@ -126,4 +146,11 @@ public interface IWorldMapView
     // unrelated question (elevation, water, tunnels, region, zone, danger) draw
     // none — there the dots would be noise.
     ESpawnPreview PreviewLayer { get; }
+
+    // Does this view cut the world away above WorldMapState.CutawayY? A column
+    // solid at that level is rock the view has cut into and draws as such, and
+    // every colour and outline below follows whatever is exposed under the cut.
+    // False — every view but the voxel-edit one — means "the world seen from
+    // above", and the painter passes int.MaxValue as the clip for those.
+    bool CutsAway => false;
 }

@@ -218,7 +218,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		// cancel any active dash and end sprint before the gate. After the
 		// cancel the runner is free (dash tier has canAbort=true), so IsBusy
 		// below is true only when ANOTHER action is in flight.
-		CancelDashAndSprint();
+		CancelDash();
 		if (_runner == null)
 		{
 			return;
@@ -313,7 +313,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	{
 		// Same as TryStartWeaponAction — consumable use is an overt action
 		// that ends the movement burst.
-		CancelDashAndSprint();
+		CancelDash();
 		if (_runner == null || _runner.IsBusy)
 		{
 			return;
@@ -366,7 +366,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// reaches the fuel-costed heal tier that auto-casts when charged.
 	void TryUseLantern()
 	{
-		CancelDashAndSprint();
+		CancelDash();
 		if (_runner == null || _runner.IsBusy)
 		{
 			return;

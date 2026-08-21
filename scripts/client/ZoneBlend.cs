@@ -23,6 +23,9 @@ public static class ZoneBlend
     // the blend and the caller's current outputs are left untouched.
     private const float MinTotalWeight = 1e-6f;
 
+    // Subgrid cell sampled for a chunk's baked wind direction.
+    private const int MidCell = ChunkState.ENV_SUBGRID_SIZE / 2;
+
     // Blend the zones present in `ws.Zones` according to which
     // chunks around the player belong to which zone. Writes into the
     // caller-owned outZone + outWeather (working copies held by
@@ -42,7 +45,7 @@ public static class ZoneBlend
 
         int zoneCount = ws.Zones.Length;
         Span<float> weights = zoneCount <= 32 ? stackalloc float[zoneCount] : new float[zoneCount];
-        if (!ComputeWeights(playerWorldPos, ws, weights)) { return; }
+        if (!ComputeWeights(playerWorldPos, ws, weights, out Vector2 windDir2D)) { return; }
 
         // --- Zone theme + scalars (ZoneData) ---
         float sunR = 0, sunG = 0, sunB = 0, sunA = 0;
@@ -82,17 +85,14 @@ public static class ZoneBlend
         }
 
         // --- Runtime fields (ZoneState) ---
-        // windDirection blends via vector sum of the zones' XZ unit
-        // vectors and is re-normalized at the end (shortest-arc blend).
-        Vector2 windDir2D = Vector2.Zero;
+        // windDir2D came out of the kernel walk above, where each chunk offered
+        // its own baked direction; only elevation is left to accumulate per zone.
         float elevation = 0f;
         for (int i = 0; i < zoneCount; i++)
         {
             float w = weights[i];
             if (w <= 0f) { continue; }
-            ZoneState rs = ws.Zones[i];
-            windDir2D += SafeNormalizeXZ(rs.WindDirection) * w;
-            elevation += rs.Elevation * w;
+            elevation += ws.Zones[i].Elevation * w;
         }
         if (windDir2D.LengthSquared() > MinTotalWeight)
         {
@@ -116,15 +116,24 @@ public static class ZoneBlend
     {
         if (ws == null || ws.Zones == null || ws.Zones.Length == 0) { return false; }
         if (outWeights.Length != ws.Zones.Length) { return false; }
-        return ComputeWeights(playerWorldPos, ws, outWeights);
+        return ComputeWeights(playerWorldPos, ws, outWeights, out _);
     }
 
     // Shared kernel: smoothstep-distance-weighted zone accumulation
     // around `playerWorldPos`, normalized to sum to 1. Returns false if
     // the kernel found no loaded chunks belonging to a known zone —
     // caller treats that as "no data, leave previous outputs alone".
-    private static bool ComputeWeights(Vector3 playerWorldPos, WorldState ws, Span<float> weights)
+    // `outWindXZ` is the same kernel applied to WIND: each chunk contributes the
+    // direction baked into its own wind-velocity subgrid — which is where the map
+    // painter's wind layer lands — falling back to its zone's prevailing
+    // direction where the bake wrote nothing. Accumulated here rather than in a
+    // second walk because this loop is already the one holding each chunk, and
+    // summed as a weighted vector so a convergent field reads as a smooth turn
+    // rather than a 16 m staircase.
+    private static bool ComputeWeights(Vector3 playerWorldPos, WorldState ws, Span<float> weights,
+        out Vector2 outWindXZ)
     {
+        outWindXZ = Vector2.Zero;
         int zoneCount = weights.Length;
         for (int i = 0; i < zoneCount; i++) { weights[i] = 0f; }
 
@@ -143,7 +152,8 @@ public static class ZoneBlend
             {
                 int cx = playerChunkX + dx;
                 int cz = playerChunkZ + dz;
-                int zoneIdx = ResolveColumnZone(ws, cx, playerChunkY, cz);
+                ChunkState chunk = ResolveColumnChunk(ws, cx, playerChunkY, cz);
+                int zoneIdx = chunk?.ZoneIndex ?? -1;
                 if (zoneIdx < 0 || zoneIdx >= zoneCount) { continue; }
 
                 // Distance in CHUNK units from player → chunk center.
@@ -159,7 +169,17 @@ public static class ZoneBlend
 
                 // smoothstep(R, 0, d) = 1 at d=0, 0 at d=R, smooth in between.
                 float w = Mathf.SmoothStep(radiusChunks, 0f, distChunks);
-                if (w > 0f) { weights[zoneIdx] += w; }
+                if (w <= 0f) { continue; }
+                weights[zoneIdx] += w;
+
+                // Centre cell: the subgrid is uniform per chunk unless a later
+                // pass gusted it, so any one cell answers for the whole chunk.
+                Vector2 chunkWind = SafeNormalizeXZ(chunk.GetWindVelocity(MidCell, MidCell, MidCell));
+                if (chunkWind == Vector2.Zero)
+                {
+                    chunkWind = SafeNormalizeXZ(ws.Zones[zoneIdx].WindDirection);
+                }
+                outWindXZ += chunkWind * w;
             }
         }
 
@@ -168,27 +188,28 @@ public static class ZoneBlend
         if (totalWeight < MinTotalWeight) { return false; }
         float inv = 1f / totalWeight;
         for (int i = 0; i < zoneCount; i++) { weights[i] *= inv; }
+        outWindXZ *= inv;
         return true;
     }
 
-    // Pick the zone this column (cx, cz) belongs to. Tries the chunk
-    // at the player's Y first; if that's unloaded, scans the column for
-    // any loaded chunk so a chunk above/below the player still
-    // contributes its zone. Returns -1 if no chunk in this column is
-    // loaded — caller skips the contribution (correct streaming default).
-    private static int ResolveColumnZone(WorldState ws, int cx, int preferredY, int cz)
+    // The chunk this column (cx, cz) contributes — its zone AND its baked wind.
+    // Tries the chunk at the player's Y first; if that's unloaded, scans the
+    // column for any loaded chunk so a chunk above/below the player still
+    // contributes. Returns null if no chunk in this column is loaded — caller
+    // skips the contribution (correct streaming default).
+    private static ChunkState ResolveColumnChunk(WorldState ws, int cx, int preferredY, int cz)
     {
         ChunkState chunk = ws.GetChunk(new Vector3I(cx, preferredY, cz));
-        if (chunk != null) { return chunk.ZoneIndex; }
+        if (chunk != null) { return chunk; }
         // Fall back to a scan over the world's Y range. Only runs when
         // the player straddles a column with no chunk at their Y level
         // (e.g. flying above the world bounds), so the cost is fine.
         for (int cy = ws.Min.Y; cy <= ws.Max.Y; cy++)
         {
             chunk = ws.GetChunk(new Vector3I(cx, cy, cz));
-            if (chunk != null) { return chunk.ZoneIndex; }
+            if (chunk != null) { return chunk; }
         }
-        return -1;
+        return null;
     }
 
     private static void AccumulateColor(Color c, float w,

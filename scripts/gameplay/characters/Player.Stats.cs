@@ -787,21 +787,6 @@ public partial class Player : CharacterBody3D
 		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
 	}
 
-	// Mirrors TickSwimStamina. Sprint drains a flat per-second amount and
-	// re-arms the recharge delay each tick (stamina is allowed to go
-	// negative; movement is never gated on it, but UpdateSprintState ends
-	// sprint as soon as stamina hits zero).
-	private void TickSprintStamina(float dt)
-	{
-		if (!_sprinting || data == null)
-		{
-			return;
-		}
-		_stamina -= data.sprintStaminaDrainPerSecond * dt;
-		ulong now = _world?.GameTimeMs ?? 0;
-		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
-	}
-
 	// Fires the out-of-breath one-shot on the positive→exhausted crossing.
 	// Run after the stamina drains/recharge each tick so it reads the settled
 	// value. The latch clears only once stamina climbs back above zero, so the

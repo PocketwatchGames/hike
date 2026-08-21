@@ -22,6 +22,9 @@ public partial class WorldMapHud : CanvasLayer
     [Export] public Container optionButtonBar;
     // Shortcut hints, global plus whatever the active tool adds.
     [Export] public Label hintLabel;
+    // Properties of the entity tool's selection. Hides itself when there is no
+    // selection, so it costs nothing on the other tools.
+    [Export] public WorldMapEntityInspector entityInspector;
 
     private Button[] _toolButtons;
     private Button[] _optionButtons;
@@ -56,6 +59,13 @@ public partial class WorldMapHud : CanvasLayer
         SetActive(_optionButtons, index);
     }
 
+    // 1-9 pick an option, so a row longer than nine cannot label the rest with a
+    // key that does nothing. The overflow is clicked in the bar instead — which
+    // is why the option row is an HFlowBox and wraps rather than running off the
+    // panel. (A palette this long really wants its own control; this is the
+    // cheap version of that.)
+    private const int NUMBER_KEYS = 9;
+
     private static Button[] BuildGroup(Container bar, string[] names, System.Action<int> onPressed, bool numbered, Color[] colors = null)
     {
         if (bar == null)
@@ -76,7 +86,7 @@ public partial class WorldMapHud : CanvasLayer
             int index = i;
             var button = new Button
             {
-                Text = numbered ? $"{i + 1}  {names[i]}" : names[i],
+                Text = numbered && i < NUMBER_KEYS ? $"{i + 1}  {names[i]}" : names[i],
                 ToggleMode = true,
                 ButtonGroup = group,
                 // Never take keyboard focus: the painter's shortcuts are bare

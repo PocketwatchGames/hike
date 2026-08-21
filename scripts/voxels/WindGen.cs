@@ -60,10 +60,17 @@ public static class WindGen
         {
             zoneDir = zoneDir.Normalized();
         }
-        Vector3 baseVelocity = zoneDir * DEFAULT_BASE_SPEED;
+        FillChunkWind(chunk, zoneDir * DEFAULT_BASE_SPEED);
+    }
+
+    // Write one uniform velocity (world m/s) across a chunk's whole subgrid.
+    // Split out so a caller that already knows the velocity — the map painter's
+    // wind layer — seeds a chunk without going through the zone lookup.
+    public static void FillChunkWind(ChunkState chunk, Vector3 velocity)
+    {
         // Pre-divide by the storage scale once per chunk; SetWindVelocity
         // expects values already in [-1, 1].
-        Vector3 storedVel = baseVelocity / WIND_VELOCITY_SCALE;
+        Vector3 storedVel = velocity / WIND_VELOCITY_SCALE;
 
         for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
         {

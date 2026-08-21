@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="WellSpawnEntry" format=3 uid="uid://dei3arhvoxwhm"]
+
+[ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="1_1a1qv"]
+[ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="1_entry"]
+
+[resource]
+script = ExtResource("1_entry")
+scene = ExtResource("1_1a1qv")

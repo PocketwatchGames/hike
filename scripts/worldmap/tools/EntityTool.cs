@@ -26,6 +26,8 @@ public class EntityTool : IWorldMapTool
     public int PaletteIndex = 0;
     public EntityPlacement Selected;
 
+    public EntityPlacement SelectedEntity => Selected;
+
     // How near a click has to be, in metres, to grab an entity rather than place
     // a new one. Generous, because a 1m dot is hard to hit and placing an unwanted
     // second chest on top of the first is worse than grabbing the first.
@@ -151,6 +153,7 @@ public class EntityTool : IWorldMapTool
                 {
                     entry = palette[i],
                     anchorXZ = ctx.WorldXZ(texel),
+                    floorY = ctx.FloorForEntity(texel.X, texel.Y, ctx.CutawayY),
                 };
                 _grabOffset = Vector2I.Zero;
                 ctx.AddEntity(Selected);
@@ -161,6 +164,11 @@ public class EntityTool : IWorldMapTool
         if (Selected != null)
         {
             Selected.anchorXZ = ctx.WorldXZ(texel) + _grabOffset;
+            // Re-seated as it slides, so dragging one along a passage keeps it on
+            // that passage's floor and dragging it out of the mouth puts it back
+            // on the ground.
+            Vector2I at = ctx.TexelXZ(Selected.anchorXZ);
+            Selected.floorY = ctx.FloorForEntity(at.X, at.Y, ctx.CutawayY);
         }
     }
 
@@ -197,6 +205,7 @@ public class EntityView : IWorldMapView
 
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
+    public bool CutsAway => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
 
     public Color ColorAt(WorldMapState ctx, int px, int pz)
@@ -208,7 +217,12 @@ public class EntityView : IWorldMapView
         EntityPlacement hit = ctx.EntityAt(px, pz, 0);
         if (hit == null)
         {
-            return ctx.GroundColorAt(px, pz);
+            // Lowering the plane switches this map from the ground layer to the
+            // cutaway, because underground there is no ground TYPE to show — the
+            // question becomes which floor is down there to stand something on.
+            return ctx.IsCutAway
+                ? ctx.CutawayColorAt(px, pz, ctx.CutawayY, out _)
+                : ctx.GroundColorAt(px, pz);
         }
         Color ink = ctx.Data.entityInk;
         return hit == _tool.Selected ? new Color(1f, 1f, 1f) : ink;

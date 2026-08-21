@@ -1,0 +1,97 @@
+[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://ccp4petifpd3d"]
+
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_entry_base"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
+[ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="3_forage_entry"]
+[ext_resource type="Resource" uid="uid://cmdgoblin0001" path="res://resources/data/world_gen/mob_descriptors/goblin_mountain.tres" id="5_goblin_data"]
+[ext_resource type="Resource" uid="uid://cmdgobelite01" path="res://resources/data/world_gen/mob_descriptors/goblin_mountain_elite.tres" id="5_goblin_elite"]
+[ext_resource type="Resource" uid="uid://df5xitbak5phm" path="res://resources/data/world_gen/mob_descriptors/kun_kun_mountain.tres" id="6_kunkun_data"]
+[ext_resource type="Resource" uid="uid://cd12nujsbx5kd" path="res://resources/data/world_gen/mob_descriptors/sparrow_mountain.tres" id="10_ub7y2"]
+[ext_resource type="Script" uid="uid://cruw4anaypwt" path="res://scripts/data/spawn/BuriedSpotSpawnEntry.cs" id="14_buried_entry"]
+[ext_resource type="PackedScene" uid="uid://b8rq2dnk7vxce" path="res://scenes/interactives/buried_spot.tscn" id="15_buried_scene"]
+[ext_resource type="Resource" uid="uid://daxn4tq8wpv2r" path="res://resources/data/buried/buried_carrot.tres" id="16_carrot_data"]
+[ext_resource type="Resource" uid="uid://vdawoyy53gpq" path="res://resources/data/world_gen/mob_descriptors/drake_mountain.tres" id="20_drake_data"]
+[ext_resource type="Resource" uid="uid://063e803bobjj" path="res://resources/data/world_gen/mob_descriptors/drake_mountain_elite.tres" id="21_drake_elite"]
+[ext_resource type="PackedScene" uid="uid://mmebyrpme26l" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
+[ext_resource type="Resource" uid="uid://d0ghc0filpfpn" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
+[ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="m_blue"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="m_gold"]
+[ext_resource type="Resource" uid="uid://dyllvcbtkfxjf" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
+
+[sub_resource type="Resource" id="Resource_goblin_night"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("5_goblin_data")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 200.0
+spawnConditions = 2
+
+[sub_resource type="Resource" id="Resource_goblin_elite"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("5_goblin_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
+squareMetersPerSpawn = 1333.0
+spawnConditions = 2
+
+[sub_resource type="Resource" id="Resource_kunkun"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("6_kunkun_data")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.33
+squareMetersPerSpawn = 200.0
+
+[sub_resource type="Resource" id="Resource_drake"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("20_drake_data")
+initialBehavior = null
+squareMetersPerSpawn = 600.0
+
+[sub_resource type="Resource" id="Resource_drake_elite"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("21_drake_elite")
+initialBehavior = null
+squareMetersPerSpawn = 2500.0
+
+[sub_resource type="Resource" id="Resource_m_blue"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_blue")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_m_white"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_white")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_m_black"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_black")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_m_gold"]
+script = ExtResource("3_forage_entry")
+scene = ExtResource("40_forage_scene")
+item = ExtResource("m_gold")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Resource_prf3q"]
+script = ExtResource("2_mob_entry")
+descriptor = ExtResource("10_ub7y2")
+initialBehavior = null
+squareMetersPerSpawn = 100.0
+spawnConditions = 9
+metadata/_custom_type_script = "uid://dhkkrl6qof485"
+
+[sub_resource type="Resource" id="Resource_carrot"]
+script = ExtResource("14_buried_entry")
+scene = ExtResource("15_buried_scene")
+data = ExtResource("16_carrot_data")
+squareMetersPerSpawn = 200.0
+
+[resource]
+script = ExtResource("1_list")
+entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_drake"), SubResource("Resource_drake_elite"), SubResource("Resource_m_blue"), SubResource("Resource_m_white"), SubResource("Resource_m_black"), SubResource("Resource_m_gold"), SubResource("Resource_prf3q"), SubResource("Resource_carrot")])

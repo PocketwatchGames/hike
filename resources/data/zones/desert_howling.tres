@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ZoneData" format=3 uid="uid://ctsog4rcqblj7"]
+
+[ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="1_region"]
+[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="2_weather"]
+[ext_resource type="Resource" uid="uid://ca52as015qeba" path="res://resources/audio/desert_ambience.tres" id="3_ambience"]
+
+[sub_resource type="Resource" id="Resource_weather"]
+script = ExtResource("2_weather")
+cloudCover = 0.15
+windSpeed = 30.0
+airTemperature = 96.0
+sunTemperature = 24.0
+humidity = 0.03
+rainAmount = 0.02
+lightningAmount = 1.5
+metadata/_custom_type_script = "uid://d25sc6n2mi728"
+
+[resource]
+script = ExtResource("1_region")
+sunColor = Color(1, 0.92, 0.7, 1)
+moonColor = Color(0.68, 0.7, 0.78, 1)
+skyColor = Color(0.34, 0.44, 0.66, 1)
+dustColor = Color(0.86, 0.62, 0.34, 1)
+waterColor = Color(0.1, 0.45, 0.42, 1)
+waterOpacity = 0.4
+dustAmount = 1.0
+weather = SubResource("Resource_weather")
+ambience = ExtResource("3_ambience")

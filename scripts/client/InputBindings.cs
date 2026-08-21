@@ -3,8 +3,8 @@ using Godot;
 // Applies the input bindings a movement model needs (see CVars.climbMovement).
 //
 // The two models want different buttons, not just different behaviour: removing
-// jump frees the spacebar and the pad's A button, and those are the natural
-// homes for dash and interact respectively. Leaving Jump bound while its
+// jump frees the spacebar and the pad's A button, and those are the natural home
+// for the climb model's combined context button. Leaving Jump bound while its
 // buttons were reassigned would fire two actions from one press.
 //
 // This is NOT a new layer over Godot's InputMap — the InputMap already IS the
@@ -36,10 +36,17 @@ public static class InputBindings
     {
         if (climbMovement)
         {
-            // No jump: the spacebar goes to dash, and interact takes the pad's
-            // primary face button where a player expects a context action.
+            // No jump, so the spacebar and the pad's primary face button carry
+            // the CONTEXT button instead: one press means interact, climb or
+            // dash, ranked in Player.ProcessInput. It is still the Dash action
+            // because dash is what it does when nothing else claims the press.
+            //
+            // Interact is unbound: everything it did that the player still needs
+            // is on the context button. What it alone reached — the self-action
+            // menu (Pray, Dig) in open space — is unreachable in this model until
+            // it gets a home of its own.
             SetBindings(Jump);
-            SetBindings(Interact, Key.E, JoyButton.Y);
+            SetBindings(Interact);
             SetBindings(Dash, Key.Space, JoyButton.A);
             SetBindings(Lantern, Key.Q, JoyButton.B);
             SetBindings(UseItem, Key.Ctrl, JoyButton.RightShoulder);

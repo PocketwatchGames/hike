@@ -56,6 +56,17 @@ public partial class SpawnEntryData : Resource
     // entry's placement gates still run via TrySpawn. Ignored outside a group.
     [Export] public bool placeAtAnchor;
 
+    // Does this property mean anything to a HAND-PLACED entity? An editor for
+    // one hides the rest: TrySpawn — the path EntityPlacement takes — never
+    // consults squareMetersPerSpawn, and placeAtAnchor is a rule for
+    // SpawnGroupData sub-entries. Which fields the placement path reads is this
+    // class's business, so the answer lives here rather than in the UI.
+    public static bool IsHandPlacedProperty(StringName name)
+    {
+        return name != PropertyName.squareMetersPerSpawn
+            && name != PropertyName.placeAtAnchor;
+    }
+
     // True iff this entry requires a flat patch — the column and all 8
     // surrounding columns must share the same surface height. Subclasses
     // override to opt in; defaults to false so existing entry types

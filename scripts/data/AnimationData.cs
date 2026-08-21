@@ -19,7 +19,7 @@ public partial class AnimationData : Resource
     // When true, the animator's effectSpeedMultiplier is set to the actor's
     // statusAnimMul each tick this anim is the current loop. Reserved for
     // anims whose underlying ACTION speed is also scaled by statusMoveMul
-    // (run / sprint / swim / etc.) — otherwise a slowed actor would visibly
+    // (run / dash / swim / etc.) — otherwise a slowed actor would visibly
     // play their attack / hitstun / die at half speed too.
     [Export] public bool affectedBySpeedMultiplier;
 

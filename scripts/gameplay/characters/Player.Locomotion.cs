@@ -4,76 +4,29 @@ using System.Collections.Generic;
 
 public partial class Player : CharacterBody3D
 {
-	// Gates aiming and look-driven rotation. Returns false during dash and
-	// sprint so the player commits to facing movement direction during the
-	// burst — both _aiming (which drives the aim reticle, ranged routing,
-	// gamepad stick fallback) and the rotation block in _PhysicsProcess
-	// consult this single function so they can't drift out of sync.
+	// Gates aiming and look-driven rotation. Returns false during a dash so
+	// the player commits to facing movement direction for the burst — both
+	// _aiming (which drives the aim reticle, ranged routing, gamepad stick
+	// fallback) and the rotation block in _PhysicsProcess consult this single
+	// function so they can't drift out of sync.
 	private bool CanLook()
 	{
-		return _dashTimeRemaining <= 0f && !_sprinting;
+		return _dashTimeRemaining <= 0f;
 	}
 
-	// Recompute _sprinting each tick from current state. Sprint engages when
-	// Dash is held past the initial dash burst with move input AND the
-	// player has stamina to spend; once stamina hits zero, sprint drops
-	// entirely (no speed boost, no anim, no continuing drain). After an
-	// exhaustion drop the player must RELEASE Dash and press it again to
-	// re-engage — holding the button through a stamina refill won't
-	// re-enter sprint. The existing staminaRechargeDelay still gates when
-	// the bar starts refilling after sprint ends. Disabled while airborne
-	// on land (no "air sprint") — swimming keeps its own sprint variant
-	// since it's a continuous surface contact, not an arc.
-	private void UpdateSprintState()
-	{
-		bool oldSprinting = _sprinting;
-		bool dashHeld = Input.IsActionPressed("Dash");
-		if (!dashHeld)
-		{
-			_sprintLockout = false;
-		}
-		if (data == null)
-		{
-			_sprinting = false;
-			return;
-		}
-		bool runnerBlocks = _runner != null
-			&& _runner.IsBusy
-			&& _runner.Current.profile != data.dashActionProfile;
-		bool surfaceAllowsSprint = _grounded || _waterState == EWaterState.Swimming;
-		bool wantsSprint = dashHeld
-			&& _dashTimeRemaining <= 0f
-			&& _inputMove.LengthSquared() > 0.0001f
-			&& _curInteractive == null
-			&& !runnerBlocks
-			&& surfaceAllowsSprint
-			&& _stamina > 0f
-			&& !_sprintLockout;
-		_sprinting = wantsSprint;
-		// Latch the exhaustion lockout when sprint ends because stamina
-		// hit zero while the button was still held. Won't fire on a
-		// voluntary release (dashHeld is false there) or on a context
-		// change like an attack (stamina would still be positive).
-		if (oldSprinting && !_sprinting && _stamina <= 0f && dashHeld)
-		{
-			_sprintLockout = true;
-		}
-	}
-
-	// Centralized cancel for dash-and-sprint. Called from attack handlers so
-	// committing to a swing always wins over an in-flight movement state.
+	// Centralized dash cancel. Called from attack handlers so committing to a
+	// swing always wins over an in-flight dash.
 	// TryAbort on the runner only fires AbortActive when the active tier's
 	// canAbort is true (set on the dash tier in dash_action.tres), so this
 	// also explicitly zeroes the per-actor dash timers — AbortActive only
 	// resets the runner's PlayerAction, not Player's physics state.
-	private void CancelDashAndSprint()
+	private void CancelDash()
 	{
 		if (_runner != null && _runner.IsBusy && _runner.Current.profile == data?.dashActionProfile)
 		{
 			_runner.TryAbort();
 		}
 		_dashTimeRemaining = 0f;
-		_sprinting = false;
 	}
 
 	// Active mantle. While _mantleEndMs is non-zero the player is being carried
@@ -423,7 +376,7 @@ public partial class Player : CharacterBody3D
 		_mantleStartMs = _world.GameTimeMs;
 		_mantleEndMs = _mantleStartMs + (ulong)(data.mantleDuration * 1000f);
 		Velocity = Vector3.Zero;
-		CancelDashAndSprint();
+		CancelDash();
 
 		// Face the ledge for the duration so the traversal doesn't read as a
 		// sideways slide.
@@ -661,7 +614,7 @@ public partial class Player : CharacterBody3D
 		_climbPhase = EClimbPhase.Entering;
 		Velocity = Vector3.Zero;
 		_grounded = false;
-		CancelDashAndSprint();
+		CancelDash();
 		// Drop any world interactive that was highlighted. UpdateHighlightInteractive
 		// is gated out for the whole climb (the Climbing branch returns before it),
 		// so a prompt left standing here hangs on screen until the climb ends —
@@ -1383,10 +1336,10 @@ public partial class Player : CharacterBody3D
 		return true;
 	}
 
-	// What a Dash press would traverse to from here, refreshed once per tick and
-	// read by the ClimbHUD. Every branch runs the SAME find the press runs, in
-	// the same order — a prompt that disagrees with the button is worse than no
-	// prompt — so this is a preview, never a second opinion.
+	// What a context-button press would traverse to from here, refreshed once per
+	// tick and read by the ClimbHUD. Every branch runs the SAME find the press
+	// runs, in the same order — a prompt that disagrees with the button is worse
+	// than no prompt — so this is a preview, never a second opinion.
 	private ETraversalPreview _traversalPreview;
 	private Vector3 _traversalPromptAnchor;
 	private bool _traversalPromptAnchorValid;
@@ -1405,6 +1358,14 @@ public partial class Player : CharacterBody3D
 		// Nobody is looking at an inactive party member's affordances, and the
 		// probes below are not free.
 		if (!IsActive)
+		{
+			_traversalPreview = preview;
+			_traversalPromptAnchorValid = false;
+			return;
+		}
+		// A world interactive outranks traversal on the context button, so a ledge
+		// standing behind a chest must not promise a climb the press won't do.
+		if (InteractWouldClaimPress())
 		{
 			_traversalPreview = preview;
 			_traversalPromptAnchorValid = false;
@@ -1798,8 +1759,8 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Hand off from dash into normal motion. Velocity direction is preserved
-	// — the magnitude is clamped horizontally to the ambient sprint speed
-	// (sprintSpeed on land, swimSprintSpeed in water). Airborne dashes
+	// — the magnitude is clamped horizontally to the dash-exit speed
+	// (dashExitSpeed on land, swimDashExitSpeed in water). Airborne dashes
 	// return uncapped: air drag + gravity carry the player out of the dash
 	// over the next several ticks without an explicit glide window.
 	private void EndDash()
@@ -1812,11 +1773,11 @@ public partial class Player : CharacterBody3D
 		float cap;
 		if (_grounded)
 		{
-			cap = data.sprintSpeed;
+			cap = data.dashExitSpeed;
 		}
 		else if (_waterState == EWaterState.Swimming)
 		{
-			cap = data.swimSprintSpeed;
+			cap = data.swimDashExitSpeed;
 		}
 		else
 		{

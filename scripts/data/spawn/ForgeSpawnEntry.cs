@@ -2,7 +2,8 @@ using System;
 using Godot;
 
 // Places a single smithing forge. Its Level is read from the zone's
-// noise-modulated forge band (WorldGen.ComputeForgeLevel) and clamped into
+// noise-modulated forge band — or, in a painted world, from the difficulty
+// layer via SpawnContext.ForgeLevelOverride — and clamped into
 // [levelMin, levelMax], then stamped onto the spawned ForgeSimState — scaling the
 // upgrades the forge grants and the star pips on its HUD / map marker. Wants flat,
 // grassy ground so the station doesn't tilt off a step edge.
@@ -33,7 +34,7 @@ public partial class ForgeSpawnEntry : SpawnEntryData
         {
             return;
         }
-        int level = Math.Clamp(WorldGen.ComputeForgeLevel(ws, position), levelMin, levelMax);
+        int level = Math.Clamp(WorldGen.ComputeForgeLevel(ws, position, context), levelMin, levelMax);
         // Resolve the concrete slot once, at bake time: the authored value if pinned,
         // else derived from position. Downstream reads the resolved ForgeSimState.Slot.
         EUpgradeSlot slot = forgeSlot != EUpgradeSlot.None ? forgeSlot : ForgeOffer.SlotFor(position);

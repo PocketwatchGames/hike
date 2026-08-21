@@ -19,10 +19,22 @@ public partial class WorldMapCanvas : Control
     // Ring colour, set by the painter from the active tool.
     public Color CursorColor = Colors.White;
 
-    // Display pixels per map metre. The painter renders the image at this
-    // resolution and the canvas draws it 1:1, so a metre is exactly this many
-    // screen pixels and the step outlines stay crisp.
+    // Pixels per map metre in the IMAGE — the resolution the painter rasterised
+    // at, which is what keeps a step outline a thin line on a voxel edge rather
+    // than a metre-wide block.
     public int PixelsPerTexel = 3;
+
+    // Integer magnification applied at DRAW time. Split from the raster because
+    // zooming in changes nothing about the image, only how big it is drawn: at
+    // this end a notch is one QueueRedraw instead of a reallocation, a full
+    // repaint and a texture upload of up to 72 MB. Nearest filtering (set in
+    // _Ready) is what makes the magnified pixels stay crisp squares.
+    public int Zoom = 1;
+
+    // Screen pixels per map metre — the two multiplied.
+    public float ScreenPerTexel => Mathf.Max(1, PixelsPerTexel) * Mathf.Max(1, Zoom);
+
+    private Vector2 DisplaySize => new Vector2(_imgW, _imgH) * Mathf.Max(1, Zoom);
 
     // (texel coord, isErase) — isErase is the right mouse button.
     public Action<Vector2I, bool> OnPaint;
@@ -92,7 +104,7 @@ public partial class WorldMapCanvas : Control
                     int dir = mb.ButtonIndex == MouseButton.WheelUp ? 1 : -1;
                     if (mb.CtrlPressed)
                     {
-                        Zoom(dir, mb.Position);
+                        ZoomAbout(dir, mb.Position);
                     }
                     else
                     {
@@ -115,7 +127,9 @@ public partial class WorldMapCanvas : Control
                     bool pick = mb.AltPressed && TryTexel(mb.Position, out _pickTexel);
                     EStrokeMods mods = (pick ? EStrokeMods.Pick : EStrokeMods.None)
                         | (mb.ShiftPressed ? EStrokeMods.Constrain : EStrokeMods.None)
-                        | (mb.CtrlPressed ? EStrokeMods.ConstrainAbove : EStrokeMods.None);
+                        | (mb.CtrlPressed ? EStrokeMods.ConstrainAbove : EStrokeMods.None)
+                        | (mb.ButtonIndex == MouseButton.Right
+                            ? EStrokeMods.Secondary : EStrokeMods.None);
                     _painting = true;
                     _erase = mb.ButtonIndex == MouseButton.Right;
                     _holdingPick = pick;
@@ -173,15 +187,17 @@ public partial class WorldMapCanvas : Control
 
     // Zoom about the cursor: whichever metre is under the pointer stays under it,
     // so zooming in on a feature does not throw it off screen.
-    private void Zoom(int dir, Vector2 local)
+    private void ZoomAbout(int dir, Vector2 local)
     {
-        int oldPpt = Mathf.Max(1, PixelsPerTexel);
-        Vector2 texel = (local - ImageRect().Position) / oldPpt;
+        float oldScale = ScreenPerTexel;
+        Vector2 texel = (local - ImageRect().Position) / oldScale;
         OnZoom?.Invoke(dir);
-        if (PixelsPerTexel != oldPpt)
+        float newScale = ScreenPerTexel;
+        if (!Mathf.IsEqualApprox(newScale, oldScale))
         {
-            // _imgW/_imgH were replaced by the painter's SetDisplay above.
-            _pan = local - texel * PixelsPerTexel - (Size - new Vector2(_imgW, _imgH)) * 0.5f;
+            // PixelsPerTexel / Zoom / _imgW were all replaced by the painter
+            // before this returned.
+            _pan = local - texel * newScale - (Size - DisplaySize) * 0.5f;
         }
         QueueRedraw();
     }
@@ -217,7 +233,7 @@ public partial class WorldMapCanvas : Control
         }
         if (_hasMouse && _imgW > 0)
         {
-            float radius = Mathf.Max(2f, CursorRadiusTexels * PixelsPerTexel);
+            float radius = Mathf.Max(2f, CursorRadiusTexels * ScreenPerTexel);
             // Dark backing arc on BOTH sides of the coloured one: a band colour
             // can be as dark as 0.2 and would otherwise vanish into the terrain
             // it is being compared against.
@@ -227,9 +243,10 @@ public partial class WorldMapCanvas : Control
         }
     }
 
-    // The image at its NATIVE pixel size, centred, plus any pan. Deliberately
-    // not fitted to the control: a fitted map resamples metres to fractional
-    // pixels, which smears the one-pixel step outlines away.
+    // The image at an INTEGER multiple of its native pixel size, centred, plus
+    // any pan. Deliberately never fitted to the control: a fitted map resamples
+    // metres to fractional pixels, which smears the one-pixel step outlines
+    // away. An integer multiple cannot, so magnifying stays exact.
     private Rect2 ImageRect()
     {
         Vector2 c = Size;
@@ -237,7 +254,7 @@ public partial class WorldMapCanvas : Control
         {
             return new Rect2(Vector2.Zero, c);
         }
-        var size = new Vector2(_imgW, _imgH);
+        Vector2 size = DisplaySize;
         // Pan only has room where the image overflows; otherwise it stays put.
         float slackX = Mathf.Max(0f, (size.X - c.X) * 0.5f);
         float slackY = Mathf.Max(0f, (size.Y - c.Y) * 0.5f);
@@ -260,8 +277,8 @@ public partial class WorldMapCanvas : Control
         {
             return false;
         }
-        int ppt = Mathf.Max(1, PixelsPerTexel);
-        texel = new Vector2I(Mathf.FloorToInt(rel.X) / ppt, Mathf.FloorToInt(rel.Y) / ppt);
+        float scale = ScreenPerTexel;
+        texel = new Vector2I(Mathf.FloorToInt(rel.X / scale), Mathf.FloorToInt(rel.Y / scale));
         return true;
     }
 }

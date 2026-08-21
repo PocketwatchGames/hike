@@ -226,9 +226,10 @@ public partial class Player : CharacterBody3D
 			_highlightInteractive = closest;
 		}
 
-		// Traversal is NOT offered here any more: mantling and wall climbing are an
-		// overload on the Dash button (TryTraversalPress), so a ledge must not also
-		// occupy the interact slot — one affordance firing two different meanings.
+		// Traversal is NOT offered here as an interactive: mantling and wall
+		// climbing are one rank BELOW interaction on the context button
+		// (TryTraversalPress), so a ledge must not also occupy the interact slot —
+		// it would outrank the very thing that is supposed to outrank it.
 		// MantleInteract is held inert rather than deleted because it still owns the
 		// prompt's placement and smoothing, so re-offering it is a one-line change.
 		MantleInteract.SetCandidate(false, default, Vector3.Zero, dt);
