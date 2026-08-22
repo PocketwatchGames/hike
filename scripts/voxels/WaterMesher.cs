@@ -106,10 +106,9 @@ public static class WaterMesher
                     // one voxel then skins nothing but its top quad and a fall
                     // reads as a gap between two pools.
                     //
-                    // It also gates the dilated shell for free: a shell cell
-                    // buried under tall land has solid above it and drops out,
-                    // so only the cells beside a low shore — the ones that
-                    // actually cover a dip — survive.
+                    // A SHELL cell takes the exception below: this column is the
+                    // one column that cannot answer the question, so it borrows
+                    // the answer from the water it shells.
                     bool roofed = !openAbove;
                     // Advance the state for the cell below before any skip.
                     if (self != Blocks.WaterId)
@@ -117,7 +116,31 @@ public static class WaterMesher
                         openAbove = !Blocks.IsSolid(self);
                     }
 
-                    if (roofed || !InWaterVolume(getVoxel, self, wx, wy, wz))
+                    // Where the shore rises above the waterline — a cliff
+                    // plunging into the water — the shell cell has rock directly
+                    // above it, so reading its own column calls it roofed and
+                    // drops it. That takes the top quad with it, and that quad is
+                    // load-bearing: DC puts the rock face anywhere in its cell and
+                    // edgeRoughness then carves it further back still (0.13 m
+                    // measured on stone), so the water stops at the voxel boundary
+                    // short of the rock and you see straight down the slot.
+                    // Openness belongs to the BODY, not to the column, so ask the
+                    // water instead. Only the top face is emitted: the sides would
+                    // be inside rock, where the cutaway could strip their occluder
+                    // and leak them exactly as the roofed test warns.
+                    //
+                    // Real water never takes it — a sealed pocket must still drop
+                    // out whole, which is what the test is there to do.
+                    bool topOnly = false;
+                    if (roofed)
+                    {
+                        if (self == Blocks.WaterId || !ShelledWaterIsOpen(getVoxel, self, wx, wy, wz))
+                        {
+                            continue;
+                        }
+                        topOnly = true;
+                    }
+                    else if (!InWaterVolume(getVoxel, self, wx, wy, wz))
                     {
                         continue;
                     }
@@ -126,6 +149,10 @@ public static class WaterMesher
 
                     for (int f = 0; f < 6; f++)
                     {
+                        if (topOnly && f != TOP_FACE)
+                        {
+                            continue;
+                        }
                         Vector3I no = NeighborOffsets[f];
                         // Cull against the VOLUME, not against Blocks.WaterId,
                         // so the dilated shell is interior and only the outside
@@ -177,6 +204,19 @@ public static class WaterMesher
     // solid it touches. Lateral only — water must not climb over land or seep
     // down into bedrock. A pure function of world voxels, so two chunks sharing
     // a boundary cell always agree and no seam can appear between them.
+    //
+    // 8-CONNECTED, one voxel, and that is exactly the submerged set — not a
+    // margin picked for safety. At the waterline row every non-solid voxel is
+    // water (worldgen fills to a level), so a solid voxel's DC cap sags under
+    // the waterline iff one of the four cells forming it has a non-solid corner
+    // — iff one of the nine columns in its 3x3 is water. A column two out lands
+    // flush on the plane, so a wider shell would only bury quads in dry land.
+    //
+    // Diagonal columns are not a rare corner case: a shoreline at any angle to
+    // the grid is a staircase and EVERY step has one, so 4-connectivity left a
+    // submerged notch at each step — 0.20 m deep on a 45-degree graded shore,
+    // which is what made a slope into water read as stepped. `water_shore_check`
+    // measures it.
     private static bool InWaterVolume(Func<int, int, int, int> getVoxel, int wx, int wy, int wz)
     {
         return InWaterVolume(getVoxel, getVoxel(wx, wy, wz), wx, wy, wz);
@@ -193,10 +233,58 @@ public static class WaterMesher
         {
             return false;
         }
-        return getVoxel(wx - 1, wy, wz) == Blocks.WaterId
-            || getVoxel(wx + 1, wy, wz) == Blocks.WaterId
-            || getVoxel(wx, wy, wz - 1) == Blocks.WaterId
-            || getVoxel(wx, wy, wz + 1) == Blocks.WaterId;
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                if (dx == 0 && dz == 0)
+                {
+                    continue;
+                }
+                if (getVoxel(wx + dx, wy, wz + dz) == Blocks.WaterId)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Does this solid cell shell water that is open to the air above? Answers
+    // the roofed question for a shell cell standing under rock, and doubles as
+    // its in-volume test — finding an open water neighbour proves both.
+    //
+    // Only ever reached for a cell the roofed test already rejected, so the cost
+    // lands on solid-under-solid — the whole underground, where it can never
+    // find anything. It has to be rock-driven anyway: the cheap inversion (let a
+    // free-surface water cell mark its solid neighbours) would have two chunks
+    // disagree about a column on their shared boundary, and being a pure
+    // function of world voxels is what makes this mesher seamless. Measured
+    // worst case, an all-rock chunk: 0.14 -> 0.59 ms, against 5.8 ms for the
+    // terrain mesh of the same chunk (`water_shore_check` prints both).
+    private static bool ShelledWaterIsOpen(Func<int, int, int, int> getVoxel, int self, int wx, int wy, int wz)
+    {
+        if (!Blocks.IsSolid(self))
+        {
+            return false;
+        }
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                if (dx == 0 && dz == 0)
+                {
+                    continue;
+                }
+                int nx = wx + dx;
+                int nz = wz + dz;
+                if (getVoxel(nx, wy, nz) == Blocks.WaterId && ProbeOpenAbove(getVoxel, nx, wy, nz))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // Is the first non-Water voxel above (wx, wy, wz) something other than

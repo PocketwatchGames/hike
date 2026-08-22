@@ -118,6 +118,15 @@ public partial class Main : Node
 			return;
 		}
 
+		// And for the water/land seam: `--headless -- "water_shore_check 1"`
+		// meshes synthetic shorelines and reports terrain that sits under the
+		// waterline with no water quad over it.
+		if (CVars.waterShoreCheck.Value)
+		{
+			WaterShoreCheck.RunAndQuit(GetTree());
+			return;
+		}
+
 		// And for a painted world-map document: `--headless -- "worldmap_check
 		// res://.../world_map.tres"` reports its water and its cascades off the
 		// layer images alone, without opening the painter or baking a .hike.

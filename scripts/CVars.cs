@@ -1950,6 +1950,7 @@ public static class CVars
     // still compile" check instead of a full autostart run.
     public static CVarBool shaderCheck = new CVarBool("shader_check", false);
     public static CVarBool blockCheck = new CVarBool("block_check", false);
+    public static CVarBool waterShoreCheck = new CVarBool("water_shore_check", false);
 
     // Console command: dumps the most recently generated world's plateau/
     // height fields to user://worldgen_debug (outside the project tree).
