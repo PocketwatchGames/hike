@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Godot;
 
 // Runtime document + bake for the world-map painter. Owns every layer's mutable
@@ -665,9 +665,10 @@ public class WorldMapState
     // strict comparison is doing the work an explicit "different bodies" test
     // would otherwise need.
     //
-    // ONE rule, read by the map's ink AND by the bake that files the cascade
-    // entities (BuildWaterfallSites). Two copies of it would let the map promise
-    // falls the world does not build.
+    // The map's INK only. What the bake files as a cascade is measured off the
+    // finished voxels instead (WaterfallFinder), which sees drops this cannot —
+    // a tunnel breaching a pool, a stamped scene, a hand-edited voxel — so this
+    // is the flat preview of a spill, not a promise of a waterfall.
     //
     // Ordered, because which side is the pool decides which way the water
     // leaves; a caller asking "is this edge a spill" asks both ways.
@@ -1032,12 +1033,12 @@ public class WorldMapState
 
         StampEntities();
 
-        // Cascades, from the same bare-water edges the map inks (SpillsOver) and
-        // through worldgen's own placement, so the lip/landing Y convention has
-        // one home. Reads the painted layers rather than the stamped voxels, so
-        // it does not care where in the bake it runs.
+        // Cascades, through worldgen's own pass over the FINISHED voxels — so a
+        // fall off a stamped scene or into a carved tunnel is found the same way
+        // one off painted terrain is. Must follow every pass that writes water
+        // or ground, which is why it sits after the stamps and the routes.
         progress?.Invoke(WRITE_START, "Placing waterfalls");
-        WorldGen.PlaceWaterfalls(ws, BuildWaterfallSites());
+        WorldGen.PlaceWaterfalls(ws);
 
         // Re-derive the surface SHAPE channel from the finished voxels, the same
         // pass and the same rule worldgen ends on. Without it every painted
@@ -1314,170 +1315,6 @@ public class WorldMapState
                 WorldState.SetBlockWorld(wx, wy, wz, desired);
             }
         }
-    }
-
-    // One metre of lip: the column the water leaves over, the way out over it,
-    // and what it lands on. WaterfallLip is the same thing without the landing,
-    // which is a property of the site rather than of one lip.
-    private readonly struct SpillLip
-    {
-        public readonly int X;
-        public readonly int Z;
-        public readonly int DirX;
-        public readonly int DirZ;
-        public readonly int BottomVoxel;
-
-        public SpillLip(int x, int z, int dirX, int dirZ, int bottomVoxel)
-        {
-            X = x;
-            Z = z;
-            DirX = dirX;
-            DirZ = dirZ;
-            BottomVoxel = bottomVoxel;
-        }
-    }
-
-    // Every bare water edge on the map, grouped into cascades — the painted
-    // world's answer to HeightMap.Waterfalls, which no painted world produces.
-    // The drop stays AIR either way; a fall is an entity hanging off the lip.
-    //
-    // The lip is the column the water pours ONTO, carrying the direction AWAY
-    // from the pool that feeds it: that is the contract WaterfallMeshBuilder
-    // sweeps its sheet from
-    // (it starts the jet half a metre back along that direction, on the face
-    // between the two columns), and it is what worldgen's own sites record.
-    //
-    // Lips group 8-connected and BY THE LEVEL THEY POUR FROM. Connected, because
-    // a five-wide sheet is one cascade and wants one effect across it rather
-    // than five narrow ones side by side. Diagonally, because an outside corner
-    // turns through a diagonal — the two perpendicular strips must reach the
-    // same entity or the mesh builder cannot skirt the widening wedge between
-    // them. By level, because two pools at different heights spilling past each
-    // other are two falls, and merging them would put one sheet's top at the
-    // other's water.
-    public List<WaterfallSite> BuildWaterfallSites()
-    {
-        int w = Data.ImageWidth;
-        int h = Data.ImageHeight;
-        // Keyed by lip column AND pour level: one column can be the low side of
-        // two different pools.
-        var byCell = new Dictionary<(int Cell, int Top), List<SpillLip>>();
-        for (int px = 0; px < w; px++)
-        {
-            for (int pz = 0; pz < h; pz++)
-            {
-                if (!Underwater(px, pz))
-                {
-                    continue;
-                }
-                for (int d = 0; d < 4; d++)
-                {
-                    int nx = px + NeighbourDx[d];
-                    int nz = pz + NeighbourDz[d];
-                    // Bounds, not clamps: the queries clamp to the edge column,
-                    // which would invent a spill off the border of the map.
-                    if (nx < 0 || nx >= w || nz < 0 || nz >= h || !SpillsOver(px, pz, nx, nz))
-                    {
-                        continue;
-                    }
-                    var key = (nz * w + nx, WaterSurface(px, pz));
-                    if (!byCell.TryGetValue(key, out List<SpillLip> cell))
-                    {
-                        cell = new List<SpillLip>();
-                        byCell[key] = cell;
-                    }
-                    // The landing is the lower side's VISIBLE top — the pool it
-                    // falls into, or the bed where it lands dry. Same rule
-                    // worldgen's sites use, and what lets WaterfallData's
-                    // landingDepth carry the sheet under the surface it enters.
-                    cell.Add(new SpillLip(nx, nz, NeighbourDx[d], NeighbourDz[d], VisibleSurface(nx, nz)));
-                }
-            }
-        }
-
-        var sites = new List<WaterfallSite>();
-        var seen = new HashSet<(int Cell, int Top)>();
-        var open = new Queue<(int Cell, int Top)>();
-        var members = new List<SpillLip>();
-        var cells = new List<int>();
-        foreach ((int Cell, int Top) start in byCell.Keys)
-        {
-            if (!seen.Add(start))
-            {
-                continue;
-            }
-            open.Clear();
-            open.Enqueue(start);
-            members.Clear();
-            cells.Clear();
-            int bottom = int.MaxValue;
-            long sumX = 0;
-            long sumZ = 0;
-            while (open.Count > 0)
-            {
-                (int Cell, int Top) key = open.Dequeue();
-                int cx = key.Cell % w;
-                int cz = key.Cell / w;
-                cells.Add(key.Cell);
-                sumX += cx;
-                sumZ += cz;
-                foreach (SpillLip lip in byCell[key])
-                {
-                    members.Add(lip);
-                    // The DEEPEST landing under the sheet: a fall over uneven
-                    // ground reaches the bottom of what it spans.
-                    bottom = Mathf.Min(bottom, lip.BottomVoxel);
-                }
-                for (int dz = -1; dz <= 1; dz++)
-                {
-                    for (int dx = -1; dx <= 1; dx++)
-                    {
-                        int nx = cx + dx;
-                        int nz = cz + dz;
-                        if (nx < 0 || nx >= w || nz < 0 || nz >= h)
-                        {
-                            continue;
-                        }
-                        var next = (nz * w + nx, key.Top);
-                        if (byCell.ContainsKey(next) && seen.Add(next))
-                        {
-                            open.Enqueue(next);
-                        }
-                    }
-                }
-            }
-
-            // The centroid of a curved or L-shaped lip line is not one of its
-            // own columns — it lands in the pool the fall hangs off, and the
-            // entity would file into the chunk there. Snap to the nearest
-            // member, the same fix worldgen's sites and the POI resolver make.
-            float avgX = sumX / (float)cells.Count;
-            float avgZ = sumZ / (float)cells.Count;
-            int bestCell = cells[0];
-            float bestD = float.MaxValue;
-            foreach (int cell in cells)
-            {
-                float dx = cell % w - avgX;
-                float dz = cell / w - avgZ;
-                if (dx * dx + dz * dz < bestD)
-                {
-                    bestD = dx * dx + dz * dz;
-                    bestCell = cell;
-                }
-            }
-
-            var lips = new WaterfallLip[members.Count];
-            for (int i = 0; i < lips.Length; i++)
-            {
-                lips[i] = new WaterfallLip(members[i].X + Data.WorldMinX, members[i].Z + Data.WorldMinZ,
-                    members[i].DirX, members[i].DirZ);
-            }
-            sites.Add(new WaterfallSite(
-                new Vector3(bestCell % w + Data.WorldMinX + 0.5f, start.Top,
-                    bestCell / w + Data.WorldMinZ + 0.5f),
-                bottom, cells.Count, lips));
-        }
-        return sites;
     }
 
     // The water a column could have a BEACH against: its own surface, or the

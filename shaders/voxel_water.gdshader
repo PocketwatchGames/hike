@@ -69,10 +69,6 @@ global uniform float ripple_scale_b;
 global uniform vec2 ripple_offset_a;
 global uniform vec2 ripple_offset_b;
 global uniform float ripple_strength;
-// Pixels-per-world-unit noise UV quantization. Snaps the ripple samples
-// to a discrete grid so the surface reads as hand-drawn pixel ripples
-// rather than a smoothly scrolling noise pattern.
-global uniform float ripple_pixel_size;
 global uniform float fresnel_power;
 global uniform float reflection_strength;
 // Floor on the reflection blend amount independent of fresnel. Physical
@@ -128,11 +124,9 @@ global uniform float water_refraction_strength;
 // Minimum surface alpha at the water's edge (thickness → 0). Clamps the
 // authored WaterColor.a from below so clean water still reads as visible
 // color along the shoreline instead of fading to full transparency.
-// Contiguous shoreline rim — a solid band of foam-colored pixels right at
-// the water/land boundary, on top of the noisy shoreline foam. _width is
-// world-units from the edge; _strength is how strong the rim reads.
+// How far from the water/land edge the contiguous rim band reaches, in world
+// units. Depth-measured, so it stays here; water_rim_strength is shared.
 global uniform float water_rim_width;
-global uniform float water_rim_strength;
 // --- Debug ---------------------------------------------------------------
 // Reflection-path visualizer. See CVars.cs `water_debug` for mode docs.
 global uniform int water_debug_mode;
@@ -181,19 +175,10 @@ global uniform vec3 water_current_map_inv_size;
 global uniform float water_current_speed;
 global uniform float water_current_phase_period;
 global uniform bool water_currents_enabled;
-// Shoreline foam — lighter noise band where water thickness falls below
-// `foam_depth`, so shallow edges of water bodies read as surf.
-// foam_color: see water_shading.gdshaderinc.
+// Thickness below which this surface counts as a shallow edge and takes surf.
+// A depth, so it is voxel_water's own; the band it drives, foam_color and
+// foam_min_light are all in water_shading.gdshaderinc.
 global uniform float foam_depth;
-global uniform float foam_scale;
-// World-XZ scroll offset for the shoreline foam noise UVs. Integrated in
-// C# as `foamScroll * windSpeed * dt` so the pattern only drifts when wind
-// is driving wave energy at shore (and stops when wind dies).
-global uniform vec2 foam_offset;
-global uniform float foam_strength;
-global uniform float foam_threshold;
-global uniform float foam_sharpness;
-// foam_min_light: see water_shading.gdshaderinc.
 
 // Wave streaks — a second layer of scrolling noise (similar to ripples but
 // at coarser scales and slower drift) that compounds with the base ripple
@@ -280,23 +265,6 @@ vec2 sample_water_current(vec3 world_pos) {
 	return texture(water_current_map, uvw).rg * 2.0 - 1.0;
 }
 
-float hash13(vec3 p) {
-	p = fract(p * 0.3183099 + 0.1);
-	p *= 17.0;
-	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-}
-float vnoise(vec3 p) {
-	vec3 i = floor(p);
-	vec3 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	float n000 = hash13(i); float n100 = hash13(i + vec3(1,0,0));
-	float n010 = hash13(i + vec3(0,1,0)); float n110 = hash13(i + vec3(1,1,0));
-	float n001 = hash13(i + vec3(0,0,1)); float n101 = hash13(i + vec3(1,0,1));
-	float n011 = hash13(i + vec3(0,1,1)); float n111 = hash13(i + vec3(1,1,1));
-	return mix(mix(mix(n000,n100,f.x), mix(n010,n110,f.x), f.y),
-	           mix(mix(n001,n101,f.x), mix(n011,n111,f.x), f.y), f.z);
-}
-
 // Procedural caustic intensity at a 3D world position. Two value-noise
 // octaves are sampled and abs-differenced to produce thin ribbon edges;
 // pow() sharpens them into crisp focused bands.
@@ -330,14 +298,6 @@ float caustic_pattern(vec3 world_pos)
 // contribution to the final pixel rather than its raw value.
 vec3 water_behind_complement(vec3 transmittance, float refl_mix) {
 	return transmittance * (1.0 - refl_mix);
-}
-
-// Quantize noise UVs to a pixel grid. Used for the shoreline foam mask
-// (procedural vnoise); the ripple height sampled from water_noise_tex
-// already gets its pixel feel from filter_nearest.
-vec2 pixelize(vec2 uv) {
-	float px = max(ripple_pixel_size, 0.01);
-	return floor(uv * px) / px;
 }
 
 // Decode a stored normal map texel: Godot's as_normal_map produces
@@ -780,22 +740,13 @@ void fragment() {
 		// Contiguous rim band: hard cutoff by thickness with no noise masking,
 		// so the very edge of every pool is a solid foam-colored line. Draws
 		// underneath the noisy foam so the two blend together at the shore.
-		float rim = (1.0 - smoothstep(0.0, max(water_rim_width, 1e-4), thickness)) * water_rim_strength;
-
-		// Noisy shoreline foam: scrolling noise band out to foam_depth. Same
-		// foam color, but masked by pixelized noise so it reads as surf
-		// texture rather than a solid line.
+		// Both measures are this surface's DEPTH: the rim is the hard edge line
+		// right at the boundary, the noise band reaches out to foam_depth. The
+		// band itself is shared with the cascade (water_shading.gdshaderinc).
+		float rim = 1.0 - smoothstep(0.0, max(water_rim_width, 1e-4), thickness);
 		float shallow = 1.0 - smoothstep(0.0, foam_depth, thickness);
-		vec2 fuv = pixelize(world_vertex.xz * foam_scale + foam_offset);
-		float fn = vnoise(vec3(fuv, 0.0));
-		float band = max(1e-4, 1.0 - foam_sharpness);
-		float mask = smoothstep(foam_threshold, min(foam_threshold + band, 1.0), fn);
-		// Shoreline noise foam represents wave energy hitting the shore;
-		// damp by wind_factor so cave-pool shores read as still water
-		// against the rock. The contiguous `rim` band stays unmodulated —
-		// it's a structural water/land edge cue, not weather-driven.
-		float noisy_foam = shallow * mask * foam_strength * wind_factor;
-		foam_amount = max(max(noisy_foam, rim), whitecap_foam_amt);
+		float shore = water_shore_foam(world_vertex.xz, shallow, rim, wind_factor);
+		foam_amount = max(shore, whitecap_foam_amt);
 	}
 	if (water_disable_foam) { foam_amount = 0.0; }
 	// Edge-opacity floor + depth ramp + foam union — same formula as the

@@ -781,6 +781,55 @@ public partial class WorldMapPainter : Node3D
                 DrawSpawnDots(x0, z0, x1, z1, _ctx.MobSets, _ctx.PreviewMobAt);
             }
         }
+
+        // Fourth pass: the hand-placed entities and the player spawn, on every
+        // map that shows props. A chest or a well is a fact about the ground you
+        // need while placing the things that stand beside it — the same argument
+        // stamps and spill edges are drawn everywhere — and in scene placement
+        // particularly, a house dropped on top of one is the mistake this
+        // prevents.
+        //
+        // Drawn LAST, over the outlines and the scatter dots: a mark you placed
+        // outranks a contour line and a previewed roll. It is also NOT gated on
+        // zoom the way the dots are — a dot is an impression of a random roll and
+        // a smear of them says nothing, while an entity is one thing you put
+        // somewhere and needing to find it is why you are looking.
+        if (view.PreviewLayer.HasFlag(ESpawnPreview.Props))
+        {
+            DrawEntityMarks(x0, z0, x1, z1);
+        }
+    }
+
+    // Over the placement LIST, not over the texels: the marks are sparse and one
+    // metre each, so this costs the number of entities rather than the number of
+    // cells. Asking EntityAt per texel would walk the whole list ~295k times a
+    // rebuild, which is the shape that made stamps the slowest thing on the map.
+    private void DrawEntityMarks(int x0, int z0, int x1, int z1)
+    {
+        // Only the entity tool answers with a selection, so the marks stay plain
+        // while another tool is active.
+        EntityPlacement selected = ActiveTool.SelectedEntity;
+        foreach (EntityPlacement placement in _ctx.Placements.entities)
+        {
+            if (placement == null)
+            {
+                continue;
+            }
+            Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
+            if (at.X < x0 || at.X >= x1 || at.Y < z0 || at.Y >= z1)
+            {
+                continue;
+            }
+            FillCell(at.X, at.Y, placement == selected ? Colors.White : data.entityInk);
+        }
+        if (_ctx.Placements.hasSpawn)
+        {
+            Vector2I at = _ctx.TexelXZ(_ctx.Placements.spawnXZ);
+            if (at.X >= x0 && at.X < x1 && at.Y >= z0 && at.Y < z1)
+            {
+                FillCell(at.X, at.Y, data.spawnInk);
+            }
+        }
     }
 
     // Per-cell cutaway answers for the rebuild in progress: the surface the map

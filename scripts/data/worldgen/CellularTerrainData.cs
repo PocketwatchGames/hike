@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 
 // Tuning for the CELLULAR terrain approach (see CellularTerrainGen). Assigning
 // one of these to WorldGenData.terrain selects that approach; nothing here is
@@ -269,16 +269,6 @@ public partial class CellularTerrainData : TerrainGenData
     // widening: a channel eats through a one-step lip beside it and stops at a
     // real wall instead of gouging a trench across it.
     [Export(PropertyHint.Range, "0,16,1")] public int riverBankCut = 2;
-
-    // How many columns a waterfall may travel from the lip it pours over. A
-    // wall here is rarely one drop — the wall relaxation caps each cell step and
-    // the coast terraces repeatedly — so a fall has to walk DOWN a flight of
-    // steps or it breaks after the first tread. It only ever moves onto strictly
-    // lower ground, so it cannot spread across the terrace it lands on; this
-    // bounds the other case, a long gentle descent, where an unbounded walk
-    // would trail a ribbon of standing water as far as the ground keeps
-    // falling.
-    [Export(PropertyHint.Range, "1,32,1")] public int riverFallReach = 8;
 
     // A flooded basin needs this many columns and this much depth at its
     // deepest before it counts as a lake. Below either it is a puddle in a

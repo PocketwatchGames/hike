@@ -22,6 +22,8 @@ public struct WalkabilityCell
 
     public bool Walkable => (flags & CellFlags.Walkable) != 0;
     public bool IsWater => (flags & CellFlags.Water) != 0;
+    // Water too deep to wade — the surface is not footing, it is a swim.
+    public bool IsSwim => (flags & CellFlags.Swim) != 0;
     public bool OutOfBounds => (flags & CellFlags.OutOfBounds) != 0;
     // The cell sits inside a damaging prop's danger zone (fire trap, campfire,
     // spike trap). Purely informational on the cell — whether it's avoided is
@@ -44,6 +46,7 @@ public enum CellFlags : byte
     OutOfBounds = 1 << 2, // Column is in an unloaded chunk; pathfinder must not cross
     Hazard = 1 << 3,      // Inside a damaging prop's danger zone (see World hazard grid)
     SafeZone = 1 << 4,    // Inside an active safety zone (see World safe-zone registry)
+    Swim = 1 << 5,        // Water column deep enough to swim (implies Water)
 }
 
 // Per-mob movement traits, derived from MobData. Held as a struct so it can
@@ -395,6 +398,10 @@ public class WalkabilityGrid
                     WalkabilityCell wc = default;
                     wc.surfaceY = (short)wy;
                     wc.flags = CellFlags.Walkable | CellFlags.Water;
+                    if (swimming)
+                    {
+                        wc.flags |= CellFlags.Swim;
+                    }
                     wc.cost = (swimming ? profile.swimCost : profile.waterCost) * waterWallCost;
                     cells[baseIdx + found] = wc;
                     lastSurfaceY = wy;

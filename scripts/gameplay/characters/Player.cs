@@ -2267,16 +2267,15 @@ public partial class Player : CharacterBody3D
 			}
 			else if (stepDownResult != null)
 			{
-				// Hit a non-floor surface during step-down (mob capsule
-				// flank, steep slope). Staying grounded here is deliberate:
-				// going airborne made the land sound fire every other tick
-				// while running into a mob.
-				//
-				// The sweep tests the whole capsule, so it also stops on a
-				// wall or prop merely GRAZED on the way down, with the floor
-				// still right below. Re-probe along the body's axis before
-				// giving up — a face beside us cannot intercept that.
-				if (TryProbeFloorBelow(yBeforeProbe, data.stepHeight + maxSlopeDrop, out float probedFloorY))
+				// Hit a non-floor surface during step-down (mob capsule flank,
+				// steep slope). The sweep tests the whole capsule, so it also
+				// stops on a wall or prop merely GRAZED on the way down with the
+				// floor still right below — re-probe along the body's axis
+				// before giving up, since a face beside us cannot intercept
+				// that. Floor, open air and a steep face are three different
+				// situations and must not be collapsed into one refusal.
+				EFloorProbe probe = ProbeFloorBelow(yBeforeProbe, data.stepHeight + maxSlopeDrop, out float probedFloorY);
+				if (probe == EFloorProbe.Floor)
 				{
 					FallTraceMark("stepdown-probe");
 					GlobalPosition = new Vector3(
@@ -2284,26 +2283,73 @@ public partial class Player : CharacterBody3D
 						probedFloorY,
 						GlobalPosition.Z
 					);
+					_grounded = true;
 				}
-				else
+				else if (probe == EFloorProbe.Open)
 				{
-					// Neither the sweep nor the ray can name a floor, so we do
-					// not know where the ground is — and the body has ALREADY
-					// been carried horizontally this tick. Pinning only its Y
-					// leaves it wherever that carry ended, which on rising
-					// ground is inside the hill. Give the whole tick back: a
-					// one-tick stall is recoverable, being put inside the world
-					// is not.
-					FallTraceMark("stepdown-revert");
-					GlobalPosition = posBeforeStep;
+					// Nothing within reach below, so there is nothing to be inside
+					// of: this is a walk-off, not a wedge, and it falls. Reverting
+					// here is an invisible wall the player can neither see nor
+					// escape, and a riverbank is where it bites — the probe masks
+					// Solid, water is not solid, and the bed is metres out of range,
+					// so every attempt to step off a bank into the water was handed
+					// straight back. Stopping the player at an edge belongs to the
+					// ledge barriers (LedgeBarrierMesher), and they deliberately
+					// leave a bank unguarded because wading in is allowed.
+					FallTraceMark("stepdown-open");
+					if (CVars.moveBlockDebug.Value)
+					{
+						LogStepDownOutcome("open", stepDownResult, data.stepHeight + maxSlopeDrop);
+					}
+					StepDownWalkOff(posBeforeStep);
 					if (CVars.debugSlopes.Value)
 					{
-						GD.Print($"[stepdown] no floor under body at "
+						GD.Print($"[stepdown] open below, walking off at "
+							+ $"({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2})");
+					}
+				}
+				else if (IsBodyIntersecting())
+				{
+					// The body is inside geometry: the horizontal carry has put
+					// it into the world, and pinning only its Y would leave it
+					// there. Give the whole tick back — a one-tick stall is
+					// recoverable, being put inside the world is not. Staying
+					// grounded is deliberate too: going airborne here made the
+					// land sound fire every other tick while running into a mob.
+					FallTraceMark("stepdown-revert");
+					if (CVars.moveBlockDebug.Value)
+					{
+						LogStepDownOutcome("revert", stepDownResult, data.stepHeight + maxSlopeDrop);
+					}
+					GlobalPosition = posBeforeStep;
+					_grounded = true;
+					if (CVars.debugSlopes.Value)
+					{
+						GD.Print($"[stepdown] body inside geometry, reverting at "
 							+ $"({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2}) "
 							+ $"dash={_dashTimeRemaining > 0f}");
 					}
 				}
-				_grounded = true;
+				else
+				{
+					// A face below too steep to stand on, with the body clear of
+					// it. That is a drop, not a wedge — slide off it and fall.
+					// Reverting here was an invisible wall at every shoreline:
+					// the bank steepens past FloorMaxAngle a step before the
+					// water, so the sweep stopped finding floor while the ray
+					// still found the bank.
+					FallTraceMark("stepdown-steep");
+					if (CVars.moveBlockDebug.Value)
+					{
+						LogStepDownOutcome("steep", stepDownResult, data.stepHeight + maxSlopeDrop);
+					}
+					StepDownWalkOff(posBeforeStep);
+					if (CVars.debugSlopes.Value)
+					{
+						GD.Print($"[stepdown] steep face below, walking off at "
+							+ $"({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2})");
+					}
+				}
 			}
 			else
 			{
@@ -2311,20 +2357,7 @@ public partial class Player : CharacterBody3D
 				// step-down moved us the full stepHeight before stopping,
 				// which is fine; gravity will continue the fall next tick.
 				FallTraceMark("stepdown-nohit");
-				GlobalPosition = new Vector3(
-					GlobalPosition.X,
-					posBeforeStep.Y,
-					GlobalPosition.Z
-				);
-				_grounded = false;
-				// With no jump there is no way to ASK to leave the ground, so a
-				// dash that has just run out of floor stops driving the body
-				// forward — gravity takes it from here rather than the dash
-				// carrying it across the gap at full speed.
-				if (CVars.climbMovement.Value && _dashTimeRemaining > 0f)
-				{
-					EndDash();
-				}
+				StepDownWalkOff(posBeforeStep);
 			}
 		}
 		else
@@ -2439,6 +2472,17 @@ public partial class Player : CharacterBody3D
 
 		UpdateHeldItemVisual();
 	}
+	// What the downward floor probe found. Open and Steep are both "no floor
+	// here", but they are not the same situation and the caller must not treat
+	// them alike: Open proves there is nothing below to be inside of, while
+	// Steep means geometry was found and the body may be against or within it.
+	private enum EFloorProbe
+	{
+		Floor,
+		Open,
+		Steep,
+	}
+
 	// Ray probe for the floor under the body, used when the step-down SWEEP is
 	// stopped by something that isn't a floor. The sweep tests the whole capsule,
 	// so a wall or prop alongside it counts as a contact even when the motion is
@@ -2446,7 +2490,7 @@ public partial class Player : CharacterBody3D
 	// actually underfoot. Cast from the pre-sweep height (the body is airborne
 	// there whenever the step-up lifted it) down the same distance the sweep had.
 	// Masks Solid, so ledge barriers can never answer as ground.
-	private bool TryProbeFloorBelow(float fromY, float distance, out float floorY)
+	private EFloorProbe ProbeFloorBelow(float fromY, float distance, out float floorY)
 	{
 		floorY = 0f;
 		Vector3 from = new(GlobalPosition.X, fromY + FloorProbeLift, GlobalPosition.Z);
@@ -2455,14 +2499,35 @@ public partial class Player : CharacterBody3D
 		Godot.Collections.Dictionary hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
 		if (hit.Count == 0)
 		{
-			return false;
+			return EFloorProbe.Open;
 		}
 		if (hit["normal"].AsVector3().Dot(Vector3.Up) < Mathf.Cos(FloorMaxAngle))
 		{
-			return false;
+			return EFloorProbe.Steep;
 		}
 		floorY = hit["position"].AsVector3().Y;
-		return true;
+		return EFloorProbe.Floor;
+	}
+
+	// Resolve a step-down that found no floor as walking off an edge: keep the
+	// horizontal carry, hand back the vertical sweep, and let gravity own the
+	// rest. Shared by both no-floor outcomes so they cannot drift apart.
+	private void StepDownWalkOff(Vector3 posBeforeStep)
+	{
+		GlobalPosition = new Vector3(
+			GlobalPosition.X,
+			posBeforeStep.Y,
+			GlobalPosition.Z
+		);
+		_grounded = false;
+		// With no jump there is no way to ASK to leave the ground, so a dash
+		// that has just run out of floor stops driving the body forward —
+		// gravity takes it from here rather than the dash carrying it across the
+		// gap at full speed.
+		if (CVars.climbMovement.Value && _dashTimeRemaining > 0f)
+		{
+			EndDash();
+		}
 	}
 
 
@@ -2488,7 +2553,104 @@ public partial class Player : CharacterBody3D
 			return false;
 		}
 		float reach = Mathf.Max(dir.Length() * dt, data.stepProbeReach);
-		return TestMove(GlobalTransform, dir.Normalized() * reach);
+		Vector3 motion = dir.Normalized() * reach;
+		bool blocked = TestMove(GlobalTransform, motion);
+		if (blocked && CVars.moveBlockDebug.Value)
+		{
+			LogFlatMoveBlocker(motion);
+		}
+		return blocked;
+	}
+
+	// How often the move-block diagnostics may print, in sim milliseconds. They
+	// fire from per-tick paths, so without this a single stuck second is 60
+	// identical lines.
+	private const ulong MoveBlockLogIntervalMs = 500;
+	private ulong _moveBlockFlatLogMs;
+	private ulong _moveBlockStepLogMs;
+
+	// True at most every MoveBlockLogIntervalMs. Each diagnostic carries its own
+	// stamp: they fire from different stages of the same tick, and sharing one
+	// budget would let whichever ran first silence the other.
+	private bool WantsMoveBlockLog(ref ulong lastMs)
+	{
+		ulong nowMs = _world?.GameTimeMs ?? 0;
+		if (nowMs != 0 && nowMs - lastMs < MoveBlockLogIntervalMs)
+		{
+			return false;
+		}
+		lastMs = nowMs;
+		return true;
+	}
+
+	private static string DescribeCollider(GodotObject collider)
+	{
+		if (collider == null)
+		{
+			return "<null>";
+		}
+		string name = collider is Node node ? node.Name.ToString() : collider.GetType().Name;
+		uint layer = collider is CollisionObject3D body ? body.CollisionLayer : 0u;
+		return $"{name} [{collider.GetType().Name}] layer=0x{layer:X}";
+	}
+
+	// Names what is stopping the flat move, from inside the real per-tick test.
+	// An invisible stop is otherwise indistinguishable between a ledge barrier,
+	// terrain and a prop — and the barrier-excluded retest answers which in one
+	// line rather than a bisect.
+	private void LogFlatMoveBlocker(Vector3 motion)
+	{
+		if (!WantsMoveBlockLog(ref _moveBlockFlatLogMs))
+		{
+			return;
+		}
+		using var hit = new KinematicCollision3D();
+		if (!TestMove(GlobalTransform, motion, hit))
+		{
+			return;
+		}
+		Vector3 n = hit.GetNormal();
+		Vector3 pos = hit.GetPosition();
+		uint bit = (uint)ECollisionLayer.LedgeBarrier;
+		uint saved = CollisionMask;
+		CollisionMask = saved & ~bit;
+		bool withoutBarriers = TestMove(GlobalTransform, motion);
+		CollisionMask = saved;
+		GD.Print($"[move_block] flat move blocked by {DescribeCollider(hit.GetCollider())}"
+			+ $" normal=({n.X:F2},{n.Y:F2},{n.Z:F2}) at ({pos.X:F2},{pos.Y:F2},{pos.Z:F2})"
+			+ $" barrierMasked={(saved & bit) != 0} blockedWithoutBarriers={withoutBarriers}");
+	}
+
+	// Reports how the step-down resolved, with the geometry each stage actually
+	// saw. Both no-floor outcomes end movement, so which one fired — and what
+	// the sweep hit on the way — is the whole diagnosis.
+	private void LogStepDownOutcome(string branch, KinematicCollision3D sweep, float probeDistance)
+	{
+		if (!WantsMoveBlockLog(ref _moveBlockStepLogMs))
+		{
+			return;
+		}
+		string sweepDesc = "<none>";
+		if (sweep != null)
+		{
+			Vector3 sn = sweep.GetNormal();
+			sweepDesc = $"{DescribeCollider(sweep.GetCollider())} normal=({sn.X:F2},{sn.Y:F2},{sn.Z:F2})";
+		}
+		GD.Print($"[move_block] stepdown={branch} at "
+			+ $"({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2})"
+			+ $" probeDist={probeDistance:F2} sweep={sweepDesc}"
+			+ $" intersecting={IsBodyIntersecting()}");
+	}
+
+	// Is the body overlapping world geometry right now? Zero-motion sweep with
+	// recovery reported as a collision, which is the only direct answer — a
+	// downward probe cannot tell "nothing below" from "already inside
+	// something", and that is exactly the distinction the revert needs.
+	private bool IsBodyIntersecting()
+	{
+		using KinematicCollision3D overlap = MoveAndCollide(
+			Vector3.Zero, testOnly: true, safeMargin: 0.001f, recoveryAsCollision: true);
+		return overlap != null;
 	}
 
 	// Gate for the per-tick step-up lift. The lift itself is blind geometry —

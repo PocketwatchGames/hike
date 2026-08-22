@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -20,64 +20,6 @@ using Godot;
 //   Surface: where the ground actually ended up after carving.
 //
 //   Water:   the per-column INLAND water surface (rivers, lakes), or NoWater.
-// One column of a cascade's sheet: the voxel span the falling water occupies,
-// as the run of cells BottomY..TopY inclusive. The drop itself is left as air
-// (see HeightMap.Waterfalls), so this is the only record of where the sheet is
-// — the ribbon mesh is skinned from the set of them, exactly the way the water
-// mesher skins a body of water voxels.
-// One metre of the edge water pours over: the column it leaves from and the
-// horizontal direction it leaves in. A cascade is a LINE of these, and the sheet
-// is swept from them — the fall is a jet leaving a lip, not the block of water
-// that would stand in the drop if the drop were filled.
-//
-// Direction is one of the four axis steps, pointing AWAY from the pool that
-// feeds this column, so the sweep knows which way is "out over the edge".
-public readonly struct WaterfallLip
-{
-    public readonly int X;
-    public readonly int Z;
-    public readonly int DirX;
-    public readonly int DirZ;
-
-    public WaterfallLip(int x, int z, int dirX, int dirZ)
-    {
-        X = x;
-        Z = z;
-        DirX = dirX;
-        DirZ = dirZ;
-    }
-}
-
-// One cascade: where the water leaves the lip, where it lands, and how wide the
-// sheet is. What a waterfall effect needs to place itself, and all a terrain
-// approach can honestly say about a drop it routed.
-public readonly struct WaterfallSite
-{
-    // Centre of the sheet in world XZ, at the Y the water pours from.
-    public readonly Vector3 Top;
-    // Y the sheet lands on — the pool below, or the bed if it lands dry.
-    public readonly int BottomY;
-    // Columns the sheet spans, so a five-wide fall reads as one wide effect
-    // rather than five narrow ones stacked side by side.
-    public readonly int Columns;
-    // The edge the water actually pours over: the columns of this cascade that
-    // touch the pool feeding them, each with the direction it leaves in. The
-    // sheet is swept from this line, so it is all the geometry needs — the
-    // columns the fall passes THROUGH are not recorded, because a fall is a jet
-    // hanging off a lip and not the block of water that would stand in the drop.
-    public readonly IReadOnlyList<WaterfallLip> Lips;
-
-    public WaterfallSite(Vector3 top, int bottomY, int columns, IReadOnlyList<WaterfallLip> lips)
-    {
-        Top = top;
-        BottomY = bottomY;
-        Columns = columns;
-        Lips = lips ?? System.Array.Empty<WaterfallLip>();
-    }
-
-    public int Height => Mathf.RoundToInt(Top.Y) - BottomY;
-}
-
 public readonly struct HeightMap
 {
     // Sentinel in Water for "this column holds no inland water". Below every
@@ -145,18 +87,6 @@ public readonly struct HeightMap
     // columns are left at zero for the same reason they are left at NoWater.
     public readonly Vector2[,] Current;
 
-    // Where this world's cascades are. EMPTY, never null, for an approach that
-    // makes none.
-    //
-    // A LIST of places, not a per-column channel, because nothing consumes a
-    // waterfall per column any more: the sheet is drawn by an effect spawned at
-    // the site, and it is otherwise plain air that the player falls through. It
-    // has to be recorded here because it cannot be re-derived — the drop is air
-    // between two pools, which is geometrically identical to a river simply
-    // ending at a cliff.
-    public readonly IReadOnlyList<WaterfallSite> Waterfalls;
-
-
     // The subset of NoSpawn ground a scene opens to AUTHORED placements —
     // a plaza's paving, not a house's floor (SubscenePlacement.allowFixtures).
     // Only the one-off fixture passes consult it; the procedural scatter and
@@ -183,13 +113,11 @@ public readonly struct HeightMap
 
     public HeightMap(int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ,
         int[,] plateau, int[,] height, int[,] surface, bool[,] noSpawn, int levelStep,
-        int[,] water = null, Vector2[,] current = null,
-        IReadOnlyList<WaterfallSite> waterfalls = null)
+        int[,] water = null, Vector2[,] current = null)
     {
         LevelStep = Math.Max(1, levelStep);
         Water = water;
         Current = current;
-        Waterfalls = waterfalls ?? System.Array.Empty<WaterfallSite>();
         WorldMinX = worldMinX;
         WorldMaxX = worldMaxX;
         WorldMinZ = worldMinZ;

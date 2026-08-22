@@ -1,4 +1,22 @@
-using Godot;
+﻿using Godot;
+
+// An entity whose cutaway decision is not taken at its own origin.
+//
+// GameClient hides a whole entity node once its GlobalPosition is above the clip
+// height, which assumes the origin sits at the bottom of what it draws. A few do
+// not: a waterfall's node is on its LIP, because that is the chunk it files into
+// and where it reads from above, while the cascade itself hangs far below. Testing
+// the origin took the entire fall away the moment its lip crossed the cut — and
+// the part still under the ceiling is exactly what should have kept drawing.
+//
+// Only for entities that ALSO cut themselves per fragment in-shader. This picks
+// the height at which the node stops existing; it does not slice anything, so an
+// entity relying on it to hide its top half will simply poke through the ceiling.
+public interface IClipAnchored
+{
+    // World Y the cutaway decision is taken at.
+    float ClipAnchorY { get; }
+}
 
 // Re-anchors the ceiling cutaway for a visual that floats above the thing it
 // belongs to.

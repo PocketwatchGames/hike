@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Godot;
 
 // A cascade: the falling ribbon of water, the spray at either end of it, and the
@@ -6,8 +6,18 @@ using Godot;
 // so there is no collision, no path blocking and nothing to interact with, and
 // the player falls through it.
 [GlobalClass]
-public partial class Waterfall : Node3D, IWorldEntity
+public partial class Waterfall : Node3D, IWorldEntity, IClipAnchored
 {
+    // The cutaway is decided at the LANDING, not at the node's own origin up on
+    // the lip. A cascade spans everything between the two, and the sheet already
+    // cuts itself per fragment, so the only question left for the node is whether
+    // any of the fall is under the ceiling at all — which is a question about its
+    // base. Anchored at the lip instead, a fall whose top poked above the cut
+    // vanished entirely, taking the part below the ceiling with it.
+    public float ClipAnchorY => _clipAnchorY;
+
+    private float _clipAnchorY;
+
     // How often the earshot check runs. The ambience is a single looping stream
     // per site and a site can sit at the far edge of the loaded radius, so it is
     // worth pausing rather than mixing at -inf; a fifth of a second is invisible
@@ -41,6 +51,7 @@ public partial class Waterfall : Node3D, IWorldEntity
 
     private void Build(WaterfallSimState data, WaterfallData style, WaterfallTierData tier)
     {
+        _clipAnchorY = data.BottomY;
         ArrayMesh mesh = WaterfallMeshBuilder.Build(data, style);
         if (mesh != null)
         {
@@ -102,7 +113,8 @@ public partial class Waterfall : Node3D, IWorldEntity
             Vector3 edge = new Vector3(lip.X + 0.5f, data.TopY, lip.Z + 0.5f) - pour * 0.5f;
             positions.Add(top
                 ? edge
-                : new Vector3(edge.X, data.BottomY, edge.Z) + pour * style.pourReach);
+                : new Vector3(edge.X, data.BottomY, edge.Z)
+                    + pour * style.ReachFor(data.FallHeight + Mathf.Max(style.landingDepth, 0f)));
         }
         // Stable left-to-right order, so the spacing below picks a spread along
         // the edge rather than whatever order the lips were measured in.

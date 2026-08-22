@@ -499,20 +499,17 @@ is not a step backwards:
   over the region wash, but it darkens every submerged column, which is why it
   declares `DrawsWater` and takes both the water-surface outlines and the teal.
 
-**Every edge the map inks is a cascade in the baked world.** One rule
-(`WorldMapState.SpillsOver`) answers both, so the map cannot promise a waterfall
-the bake does not build. `BuildWaterfallSites` groups those edges into cascades —
-a LIP is the dry column the water leaves over plus the direction away from the
-pool feeding it, which is the contract `WaterfallMeshBuilder` sweeps its sheet
-from — and hands them to **worldgen's own `WorldGen.PlaceWaterfalls`**, so the
-"a surface sits one voxel above the voxel it caps" convention has one home rather
-than two that drift. Lips group 8-connected AND by the level they pour from: a
-five-wide sheet is one cascade wanting one effect, an outside corner turns
-through a diagonal and its two perpendicular strips must reach the same entity,
-and two pools at different heights spilling past each other stay two falls. The
-drop itself stays AIR, exactly as in a generated world. How SMALL a drop is worth
-drawing is not decided here — `SimData.waterfalls` tiers that, and a fall below
-the first tier draws nothing.
+**The ink is a PREVIEW, not the cascade list.** `WorldMapState.SpillsOver` is a
+flat two-layer test — painted water on one side standing above the visible
+surface on the other — and it is all the map needs to warn you about a lip while
+you paint. What the bake actually files runs over the FINISHED voxels instead
+(`WaterfallFinder`, through worldgen's own `WorldGen.PlaceWaterfalls`), so a fall
+off a stamped scene, into a carved tunnel or over a hand-edited voxel is found
+here exactly as it is in a generated world, and the surface-Y convention has one
+home. The painter used to carry a second site-builder off its painted layers; it
+could only ever see the falls the layers themselves described. The drop stays
+AIR either way. How SMALL a drop is worth drawing is not decided here —
+`SimData.waterfalls` tiers that, and a fall below the first tier (1 m) draws nothing.
 
 The brush is **hard-edged**, ignoring the falloff, for the reason Flatten is: a
 water surface is level, and easing it in by weight would tilt every stroke's rim
@@ -631,7 +628,8 @@ that floor and sliding it out of the mouth puts it back on the ground.
 The entity map itself switches: **lowering the plane turns it from the ground
 layer into the cutaway**, because underground there is no ground TYPE to show —
 the question becomes which floor is down there to stand something on. Entity
-MARKERS stay visible whatever the plane is doing. They are single texels and the
+MARKERS stay visible whatever the plane is doing — and on every other map that
+shows props, since the painter composites them. They are single texels and the
 thing you need most from them is where they are; hiding them the way stamps hide
 would make an entity you are looking for impossible to find.
 
@@ -987,7 +985,7 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
 | `PaveTool` | a block on the column's top voxel | `BlockIndex` | the ground map (paving resolves inside `GroundColorAt`) |
 | `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete | `SceneIndex`, `Selected` | the ground map (the stamps themselves draw on EVERY view) |
-| `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map, a mark per entity |
+| `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map (the marks themselves draw on EVERY view that shows props) |
 
 A spawn brush writes only its raster; `RescatterColumns` resolves it during the
 bake, running **worldgen's own placement math** per column — the two-pass tree
@@ -1143,6 +1141,24 @@ bake uses.
 
 Footprints are excluded from `CanSpawnAt`, the way worldgen reserves them with
 `MarkNoSpawn`.
+
+**Entity marks draw on EVERY view that shows props**, composited by the painter
+(`WorldMapPainter.DrawEntityMarks`) rather than returned by `EntityView`, exactly
+as stamps are — so `EntityView` is now just the ground map. A chest or a well is
+a fact about the ground you need while placing the things that stand beside it,
+and scene placement is the case that makes it urgent: a house dropped on top of
+one is the mistake this prevents. The gate is `ESpawnPreview.Props`, the same
+flag the scatter dots use, so "wherever props are visible" is one answer rather
+than a second list to keep in step.
+
+Two differences from the scatter dots underneath them. They are drawn LAST, over
+the step outlines and the dots — a mark you placed outranks a contour line and a
+previewed roll — and they are NOT gated on zoom, because a dot is an impression
+of a random roll while an entity is one thing you put somewhere and finding it is
+the reason you are looking. The pass walks the placement LIST, not the texels:
+marks are sparse and one metre each, so it costs the number of entities, where
+asking `EntityAt` per texel would walk the whole list ~295k times a rebuild —
+the shape that made stamps the slowest thing on the map.
 
 **`EntityTool` is that same interaction with two parts swapped**, which is what
 the scene tool was shaped for: the palette is `WorldMapData.entityPalette` and

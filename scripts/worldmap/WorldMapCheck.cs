@@ -1,10 +1,12 @@
-using Godot;
+﻿using Godot;
 using System.Collections.Generic;
 using System.Text;
 
 // Loads a painted world-map document and reports what the bake would make of its
 // WATER — how much stands, how much is latent under the ground, how much has
-// been erased — plus every cascade it would file, then quits.
+// been erased, and how many spill edges the map inks — then quits. It stops at
+// the ink: a CASCADE is measured off baked voxels (WaterfallFinder) and this
+// builds no world.
 //
 // Driven by the `worldmap_check` cvar off Main._Ready: the painter's fast
 // self-quitting loop, the same shape as shader_check / block_check. It reads the
@@ -13,8 +15,6 @@ using System.Text;
 // opening the UI and baking.
 public static class WorldMapCheck
 {
-    private const int TOP_N = 8;
-
     // Every chunk-sized rect repainted on its own must reproduce what one
     // whole-map pass draws. That is the granularity the painter repaints at, and
     // the StampsIn prefilter is the thing most able to break it.
@@ -228,19 +228,9 @@ public static class WorldMapCheck
         sb.AppendLine($"[worldmap_check] voxel edits: {carved} carved, {added} added "
             + $"({addedAboveGround} of them above the height map)");
 
-        List<WaterfallSite> sites = ctx.BuildWaterfallSites();
-        sb.AppendLine($"[worldmap_check] spill edges: {edges} -> {sites.Count} cascades");
-        sites.Sort((a, b) => b.Height.CompareTo(a.Height));
-        for (int i = 0; i < Mathf.Min(TOP_N, sites.Count); i++)
-        {
-            WaterfallSite s = sites[i];
-            sb.AppendLine($"  ({s.Top.X:F0}, {s.Top.Y:F0}, {s.Top.Z:F0}) "
-                + $"{s.Height}v tall, {s.Columns} col, {s.Lips.Count} lips");
-        }
-        if (sites.Count > TOP_N)
-        {
-            sb.AppendLine($"  ... {sites.Count - TOP_N} more");
-        }
+        // Edges the MAP inks, not cascades the world builds: a fall is measured
+        // off the baked voxels (WaterfallFinder), which this check has none of.
+        sb.AppendLine($"[worldmap_check] spill edges inked: {edges}");
         // Stamps are composited onto EVERY view now, fed by a per-rebuild
         // StampsIn() prefilter — so the invariant that matters is the one the
         // prefilter could break: a partial rebuild must reproduce a full one.

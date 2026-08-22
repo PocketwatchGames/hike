@@ -41,6 +41,8 @@ public partial class Player : CharacterBody3D
 	private ulong _mantleEndMs;
 	private Vector3 _mantleFrom;
 	private Vector3 _mantleTo;
+	// Whether the in-flight mantle ends on a water surface.
+	private bool _mantleOntoWater;
 	// Throttle for the per-tick `mantle_debug` trace.
 	private ulong _mantleLogLastMs;
 
@@ -127,7 +129,7 @@ public partial class Player : CharacterBody3D
 		// is. In water that layer IS the water surface (water columns are
 		// standable for the player profile), so climbing out needs no separate
 		// height convention.
-		if (!_walkField.TryGetSurface(GlobalPosition, out float refY, out bool refIsWater))
+		if (!_walkField.TryGetSurface(GlobalPosition, out float refY, out bool refIsWater, out bool _))
 		{
 			return false;
 		}
@@ -161,7 +163,8 @@ public partial class Player : CharacterBody3D
 			data.mantleMaxRise,
 			allowDescend: !swimming,
 			preferDescend: !rockAhead);
-		if (!MantleProbe.TryFind(_walkField, GlobalPosition, facing, refY, settings, out candidate))
+		if (!MantleProbe.TryFind(_walkField, GlobalPosition, facing, refY, settings, out candidate)
+			&& !TryFindWaterEntry(facing, refY, swimming, out candidate))
 		{
 			return false;
 		}
@@ -179,6 +182,43 @@ public partial class Player : CharacterBody3D
 			return true;
 		}
 		return BodyForward().Dot(toLedge.Normalized()) >= Mathf.Cos(data.mantleFacingAngle);
+	}
+
+	// Stepping across into water too deep to wade. This is NOT a ledge, which is
+	// why MantleProbe cannot find it: the walk field reports a water column's
+	// SURFACE as its standable height, so both sides of a drop-off are the same
+	// height and the only thing that changed is the bed under them. A probe that
+	// searches by height is blind to it by construction. The ledge barriers stop
+	// the player walking in, so without this the wade/swim line has no crossing
+	// at all — which is what standing in the shallows pressing dash felt like.
+	private bool TryFindWaterEntry(Vector3 facing, float refY, bool swimming,
+		out MantleProbe.Candidate candidate)
+	{
+		candidate = default;
+		// Already in it; getting OUT is the ordinary mantle.
+		if (swimming)
+		{
+			return false;
+		}
+		Vector3 ahead = GlobalPosition + facing * data.mantleReach;
+		int wx = Mathf.FloorToInt(ahead.X);
+		int wz = Mathf.FloorToInt(ahead.Z);
+		if (!_walkField.TryGetSurface(wx, wz, refY, out float y, out bool isWater, out bool isSwim))
+		{
+			return false;
+		}
+		if (!isWater || !isSwim)
+		{
+			return false;
+		}
+		// Water further off in height than a mantle reaches is a fall or a
+		// climb, and those affordances own it.
+		if (Mathf.Abs(y - refY) > data.mantleMaxRise)
+		{
+			return false;
+		}
+		candidate = new MantleProbe.Candidate(new Vector3(wx + 0.5f, y, wz + 0.5f), y - refY, true);
+		return true;
 	}
 
 	// Horizontal facing from body yaw. Continuous as the player turns, which is
@@ -330,17 +370,31 @@ public partial class Player : CharacterBody3D
 	private bool TryClearLanding(ref MantleProbe.Candidate candidate)
 	{
 		Vector3 landing = candidate.landing;
-		for (float lift = 0f; lift <= LandingClearMaxLift; lift += LandingClearStep)
+		// "Does the body fit here" is a question ABOUT the world, and a ledge
+		// barrier is not part of the world — it is felt and never seen (see
+		// ECollisionLayer.LedgeBarrier). Left masked in, the very barrier
+		// standing at the lip refuses the traversal meant to get past it.
+		uint saved = CollisionMask;
+		CollisionMask = saved & ~(uint)ECollisionLayer.LedgeBarrier;
+		try
 		{
-			Transform3D at = GlobalTransform;
-			at.Origin = new Vector3(landing.X, landing.Y + lift, landing.Z);
-			if (!TestMove(at, Vector3.Zero, null, 0.001f, recoveryAsCollision: true))
+			for (float lift = 0f; lift <= LandingClearMaxLift; lift += LandingClearStep)
 			{
-				candidate = new MantleProbe.Candidate(
-					new Vector3(landing.X, landing.Y + lift, landing.Z),
-					candidate.rise + lift);
-				return true;
+				Transform3D at = GlobalTransform;
+				at.Origin = new Vector3(landing.X, landing.Y + lift, landing.Z);
+				if (!TestMove(at, Vector3.Zero, null, 0.001f, recoveryAsCollision: true))
+				{
+					candidate = new MantleProbe.Candidate(
+						new Vector3(landing.X, landing.Y + lift, landing.Z),
+						candidate.rise + lift,
+						candidate.ontoWater);
+					return true;
+				}
 			}
+		}
+		finally
+		{
+			CollisionMask = saved;
 		}
 		return false;
 	}
@@ -373,6 +427,7 @@ public partial class Player : CharacterBody3D
 
 		_mantleFrom = GlobalPosition;
 		_mantleTo = candidate.landing;
+		_mantleOntoWater = candidate.ontoWater;
 		_mantleStartMs = _world.GameTimeMs;
 		_mantleEndMs = _mantleStartMs + (ulong)(data.mantleDuration * 1000f);
 		Velocity = Vector3.Zero;
@@ -431,7 +486,10 @@ public partial class Player : CharacterBody3D
 		{
 			_mantleStartMs = 0;
 			_mantleEndMs = 0;
-			_grounded = true;
+			// A drop into water ends in a swim, not standing on a ledge. Finishing
+			// it grounded costs a tick of standing on the surface — long enough to
+			// fire a landing sound — before UpdateWaterState takes it back.
+			_grounded = !_mantleOntoWater;
 			_airJumpsRemaining = AirJumpsMax;
 			_coyoteTimeEndMs = 0;
 			if (CVars.mantleDebug.Value)
@@ -1173,7 +1231,8 @@ public partial class Player : CharacterBody3D
 		int wx = Mathf.FloorToInt(pos.X + into.X * data.climbReach);
 		int wz = Mathf.FloorToInt(pos.Z + into.Z * data.climbReach);
 		if (!_walkField.TryGetSurfaceInBand(wx, wz,
-			pos.Y - data.climbStepOffDistance, pos.Y + data.mantleMaxRise, pos.Y, out float y))
+			pos.Y - data.climbStepOffDistance, pos.Y + data.mantleMaxRise, pos.Y,
+			out float y, out bool _))
 		{
 			return false;
 		}
@@ -1210,7 +1269,7 @@ public partial class Player : CharacterBody3D
 		ontoWater = false;
 		int wx = Mathf.FloorToInt(pos.X);
 		int wz = Mathf.FloorToInt(pos.Z);
-		if (!_walkField.TryGetSurface(wx, wz, pos.Y, out float y, out ontoWater))
+		if (!_walkField.TryGetSurface(wx, wz, pos.Y, out float y, out ontoWater, out bool _))
 		{
 			return false;
 		}
@@ -1313,7 +1372,7 @@ public partial class Player : CharacterBody3D
 		{
 			bool surfaceHere = _walkField.TryGetSurface(
 				Mathf.FloorToInt(GlobalPosition.X), Mathf.FloorToInt(GlobalPosition.Z),
-				GlobalPosition.Y, out float sy, out bool sWater);
+				GlobalPosition.Y, out float sy, out bool sWater, out bool _);
 			GD.Print($"[climb] release at ({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2}) "
 				+ $"into={into:F2} wantsDown={wantsDown}; column surface="
 				+ (surfaceHere

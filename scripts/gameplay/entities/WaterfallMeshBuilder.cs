@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Godot;
 
 // Sweeps a cascade's lip line into the falling sheet.
@@ -35,6 +35,10 @@ public static class WaterfallMeshBuilder
         st.Begin(Mesh.PrimitiveType.Triangles);
 
         float height = data.FallHeight + Mathf.Max(style.landingDepth, 0f);
+        // Resolved once for the whole sheet, from the drop it is actually swept
+        // over — the throw grows as the square root of that, so a short fall
+        // stands closer to its wall than a tall one instead of further out.
+        float reach = style.ReachFor(height);
         int segments = Mathf.Clamp(
             Mathf.CeilToInt(height * SEGMENTS_PER_METER), MIN_SEGMENTS, MAX_SEGMENTS);
 
@@ -48,15 +52,15 @@ public static class WaterfallMeshBuilder
 
         foreach (WaterfallLip lip in data.Lips)
         {
-            SweepStrip(st, lip, data, style, present, height, segments);
+            SweepStrip(st, lip, data, style, present, height, reach, segments);
         }
-        SweepCorners(st, data, style, height, segments);
+        SweepCorners(st, data, style, height, reach, segments);
         return st.Commit();
     }
 
     // One metre-wide step of the lip, swept down the jet's profile.
     private static void SweepStrip(SurfaceTool st, WaterfallLip lip, WaterfallSimState data,
-        WaterfallData style, HashSet<Vector2I> present, float height, int segments)
+        WaterfallData style, HashSet<Vector2I> present, float height, float reach, int segments)
     {
         Vector3 pour = Pour(lip);
         // The width axis is the horizontal perpendicular to the pour. Adjacent
@@ -85,13 +89,13 @@ public static class WaterfallMeshBuilder
         for (int i = 0; i <= segments; i++)
         {
             float s = Profile(i / (float)segments, style.shoulderBias);
-            Vector3 point = Trace(start, pour, s, style.pourReach, height);
+            Vector3 point = Trace(start, pour, s, reach, height);
             // Per RING, not per quad: a quad shaded with a single normal is
             // flat, and a curve built out of flat quads bands. Handing each ring
             // its own normal lets the rasterizer interpolate down the curve, and
             // because a ring's normal is a pure function of `s` the quad above
             // and the quad below agree on it exactly.
-            Vector3 normal = Normal(s, style.pourReach, height, pour, wide);
+            Vector3 normal = Normal(s, reach, height, pour, wide);
             Vector3 l = point - wide * halfLeft - data.WorldPosition;
             Vector3 r = point + wide * halfRight - data.WorldPosition;
             float v = height * s;
@@ -113,7 +117,7 @@ public static class WaterfallMeshBuilder
     // profile, so a fall pouring off an outside corner reads as one continuous
     // sheet wrapping it rather than two curtains with a gap.
     private static void SweepCorners(SurfaceTool st, WaterfallSimState data, WaterfallData style,
-        float height, int segments)
+        float height, float reach, int segments)
     {
         // Lip-line endpoints land exactly on the voxel lattice, so they key
         // cleanly with no float slop.
@@ -144,7 +148,7 @@ public static class WaterfallMeshBuilder
                 {
                     if (!IsOutsideCorner(list[a], list[b])) { continue; }
                     var apex = new Vector3(kv.Key.X, data.TopY, kv.Key.Y);
-                    SweepCorner(st, apex, Pour(list[a]), Pour(list[b]), data, style, height, segments);
+                    SweepCorner(st, apex, Pour(list[a]), Pour(list[b]), data, style, height, reach, segments);
                 }
             }
         }
@@ -162,7 +166,7 @@ public static class WaterfallMeshBuilder
     }
 
     private static void SweepCorner(SurfaceTool st, Vector3 apex, Vector3 dirA, Vector3 dirB,
-        WaterfallSimState data, WaterfallData style, float height, int segments)
+        WaterfallSimState data, WaterfallData style, float height, float reach, int segments)
     {
         var ring = new Vector3[CORNER_STEPS + 1];
         var ringNormals = new Vector3[CORNER_STEPS + 1];
@@ -179,11 +183,11 @@ public static class WaterfallMeshBuilder
                 // short way round, through the outward diagonal — which is the
                 // convex side, the one the water is actually on.
                 Vector3 dir = dirA.Lerp(dirB, k / (float)CORNER_STEPS).Normalized();
-                ring[k] = Trace(apex, dir, s, style.pourReach, height) - data.WorldPosition;
+                ring[k] = Trace(apex, dir, s, reach, height) - data.WorldPosition;
                 // A skirt curves in two directions at once, so its normals have
                 // to vary around the turn as well as down the drop — one per
                 // vertex in both axes, or the corner bands in the other one.
-                ringNormals[k] = Normal(s, style.pourReach, height, dir, Perp(dir));
+                ringNormals[k] = Normal(s, reach, height, dir, Perp(dir));
             }
             if (i > 0)
             {
@@ -192,8 +196,8 @@ public static class WaterfallMeshBuilder
                     // U walks around the turn in metres of arc at the reach the
                     // sheet has by then; it only feeds the streak noise, so an
                     // approximate arc length is enough.
-                    float u0 = k / (float)CORNER_STEPS * Mathf.Pi * 0.5f * style.pourReach;
-                    float u1 = (k + 1) / (float)CORNER_STEPS * Mathf.Pi * 0.5f * style.pourReach;
+                    float u0 = k / (float)CORNER_STEPS * Mathf.Pi * 0.5f * reach;
+                    float u1 = (k + 1) / (float)CORNER_STEPS * Mathf.Pi * 0.5f * reach;
                     Quad(st, prevNormals[k], ringNormals[k], ringNormals[k + 1], prevNormals[k + 1],
                         prev[k], ring[k], ring[k + 1], prev[k + 1], u0, u1, prevV, v);
                 }
@@ -217,19 +221,19 @@ public static class WaterfallMeshBuilder
 
     // The jet at depth fraction `s`: out along the pour by the ballistic reach,
     // down by the drop.
-    private static Vector3 Trace(Vector3 start, Vector3 pour, float s, float pourReach, float height)
+    private static Vector3 Trace(Vector3 start, Vector3 pour, float s, float reach, float height)
     {
-        return start + pour * (pourReach * Mathf.Sqrt(s)) - new Vector3(0f, height * s, 0f);
+        return start + pour * (reach * Mathf.Sqrt(s)) - new Vector3(0f, height * s, 0f);
     }
 
     // Outward-facing normal of the sheet at `s`, from the analytic tangent of
     // the profile crossed with the width axis. Taken a little inside the top
     // because the profile's slope is infinite exactly at the lip.
-    private static Vector3 Normal(float s, float pourReach, float height, Vector3 pour, Vector3 wide)
+    private static Vector3 Normal(float s, float reach, float height, Vector3 pour, Vector3 wide)
     {
         float t = Mathf.Max(s, TANGENT_EPSILON);
-        // d(reach)/ds = pourReach / (2 sqrt(s)); the drop's is -height.
-        Vector3 tangent = (pour * (pourReach / (2f * Mathf.Sqrt(t))) - new Vector3(0f, height, 0f)).Normalized();
+        // d(reach)/ds = reach / (2 sqrt(s)); the drop's is -height.
+        Vector3 tangent = (pour * (reach / (2f * Mathf.Sqrt(t))) - new Vector3(0f, height, 0f)).Normalized();
         Vector3 normal = wide.Cross(tangent).Normalized();
         return normal.Dot(pour) < 0f ? -normal : normal;
     }

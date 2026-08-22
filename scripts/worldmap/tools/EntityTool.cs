@@ -40,7 +40,7 @@ public class EntityTool : IWorldMapTool
 
     public EntityTool()
     {
-        View = new EntityView(this);
+        View = new EntityView();
     }
 
     private bool SpawnSelected => PaletteIndex == 0;
@@ -190,19 +190,15 @@ public class EntityTool : IWorldMapTool
     }
 }
 
-// The ground map with a dot per placed entity and one for the spawn. Ground
-// rather than elevation: what matters when placing a chest is what is around it —
-// the road it sits beside, the props already there — and the terrain shape still
-// reads through the step outlines.
+// The plain ground map. Ground rather than elevation: what matters when placing
+// a chest is what is around it — the road it sits beside, the props already there
+// — and the terrain shape still reads through the step outlines.
+//
+// The entity marks themselves are composited by the painter onto whatever view
+// is active (WorldMapPainter.DrawEntityMarks), the way stamps are, so this view
+// only has to draw the ground.
 public class EntityView : IWorldMapView
 {
-    private readonly EntityTool _tool;
-
-    public EntityView(EntityTool tool)
-    {
-        _tool = tool;
-    }
-
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
     public bool CutsAway => true;
@@ -210,21 +206,11 @@ public class EntityView : IWorldMapView
 
     public Color ColorAt(WorldMapState ctx, int px, int pz)
     {
-        if (ctx.IsSpawnAt(px, pz))
-        {
-            return ctx.Data.spawnInk;
-        }
-        EntityPlacement hit = ctx.EntityAt(px, pz, 0);
-        if (hit == null)
-        {
-            // Lowering the plane switches this map from the ground layer to the
-            // cutaway, because underground there is no ground TYPE to show — the
-            // question becomes which floor is down there to stand something on.
-            return ctx.IsCutAway
-                ? ctx.CutawayColorAt(px, pz, ctx.CutawayY, out _)
-                : ctx.GroundColorAt(px, pz);
-        }
-        Color ink = ctx.Data.entityInk;
-        return hit == _tool.Selected ? new Color(1f, 1f, 1f) : ink;
+        // Lowering the plane switches this map from the ground layer to the
+        // cutaway, because underground there is no ground TYPE to show — the
+        // question becomes which floor is down there to stand something on.
+        return ctx.IsCutAway
+            ? ctx.CutawayColorAt(px, pz, ctx.CutawayY, out _)
+            : ctx.GroundColorAt(px, pz);
     }
 }

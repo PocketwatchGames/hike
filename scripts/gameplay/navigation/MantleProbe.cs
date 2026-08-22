@@ -50,11 +50,16 @@ public static class MantleProbe
         // Height change, in metres. Positive climbs, negative descends — drives
         // which mantle animation plays.
         public readonly float rise;
+        // Whether the landing is a water surface. A drop into water ends in a
+        // swim, not standing on a ledge, so the caller must not finish it
+        // grounded.
+        public readonly bool ontoWater;
 
-        public Candidate(Vector3 landing, float rise)
+        public Candidate(Vector3 landing, float rise, bool ontoWater = false)
         {
             this.landing = landing;
             this.rise = rise;
+            this.ontoWater = ontoWater;
         }
     }
 
@@ -90,25 +95,29 @@ public static class MantleProbe
         bool descendFirst = settings.preferDescend && settings.allowDescend;
 
         if (!descendFirst && field.TryGetSurfaceInBand(wx, wz,
-            refY + settings.minRise + BandEpsilon, refY + settings.maxRise, refY, out float upY))
+            refY + settings.minRise + BandEpsilon, refY + settings.maxRise, refY,
+            out float upY, out bool upWater))
         {
-            candidate = new Candidate(new Vector3(wx + 0.5f, upY, wz + 0.5f), upY - refY);
+            candidate = new Candidate(new Vector3(wx + 0.5f, upY, wz + 0.5f), upY - refY, upWater);
             return true;
         }
 
         if (settings.allowDescend && field.TryGetSurfaceInBand(wx, wz,
-            refY - settings.maxRise, refY - settings.minRise - BandEpsilon, refY, out float downY))
+            refY - settings.maxRise, refY - settings.minRise - BandEpsilon, refY,
+            out float downY, out bool downWater))
         {
-            candidate = new Candidate(new Vector3(wx + 0.5f, downY, wz + 0.5f), downY - refY);
+            candidate = new Candidate(new Vector3(wx + 0.5f, downY, wz + 0.5f), downY - refY, downWater);
             return true;
         }
 
         // Only reachable when descent was preferred and found nothing — fall
         // back to the wall rather than refusing a traversal that exists.
         if (descendFirst && field.TryGetSurfaceInBand(wx, wz,
-            refY + settings.minRise + BandEpsilon, refY + settings.maxRise, refY, out float upFallback))
+            refY + settings.minRise + BandEpsilon, refY + settings.maxRise, refY,
+            out float upFallback, out bool upFallbackWater))
         {
-            candidate = new Candidate(new Vector3(wx + 0.5f, upFallback, wz + 0.5f), upFallback - refY);
+            candidate = new Candidate(new Vector3(wx + 0.5f, upFallback, wz + 0.5f),
+                upFallback - refY, upFallbackWater);
             return true;
         }
 

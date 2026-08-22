@@ -231,6 +231,13 @@ public static class CVars
     // contact doesn't spam per-tick.
     public static CVarBool debugSlopes = new CVarBool("debug_slopes", false);
 
+    // Names what is stopping horizontal movement, from inside the real per-tick
+    // tests: the blocking collider and its layer, whether the block survives
+    // with ledge barriers excluded, and how the step-down resolved. An
+    // invisible stop looks the same whether it is a barrier, terrain, a prop or
+    // the step-down handing the tick back; this separates them in one line.
+    public static CVarBool moveBlockDebug = new CVarBool("move_block_debug", false);
+
     // Draw a translucent wireframe sphere at every ApplyAreaDamage burst
     // (status-effect impact/dash bursts, etc.) for one frame. Off by default —
     // the real hit feedback is the authored Fx; this is a dev visualizer for

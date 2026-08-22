@@ -404,9 +404,37 @@ script = ExtResource("1_rkdci")
 path = "res://resources/data/subscenes/house01.hikescene"
 anchorXZ = Vector2i(115, 118)
 
+[sub_resource type="Resource" id="Resource_iwr7h"]
+script = ExtResource("1_rkdci")
+path = "res://resources/data/subscenes/house02.hikescene"
+anchorXZ = Vector2i(104, -9)
+
+[sub_resource type="Resource" id="Resource_mm4s5"]
+script = ExtResource("1_rkdci")
+path = "res://resources/data/subscenes/house04.hikescene"
+anchorXZ = Vector2i(70, -2)
+rotation = 1
+
+[sub_resource type="Resource" id="Resource_ciokf"]
+script = ExtResource("1_rkdci")
+path = "res://resources/data/subscenes/house03.hikescene"
+anchorXZ = Vector2i(70, 32)
+rotation = 1
+
+[sub_resource type="Resource" id="Resource_6n32a"]
+script = ExtResource("1_rkdci")
+path = "res://resources/data/subscenes/house01.hikescene"
+anchorXZ = Vector2i(173, -4)
+rotation = 3
+
+[sub_resource type="Resource" id="Resource_reuqt"]
+script = ExtResource("1_rkdci")
+path = "res://resources/data/subscenes/house02.hikescene"
+anchorXZ = Vector2i(-51, -150)
+
 [resource]
 script = ExtResource("1_62klx")
-placements = [SubResource("Resource_tbjbl"), SubResource("Resource_hd6tq"), SubResource("Resource_rkdci"), SubResource("Resource_sh2e7"), SubResource("Resource_1iphp"), SubResource("Resource_4i2sm")]
+placements = [SubResource("Resource_tbjbl"), SubResource("Resource_hd6tq"), SubResource("Resource_rkdci"), SubResource("Resource_sh2e7"), SubResource("Resource_1iphp"), SubResource("Resource_4i2sm"), SubResource("Resource_iwr7h"), SubResource("Resource_mm4s5"), SubResource("Resource_ciokf"), SubResource("Resource_6n32a"), SubResource("Resource_reuqt")]
 entities = [SubResource("Resource_v1avn"), SubResource("Resource_xitar"), SubResource("Resource_m17nx"), SubResource("Resource_8icqc"), SubResource("Resource_errfs"), SubResource("Resource_m2c7i"), SubResource("Resource_mw5ge"), SubResource("Resource_hatgq"), SubResource("Resource_w1yuy"), SubResource("Resource_nb33q"), SubResource("Resource_ne3xj"), SubResource("Resource_jdn3h"), SubResource("Resource_jvlfu"), SubResource("Resource_f4tcb"), SubResource("Resource_tefhj"), SubResource("Resource_m27kj"), SubResource("Resource_6ef7y"), SubResource("Resource_s6rg6"), SubResource("Resource_54uw5"), SubResource("Resource_fkddt"), SubResource("Resource_3esya"), SubResource("Resource_3eexj"), SubResource("Resource_u32lv"), SubResource("Resource_12ffn"), SubResource("Resource_tvr8w"), SubResource("Resource_3tpyt"), SubResource("Resource_h4tfw"), SubResource("Resource_rm76c"), SubResource("Resource_qe5vh"), SubResource("Resource_si3n7"), SubResource("Resource_u8dk4"), SubResource("Resource_otsru"), SubResource("Resource_4m1we"), SubResource("Resource_87ui2"), SubResource("Resource_2mrh3"), SubResource("Resource_gp45i"), SubResource("Resource_v4k15"), SubResource("Resource_cv3em"), SubResource("Resource_5dlux"), SubResource("Resource_hck5n"), SubResource("Resource_i35ip"), SubResource("Resource_4kuvw"), SubResource("Resource_cqh6q"), SubResource("Resource_vvdyp"), SubResource("Resource_cfccf"), SubResource("Resource_rwocs"), SubResource("Resource_65r5s"), SubResource("Resource_4iap5"), SubResource("Resource_kbshv"), SubResource("Resource_wfut7"), SubResource("Resource_4wdla"), SubResource("Resource_60gjy"), SubResource("Resource_1hepy"), SubResource("Resource_inkue"), SubResource("Resource_mrnhc"), SubResource("Resource_o1j36"), SubResource("Resource_2si1a"), SubResource("Resource_dakmn"), SubResource("Resource_c4ufj"), SubResource("Resource_lox48"), SubResource("Resource_yr2df"), SubResource("Resource_whmxo"), SubResource("Resource_glk8q"), SubResource("Resource_r117a"), SubResource("Resource_h11tg"), SubResource("Resource_vaddl"), SubResource("Resource_gi6h3"), SubResource("Resource_wo01p"), SubResource("Resource_c7jvl"), SubResource("Resource_t1hy1"), SubResource("Resource_3amhf"), SubResource("Resource_lencd"), SubResource("Resource_hdxvt")]
 hasSpawn = true
 spawnXZ = Vector2i(110, -16)

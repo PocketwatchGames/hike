@@ -76,10 +76,12 @@ public sealed class PlayerWalkField
     // Out-of-window reads returning false is deliberate rather than an error:
     // it fails safe (the player stops) instead of silently reading a stale
     // column, and Refresh's window is sized so it cannot happen in normal play.
-    public bool TryGetSurface(int wx, int wz, float refY, out float surfaceY, out bool isWater)
+    public bool TryGetSurface(int wx, int wz, float refY, out float surfaceY, out bool isWater,
+        out bool isSwim)
     {
         surfaceY = 0f;
         isWater = false;
+        isSwim = false;
         if (!_valid)
         {
             return false;
@@ -112,6 +114,7 @@ public sealed class PlayerWalkField
                 bestDist = d;
                 surfaceY = c.surfaceY;
                 isWater = c.IsWater;
+                isSwim = c.IsSwim;
                 found = true;
             }
         }
@@ -126,9 +129,11 @@ public sealed class PlayerWalkField
     // by where it puts the band relative to refY. Closest-within-band is right
     // for both — climbing a low wall under a balcony takes the wall, and
     // dropping down a terrace takes the first step, not the canyon floor.
-    public bool TryGetSurfaceInBand(int wx, int wz, float minY, float maxY, float refY, out float surfaceY)
+    public bool TryGetSurfaceInBand(int wx, int wz, float minY, float maxY, float refY,
+        out float surfaceY, out bool isWater)
     {
         surfaceY = 0f;
+        isWater = false;
         if (!_valid)
         {
             return false;
@@ -164,6 +169,7 @@ public sealed class PlayerWalkField
             {
                 bestDist = d;
                 surfaceY = c.surfaceY;
+                isWater = c.IsWater;
                 found = true;
             }
         }
@@ -171,12 +177,13 @@ public sealed class PlayerWalkField
     }
 
     // Convenience for world-space points.
-    public bool TryGetSurface(Vector3 worldPos, out float surfaceY, out bool isWater)
+    public bool TryGetSurface(Vector3 worldPos, out float surfaceY, out bool isWater,
+        out bool isSwim)
     {
         return TryGetSurface(
             Mathf.FloorToInt(worldPos.X),
             Mathf.FloorToInt(worldPos.Z),
-            worldPos.Y, out surfaceY, out isWater);
+            worldPos.Y, out surfaceY, out isWater, out isSwim);
     }
 
     // Invalidate the memo — call when the player teleports, respawns, or the

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -575,7 +575,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
             }
         }
         int[,] water = BuildWaterways(height, plateau, field, rain, pinned, onRamp, cd,
-            worldMinX, worldMinZ, out Vector2[,] current, out List<WaterfallSite> waterfalls);
+            worldMinX, worldMinZ, out Vector2[,] current);
 
         // Pass 6.5 — talus: rubble at the foot of the eroded faces. AFTER the
         // water, and that ordering is the whole reason it is a separate pass
@@ -613,7 +613,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
         var surface = (int[,])height.Clone();
         var noSpawn = new bool[sizeX, sizeZ];
         return new HeightMap(worldMinX, worldMaxX, worldMinZ, worldMaxZ, plateau, height, surface, noSpawn,
-            cd.interiorLevelStep, water, current, waterfalls);
+            cd.interiorLevelStep, water, current);
     }
 
     // ----------------------------------------------------------------- cells
@@ -1491,12 +1491,11 @@ public partial class CellularTerrainGen : ITerrainGenerator
     // so a road that actually uses that route comes out as a causeway.
     private int[,] BuildWaterways(int[,] height, int[,] plateau, float[,] field, float[,] rain,
         bool[,] pinned, bool[,] onRamp, CellularTerrainData cd, int worldMinX, int worldMinZ,
-        out Vector2[,] current, out List<WaterfallSite> waterfalls)
+        out Vector2[,] current)
     {
         int sizeX = height.GetLength(0);
         int sizeZ = height.GetLength(1);
         current = null;
-        waterfalls = null;
         if (cd.riverMinFlow <= 0f) { return null; }
 
         int count = sizeX * sizeZ;
@@ -1611,12 +1610,6 @@ public partial class CellularTerrainGen : ITerrainGenerator
 
         CutRiverChannels(height, plateau, water, surfaceY, flow, pinned, onRamp, cd, depth, stats,
             widthNoise, worldMinX, worldMinZ);
-        // The fall pass writes nothing into the world; it reports where the
-        // cascades are so an effect can be placed at each. Its scratch starts as
-        // a copy of the finished water field.
-        var sheet = (int[,])water.Clone();
-        StandWaterfalls(height, water, cd, stats, sheet);
-        waterfalls = BuildWaterfallSites(sheet, water, height, worldMinX, worldMinZ, stats);
 
         current = BuildSurfaceCurrents(water, isLake, receiver, flow, cd, sizeX, sizeZ, stats);
         stats.Report(cd, count);
@@ -1772,8 +1765,6 @@ public partial class CellularTerrainGen : ITerrainGenerator
         public int BreachesBlocked;
         public bool Unsettled;
         public int BasinColumns;
-        public int FallColumns;
-        public int TallestFall;
         public int CurrentColumns;
         public float FastestCurrent;
         public float NoiseLo = float.MaxValue;
@@ -1806,7 +1797,6 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 + $" {BankRejects} refused as bank (>{cd.riverBankCut}v above water),"
                 + $" {DropRejects} refused below a drop (>{cd.riverDepth}v under water),"
                 + $" {RampCrossings} ramp crossings;"
-                + $" {FallColumns} waterfall columns (tallest {TallestFall}v);"
                 + $" {CurrentColumns} columns carrying a current (fastest {FastestCurrent:F2},"
                 + $" width noise {cd.riverWidthNoise:F2} @ {cd.riverWidthNoiseFrequency:F4}"
                 + $" spanning {NoiseLo:F2}..{NoiseHi:F2}, half-width {NarrowestHalf:F2}..{WidestHalf:F2});"
@@ -2124,10 +2114,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 // foot of the fall is handed the upper pool's surface while its
                 // own bed stays where it is, and the chunk fill then fills every
                 // voxel between the two. Only ground within the channel's own
-                // notch belongs to this pool. Without it the fall is also
-                // INVISIBLE to the sheet test in BuildWaterfallSites, since that
-                // reports a cascade where the scratch surface ends up above the
-                // real water field and this had already raised the real one.
+                // notch belongs to this pool.
                 if (level - height[lx, lz] > depth) { stats.DropRejects++; continue; }
                 if (onRamp[lx, lz]) { stats.RampCrossings++; }
 
@@ -2139,159 +2126,6 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 stats.WaterColumns++;
             }
         }
-    }
-
-    // Group the columns the fall pass flagged into SITES — one per cascade,
-    // not one per column — and report them. A five-wide sheet is one waterfall
-    // and wants one effect across it, not five narrow ones side by side.
-    //
-    // A column carries a fall wherever the pass's scratch surface ended up above
-    // the real water field; the gap between the two IS the sheet.
-    private static List<WaterfallSite> BuildWaterfallSites(int[,] sheet, int[,] water,
-        int[,] height, int worldMinX, int worldMinZ, WaterStats stats)
-    {
-        int sizeX = sheet.GetLength(0);
-        int sizeZ = sheet.GetLength(1);
-        var sites = new List<WaterfallSite>();
-        var seen = new bool[sizeX, sizeZ];
-        var stack = new Stack<int>();
-
-        bool Falls(int lx, int lz)
-        {
-            int top = sheet[lx, lz];
-            if (top == HeightMap.NoWater) { return false; }
-            int had = water[lx, lz];
-            return had == HeightMap.NoWater || top > had;
-        }
-
-        for (int lx = 0; lx < sizeX; lx++)
-        {
-            for (int lz = 0; lz < sizeZ; lz++)
-            {
-                if (seen[lx, lz] || !Falls(lx, lz)) { continue; }
-                seen[lx, lz] = true;
-                stack.Clear();
-                stack.Push(lx * sizeZ + lz);
-                int columns = 0;
-                int top = int.MinValue;
-                int bottom = int.MaxValue;
-                long sumX = 0;
-                long sumZ = 0;
-                var members = new List<int>();
-                while (stack.Count > 0)
-                {
-                    int idx = stack.Pop();
-                    int cx = idx / sizeZ;
-                    int cz = idx % sizeZ;
-                    columns++;
-                    members.Add(idx);
-                    sumX += cx + worldMinX;
-                    sumZ += cz + worldMinZ;
-                    if (sheet[cx, cz] > top) { top = sheet[cx, cz]; }
-                    // Where the sheet LANDS: the pool it falls into, or the bed
-                    // where it lands dry.
-                    int floor = water[cx, cz] == HeightMap.NoWater ? height[cx, cz] : water[cx, cz];
-                    if (floor < bottom) { bottom = floor; }
-                    for (int d = 0; d < 4; d++)
-                    {
-                        int nx = cx + NEIGHBOUR_DX[d];
-                        int nz = cz + NEIGHBOUR_DZ[d];
-                        if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
-                        if (seen[nx, nz] || !Falls(nx, nz)) { continue; }
-                        seen[nx, nz] = true;
-                        stack.Push(nx * sizeZ + nz);
-                    }
-                }
-                // The centroid is where the sheet is ON AVERAGE, which for a
-                // curved or L-shaped group is not one of its own columns — the
-                // 12 m fall's centroid landed in the channel BESIDE the drop, so
-                // anything placed there would sit in the river rather than at the
-                // lip. Snap to the member column nearest it, the same fix
-                // ResolveLandformPois makes for the same reason.
-                float cxAvg = sumX / (float)columns;
-                float czAvg = sumZ / (float)columns;
-                int bestIdx = members[0];
-                float bestD = float.MaxValue;
-                foreach (int idx in members)
-                {
-                    float dx = idx / sizeZ + worldMinX - cxAvg;
-                    float dz = idx % sizeZ + worldMinZ - czAvg;
-                    float d = dx * dx + dz * dz;
-                    if (d < bestD) { bestD = d; bestIdx = idx; }
-                }
-                sites.Add(new WaterfallSite(
-                    new Vector3(bestIdx / sizeZ + worldMinX + 0.5f, top, bestIdx % sizeZ + worldMinZ + 0.5f),
-                    bottom, columns,
-                    BuildLips(members, sheet, water, height, worldMinX, worldMinZ, sizeX, sizeZ)));
-                stats.FallColumns += columns;
-            }
-        }
-
-        var parts = new List<string>();
-        foreach (WaterfallSite w in sites)
-        {
-            parts.Add($"({w.Top.X:F0}, {w.Top.Y:F0}, {w.Top.Z:F0}) {w.Height}v/{w.Columns}col");
-        }
-        GD.Print($"[CellularTerrain] waterfall sites ({sites.Count}): {string.Join("; ", parts)}");
-        return sites;
-    }
-
-    // The EDGE one cascade pours over: the metre-wide steps of the boundary
-    // between the pool feeding it and the drop beyond, each with the direction
-    // the water leaves in.
-    //
-    // A column is on that edge when a neighbour holds REAL water standing at the
-    // level this column's sheet carries — that neighbour is the pool, and the
-    // step away from it is the way out over the lip. Everything else about the
-    // fall (the staircase of columns the pass walked the level down, the rock
-    // beside them) is deliberately not recorded: the sheet is a jet hanging off
-    // this line, so those columns describe where the water ISN'T standing.
-    //
-    // The fallback matters more than it looks. A cascade whose feeding pool got
-    // trimmed by a later pass would otherwise have no lip and draw nothing, so
-    // the tallest column pours toward its lowest neighbour instead.
-    private static List<WaterfallLip> BuildLips(List<int> members, int[,] sheet, int[,] water,
-        int[,] height, int worldMinX, int worldMinZ, int sizeX, int sizeZ)
-    {
-        var lips = new List<WaterfallLip>();
-        foreach (int idx in members)
-        {
-            int cx = idx / sizeZ;
-            int cz = idx % sizeZ;
-            int level = sheet[cx, cz];
-            for (int d = 0; d < 4; d++)
-            {
-                int nx = cx + NEIGHBOUR_DX[d];
-                int nz = cz + NEIGHBOUR_DZ[d];
-                if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
-                if (water[nx, nz] != level) { continue; }
-                lips.Add(new WaterfallLip(cx + worldMinX, cz + worldMinZ, cx - nx, cz - nz));
-            }
-        }
-        if (lips.Count > 0) { return lips; }
-
-        int bestIdx = members[0];
-        foreach (int idx in members)
-        {
-            if (sheet[idx / sizeZ, idx % sizeZ] > sheet[bestIdx / sizeZ, bestIdx % sizeZ]) { bestIdx = idx; }
-        }
-        int bx = bestIdx / sizeZ;
-        int bz = bestIdx % sizeZ;
-        int lowest = int.MaxValue;
-        int dirX = 1;
-        int dirZ = 0;
-        for (int d = 0; d < 4; d++)
-        {
-            int nx = bx + NEIGHBOUR_DX[d];
-            int nz = bz + NEIGHBOUR_DZ[d];
-            if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
-            if (height[nx, nz] >= lowest) { continue; }
-            lowest = height[nx, nz];
-            dirX = NEIGHBOUR_DX[d];
-            dirZ = NEIGHBOUR_DZ[d];
-        }
-        lips.Add(new WaterfallLip(bx + worldMinX, bz + worldMinZ, dirX, dirZ));
-        return lips;
     }
 
     // Smoothing passes over the raw current field. Needed because the drainage
@@ -2414,107 +2248,6 @@ public partial class CellularTerrainGen : ITerrainGenerator
             }
         }
         return current;
-    }
-
-    // Carry the water DOWN each drop as a vertical sheet. Every column already
-    // holding water is raised to the highest water surface among its four
-    // neighbours, so the single column at the foot of a step is filled from its
-    // own bed up to the pool above it — a waterfall. Without it a cascade is two
-    // pools with a bare rock face between them and the river reads as broken.
-    //
-    // It has to reach DRY columns, not just ones that already hold water: where
-    // a channel runs off a lip there is no channel below it to raise, and a
-    // wet-only rule left the river as a lip of water overhanging bare rock.
-    // DETECTION ONLY — it writes no water into the world.
-    //
-    // `sheet` comes in as a copy of `water` and is the pass's own scratch: the
-    // walk needs somewhere to propagate a level down a staircase, and the real
-    // field must not be that place. Where `sheet` ends up above `water`, a
-    // cascade pours through the column, and the difference is exactly the
-    // vertical extent of it.
-    //
-    // It used to STAND the water — fill the drop with voxels so a fall did not
-    // read as two pools with bare rock between them. A waterfall effect draws
-    // that now, and the voxels were actively harmful: a column of water is
-    // indistinguishable from a deep pool, so buoyancy floated the player back up
-    // the cascade. Leaving the drop as air is what makes falling through it work
-    // with no special case anywhere.
-    private static void StandWaterfalls(int[,] height, int[,] water, CellularTerrainData cd,
-        WaterStats stats, int[,] sheet)
-    {
-        int sizeX = water.GetLength(0);
-        int sizeZ = water.GetLength(1);
-        int reach = Math.Max(1, cd.riverFallReach);
-
-        // Distance in columns from the lip the fall started at, so the walk
-        // below is bounded. int.MaxValue = not part of any fall.
-        var stepsFromLip = new int[sizeX, sizeZ];
-        var work = new Queue<int>();
-        for (int lx = 0; lx < sizeX; lx++)
-        {
-            for (int lz = 0; lz < sizeZ; lz++)
-            {
-                stepsFromLip[lx, lz] = int.MaxValue;
-                if (water[lx, lz] != HeightMap.NoWater)
-                {
-                    stepsFromLip[lx, lz] = 0;
-                    work.Enqueue(lx * sizeZ + lz);
-                }
-            }
-        }
-
-        // Walk the fall DOWNHILL, one step of the staircase per round, instead
-        // of one column and done. A wall in this world is rarely a single drop —
-        // the relaxation caps each cell step and the coast terraces repeatedly,
-        // so a cliff is a flight of steps. Carrying the water only one column
-        // reached the first tread and stopped, which is exactly the break: a lip
-        // of water, a bare step, then the reach below.
-        //
-        // The rule that keeps this from flooding the world is that it may only
-        // move onto STRICTLY LOWER ground. Water never spreads along a terrace,
-        // only down a face, so it cannot cross the flat ground it lands on. The
-        // step budget bounds the other case — a long gentle descent, where an
-        // unbounded walk would trail a ribbon of standing water for as far as
-        // the ground keeps falling.
-        // A WORKLIST, not a fixed number of rounds. A column's level can be
-        // improved after it has already handed its own level on — the step down
-        // a staircase reaches the tread below before the taller neighbour above
-        // it has raised it — and a round-based walk never revisits it, so the
-        // fall arrived at that tread carrying the wrong (lower) surface and the
-        // curtain broke two voxels below the lip. Re-queueing on a level
-        // improvement is what closes it. Terminates because a column is only
-        // ever re-queued when its level strictly rises or its step count
-        // strictly falls, and both are bounded.
-        while (work.Count > 0)
-        {
-            int idx = work.Dequeue();
-            int lx = idx / sizeZ;
-            int lz = idx % sizeZ;
-            int level = sheet[lx, lz];
-            if (stepsFromLip[lx, lz] >= reach) { continue; }
-            for (int d = 0; d < 4; d++)
-            {
-                int nx = lx + NEIGHBOUR_DX[d];
-                int nz = lz + NEIGHBOUR_DZ[d];
-                if (nx < 0 || nx >= sizeX || nz < 0 || nz >= sizeZ) { continue; }
-                if (height[nx, nz] >= height[lx, lz]) { continue; }
-                int have = sheet[nx, nz];
-                if (have != HeightMap.NoWater && have >= level) { continue; }
-                // Above the SEA as well as above the ground: a shoreline column
-                // below a river mouth already at sea level is not a fall, and
-                // stamping one would fringe every mouth with a ring of
-                // duplicate waterline.
-                if (level <= Math.Max(WorldGen.WATER_LEVEL, height[nx, nz])) { continue; }
-
-                int drop = level - Math.Max(have, height[nx, nz]);
-                sheet[nx, nz] = level;
-                if (drop > stats.TallestFall) { stats.TallestFall = drop; }
-
-                int steps = Math.Min(stepsFromLip[nx, nz], stepsFromLip[lx, lz] + 1);
-                stepsFromLip[nx, nz] = steps;
-                if (steps < reach) { work.Enqueue(nx * sizeZ + nz); }
-            }
-        }
     }
 
     // Round DOWN to the world's terrace lattice, measured from sea level so the

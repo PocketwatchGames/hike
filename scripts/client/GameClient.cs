@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -2244,7 +2244,13 @@ public partial class GameClient : Node3D
 					continue;
 				}
 				Vector3 entityPos = entity.GlobalPosition;
-				entity.Visible = entityPos.Y < ResolveClipHeight(entityPos, cameraClip);
+				// A few entities do not draw themselves at their own origin — a
+				// waterfall's node sits on its lip while the cascade hangs below
+				// it — so they name the height the decision belongs at.
+				float anchorY = entity is IClipAnchored anchored
+					? anchored.ClipAnchorY
+					: entityPos.Y;
+				entity.Visible = anchorY < ResolveClipHeight(entityPos, cameraClip);
 			}
 		}
 	}

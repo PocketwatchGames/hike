@@ -61,6 +61,79 @@ global uniform bool block_light_shadow_enabled;
 // Dark-adaptation ("night eyes") tone curve. Exact no-op at eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
 
+// --- Shoreline surf ---------------------------------------------------------
+// SHARED, and it has to be: a cascade's shoulder is the pool surface continuing
+// over the lip, so a band the pool draws and the fall does not reads as a hole
+// punched in the surf exactly where the two meet. This lived in voxel_water,
+// which is why that hole was there.
+//
+// What each caller supplies is only how its own water is RUNNING OUT — a pool
+// measures that off its depth, a fall off how far it has rolled past the lip —
+// because that is the one part the two genuinely disagree on.
+
+// Pixels-per-world-unit noise UV quantization. Snaps the samples to a discrete
+// grid so the surface reads as hand-drawn pixel ripples rather than a smoothly
+// scrolling noise pattern.
+global uniform float ripple_pixel_size;
+// Contiguous shoreline rim — a solid band of foam-colored pixels right at the
+// water/land boundary, drawn under the noisy foam so the two blend together.
+global uniform float water_rim_strength;
+// How far out the noise band reaches, and its shape.
+global uniform float foam_scale;
+// World-XZ scroll offset for the foam noise UVs. Integrated in C# as
+// `foamScroll * windSpeed * dt` so the pattern only drifts when wind is driving
+// wave energy at shore (and stops when wind dies).
+global uniform vec2 foam_offset;
+global uniform float foam_strength;
+global uniform float foam_threshold;
+global uniform float foam_sharpness;
+
+float hash13(vec3 p) {
+	p = fract(p * 0.3183099 + 0.1);
+	p *= 17.0;
+	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+float vnoise(vec3 p) {
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float n000 = hash13(i); float n100 = hash13(i + vec3(1,0,0));
+	float n010 = hash13(i + vec3(0,1,0)); float n110 = hash13(i + vec3(1,1,0));
+	float n001 = hash13(i + vec3(0,0,1)); float n101 = hash13(i + vec3(1,0,1));
+	float n011 = hash13(i + vec3(0,1,1)); float n111 = hash13(i + vec3(1,1,1));
+	return mix(mix(mix(n000,n100,f.x), mix(n010,n110,f.x), f.y),
+	           mix(mix(n001,n101,f.x), mix(n011,n111,f.x), f.y), f.z);
+}
+
+// Quantize noise UVs to a pixel grid. Used for the shoreline foam mask
+// (procedural vnoise); the ripple height sampled from water_noise_tex already
+// gets its pixel feel from filter_nearest.
+vec2 pixelize(vec2 uv) {
+	float px = max(ripple_pixel_size, 0.01);
+	return floor(uv * px) / px;
+}
+
+// Surf where water is running out, in [0,1].
+//
+//   `shallowness` — 0 where the water is at full body, 1 where it is about to
+//                   end. Drives the NOISY band, so it reads as surf texture
+//                   rather than a painted line.
+//   `rimness`     — the same measure, but for the hard contiguous edge line;
+//                   separate because the rim is a structural water/land cue and
+//                   is deliberately not weather-driven.
+//   `wind_factor` — wave energy. Damps the noisy half only, so a cave pool
+//                   still reads as still water against its rock.
+float water_shore_foam(vec2 world_xz, float shallowness, float rimness, float wind_factor)
+{
+	vec2 fuv = pixelize(world_xz * foam_scale + foam_offset);
+	float fn = vnoise(vec3(fuv, 0.0));
+	float band = max(1e-4, 1.0 - foam_sharpness);
+	float mask = smoothstep(foam_threshold, min(foam_threshold + band, 1.0), fn);
+	float noisy = shallowness * mask * foam_strength * wind_factor;
+	return clamp(max(noisy, rimness * water_rim_strength), 0.0, 1.0);
+}
+
 const float WATER_MIN_AMBIENT = 0.0;
 
 // Light reaching the water at a point.

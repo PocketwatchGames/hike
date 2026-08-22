@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
@@ -19,7 +19,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 127;
+    public const int WORLDGEN_VERSION = 128;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -579,7 +579,7 @@ public static class WorldGen
         // bytes and never reach here.
         GenerateAmbientWaterCurrents(ws);
         StampRiverCurrents(ws, heightMap);
-        PlaceWaterfalls(ws, heightMap.Waterfalls);
+        PlaceWaterfalls(ws);
 
         // Test override demonstrating the wind-velocity authoring path.
         // Amplifies a small region around the origin to ~3× the default
@@ -595,96 +595,14 @@ public static class WorldGen
         _lastHeightMap = heightMap;
         _lastPlateauStep = heightMap.LevelStep;
         _lastTerrainGen = terrainGen;
-        DumpStandingWater(ws, heightMap);
         return ws;
     }
 
-    // TEMPORARY DIAGNOSTIC — find every tall vertical run of water in the
-    // finished world. Deliberately independent of HeightMap.Waterfalls: the
-    // sheet test only flags a column where the scratch surface ended up ABOVE
-    // the real water field, so a column that actually stands water is excluded
-    // from that list by construction and cannot be found through it.
-    private static void DumpStandingWater(WorldState ws, HeightMap heightMap)
-    {
-        const int REPORT_RUN = 4;    // runs at least this tall are interesting
-        const int TOP_N = 8;
-        const int STRIP = 4;
-
-        var histogram = new Dictionary<int, int>();
-        var tallest = new List<(int run, int wx, int topY, int wz)>();
-
-        // Min/Max are CHUNK coordinates, not voxels — scale before walking.
-        int minX = ws.Min.X * ChunkState.SIZE;
-        int maxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int minY = ws.Min.Y * ChunkState.SIZE;
-        int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int minZ = ws.Min.Z * ChunkState.SIZE;
-        int maxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-        GD.Print($"[StandingWater] scanning voxels x[{minX}..{maxX}] y[{minY}..{maxY}] z[{minZ}..{maxZ}]");
-
-        for (int wx = minX; wx <= maxX; wx++)
-        {
-            for (int wz = minZ; wz <= maxZ; wz++)
-            {
-                int run = 0;
-                int runTop = 0;
-                for (int wy = maxY; wy >= minY; wy--)
-                {
-                    if (ws.GetBlockWorld(wx, wy, wz) == Blocks.WaterId)
-                    {
-                        if (run == 0) { runTop = wy; }
-                        run++;
-                        continue;
-                    }
-                    if (run >= REPORT_RUN)
-                    {
-                        histogram[run] = histogram.GetValueOrDefault(run) + 1;
-                        tallest.Add((run, wx, runTop, wz));
-                    }
-                    run = 0;
-                }
-                if (run >= REPORT_RUN)
-                {
-                    histogram[run] = histogram.GetValueOrDefault(run) + 1;
-                    tallest.Add((run, wx, runTop, wz));
-                }
-            }
-        }
-
-        var buckets = new List<string>();
-        foreach (int depth in histogram.Keys.OrderBy(k => k))
-        {
-            buckets.Add($"{depth}v x{histogram[depth]}");
-        }
-        GD.Print($"[StandingWater] {tallest.Count} runs >= {REPORT_RUN}v: {string.Join(", ", buckets)}");
-
-        tallest.Sort((a, b) => b.run.CompareTo(a.run));
-        for (int i = 0; i < Math.Min(TOP_N, tallest.Count); i++)
-        {
-            (int run, int wx, int topY, int wz) = tallest[i];
-            var sb = new System.Text.StringBuilder();
-            sb.Append($"[StandingWater] {run}v run at ({wx}, {topY}, {wz})"
-                + $" heightmap h={heightMap.GetHeight(wx, wz)}"
-                + $" water={heightMap.GetWaterY(wx, wz)}\n");
-            for (int wy = topY + 2; wy >= topY - run - 2; wy--)
-            {
-                sb.Append($"  y{wy,4} ");
-                for (int d = -STRIP; d <= STRIP; d++)
-                {
-                    int v = ws.GetBlockWorld(wx + d, wy, wz);
-                    sb.Append(v == Blocks.WaterId ? 'W' : Blocks.IsSolid(v) ? '#' : '.');
-                }
-                sb.Append('\n');
-            }
-            GD.Print(sb.ToString());
-        }
-    }
-
-    // Turn measured cascades into entities — where a drop stops being a hole in
-    // the water field and becomes something you can see and hear. Takes the
-    // SITES rather than the HeightMap: the world-map painter measures its own
-    // (WorldMapState.BuildWaterfallSites, off the painted water layer) and files
-    // them through here, so the surface-Y convention below has one home.
+    // Turn the cascades in the finished voxels into entities — where a drop stops
+    // being a hole in the water field and becomes something you can see and hear.
+    // Reads the WORLD, so worldgen and the map painter's bake share it verbatim
+    // (see WaterfallFinder); it only has to run after everything that writes
+    // water or ground.
     //
     // The entity is filed at the LIP rather than at the landing: that is where
     // the fall reads from above, and it keeps a cascade in the same chunk as the
@@ -692,10 +610,13 @@ public static class WorldGen
     // its sheet is drawn while the lip's chunk is resident and not otherwise —
     // acceptable while the load radius is generous, and the same bargain roofs
     // and other tall entities already make.
-    public static void PlaceWaterfalls(WorldState ws, IReadOnlyList<WaterfallSite> sites)
+    public static void PlaceWaterfalls(WorldState ws)
     {
+        // Nothing shorter than the smallest authored tier is ever drawn, so a
+        // shorter one is not worth an entity either.
+        WaterfallData style = ws.SimData?.waterfalls;
         int placed = 0;
-        foreach (WaterfallSite site in sites)
+        foreach (WaterfallSite site in WaterfallFinder.Find(ws, style?.SmallestDrawnFall() ?? 0f))
         {
             if (site.Lips.Count == 0) { continue; }
             var lips = new WaterfallLip[site.Lips.Count];
@@ -711,50 +632,6 @@ public static class WorldGen
         if (placed > 0)
         {
             GD.Print($"[WorldGen] placed {placed} waterfalls");
-        }
-    }
-
-    // TEMPORARY DIAGNOSTIC — dumps the finished voxels through each cascade so a
-    // standing column can be told from two separated pools. Remove once the
-    // waterfall work is done.
-    private static void DumpWaterfallColumns(WorldState ws, HeightMap heightMap)
-    {
-        const int STRIP = 4;   // columns either side of the site
-        const int ABOVE = 2;   // rows above the lip
-        const int BELOW = 3;   // rows below the landing
-
-        foreach (WaterfallSite site in heightMap.Waterfalls)
-        {
-            int sx = Mathf.RoundToInt(site.Top.X - 0.5f);
-            int sz = Mathf.RoundToInt(site.Top.Z - 0.5f);
-            int topY = Mathf.RoundToInt(site.Top.Y);
-            var sb = new System.Text.StringBuilder();
-            sb.Append($"[FallDump] site ({sx}, {topY}, {sz}) {site.Height}v/{site.Columns}col\n");
-
-            // Per-column heightmap state, so a voxel stack can be attributed to
-            // the water field rather than to the chunk fill.
-            for (int d = -STRIP; d <= STRIP; d++)
-            {
-                int wx = sx + d;
-                int h = heightMap.GetHeight(wx, sz);
-                int w = heightMap.GetWaterY(wx, sz);
-                sb.Append($"  x{wx,5} h={h,4} water={(w == HeightMap.NoWater ? "none" : w.ToString()),5}"
-                    + $" stack={(w == HeightMap.NoWater ? 0 : Math.Max(0, w - h)),3}\n");
-            }
-
-            // The voxels themselves, along X through the site. W=water, #=solid,
-            // .=air. A cascade that still stands reads as an unbroken W column.
-            for (int wy = topY + ABOVE; wy >= topY - site.Height - BELOW; wy--)
-            {
-                sb.Append($"  y{wy,4} ");
-                for (int d = -STRIP; d <= STRIP; d++)
-                {
-                    int v = ws.GetBlockWorld(sx + d, wy, sz);
-                    sb.Append(v == Blocks.WaterId ? 'W' : Blocks.IsSolid(v) ? '#' : '.');
-                }
-                sb.Append('\n');
-            }
-            GD.Print(sb.ToString());
         }
     }
 

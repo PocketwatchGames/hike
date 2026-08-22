@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 
 // Everything a waterfall is made of, shared by every cascade in the world. The
 // per-site part — where the sheet hangs and how tall it is — comes from worldgen
@@ -21,13 +21,16 @@ public partial class WaterfallData : Resource
     // all — that is the "too small to be a waterfall" gate.
     [Export] public WaterfallTierData[] tiers = System.Array.Empty<WaterfallTierData>();
 
-    // How far out from the lip the jet travels before it lands, in metres. The
-    // sheet leaves the edge moving outward and gravity bends it down, so this is
-    // both how far the fall stands off the wall at its foot and — because the
-    // reach is spent as the square root of the drop — how round the shoulder at
-    // the top is. Keep it around a metre: much more and the fall arcs away from
-    // the cliff it belongs to.
-    [Export(PropertyHint.Range, "0,4,0.05")] public float pourReach = 1f;
+    // How fast the water leaves the lip, in metres per second. The sheet is
+    // thrown horizontally at this speed and gravity bends it down, which is what
+    // makes the shoulder round at the top and the foot stand off the wall.
+    //
+    // A SPEED, not a distance. The reach used to be authored flat in metres and
+    // applied whatever the drop, which inverts the physics: a fall throws its
+    // water further the longer it is in the air, so a flat reach made a 1 m weir
+    // arc out exactly as far as a 12 m cascade and read as a chute rather than a
+    // lip. About 0.6 keeps a tall fall roughly a metre off its wall.
+    [Export(PropertyHint.Range, "0,3,0.01")] public float pourSpeed = 0.64f;
 
     // How far BELOW the lower pool's surface the sheet is carried, in metres, so
     // it visibly enters the water instead of stopping on top of it.
@@ -55,6 +58,34 @@ public partial class WaterfallData : Resource
     // Hard cap on emitters per edge, so a freak 40-column sheet can't spawn
     // forty particle systems.
     [Export(PropertyHint.Range, "1,8,1")] public int maxEmittersPerEdge = 4;
+
+    // The shortest fall this world draws at all — the first tier's threshold.
+    // Worldgen files no entity below it, so a one-voxel step off a pool edge
+    // stays the rapid it is instead of becoming thousands of invisible entities.
+    public float SmallestDrawnFall()
+    {
+        float smallest = float.MaxValue;
+        for (int i = 0; i < tiers.Length; i++)
+        {
+            if (tiers[i] != null && tiers[i].minFallHeight < smallest)
+            {
+                smallest = tiers[i].minFallHeight;
+            }
+        }
+        return smallest == float.MaxValue ? 0f : smallest;
+    }
+
+    // Horizontal throw at the foot of a sheet swept over `drop` metres.
+    //
+    // x = v·t and drop = ½g·t², so x = v·√(2·drop/g) — the reach grows as the
+    // SQUARE ROOT of the drop. Real gravity, so pourSpeed is a real speed rather
+    // than a number tuned against an arbitrary scale.
+    public float ReachFor(float drop)
+    {
+        return pourSpeed * Mathf.Sqrt(2f * Mathf.Max(drop, 0f) / GRAVITY);
+    }
+
+    private const float GRAVITY = 9.8f;
 
     // Which tier a fall of this height belongs to, or null if it is too short to
     // draw. Heights are in voxels; the array is assumed authored ascending, and

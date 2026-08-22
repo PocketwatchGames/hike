@@ -138,8 +138,17 @@ these are the invariants a new approach owes its consumers:
   test the VOXELS instead (`GetVoxelWorld(...) == VoxelType.Water` — the
   submerged-kit tagging, water-entity spawns, fog's open-to-sky scan) were
   already correct and needed no change.
-- **`Waterfalls`** — a LIST of cascade sites (top, landing Y, sheet width), not
-  a per-column channel. Empty, never null.
+- **Waterfalls are NOT a `HeightMap` channel.** A terrain approach reports no
+  cascades at all. They are found after the fact by `WaterfallFinder`, off the
+  finished voxels, under one rule: wherever a water voxel sits beside an air
+  voxel, the topmost air voxel of that span with water beside it is a lip, and
+  the sheet runs from there to the floor of the span.
+
+  It used to be a channel, walked down a scratch copy of the water field by a
+  `StandWaterfalls` pass. That only ever saw falls the river pass itself had a
+  notion of — nothing made by a carve, a stamped scene or a hand edit — and the
+  painter had to grow a second implementation off its painted layers for the
+  same reason. Both are gone; adding a terrain approach adds no waterfall code.
 
   **The drop is left as AIR.** `StandWaterfalls` used to fill it with water so a
   fall didn't read as two pools with bare rock between them; a waterfall effect
@@ -149,12 +158,6 @@ these are the invariants a new approach owes its consumers:
   water-state checks, the swim gate and the nav sampler all do the right thing
   because there is simply nothing there. A dedicated voxel type was tried and
   removed; every gate it needed turned out to be reproducing what air does free.
-
-  The pass is therefore DETECTION ONLY. It walks the drop into its own scratch
-  copy of the water field, and where that ends up above the real one, a cascade
-  pours through — the gap between the two is the sheet. It has to be recorded
-  because it cannot be re-derived: a drop is air between two pools, which is
-  geometrically identical to a river simply ending at a cliff.
 
 - **`Current`** — which way the inland water in each column is MOVING, as a
   world-XZ vector in the normalized `[-1, 1]` units `ChunkState.SetCurrent`
