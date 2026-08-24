@@ -192,7 +192,7 @@ public class WorldMapState
     private int _maxGradeStep = -1;
     public int MaxGradeStep => _maxGradeStep >= 0
         ? _maxGradeStep
-        : _maxGradeStep = Mathf.Max(1, WorldGen.TerrainOf(Data.genData).maxGradeStep);
+        : _maxGradeStep = Mathf.Max(1, TerrainMath.TerrainOf(Data.genData).maxGradeStep);
 
     // Layer value (voxels relative to sea level) -> absolute world Y, clamped to
     // the document's range and snapped to the authoring lattice. EVERY height in
@@ -983,6 +983,15 @@ public class WorldMapState
             }
         }
 
+        // The run's quests, party and starting knowledge, off the document's
+
+        // own genData — so a painted .hike carries its own rather than taking
+
+        // whichever world the menu had selected.
+
+        ws.BindStartContent(Data.genData);
+
+
         WorldState = ws;
 
         // Stamped a strip at a time purely so the bake can report progress; the
@@ -1014,7 +1023,7 @@ public class WorldMapState
         // fraction of it. Must follow the terrain stamp: it finds walls by
         // walking exposed faces of real voxels.
         progress?.Invoke(STAMP_END, "Cutting climbing routes");
-        WorldGen.StampClimbSurfaces(ws, Data.genData,
+        WorldFinish.StampClimbSurfaces(ws, Data.genData,
             (wx, wz) => ClimbRouteAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) ? 1f : 0f,
             (wx, wz) => WaterSurface(wx - Data.WorldMinX, wz - Data.WorldMinZ),
             Data.climbRouteMinWallVoxels, false);
@@ -1023,53 +1032,48 @@ public class WorldMapState
         // here, so this only adds sim states — the painter's initial entity
         // load spawns the nodes).
         //
-        // MobSpawnEntry asks WorldGen.ComputeMobLevel for its level, and that
-        // reads state a Generate() run leaves behind — which a painted world
-        // never produces. The bake's SpawnContext hands it the painted field
-        // instead (SpawnContextForBake), so the seam reaches exactly this pass
-        // instead of every mob placed anywhere in the process.
+        // A spawn entry asks its CONTEXT for the level it should place at
+        // (SpawnContext.MobLevel / ForgeLevel). The bake hands it the painted
+        // difficulty layer through SpawnContextForBake, so the answer reaches
+        // exactly this pass — where worldgen installs its zone-band sampler on
+        // the contexts IT builds.
         progress?.Invoke(STAMP_END, "Scattering entities");
         RescatterColumns(new Rect2I(0, 0, Data.ImageWidth, Data.ImageHeight));
 
         StampEntities();
 
-        // Cascades, through worldgen's own pass over the FINISHED voxels — so a
-        // fall off a stamped scene or into a carved tunnel is found the same way
-        // one off painted terrain is. Must follow every pass that writes water
-        // or ground, which is why it sits after the stamps and the routes.
-        progress?.Invoke(WRITE_START, "Placing waterfalls");
-        WorldGen.PlaceWaterfalls(ws);
-
-        // Re-derive the surface SHAPE channel from the finished voxels, the same
-        // pass and the same rule worldgen ends on. Without it every painted
-        // column keeps the blanket SharpAxes.Y the stamp writes, so a slope
-        // meshes as flat treads with 1 m vertical risers: it reads as a ramp
-        // from above but the player walks into a wall, since a metre step is
-        // below mantleMinRise and no floor is walkable at 90 degrees. Runs after
-        // the scenes, the routes and the scatter, because it classifies whatever
-        // geometry is actually there.
-        progress?.Invoke(WRITE_START, "Grading slopes");
-        WorldGen.StampGradeShapes(ws,
-            Data.WorldMinX, Data.WorldMinX + Data.ImageWidth - 1,
-            Data.WorldMinZ, Data.WorldMinZ + Data.ImageHeight - 1,
-            MaxGradeStep);
-
-        // Detail sprites — the grass blades and pebbles that are part of what
-        // the ground LOOKS like up close, as opposed to the props standing on
-        // it. WORLDGEN'S OWN pass, over the finished voxels, and it runs LAST
-        // for the same reason worldgen runs it last: every ground-moving pass
-        // before it overwrites the per-voxel channels wholesale, so a subscene
-        // stamp left its footprint (and the kit-swapped ground it re-textured)
-        // bald. Stamping detail per column during StampColumns was exactly that
-        // bug. Paved columns are skipped — the tread is bare by construction —
-        // and the dominant-zone kit pick is off, since a painted world assigns
-        // kits per column deterministically and has no zone-weight kernel.
-        progress?.Invoke(WRITE_START, "Scattering detail");
-        WorldGen.StampDetailScatter(ws, Data.genData,
-            (wx, wz) => PavingAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) != null, false);
-
-        progress?.Invoke(WRITE_START, "Seeding wind");
-        StampWind(ws);
+        // Everything a finished world derives from its own voxels, through the
+        // SAME list worldgen ends on (WorldFinish.Finish): grades, detail, the
+        // air pipeline, fog, water currents and the cascades. This used to be
+        // four hand-picked calls into WorldGen, so the channels it did not know
+        // about — fog, EnvTag, interiorness, currents — baked as zeros and
+        // nothing recomputed them on load. A painted world had no fog anywhere
+        // and read Outdoor in every building and tunnel.
+        //
+        // Three things differ from a generated world, and each is a fact about a
+        // painted one rather than a switch:
+        //   - no zone-weight kernel, so the detail scatter takes each voxel's
+        //     own kit (the painter assigns kits per column deterministically);
+        //   - no river-flow field, so water gets the ambient drift only;
+        //   - no sunlight flood, because every consumer of a .hike relights on
+        //     open (Main on both load branches, WorldEditor on both its open
+        //     paths) and it was ~19s of a ~22s bake, discarded every time. Sky
+        //     exposure still runs: it is not serialized, but interiorness — which
+        //     is — floods from it.
+        progress?.Invoke(WRITE_START, "Deriving world");
+        WorldFinish.Finish(ws, Data.genData, new WorldFinish.Options
+        {
+            MinX = Data.WorldMinX,
+            MaxX = Data.WorldMinX + Data.ImageWidth - 1,
+            MinZ = Data.WorldMinZ,
+            MaxZ = Data.WorldMinZ + Data.ImageHeight - 1,
+            MaxGradeStep = MaxGradeStep,
+            // Paving is a deliberate bare tread, exactly as a road is.
+            SkipDetailColumn = (wx, wz) => PavingAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) != null,
+            GroundYAt = (wx, wz) => TerrainHeight(wx - Data.WorldMinX, wz - Data.WorldMinZ),
+            StampWind = StampWind,
+            ComputeSunlight = false,
+        });
 
         // Authored spawn, or the world origin when none is placed.
         int spawnX = Placements.hasSpawn ? Placements.spawnXZ.X : 0;
@@ -1556,7 +1560,7 @@ public class WorldMapState
         var origin = new Vector3I(
             Mathf.FloorToInt(placement.anchorXZ.X - sub.Anchor.X), 0,
             Mathf.FloorToInt(placement.anchorXZ.Y - sub.Anchor.Z));
-        int ground = WorldGen.FootprintPlateauY(
+        int ground = TerrainMath.FootprintPlateauY(
             (x, z) => TerrainHeight(x - Data.WorldMinX, z - Data.WorldMinZ),
             Data.elevationStepVoxels, origin, sub.Size, out _);
         return ground + placement.yOffset;

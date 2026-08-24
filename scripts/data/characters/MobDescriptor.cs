@@ -29,7 +29,7 @@ public partial class MobDescriptor : Resource
     [Export] public EliteMobDescriptor elite;
 
     // Base difficulty tier for mobs spawned from this descriptor. WorldGen adds
-    // its per-area level field on top (see WorldGen.ComputeMobLevel), so this is
+    // its per-area level field on top (see SpawnContext.MobLevel), so this is
     // a floor an authored variant can raise — e.g. a mini-boss descriptor that
     // starts at level 2 everywhere. Each level scales health, armor, and outgoing
     // damage by SimData.levelScalePerLevel (~1.5x/level) and shows as level+1 HUD

@@ -30,29 +30,34 @@ public class PlateauTerrainGen : ITerrainGenerator
 
     private readonly PlateauTerrainData _data;
     private readonly WorldGenData _genData;
+
+    // This run's zone placement + blend kernel.
+    private readonly ZoneField _zones;
     private readonly FastNoiseLite _terrainNoise;
     private readonly FastNoiseLite _elevationNoise;
     private readonly FastNoiseLite _rampGateNoise;
     private readonly FastNoiseLite _tunnelNoise;
     private readonly FastNoiseLite _caveNoise;
 
-    public PlateauTerrainGen(PlateauTerrainData data, WorldGenData genData, int worldSeed)
+    public PlateauTerrainGen(PlateauTerrainData data, WorldGenData genData, int worldSeed,
+        ZoneField zones)
     {
         _data = data;
         _genData = genData;
-        _terrainNoise = WorldGen.MakePerlin(WorldGen.DeriveSeed(worldSeed, SEED_SALT_TERRAIN),
+        _zones = zones;
+        _terrainNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_TERRAIN),
             data.terrainNoiseFrequency, data.terrainNoiseOctaves);
-        _elevationNoise = WorldGen.MakePerlin(WorldGen.DeriveSeed(worldSeed, SEED_SALT_ELEVATION),
+        _elevationNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_ELEVATION),
             data.elevationNoiseFrequency, data.elevationNoiseOctaves);
-        _rampGateNoise = WorldGen.MakePerlin(WorldGen.DeriveSeed(worldSeed, SEED_SALT_RAMP_GATE),
+        _rampGateNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_RAMP_GATE),
             data.rampGateNoiseFrequency, data.rampGateNoiseOctaves);
-        _tunnelNoise = WorldGen.MakePerlin(WorldGen.DeriveSeed(worldSeed, SEED_SALT_TUNNEL),
+        _tunnelNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_TUNNEL),
             data.tunnelNoiseFrequency, data.tunnelNoiseOctaves);
         // One cave field spans the world, so its frequency comes from the first
         // zone; CaveThreshold still blends per column, which is what lets zones
         // differ in cave density while sharing the pattern.
-        _caveNoise = WorldGen.MakePerlin(WorldGen.DeriveSeed(worldSeed, SEED_SALT_CAVE),
-            (WorldGen.FirstZoneGen(genData)?.terrain as PlateauZoneTerrainData)?.caveNoiseFrequency ?? 0.04f, data.caveNoiseOctaves);
+        _caveNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_CAVE),
+            (TerrainMath.FirstZoneGen(genData)?.terrain as PlateauZoneTerrainData)?.caveNoiseFrequency ?? 0.04f, data.caveNoiseOctaves);
     }
 
 
@@ -72,7 +77,7 @@ public class PlateauTerrainGen : ITerrainGenerator
         int n = zones != null ? zones.Length : 0;
         if (n == 0) { return pick(ZoneDefaults); }
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        WorldGen.SampleBlendedZoneGen(wx, wz, zones, weights);
+        _zones.SampleBlended(wx, wz, weights);
         float sum = 0f;
         for (int i = 0; i < n; i++)
         {
@@ -125,7 +130,7 @@ public class PlateauTerrainGen : ITerrainGenerator
                 // across zones. Eventually `Elevation` will be sampled from
                 // an authored coarse heightmap; the blended ElevationRange
                 // term still rides on top.
-                WorldGen.BlendedZoneGen blend = WorldGen.SampleBlendedZoneGen(wx, wz, _genData.ZoneGens);
+                BlendedZoneGen blend = _zones.SampleBlended(wx, wz);
 
                 // Step 2: weighted noise in plateau-step units.
                 float terrainN = _terrainNoise.GetNoise2D(wx, wz);
@@ -148,7 +153,7 @@ public class PlateauTerrainGen : ITerrainGenerator
                 // plateau count). Done BEFORE the ocean falloff so cliffs
                 // inland snap cleanly while the coast still gets a smooth
                 // descent. Elevation = 0 is treated as sea level: the world-y
-                // offset by WorldGen.WATER_LEVEL is applied at the end so authored
+                // offset by TerrainMath.SEA_LEVEL is applied at the end so authored
                 // ZoneGenData.Elevation reads naturally — +1 means one
                 // plateau step above sea level, -1 means one below.
                 int plateauSteps = (int)Mathf.Round(plateaus);
@@ -175,12 +180,12 @@ public class PlateauTerrainGen : ITerrainGenerator
                     Mathf.Lerp(-oceanDepthPlateaus, plateauSteps, coastT));
 
                 // Step 5: convert plateau steps → world voxels with
-                // Elevation = 0 anchored at sea level. Sea is at WorldGen.WATER_LEVEL
+                // Elevation = 0 anchored at sea level. Sea is at TerrainMath.SEA_LEVEL
                 // (= -1 plateau step in voxel units), so a plateau-step value
-                // of 0 lands at WorldGen.WATER_LEVEL and each unit of Elevation /
+                // of 0 lands at TerrainMath.SEA_LEVEL and each unit of Elevation /
                 // ElevationRange shifts the surface by exactly one plateau
                 // step (4 voxels) above or below the water plane.
-                plateau[lx, lz] = WorldGen.WATER_LEVEL + effectivePlateaus * step;
+                plateau[lx, lz] = TerrainMath.SEA_LEVEL + effectivePlateaus * step;
                 rampAnchor[lx, lz] = Math.Abs(_rampGateNoise.GetNoise2D(wx, wz)) < rampAnchorBand;
             }
         }
@@ -297,7 +302,7 @@ public class PlateauTerrainGen : ITerrainGenerator
     // openings show up in cliff faces between adjacent plateau levels.
     private bool IsTunnelAt(int wx, int wy, int wz)
     {
-        if (wy <= WorldGen.WATER_LEVEL)
+        if (wy <= TerrainMath.SEA_LEVEL)
         {
             return false;
         }
@@ -375,7 +380,7 @@ public class PlateauTerrainGen : ITerrainGenerator
                 // next plateau step and can breach the surface as an open pit;
                 // on a clearing pinned to the water line that pit fills with
                 // water, punching ponds into what should be solid dry ground.
-                int domZone = WorldGen.DominantZoneIndex(wx, wz, _genData.ZoneGens);
+                int domZone = _zones.DominantIndex(wx, wz);
                 if (domZone >= 0 && _genData.ZoneGens[domZone]?.terrain?.flattenSurface == true)
                 {
                     continue;
@@ -414,7 +419,7 @@ public class PlateauTerrainGen : ITerrainGenerator
 
                     for (int cy = runLo; cy < ceilingY; cy++)
                     {
-                        var fill = cy <= WorldGen.WATER_LEVEL ? Blocks.WaterId : Blocks.AirId;
+                        var fill = cy <= TerrainMath.SEA_LEVEL ? Blocks.WaterId : Blocks.AirId;
                         ws.SetBlockWorld(wx, cy, wz, fill);
                     }
 

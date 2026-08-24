@@ -74,8 +74,9 @@ public partial class PlateauTerrainData : TerrainGenData
     // because one shared field spans the world; only the octave count is global.
     [Export] public int caveNoiseOctaves = 2;
 
-    public override ITerrainGenerator CreateGenerator(WorldGenData genData, int worldSeed)
+    public override ITerrainGenerator CreateGenerator(WorldGenData genData, int worldSeed,
+        ZoneField zones)
     {
-        return new PlateauTerrainGen(this, genData, worldSeed);
+        return new PlateauTerrainGen(this, genData, worldSeed, zones);
     }
 }

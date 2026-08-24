@@ -14,6 +14,7 @@ using Godot;
 //     max          : Vector3I (12 bytes)
 //     spawn        : Vector3  (3 * float32 = 12 bytes)
 //     simDataPath  : length-prefixed string (resource path, may be empty)
+//     startPath    : length-prefixed string (resource path, may be empty)
 //     zoneCount  : uint32
 //     zones      : zoneCount entries
 //       dataPath        : length-prefixed string (ZoneData resource path)
@@ -198,7 +199,7 @@ public static class WorldFile
     //      bytes index it 1-based, and it is derived from the kits'
     //      defaultDetail — so repointing one kit's detail moves that table
     //      without moving the kit palette, which the v46 check would pass.
-    public const uint VERSION = 47;
+    public const uint VERSION = 48;
 
     public struct IndexEntry
     {
@@ -225,6 +226,11 @@ public static class WorldFile
         public Vector3I Max;
         public Vector3 Spawn;
         public string SimDataPath;
+
+        // Resource path of the WorldGenData whose scriptData / startingParty /
+        // initialKnowledge this world starts a run with. Empty on a world baked
+        // without one; the loader then leaves WorldState's defaults alone.
+        public string StartContentPath;
         public ZoneEntry[] Zones;
         public RegionEntry[] Regions;
         // Resource path per kit-palette slot, in slot order — what every
@@ -310,6 +316,10 @@ public static class WorldFile
         w.Write(worldState.Spawn.Y);
         w.Write(worldState.Spawn.Z);
         w.Write(worldState.SimData != null ? worldState.SimData.ResourcePath : "");
+        // v48: what a run in this world starts with (quests, party, knowledge).
+        // A path to the resource that AUTHORS them, not the values: knowledge is
+        // authored as embedded sub-resources, which have no path of their own.
+        w.Write(worldState.StartContentPath ?? "");
         KitPalette palette = worldState.Kits ?? KitPalette.Empty;
         string[] kitSlots = palette.SlotNames();
         w.Write((uint)kitSlots.Length);
@@ -389,6 +399,7 @@ public static class WorldFile
             Max = ReadVec3I(r),
             Spawn = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
             SimDataPath = r.ReadString(),
+            StartContentPath = r.ReadString(),
         };
         uint kitSlotCount = r.ReadUInt32();
         header.KitSlots = new string[kitSlotCount];

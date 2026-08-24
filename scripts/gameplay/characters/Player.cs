@@ -1296,7 +1296,7 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	public void Initialize(Sim sim, WorldGenData worldGenData, PlayerState member, Vector3 position, Vector3 rotation)
+	public void Initialize(Sim sim, PlayerState member, Vector3 position, Vector3 rotation)
 	{
 		_world = sim;
 		Member = member;
@@ -1420,11 +1420,12 @@ public partial class Player : CharacterBody3D
 		// GameClient.SuppressAnnouncements (set around this whole Init call) so
 		// the player doesn't see a wall of banners on the first frame for things
 		// they already know.
-		if (worldGenData?.initialKnowledge != null)
+		TeachableConcept[] initialKnowledge = sim?.WorldState?.InitialKnowledge;
+		if (initialKnowledge != null)
 		{
-			for (int i = 0; i < worldGenData.initialKnowledge.Count; i++)
+			for (int i = 0; i < initialKnowledge.Length; i++)
 			{
-				worldGenData.initialKnowledge[i]?.Teach(this);
+				initialKnowledge[i]?.Teach(this);
 			}
 		}
 

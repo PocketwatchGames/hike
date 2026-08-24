@@ -157,11 +157,15 @@ public partial class MultimeshPropSprite : Sprite3D
         bool hasReflection = false;
         if (reflectsByMode)
         {
-            float? sampledWaterY = FindWaterSurfaceY(GlobalPosition);
+            WorldState ws = Sim.Current?.WorldState;
+            float? sampledWaterY = VoxelWater.FindNear(ws, GlobalPosition,
+                WATER_SEARCH_XZ_RADIUS, WaterReflectionSearchDepth);
             if (sampledWaterY.HasValue)
             {
                 waterY = sampledWaterY.Value;
-                lakeFloorY = FindLakeFloorY(GlobalPosition, waterY);
+                lakeFloorY = VoxelWater.FloorBelow(ws,
+                    Mathf.FloorToInt(GlobalPosition.X), Mathf.FloorToInt(GlobalPosition.Z),
+                    waterY, WaterReflectionSearchDepth);
                 hasReflection = true;
             }
         }
@@ -245,125 +249,13 @@ public partial class MultimeshPropSprite : Sprite3D
         }
     }
 
-    // XZ search radius (in voxels) for the water surface lookup. The
-    // sprite's own column is checked first; if no water there (shore-line
-    // case — tree standing on dry ground next to a lake), we expand
-    // outward in concentric square rings until we find a water column or
-    // run out. Same per-body water surface lands at the same Y across the
-    // whole pond, so the first hit's Y is the right reflection plane
-    // regardless of which neighbor column it came from.
+    // XZ search radius (in voxels) for the water surface lookup. The sprite's
+    // own column is checked first; if it holds no water (the shoreline case —
+    // a tree on dry ground beside a lake), the search expands outward in rings.
+    // Wider than a per-frame lookup would justify, but this runs once per prop
+    // at spawn and a static prop cannot re-run it by moving.
     private const int WATER_SEARCH_XZ_RADIUS = 4;
 
-    // Returns the world Y of the nearest water surface for reflection
-    // anchoring, or null if no water lives within WATER_SEARCH_XZ_RADIUS
-    // voxels in XZ. Mirrors LitSprite.FindWaterSurfaceY's vertical
-    // behaviour (handles both above-water and partially-submerged
-    // sources) but extends the XZ search outward — required for static
-    // props authored on the shore, whose column is solid ground. The
-    // per-instance LitSprite path skips this because the player moves
-    // and re-runs the search every frame; static props are baked once
-    // and need to find adjacent water at _Ready time. Run once and
-    // cached on the snapshot, so the cost is O(R²×depth) per prop
-    // exactly once per spawn.
-    private float? FindWaterSurfaceY(Vector3 world)
-    {
-        WorldState ws = Sim.Current?.WorldState;
-        if (ws == null)
-        {
-            return null;
-        }
-        int cx = Mathf.FloorToInt(world.X);
-        int cz = Mathf.FloorToInt(world.Z);
-        int startY = Mathf.FloorToInt(world.Y);
-
-        // Ring-expand outward: r=0 is just (cx, cz); r=1 is the 8 cells
-        // around it; etc. Skip cells on the interior of each ring (only
-        // the boundary contributes new cells), so each cell is checked
-        // exactly once.
-        for (int r = 0; r <= WATER_SEARCH_XZ_RADIUS; r++)
-        {
-            for (int dx = -r; dx <= r; dx++)
-            {
-                for (int dz = -r; dz <= r; dz++)
-                {
-                    if (r > 0 && Mathf.Abs(dx) != r && Mathf.Abs(dz) != r)
-                    {
-                        continue;
-                    }
-                    float? y = FindWaterInColumn(ws, cx + dx, startY, cz + dz);
-                    if (y.HasValue)
-                    {
-                        return y;
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    // Walks down from the water surface in the same column the sprite's
-    // anchor sits over until it hits a non-water voxel; returns that
-    // voxel's TOP face Y (= the floor of the water column). The shader
-    // clamps the reflection's lowest vertex to this so the quad stays
-    // inside the visible water slice and avoids depth-test occlusion by
-    // the lake floor terrain. If the column never exits water within the
-    // search depth (e.g. ocean floor is deeper than we care about),
-    // falls back to the search-depth bound — the reflection will then
-    // extend that far down and any deeper portion is occluded as before
-    // (acceptable; deep water columns are dim anyway). World position
-    // matches the sprite's actual anchor in case the XZ ring search
-    // found water in a neighboring column instead of directly under.
-    private float FindLakeFloorY(Vector3 sourceWorld, float waterY)
-    {
-        WorldState ws = Sim.Current?.WorldState;
-        if (ws == null)
-        {
-            return waterY - WaterReflectionSearchDepth;
-        }
-        int wx = Mathf.FloorToInt(sourceWorld.X);
-        int wz = Mathf.FloorToInt(sourceWorld.Z);
-        int waterTopY = Mathf.FloorToInt(waterY);
-        int minY = waterTopY - WaterReflectionSearchDepth;
-        for (int y = waterTopY - 1; y >= minY; y--)
-        {
-            if (ws.GetBlockWorld(wx, y, wz) != Blocks.WaterId)
-            {
-                return y + 1;
-            }
-        }
-        return minY;
-    }
-
-    // Vertical search within one XZ column. Inside-water case walks up
-    // until the column exits water; outside-water case walks down until
-    // it enters water. Returns the world Y of the surface (the air-voxel
-    // floor that sits directly above the topmost water voxel). Null if
-    // no water within WaterReflectionSearchDepth either way.
-    private float? FindWaterInColumn(WorldState ws, int wx, int startY, int wz)
-    {
-        if (ws.GetBlockWorld(wx, startY, wz) == Blocks.WaterId)
-        {
-            int maxY = startY + WaterReflectionSearchDepth;
-            for (int y = startY + 1; y <= maxY; y++)
-            {
-                if (ws.GetBlockWorld(wx, y, wz) != Blocks.WaterId)
-                {
-                    return y;
-                }
-            }
-            return null;
-        }
-
-        int minY = startY - WaterReflectionSearchDepth;
-        for (int y = startY - 1; y >= minY; y--)
-        {
-            if (ws.GetBlockWorld(wx, y, wz) == Blocks.WaterId)
-            {
-                return y + 1;
-            }
-        }
-        return null;
-    }
 
     // Unwrap AtlasTexture, otherwise read RegionEnabled / RegionRect from
     // Sprite3D's own properties. Same resolution rule a LitSprite uses, so

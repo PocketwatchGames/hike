@@ -112,7 +112,7 @@ public static class MesherProbe
         }
         int Get(int x, int y, int z) => Sample(v, x, y, z);
 
-        // Reproduce WorldGen.StampGradeShapes, NOT "the whole ramp top is soft".
+        // Reproduce TerrainMath.StampGradeShapes, NOT "the whole ramp top is soft".
         // The difference is the whole point: the grade rule is per-axis and
         // local, so on a terraced ramp only the columns beside a riser qualify
         // and each tread's interior reads as flat and gets Y-snapped.

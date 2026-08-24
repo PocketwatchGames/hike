@@ -12,6 +12,10 @@ public sealed class WorldFileChunkSource : IChunkSource
     public Vector3I Max { get; }
     public Vector3 Spawn { get; }
     public SimData SimData { get; }
+
+    // The WorldGenData whose scriptData / startingParty / initialKnowledge a run
+    // in this world begins with. Null when the file was baked without one.
+    public WorldGenData StartContent { get; }
     public ZoneState[] Zones { get; }
 
     // The kit palette this file was baked against, one resource path per slot.
@@ -46,6 +50,9 @@ public sealed class WorldFileChunkSource : IChunkSource
         Max = header.Max;
         Spawn = header.Spawn;
         SimData = string.IsNullOrEmpty(header.SimDataPath) ? null : GD.Load<SimData>(header.SimDataPath);
+        StartContent = string.IsNullOrEmpty(header.StartContentPath)
+            ? null
+            : GD.Load<WorldGenData>(header.StartContentPath);
         KitSlots = header.KitSlots ?? System.Array.Empty<string>();
         DetailSlots = header.DetailSlots ?? System.Array.Empty<string>();
 

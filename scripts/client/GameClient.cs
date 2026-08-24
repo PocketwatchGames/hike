@@ -570,7 +570,6 @@ public partial class GameClient : Node3D
 	// Held from Init so party members recruited mid-run (RecruitToParty) can be
 	// spawned as Player nodes the same way SpawnParty builds the starting roster.
 	PackedScene _playerScene;
-	WorldGenData _worldGenData;
 	// Accumulator for the once-per-second sun + canopy print gated by
 	// CVars.debugSkyLight. Frame-rate independent; counts deltaTime in
 	// _Process and snaps the line whenever it crosses one second.
@@ -691,12 +690,15 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData, WorldState worldState, LoadingScreen loadingScreen = null)
+	// No WorldGenData parameter: what a run starts with — quests, party, known
+	// concepts — is carried by the WORLD (WorldState.BindStartContent), because a
+	// .hike used to be handed whichever generator resource the menu had selected
+	// and start a run with another world's content.
+	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldState worldState, LoadingScreen loadingScreen = null)
 	{
 		_spawnPosition = playerPosition;
 		_lastCampfirePosition = playerPosition;
 		_playerScene = playerScene;
-		_worldGenData = worldGenData;
 		onHudText += OnHudTextRequested;
 		onDamage += OnDamageRequested;
 		onHeal += OnHealRequested;
@@ -742,7 +744,7 @@ public partial class GameClient : Node3D
 		_world.Initialize(worldState, playerPosition, camera, fogMaterial, () => _player?.GlobalPosition ?? playerPosition);
 		// Bind this world's authored scripted content (quests) onto the runtime sim
 		// state, now that Sim holds the WorldState (WorldGen and .hike-load paths alike).
-		_world.BindScriptData(worldGenData?.scriptData);
+		_world.BindScriptData(worldState?.ScriptData);
 		GD.Print($"[Load] Building world (chunk-mesh fill): {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
 		loadingScreen?.SetProgress(0.75f, "Spawning...");
@@ -772,18 +774,18 @@ public partial class GameClient : Node3D
 		// Sim builds the roster once from the authored templates (idempotent, so a
 		// future disk-load carrying a party isn't rebuilt); we spawn a Player node
 		// per member below.
-		Party party = _world.EnsureParty(worldGenData?.startingParty);
+		Party party = _world.EnsureParty(worldState?.StartingParty);
 
 		// Spawn every member as a Player node: the active member at the spawn
 		// anchor (controlled), the rest evenly ringed around it and inactive
 		// (they idle where placed). Suppress announcements during spawn-time
 		// knowledge application so the starting potion / known recipes don't pop
 		// banners on the first frame — Player.Initialize walks
-		// WorldGenData.initialKnowledge under this gate.
+		// WorldState.InitialKnowledge under this gate.
 		SuppressAnnouncements = true;
 		try
 		{
-			SpawnParty(party, playerScene, worldGenData, playerPosition);
+			SpawnParty(party, playerScene, playerPosition);
 		}
 		finally
 		{
@@ -866,7 +868,7 @@ public partial class GameClient : Node3D
 	// Instantiate one Player node per party member and place them around the
 	// spawn anchor: the active member at the anchor (controlled), the rest
 	// spread evenly on a ring and set inactive. Sets _player to the active one.
-	void SpawnParty(Party party, PackedScene playerScene, WorldGenData worldGenData, Vector3 anchor)
+	void SpawnParty(Party party, PackedScene playerScene, Vector3 anchor)
 	{
 		_partyPlayers.Clear();
 		int activeIndex = party.ActiveIndex;
@@ -887,7 +889,7 @@ public partial class GameClient : Node3D
 				pos = RingPosition(anchor, ringSlot, inactiveCount);
 				ringSlot++;
 			}
-			Player p = SpawnPartyMember(party[i], playerScene, worldGenData, pos, active);
+			Player p = SpawnPartyMember(party[i], playerScene, pos, active);
 			_partyPlayers.Add(p);
 			if (active) { _player = p; }
 		}
@@ -1075,7 +1077,7 @@ public partial class GameClient : Node3D
 			if (_partyPlayers[i] != null && _partyPlayers[i] != _player) { inactiveBefore++; }
 		}
 		Vector3 pos = RingPosition(_lastCampfirePosition, inactiveBefore, inactiveBefore + 1);
-		Player p = SpawnPartyMember(member, _playerScene, _worldGenData, pos, active: false);
+		Player p = SpawnPartyMember(member, _playerScene, pos, active: false);
 		_partyPlayers.Add(p);
 
 		// Drop the player's highlight/current interactive if it still points at the
@@ -1099,14 +1101,14 @@ public partial class GameClient : Node3D
 		return true;
 	}
 
-	Player SpawnPartyMember(PlayerState member, PackedScene playerScene, WorldGenData worldGenData, Vector3 position, bool active)
+	Player SpawnPartyMember(PlayerState member, PackedScene playerScene, Vector3 position, bool active)
 	{
 		Player p = playerScene.Instantiate<Player>();
 		// Only the active (controlled) member's events drive GameClient; inactive
 		// members are wired the moment control switches to them (SwitchControlTo).
 		if (active) { SubscribePlayerEvents(p); }
 		sceneViewport.AddChild(p);
-		p.Initialize(_world, worldGenData, member, position, Vector3.Zero);
+		p.Initialize(_world, member, position, Vector3.Zero);
 		if (!active) { p.SetActive(false); }
 		return p;
 	}

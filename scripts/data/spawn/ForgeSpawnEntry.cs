@@ -34,7 +34,7 @@ public partial class ForgeSpawnEntry : SpawnEntryData
         {
             return;
         }
-        int level = Math.Clamp(WorldGen.ComputeForgeLevel(ws, position, context), levelMin, levelMax);
+        int level = Math.Clamp(context?.ForgeLevel(position) ?? 0, levelMin, levelMax);
         // Resolve the concrete slot once, at bake time: the authored value if pinned,
         // else derived from position. Downstream reads the resolved ForgeSimState.Slot.
         EUpgradeSlot slot = forgeSlot != EUpgradeSlot.None ? forgeSlot : ForgeOffer.SlotFor(position);

@@ -66,7 +66,7 @@ class only if worldgen *outside* the approaches reads it — today that is the
 vertical-extent trio and `maxGradeStep` on `TerrainGenData`, and nothing on
 `ZoneGenData` at all.
 
-**Blending per-zone scalars:** `WorldGen.SampleBlendedZoneGen` has a
+**Blending per-zone scalars:** `ZoneField.SampleBlended` has a
 weights-out overload that hands back the kernel weights, so an approach folds
 its own per-zone knobs from the same weight solve. Use it rather than adding a
 field to `BlendedZoneGen` — that struct deliberately does not grow per approach.
@@ -130,7 +130,7 @@ these are the invariants a new approach owes its consumers:
   level into the channel would make every consumer's `max()` a no-op that hides
   bugs.
 
-  **Consumers must go through `WorldGen.WaterYAt(heightMap, wx, wz)`**, which is
+  **Consumers must go through `TerrainMath.WaterYAt(heightMap, wx, wz)`**, which is
   `max(WATER_LEVEL, GetWaterY(...))`. Comparing against `WATER_LEVEL` alone is
   the bug this channel exists to fix: it says a lake floor 8 voxels above sea
   level is dry land. Chunk fill, the shore-kit bands above and below the
@@ -162,7 +162,7 @@ these are the invariants a new approach owes its consumers:
 - **`Current`** — which way the inland water in each column is MOVING, as a
   world-XZ vector in the normalized `[-1, 1]` units `ChunkState.SetCurrent`
   stores; zero on a still or dry column, and **optional** in the same way
-  `Water` is. `WorldGen.StampRiverCurrents` averages it into the env-cell
+  `Water` is. `WorldFinish.StampRiverCurrents` averages it into the env-cell
   current subgrid the water shader advects its ripples along.
 
   **Only the approach that routed the water can supply this.** It comes off the

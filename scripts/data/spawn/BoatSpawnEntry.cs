@@ -41,10 +41,17 @@ public partial class BoatSpawnEntry : SpawnEntryData
                     int bx = originX + dx;
                     int bz = originZ + dz;
                     if (bx < worldMinX || bx > worldMaxX || bz < worldMinZ || bz > worldMaxZ) { continue; }
-                    // Water-surfaced column: water at sea level, air above.
-                    if (ws.GetBlockWorld(bx, WorldGen.WATER_LEVEL, bz) != Blocks.WaterId
-                        || ws.GetBlockWorld(bx, WorldGen.WATER_LEVEL + 1, bz) != Blocks.AirId) { continue; }
-                    var boatPos = new Vector3(bx + 0.5f, WorldGen.WATER_LEVEL + 1f, bz + 0.5f);
+                    // Wherever this column's water actually stands — a painted
+                    // lake, a carved channel and the sea are all the same
+                    // question, and none of them is guaranteed to sit at a
+                    // fixed Y.
+                    float? surfaceY = VoxelWater.TopOfColumn(ws, bx, bz);
+                    if (!surfaceY.HasValue
+                        || ws.GetBlockWorld(bx, Mathf.FloorToInt(surfaceY.Value), bz) != Blocks.AirId)
+                    {
+                        continue;
+                    }
+                    var boatPos = new Vector3(bx + 0.5f, surfaceY.Value, bz + 0.5f);
                     ws.AddEntity(new BoatSimState(boatPos, 0f, scene));
                     return;
                 }

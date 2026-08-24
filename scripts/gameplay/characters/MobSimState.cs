@@ -139,7 +139,7 @@ public class MobSimState : EntitySimState
     // below.
     public bool Elite;
     // Difficulty tier, stamped at spawn (MobDescriptor.level plus the worldgen
-    // level field — see WorldGen.ComputeMobLevel). Each level scales the mob's
+    // level field — see SpawnContext.MobLevel). Each level scales the mob's
     // health, armor, and outgoing damage by SimData.levelScalePerLevel (~1.5x/level,
     // applied by Mob) and shows as Level+1 pips on the HUD. 0 = base. Persisted via
     // EntitySerializer so the

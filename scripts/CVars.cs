@@ -1941,9 +1941,20 @@ public static class CVars
     // height fields to user://worldgen_debug (outside the project tree).
     // Useful when a game is already running and you want a snapshot without
     // restarting.
+    // Whether a finished Generate keeps its height field and terrain generator
+    // alive for `worldgen_debug` to dump. Off by default: that is ~2MB of
+    // generator scratch pinned for the whole session after the world it made has
+    // been handed off. Turn it on before generating when you want the dump.
+    public static CVarBool worldgenKeepDebugData = new CVarBool("worldgen_keep_debug_data", false);
+
     public static CVar worldgenDebug = new CVar("worldgen_debug", (cvar) =>
     {
-        WorldGen.DumpDebug(Godot.ProjectSettings.GlobalizePath("user://worldgen_debug"));
+        if (WorldGen.LastRun == null)
+        {
+            Godot.GD.Print("worldgen_debug: no run retained. Set worldgen_keep_debug_data 1 before generating.");
+            return;
+        }
+        WorldGen.LastRun.DumpDebug(Godot.ProjectSettings.GlobalizePath("user://worldgen_debug"));
     });
 
 // When true, Main skips the main menu and launches straight into a new game

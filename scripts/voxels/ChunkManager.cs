@@ -329,10 +329,55 @@ public partial class ChunkManager : Node3D
             _fogMaterial.SetShaderParameter("fog_map_inv_size", _fogMap.InvSize);
             _fogMaterial.SetShaderParameter("debug_mode", CVars.fogDebug.Value);
             _fogMaterial.SetShaderParameter("fog_enabled", CVars.fogEnabled.Value);
-            _fogMaterial.SetShaderParameter("water_level", (float)WorldGen.WATER_LEVEL);
+            // water_level is tracked per frame in _Process (UpdateFogWaterLevel);
+            // NO_WATER_PLANE until the first probe, so a world with no water
+            // near the player is never clamped against one.
+            _fogMaterial.SetShaderParameter("water_level", NO_WATER_PLANE);
         }
 
         UpdateLoadedChunks();
+    }
+
+    // Sentinel for "there is no water plane here". Matches the shader's own
+    // default, which leaves both water clamps inert.
+    private const float NO_WATER_PLANE = -1e20f;
+
+    // How far to look for the water the fog shader should clamp against.
+    [Export(PropertyHint.Range, "0,64,1")] public int fogWaterProbeRadius = 12;
+    [Export(PropertyHint.Range, "0,128,1")] public int fogWaterProbeDepth = 48;
+
+    private Vector3I _lastFogWaterVoxel = new(int.MinValue, int.MinValue, int.MinValue);
+
+    // The fog raymarcher needs to know where the water surface is, because water
+    // draws with depth_draw_never: at a water pixel the depth buffer holds the
+    // UNDERWATER TERRAIN, so an unclamped march runs down through the whole water
+    // column and overstates fog coverage on every lake and sea.
+    //
+    // It used to be handed a compile-time constant (the old TerrainMath.SEA_LEVEL,
+    // i.e. Y=0), which is wrong three ways: a mountain lake sits well above it, a
+    // painted world's water sits wherever it was painted, and — the case that
+    // matters most — an open cavern below Y=0 has no water at all and was being
+    // clamped against a waterline that does not exist.
+    //
+    // So probe the real voxels near the player instead, and push the sentinel
+    // when there is no water nearby. Re-probed only when the player's voxel
+    // column changes; the answer cannot move otherwise.
+    private void UpdateFogWaterLevel()
+    {
+        if (_fogMaterial == null)
+        {
+            return;
+        }
+        Vector3 p = _getPlayerPosition();
+        Vector3I voxel = new(Mathf.FloorToInt(p.X), Mathf.FloorToInt(p.Y), Mathf.FloorToInt(p.Z));
+        if (voxel == _lastFogWaterVoxel)
+        {
+            return;
+        }
+        _lastFogWaterVoxel = voxel;
+        using var _prof = Profiler.Sample("ChunkManager.FogWaterProbe");
+        float? surfaceY = VoxelWater.FindNear(_worldData, p, fogWaterProbeRadius, fogWaterProbeDepth);
+        _fogMaterial.SetShaderParameter("water_level", surfaceY ?? NO_WATER_PLANE);
     }
 
     public bool IsChunkLoaded(Vector3I coord)
@@ -354,6 +399,8 @@ public partial class ChunkManager : Node3D
         {
             ProcessMeshRebuildQueue();
         }
+
+        UpdateFogWaterLevel();
 
         Vector3I prevPlayerChunk = _lastPlayerChunkCoord;
         _lastPlayerChunkCoord = Sim.WorldToChunkCoord(_getPlayerPosition());

@@ -150,6 +150,49 @@ Per-feature summaries, most linking to a nested `CLAUDE.md` with the full detail
 
 The world loads from a packed `.hike` file (`WorldFile` / `WorldFileChunkSource`) when `CVars.worldFile` is set, else `WorldGen.Generate()`; chunks are independently addressable via `IChunkSource`, with lighting and entity state baked into each blob. The seam for future async streaming and save-delta layers. See [scripts/voxels/CLAUDE.md](scripts/voxels/CLAUDE.md).
 
+### Building a world: WorldGen vs the painter, and what they share
+
+**`WorldState` is the only output, and after it is handed off nothing reads the
+generator.** Two things produce one: `WorldGen` and the world-map painter's bake.
+The boundary is enforced by where code lives, and there are four files to know:
+
+| File | Is | Rule |
+|---|---|---|
+| `WorldGen` | ONE RUN of the generator — a normal class you instantiate, not a static bag | Owns `ZoneField`, the level-noise fields, the road columns, the path hints, the height map. Nothing outside a run can see any of it. |
+| `WorldFinish` | the passes a finished world derives from its OWN voxels | **Both producers end on `WorldFinish.Finish`.** Grades, detail scatter, the roof/sky/classify air pipeline, fog, wind, water currents, cascades. |
+| `TerrainMath` | pure world-shape math, no state at all | `SEA_LEVEL`, `DeriveSeed`, `MakePerlin`, `StampGradeShapes`, `FootprintPlateauY`, the voxel predicates. |
+| `ZoneField` | where THIS world's zones are and how they blend | Per-run object. Handed to the terrain approach; never a global. |
+
+Four rules fall out, each of which was a real bug:
+
+- **A derived channel goes in `WorldFinish`, never on `WorldGen`.** Several of the
+  channels `.hike` SERIALIZES are derived at the end from the finished geometry —
+  `FogDensity`, `EnvTag`, `Interiorness`, `CurrentX/Z`, the shape channel, the
+  detail scatter. `Main` relights a loaded world but does not RECLASSIFY it, so a
+  channel the painter didn't know to call baked as zeros and stayed zero: painted
+  worlds had no fog anywhere, read `Outdoor` inside every building and tunnel, and
+  had no water currents. Nothing errored. Put a new pass in the `Finish` list and
+  both kinds of world get it.
+- **Per-run state is a FIELD on the run, never a static.** The statics this
+  replaced outlived their run, were never cleared, and were readable from the
+  painter's background bake — which meant a bake could silently read whichever
+  world a previous `Generate` had left behind.
+- **A spawn entry asks its `SpawnContext`, not a generator.** `SpawnContext.MobLevel`
+  / `ForgeLevel` are the seam: worldgen installs its zone-band sampler on the
+  contexts it builds, the painter installs its painted difficulty layer. Reaching a
+  static sampler instead is how painted mobs came out at their species base.
+- **Nothing outside generation may assume where water is.** `TerrainMath.SEA_LEVEL`
+  is the waterline a GENERATED world is built around, not a claim about the world:
+  a painted lake sits where it was painted and a carve can open a dry cavern below
+  sea level. Ask `WaterSurface`, which reads the voxels — it is also the one
+  implementation of that query, after four call sites had grown their own.
+
+What a run STARTS with — quests, party, initial knowledge — rides on `WorldState`
+(`BindStartContent`), not on the `WorldGenData` passed to the client. A `.hike`
+records the authoring resource's path in its header and re-resolves them on load;
+before that a loaded world took all three from whichever template the menu had
+selected.
+
 ### World Map Painting Tool (`scripts/worldmap/`, `scripts/data/worldmap/`)
 
 The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`). See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
@@ -243,7 +286,7 @@ Flat ground marks (scorch, footprints, blood) are **not** Godot `Decal`s (decals
 
 A cascade's drop is **air** in the voxel grid and stays air (standing water there floated the player back up it), so the fall is drawn by an entity instead.
 
-**Where the falls are is read off the FINISHED VOXELS, under one rule** (`WaterfallFinder`, called by `WorldGen.PlaceWaterfalls`): wherever a water voxel sits beside an air voxel, the topmost air voxel of that air span with water beside it is a **lip**, and the sheet runs from there down to the floor of the span. Lips group 8-connected and by the level they pour from — a five-wide sheet is one cascade wanting one effect, an outside corner turns through a diagonal so its two perpendicular strips must reach the same entity, and two pools at different heights spilling past each other stay two falls. Nothing shorter than the smallest authored tier becomes an entity. There were two derivations of this before, neither reading the world: worldgen walked a scratch water surface down its own staircase and the map painter tested its painted height/water layers, so each saw only the falls its own pass had a notion of and neither saw one made by a carve, a stamped scene or a hand edit. That is the whole reason falls went missing.
+**Where the falls are is read off the FINISHED VOXELS, under one rule** (`WaterfallFinder`, called by `WorldFinish.PlaceWaterfalls`): wherever a water voxel sits beside an air voxel, the topmost air voxel of that air span with water beside it is a **lip**, and the sheet runs from there down to the floor of the span. Lips group 8-connected and by the level they pour from — a five-wide sheet is one cascade wanting one effect, an outside corner turns through a diagonal so its two perpendicular strips must reach the same entity, and two pools at different heights spilling past each other stay two falls. Nothing shorter than the smallest authored tier becomes an entity. There were two derivations of this before, neither reading the world: worldgen walked a scratch water surface down its own staircase and the map painter tested its painted height/water layers, so each saw only the falls its own pass had a notion of and neither saw one made by a carve, a stamped scene or a hand edit. That is the whole reason falls went missing.
 
 **The sheet is a jet swept off that edge, not the water that would stand in the drop.** `WaterfallMeshBuilder` traces the ballistic profile from an authored exit SPEED (`pourSpeed`) — the water leaves horizontally and gravity bends it over, so the throw at the foot is `v·√(2·drop/g)` and GROWS with the drop; it lands `landingDepth` inside the pool below, and closes the wedge between two perpendicular strips fed by the same pool column with a quarter-turn corner skirt. Skinning the voxel columns the fall passes through was tried first and is wrong twice over: those columns are a *staircase* walked out from the lip, so they draw a slab of standing water reaching out over the terrain, notched wherever the staircase stepped — and their top faces lay flat water on the rock shoulders beside the drop. Samples are bunched toward the lip (`shoulderBias`): the profile's tangent is horizontal at the very top, and evenly spaced ones put the first polygon past the turn, so the sheet reads as leaving the pool at an angle. The reach was authored as a flat distance in metres first, which inverts the physics: every fall threw its water the same distance out whatever its height, so a 1 m weir arced as far off its lip as a 12 m cascade and read as a chute.
 

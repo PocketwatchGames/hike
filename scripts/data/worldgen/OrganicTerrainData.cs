@@ -21,9 +21,10 @@ using Godot;
 [GlobalClass]
 public partial class OrganicTerrainData : TerrainGenData
 {
-    public override ITerrainGenerator CreateGenerator(WorldGenData genData, int worldSeed)
+    public override ITerrainGenerator CreateGenerator(WorldGenData genData, int worldSeed,
+        ZoneField zones)
     {
-        return new OrganicTerrainGen(this, genData, worldSeed);
+        return new OrganicTerrainGen(this, genData, worldSeed, zones);
     }
 
     // Voxels per unit of ZoneGenData.elevation / elevationRange. Those fields

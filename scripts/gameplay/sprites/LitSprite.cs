@@ -617,9 +617,10 @@ public partial class LitSprite : SpriteBase
         float? waterY;
         if (voxelChanged)
         {
-            using (Profiler.Sample("LitSprite.FindWaterSurfaceY"))
+            using (Profiler.Sample("LitSprite.WaterSurface"))
             {
-                waterY = FindWaterSurfaceY(src);
+                waterY = VoxelWater.FindNear(Sim.Current?.WorldState, src,
+                    WATER_SEARCH_XZ_RADIUS, WaterReflectionSearchDepth);
             }
             _lastReflectionVoxel = voxel;
             _cachedWaterY = waterY ?? 0f;
@@ -675,87 +676,9 @@ public partial class LitSprite : SpriteBase
         }
     }
 
-    // XZ search radius (in voxels) for the water surface lookup. Mirrors
-    // MultimeshPropSprite.WATER_SEARCH_XZ_RADIUS. The sprite's own column
-    // is checked first; if no water there (player standing right at the
-    // shoreline whose floored XZ lands on dry ground), expand outward in
-    // concentric square rings until we find a water column. Same per-body
-    // water surface lands at the same Y across the whole pond, so the
-    // first hit's Y is the right reflection plane regardless of which
-    // neighbor column it came from.
+    // XZ search radius (in voxels) for the water surface lookup. The sprite's
+    // own column is checked first; if it holds no water (standing right at a
+    // shoreline whose floored XZ lands on dry ground), the search expands
+    // outward in rings.
     private const int WATER_SEARCH_XZ_RADIUS = 4;
-
-    // Return the world Y of the nearest water surface within
-    // WATER_SEARCH_XZ_RADIUS XZ voxels. Handles two cases per column:
-    //   (a) Sprite IS in water (swimming): walk upward until we exit
-    //       water; the exit voxel's bottom face is the surface.
-    //   (b) Sprite is above water: walk downward until we hit water;
-    //       that voxel's top face is the surface.
-    // Null if no water is within search depth in any of the rings.
-    private float? FindWaterSurfaceY(Vector3 world)
-    {
-        WorldState ws = Sim.Current?.WorldState;
-        if (ws == null)
-        {
-            return null;
-        }
-        int cx = Mathf.FloorToInt(world.X);
-        int cz = Mathf.FloorToInt(world.Z);
-        int startY = Mathf.FloorToInt(world.Y);
-
-        // Ring-expand outward: r=0 is just (cx, cz); r=1 is the 8 cells
-        // around it; etc. Skip cells on the interior of each ring (only
-        // the boundary contributes new cells), so each cell is checked
-        // exactly once.
-        for (int r = 0; r <= WATER_SEARCH_XZ_RADIUS; r++)
-        {
-            for (int dx = -r; dx <= r; dx++)
-            {
-                for (int dz = -r; dz <= r; dz++)
-                {
-                    if (r > 0 && Mathf.Abs(dx) != r && Mathf.Abs(dz) != r)
-                    {
-                        continue;
-                    }
-                    float? y = FindWaterInColumn(ws, cx + dx, startY, cz + dz);
-                    if (y.HasValue)
-                    {
-                        return y;
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    // Vertical search within one XZ column. Inside-water case walks up
-    // until the column exits water; outside-water case walks down until
-    // it enters water. Returns the world Y of the surface (the air-voxel
-    // floor sitting directly above the topmost water voxel). Null if no
-    // water within WaterReflectionSearchDepth either way.
-    private float? FindWaterInColumn(WorldState ws, int wx, int startY, int wz)
-    {
-        if (ws.GetBlockWorld(wx, startY, wz) == Blocks.WaterId)
-        {
-            int maxY = startY + WaterReflectionSearchDepth;
-            for (int y = startY + 1; y <= maxY; y++)
-            {
-                if (ws.GetBlockWorld(wx, y, wz) != Blocks.WaterId)
-                {
-                    return y;
-                }
-            }
-            return null;
-        }
-
-        int minY = startY - WaterReflectionSearchDepth;
-        for (int y = startY - 1; y >= minY; y--)
-        {
-            if (ws.GetBlockWorld(wx, y, wz) == Blocks.WaterId)
-            {
-                return y + 1;
-            }
-        }
-        return null;
-    }
 }

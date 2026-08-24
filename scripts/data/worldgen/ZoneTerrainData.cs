@@ -9,7 +9,7 @@ using Godot;
 // for a zone — how high it sits, how much relief it gets, whether it is forced
 // flat — and they are kernel-blended across zone borders like the other
 // per-position scalars. Anything only one approach reads goes on the subclass
-// and is blended by that approach itself (see WorldGen.SampleBlendedZoneGen's
+// and is blended by that approach itself (see ZoneField.SampleBlended's
 // weights-out overload), so this base never grows when an approach is added.
 //
 // A zone whose terrain slot is null, or holds another approach's subclass,

@@ -46,5 +46,9 @@ public abstract partial class TerrainGenData : Resource
     // the world data and the seed to the approach's ITerrainGenerator, which
     // lives in its own file under scripts/voxels/terrain/. Keeping the body
     // that thin is deliberate — no generation logic belongs on a Resource.
-    public abstract ITerrainGenerator CreateGenerator(WorldGenData genData, int worldSeed);
+    // `zones` is the run's zone placement + blend kernel. Approaches read
+    // per-zone scalars through it; it is never process state, so two worlds
+    // generating at once cannot see each other's zones.
+    public abstract ITerrainGenerator CreateGenerator(WorldGenData genData, int worldSeed,
+        ZoneField zones);
 }

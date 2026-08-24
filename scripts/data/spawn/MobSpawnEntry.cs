@@ -96,7 +96,9 @@ public partial class MobSpawnEntry : SpawnEntryData
         // so the mob's vitals are scaled to it at construction (before this state is
         // baked into the .hike). The constructor forces non-dangerous mobs to 0, so
         // computing a tier here for prey / villagers is harmless.
-        int level = WorldGen.ComputeMobLevel(ws, position, descriptor.level, context);
+        int level = context != null
+            ? context.MobLevel(position, descriptor.level)
+            : Math.Max(0, descriptor.level);
         MobSimState state = descriptor.CreateState(position, rotationY, levelOverride: level, levelScalePerLevel: ws.SimData?.levelScalePerLevel ?? 1.5f);
         if (state == null)
         {

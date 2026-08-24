@@ -80,8 +80,9 @@ public partial class Main : Node
 			// terrain. ChunkMesh.SetTerrains is deliberately NOT called here — it
 			// touches RenderingServer and generation has no use for it.
 			Blocks.Bind();
-			WorldGen.Generate(defaultWorldGenData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE);
-			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(debugDumpDir));
+			var debugRun = new WorldGen(defaultWorldGenData, DEFAULT_WORLD_SEED);
+			debugRun.Generate(DEFAULT_WORLD_SIZE);
+			debugRun.DumpDebug(ProjectSettings.GlobalizePath(debugDumpDir));
 			GetTree().Quit();
 			return;
 		}
@@ -92,8 +93,9 @@ public partial class Main : Node
 		string terrainDumpDir = CVars.worldgenTerrainDump.Value;
 		if (!string.IsNullOrEmpty(terrainDumpDir))
 		{
-			WorldGen.GenerateTerrainOnly(defaultWorldGenData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE);
-			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(terrainDumpDir));
+			var terrainRun = new WorldGen(defaultWorldGenData, DEFAULT_WORLD_SEED);
+			terrainRun.GenerateTerrainOnly(DEFAULT_WORLD_SIZE);
+			terrainRun.DumpDebug(ProjectSettings.GlobalizePath(terrainDumpDir));
 			GetTree().Quit();
 			return;
 		}
@@ -296,7 +298,12 @@ public partial class Main : Node
 			if (worldState == null)
 			{
 				WorldGenData genData = worldGenData;
-				worldState = await RunOffThread(() => WorldGen.Generate(genData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE));
+				// The run owns the height field and the terrain generator (~2 MB
+				// of scratch at the default world size). Kept only while the
+				// console dump might ask for it — see WorldGen.LastRun.
+				var run = new WorldGen(genData, DEFAULT_WORLD_SEED);
+				worldState = await RunOffThread(() => run.Generate(DEFAULT_WORLD_SIZE));
+				WorldGen.LastRun = CVars.worldgenKeepDebugData.Value ? run : null;
 				// WorldGen sets ws.Spawn from genData.playerSpawnPosition (surface-
 				// resolved); read it back so the player lands at the authored start
 				// area, mirroring the file/cache paths above.
@@ -401,7 +408,7 @@ public partial class Main : Node
 		AddChild(_currentScreen);
 		GD.Print($"[Load] Scene loaded: {phaseSw.ElapsedMilliseconds}ms");
 		loadingScreen.SetProgress(0.6f, "Building world...");
-		(_currentScreen as GameClient).Init(playerPosition, playerScene, worldGenData, worldState, loadingScreen);
+		(_currentScreen as GameClient).Init(playerPosition, playerScene, worldState, loadingScreen);
 		// Hand the persistent music director the fresh session so it can
 		// subscribe to combat/world events; it auto-detaches on quit.
 		MusicManager.Instance?.BindGame(_currentScreen as GameClient);
@@ -478,6 +485,11 @@ public partial class Main : Node
 		worldState.Spawn = source.Spawn;
 		worldState.Zones = source.Zones;
 		worldState.Regions = source.Regions;
+		// This world's own quests, party and starting knowledge. Without it the
+		// run took all three from whichever WorldGenData the menu had selected —
+		// another world's content, and for a hand-painted world usually no
+		// quests at all.
+		worldState.BindStartContent(source.StartContent);
 
 		// Non-chunked globals (the companion) — filed into the persistent store
 		// rather than a chunk bucket, mirroring how WorldFile.Write emitted them.

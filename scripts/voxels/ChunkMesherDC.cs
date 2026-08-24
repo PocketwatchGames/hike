@@ -840,7 +840,7 @@ public static class ChunkMesherDC
 
         // --- Climbable-ledge mark --------------------------------------------
         // A mantleable lip wears the SAME climb-growth overlay the climbable-wall
-        // pass paints down a tall cliff (WorldGen.StampClimbSurfaces), so the two
+        // pass paints down a tall cliff (WorldFinish.StampClimbSurfaces), so the two
         // affordances speak one visual language instead of two that have to be
         // kept in sync. It is the top voxel of a two-voxel wall, so marking that
         // voxel puts the crust on the surface you mantle ONTO and the face below

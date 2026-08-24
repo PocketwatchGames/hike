@@ -11,7 +11,7 @@ using Godot;
 // To ADD a terrain approach, read scripts/data/worldgen/CLAUDE.md — the recipe,
 // the HeightMap contract a new approach owes its consumers, and the headless
 // verification loop are all there. Nothing in this file should need to change.
-public static class WorldGen
+public sealed class WorldGen
 {
     // Manual logic-version stamp. Bump when ANY change to this file (or any
     // helper it calls) would alter generated output for the same inputs —
@@ -19,7 +19,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 128;
+    public const int WORLDGEN_VERSION = 129;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -30,44 +30,53 @@ public static class WorldGen
     public const int SKIP_INTERACTIVES = 8;  // loot (surface + cave) + chests (cave)
     public const int SKIP_ALL = SKIP_DETAILS | SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES;
 
-    // The WorldGenData for the run currently inside Generate(). Set at the top
-    // of Generate alongside the palettes, so the many free-standing static
-    // helpers below can read authored tuning (blend radii, overlay scatter,
-    // ramp slope, etc.) without threading genData through every signature —
-    // same lifetime/rationale as the active palettes. The `?? <literal>`
-    // fallbacks at the few read sites keep behaviour identical if a helper is
-    // ever called outside a Generate run (e.g. a debug dump before first gen).
-    private static WorldGenData _activeGenData;
+    // ONE RUN. Everything below is per-generate state, and it is instance state
+    // for a reason: it used to be a handful of mutable statics set at the top of
+    // Generate and never cleared, so a run's tuning outlived it, helpers shared
+    // with the map painter could read it without holding it, and the painter's
+    // BACKGROUND bake saw whichever world a previous Generate had left behind.
+    // As fields on a run object none of that is expressible.
+    private readonly WorldGenData _genData;
+    private readonly int _worldSeed;
 
-    // Per-run zone-placement context (world chunk bounds, spawn chunk, edge
-    // noise), set at the top of Generate alongside _activeGenData. PickZoneIndex
-    // reads it to evaluate each PlacedZone's ZoneBounds.
-    private static ZoneBoundsContext _zoneBoundsContext;
+    // Where this world's zones are and how they blend. Built once the world
+    // bounds are known, and handed to the terrain approach as well.
+    private ZoneField _zones;
 
-    // Per-run difficulty fields, built at the top of Generate from WorldGenData's
-    // zone-leveling knobs. Independently seeded so a zone's monster tier and forge
-    // tier vary across the world separately. Sampled by ComputeMobLevel /
-    // ComputeForgeLevel at spawn placement — kept as static per-run state for the
-    // same reason as _activeGenData (the spawn passes don't thread noise channels
-    // through). Null outside a Generate run → the compute methods return 0.
-    private static FastNoiseLite _mobLevelNoise;
-    private static FastNoiseLite _forgeLevelNoise;
+    // Per-run difficulty fields, independently seeded so a zone's monster tier
+    // and its forge tier vary across the world separately. Reached by the spawn
+    // entries through the SpawnContext seam rather than by a static.
+    private FastNoiseLite _mobLevelNoise;
+    private FastNoiseLite _forgeLevelNoise;
 
-    // Road tread columns laid so far by CarveRoads for the current run. Read by
-    // the pathfinder so later roads prefer to merge onto earlier ones. Same
-    // static-lifetime rationale as _activeGenData. Reset at the top of CarveRoads.
-    private static HashSet<(int, int)> _roadColumns = new();
+    // Road tread columns laid so far by CarveRoads. Read by the pathfinder so
+    // later roads prefer to merge onto earlier ones.
+    private HashSet<(int, int)> _roadColumns = new();
 
-    // Path hints contributed by the stamped subscenes of the current run — the
-    // same entries registered individually in WorldState.PointsOfInterest, kept
-    // here as well because the road pass needs them in two shapes: grouped by
-    // placement (so a road can name a PLACEMENT and get its nearest hint) and in
-    // registration order (so the spur pass runs in an order that doesn't depend
-    // on Dictionary internals — worldgen has to be reproducible). Same
-    // static-lifetime rationale as _activeGenData; both reset by
-    // RegisterSubscenePathHints.
-    private static readonly Dictionary<string, List<PathHint>> _pathHintsByPlacement = new();
-    private static readonly List<PathHint> _pathHints = new();
+    // Path hints contributed by the stamped subscenes — the same entries
+    // registered individually in WorldState.PointsOfInterest, kept here as well
+    // because the road pass needs them in two shapes: grouped by placement (so a
+    // road can name a PLACEMENT and get its nearest hint) and in registration
+    // order (so the spur pass runs in an order that doesn't depend on Dictionary
+    // internals — worldgen has to be reproducible).
+    private readonly Dictionary<string, List<PathHint>> _pathHintsByPlacement = new();
+    private readonly List<PathHint> _pathHints = new();
+
+    // The most recent run, for the `worldgen_debug` console command — the one
+    // caller that wants a dump without holding the run that made the world.
+    //
+    // Main sets it ONLY when CVars.worldgenKeepDebugData is on, because a run
+    // pins its height field and its terrain generator (~2 MB of scratch at the
+    // default world size) for as long as anything references it, and that is
+    // generator scaffolding outliving the world it produced. Off by default, so
+    // an ordinary session drops all of it the moment Generate returns.
+    public static WorldGen LastRun;
+
+    public WorldGen(WorldGenData genData, int worldSeed)
+    {
+        _genData = genData;
+        _worldSeed = worldSeed;
+    }
 
     // One authored path hint, resolved to world space. HintTag selects the tread
     // an auto-linked spur is carved with (WorldGenData.pathHintProfiles);
@@ -93,7 +102,7 @@ public static class WorldGen
     // ZoneIndex of the chunk owning (wx, wy, wz). Falls back to 0 if the
     // chunk isn't loaded — fine for pre-streaming worldgen which generates
     // every chunk before this gets called.
-    private static int ZoneIndexAtWorld(WorldState ws, int wx, int wy, int wz)
+    private int ZoneIndexAtWorld(WorldState ws, int wx, int wy, int wz)
     {
         Vector3I cc = new Vector3I(
             (int)System.Math.Floor((double)wx / ChunkState.SIZE),
@@ -120,26 +129,6 @@ public static class WorldGen
         ( 0,  0, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_FULL }),
         ( 0,  1, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_FULL }),
     };
-
-    // World y at and below this level is filled with water wherever terrain
-    // doesn't reach up to it. Terrain perlin noise is allowed to dip below
-    // this value, producing natural lakes and oceans. Set to 0 so the
-    // shoreline plateau (where land meets sea) sits at y = 0 — height
-    // numbers in the editor / debug dumps now read directly as "voxels
-    // above sea level". Land starts at y = 1; water fills y ≤ 0.
-    public const int WATER_LEVEL = 0;
-
-    // The waterline AT ONE COLUMN: the global sea, or the inland river / lake
-    // surface a terrain approach put there, whichever is higher. Every pass that
-    // used to compare against WATER_LEVEL directly goes through this — chunk
-    // fill, the shore-kit bands, the dry-land tests and road passability — so
-    // inland water above sea level is expressible at all. Approaches that make
-    // no inland water leave HeightMap.Water null and this collapses back to the
-    // constant.
-    public static int WaterYAt(HeightMap heightMap, int wx, int wz)
-    {
-        return Math.Max(WATER_LEVEL, heightMap.GetWaterY(wx, wz));
-    }
 
     // Ground-hugging fog. Per-zone humidity is treated as a "fog volume"
     // poured into the zone's terrain like water — bucket-fills the lowest
@@ -188,43 +177,18 @@ public static class WorldGen
     // Tread width rolls for the spurs auto-linking path hints to the network.
     private const int SEED_SALT_PATH_HINT = 0x19;
 
-    // Stable, process-independent mix of three ints. System.HashCode.Combine
-    // seeds itself with a process-random salt, so it would re-randomize
-    // world-gen on every launch — use this anywhere worldgen needs a
-    // deterministic seed.
-    private static int StableMix(int a, int b, int c)
-    {
-        unchecked
-        {
-            uint h = (uint)a * 0x9E3779B1u;
-            h ^= (uint)b * 0x85EBCA77u;
-            h ^= (uint)c * 0xC2B2AE3Du;
-            h = ((h >> 16) ^ h) * 0x85EBCA6Bu;
-            h = ((h >> 13) ^ h) * 0xC2B2AE35u;
-            h = (h >> 16) ^ h;
-            return (int)h;
-        }
-    }
-
-    // Mix worldSeed with a per-channel salt to produce a stable sub-seed.
-    // Must be deterministic across runs — see StableMix.
-    public static int DeriveSeed(int worldSeed, int salt)
-    {
-        return StableMix(worldSeed, salt, 0);
-    }
-
     // Lerp a per-zone [bandMin, bandMax] difficulty band by `noise` at `position`.
     // Raw Perlin FBm only spans ~±0.55 and clusters near 0, so a plain *0.5+0.5
     // map crushes ~90% of the world into the middle of the band. Divide by the
     // (smaller) spread magnitude and clamp so columns populate the band's extremes
     // too (see zoneLevelNoiseSpread). Returns 0 if the noise isn't built.
-    private static int SampleBandedLevel(Vector3 position, float bandMin, float bandMax, FastNoiseLite noise)
+    private int SampleBandedLevel(Vector3 position, float bandMin, float bandMax, FastNoiseLite noise)
     {
         if (noise == null)
         {
             return 0;
         }
-        float spread = Mathf.Max(0.01f, _activeGenData.zoneLevelNoiseSpread);
+        float spread = Mathf.Max(0.01f, _genData.zoneLevelNoiseSpread);
         float n01 = Mathf.Clamp(noise.GetNoise2D(position.X, position.Z) / spread * 0.5f + 0.5f, 0f, 1f);
         return Mathf.RoundToInt(Mathf.Lerp(bandMin, bandMax, n01));
     }
@@ -233,23 +197,15 @@ public static class WorldGen
     // ForgeLevelMax] band lerped by the forge-level noise field — independent of
     // the monster field so a zone's forges and monsters vary in difficulty
     // separately. The band is kernel-blended across zone borders so it crossfades
-    // rather than snapping at a biome seam. Returns 0 outside a Generate run.
-    // A baker supplying its own difficulty field (the world-map painter) answers
-    // this itself through the context — see SpawnContext.ForgeLevelOverride.
-    public static int ComputeForgeLevel(WorldState ws, Vector3 position, SpawnContext context)
+    // rather than snapping at a biome seam.
+    private int ForgeLevelAt(Vector3 position)
     {
-        if (context?.ForgeLevelOverride != null)
-        {
-            return context.ForgeLevelOverride(position);
-        }
-
-        WorldGenData genData = _activeGenData;
-        if (genData == null || _forgeLevelNoise == null)
+        if (_forgeLevelNoise == null)
         {
             return 0;
         }
-        BlendedZoneGen bz = SampleBlendedZoneGen(
-            Mathf.FloorToInt(position.X), Mathf.FloorToInt(position.Z), genData.ZoneGens);
+        BlendedZoneGen bz = _zones.SampleBlended(
+            Mathf.FloorToInt(position.X), Mathf.FloorToInt(position.Z));
         return SampleBandedLevel(position, bz.ForgeLevelMin, bz.ForgeLevelMax, _forgeLevelNoise);
     }
 
@@ -260,36 +216,41 @@ public static class WorldGen
     // [MobLevelMin, MobLevelMax]; either way the band is lerped by the same
     // monster-level noise field, so a cave inherits the difficulty gradient of the
     // ground above it. The total is clamped to [0, mobLevelCap].
+    //
     // Sunlight isn't baked yet when mobs are placed (it runs after prop/mob
     // scatter), so "underground" is a direct upward solid scan rather than a
-    // sky-exposure read. Called per worldgen mob spawn.
-    // A baker supplying its own difficulty field (the world-map painter) answers
-    // this itself through the context — see SpawnContext.MobLevelOverride.
-    public static int ComputeMobLevel(WorldState ws, Vector3 position, int baseLevel,
-        SpawnContext context)
+    // sky-exposure read.
+    private int MobLevelAt(WorldState ws, Vector3 position, int baseLevel)
     {
-        if (context?.MobLevelOverride != null)
-        {
-            return context.MobLevelOverride(position, baseLevel);
-        }
-
-        WorldGenData genData = _activeGenData;
-        if (genData == null || _mobLevelNoise == null)
+        if (_mobLevelNoise == null)
         {
             return Math.Max(0, baseLevel);
         }
-        BlendedZoneGen bz = SampleBlendedZoneGen(
-            Mathf.FloorToInt(position.X), Mathf.FloorToInt(position.Z), genData.ZoneGens);
-        bool under = IsUnderground(ws, position, genData.mobLevelUndergroundProbe);
+        BlendedZoneGen bz = _zones.SampleBlended(
+            Mathf.FloorToInt(position.X), Mathf.FloorToInt(position.Z));
+        bool under = IsUnderground(ws, position, _genData.mobLevelUndergroundProbe);
         float bandMin = under ? bz.UndergroundMobLevelMin : bz.MobLevelMin;
         float bandMax = under ? bz.UndergroundMobLevelMax : bz.MobLevelMax;
         int level = baseLevel + SampleBandedLevel(position, bandMin, bandMax, _mobLevelNoise);
-        return Math.Clamp(level, 0, genData.mobLevelCap);
+        return Math.Clamp(level, 0, _genData.mobLevelCap);
+    }
+
+    // Every context worldgen hands to a spawn entry carries THIS run's difficulty
+    // fields, through the same seam the world-map painter uses for its painted
+    // difficulty layer. That is why no spawn entry has to know a generator
+    // exists: it asks its context, and whichever producer built the context
+    // answers. Reaching a static sampler instead was how a painted world's mobs
+    // came out at their species base and its forges at level 0.
+    private SpawnContext Ctx(WorldState ws, SpawnContext context)
+    {
+        context.MobLevelOverride = (pos, baseLevel) => MobLevelAt(ws, pos, baseLevel);
+        context.ForgeLevelOverride = pos => ForgeLevelAt(pos);
+        return context;
     }
 
     // True if a solid voxel sits within `probe` voxels straight above the spawn —
     // i.e. the mob is in a cave, tunnel, or under a roof rather than open sky.
-    private static bool IsUnderground(WorldState ws, Vector3 position, int probe)
+    private bool IsUnderground(WorldState ws, Vector3 position, int probe)
     {
         int wx = Mathf.FloorToInt(position.X);
         int wy = Mathf.FloorToInt(position.Y);
@@ -309,27 +270,34 @@ public static class WorldGen
     // built, so terrain can't outgrow its own world. The extent below is a
     // one-chunk placeholder that only has to be legal until then; nothing reads
     // Y before the fit.
-    public static WorldState Generate(WorldGenData genData, int worldSeed, Vector2I worldSize)
+    public WorldState Generate(Vector2I worldSize)
     {
-        _activeGenData = genData;
-        _mobLevelNoise = MakePerlin(DeriveSeed(worldSeed, SEED_SALT_MOBLEVEL), genData.zoneLevelNoiseFrequency, 2);
-        _forgeLevelNoise = MakePerlin(DeriveSeed(worldSeed, SEED_SALT_FORGELEVEL), genData.zoneLevelNoiseFrequency, 2);
+        // Aliased into locals, and the passes below take them as PARAMETERS
+        // rather than reading the fields. That is deliberate: a pass that has to
+        // be handed what it needs cannot quietly grow a dependency on run state
+        // nobody gave it, which is how the statics these replaced spread.
+        WorldGenData genData = _genData;
+        int worldSeed = _worldSeed;
+
+        _mobLevelNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_MOBLEVEL), genData.zoneLevelNoiseFrequency, 2);
+        _forgeLevelNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_FORGELEVEL), genData.zoneLevelNoiseFrequency, 2);
 
         var min = new Vector3I(-worldSize.X / 2, 0, -worldSize.Y / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, 0, min.Z + worldSize.Y - 1);
         var ws = new WorldState(min, max, genData.simData,
             KitPalette.Build(genData.kitPalette, genData.ZoneGens));
+        ws.BindStartContent(genData);
 
         // Zone-placement context. The edge-noise channel wobbles box/circle zone
         // borders; sampled at chunk coords so the border resolves per chunk and
         // the existing blend kernel softens it further. Low frequency → broad,
         // gentle waves rather than a jagged fringe.
-        var boundsNoise = MakePerlin(DeriveSeed(worldSeed, SEED_SALT_ZONEBOUNDS), 0.15f, 2);
+        var boundsNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_ZONEBOUNDS), 0.15f, 2);
         var spawnChunk = new Vector2I(
             (int)Math.Floor((double)genData.playerSpawnPosition.X / ChunkState.SIZE),
             (int)Math.Floor((double)genData.playerSpawnPosition.Z / ChunkState.SIZE));
-        _zoneBoundsContext = new ZoneBoundsContext(min, max, spawnChunk,
-            (cx, cz) => boundsNoise.GetNoise2D(cx, cz));
+        _zones = new ZoneField(genData, new ZoneBoundsContext(min, max, spawnChunk,
+            (cx, cz) => boundsNoise.GetNoise2D(cx, cz)));
 
         BuildZoneStates(ws, genData, worldSeed);
         BuildRegionStates(ws, genData);
@@ -339,8 +307,8 @@ public static class WorldGen
         // The authored TerrainGenData subclass IS the choice of algorithm — it
         // builds the one generator this run drives. Everything below this line
         // is approach-agnostic and reads only the HeightMap that comes out.
-        TerrainGenData terrain = TerrainOf(genData);
-        ITerrainGenerator terrainGen = terrain.CreateGenerator(genData, worldSeed);
+        TerrainGenData terrain = TerrainMath.TerrainOf(genData);
+        ITerrainGenerator terrainGen = terrain.CreateGenerator(genData, worldSeed, _zones);
 
         // Build the integer height field once up front. Chunk and prop
         // generation read from this map instead of re-evaluating noise per
@@ -383,7 +351,7 @@ public static class WorldGen
 
         // Tag the submerged shell as KIT_UNDERWATER. Runs after every chunk
         // (and its water voxels) exist so we can check actual water adjacency
-        // instead of "wy <= WATER_LEVEL" — a y-only rule paints buried rock
+        // instead of "wy <= TerrainMath.SEA_LEVEL" — a y-only rule paints buried rock
         // under above-water cliffs as underwater, and the mesher's 27-voxel
         // kit vote then bleeds sand onto cliff faces nowhere near water.
         TagSubmergedKits(ws, genData, heightMap);
@@ -399,19 +367,6 @@ public static class WorldGen
         // pass below anchors placements to Surface, not the authored Height.
         DeriveSurface(ws, heightMap);
 
-        // One-off test stamp for underground-water visuals. Carves a wide
-        // shallow cavern inland in the mountain zone (toward the desert
-        // border) with the ceiling capped at the first plateau above water.
-        // Will not survive pure worldgen — remove or gate this call once
-        // the underwater shader work lands.
-        //GenerateTestUnderwaterLake(ws, heightMap);
-
-        // Place fog after all terrain is final. The pass skips enclosed
-        // voxels (tunnels, caves, anything with solid geometry directly
-        // overhead) so fog only shows up in genuinely open-to-sky air above
-        // water level.
-        GenerateFog(ws, genData, heightMap);
-
         // Mark every buried solid voxel adjacent to carved air/water as Y.
         // Runs after all terrain and cave carving, so it sees the final
         // geometry. Catches cave ceilings, floors, walls, and noise-carved
@@ -420,17 +375,6 @@ public static class WorldGen
         // somewhere in the column) keeps the outdoor surface voxel untouched
         // so plateau vs. ramp behavior at the surface is preserved.
         MarkCaveSurfaceShapes(ws, genData);
-
-        // Per-voxel neighborhood slope pass: stamp Dirt on 1-voxel
-        // bumps, walkable ramps, and small plateau steps. The shader's
-        // per-fragment slope on a box-smoothed normal cannot see features the
-        // smoothing averages away; this authored signal puts them back.
-        // Currently disabled — the ±EdgeScanWindow / diff-threshold heuristic
-        // doesn't map cleanly to the terrain shapes we actually generate, so
-        // overlays end up in the wrong places. Revisit once we have a clearer
-        // read on which features need the dirt treatment (probably driven by
-        // authored tags from the editor rather than derived from geometry).
-        // StampEdgeDirt(ws);
 
         // Scatter dirt patches on Surface-kit voxels. Noise-driven placement is
         // a rough starting point so the authored dirt art shows up in generated
@@ -444,14 +388,14 @@ public static class WorldGen
         // skips any voxel that already carries an overlay: this way the cliffs
         // are claimed first and moss fills in around them, where reversing the
         // two leaves every tall face bare.
-        StampClimbSurfaces(ws, genData,
+        WorldFinish.StampClimbSurfaces(ws, genData,
             (wx, wz) =>
             {
-                int zi = PickKitZone(wx, wz, genData.ZoneGens, 0);
+                int zi = _zones.PickKitZone(wx, wz, 0);
                 ZoneGenData zone = zi >= 0 ? genData.ZoneGens[zi] : null;
                 return zone?.climbCoverage ?? 0f;
             },
-            (wx, wz) => WaterYAt(heightMap, wx, wz),
+            (wx, wz) => TerrainMath.WaterYAt(heightMap, wx, wz),
             genData.climbMinCliffHeight, true);
 
         // Moss overlay over exposed rock/ground. Before the road pass so a road
@@ -517,16 +461,6 @@ public static class WorldGen
         // then paints the tread overlay. Before ComputeSunlight so the bake sees
         // the regraded geometry.
         CarveRoads(ws, genData, heightMap, worldSeed);
-        StampGradeShapes(ws, heightMap, TerrainOf(genData).maxGradeStep);
-
-        // AFTER every ground-moving pass: the scatter writes per-voxel channels
-        // that a later road regrade or subscene stamp would overwrite wholesale,
-        // which is what used to leave a stamped building's terrain margin bald.
-        // Roads suppress their own detail here rather than clearing it after.
-        if ((skipFlags & SKIP_DETAILS) == 0)
-        {
-            StampDetailScatter(ws, genData, (wx, wz) => _roadColumns.Contains((wx, wz)), true);
-        }
 
         // Player spawn point, resolved after road grading so a road crossing the
         // spawn column lands the player on the regraded surface. With
@@ -541,52 +475,32 @@ public static class WorldGen
         // world's single lit fire at load).
         LightSpawnCampfire(ws, genData);
 
-        // The air pipeline. Strictly ordered, and each step feeds the next:
-        //
-        //   roofs      — non-voxel cover, so a roofed room reads as enclosed
-        //                exactly as a cave does. Pure math, unlike foliage
-        //                occluders (which need PackedScene.Instantiate on the
-        //                main thread and are stamped later, in Main). Canopy is
-        //                deliberately absent here: a tree should not make a
-        //                cell an interior.
-        //   sky        — geometry-only VERTICAL cover, for the rain / shelter
-        //                consumers. Fog-free, and never feeds classification.
-        //   classify   — cover → space class per env cell. Everything under a
-        //                ceiling is marked indoors, flatly.
-        //   sunlight   — the flooded field, which bleeds sideways through every
-        //                aperture. This is the BLEED term: how much outdoors
-        //                leaks back in. Never used to classify.
-        //   dust       — class → serialized fog, reduced by that bleed.
-        //   wind       — from the flooded sunlight, damped by the class.
-        //
-        // Disk-loaded chunks skip classify/dust entirely: those bytes are
-        // serialized, and a painted class must survive the round trip.
-        StampRoofSunOcclusion(ws);
-        LightEngine.ComputeSkyExposure(ws);
-        InteriornessGen.Compute(ws);
-        EnvTagGen.ComputeEnvTagGrid(ws);
-        // Authored classes beat inferred ones, and must land BEFORE the dust
-        // and wind bakes read them — otherwise a hikescene's cells carry its
-        // authored class but its air and wind were derived from the class
-        // worldgen guessed.
-        ApplySubsceneEnvOverrides(ws, stampedSubscenes);
-        LightEngine.ComputeSunlight(ws);
-        WindGen.ComputeWindGrid(ws);
+        // Everything a finished world derives from its own voxels — grades,
+        // detail, the air pipeline, fog, currents, cascades. Shared verbatim
+        // with the world-map painter's bake, which is the only way the two stay
+        // in step: a channel added to that list reaches both kinds of world.
+        WorldFinish.Finish(ws, genData, new WorldFinish.Options
+        {
+            MinX = heightMap.WorldMinX,
+            MaxX = heightMap.WorldMaxX,
+            MinZ = heightMap.WorldMinZ,
+            MaxZ = heightMap.WorldMaxZ,
+            MaxGradeStep = TerrainMath.TerrainOf(genData).maxGradeStep,
+            SkipDetail = (skipFlags & SKIP_DETAILS) != 0,
+            // Roads suppress their own detail here rather than clearing it after.
+            SkipDetailColumn = (wx, wz) => _roadColumns.Contains((wx, wz)),
+            GroundYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
+            Zones = _zones,
+            ApplyAuthoredEnvOverrides = () => ApplySubsceneEnvOverrides(ws, stampedSubscenes),
+            RiverFlow = heightMap,
+        });
 
-        // Fill every chunk's water-current subgrid: an ambient drift everywhere,
-        // then the terrain approach's own river flow stamped over the columns
-        // that carry it. Worldgen-only — disk-loaded chunks use their serialized
-        // bytes and never reach here.
-        GenerateAmbientWaterCurrents(ws);
-        StampRiverCurrents(ws, heightMap);
-        PlaceWaterfalls(ws);
-
-        // Test override demonstrating the wind-velocity authoring path.
-        // Amplifies a small region around the origin to ~3× the default
-        // ambient speed so future consumers (particles, visual debug,
-        // audio) can verify that authored gust regions read correctly
-        // without needing the editor.
-        GenerateTestStrongWind(ws);
+        if (!string.IsNullOrWhiteSpace(CVars.gradeDebug.Value))
+        {
+            GradeDebug.Dump(CVars.gradeDebug.Value, ws,
+                (x, z) => heightMap.GetSurface(x, z),
+                (x, z) => heightMap.IsGrade(x, z, TerrainMath.TerrainOf(genData).maxGradeStep));
+        }
 
         // Spread each zone's distributedLoot across its chests. Runs last so it
         // sees every chest already placed (cave, camp, fixture, subscene).
@@ -598,43 +512,6 @@ public static class WorldGen
         return ws;
     }
 
-    // Turn the cascades in the finished voxels into entities — where a drop stops
-    // being a hole in the water field and becomes something you can see and hear.
-    // Reads the WORLD, so worldgen and the map painter's bake share it verbatim
-    // (see WaterfallFinder); it only has to run after everything that writes
-    // water or ground.
-    //
-    // The entity is filed at the LIP rather than at the landing: that is where
-    // the fall reads from above, and it keeps a cascade in the same chunk as the
-    // river that feeds it. A tall one still spans several chunks vertically, so
-    // its sheet is drawn while the lip's chunk is resident and not otherwise —
-    // acceptable while the load radius is generous, and the same bargain roofs
-    // and other tall entities already make.
-    public static void PlaceWaterfalls(WorldState ws)
-    {
-        // Nothing shorter than the smallest authored tier is ever drawn, so a
-        // shorter one is not worth an entity either.
-        WaterfallData style = ws.SimData?.waterfalls;
-        int placed = 0;
-        foreach (WaterfallSite site in WaterfallFinder.Find(ws, style?.SmallestDrawnFall() ?? 0f))
-        {
-            if (site.Lips.Count == 0) { continue; }
-            var lips = new WaterfallLip[site.Lips.Count];
-            for (int i = 0; i < lips.Length; i++)
-            {
-                lips[i] = site.Lips[i];
-            }
-            // Both Y values name a water SURFACE, and a surface sits one voxel
-            // above the topmost voxel it caps — the site records voxels.
-            ws.AddEntity(new WaterfallSimState(site.Top, site.Top.Y + 1f, site.BottomY + 1f, lips));
-            placed++;
-        }
-        if (placed > 0)
-        {
-            GD.Print($"[WorldGen] placed {placed} waterfalls");
-        }
-    }
-
     // Spread each zone's ZoneGenData.distributedLoot across that zone's chests.
     // Unlike perChestLoot (rolled independently at each chest), a distributedLoot
     // entry's rolled count is a TOTAL number of copies dealt out across the
@@ -644,7 +521,7 @@ public static class WorldGen
     // chests places nothing. Deterministic: chests are stable-sorted by position
     // and shuffled with a per-zone seeded RNG, so the deal is independent of
     // entity iteration order.
-    private static void DistributeZoneLoot(WorldState ws, ZoneGenData[] zones, int worldSeed)
+    private void DistributeZoneLoot(WorldState ws, ZoneGenData[] zones, int worldSeed)
     {
         if (ws == null || zones == null || zones.Length == 0)
         {
@@ -661,7 +538,7 @@ public static class WorldGen
             }
             int wx = Mathf.FloorToInt(chest.WorldPosition.X);
             int wz = Mathf.FloorToInt(chest.WorldPosition.Z);
-            int zi = DominantZoneIndex(wx, wz, zones);
+            int zi = _zones.DominantIndex(wx, wz);
             if (zi < 0)
             {
                 continue;
@@ -689,7 +566,7 @@ public static class WorldGen
             // Stable order, then a seeded shuffle so the deal is deterministic
             // regardless of the Dictionary's chunk iteration order.
             chests.Sort(CompareChestByPosition);
-            var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_ZONELOOT), zi, 0));
+            var rng = new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_ZONELOOT), zi, 0));
             for (int i = chests.Count - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
@@ -720,7 +597,7 @@ public static class WorldGen
         }
     }
 
-    private static int CompareChestByPosition(ChestSimState a, ChestSimState b)
+    private int CompareChestByPosition(ChestSimState a, ChestSimState b)
     {
         int c = a.WorldPosition.X.CompareTo(b.WorldPosition.X);
         if (c != 0) { return c; }
@@ -731,7 +608,7 @@ public static class WorldGen
 
     // Append one rolled ItemCount to a chest's ejection recipe (LootItems may be
     // null for a chest authored with no base loot).
-    private static void AppendChestLoot(ChestSimState chest, ItemCount item)
+    private void AppendChestLoot(ChestSimState chest, ItemCount item)
     {
         ItemCount[] existing = chest.LootItems;
         if (existing == null || existing.Length == 0)
@@ -764,24 +641,14 @@ public static class WorldGen
         }
     }
 
-    public static FastNoiseLite MakePerlin(int seed, float frequency, int octaves)
-    {
-        var noise = new FastNoiseLite();
-        noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        noise.Seed = seed;
-        noise.Frequency = frequency;
-        noise.FractalOctaves = octaves;
-        return noise;
-    }
-
-    private static WorldNoise BuildWorldNoise(WorldGenData genData, int worldSeed)
+    private WorldNoise BuildWorldNoise(WorldGenData genData, int worldSeed)
     {
         // Forest noise keeps base frequency 1; per-kit frequency is applied at
         // sample time by scaling input coords, so two kits in a zone can read
         // different patterns.
         return new WorldNoise(
-            grass: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_GRASS), genData.grassNoiseFrequency, genData.grassNoiseOctaves),
-            forest: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_FOREST), 1f, genData.forestNoiseOctaves));
+            grass: TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_GRASS), genData.grassNoiseFrequency, genData.grassNoiseOctaves),
+            forest: TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_FOREST), 1f, genData.forestNoiseOctaves));
     }
 
     // Build the per-world ZoneState array from the authored zone templates. The
@@ -790,30 +657,10 @@ public static class WorldGen
     // per-position during the passes. WindDirection is randomized in the XZ
     // plane so each world has its own prevailing wind per zone; Elevation
     // defaults to 0 until the editor authors it per-zone per-world.
-    // The world's terrain approach. Authoring a WorldGenData without one is a
-    // content error, not a supported configuration — but worldgen runs at boot
-    // and a hard failure there costs the whole session, so this reports loudly
-    // and falls back to the plateau approach's defaults rather than throwing.
-    private static PlateauTerrainData _fallbackTerrain;
-    public static TerrainGenData TerrainOf(WorldGenData genData)
-    {
-        if (genData?.terrain != null)
-        {
-            return genData.terrain;
-        }
-        if (_fallbackTerrain == null)
-        {
-            GD.PushError("[WorldGen] WorldGenData has no terrain resource — falling back to"
-                + " plateau defaults. Assign a TerrainGenData subclass to WorldGenData.terrain.");
-            _fallbackTerrain = new PlateauTerrainData();
-        }
-        return _fallbackTerrain;
-    }
-
-    private static void BuildZoneStates(WorldState ws, WorldGenData genData, int worldSeed)
+    private void BuildZoneStates(WorldState ws, WorldGenData genData, int worldSeed)
     {
         var zoneRng = new RandomNumberGenerator();
-        zoneRng.Seed = (ulong)DeriveSeed(worldSeed, SEED_SALT_ZONE);
+        zoneRng.Seed = (ulong)TerrainMath.DeriveSeed(worldSeed, SEED_SALT_ZONE);
         ws.Zones = new ZoneState[genData.ZoneGens.Length];
         for (int i = 0; i < genData.ZoneGens.Length; i++)
         {
@@ -843,7 +690,7 @@ public static class WorldGen
     // Columns above maxSurfaceHeightVoxels are flattened first: every chunk in
     // the fitted box is allocated whether or not it holds anything, so an
     // unbounded peak would be paid for by the whole XZ footprint.
-    private static void FitVerticalExtent(WorldState ws, HeightMap heightMap, TerrainGenData terrain)
+    private void FitVerticalExtent(WorldState ws, HeightMap heightMap, TerrainGenData terrain)
     {
         int ceiling = Math.Max(1, terrain.maxSurfaceHeightVoxels);
         int sizeX = heightMap.Height.GetLength(0);
@@ -873,8 +720,8 @@ public static class WorldGen
 
         int minVoxelY = lowest - Math.Max(0, terrain.undergroundDepthVoxels);
         int maxVoxelY = highest + Math.Max(1, terrain.skyHeadroomVoxels);
-        int minChunkY = FloorDiv(minVoxelY, ChunkState.SIZE);
-        int maxChunkY = FloorDiv(maxVoxelY, ChunkState.SIZE);
+        int minChunkY = TerrainMath.FloorDiv(minVoxelY, ChunkState.SIZE);
+        int maxChunkY = TerrainMath.FloorDiv(maxVoxelY, ChunkState.SIZE);
         ws.SetVerticalChunkExtent(minChunkY, maxChunkY);
 
         int chunksTall = maxChunkY - minChunkY + 1;
@@ -889,17 +736,11 @@ public static class WorldGen
         }
     }
 
-    private static int FloorDiv(int a, int b)
-    {
-        int q = a / b;
-        return (a % b != 0 && (a < 0) != (b < 0)) ? q - 1 : q;
-    }
-
     // Build the per-world RegionState array from the authored region palette.
     // Independent from Zones — a region is a top-level named place identifier,
     // not a biome theme. PickRegionIndex (currently quadrant-based, mirroring
     // PickZoneIndex) decides which entry each chunk belongs to.
-    private static void BuildRegionStates(WorldState ws, WorldGenData genData)
+    private void BuildRegionStates(WorldState ws, WorldGenData genData)
     {
         RegionGenData[] regionPalette = genData.regions ?? [];
         ws.Regions = new RegionState[regionPalette.Length];
@@ -911,7 +752,7 @@ public static class WorldGen
 
     // Generate every chunk's voxels: assign zone / region index, then run the
     // per-chunk terrain + tunnel pass against the prebuilt height field.
-    private static void GenerateChunks(WorldState ws, WorldGenData genData, ITerrainGenerator terrainGen, HeightMap heightMap)
+    private void GenerateChunks(WorldState ws, WorldGenData genData, ITerrainGenerator terrainGen, HeightMap heightMap)
     {
         for (int x = ws.Min.X; x <= ws.Max.X; x++)
         {
@@ -921,8 +762,8 @@ public static class WorldGen
                 {
                     var coord = new Vector3I(x, y, z);
                     var chunk = new ChunkState(coord);
-                    chunk.ZoneIndex = PickZoneIndex(coord, ws.Zones.Length);
-                    chunk.RegionIndex = PickRegionIndex(coord, ws.Regions.Length);
+                    chunk.ZoneIndex = _zones.ChunkZoneIndex(coord, ws.Zones.Length);
+                    chunk.RegionIndex = TerrainMath.PickRegionIndex(coord, ws.Regions.Length);
                     GenerateChunk(chunk, genData, ws.Kits, terrainGen, heightMap);
                     ws._chunks[coord] = chunk;
                 }
@@ -935,7 +776,7 @@ public static class WorldGen
     // subsections actually spawn. Block-light sources aren't pre-propagated
     // here; torch entities register themselves with WorldState.LightSources
     // when they spawn, which runs the BFS footprint at that point.
-    private static void GenerateAllProps(WorldState ws, WorldGenData genData, FastNoiseLite grassNoise,
+    private void GenerateAllProps(WorldState ws, WorldGenData genData, FastNoiseLite grassNoise,
         FastNoiseLite forestNoise, HeightMap heightMap, int skipFlags, int worldSeed)
     {
         if ((skipFlags & (SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES)) == (SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES))
@@ -957,7 +798,7 @@ public static class WorldGen
     // extent. Returns false if the world doesn't span the quadrant (so the
     // caller skips that region). Still used by the quadrant-based region
     // fixtures; zone placement now goes through ZoneBounds.
-    private static bool QuadrantColumnRange(int quadrant, int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ,
+    private bool QuadrantColumnRange(int quadrant, int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ,
         out int xLo, out int xHi, out int zLo, out int zHi)
     {
         bool east = quadrant == 0 || quadrant == 2;    // X >= 0
@@ -973,7 +814,7 @@ public static class WorldGen
     // capped at genData.FixturePlacementMaxTries. Lets the one-off fixture
     // passes land a landmark on a flat / grassy column without scanning the
     // whole footprint. Returns false if no column qualified.
-    private static bool TryRollColumn(Random rng, WorldGenData genData,
+    private bool TryRollColumn(Random rng, WorldGenData genData,
         int xLo, int xHi, int zLo, int zHi, Func<int, int, bool> valid, out int rx, out int rz)
     {
         int maxTries = genData.fixturePlacementMaxTries;
@@ -991,7 +832,7 @@ public static class WorldGen
     // True iff (wx, wz) is a flat-dry-grass column with a real (non-air,
     // non-water) ground voxel and air directly above — the shared surface
     // validity used by the one-off fixture passes' SpawnContext.
-    private static bool IsGrassySurfaceAt(WorldState ws, int wx, int wz, HeightMap heightMap)
+    private bool IsGrassySurfaceAt(WorldState ws, int wx, int wz, HeightMap heightMap)
     {
         if (!IsFlatDryGrassAt(wx, wz, heightMap)) { return false; }
         // Reserved ground is off limits unless the scene that claimed it opened
@@ -1009,7 +850,7 @@ public static class WorldGen
     // center (the start area's near-spawn villager / campfire / dog), while
     // bounds with no fixed center (quadrant/everywhere) roll a random flat-dry
     // column inside their footprint. The group's ScatterRadius spreads members.
-    private static void PlaceZoneFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    private void PlaceZoneFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         PlacedZone[] zones = genData.zones ?? System.Array.Empty<PlacedZone>();
         if (zones.Length == 0) { return; }
@@ -1019,13 +860,12 @@ public static class WorldGen
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_FIXTURE));
-        var context = new SpawnContext
-        {
+        var rng = new Random(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_FIXTURE));
+        var context = Ctx(ws, new SpawnContext {
             SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
-        };
+        });
 
         for (int zi = 0; zi < zones.Length; zi++)
         {
@@ -1035,7 +875,7 @@ public static class WorldGen
 
             Vector3I anchorCol;
             if (placed.bounds != null
-                && placed.bounds.TryGetAnchorChunk(_zoneBoundsContext, out Vector2I anchorChunk))
+                && placed.bounds.TryGetAnchorChunk(_zones.Bounds, out Vector2I anchorChunk))
             {
                 // Fixed-center bounds (box/circle): anchor at the bounds center,
                 // converting chunk → the column at the chunk's center voxel.
@@ -1054,7 +894,7 @@ public static class WorldGen
                             && (bounds == null || bounds.Contains(
                                 (int)Math.Floor((double)wx / ChunkState.SIZE),
                                 (int)Math.Floor((double)wz / ChunkState.SIZE),
-                                _zoneBoundsContext)),
+                                _zones.Bounds)),
                         out int rx, out int rz))
                 {
                     continue;
@@ -1079,7 +919,7 @@ public static class WorldGen
     // a treasure map can point to it by name (BuriedSpot re-registers the anchor
     // into WorldState.TreasureSpots on stream-in). The treasure exists in the
     // world independently — the player can dig it up with or without the map.
-    private static void PlaceZoneTreasures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    private void PlaceZoneTreasures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         PlacedZone[] zones = genData.zones ?? System.Array.Empty<PlacedZone>();
         if (zones.Length == 0) { return; }
@@ -1089,7 +929,7 @@ public static class WorldGen
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_TREASURE));
+        var rng = new Random(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_TREASURE));
 
         for (int zi = 0; zi < zones.Length; zi++)
         {
@@ -1109,7 +949,7 @@ public static class WorldGen
                         && (bounds == null || bounds.Contains(
                             (int)Math.Floor((double)wx / ChunkState.SIZE),
                             (int)Math.Floor((double)wz / ChunkState.SIZE),
-                            _zoneBoundsContext)),
+                            _zones.Bounds)),
                     out int rx, out int rz))
             {
                 continue;
@@ -1122,7 +962,7 @@ public static class WorldGen
         }
     }
 
-    private static void PlaceZoneForges(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    private void PlaceZoneForges(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         ForgeSpawnEntry forge = genData.forge;
         if (forge == null) { return; }
@@ -1134,13 +974,12 @@ public static class WorldGen
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_FORGE));
-        var context = new SpawnContext
-        {
+        var rng = new Random(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_FORGE));
+        var context = Ctx(ws, new SpawnContext {
             SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
-        };
+        });
 
         for (int zi = 0; zi < zones.Length; zi++)
         {
@@ -1154,7 +993,7 @@ public static class WorldGen
                             && (bounds == null || bounds.Contains(
                                 (int)Math.Floor((double)wx / ChunkState.SIZE),
                                 (int)Math.Floor((double)wz / ChunkState.SIZE),
-                                _zoneBoundsContext)),
+                                _zones.Bounds)),
                         out int rx, out int rz))
                 {
                     continue;
@@ -1169,7 +1008,7 @@ public static class WorldGen
     // Scatter `count` fountains of one variant across the whole world, each on
     // its own rejection-sampled flat-grass column (no per-zone rule — a fountain
     // can land in any biome). No-op when the entry is unset or the count is zero.
-    private static void PlaceFountains(WorldState ws, WorldGenData genData, FountainSpawnEntry fountain,
+    private void PlaceFountains(WorldState ws, WorldGenData genData, FountainSpawnEntry fountain,
         int count, int seedSalt, HeightMap heightMap, int worldSeed)
     {
         if (fountain == null || count <= 0) { return; }
@@ -1179,13 +1018,12 @@ public static class WorldGen
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        var rng = new Random(DeriveSeed(worldSeed, seedSalt));
-        var context = new SpawnContext
-        {
+        var rng = new Random(TerrainMath.DeriveSeed(worldSeed, seedSalt));
+        var context = Ctx(ws, new SpawnContext {
             SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
-        };
+        });
 
         for (int i = 0; i < count; i++)
         {
@@ -1216,7 +1054,7 @@ public static class WorldGen
     // several placements doesn't multiply its POIs). Position is a random flat,
     // dry column inside the zone's bounds, mirroring the random-column branch of
     // PlaceZoneFixtures.
-    private static void ResolvePointsOfInterest(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    private void ResolvePointsOfInterest(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         // Deliberately does NOT clear the registry — Generate clears it once and
         // registers the subscene path hints ahead of this pass, whose spacing
@@ -1229,7 +1067,7 @@ public static class WorldGen
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_POI));
+        var rng = new Random(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_POI));
 
         foreach (PlacedZone placed in zones)
         {
@@ -1252,7 +1090,7 @@ public static class WorldGen
                     if (bounds != null && !bounds.Contains(
                             (int)Math.Floor((double)wx / ChunkState.SIZE),
                             (int)Math.Floor((double)wz / ChunkState.SIZE),
-                            _zoneBoundsContext))
+                            _zones.Bounds))
                     {
                         return false;
                     }
@@ -1284,7 +1122,7 @@ public static class WorldGen
     // Runs after the authored names so one of those always wins a collision:
     // an authored POI is a fixed part of the world's design, while a landform
     // name is re-rolled whenever the seed or the terrain tuning changes.
-    private static void RegisterTerrainFeaturePois(WorldState ws, ITerrainGenerator terrainGen)
+    private void RegisterTerrainFeaturePois(WorldState ws, ITerrainGenerator terrainGen)
     {
         System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string, Vector3>>
             features = terrainGen.GetNamedFeatures();
@@ -1304,17 +1142,16 @@ public static class WorldGen
     // the same TrySpawn path the region fixtures use (so a SignpostSpawnEntry
     // behaves exactly as before, just anchored to a named place instead of a
     // rolled column).
-    private static void PlacePoiPlacements(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    private void PlacePoiPlacements(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         PoiPlacement[] placements = genData.pointsOfInterestPlacements ?? System.Array.Empty<PoiPlacement>();
         if (placements.Length == 0) { return; }
 
-        var context = new SpawnContext
-        {
+        var context = Ctx(ws, new SpawnContext {
             SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
-        };
+        });
 
         for (int pi = 0; pi < placements.Length; pi++)
         {
@@ -1328,7 +1165,7 @@ public static class WorldGen
                 GD.PushWarning($"WorldGen: POI placement references unresolved point of interest '{placement.poiName}'.");
                 continue;
             }
-            var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), pi, 1));
+            var rng = new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), pi, 1));
             foreach (SpawnEntryData entry in placement.content.entries)
             {
                 entry?.TrySpawn(ws, pos, rng, context);
@@ -1343,7 +1180,7 @@ public static class WorldGen
     // off existing roads instead of running parallel tracks. Because chunks are
     // already built, grading rewrites voxels in place (cut/fill) rather than
     // feeding GenerateChunk.
-    private static void CarveRoads(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    private void CarveRoads(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         _roadColumns = new HashSet<(int, int)>();
 
@@ -1411,8 +1248,8 @@ public static class WorldGen
             {
                 GD.PushWarning("WorldGen: no road texture authored (WorldGenData.roadDefaultTexture); the road will show its kit block untreaded.");
             }
-            byte overlay = tex != null ? (byte)tex.atlasBaseIndex : OVERLAY_NONE;
-            var widthRng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_ROAD), connIndex, 0));
+            byte overlay = tex != null ? (byte)tex.atlasBaseIndex : ChunkState.OVERLAY_NONE;
+            var widthRng = new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_ROAD), connIndex, 0));
             GradeCarvePaintRoad(ws, genData, heightMap, path, minWidth, maxWidth, overlay, widthRng, obstacleColumns, protectedColumns);
             // Only now: a connection that failed to route left its door as
             // unserved as one that was never authored, and the spur pass is
@@ -1433,7 +1270,7 @@ public static class WorldGen
     // gate on the side the road actually arrives from, with nothing authored
     // per gate. Names the road ends at are appended to `touchedHints` for the
     // caller to commit once the route actually carves.
-    private static bool TryResolveRoadEndpoints(WorldState ws, RoadConnection conn,
+    private bool TryResolveRoadEndpoints(WorldState ws, RoadConnection conn,
         List<string> touchedHints, out Vector3 a, out Vector3 b)
     {
         a = Vector3.Zero;
@@ -1499,7 +1336,7 @@ public static class WorldGen
         return true;
     }
 
-    private static PathHint NearestHint(List<PathHint> hints, Vector3 towards)
+    private PathHint NearestHint(List<PathHint> hints, Vector3 towards)
     {
         PathHint best = hints[0];
         float bestDist = best.Position.DistanceSquaredTo(towards);
@@ -1522,7 +1359,7 @@ public static class WorldGen
     // other in isolation. The tread comes from the hint's tag
     // (WorldGenData.pathHintProfiles), which is what makes a door a footpath and
     // a gate a road.
-    private static void ConnectPathHints(WorldState ws, WorldGenData genData, HeightMap heightMap,
+    private void ConnectPathHints(WorldState ws, WorldGenData genData, HeightMap heightMap,
         int worldSeed, HashSet<string> connectedHints,
         Dictionary<(int, int), List<EntitySimState>> obstacleColumns,
         HashSet<(int, int)> protectedColumns)
@@ -1578,8 +1415,8 @@ public static class WorldGen
             {
                 GD.PushWarning("WorldGen: no road texture authored (WorldGenData.roadDefaultTexture); the road will show its kit block untreaded.");
             }
-            byte overlay = tex != null ? (byte)tex.atlasBaseIndex : OVERLAY_NONE;
-            var widthRng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_PATH_HINT), hi, 0));
+            byte overlay = tex != null ? (byte)tex.atlasBaseIndex : ChunkState.OVERLAY_NONE;
+            var widthRng = new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_PATH_HINT), hi, 0));
             GradeCarvePaintRoad(ws, genData, heightMap, path, minWidth, maxWidth, overlay, widthRng,
                 obstacleColumns, protectedColumns);
             foreach ((int, int) column in path)
@@ -1592,7 +1429,7 @@ public static class WorldGen
     // The tread an auto-linked spur off `hintTag` is carved with. An entry with
     // an empty tag is the fallback; null means "no profiles authored", and the
     // caller falls back to a narrow RoadDefaultTexture track.
-    private static PathHintProfile PathProfileFor(WorldGenData genData, string hintTag)
+    private PathHintProfile PathProfileFor(WorldGenData genData, string hintTag)
     {
         PathHintProfile[] profiles = genData.pathHintProfiles ?? System.Array.Empty<PathHintProfile>();
         PathHintProfile fallback = null;
@@ -1622,7 +1459,7 @@ public static class WorldGen
     // road network as it stands — and the search degrades to a Dijkstra that
     // stops at the first column of it reached, which is how a path hint finds
     // its nearest road without knowing which road that is. Pass exactly one.
-    private static List<(int, int)> FindRoadRoute(HeightMap hm, WorldGenData genData,
+    private List<(int, int)> FindRoadRoute(HeightMap hm, WorldGenData genData,
         (int x, int z) start, (int x, int z)? goal, HashSet<(int, int)> goalColumns,
         Dictionary<(int, int), List<EntitySimState>> obstacleColumns, int width)
     {
@@ -1666,7 +1503,7 @@ public static class WorldGen
         {
             int surface = hm.GetSurface(x, z);
             int inland = hm.GetWaterY(x, z);
-            int waterY = Math.Max(WATER_LEVEL, inland);
+            int waterY = Math.Max(TerrainMath.SEA_LEVEL, inland);
             if (surface >= waterY) { return 0; }
             if (inland == HeightMap.NoWater || fordDepth <= 0) { return -1; }
             int d = waterY - surface;
@@ -1804,7 +1641,7 @@ public static class WorldGen
     // are skipped — the road leaves a gap rather than regrading under a landmark.
     // Endpoints (the POIs) are held fixed; the interior is slope-limited to
     // RoadMaxWalkableStep per cell, cutting cliff tops and filling dips.
-    private static void GradeCarvePaintRoad(WorldState ws, WorldGenData genData, HeightMap hm,
+    private void GradeCarvePaintRoad(WorldState ws, WorldGenData genData, HeightMap hm,
         List<(int, int)> path, int minWidth, int maxWidth, byte overlay, Random widthRng,
         Dictionary<(int, int), List<EntitySimState>> obstacleColumns,
         HashSet<(int, int)> protectedColumns)
@@ -1922,7 +1759,7 @@ public static class WorldGen
     // things OUT of a building is the reservation mask's job, not this one's.
     //
     // A column with no natural voxel at all keeps its authored Height.
-    private static void DeriveSurface(WorldState ws, HeightMap hm)
+    private void DeriveSurface(WorldState ws, HeightMap hm)
     {
         int minY = ws.Min.Y * ChunkState.SIZE;
         int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
@@ -1953,156 +1790,10 @@ public static class WorldGen
 
     // Natural terrain — the materials worldgen fills ground with. Excludes
     // architecture (Stone/Wood walls) and Barrier so they never read as ground.
-    private static bool IsNaturalGround(WorldState ws, int wx, int wy, int wz)
+    private bool IsNaturalGround(WorldState ws, int wx, int wy, int wz)
     {
         int v = ws.GetBlockWorld(wx, wy, wz);
         return Blocks.IsNaturalGround(v);
-    }
-
-    // Re-derive the surface shape channel from the FINISHED geometry.
-    //
-    // Every pass that moves terrain — plateaus, ramp skirts, road grading —
-    // used to be individually responsible for tagging what it built, and each
-    // one that forgot (or defaulted through the 4-arg SetBlockWorld) left a
-    // slope stair-stepping. Deriving it once at the end instead means the tag
-    // always matches the geometry actually present, and a new height-modifying
-    // pass gets correct shading for free.
-    //
-    // Classification is LAYERED — every solid/open interface in a column, not
-    // just the outdoor surface. Cave floors, cavern floors and the ground under
-    // an overhang are real surfaces that grade exactly like open terrain; a
-    // one-surface-per-column pass leaves all of them with the blanket Y that
-    // MarkCaveSurfaceShapes stamps, so a sloping cavern floor stair-steps. It is
-    // also why the height field can't drive this: hm.Height names at most one
-    // voxel per column, and GenerateCaves breaches the surface as an
-    // open-topped pit without updating it (~10% of columns end up with
-    // hm.Height pointing at air, worst measured 23 voxels up). hm is used here
-    // for horizontal bounds only.
-    //
-    // Only natural surface material is touched — architectural material keeps
-    // its authored SharpAxes. Ceilings and walls stay snapped: a soft cave
-    // ceiling interpolates downward through the ceiling-cutaway clip plane and
-    // into view. A one-voxel shelf is both floor and ceiling, so it counts as a
-    // ceiling and stays snapped (the same guard the per-chunk fill applies).
-    private static void StampGradeShapes(WorldState ws, HeightMap hm, int maxGradeStep)
-    {
-        StampGradeShapes(ws, hm.WorldMinX, hm.WorldMaxX, hm.WorldMinZ, hm.WorldMaxZ, maxGradeStep);
-
-        if (!string.IsNullOrWhiteSpace(CVars.gradeDebug.Value))
-        {
-            GradeDebug.Dump(CVars.gradeDebug.Value, ws,
-                (x, z) => hm.GetSurface(x, z), (x, z) => hm.IsGrade(x, z, maxGradeStep));
-        }
-    }
-
-    // Bounds-taking form, so a painted world can run the identical pass. The
-    // height field was only ever used for horizontal extent here; everything
-    // else is read off the finished voxels, which is what lets the painter —
-    // which has no HeightMap at all — get the same grades as worldgen instead
-    // of a second implementation that drifts.
-    public static void StampGradeShapes(WorldState ws, int worldMinX, int worldMaxX,
-        int worldMinZ, int worldMaxZ, int maxGradeStep)
-    {
-        int minY = ws.Min.Y * ChunkState.SIZE;
-        int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int sizeX = worldMaxX - worldMinX + 1;
-        int sizeZ = worldMaxZ - worldMinZ + 1;
-
-        // Every floor surface in the world (solid voxel with a non-solid voxel
-        // directly above), grouped by column: column n owns
-        // surfaces[starts[n] .. starts[n + 1]), descending in Y. Columns are
-        // walked in a fixed order so each run is contiguous — no per-column
-        // allocation, and no per-column cap that would silently drop surfaces in
-        // a heavily caved column.
-        var surfaces = new List<int>(sizeX * sizeZ * 2);
-        var starts = new int[sizeX * sizeZ + 1];
-
-        for (int ix = 0; ix < sizeX; ix++)
-        {
-            for (int iz = 0; iz < sizeZ; iz++)
-            {
-                starts[ix * sizeZ + iz] = surfaces.Count;
-                int wx = worldMinX + ix;
-                int wz = worldMinZ + iz;
-                // Above the world ceiling is open sky, so a column that reaches
-                // maxY still registers its top voxel as a surface.
-                bool aboveSolid = false;
-                for (int wy = maxY; wy >= minY; wy--)
-                {
-                    bool solid = Blocks.IsSolid(ws.GetBlockWorld(wx, wy, wz));
-                    if (solid && !aboveSolid)
-                    {
-                        surfaces.Add(wy);
-                    }
-                    aboveSolid = solid;
-                }
-            }
-        }
-        starts[sizeX * sizeZ] = surfaces.Count;
-
-        // Far enough outside any grade window that an axis with no facing
-        // surface reads as a discontinuity rather than a slope.
-        const int NO_SURFACE = 1 << 20;
-
-        // The neighbouring column's surface that this one actually faces: the
-        // nearest in Y. At a cave mouth the cave floor and the outdoor surface
-        // are one continuous sheet and pair up correctly; across a wall (no
-        // surface at all) the axis falls out of the window and stays snapped.
-        int FacingSurfaceY(int wx, int wz, int y)
-        {
-            int ix = Math.Clamp(wx, worldMinX, worldMaxX) - worldMinX;
-            int iz = Math.Clamp(wz, worldMinZ, worldMaxZ) - worldMinZ;
-            int n = ix * sizeZ + iz;
-            int bestY = y + NO_SURFACE;
-            for (int k = starts[n]; k < starts[n + 1]; k++)
-            {
-                if (Math.Abs(surfaces[k] - y) < Math.Abs(bestY - y))
-                {
-                    bestY = surfaces[k];
-                }
-            }
-            return bestY;
-        }
-
-        // Same per-axis rule as HeightMap.IsGrade (see there for why it is per
-        // axis, and why the step size rather than the angle is the
-        // discriminator), applied to one surface layer.
-        bool IsGradeAt(int wx, int wz, int y)
-        {
-            return HeightMap.AxisIsGrade(y, FacingSurfaceY(wx - 1, wz, y), FacingSurfaceY(wx + 1, wz, y), maxGradeStep)
-                || HeightMap.AxisIsGrade(y, FacingSurfaceY(wx, wz - 1, y), FacingSurfaceY(wx, wz + 1, y), maxGradeStep);
-        }
-
-        for (int ix = 0; ix < sizeX; ix++)
-        {
-            for (int iz = 0; iz < sizeZ; iz++)
-            {
-                int wx = worldMinX + ix;
-                int wz = worldMinZ + iz;
-                int n = ix * sizeZ + iz;
-                for (int k = starts[n]; k < starts[n + 1]; k++)
-                {
-                    int y = surfaces[k];
-
-                    // Every natural surface material, not just Terrain — desert
-                    // and marsh columns are their own int and were being
-                    // skipped, so their grades never got re-derived.
-                    int surface = ws.GetBlockWorld(wx, y, wz);
-                    if (!Blocks.IsNaturalGround(surface))
-                    {
-                        continue;
-                    }
-                    if (y > minY && !Blocks.IsSolid(ws.GetBlockWorld(wx, y - 1, wz)))
-                    {
-                        continue;
-                    }
-                    ws.SetShapeWorld(wx, y, wz, IsGradeAt(wx, wz, y)
-                        ? SharpAxes.None
-                        : SharpAxes.Y);
-                }
-            }
-        }
-
     }
 
     // Rewrite one tread column to the graded height: cut solid above / fill solid
@@ -2110,7 +1801,7 @@ public static class WorldGen
     // voxels copy the column's existing surface-kit TerrainId so cuts and
     // embankments read as the surrounding terrain (the overlay paints the road on
     // top). Updates the heightmap so later passes (light bake) see the new surface.
-    private static void StampRoadColumn(WorldState ws, HeightMap hm, int wx, int wz, int hNew,
+    private void StampRoadColumn(WorldState ws, HeightMap hm, int wx, int wz, int hNew,
         byte overlay, int bedDepth, int worldMinY, int worldMaxY)
     {
         int hOld = hm.Height[wx - hm.WorldMinX, wz - hm.WorldMinZ];
@@ -2174,7 +1865,7 @@ public static class WorldGen
     // skipped before this is called — but the !PlacedAsFixture guard keeps the
     // rule explicit. Drops the column from the index so later roads don't
     // re-process removed entities.
-    private static void RemoveScatterInColumn(WorldState ws, Dictionary<(int, int), List<EntitySimState>> obstacleColumns, int wx, int wz)
+    private void RemoveScatterInColumn(WorldState ws, Dictionary<(int, int), List<EntitySimState>> obstacleColumns, int wx, int wz)
     {
         if (obstacleColumns.TryGetValue((wx, wz), out List<EntitySimState> list))
         {
@@ -2189,105 +1880,6 @@ public static class WorldGen
         }
     }
 
-    // Authored "strong gust" region — multiplies the WindGen-baked
-    // velocity by GustMultiplier inside a horizontal box around the
-    // world origin. Stays bounded by the storage scale (clipping happens
-    // inside SetWindVelocity), so over-amplification just clamps. Real
-    // worlds will get this from the editor; this is the test seed so we
-    // can prove out per-cell authoring without one.
-    private static void GenerateTestStrongWind(WorldState ws)
-    {
-        const float GustMultiplier = 3f;
-        const int RadiusXZ = 32;
-        const int VoxelsPerCell = ChunkState.ENV_VOXELS_PER_CELL;
-        for (int cz = ws.Min.Z; cz <= ws.Max.Z; cz++)
-        {
-            for (int cy = ws.Min.Y; cy <= ws.Max.Y; cy++)
-            {
-                for (int cx = ws.Min.X; cx <= ws.Max.X; cx++)
-                {
-                    ChunkState chunk = ws.GetChunk(new Vector3I(cx, cy, cz));
-                    if (chunk == null) { continue; }
-                    for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
-                    {
-                        int wx = cx * ChunkState.SIZE + sx * VoxelsPerCell + VoxelsPerCell / 2;
-                        if (wx < -RadiusXZ || wx > RadiusXZ) { continue; }
-                        for (int sy = 0; sy < ChunkState.ENV_SUBGRID_SIZE; sy++)
-                        {
-                            for (int sz = 0; sz < ChunkState.ENV_SUBGRID_SIZE; sz++)
-                            {
-                                int wz = cz * ChunkState.SIZE + sz * VoxelsPerCell + VoxelsPerCell / 2;
-                                if (wz < -RadiusXZ || wz > RadiusXZ) { continue; }
-                                Vector3 v = chunk.GetWindVelocity(sx, sy, sz) * GustMultiplier;
-                                chunk.SetWindVelocity(sx, sy, sz, v.X, v.Y, v.Z);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // The BACKGROUND drift, everywhere: per-cell current perpendicular to the
-    // chunk's zone wind direction in XZ — a 90° CCW rotation, so wind (wx, wz)
-    // maps to current (-wz, wx). Matches WindGen's per-zone seeding shape: one
-    // direction per chunk, stamped uniformly into every cell. Run after voxel
-    // carving; cells whose voxels contain no water still get stamped, but the
-    // water shader only samples on water surface fragments so unused stamps cost
-    // nothing at render time.
-    //
-    // This is what the SEA gets. Inland water overwrites it from the real
-    // drainage direction — see StampRiverCurrents, which must run after this.
-    private static void GenerateAmbientWaterCurrents(WorldState ws)
-    {
-        // MUST stay well below the slowest river, and that is a hard constraint
-        // rather than a taste call. This value is stamped into EVERY cell in the
-        // world, including the dry ones flanking a channel, and the shader
-        // samples water_current_map TRILINEARLY on a 4 m grid while rivers are
-        // ~2-11 m wide — so a river fragment's sample is a blend of its own cell
-        // with neighbours carrying this. At 0.7 it beat the fastest river the
-        // default world produces (0.65, per the "columns carrying a current"
-        // log line) and every river read as the ambient's wind-derived
-        // direction instead of its own. It only has to keep the open sea's
-        // ripple texture from freezing, which needs very little.
-        const float Magnitude = 0.08f;
-        for (int cz = ws.Min.Z; cz <= ws.Max.Z; cz++)
-        {
-            for (int cy = ws.Min.Y; cy <= ws.Max.Y; cy++)
-            {
-                for (int cx = ws.Min.X; cx <= ws.Max.X; cx++)
-                {
-                    ChunkState chunk = ws.GetChunk(new Vector3I(cx, cy, cz));
-                    if (chunk == null) { continue; }
-
-                    Vector3 zoneDir = Vector3.Zero;
-                    if (ws.Zones != null && chunk.ZoneIndex < ws.Zones.Length)
-                    {
-                        zoneDir = ws.Zones[chunk.ZoneIndex].WindDirection;
-                    }
-                    float dx = zoneDir.X;
-                    float dz = zoneDir.Z;
-                    float len = Mathf.Sqrt(dx * dx + dz * dz);
-                    if (len < 1e-6f) { continue; }
-                    float invLen = 1f / len;
-                    float fx = -dz * invLen * Magnitude;
-                    float fz = dx * invLen * Magnitude;
-
-                    for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
-                    {
-                        for (int sy = 0; sy < ChunkState.ENV_SUBGRID_SIZE; sy++)
-                        {
-                            for (int sz = 0; sz < ChunkState.ENV_SUBGRID_SIZE; sz++)
-                            {
-                                chunk.SetCurrent(sx, sy, sz, fx, fz);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     // How far above and below a column's water surface the current is stamped,
     // in voxels. Not zero, and that is the whole reason these exist: the shader
     // samples `water_current_map` TRILINEARLY at the surface fragment, so a
@@ -2299,57 +1891,11 @@ public static class WorldGen
     private const int CURRENT_STAMP_ABOVE = ChunkState.ENV_VOXELS_PER_CELL;
     private const int CURRENT_STAMP_BELOW = ChunkState.ENV_VOXELS_PER_CELL;
 
-    // Stamp the terrain approach's per-column river flow into the env-cell
-    // current subgrid, overwriting the ambient drift wherever inland water runs.
-    //
-    // Columns are AVERAGED into their cell rather than last-one-wins: an env cell
-    // is 4 m across and a channel is 3-8 m wide, so a cell routinely holds both
-    // bank and midstream columns, and taking whichever the scan met last makes
-    // the current flicker between neighbouring cells down a straight river.
-    private static void StampRiverCurrents(WorldState ws, HeightMap heightMap)
-    {
-        if (heightMap.Current == null || heightMap.Water == null) { return; }
-        const int CELL = ChunkState.ENV_VOXELS_PER_CELL;
-
-        var sums = new Dictionary<Vector3I, Vector2>();
-        var counts = new Dictionary<Vector3I, int>();
-        for (int wx = heightMap.WorldMinX; wx <= heightMap.WorldMaxX; wx++)
-        {
-            for (int wz = heightMap.WorldMinZ; wz <= heightMap.WorldMaxZ; wz++)
-            {
-                int waterY = heightMap.GetWaterY(wx, wz);
-                if (waterY == HeightMap.NoWater) { continue; }
-                Vector2 v = heightMap.GetCurrent(wx, wz);
-                if (v == Vector2.Zero) { continue; }
-
-                int cellX = FloorDiv(wx, CELL);
-                int cellZ = FloorDiv(wz, CELL);
-                int loY = FloorDiv(waterY - CURRENT_STAMP_BELOW, CELL);
-                int hiY = FloorDiv(waterY + CURRENT_STAMP_ABOVE, CELL);
-                for (int cellY = loY; cellY <= hiY; cellY++)
-                {
-                    var key = new Vector3I(cellX, cellY, cellZ);
-                    sums.TryGetValue(key, out Vector2 sum);
-                    counts.TryGetValue(key, out int n);
-                    sums[key] = sum + v;
-                    counts[key] = n + 1;
-                }
-            }
-        }
-
-        foreach (KeyValuePair<Vector3I, Vector2> kv in sums)
-        {
-            Vector2 v = kv.Value / counts[kv.Key];
-            ws.SetCurrentAtCell(kv.Key.X, kv.Key.Y, kv.Key.Z, v.X, v.Y);
-        }
-        GD.Print($"[WorldGen] water currents: {sums.Count} env cells stamped from river flow");
-    }
-
     // Load each `.hikescene` and reserve every column its footprint covers, so
     // the content passes leave that ground alone. Loading here (not at stamp
     // time) also means a bad path is reported before the expensive passes
     // rather than after them.
-    private static List<ReservedSubscene> LoadAndReserveSubscenes(WorldGenData genData, HeightMap heightMap)
+    private List<ReservedSubscene> LoadAndReserveSubscenes(WorldGenData genData, HeightMap heightMap)
     {
         var loaded = new List<ReservedSubscene>();
         if (genData.subscenes == null || genData.subscenes.Length == 0)
@@ -2392,7 +1938,7 @@ public static class WorldGen
             // never rewritten after BuildHeightMap), so resolve it now — the
             // path-hint POIs registered before the stamp need the scene's final
             // world position, and the stamp itself just reads it back.
-            int plateauY = FootprintPlateauY((x, z) => heightMap.GetPlateau(x, z),
+            int plateauY = TerrainMath.FootprintPlateauY((x, z) => heightMap.GetPlateau(x, z),
                 heightMap.LevelStep, origin, sub.Size, out int levelCount);
             loaded.Add(new ReservedSubscene
             {
@@ -2434,7 +1980,7 @@ public static class WorldGen
     // reserved footprint — a front door is inside the building's own ground, so
     // without one the road pass would find its endpoint unreachable. The tread
     // still refuses to stamp reserved columns, so a path stops at the wall.
-    private static void RegisterSubscenePathHints(WorldState ws, WorldGenData genData,
+    private void RegisterSubscenePathHints(WorldState ws, WorldGenData genData,
         List<ReservedSubscene> reserved, HeightMap heightMap)
     {
         _pathHintsByPlacement.Clear();
@@ -2495,7 +2041,7 @@ public static class WorldGen
     // Removes the scene's path hints from the stamp list and returns them.
     // Consumed here like markers: a hint is a place a road may reach, never an
     // entity the world keeps. Positions are still subscene-local.
-    private static List<PathHintSimState> ExtractPathHints(SubsceneState sub)
+    private List<PathHintSimState> ExtractPathHints(SubsceneState sub)
     {
         var hints = new List<PathHintSimState>();
         if (sub.Entities == null)
@@ -2514,7 +2060,7 @@ public static class WorldGen
         return hints;
     }
 
-    private static List<(SubsceneState sub, Vector3 anchor)> StampReservedSubscenes(
+    private List<(SubsceneState sub, Vector3 anchor)> StampReservedSubscenes(
         WorldState ws, List<ReservedSubscene> reserved, HeightMap heightMap, int worldSeed)
     {
         var stamped = new List<(SubsceneState, Vector3)>();
@@ -2539,7 +2085,7 @@ public static class WorldGen
             Vector3 markerOffset = SubsceneStamper.WorldOffset(sub, anchor);
             SubsceneStamper.StampVoxels(ws, sub, anchor);
             int fromVariants = SpawnSubsceneVariants(ws, placement, markers, markerOffset,
-                new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SUBSCENE), si, 0)));
+                new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_SUBSCENE), si, 0)));
             stamped.Add((sub, anchor));
             GD.Print($"[WorldGen] stamped subscene {placement.path.GetFile()} at {anchor} (size={sub.Size}, rot={(int)placement.rotation * 90}deg, entities={entityCount}, markers={markers.Count}, variant spawns={fromVariants}, evicted={evicted}, plateau levels under footprint={levelCount})");
         }
@@ -2548,7 +2094,7 @@ public static class WorldGen
 
     // Removes the scene's markers from the stamp list and returns them. They
     // still hold subscene-local positions — the caller translates.
-    private static List<MarkerSimState> ExtractMarkers(SubsceneState sub)
+    private List<MarkerSimState> ExtractMarkers(SubsceneState sub)
     {
         var markers = new List<MarkerSimState>();
         if (sub.Entities == null)
@@ -2573,7 +2119,7 @@ public static class WorldGen
     // the entries' own gates (lateral clearance, navgrid walkability) have to
     // see the building, not the ground it replaced. Returns how many entities
     // were actually placed.
-    private static int SpawnSubsceneVariants(WorldState ws, SubscenePlacement placement,
+    private int SpawnSubsceneVariants(WorldState ws, SubscenePlacement placement,
         List<MarkerSimState> markers, Vector3 worldOffset, Random rng)
     {
         SubsceneVariant[] variants = placement.variants ?? System.Array.Empty<SubsceneVariant>();
@@ -2626,7 +2172,7 @@ public static class WorldGen
             // Partial Fisher-Yates over the pool, one content entry per marker
             // (cycled): which spot each occupant gets varies with the seed, but
             // no marker is used twice and the whole list gets placed.
-            var context = new SpawnContext { AuthoredPosition = true };
+            var context = Ctx(ws, new SpawnContext { AuthoredPosition = true });
             for (int i = 0; i < take; i++)
             {
                 int j = i + rng.Next(pool.Count - i);
@@ -2665,7 +2211,7 @@ public static class WorldGen
     // fire. Nearest-wins rather than first-found because a village square can
     // hold several; only one campfire in the world may be lit at a time
     // (Campfire.DouseOtherCampfires), and this is the one that starts that way.
-    private static void LightSpawnCampfire(WorldState ws, WorldGenData genData)
+    private void LightSpawnCampfire(WorldState ws, WorldGenData genData)
     {
         float radius = genData.spawnCampfireRadius;
         if (radius <= 0f)
@@ -2707,7 +2253,7 @@ public static class WorldGen
     // band is caught here instead.
     // minY is the stamp's bbox floor, NOT the anchor — the anchor sits at the
     // scene's y=0 plane and a scene with a basement extends below it.
-    private static int ClearEntitiesInVolume(WorldState ws, Vector3I origin, int minY, Vector3I size)
+    private int ClearEntitiesInVolume(WorldState ws, Vector3I origin, int minY, Vector3I size)
     {
         var doomed = new List<EntitySimState>();
         foreach (EntitySimState e in ws.AllChunkEntities())
@@ -2729,7 +2275,7 @@ public static class WorldGen
 
     // World XZ of the footprint's min corner. Y is unused — the reservation is
     // per column and the stamp resolves its own elevation.
-    private static Vector3I FootprintOrigin(SubsceneState sub, SubscenePlacement placement)
+    private Vector3I FootprintOrigin(SubsceneState sub, SubscenePlacement placement)
     {
         return new Vector3I(
             Mathf.FloorToInt(placement.anchorXZ.X - sub.Anchor.X),
@@ -2737,419 +2283,12 @@ public static class WorldGen
             Mathf.FloorToInt(placement.anchorXZ.Y - sub.Anchor.Z));
     }
 
-    // The plateau level a subscene sits on: the most common Plateau height
-    // across its footprint, ties going to the lower one so the building cuts
-    // into the higher terrace instead of floating over the lower one (the stamp
-    // overwrites its whole bbox, so buried is self-correcting and floating is
-    // not). levelCount reports how many distinct levels the footprint spans —
-    // anything above 1 means it straddles a terrace edge and wants a nudge.
-    //
-    // Plateau, NOT Surface: cave carving breaches the ground on ~10% of columns
-    // and drops Surface tens of voxels below the terrain beside it, which drags
-    // a footprint average down and sinks the building into the intact ground
-    // around the hole. Plateau is the authored terrain level; carving never
-    // moves it, and ramps don't tilt it.
-    //
-    // Snapped DOWN to the world's HeightMap.LevelStep lattice, so a building
-    // floor — and the ceiling above it — lands on the same Y grid every other
-    // enclosed space in the world uses, which is what the camera cutaway needs
-    // to read cleanly. On the legacy path terrain is already quantized to that
-    // step and the snap is an identity; on the organic path the ground is
-    // continuous, so without it a floor lands on whatever arbitrary voxel the
-    // surface happened to reach. Snapping down rather than to nearest keeps the
-    // existing bias: the stamp overwrites its whole bbox, so cutting into the
-    // ground is self-correcting where floating over it is not.
-    // Takes the ground lookup rather than a HeightMap so the world-map painter,
-    // which has no HeightMap, seats its stamps at the same height by the same
-    // rule instead of inventing a second one.
-    public static int FootprintPlateauY(Func<int, int, int> plateauAt, int levelStep,
-        Vector3I origin, Vector3I size, out int levelCount)
-    {
-        int step = Math.Max(1, levelStep);
-        var counts = new Dictionary<int, int>();
-        for (int dx = 0; dx < size.X; dx++)
-        {
-            for (int dz = 0; dz < size.Z; dz++)
-            {
-                int raw = plateauAt(origin.X + dx, origin.Z + dz);
-                int plateau = (int)Math.Floor((double)raw / step) * step;
-                counts.TryGetValue(plateau, out int seen);
-                counts[plateau] = seen + 1;
-            }
-        }
-
-        levelCount = counts.Count;
-        int best = 0;
-        int bestCount = -1;
-        foreach (KeyValuePair<int, int> level in counts)
-        {
-            if (level.Value > bestCount || (level.Value == bestCount && level.Key < best))
-            {
-                best = level.Key;
-                bestCount = level.Value;
-            }
-        }
-        return best;
-    }
-
-    private static void ApplySubsceneEnvOverrides(WorldState ws, List<(SubsceneState sub, Vector3 anchor)> stamped)
+    private void ApplySubsceneEnvOverrides(WorldState ws, List<(SubsceneState sub, Vector3 anchor)> stamped)
     {
         foreach ((SubsceneState sub, Vector3 anchor) in stamped)
         {
             SubsceneStamper.StampEnvOverrides(ws, sub, anchor);
         }
-    }
-
-    // Stamp a chunk into one of the world's zones. Each PlacedZone carries a
-    // ZoneBounds saying where it applies; the chunk goes to the highest-Priority
-    // bounds whose Contains() is true (ties broken by first in the list).
-    // Borders soften through the GetZoneGenWeights blend kernel, and box/circle
-    // bounds can wobble their own edge via the context's noise — so a small
-    // inset (the swamp village) melts organically into its background zone.
-    // Falls back to index 0 when nothing claims the chunk (e.g. an all-quadrant
-    // layout with a gap), so every chunk always gets a zone.
-    private static byte PickZoneIndex(Vector3I chunkCoord, int zoneCount)
-    {
-        if (zoneCount <= 0) { return 0; }
-
-        // _activeGenData is set at the top of Generate before any zone pick.
-        PlacedZone[] zones = _activeGenData?.zones;
-        if (zones == null) { return 0; }
-
-        int best = -1;
-        int bestPriority = int.MinValue;
-        int n = Math.Min(zoneCount, zones.Length);
-        for (int i = 0; i < n; i++)
-        {
-            ZoneBounds bounds = zones[i]?.bounds;
-            if (bounds == null) { continue; }
-            if (bounds.priority <= bestPriority) { continue; }
-            if (bounds.Contains(chunkCoord.X, chunkCoord.Z, _zoneBoundsContext))
-            {
-                best = i;
-                bestPriority = bounds.priority;
-            }
-        }
-        return best >= 0 ? (byte)best : (byte)0;
-    }
-
-    // Stamp a chunk into one of the world's named regions. Same legacy
-    // 4-quadrant split as PickZoneIndex (so default_world_gen.tres can
-    // line its Regions[] up with its Zones[] in the same order until the
-    // editor produces arbitrary region polygons). Independent function so
-    // future region-shape changes don't drag zones along — the two are
-    // orthogonal subdivisions, not parallel.
-    private static byte PickRegionIndex(Vector3I chunkCoord, int regionCount)
-    {
-        if (regionCount <= 0) { return 0; }
-        int quadrant;
-        if (chunkCoord.X >= 0 && chunkCoord.Z >= 0) { quadrant = 0; }       // NE
-        else if (chunkCoord.X < 0 && chunkCoord.Z >= 0) { quadrant = 1; }   // NW
-        else if (chunkCoord.X >= 0 && chunkCoord.Z < 0) { quadrant = 2; }   // SE
-        else { quadrant = 3; }                                              // SW
-        if (quadrant >= regionCount) { quadrant = regionCount - 1; }
-        return (byte)quadrant;
-    }
-
-    public static ZoneGenData FirstZoneGen(WorldGenData genData)
-    {
-        if (genData.ZoneGens == null) { return null; }
-        for (int i = 0; i < genData.ZoneGens.Length; i++)
-        {
-            if (genData.ZoneGens[i] != null) { return genData.ZoneGens[i]; }
-        }
-        return null;
-    }
-
-    // Per-column smoothstep blend kernel that mirrors ZoneBlend.Sample.
-    // Reaches WorldGenData.ZoneGenBlendRadius chunks out from (wx, wz) and
-    // weights each chunk's zone by its smoothstep falloff. PickZoneIndex still
-    // returns one zone per chunk for ChunkState.ZoneIndex (gameplay
-    // needs a single value), but the worldgen scalars blend smoothly across
-    // chunk borders so a desert→forest transition isn't a hard line.
-    //
-    // The blend radii (ZoneGenBlendRadius for soft scalar fades like elevation
-    // and density; the tighter KitBlendRadius for kit-identity stamps) are
-    // authored on WorldGenData — KitBlendRadius must stay >= 1.0 or corner
-    // voxels get zero weight and PickKitZone falls back to a chunk-aligned hard
-    // seam, the exact thing the kernel exists to avoid.
-    //
-    // `weights` Span must be sized to zoneCount. Output sums to 1 (or
-    // all zeros if no neighbour has a valid zone — caller's choice what
-    // to do about that).
-    private static void GetZoneGenWeights(int wx, int wz, int zoneCount, Span<float> weights)
-    {
-        GetZoneGenWeights(wx, wz, zoneCount, weights, _activeGenData?.zoneGenBlendRadius ?? 2.0f);
-    }
-
-    private static void GetZoneGenWeights(int wx, int wz, int zoneCount, Span<float> weights, float blendRadius)
-    {
-        for (int i = 0; i < zoneCount; i++) { weights[i] = 0f; }
-        if (zoneCount <= 0) { return; }
-
-        int chunkX = (int)Math.Floor((double)wx / ChunkState.SIZE);
-        int chunkZ = (int)Math.Floor((double)wz / ChunkState.SIZE);
-        int half = Mathf.CeilToInt(blendRadius);
-
-        for (int dx = -half; dx <= half; dx++)
-        {
-            for (int dz = -half; dz <= half; dz++)
-            {
-                int cx = chunkX + dx;
-                int cz = chunkZ + dz;
-                int zoneIdx = PickZoneIndex(new Vector3I(cx, 0, cz), zoneCount);
-                float chunkCenterX = (cx + 0.5f) * ChunkState.SIZE;
-                float chunkCenterZ = (cz + 0.5f) * ChunkState.SIZE;
-                float dxw = wx - chunkCenterX;
-                float dzw = wz - chunkCenterZ;
-                float distChunks = Mathf.Sqrt(dxw * dxw + dzw * dzw) / ChunkState.SIZE;
-                float w = Mathf.SmoothStep(blendRadius, 0f, distChunks);
-                if (w > 0f) { weights[zoneIdx] += w; }
-            }
-        }
-
-        float total = 0f;
-        for (int i = 0; i < zoneCount; i++) { total += weights[i]; }
-        if (total > 1e-6f)
-        {
-            float inv = 1f / total;
-            for (int i = 0; i < zoneCount; i++) { weights[i] *= inv; }
-        }
-    }
-
-    // Blended per-column scalars sampled from the per-zone ZoneGenData
-    // at (wx, wz). Tunnel/cave thresholds are XZ-only so a single struct
-    // serves callers that walk the column at any Y.
-    public struct BlendedZoneGen
-    {
-        // Per-zone authored center elevation, kernel-blended at sample
-        // time. Eventually the heightmap that feeds BuildHeightMap will be
-        // an authored coarse 2D field; this per-zone scalar is the
-        // stand-in until that lands.
-        public float Elevation;
-        public float ElevationRange;
-        public float GrassThreshold;
-
-        // Per-zone monster and forge difficulty bands, kernel-blended so they
-        // crossfade across zone borders. ComputeMobLevel / ComputeForgeLevel lerp
-        // between each pair by their own (independent) level-noise field.
-        public float MobLevelMin;
-        public float MobLevelMax;
-        // Same, for spawns with a ceiling overhead (caves, tunnels).
-        public float UndergroundMobLevelMin;
-        public float UndergroundMobLevelMax;
-        public float ForgeLevelMin;
-        public float ForgeLevelMax;
-
-        // Flatten override (flattenSurface zones). FlattenWeight is the summed
-        // weight of flattening zones at this column (0..1); FlattenLevel is the
-        // weight-scaled sum of their targets. An approach pulls its height
-        // toward FlattenLevel by FlattenWeight, so a village core sits dead flat
-        // while its edge blends back into the surrounding terrain.
-        public float FlattenWeight;
-        public float FlattenLevel;
-    }
-
-    public static BlendedZoneGen SampleBlendedZoneGen(int wx, int wz, ZoneGenData[] zones)
-    {
-        return SampleBlendedZoneGen(wx, wz, zones, Span<float>.Empty);
-    }
-
-    // As above, and ALSO writes the per-zone kernel weights into weightsOut so
-    // the caller can blend fields this struct knows nothing about. That is how
-    // a terrain approach folds its own per-zone knobs without this struct
-    // growing a field per approach — and without paying for the weight solve
-    // twice, which is the whole reason it is an out-parameter rather than a
-    // second public call.
-    public static BlendedZoneGen SampleBlendedZoneGen(int wx, int wz, ZoneGenData[] zones, Span<float> weightsOut)
-    {
-        var result = new BlendedZoneGen();
-        int n = zones != null ? zones.Length : 0;
-        if (n == 0) { return result; }
-
-        Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetZoneGenWeights(wx, wz, n, weights);
-
-        // Per-zone terrain blend reach, keyed off the DOMINANT zone: a zone that
-        // authors a tighter TerrainBlendChunks holds its own terrain across its
-        // whole footprint instead of letting a neighbour bleed ~ZoneGenBlendRadius
-        // chunks in. Asymmetric on purpose — the village stays a flat, dry beach
-        // up to its edge while the swamp around it keeps blending softly with the
-        // mud/highlands. Only recompute when the dominant zone overrides the
-        // global radius, so ordinary columns pay nothing.
-        PlacedZone[] placed = _activeGenData?.zones;
-        if (placed != null)
-        {
-            int dom = -1;
-            float bestW = 0f;
-            for (int i = 0; i < n; i++)
-            {
-                if (weights[i] > bestW) { bestW = weights[i]; dom = i; }
-            }
-            float reach = dom >= 0 && dom < placed.Length
-                ? (placed[dom]?.bounds?.terrainBlendChunks ?? 0f)
-                : 0f;
-            if (reach > 0f)
-            {
-                GetZoneGenWeights(wx, wz, n, weights, reach);
-            }
-        }
-
-        if (!weightsOut.IsEmpty && weightsOut.Length >= n)
-        {
-            weights.Slice(0, n).CopyTo(weightsOut);
-        }
-
-        for (int i = 0; i < n; i++)
-        {
-            float w = weights[i];
-            if (w <= 0f) { continue; }
-            ZoneGenData rg = zones[i];
-            if (rg == null) { continue; }
-            // Shared terrain scalars come off the zone's terrain sub-resource;
-            // a zone that has not been given one blends the base defaults rather
-            // than dropping out of the sum and skewing its neighbours' weight.
-            ZoneTerrainData zt = rg.terrain;
-            result.Elevation += (zt?.elevation ?? 0f) * w;
-            result.ElevationRange += (zt?.elevationRange ?? 2f) * w;
-            result.GrassThreshold += rg.grassThreshold * w;
-            result.MobLevelMin += rg.mobLevelMin * w;
-            result.MobLevelMax += rg.mobLevelMax * w;
-            result.UndergroundMobLevelMin += rg.undergroundMobLevelMin * w;
-            result.UndergroundMobLevelMax += rg.undergroundMobLevelMax * w;
-            result.ForgeLevelMin += rg.forgeLevelMin * w;
-            result.ForgeLevelMax += rg.forgeLevelMax * w;
-            if (zt != null && zt.flattenSurface)
-            {
-                result.FlattenWeight += w;
-                result.FlattenLevel += zt.flattenLevel * w;
-            }
-        }
-        return result;
-    }
-
-    // Sample a zone index at column (wx, wz) weighted by the same chunk
-    // smoothstep kernel that drives scalar blending. Use this for prop /
-    // mob scene picks: in the kernel-overlap band between two zones, each
-    // prop independently rolls which palette to draw from, so e.g. a
-    // forest→desert seam reads as a few desert trees among forest pines and
-    // vice versa rather than a hard line at the chunk boundary. Returns -1
-    // if no zone has positive weight (caller skips the spawn).
-    private static int PickWeightedZone(int wx, int wz, ZoneGenData[] zones, Random rng)
-    {
-        return PickWeightedZone(wx, wz, zones, rng, _activeGenData?.zoneGenBlendRadius ?? 2.0f);
-    }
-
-    // As above but with an explicit kernel reach — the spawn pass passes the
-    // dominant zone's SpawnBlendReachChunks so each zone controls how far its
-    // content blends across its own border (a wider reach = a wider, softer
-    // mixing band; the caller uses the crisp dominant zone when reach is 0).
-    private static int PickWeightedZone(int wx, int wz, ZoneGenData[] zones, Random rng, float blendRadius)
-    {
-        int n = zones != null ? zones.Length : 0;
-        if (n == 0) { return -1; }
-
-        Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetZoneGenWeights(wx, wz, n, weights, blendRadius);
-
-        float total = 0f;
-        for (int i = 0; i < n; i++) { total += weights[i]; }
-        if (total <= 1e-6f) { return -1; }
-
-        float r = (float)rng.NextDouble() * total;
-        float acc = 0f;
-        for (int i = 0; i < n; i++)
-        {
-            acc += weights[i];
-            if (r <= acc) { return i; }
-        }
-        return n - 1;
-    }
-
-    // Convenience: kernel-weighted zone pick that returns the data resource
-    // (or null). Caller reads chance/scene/data fields off it for the spawn
-    // roll. In the kernel-overlap band each cell rolls independently, so e.g.
-    // the desert→forest seam ends up with a few forest goblins among desert
-    // monsters and vice versa rather than a hard boundary.
-    private static ZoneGenData PickWeightedZoneData(int wx, int wz, ZoneGenData[] zones, Random rng)
-    {
-        int idx = PickWeightedZone(wx, wz, zones, rng);
-        if (idx < 0) { return null; }
-        return zones[idx];
-    }
-
-    // Index of the single highest-weight zone at (wx, wz) — the biome a column
-    // actually sits in, not a weighted roll. The default for content placement
-    // (so nothing bleeds across a border) and the base the per-zone
-    // SpawnBlendReachChunks softens. Same blend kernel as the weighted pick, so
-    // the boundary follows the same organic seam. Returns -1 if no zone has
-    // positive weight.
-    public static int DominantZoneIndex(int wx, int wz, ZoneGenData[] zones)
-    {
-        int n = zones != null ? zones.Length : 0;
-        if (n == 0) { return -1; }
-        Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetZoneGenWeights(wx, wz, n, weights);
-        int best = -1;
-        float bestW = 0f;
-        for (int i = 0; i < n; i++)
-        {
-            if (weights[i] > bestW)
-            {
-                bestW = weights[i];
-                best = i;
-            }
-        }
-        return best;
-    }
-
-    // Deterministic per-(wx, wz, salt) hash → [0, 1). Used to pick a
-    // kernel-weighted zone per voxel without allocating a Random — same
-    // worldSeed/coords always produce the same zone pick, so kit borders
-    // (and any other deterministic per-voxel choice) replay identically
-    // across runs and across save/load.
-    private static float HashFloat01(int wx, int wz, int salt)
-    {
-        unchecked
-        {
-            uint h = (uint)wx * 0x9E3779B1u;
-            h ^= (uint)wz * 0x85EBCA77u;
-            h ^= (uint)salt * 0xC2B2AE3Du;
-            h = ((h >> 16) ^ h) * 0x85EBCA6Bu;
-            h = ((h >> 13) ^ h) * 0xC2B2AE35u;
-            h = (h >> 16) ^ h;
-            return (h & 0x00FFFFFF) / (float)0x01000000;
-        }
-    }
-
-    // Same weighted pick as PickWeightedZone but driven by a precomputed
-    // [0, 1) sample (HashFloat01). For deterministic per-voxel kit assignment
-    // we want jagged zone borders that follow the kernel weights — a hash
-    // of the voxel's column gives a stable noisy boundary instead of the
-    // chunk-aligned orthogonal seam you'd get from `chunk.ZoneIndex`.
-    // `blendRadius` overrides WorldGenData.ZoneGenBlendRadius for the weight
-    // kernel — kit stamps use the tighter KitBlendRadius so out-of-biome kit
-    // bleed stays localized.
-    private static int PickWeightedZoneFromHash(int wx, int wz, ZoneGenData[] zones, float r01, float blendRadius)
-    {
-        int n = zones != null ? zones.Length : 0;
-        if (n == 0) { return -1; }
-
-        Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetZoneGenWeights(wx, wz, n, weights, blendRadius);
-
-        float total = 0f;
-        for (int i = 0; i < n; i++) { total += weights[i]; }
-        if (total <= 1e-6f) { return -1; }
-
-        float r = r01 * total;
-        float acc = 0f;
-        for (int i = 0; i < n; i++)
-        {
-            acc += weights[i];
-            if (r <= acc) { return i; }
-        }
-        return n - 1;
     }
 
     // Per-voxel salt for the kit-border hash. Distinct from any other hash
@@ -3163,27 +2302,16 @@ public static class WorldGen
     private const int SHORE_UPPER_HASH_SALT = 0x53484F55; // "SHOU"
     private const int SHORE_LOWER_HASH_SALT = 0x53484F4C; // "SHOL"
 
-    // Pick a zone for a kit stamp at (wx, wz). Falls back to the chunk's
-    // ZoneIndex when the kernel produces no positive weight (off-world,
-    // edge cases) so we always end up with a stamped kit. Uses the tighter
-    // KitBlendRadius so out-of-biome kit stamps stay near the seam
-    // instead of penetrating ~2 chunks into adjacent biomes.
-    private static int PickKitZone(int wx, int wz, ZoneGenData[] zones, int fallbackZoneIndex)
-    {
-        int idx = PickWeightedZoneFromHash(wx, wz, zones, HashFloat01(wx, wz, KIT_HASH_SALT), _activeGenData?.kitBlendRadius ?? 2.0f);
-        return idx >= 0 ? idx : fallbackZoneIndex;
-    }
-
     // Set at the end of Generate so debug dumps / console commands can
     // inspect the height field without the caller having to plumb it through.
-    private static HeightMap? _lastHeightMap;
-    private static int _lastPlateauStep = 1;
+    private HeightMap? _lastHeightMap;
+    private int _lastPlateauStep = 1;
 
     // The generator that produced _lastHeightMap, so DumpDebug can ask it for
     // whatever the shared height-field dump cannot show — anything it carved,
     // above all, since a hillshade of a world with caves in it is identical to
     // one without.
-    private static ITerrainGenerator _lastTerrainGen;
+    private ITerrainGenerator _lastTerrainGen;
 
     // Writes three PPM images (plateau, height, ramp mask) and a stats text
     // file to `dir`. Called from the `worldgen_debug` console command and
@@ -3198,9 +2326,11 @@ public static class WorldGen
     //
     // Deliberately does NOT produce a usable WorldState — no chunk holds a
     // voxel. Anything that wants voxels wants the real Generate.
-    public static HeightMap GenerateTerrainOnly(WorldGenData genData, int worldSeed, Vector2I worldSize)
+    public HeightMap GenerateTerrainOnly(Vector2I worldSize)
     {
-        _activeGenData = genData;
+        WorldGenData genData = _genData;
+        int worldSeed = _worldSeed;
+
 
         var min = new Vector3I(-worldSize.X / 2, 0, -worldSize.Y / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, 0, min.Z + worldSize.Y - 1);
@@ -3211,17 +2341,17 @@ public static class WorldGen
         // setup a terrain approach reads — SampleBlendedZoneGen resolves through
         // both. Skipping either silently flattens every per-zone scalar to its
         // default, which looks like a terrain bug rather than a missing setup.
-        var boundsNoise = MakePerlin(DeriveSeed(worldSeed, SEED_SALT_ZONEBOUNDS), 0.15f, 2);
+        var boundsNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_ZONEBOUNDS), 0.15f, 2);
         var spawnChunk = new Vector2I(
             (int)Math.Floor((double)genData.playerSpawnPosition.X / ChunkState.SIZE),
             (int)Math.Floor((double)genData.playerSpawnPosition.Z / ChunkState.SIZE));
-        _zoneBoundsContext = new ZoneBoundsContext(min, max, spawnChunk,
-            (cx, cz) => boundsNoise.GetNoise2D(cx, cz));
+        _zones = new ZoneField(genData, new ZoneBoundsContext(min, max, spawnChunk,
+            (cx, cz) => boundsNoise.GetNoise2D(cx, cz)));
         BuildZoneStates(ws, genData, worldSeed);
         BuildRegionStates(ws, genData);
 
-        TerrainGenData terrain = TerrainOf(genData);
-        ITerrainGenerator terrainGen = terrain.CreateGenerator(genData, worldSeed);
+        TerrainGenData terrain = TerrainMath.TerrainOf(genData);
+        ITerrainGenerator terrainGen = terrain.CreateGenerator(genData, worldSeed, _zones);
         HeightMap heightMap = terrainGen.BuildHeightMap(ws);
         FitVerticalExtent(ws, heightMap, terrain);
 
@@ -3231,7 +2361,7 @@ public static class WorldGen
         return heightMap;
     }
 
-    public static void DumpDebug(string dir)
+    public void DumpDebug(string dir)
     {
         if (!_lastHeightMap.HasValue)
         {
@@ -3358,14 +2488,14 @@ public static class WorldGen
         // for a zone — a mean is dragged around by whatever fraction of the zone
         // is underwater, and the min is usually just its lowest sea floor.
         var zoneHeights = new Dictionary<int, List<int>>();
-        ZoneGenData[] zoneGens = _activeGenData?.ZoneGens;
+        ZoneGenData[] zoneGens = _genData?.ZoneGens;
         if (zoneGens != null && zoneGens.Length > 0)
         {
             for (int x = 0; x < sizeX; x++)
             {
                 for (int z = 0; z < sizeZ; z++)
                 {
-                    int zi = DominantZoneIndex(hm.WorldMinX + x, hm.WorldMinZ + z, zoneGens);
+                    int zi = _zones.DominantIndex(hm.WorldMinX + x, hm.WorldMinZ + z);
                     if (zi < 0) { continue; }
                     if (!zoneHeights.TryGetValue(zi, out List<int> list))
                     {
@@ -3437,7 +2567,7 @@ public static class WorldGen
                 + $" world origin ({hm.WorldMinX}, {hm.WorldMinZ})");
             // Which approach produced this, so a dump is self-identifying — the
             // stats below read very differently between them.
-            sw.WriteLine($"Terrain: {_activeGenData?.terrain?.GetType().Name ?? "<none>"}"
+            sw.WriteLine($"Terrain: {_genData?.terrain?.GetType().Name ?? "<none>"}"
                 + $", interior level step {_lastPlateauStep}");
             sw.WriteLine();
             sw.WriteLine($"Ramp cells: {rampCells} ({100.0 * rampCells / total:F1}%)");
@@ -3505,7 +2635,7 @@ public static class WorldGen
     // multiples — an odd one is a bug in the approach, not a tuning problem),
     // and how large the connected bodies are. The last one is the check for
     // one-column puddles, which no coverage percentage can show.
-    private static void WriteWaterStats(System.IO.StreamWriter sw, HeightMap hm, int total)
+    private void WriteWaterStats(System.IO.StreamWriter sw, HeightMap hm, int total)
     {
         if (hm.Water == null)
         {
@@ -3590,7 +2720,7 @@ public static class WorldGen
     // int16 little-endian, row-major in x then z. Terrain heights are tens of
     // voxels, so 16 bits is ample and keeps a world-sized field small enough to
     // read and re-read while iterating.
-    private static void WriteRawField(string path, int[,] field)
+    private void WriteRawField(string path, int[,] field)
     {
         int sizeX = field.GetLength(0);
         int sizeZ = field.GetLength(1);
@@ -3608,7 +2738,7 @@ public static class WorldGen
         System.IO.File.WriteAllBytes(path, bytes);
     }
 
-    private static void WritePlateauPpm(string path, int[,] field, int min, int max, int step)
+    private void WritePlateauPpm(string path, int[,] field, int min, int max, int step)
     {
         int w = field.GetLength(0);
         int h = field.GetLength(1);
@@ -3634,7 +2764,7 @@ public static class WorldGen
         }
     }
 
-    private static (byte r, byte g, byte b) PaletteFor(int bandIndex)
+    private (byte r, byte g, byte b) PaletteFor(int bandIndex)
     {
         // Signed mod for stable coloring of negative bands.
         int m = ((bandIndex % 8) + 8) % 8;
@@ -3656,7 +2786,7 @@ public static class WorldGen
     // plus a red overlay on every cliff face. This is the image to read when
     // judging terrain SHAPE — the banded plateau/height dumps quantize the
     // field into flat colour patches and hide slope entirely.
-    private static void WriteHillshadePpm(string path, HeightMap hm, int minH, int maxH)
+    private void WriteHillshadePpm(string path, HeightMap hm, int minH, int maxH)
     {
         const int CliffDrop = 2;          // |Δ| at or above this paints as a wall
         const float LightStrength = 0.28f; // shading contribution per voxel of slope
@@ -3677,7 +2807,7 @@ public static class WorldGen
                 int north = hm.Height[x, Math.Min(z + 1, h - 1)];
                 float t = (v - minH) / span;
 
-                (float r, float g, float b) c = v < WATER_LEVEL
+                (float r, float g, float b) c = v < TerrainMath.SEA_LEVEL
                     ? (0.15f, 0.30f, 0.55f)
                     : t < 0.45f ? (0.35f, 0.55f, 0.30f)
                     : t < 0.75f ? (0.65f, 0.60f, 0.38f)
@@ -3711,7 +2841,7 @@ public static class WorldGen
         }
     }
 
-    private static void WriteRampPpm(string path, HeightMap hm)
+    private void WriteRampPpm(string path, HeightMap hm)
     {
         int w = hm.Plateau.GetLength(0);
         int h = hm.Plateau.GetLength(1);
@@ -3761,7 +2891,7 @@ public static class WorldGen
     // voxel coords (clamped into the world); when spawnAtSurface the Y rides 2
     // voxels above the surface top so the player drops cleanly onto terrain once
     // the spawn chunk's collision is ready, matching the WorldMapState bake.
-    private static Vector3 ResolveSpawn(WorldGenData genData, HeightMap heightMap)
+    private Vector3 ResolveSpawn(WorldGenData genData, HeightMap heightMap)
     {
         Vector3 p = genData.playerSpawnPosition;
         if (!genData.spawnAtSurface)
@@ -3777,11 +2907,11 @@ public static class WorldGen
     // True iff (wx, wz) is a flat, dry land column suitable for prop / mob /
     // grass spawning. "Flat" = no ramp lift (Height == Plateau). "Dry" = the
     // surface sits above water level — river-carved columns dip below
-    // WATER_LEVEL and fall out. The legacy "plateau == 0" rule is gone:
+    // TerrainMath.SEA_LEVEL and fall out. The legacy "plateau == 0" rule is gone:
     // per-zone BaseElevation now lifts each zone's surface to its own
     // platform height, so anchoring on world y=0 would only let swamp (which
     // happens to have BaseElevation near 0) ever spawn props.
-    private static bool IsFlatDryGrassAt(int wx, int wz, HeightMap heightMap)
+    private bool IsFlatDryGrassAt(int wx, int wz, HeightMap heightMap)
     {
         // Scatter samplers (SpawnGroupData.ScatterRadius via SpawnContext.TryPickInRadius)
         // can probe positions outside the heightmap range when the anchor is
@@ -3795,12 +2925,12 @@ public static class WorldGen
         int h = heightMap.GetSurface(wx, wz);
         // h is the topmost solid voxel; the walkable surface sits at h+1, so
         // "above water" is h+1 > waterline, i.e. h >= waterline. Strict
-        // greater-than was wrong: it excluded shoreline plateaus (h=WATER_LEVEL)
+        // greater-than was wrong: it excluded shoreline plateaus (h=TerrainMath.SEA_LEVEL)
         // whose top voxel sits exactly at the water plane but whose air-above
         // is still dry — exactly the band where forest's noise dips would
         // otherwise plant trees. Measured against the COLUMN's waterline, so a
         // river bed or lake floor above sea level is wet ground too.
-        return h == heightMap.GetPlateau(wx, wz) && h >= WaterYAt(heightMap, wx, wz);
+        return h == heightMap.GetPlateau(wx, wz) && h >= TerrainMath.WaterYAt(heightMap, wx, wz);
     }
 
     // True iff (wx, wz) sits on an obvious flat patch — the column itself
@@ -3809,7 +2939,7 @@ public static class WorldGen
     // columns (neighbor higher = ramp climb). Used by spawn entries that
     // opt in via RequireFlatTerrain (mobs, campfires) where physics or
     // visuals can't tolerate a sloped step face under the spawn anchor.
-    private static bool IsFlatTerrainAt(int wx, int wz, HeightMap heightMap)
+    private bool IsFlatTerrainAt(int wx, int wz, HeightMap heightMap)
     {
         if (!IsFlatDryGrassAt(wx, wz, heightMap))
         {
@@ -3840,7 +2970,7 @@ public static class WorldGen
         return true;
     }
 
-    private static void GenerateChunk(ChunkState data, WorldGenData genData, KitPalette palette,
+    private void GenerateChunk(ChunkState data, WorldGenData genData, KitPalette palette,
         ITerrainGenerator terrainGen, HeightMap heightMap)
     {
         int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
@@ -3866,7 +2996,7 @@ public static class WorldGen
                 // Provisional only: StampGradeShapes re-derives the surface tag
                 // from the finished geometry at the end of generation, and that
                 // pass — not this one — is authoritative.
-                byte surfaceShape = (byte)(heightMap.IsGrade(wx, wz, TerrainOf(genData).maxGradeStep)
+                byte surfaceShape = (byte)(heightMap.IsGrade(wx, wz, TerrainMath.TerrainOf(genData).maxGradeStep)
                     ? SharpAxes.None
                     : SharpAxes.Y);
 
@@ -3876,13 +3006,13 @@ public static class WorldGen
                 // [ShoreElevationMin, ShoreElevationMax] meters above sea
                 // level — keeps the shoreline jagged instead of a flat
                 // isobar. Columns whose zone has no ShoreKit get an empty
-                // band (shoreUpperY = WATER_LEVEL → no voxel falls in it).
+                // band (shoreUpperY = TerrainMath.SEA_LEVEL → no voxel falls in it).
                 // The waterline this column answers to — the sea, or a river /
                 // lake surface above it. Both the fill below and the shore band
                 // are measured from it, so a lake gets the same beach lip at its
                 // own level that the coast gets at sea level.
-                int waterY = WaterYAt(heightMap, wx, wz);
-                int kitZone = PickKitZone(wx, wz, genData.ZoneGens, data.ZoneIndex);
+                int waterY = TerrainMath.WaterYAt(heightMap, wx, wz);
+                int kitZone = _zones.PickKitZone(wx, wz, data.ZoneIndex);
                 ZoneGenData kitZoneData = kitZone >= 0 ? genData.ZoneGens[kitZone] : null;
                 byte surfaceTerrainId = palette.SlotOf(kitZoneData?.surfaceKit);
                 byte shoreTerrainId = surfaceTerrainId;
@@ -3890,7 +3020,7 @@ public static class WorldGen
                 if (kitZoneData != null && kitZoneData.shoreKit != null)
                 {
                     shoreTerrainId = palette.SlotOf(kitZoneData.shoreKit);
-                    float shoreUpperR = HashFloat01(wx, wz, SHORE_UPPER_HASH_SALT);
+                    float shoreUpperR = TerrainMath.HashFloat01(wx, wz, SHORE_UPPER_HASH_SALT);
                     float shoreUpperMeters = Mathf.Lerp(
                         kitZoneData.shoreElevationMin,
                         kitZoneData.shoreElevationMax,
@@ -3922,7 +3052,7 @@ public static class WorldGen
                         {
                             int nx = wx + dx;
                             int nz = wz + dz;
-                            if (heightMap.GetHeight(nx, nz) < WaterYAt(heightMap, nx, nz))
+                            if (heightMap.GetHeight(nx, nz) < TerrainMath.WaterYAt(heightMap, nx, nz))
                             {
                                 columnIsBeach = true;
                             }
@@ -3996,7 +3126,7 @@ public static class WorldGen
                     // water cliffs stays SurfaceKit (no sand bleed on cliff
                     // faces). Cave interiors are later re-stamped to CaveKit
                     // by MarkCaveSurfaceShapes. Above-water voxels in the
-                    // shore band (wy in (WATER_LEVEL, shoreUpperY]) take the
+                    // shore band (wy in (TerrainMath.SEA_LEVEL, shoreUpperY]) take the
                     // zone's ShoreKit so the beach lip at water's edge reads
                     // as sand even on land.
                     data.TerrainId[x, y, z] = (byte)kit;
@@ -4010,7 +3140,7 @@ public static class WorldGen
     // and place the entry once (signpost, knowledge stone, ...). Replaces the
     // former per-quadrant signpost pass; the per-region text / language /
     // language-component now live on the authored entries.
-    private static void PlaceRegionFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    private void PlaceRegionFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         RegionGenData[] regions = genData.regions ?? System.Array.Empty<RegionGenData>();
         if (regions.Length == 0) { return; }
@@ -4020,12 +3150,11 @@ public static class WorldGen
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        var context = new SpawnContext
-        {
+        var context = Ctx(ws, new SpawnContext {
             SurfaceYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             IsValidColumn = (wx, wz) => IsGrassySurfaceAt(ws, wx, wz, heightMap),
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
-        };
+        });
 
         for (int ri = 0; ri < regions.Length; ri++)
         {
@@ -4039,7 +3168,7 @@ public static class WorldGen
             }
             // Per-region rng so each region's placement is independent and
             // deterministic across runs.
-            var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), ri, 0));
+            var rng = new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), ri, 0));
             foreach (SpawnEntryData entry in fixtures.entries)
             {
                 if (entry == null) { continue; }
@@ -4061,251 +3190,6 @@ public static class WorldGen
         }
     }
 
-    // Bucket-fill ground fog. For each zone we compute a "fog level" Y_i
-    // by pouring a humidity-scaled volume into the zone's heightmap (sorted
-    // floor heights, water-clamped) and finding where it settles. Per voxel
-    // the level blends across zones via the prop/kit kernel; density falls
-    // off linearly with distance below the level. Only open-to-sky voxels
-    // get seeded — caves / tunnels stay fog-free.
-    private static void GenerateFog(WorldState ws, WorldGenData genData, HeightMap heightMap)
-    {
-        int zoneCount = genData.ZoneGens != null ? genData.ZoneGens.Length : 0;
-        if (zoneCount == 0)
-        {
-            return;
-        }
-
-        int worldMinY = ws.Min.Y * ChunkState.SIZE;
-        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinX = ws.Min.X * ChunkState.SIZE;
-        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        // Step 1 — gather each zone's column floor heights, water-clamped.
-        // Floors below WATER_LEVEL get pinned there: water surface IS the
-        // bucket bottom over submerged columns (we don't fog underwater).
-        var zoneFloors = new List<int>[zoneCount];
-        for (int i = 0; i < zoneCount; i++)
-        {
-            zoneFloors[i] = new List<int>();
-        }
-        for (int wx = worldMinX; wx <= worldMaxX; wx++)
-        {
-            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
-            {
-                int chunkX = (int)Math.Floor((double)wx / ChunkState.SIZE);
-                int chunkZ = (int)Math.Floor((double)wz / ChunkState.SIZE);
-                int zoneIdx = PickZoneIndex(new Vector3I(chunkX, 0, chunkZ), zoneCount);
-                int h = heightMap.GetSurface(wx, wz);
-                zoneFloors[zoneIdx].Add(Math.Max(h, WATER_LEVEL));
-            }
-        }
-
-        // Step 2 — solve bucket-fill per zone. Humidity * volume-per-column
-        // gives the total fog volume to pour; SolveBucketFill returns the
-        // resulting level Y. Floors are sorted in place (cheap; we only walk
-        // the list once after this).
-        float[] fogLevelY = new float[zoneCount];
-        for (int i = 0; i < zoneCount; i++)
-        {
-            List<int> floors = zoneFloors[i];
-            if (floors.Count == 0)
-            {
-                fogLevelY[i] = float.NegativeInfinity;
-                continue;
-            }
-            floors.Sort();
-            float humidity = 0f;
-            ZoneGenData rg = genData.ZoneGens[i];
-            if (rg?.zone?.weather != null)
-            {
-                humidity = rg.zone.weather.humidity;
-            }
-            float desiredVolume = humidity * genData.fogVolumePerHumidity * floors.Count;
-            fogLevelY[i] = SolveBucketFill(floors, desiredVolume);
-        }
-
-        // Step 3 — stamp fog density per voxel under the kernel-blended level.
-        Span<float> weights = zoneCount <= 32
-            ? stackalloc float[zoneCount]
-            : new float[zoneCount];
-
-        for (int wx = worldMinX; wx <= worldMaxX; wx++)
-        {
-            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
-            {
-                // Highest non-air voxel: air above it is open-to-sky; air at
-                // or below is enclosed (cave / tunnel / under-overhang) and
-                // stays fog-free.
-                int highestNonAir = worldMinY - 1;
-                for (int wy = worldMaxY; wy >= worldMinY; wy--)
-                {
-                    if (ws.GetBlockWorld(wx, wy, wz) != Blocks.AirId)
-                    {
-                        highestNonAir = wy;
-                        break;
-                    }
-                }
-                int fogStartY = Math.Max(highestNonAir + 1, WATER_LEVEL + 1);
-                if (fogStartY > worldMaxY) { continue; }
-
-                // Per-column blended fog level. Skip when no neighbouring
-                // zone offers a level — empty kernel.
-                GetZoneGenWeights(wx, wz, zoneCount, weights);
-                float blendedLevel = 0f;
-                float wSum = 0f;
-                for (int i = 0; i < zoneCount; i++)
-                {
-                    if (weights[i] <= 0f) { continue; }
-                    if (float.IsNegativeInfinity(fogLevelY[i])) { continue; }
-                    blendedLevel += weights[i] * fogLevelY[i];
-                    wSum += weights[i];
-                }
-                if (wSum < 1e-6f) { continue; }
-                blendedLevel /= wSum;
-
-                int ceilingY = (int)Math.Floor(blendedLevel);
-                if (ceilingY < fogStartY) { continue; }
-
-                for (int wy = fogStartY; wy <= ceilingY && wy <= worldMaxY; wy++)
-                {
-                    if (ws.GetBlockWorld(wx, wy, wz) != Blocks.AirId)
-                    {
-                        continue;
-                    }
-                    float depth = blendedLevel - wy;
-                    int density = (int)Mathf.Clamp(depth * genData.fogDensityPerVoxel, 0f, FOG_MAX_DENSITY);
-                    if (density > 0)
-                    {
-                        ws.SetFogWorld(wx, wy, wz, density);
-                    }
-                }
-            }
-        }
-
-    }
-
-    // Rasterize roof sun occlusion so the SkyExposure column scan below sees
-    // roofs as cover. Foliage is NOT stamped here: its occluders come from
-    // PackedScene.Instantiate, a Node API that can't run on the worldgen worker
-    // thread, so canopy is stamped later by FoliageStamper on the main thread.
-    // That split is also the correct semantics — a tree canopy shouldn't make a
-    // cell an interior, only a real ceiling should.
-    private static void StampRoofSunOcclusion(WorldState ws)
-    {
-        foreach (List<EntitySimState> bucket in ws._entities.Values)
-        {
-            for (int i = 0; i < bucket.Count; i++)
-            {
-                if (bucket[i] is RoofSimState roof)
-                {
-                    RoofSunStamper.Stamp(ws, roof);
-                }
-            }
-        }
-    }
-
-    // Bucket-fill: given column floor heights sorted ascending and a desired
-    // total volume V (in voxel-units of integrated air below the level), find
-    // Y such that sum_c max(0, Y - floors[c]) = V. Volume vs Y is non-decreasing
-    // piecewise-linear; we walk segments [floors[k], floors[k+1]] (slope k+1
-    // since k+1 columns sit below Y in that segment) and solve linearly in
-    // the segment that contains the target volume.
-    private static float SolveBucketFill(List<int> sortedFloors, float desiredVolume)
-    {
-        int n = sortedFloors.Count;
-        if (n == 0)
-        {
-            return 0f;
-        }
-        if (desiredVolume <= 0f)
-        {
-            return sortedFloors[0];
-        }
-        float v = 0f;
-        for (int k = 0; k < n - 1; k++)
-        {
-            int slope = k + 1;
-            int dh = sortedFloors[k + 1] - sortedFloors[k];
-            if (dh <= 0) { continue; }
-            float segVol = (float)slope * dh;
-            if (v + segVol >= desiredVolume)
-            {
-                return sortedFloors[k] + (desiredVolume - v) / slope;
-            }
-            v += segVol;
-        }
-        // All floors submerged in the bucket — slope is n above floors[n-1].
-        return sortedFloors[n - 1] + (desiredVolume - v) / n;
-    }
-
-    // One-off test stamp: a wide shallow underwater lake in the mountain
-    // (NE) zone, pushed inland toward the desert border. The ceiling is
-    // pinned to the first plateau above water (WATER_LEVEL + PlateauStep)
-    // so the cavern stays low even where the natural mountain surface
-    // climbs higher. Columns whose natural surface already sits below the
-    // ceiling merge into the existing terrain instead of getting a
-    // synthetic ceiling stamped over them. MarkCaveSurfaceShapes runs
-    // after this and will tag the carved walls / floor / ceiling as
-    // cave-kit + SharpAxes.Y. Hardcoded constants — this does not survive
-    // editor-authored worlds; remove once underground-water visuals are
-    // signed off.
-    private static void GenerateTestUnderwaterLake(WorldState ws, HeightMap heightMap)
-    {
-        const int CenterX = 20;
-        const int CenterZ = 32;
-        const int HalfSize = 25;            // 50x50 footprint
-        const int FloorY = WATER_LEVEL - 3; // 4 voxels of standing water
-
-        int worldMinY = ws.Min.Y * ChunkState.SIZE;
-        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        // The world's enclosed-space lattice, so this cavern's roof sits at a
-        // height the camera cutaway reads like any other ceiling.
-        int ceilingY = WATER_LEVEL + heightMap.LevelStep;
-
-        for (int dx = -HalfSize; dx < HalfSize; dx++)
-        {
-            for (int dz = -HalfSize; dz < HalfSize; dz++)
-            {
-                int wx = CenterX + dx;
-                int wz = CenterZ + dz;
-
-                // Topmost natural solid voxel in the column. Carving stops
-                // here so we never punch a hole in the sky for shoreline
-                // columns whose surface already dips below the lake ceiling.
-                int naturalSurfaceY = worldMinY - 1;
-                for (int wy = worldMaxY; wy >= worldMinY; wy--)
-                {
-                    var v = ws.GetBlockWorld(wx, wy, wz);
-                    if (v != Blocks.AirId && v != Blocks.WaterId)
-                    {
-                        naturalSurfaceY = wy;
-                        break;
-                    }
-                }
-
-                int topCarve = Math.Min(ceilingY - 1, naturalSurfaceY);
-                for (int wy = FloorY + 1; wy <= topCarve; wy++)
-                {
-                    var fill = wy <= WATER_LEVEL ? Blocks.WaterId : Blocks.AirId;
-                    ws.SetBlockWorld(wx, wy, wz, fill);
-                }
-
-                // Stamp a solid floor only where the natural seabed sat
-                // above it. Where the column was already deeper than FloorY
-                // (open ocean), leave the existing geometry so the lake
-                // merges seamlessly with the sea.
-                if (naturalSurfaceY > FloorY)
-                {
-                    ws.SetBlockWorld(wx, FloorY, wz,
-                        ws.Kits.BlockFor(ws.GetTerrainIdWorld(wx, FloorY, wz)), SharpAxes.Y);
-                }
-            }
-        }
-    }
-
     // Sweep every column, find the topmost solid voxel, and mark any *buried*
     // solid voxel (i.e. below the top) that borders a cave-interior air/water
     // cell as SharpAxes.Y + KIT_CAVE. This is the authored form of "cave
@@ -4318,7 +3202,7 @@ public static class WorldGen
     // is open to sky (no solid above in its own shorter column), so the
     // cave check filters it out. Without that filter every cliff face gets
     // KIT_CAVE, whose FlatTile is sand, and stone cliffs grow sand bases.
-    private static void MarkCaveSurfaceShapes(WorldState ws, WorldGenData genData)
+    private void MarkCaveSurfaceShapes(WorldState ws, WorldGenData genData)
     {
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
@@ -4388,7 +3272,7 @@ public static class WorldGen
                         // can paint it distinctly from the surface above.
                         // Overrides SubmergedKit for submerged caves — the
                         // cave palette wins there.
-                        int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
+                        int zoneIdx = _zones.PickKitZone(wx, wz, ZoneIndexAtWorld(ws, wx, wy, wz));
                         RestampKit(ws, wx, wy, wz, ws.Kits.SlotOf(genData.ZoneGens[zoneIdx]?.caveKit));
                     }
                 }
@@ -4396,14 +3280,14 @@ public static class WorldGen
         }
     }
 
-    // Re-tag solid voxels at or below WATER_LEVEL to KIT_UNDERWATER iff they
+    // Re-tag solid voxels at or below TerrainMath.SEA_LEVEL to KIT_UNDERWATER iff they
     // sit within WorldGenData.SubmergedKitRadius of a water voxel. Runs after every
     // chunk exists so the water pass has already filled every non-solid
-    // wy<=WATER_LEVEL cell with Blocks.WaterId. Semantic "near water" beats
-    // the old "wy<=WATER_LEVEL" rule because the latter paints deeply buried
+    // wy<=TerrainMath.SEA_LEVEL cell with Blocks.WaterId. Semantic "near water" beats
+    // the old "wy<=TerrainMath.SEA_LEVEL" rule because the latter paints deeply buried
     // rock under cliffs as underwater — then the mesher's 27-voxel kit vote
     // for nearby DC cells drags that sand onto the visible cliff face.
-    private static void TagSubmergedKits(WorldState ws, WorldGenData genData, HeightMap heightMap)
+    private void TagSubmergedKits(WorldState ws, WorldGenData genData, HeightMap heightMap)
     {
         // Chebyshev radius for the water-adjacency search. Must be >= 2 (see
         // WorldGenData.SubmergedKitRadius for the mesher-vote rationale).
@@ -4428,8 +3312,8 @@ public static class WorldGen
                 // here; the per-voxel ZoneIndexAtWorld fallback inside the y
                 // loop only kicks in when the kernel produces no positive
                 // weight, which is rare.
-                int waterY = WaterYAt(heightMap, wx, wz);
-                int columnZone = PickKitZone(wx, wz, genData.ZoneGens, 0);
+                int waterY = TerrainMath.WaterYAt(heightMap, wx, wz);
+                int columnZone = _zones.PickKitZone(wx, wz, 0);
                 ZoneGenData columnZoneData = columnZone >= 0 ? genData.ZoneGens[columnZone] : null;
                 byte shoreTerrainId = 0;
                 int shoreLowerY = waterY;
@@ -4496,7 +3380,7 @@ public static class WorldGen
                         }
                         else
                         {
-                            int zoneIdx = PickKitZone(wx, wz, genData.ZoneGens, ZoneIndexAtWorld(ws, wx, wy, wz));
+                            int zoneIdx = _zones.PickKitZone(wx, wz, ZoneIndexAtWorld(ws, wx, wy, wz));
                             RestampKit(ws, wx, wy, wz, ws.Kits.SlotOf(genData.ZoneGens[zoneIdx]?.submergedKit));
                         }
                     }
@@ -4521,7 +3405,6 @@ public static class WorldGen
     // only ONE slot per voxel. A material that wants to BE the ground is a block
     // — which is why dirt patches write Dirt through StampDirtPatches rather
     // than taking the slot moss will need.
-    private const byte OVERLAY_NONE = 0;
 
     // Re-stamp a voxel's kit AND the block that kit resolves to.
     //
@@ -4534,7 +3417,7 @@ public static class WorldGen
     // Shape is PRESERVED. These voxels carry authored terrain shapes (a ramp
     // column's None), and re-stamping at the block's default Y would re-harden
     // them into 1-voxel steps.
-    private static void RestampKit(WorldState ws, int wx, int wy, int wz, int kitId)
+    private void RestampKit(WorldState ws, int wx, int wy, int wz, int kitId)
     {
         ws.SetTerrainIdWorld(wx, wy, wz, kitId);
         ws.SetBlockWorld(wx, wy, wz, ws.Kits.BlockFor(kitId), ws.GetShapeWorld(wx, wy, wz));
@@ -4600,7 +3483,7 @@ public static class WorldGen
     // a ramp voxel re-stamped at the block's default Y would re-harden into a
     // 1-voxel step. TerrainId (the kit channel) is left alone too, so detail
     // scatter and the kit tunings still see the terrain they were authored for.
-    private static void StampDirtPatches(WorldState ws, WorldGenData genData)
+    private void StampDirtPatches(WorldState ws, WorldGenData genData)
     {
         var dirtNoise = new FastNoiseLite();
         dirtNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
@@ -4621,7 +3504,7 @@ public static class WorldGen
             {
                 for (int wy = worldMinY; wy < worldMaxY; wy++)
                 {
-                    if (!IsSurfaceVoxel(ws, wx, wy, wz))
+                    if (!TerrainMath.IsSurfaceVoxel(ws, wx, wy, wz))
                     {
                         continue;
                     }
@@ -4639,414 +3522,7 @@ public static class WorldGen
         }
     }
 
-    // Walks every surface voxel and stamps the voxel's kit's DefaultDetail
-    // wherever the appropriate noise field crosses the kit's threshold. Two
-    // noise fields are kept (Surface vs other) so cave/submerged scatter
-    // doesn't visually correlate with the surface scatter directly above;
-    // the kit's Purpose picks which one. Frequency is per-kit: each noise
-    // object is sampled at base frequency 1, with coords pre-scaled by the
-    // kit's DetailNoiseFrequency, so kits within a single zone read
-    // different noise patterns (sharp transitions where kits change).
-    //
-    // Two knobs, because the painter's bake runs this same pass over a painted
-    // world (see WorldMapState.BuildWorld): `skipColumn` names the columns whose
-    // surface is a deliberate tread — worldgen's roads, the painter's paving —
-    // and `dominantZoneKit` is off there, since a painted world assigns kits per
-    // column deterministically and has no zone-weight kernel to take an argmax
-    // of. Everything else — the surface walk, the gates, the noise, the strength
-    // ramp — is shared rather than reimplemented per caller.
-    public static void StampDetailScatter(WorldState ws, WorldGenData genData,
-        Func<int, int, bool> skipColumn, bool dominantZoneKit)
-    {
-        var surfaceNoise = new FastNoiseLite();
-        surfaceNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        surfaceNoise.Seed = DETAIL_NOISE_SEED;
-        surfaceNoise.Frequency = 1f;
-        surfaceNoise.FractalOctaves = 2;
-
-        var subsurfaceNoise = new FastNoiseLite();
-        subsurfaceNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        subsurfaceNoise.Seed = SUBSURFACE_NOISE_SEED;
-        subsurfaceNoise.Frequency = 1f;
-        subsurfaceNoise.FractalOctaves = 2;
-
-        int worldMinY = ws.Min.Y * ChunkState.SIZE;
-        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinX = ws.Min.X * ChunkState.SIZE;
-        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        // Hoisted so the shell test below doesn't allocate a delegate per voxel.
-        Func<int, int, int, int> getVoxel = ws.GetBlockWorld;
-
-        for (int wx = worldMinX; wx <= worldMaxX; wx++)
-        {
-            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
-            {
-                // A road tread is bare dirt, and this pass runs after it is laid
-                // — so the road is kept clear here rather than by clearing the
-                // detail channel again after the fact.
-                if (skipColumn != null && skipColumn(wx, wz))
-                {
-                    continue;
-                }
-                for (int wy = worldMinY; wy < worldMaxY; wy++)
-                {
-                    if (!IsSurfaceVoxel(ws, wx, wy, wz))
-                    {
-                        continue;
-                    }
-                    // Detail decorates ground, never masonry: IsSurfaceVoxel is
-                    // satisfied by the top of a wall, which would run grass and
-                    // flowers along the battlements.
-                    if (!IsNaturalGround(ws, wx, wy, wz))
-                    {
-                        continue;
-                    }
-                    // IsSurfaceVoxel accepts water above (it's "non-solid"),
-                    // which suits the kit-tagging passes but would scatter
-                    // upright sprites at the water surface. Caves and test
-                    // lakes create new water voxels AFTER TagSubmergedKits
-                    // runs — the lake floor still carries SurfaceKit and
-                    // would otherwise spawn grass inside the water. Reject
-                    // any surface voxel whose air-above slot is water.
-                    if (ws.GetBlockWorld(wx, wy + 1, wz) == Blocks.WaterId)
-                    {
-                        continue;
-                    }
-                    // The water mesh also dilates a voxel laterally into the
-                    // shore and skins that shell cell's top face at the
-                    // waterline, so its ground is submerged even though the
-                    // slot above is air. Shore kits carry real detail (grass on
-                    // shore_swamp, pebbles on shore_sand), so without this the
-                    // waterline row sprouts sprites standing in the water.
-                    if (WaterMesher.IsCoveredShell(getVoxel, wx, wy, wz))
-                    {
-                        continue;
-                    }
-
-                    // Surface detail follows the DETERMINISTIC dominant zone
-                    // (argmax of the smooth zone-weight kernel), NOT this voxel's
-                    // stamped kit. Kit borders are assigned by a per-column random
-                    // hash (PickWeightedZoneFromHash) so the terrain reads as a
-                    // jagged organic transition once the shader blends it — but
-                    // detail renders each per-column pick as a discrete sprite, so
-                    // that RNG shows up as a salt-and-pepper of off-biome grass
-                    // (and the occasional dense off-biome clump where the hash
-                    // rolled one way several columns running). Keying detail off
-                    // the dominant zone instead snaps its boundary to the blend
-                    // midline, so detail tracks the terrain's visual transition
-                    // rather than its per-voxel randomness. Cave / submerged
-                    // detail keeps the voxel's own kit (less visible, not the
-                    // reported problem). The chosen kit's DetailNoise* thresholds
-                    // still drive presence/strength below.
-                    int voxelTerrainId = ws.GetTerrainIdWorld(wx, wy, wz);
-                    bool isSurface = ws.Kits.IsSurfaceKit(voxelTerrainId);
-                    TerrainKitData kit = isSurface && dominantZoneKit
-                        ? (DominantZoneSurfaceKit(wx, wz, genData.ZoneGens) ?? ws.Kits.KitAt(voxelTerrainId))
-                        : ws.Kits.KitAt(voxelTerrainId);
-                    if (kit == null || kit.defaultDetail == null)
-                    {
-                        continue;
-                    }
-
-                    FastNoiseLite noise = isSurface ? surfaceNoise : subsurfaceNoise;
-                    float n = noise.GetNoise2D(wx * kit.detailNoiseFrequency, wz * kit.detailNoiseFrequency);
-                    if (n <= kit.detailNoiseThreshold)
-                    {
-                        continue;
-                    }
-
-                    // Map noise (threshold..1) to (strengthMin..255). The kit
-                    // owns both the threshold and the floor, so a sandstone-
-                    // cave kit can thin its pebble scatter without affecting
-                    // a sibling kit in the same zone.
-                    float t = (n - kit.detailNoiseThreshold) / Math.Max(0.0001f, 1f - kit.detailNoiseThreshold);
-                    int strengthMin = kit.detailStrengthMin;
-                    int strength = strengthMin + (int)(t * (255 - strengthMin));
-                    strength = Mathf.Clamp(strength, 0, 255);
-                    if (strength <= 0)
-                    {
-                        continue;
-                    }
-
-                    ws.SetDetailGroupWorld(wx, wy, wz, ws.Kits.DetailSlotOf(kit.defaultDetail));
-                    ws.SetDetailStrengthWorld(wx, wy, wz, strength);
-                }
-            }
-        }
-    }
-
-    // SurfaceKit of the zone with the highest weight at column (wx, wz) — the
-    // deterministic dominant zone. Uses the same KitBlendRadius kernel the
-    // (random) kit-border hash samples, so the dominant flips exactly at that
-    // kernel's midline and the detail boundary sits where the terrain blend
-    // visually crosses over. Returns null when no zone has positive weight or
-    // the winner has no SurfaceKit, so the caller falls back to the voxel's own
-    // stamped kit. See StampDetailScatter for why detail keys off the dominant
-    // zone rather than the per-column random pick.
-    private static TerrainKitData DominantZoneSurfaceKit(int wx, int wz, ZoneGenData[] zones)
-    {
-        int n = zones != null ? zones.Length : 0;
-        if (n == 0) { return null; }
-        Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetZoneGenWeights(wx, wz, n, weights, _activeGenData?.kitBlendRadius ?? 2.0f);
-        int best = -1;
-        float bestW = 0f;
-        for (int i = 0; i < n; i++)
-        {
-            if (weights[i] > bestW)
-            {
-                bestW = weights[i];
-                best = i;
-            }
-        }
-        return best >= 0 ? zones[best]?.surfaceKit : null;
-    }
-
-    // Scatter the moss OVERLAY over exposed rock and ground.
-    //
-    // Moss is an overlay, not a block: it is a skin over whatever is underneath,
-    // so the stone stays stone underfoot and in the sim. Coverage is per zone and
-    // split surface/cave, because caves are damp and want much more of it (and
-    // the desert wants none, above or below).
-    //
-    // Unlike the dirt pass this walks every AIR-EXPOSED voxel, not just the ones
-    // with air above — cliff faces are the whole point, and a face has air to the
-    // side. Whether a given layer is allowed onto a wall is the shader's call via
-    // BlockSurfaceData.overlayOnCliffs, so this pass just marks the rock.
-    //
-    // SHAPE: moss creeps in strands, so the field is a VEIN distance, not a
-    // blob threshold. Thresholding noise itself keeps whichever side of the
-    // contour is above the cut — a filled region, hence round patches, and no
-    // amount of frequency tuning makes it stringy. |noise| instead measures
-    // distance from the noise's ZERO SET, a curved sheet through the world
-    // whose intersection with the terrain is a meandering line, so a low cut
-    // keeps a thin band either side of it. Three things then make that read as
-    // growth: a domain warp so the strands crook rather than flow, a second
-    // finer network unioned in (min = the union of both bands) for hairlines
-    // branching off the trunks, and a long-wavelength coverage modulation so a
-    // strand thins and dies along its length.
-    // The four horizontal faces a wall can present. Vertical faces are excluded
-    // deliberately: a floor or a ceiling is not something the climb affordance
-    // attaches to, and dressing them would put ivy on every cliff TOP.
-    private static readonly (int dx, int dz, EVoxelFace face)[] ClimbFaces =
-    {
-        (1, 0, EVoxelFace.PosX),
-        (-1, 0, EVoxelFace.NegX),
-        (0, 1, EVoxelFace.PosZ),
-        (0, -1, EVoxelFace.NegZ),
-    };
-
-    // Dresses tall cliff faces with a climbable overlay, in cellular patches.
-    //
-    // Height is measured as an unbroken run of exposure on ONE face, walked up
-    // the column, rather than from the heightfield: the heightfield knows what a
-    // column's top is, not how much of a given side of it stands open, and those
-    // differ at every overhang, bench and cave mouth. Runs also cost nothing
-    // extra — the walk is already happening.
-    //
-    // Cellular rather than the vein noise moss uses, because the shapes want to
-    // read differently: moss is strands seeping down a face, ivy is colonies
-    // that own a patch of it. CellValue gives one random value per cell, so a
-    // threshold keeps WHOLE cells and their irregular borders; a distance return
-    // would give circular blooms with soft edges instead.
-    // The two per-column answers are supplied rather than read, because the
-    // world-map painter runs this same pass over a world it built itself: it has
-    // no HeightMap and its coverage is a painted scalar, not a zone's. Everything
-    // else — the face walk, the run heights, the patch noise, the per-block
-    // growth table — is identical for both, and reimplementing it painter-side is
-    // how the waterfall shading ended up as two copies that drifted.
-    // minWallVoxels is the shortest wall worth dressing, and `patchy` decides
-    // whether coverage means "this fraction of the face, in cellular patches" or
-    // "dress the whole face". Worldgen wants patches — a zone of cliffs where
-    // some are climbable. The painter marks INDIVIDUAL routes, and a route with
-    // holes in it is not a route.
-    public static void StampClimbSurfaces(WorldState ws, WorldGenData genData,
-        Func<int, int, float> coverageAt, Func<int, int, int> waterYAt,
-        int minWallVoxels, bool patchy)
-    {
-        // Which crust each block grows, flattened to an id-indexed table once —
-        // the walk below asks per voxel, and OVERLAY_NONE means "this rock grows
-        // nothing", which skips it. Resolving per block rather than per zone is
-        // what lets one zone's caves differ from its surface (desert sandstone
-        // keeps lichen where the limestone everyone else's caves are cut from
-        // takes moss) and what keeps a mantle lip matching the wall under it.
-        var growthByBlock = new byte[BlockCatalog.MAX_BLOCKS];
-        bool anyGrowth = false;
-        BlockCatalog catalog = BlockCatalog.Active;
-        for (int id = 0; id < growthByBlock.Length; id++)
-        {
-            BlockSurfaceData growth = catalog.ClimbGrowthFor(id);
-            if (growth == null)
-            {
-                growthByBlock[id] = OVERLAY_NONE;
-                continue;
-            }
-            if (growth.atlasBaseIndex <= 0)
-            {
-                GD.PushError($"WorldGen: climb growth surface '{growth.surfaceName}' has no atlas layer; add it to voxel_atlas_manifest.tres and rebuild.");
-                growthByBlock[id] = OVERLAY_NONE;
-                continue;
-            }
-            growthByBlock[id] = (byte)growth.atlasBaseIndex;
-            anyGrowth = true;
-        }
-        if (!anyGrowth)
-        {
-            return;
-        }
-        int minHeight = Mathf.Max(minWallVoxels, 2);
-        float yStretch = Mathf.Max(genData.climbVerticalStretch, 0.01f);
-
-        var patchNoise = new FastNoiseLite();
-        patchNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Cellular;
-        patchNoise.Seed = CLIMB_PATCH_SEED;
-        patchNoise.Frequency = genData.climbCellFrequency;
-        patchNoise.CellularDistanceFunction = FastNoiseLite.CellularDistanceFunctionEnum.Euclidean;
-        patchNoise.CellularReturnType = FastNoiseLite.CellularReturnTypeEnum.CellValue;
-        patchNoise.CellularJitter = genData.climbCellJitter;
-
-        int worldMinY = ws.Min.Y * ChunkState.SIZE;
-        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinX = ws.Min.X * ChunkState.SIZE;
-        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        long faceRuns = 0, faceVoxels = 0, stamped = 0;
-        var runStart = new int[ClimbFaces.Length];
-
-        for (int wx = worldMinX; wx <= worldMaxX; wx++)
-        {
-            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
-            {
-                float coverage = coverageAt(wx, wz);
-                if (coverage <= 0f)
-                {
-                    continue;
-                }
-
-                // Deepest voxel this column may still mark climbable, from its
-                // OWN waterline — so a lake or river bounds its walls the same
-                // way the sea does.
-                int climbLowestY = waterYAt(wx, wz) - genData.climbUnderwaterVoxels;
-
-                for (int f = 0; f < runStart.Length; f++)
-                {
-                    runStart[f] = int.MinValue;
-                }
-
-                // One extra step past the top so a run ending at the world
-                // ceiling is flushed by the same branch as any other.
-                for (int wy = worldMinY; wy <= worldMaxY + 1; wy++)
-                {
-                    bool inRange = wy <= worldMaxY;
-                    int v = inRange ? ws.GetBlockWorld(wx, wy, wz) : Blocks.AirId;
-                    bool wall = inRange && Blocks.IsSolid(v) && v != Blocks.BarrierId;
-
-                    for (int f = 0; f < ClimbFaces.Length; f++)
-                    {
-                        (int dx, int dz, EVoxelFace face) = ClimbFaces[f];
-                        // Air exposes a face. Water does too, but only down to
-                        // climbUnderwaterVoxels below the waterline: the rock a
-                        // swimmer can reach is climbable, anything drowned deeper
-                        // is not. IsEmpty excludes water ("non-solid but it is
-                        // content"), so water has to be admitted explicitly.
-                        int neighbour = ws.GetBlockWorld(wx + dx, wy, wz + dz);
-                        bool exposed = wall
-                            && (Blocks.IsEmpty(neighbour)
-                                || (Blocks.IsWater(neighbour) && wy > climbLowestY));
-                        if (exposed)
-                        {
-                            if (runStart[f] == int.MinValue)
-                            {
-                                runStart[f] = wy;
-                            }
-                            continue;
-                        }
-                        if (runStart[f] == int.MinValue)
-                        {
-                            continue;
-                        }
-
-                        int start = runStart[f];
-                        runStart[f] = int.MinValue;
-                        if (wy - start < minHeight)
-                        {
-                            continue;
-                        }
-                        faceRuns++;
-                        faceVoxels += wy - start;
-                        stamped += StampClimbRun(ws, genData, patchy ? patchNoise : null, coverage,
-                            growthByBlock, face, wx, wz, start, wy, yStretch);
-                    }
-                }
-            }
-        }
-
-        // The denominator is FACE-voxels: a corner column stands in two runs and
-        // is counted once per face, while `stamped` counts each voxel once. So
-        // the percentage reads a little under the true share of dressed rock.
-        GD.Print($"WorldGen: climbable cliffs — {faceRuns} qualifying faces "
-            + $"(>= {minHeight} voxels), {stamped} voxels dressed of {faceVoxels} "
-            + $"face-voxels ({100.0 * stamped / Math.Max(faceVoxels, 1):0.0}%)");
-    }
-
-    // Dresses one exposed run [startY, endY). Returns how many voxels took the
-    // overlay.
-    private static long StampClimbRun(WorldState ws, WorldGenData genData, FastNoiseLite patchNoise,
-        float coverage, byte[] growthByBlock, EVoxelFace face, int wx, int wz,
-        int startY, int endY, float yStretch)
-    {
-        long stamped = 0;
-        for (int wy = startY; wy < endY; wy++)
-        {
-            // Per voxel, not per run: a run is one face of one column, but a
-            // cliff can change block partway up it (a limestone shoulder over
-            // sandstone), and the crust has to follow the rock it grows on.
-            byte climbOverlay = growthByBlock[
-                Mathf.Clamp(ws.GetBlockWorld(wx, wy, wz), 0, growthByBlock.Length - 1)];
-            if (climbOverlay == OVERLAY_NONE)
-            {
-                continue;
-            }
-            // Leave an authored overlay (a road tread) alone, but let our own
-            // pass revisit a voxel — a corner voxel is a face on two sides and
-            // has to accumulate both bits.
-            int existingOverlay = ws.GetOverlayIdWorld(wx, wy, wz);
-            if (existingOverlay != OVERLAY_NONE && existingOverlay != climbOverlay)
-            {
-                continue;
-            }
-
-            // No noise = an authored route: dress every voxel of the face. Even
-            // at coverage 1 the cellular test still drops ~a fifth of them, which
-            // is right for a hillside and wrong for a line someone drew.
-            if (patchNoise != null)
-            {
-                float value = patchNoise.GetNoise3D(wx, wy * yStretch, wz) * 0.5f + 0.5f;
-                if (value >= 0.5f + CLIMB_CELL_SPREAD * (coverage - 0.5f))
-                {
-                    continue;
-                }
-            }
-
-            ws.SetOverlayIdWorld(wx, wy, wz, climbOverlay);
-            // OR, never assign: the two faces of a corner are found by separate
-            // runs, and the second must not erase the first.
-            int faces = ws.GetOverlayFacesWorld(wx, wy, wz);
-            ws.SetOverlayFacesWorld(wx, wy, wz, faces | (int)face);
-            if (existingOverlay != climbOverlay)
-            {
-                stamped++;
-            }
-        }
-        return stamped;
-    }
-
-    private static void StampMossPatches(WorldState ws, WorldGenData genData)
+    private void StampMossPatches(WorldState ws, WorldGenData genData)
     {
         BlockSurfaceData moss = genData.mossSurface;
         if (moss == null)
@@ -5087,7 +3563,7 @@ public static class WorldGen
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                int columnZone = PickKitZone(wx, wz, genData.ZoneGens, 0);
+                int columnZone = _zones.PickKitZone(wx, wz, 0);
                 ZoneGenData zone = columnZone >= 0 ? genData.ZoneGens[columnZone] : null;
                 if (zone == null)
                 {
@@ -5106,11 +3582,11 @@ public static class WorldGen
                         continue;
                     }
                     // Leave an authored overlay (a road tread) alone.
-                    if (ws.GetOverlayIdWorld(wx, wy, wz) != OVERLAY_NONE)
+                    if (ws.GetOverlayIdWorld(wx, wy, wz) != ChunkState.OVERLAY_NONE)
                     {
                         continue;
                     }
-                    if (!IsAirExposed(ws, wx, wy, wz))
+                    if (!TerrainMath.IsAirExposed(ws, wx, wy, wz))
                     {
                         continue;
                     }
@@ -5158,7 +3634,7 @@ public static class WorldGen
     // so callers sample world position and get a crooked field for free. BOTH
     // networks warp off the TRUNK wavelength, not their own — a capillary warped
     // at its own finer scale shakes itself into specks.
-    private static FastNoiseLite CreateMossVeinNoise(WorldGenData genData, int seed, float frequency)
+    private FastNoiseLite CreateMossVeinNoise(WorldGenData genData, int seed, float frequency)
     {
         float baseFrequency = Mathf.Max(genData.mossPatchFrequency, 1e-4f);
         var noise = new FastNoiseLite();
@@ -5177,114 +3653,7 @@ public static class WorldGen
         return noise;
     }
 
-    // Solid voxel with air or water on any of its six sides — the definition of
-    // "you can see this face", covering ground tops and cliff faces alike.
-    private static bool IsAirExposed(WorldState ws, int wx, int wy, int wz)
-    {
-        return !IsSolidOpaque(ws, wx + 1, wy, wz)
-            || !IsSolidOpaque(ws, wx - 1, wy, wz)
-            || !IsSolidOpaque(ws, wx, wy + 1, wz)
-            || !IsSolidOpaque(ws, wx, wy - 1, wz)
-            || !IsSolidOpaque(ws, wx, wy, wz + 1)
-            || !IsSolidOpaque(ws, wx, wy, wz - 1);
-    }
-
-    private static bool IsSolidOpaque(WorldState ws, int wx, int wy, int wz)
-    {
-        var v = ws.GetBlockWorld(wx, wy, wz);
-        return Blocks.IsSolid(v) && v != Blocks.BarrierId;
-    }
-
-    // Stamp Dirt on "surface voxels" (solid with air directly above)
-    // whose local neighborhood slope is in [EdgeMinDiff, EdgeMaxDiff-1].
-    // Per-voxel, not per-column: correctly handles cave floors, overhangs, and
-    // ledges because the ±EdgeScanWindow clip keeps each voxel's comparison
-    // local to its own walkable layer. Currently unused (see the disabled call
-    // in Generate); reads its tuning from the active WorldGenData.
-    private static void StampEdgeDirt(WorldState ws)
-    {
-        int edgeScanWindow = _activeGenData?.edgeScanWindow ?? 4;
-        int edgeMinDiff = _activeGenData?.edgeMinDiff ?? 1;
-        int edgeMaxDiff = _activeGenData?.edgeMaxDiff ?? 3;
-        int worldMinY = ws.Min.Y * ChunkState.SIZE;
-        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinX = ws.Min.X * ChunkState.SIZE;
-        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        int[] dx = { 1, -1, 0, 0 };
-        int[] dz = { 0, 0, 1, -1 };
-
-        for (int wx = worldMinX; wx <= worldMaxX; wx++)
-        {
-            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
-            {
-                for (int wy = worldMinY; wy < worldMaxY; wy++)
-                {
-                    if (!IsSurfaceVoxel(ws, wx, wy, wz))
-                    {
-                        continue;
-                    }
-
-                    int maxDiff = 0;
-                    for (int i = 0; i < 4; i++)
-                    {
-                        int nx = wx + dx[i];
-                        int nz = wz + dz[i];
-                        int neighborDiff = FindNearestSurfaceDiff(ws, nx, wy, nz, edgeScanWindow);
-                        if (neighborDiff > maxDiff)
-                        {
-                            maxDiff = neighborDiff;
-                        }
-                    }
-
-                    if (maxDiff >= edgeMinDiff && maxDiff < edgeMaxDiff)
-                    {
-                        ws.SetBlockWorld(wx, wy, wz, DIRT_BLOCK, ws.GetShapeWorld(wx, wy, wz));
-                    }
-                }
-            }
-        }
-    }
-
-    // True iff the voxel at (wx, wy, wz) is solid (non-Barrier) and has air or
-    // water directly above. That's the definition of "walkable surface" used by
-    // the overlay pass — applies to plateau tops, cave floors, ledges alike.
-    private static bool IsSurfaceVoxel(WorldState ws, int wx, int wy, int wz)
-    {
-        var self = ws.GetBlockWorld(wx, wy, wz);
-        if (!Blocks.IsSolid(self) || self == Blocks.BarrierId)
-        {
-            return false;
-        }
-        var above = ws.GetBlockWorld(wx, wy + 1, wz);
-        return !Blocks.IsSolid(above) || above == Blocks.BarrierId;
-    }
-
-    // Returns the vertical distance from `wy` to the nearest surface voxel in
-    // the column at (wx, wz), searching ±window. Returns `window` if no
-    // surface is found (treat as cliff — no overlay).
-    private static int FindNearestSurfaceDiff(WorldState ws, int wx, int wy, int wz, int window)
-    {
-        int best = window;
-        for (int d = 0; d <= window; d++)
-        {
-            if (IsSurfaceVoxel(ws, wx, wy + d, wz))
-            {
-                if (d < best) { best = d; }
-                break;
-            }
-            if (d != 0 && IsSurfaceVoxel(ws, wx, wy - d, wz))
-            {
-                if (d < best) { best = d; }
-                break;
-            }
-        }
-        return best;
-    }
-
-    private static void GenerateProps(WorldState ws, Vector3I chunkCoord, WorldGenData genData,
+    private void GenerateProps(WorldState ws, Vector3I chunkCoord, WorldGenData genData,
         FastNoiseLite grassNoise, FastNoiseLite forestNoise, HeightMap heightMap, int skipFlags, int worldSeed)
     {
         bool skipProps = (skipFlags & SKIP_PROPS) != 0;
@@ -5318,7 +3687,7 @@ public static class WorldGen
             return ws.GetBlockWorld(wx, sy + 1, wz) == Blocks.AirId;
         }
         ChunkState data = ws._chunks[chunkCoord];
-        var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_PROPS), chunkCoord.X, chunkCoord.Z));
+        var rng = new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_PROPS), chunkCoord.X, chunkCoord.Z));
 
         // Per-chunk baseline tree count comes from the kit at the chunk center.
         // Kit-level (not zone-level kernel-blended) because the per-cell tree
@@ -5430,7 +3799,7 @@ public static class WorldGen
                     int wx = chunkCoord.X * ChunkState.SIZE + localX;
                     int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
 
-                    float grassThreshold = SampleBlendedZoneGen(wx, wz, genData.ZoneGens).GrassThreshold;
+                    float grassThreshold = _zones.SampleBlended(wx, wz).GrassThreshold;
                     if (grassNoise.GetNoise2D(wx, wz) < grassThreshold)
                     {
                         continue;
@@ -5472,12 +3841,11 @@ public static class WorldGen
         // Composite entries (SpawnGroupData) read the SpawnContext to do
         // their own rejection-sampled scatter — no per-subclass special-
         // casing here.
-        var surfaceContext = new SpawnContext
-        {
+        var surfaceContext = Ctx(ws, new SpawnContext {
             SurfaceYAt = SurfaceYAt,
             IsValidColumn = IsGrassyAt,
             IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
-        };
+        });
         if (!skipMobs || !skipInteractives)
         {
             for (int localX = 0; localX < ChunkState.SIZE; localX++)
@@ -5506,13 +3874,13 @@ public static class WorldGen
                     // forest pines" mixing). Reach 0 (the default) = dominant
                     // only, so a settlement like the village never inherits a
                     // neighbour's wild mobs.
-                    int domIdx = DominantZoneIndex(wx, wz, zonesArr);
+                    int domIdx = _zones.DominantIndex(wx, wz);
                     if (domIdx < 0) { continue; }
                     float reach = genData.zones[domIdx]?.bounds?.spawnBlendReachChunks ?? 0f;
                     ZoneGenData spawnZone = zonesArr[domIdx];
                     if (reach > 0f)
                     {
-                        int idx = PickWeightedZone(wx, wz, zonesArr, rng, reach);
+                        int idx = _zones.PickWeighted(wx, wz, rng, reach);
                         if (idx >= 0) { spawnZone = zonesArr[idx]; }
                     }
                     if (spawnZone?.surfaceEntities?.entries == null) { continue; }
@@ -5558,11 +3926,10 @@ public static class WorldGen
             }
             // Minimum water-column depth (voxels) a spawned swimmer needs to fit.
             const int MIN_WATER_DEPTH = 2;
-            var waterContext = new SpawnContext
-            {
+            var waterContext = Ctx(ws, new SpawnContext {
                 SurfaceYAt = SurfaceYAt,
                 IsValidColumn = (wx, wz) => WaterSurfaceYAt(wx, wz) != int.MinValue,
-            };
+            });
             for (int localX = 0; localX < ChunkState.SIZE; localX++)
             {
                 for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
@@ -5572,13 +3939,13 @@ public static class WorldGen
 
                     // Same dominant-zone-with-optional-blend pick as the surface
                     // pass, so water content respects zone borders identically.
-                    int domIdx = DominantZoneIndex(wx, wz, zonesArr);
+                    int domIdx = _zones.DominantIndex(wx, wz);
                     if (domIdx < 0) { continue; }
                     float reach = genData.zones[domIdx]?.bounds?.spawnBlendReachChunks ?? 0f;
                     ZoneGenData spawnZone = zonesArr[domIdx];
                     if (reach > 0f)
                     {
-                        int idx = PickWeightedZone(wx, wz, zonesArr, rng, reach);
+                        int idx = _zones.PickWeighted(wx, wz, rng, reach);
                         if (idx >= 0) { spawnZone = zonesArr[idx]; }
                     }
                     if (spawnZone?.waterEntities?.entries == null) { continue; }
@@ -5627,7 +3994,7 @@ public static class WorldGen
         // resolved zone so a cave chest picks up that zone's unique drops. The
         // scatter samplers stay null — cave cells are pre-validated, so leaf
         // entries place at the anchor exactly as they did with a null context.
-        var caveContext = new SpawnContext();
+        var caveContext = Ctx(ws, new SpawnContext());
         for (int localX = 0; localX < ChunkState.SIZE; localX++)
         {
             for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
@@ -5668,7 +4035,7 @@ public static class WorldGen
                         {
                             continue;
                         }
-                        ZoneGenData waterZone = PickWeightedZoneData(wx, wz, zonesArr, rng);
+                        ZoneGenData waterZone = _zones.PickWeightedData(wx, wz, rng);
                         if (waterZone?.caveWaterEntities?.entries == null)
                         {
                             continue;
@@ -5718,7 +4085,7 @@ public static class WorldGen
                         continue;
                     }
 
-                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
+                    ZoneGenData rg = _zones.PickWeightedData(wx, wz, rng);
                     if (rg?.caveEntities?.entries == null)
                     {
                         continue;
@@ -5738,7 +4105,7 @@ public static class WorldGen
         }
     }
 
-    private static void ShuffleArray<T>(Random rng, T[] array)
+    private void ShuffleArray<T>(Random rng, T[] array)
     {
         for (int i = array.Length - 1; i > 0; i--)
         {

@@ -74,6 +74,10 @@ public class ChunkState
     // mesher parallel to int and TerrainId.
     public readonly byte[,,] OverlayId;
 
+    // "this voxel wears no overlay". Named because several passes both read
+    // and write the channel and a bare 0 reads as a tile index there.
+    public const byte OVERLAY_NONE = 0;
+
     // Which of a voxel's six faces its OverlayId dresses (EVoxelFace bits).
     // 0 = all faces — see EVoxelFace for why zero cannot mean "none".
     //

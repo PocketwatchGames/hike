@@ -45,7 +45,7 @@ public sealed class SpawnContext
 
     // A baker that carries its OWN difficulty field answers the level question
     // itself: the world-map painter paints a level per column, and the zone
-    // bands and noise WorldGen.ComputeMobLevel otherwise reads belong to a
+    // bands and noise a generated world's level sampler reads belong to a
     // Generate() run that a painted world never makes — so without this seam
     // every painted mob would spawn at its species base.
     //
@@ -67,6 +67,24 @@ public sealed class SpawnContext
     // its monsters vary apart) even though a painted world feeds both from the
     // one difficulty layer it paints.
     public Func<Vector3, int> ForgeLevelOverride;
+
+    // What a spawn entry actually asks. Whoever built the context answers:
+    // worldgen installs its zone-band + noise sampler, the map painter installs
+    // its painted difficulty layer. Neither the entry nor this class knows a
+    // generator exists — which is the point. With no producer answering (a
+    // context built for a pass that places nothing levelled) a mob keeps its
+    // authored base and a forge sits at tier 0.
+    public int MobLevel(Vector3 position, int baseLevel)
+    {
+        return MobLevelOverride != null
+            ? MobLevelOverride(position, baseLevel)
+            : Math.Max(0, baseLevel);
+    }
+
+    public int ForgeLevel(Vector3 position)
+    {
+        return ForgeLevelOverride != null ? ForgeLevelOverride(position) : 0;
+    }
 
     // True when the position was hand-authored (a subscene marker) rather than
     // sampled off a column. It turns OFF the placement heuristics that exist to

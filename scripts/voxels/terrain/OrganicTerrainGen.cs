@@ -21,12 +21,17 @@ public class OrganicTerrainGen : ITerrainGenerator
     private readonly WorldGenData _genData;
     private readonly int _worldSeed;
 
-    public OrganicTerrainGen(OrganicTerrainData data, WorldGenData genData, int worldSeed)
+    public OrganicTerrainGen(OrganicTerrainData data, WorldGenData genData, int worldSeed,
+        ZoneField zones)
     {
         _data = data;
         _genData = genData;
         _worldSeed = worldSeed;
+        _zones = zones;
     }
+
+    // This run's zone placement + blend kernel.
+    private readonly ZoneField _zones;
 
     // This approach hollows nothing as it fills: every voxel at or below the
     // column height is solid. Caverns will return as a pass that snaps ceilings
@@ -82,20 +87,20 @@ public class OrganicTerrainGen : ITerrainGenerator
         int sizeX = worldMaxX - worldMinX + 1;
         int sizeZ = worldMaxZ - worldMinZ + 1;
 
-        var warpX = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_WARP_X), org.warpFrequency, 2);
-        var warpZ = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_WARP_Z), org.warpFrequency, 2);
-        var macro = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_MACRO), org.macroFrequency, org.macroOctaves);
-        var relief = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_RELIEF), org.reliefFrequency, org.reliefOctaves);
-        var reliefMask = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_RELIEF_MASK), org.reliefMaskFrequency, 2);
-        var roughness = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_ROUGHNESS), org.roughnessFrequency, org.roughnessOctaves);
-        var benchMask = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_BENCH_MASK), org.benchMaskFrequency, 2);
-        var benchStep = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_BENCH_STEP), org.benchStepFrequency, 1);
-        var benchPhase = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_BENCH_PHASE), org.benchPhaseFrequency, 2);
+        var warpX = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_WARP_X), org.warpFrequency, 2);
+        var warpZ = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_WARP_Z), org.warpFrequency, 2);
+        var macro = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_MACRO), org.macroFrequency, org.macroOctaves);
+        var relief = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_RELIEF), org.reliefFrequency, org.reliefOctaves);
+        var reliefMask = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_RELIEF_MASK), org.reliefMaskFrequency, 2);
+        var roughness = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_ROUGHNESS), org.roughnessFrequency, org.roughnessOctaves);
+        var benchMask = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_BENCH_MASK), org.benchMaskFrequency, 2);
+        var benchStep = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_BENCH_STEP), org.benchStepFrequency, 1);
+        var benchPhase = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_BENCH_PHASE), org.benchPhaseFrequency, 2);
         // CellValue: one random level per fault block, constant across the
         // block's interior and discontinuous at its edges — the discontinuity
         // IS the scarp, so no explicit line geometry is needed.
-        var faultBlock = MakeCellular(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_FAULT), org.faultFrequency);
-        var faultBreach = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_FAULT_BREACH), org.faultBreachFrequency, 2);
+        var faultBlock = MakeCellular(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_FAULT), org.faultFrequency);
+        var faultBreach = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_FAULT_BREACH), org.faultBreachFrequency, 2);
 
         // Pass 1 — the continuous field, in voxels relative to sea level. Held
         // as float through pass 2 because the bench gate needs a real slope,
@@ -121,7 +126,7 @@ public class OrganicTerrainGen : ITerrainGenerator
                 float sx = wx + org.warpAmplitude * warpX.GetNoise2D(wx, wz);
                 float sz = wz + org.warpAmplitude * warpZ.GetNoise2D(wx, wz);
 
-                WorldGen.BlendedZoneGen blend = WorldGen.SampleBlendedZoneGen(wx, wz, _genData.ZoneGens);
+                BlendedZoneGen blend = _zones.SampleBlended(wx, wz);
                 float bse = blend.Elevation * unit + org.macroAmplitude * macro.GetNoise2D(sx, sz);
 
                 // Ridged relief in [0,1]: 1 along the noise's zero crossings
@@ -189,7 +194,7 @@ public class OrganicTerrainGen : ITerrainGenerator
                 ZoneGenData[] zones = _genData.ZoneGens;
                 int zoneCount = zones != null ? zones.Length : 0;
                 Span<float> zoneWeights = zoneCount <= 32 ? stackalloc float[zoneCount] : new float[zoneCount];
-                WorldGen.BlendedZoneGen blend = WorldGen.SampleBlendedZoneGen(wx, wz, zones, zoneWeights);
+                BlendedZoneGen blend = _zones.SampleBlended(wx, wz, zoneWeights);
                 float benchedFraction = 0f;
                 float cliffScaleSum = 0f;
                 for (int zi = 0; zi < zoneCount; zi++)
@@ -296,7 +301,7 @@ public class OrganicTerrainGen : ITerrainGenerator
                     Math.Clamp((worldMaxX - wx) / shorelineWidth, 0f, 1f));
                 h = Mathf.Lerp(-org.oceanDepth, h, coastT);
 
-                height[lx, lz] = WorldGen.WATER_LEVEL + Mathf.RoundToInt(h);
+                height[lx, lz] = TerrainMath.SEA_LEVEL + Mathf.RoundToInt(h);
                 // Sampled at WALL_CAP_SCALE times the bench-step channel's own
                 // frequency: the cap must vary over a distance comparable to a
                 // single landform, not a whole region. At region scale one draw

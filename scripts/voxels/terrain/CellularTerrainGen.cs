@@ -40,15 +40,20 @@ public partial class CellularTerrainGen : ITerrainGenerator
 
     private readonly CellularTerrainData _data;
     private readonly WorldGenData _genData;
+
+    // This run's zone placement + blend kernel.
+    private readonly ZoneField _zones;
     private readonly int _worldSeed;
     private readonly int _cellSeed;
 
-    public CellularTerrainGen(CellularTerrainData data, WorldGenData genData, int worldSeed)
+    public CellularTerrainGen(CellularTerrainData data, WorldGenData genData, int worldSeed,
+        ZoneField zones)
     {
         _data = data;
         _genData = genData;
         _worldSeed = worldSeed;
-        _cellSeed = WorldGen.DeriveSeed(worldSeed, SEED_SALT_CELL);
+        _zones = zones;
+        _cellSeed = TerrainMath.DeriveSeed(worldSeed, SEED_SALT_CELL);
     }
 
     // The landforms this run built, kept so their names can be registered as
@@ -102,13 +107,13 @@ public partial class CellularTerrainGen : ITerrainGenerator
         int sizeX = worldMaxX - worldMinX + 1;
         int sizeZ = worldMaxZ - worldMinZ + 1;
 
-        var warpX = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_WARP_X), cd.warpFrequency, 2);
-        var warpZ = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_WARP_Z), cd.warpFrequency, 2);
-        var macro = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_MACRO), cd.macroFrequency, cd.macroOctaves);
-        var relief = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_RELIEF), cd.reliefFrequency, cd.reliefOctaves);
-        var continent = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_COAST),
+        var warpX = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_WARP_X), cd.warpFrequency, 2);
+        var warpZ = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_WARP_Z), cd.warpFrequency, 2);
+        var macro = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_MACRO), cd.macroFrequency, cd.macroOctaves);
+        var relief = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_RELIEF), cd.reliefFrequency, cd.reliefOctaves);
+        var continent = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_COAST),
             cd.continentFrequency, cd.continentOctaves);
-        var reliefMask = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_RELIEF_MASK),
+        var reliefMask = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_RELIEF_MASK),
             cd.reliefMaskFrequency, 2);
 
         // Pass 1 — the continuous field, in voxels relative to sea level. This
@@ -180,7 +185,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 warpedX[lx, lz] = sx;
                 warpedZ[lx, lz] = sz;
 
-                WorldGen.BlendedZoneGen blend = WorldGen.SampleBlendedZoneGen(wx, wz, zoneGens, zoneWeights);
+                BlendedZoneGen blend = _zones.SampleBlended(wx, wz, zoneWeights);
                 float humidity = 0f;
                 float weightSum = 0f;
                 for (int zi = 0; zi < zoneCount; zi++)
@@ -515,14 +520,14 @@ public partial class CellularTerrainGen : ITerrainGenerator
             {
                 float flatH = flat[lx, lz];
                 float h = float.IsNaN(ramp[lx, lz]) ? flatH : ramp[lx, lz];
-                int hi = WorldGen.WATER_LEVEL + Mathf.RoundToInt(h);
+                int hi = TerrainMath.SEA_LEVEL + Mathf.RoundToInt(h);
                 height[lx, lz] = hi;
                 // Plateau is the flat-ground reference: equal to Height on a
                 // cell top, below it on a ramp, so IsFlatDryGrassAt keeps
                 // scatter off the cuttings. Clamped so it never exceeds
                 // Height — a ramp cutting DOWN into a cell reads as non-flat
                 // either way, and consumers may assume Plateau <= Height.
-                plateau[lx, lz] = Math.Min(WorldGen.WATER_LEVEL + Mathf.RoundToInt(flatH), hi);
+                plateau[lx, lz] = Math.Min(TerrainMath.SEA_LEVEL + Mathf.RoundToInt(flatH), hi);
             }
         }
 
@@ -885,7 +890,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
         if (levels.Count == 0) { return; }
 
         // Snapped to the INTERIOR lattice, not the terrain's quantize step.
-        // WorldGen.FootprintPlateauY floors a subscene's anchor to
+        // TerrainMath.FootprintPlateauY floors a subscene's anchor to
         // HeightMap.LevelStep before stamping it, so a village sitting at 2 with
         // a LevelStep of 4 stamps its buildings at 0 — floors two voxels under
         // the ground, well and firepit buried, and the plaza reading as a step
@@ -1605,7 +1610,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
         // The width wander. A THIRD field of its own rather than a reuse of the
         // erosion noise, for the reason spelled out there: a shared field
         // correlates two decisions that have nothing to do with each other.
-        var widthNoise = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_RIVER_WIDTH),
+        var widthNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_RIVER_WIDTH),
             cd.riverWidthNoiseFrequency, 2);
 
         CutRiverChannels(height, plateau, water, surfaceY, flow, pinned, onRamp, cd, depth, stats,
@@ -1675,7 +1680,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
             for (int lz = 0; lz < sizeZ; lz++)
             {
                 bool border = lx == 0 || lz == 0 || lx == sizeX - 1 || lz == sizeZ - 1;
-                if (!border && height[lx, lz] >= WorldGen.WATER_LEVEL) { continue; }
+                if (!border && height[lx, lz] >= TerrainMath.SEA_LEVEL) { continue; }
                 int idx = lx * sizeZ + lz;
                 visited[idx] = true;
                 receiver[idx] = -1;
@@ -1852,7 +1857,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 int idx = lx * sizeZ + lz;
                 int rim = spill[idx];
                 if (rim < 0) { continue; }
-                if (surfaceY[idx] <= height[lx, lz] || height[lx, lz] < WorldGen.WATER_LEVEL) { continue; }
+                if (surfaceY[idx] <= height[lx, lz] || height[lx, lz] < TerrainMath.SEA_LEVEL) { continue; }
                 if (!pools.TryGetValue(rim, out List<int> columns))
                 {
                     columns = new List<int>();
@@ -2040,7 +2045,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 int level = surfaceY[idx];
                 // Already a lake column, or sea: the channel resumes below the
                 // outlet rather than trying to dig through standing water.
-                if (level > height[lx, lz] || height[lx, lz] < WorldGen.WATER_LEVEL) { continue; }
+                if (level > height[lx, lz] || height[lx, lz] < TerrainMath.SEA_LEVEL) { continue; }
 
                 float t = Math.Clamp(Mathf.Log(flow[idx] / Math.Max(1f, cd.riverMinFlow)) / logSpan, 0f, 1f);
                 // Flow alone only ever grows downstream, so it gives a ribbon
@@ -2093,7 +2098,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
                 int level = stamped[lx, lz];
                 if (level == HeightMap.NoWater) { continue; }
                 if (water[lx, lz] != HeightMap.NoWater) { continue; }
-                if (height[lx, lz] < WorldGen.WATER_LEVEL) { continue; }
+                if (height[lx, lz] < TerrainMath.SEA_LEVEL) { continue; }
                 // A CHANNEL may cross pinned ground; a LAKE may never flood it.
                 // The asymmetry is the point: standing water over the village
                 // drowns it, while a two-voxel channel through it is a stream
@@ -2255,9 +2260,9 @@ public partial class CellularTerrainGen : ITerrainGenerator
     // are ordinary here.
     private static int LatticeFloor(int y, int step)
     {
-        int rel = y - WorldGen.WATER_LEVEL;
+        int rel = y - TerrainMath.SEA_LEVEL;
         int q = rel >= 0 ? rel / step : -((-rel + step - 1) / step);
-        return WorldGen.WATER_LEVEL + q * step;
+        return TerrainMath.SEA_LEVEL + q * step;
     }
 
     // Subdivision levels needed to bring a level-0 cell down to `target` voxels.
@@ -2344,7 +2349,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
         ZoneGenData[] zones = _genData.ZoneGens;
         int n = zones != null ? zones.Length : 0;
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        WorldGen.SampleBlendedZoneGen(wx, wz, zones, weights);
+        _zones.SampleBlended(wx, wz, weights);
 
         subdivideScale = 0f;
         cliffScale = 0f;

@@ -140,7 +140,7 @@ public partial class CellularTerrainGen
                     // got into a carve, which is the failure worth shouting
                     // about — a cave under a river fills to its ceiling and
                     // looks exactly like a cave that never generated.
-                    else if (wy <= WorldGen.WATER_LEVEL) { seaUnderBridge++; }
+                    else if (wy <= TerrainMath.SEA_LEVEL) { seaUnderBridge++; }
                     else { flooded++; }
                 }
             }
@@ -362,7 +362,7 @@ public partial class CellularTerrainGen
             for (int lz = 0; lz < sizeZ; lz++) { _caveFloor[lx, lz] = int.MinValue; }
         }
 
-        var wander = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_CAVE),
+        var wander = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_CAVE),
             cd.caveWanderFrequency, 2);
 
         List<CaveEntrance> candidates = FindEntrances(height, water, noCarve, cd,
@@ -434,7 +434,7 @@ public partial class CellularTerrainGen
             + $" (floor {MIN_CAVE_HEADROOM}v), min roof rock"
             + $" {(_caveMinRoofRock == int.MaxValue ? 0 : _caveMinRoofRock)}v (floor {roofRock}v);"
             + $" deepest floor y={(_caveDeepestFloor == int.MaxValue ? 0 : _caveDeepestFloor)}"
-            + $" (waterline {WorldGen.WATER_LEVEL}, world floor {floorLimit});"
+            + $" (waterline {TerrainMath.SEA_LEVEL}, world floor {floorLimit});"
             + $" off-lattice floors: {_caveRampColumns} ramp + {_caveDoorwayOffLattice} doorway"
             + $" (both allowed), {_caveStrayOffLattice} STRAY (must be 0);"
             + $" enclosure check removed {exposed} columns open to daylight and"
@@ -654,7 +654,7 @@ public partial class CellularTerrainGen
                     // at or under the sea is an opening the water pours through,
                     // and it would flood the system back up to the waterline
                     // however well sealed the rest of it is.
-                    if (floor < WorldGen.WATER_LEVEL) { continue; }
+                    if (floor < TerrainMath.SEA_LEVEL) { continue; }
                     // On the INTERIOR lattice, and this is the load-bearing
                     // line for the whole "cave floors are at 4 m elevations"
                     // rule. A system takes its level from its mouth, and the

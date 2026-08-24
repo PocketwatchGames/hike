@@ -1,6 +1,6 @@
 // Finds the lip of every wall the player can mantle, so the terrain mesher can
 // dress that voxel in the block's climb-growth overlay — the SAME overlay
-// WorldGen.StampClimbSurfaces paints down a tall climbable cliff. One visual
+// WorldFinish.StampClimbSurfaces paints down a tall climbable cliff. One visual
 // language for both affordances, and no second blend path to keep in sync.
 //
 // WHAT grows comes from the rock (BlockData.climbGrowthSurface); this only says

@@ -79,7 +79,14 @@ because baked light is only as good as the pipeline was at save time, and
 load. Lighting was ~19s of a ~22s bake and was discarded every time. (A consumer
 that ever loads a `.hike` without relighting would get a black world and should
 relight, not move the pass back here.) `LightEngine.Relight` keeps its optional
-progress callback, which the editor and any future long relight can use. `StampColumns` stamps each column: carved → `Water` where it is under the
+progress callback, which the editor and any future long relight can use.
+
+**Sky exposure is the exception, and it is not lighting.** `WorldFinish.Finish`
+runs `ComputeSkyExposure` even here, because `Interiorness` floods from it and
+`Interiorness` IS serialized — as are `EnvTag` and the fog it feeds. Skip it and
+a painted world's buildings and tunnels come back reading `Outdoor`. It is cheap
+(one column per XZ, no flood); the expensive `ComputeSunlight` is what stays
+off. `StampColumns` stamps each column: carved → `Water` where it is under the
 column's water surface and `Air` above it, else `Terrain` up to `TerrainHeight`
 **or wherever the edit layer added a voxel**, else `Water` up to `WaterSurface`,
 else `Air`. A carve removes GROUND and what stands in the space it opens is the
@@ -92,7 +99,28 @@ lake above it too. Added geometry takes the zone's surface kit
 (its submerged one where it stands under water), since it is ground standing
 above the ground.
 
-**The bake ends on `WorldGen.StampGradeShapes`, and must.** `StampColumns`
+**The bake ends on `WorldFinish.Finish`, the same list worldgen ends on.** That
+one call runs every channel a finished world derives from its own voxels — the
+grade shapes, the detail scatter, the roof/sky/classify air pipeline, the fog
+bucket-fill, the wind seeding, the water currents and the cascades — so a
+channel added there reaches a painted world the day it is added.
+
+It used to be four hand-picked calls into `WorldGen`, and the cost was silent:
+the channels the painter did not know to call — `FogDensity`, `EnvTag`,
+`Interiorness`, `CurrentX/Z` — baked as ZEROS, and nothing recomputes them on
+load (`Main` relights a `.hike` but does not reclassify it). A painted world had
+no fog anywhere, read `Outdoor` in every stamped building and carved tunnel, and
+had no water currents. Nothing errored; the bytes were simply blank.
+
+Three things differ from a generated world, and each is a fact about a painted
+one rather than a switch: there is no zone-weight kernel, so the detail scatter
+takes each voxel's own kit; there is no river-flow field, so water gets the
+ambient drift only; and the sunlight flood is skipped, because every consumer of
+a `.hike` relights on open. Sky exposure still runs — it is not serialized, but
+`Interiorness`, which is, floods from it.
+
+**The grade pass in that list is what stops a painted slope being a staircase.**
+`StampColumns`
 writes every ground voxel with a blanket `SharpAxes.Y`, which is right for a
 terrace and wrong for a slope: the mesher then draws flat treads with 1 m
 vertical risers, so painted ground that reads as a ramp on the map is a
@@ -107,7 +135,7 @@ is 1 and no `.tres` overrides it, so this reaches ONE-voxel steps only — a
 top. A painted hillside steeper than a voxel per metre is therefore a MIX of
 graded 45s and hard walls, which is what it looks like. It runs last,
 after scenes / routes / scatter, because it classifies whatever geometry is
-actually there. It is worldgen's own pass, given world bounds instead of a
+actually there. It lives on `TerrainMath`, given world bounds instead of a
 `HeightMap` (the height field was only ever its horizontal extent); a
 painter-side reimplementation is how the waterfall shading became two copies
 that drifted.
@@ -175,7 +203,7 @@ the ground layer rather than to props because they are part of what the material
 looks like up close, not something standing on it — which is also why they live
 on `TerrainKitData` and not in a `SpawnSetData`.
 
-It is `WorldGen.StampDetailScatter` itself, not a painter-side copy of its math,
+It is `WorldFinish.StampDetailScatter` itself, not a painter-side copy of its math,
 and like worldgen the bake runs it **LAST — after the scenes, the routes and the
 scatter.** Every ground-moving pass overwrites the per-voxel channels wholesale,
 so detail stamped per column during `StampColumns` was erased wherever a subscene
@@ -183,7 +211,7 @@ stamp landed: the building's footprint and the terrain it re-textured to the
 local kit came out bald, which is the same failure worldgen's ordering comment
 records. The pass takes two knobs so both callers can share it — `skipColumn`
 (worldgen's road tread, the painter's paving, both bare by construction) and
-`dominantZoneKit`, off here because a painted world assigns kits per column
+`zones`, null here because a painted world assigns kits per column
 deterministically and has no zone-weight kernel to take an argmax of.
 
 **The zone under a column chooses its material.** Each solid voxel is written
@@ -503,7 +531,7 @@ is not a step backwards:
 flat two-layer test — painted water on one side standing above the visible
 surface on the other — and it is all the map needs to warn you about a lip while
 you paint. What the bake actually files runs over the FINISHED voxels instead
-(`WaterfallFinder`, through worldgen's own `WorldGen.PlaceWaterfalls`), so a fall
+(`WaterfallFinder`, through worldgen's own `WorldFinish.PlaceWaterfalls`), so a fall
 off a stamped scene, into a carved tunnel or over a hand-edited voxel is found
 here exactly as it is in a generated world, and the surface-Y convention has one
 home. The painter used to carry a second site-builder off its painted layers; it
@@ -1255,7 +1283,7 @@ the flat ground between two cliffs marks neither. The brush is not eased by its
 falloff either — a route is a thing or it is not, and its radius is how WIDE the
 route is.
 
-The bake runs `WorldGen.StampClimbSurfaces`, which now takes the per-column
+The bake runs `WorldFinish.StampClimbSurfaces`, which now takes the per-column
 answers it cannot look up in a painted world (a route flag instead of a zone's
 coverage, the painted water layer instead of a `HeightMap`) plus its wall minimum
 and whether to be patchy — worldgen patchy, the painter not. Everything else is
@@ -1402,6 +1430,10 @@ reintroduce:
 - **Path hints register no POIs in a painted world**, and there is no road pass
   for them to be endpoints of — paving is a hand-painted material here, not a
   routed, graded corridor.
+- ~~The bake leaves fog, `EnvTag`, `Interiorness` and the water-current subgrid
+  blank.~~ **Fixed.** All four are derived channels the `.hike` serializes and
+  nothing recomputes on load, and the bake simply never ran the passes. Both
+  producers now end on the one shared list (`WorldFinish.Finish`).
 - **Not yet exercised in a bake or in game:** mob sets, climbing routes, paving,
   placements, undo/redo by hand, `worldmap_resize` on a real document, composite
   `SpawnGroupData` entries and chest loot, and the water/waterfall model. The

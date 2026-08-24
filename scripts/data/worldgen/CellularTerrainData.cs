@@ -38,9 +38,10 @@
 [GlobalClass]
 public partial class CellularTerrainData : TerrainGenData
 {
-    public override ITerrainGenerator CreateGenerator(WorldGenData genData, int worldSeed)
+    public override ITerrainGenerator CreateGenerator(WorldGenData genData, int worldSeed,
+        ZoneField zones)
     {
-        return new CellularTerrainGen(this, genData, worldSeed);
+        return new CellularTerrainGen(this, genData, worldSeed, zones);
     }
 
     // Voxels per unit of the inherited ZoneTerrainData elevation /

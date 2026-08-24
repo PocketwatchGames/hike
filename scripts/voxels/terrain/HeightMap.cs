@@ -24,7 +24,7 @@ public readonly struct HeightMap
 {
     // Sentinel in Water for "this column holds no inland water". Below every
     // legal world Y, so callers can fold the global sea in with a plain
-    // Math.Max(WorldGen.WATER_LEVEL, GetWaterY(...)) and never special-case it.
+    // Math.Max(TerrainMath.SEA_LEVEL, GetWaterY(...)) and never special-case it.
     public const int NoWater = int.MinValue;
 
 
@@ -209,7 +209,7 @@ public readonly struct HeightMap
     }
 
     // Inland water surface at this column, or NoWater. Fold the global sea in
-    // with Math.Max(WorldGen.WATER_LEVEL, ...) — WorldGen.WaterYAt does exactly
+    // with Math.Max(TerrainMath.SEA_LEVEL, ...) — TerrainMath.WaterYAt does exactly
     // that and is what every pass there should call.
     public int GetWaterY(int wx, int wz)
     {

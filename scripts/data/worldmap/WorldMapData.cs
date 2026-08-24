@@ -141,7 +141,7 @@ public partial class WorldMapData : Resource
     [Export(PropertyHint.Range, "0,32,1")] public int ceilChunkY = 4;
 
     // World voxel Y that 0 means in both height layers (matches
-    // WorldGen.WATER_LEVEL). It is the ORIGIN of the signed encoding and the
+    // TerrainMath.SEA_LEVEL). It is the ORIGIN of the signed encoding and the
     // level an unpainted water column reads as — not a waterline rule: nothing
     // asks "is this ground below the sea", the water layer alone says where
     // water is. Which also makes it the elevation the world is prefilled with

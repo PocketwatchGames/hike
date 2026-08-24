@@ -18,10 +18,42 @@ public class WorldState
     // thread) must not be able to rebind the one the live world is reading.
     // Never null; a world built without one gets KitPalette.Empty.
     public readonly KitPalette Kits;
-    // This world's authored scripted content (quests). Set at load from
-    // WorldGenData.scriptData (GameClient.Init); null on a world with none, or on
-    // a .hike load (the file format doesn't bake it yet). Read by Sim.Quests.
+    // WHAT A RUN IN THIS WORLD STARTS WITH — the quests, the party and what they
+    // already know. Authored on WorldGenData, but they are facts about the WORLD
+    // rather than about how it was generated, so they belong here: a .hike
+    // loaded in the game used to take all three from whichever WorldGenData the
+    // menu happened to have selected, which for a hand-painted or hand-edited
+    // world is another world's content entirely (and, for quests, usually none
+    // at all).
+    //
+    // Bound by both producers through BindStartContent, and re-resolved on a
+    // .hike load from StartContentPath.
     public WorldScriptData ScriptData;
+    public PlayerState[] StartingParty = System.Array.Empty<PlayerState>();
+    public TeachableConcept[] InitialKnowledge = System.Array.Empty<TeachableConcept>();
+
+    // Resource path of the authored asset the three above came from, recorded so
+    // a .hike can resolve them again. A PATH rather than three serialized
+    // tables because initialKnowledge is authored as embedded sub-resources,
+    // which have no path of their own — the owner does.
+    public string StartContentPath = "";
+
+    // Copy this world's starting content off the resource that authors it.
+    // Called once at world creation by WorldGen and by the map painter's bake,
+    // and again after a .hike load resolves StartContentPath.
+    public void BindStartContent(WorldGenData genData)
+    {
+        if (genData == null)
+        {
+            return;
+        }
+        ScriptData = genData.scriptData;
+        StartingParty = genData.startingParty ?? System.Array.Empty<PlayerState>();
+        InitialKnowledge = genData.initialKnowledge != null
+            ? System.Linq.Enumerable.ToArray(genData.initialKnowledge)
+            : System.Array.Empty<TeachableConcept>();
+        StartContentPath = genData.ResourcePath ?? "";
+    }
 
     // Zones present in this world. Populated by WorldGen (or the disk
     // loader) at world creation; each ChunkState.ZoneIndex picks one of

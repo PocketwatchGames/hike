@@ -33,7 +33,9 @@ public partial class Boat : RideableVehicle
         }
 
         // Locate the water surface in this column. Null => beached on land.
-        float? surfaceY = FindWaterSurfaceY(GlobalPosition);
+        float? surfaceY = VoxelWater.InColumn(_world.WorldState,
+            Mathf.FloorToInt(GlobalPosition.X), Mathf.FloorToInt(GlobalPosition.Y),
+            Mathf.FloorToInt(GlobalPosition.Z), WaterSearchVertical);
 
         // Steering intent (camera-relative), only while ridden and afloat.
         Vector3 steer = Vector3.Zero;
@@ -100,31 +102,6 @@ public partial class Boat : RideableVehicle
 
         Velocity = new Vector3(horizVel.X, vy, horizVel.Z);
         MoveAndSlide();
-    }
-
-    // World Y of the water surface (top face of the highest water voxel) in the
-    // boat's column, or null if no water sits within WaterSearchVertical voxels
-    // of the hull. Mirrors Player.UpdateWaterState's column scan.
-    private float? FindWaterSurfaceY(Vector3 world)
-    {
-        WorldState ws = _world.WorldState;
-        int fx = Mathf.FloorToInt(world.X);
-        int fz = Mathf.FloorToInt(world.Z);
-        int startY = Mathf.FloorToInt(world.Y);
-
-        for (int y = startY + WaterSearchVertical; y >= startY - WaterSearchVertical; y--)
-        {
-            if (ws.GetBlockWorld(fx, y, fz) == Blocks.WaterId)
-            {
-                int s = y;
-                while (ws.GetBlockWorld(fx, s + 1, fz) == Blocks.WaterId)
-                {
-                    s++;
-                }
-                return s + 1f;
-            }
-        }
-        return null;
     }
 
     // Nearest standable shore cell around the hull, so dismounting drops the

@@ -120,7 +120,7 @@ public partial class ZoneGenData : Resource
     // world-space noise field per spawn and lerps between these two across it, so
     // a zone ramps from MobLevelMin at one end of its footprint to MobLevelMax at
     // the other rather than sitting at one flat difficulty. Blended across zone
-    // borders like the other per-position scalars (see WorldGen.ComputeMobLevel).
+    // borders like the other per-position scalars (see SpawnContext.MobLevel).
     // Mobs add their species base level on top. Keep the span small — each level
     // scales a monster's health/armor/damage by SimData.levelScalePerLevel
     // (~1.5x/level).
@@ -147,7 +147,7 @@ public partial class ZoneGenData : Resource
     [Export(PropertyHint.Range, "0,10,1")] public int forgeCount = 1;
 
     // Forge power band for this zone, sampled the same way but from an
-    // INDEPENDENT noise field (see WorldGen.ComputeForgeLevel), so a zone's
+    // INDEPENDENT noise field (see SpawnContext.ForgeLevel), so a zone's
     // forges and monsters vary in difficulty separately. Drives the forge's
     // granted-upgrade strength and star pips (0-4).
     [Export(PropertyHint.Range, "0,4,1")] public int forgeLevelMin = 0;

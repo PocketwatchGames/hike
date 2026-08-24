@@ -97,7 +97,7 @@ public partial class BlockData : Resource
     [Export] public bool climbable = false;
 
     // What GROWS on this rock where it is climbable: the overlay worldgen paints
-    // down tall cliff faces (WorldGen.StampClimbSurfaces) AND the crust the
+    // down tall cliff faces (WorldFinish.StampClimbSurfaces) AND the crust the
     // shader marks every mantleable lip with. One field feeds both, which is
     // what keeps a lip matching the wall it is the top of.
     //

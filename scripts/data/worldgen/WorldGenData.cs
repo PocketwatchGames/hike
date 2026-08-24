@@ -107,7 +107,7 @@ public partial class WorldGenData : Resource
     // entry is a `.hikescene` file plus a world XZ anchor; WorldGen loads
     // and stamps them after terrain/cave/road generation but before the
     // sunlight bake. Y is the dominant plateau level over the footprint —
-    // see WorldGen.FootprintPlateauY.
+    // see TerrainMath.FootprintPlateauY.
     [Export] public SubscenePlacement[] subscenes = System.Array.Empty<SubscenePlacement>();
 
     // POI-anchored spawn placements. Each binds authored spawn content to a
@@ -282,12 +282,6 @@ public partial class WorldGenData : Resource
     // 0.9 was unreachable, so the pass produced nothing at all. Lower = more
     // dirt; around 0.35 gives scattered patches, 0.6 gives rare ones.
     [Export(PropertyHint.Range, "0,1,0.001")] public float dirtPatchThreshold = 0.45f;
-    // Edge-overlay heuristic (the StampEdgeOverlays pass, currently disabled):
-    // how far up/down to scan a neighbour column for its surface, and the
-    // diff band that counts as a ramp/step rather than a flat or a cliff.
-    [Export] public int edgeScanWindow = 4;
-    [Export] public int edgeMinDiff = 1;
-    [Export] public int edgeMaxDiff = 3;
 
     [ExportGroup("Submerged Kit")]
     // Chebyshev radius for the water-adjacency search in TagSubmergedKits.

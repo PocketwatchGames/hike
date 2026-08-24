@@ -102,7 +102,7 @@ public partial class CellularTerrainGen
         }
         if (!anyLand) { return placed; }
 
-        var rng = new Random(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_ISLAND));
+        var rng = new Random(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_ISLAND));
         float spacing = Math.Max(1f, cd.islandSpacingMeters);
         float shoreMin = Math.Min(cd.islandShoreDistanceMin, cd.islandShoreDistanceMax);
         float shoreMax = Math.Max(cd.islandShoreDistanceMin, cd.islandShoreDistanceMax);
@@ -311,7 +311,7 @@ public partial class CellularTerrainGen
         // unrelated pass changed the scan; the key does not.
         var order = new List<int>(p.Count);
         for (int c = 0; c < p.Count; c++) { order.Add(c); }
-        int landformSeed = WorldGen.DeriveSeed(_worldSeed, SEED_SALT_LANDFORM);
+        int landformSeed = TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_LANDFORM);
         order.Sort((a, b) =>
         {
             float ha = Hash01(p.Key[a], landformSeed);
@@ -730,12 +730,12 @@ public partial class CellularTerrainGen
         // and sharing one would correlate them: every cut would be the deepest
         // one, every deep cut would also be a ledge, and every ledge would sit at
         // the same height — a pattern rather than erosion.
-        var cutNoise = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_CLIFF_EROSION),
+        var cutNoise = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_CLIFF_EROSION),
             cd.cliffErosionFrequency, 2);
-        var modeNoise = WorldGen.MakePerlin(
-            WorldGen.DeriveSeed(_worldSeed, SEED_SALT_CLIFF_EROSION + 2), cd.cliffModeFrequency, 2);
-        var stepNoise = WorldGen.MakePerlin(
-            WorldGen.DeriveSeed(_worldSeed, SEED_SALT_CLIFF_EROSION + 3), cd.cliffStepFrequency, 2);
+        var modeNoise = TerrainMath.MakePerlin(
+            TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_CLIFF_EROSION + 2), cd.cliffModeFrequency, 2);
+        var stepNoise = TerrainMath.MakePerlin(
+            TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_CLIFF_EROSION + 3), cd.cliffStepFrequency, 2);
 
         // Chosen against a SNAPSHOT of the heights. Reading the live field would
         // let a cut at one column change whether its neighbour still looks like
@@ -788,7 +788,7 @@ public partial class CellularTerrainGen
                 // the cliff its FINGERS, and the un-cut stretches standing proud
                 // between the cut ones are as much the effect as the cuts.
                 float amount = Math.Clamp(cd.cliffErosionAmount
-                    + (lowest < WorldGen.WATER_LEVEL ? cd.cliffErosionCoastalBoost : 0f), 0f, 1f);
+                    + (lowest < TerrainMath.SEA_LEVEL ? cd.cliffErosionCoastalBoost : 0f), 0f, 1f);
                 float n = Noise01(cutNoise, lx + worldMinX, lz + worldMinZ);
                 if (n > amount) { continue; }
                 // How far under the threshold this lip sits, 0..1 — deeper
@@ -951,7 +951,7 @@ public partial class CellularTerrainGen
         int sizeX = height.GetLength(0);
         int sizeZ = height.GetLength(1);
         int step = Math.Max(1, cd.quantizeStep);
-        var mask = WorldGen.MakePerlin(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_CLIFF_EROSION + 1),
+        var mask = TerrainMath.MakePerlin(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_CLIFF_EROSION + 1),
             cd.cliffTalusFrequency, 2);
 
         var before = (int[,])height.Clone();
@@ -962,7 +962,7 @@ public partial class CellularTerrainGen
             {
                 if (!ErodibleGround(lx, lz, p, landforms, ramp)) { continue; }
                 if (water != null && water[lx, lz] != HeightMap.NoWater) { continue; }
-                if (before[lx, lz] < WorldGen.WATER_LEVEL) { continue; }
+                if (before[lx, lz] < TerrainMath.SEA_LEVEL) { continue; }
 
                 // At the foot of a real face: something beside it stands at
                 // least the erosion threshold above.
@@ -1084,7 +1084,7 @@ public partial class CellularTerrainGen
             return neighbours.Contains(((long)lo << 32) | (uint)hi);
         }
 
-        var rng = new Random(WorldGen.DeriveSeed(_worldSeed, SEED_SALT_LANDFORM + 1));
+        var rng = new Random(TerrainMath.DeriveSeed(_worldSeed, SEED_SALT_LANDFORM + 1));
         var used = new HashSet<int>();
         int placed = 0;
         int rejectedGap = 0;
@@ -1115,7 +1115,7 @@ public partial class CellularTerrainGen
             if (centroidSpan < spanMin
                 || centroidSpan > spanMax + 2 * BRIDGE_ABUTMENT_SEARCH_COLUMNS) { continue; }
 
-            int deckY = WorldGen.WATER_LEVEL + Mathf.RoundToInt(Math.Max(p.Flat[a], p.Flat[b]));
+            int deckY = TerrainMath.SEA_LEVEL + Mathf.RoundToInt(Math.Max(p.Flat[a], p.Flat[b]));
             if (!TrimToGap(ax, az, bx, bz, deckY, height, cd, worldMinX, worldMinZ,
                     out float x0, out float z0, out float x1, out float z1))
             {
