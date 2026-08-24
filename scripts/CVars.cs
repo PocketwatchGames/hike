@@ -1,4 +1,4 @@
-public static class CVars
+﻿public static class CVars
 {
     public static CVarString savePath = new CVarString("savepath", "./savegame.dat");
     public static CVarString language = new CVarString("language", "");
@@ -2301,4 +2301,61 @@ public static class CVars
         }
         WorldEditor.Current.StampSubscene(path);
     });
+    // --- Setup verbs -----------------------------------------------------
+    // The console could observe the running game and set global state, but not
+    // put the player somewhere specific with specific company — so reaching a
+    // test condition meant walking there in real time, on every check. These
+    // four collapse that. All are CVarString rather than action CVars because
+    // ProcessCommand DISCARDS the argument of a CVarType.None cvar.
+
+    // `tp <poi>` | `tp <x> <y> <z>` — move the living party. Bare `tp` lists the
+    // world's points of interest.
+    public static CVarString teleport = new CVarString("tp", "", (cvar) =>
+    {
+        DebugVerbs.Teleport(((CVarString)cvar).Value);
+    });
+
+    // `spawn <species> [count] [level]` — ring of transient mobs around the
+    // player. Bare `spawn` lists the known species names.
+    public static CVarString spawnMob = new CVarString("spawn", "", (cvar) =>
+    {
+        DebugVerbs.Spawn(((CVarString)cvar).Value);
+    });
+
+    // `give <item> [count]` — drop an item at the player's feet (the world
+    // pickup path, which is where several item kinds do their real work). Bare
+    // `give` lists the known item names.
+    public static CVarString giveItem = new CVarString("give", "", (cvar) =>
+    {
+        DebugVerbs.Give(((CVarString)cvar).Value);
+    });
+
+    // `setup <name>` — run an authored scenario's command list (SimData
+    // .testScenarios). Bare `setup` lists them with their descriptions.
+    public static CVarString setupScenario = new CVarString("setup", "", (cvar) =>
+    {
+        DebugVerbs.Setup(((CVarString)cvar).Value);
+    });
+
+    // Headless data-integrity check: `--headless -- "resource_check 1"` reports
+    // [Tool]-closure gaps and any .tres that fails to load, then quits. The
+    // data-side twin of shader_check / block_check.
+    public static CVarBool resourceCheck = new CVarBool("resource_check", false);
+
+    // Unattended driver for the setup verbs. CLI cvar args run in Main._Ready,
+    // before a world exists, so a launch line cannot call tp / spawn / give /
+    // setup directly — they need a running game. `exec` holds a semicolon-
+    // separated command line and `exec_delay` the seconds to wait after the
+    // game scene comes up:
+    //   -- "autostart 1" "exec_delay 25" "exec setup night_cascade"
+    // Ends the process. Makes an `exec` chain self-terminating — without it an
+    // unattended run has no reason to stop and burns its whole timeout, so wall
+    // clock says nothing about what the run actually cost.
+    public static CVar quit = new CVar("quit", (cvar) =>
+    {
+        (Godot.Engine.GetMainLoop() as Godot.SceneTree)?.Quit();
+    });
+
+    public static CVarString exec = new CVarString("exec", "");
+    public static CVarFloat execDelay = new CVarFloat("exec_delay", 0f);
 }

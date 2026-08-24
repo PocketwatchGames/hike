@@ -70,3 +70,4 @@ forestDensity = 0.4
 forest = ExtResource("set_forest")
 treeScenes = []
 tallGrassScenes = []
+mossCoverage = 0.4

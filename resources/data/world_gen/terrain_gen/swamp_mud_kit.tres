@@ -33,3 +33,4 @@ defaultDetail = ExtResource("1_sk7ie")
 forestDensity = 0.25
 forest = ExtResource("set_forest")
 treeScenes = []
+mossCoverage = 0.2

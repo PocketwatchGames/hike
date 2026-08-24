@@ -1292,6 +1292,26 @@ Reimplementing that painter-side is exactly how the waterfall shading became two
 copies that drifted. A marked column's whole exposed face is dressed, so a route
 is currently a plain vertical column of climbable surface.
 
+**Moss comes off the GROUND layer, not the zone layer.** `TerrainKitData.mossCoverage`
+says how much of that material's exposed rock and ground wears the moss overlay,
+and the bake answers `WorldFinish`'s per-column question with the column's
+surface kit and cave kit — exactly the two coverages the pass wants. So painting
+a material brings its moss with it: no second brush, and no moss where nothing
+was painted.
+
+It is NOT read off the zone, and that is not an oversight. Worldgen keeps moss
+density on `ZoneGenData` (there it is a property of the biome being generated),
+and the painter cannot reach that: its zone palette is `ZoneData`, which does not
+correspond to `WorldGenData.ZoneGens` at all — 15 painted entries against 5 in
+the default world, no index mapping, and the back-reference is ambiguous because
+a `ZoneData` can be shared by several placements. `WorldFinish.Options.MossCoverageAt`
+is the seam, the same shape `StampClimbSurfaces.coverageAt` already has.
+
+The cost of keying per material is that a kit shared by two zones carries one
+number: `marsh_kit` is both swamp (0.4) and swamp_fire (0.15) and takes 0.4, and
+`cave_limestone_kit` is nearly every zone's cave and takes 0.5. Split the kit if
+that ever matters.
+
 Both scalars are deliberately absent from the preset brush: difficulty does not follow
 biome, and neither does where the player is MEANT to be able to climb — both are
 route-design decisions, so folding them in would tie together the layers that

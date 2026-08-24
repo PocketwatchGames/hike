@@ -29,6 +29,21 @@ public partial class TerrainKitData : Resource
     // surface voxels.
     [Export] public DetailGroupData defaultDetail;
 
+    // How much of this material's exposed rock and ground wears the moss
+    // overlay, 0..1. A property of the MATERIAL, so whoever paints the material
+    // gets its moss with it — which is how the world-map painter answers
+    // WorldFinish's per-column moss question: it paints ground per column, and
+    // a column's surface kit and cave kit are exactly the two coverages the
+    // pass asks for.
+    //
+    // WorldGen does NOT read this: it answers the same question from
+    // ZoneGenData.mossSurfaceCoverage / mossCaveCoverage, because there moss
+    // density is a property of the BIOME being generated rather than of the
+    // ground that happened to be painted. Two producers, two answers, one pass
+    // — the same split climb coverage already has (a zone fraction in worldgen,
+    // an authored route flag in the painter).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float mossCoverage = 0f;
+
     // Detail-sprite scatter tuning. Owned per-kit so kits within the same
     // zone can scatter independently (e.g. dense grass on the inland kit and
     // sparse seashells on the shore kit). The world-wide detail noise is

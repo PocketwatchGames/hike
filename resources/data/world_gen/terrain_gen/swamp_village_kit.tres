@@ -9,3 +9,4 @@ script = ExtResource("13_uep7x")
 block = ExtResource("blk_marsh_ground")
 defaultDetail = ExtResource("1_jex71")
 forestDensity = 0.4
+mossCoverage = 0.2

@@ -1579,6 +1579,42 @@ public partial class GameClient : Node3D
 	private double _nodeCensusElapsed;
 	private bool _nodeCensusDone;
 
+	// Runs the `exec` command line once, `exec_delay` seconds after the game
+	// scene comes up. CLI cvar args are processed in Main._Ready — before a world
+	// exists — so a launch line cannot drive anything that needs a running game
+	// (tp / spawn / give / setup) without a delay. See CVars.execDelay.
+	private double _execElapsed;
+	private bool _execDone;
+
+	private void TickExecDelay(double deltaTime)
+	{
+		float delay = CVars.execDelay.Value;
+		if (_execDone || delay <= 0f || string.IsNullOrWhiteSpace(CVars.exec.Value))
+		{
+			return;
+		}
+		_execElapsed += deltaTime;
+		if (_execElapsed < delay)
+		{
+			return;
+		}
+		_execDone = true;
+		foreach (string raw in CVars.exec.Value.Split(';'))
+		{
+			string line = raw.Trim();
+			if (line.Length == 0)
+			{
+				continue;
+			}
+			GD.Print($"[exec] {line}");
+			string result = CVarRegistry.ProcessCommand(line);
+			if (!string.IsNullOrEmpty(result))
+			{
+				GD.Print($"[exec]   {result}");
+			}
+		}
+	}
+
 	private void TickNodeCensusDelay(double deltaTime)
 	{
 		float delay = CVars.nodeCensusDelay.Value;
@@ -1632,6 +1668,7 @@ public partial class GameClient : Node3D
 	{
 		using var _profProcess = Profiler.Sample("GameClient.Process");
 		TickNodeCensusDelay(deltaTime);
+		TickExecDelay(deltaTime);
 		TickWorldHistogramDelay(deltaTime);
 
 		// Push the foliage player-occlusion fade globals before the pause /

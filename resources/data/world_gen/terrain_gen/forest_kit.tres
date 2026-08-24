@@ -125,3 +125,4 @@ detailStrengthMin = 180
 forest = ExtResource("set_forest")
 treeScenes = []
 tallGrassScenes = []
+mossCoverage = 0.4

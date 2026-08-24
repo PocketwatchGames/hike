@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -114,6 +115,14 @@ public partial class Main : Node
 		if (CVars.blockCheck.Value)
 		{
 			BlockCheck.RunAndQuit(GetTree(), defaultWorldGenData);
+			return;
+		}
+
+		// And for the authored data as a whole: reports [Tool]-closure gaps (the
+		// silent editor data-loss bug) and any .tres that no longer loads.
+		if (CVars.resourceCheck.Value)
+		{
+			ResourceCheck.RunAndQuit(GetTree());
 			return;
 		}
 
@@ -485,6 +494,10 @@ public partial class Main : Node
 		worldState.Spawn = source.Spawn;
 		worldState.Zones = source.Zones;
 		worldState.Regions = source.Regions;
+		foreach (KeyValuePair<string, Vector3> poi in source.PointsOfInterest)
+		{
+			worldState.PointsOfInterest[poi.Key] = poi.Value;
+		}
 		// This world's own quests, party and starting knowledge. Without it the
 		// run took all three from whichever WorldGenData the menu had selected —
 		// another world's content, and for a hand-painted world usually no

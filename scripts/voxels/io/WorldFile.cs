@@ -199,7 +199,11 @@ public static class WorldFile
     //      bytes index it 1-based, and it is derived from the kits'
     //      defaultDetail — so repointing one kit's detail moves that table
     //      without moving the kit palette, which the v46 check would pass.
-    public const uint VERSION = 48;
+    // v49: named points of interest. Worldgen resolves them from authored zone
+    //      data and nothing recomputes them on load, so every POI was lost
+    //      through a .hike or worldgen-cache round trip — which is every run
+    //      but a cache MISS.
+    public const uint VERSION = 49;
 
     public struct IndexEntry
     {
@@ -233,6 +237,8 @@ public static class WorldFile
         public string StartContentPath;
         public ZoneEntry[] Zones;
         public RegionEntry[] Regions;
+        // Named points of interest baked with the world — see VERSION v49.
+        public Dictionary<string, Vector3> PointsOfInterest;
         // Resource path per kit-palette slot, in slot order — what every
         // TerrainId byte in this file indexes. See VERSION v46.
         public string[] KitSlots;
@@ -349,6 +355,15 @@ public static class WorldFile
         {
             w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
         }
+        Dictionary<string, Vector3> pois = worldState.PointsOfInterest;
+        w.Write((uint)pois.Count);
+        foreach (KeyValuePair<string, Vector3> poi in pois)
+        {
+            w.Write(poi.Key);
+            w.Write(poi.Value.X);
+            w.Write(poi.Value.Y);
+            w.Write(poi.Value.Z);
+        }
         // One resource-path table for every entity list in the file — chunk
         // lists and the persistent list alike. Must precede both.
         EntitySerializer.WriteTable(w, pathTable);
@@ -429,6 +444,13 @@ public static class WorldFile
         for (uint i = 0; i < regionCount; i++)
         {
             header.Regions[i] = new RegionEntry { DataPath = r.ReadString() };
+        }
+        uint poiCount = r.ReadUInt32();
+        header.PointsOfInterest = new Dictionary<string, Vector3>((int)poiCount);
+        for (uint i = 0; i < poiCount; i++)
+        {
+            string poiName = r.ReadString();
+            header.PointsOfInterest[poiName] = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
         }
         header.PathTable = EntitySerializer.ReadTable(r);
         header.PersistentEntities = EntitySerializer.ReadList(r, header.PathTable);

@@ -53,6 +53,12 @@ public partial class ChunkMesh : Node3D
     // so terrains sharing a flat tile decode the layer only once.
     private static readonly Dictionary<int, Color> _layerAverageCache = new();
 
+    // Layers already known to be unreadable. Failures MUST be memoized like
+    // successes: this runs per scattered detail sprite, not once per world load,
+    // so an uncached miss re-probes the atlas for every sprite in every chunk.
+    private static readonly HashSet<int> _layerAverageFailed = new();
+    private static bool _groundTintWarned;
+
     // Baked-AO darkening strength pushed to the terrain shader's `ao_strength`
     // uniform (0 = AO off, 1 = authored, >1 exaggerates for verification).
     // Cached so a CVar set before the material exists still takes effect once
@@ -304,8 +310,11 @@ public partial class ChunkMesh : Node3D
         var nrmHeight = ResourceLoader.Load<TextureLayered>(
             "res://assets/textures/terrain/voxel_tiles_nrm_height.png", "", ResourceLoader.CacheMode.Replace);
         _tileColorArray = tileArray;
-        // Averages are measured from the atlas, so a re-stitch invalidates them.
+        // Averages are measured from the atlas, so a re-stitch invalidates them —
+        // the negative cache included, since a re-stitch may make a layer readable.
         _layerAverageCache.Clear();
+        _layerAverageFailed.Clear();
+        _groundTintWarned = false;
 
         // The material itself, so the authored blend tuning on terrain.tres —
         // overlay_blend_sharpness, height_relief_strength, the wet model — is live
@@ -380,12 +389,32 @@ public partial class ChunkMesh : Node3D
     //
     // Cached per layer: terrains sharing a flat tile decode it once. The atlas
     // is small and this runs once per world load, so the cost is negligible.
+    // One line per run, not one per sprite. Both failure modes mean the same
+    // thing — this atlas layer cannot be read back on the CPU — and under the
+    // dummy renderer that is expected and benign (authored tints are kept), so
+    // the per-layer detail is not worth a stack trace apiece.
+    private static void WarnGroundTintUnavailable(int layer, string what)
+    {
+        _layerAverageFailed.Add(layer);
+        if (_groundTintWarned)
+        {
+            return;
+        }
+        _groundTintWarned = true;
+        GD.PushWarning($"ChunkMesh: {what} tile_array layer {layer} for GroundTint; keeping authored tints. "
+            + "Expected headless (no texture-array CPU readback); further layers are silent.");
+    }
+
     internal static bool TryGetLayerAverageLinear(int layer, out Color average)
     {
         average = Colors.White;
         if (_layerAverageCache.TryGetValue(layer, out average))
         {
             return true;
+        }
+        if (_layerAverageFailed.Contains(layer))
+        {
+            return false;
         }
         if (_tileColorArray == null || layer < 0 || layer >= _tileColorArray.GetLayers())
         {
@@ -395,13 +424,13 @@ public partial class ChunkMesh : Node3D
         Image img = _tileColorArray.GetLayerData(layer);
         if (img == null)
         {
-            GD.PushWarning($"ChunkMesh: could not read tile_array layer {layer} for GroundTint; keeping authored tint.");
+            WarnGroundTintUnavailable(layer, "could not read");
             return false;
         }
         // The imported atlas is VRAM-compressed; decode to RGBA before sampling.
         if (img.IsCompressed() && img.Decompress() != Error.Ok)
         {
-            GD.PushWarning($"ChunkMesh: could not decompress tile_array layer {layer} for GroundTint; keeping authored tint.");
+            WarnGroundTintUnavailable(layer, "could not decompress");
             return false;
         }
 

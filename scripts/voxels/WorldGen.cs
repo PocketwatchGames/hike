@@ -19,7 +19,7 @@ public sealed class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 129;
+    public const int WORLDGEN_VERSION = 130;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -389,18 +389,9 @@ public sealed class WorldGen
         // are claimed first and moss fills in around them, where reversing the
         // two leaves every tall face bare.
         WorldFinish.StampClimbSurfaces(ws, genData,
-            (wx, wz) =>
-            {
-                int zi = _zones.PickKitZone(wx, wz, 0);
-                ZoneGenData zone = zi >= 0 ? genData.ZoneGens[zi] : null;
-                return zone?.climbCoverage ?? 0f;
-            },
+            (wx, wz) => ZoneGenAt(genData, wx, wz)?.climbCoverage ?? 0f,
             (wx, wz) => TerrainMath.WaterYAt(heightMap, wx, wz),
             genData.climbMinCliffHeight, true);
-
-        // Moss overlay over exposed rock/ground. Before the road pass so a road
-        // tread stamps over it rather than the reverse.
-        StampMossPatches(ws, genData);
 
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
         // the worldgen_skip CVar (bitmask — see SKIP_* flags). Each category is
@@ -491,6 +482,17 @@ public sealed class WorldGen
             SkipDetailColumn = (wx, wz) => _roadColumns.Contains((wx, wz)),
             GroundYAt = (wx, wz) => heightMap.GetSurface(wx, wz),
             Zones = _zones,
+            // Moss density is per-zone generation tuning, so it comes off
+            // ZoneGenData through the same jagged per-voxel kernel the kit
+            // borders use — a moss boundary should follow the biome seam, not
+            // the chunk grid.
+            MossCoverageAt = (wx, wz) =>
+            {
+                ZoneGenData zone = ZoneGenAt(genData, wx, wz);
+                return zone == null
+                    ? (0f, 0f)
+                    : (zone.mossSurfaceCoverage, zone.mossCaveCoverage);
+            },
             ApplyAuthoredEnvOverrides = () => ApplySubsceneEnvOverrides(ws, stampedSubscenes),
             RiverFlow = heightMap,
         });
@@ -657,6 +659,15 @@ public sealed class WorldGen
     // per-position during the passes. WindDirection is randomized in the XZ
     // plane so each world has its own prevailing wind per zone; Elevation
     // defaults to 0 until the editor authors it per-zone per-world.
+    // The ZoneGenData a column sits in, picked with the tight kit kernel so the
+    // border is hash-jittered per voxel rather than chunk-aligned.
+    private ZoneGenData ZoneGenAt(WorldGenData genData, int wx, int wz)
+    {
+        int idx = _zones.PickKitZone(wx, wz, 0);
+        ZoneGenData[] gens = genData.ZoneGens;
+        return gens != null && idx >= 0 && idx < gens.Length ? gens[idx] : null;
+    }
+
     private void BuildZoneStates(WorldState ws, WorldGenData genData, int worldSeed)
     {
         var zoneRng = new RandomNumberGenerator();
@@ -3441,24 +3452,15 @@ public sealed class WorldGen
     // are authored on WorldGenData. The scatter SEEDS stay fixed here — they're
     // stable RNG salts (like the SEED_SALT_* channels), not feel knobs.
     private const int DIRT_PATCH_SEED = 4242;
-    private const int MOSS_PATCH_SEED = 4243;
-    private const int MOSS_CAPILLARY_SEED = 4244;
-    private const int MOSS_PATCHINESS_SEED = 4245;
     private const int CLIMB_PATCH_SEED = 4246;
     // FastNoiseLite's CellValue is BELL-SHAPED, not uniform. Measured over 576k
     // samples it spans -0.96..0.90, but the middle is only ~0.56 as wide as a
     // uniform field would be, so thresholding it directly at the authored
     // coverage delivered 9% for an authored 25%. Remapping about the median
     // makes the knob mean what it says across the useful range. Same class of
-    // correction as MOSS_NOISE_GAIN, and measured the same way — re-measure it
+    // correction as WorldFinish's MOSS_NOISE_GAIN, and measured the same way — re-measure it
     // if the cellular settings change, don't assume it carries over.
     private const float CLIMB_CELL_SPREAD = 0.563f;
-
-    // FastNoiseLite's fractal Perlin does not reach ±1 — the river width channel
-    // measured only -0.38..0.51 on this world (see WIDTH_NOISE_GAIN), and the
-    // moss channel is the same shape. |noise| therefore spans well under 0..1,
-    // so the gain restores the authored coverage's reach over the vein width.
-    private const float MOSS_NOISE_GAIN = 2.2f;
 
     // Test placement for detail-sprite scatter. Each kit advertises its own
     // DefaultDetail group; this pass walks every surface voxel, reads the
@@ -3520,137 +3522,6 @@ public sealed class WorldGen
                 }
             }
         }
-    }
-
-    private void StampMossPatches(WorldState ws, WorldGenData genData)
-    {
-        BlockSurfaceData moss = genData.mossSurface;
-        if (moss == null)
-        {
-            return;
-        }
-        if (moss.atlasBaseIndex <= 0)
-        {
-            GD.PushError($"WorldGen: moss surface '{moss.surfaceName}' has no atlas layer; add it to voxel_atlas_manifest.tres and rebuild.");
-            return;
-        }
-        byte mossOverlay = (byte)moss.atlasBaseIndex;
-
-        FastNoiseLite trunkNoise = CreateMossVeinNoise(genData, MOSS_PATCH_SEED, genData.mossPatchFrequency);
-        FastNoiseLite capillaryNoise = CreateMossVeinNoise(genData, MOSS_CAPILLARY_SEED,
-            genData.mossPatchFrequency * Mathf.Max(genData.mossCapillaryFrequencyScale, 1f));
-        // Unwarped: this one says how much moss a REGION carries, so it wants
-        // to stay smooth — warping it just adds noise no one can read.
-        var patchinessNoise = new FastNoiseLite();
-        patchinessNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        patchinessNoise.Seed = MOSS_PATCHINESS_SEED;
-        patchinessNoise.Frequency = genData.mossPatchinessFrequency;
-        patchinessNoise.FractalOctaves = 2;
-
-        float capillaryWidth = Mathf.Max(genData.mossCapillaryWidth, 0.05f);
-        float yStretch = Mathf.Max(genData.mossVerticalStretch, 0.01f);
-
-        long surfaceCandidates = 0, surfaceStamped = 0, caveCandidates = 0, caveStamped = 0;
-
-        int worldMinY = ws.Min.Y * ChunkState.SIZE;
-        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinX = ws.Min.X * ChunkState.SIZE;
-        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        for (int wx = worldMinX; wx <= worldMaxX; wx++)
-        {
-            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
-            {
-                int columnZone = _zones.PickKitZone(wx, wz, 0);
-                ZoneGenData zone = columnZone >= 0 ? genData.ZoneGens[columnZone] : null;
-                if (zone == null)
-                {
-                    continue;
-                }
-                if (zone.mossSurfaceCoverage <= 0f && zone.mossCaveCoverage <= 0f)
-                {
-                    continue;
-                }
-
-                for (int wy = worldMinY; wy <= worldMaxY; wy++)
-                {
-                    var v = ws.GetBlockWorld(wx, wy, wz);
-                    if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
-                    {
-                        continue;
-                    }
-                    // Leave an authored overlay (a road tread) alone.
-                    if (ws.GetOverlayIdWorld(wx, wy, wz) != ChunkState.OVERLAY_NONE)
-                    {
-                        continue;
-                    }
-                    if (!TerrainMath.IsAirExposed(ws, wx, wy, wz))
-                    {
-                        continue;
-                    }
-
-                    bool isCave = ws.Kits.IsCaveKit(ws.GetTerrainIdWorld(wx, wy, wz));
-                    float coverage = isCave ? zone.mossCaveCoverage : zone.mossSurfaceCoverage;
-                    if (coverage <= 0f)
-                    {
-                        continue;
-                    }
-                    // 3D noise, so a cliff face gets vertical variation instead
-                    // of the whole column inheriting one 2D sample. Squashing Y
-                    // stretches the strands taller than they are wide, which is
-                    // what makes moss run DOWN a wall rather than around it.
-                    float sy = wy * yStretch;
-                    float trunk = Mathf.Abs(trunkNoise.GetNoise3D(wx, sy, wz)) * MOSS_NOISE_GAIN;
-                    float capillary = Mathf.Abs(capillaryNoise.GetNoise3D(wx, sy, wz))
-                        * MOSS_NOISE_GAIN / capillaryWidth;
-                    float veinDist = Mathf.Min(trunk, capillary);
-
-                    // Mean-preserving swing about 1, so raising patchiness
-                    // redistributes coverage instead of adding or removing it.
-                    float patch01 = Mathf.Clamp(
-                        0.5f + patchinessNoise.GetNoise3D(wx, sy, wz) * MOSS_NOISE_GAIN * 0.5f, 0f, 1f);
-                    float localCoverage = coverage * genData.mossStrandWidth
-                        * Mathf.Lerp(1f, patch01 * 2f, genData.mossPatchinessAmount);
-
-                    if (isCave) { caveCandidates++; } else { surfaceCandidates++; }
-                    if (veinDist < localCoverage)
-                    {
-                        ws.SetOverlayIdWorld(wx, wy, wz, mossOverlay);
-                        if (isCave) { caveStamped++; } else { surfaceStamped++; }
-                    }
-                }
-            }
-        }
-
-        GD.Print($"WorldGen: moss surface {surfaceStamped}/{surfaceCandidates}"
-            + $" ({100.0 * surfaceStamped / Math.Max(surfaceCandidates, 1):0.0}%),"
-            + $" cave {caveStamped}/{caveCandidates}"
-            + $" ({100.0 * caveStamped / Math.Max(caveCandidates, 1):0.0}%).");
-    }
-
-    // One strand network. The warp is applied by FastNoiseLite inside GetNoise,
-    // so callers sample world position and get a crooked field for free. BOTH
-    // networks warp off the TRUNK wavelength, not their own — a capillary warped
-    // at its own finer scale shakes itself into specks.
-    private FastNoiseLite CreateMossVeinNoise(WorldGenData genData, int seed, float frequency)
-    {
-        float baseFrequency = Mathf.Max(genData.mossPatchFrequency, 1e-4f);
-        var noise = new FastNoiseLite();
-        noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        noise.Seed = seed;
-        noise.Frequency = frequency;
-        noise.FractalOctaves = 2;
-        noise.DomainWarpEnabled = genData.mossWarpWavelengths > 0f;
-        noise.DomainWarpType = FastNoiseLite.DomainWarpTypeEnum.Simplex;
-        noise.DomainWarpAmplitude = genData.mossWarpWavelengths / baseFrequency;
-        noise.DomainWarpFrequency = baseFrequency * genData.mossWarpFrequencyScale;
-        // One warp application, not FastNoiseLite's default 5-octave progressive
-        // one: this pass samples two networks per air-exposed voxel in the world,
-        // and the extra octaves buy detail far under a voxel.
-        noise.DomainWarpFractalType = FastNoiseLite.DomainWarpFractalTypeEnum.None;
-        return noise;
     }
 
     private void GenerateProps(WorldState ws, Vector3I chunkCoord, WorldGenData genData,

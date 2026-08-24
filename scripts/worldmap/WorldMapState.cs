@@ -1071,6 +1071,13 @@ public class WorldMapState
             // Paving is a deliberate bare tread, exactly as a road is.
             SkipDetailColumn = (wx, wz) => PavingAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) != null,
             GroundYAt = (wx, wz) => TerrainHeight(wx - Data.WorldMinX, wz - Data.WorldMinZ),
+            // Moss comes off the painted GROUND, because a painted world has no
+            // ZoneGenData to ask (its zone layer paints ZoneData, and the two
+            // palettes do not correspond). A column's surface kit and cave kit
+            // are exactly the two coverages the pass wants, so painting a
+            // material brings its moss with it — no second brush, and no moss
+            // where nothing was painted.
+            MossCoverageAt = MossCoverageAtWorld,
             StampWind = StampWind,
             ComputeSunlight = false,
         });
@@ -2270,6 +2277,20 @@ public class WorldMapState
             // statement about difficulty a painted world contains.
             ForgeLevelOverride = pos => Mathf.Clamp(MobLevelAtWorld(pos), 0, levelCap),
         };
+    }
+
+    // The moss coverage of the kits under a world-space column: the surface kit
+    // for open ground and cliff faces, the cave kit for anything cut into rock.
+    private (float surface, float cave) MossCoverageAtWorld(int wx, int wz)
+    {
+        ZoneKits kits = KitsAt(wx - Data.WorldMinX, wz - Data.WorldMinZ);
+        KitPalette palette = WorldState?.Kits;
+        if (palette == null)
+        {
+            return (0f, 0f);
+        }
+        return (palette.KitAt(kits.Surface)?.mossCoverage ?? 0f,
+                palette.KitAt(kits.Cave)?.mossCoverage ?? 0f);
     }
 
     private bool IsFlatAt(int px, int pz)

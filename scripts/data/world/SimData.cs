@@ -1544,4 +1544,12 @@ public partial class SimData : Resource
     // counterweight to the downwind boost so a gale isn't a pure smelling
     // advantage. 0.4 = -40% smell reach in a strong wind.
     [Export(PropertyHint.Range, "0,1,0.01")] public float smellWindDisruption = 0.4f;
+
+    // Named test setups reachable from the console as `setup <name>`. Dev
+    // tooling rather than game content, but it lives here because a scenario is
+    // per-world simulation data and this is the resource a running game already
+    // has in hand (Sim.SimData) — the same reason the spell and night-spawn
+    // lists do. Each entry is a command list; see TestScenarioData.
+    [Export] public TestScenarioData[] testScenarios = System.Array.Empty<TestScenarioData>();
 }
+

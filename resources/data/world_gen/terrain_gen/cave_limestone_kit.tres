@@ -8,3 +8,4 @@
 script = ExtResource("1_script")
 block = ExtResource("blk_cave_limestone")
 defaultDetail = ExtResource("3_detail")
+mossCoverage = 0.5

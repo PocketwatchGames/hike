@@ -33,7 +33,9 @@ Measured warm on this machine, so the choice is by cost rather than by feel:
 | `dotnet build hike.sln` (no-op or small edit) | ~8s |
 | Godot headless **boot floor** (`--quit-after 1`) | ~3.5s |
 | `block_check` / `shader_check` (boot included) | ~3s |
-| `autostart` to `[Load] Total (to fade start)`, worldgen cache HIT | ~21s |
+| `resource_check` (boot + all 669 `.tres` loaded) | ~7s |
+| `autostart` to `[Load] Total (to fade start)`, worldgen cache HIT | ~25s |
+| a full self-quitting headless smoke run (`exec ...; quit`), cache HIT | ~31s wall |
 | Worldgen cache MISS, or a full `.hike` bake (world build + relight) | minutes |
 
 **The boot is not the expensive part — building a world is.** So:
@@ -54,9 +56,48 @@ Godot ... --path . --headless -- "autostart 1" "autoplay 1"
 
 - Every engine arg **after `--`** is run as a console command (`Main._Ready` → `CVarRegistry.ProcessCommand`), so any cvar can be set at launch without a persistent `cvars.txt` — CLI wins over the config file.
 - `autostart` skips the main menu and launches a new game (respects `world_file` if set, else the default `WorldGenData`). `autoplay` spawns a `HeadlessBot` ([scripts/client/HeadlessBot.cs](scripts/client/HeadlessBot.cs)) that drives the player via synthesized global `Input` actions (wander + dash/melee).
-- The sim is renderer-independent (gameplay reads CPU `WorldState` arrays; volume maps are visual-only and no-op when `RenderingServer.GetRenderingDevice()` is null under the dummy renderer). SubViewport passes render nothing headless but don't crash. `ChunkMesh … GroundTint … tile_array` warnings under headless are **benign** (texture-array CPU readback is unavailable, so authored tints are kept).
+- The sim is renderer-independent (gameplay reads CPU `WorldState` arrays; volume maps are visual-only and no-op when `RenderingServer.GetRenderingDevice()` is null under the dummy renderer). SubViewport passes render nothing headless but don't crash. The one `ChunkMesh … GroundTint … tile_array` warning under headless is **benign** (texture-array CPU readback is unavailable, so authored tints are kept). It is one line per run because `TryGetLayerAverageLinear` memoizes FAILURES as well as successes — it is called per scattered detail sprite, not per world load, so without the negative cache every sprite in every chunk re-probed the atlas and re-warned with a full stack trace: 135s of a 148s headless load and ~375k log lines. If that flood ever returns, the negative cache is what broke.
 - **`--quit-after N` counts FRAMES, not seconds.** Headless spins frames far faster than wall-clock worldgen completes, so a small frame cap quits mid-generation — use a wall-clock timeout (or a large frame budget) when you need the world to finish loading.
-- **Don't sit on a fixed multi-minute timeout — size it from the marker.** A warm run prints `[Load] Total (to fade start)` at ~21s from cache, ~30s loading a `.hike` (`[Load] WorldGen cache HIT`; a MISS regenerates and is where the minutes go). Note that piping into `awk .. exit` / `grep -m1` does NOT stop the run here — Godot does not die of SIGPIPE under Git Bash, so the pipeline returns while the process keeps going to the full timeout. Either background it and `kill` the PID once the marker lands, or set the `timeout` from the numbers above (~60s) rather than minutes.
+- **End the run with `quit` — don't let it ride the timeout.** `exec` accepts a `;`-separated chain, so `-- "autostart 1" "exec_delay 3" "exec tp ?; quit"` finishes in ~31s wall with exit 0. Without a terminating command the game has no reason to stop, the run burns the whole `timeout`, and wall clock tells you nothing about what it cost. Piping into `awk .. exit` / `grep -m1` does NOT stop it either — Godot does not die of SIGPIPE under Git Bash, so the pipeline returns while the process keeps running. A cache MISS regenerates and is still where the minutes go (~55s of worldgen on top).
+
+### Reaching a Test Condition
+
+**The console can put the game into a condition; do not walk there.** Most of the
+~230 cvars either observe the running game (`debug_*`, `*_probe`) or set global
+state (`time_of_day`, `weather`) — these four place the player instead, and they
+exist because time-to-condition was the dominant cost in every check, manual or
+automated:
+
+| Verb | Does |
+|---|---|
+| `tp <poi>` / `tp <x> <y> <z>` | move the living party; `tp ?` lists the world's points of interest |
+| `spawn <species> [count] [level]` | ring of **transient** mobs around the player; `spawn ?` lists species |
+| `give <item> [count]` | drop an item at the player's feet; `give ?` lists items |
+| `setup <name>` | run an authored scenario's command list; `setup ?` lists them |
+
+- **The listing argument is `?`, never a bare verb.** `CVarRegistry.ProcessCommand`
+  answers a value-less cvar with its current value and never invokes the
+  callback, so a bare `tp` prints `tp = ` and does nothing. (Same reason these
+  are `CVarString` and not action cvars: an action cvar's argument is DISCARDED.)
+- **`spawn` is transient by design** (`Sim.SpawnMobTransient`). A debug spawn
+  recorded in `WorldState` would persist into the worldgen cache and
+  re-materialize on every later run of that world.
+- **`give` drops rather than filling the backpack.** `Inventory.TryAdd` refuses
+  non-materials, and potions / scrolls / fairy corpses do their real work in the
+  world-pickup path — dropping exercises what the player actually does.
+- **A scenario is just a command list** (`TestScenarioData` on
+  `SimData.testScenarios`), so authoring one costs a resource and no code, and it
+  picks up any cvar added later. **Author one per feature as you build it**; they
+  accumulate into the test bed.
+- **`tp` needs POIs, which are baked into the world file** (`WorldFile` v49).
+  Worldgen resolves them from authored zone data and nothing recomputes them on
+  load, so before v49 every POI was lost through a `.hike` or worldgen-cache
+  round trip — which is every run but a cache MISS.
+- **A launch line cannot call these directly.** CLI cvar args are processed in
+  `Main._Ready`, before a world exists. Use the delayed driver:
+  `-- "autostart 1" "exec_delay 8" "exec tp lake; spawn drake_mountain 2"`
+  (`exec` is a `;`-separated command line, run `exec_delay` seconds after the
+  game scene comes up).
 
 ### Checking That Shaders Still Compile
 
@@ -79,6 +120,28 @@ Measured boundaries, so you pick the right run:
 - **An unregistered `global uniform` is invisible headless, and it's a WARNING, not an error**: `Shader uses global parameter 'x', but it was removed at some point.` Grep for `global parameter`, windowed, when you touched a `global uniform` or `[shader_globals]`.
 - **`--script` mode is useless here** — it never brings the rendering server up, so every shader loads "clean" no matter how broken. It must be a real boot.
 - Loading a `Shader` resource does not compile it; the code only reaches the compiler once it's bound to a material (which is what `ShaderCheck.cs` does).
+
+### Checking That the Data Still Holds Together
+
+**`resource_check` is the data loop** — `--headless -- "resource_check 1"`,
+self-quitting, no world and no renderer. Two passes, because the failure it
+chases is invisible from either side alone:
+
+- **`[Tool]` closure**, read off the C# type graph: a C#-scripted `Resource`
+  reachable from a typed `[Export]` on a `[Tool]` class must itself be `[Tool]`
+  (see Key Conventions). It reports the gap **before** any data is lost, which is
+  the only useful time — the bug is editor-only, so a runtime playthrough can
+  never find it, and by the time a `.tres` comes back missing a reference the
+  loss has already happened. Built-in engine types (`PackedScene`, `Texture2D`,
+  `Curve`, `AudioStream`) are deliberately NOT flagged: they carry no script for
+  `[Tool]` to gate. Neither is a field typed as bare `Godot.Resource` (no cast to
+  fail), nor a gap under a parent that is itself not `[Tool]` — `WorldMapData` is
+  deliberately un-`[Tool]` and correctly reports nothing.
+- **Load sweep**: every `.tres` under `resources/` loads, and the script the file
+  names is the script the loaded object ended up with. Catches a renamed or moved
+  class, a broken dependency, and a parse error.
+
+Grep the output for `FAIL`; a clean tree prints `[resource_check] ok`.
 
 ### Worktree Setup
 
@@ -159,7 +222,7 @@ The boundary is enforced by where code lives, and there are four files to know:
 | File | Is | Rule |
 |---|---|---|
 | `WorldGen` | ONE RUN of the generator — a normal class you instantiate, not a static bag | Owns `ZoneField`, the level-noise fields, the road columns, the path hints, the height map. Nothing outside a run can see any of it. |
-| `WorldFinish` | the passes a finished world derives from its OWN voxels | **Both producers end on `WorldFinish.Finish`.** Grades, detail scatter, the roof/sky/classify air pipeline, fog, wind, water currents, cascades. |
+| `WorldFinish` | the passes a finished world derives from its OWN voxels | **Both producers end on `WorldFinish.Finish`.** Grades, detail scatter, moss, the roof/sky/classify air pipeline, fog, wind, water currents, cascades. |
 | `TerrainMath` | pure world-shape math, no state at all | `SEA_LEVEL`, `DeriveSeed`, `MakePerlin`, `StampGradeShapes`, `FootprintPlateauY`, the voxel predicates. |
 | `ZoneField` | where THIS world's zones are and how they blend | Per-run object. Handed to the terrain approach; never a global. |
 
@@ -181,6 +244,18 @@ Four rules fall out, each of which was a real bug:
   / `ForgeLevel` are the seam: worldgen installs its zone-band sampler on the
   contexts it builds, the painter installs its painted difficulty layer. Reaching a
   static sampler instead is how painted mobs came out at their species base.
+- **A pass shared by both producers takes its per-column answer as a DELEGATE.**
+  The pass is shared; the answer usually is not. `StampClimbSurfaces` takes
+  `coverageAt` — worldgen answers with a zone's `climbCoverage`, the painter with
+  its authored route flag. `StampMossPatches` takes `MossCoverageAt` — worldgen
+  answers from `ZoneGenData` (moss density is a property of the biome it is
+  generating), the painter from the kits its ground layer paints (there it is a
+  property of the material the author put down). Do NOT try to force one shared
+  source: the painter's zone palette is `ZoneData` and does not correspond to
+  `WorldGenData.ZoneGens` at all — 15 entries against 5 in the default world, no
+  index mapping and no reliable back-reference. Where a value genuinely IS the
+  same question for both (fog's humidity), `ws.Zones[i].Data` is the one table
+  both producers fill.
 - **Nothing outside generation may assume where water is.** `TerrainMath.SEA_LEVEL`
   is the waterline a GENERATED world is built around, not a claim about the world:
   a painted lake sits where it was painted and a carve can open a dry cavern below
