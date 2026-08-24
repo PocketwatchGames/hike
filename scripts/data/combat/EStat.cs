@@ -62,6 +62,4 @@ public enum EStat
 	MaxHealth = 1 << 26,        // additive (flat health bonus)
 	MaxArmor = 1 << 27,        // additive (flat armor bonus)
 	FortitudeResistance = 1 << 28, // multiplicative — incoming status-buildup scale (<1 = resistant); sourced from PlayerState.fortitude + any gear/status modifier, folded at the combat-buildup site
-	AirJumps = 1 << 29,        // additive (flat count of extra mid-air jumps)
-	WallJump = 1 << 30,        // additive capability (> 0 enables the wall jump)
 }

@@ -548,7 +548,6 @@ public partial class Player : CharacterBody3D
 		_hitstunTime = 0f;
 		_knockbackTime = 0f;
 		_knockbackVelocity = Vector3.Zero;
-		_jumpHeld = false;
 		if (_curInteractive != null)
 		{
 			SetCurInteractive(null);
@@ -622,12 +621,10 @@ public partial class Player : CharacterBody3D
 		_knockbackVelocity = Vector3.Zero;
 		_sneaking = false;
 		_aiming = false;
-		_jumpHeld = false;
 		_oneShotClip = default;
 		_oneShotIsHitstun = false;
 		_oneShotOverridesCharge = false;
 		_grounded = false;
-		_coyoteTimeEndMs = 0;
 		_diedOffGround = false;
 		TeleportTo(position);
 		// Force the animator off the Die clip so the first post-respawn frame

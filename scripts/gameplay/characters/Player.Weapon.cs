@@ -148,7 +148,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		// and the recharge delay re-arms either way.
 		_stamina -= data.dashStaminaCost;
 		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
-		// Dash is an overt action — like the swing/jump/use cluster in
+		// Dash is an overt action — like the swing/use cluster in
 		// ProcessInput's sneak-break list. Cleared here as well so the intent
 		// stays local to dash if that list is ever refactored.
 		_sneaking = false;
@@ -818,6 +818,9 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// test, and speed-line emitter (all keyed off _dashDir as the true travel
 	// heading) correct. The dash state machine in _PhysicsProcess consumes
 	// these fields.
+	// `freezeGravity` is ignored: the player cannot leave the ground under their
+	// own power, so there is no dash hang to suppress gravity for. Mobs (fliers
+	// in particular) still honour it.
 	public void ApplyMotion(float forwardSpeed, float duration, bool freezeGravity, EMotionDirection direction)
 	{
 		Vector3 facing = new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
@@ -838,7 +841,6 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		_dashDir = dir;
 		_dashSpeed = forwardSpeed;
 		_dashTimeRemaining = duration;
-		_dashFreezeGravity = freezeGravity;
 		// A dash has just begun — let any held status effect (e.g. the fairy-
 		// corpse buff) fire its on-dash burst: a radial knockback + Dizzy
 		// shockwave around the player. No-op unless an active effect authors one.

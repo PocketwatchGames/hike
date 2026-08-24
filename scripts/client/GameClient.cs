@@ -229,7 +229,7 @@ public partial class GameClient : Node3D
 	// Anisotropic ellipse aspect — multipliers on the cutaway radius along
 	// world horizontal (XZ) and world vertical (Y). Default (1.6, 1.2)
 	// reads as ~16:9 framing (slightly wider than tall) with a vertical
-	// bump that gives jumping players headroom to clear cover before the
+	// bump that gives climbing players headroom to clear cover before the
 	// boundary cuts back to baseline. 1:1:1 = isotropic tube (the
 	// pre-anisotropic shape).
 	[Export(PropertyHint.Range, "0.25,4,0.05")] public float foliagePlayerFadeAspectHorizontal = 1.6f;
@@ -529,7 +529,7 @@ public partial class GameClient : Node3D
 	//
 	// Setting to false is *deferred to end of _Process* rather than applied
 	// synchronously. A modal closing on a shared key (B = ui_cancel + Sneak,
-	// A = ui_accept + Jump) MUST keep the gate up for the rest of the current
+	// A = ui_accept + Dash) MUST keep the gate up for the rest of the current
 	// frame, because Player.ProcessInput polls IsActionJustPressed which keeps
 	// reporting true for the rest of the frame even after the modal marks the
 	// event handled. CallDeferred and the process_frame signal both fire
@@ -1507,8 +1507,8 @@ public partial class GameClient : Node3D
 		// at the last shore they stood on for a whole crossing is not it. So do
 		// climbers and mantlers — a traversal owns position and is neither grounded
 		// nor falling, and holding the plane at the foot of the wall cut the climber
-		// (and the wall) away once they passed it. Only genuine free flight — a jump,
-		// a fall — holds it.
+		// (and the wall) away once they passed it. Only genuine free flight — a fall,
+		// a knockback — holds it.
 		bool supported = _player.IsGrounded || _player.IsInWater || _player.IsMounted
 			|| _player.Climbing || _player.Mantling;
 		_clipIris.Tick(Sim.Current, playerPos, supported, camera, (float)deltaSeconds);

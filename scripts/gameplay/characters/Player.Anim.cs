@@ -12,7 +12,7 @@ public partial class Player : CharacterBody3D
 	private const float MinMoveAnimSpeed = 0.5f;
 	private const float MaxMoveAnimSpeed = 1.5f;
 
-	// One-shots (attack, die, jump) latch the resolved clip and let the animator
+	// One-shots (attack, die, mantle) latch the resolved clip and let the animator
 	// drive itself to completion — Finished flips because these anims are authored
 	// with loop=false. While a one-shot is latched, UpdateAnimation defers; once
 	// Finished (or the animator gets reassigned by something else) we clear the
@@ -109,7 +109,7 @@ public partial class Player : CharacterBody3D
 		}
 		// Default the animator back to authored speed every tick — the
 		// movement-loop branch below re-enables status retiming when (and only
-		// when) it picks a speed-scaled loop. One-shots (attack, hitstun, jump,
+		// when) it picks a speed-scaled loop. One-shots (attack, hitstun, mantle,
 		// die) take the early return below, so this default sticks for them.
 		_animator.effectSpeedMultiplier = 1f;
 
@@ -194,7 +194,7 @@ public partial class Player : CharacterBody3D
 		}
 
 		EAnimation loopAnim;
-		// Horizontal speed only — vertical motion belongs to fall/jump/grav,
+		// Horizontal speed only — vertical motion belongs to fall/mantle/grav,
 		// not to the run-vs-idle decision. While stepping up a slope the body
 		// briefly leaves the floor and Velocity.Y from gravity dominates the
 		// 3D length, which used to flip the pick to "run" for a frame and

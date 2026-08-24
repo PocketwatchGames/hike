@@ -331,7 +331,7 @@ public partial class CellularTerrainData : TerrainGenData
     [Export(PropertyHint.Range, "0,2,0.01")] public float extraEdgeFraction = 0.6f;
 
     // Shortest wall that earns a ramp, in voxels. Below it the player steps or
-    // jumps up unaided, so a cutting is clutter — and at one quantize step the
+    // mantles up unaided, so a cutting is clutter — and at one quantize step the
     // ramp comes out shorter than it is wide.
     [Export(PropertyHint.Range, "1,16,1")] public int rampMinDrop = 4;
 
@@ -584,7 +584,7 @@ public partial class CellularTerrainData : TerrainGenData
     // between two cells is their own ground, so a limit read off the centroids
     // measures mostly solid earth: it would reject a short crossing between two
     // large cells and pass a long one between two small ones. A gap shorter
-    // than the minimum is one the player can jump and the bridge is clutter;
+    // than the minimum is one the player can walk around and the bridge is clutter;
     // longer than the maximum and it stops reading as one structure.
     [Export(PropertyHint.Range, "2,32,1")] public float bridgeWidthMeters = 6f;
     [Export(PropertyHint.Range, "6,128,1")] public float bridgeSpanMin = 10f;

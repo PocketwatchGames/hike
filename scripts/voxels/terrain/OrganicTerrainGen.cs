@@ -215,7 +215,7 @@ public class OrganicTerrainGen : ITerrainGenerator
                     float ez = sz + org.faultEdgeWarp * warpZ.GetNoise2D(wx * FAULT_EDGE_WARP_SCALE, wz * FAULT_EDGE_WARP_SCALE);
                     // Breach is a THRESHOLD, not a multiplier: a scarp is either
                     // fully there or fully open. Scaling it continuously tapers
-                    // the wall down through the jumpable range on its way to a
+                    // the wall down through the mantleable range on its way to a
                     // pass, which is a wall that isn't one.
                     bool walled = Mathf.SmoothStep(org.faultBreachLow, org.faultBreachHigh,
                         faultBreach.GetNoise2D(sx, sz)) > 0.5f;

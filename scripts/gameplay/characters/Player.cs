@@ -142,22 +142,13 @@ public partial class Player : CharacterBody3D
 	// even if Stone is unwired). Re-resolved each tick — walking from grass
 	// onto stone mid-skate swaps the loop scene wholesale.
 	[Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _slideLoopFx = new();
-	// One-shots for vertical motion. Jump fires the moment input takes the
-	// player off the floor. Land fires on every floor reacquisition unless
-	// the inbound vertical speed exceeded LandHardSpeedThreshold, in which
-	// case landHard takes its place — a heavier impact deserves dust + a
-	// harder hit.
-	[Export] private PackedScene _jumpFx;
-	// Mid-air (double) jump one-shot. Its own slot so it can diverge from the
-	// ground jump later; wired to the jump scene for now.
-	[Export] private PackedScene _airJumpFx;
+	// Hauling up over a ledge. Fires once at the start of the mantle carry.
+	[Export] private PackedScene _mantleFx;
+	// Landing one-shots. Land fires on every floor reacquisition unless the
+	// inbound vertical speed exceeded LandHardSpeedThreshold, in which case
+	// landHard takes its place — a heavier impact deserves dust + a harder hit.
 	[Export] private PackedScene _landFx;
 	[Export] private PackedScene _landHardFx;
-	// Wall jump: foot fx spawns at the player's position (particle + scuff
-	// sound at the kicking foot), effort fx layers a voice grunt. Both fire
-	// from TryWallJump alongside the velocity reset and Jump one-shot anim.
-	[Export] private PackedScene _wallJumpFootFx;
-	[Export] private PackedScene _wallJumpEffortFx;
 	// High-speed water entry. Picked over the standard splash when inbound
 	// vertical speed at WaterAreaEntered exceeds WaterPlungeSpeedThreshold.
 	[Export] private PackedScene _waterPlungeFx;
@@ -418,7 +409,7 @@ public partial class Player : CharacterBody3D
 	// other velocity branch (dash, knockback, skating, airborne, swim).
 	bool _skidding;
 	// Game-time at which slide AND ground contact were both first lost while
-	// skating. Skating tolerates a brief loss of contact (jumping ridges,
+	// skating. Skating tolerates a brief loss of contact (cresting ridges,
 	// voxel face transitions) and only exits once the deadline elapses.
 	// Cleared whenever contact is reacquired.
 	ulong _skateContactLostMs;
@@ -429,10 +420,6 @@ public partial class Player : CharacterBody3D
 	// Swapped wholesale on transitions instead of cross-fading.
 	Fx _animLoopFx;
 	PackedScene _animLoopScene;
-	ulong _coyoteTimeEndMs;
-	// Mid-air jumps left before touching ground again. Refilled to AirJumpsMax
-	// every grounded tick; each air jump (see TryAirJump) spends one.
-	int _airJumpsRemaining;
 	// Ring buffer of recent grounded positions — teleport target for the
 	// stuck-in-crevice recovery below. The recovery uses the OLDEST entry
 	// so the player respawns ~0.5s back along their path, well clear of
@@ -454,14 +441,6 @@ public partial class Player : CharacterBody3D
 	// elapses when displacement has stalled (wedged geometry, pinched capsule).
 	// Zero when grounded or when the deadline hasn't been armed yet.
 	ulong _stuckCheckDeadlineMs;
-	bool _jumpHeld;
-	// Seconds remaining in the wall-jump air-control blend window. Set to
-	// data.wallJumpAirControlTime by TryWallJump; while > 0 and airborne, the
-	// input-driven velocity rebuild lerps from current velocity toward the
-	// input target rather than snapping, preserving the kick arc. Decays each
-	// physics tick regardless of which velocity branch wins and is cleared on
-	// landing so a touch-down between wall jumps doesn't carry residual blend.
-	float _wallJumpAirControlTimer;
 	Inventory _inventory;
 
 	// Slope diagnostics published by UpdateSlopeDebug when CVars.debugSlopes
@@ -517,16 +496,14 @@ public partial class Player : CharacterBody3D
 	// Dash state machine. Seeded by Player.ApplyMotion (driven by an
 	// ApplyMotion event in the dash action profile). While
 	// _dashTimeRemaining > 0, _PhysicsProcess overrides the input-driven
-	// horizontal velocity with _dashDir * _dashSpeed (terrain-scaled) and,
-	// if _dashFreezeGravity, zeros Y and skips gravity. When the timer
-	// hits zero, EndDash clamps velocity in-place to a context-dependent
+	// horizontal velocity with _dashDir * _dashSpeed (terrain-scaled). When the
+	// timer hits zero, EndDash clamps velocity in-place to a context-dependent
 	// cap (dashExitSpeed on ground, swimDashExitSpeed in water, uncapped in
 	// air) so the dash hands off into normal motion without a separate
 	// glide window. _dashCooldownEndMs gates re-activation.
 	Vector3 _dashDir;
 	float _dashSpeed;
 	float _dashTimeRemaining;
-	bool _dashFreezeGravity;
 	ulong _dashCooldownEndMs;
 	// Status effects (poison, heal-over-time, hot, wet, ...). Multiple
 	// instances of the same StatusEffectData stack — each AddStatusEffect
@@ -571,7 +548,7 @@ public partial class Player : CharacterBody3D
 	// Non-DoT hits bypass this and fire onDamage / onHeal immediately.
 	readonly DotHudAccumulator _dotHud = new();
 	// One-shot animation latch — holds the resolved clip name currently playing
-	// as a one-shot (attack / jump / die / hitstun / weapon block); default = no
+	// as a one-shot (attack / mantle / die / hitstun / weapon block); default = no
 	// one-shot, fall back to the state-driven loop. `_oneShotIsHitstun` gates the
 	// special hitstun timer release; `_oneShotOverridesCharge` keeps a block
 	// reaction alive over a held weapon charge (every other one-shot yields to a
@@ -692,12 +669,6 @@ public partial class Player : CharacterBody3D
 	// multiplier — PlayerData.maxStamina only serves memberless spawns. Flat
 	// MaxStamina modifiers (armor, status effects) add whole units on top.
 	public float MaxStamina => (Member?.stamina ?? data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina);
-	// Live mid-air jump cap: PlayerData baseline plus the additive AirJumps stat
-	// composed from equipment / status effects. Never negative.
-	public int AirJumpsMax => Math.Max(0, (data?.airJumpsMax ?? 0) + Mathf.RoundToInt(ComposeStat(EStat.AirJumps)));
-	// Whether the wall jump is available: the PlayerData baseline flag OR any
-	// additive WallJump stat granted by a trait / equipment / status effect.
-	public bool CanWallJump => (data?.canWallJump ?? false) || ComposeStat(EStat.WallJump) > 0f;
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	// Catch up status effects by `dt` seconds in one call. Used by the sleep
@@ -832,8 +803,8 @@ public partial class Player : CharacterBody3D
 	// Inbound vertical speed below which no land sound fires at all. Step-up
 	// + step-down + obstacle interactions can cause sub-frame airborne flips
 	// even on flat ground; this floor suppresses the resulting phantom lands.
-	// Real lands (jumps, ledge drops) easily clear it — a neutral jump arc
-	// returns at ~6 m/s.
+	// Real lands (ledge drops, mantle descents) easily clear it — a one-voxel
+	// step down returns at ~4 m/s.
 	const float LandSoftSpeedThreshold = 1.5f;
 	// Slack above the step-down probe's start height, so the floor ray begins
 	// clear of the surface even when the sweep started flush against it.
@@ -1960,21 +1931,7 @@ public partial class Player : CharacterBody3D
 		else
 		{
 			Vector3 inputVel = _inputMove * speed;
-			// Wall-jump arc preservation. While the air-control timer is alive
-			// and we're airborne, lerp from the current XZ velocity (the kick
-			// the wall jump just applied) toward the input-driven target so
-			// input authority fades in over wallJumpAirControlTime rather than
-			// snapping every tick. The timer ticks down regardless of which
-			// velocity branch is active (see below), so a knockback / dash
-			// landing mid-window doesn't extend the blend past its arc.
-			if (_wallJumpAirControlTimer > 0f && !_grounded && data.wallJumpAirControlTime > 0f)
-			{
-				float t = 1f - (_wallJumpAirControlTimer / data.wallJumpAirControlTime);
-				Vector3 currentXZ = new(Velocity.X, 0f, Velocity.Z);
-				Vector3 blended = currentXZ.Lerp(inputVel, t);
-				Velocity = new Vector3(blended.X, Velocity.Y, blended.Z);
-			}
-			else if (_waterState == EWaterState.Swimming)
+			if (_waterState == EWaterState.Swimming)
 			{
 				// Linear acceleration toward (input + current × drag). The
 				// target folds in the local water current so steady-state
@@ -1995,7 +1952,7 @@ public partial class Player : CharacterBody3D
 				// Ground / air: linear approach toward input target. Same math
 				// as the water branch above minus the current term. Ground uses
 				// groundAcceleration (sharp), air uses airAcceleration (drifty
-				// so jumps preserve momentum); releasing input decelerates at
+				// so a fall preserves momentum); releasing input decelerates at
 				// the same rate rather than snapping to a stop. Airborne stacks
 				// windDrift onto the input target so wind nudges a hanging-in-air
 				// player without fighting their move intent — input + drift,
@@ -2042,11 +1999,6 @@ public partial class Player : CharacterBody3D
 				}
 			}
 		}
-		if (_wallJumpAirControlTimer > 0f)
-		{
-			_wallJumpAirControlTimer = Mathf.Max(0f, _wallJumpAirControlTimer - dt);
-		}
-
 		// Speed-line streaks during the dash. Driven outside the velocity
 		// if/else chain above so toggling the loop can't skip the glide and
 		// input-rebuild branches.
@@ -2061,38 +2013,22 @@ public partial class Player : CharacterBody3D
 			_dashLoop.GlobalRotation = new Vector3(0f, Mathf.Atan2(_dashDir.X, _dashDir.Z), 0f);
 		}
 
-		// Vertical: airborne dry-land dash with freezeGravity zeros Y and
-		// suppresses gravity for the dash hang. Grounded dash falls through to
-		// the grounded branch's -1 downward so step-down still hugs slopes
-		// (and walks off cliffs by clearing _grounded when no floor is found).
-		// Swim dash keeps normal water physics so buoyancy and drag still apply.
-		// ...but the hang is a JUMP-MODEL affordance: it pairs with air movement
-		// and air dashing, which the climb model removed along with the jump
-		// button. There, a dash sticks to the ground — it rides the grounded
-		// branch's downward nudge so the step-down keeps hugging terrain, and
-		// losing footing mid-dash drops the body instead of launching it. The
-		// climb model inherited this hang by accident, and it is what turns
-		// dashing off a river bank into sailing out over open air.
-		bool dashFreezeY = _dashTimeRemaining > 0f && _dashFreezeGravity
-			&& !CVars.climbMovement.Value
-			&& !_grounded && _waterState != EWaterState.Swimming;
-		if (dashFreezeY)
-		{
-			Velocity = new Vector3(Velocity.X, 0f, Velocity.Z);
-		}
-		else if (_waterState == EWaterState.Swimming)
+		// Vertical: a dash never leaves the ground. A grounded dash falls
+		// through to the grounded branch's -1 downward so step-down still hugs
+		// slopes (and walks off cliffs by clearing _grounded when no floor is
+		// found); a swim dash keeps normal water physics so buoyancy and drag
+		// still apply.
+		if (_waterState == EWaterState.Swimming)
 		{
 			ApplyWaterPhysics(dt);
 		}
 		else if (!_grounded)
 		{
-			float gravity = (_jumpHeld && Velocity.Y > 0) ? _world.SimData.gravity * data.jumpHoldGravityScale : _world.SimData.gravity;
-			Velocity += Vector3.Down * gravity * dt;
+			Velocity += Vector3.Down * _world.SimData.gravity * dt;
 			// Two-axis air drag. Skipped while dashing — the dash action
 			// authors its own forced velocity and drag would fight it.
 			//   airDragDown: linear, opposes falls only. Velocity.Y > 0
-			//   (upward) is left alone so jumps and skate-launches keep
-			//   their full arc.
+			//   (upward) is left alone so skate-launches keep their full arc.
 			//   airDragXZ: QUADRATIC in the wind-relative frame. Per-tick
 			//   deceleration scales as airDragXZ * |v_rel|² along v_rel,
 			//   where v_rel = velocityXZ − windDrift. The quadratic profile
@@ -2367,10 +2303,6 @@ public partial class Player : CharacterBody3D
 
 		if (_grounded)
 		{
-			_jumpHeld = false;
-			_coyoteTimeEndMs = 0;
-			_wallJumpAirControlTimer = 0f;
-			_airJumpsRemaining = AirJumpsMax;
 			Velocity = new Vector3(Velocity.X, 0, Velocity.Z);
 		}
 
@@ -2379,11 +2311,6 @@ public partial class Player : CharacterBody3D
 		{
 			_grounded = false;
 		}
-		if (wasOnFloor && !_grounded)
-		{
-			_coyoteTimeEndMs = _world.GameTimeMs + (ulong)(data.coyoteTime * 1000);
-		}
-
 		// Steep-slope sliding & skating. Order matters: detect slide contact
 		// from the just-completed MoveAndSlide, then evaluate skating start /
 		// exit based on (sliding, _grounded, velocity) so the Fx wiring below
@@ -2520,11 +2447,11 @@ public partial class Player : CharacterBody3D
 			GlobalPosition.Z
 		);
 		_grounded = false;
-		// With no jump there is no way to ASK to leave the ground, so a dash
-		// that has just run out of floor stops driving the body forward —
-		// gravity takes it from here rather than the dash carrying it across the
-		// gap at full speed.
-		if (CVars.climbMovement.Value && _dashTimeRemaining > 0f)
+		// There is no way to ASK to leave the ground, so a dash that has just
+		// run out of floor stops driving the body forward — gravity takes it
+		// from here rather than the dash carrying it across the gap at full
+		// speed.
+		if (_dashTimeRemaining > 0f)
 		{
 			EndDash();
 		}
@@ -2658,8 +2585,7 @@ public partial class Player : CharacterBody3D
 	// what the knees are about to meet and let that surface decide. Terrain and
 	// world walls are always steppable; a prop opts in via PorousBody.steppable,
 	// so by default the player bumps into a bed instead of walking up it (and
-	// MoveAndSlide then slides them along its flank). Jumping on top still
-	// works: this whole path is gated on _grounded.
+	// MoveAndSlide then slides them along its flank).
 	//
 	// Only the FIRST hit along the ray matters — whatever is actually in the
 	// way is what a lift would climb. The ray masks Solid and the player is on

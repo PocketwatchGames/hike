@@ -212,7 +212,7 @@ public partial class Player : CharacterBody3D
 
 		// Bird's-eye lock drops every action press for the duration of the
 		// overview shot. Movement velocity is already gated by the _birdsEye
-		// speed=0 check farther down, but we still need to drop jump / dash /
+		// speed=0 check farther down, but we still need to drop dash /
 		// weapon presses so a held button while the camera is up can't punch
 		// through the lock. ui_cancel is handled by GameClient
 		// since it shares ESC with TogglePause and needs to consume the input
@@ -227,7 +227,7 @@ public partial class Player : CharacterBody3D
 		// Hitstun rejects every action press for the duration of the flinch.
 		// Movement / look input has already been latched above so the body
 		// keeps coasting in the held direction (subject to knockback velocity);
-		// what we drop is interact, jump, dash, weapon attacks, consumables,
+		// what we drop is interact, dash, weapon attacks, consumables,
 		// and the sneak toggle. The runner is still allowed to tick down its
 		// in-flight action on its own so wind-downs complete naturally.
 		if (_hitstunTime > 0f)
@@ -273,17 +273,16 @@ public partial class Player : CharacterBody3D
 			CancelInteract();
 		}
 
-		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee") || Input.IsActionJustPressed("AttackContextSensitive"))
+		if (Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee") || Input.IsActionJustPressed("AttackContextSensitive"))
 		{
 			CancelInteract();
 		}
 
-		// Sneak is broken by overt actions: jumping, swinging, firing, using
+		// Sneak is broken by overt actions: swinging, firing, using
 		// a consumable. Gated on input intent rather than action success so a
 		// pressed-but-blocked attack (no ammo, runner busy) still ends sneak —
 		// the player is plainly not trying to stay quiet.
-		if (Input.IsActionJustPressed("Jump")
-			|| Input.IsActionJustPressed("AttackMelee")
+		if (Input.IsActionJustPressed("AttackMelee")
 			|| Input.IsActionJustPressed("AttackRanged")
 			|| Input.IsActionJustPressed("AttackContextSensitive")
 			|| Input.IsActionJustPressed("UseItem")
@@ -296,8 +295,7 @@ public partial class Player : CharacterBody3D
 		// has moved on to something else. Attack presses cancel it inside
 		// TryStartWeaponAction instead (the fresh press supersedes and may
 		// re-bank on its own release).
-		if (Input.IsActionJustPressed("Jump")
-			|| Input.IsActionJustPressed("UseItem")
+		if (Input.IsActionJustPressed("UseItem")
 			|| Input.IsActionJustPressed("Dash")
 			|| Input.IsActionJustPressed("Sneak")
 			|| Input.IsActionJustPressed("Interact"))
@@ -358,55 +356,6 @@ public partial class Player : CharacterBody3D
 			ReleaseUseLantern();
 		}
 
-		// Jumping belongs to the legacy movement model only; the climb model
-		// replaces it with interact-to-climb. Gated here as well as unbound in
-		// InputBindings so a stray ActionPress (the headless bot pulses "Jump")
-		// cannot launch the player in a model that has no jump.
-		if (!CVars.climbMovement.Value && Input.IsActionJustPressed("Jump"))
-		{
-			bool swimSurfaceJump = _waterState == EWaterState.Swimming && GlobalPosition.Y >= _waterSurfaceY - data.waterJumpOffset;
-			// Skating routes to the ground-jump branch (preserves XZ momentum)
-			// and exits skate mode. The intent is a "skate jump" that lets the
-			// player chain ramps or launch off the bottom of a slope with their
-			// accumulated speed intact — not a wall-jump kick away from the
-			// slope normal.
-			if (_grounded || _world.GameTimeMs < _coyoteTimeEndMs || swimSurfaceJump || _skating)
-			{
-				float jumpSpeed = swimSurfaceJump ? data.swimJumpSpeed : data.jumpSpeed;
-				Velocity = new Vector3(Velocity.X, jumpSpeed, Velocity.Z);
-				_grounded = false;
-				_coyoteTimeEndMs = 0;
-				_jumpHeld = true;
-				if (_skating && CVars.debugSlopes.Value)
-				{
-					string ts = System.DateTime.Now.ToString("HH:mm:ss.fff");
-					Vector3 horizVel = new(Velocity.X, 0f, Velocity.Z);
-					GD.Print($"[skate] EXIT  {ts} speed={horizVel.Length():F1}m/s (jump)");
-				}
-				_skating = false;
-				_skateContactLostMs = 0;
-				PlayOneShot(EAnimation.Jump);
-				SpawnWorldEffect(_jumpFx);
-			}
-			else if (_waterState == EWaterState.Swimming)
-			{
-				Velocity = new Vector3(Velocity.X, data.swimVerticalSpeed, Velocity.Z);
-			}
-			else
-			{
-				// Falling past coyote time: a wall jump wins if there's a wall to
-				// kick off; otherwise spend a mid-air jump if any remain.
-				if (!TryWallJump())
-				{
-					TryAirJump();
-				}
-			}
-		}
-		else if (!Input.IsActionPressed("Jump"))
-		{
-			_jumpHeld = false;
-		}
-
 		// The context button: interact, traverse and dash on one press, ranked.
 		// Overloaded, not shared — the first meaning with something to act on
 		// consumes the press, so a chest in reach opens instead of dashing, a wall
@@ -416,21 +365,10 @@ public partial class Player : CharacterBody3D
 		// The world always wins for now; a richer rule (ignore an interactive
 		// behind you, ignore one the player is running past) goes HERE, not inside
 		// the three handlers.
-		//
-		// Only in the climb model. Legacy keeps Dash as a button of its own: it
-		// never interacts, and like the other overt buttons it drops an
-		// interactive already in flight.
-		if (Input.IsActionJustPressed("Dash") && !InteractMenuOpen)
+		if (Input.IsActionJustPressed("Dash") && !InteractMenuOpen
+			&& !TryInteractPress("Dash", allowSelfMenu: false) && !TryTraversalPress())
 		{
-			if (!CVars.climbMovement.Value)
-			{
-				CancelInteract();
-				TryStartDash();
-			}
-			else if (!TryInteractPress("Dash", allowSelfMenu: false) && !TryTraversalPress())
-			{
-				TryStartDash();
-			}
+			TryStartDash();
 		}
 
 		// Convert a pending pre-cooldown press if the player is still holding

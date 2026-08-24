@@ -101,7 +101,7 @@ public static class ClimbMarkDebug
 
         GD.Print($"[climb_probe] pos=({p.X:F2},{p.Y:F2},{p.Z:F2}) "
             + $"facing=({dir.X:F2},{dir.Z:F2}) grounded={player.IsGrounded} "
-            + $"water={player.WaterStateForDebug()} climb_movement={CVars.climbMovement.Value}");
+            + $"water={player.WaterStateForDebug()}");
         GD.Print($"  gates: attach={player.DescribeClimbGates(false)} "
             + $"| lip-descent={player.DescribeClimbGates(true)}");
         GD.Print($"  grip samples y={Mathf.FloorToInt(p.Y + data.climbGripHeight)} "

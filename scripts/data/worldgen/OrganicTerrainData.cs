@@ -151,7 +151,7 @@ public partial class OrganicTerrainData : TerrainGenData
     [Export(PropertyHint.Range, "0,0.05,0.00005")] public float benchMaskFrequency = 0.03f;
     // Half-width of the mask's smoothstep. Small keeps a patch decisively
     // terraced or decisively open; widening it produces half-benched ground,
-    // whose risers land in the jumpable range and get ground back into slope.
+    // whose risers land in the mantleable range and get ground back into slope.
     [Export(PropertyHint.Range, "0.01,0.5,0.01")] public float benchMaskEdge = 0.06f;
     // How far the zone's benchedFraction may shift the mask threshold. The
     // noise is ~zero-mean, so +/-0.35 spans nearly-no-terracing to
@@ -188,10 +188,10 @@ public partial class OrganicTerrainData : TerrainGenData
     // into a grade, which also builds scree at the foot of steep ground.
     //
     // CliffMinDrop is a GAMEPLAY threshold, not an aesthetic one: a drop the
-    // player can simply jump back up is not a wall, it is decoration that also
-    // happens to break up the ground. Keep it above the jump reach (~3m) so
-    // every cliff the generator makes actually constrains movement, and the
-    // in-between heights become honest walkable slope instead.
+    // player can simply mantle back up is not a wall, it is decoration that also
+    // happens to break up the ground. Keep it well clear of the mantle reach
+    // (~2m) so every cliff the generator makes actually constrains movement, and
+    // the in-between heights become honest walkable slope instead.
     [Export(PropertyHint.Range, "1,4,1")] public int maxWalkableStep = 1;
 
     // Steepest SUSTAINED grade an open slope may hold, as rise over run.

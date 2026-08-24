@@ -39,7 +39,6 @@ public partial class PlayerData : Resource
 	// moveSpeed or the player clips into a blocking prop before the probe sees it.
 	[Export] public float stepProbeHeight = 0.15f;
 	[Export] public float stepProbeReach = 0.25f;
-	[Export] public float coyoteTime = 0.25f;
 	[Export] public float moveSpeed = 7f;
 
 	// --- Standability queries ----------------------------------------------
@@ -165,8 +164,8 @@ public partial class PlayerData : Resource
 	[Export(PropertyHint.Range, "0.2,1,0.05")] public float slopeSpeedEaseExponent = 0.5f;
 	// Linear horizontal acceleration (m/s²) toward the input target. Ground is
 	// sharp — most games snap; we ramp just enough to smooth the transition
-	// between speeds without making input feel floaty. Air is drifty so jumps
-	// preserve momentum; lower values lengthen the ramp. Same approach math as
+	// between speeds without making input feel floaty. Air is drifty so a fall
+	// preserves momentum; lower values lengthen the ramp. Same approach math as
 	// waterAcceleration, but air/ground targets are pure input (no drift term).
 	[Export] public float groundAcceleration = 50f;
 	[Export] public float airAcceleration = 12f;
@@ -184,8 +183,8 @@ public partial class PlayerData : Resource
 	// Airborne drag, split by axis (skipped during dash).
 	//
 	// airDragDown only fights *downward* motion (Velocity.Y < 0): upward
-	// jumps and launches are unaffected, but a fall's terminal speed is
-	// bounded by Gravity / airDragDown (≈ 9.8 m/s at airDragDown = 1).
+	// launches are unaffected, but a fall's terminal speed is bounded by
+	// Gravity / airDragDown (≈ 9.8 m/s at airDragDown = 1).
 	// Linear coefficient (1/s).
 	//
 	// airDragXZ is a QUADRATIC coefficient (1/m). Per-tick horizontal
@@ -207,20 +206,14 @@ public partial class PlayerData : Resource
 	// stationary airborne player in 15 m/s wind drifts toward 15 ×
 	// windDragXZ m/s. Mirrors waterCurrentDrag for water currents.
 	[Export] public float windDragXZ = 0.075f;
-	[Export] public float jumpSpeed = 18f;
-	[Export] public float jumpHoldGravityScale = 0.65f;
-	// Baseline number of mid-air ("double") jumps. 0 = no air jump. Equipment and
-	// status effects raise the live cap via the additive EStat.AirJumps modifier;
-	// Player.AirJumpsMax composes both. Air jumps refill on landing.
-	[Export] public int airJumpsMax = 0;
 
 	[ExportGroup("Sliding & Skating")]
 	// Steep-slope sliding & skating. A slide surface is any upward-facing
 	// contact whose normal Y is in [slideSurfaceMinNormalY, cos(FloorMaxAngle)) —
 	// steeper than walkable but not a vertical wall. While in contact the
 	// player is "sliding" (puff FX, anim hook). Skating is the high-momentum
-	// mode initiated by jumping and landing aligned with the downhill direction:
-	// the runSpeed clamp is lifted, gravity accumulates along the slope tangent,
+	// mode initiated by landing aligned with the downhill direction: the
+	// runSpeed clamp is lifted, gravity accumulates along the slope tangent,
 	// input acts as steering rather than a velocity replace.
 	[Export] public float slideSurfaceMinNormalY = 0.2f;
 	// Upper-bound normal-Y for the extended skate band — defines the
@@ -241,8 +234,8 @@ public partial class PlayerData : Resource
 	[Export] public float skateInitiationAlignDot = 0.5f;
 	// Minimum inbound fall speed (m/s downward) at the landing tick required
 	// to launch a skate. Walking off small ledges produces fall speeds well
-	// below this; a deliberate jump or a real drop clears it easily. Compared
-	// against -Velocity.Y captured just before MoveAndSlide.
+	// below this; a real drop clears it easily. Compared against -Velocity.Y
+	// captured just before MoveAndSlide.
 	[Export] public float skateInitiationMinFallSpeed = 5f;
 	// Hard cap on speed while skating — prevents runaway acceleration on
 	// long slopes. Higher than moveSpeed so skating is the fastest ground
@@ -262,34 +255,6 @@ public partial class PlayerData : Resource
 	// when the slope ends and gravity-along-slope drops to zero, this drains
 	// momentum so the player returns to normal ground control.
 	[Export] public float skateFriction = 8f;
-
-	[ExportGroup("Wall Jump")]
-	// Master gate for the wall jump. Off by default — the base character can't
-	// kick off walls; a wall jump press while airborne just falls through to the
-	// air-jump path (or nothing). Flip on (per-character data, or later a
-	// gear/status grant) to enable the maneuver.
-	[Export] public bool canWallJump = false;
-	// While airborne, pressing Jump probes the capsule wallJumpCheckDistance
-	// forward in the player's movement direction (or yaw when no input is
-	// held). If the hit surface is steeper than the walkable floor angle and
-	// not an overhang, velocity is replaced with (reflected_xz *
-	// wallJumpSpeedXZ, wallJumpSpeedY, …). Gated on Velocity.Y >
-	// -wallJumpMaxFallingSpeed so the player can't claw back a long fall.
-	[Export] public float wallJumpSpeedY = 10f;
-	[Export] public float wallJumpSpeedXZ = 8f;
-	[Export] public float wallJumpCheckDistance = 0.5f;
-	[Export] public float wallJumpMaxFallingSpeed = 15f;
-	// Stamina paid on each successful wall jump. Mirrors dashStaminaCost:
-	// gated on _stamina > 0 at press time (the press is rejected outright if
-	// already exhausted), then deducted unconditionally — allowed to drive
-	// stamina negative so chained wall jumps eat into the recharge runway.
-	[Export] public float wallJumpStaminaCost = 1f;
-	// Air-control blend window after a wall jump. During this many seconds the
-	// airborne input-velocity rebuild lerps from the kick velocity (t=0) to the
-	// input-driven velocity (t=1) instead of snapping each tick, so the arc
-	// survives long enough to read as a kick rather than vanishing on the next
-	// frame. Set to 0 to restore the snap-to-input behavior.
-	[Export] public float wallJumpAirControlTime = 0.5f;
 
 	[ExportGroup("Perception")]
 	// Hard sightline cap (metres). Practical range is usually shorter — it
@@ -409,7 +374,6 @@ public partial class PlayerData : Resource
 	[Export] public float swimDepthThreshold = 2f;
 	[Export] public float shallowWaterSpeed = 0.5f;
 	[Export] public float swimSpeed = 3.5f;
-	[Export] public float swimVerticalSpeed = 4f;
 	[Export] public float waterSinkSpeed = 2f;
 	[Export] public float buoyancyAcceleration = 15f;
 	[Export] public float waterDrag = 5f;
@@ -421,8 +385,6 @@ public partial class PlayerData : Resource
 	// the player can't reach their swim target.
 	[Export] public float waterHorizontalDrag = 3f;
 	[Export] public float waterSurfaceOffset = 1f;
-	[Export] public float waterJumpOffset = 1.5f;
-	[Export] public float swimJumpSpeed = 8f;
 	// Linear horizontal acceleration toward the input target while swimming
 	// (m/s²). The "target" folds in waterCurrentDrag × local current so the
 	// steady-state still matches the snap behavior (player at rest drifts at

@@ -660,7 +660,7 @@ public partial class Hud : Control
 	// Sync the pip row against MaxStamina (armor and status effects change it in
 	// whole units) and fill pips left to right from current stamina — full pips
 	// first, then the fractional remainder on the next pip. Negative stamina
-	// (dash/wall-jump overdraw) just reads as an empty row.
+	// (dash overdraw) just reads as an empty row.
 	void UpdateStaminaPips()
 	{
 		if (_staminaContainer == null || _staminaBarScene == null)

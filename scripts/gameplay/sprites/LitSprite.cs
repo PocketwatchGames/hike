@@ -157,10 +157,10 @@ public partial class LitSprite : SpriteBase
     // covers player + most mobs/trees but skips loot/grass/small props.
     [Export(PropertyHint.Range, "0,8,0.05")] public float AutoReflectMinHeight { get; set; } = 1.5f;
     // Cap on the above-water height that drives the geometric mirror.
-    // Below this, the reflection tracks player jumps / bobs by sinking
+    // Below this, the reflection tracks a sprite's rise / bob by sinking
     // below water proportionally; above this, the reflection anchors at
     // the waterline so tall sprites on hills don't have reflections way
-    // below the seabed. ~2m is a sensible default — covers jumps and
+    // below the seabed. ~2m is a sensible default — covers a bank climb and
     // shoulder-deep wading without sinking trees off-world.
     [Export(PropertyHint.Range, "0,8,0.05")] public float MaxReflectionAboveWater { get; set; } = 2.0f;
     // How far below the sprite feet to search for a water surface. 16

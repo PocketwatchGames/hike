@@ -38,7 +38,7 @@ Pressed via Interact.
 
 - Press Interact: `Player.TryStartInteractiveAction(highlight)` calls `runner.TryStart(actions[0], context)` and stashes `(_curInteractive, _curInteractiveActionIndex)` so the existing movement-lock and Interacting-anim checks (`_curInteractive != null`) keep working unchanged.
 - After `_runner.Tick()`: if `_curInteractive != null` and the runner is no longer busy, the interactive completed naturally — clear `_curInteractive` and `_highlightInteractive`.
-- Cancel (Jump / Sneak / repeat-Interact press): `CancelInteract` calls `_runner.TryAbort()` if mid-interactive, then clears `_curInteractive`.
+- Cancel (UseItem / attack / Sneak / repeat-Interact press): `CancelInteract` calls `_runner.TryAbort()` if mid-interactive, then clears `_curInteractive`.
 
 ## Adding a new interactive
 
@@ -50,6 +50,6 @@ Extend `EActionVerb`, author a new `ItemAction` tier on the profile with the new
 
 ## Gating tiers by actor physical state
 
-`ActorStateRequirement` (`scripts/data/actions/requirements/ActorStateRequirement.cs`) reads `IActionActor.IsGrounded` / `IsSwimming` and exposes `forbidSwimming`, `requireSwimming`, `requireGrounded`, `requireAirborne`. Drop it on `ItemAction.requirements` to lock a tier to a physical state — e.g. all tiers carry `forbidSwimming = true` on the club, or a single `requireAirborne = true` tier on a club gives it a ground-slam variant that auto-selects when the player presses mid-jump. The runner's tier selection picks the highest qualifying tier, so an airborne-gated tier added above the normal swing (same `comboIndex`, same `chargeTime`) takes over when airborne and falls through to the swing on the ground.
+`ActorStateRequirement` (`scripts/data/actions/requirements/ActorStateRequirement.cs`) reads `IActionActor.IsGrounded` / `IsSwimming` and exposes `forbidSwimming`, `requireSwimming`, `requireGrounded`, `requireAirborne`. Drop it on `ItemAction.requirements` to lock a tier to a physical state — e.g. all tiers carry `forbidSwimming = true` on the club, or a single `requireAirborne = true` tier on a club gives it a ground-slam variant that auto-selects when the player presses mid-fall. The runner's tier selection picks the highest qualifying tier, so an airborne-gated tier added above the normal swing (same `comboIndex`, same `chargeTime`) takes over when airborne and falls through to the swing on the ground. (The player cannot leave the ground under their own power, so an airborne tier only fires on a drop or a knockback.)
 
 When ALL tiers in the current combo step fail their requirements at press, `ActionRunner.StartImmediate` refuses the press outright and spawns `ItemActionProfile.rejectEffect` on the actor — author a one-shot `Fx` scene there for the "can't do that" cue (e.g. a splash + thud for the club while swimming). Without `rejectEffect`, the refusal is silent. Mobs keep `IsGrounded = true` / `IsSwimming = false` defaults — mob attacks evaluate cleanly against the same requirement type.

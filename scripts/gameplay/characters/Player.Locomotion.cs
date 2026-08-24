@@ -97,7 +97,7 @@ public partial class Player : CharacterBody3D
 	private bool TryFindMantle(out MantleProbe.Candidate candidate)
 	{
 		candidate = default;
-		if (!CVars.climbMovement.Value || data == null || _world == null || Mantling)
+		if (data == null || _world == null || Mantling)
 		{
 			return false;
 		}
@@ -440,6 +440,7 @@ public partial class Player : CharacterBody3D
 		// Jump is the nearest existing traversal clip; there is no authored
 		// mantle animation yet, so this stands in until one exists.
 		PlayOneShot(EAnimation.Jump);
+		SpawnWorldEffect(_mantleFx);
 
 		if (CVars.mantleDebug.Value)
 		{
@@ -490,8 +491,6 @@ public partial class Player : CharacterBody3D
 			// it grounded costs a tick of standing on the surface — long enough to
 			// fire a landing sound — before UpdateWaterState takes it back.
 			_grounded = !_mantleOntoWater;
-			_airJumpsRemaining = AirJumpsMax;
-			_coyoteTimeEndMs = 0;
 			if (CVars.mantleDebug.Value)
 			{
 				GD.Print($"[mantle] complete at ({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2})");
@@ -624,7 +623,6 @@ public partial class Player : CharacterBody3D
 	// standing does.
 	public string DescribeClimbGates(bool needsFooting)
 	{
-		if (!CVars.climbMovement.Value) { return "climb_movement is off"; }
 		if (data == null) { return "no PlayerData"; }
 		if (_world == null) { return "no world"; }
 		if (Climbing) { return "already climbing"; }
@@ -646,7 +644,7 @@ public partial class Player : CharacterBody3D
 
 	private bool ClimbGatesOpen(bool needsFooting)
 	{
-		if (!CVars.climbMovement.Value || data == null || _world == null || Climbing || Mantling)
+		if (data == null || _world == null || Climbing || Mantling)
 		{
 			return false;
 		}
@@ -797,8 +795,6 @@ public partial class Player : CharacterBody3D
 		_climbEndMs = 0;
 		Velocity = Vector3.Zero;
 		_grounded = true;
-		_airJumpsRemaining = AirJumpsMax;
-		_coyoteTimeEndMs = 0;
 	}
 
 	// Climb motion, driven by the COLLIDER rather than by the voxel grid.
@@ -806,7 +802,7 @@ public partial class Player : CharacterBody3D
 	// The grid version quantized every hold to one of four axis faces, which is
 	// why uneven rock misbehaved: the body followed a stepped approximation of a
 	// surface the mesher had already smoothed, so it faced the wrong way, caught
-	// on geometry the collider did not actually have, and jumped whenever the
+	// on geometry the collider did not actually have, and snapped whenever the
 	// quantized face flipped. Sweeping the real capsule against the real trimesh
 	// gets the true surface normal for free.
 	//
@@ -1340,8 +1336,8 @@ public partial class Player : CharacterBody3D
 
 	// Voluntary let-go. Steps off onto anything standable within reach and
 	// otherwise simply drops: a wall the player cannot leave is worse than a fall
-	// they chose, and with no jump in the climb model this press is the only exit
-	// from a face that leads nowhere.
+	// they chose, and with no jump this press is the only exit from a face that
+	// leads nowhere.
 	private bool TryReleaseClimb()
 	{
 		bool trace = CVars.climbDebug.Value;
@@ -1534,7 +1530,7 @@ public partial class Player : CharacterBody3D
 		// knockback arc, or stopping a launch dead. Anything already off the
 		// ground has committed to its trajectory and the barrier has no business
 		// in it. Swimming is covered too, since that forces _grounded false.
-		bool want = CVars.climbMovement.Value && _grounded;
+		bool want = _grounded;
 		if (want == _ledgeBarrierMaskOn)
 		{
 			return;
@@ -1641,8 +1637,8 @@ public partial class Player : CharacterBody3D
 		}
 		else if (!_grounded)
 		{
-			// Airborne (jump / fall) isn't a slope — bleed the estimate to flat so
-			// a leap doesn't leave a stale grade biasing the next grounded step.
+			// Airborne isn't a slope — bleed the estimate to flat so a fall
+			// doesn't leave a stale grade biasing the next grounded step.
 			_slopeGrade = Mathf.Lerp(_slopeGrade, 0f, k);
 		}
 
@@ -1698,19 +1694,6 @@ public partial class Player : CharacterBody3D
 	// i-frame status effect is runner-managed (applied at t=0 via an
 	// ApplyStatusEffect event, auto-expires on its own duration timer), so
 	// a wall short-circuit at t<duration leaves a small invuln tail — fine.
-	// Airborne wall-jump probe. Sweeps the player's collider
-	// wallJumpCheckDistance forward in the movement/yaw direction; on a hit
-	// whose normal is steeper than the walkable floor cutoff (cos FloorMaxAngle)
-	// and not an overhang (n.Y >= 0), the player's velocity is replaced with
-	// the wall-jump kick: vertical = wallJumpSpeedY, horizontal = (wall normal
-	// × wallJumpSpeedXZ) + the tangent component of incoming velocity. The
-	// normal-aligned kick gives a predictable peel-off independent of approach
-	// angle; preserving the full tangent keeps along-wall momentum (Mirror's
-	// Edge / Titanfall style) so wall-running into a wall jump reads as
-	// continuous rather than rebounding. Gated on Velocity.Y >
-	// -wallJumpMaxFallingSpeed so a long fall can't be saved by kicking off a
-	// passing wall. Cancels any in-flight dash so the dash velocity override
-	// doesn't clobber the kick.
 	// Linear approach of horizontal velocity toward a target at a fixed rate
 	// (m/s² × dt = max step per call). Used by the water / ground / air input
 	// branches to ramp velocity instead of snapping. Caller passes the XZ
@@ -1725,96 +1708,6 @@ public partial class Player : CharacterBody3D
 			return target;
 		}
 		return currentXZ + toTarget * (step / toTargetLen);
-	}
-
-	private bool TryWallJump()
-	{
-		if (data == null || !CanWallJump || _world == null || _waterState != EWaterState.None)
-		{
-			return false;
-		}
-		if (Velocity.Y <= -data.wallJumpMaxFallingSpeed)
-		{
-			return false;
-		}
-		if (_wallJumpAirControlTimer > 0f)
-		{
-			return false;
-		}
-		if (_stamina <= 0f)
-		{
-			return false;
-		}
-
-		Vector3 forward;
-		if (_inputMove.LengthSquared() > 0.0001f)
-		{
-			forward = new Vector3(_inputMove.X, 0f, _inputMove.Z).Normalized();
-		}
-		else
-		{
-			float yaw = Rotation.Y;
-			forward = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
-		}
-
-		using KinematicCollision3D hit = MoveAndCollide(forward * data.wallJumpCheckDistance, testOnly: true);
-		if (hit == null)
-		{
-			return false;
-		}
-
-		Vector3 n = hit.GetNormal();
-		float floorDotMin = Mathf.Cos(FloorMaxAngle);
-		if (n.Y >= floorDotMin || n.Y < 0f)
-		{
-			return false;
-		}
-
-		// Decompose incoming horizontal velocity around the wall normal. The
-		// into-wall component (Velocity · nHoriz, negative when moving into the
-		// wall) is discarded; the tangent (along-wall) component is preserved
-		// verbatim and added to a fixed normal-aligned kick. n.Y is in
-		// [0, floorDotMin) by the gates above, so nHoriz is guaranteed non-zero.
-		Vector3 nHoriz = new Vector3(n.X, 0f, n.Z).Normalized();
-		Vector3 incomingXZ = new(Velocity.X, 0f, Velocity.Z);
-		Vector3 tangent = incomingXZ - incomingXZ.Dot(nHoriz) * nHoriz;
-		Vector3 horiz = nHoriz * data.wallJumpSpeedXZ + tangent;
-
-		_dashTimeRemaining = 0f;
-		_dashFreezeGravity = false;
-
-		Velocity = new Vector3(horiz.X, data.wallJumpSpeedY, horiz.Z);
-		_grounded = false;
-		_coyoteTimeEndMs = 0;
-		_jumpHeld = true;
-		_wallJumpAirControlTimer = data.wallJumpAirControlTime;
-		ConsumeStamina(data.wallJumpStaminaCost);
-
-		PlayOneShot(EAnimation.Jump);
-		SpawnWorldEffect(_wallJumpFootFx);
-		SpawnWorldEffect(_wallJumpEffortFx);
-		return true;
-	}
-
-	// Mid-air ("double") jump. Reached from the jump input only while falling —
-	// no ground / coyote / swim jump was available and no wall jump landed. Spends
-	// one of _airJumpsRemaining (refilled to AirJumpsMax on landing) and relaunches
-	// at the standard jumpSpeed, preserving horizontal velocity. Returns false when
-	// no charges remain, so the fall continues unbroken.
-	private bool TryAirJump()
-	{
-		if (data == null || _airJumpsRemaining <= 0)
-		{
-			return false;
-		}
-		_airJumpsRemaining--;
-		Velocity = new Vector3(Velocity.X, data.jumpSpeed, Velocity.Z);
-		_grounded = false;
-		_coyoteTimeEndMs = 0;
-		_jumpHeld = true;
-		PlayOneShot(EAnimation.Jump);
-		SpawnWorldEffect(_airJumpFx);
-		return true;
 	}
 
 	// Hand off from dash into normal motion. Velocity direction is preserved
@@ -1933,7 +1826,6 @@ public partial class Player : CharacterBody3D
 	// slide surface aligned with the slope's downhill direction with enough
 	// inbound momentum; exits when the slope flattens to walkable, contact
 	// is lost beyond the grace window, or speed drops below the floor.
-	// Jump-driven exit is handled inline in the Jump input handler.
 	private void UpdateSkating(bool wasOnFloor, float inboundFallSpeed)
 	{
 		if (data == null || _world == null)

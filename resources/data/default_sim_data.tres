@@ -52,7 +52,6 @@
 [ext_resource type="Resource" uid="uid://fp15da45hia6" path="res://resources/data/status_effects/upgrades/upgrade_armor_vigor.tres" id="53_up_vigor"]
 [ext_resource type="Resource" uid="uid://bt81x27m5jlgw" path="res://resources/data/status_effects/upgrades/upgrade_ranged_siphon.tres" id="54_up_siphon"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="55_status_wet"]
-[ext_resource type="Resource" uid="uid://gus6wigx34i0" path="res://resources/data/status_effects/upgrades/upgrade_armor_bounding.tres" id="55_up_bounding"]
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="56_mobdesc_script"]
 [ext_resource type="Resource" uid="uid://66a6mftyd54c" path="res://resources/data/world_gen/mob_descriptors/slime_cube.tres" id="56_slime_cube"]
 [ext_resource type="Resource" uid="uid://dthjice7pvftr" path="res://resources/data/world_gen/mob_descriptors/slime_sphere.tres" id="56_slime_sphere"]
@@ -110,7 +109,7 @@ waterfalls = ExtResource("97_waterfalls")
 fairyLoot = ExtResource("18_fairy_loot")
 fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking"), ExtResource("29_boon_night_vision")])
 fairyBoonGold = ExtResource("22_boon_gold")
-forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet"), ExtResource("45_up_vampiric"), ExtResource("46_up_pierce"), ExtResource("47_up_flaming"), ExtResource("47_up_frost"), ExtResource("48_up_fragile"), ExtResource("49_up_knockback"), ExtResource("50_up_seeking"), ExtResource("51_up_shocking"), ExtResource("52_up_venomous"), ExtResource("53_up_vigor"), ExtResource("54_up_siphon"), ExtResource("55_up_bounding")])
+forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet"), ExtResource("45_up_vampiric"), ExtResource("46_up_pierce"), ExtResource("47_up_flaming"), ExtResource("47_up_frost"), ExtResource("48_up_fragile"), ExtResource("49_up_knockback"), ExtResource("50_up_seeking"), ExtResource("51_up_shocking"), ExtResource("52_up_venomous"), ExtResource("53_up_vigor"), ExtResource("54_up_siphon")])
 forgeMeleeIcon = ExtResource("41_icon_melee")
 forgeRangedIcon = ExtResource("42_icon_ranged")
 forgeArmorIcon = ExtResource("43_icon_armor")

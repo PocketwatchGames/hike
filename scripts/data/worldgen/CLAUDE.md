@@ -491,7 +491,7 @@ mis-calibrated for it**: that metric calls a rise of 2 over 3 columns an
 over-steep grade and only treats 3+ as a wall, so with `quantizeStep = 2` it
 counts every short cell wall as slope — read the transition histogram (which
 should contain only multiples of the step) and the hillshade instead. And a
-**2-voxel step is jumpable**, so the smallest cell walls break ground up rather
+**2-voxel step is mantleable**, so the smallest cell walls break ground up rather
 than acting as barriers; the walls that constrain movement are the 4+ ones.
 
 **Short walls do not get the wall tile.** `voxel_clip.gdshader` picks flat vs

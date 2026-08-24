@@ -370,7 +370,7 @@ public static class MesherProbe
     }
 
     // Can a step be given a wall face at ONE voxel — the height every character
-    // walks up without a jump? Two candidate levers, measured against the
+    // walks straight up? Two candidate levers, measured against the
     // wallBand.x (0.3-0.4) the wall tile needs:
     //   Y-snap   — what worldgen stamps today, but only if the step is not
     //              classified as a grade first (maxGradeStep must be 0, or a

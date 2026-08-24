@@ -41,8 +41,8 @@ using Godot;
 //
 // Heights are NOT scaled with the footprint. Doubling the map's width doubles
 // how far it is across a valley; it must not double how tall its walls are,
-// because wall height is a gameplay quantity (jumpable below 4m, scaleless above
-// 12m) that the terrain rules pin independently of extent.
+// because wall height is a gameplay quantity (climbable below 4m, scaleless
+// above 12m) that the terrain rules pin independently of extent.
 public static class WorldMapResize
 {
     // Resize `data` in place and rewrite every layer file it points at.

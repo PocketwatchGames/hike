@@ -1122,7 +1122,7 @@ public partial class CellularTerrainGen : ITerrainGenerator
         int ei = 0;
         foreach (CellEdge e in chosen)
         {
-            // A wall the player can already step or jump up gets no cutting —
+            // A wall the player can already step or mantle up gets no cutting —
             // a ramp there is clutter, and at one step it is shorter than it is
             // wide.
             float drop = Math.Abs(p.Flat[e.A] - p.Flat[e.B]);

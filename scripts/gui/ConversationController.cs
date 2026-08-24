@@ -24,7 +24,7 @@ using System.Collections.Generic;
 // transitioned us here.
 //
 // While open, gameClient.InputSuppressed flips on so the same press that
-// reveals / advances the line doesn't also fall through to Jump / Interact
+// reveals / advances the line doesn't also fall through to the context button
 // in Player.ProcessInput.
 [GlobalClass]
 public partial class ConversationController : Control

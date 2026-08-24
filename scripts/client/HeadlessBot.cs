@@ -2,8 +2,8 @@ using Godot;
 
 // Synthetic input driver for unattended (typically headless) runs. Injects the
 // same global Input actions a human would — a slowly-turning wander heading plus
-// occasional jump / dash / melee pulses — so a run exercises movement, chunk
-// streaming, and combat with no one at the controls. Enabled by the `autoplay`
+// occasional dash / melee pulses — so a run exercises movement, chunk streaming,
+// and combat with no one at the controls. Enabled by the `autoplay`
 // CVar; Main spawns one when `autostart` + `autoplay` are set.
 //
 // This deliberately drives Godot's Input singleton (which works headless) rather
@@ -24,7 +24,7 @@ public partial class HeadlessBot : Node
     private static readonly string[] MoveActions = { "MoveLeft", "MoveRight", "MoveUp", "MoveDown" };
     // Discrete pulses the bot fires at random. Kept to safe, always-available
     // verbs so the bot never wedges on a modal (no Interact/inventory).
-    private static readonly string[] PulseActions = { "Jump", "Dash", "AttackMelee" };
+    private static readonly string[] PulseActions = { "Dash", "AttackMelee" };
 
     // Fixed seed so a headless run is reproducible.
     private readonly RandomNumberGenerator _rng = new() { Seed = 0xB0741234 };

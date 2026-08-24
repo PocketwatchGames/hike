@@ -701,21 +701,6 @@ public static class CVars
     // in-game console (`nav_grid 1`).
     public static CVarBool navGridDebug = new CVarBool("nav_grid", false);
 
-    // Which traversal model the player uses. The two are a package, not a set of
-    // independent toggles, because they only make sense together: the climb
-    // model removes jumping and replaces it with interact-to-climb over short
-    // ledges, which is only playable because the generated edge barriers stop
-    // you walking off drops in the first place. Turning any one of the three on
-    // alone gives a worse game than either complete model.
-    //
-    //   1 = climb model  — no jump, mantle up/down/out-of-water, ledge barriers
-    //   0 = legacy model — jump (+ wall jump, air jump), no mantle, no barriers
-    //
-    // Also swaps the input bindings the two models need (see InputBindings),
-    // since removing jump frees the spacebar and the pad's A button.
-    public static CVarBool climbMovement = new CVarBool("climb_movement", true,
-        (cvar) => InputBindings.Apply(((CVarBool)cvar).Value));
-
     // Draw the generated ledge barriers as translucent orange quads. They are
     // invisible collision, so this is the only way to see WHERE one ended up —
     // a barrier in the wrong place is indistinguishable from a missing one.
@@ -741,7 +726,7 @@ public static class CVars
         uint bit = (uint)ECollisionLayer.LedgeBarrier;
         Godot.GD.Print($"  player mask=0x{player.CollisionMask:X} "
             + $"masksBarrier={((player.CollisionMask & bit) != 0)} "
-            + $"grounded={player.IsGrounded} climb_movement={climbMovement.Value}");
+            + $"grounded={player.IsGrounded}");
     });
 
     // Console command: dump the walkability sampler's view of the 3x3 columns
@@ -1968,7 +1953,7 @@ public static class CVars
     public static CVarBool autostart = new CVarBool("autostart", false);
 
     // When true, Main spawns a HeadlessBot that drives the player with
-    // synthesized input (wander + occasional jump/attack), so a headless run
+    // synthesized input (wander + occasional dash/attack), so a headless run
     // exercises movement, chunk streaming, and combat without a human at the
     // controls. No effect until a game is actually running.
     public static CVarBool autoplay = new CVarBool("autoplay", false);

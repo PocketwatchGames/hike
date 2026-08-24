@@ -18,7 +18,7 @@
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
 [ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/fx/armor_break.tscn" id="16_vwwfy"]
-[ext_resource type="PackedScene" uid="uid://cdg2icyjpksr5" path="res://scenes/fx/jump.tscn" id="17_jump"]
+[ext_resource type="PackedScene" uid="uid://cdg2icyjpksr5" path="res://scenes/fx/mantle.tscn" id="17_mantle"]
 [ext_resource type="PackedScene" uid="uid://dy7mfnxiw5boy" path="res://scenes/fx/land.tscn" id="18_land"]
 [ext_resource type="PackedScene" uid="uid://dy7pahbiw5boy" path="res://scenes/fx/land_hard.tscn" id="19_landhard"]
 [ext_resource type="PackedScene" uid="uid://da0fmu7g5je6s" path="res://scenes/fx/water_plunge.tscn" id="20_plunge"]
@@ -173,12 +173,9 @@ _slideLoopFx = Dictionary[int, PackedScene]({
 2: ExtResource("9_vwwfy"),
 4: ExtResource("9_vwwfy")
 })
-_jumpFx = ExtResource("17_jump")
-_airJumpFx = ExtResource("17_jump")
+_mantleFx = ExtResource("17_mantle")
 _landFx = ExtResource("18_land")
 _landHardFx = ExtResource("19_landhard")
-_wallJumpFootFx = ExtResource("12_5jukt")
-_wallJumpEffortFx = ExtResource("17_jump")
 _waterPlungeFx = ExtResource("20_plunge")
 _voices = Dictionary[int, ExtResource("22_s1x7u")]({
 0: ExtResource("22_voicefem"),

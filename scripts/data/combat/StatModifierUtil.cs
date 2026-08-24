@@ -34,7 +34,7 @@ public static class StatModifierUtil
 		| EStat.Melee;
 
 
-	// True for the four stats whose composition is "+= entry.value" with a
+	// True for the stats whose composition is "+= entry.value" with a
 	// neutral identity of 0. Every other stat is "*= entry.value" with a
 	// neutral identity of 1. The split is intrinsic to the stat — adding a
 	// new additive stat means appending to this switch.
@@ -48,8 +48,6 @@ public static class StatModifierUtil
 			case EStat.MaxArmor:
 			case EStat.ColdResist:
 			case EStat.HeatResist:
-			case EStat.AirJumps:
-			case EStat.WallJump:
 				return true;
 			default:
 				return false;
