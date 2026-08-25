@@ -47,6 +47,20 @@ public static partial class Loc
 		quest_learn_vyeshal,
 		quest_learn_song_of_gods,
 		map_option_world,
-		map_option_treasure
+		map_option_treasure,
+		controls_title,
+		controls_action,
+		controls_keyboard,
+		controls_gamepad,
+		controls_back,
+		controls_unbound,
+		controls_interact_dash,
+		controls_lantern_heal,
+		controls_sneak_block_parry,
+		controls_ranged,
+		controls_melee,
+		controls_spell,
+		controls_rotate_camera,
+		controls_map
 	}
 }

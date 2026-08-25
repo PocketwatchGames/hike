@@ -5,6 +5,9 @@ public partial class PauseMenu : Control
 {
 	[Export] public GameClient gameClient;
 	[Export] public Label versionLabel;
+	// The button column, hidden while the controls list is up.
+	[Export] public Control menuPanel;
+	[Export] public ControlsScreen controlsScreen;
 
 	override public void _Ready()
 	{
@@ -47,6 +50,27 @@ public partial class PauseMenu : Control
 	public void OnSaveButtonPressed()
 	{
 		gameClient.Save();
+	}
+
+	public void OnControlsButtonPressed()
+	{
+		if (controlsScreen == null)
+		{
+			return;
+		}
+		if (menuPanel != null)
+		{
+			menuPanel.Visible = false;
+		}
+		controlsScreen.Open(ShowMenuPanel);
+	}
+
+	void ShowMenuPanel()
+	{
+		if (menuPanel != null)
+		{
+			menuPanel.Visible = true;
+		}
 	}
 
 }

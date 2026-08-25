@@ -44,3 +44,17 @@ quest_learn_vyeshal	Learn Vyeshal
 quest_learn_song_of_gods	Learn the Song of the Gods
 map_option_world	World Map
 map_option_treasure	Treasure Map %0
+controls_title	Controls
+controls_action	Action
+controls_keyboard	Keyboard / Mouse
+controls_gamepad	Gamepad
+controls_back	Back
+controls_unbound	—
+controls_interact_dash	Interact / Dash
+controls_lantern_heal	Lantern / Heal
+controls_sneak_block_parry	Sneak / Block / Parry
+controls_ranged	Ranged Attack
+controls_melee	Melee Attack
+controls_spell	Cast Spell
+controls_rotate_camera	Rotate Camera
+controls_map	Map

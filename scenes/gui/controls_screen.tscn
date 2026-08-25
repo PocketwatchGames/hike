@@ -1,0 +1,117 @@
+[gd_scene format=3 uid="uid://w8ucvtu1v5688"]
+
+[ext_resource type="Script" uid="uid://02xr220jbn7v7" path="res://scripts/gui/ControlsScreen.cs" id="1_ctrlscreen"]
+[ext_resource type="PackedScene" uid="uid://tanibdnfq7b5u" path="res://scenes/gui/controls_row.tscn" id="2_ctrlrow"]
+[ext_resource type="Script" uid="uid://fs0j02sye7bsj" path="res://scripts/data/gui/ControlBindingData.cs" id="3_binding"]
+
+[sub_resource type="Resource" id="Resource_bind_interact"]
+script = ExtResource("3_binding")
+labelKey = &"controls_interact_dash"
+keyboardActions = PackedStringArray("Dash")
+gamepadActions = PackedStringArray("Dash")
+
+[sub_resource type="Resource" id="Resource_bind_lantern"]
+script = ExtResource("3_binding")
+labelKey = &"controls_lantern_heal"
+keyboardActions = PackedStringArray("Lantern")
+gamepadActions = PackedStringArray("Lantern")
+
+[sub_resource type="Resource" id="Resource_bind_sneak"]
+script = ExtResource("3_binding")
+labelKey = &"controls_sneak_block_parry"
+keyboardActions = PackedStringArray("Sneak")
+gamepadActions = PackedStringArray("Sneak")
+
+[sub_resource type="Resource" id="Resource_bind_ranged"]
+script = ExtResource("3_binding")
+labelKey = &"controls_ranged"
+keyboardActions = PackedStringArray("AttackContextSensitive", "Aim")
+gamepadActions = PackedStringArray("AttackRanged")
+keyboardJoin = 1
+
+[sub_resource type="Resource" id="Resource_bind_melee"]
+script = ExtResource("3_binding")
+labelKey = &"controls_melee"
+keyboardActions = PackedStringArray("AttackContextSensitive")
+gamepadActions = PackedStringArray("AttackMelee")
+
+[sub_resource type="Resource" id="Resource_bind_spell"]
+script = ExtResource("3_binding")
+labelKey = &"controls_spell"
+keyboardActions = PackedStringArray("UseItem")
+gamepadActions = PackedStringArray("UseItem")
+
+[sub_resource type="Resource" id="Resource_bind_camera"]
+script = ExtResource("3_binding")
+labelKey = &"controls_rotate_camera"
+keyboardActions = PackedStringArray("CameraLeft", "CameraRight")
+gamepadActions = PackedStringArray("CameraLeft", "CameraRight")
+
+[sub_resource type="Resource" id="Resource_bind_map"]
+script = ExtResource("3_binding")
+labelKey = &"controls_map"
+keyboardActions = PackedStringArray("Map")
+gamepadActions = PackedStringArray("Map")
+
+[node name="ControlsScreen" type="Control" node_paths=PackedStringArray("_titleLabel", "_headerRow", "_rowContainer", "_backButton")]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ctrlscreen")
+rowScene = ExtResource("2_ctrlrow")
+_titleLabel = NodePath("PanelContainer/MarginContainer/VBoxContainer/Title")
+_headerRow = NodePath("PanelContainer/MarginContainer/VBoxContainer/HeaderRow")
+_rowContainer = NodePath("PanelContainer/MarginContainer/VBoxContainer/RowContainer")
+_backButton = NodePath("PanelContainer/MarginContainer/VBoxContainer/BackButton")
+bindings = [SubResource("Resource_bind_interact"), SubResource("Resource_bind_lantern"), SubResource("Resource_bind_sneak"), SubResource("Resource_bind_ranged"), SubResource("Resource_bind_melee"), SubResource("Resource_bind_spell"), SubResource("Resource_bind_camera"), SubResource("Resource_bind_map")]
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "Controls"
+horizontal_alignment = 1
+
+[node name="HeaderRow" parent="PanelContainer/MarginContainer/VBoxContainer" instance=ExtResource("2_ctrlrow")]
+layout_mode = 2
+
+[node name="HSeparator" type="HSeparator" parent="PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="RowContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="BackButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 24
+text = "Back"
+
+[connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/BackButton" to="." method="Close"]

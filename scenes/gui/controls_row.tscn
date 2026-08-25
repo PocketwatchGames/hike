@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://tanibdnfq7b5u"]
+
+[ext_resource type="Script" uid="uid://4ghsuq4p59jmv" path="res://scripts/gui/ControlsRow.cs" id="1_ctrlrow"]
+
+[node name="ControlsRow" type="HBoxContainer" node_paths=PackedStringArray("_label", "_keyboard", "_gamepad")]
+offset_right = 640.0
+offset_bottom = 30.0
+theme_override_constants/separation = 16
+script = ExtResource("1_ctrlrow")
+_label = NodePath("Label")
+_keyboard = NodePath("Keyboard")
+_gamepad = NodePath("Gamepad")
+
+[node name="Label" type="Label" parent="."]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Action"
+
+[node name="Keyboard" type="Label" parent="."]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Key"
+
+[node name="Gamepad" type="Label" parent="."]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Button"

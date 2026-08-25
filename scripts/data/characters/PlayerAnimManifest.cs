@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using System.Collections.Generic;
 
 // Authoring-only editor tool: merges single-clip animation FBXs from a folder
@@ -221,10 +221,14 @@ public partial class PlayerAnimManifest : Resource
 
         merged.Sort();
         GD.Print($"PlayerAnimManifest: merged {merged.Count} clip(s) into {outputLibraryPath}: {string.Join(", ", merged)}");
+#if TOOLS
+        // EditorInterface lives in the editor-only assembly, so an export build
+        // (ExportDebug / ExportRelease) cannot see it at all.
         if (Engine.IsEditorHint())
         {
             EditorInterface.Singleton.GetResourceFilesystem().Scan();
         }
+#endif
     }
 
     // Time-scale every keyframe (and the clip length) by 1/speed so the clip

@@ -8,24 +8,35 @@ public static class InputGlyph
 {
 	public static string Resolve(string actionName, InputDevice.EDevice device)
 	{
+		return TryResolve(actionName, device, out string glyph) ? glyph : actionName;
+	}
+
+	// Same lookup, but says whether the action actually has an event for this
+	// device instead of falling back to its name. The controls help screen needs
+	// the distinction: a mouse-only binding would otherwise print the raw
+	// "AttackContextSensitive" in its gamepad column.
+	public static bool TryResolve(string actionName, InputDevice.EDevice device, out string glyph)
+	{
+		glyph = string.Empty;
 		if (string.IsNullOrEmpty(actionName))
 		{
-			return string.Empty;
+			return false;
 		}
 		StringName action = actionName;
 		if (!InputMap.HasAction(action))
 		{
-			return actionName;
+			return false;
 		}
 		foreach (InputEvent e in InputMap.ActionGetEvents(action))
 		{
-			string glyph = TryGlyph(e, device);
-			if (glyph != null)
+			string resolved = TryGlyph(e, device);
+			if (resolved != null)
 			{
-				return glyph;
+				glyph = resolved;
+				return true;
 			}
 		}
-		return actionName;
+		return false;
 	}
 
 	static string TryGlyph(InputEvent e, InputDevice.EDevice device)

@@ -4,8 +4,9 @@
 [ext_resource type="PackedScene" uid="uid://cn3tkwyerft7v" path="res://scenes/characters/player.tscn" id="2_tgk1t"]
 [ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="3_worldgen"]
 [ext_resource type="Resource" uid="uid://bhodwg1042kim" path="res://resources/data/world_gen/world_gen_swamp.tres" id="5_swampgen"]
+[ext_resource type="PackedScene" uid="uid://w8ucvtu1v5688" path="res://scenes/gui/controls_screen.tscn" id="6_controls"]
 
-[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel", "buttonPanel", "fileSelector", "worldList")]
+[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel", "buttonPanel", "fileSelector", "controlsScreen", "worldList")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -18,6 +19,7 @@ worldGenData = ExtResource("3_worldgen")
 versionLabel = NodePath("VersionContainer/Panel/MarginContainer/Label")
 buttonPanel = NodePath("HBoxContainer")
 fileSelector = NodePath("File Selector")
+controlsScreen = NodePath("ControlsScreen")
 worldList = NodePath("File Selector/VBoxContainer/ItemList")
 worldOptions = [ExtResource("3_worldgen"), ExtResource("5_swampgen")]
 worldOptionLabels = PackedStringArray("Default", "Swamp")
@@ -75,6 +77,11 @@ text = "World Editor"
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "World Map Painter"
+
+[node name="ControlsButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Controls"
 
 [node name="VersionContainer" type="MarginContainer" parent="." unique_id=31600513]
 layout_mode = 1
@@ -140,10 +147,15 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Continue"
 
+[node name="ControlsScreen" parent="." instance=ExtResource("6_controls")]
+visible = false
+layout_mode = 1
+
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/NewGameButton" to="." method="ShowNewGameOptions"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/LoadGameButton" to="." method="LoadGame"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldEditorButton" to="." method="ShowEditorOptions"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldMapPainterButton" to="." method="StartPainter"]
+[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/ControlsButton" to="." method="ShowControls"]
 [connection signal="item_activated" from="File Selector/VBoxContainer/ItemList" to="." method="OnWorldActivated"]
 [connection signal="pressed" from="File Selector/VBoxContainer/HBoxContainer/BackButton" to="." method="SelectorBack"]
 [connection signal="pressed" from="File Selector/VBoxContainer/HBoxContainer/ContinueButton" to="." method="SelectorContinue"]

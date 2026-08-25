@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 
 // Single editor-visible source of truth for the voxel terrain atlas mapping:
 // which source PBR texture set is baked into each layer of voxel_tiles.png /
@@ -113,10 +113,14 @@ public partial class VoxelAtlasManifest : Resource
         SyncImportSliceCount(NormalHeightOutPath, n);
 
         GD.Print($"VoxelAtlasManifest: wrote {n} layers to {ColorOutPath} + {NormalHeightOutPath}.");
+#if TOOLS
+        // EditorInterface lives in the editor-only assembly, so an export build
+        // (ExportDebug / ExportRelease) cannot see it at all.
         if (Engine.IsEditorHint())
         {
             EditorInterface.Singleton.GetResourceFilesystem().Scan();
         }
+#endif
     }
 
     // Point the texture's .import at the layer count we just baked. The importer

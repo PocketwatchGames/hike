@@ -10,6 +10,9 @@ public partial class GuiMainMenu : Node
 	// The main button column, and the file/world picker that replaces it.
 	[Export] public Control buttonPanel;
 	[Export] public Control fileSelector;
+	// Controller / keyboard binding list, shown over the menu in place of the
+	// button column.
+	[Export] public ControlsScreen controlsScreen;
 	[Export] public ItemList worldList;
 	// Selectable worldgen templates shown in worldList; labels is the parallel
 	// display text (same length as worldOptions).
@@ -80,6 +83,19 @@ public partial class GuiMainMenu : Node
 	public void StartPainter()
 	{
 		EmitSignal(SignalName.OnStartPainter, worldGenData);
+	}
+
+	public void ShowControls()
+	{
+		if (controlsScreen == null)
+		{
+			return;
+		}
+		if (buttonPanel != null)
+		{
+			buttonPanel.Visible = false;
+		}
+		controlsScreen.Open(ShowButtons);
 	}
 
 	// --- File selector --------------------------------------------------

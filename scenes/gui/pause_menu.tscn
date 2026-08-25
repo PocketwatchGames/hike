@@ -1,8 +1,9 @@
 [gd_scene format=3 uid="uid://dcyu4dmc4hiyw"]
 
 [ext_resource type="Script" uid="uid://cnsfkwrocp31e" path="res://scripts/gui/PauseMenu.cs" id="1_k6lk2"]
+[ext_resource type="PackedScene" uid="uid://w8ucvtu1v5688" path="res://scenes/gui/controls_screen.tscn" id="2_controls"]
 
-[node name="PauseMenu" type="Control" unique_id=1939885248 node_paths=PackedStringArray("versionLabel")]
+[node name="PauseMenu" type="Control" unique_id=1939885248 node_paths=PackedStringArray("versionLabel", "menuPanel", "controlsScreen")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,6 +12,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_k6lk2")
 versionLabel = NodePath("PanelContainer/MarginContainer/VBoxContainer/MarginContainer/VersionLabel")
+menuPanel = NodePath("PanelContainer")
+controlsScreen = NodePath("ControlsScreen")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=555062874]
 layout_mode = 1
@@ -57,6 +60,11 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Resume"
 
+[node name="ControlsButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Controls"
+
 [node name="QuitButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=2142242905]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
@@ -72,6 +80,11 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "v 10543503948"
 
+[node name="ControlsScreen" parent="." instance=ExtResource("2_controls")]
+visible = false
+layout_mode = 1
+
 [connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/SaveButton" to="." method="OnSaveButtonPressed"]
 [connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/ResumeButton" to="." method="OnResumeButtonPressed"]
+[connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/ControlsButton" to="." method="OnControlsButtonPressed"]
 [connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/QuitButton" to="." method="OnQuitButtonPressed"]
