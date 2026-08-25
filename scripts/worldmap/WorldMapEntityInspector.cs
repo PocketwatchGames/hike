@@ -37,7 +37,48 @@ public partial class WorldMapEntityInspector : PanelContainer
     // or the entry under it, which the first edit forks — actually changes.
     private EntityPlacement _shown;
     private SpawnEntryData _shownEntry;
+    // The placement the LIVE WIDGETS edit, which is not always the one being
+    // shown: a row can fire its commit while the panel is already switching to
+    // another entity (releasing focus destroys the widget). Reading and writing
+    // through this instead of through _shown is what stops one signpost's text
+    // landing on the next one selected.
+    private EntityPlacement _rowsOwner;
     private readonly List<System.Action> _refreshers = new();
+    // Is a run of typing holding an undo step open? Text applies per keystroke,
+    // so the step is opened by the first one and closed when the field is left —
+    // otherwise a typed sentence would be a dozen entries on the undo stack.
+    private bool _typing;
+
+    // Commit whatever is half-typed. A row commits on Enter or on losing focus,
+    // and nothing in the painter takes focus away — the map canvas is
+    // FOCUS_NONE, so clicking the map (or a HUD button) leaves the text box
+    // focused and its typed value uncommitted, which is how an edit was lost
+    // between selecting one entity and the next. Releasing focus runs each
+    // widget's OWN commit path (the text rows' FocusExited, a SpinBox's internal
+    // apply), so this needs no per-row registry.
+    public void FlushPendingEdit()
+    {
+        Control focused = GetViewport()?.GuiGetFocusOwner();
+        if (focused != null && IsAncestorOf(focused))
+        {
+            focused.ReleaseFocus();
+        }
+        // The release above ends a typing run through the field's own
+        // FocusExited; this catches a run whose widget is already gone.
+        EndTyping();
+    }
+
+    // Close the undo step a run of typing opened. The text is already IN the
+    // entry — this only decides where one undo lands.
+    private void EndTyping()
+    {
+        if (!_typing)
+        {
+            return;
+        }
+        _typing = false;
+        AfterEdit?.Invoke();
+    }
 
     // The selected placement, or null for "nothing selected". Called every
     // frame.
@@ -48,6 +89,9 @@ public partial class WorldMapEntityInspector : PanelContainer
         {
             if (_shown != null)
             {
+                // Before the widgets go, and while _rowsOwner still names who
+                // they belong to.
+                FlushPendingEdit();
                 _shown = null;
                 _shownEntry = null;
                 Clear();
@@ -62,7 +106,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             // entry holds without touching which entry it is.
             if (titleLabel != null)
             {
-                titleLabel.Text = DisplayName(entry);
+                titleLabel.Text = SpawnEntryData.DisplayName(entry);
             }
             foreach (System.Action refresh in _refreshers)
             {
@@ -70,6 +114,10 @@ public partial class WorldMapEntityInspector : PanelContainer
             }
             return;
         }
+        FlushPendingEdit();
+        // Assigned BEFORE the rebuild: a commit the flush triggers calls back
+        // through AfterEdit into Show, and these are what make that call take the
+        // same-rows path instead of re-entering Rebuild mid-clear.
         _shown = placement;
         _shownEntry = entry;
         Rebuild();
@@ -78,6 +126,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     private void Clear()
     {
         _refreshers.Clear();
+        _rowsOwner = null;
         if (rows == null)
         {
             return;
@@ -98,9 +147,10 @@ public partial class WorldMapEntityInspector : PanelContainer
         {
             return;
         }
+        _rowsOwner = _shown;
         if (titleLabel != null)
         {
-            titleLabel.Text = DisplayName(_shownEntry);
+            titleLabel.Text = SpawnEntryData.DisplayName(_shownEntry);
         }
         foreach (Godot.Collections.Dictionary property in _shownEntry.GetPropertyList())
         {
@@ -119,17 +169,6 @@ public partial class WorldMapEntityInspector : PanelContainer
             AddRow(name, (Variant.Type)(long)property["type"],
                 (PropertyHint)(long)property["hint"], property["hint_string"].AsString());
         }
-    }
-
-    // The palette file the entry came from — its path while it is still shared,
-    // the name the fork kept once it was customized.
-    private static string DisplayName(SpawnEntryData entry)
-    {
-        if (!string.IsNullOrEmpty(entry.ResourcePath))
-        {
-            return entry.ResourcePath.GetFile().GetBaseName();
-        }
-        return !string.IsNullOrEmpty(entry.ResourceName) ? $"{entry.ResourceName} *" : entry.GetType().Name;
     }
 
     private void AddRow(StringName name, Variant.Type type, PropertyHint hint, string hintString)
@@ -173,18 +212,63 @@ public partial class WorldMapEntityInspector : PanelContainer
     // every row must follow it there.
     private Variant Read(StringName name)
     {
-        return _shown?.entry != null ? _shown.entry.Get(name) : default;
+        return _rowsOwner?.entry != null ? _rowsOwner.entry.Get(name) : default;
+    }
+
+    // Text applies as it is TYPED, not on Enter or on leaving the field. The
+    // multiline rows are the reason it cannot be Enter: a signpost's text is
+    // several lines, so Enter is a newline there and never a commit — which left
+    // clicking away as the only way to save one, and clicking away is exactly
+    // what an author does without thinking about it.
+    //
+    // The undo step is what the old commit-on-leave was really protecting, and it
+    // is kept by BRACKETING instead: the first keystroke opens one step and
+    // leaving the field closes it, so a typed sentence is still one undo.
+    private void ApplyLive(StringName name, Variant value)
+    {
+        SpawnEntryData current = _rowsOwner?.entry;
+        if (current == null || current.Get(name).ToString() == value.ToString())
+        {
+            return;
+        }
+        if (!_typing)
+        {
+            // Snapshots the BEFORE state, so it has to happen ahead of the first
+            // character reaching the entry.
+            BeforeEdit?.Invoke();
+            _typing = true;
+        }
+        SpawnEntryData target = _rowsOwner.EditableEntry();
+        if (ReferenceEquals(_rowsOwner, _shown))
+        {
+            _shownEntry = target;
+        }
+        target.Set(name, value);
     }
 
     private void Commit(StringName name, Variant value)
     {
-        if (_shown == null)
+        SpawnEntryData current = _rowsOwner?.entry;
+        if (current == null)
+        {
+            return;
+        }
+        // A row commits on losing focus as well as on Enter, so clicking into a
+        // box and back out reaches here with the value it already had. Forking
+        // the palette entry for that would silently stop the placement tracking
+        // the palette, and it would cost an undo slot. Compared as TEXT because
+        // Variant does not compare by value here — the undo aspect pays for the
+        // same thing.
+        if (current.Get(name).ToString() == value.ToString())
         {
             return;
         }
         BeforeEdit?.Invoke();
-        SpawnEntryData target = _shown.EditableEntry();
-        _shownEntry = target;
+        SpawnEntryData target = _rowsOwner.EditableEntry();
+        if (ReferenceEquals(_rowsOwner, _shown))
+        {
+            _shownEntry = target;
+        }
         target.Set(name, value);
         AfterEdit?.Invoke();
     }
@@ -192,10 +276,16 @@ public partial class WorldMapEntityInspector : PanelContainer
     private Control BuildLine(StringName name)
     {
         var edit = new LineEdit { Text = Read(name).AsString() };
-        // Committed on Enter or on leaving the field, not per keystroke: a word
-        // typed a letter at a time would otherwise be a dozen undo steps.
-        edit.TextSubmitted += _ => Commit(name, edit.Text);
-        edit.FocusExited += () => Commit(name, edit.Text);
+        edit.TextChanged += _ => ApplyLive(name, edit.Text);
+        // Enter ENDS the undo step rather than committing the value — the value
+        // is already in. Leaving the field applies once more first, since a paste
+        // or an undo inside the box can move the text without a keystroke.
+        edit.TextSubmitted += _ => EndTyping();
+        edit.FocusExited += () =>
+        {
+            ApplyLive(name, edit.Text);
+            EndTyping();
+        };
         _refreshers.Add(() =>
         {
             if (!edit.HasFocus())
@@ -214,7 +304,12 @@ public partial class WorldMapEntityInspector : PanelContainer
             CustomMinimumSize = new Vector2(0f, multilineHeight),
             WrapMode = TextEdit.LineWrappingMode.Boundary,
         };
-        edit.FocusExited += () => Commit(name, edit.Text);
+        edit.TextChanged += () => ApplyLive(name, edit.Text);
+        edit.FocusExited += () =>
+        {
+            ApplyLive(name, edit.Text);
+            EndTyping();
+        };
         _refreshers.Add(() =>
         {
             if (!edit.HasFocus())

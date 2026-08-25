@@ -33,7 +33,12 @@ Layers:
 - **Props** / **Mobs** — `.png` `Rgba8`, per column (R = set index + 1,
   G = density multiplier), indexing `propSets` / `mobSets`.
 - **Ground** — `.png` `R8`, per column (ground set + 1; 0 = `defaultGround`).
-- **Paving** — `.png` `R8`, per column (paving block + 1; 0 = none).
+- **Paving** — `.png` `Rgba8`, per column: R = paving block + 1 (0 = none),
+  G/B = the world Y it is laid at + 1, low byte first, with **0 meaning "on
+  whatever surface is under it"**. Two channels because a document may span more
+  than 255 voxels of height. A layer written before levels existed is
+  single-channel and converts with G/B zero, i.e. surface-seated, which is what
+  it always meant.
 - **Scalars** — `.png` `Rgba8`, per column: R = mob level, G = climb route flag,
   B = cliff roughness.
 - **Placements** — `.tres` (`WorldMapPlacements`): the subscene stamps, the
@@ -622,15 +627,22 @@ switching between them keeps the slice you were reading. `IWorldMapView.CutsAway
 is the one thing a view declares; the painter resolves the clip once per rebuild
 and passes `int.MaxValue` for anything drawing the world from above.
 
-**Five views cut**: the two voxel-edit tools, the **water** tool (so a passage can
+**Six views cut**: the two voxel-edit tools, the **water** tool (so a passage can
 be flooded deliberately), the **climb** tool (so a route can be painted on a
-passage's walls) and the **entity** tool (so a chest can stand in one). The
-voxel-edit and climb tools share ONE `CutawayElevationView` — they differ in what
-they paint and in the ink the outline pass lays over them, not in how the terrain
-is drawn, so copies would only drift. Both remaining per-column layers are worth
-knowing about: a climb route and a water surface are both per COLUMN, so marking
-one inside a passage marks the whole column, exactly as draining a passage drains
-the lake above it.
+passage's walls), the **entity** tool (so a chest can stand in one) and the
+**paving** tool (so a road can run through one, or under an arch). They share two
+views, not six: the voxel-edit and climb tools take `CutawayElevationView`, and
+the two that place something ON a floor — paving and entities — take
+`CutawayGroundView`, which is the plain ground map above the plane and the
+cutaway below it. Tools that differ in what they WRITE and in the ink the outline
+pass lays over them, not in how the terrain is drawn, share the view; copies
+would only drift.
+
+Both remaining per-column layers are worth knowing about: a climb route and a
+water surface are both per COLUMN, so marking one inside a passage marks the
+whole column, exactly as draining a passage drains the lake above it. **Paving is
+per column too**, and it is the same limit: a column carries ONE road, so a
+passage cannot be paved under a paved hillside.
 
 **An entity remembers the floor it was placed on** (`EntityPlacement.floorY`),
 because nothing about the column describes where a passage's floor is. Two cases,
@@ -1011,7 +1023,7 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `MobTool` | the same, on the mob layer | `SetIndex`, `Density` | ground colour + a dot per mob spawn |
 | `MobLevelTool` | per-column danger level | `Level` | terrain recoloured, one shade per level |
 | `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
-| `PaveTool` | a block on the column's top voxel | `BlockIndex` | the ground map (paving resolves inside `GroundColorAt`) |
+| `PaveTool` | a block on the floor the map is SHOWING — the surface, or a passage's floor under the cut | `BlockIndex` | `CutawayGroundView` — the ground map, **cutting away** (T/G) once the plane comes down |
 | `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete | `SceneIndex`, `Selected` | the ground map (the stamps themselves draw on EVERY view) |
 | `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map (the marks themselves draw on EVERY view that shows props) |
 
@@ -1195,6 +1207,31 @@ footprint. Everything else — press decides what the stroke is about, drag slid
 from where you grabbed, R/F turns the selection, RMB deletes what was under the
 press, once — is the same code shape.
 
+**Which mark is which is answered by the cursor and by the palette**, because
+every entity draws the same one-metre dot and the map cannot say what one is.
+The mark under the cursor GROWS (`entityMarkHighlightRadius`) and the HUD names
+its entry, so a grab is aimed rather than guessed at — the hover asks the tool
+(`EntityUnder`), which runs the same proximity test the press grabs with, so what
+lights up is exactly what a click would pick up. Colour answers the other
+question: every placement of the entry the palette has SELECTED is inked as a
+match (`entityMatchInk`), so "where are the chests" is answered by choosing the
+chest rather than by clicking every dot, and the one placement being edited is
+inked over that (`entitySelectedInk`). Matches grow to the same size the hover
+and the selection do: at a zoom where the whole world fits on screen a mark is a
+few pixels, and a colour difference that small is not an answer. A placement's own FORK still counts as a
+match (`EntityPlacement.IsFrom`, off the palette name the fork keeps): a chest
+whose text has been edited is still a chest, and it is the one most worth
+finding.
+
+None of those three is spatial, which is what the repaint has to respect: a hover
+or a selection change repaints the two marks involved and nothing else (this runs
+on mouse motion), while changing the palette entry is a whole-map answer and goes
+through the deferred `RebuildFull`. Selecting an entity has to repaint the one
+that was selected before — it can be anywhere on the map, and the rect under the
+cursor says nothing about where. A grown mark also reaches OUTSIDE its own cell,
+so `DrawEntityMarks` allows for the growth when rejecting placements against the
+rebuild rect, or a highlight is clipped off at a partial rebuild's edge.
+
 The palette is **`SpawnEntryData`, the same entries the scatter layers use**, so
 one palette covers props, mobs, chests, loot and NPCs, and a hand-placed chest
 spawns through exactly the `TrySpawn` path a scattered one does. A placement
@@ -1208,6 +1245,13 @@ because a `SpawnEntryData` subclass already exports exactly the fields its entit
 type needs; the panel REFLECTS them, so an entry type written tomorrow is
 editable the day it is written.
 
+**The panel is pushed on selection CHANGE, not per frame.** It rides `UpdateHud`,
+and a click on the map reaches neither on its own — so a selection made by
+clicking left the panel showing the entry it was last built for (the previous
+signpost's text, or nothing at all for the first selection of a session) until a
+tool or option change happened to refresh it. Per frame is not the answer: a
+rebuild destroys the widget being typed into.
+
 **The entry is copy-on-write** (`EntityPlacement.EditableEntry`). A placement
 starts out pointing at the palette's shared `.tres`, so a chest nobody has
 customized keeps tracking whatever that entry is retuned to; the first edit forks
@@ -1218,12 +1262,45 @@ Clearing the path is not optional: a duplicate that kept it saves as an
 on the next load. `worldmap_check` reports the entity list by entry with a
 `(n customized)` count, which is where that failure would show.
 
+**"Is this entry the placement's own copy?" is `SpawnEntryData.IsOwnedCopy`, and
+it is TWO shapes.** A fresh fork has no path at all, but one that has been saved
+and loaded back carries the sub-resource path Godot gives an embedded resource
+(`res://…/placements.tres::Resource_abc`) — which is not empty and is not a
+palette file either. Every site that asked `string.IsNullOrEmpty(ResourcePath)`
+therefore read a reloaded fork as SHARED: the next edit forked the fork and named
+it after the file it was embedded in ("placements"), which took it out of the
+panel title, the hover readout, the palette-match highlight and
+`worldmap_check`'s by-entry listing, and `PlacementsAspect` stopped capturing its
+fields for undo.
+
+**Text applies as it is TYPED**, and the multiline rows are why it cannot be on
+Enter: a signpost's text is several lines, so Enter is a NEWLINE there and never a
+commit. Committing on Enter-or-focus-exit therefore left clicking away as the
+only way to save one — and nothing in the painter takes focus away (the map
+canvas is `FOCUS_NONE`, so clicking the map leaves the box focused), so typing and
+then clicking the next signpost lost the edit outright.
+
+The undo step is what commit-on-leave was really protecting, and it is kept by
+BRACKETING instead: the first keystroke opens one step (`BeforeEdit`, which
+snapshots the before state, so it must happen ahead of the first character
+reaching the entry) and leaving the field closes it, so a typed sentence is still
+one undo. Enter ends the step rather than committing a value that is already in.
+
+The panel is still FLUSHED — `FlushPendingEdit`, which releases focus so each
+widget's own path runs, and closes any open bracket — on a canvas press, on
+Ctrl+S and whenever the panel switches entities, because the rows that are NOT
+text (a `SpinBox` being typed into) still apply on focus-exit. Two rules keep
+that safe: rows read and write through the placement they were BUILT for
+(`_rowsOwner`), not through the one currently shown, or a write fired while the
+panel is already switching lands one signpost's text on the next one selected;
+and a write whose value has not moved is dropped, since focus-exit fires for a
+box merely clicked into and forking the palette entry for that would silently
+stop the placement tracking the palette.
+
 Scalars only — string, number, bool, enum, flags. Anything resource-shaped (a
 loot table, a language, a mob descriptor) is a read-only row: varying it per
 placement needs a resource picker, and picking a ready-made variant off the
-palette is the faster authoring move anyway. Rows are committed on Enter or on
-leaving the field rather than per keystroke, so a typed sentence is one undo step
-and not a dozen. Bare-key shortcuts are safe while typing for free — the painter
+palette is the faster authoring move anyway. Bare-key shortcuts are safe while typing for free — the painter
 reads keys in `_UnhandledInput`, and a focused `LineEdit` has already consumed
 them.
 
@@ -1246,18 +1323,51 @@ so it gets to BE its material — the same call `StampDirtPatches` makes for dir
 The cost is a hard 1 m kerb instead of a blended edge; if that matters, the
 answer is an overlay-painting layer ALONGSIDE this one, not a switch on it.
 
-Only the TOP voxel is paved, and the kit channel is left alone: the kit says what
+Only ONE voxel is paved, and the kit channel is left alone: the kit says what
 the column is made of, which a road laid over it does not change, and the rock
-under a road is still the hillside's. A paved column also stamps no detail
-sprites and is excluded from `CanSpawnAt` — worldgen's road pass deletes the
-scatter standing in its tread, and grass growing through paving is the tell that
-a road was painted rather than built.
+under a road is still the hillside's.
+
+**WHICH voxel is the floor the map is SHOWING** — `CutawayFloor` at the shared
+cutaway plane. With the plane parked over the world that is the surface, exactly
+as it always was; lower it into a passage, or under an arch you built with the
+block tool, and the stroke paves the floor down there instead. So the tool needs
+no level of its own: **T/G already aims the cutaway** (and alt+RMB aims it at a
+clicked floor), and a level you cannot see is a level you cannot aim. Solid rock
+under the plane exposes no floor and takes no paving.
+
+**A road on open ground records the surface SENTINEL, not that Y**, so it keeps
+following ground repainted under it — and it resolves against the top SOLID
+voxel, so it rides a deck later built over it and drops into a hole later carved
+under it. Only a floor with something above it stores an absolute Y, because
+nothing about the column describes where that floor is and re-seating would put
+the road on the roof. That is the same split `EntityPlacement.floorY` makes, for
+the same reason. `worldmap_check` reports the two counts, plus the paving whose
+level is no longer a floor at all (**stranded**, and it bakes nothing) — which
+only an absolute level can be.
+
+**Erase clears the column, not the level on screen.** There is one paving per
+column, so "lift what is here" cannot be ambiguous, and a seat stranded by
+terrain repainted under it would otherwise be unreachable from every plane.
+
+A column paved ON ITS SURFACE stamps no detail sprites and is excluded from
+`CanSpawnAt` — worldgen's road pass deletes the scatter standing in its tread,
+and grass growing through paving is the tell that a road was painted rather than
+built. Paving on a floor UNDER the surface does neither: it belongs to that
+floor and says nothing about the hillside over it, which is why both gates ask
+`SurfacePavingAt` rather than `PavingAt`.
 
 **Paving resolves inside `GroundColorAt`, not in the paving view**, so a road
 appears on EVERY view that draws ground — you cannot lay props or mobs sensibly
 along a road you cannot see. The colour is the block's own `minimapColor`, since
 a block already authors what it looks like from above and a second palette would
-only drift from it.
+only drift from it. Those views show SURFACE paving only: a road under an arch
+belongs to the floor it is on, and colouring the hilltop with it would say the
+hilltop is paved.
+
+**`CutawayColorAt` resolves it the same way**, at the floor the cut exposes, so a
+paved passage reads as paved on every cutting view and not just the paving
+tool's — the same argument, and underground it is the one thing telling a
+corridor you have finished from one you have not.
 
 **Climbing routes are the second scalar, and they are AUTHORED, not covered.**
 `ZoneGenData.climbCoverage` asks "how much of this zone's rock is climbable" and

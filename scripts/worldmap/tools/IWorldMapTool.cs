@@ -108,6 +108,17 @@ public interface IWorldMapTool
     // property panel, which edits the selection's spawn entry — only the entity
     // tool answers with anything.
     EntityPlacement SelectedEntity => null;
+
+    // The palette entry this tool would place next, or null. Placements of that
+    // entry are picked out on the map, so "where are the chests" is answered by
+    // choosing the chest in the palette rather than by clicking every mark.
+    SpawnEntryData SelectedEntry(WorldMapState ctx) => null;
+
+    // The hand-placed entity under this column, or null. The tool owns the hit
+    // test — an entity is a point, so it is a proximity check with the tool's own
+    // grab radius — which is what lets the painter grow and name whatever the
+    // cursor is over without knowing how one is grabbed.
+    EntityPlacement EntityUnder(WorldMapState ctx, Vector2I texel) => null;
 }
 
 // Which spawn layers a view previews as dots. A SET, not a choice: every view

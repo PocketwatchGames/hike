@@ -16,6 +16,16 @@ public partial class WaterfallData : Resource
     // with no style stays down.
     [Export] public Material sheetMaterial;
 
+    // The drawdown run, on shaders/waterfall_drawdown.gdshader. A second material
+    // rather than a second look: it is the same shading code, and the two exist
+    // only because they SORT in opposite directions around the pool — the sheet
+    // writes depth and draws before it, this composites over it and writes none.
+    // render_mode cannot vary per material, so it cannot be one shader.
+    //
+    // Their shader parameters are therefore the same tuning twice over and have
+    // to be edited together. Null just costs the fall its drawdown.
+    [Export] public Material drawdownMaterial;
+
     // Size classes, authored SMALLEST FIRST. A cascade takes the last tier whose
     // minFallHeight it clears, so a fall shorter than tiers[0] draws nothing at
     // all — that is the "too small to be a waterfall" gate.
@@ -35,6 +45,16 @@ public partial class WaterfallData : Resource
     // How far BELOW the lower pool's surface the sheet is carried, in metres, so
     // it visibly enters the water instead of stopping on top of it.
     [Export(PropertyHint.Range, "0,3,0.05")] public float landingDepth = 1f;
+
+    // How far UPSTREAM of the lip the sheet is carried out flat over the pool,
+    // in metres. Water approaching a brink accelerates and draws down into a
+    // glassy, streaked run before it goes over; without it the sheet begins
+    // abruptly at the lip and the brink reads as a separate object laid under
+    // the pool rather than as the pool leaving it. Zero disables the overlay.
+    //
+    // It is a fixed length rather than one scaled by the drop because the
+    // drawdown is set by the water's own approach, not by how far it then falls.
+    [Export(PropertyHint.Range, "0,6,0.1")] public float drawdownLength = 1.5f;
 
     // How far the outer edge of the sheet is tucked in where there is no
     // neighbouring strip beside it, in metres (max 0.45 of the metre-wide step).

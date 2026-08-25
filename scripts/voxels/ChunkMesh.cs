@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -204,8 +204,17 @@ public partial class ChunkMesh : Node3D
         // shaders). voxel_water_backface still runs in the main scene to
         // write stencil=2 for the water_clip_cap, which keeps its
         // stencil-driven design.
-        //   -3  voxel_water           writes stencil=4 (reflection mask)
+        //   -6  waterfall             DEPTH_DRAW_ALWAYS, and first on purpose:
+        //                             the pool depth-tests against the sheet,
+        //                             which is the only thing that sorts a fall
+        //                             against water it can be in front of or
+        //                             behind (see waterfall.gdshader)
+        //   -3  voxel_water           DEPTH_DRAW_ALWAYS so water sorts against
+        //                             water; writes stencil=4 (reflection mask)
         //   -2  voxel_water_backface  writes stencil=2 (water cap zone)
+        //   -1  waterfall_drawdown    the flat run over the pool; composites with
+        //                             it and writes NO depth, the opposite of the
+        //                             sheet and for the opposite reason
         //    0  voxel_clip / sprites  default priority
         //    1  clip_cap              opaque, samples cap mask via SCREEN_UV
         //    2  water_clip_cap        alpha, reads stencil=2

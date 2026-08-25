@@ -1,0 +1,12 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="1_entry"]
+[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="2_scene"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="3_lang"]
+
+[resource]
+script = ExtResource("1_entry")
+scene = ExtResource("2_scene")
+language = ExtResource("3_lang")
+text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
+components = 4

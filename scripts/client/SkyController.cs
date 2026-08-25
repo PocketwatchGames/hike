@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 
 // Owns the runtime visual pipeline for the sky dome, sun / moon, fog,
 // shafts, water ripples, cloud shadows, and precipitation. Every frame
@@ -1035,6 +1035,7 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("water_rim_strength", RenderingServer.GlobalShaderParameterType.Float, 0.6f);
             ShaderGlobals.Register("ripple_pixel_size", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
+            ShaderGlobals.Register("waterfall_debug", RenderingServer.GlobalShaderParameterType.Int, 0);
             ShaderGlobals.Register("reflection_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
             ShaderGlobals.Register("water_disable_ripples", RenderingServer.GlobalShaderParameterType.Bool, false);
             ShaderGlobals.Register("water_disable_foam", RenderingServer.GlobalShaderParameterType.Bool, false);

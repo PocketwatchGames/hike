@@ -67,6 +67,39 @@ public partial class SpawnEntryData : Resource
             && name != PropertyName.placeAtAnchor;
     }
 
+    // Is this entry a private copy belonging to one placement, rather than the
+    // shared palette file every placement of its kind points at?
+    //
+    // TWO shapes, and missing the second is a live bug: a fresh fork has no path
+    // at all, but one that has been SAVED and loaded back carries the
+    // sub-resource path Godot gives an embedded resource
+    // ("res://…/placements.tres::Resource_abc"). That is not a palette file, and
+    // treating it as shared makes the next edit fork the fork — renaming it after
+    // the file it was embedded in and dropping it out of every by-entry answer.
+    public static bool IsOwnedCopy(SpawnEntryData entry)
+    {
+        return entry != null
+            && (string.IsNullOrEmpty(entry.ResourcePath) || entry.ResourcePath.Contains("::"));
+    }
+
+    // What to call this entry in the authoring UI: the file it was authored as,
+    // or — for a placement's own copy — the palette file it came from, kept as
+    // the resource name and marked as customized. One answer, because the tool
+    // row, the hover readout and the property panel all name the same thing and a
+    // name that differs between them reads as two different entries.
+    public static string DisplayName(SpawnEntryData entry)
+    {
+        if (entry == null)
+        {
+            return "";
+        }
+        if (!IsOwnedCopy(entry))
+        {
+            return entry.ResourcePath.GetFile().GetBaseName();
+        }
+        return !string.IsNullOrEmpty(entry.ResourceName) ? $"{entry.ResourceName} *" : entry.GetType().Name;
+    }
+
     // True iff this entry requires a flat patch — the column and all 8
     // surrounding columns must share the same surface height. Subclasses
     // override to opt in; defaults to false so existing entry types

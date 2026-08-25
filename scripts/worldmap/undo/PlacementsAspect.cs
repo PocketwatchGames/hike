@@ -73,7 +73,7 @@ public sealed class PlacementsAspect : IMapEditAspect
     // property like any other.
     private static Variant[] CaptureEntry(EntityPlacement e)
     {
-        return e?.entry != null && string.IsNullOrEmpty(e.entry.ResourcePath)
+        return e?.entry != null && SpawnEntryData.IsOwnedCopy(e.entry)
             ? Capture(e.entry)
             : null;
     }

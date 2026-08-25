@@ -11,6 +11,10 @@ public partial class WorldMapHud : CanvasLayer
     [Export] public Label toolLabel;    // tool status + active level
     [Export] public Label radiusLabel;
     [Export] public Label coordsLabel;
+    // Names whatever the cursor is over that the map can only draw as a mark —
+    // a hand-placed entity. Blank, not hidden: it sits in a VBox and hiding it
+    // would shuffle the rows under it every time the cursor crossed a chest.
+    [Export] public Label hoverLabel;
     [Export] public Label helpLabel;
     // Background-bake readout, bottom right. Hidden unless a bake is running or
     // has just finished.
@@ -151,6 +155,17 @@ public partial class WorldMapHud : CanvasLayer
         if (toolLabel != null)
         {
             toolLabel.Text = status;
+        }
+    }
+
+    // What the cursor is over, or "" for nothing. A mark is one metre and every
+    // entity draws the same dot, so the map can say one is THERE but never what
+    // it is.
+    public void SetHovered(string name)
+    {
+        if (hoverLabel != null)
+        {
+            hoverLabel.Text = string.IsNullOrEmpty(name) ? "" : $"Entity: {name}";
         }
     }
 

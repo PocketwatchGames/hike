@@ -10,9 +10,19 @@ using Godot;
 // road is a deliberate, hand-placed thing, so it gets to BE its material — the
 // same call StampDirtPatches makes.
 //
-// Only the top voxel is paved. The rock under a road is still the hillside's,
-// and the kit channel keeps its own value: it says what the column is made of,
-// which a road laid over it does not change.
+// Only ONE voxel is paved, and WHICH one is the floor the map is showing:
+// paving lands on ctx.CutawayFloor, so with the plane parked over the world it
+// is the surface, and lowering it into a passage or under an arch paves the
+// floor down there instead. That is why the tool needs no level of its own —
+// T/G (and alt+RMB) already aim the cutaway, and a level you cannot see is a
+// level you cannot aim. A road on open ground records the surface SENTINEL
+// rather than that Y, so it keeps following ground repainted under it; only a
+// floor with something above it stores an absolute Y, which is the same split
+// EntityPlacement.floorY makes.
+//
+// The rock under a road is still the hillside's, and the kit channel keeps its
+// own value: it says what the column is made of, which a road laid over it does
+// not change.
 public class PaveTool : IWorldMapTool
 {
     public string Name => "Paving";
@@ -23,7 +33,7 @@ public class PaveTool : IWorldMapTool
 
     public PaveTool()
     {
-        View = new PaveView();
+        View = new CutawayGroundView();
     }
 
     public string[] Options(WorldMapState ctx)
@@ -67,7 +77,9 @@ public class PaveTool : IWorldMapTool
             : Colors.White;
     }
 
-    public string HintText(WorldMapState ctx) => "RMB clears back to the ground's own block";
+    public string HintText(WorldMapState ctx) =>
+        "LMB pave the floor the map is showing  |  RMB lift the column's paving  |  "
+        + "T/G cutaway, alt+RMB aim it";
 
     public string StatusText(WorldMapState ctx)
     {
@@ -76,7 +88,10 @@ public class PaveTool : IWorldMapTool
         return string.IsNullOrEmpty(label) ? "No paving blocks authored" : label;
     }
 
-    public string LevelText(WorldMapState ctx) => "";
+    // Which floor the stroke would land on, since that is now the tool's real
+    // parameter and it lives on the shared cutaway rather than on the tool.
+    public string LevelText(WorldMapState ctx) =>
+        ctx.IsCutAway ? $"Floors under cutaway Y={ctx.CutawayY}" : "Surface";
 
     public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
     {
@@ -87,9 +102,22 @@ public class PaveTool : IWorldMapTool
         // Hard-edged, ignoring the falloff: a road has a kerb. Feathering an
         // index layer only means the rim of every stroke is a random scattering
         // of paved and unpaved columns.
+        //
+        // Erase clears the column outright rather than only the paving at the
+        // floor on screen. There is one paving per column, so "lift what is
+        // here" cannot be ambiguous — and a seat orphaned by terrain repainted
+        // under it would otherwise be unreachable from every plane.
+        int clip = ctx.CutawayY;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
-            ctx.SetPavingAt(px, pz, erase ? -1 : BlockIndex);
+            if (erase)
+            {
+                ctx.SetPavingAt(px, pz, -1);
+            }
+            else if (ctx.TryPavingLevel(px, pz, clip, out int level))
+            {
+                ctx.SetPavingAt(px, pz, BlockIndex, level);
+            }
         });
     }
 
@@ -106,14 +134,30 @@ public class PaveTool : IWorldMapTool
     }
 }
 
-// The ground map — which resolves paving itself, so a road looks the same here
-// as it does while painting props or mobs, and the ground either side of it is
-// the context the road is being laid through.
-public class PaveView : IWorldMapView
+// The ground map, which cuts away once the plane comes down.
+//
+// Above ground it is the plain ground map — it resolves paving itself, so a road
+// looks the same here as it does while painting props or mobs, and the ground
+// either side of it is the context the road is being laid through. Lowering the
+// plane switches it to the cutaway, because underground there is no ground TYPE
+// to show: the ground layer says what the SURFACE is made of, and the question
+// down there is which floor is exposed and whether it is paved already
+// (CutawayColorAt resolves that).
+//
+// Shared by the tools that place things ON a floor — paving and entities. They
+// differ in what they write, not in how the map is drawn, so one view rather
+// than copies that drift.
+public class CutawayGroundView : IWorldMapView
 {
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
+    public bool CutsAway => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
+    public Color ColorAt(WorldMapState ctx, int px, int pz)
+    {
+        return ctx.IsCutAway
+            ? ctx.CutawayColorAt(px, pz, ctx.CutawayY, out _)
+            : ctx.GroundColorAt(px, pz);
+    }
 }

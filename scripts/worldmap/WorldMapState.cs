@@ -36,7 +36,10 @@ public class WorldMapState
     public Image Wind;             // Rgba8, per chunk (R = angle, G = strength; G 0 = unpainted)
     public Image Scatter;          // Rgba8, per column (R = prop set + 1, G = density)
     public Image Ground;           // R8, per column (ground set + 1; 0 = default ground)
-    public Image Paving;           // R8, per column (paving block + 1; 0 = none)
+    // Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world Y it
+    // is laid at + 1 (0 = seated on the column's own surface, so it follows
+    // ground that later moves).
+    public Image Paving;
 
     // Subscene stamps. A LIST, not a layer: a stamp is an identity, an
     // orientation and a footprint, none of which fit in a per-column byte.
@@ -895,7 +898,12 @@ public class WorldMapState
         {
             return Data.cutawayRockColor;
         }
-        Color band = ElevationColorAt(floor - SeaLevel);
+        // Paving laid on THIS floor draws over the band, the same argument that
+        // puts it on every map drawn from above: a road is a fact about the
+        // ground you need while working beside it, and underground it is the one
+        // thing telling a corridor you have finished from one you have not.
+        BlockData paving = PavingAtFloor(px, pz, floor);
+        Color band = paving != null ? paving.minimapColor : ElevationColorAt(floor - SeaLevel);
         return buried ? band : WithWaterOver(band, px, pz, floor, clipY);
     }
 
@@ -1069,7 +1077,8 @@ public class WorldMapState
             MaxZ = Data.WorldMinZ + Data.ImageHeight - 1,
             MaxGradeStep = MaxGradeStep,
             // Paving is a deliberate bare tread, exactly as a road is.
-            SkipDetailColumn = (wx, wz) => PavingAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) != null,
+            SkipDetailColumn = (wx, wz) =>
+                SurfacePavingAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) != null,
             GroundYAt = (wx, wz) => TerrainHeight(wx - Data.WorldMinX, wz - Data.WorldMinZ),
             // Moss comes off the painted GROUND, because a painted world has no
             // ZoneGenData to ask (its zone layer paints ZoneData, and the two
@@ -1249,6 +1258,11 @@ public class WorldMapState
         int th = TerrainHeight(px, pz);
         int wsurf = WaterSurface(px, pz);
 
+        // Resolved once for the column: paving is one voxel, and resolving a
+        // surface-seated level walks the column.
+        BlockData paving = PavingAt(px, pz);
+        int pavedY = paving != null ? PavedYAt(px, pz) : Data.WorldMinY - 1;
+
         // Which of the column's zone kits its ground is made of. Painting a zone
         // changes the material, not just the chunk's runtime behaviour — without
         // this every painted world came out in whichever kit happened to land in
@@ -1283,18 +1297,17 @@ public class WorldMapState
                     : th - wy <= Data.surfaceDepthVoxels ? topKit : kits.Cave;
                 WorldState.SetTerrainIdWorld(wx, wy, wz, kit);
                 desired = WorldState.Kits.BlockFor(kit);
-                if (wy == th)
+                if (wy == pavedY)
                 {
-                    // Paving replaces the kit's block on the top voxel only —
-                    // paving is a surface, and the rock under a road is still
-                    // the hillside's. The kit channel keeps its own value: it is
-                    // what the column IS made of, and a road laid over it does
-                    // not change which zone's stone is underneath.
-                    BlockData paving = PavingAt(px, pz);
-                    if (paving != null)
-                    {
-                        desired = paving.blockId;
-                    }
+                    // Paving replaces the kit's block on ONE voxel — the floor
+                    // it was laid on, which is the top of the column for a road
+                    // on open ground and the floor of a passage or the ground
+                    // under an arch for one laid beneath the cutaway. Paving is
+                    // a surface, so the rock under a road is still the
+                    // hillside's, and the kit channel keeps its own value: it is
+                    // what the column IS made of, which a road laid over it does
+                    // not change.
+                    desired = paving.blockId;
                 }
             }
             else if (wy <= wsurf)
@@ -1433,7 +1446,7 @@ public class WorldMapState
     // surface is actually made of once paved.
     public Color GroundColorAt(int px, int pz)
     {
-        BlockData paving = PavingAt(px, pz);
+        BlockData paving = SurfacePavingAt(px, pz);
         if (paving != null)
         {
             return WithWater(paving.minimapColor, px, pz);
@@ -1906,11 +1919,16 @@ public class WorldMapState
         Placements.placements = list.ToArray();
     }
 
-    // Painted ground index, or -1 where the column keeps its kit's ground.
+    // "Lie on whatever surface is under me" — the paving twin of
+    // EntityPlacement.OnTheGround, and the level every road laid on open ground
+    // keeps. A layer written before levels existed reads as this everywhere,
+    // since its G/B are zero.
+    public const int PavedOnSurface = int.MinValue;
+
+    // Painted paving index, or -1 where the column keeps its kit's own block.
     public int PavingIndexAt(int px, int pz)
     {
-        int idx = Mathf.RoundToInt(Paving.GetPixel(ClampX(px), ClampZ(pz)).R * 255f) - 1;
-        return idx >= 0 && idx < PavingBlocks.Length ? idx : -1;
+        return PavingIndexOf(Paving.GetPixel(ClampX(px), ClampZ(pz)));
     }
 
     public BlockData PavingAt(int px, int pz)
@@ -1919,9 +1937,112 @@ public class WorldMapState
         return idx >= 0 ? PavingBlocks[idx] : null;
     }
 
-    public void SetPavingAt(int px, int pz, int index)
+    // Which FLOOR a column's paving lies on: an absolute world Y, or
+    // PavedOnSurface where it rides the top of the column.
+    public int PavingLevelAt(int px, int pz)
     {
-        Paving.SetPixel(px, pz, new Color(Mathf.Clamp(index + 1, 0, 255) / 255f, 0f, 0f, 1f));
+        return PavingLevelOf(Paving.GetPixel(ClampX(px), ClampZ(pz)));
+    }
+
+    // The paving at a given floor, or null. There is ONE paving per column — the
+    // layer is per column, as water and climb routes are — so this only ever
+    // asks whether the column's paving was laid HERE. That is also the whole
+    // limit of the model: a road through a passage and a road on the hill above
+    // it cannot share a column, exactly as the erase that drains a passage
+    // drains the lake over it.
+    public BlockData PavingAtFloor(int px, int pz, int floorY)
+    {
+        Color cell = Paving.GetPixel(ClampX(px), ClampZ(pz));
+        int idx = PavingIndexOf(cell);
+        if (idx < 0)
+        {
+            return null;
+        }
+        int level = PavingLevelOf(cell);
+        return (level == PavedOnSurface ? SurfaceBelow(px, pz, int.MaxValue) : level) == floorY
+            ? PavingBlocks[idx]
+            : null;
+    }
+
+    // The world Y a column's paving lies at, or WorldMinY - 1 where it has
+    // none. A surface-seated road resolves against the top SOLID voxel, so it
+    // rides a deck built over it and drops into a hole carved under it.
+    public int PavedYAt(int px, int pz)
+    {
+        Color cell = Paving.GetPixel(ClampX(px), ClampZ(pz));
+        if (PavingIndexOf(cell) < 0)
+        {
+            return Data.WorldMinY - 1;
+        }
+        int level = PavingLevelOf(cell);
+        return level == PavedOnSurface ? SurfaceBelow(px, pz, int.MaxValue) : level;
+    }
+
+    // Paving lying on the column's OWN surface, or null. What every map drawn
+    // from above shows, and what keeps the scatter and the detail sprites off a
+    // road: paving on a floor under the surface — a passage, the ground beneath
+    // an arch — belongs to that floor and says nothing about the hillside over
+    // it.
+    public BlockData SurfacePavingAt(int px, int pz)
+    {
+        return PavingAt(px, pz) != null
+            ? PavingAtFloor(px, pz, SurfaceBelow(px, pz, int.MaxValue))
+            : null;
+    }
+
+    // The floor a paving stroke at a column should be laid on: the one the map
+    // is SHOWING there. False where the cut exposes no floor at all — solid rock
+    // has nothing to pave, and the map draws it as such.
+    //
+    // Where that floor is the TOP of the column the level is PavedOnSurface and
+    // the bake re-seats it on every bake, so a road follows ground that later
+    // moves — including ground carved or built after it was laid, which is why
+    // the test is against the top solid voxel and not against the height field.
+    // Only a floor with something above it needs the absolute Y, because nothing
+    // about the column describes where that is and re-seating would put the road
+    // on the roof. The same split EntityPlacement.floorY makes, for the same
+    // reason.
+    public bool TryPavingLevel(int px, int pz, int clipY, out int level)
+    {
+        int floor = CutawayFloor(px, pz, clipY, out _);
+        level = PavedOnSurface;
+        if (floor < Data.WorldMinY)
+        {
+            return false;
+        }
+        if (floor != SurfaceBelow(px, pz, int.MaxValue))
+        {
+            level = floor;
+        }
+        return true;
+    }
+
+    public void SetPavingAt(int px, int pz, int index, int level = PavedOnSurface)
+    {
+        // An erase clears the level with the block: a column holding a level and
+        // no paving is a value nothing can see and nothing can clear.
+        int ly = index < 0 || level == PavedOnSurface
+            ? 0
+            : Mathf.Clamp(level - Data.WorldMinY + 1, 0, 0xFFFF);
+        Paving.SetPixel(px, pz, new Color(
+            Mathf.Clamp(index + 1, 0, 255) / 255f,
+            (ly & 0xFF) / 255f,
+            (ly >> 8) / 255f,
+            1f));
+    }
+
+    private int PavingIndexOf(Color cell)
+    {
+        int idx = Mathf.RoundToInt(cell.R * 255f) - 1;
+        return idx >= 0 && idx < PavingBlocks.Length ? idx : -1;
+    }
+
+    // Two channels, because a document may span more than 255 voxels of height
+    // and one that does would otherwise wrap a road onto a floor nobody paved.
+    private int PavingLevelOf(Color cell)
+    {
+        int ly = Mathf.RoundToInt(cell.G * 255f) | (Mathf.RoundToInt(cell.B * 255f) << 8);
+        return ly <= 0 ? PavedOnSurface : Data.WorldMinY + ly - 1;
     }
 
     // Painted ground index, or -1 where the column inherits its zone's kits.
@@ -2123,7 +2244,7 @@ public class WorldMapState
         return !Underwater(px, pz)
             && !IsGradeAt(px, pz)
             && SurfaceBelow(px, pz, int.MaxValue) == TerrainHeight(px, pz)
-            && PavingAt(px, pz) == null
+            && SurfacePavingAt(px, pz) == null
             && PlacementAt(px, pz) == null;
     }
 

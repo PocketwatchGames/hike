@@ -52,12 +52,21 @@ public partial class Waterfall : Node3D, IWorldEntity, IClipAnchored
     private void Build(WaterfallSimState data, WaterfallData style, WaterfallTierData tier)
     {
         _clipAnchorY = data.BottomY;
-        ArrayMesh mesh = WaterfallMeshBuilder.Build(data, style);
-        if (mesh != null)
+        WaterfallMesh sheet = WaterfallMeshBuilder.Build(data, style);
+        if (sheet.Mesh != null)
         {
             var visual = new MeshInstance3D();
-            visual.Mesh = mesh;
-            visual.MaterialOverride = style.sheetMaterial;
+            visual.Mesh = sheet.Mesh;
+            // Per SURFACE, not a MaterialOverride: the sheet and the drawdown run
+            // the same shading but sort in opposite directions around the pool,
+            // which is a render_mode difference and so a different material. Still
+            // one MeshInstance3D, because the instance uniforms below are per
+            // instance and both surfaces want the same ones.
+            visual.SetSurfaceOverrideMaterial(sheet.SheetSurface, style.sheetMaterial);
+            if (sheet.DrawdownSurface >= 0)
+            {
+                visual.SetSurfaceOverrideMaterial(sheet.DrawdownSurface, style.drawdownMaterial);
+            }
             visual.Layers = GameCamera.MainSceneLayer;
             // Water casts no shadow, and a curtain of it casting one would put a
             // black slab across the cliff behind the fall.
@@ -69,6 +78,7 @@ public partial class Waterfall : Node3D, IWorldEntity, IClipAnchored
             visual.SetInstanceShaderParameter("sheet_foam", tier.foam);
             visual.SetInstanceShaderParameter("fall_top_y", data.TopY);
             visual.SetInstanceShaderParameter("fall_bottom_y", data.BottomY);
+            visual.SetInstanceShaderParameter("drawdown_length", style.drawdownLength);
         }
 
         SpawnEdgeFx(data, style, tier.lipFx, top: true);

@@ -887,6 +887,10 @@ water_debug_mode={
 "type": "int",
 "value": 0
 }
+waterfall_debug={
+"type": "int",
+"value": 0
+}
 water_disable_ripples={
 "type": "bool",
 "value": false

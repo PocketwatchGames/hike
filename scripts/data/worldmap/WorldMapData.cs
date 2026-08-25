@@ -54,6 +54,21 @@ public partial class WorldMapData : Resource
     [Export] public Color entityInk = new Color(1f, 0.55f, 0.15f);
     [Export] public Color spawnInk = new Color(0.3f, 1f, 1f);
 
+    // Marks the entity tool picks out of the rest. A placement whose entry is
+    // the one the palette has selected is inked as a MATCH, so choosing "chest"
+    // lights every chest already on the map and "where are they" is answered by
+    // the palette instead of by hunting; the one placement being edited is inked
+    // as the SELECTION over that.
+    [Export] public Color entityMatchInk = new Color(1f, 0.9f, 0.35f);
+    [Export] public Color entitySelectedInk = new Color(1f, 1f, 1f);
+
+    // How far a mark grows, in metres, when the tool is picking it out — the
+    // cursor is over it, it is the selection, or it matches the palette entry. A
+    // one-metre dot is smaller than the cursor that has to hit it, so growing is
+    // what makes the grab predictable and what carries the palette's answer
+    // across a map zoomed out past reading a colour. 0 turns the growth off.
+    [Export(PropertyHint.Range, "0,4,1")] public int entityMarkHighlightRadius = 1;
+
     // Wash over a placed subscene's footprint. The alpha is the SELECTED
     // strength; an unselected stamp gets a fraction of it, so which one a drag
     // is about is never in doubt.
@@ -269,7 +284,9 @@ public partial class WorldMapData : Resource
     [Export(PropertyHint.Range, "0,40,0.5")] public float windPaintMaxSpeed = 20f;
     [Export] public string scatterImagePath = "";      // .png, Rgba8, per column (R=set+1, G=density)
     [Export] public string groundImagePath = "";       // .png, R8, per column (ground set + 1, 0 = default)
-    [Export] public string pavingImagePath = "";       // .png, R8, per column (paving block + 1, 0 = none)
+    // .png, Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world
+    // Y it is laid at + 1 (0 = seated on the column's own surface).
+    [Export] public string pavingImagePath = "";
     [Export] public string placementsPath = "";        // .tres, WorldMapPlacements (subscene stamps)
     [Export] public string mobImagePath = "";          // .png, Rgba8, per column (R=mob set+1, G=density)
 
@@ -367,7 +384,7 @@ public partial class WorldMapData : Resource
     }
 
     // A per-column INDEX layer: R8, storing a palette index + 1 so 0 can mean
-    // "nothing painted". Ground and paving are the same shape.
+    // "nothing painted".
     private Image LoadOrCreateIndexImage(string path)
     {
         Image img = TryLoad(path);
@@ -388,9 +405,31 @@ public partial class WorldMapData : Resource
         return blank;
     }
 
+    // The paving layer is a per-column RGBA8 rather than a plain index image:
+    // R = block index + 1 (0 = none), G/B = the world Y it is laid at, plus one,
+    // low byte first, with 0 meaning "on whatever surface is under it". Two
+    // channels because a document may span more than 255 voxels of height.
+    //
+    // A layer written before levels existed is single-channel and converts with
+    // G/B zero, which is exactly the surface-seated it always meant.
     public Image LoadOrCreatePaving()
     {
-        return LoadOrCreateIndexImage(pavingImagePath);
+        Image img = TryLoad(pavingImagePath);
+        if (img != null)
+        {
+            if (img.GetWidth() != ImageWidth || img.GetHeight() != ImageHeight)
+            {
+                img.Resize(ImageWidth, ImageHeight, Image.Interpolation.Nearest);
+            }
+            if (img.GetFormat() != Image.Format.Rgba8)
+            {
+                img.Convert(Image.Format.Rgba8);
+            }
+            return img;
+        }
+        Image blank = Image.CreateEmpty(ImageWidth, ImageHeight, false, Image.Format.Rgba8);
+        blank.Fill(new Color(0f, 0f, 0f, 1f));
+        return blank;
     }
 
     public void SavePaving(Image img)

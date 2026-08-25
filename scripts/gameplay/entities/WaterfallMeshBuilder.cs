@@ -25,14 +25,166 @@ public static class WaterfallMeshBuilder
     // to be taken a little way in or it degenerates.
     private const float TANGENT_EPSILON = 0.0005f;
 
-    // The mesh comes back in local space around the entity's world position.
-    // Returns null if there is no lip to sweep.
-    public static ArrayMesh Build(WaterfallSimState data, WaterfallData style)
+    // How finely a drawdown quad is subdivided along the flow. Its UVs are
+    // sampled from a distance field rather than from its own axes, so the quad
+    // needs enough interior vertices to follow that field where it curves.
+    private const int DRAWDOWN_STEPS = 3;
+
+    // Arc length along the lip line: one measurement per step, so `u` is
+    // CONTINUOUS along the whole brink and through its corners.
+    //
+    // It used to be the step's own world-axis projection (start . wide), which is
+    // continuous along a straight run and breaks completely at a corner — the two
+    // steps there project onto perpendicular axes, so u jumped to an unrelated
+    // value and the streak field started over. That is what made corners read as
+    // two separate falls meeting, and it is also why the drawdown could not be
+    // tied to the sheet: there was no shared coordinate to tie them with.
+    private readonly struct LipArc
     {
-        if (data.Lips.Length == 0 || data.FallHeight <= 0.01f) { return null; }
+        // Arc length at the step's midpoint, and which way it grows along Wide.
+        public readonly float Centre;
+        public readonly float Dir;
+
+        public LipArc(float centre, float dir)
+        {
+            Centre = centre;
+            Dir = dir;
+        }
+
+        // Arc length at an offset along the step's width axis, in metres.
+        public float At(float alongWide) => Centre + alongWide * Dir;
+    }
+
+    // Walk the lip steps end to end and hand each one its arc length. Steps join
+    // where they share a lattice endpoint, which covers a straight run and a
+    // corner alike — a corner is simply where the walk turns, and u carries
+    // straight through it.
+    private static LipArc[] MeasureLips(WaterfallLip[] lips)
+    {
+        var atEnd = new Dictionary<Vector2I, List<int>>();
+        for (int i = 0; i < lips.Length; i++)
+        {
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector2I key = EndKey(lips[i], side);
+                if (!atEnd.TryGetValue(key, out List<int> list))
+                {
+                    list = new List<int>();
+                    atEnd[key] = list;
+                }
+                list.Add(i);
+            }
+        }
+
+        var arcs = new LipArc[lips.Length];
+        var walked = new bool[lips.Length];
+        float cursor = 0f;
+        // Open ends first, so a straight run is walked from one of its ends
+        // rather than from the middle; a closed ring has none and starts anywhere.
+        for (int pass = 0; pass < 2; pass++)
+        {
+            for (int i = 0; i < lips.Length; i++)
+            {
+                if (walked[i]) { continue; }
+                bool openEnd = atEnd[EndKey(lips[i], -1)].Count == 1
+                    || atEnd[EndKey(lips[i], 1)].Count == 1;
+                if (pass == 0 && !openEnd) { continue; }
+
+                Vector2I entry = atEnd[EndKey(lips[i], -1)].Count == 1
+                    ? EndKey(lips[i], -1) : EndKey(lips[i], 1);
+                WalkChain(lips, atEnd, arcs, walked, i, entry, ref cursor);
+                // Separate chains must not share arc length, or their streaks
+                // would correlate across a gap they have no connection through.
+                cursor += CHAIN_SEPARATION;
+            }
+        }
+        return arcs;
+    }
+
+    // Arc length between one chain and the next. Large enough that the streak
+    // noise decorrelates; the value itself means nothing else.
+    private const float CHAIN_SEPARATION = 16f;
+
+    private static void WalkChain(WaterfallLip[] lips, Dictionary<Vector2I, List<int>> atEnd,
+        LipArc[] arcs, bool[] walked, int index, Vector2I entry, ref float cursor)
+    {
+        while (true)
+        {
+            walked[index] = true;
+            Vector2I minus = EndKey(lips[index], -1);
+            Vector2I exit = entry == minus ? EndKey(lips[index], 1) : minus;
+            // Arc length grows in whichever direction the walk is going, so the
+            // step's own +Wide may run either way against it.
+            float dir = exit == EndKey(lips[index], 1) ? 1f : -1f;
+            arcs[index] = new LipArc(cursor + 0.5f, dir);
+            cursor += 1f;
+
+            int next = -1;
+            foreach (int candidate in atEnd[exit])
+            {
+                if (!walked[candidate]) { next = candidate; break; }
+            }
+            if (next < 0) { return; }
+            index = next;
+            entry = exit;
+        }
+    }
+
+    // A step's endpoints, on the voxel lattice so they key exactly.
+    private static Vector2I EndKey(WaterfallLip lip, int side)
+    {
+        Vector3 end = StartCentre(lip, 0f) + Wide(lip) * (0.5f * side);
+        return new Vector2I(Mathf.RoundToInt(end.X), Mathf.RoundToInt(end.Z));
+    }
+
+    // World XZ of a step's endpoint, for the nearest-lip lookup.
+    private static Vector2 EndPos(WaterfallLip lip, int side)
+    {
+        Vector3 end = StartCentre(lip, 0f) + Wide(lip) * (0.5f * side);
+        return new Vector2(end.X, end.Z);
+    }
+
+    // The nearest point on the whole lip line to a point on the pool, as the UV
+    // the sheet would have there: `u` its arc length, `v` MINUS the distance to
+    // it. This is what makes the drawdown converge at a corner — the flow follows
+    // the gradient of a distance field, so two lips meeting at a right angle hand
+    // over smoothly instead of switching axis, and it is measured against every
+    // lip rather than the one that happened to emit the quad.
+    private static Vector2 NearestLipUv(Vector2 point, WaterfallLip[] lips, LipArc[] arcs)
+    {
+        float bestDistance = float.MaxValue;
+        float bestU = 0f;
+        for (int i = 0; i < lips.Length; i++)
+        {
+            Vector2 a = EndPos(lips[i], -1);
+            Vector2 b = EndPos(lips[i], 1);
+            Vector2 ab = b - a;
+            float lengthSq = ab.LengthSquared();
+            float t = lengthSq > 1e-6f ? Mathf.Clamp((point - a).Dot(ab) / lengthSq, 0f, 1f) : 0f;
+            float distance = point.DistanceTo(a + ab * t);
+            if (distance >= bestDistance) { continue; }
+            bestDistance = distance;
+            // t runs from the -Wide end to the +Wide end, so it maps onto the
+            // step's own width offset before arc length is taken.
+            bestU = arcs[i].At(t - 0.5f);
+        }
+        return new Vector2(bestU, -bestDistance);
+    }
+
+    // The mesh comes back in local space around the entity's world position.
+    // Its Mesh is null if there is no lip to sweep.
+    public static WaterfallMesh Build(WaterfallSimState data, WaterfallData style)
+    {
+        if (data.Lips.Length == 0 || data.FallHeight <= 0.01f) { return default; }
 
         var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
+        // The drawdown is a SEPARATE surface because it carries a different
+        // material: it lies on the pool and composites with it, where the sheet
+        // hangs beyond the lip and depth-sorts against it.
+        var drawdownTool = new SurfaceTool();
+        drawdownTool.Begin(Mesh.PrimitiveType.Triangles);
+        LipArc[] arcs = MeasureLips(data.Lips);
 
         float height = data.FallHeight + Mathf.Max(style.landingDepth, 0f);
         // Resolved once for the whole sheet, from the drop it is actually swept
@@ -52,14 +204,23 @@ public static class WaterfallMeshBuilder
 
         foreach (WaterfallLip lip in data.Lips)
         {
-            SweepStrip(st, lip, data, style, present, height, reach, segments);
+            SweepStrip(st, lip, arcs[System.Array.IndexOf(data.Lips, lip)], data, style, present, height, reach, segments);
         }
-        SweepCorners(st, data, style, height, reach, segments);
-        return st.Commit();
+        SweepCorners(st, data, arcs, style, height, reach, segments);
+        int drawdownQuads = SweepDrawdown(drawdownTool, data, arcs, style);
+
+        ArrayMesh mesh = st.Commit();
+        int drawdownSurface = -1;
+        if (drawdownQuads > 0)
+        {
+            drawdownSurface = mesh.GetSurfaceCount();
+            mesh = drawdownTool.Commit(mesh);
+        }
+        return new WaterfallMesh(mesh, 0, drawdownSurface);
     }
 
     // One metre-wide step of the lip, swept down the jet's profile.
-    private static void SweepStrip(SurfaceTool st, WaterfallLip lip, WaterfallSimState data,
+    private static void SweepStrip(SurfaceTool st, WaterfallLip lip, LipArc arc, WaterfallSimState data,
         WaterfallData style, HashSet<Vector2I> present, float height, float reach, int segments)
     {
         Vector3 pour = Pour(lip);
@@ -78,9 +239,9 @@ public static class WaterfallMeshBuilder
         float halfLeft = present.Contains(left) ? 0.5f : 0.5f - inset;
         float halfRight = present.Contains(right) ? 0.5f : 0.5f - inset;
 
-        float uCentre = start.X * wide.X + start.Z * wide.Z;
-        float uL = uCentre - halfLeft;
-        float uR = uCentre + halfRight;
+        // Arc length along the lip, not a world-axis projection — see LipArc.
+        float uL = arc.At(-halfLeft);
+        float uR = arc.At(halfRight);
 
         Vector3 prevL = Vector3.Zero;
         Vector3 prevR = Vector3.Zero;
@@ -111,13 +272,88 @@ public static class WaterfallMeshBuilder
         }
     }
 
+    // The drawdown: the sheet carried on UPSTREAM of the lip, flat across the
+    // pool it is leaving.
+    //
+    // Its UVs come from the NEAREST POINT ON THE WHOLE LIP LINE, not from the
+    // axes of the step that emitted the quad. That is what makes a corner work:
+    // the streak field is elongated along v, so the ropes follow the gradient of
+    // a distance field and converge into the corner instead of switching axis by
+    // ninety degrees where two perpendicular steps meet. It is also what ties the
+    // run to the sheet — at the lip the distance is zero and the arc length is
+    // the step's own, so the UV a rope arrives with is exactly the UV the sheet
+    // continues it from.
+    //
+    // Pool columns are CLAIMED as they are covered, and a run stops at the first
+    // one already taken. At an outside corner two perpendicular steps are fed by
+    // the same column and would otherwise both extend back across it — coplanar,
+    // coincident, and z-fighting. The drawdown there is genuinely shared water,
+    // so first-come is not an approximation.
+    private static int SweepDrawdown(SurfaceTool st, WaterfallSimState data, LipArc[] arcs,
+        WaterfallData style)
+    {
+        float length = Mathf.Max(style.drawdownLength, 0f);
+        if (length <= 0.01f) { return 0; }
+
+        int quads = 0;
+        var claimed = new HashSet<Vector2I>();
+        foreach (WaterfallLip lip in data.Lips)
+        {
+            Vector3 pour = Pour(lip);
+            Vector3 wide = Wide(lip);
+            Vector3 start = StartCentre(lip, data.TopY);
+
+            // Walk back a column at a time, stopping where the pool is already
+            // covered. Whole metres, because that is the grid the columns are on.
+            float reachBack = 0f;
+            for (int k = 1; k <= Mathf.CeilToInt(length); k++)
+            {
+                var column = new Vector2I(lip.X - lip.DirX * k, lip.Z - lip.DirZ * k);
+                if (!claimed.Add(column)) { break; }
+                reachBack = Mathf.Min(k, length);
+            }
+            if (reachBack <= 0.01f) { continue; }
+
+            // Subdivided along the flow so the UVs can follow the distance field
+            // where it curves; a single quad would interpolate straight across a
+            // corner it is supposed to bend around.
+            Vector3 prevL = Vector3.Zero;
+            Vector3 prevR = Vector3.Zero;
+            Vector2 prevUvL = Vector2.Zero;
+            Vector2 prevUvR = Vector2.Zero;
+            for (int i = 0; i <= DRAWDOWN_STEPS; i++)
+            {
+                // From the far end IN, so the last ring lands exactly on the lip.
+                float back = reachBack * (1f - i / (float)DRAWDOWN_STEPS);
+                Vector3 centre = start - pour * back;
+                Vector3 l = centre - wide * 0.5f;
+                Vector3 r = centre + wide * 0.5f;
+                Vector2 uvL = NearestLipUv(new Vector2(l.X, l.Z), data.Lips, arcs);
+                Vector2 uvR = NearestLipUv(new Vector2(r.X, r.Z), data.Lips, arcs);
+                if (i > 0)
+                {
+                    quads++;
+                    QuadUv(st, Vector3.Up,
+                        prevL - data.WorldPosition, l - data.WorldPosition,
+                        r - data.WorldPosition, prevR - data.WorldPosition,
+                        prevUvL, uvL, uvR, prevUvR);
+                }
+                prevL = l;
+                prevR = r;
+                prevUvL = uvL;
+                prevUvR = uvR;
+            }
+        }
+        return quads;
+    }
+
     // Where two perpendicular strips leave the SAME pool column, they share a
     // corner at the lip and then diverge, opening a widening wedge between them
     // as they fall. This closes it with a quarter-turn skirt swept from the same
     // profile, so a fall pouring off an outside corner reads as one continuous
     // sheet wrapping it rather than two curtains with a gap.
-    private static void SweepCorners(SurfaceTool st, WaterfallSimState data, WaterfallData style,
-        float height, float reach, int segments)
+    private static void SweepCorners(SurfaceTool st, WaterfallSimState data, LipArc[] arcs,
+        WaterfallData style, float height, float reach, int segments)
     {
         // Lip-line endpoints land exactly on the voxel lattice, so they key
         // cleanly with no float slop.
@@ -148,7 +384,12 @@ public static class WaterfallMeshBuilder
                 {
                     if (!IsOutsideCorner(list[a], list[b])) { continue; }
                     var apex = new Vector3(kv.Key.X, data.TopY, kv.Key.Y);
-                    SweepCorner(st, apex, Pour(list[a]), Pour(list[b]), data, style, height, reach, segments);
+                    // The skirt hangs from the arc length the two steps SHARE at
+                    // this endpoint, so its streaks continue theirs instead of
+                    // starting over in the wedge between them.
+                    float uApex = ArcAtEnd(data.Lips, arcs, list[a], kv.Key);
+                    SweepCorner(st, apex, uApex, Pour(list[a]), Pour(list[b]),
+                        data, style, height, reach, segments);
                 }
             }
         }
@@ -165,7 +406,15 @@ public static class WaterfallMeshBuilder
         return a.X - a.DirX == b.X - b.DirX && a.Z - a.DirZ == b.Z - b.DirZ;
     }
 
-    private static void SweepCorner(SurfaceTool st, Vector3 apex, Vector3 dirA, Vector3 dirB,
+    // Arc length of a step at the endpoint keyed by `end`.
+    private static float ArcAtEnd(WaterfallLip[] lips, LipArc[] arcs, WaterfallLip lip, Vector2I end)
+    {
+        int index = System.Array.IndexOf(lips, lip);
+        float side = EndKey(lip, 1) == end ? 0.5f : -0.5f;
+        return arcs[index].At(side);
+    }
+
+    private static void SweepCorner(SurfaceTool st, Vector3 apex, float uApex, Vector3 dirA, Vector3 dirB,
         WaterfallSimState data, WaterfallData style, float height, float reach, int segments)
     {
         var ring = new Vector3[CORNER_STEPS + 1];
@@ -196,8 +445,12 @@ public static class WaterfallMeshBuilder
                     // U walks around the turn in metres of arc at the reach the
                     // sheet has by then; it only feeds the streak noise, so an
                     // approximate arc length is enough.
-                    float u0 = k / (float)CORNER_STEPS * Mathf.Pi * 0.5f * reach;
-                    float u1 = (k + 1) / (float)CORNER_STEPS * Mathf.Pi * 0.5f * reach;
+                    // Centred on the shared arc length and spreading as the
+                    // skirt widens, which it does with depth: at the lip the two
+                    // sheets meet at a point and there is no wedge yet.
+                    float span = Mathf.Pi * 0.5f * reach * Mathf.Sqrt(s);
+                    float u0 = uApex + (k / (float)CORNER_STEPS - 0.5f) * span;
+                    float u1 = uApex + ((k + 1) / (float)CORNER_STEPS - 0.5f) * span;
                     Quad(st, prevNormals[k], ringNormals[k], ringNormals[k + 1], prevNormals[k + 1],
                         prev[k], ring[k], ring[k + 1], prev[k + 1], u0, u1, prevV, v);
                 }
@@ -269,10 +522,43 @@ public static class WaterfallMeshBuilder
         Vertex(st, nd, d, uRight, vTop);
     }
 
+    // As Quad, but each corner carries its OWN uv rather than sharing a u across
+    // the width and a v along the length. The drawdown needs it: its uvs are
+    // sampled from a distance field, so no two corners of a quad need agree.
+    private static void QuadUv(SurfaceTool st, Vector3 normal,
+        Vector3 a, Vector3 b, Vector3 c, Vector3 d,
+        Vector2 uvA, Vector2 uvB, Vector2 uvC, Vector2 uvD)
+    {
+        Vertex(st, normal, a, uvA.X, uvA.Y);
+        Vertex(st, normal, b, uvB.X, uvB.Y);
+        Vertex(st, normal, c, uvC.X, uvC.Y);
+
+        Vertex(st, normal, a, uvA.X, uvA.Y);
+        Vertex(st, normal, c, uvC.X, uvC.Y);
+        Vertex(st, normal, d, uvD.X, uvD.Y);
+    }
+
     private static void Vertex(SurfaceTool st, Vector3 normal, Vector3 position, float u, float v)
     {
         st.SetNormal(normal);
         st.SetUV(new Vector2(u, v));
         st.AddVertex(position);
+    }
+}
+
+// What Build hands back: the swept geometry, and which of its surfaces is the
+// sheet and which the drawdown. They carry different materials because they sort
+// differently, and a fall authored with no drawdown has only the one.
+public readonly struct WaterfallMesh
+{
+    public readonly ArrayMesh Mesh;
+    public readonly int SheetSurface;
+    public readonly int DrawdownSurface;
+
+    public WaterfallMesh(ArrayMesh mesh, int sheetSurface, int drawdownSurface)
+    {
+        Mesh = mesh;
+        SheetSurface = sheetSurface;
+        DrawdownSurface = drawdownSurface;
     }
 }

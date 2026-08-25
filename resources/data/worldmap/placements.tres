@@ -8,6 +8,12 @@
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/chest.tres" id="4_mm4s5"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/campfire.tres" id="5_iwr7h"]
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="6_mm4s5"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/fountain_health.tres" id="7_xitar"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/fountain_mana.tres" id="8_m17nx"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/signpost.tres" id="9_8icqc"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="9_errfs"]
+[ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="10_m2c7i"]
+[ext_resource type="Script" uid="uid://db5ulwxm6oe8v" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="11_mw5ge"]
 
 [sub_resource type="Resource" id="Resource_v1avn"]
 script = ExtResource("2_4i2sm")
@@ -374,6 +380,112 @@ script = ExtResource("2_4i2sm")
 entry = ExtResource("6_mm4s5")
 anchorXZ = Vector2i(67, -1)
 
+[sub_resource type="Resource" id="Resource_20m58"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("7_xitar")
+anchorXZ = Vector2i(145, -14)
+
+[sub_resource type="Resource" id="Resource_ll8vc"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("7_xitar")
+anchorXZ = Vector2i(120, 42)
+
+[sub_resource type="Resource" id="Resource_kll4j"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("7_xitar")
+anchorXZ = Vector2i(135, 123)
+
+[sub_resource type="Resource" id="Resource_f6i7f"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("7_xitar")
+anchorXZ = Vector2i(9, -24)
+
+[sub_resource type="Resource" id="Resource_u5vb8"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("7_xitar")
+anchorXZ = Vector2i(-111, -21)
+
+[sub_resource type="Resource" id="Resource_e7xmq"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("7_xitar")
+anchorXZ = Vector2i(-29, -137)
+
+[sub_resource type="Resource" id="Resource_qtpqv"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("7_xitar")
+anchorXZ = Vector2i(101, -152)
+
+[sub_resource type="Resource" id="Resource_xe2kj"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("8_m17nx")
+anchorXZ = Vector2i(26, 10)
+
+[sub_resource type="Resource" id="Resource_ngy1e"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("8_m17nx")
+anchorXZ = Vector2i(54, 150)
+
+[sub_resource type="Resource" id="Resource_iyn5v"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("8_m17nx")
+anchorXZ = Vector2i(-48, 30)
+
+[sub_resource type="Resource" id="Resource_kpvgv"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("8_m17nx")
+anchorXZ = Vector2i(178, 14)
+
+[sub_resource type="Resource" id="Resource_jndr2"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("8_m17nx")
+anchorXZ = Vector2i(44, -178)
+
+[sub_resource type="Resource" id="Resource_osda5"]
+resource_name = "signpost"
+script = ExtResource("11_mw5ge")
+scene = ExtResource("10_m2c7i")
+text = "N: Riverton
+E: Port Venture
+S: The Fire Swamp
+W: Valley of Fools"
+language = ExtResource("9_errfs")
+
+[sub_resource type="Resource" id="Resource_ktogt"]
+script = ExtResource("2_4i2sm")
+entry = SubResource("Resource_osda5")
+anchorXZ = Vector2i(124, 18)
+
+[sub_resource type="Resource" id="Resource_i07lw"]
+resource_name = "signpost"
+script = ExtResource("11_mw5ge")
+scene = ExtResource("10_m2c7i")
+text = "S: The Fire Swamp
+N: Riverton"
+language = ExtResource("9_errfs")
+
+[sub_resource type="Resource" id="Resource_4v30q"]
+script = ExtResource("2_4i2sm")
+entry = SubResource("Resource_i07lw")
+anchorXZ = Vector2i(113, 46)
+
+[sub_resource type="Resource" id="Resource_rik87"]
+script = ExtResource("2_4i2sm")
+entry = ExtResource("9_8icqc")
+anchorXZ = Vector2i(-87, -63)
+
+[sub_resource type="Resource" id="Resource_4j70r"]
+resource_name = "signpost"
+script = ExtResource("11_mw5ge")
+scene = ExtResource("10_m2c7i")
+text = "NW: The Great Northern Forest
+SE: Riverton"
+language = ExtResource("9_errfs")
+
+[sub_resource type="Resource" id="Resource_gokyh"]
+script = ExtResource("2_4i2sm")
+entry = SubResource("Resource_4j70r")
+anchorXZ = Vector2i(19, -22)
+
 [sub_resource type="Resource" id="Resource_tbjbl"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/subscenes/house01.hikescene"
@@ -435,6 +547,6 @@ anchorXZ = Vector2i(-51, -150)
 [resource]
 script = ExtResource("1_62klx")
 placements = [SubResource("Resource_tbjbl"), SubResource("Resource_hd6tq"), SubResource("Resource_rkdci"), SubResource("Resource_sh2e7"), SubResource("Resource_1iphp"), SubResource("Resource_4i2sm"), SubResource("Resource_iwr7h"), SubResource("Resource_mm4s5"), SubResource("Resource_ciokf"), SubResource("Resource_6n32a"), SubResource("Resource_reuqt")]
-entities = [SubResource("Resource_v1avn"), SubResource("Resource_xitar"), SubResource("Resource_m17nx"), SubResource("Resource_8icqc"), SubResource("Resource_errfs"), SubResource("Resource_m2c7i"), SubResource("Resource_mw5ge"), SubResource("Resource_hatgq"), SubResource("Resource_w1yuy"), SubResource("Resource_nb33q"), SubResource("Resource_ne3xj"), SubResource("Resource_jdn3h"), SubResource("Resource_jvlfu"), SubResource("Resource_f4tcb"), SubResource("Resource_tefhj"), SubResource("Resource_m27kj"), SubResource("Resource_6ef7y"), SubResource("Resource_s6rg6"), SubResource("Resource_54uw5"), SubResource("Resource_fkddt"), SubResource("Resource_3esya"), SubResource("Resource_3eexj"), SubResource("Resource_u32lv"), SubResource("Resource_12ffn"), SubResource("Resource_tvr8w"), SubResource("Resource_3tpyt"), SubResource("Resource_h4tfw"), SubResource("Resource_rm76c"), SubResource("Resource_qe5vh"), SubResource("Resource_si3n7"), SubResource("Resource_u8dk4"), SubResource("Resource_otsru"), SubResource("Resource_4m1we"), SubResource("Resource_87ui2"), SubResource("Resource_2mrh3"), SubResource("Resource_gp45i"), SubResource("Resource_v4k15"), SubResource("Resource_cv3em"), SubResource("Resource_5dlux"), SubResource("Resource_hck5n"), SubResource("Resource_i35ip"), SubResource("Resource_4kuvw"), SubResource("Resource_cqh6q"), SubResource("Resource_vvdyp"), SubResource("Resource_cfccf"), SubResource("Resource_rwocs"), SubResource("Resource_65r5s"), SubResource("Resource_4iap5"), SubResource("Resource_kbshv"), SubResource("Resource_wfut7"), SubResource("Resource_4wdla"), SubResource("Resource_60gjy"), SubResource("Resource_1hepy"), SubResource("Resource_inkue"), SubResource("Resource_mrnhc"), SubResource("Resource_o1j36"), SubResource("Resource_2si1a"), SubResource("Resource_dakmn"), SubResource("Resource_c4ufj"), SubResource("Resource_lox48"), SubResource("Resource_yr2df"), SubResource("Resource_whmxo"), SubResource("Resource_glk8q"), SubResource("Resource_r117a"), SubResource("Resource_h11tg"), SubResource("Resource_vaddl"), SubResource("Resource_gi6h3"), SubResource("Resource_wo01p"), SubResource("Resource_c7jvl"), SubResource("Resource_t1hy1"), SubResource("Resource_3amhf"), SubResource("Resource_lencd"), SubResource("Resource_hdxvt")]
+entities = [SubResource("Resource_v1avn"), SubResource("Resource_xitar"), SubResource("Resource_m17nx"), SubResource("Resource_8icqc"), SubResource("Resource_errfs"), SubResource("Resource_m2c7i"), SubResource("Resource_mw5ge"), SubResource("Resource_hatgq"), SubResource("Resource_w1yuy"), SubResource("Resource_nb33q"), SubResource("Resource_ne3xj"), SubResource("Resource_jdn3h"), SubResource("Resource_jvlfu"), SubResource("Resource_f4tcb"), SubResource("Resource_tefhj"), SubResource("Resource_m27kj"), SubResource("Resource_6ef7y"), SubResource("Resource_s6rg6"), SubResource("Resource_54uw5"), SubResource("Resource_fkddt"), SubResource("Resource_3esya"), SubResource("Resource_3eexj"), SubResource("Resource_u32lv"), SubResource("Resource_12ffn"), SubResource("Resource_tvr8w"), SubResource("Resource_3tpyt"), SubResource("Resource_h4tfw"), SubResource("Resource_rm76c"), SubResource("Resource_qe5vh"), SubResource("Resource_si3n7"), SubResource("Resource_u8dk4"), SubResource("Resource_otsru"), SubResource("Resource_4m1we"), SubResource("Resource_87ui2"), SubResource("Resource_2mrh3"), SubResource("Resource_gp45i"), SubResource("Resource_v4k15"), SubResource("Resource_cv3em"), SubResource("Resource_5dlux"), SubResource("Resource_hck5n"), SubResource("Resource_i35ip"), SubResource("Resource_4kuvw"), SubResource("Resource_cqh6q"), SubResource("Resource_vvdyp"), SubResource("Resource_cfccf"), SubResource("Resource_rwocs"), SubResource("Resource_65r5s"), SubResource("Resource_4iap5"), SubResource("Resource_kbshv"), SubResource("Resource_wfut7"), SubResource("Resource_4wdla"), SubResource("Resource_60gjy"), SubResource("Resource_1hepy"), SubResource("Resource_inkue"), SubResource("Resource_mrnhc"), SubResource("Resource_o1j36"), SubResource("Resource_2si1a"), SubResource("Resource_dakmn"), SubResource("Resource_c4ufj"), SubResource("Resource_lox48"), SubResource("Resource_yr2df"), SubResource("Resource_whmxo"), SubResource("Resource_glk8q"), SubResource("Resource_r117a"), SubResource("Resource_h11tg"), SubResource("Resource_vaddl"), SubResource("Resource_gi6h3"), SubResource("Resource_wo01p"), SubResource("Resource_c7jvl"), SubResource("Resource_t1hy1"), SubResource("Resource_3amhf"), SubResource("Resource_lencd"), SubResource("Resource_hdxvt"), SubResource("Resource_20m58"), SubResource("Resource_ll8vc"), SubResource("Resource_kll4j"), SubResource("Resource_f6i7f"), SubResource("Resource_u5vb8"), SubResource("Resource_e7xmq"), SubResource("Resource_qtpqv"), SubResource("Resource_xe2kj"), SubResource("Resource_ngy1e"), SubResource("Resource_iyn5v"), SubResource("Resource_kpvgv"), SubResource("Resource_jndr2"), SubResource("Resource_ktogt"), SubResource("Resource_4v30q"), SubResource("Resource_rik87"), SubResource("Resource_gokyh")]
 hasSpawn = true
 spawnXZ = Vector2i(110, -16)

@@ -66,7 +66,7 @@ public static class WorldMapCheck
             {
                 continue;
             }
-            bool owned = string.IsNullOrEmpty(placement.entry.ResourcePath);
+            bool owned = SpawnEntryData.IsOwnedCopy(placement.entry);
             string name = owned
                 ? (string.IsNullOrEmpty(placement.entry.ResourceName)
                     ? placement.entry.GetType().Name
@@ -95,7 +95,7 @@ public static class WorldMapCheck
         // tell until the bake.
         foreach (EntityPlacement placement in entities)
         {
-            if (placement?.entry == null || string.IsNullOrEmpty(placement.entry.ResourcePath))
+            if (placement?.entry == null || SpawnEntryData.IsOwnedCopy(placement.entry))
             {
                 continue;
             }
@@ -155,6 +155,9 @@ public static class WorldMapCheck
         int carved = 0;
         int added = 0;
         int addedAboveGround = 0;
+        int pavedSurface = 0;
+        int pavedUnder = 0;
+        int pavedStranded = 0;
         for (int px = 0; px < w; px++)
         {
             for (int pz = 0; pz < h; pz++)
@@ -187,6 +190,27 @@ public static class WorldMapCheck
                 {
                     spawnable++;
                 }
+                if (ctx.PavingAt(px, pz) != null)
+                {
+                    int pavedY = ctx.PavedYAt(px, pz);
+                    if (ctx.PavingLevelAt(px, pz) == WorldMapState.PavedOnSurface)
+                    {
+                        pavedSurface++;
+                    }
+                    else if (ctx.SolidAt(px, pz, pavedY) && !ctx.SolidAt(px, pz, pavedY + 1))
+                    {
+                        pavedUnder++;
+                    }
+                    else
+                    {
+                        // The floor a road was laid on is no longer a floor, so
+                        // the bake lays nothing: terrain repainted under it, or
+                        // a carve took it. Only an absolute level can strand —
+                        // a surface-seated one is re-resolved every bake.
+                        pavedStranded++;
+                    }
+                }
+
                 int th = ctx.TerrainHeight(px, pz);
                 for (int wy = data.WorldMinY; wy <= data.WorldMaxY; wy++)
                 {
@@ -224,6 +248,9 @@ public static class WorldMapCheck
         sb.AppendLine($"[worldmap_check] spawnable: {spawnable} columns "
             + $"(refused {wet} wet, {grade} grade, {edited} carved/built over, "
             + $"{w * h - spawnable - wet - grade - edited} paved/built)");
+
+        sb.AppendLine($"[worldmap_check] paving: {pavedSurface} columns on the surface, "
+            + $"{pavedUnder} on a floor under it, {pavedStranded} stranded (no floor at their level)");
 
         sb.AppendLine($"[worldmap_check] voxel edits: {carved} carved, {added} added "
             + $"({addedAboveGround} of them above the height map)");

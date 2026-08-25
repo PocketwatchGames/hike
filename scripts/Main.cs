@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -107,6 +107,15 @@ public partial class Main : Node
 		if (CVars.shaderCheck.Value)
 		{
 			_ = ShaderCheck.RunAndQuit(GetTree());
+			return;
+		}
+
+		// Whether a transparent material can occlude another transparent one via
+		// depth_draw_always — the assumption the waterfall/water sort rests on.
+		// Needs a real rasterizer, so run this one WINDOWED.
+		if (CVars.depthSortCheck.Value)
+		{
+			_ = DepthSortCheck.RunAndQuit(GetTree());
 			return;
 		}
 

@@ -35,6 +35,26 @@ public partial class EntityPlacement : Resource
     // moves under them.
     [Export] public int floorY = OnTheGround;
 
+    // Was this placement made from that palette entry? Its own FORK counts: a
+    // chest whose text has been edited is still a chest, and dropping out of the
+    // palette's highlight the moment it is customized is backwards — a
+    // customized one is the one most worth finding. The fork keeps the palette
+    // file as its resource name, which is all that is left saying where it came
+    // from.
+    public bool IsFrom(SpawnEntryData paletteEntry)
+    {
+        if (entry == null || paletteEntry == null)
+        {
+            return false;
+        }
+        if (entry == paletteEntry)
+        {
+            return true;
+        }
+        return !string.IsNullOrEmpty(entry.ResourceName)
+            && entry.ResourceName == SpawnEntryData.DisplayName(paletteEntry);
+    }
+
     // This placement's entry, ready to be EDITED — the properties of a
     // hand-placed entity ARE its entry's, so there is no second place to put a
     // signpost's text or a chest's spawn conditions.
@@ -47,7 +67,7 @@ public partial class EntityPlacement : Resource
     // references the same LanguageData rather than getting a private copy of it.
     public SpawnEntryData EditableEntry()
     {
-        if (entry == null || string.IsNullOrEmpty(entry.ResourcePath))
+        if (entry == null || SpawnEntryData.IsOwnedCopy(entry))
         {
             return entry;
         }

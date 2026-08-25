@@ -25,11 +25,12 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_canvas")
 
-[node name="Hud" type="CanvasLayer" parent="." unique_id=445149964 node_paths=PackedStringArray("layerLabel", "toolLabel", "coordsLabel", "bakePanel", "bakeLabel", "bakeBar", "toolButtonBar", "optionButtonBar", "hintLabel", "entityInspector")]
+[node name="Hud" type="CanvasLayer" parent="." unique_id=445149964 node_paths=PackedStringArray("layerLabel", "toolLabel", "coordsLabel", "hoverLabel", "bakePanel", "bakeLabel", "bakeBar", "toolButtonBar", "optionButtonBar", "hintLabel", "entityInspector")]
 script = ExtResource("4_hud")
 layerLabel = NodePath("MarginContainer/VBoxContainer/LayerLabel")
 toolLabel = NodePath("MarginContainer/VBoxContainer/ToolLabel")
 coordsLabel = NodePath("MarginContainer/VBoxContainer/CoordsLabel")
+hoverLabel = NodePath("MarginContainer/VBoxContainer/HoverLabel")
 bakePanel = NodePath("BakePanel")
 bakeLabel = NodePath("BakePanel/BakeLabel")
 bakeBar = NodePath("BakePanel/BakeBar")
@@ -66,6 +67,10 @@ text = "[Q/E] Tool: Raise"
 [node name="CoordsLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=1465641328]
 layout_mode = 2
 text = "[R/F] Texel: (0, 0)"
+
+[node name="HoverLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.72, 0.35, 1)
 
 [node name="HintLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=1410644965]
 layout_mode = 2

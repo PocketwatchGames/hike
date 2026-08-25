@@ -40,7 +40,7 @@ public class EntityTool : IWorldMapTool
 
     public EntityTool()
     {
-        View = new EntityView();
+        View = new CutawayGroundView();
     }
 
     private bool SpawnSelected => PaletteIndex == 0;
@@ -52,7 +52,7 @@ public class EntityTool : IWorldMapTool
         names[0] = "Player spawn";
         for (int i = 0; i < palette.Length; i++)
         {
-            names[i + 1] = palette[i]?.ResourcePath.GetFile().GetBaseName() ?? $"Entry {i}";
+            names[i + 1] = palette[i] == null ? $"Entry {i}" : SpawnEntryData.DisplayName(palette[i]);
         }
         return names;
     }
@@ -69,7 +69,7 @@ public class EntityTool : IWorldMapTool
         => SpawnSelected ? ctx.Data.spawnInk : ctx.Data.entityInk;
 
     public string HintText(WorldMapState ctx)
-        => "Click to place, drag to move, R/F to turn, RMB to delete";
+        => "Hover to name  |  Click to place, drag to move, R/F to turn, RMB to delete";
 
     public string StatusText(WorldMapState ctx)
     {
@@ -79,12 +79,24 @@ public class EntityTool : IWorldMapTool
                 ? $"Player spawn at {ctx.Placements.spawnXZ.X}, {ctx.Placements.spawnXZ.Y}"
                 : "Player spawn (not placed — world origin)";
         }
+        SpawnEntryData entry = SelectedEntry(ctx);
+        return entry != null ? SpawnEntryData.DisplayName(entry) : "No entity palette authored";
+    }
+
+    // What the next click would place, and so what the map picks out: every
+    // placement of this entry is inked as a match. Null while the spawn point is
+    // the selection — there is one of those and it has its own ink.
+    public SpawnEntryData SelectedEntry(WorldMapState ctx)
+    {
         SpawnEntryData[] palette = ctx.EntityPalette;
         int i = PaletteIndex - 1;
-        return i >= 0 && i < palette.Length && palette[i] != null
-            ? palette[i].ResourcePath.GetFile().GetBaseName()
-            : "No entity palette authored";
+        return i >= 0 && i < palette.Length ? palette[i] : null;
     }
+
+    // The same proximity test the press grabs with, so what the cursor grows and
+    // the HUD names is exactly what a click would pick up.
+    public EntityPlacement EntityUnder(WorldMapState ctx, Vector2I texel)
+        => ctx.EntityAt(texel.X, texel.Y, GrabRadius);
 
     public string LevelText(WorldMapState ctx)
         => Selected == null ? "" : $"Selected {(int)Selected.rotation * 90} deg";
@@ -143,15 +155,14 @@ public class EntityTool : IWorldMapTool
             }
             else
             {
-                SpawnEntryData[] palette = ctx.EntityPalette;
-                int i = PaletteIndex - 1;
-                if (i < 0 || i >= palette.Length || palette[i] == null)
+                SpawnEntryData entry = SelectedEntry(ctx);
+                if (entry == null)
                 {
                     return;
                 }
                 Selected = new EntityPlacement
                 {
-                    entry = palette[i],
+                    entry = entry,
                     anchorXZ = ctx.WorldXZ(texel),
                     floorY = ctx.FloorForEntity(texel.X, texel.Y, ctx.CutawayY),
                 };
@@ -187,30 +198,5 @@ public class EntityTool : IWorldMapTool
             return;
         }
         Selected.rotation = (ESubsceneRotation)(((int)Selected.rotation + dir) & 3);
-    }
-}
-
-// The plain ground map. Ground rather than elevation: what matters when placing
-// a chest is what is around it — the road it sits beside, the props already there
-// — and the terrain shape still reads through the step outlines.
-//
-// The entity marks themselves are composited by the painter onto whatever view
-// is active (WorldMapPainter.DrawEntityMarks), the way stamps are, so this view
-// only has to draw the ground.
-public class EntityView : IWorldMapView
-{
-    public bool ShowsAllSteps => true;
-    public bool DrawsWater => true;
-    public bool CutsAway => true;
-    public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
-
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
-    {
-        // Lowering the plane switches this map from the ground layer to the
-        // cutaway, because underground there is no ground TYPE to show — the
-        // question becomes which floor is down there to stand something on.
-        return ctx.IsCutAway
-            ? ctx.CutawayColorAt(px, pz, ctx.CutawayY, out _)
-            : ctx.GroundColorAt(px, pz);
     }
 }

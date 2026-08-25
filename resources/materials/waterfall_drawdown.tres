@@ -1,10 +1,10 @@
 [gd_resource type="ShaderMaterial" load_steps=2 format=3]
 
-[ext_resource type="Shader" uid="uid://brd3pmyfmrf8x" path="res://shaders/waterfall.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://ivfzcvv8lk54r" path="res://shaders/waterfall_drawdown.gdshader" id="1_shader"]
 
 [resource]
-resource_name = "waterfall"
-render_priority = -6
+resource_name = "waterfall_drawdown"
+render_priority = -1
 shader = ExtResource("1_shader")
 shader_parameter/flow_speed = 9.0
 shader_parameter/streak_scale_across = 1.6

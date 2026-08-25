@@ -207,12 +207,22 @@ public partial class WorldMapPainter : Node3D
         SelectTool(0);
     }
 
+    // The entity under the cursor, the placement the tool has selected, and the
+    // palette entry it would place next — all three change what the entity marks
+    // look like, so each is remembered to know WHICH marks a change has to
+    // repaint. Without that the highlight left behind on a mark somewhere else on
+    // the map would survive until the next full rebuild.
+    private EntityPlacement _hoverEntity;
+    private EntityPlacement _markedSelection;
+    private SpawnEntryData _markedEntry;
+
     // What the MAP IS SHOWING at a column, not the raw height field. Under a
     // cutaway the two differ by a whole mountain, and a readout that reports the
     // hilltop while the map draws the passage beneath it makes every alt+click
     // look like it sampled the wrong thing — which is exactly how it read.
     private void ReportHover(Vector2I t)
     {
+        SetHoverEntity(ActiveTool.EntityUnder(_ctx, t));
         int clip = ActiveTool.View.CutsAway ? _ctx.CutawayY : int.MaxValue;
         int shown = _ctx.CutawayFloor(t.X, t.Y, clip, out _);
         // Solid rock at the plane has no floor to report; fall back to the ground
@@ -225,6 +235,72 @@ public partial class WorldMapPainter : Node3D
             _ctx.WaterSurface(t.X, t.Y), _ctx.HasWater(t.X, t.Y));
     }
 
+    // A mark grows under the cursor and the HUD names it: an entity is one metre
+    // on a map that can be zoomed out to a pixel per metre, so which mark is
+    // which — and whether the cursor is on one at all — is not otherwise
+    // readable. Only the two marks involved are repainted, since this runs on
+    // mouse motion.
+    private void SetHoverEntity(EntityPlacement hover)
+    {
+        if (ReferenceEquals(hover, _hoverEntity))
+        {
+            return;
+        }
+        EntityPlacement was = _hoverEntity;
+        _hoverEntity = hover;
+        RefreshEntityMark(was);
+        RefreshEntityMark(hover);
+        PushDisplay();
+        hud.SetHovered(hover == null ? "" : SpawnEntryData.DisplayName(hover.entry));
+    }
+
+    // Repaint the cells one mark covers, at its GROWN size — a mark that has just
+    // stopped being the hovered or selected one has to have the bigger footprint
+    // cleaned up, not the size it is about to draw at.
+    private void RefreshEntityMark(EntityPlacement placement)
+    {
+        if (placement == null)
+        {
+            return;
+        }
+        Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
+        int r = Mathf.Max(0, data.entityMarkHighlightRadius);
+        RebuildDisplay(new Rect2I(at.X - r, at.Y - r, 2 * r + 1, 2 * r + 1));
+    }
+
+    // The entity marks the map draws depend on the tool's selection as well as on
+    // the document, and neither is spatial: selecting one entity unhighlights
+    // whichever was selected before, wherever it is. Called wherever the tool's
+    // state can have moved.
+    private void RefreshEntityHighlight()
+    {
+        EntityPlacement selection = ActiveTool.SelectedEntity;
+        if (!ReferenceEquals(selection, _markedSelection))
+        {
+            RefreshEntityMark(_markedSelection);
+            RefreshEntityMark(selection);
+            _markedSelection = selection;
+            PushDisplay();
+            // The property panel is pushed from UpdateHud, and a CLICK reaches
+            // neither — so without this the panel keeps showing the entry it was
+            // last built for (the previous signpost's text, or nothing at all for
+            // the first selection of a session) until a tool or option change
+            // happens to refresh it. Here rather than per frame because a rebuild
+            // destroys the widget being typed into.
+            UpdateHud();
+        }
+        SpawnEntryData entry = ActiveTool.SelectedEntry(_ctx);
+        if (!ReferenceEquals(entry, _markedEntry))
+        {
+            // Every placement of an entry is inked as a match, so this one is a
+            // whole-map answer rather than a pair of marks. Deferred and
+            // coalesced like every other full rebuild, so holding Q/E through the
+            // palette costs one repaint per frame.
+            _markedEntry = entry;
+            RebuildFull();
+        }
+    }
+
     // The single way the active tool changes — buttons, Tab and the number keys
     // all come through here, so the toolbar can never disagree with the map.
     private void SelectTool(int index)
@@ -234,6 +310,10 @@ public partial class WorldMapPainter : Node3D
             return;
         }
         _toolIndex = index;
+        // The hover belongs to the tool that answered it; the rebuild below
+        // repaints the mark it had grown.
+        _hoverEntity = null;
+        hud.SetHovered("");
         // A tool that works under the ground brings the plane with it.
         int? wantCutaway = ActiveTool.CutawayFor(cutawayHeadroom);
         if (wantCutaway.HasValue)
@@ -244,6 +324,8 @@ public partial class WorldMapPainter : Node3D
         hud.SetActiveTool(index);
         hud.BuildOptionButtons(ActiveTool.Options(_ctx), ActiveTool.OptionColors(_ctx), SelectOption);
         hud.SetActiveOption(ActiveTool.OptionIndex);
+        _markedSelection = ActiveTool.SelectedEntity;
+        _markedEntry = ActiveTool.SelectedEntry(_ctx);
         RebuildFull();
         UpdateHud();
     }
@@ -258,6 +340,7 @@ public partial class WorldMapPainter : Node3D
         }
         ActiveTool.OptionIndex = index;
         hud.SetActiveOption(ActiveTool.OptionIndex);
+        RefreshEntityHighlight();
         UpdateHud();
     }
 
@@ -280,6 +363,7 @@ public partial class WorldMapPainter : Node3D
     {
         ActiveTool.Cycle(_ctx, dir);
         hud.SetActiveOption(ActiveTool.OptionIndex);
+        RefreshEntityHighlight();
         UpdateHud();
     }
 
@@ -417,6 +501,10 @@ public partial class WorldMapPainter : Node3D
     // just written. Painting stays live while it runs.
     private void SaveAndBake()
     {
+        // Ctrl+S while a property row still holds focus: the value has to reach
+        // the entry before the document is written, or the save records the text
+        // that was there before it was typed.
+        hud.entityInspector?.FlushPendingEdit();
         _ctx.Save();
         if (_bakeTask != null && !_bakeTask.IsCompleted)
         {
@@ -582,6 +670,11 @@ public partial class WorldMapPainter : Node3D
 
     private void OnCanvasStrokeStart(Vector2I texel, EStrokeMods mods)
     {
+        // Clicking the map means you are done typing — but the canvas takes no
+        // focus, so the property panel would never hear about it and the typed
+        // value would sit uncommitted until the row was destroyed. Ahead of the
+        // stroke's own edit, so a text change is its own undo step.
+        hud.entityInspector?.FlushPendingEdit();
         // alt+RMB aims the CUTAWAY at the floor under it, with headroom to stand
         // in — the one gesture that moves the plane without hunting for T/G.
         // Only where a cutaway is on screen: elsewhere it would silently consume
@@ -628,6 +721,13 @@ public partial class WorldMapPainter : Node3D
         // both over a neighbourhood, so the cached height field has to go.
         _ctx.InvalidateHeights(BrushRect(texel, ActiveTool.Radius));
         RebuildDisplay(ExpandToChunks(ActiveTool.LastPaintRect ?? BrushRect(texel, ActiveTool.Radius)));
+        // A click that grabs an entity un-highlights whatever was selected
+        // before, and that one can be anywhere on the map — the rect under the
+        // cursor says nothing about where.
+        RefreshEntityHighlight();
+        // What the cursor is over may be what this stroke just placed or just
+        // deleted, and neither moves the mouse.
+        SetHoverEntity(ActiveTool.EntityUnder(_ctx, texel));
         PushDisplay();
     }
 
@@ -806,21 +906,41 @@ public partial class WorldMapPainter : Node3D
     // rebuild, which is the shape that made stamps the slowest thing on the map.
     private void DrawEntityMarks(int x0, int z0, int x1, int z1)
     {
-        // Only the entity tool answers with a selection, so the marks stay plain
-        // while another tool is active.
+        // Only the entity tool answers with a selection or an entry, so the marks
+        // stay plain while another tool is active.
         EntityPlacement selected = ActiveTool.SelectedEntity;
+        SpawnEntryData match = ActiveTool.SelectedEntry(_ctx);
+        int grow = Mathf.Max(0, data.entityMarkHighlightRadius);
         foreach (EntityPlacement placement in _ctx.Placements.entities)
         {
             if (placement == null)
             {
                 continue;
             }
+            // Everything the tool is picking out grows — the hover, the
+            // selection, and every match — so the palette's answer reads at a
+            // glance instead of as a colour difference between one-metre dots. A
+            // grown mark reaches INTO this rect from an anchor outside it, so the
+            // reject has to allow for the growth or a highlight is clipped off at
+            // a partial rebuild's edge.
+            bool isSelected = placement == selected;
+            bool isMatch = !isSelected && placement.IsFrom(match);
+            int r = isSelected || isMatch || placement == _hoverEntity ? grow : 0;
             Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
-            if (at.X < x0 || at.X >= x1 || at.Y < z0 || at.Y >= z1)
+            if (at.X + r < x0 || at.X - r >= x1 || at.Y + r < z0 || at.Y - r >= z1)
             {
                 continue;
             }
-            FillCell(at.X, at.Y, placement == selected ? Colors.White : data.entityInk);
+            Color ink = isSelected ? data.entitySelectedInk
+                : isMatch ? data.entityMatchInk
+                : data.entityInk;
+            for (int px = Mathf.Max(at.X - r, x0); px <= Mathf.Min(at.X + r, x1 - 1); px++)
+            {
+                for (int pz = Mathf.Max(at.Y - r, z0); pz <= Mathf.Min(at.Y + r, z1 - 1); pz++)
+                {
+                    FillCell(px, pz, ink);
+                }
+            }
         }
         if (_ctx.Placements.hasSpawn)
         {

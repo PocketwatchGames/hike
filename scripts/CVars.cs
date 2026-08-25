@@ -1460,6 +1460,22 @@
         Godot.RenderingServer.GlobalShaderParameterSet("water_debug_mode", ((CVarInt)cvar).Value);
     });
 
+    // A cascade's sheet blends continuously between falling water and the pool
+    // surface rolling off its lip (`surfaceness`), so nothing on screen says
+    // which one you are looking at — and that is exactly the question when a
+    // fall looks wrong against water. Spray is neither: it is Fx particles,
+    // isolate that with `fx_particles 0`.
+    //   0 = normal
+    //   1 = the falling half only. It discards, so the hidden half stops
+    //       writing depth and stops occluding the pool as well.
+    //   2 = the surface half only (the brink).
+    //   3 = surfaceness, flat and opaque: RED falling, GREEN surface — shows
+    //       where a given fall hands over from one to the other.
+    public static CVarInt waterfallDebug = new CVarInt("waterfall_debug", 0, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("waterfall_debug", ((CVarInt)cvar).Value);
+    });
+
     // Ceiling-cap pipeline debug visualizer. Each mode replaces a single
     // shader's output with a flat bright color so you can see exactly
     // which shader is drawing what at any pixel. Use to track down "X is
@@ -1934,6 +1950,11 @@
     // without starting a game. Pair with `--headless` for a ~4s "do the shaders
     // still compile" check instead of a full autostart run.
     public static CVarBool shaderCheck = new CVarBool("shader_check", false);
+
+    // Does a transparent material with depth_draw_always cull a later
+    // transparent draw behind it? WINDOWED only — the dummy renderer
+    // rasterizes nothing, so headless always reports the clear colour.
+    public static CVarBool depthSortCheck = new CVarBool("depth_sort_check", false);
     public static CVarBool blockCheck = new CVarBool("block_check", false);
     public static CVarBool waterShoreCheck = new CVarBool("water_shore_check", false);
 

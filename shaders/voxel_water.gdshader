@@ -1,5 +1,17 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_never, cull_back, unshaded;
+// WRITES DEPTH, so that water sorts against water. Every chunk's surface is its
+// own mesh at one shared render_priority, so with no depth write the order came
+// down to Godot's per-OBJECT distance sort — by AABB centre, which for a 16³
+// chunk is the middle of the box and not where its water actually sits. A chunk
+// holding a low pool could therefore sort as nearer than one holding a high pool
+// and paint straight over it, and two water levels inside a single chunk are one
+// mesh with no sorting at all. Depth settles it per pixel instead.
+//
+// Safe against this shader's own screen reads: `screen_tex` and `depth_tex` are
+// both captured BEFORE the transparent pass, so what refraction and thickness
+// see is unchanged. The cost is that anything transparent BEHIND a water surface
+// is now culled rather than blended — submerged sprites and particles included.
+render_mode blend_mix, depth_draw_always, cull_back, unshaded;
 // Mark every pixel where the water surface draws so the prop reflection
 // shader (sprite_prop_reflection_multimesh.gdshader) can render only
 // inside that mask. Reference value 4 — distinct from voxel_backface (1)
