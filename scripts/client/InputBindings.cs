@@ -35,7 +35,7 @@ public static class InputBindings
         SetBindings(Interact);
         SetBindings(Dash, Key.Space, JoyButton.A);
         SetBindings(Lantern, Key.Q, JoyButton.B);
-        SetBindings(UseItem, Key.Ctrl, JoyButton.RightShoulder);
+        SetBindings(UseItem, Key.Ctrl, JoyButton.Y);
         SetBindings(Sneak, Key.Shift, JoyAxis.TriggerLeft);
     }
 
