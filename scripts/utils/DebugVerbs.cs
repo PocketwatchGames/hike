@@ -13,12 +13,6 @@ using System.Collections.Generic;
 // to the console rather than returning localized text.
 public static class DebugVerbs
 {
-    // Teleport lands the party on the first voxel with headroom at or above the
-    // requested Y, searching this far up. Covers a POI Y sitting exactly on the
-    // ground top and a hand-typed Y buried in terrain; past that the request is
-    // taken literally rather than silently relocating the player a long way.
-    private const int MaxTeleportRise = 8;
-
     // Mobs spawn on a ring at this radius so a group doesn't stack inside itself
     // and the player can see what arrived.
     private const float SpawnRingRadius = 4f;
@@ -134,7 +128,11 @@ public static class DebugVerbs
         return false;
     }
 
-    // First position at or above `p` with two voxels of headroom.
+    // First position at or above `p` with two voxels of headroom. A coordinate
+    // typed into the console is usually inside terrain, so the march is bounded
+    // only by the top of the world rather than by a small nudge: landing the
+    // party inside rock is never the useful reading of the request, and above
+    // the world they simply fall to the surface of the column they asked for.
     private static Vector3 ResolveStandable(WorldState ws, Vector3 p)
     {
         if (ws == null)
@@ -144,12 +142,15 @@ public static class DebugVerbs
         int vx = Mathf.FloorToInt(p.X);
         int vz = Mathf.FloorToInt(p.Z);
         int vy = Mathf.FloorToInt(p.Y);
-        for (int i = 0; i <= MaxTeleportRise; i++)
+        // Max is an inclusive CHUNK extent; out-of-bounds reads answer air, so
+        // the ceiling is a loop bound rather than a rejection.
+        int topY = (ws.Max.Y + 1) * ChunkState.SIZE;
+        for (int y = vy; y <= topY; y++)
         {
-            if (!Blocks.IsSolid(ws.GetBlockWorld(vx, vy + i, vz))
-                && !Blocks.IsSolid(ws.GetBlockWorld(vx, vy + i + 1, vz)))
+            if (!Blocks.IsSolid(ws.GetBlockWorld(vx, y, vz))
+                && !Blocks.IsSolid(ws.GetBlockWorld(vx, y + 1, vz)))
             {
-                return new Vector3(p.X, vy + i, p.Z);
+                return new Vector3(p.X, y, p.Z);
             }
         }
         return p;

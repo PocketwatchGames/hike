@@ -73,7 +73,7 @@ public static class CurrentDebug
                 int surfaceY = int.MinValue;
                 for (int wy = worldMaxY; wy >= worldMinY; wy--)
                 {
-                    if (ws.GetBlockWorld(wx, wy, wz) == Blocks.WaterId)
+                    if (Blocks.IsWater(ws.GetBlockWorld(wx, wy, wz)))
                     {
                         surfaceY = wy;
                         break;

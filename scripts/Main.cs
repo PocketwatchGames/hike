@@ -248,9 +248,6 @@ public partial class Main : Node
 		GD.Print($"[Load] Loading assets: {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
 
-		loadingScreen.SetProgress(0.05f, "Generating world...");
-		await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-
 		// Worldgen and .hike loading both run off the main thread so the
 		// loading bar can keep rendering and the audio fade keeps ticking
 		// while the work runs. Both code paths today are pure C# (no Node
@@ -286,6 +283,13 @@ public partial class Main : Node
 			string genDataPath = worldGenData?.ResourcePath;
 			GD.Print($"[Load] Generating world (WorldGenData: {(string.IsNullOrEmpty(genDataPath) ? "<null>" : genDataPath)}, seed={DEFAULT_WORLD_SEED}, size={DEFAULT_WORLD_SIZE})");
 		}
+
+		// Only the third path actually generates anything; the label said
+		// "Generating world" for all three, which is why a cache hit still read
+		// as a full regeneration. Set after the cache probe, since that is what
+		// decides which of the three this is.
+		loadingScreen.SetProgress(0.05f, loadingFromFile || cacheHit ? "Loading world..." : "Generating world...");
+		await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 
 		try
 		{
@@ -356,18 +360,54 @@ public partial class Main : Node
 			}
 			else
 			{
-				// Disk-loaded paths (worldFile or worldgen cache) come back
-				// with sunlight already baked, but the baked bytes are only
-				// as good as the FoliageStamper / LightEngine logic at the
-				// time of the save. Re-stamp canopy and re-propagate so any
-				// changes to the lighting pipeline reach previously-cached
-				// worlds without needing a WORLDGEN_VERSION bump. Cost is
-				// one ComputeSunlight pass on load (~sub-second at current
-				// world sizes); the canopy field also needs to be live so
-				// later voxel-edit re-propagation keeps foliage shadowing.
+				// Sunlight is BAKED INTO THE FILE and is trusted as such — a
+				// full ComputeSunlight here cost ~13s at the default world size
+				// and WAS this whole load phase. What the file does not carry
+				// still has to be rebuilt:
+				//   - the canopy / SunOpaque occluder fields, which are not
+				//     serialized (their effect is already in the sun bytes) but
+				//     must be live so a later voxel edit re-propagates against
+				//     foliage and roofs;
+				//   - SkyExposure, which is derived rather than stored.
+				// A change to the light pipeline reaches cached worlds through
+				// LightEngine.LIGHT_VERSION in the cache fingerprint; a
+				// hand-authored .hike keeps what it was baked with until it is
+				// re-baked or `relight` is run.
+				var stampSw = Stopwatch.StartNew();
 				FoliageStamper.Stamp(worldState);
 				EntityVoxelStamper.Stamp(worldState);
-				LightEngine.Relight(worldState);
+				long stampMs = stampSw.ElapsedMilliseconds;
+				WorldState loaded = worldState;
+				// A file with NO baked sunlight at all would otherwise load as a
+				// pitch-black world with nothing in the log to say why — the one
+				// failure mode trusting the file's light can produce, and it is
+				// silent. Cheap to rule out: the scan stops at the first lit
+				// voxel, so a normal world pays almost nothing. Any .hike baked
+				// before the painter started baking light lands here.
+				long relitMs = 0;
+				await RunOffThread(() =>
+				{
+					LightEngine.ComputeSkyExposure(loaded);
+					if (HasAnyBakedSunlight(loaded))
+					{
+						return true;
+					}
+					// Reported separately from the sky pass: this is the whole
+					// cost of the load when it fires (a minute-plus on a large
+					// world), and folding it into a neighbouring number hides
+					// that the world is being repaired on every single load.
+					var relightSw = Stopwatch.StartNew();
+					GD.PrintErr("[Load] This world carries NO baked sunlight — relighting it now, which is why this "
+						+ "load is slow. It was baked before lighting became part of a bake. Fix it ONCE, either way: "
+						+ "re-bake it from its world-map document, or with the world open run "
+						+ "`world_export <path>` to write the relit world back over the file.");
+					LightEngine.ComputeSunlight(loaded);
+					relitMs = relightSw.ElapsedMilliseconds;
+					return true;
+				});
+				long skyMs = stampSw.ElapsedMilliseconds - stampMs - relitMs;
+				GD.Print($"[Load]   post-load: occluder stamp={stampMs}ms skyExposure={skyMs}ms"
+					+ (relitMs > 0 ? $" RELIGHT(unbaked world)={relitMs}ms" : ""));
 			}
 		}
 		catch (Exception e)
@@ -464,12 +504,32 @@ public partial class Main : Node
 		return task.Result;
 	}
 
+	// True as soon as one lit voxel turns up. Not "is the light correct" — only
+	// whether the file carries a sun field at all.
+	static bool HasAnyBakedSunlight(WorldState world)
+	{
+		foreach (KeyValuePair<Vector3I, ChunkState> kv in world._chunks)
+		{
+			byte[,,] sun = kv.Value.Sunlight;
+			foreach (byte b in sun)
+			{
+				if (b != 0)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	// `kits` is the palette the caller intends this world to be read with. NULL
 	// means "not building a playable world" (the subscene converter, which only
 	// reads block ids) and skips the check below.
 	public static WorldState LoadWorldFromFile(string path, KitPalette kits = null)
 	{
+		var openSw = Stopwatch.StartNew();
 		var source = new WorldFileChunkSource(path);
+		long headerMs = openSw.ElapsedMilliseconds;
 		// Every TerrainId byte in this file is an index into the palette it was
 		// BAKED with. Nothing stops that palette from having moved since, and
 		// nothing about the stored bytes would look wrong if it had — they would
@@ -536,6 +596,7 @@ public partial class Main : Node
 		}
 
 		source.Dispose();
+		GD.Print($"[Load]   file: header={headerMs}ms chunks={openSw.ElapsedMilliseconds - headerMs}ms");
 		return worldState;
 	}
 
@@ -577,6 +638,19 @@ public partial class Main : Node
 				worldState = isScene
 					? editor.CreateSubsceneWorld(worldGenData, documentPath, out includeEnv)
 					: LoadWorldFromFile(documentPath, editorPalette);
+				if (!isScene)
+				{
+					// Same closing move the game's load path makes, and for the
+					// same two reasons: SkyExposure is derived rather than
+					// stored, and an edit's incremental relight needs the canopy
+					// field live or it erases tree shadows around whatever was
+					// edited — then saves that back into the .hike. (Sunlight
+					// itself comes out of the file baked; nothing re-propagates
+					// it here.) The stub paths do their own pairing.
+					FoliageStamper.Stamp(worldState);
+					EntityVoxelStamper.Stamp(worldState);
+					LightEngine.ComputeSkyExposure(worldState);
+				}
 			}
 			catch (System.Exception e)
 			{

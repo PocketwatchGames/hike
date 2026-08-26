@@ -182,7 +182,7 @@ public partial class BlockCatalog : Resource
             // means the surface never made it into the manifest (or the atlas
             // was never rebuilt after it was added). ChunkMesh would upload it
             // into block_faces as-is.
-            foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom, block.climbGrowthSurface })
+            foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom, block.climbGrowthSurface, block.waterFilm?.surface })
             {
                 if (surface == null)
                 {
@@ -256,7 +256,7 @@ public partial class BlockCatalog : Resource
                 {
                     _byTopSurfaceLayer[layer] = block;
                 }
-                foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom, block.climbGrowthSurface })
+                foreach (BlockSurfaceData surface in new[] { block.top, block.side, block.bottom, block.climbGrowthSurface, block.waterFilm?.surface })
                 {
                     if (surface == null) { continue; }
                     int sl = surface.atlasBaseIndex;

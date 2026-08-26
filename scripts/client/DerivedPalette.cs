@@ -115,6 +115,10 @@ public struct DerivedPalette
     // (sprite reflections, voxel_clip puddles) ask "what colour is deep water
     // here" — which is exactly what the volume settles to.
     public Color WaterDeepTint;
+    // The regional sediment tint the scatter colour is pulled toward — DustColor
+    // scaled down. Exported rather than folded away because a water BLOCK redoes
+    // that pull per fragment against its own turbidity, and two derivations of
+    // one constant is how the two halves drift apart.
     // Muddiness (= WaterColor.a) — passed through so SkyController can
     // apply its own muddy-modulation to exports (reflection boost,
     // refraction damp, whitecap threshold lift, wave amplitude damp).

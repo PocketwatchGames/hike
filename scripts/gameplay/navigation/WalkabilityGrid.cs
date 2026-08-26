@@ -373,21 +373,21 @@ public class WalkabilityGrid
                 return;
             }
 
-            if (here == Blocks.WaterId)
+            if (Blocks.IsWater(here))
             {
                 // Only the top voxel of a water body is a surface; we hit it
                 // first scanning top-down. Find the body's bottom so we can
                 // skip past it (and price wade vs swim by depth).
                 int waterBottom = wy;
                 while (waterBottom - 1 >= floorY && ws.IsInBounds(wx, waterBottom - 1, wz)
-                    && ws.GetBlockWorld(wx, waterBottom - 1, wz) == Blocks.WaterId)
+                    && Blocks.IsWater(ws.GetBlockWorld(wx, waterBottom - 1, wz)))
                 {
                     waterBottom--;
                 }
                 // Wade vs swim by column depth (mirrors Mob.UpdateWaterState).
                 int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold));
                 int probeY = wy - (thresholdVoxels - 1);
-                bool swimming = ws.IsInBounds(wx, probeY, wz) && ws.GetBlockWorld(wx, probeY, wz) == Blocks.WaterId;
+                bool swimming = ws.IsInBounds(wx, probeY, wz) && Blocks.IsWater(ws.GetBlockWorld(wx, probeY, wz));
                 // A land mob (avoidsDeepWater) wades shallow water but treats a
                 // swim-depth column as a wall — it only ends up swimming when
                 // knocked in, so we never route it there.

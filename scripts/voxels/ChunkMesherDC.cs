@@ -375,7 +375,7 @@ public static class ChunkMesherDC
         Func<int, int, int, int> getSunlight,
         Func<int, int, int, bool> getSunOpaque,
         Func<int, int, int, bool> chunkExists,
-        SurfaceTool st,
+        MeshBuffer buf,
         int chunkWorldX, int chunkWorldY, int chunkWorldZ,
         out bool hasAnyFace,
         out DcCellSurface surface)
@@ -997,7 +997,7 @@ public static class ChunkMesherDC
                         {
                             s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
-                                st,
+                                buf,
                                 cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 OwnerIds(a < 0 ? cx : cx + 1, cy, cz),
@@ -1022,7 +1022,7 @@ public static class ChunkMesherDC
                             // +X and +Z axes.
                             s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
-                                st,
+                                buf,
                                 cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 OwnerIds(cx, a < 0 ? cy : cy + 1, cz),
@@ -1044,7 +1044,7 @@ public static class ChunkMesherDC
                         {
                             s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
-                                st,
+                                buf,
                                 cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 OwnerIds(cx, cy, a < 0 ? cz : cz + 1),
@@ -1080,7 +1080,7 @@ public static class ChunkMesherDC
                     {
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
-                            st,
+                            buf,
                             cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(a < 0 ? cx : cx + 1, cy, cz),
@@ -1110,7 +1110,7 @@ public static class ChunkMesherDC
                     {
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
-                            st,
+                            buf,
                             cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(cx, a < 0 ? cy : cy + 1, cz),
@@ -1140,7 +1140,7 @@ public static class ChunkMesherDC
                     {
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
-                            st,
+                            buf,
                             cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(cx, cy, a < 0 ? cz : cz + 1),
@@ -1174,7 +1174,7 @@ public static class ChunkMesherDC
                     {
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
-                            st,
+                            buf,
                             cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(a < 0 ? cx : cx + 1, cy, cz),
@@ -1204,7 +1204,7 @@ public static class ChunkMesherDC
                     {
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
-                            st,
+                            buf,
                             cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(cx, a < 0 ? cy : cy + 1, cz),
@@ -1234,7 +1234,7 @@ public static class ChunkMesherDC
                     {
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
-                            st,
+                            buf,
                             cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellSoftTile, cellSoftTerrain, cellSoftOverlay, cellAmp, cellSharpness, cellAo, cellSun, cellOpenness, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             OwnerIds(cx, cy, a < 0 ? cz : cz + 1),
@@ -1565,7 +1565,7 @@ public static class ChunkMesherDC
     private static sbyte s_edgeA, s_edgeB;
 
     private static void EmitQuad(
-        SurfaceTool st,
+        MeshBuffer buf,
         bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, int[,,] cellSoftTile, int[,,] cellSoftTerrain, int[,,] cellSoftOverlay, float[,,] cellAmp, float[,,] cellSharpness, float[,,] cellAo, float[,,] cellSun, float[,,] cellOpenness, float[,,] cellConcavity,
         int cwX, int cwY, int cwZ,
         (bool Hard, int Tile, int Terrain, int Overlay) owner,
@@ -1677,26 +1677,26 @@ public static class ChunkMesherDC
         {
             if (splitV1V3)
             {
-                AddTri(st, v1, v3, v2, n1, n3, n2, t1, t3, t2, k1, k3, k2, o1, o3, o2, a1, a3, a2, s1, s3, s2, ao1, ao3, ao2, sun1, sun3, sun2, con1, con3, con2);
-                AddTri(st, v1, v0, v3, n1, n0, n3, t1, t0, t3, k1, k0, k3, o1, o0, o3, a1, a0, a3, s1, s0, s3, ao1, ao0, ao3, sun1, sun0, sun3, con1, con0, con3);
+                AddTri(buf, v1, v3, v2, n1, n3, n2, t1, t3, t2, k1, k3, k2, o1, o3, o2, a1, a3, a2, s1, s3, s2, ao1, ao3, ao2, sun1, sun3, sun2, con1, con3, con2);
+                AddTri(buf, v1, v0, v3, n1, n0, n3, t1, t0, t3, k1, k0, k3, o1, o0, o3, a1, a0, a3, s1, s0, s3, ao1, ao0, ao3, sun1, sun0, sun3, con1, con0, con3);
             }
             else
             {
-                AddTri(st, v0, v2, v1, n0, n2, n1, t0, t2, t1, k0, k2, k1, o0, o2, o1, a0, a2, a1, s0, s2, s1, ao0, ao2, ao1, sun0, sun2, sun1, con0, con2, con1);
-                AddTri(st, v0, v3, v2, n0, n3, n2, t0, t3, t2, k0, k3, k2, o0, o3, o2, a0, a3, a2, s0, s3, s2, ao0, ao3, ao2, sun0, sun3, sun2, con0, con3, con2);
+                AddTri(buf, v0, v2, v1, n0, n2, n1, t0, t2, t1, k0, k2, k1, o0, o2, o1, a0, a2, a1, s0, s2, s1, ao0, ao2, ao1, sun0, sun2, sun1, con0, con2, con1);
+                AddTri(buf, v0, v3, v2, n0, n3, n2, t0, t3, t2, k0, k3, k2, o0, o3, o2, a0, a3, a2, s0, s3, s2, ao0, ao3, ao2, sun0, sun3, sun2, con0, con3, con2);
             }
         }
         else
         {
             if (splitV1V3)
             {
-                AddTri(st, v1, v2, v3, n1, n2, n3, t1, t2, t3, k1, k2, k3, o1, o2, o3, a1, a2, a3, s1, s2, s3, ao1, ao2, ao3, sun1, sun2, sun3, con1, con2, con3);
-                AddTri(st, v1, v3, v0, n1, n3, n0, t1, t3, t0, k1, k3, k0, o1, o3, o0, a1, a3, a0, s1, s3, s0, ao1, ao3, ao0, sun1, sun3, sun0, con1, con3, con0);
+                AddTri(buf, v1, v2, v3, n1, n2, n3, t1, t2, t3, k1, k2, k3, o1, o2, o3, a1, a2, a3, s1, s2, s3, ao1, ao2, ao3, sun1, sun2, sun3, con1, con2, con3);
+                AddTri(buf, v1, v3, v0, n1, n3, n0, t1, t3, t0, k1, k3, k0, o1, o3, o0, a1, a3, a0, s1, s3, s0, ao1, ao3, ao0, sun1, sun3, sun0, con1, con3, con0);
             }
             else
             {
-                AddTri(st, v0, v1, v2, n0, n1, n2, t0, t1, t2, k0, k1, k2, o0, o1, o2, a0, a1, a2, s0, s1, s2, ao0, ao1, ao2, sun0, sun1, sun2, con0, con1, con2);
-                AddTri(st, v0, v2, v3, n0, n2, n3, t0, t2, t3, k0, k2, k3, o0, o2, o3, a0, a2, a3, s0, s2, s3, ao0, ao2, ao3, sun0, sun2, sun3, con0, con2, con3);
+                AddTri(buf, v0, v1, v2, n0, n1, n2, t0, t1, t2, k0, k1, k2, o0, o1, o2, a0, a1, a2, s0, s1, s2, ao0, ao1, ao2, sun0, sun1, sun2, con0, con1, con2);
+                AddTri(buf, v0, v2, v3, n0, n2, n3, t0, t2, t3, k0, k2, k3, o0, o2, o3, a0, a2, a3, s0, s2, s3, ao0, ao2, ao3, sun0, sun2, sun3, con0, con2, con3);
             }
         }
 
@@ -1757,7 +1757,7 @@ public static class ChunkMesherDC
     //    by the rasterizer so fragment.COLOR.rgb is the barycentric weight vector.
     //  - COLOR.a = baked ambient occlusion (0 = open, 1 = sheltered). Independent
     //    of the bary pick; read in voxel_clip.gdshader for the diffuse darken.
-    private static void AddTri(SurfaceTool st,
+    private static void AddTri(MeshBuffer buf,
         Vector3 a, Vector3 b, Vector3 c,
         Vector3 na, Vector3 nb, Vector3 nc,
         int ta, int tb, int tc,
@@ -1781,9 +1781,9 @@ public static class ChunkMesherDC
         Color overlayCustB = new Color(oa, ob, oc, conB);
         Color overlayCustC = new Color(oa, ob, oc, conC);
         // CUSTOM3 = (static sky openness, legacy baked sun); zw reserved.
-        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, aoA)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCustA); st.SetCustom(3, new Color(sunA.X, sunA.Y, 0f, 0f)); st.AddVertex(a);
-        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, aoB)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCustB); st.SetCustom(3, new Color(sunB.X, sunB.Y, 0f, 0f)); st.AddVertex(b);
-        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, aoC)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCustC); st.SetCustom(3, new Color(sunC.X, sunC.Y, 0f, 0f)); st.AddVertex(c);
+        buf.Add(a, na, new Color(1f, 0f, 0f, aoA), custA, sharpCustA, overlayCustA, new Color(sunA.X, sunA.Y, 0f, 0f));
+        buf.Add(b, nb, new Color(0f, 1f, 0f, aoB), custB, sharpCustB, overlayCustB, new Color(sunB.X, sunB.Y, 0f, 0f));
+        buf.Add(c, nc, new Color(0f, 0f, 1f, aoC), custC, sharpCustC, overlayCustC, new Color(sunC.X, sunC.Y, 0f, 0f));
     }
 
     // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,

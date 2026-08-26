@@ -85,6 +85,7 @@ public static class WorldMapResize
         state.Elevation = Resample(state.Elevation, newW, newH);
         state.Water = Resample(state.Water, newW, newH);
         state.Ground = Resample(state.Ground, newW, newH);
+        state.WaterType = Resample(state.WaterType, newW, newH);
         state.Paving = Resample(state.Paving, newW, newH);
         state.Scatter = Resample(state.Scatter, newW, newH);
         state.Mobs = Resample(state.Mobs, newW, newH);
@@ -170,6 +171,7 @@ public static class WorldMapResize
         state.Elevation = Recanvas(state.Elevation, newW, newH, texelShift);
         state.Water = Recanvas(state.Water, newW, newH, texelShift);
         state.Ground = Recanvas(state.Ground, newW, newH, texelShift);
+        state.WaterType = Recanvas(state.WaterType, newW, newH, texelShift);
         state.Paving = Recanvas(state.Paving, newW, newH, texelShift);
         state.Scatter = Recanvas(state.Scatter, newW, newH, texelShift);
         state.Mobs = Recanvas(state.Mobs, newW, newH, texelShift);

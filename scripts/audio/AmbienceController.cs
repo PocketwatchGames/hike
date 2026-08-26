@@ -141,7 +141,7 @@ public partial class AmbienceController : Node3D
                     totalCount++;
 
                     int v = ws.GetBlockWorld(wx, wy, wz);
-                    if (v == Blocks.WaterId)
+                    if (Blocks.IsWater(v))
                     {
                         waterCount++;
                         if (IsShoreline(ws, wx, wy, wz))
@@ -189,7 +189,7 @@ public partial class AmbienceController : Node3D
 
     private static bool IsLand(int v)
     {
-        return v != Blocks.AirId && v != Blocks.WaterId;
+        return v != Blocks.AirId && !Blocks.IsWater(v);
     }
 
     private void TickLayers(WorldState ws, Vector3 listenerPos, float deltaTime)

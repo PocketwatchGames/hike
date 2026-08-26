@@ -30,29 +30,96 @@ public class WaterTool : IWorldMapTool
     // water lower than the sea around it.
     public int SurfaceVoxels = 1;
 
+    // Which water TYPE the brush lays down — an index into
+    // WorldMapData.waterTypes, or -1 for "the zone's", which is entry 0 of the
+    // option row and what an unpainted column already means.
+    private int _typeIndex = -1;
+
+    // REPLACE only retypes water that is already there: it never moves a
+    // surface and never creates water. That is the whole reason it exists — the
+    // ordinary brush fills a column to SurfaceVoxels, so using it to change a
+    // lake's type would also flatten the lake to the level in the HUD, and
+    // getting that level exactly right across a hand-painted shoreline is not
+    // something anyone should have to do to recolour it.
+    public bool ReplaceOnly;
+
     public WaterTool()
     {
         View = new WaterView();
     }
 
-    public string[] Options(WorldMapState ctx) => System.Array.Empty<string>();
+    // Entry 0 is "the zone's water" — the unpainted state — so the row always
+    // has a way back to it, and it is not a special case anywhere else.
+    public string[] Options(WorldMapState ctx)
+    {
+        BlockData[] types = ctx.Data.waterTypes ?? System.Array.Empty<BlockData>();
+        var names = new string[types.Length + 1];
+        names[0] = "Zone's";
+        for (int i = 0; i < types.Length; i++)
+        {
+            names[i + 1] = types[i] != null ? types[i].blockName.ToString() : "<empty>";
+        }
+        return names;
+    }
 
-    public Color[] OptionColors(WorldMapState ctx) => null;
+    // Each type's own minimapColor, which is what the block already authors for
+    // "what does this look like from above" — a second palette would only drift
+    // from it.
+    public Color[] OptionColors(WorldMapState ctx)
+    {
+        BlockData[] types = ctx.Data.waterTypes ?? System.Array.Empty<BlockData>();
+        var colors = new Color[types.Length + 1];
+        colors[0] = ctx.Data.shallowWaterColor;
+        for (int i = 0; i < types.Length; i++)
+        {
+            colors[i + 1] = types[i] != null ? types[i].minimapColor : Colors.Magenta;
+        }
+        return colors;
+    }
 
-    public int OptionIndex { get => 0; set { } }
+    public int OptionIndex
+    {
+        get => _typeIndex + 1;
+        set => _typeIndex = Mathf.Max(-1, value - 1);
+    }
 
-    public Color CursorColor(WorldMapState ctx) => ctx.Data.shallowWaterColor;
+    public bool ToggleMode()
+    {
+        ReplaceOnly = !ReplaceOnly;
+        return true;
+    }
+
+    // The type about to be laid down, so the brush ring answers "what am I
+    // painting" against the map under it — the same thing the elevation tool's
+    // ring does with its target band.
+    public Color CursorColor(WorldMapState ctx)
+    {
+        BlockData[] types = ctx.Data.waterTypes;
+        return _typeIndex >= 0 && types != null && _typeIndex < types.Length && types[_typeIndex] != null
+            ? types[_typeIndex].minimapColor
+            : ctx.Data.shallowWaterColor;
+    }
 
     public string HintText(WorldMapState ctx)
-        => "R/F set the surface  |  T/G cutaway (paint water inside a tunnel)  |  "
+        => "1-9 water type  |  X fill / replace-only  |  R/F set the surface  |  "
+        + "T/G cutaway (paint water inside a tunnel)  |  "
         + "alt+LMB samples a height, alt+RMB aims the cutaway  |  "
-        + "RMB removes the water entirely";
+        + "RMB removes the water (replace-only: reverts the type)";
 
-    public string StatusText(WorldMapState ctx) => "Fills each column to the surface";
+    public string StatusText(WorldMapState ctx)
+        => ReplaceOnly ? "Retypes water already there" : "Fills each column to the surface";
 
     public string LevelText(WorldMapState ctx)
-        => $"Surface {SurfaceVoxels:+#;-#;0}v (Y={ctx.SeaLevel + SurfaceVoxels})"
-        + $"  |  Cutaway Y={ctx.CutawayY}";
+    {
+        BlockData[] types = ctx.Data.waterTypes;
+        string type = _typeIndex >= 0 && types != null && _typeIndex < types.Length
+            && types[_typeIndex] != null
+            ? types[_typeIndex].blockName.ToString()
+            : "the zone's";
+        return $"Type {type}"
+            + (ReplaceOnly ? "  |  REPLACE ONLY" : $"  |  Surface {SurfaceVoxels:+#;-#;0}v (Y={ctx.SeaLevel + SurfaceVoxels})")
+            + $"  |  Cutaway Y={ctx.CutawayY}";
+    }
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
@@ -96,11 +163,32 @@ public class WaterTool : IWorldMapTool
     {
         // Hard-edged, ignoring the falloff: a water surface is LEVEL, and easing
         // it in by weight would tilt the rim of every stroke into a ring of
-        // half-steps — the same reason Flatten ignores it.
+        // half-steps — the same reason Flatten ignores it. The TYPE is equally
+        // hard-edged, and for a plainer reason: it is an index, and there is no
+        // such thing as half of one.
+        float typeValue = erase ? 0f : (_typeIndex + 1) / 255f;
+        if (ReplaceOnly)
+        {
+            // Only where water already stands, and the surface is left exactly
+            // as it is. HasWater rather than a depth test, so latent water under
+            // a hillside retypes too — it is the lake you will carve down to.
+            brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
+            {
+                if (ctx.HasWater(px, pz))
+                {
+                    ctx.WaterType.SetPixel(px, pz, new Color(typeValue, 0f, 0f, 1f));
+                }
+            });
+            return;
+        }
         float voxels = erase ? ctx.NoWaterVoxels : ClampSurface(ctx, SurfaceVoxels);
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             ctx.Water.SetPixel(px, pz, new Color(voxels, 0f, 0f, 1f));
+            // Erasing the water erases its type with it: a column with no water
+            // has no type, and leaving one behind would silently retype whatever
+            // gets painted there next.
+            ctx.WaterType.SetPixel(px, pz, new Color(typeValue, 0f, 0f, 1f));
         });
     }
 
@@ -111,9 +199,12 @@ public class WaterTool : IWorldMapTool
             Mathf.RoundToInt(ctx.Data.maxElevationVoxels));
     }
 
+    // Q/E walks the TYPE row now, which is what the option row shows; R/F keeps
+    // the surface level, so the two axes stay on their own keys.
     public void Cycle(WorldMapState ctx, int dir)
     {
-        AdjustLevel(ctx, dir);
+        int count = Options(ctx).Length;
+        OptionIndex = Mathf.PosMod(OptionIndex + dir, count);
     }
 
     public void AdjustLevel(WorldMapState ctx, int dir)

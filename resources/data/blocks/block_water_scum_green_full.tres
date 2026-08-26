@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BlockData" format=3]
+
+[ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
+[ext_resource type="Resource" uid="uid://cccq1e0wvo1dr" path="res://resources/data/surfaces/surface_water.tres" id="2_water"]
+[ext_resource type="Resource" path="res://resources/data/blocks/water_film_scum_green_full.tres" id="3_film"]
+
+[resource]
+script = ExtResource("1_s")
+blockName = &"WaterScumGreenFull"
+blockId = 20
+top = ExtResource("2_water")
+render = 1
+minimapColor = Color(0.25, 0.36, 0.22, 1)
+solid = false
+transparent = true
+lightAttenuation = 8
+groundType = 3
+waterTurbidityDelta = 0.35
+waterFilm = ExtResource("3_film")

@@ -15,7 +15,15 @@ using Godot;
 public static class Blocks
 {
     public static int AirId { get; private set; }
-    public static int WaterId { get; private set; }
+    // DELIBERATELY NOT "WaterId". There are several water blocks now (clear,
+    // murky, the scummy ones, ice later), so an equality test against one id is
+    // wrong wherever it means "is this water" — ask Blocks.IsWater(id).
+    //
+    // This is the block to WRITE when something fills a column with ordinary
+    // water and has no reason to pick a type: worldgen's fill, the painter's
+    // default, an editor brush. Its turbidity delta is 0, so it is the identity
+    // and every world baked before water had types reads back unchanged.
+    public static int DefaultWaterId { get; private set; }
     public static int BarrierId { get; private set; }
     public static int OpeningId { get; private set; }
     public static int StoneId { get; private set; }
@@ -37,6 +45,7 @@ public static class Blocks
     private static float[] _blendNoise;
     private static float[] _edgeRoughness;
     private static float[] _edgeRoughnessVerticalScale;
+    private static float[] _waterTurbidity;
 
     // Fills LOCAL tables and publishes them at the end, so a reader on another
     // thread only ever sees a finished set.
@@ -65,6 +74,7 @@ public static class Blocks
         var blendNoise = new float[n];
         var edgeRoughness = new float[n];
         var edgeRoughnessVerticalScale = new float[n];
+        var waterTurbidity = new float[n];
 
         BlockCatalog catalog = BlockCatalog.Active;
         for (int id = 0; id < n; id++)
@@ -80,6 +90,7 @@ public static class Blocks
             }
             solid[id] = b.solid;
             water[id] = b.render == EBlockRender.Water;
+            waterTurbidity[id] = b.waterTurbidityDelta;
             transparent[id] = b.transparent;
             cutawayIsWall[id] = b.cutawayIsWall;
             invisible[id] = b.IsInvisible();
@@ -112,9 +123,10 @@ public static class Blocks
         _blendNoise = blendNoise;
         _edgeRoughness = edgeRoughness;
         _edgeRoughnessVerticalScale = edgeRoughnessVerticalScale;
+        _waterTurbidity = waterTurbidity;
 
         AirId = catalog.GetIdByName("Air");
-        WaterId = catalog.GetIdByName("Water");
+        DefaultWaterId = catalog.GetIdByName("Water");
         BarrierId = catalog.GetIdByName("Barrier");
         OpeningId = catalog.GetIdByName("Opening");
         StoneId = catalog.GetIdByName("Stone");
@@ -133,6 +145,11 @@ public static class Blocks
     public static bool IsEmpty(int id) => _empty[id];
 
     public static bool IsWater(int id) => _water[id];
+
+    // How much murkier (+) or clearer (-) than its zone this water block is.
+    // Built once at Bind and only read afterwards, which is what keeps it safe
+    // to call from a mesher running on a worker thread.
+    public static float WaterTurbidity(int id) => _waterTurbidity[id];
 
     // Light passes through — water and openings.
     public static bool IsTransparent(int id) => _transparent[id];

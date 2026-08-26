@@ -246,7 +246,7 @@ public class WorldState
     public readonly HashSet<Vector3I> FogChunkDirty = new();
 
     // Same pattern for the SkyExposureMap GPU texture. Populated automatically
-    // by SetSkyExposureWorld — the initial ComputeSunlight floods it (drained
+    // by the sky-exposure scan — the initial pass floods it (drained
     // harmlessly on the first frame after the map's constructor encodes every
     // chunk), and runtime voxel edits re-mark only the recomputed columns.
     public readonly HashSet<Vector3I> SkyExposureChunkDirty = new();

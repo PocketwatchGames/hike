@@ -559,7 +559,7 @@ void fragment() {
 	// tail and the foam floor still see the real light level.
 	light = max(light, vec3(falling_ambient * (1.0 - surfaceness)));
 	float face_shade = mix(mix(0.6, 0.8, abs(n.z)), 1.0, surfaceness);
-	vec3 in_scatter = water_in_scatter(face_shade * light, transmittance);
+	vec3 in_scatter = water_in_scatter(water_scatter_color, face_shade * light, transmittance);
 
 	// Sky reflection. A pool's surface is mostly fresnel-weighted sky over a
 	// floor (reflection_min — at the grazing angles an iso camera gives,

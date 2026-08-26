@@ -244,6 +244,10 @@ public partial class SkyController : Node3D
     // surf. This is an ALBEDO floor no lighting condition can dim, so raising it
     // makes shorelines read pale at night.
     [Export(PropertyHint.Range, "0,1,0.01")] public float foamWhiteness = 0.15f;
+    // Foam's own brightness — the bubble raft's albedo, independent of which
+    // water it is made of. Real foam is a mass of air/water interfaces and sits
+    // near 0.7-0.9; it is what makes foam the brightest thing on any water.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float foamAlbedo = 0.7f;
     // Fraction of foam brightness present with no direct light on it — the
     // unlit/ambient share. Also a floor nothing dims; the rest is modulated by
     // the (light-scaled) sun/moon tint so foam warms at sunset and cools at night.
@@ -274,6 +278,19 @@ public partial class SkyController : Node3D
     // a clear outline rather than scattered noise.
     [Export(PropertyHint.Range, "0,1,0.01")] public float rimWidth = 0.2f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float rimStrength = 0.6f;
+    // The rim substitutes for a cue muddiness destroys. In clear water the
+    // shoreline is already legible from the visible-depth grade (you can see the
+    // bottom continue under the surface) — and effDepthScale below collapses
+    // that grade as muddiness rises, so the band has to widen to take over.
+    //
+    // Applied ABOVE a knee, not from zero: the authored values were tuned in
+    // desert / mountain / ocean, which sit at muddiness 0.25-0.6, so ramping
+    // from 0 would silently re-scale every zone that already reads correctly.
+    // Below the knee the grade still does the job and the rim is left exactly as
+    // authored. Scaled per FRAGMENT off the water BLOCK's own turbidity, so a
+    // clear tarn inside a swamp keeps its tight rim.
+    [Export(PropertyHint.Range, "0,0.99,0.01")] public float rimMuddyKnee = 0.5f;
+    [Export(PropertyHint.Range, "1,5,0.05")] public float rimMuddyWidthScale = 2.5f;
 
     [ExportSubgroup("Ripples")]
     // Two procedural noise layers sampled in world XZ sum into the water
@@ -354,9 +371,9 @@ public partial class SkyController : Node3D
     // toward ~2 in heavy overcast where sky light is diffuse and a sharper
     // fresnel reads better; clear-sky scenes keep the low default.
     [Export(PropertyHint.Range, "0.5,8,0.1")] public float fresnelPower = 1.5f;
-    // Base reflection strength at non-grazing angles. Muddiness damps this
-    // toward diffuse (scum surfaces don't mirror); dim lighting damps it
-    // further so night water doesn't glow from sky reflection. Bright pixel
+    // Base reflection strength at non-grazing angles. Air clarity (humidity,
+    // fog, cloud cover) damps this in Apply(); water turbidity deliberately
+    // does NOT — see the reflectionClarity derivation there. Bright pixel
     // highlights come from the sun/moon disks in sample_sky_from — no
     // separate glint term, because under an orthographic camera all water
     // fragments share a reflection direction and any angle-based glint
@@ -1009,6 +1026,16 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("water_scatter_color", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.3f, 0.45f, 0.55f));
             ShaderGlobals.Register("water_absorption", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.084f, 0.066f, 0.054f));
             ShaderGlobals.Register("water_muddiness", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
+            // Endpoints, so a water BLOCK can redo the zone's derivation per
+            // fragment against its own turbidity. The three finished values above
+            // stay the ZONE's: puddles, sprite reflections and the cutaway cap are
+            // not water blocks and have no id to look one up with.
+            ShaderGlobals.Register("water_zone_muddiness", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
+            ShaderGlobals.Register("water_hue", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.3f, 0.45f, 0.5f));
+            ShaderGlobals.Register("water_absorb_clear", RenderingServer.GlobalShaderParameterType.Float, 0.12f);
+            ShaderGlobals.Register("water_absorb_muddy", RenderingServer.GlobalShaderParameterType.Float, 1.5f);
+            ShaderGlobals.Register("water_albedo_clear", RenderingServer.GlobalShaderParameterType.Float, 0.05f);
+            ShaderGlobals.Register("water_albedo_muddy", RenderingServer.GlobalShaderParameterType.Float, 0.6f);
             ShaderGlobals.Register("water_refraction_strength", RenderingServer.GlobalShaderParameterType.Float, 0.05f);
             ShaderGlobals.Register("caustic_strength", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
             ShaderGlobals.Register("caustic_scale", RenderingServer.GlobalShaderParameterType.Float, 0.35f);
@@ -1033,6 +1060,8 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("water_depth_scale", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_rim_width", RenderingServer.GlobalShaderParameterType.Float, 0.2f);
             ShaderGlobals.Register("water_rim_strength", RenderingServer.GlobalShaderParameterType.Float, 0.6f);
+            ShaderGlobals.Register("water_rim_muddy_knee", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
+            ShaderGlobals.Register("water_rim_muddy_width_scale", RenderingServer.GlobalShaderParameterType.Float, 2.5f);
             ShaderGlobals.Register("ripple_pixel_size", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
             ShaderGlobals.Register("waterfall_debug", RenderingServer.GlobalShaderParameterType.Int, 0);
@@ -1665,7 +1694,6 @@ public partial class SkyController : Node3D
 
         // --- Water -------------------------------------------------------
         // Muddiness comes from ZoneData.WaterColor.a (via palette). It drives:
-        //   - reflection boost (denser surface = better mirror)
         //   - refraction damp (particles scatter before bending)
         //   - whitecap threshold lift (viscous water resists foam)
         //   - wave amplitude damp (heavier water moves less)
@@ -1694,16 +1722,23 @@ public partial class SkyController : Node3D
         float humidity01 = Weather?.humidity ?? 0.5f;
         float fog01 = _palette.Fog;
         float effFresnel = fresnelPower + cloudCover01 * 0.8f;
-        // Reflection clarity is about AIR + WATER quality, not ambient brightness.
-        // A clear night with a moon should reflect the moon cleanly; scaling
-        // reflection by direct light intensity would kill that. Instead:
-        //   muddy  → scatters light within the water (diffuse surface)
+        // Reflection clarity is about the AIR the reflected ray travels through.
+        // Not ambient brightness: a clear night with a moon should reflect the
+        // moon cleanly, and scaling by direct light would kill that.
         //   humid  → hazy air softens the mirror
         //   fog    → more severe scattering
-        // No lightLevel term here so moon/stars reflect at full strength on a
-        // clear calm night.
-        float reflectionClarity = Mathf.Lerp(1.0f, 0.1f, muddy)
-            * (1f - humidity01 * 0.4f)
+        //
+        // Turbidity is deliberately NOT a term here. Fresnel reflectance belongs
+        // to the air/water INTERFACE and silt sits below it, so mud reflects as
+        // much as a clear tarn; what makes muddy water read matte is the bright
+        // backscattering body under the same reflection, and water_compose
+        // already models that (it mixes reflection AGAINST the body, so a bright
+        // body washes it out on its own). Damping here as well double-counted it
+        // and took swamp water to ~8% of the authored reflection — a flat matte
+        // plane with no fresnel variation to catch. Scum roughness is not this
+        // term either: a weed mat is drawn by water_cover ON TOP of the
+        // reflection, per block, which is where an occluding layer belongs.
+        float reflectionClarity = (1f - humidity01 * 0.4f)
             * (1f - fog01 * 0.6f)
             * (1f - cloudCover01 * 0.2f);
         float effReflection = reflectionStrength * reflectionClarity;
@@ -1797,7 +1832,23 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("water_deep_blend", waterDeepReflectionBlend);
         RenderingServer.GlobalShaderParameterSet("water_rim_width", rimWidth);
         RenderingServer.GlobalShaderParameterSet("water_rim_strength", rimStrength);
+        // Knee + scale only; the muddiness they ramp against is the BLOCK's, read
+        // per fragment in voxel_water. Pushing a finished width here would key it
+        // to the zone and miss every authored water type.
+        RenderingServer.GlobalShaderParameterSet("water_rim_muddy_knee", Mathf.Min(rimMuddyKnee, 0.99f));
+        RenderingServer.GlobalShaderParameterSet("water_rim_muddy_width_scale", rimMuddyWidthScale);
         RenderingServer.GlobalShaderParameterSet("water_muddiness", muddy);
+        // The same inputs the three values above were derived from, pushed raw so
+        // voxel_water can redo that derivation per fragment against the water
+        // BLOCK's turbidity delta. Deriving it twice would drift; deriving it
+        // only here cannot vary per voxel.
+        RenderingServer.GlobalShaderParameterSet("water_zone_muddiness", muddy);
+        RenderingServer.GlobalShaderParameterSet("water_hue", ColorToVec3(_palette.WaterShallowTint));
+        RenderingServer.GlobalShaderParameterSet("water_absorb_clear", waterClearAbsorption);
+        RenderingServer.GlobalShaderParameterSet("water_absorb_muddy", waterMuddyAbsorption);
+        RenderingServer.GlobalShaderParameterSet("water_albedo_clear", waterClearScatterAlbedo);
+        RenderingServer.GlobalShaderParameterSet("water_albedo_muddy", waterMuddyScatterAlbedo);
+        VerifyWaterOpticsParity(scatter, scatterAlbedo, absorbPerMetre, muddy);
         RenderingServer.GlobalShaderParameterSet("water_refraction_strength", effRefraction);
         // Caustics scale with three factors: water clarity, inverse wind
         // speed (calmer surface focuses light into bands; choppy water
@@ -1828,8 +1879,8 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("caustic_depth_fade", causticDepthFade);
         RenderingServer.GlobalShaderParameterSet("caustic_color", ColorToVec3(causticColor));
         RenderingServer.GlobalShaderParameterSet("caustic_offset", causticOffset);
-        // Sprite reflection brightness — same air-clarity factors as the
-        // sky reflection (muddiness, humidity, fog, cloud cover) plus a
+        // Sprite reflection brightness — the same air-clarity factors as the
+        // sky reflection (humidity, fog, cloud cover), plus muddiness and a
         // light-level term so dim scenes don't paint bright mirror copies
         // of upright objects on dark water. CVar `sprite_reflection_visible` 0
         // forces the tint to zero, killing the visible effect without touching
@@ -1837,8 +1888,12 @@ public partial class SkyController : Node3D
         // `sprite_reflections` CVar for the CPU-side gate). Note the CVar is
         // distinct from this class's `spriteReflectionTint` export, which is
         // the authored strength it scales.
+        // Muddiness damps THIS but not the sky reflection above, and the
+        // asymmetry is the point: these are flipped sprites rendered UNDER the
+        // surface, so a silty column genuinely hides them, where a real surface
+        // reflection sits on top of it.
         float effSpriteReflTint = CVars.spriteReflectionVisible.Value
-            ? spriteReflectionTint * reflectionClarity * lightLevel
+            ? spriteReflectionTint * reflectionClarity * lightLevel * Mathf.Lerp(1f, 0.1f, muddy)
             : 0f;
         RenderingServer.GlobalShaderParameterSet("reflection_tint", effSpriteReflTint);
         // Reflection pixel jitter scales with weather-driven ripple strength
@@ -1877,29 +1932,31 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("reflection_fov_h_deg", reflectionFovHorizontalDeg);
         RenderingServer.GlobalShaderParameterSet("reflection_fov_v_deg", reflectionFovVerticalDeg);
         RenderingServer.GlobalShaderParameterSet("reflection_fov_v_center", reflectionFovVerticalCenter);
-        // Foam color derived entirely from regional palette + direct light:
-        //   - Start from a soft tint of the zone's DustColor (shoreline
-        //     froth physically carries suspended sediment — the regional
-        //     "particulate color" is the closest we have to that).
-        //   - Pull toward WaterShallowTint by muddiness, so murky water's
-        //     "foam" reads as scum/film in the water's own color rather
-        //     than bright white.
-        //   - Multiply by SunTint (CurrentPrimaryIntensity gated by
-        //     lightLevel) so foam warms at sunset / cools at moonlight /
-        //     dims at night rather than staying a single hard value.
-        // No foamColor export — white foam under every condition fights
-        // too many regional palettes. Lightness baseline (0.9) keeps clean
-        // shoreline surf readably bright against deep water.
+        // Foam is a bubble raft of THIS water, so it takes its HUE from the water
+        // and its BRIGHTNESS from foam physics — the same split as the body above.
+        // A brown river foams tan, a blue-green sea foams white-green.
         //
-        // Built from DustColor (the zone's intrinsic particulate tint), NOT
-        // FogTint. FogTint is a RADIANCE — it rides SkyLight/Illumination and
-        // collapses toward black at night — while this is an ALBEDO the shader
-        // multiplies by foam_light. Feeding a radiance in made the mix drift:
-        // as the light died the tinted half went to zero while the hardcoded
-        // white half did not, so foam DESATURATED TOWARD PURE GREY exactly when
-        // it was darkest, which is what read as a pale band on night water.
-        Color foamParticulate = _palette.DustColor.Lerp(new Color(1f, 1f, 1f), foamWhiteness);
-        Color foamBase = foamParticulate.Lerp(_palette.WaterShallowTint, muddy * 0.7f);
+        // NOT from DustColor, which is what this used to be built from. Dust is
+        // the AIR (fog is DustColor outright), so a dust-derived foam painted the
+        // shoreline in the very colour the fog then washed over it — and in the
+        // swamp that meant green surf on brown water.
+        //
+        // The hue is NORMALISED to full brightness rather than mixed toward white:
+        // an authored water colour is dark in absolute terms, so mix(water, white)
+        // washes to grey before it ever gets bright, while normalising keeps the
+        // channel ratios intact and only raises the level. foamWhiteness then
+        // desaturates from there (the bubbles' own scattering) and foamAlbedo sets
+        // how bright the raft is.
+        //
+        // Kept an ALBEDO, never a radiance: the shader multiplies this by
+        // foam_light. Feeding a radiance (FogTint) in made foam desaturate toward
+        // grey exactly as the light died, which read as a pale band on night water.
+        Color waterHue = _palette.WaterShallowTint;
+        float hueMax = Mathf.Max(waterHue.R, Mathf.Max(waterHue.G, waterHue.B));
+        Color foamHue = hueMax > 1e-4f
+            ? new Color(waterHue.R / hueMax, waterHue.G / hueMax, waterHue.B / hueMax, 1f)
+            : new Color(1f, 1f, 1f, 1f);
+        Color foamBase = foamHue.Lerp(new Color(1f, 1f, 1f), foamWhiteness) * foamAlbedo;
         Color sunTintLit = new Color(
             _palette.SunTint.R * lightLevel,
             _palette.SunTint.G * lightLevel,
@@ -2214,6 +2271,50 @@ public partial class SkyController : Node3D
         float horiz = Mathf.Cos(pitch);
         Vector3 dir = new Vector3(horiz * Mathf.Sin(fillYaw), -Mathf.Sin(pitch), horiz * Mathf.Cos(fillYaw));
         return dir.Normalized();
+    }
+
+    // water_shading.gdshaderinc re-derives the scatter colour and absorption per
+    // fragment from the endpoints pushed above, so a water block can vary them by
+    // its turbidity. That is a SECOND copy of the derivation above, and the whole
+    // reason the endpoints are pushed raw rather than a second finished value.
+    //
+    // At turbidity delta 0 the shader's answer must be exactly this one. Checked
+    // here rather than trusted: the two live in different languages, nothing
+    // links them, and a drift shows up as water that is subtly the wrong colour —
+    // which is indistinguishable from someone having retuned a zone.
+    private static bool _opticsParityWarned;
+
+    private void VerifyWaterOpticsParity(Color scatter, float scatterAlbedo, float absorbPerMetre, float muddy)
+    {
+        if (_opticsParityWarned)
+        {
+            return;
+        }
+        // The shader, transcribed: m at delta 0 is the zone's own muddiness.
+        Color hue = _palette.WaterShallowTint;
+        var shaderScatter = new Vector3(hue.R, hue.G, hue.B);
+        Vector3 shaderScatterColor = shaderScatter * scatterAlbedo;
+        var shaderAbsorption = new Vector3(
+            Mathf.Max(1f - shaderScatter.X, 0.02f) * absorbPerMetre,
+            Mathf.Max(1f - shaderScatter.Y, 0.02f) * absorbPerMetre,
+            Mathf.Max(1f - shaderScatter.Z, 0.02f) * absorbPerMetre);
+
+        Vector3 csScatterColor = ColorToVec3(scatter) * scatterAlbedo;
+        var csAbsorption = new Vector3(
+            Mathf.Max(1f - scatter.R, 0.02f) * absorbPerMetre,
+            Mathf.Max(1f - scatter.G, 0.02f) * absorbPerMetre,
+            Mathf.Max(1f - scatter.B, 0.02f) * absorbPerMetre);
+
+        const float Tolerance = 1e-4f;
+        if ((shaderScatterColor - csScatterColor).Length() > Tolerance
+            || (shaderAbsorption - csAbsorption).Length() > Tolerance)
+        {
+            _opticsParityWarned = true;
+            GD.PushError($"SkyController: water optics have DRIFTED between C# and water_shading.gdshaderinc. "
+                + $"scatter C#={csScatterColor} shader={shaderScatterColor}; "
+                + $"absorption C#={csAbsorption} shader={shaderAbsorption}. "
+                + "A water block's turbidity is derived from the shader path, so the two must agree at delta 0.");
+        }
     }
 
     private static Vector3 ColorToVec3(Color c)

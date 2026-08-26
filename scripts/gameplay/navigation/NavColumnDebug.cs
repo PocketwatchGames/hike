@@ -79,7 +79,7 @@ public static class NavColumnDebug
                 continue;
             }
             int id = ws.GetBlockWorld(wx, y, wz);
-            sb.Append(id == Blocks.WaterId ? '~' : Blocks.IsSolid(id) ? '#' : '.');
+            sb.Append(Blocks.IsWater(id) ? '~' : Blocks.IsSolid(id) ? '#' : '.');
         }
         sb.Append(']');
         return sb.ToString();
@@ -129,7 +129,7 @@ public static class NavColumnDebug
             {
                 continue;
             }
-            if (here == Blocks.WaterId)
+            if (Blocks.IsWater(here))
             {
                 GD.Print($"      y={y}: water surface");
                 continue;

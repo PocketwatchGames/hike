@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using Godot;
 
 // Disk cache for WorldGen.Generate output. The fingerprint covers
-// WORLDGEN_VERSION + WorldFile.VERSION + the content of every reachable
+// WORLDGEN_VERSION + WorldFile.VERSION + LIGHT_VERSION + the content of every reachable
 // .tres / .tscn / .hikescene from the input WorldGenData. Cache files are
 // per-(seed, size, fingerprint) so multiple seeds coexist and any data /
 // version change forces regeneration. Cache load failures fall back to a
@@ -59,7 +59,9 @@ public static class WorldGenCache
     }
 
     // Stable 16-char hex fingerprint of the inputs that affect generated
-    // output: WORLDGEN_VERSION + WorldFile.VERSION + the byte content of
+    // output: WORLDGEN_VERSION + WorldFile.VERSION + LightEngine.LIGHT_VERSION
+    // (the cached world's sunlight is loaded as baked, never re-propagated, so
+    // a change to the light pipeline has to invalidate the file) + the content of
     // every transitively-reachable .tres/.tscn dependency from genData
     // plus any .hikescene paths it references via SubscenePlacement[].
     // Resources whose extension is none of those (textures, audio, shaders,
@@ -72,6 +74,7 @@ public static class WorldGenCache
 
         w.Write(WorldFile.VERSION);
         w.Write(WorldGen.WORLDGEN_VERSION);
+        w.Write(LightEngine.LIGHT_VERSION);
 
         WalkAndHashDeps(genData, w);
 

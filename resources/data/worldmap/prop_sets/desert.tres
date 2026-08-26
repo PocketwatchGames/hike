@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://b01hbfnwc3t5w"]
 
-[ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://bsgbf0hceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="PackedScene" uid="uid://d0kbigg6xw7pf" path="res://scenes/props/desert_rocks_big1.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://cuqyeyeg5imfv" path="res://scenes/props/desert_rocks_big2.tscn" id="sc_1"]

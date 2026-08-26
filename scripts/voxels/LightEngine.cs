@@ -8,6 +8,15 @@ public static class LightEngine
     // the geodesic flood model instead — see the Block-light flood section).
     public const int MAX_LIGHT = 60;
 
+    // Bump whenever the sunlight math, or the occluder stamping that feeds it,
+    // changes. A disk-loaded world's Sunlight bytes are trusted as BAKED — the
+    // load path does not re-propagate them, because a full-world Relight is
+    // ~13s at the default size and was the entire cost of the load phase. This
+    // version rides in the worldgen-cache fingerprint, so a change here gives
+    // every cached world a new cache path and regenerates it. A hand-authored
+    // .hike is not covered by that: re-bake it, or run `relight` in the console.
+    public const int LIGHT_VERSION = 1;
+
     // The sun-channel fog and canopy extinctions live on SimData
     // (FogSunExtinction / CanopySunExtinction), read off world.SimData inside
     // ComputeSunlight. (Block light's are BlockLightFogExtinction /
@@ -78,65 +87,286 @@ public static class LightEngine
     // fog-attenuated signal would feed itself.
     //
     // Cheap relative to ComputeSunlight — one column per XZ, no BFS flood.
+    //
+    // Runs one worker per CHUNK-X SLICE. A column writes only into the chunk
+    // stack at its own (cx, cz), so two slices can never touch the same array —
+    // that disjointness is what makes this safe, and it is why the split is by
+    // chunk x rather than by voxel x. The dirty set is the one thing they share,
+    // so each worker collects its own and they merge at the end.
     public static void ComputeSkyExposure(WorldState world, System.Action<float> progress = null)
     {
         world.ClearSkyExposureAll();
 
         float canopySunExtinction = world.SimData.canopySunExtinction;
-        int minWx = world.Min.X * ChunkState.SIZE;
-        int maxWx = (world.Max.X + 1) * ChunkState.SIZE;
         int minWz = world.Min.Z * ChunkState.SIZE;
         int maxWz = (world.Max.Z + 1) * ChunkState.SIZE;
+        int sliceCount = Math.Max(1, world.Max.X - world.Min.X + 1);
+        int slicesDone = 0;
+        object dirtyLock = new();
 
-        for (int wx = minWx; wx < maxWx; wx++)
-        {
-            for (int wz = minWz; wz < maxWz; wz++)
+        System.Threading.Tasks.Parallel.For(
+            world.Min.X,
+            world.Max.X + 1,
+            () => new List<Vector3I>(),
+            (cx, _, dirty) =>
             {
-                ScanSkyExposureColumn(world, wx, wz, canopySunExtinction);
-            }
-            if (progress != null && (wx & 15) == 0)
+                int minWx = cx * ChunkState.SIZE;
+                for (int wx = minWx; wx < minWx + ChunkState.SIZE; wx++)
+                {
+                    for (int wz = minWz; wz < maxWz; wz++)
+                    {
+                        ScanSkyExposureColumn(world, wx, wz, canopySunExtinction, dirty);
+                    }
+                }
+                if (progress != null)
+                {
+                    progress(System.Threading.Interlocked.Increment(ref slicesDone) / (float)sliceCount);
+                }
+                return dirty;
+            },
+            dirty =>
             {
-                progress((wx - minWx) / (float)Mathf.Max(1, maxWx - minWx));
-            }
-        }
+                lock (dirtyLock)
+                {
+                    for (int i = 0; i < dirty.Count; i++)
+                    {
+                        world.SkyExposureChunkDirty.Add(dirty[i]);
+                    }
+                }
+            });
     }
 
     // One XZ column of SkyExposure, top-down. The single definition of the
     // field — both the full-world bake and the incremental per-edit recompute
     // call this, so there is no pair of scans to keep in sync by hand.
-    private static void ScanSkyExposureColumn(WorldState world, int wx, int wz, float canopySunExtinction)
+    //
+    // Walks a chunk at a time rather than a voxel at a time. Every field this
+    // reads (blocks, canopy, non-voxel cover) and the one it writes is a
+    // separate Dictionary keyed on the chunk coord, so the straight per-voxel
+    // walk paid four hash lookups per voxel for arrays that only change every
+    // 16 — which is most of what a full-world sky pass cost.
+    // `dirty` collects the chunks this column wrote, so the whole-world pass can
+    // hand each worker a private list instead of racing on the world's set.
+    private static void ScanSkyExposureColumn(WorldState world, int wx, int wz, float canopySunExtinction, ICollection<Vector3I> dirty)
     {
-        int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
-        int minWy = world.Min.Y * ChunkState.SIZE;
+        int cx = FloorDiv(wx, ChunkState.SIZE);
+        int cz = FloorDiv(wz, ChunkState.SIZE);
+        int lx = Mod(wx, ChunkState.SIZE);
+        int lz = Mod(wz, ChunkState.SIZE);
 
         float level = MAX_LIGHT;
         bool blocked = false;
-        for (int wy = topWy; wy >= minWy; wy--)
+        for (int cy = world.Max.Y; cy >= world.Min.Y; cy--)
         {
-            if (blocked)
+            var cc = new Vector3I(cx, cy, cz);
+            if (!world._chunks.TryGetValue(cc, out ChunkState chunk))
             {
-                world.SetSkyExposureWorld(wx, wy, wz, 0);
+                // Not resident: nothing to write, and air neither attenuates
+                // nor blocks, so the column carries on unchanged below it.
                 continue;
             }
-            int v = world.GetBlockWorld(wx, wy, wz);
-            // Opaque ceiling — a solid voxel, or non-voxel solid cover such as
-            // a roof: this voxel and everything below it are sheltered.
-            if ((v != Blocks.AirId && !Blocks.IsTransparent(v)) || world.GetSunOpaqueWorld(wx, wy, wz))
+            byte[,,] sky = chunk.SkyExposure;
+            world.CanopyAttenuation.TryGetValue(cc, out byte[,,] canopy);
+            world.SunOpaque.TryGetValue(cc, out bool[,,] sunOpaque);
+
+            for (int ly = ChunkState.SIZE - 1; ly >= 0; ly--)
             {
-                blocked = true;
-                world.SetSkyExposureWorld(wx, wy, wz, 0);
-                continue;
+                if (blocked)
+                {
+                    sky[lx, ly, lz] = 0;
+                    continue;
+                }
+                int v = chunk.Voxels[lx, ly, lz];
+                // Opaque ceiling — a solid voxel, or non-voxel solid cover such
+                // as a roof: this voxel and everything below it are sheltered.
+                if ((v != Blocks.AirId && !Blocks.IsTransparent(v)) || (sunOpaque != null && sunOpaque[lx, ly, lz]))
+                {
+                    blocked = true;
+                    sky[lx, ly, lz] = 0;
+                    continue;
+                }
+                level -= Blocks.LightAttenuation(v);
+                if (canopy != null)
+                {
+                    level *= MediumTransmittance(canopy[lx, ly, lz], canopySunExtinction);
+                }
+                int rounded = (int)(level + 0.5f);
+                if (rounded <= 0)
+                {
+                    blocked = true;
+                    sky[lx, ly, lz] = 0;
+                    continue;
+                }
+                sky[lx, ly, lz] = (byte)rounded;
             }
-            level -= Blocks.LightAttenuation(v);
-            level *= MediumTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
-            int rounded = (int)(level + 0.5f);
-            if (rounded <= 0)
+            dirty.Add(cc);
+        }
+    }
+
+    private static int FloorDiv(int a, int b)
+    {
+        int q = a / b;
+        return (a % b != 0 && (a < 0) != (b < 0)) ? q - 1 : q;
+    }
+
+    private static int Mod(int a, int m)
+    {
+        return ((a % m) + m) % m;
+    }
+
+    // Everything the sunlight passes read or write, resolved off the chunk
+    // dictionary ONCE: the flat chunk grid, each per-voxel channel flattened
+    // onto its indices, the two medium-transmittance tables, and per-chunk
+    // dirty flags.
+    //
+    // Every one of those used to be a Dictionary<Vector3I, …> lookup PER
+    // NEIGHBOUR — eight of them, so ~48 hashes per popped voxel — and the two
+    // Mathf.Exp calls were per neighbour too. Both were most of what a bake's
+    // sun flood cost. Voxels are addressed as ChunkGrid packed indices
+    // throughout, which is also what lets the seed queue be one int per entry
+    // (a painted world seeds ~16M of them).
+    //
+    // Build one per pass and drop it: it caches chunk references, so anything
+    // that adds or removes a chunk invalidates it.
+    private sealed class SunField
+    {
+        public readonly WorldState World;
+        public readonly ChunkGrid Grid;
+        public readonly byte[][,,] Voxels;
+        public readonly byte[][,,] Sun;
+        public readonly byte[][,,] Fog;
+        public readonly byte[][,,] Canopy;
+        public readonly byte[][,,] Shade;
+        public readonly bool[][,,] Opaque;
+        // exp(-d/255 * extinction), indexed by density byte. The canopy table
+        // reaches 510 because the flood charges canopy PLUS its shadow.
+        public readonly float[] FogTransmit;
+        public readonly float[] CanopyTransmit;
+        public readonly int FalloffPerVoxel;
+        private readonly bool[] _dirty;
+
+        public SunField(WorldState world)
+        {
+            World = world;
+            Grid = new ChunkGrid(world);
+            int count = Grid.Count;
+            Voxels = new byte[count][,,];
+            Sun = new byte[count][,,];
+            Fog = new byte[count][,,];
+            for (int i = 0; i < count; i++)
             {
-                blocked = true;
-                world.SetSkyExposureWorld(wx, wy, wz, 0);
-                continue;
+                ChunkState chunk = Grid.Chunk(i);
+                if (chunk == null)
+                {
+                    continue;
+                }
+                Voxels[i] = chunk.Voxels;
+                Sun[i] = chunk.Sunlight;
+                Fog[i] = EffectiveFog(chunk, world.SimData);
             }
-            world.SetSkyExposureWorld(wx, wy, wz, rounded);
+            Canopy = Grid.Resolve(world.CanopyAttenuation);
+            Shade = Grid.Resolve(world.CanopyShade);
+            Opaque = Grid.Resolve(world.SunOpaque);
+            _dirty = new bool[count];
+
+            float fogSunExtinction = world.SimData.fogSunExtinction;
+            float canopySunExtinction = world.SimData.canopySunExtinction;
+            FogTransmit = new float[256];
+            for (int d = 0; d < FogTransmit.Length; d++)
+            {
+                FogTransmit[d] = MediumTransmittance(d, fogSunExtinction);
+            }
+            CanopyTransmit = new float[511];
+            for (int d = 0; d < CanopyTransmit.Length; d++)
+            {
+                CanopyTransmit[d] = MediumTransmittance(d, canopySunExtinction);
+            }
+            FalloffPerVoxel = Math.Max(1, world.SimData.sunFalloffPerVoxel);
+        }
+
+        // Fog as the sun passes MUST see it: ChunkState.GetFog, not the raw
+        // FogDensity channel. An interior class's dust floor is fog too —
+        // max(authored, dustFloor * interiorness) over air — and reading past it
+        // makes every building, tunnel and cave bake a level or two brighter
+        // than it should. Materialized per chunk so the flood keeps its single
+        // array read; a chunk whose cells carry no dust aliases the channel
+        // itself and costs nothing.
+        private static byte[,,] EffectiveFog(ChunkState chunk, SimData simData)
+        {
+            const int CELLS = ChunkState.ENV_SUBGRID_SIZE;
+            bool any = false;
+            for (int cx = 0; cx < CELLS; cx++)
+            {
+                for (int cy = 0; cy < CELLS; cy++)
+                {
+                    for (int cz = 0; cz < CELLS; cz++)
+                    {
+                        InteriorAmbienceData ambience =
+                            simData?.GetInteriorAmbience(chunk.GetEnvTag(cx, cy, cz));
+                        if (ambience == null || ambience.dustFloor <= 0f)
+                        {
+                            continue;
+                        }
+                        any |= chunk.GetInteriorness(cx, cy, cz) > 0;
+                    }
+                }
+            }
+            if (!any)
+            {
+                return chunk.FogDensity;
+            }
+            // GetFog itself, never a second copy of its rule — the dust floor is
+            // the kind of thing that drifts the moment it is written twice.
+            var fog = new byte[ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE];
+            for (int x = 0; x < ChunkState.SIZE; x++)
+            {
+                for (int y = 0; y < ChunkState.SIZE; y++)
+                {
+                    for (int z = 0; z < ChunkState.SIZE; z++)
+                    {
+                        fog[x, y, z] = (byte)chunk.GetFog(simData, x, y, z);
+                    }
+                }
+            }
+            return fog;
+        }
+
+        public int Sunlight(int packed)
+        {
+            return Sun[packed >> ChunkGrid.VOXEL_BITS][
+                ChunkGrid.LocalX(packed), ChunkGrid.LocalY(packed), ChunkGrid.LocalZ(packed)];
+        }
+
+        public void SetSunlight(int packed, int level)
+        {
+            int ci = packed >> ChunkGrid.VOXEL_BITS;
+            Sun[ci][ChunkGrid.LocalX(packed), ChunkGrid.LocalY(packed), ChunkGrid.LocalZ(packed)] = (byte)level;
+            _dirty[ci] = true;
+        }
+
+        public void MarkDirty(int chunkIndex)
+        {
+            _dirty[chunkIndex] = true;
+        }
+
+        // The dirty sets and SunlightVersion, marked once per CHUNK at the end
+        // rather than per voxel write. A full bake writes tens of millions of
+        // voxels for a dirty set that is "every chunk" by the time it finishes,
+        // and each write was two HashSet.Add plus a version bump.
+        public void FlushDirty()
+        {
+            for (int i = 0; i < _dirty.Length; i++)
+            {
+                if (!_dirty[i])
+                {
+                    continue;
+                }
+                ChunkState chunk = Grid.Chunk(i);
+                chunk.MarkSunlightChanged();
+                World.LightChunkDirty.Add(chunk.ChunkCoord);
+                World.SunlightChunkDirty.Add(chunk.ChunkCoord);
+                _dirty[i] = false;
+            }
         }
     }
 
@@ -152,68 +382,131 @@ public static class LightEngine
         // bottom of darkened columns.
         world.ClearSunlightAll();
 
-        int minWx = world.Min.X * ChunkState.SIZE;
-        int maxWx = (world.Max.X + 1) * ChunkState.SIZE;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var field = new SunField(world);
+        long fieldMs = sw.ElapsedMilliseconds;
+
         int minWz = world.Min.Z * ChunkState.SIZE;
         int maxWz = (world.Max.Z + 1) * ChunkState.SIZE;
+        int sliceCount = Math.Max(1, world.Max.X - world.Min.X + 1);
+        var seedQueues = new Queue<int>[sliceCount];
+        int slicesDone = 0;
 
-        var queue = new Queue<(int x, int y, int z)>();
-        float canopySunExtinction = world.SimData.canopySunExtinction;
-        float fogSunExtinction = world.SimData.fogSunExtinction;
-
-        for (int wx = minWx; wx < maxWx; wx++)
+        // One worker per chunk-X SLICE, exactly as ComputeSkyExposure is split
+        // and for the same reason: a column writes only into the chunk stack at
+        // its own (cx, cz), so two slices can never touch the same array. The
+        // seed queue is the one thing they would share, so each fills its own
+        // list and they concatenate below — the flood is a max-relaxation whose
+        // fixpoint does not depend on the order seeds are popped in.
+        System.Threading.Tasks.Parallel.For(0, sliceCount, slice =>
         {
-            for (int wz = minWz; wz < maxWz; wz++)
+            var seeds = new Queue<int>();
+            int minWx = (world.Min.X + slice) * ChunkState.SIZE;
+            for (int wx = minWx; wx < minWx + ChunkState.SIZE; wx++)
             {
-                ScanSunlightColumn(world, wx, wz, canopySunExtinction, fogSunExtinction, queue, int.MaxValue);
+                for (int wz = minWz; wz < maxWz; wz++)
+                {
+                    ScanSunlightColumn(field, wx, wz, seeds, int.MaxValue);
+                }
             }
-            if (progress != null && (wx & 15) == 0)
+            seedQueues[slice] = seeds;
+            if (progress != null)
             {
-                progress(SCAN_SHARE * (wx - minWx) / Mathf.Max(1, maxWx - minWx));
+                progress(SCAN_SHARE * System.Threading.Interlocked.Increment(ref slicesDone) / sliceCount);
             }
+        });
+
+        int seedCount = 0;
+        foreach (Queue<int> slice in seedQueues)
+        {
+            seedCount += slice.Count;
         }
+        var queue = new Queue<int>(seedCount);
+        for (int i = 0; i < seedQueues.Length; i++)
+        {
+            foreach (int packed in seedQueues[i])
+            {
+                queue.Enqueue(packed);
+            }
+            seedQueues[i] = null;   // ~64MB of seeds on a painted world; free as we go
+        }
+        long scanMs = sw.ElapsedMilliseconds;
 
         progress?.Invoke(SCAN_SHARE);
-        SpreadSunlight(world, queue, progress == null ? null : p => progress(SCAN_SHARE + p * (1f - SCAN_SHARE)));
+        SpreadSunlight(field, queue, progress == null ? null : p => progress(SCAN_SHARE + p * (1f - SCAN_SHARE)));
+        field.FlushDirty();
         progress?.Invoke(1f);
+        if (progress != null)
+        {
+            // Offline bakes only — this is minutes of a bake and "the relight
+            // was slow" is not a place to start optimizing from.
+            GD.Print($"[sunlight] field={fieldMs}ms scan={scanMs - fieldMs}ms "
+                + $"flood={sw.ElapsedMilliseconds - scanMs}ms seeds={seedCount}");
+        }
     }
 
     // Direct sun down one XZ column, top-down to the first thing that stops it.
     // The single definition of the column phase — the full bake and the regional
     // relight both call it, so there is no pair of scans to keep in sync.
-    // Every cell it lights is enqueued as a source for the lateral spread.
+    // Every cell it lights is appended to `seeds` as a source for the spread.
     //
     // The scan always starts at the world top (attenuation accumulates from
     // there) but writes only at or below `maxWriteY`. A regional relight uses
     // that to leave the untouched sky above its region alone rather than
     // rewriting it with identical values and dirtying every chunk it passes.
-    private static void ScanSunlightColumn(WorldState world, int wx, int wz, float canopySunExtinction, float fogSunExtinction, Queue<(int x, int y, int z)> queue, int maxWriteY)
+    private static void ScanSunlightColumn(SunField f, int wx, int wz, Queue<int> seeds, int maxWriteY)
     {
+        WorldState world = f.World;
         int minWy = world.Min.Y * ChunkState.SIZE;
         int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
 
         float sunLevel = MAX_LIGHT;
         for (int wy = topWy; wy >= minWy; wy--)
         {
-            int v = world.GetBlockWorld(wx, wy, wz);
+            int packed = f.Grid.Pack(wx, wy, wz);
+            if (packed < 0)
+            {
+                // Not resident: nothing to write, and air neither blocks nor
+                // attenuates, so the column carries on unchanged below it.
+                continue;
+            }
+            int ci = packed >> ChunkGrid.VOXEL_BITS;
+            int lx = ChunkGrid.LocalX(packed);
+            int ly = ChunkGrid.LocalY(packed);
+            int lz = ChunkGrid.LocalZ(packed);
+
+            int v = f.Voxels[ci][lx, ly, lz];
             if (v != Blocks.AirId && !Blocks.IsTransparent(v))
             {
                 break;
             }
             // Non-voxel solid cover (a roof) stops the column exactly as
             // a solid voxel does — canopy attenuation can only ever dim.
-            if (world.GetSunOpaqueWorld(wx, wy, wz))
+            bool[,,] opaque = f.Opaque[ci];
+            if (opaque != null && opaque[lx, ly, lz])
             {
                 break;
             }
             sunLevel -= Blocks.LightAttenuation(v);
-            sunLevel *= MediumTransmittance(world.GetFogWorld(wx, wy, wz), fogSunExtinction);
+            int fog = f.Fog[ci][lx, ly, lz];
+            if (fog > 0)
+            {
+                sunLevel *= f.FogTransmit[fog];
+            }
             // Canopy only, never CanopyShade. The scan carries sunLevel down, so
             // it has already paid for the leaves by the time it is under them;
             // the air below holds no foliage to charge for again. Reading the
             // shadow here would re-toll the same canopy once per voxel of trunk
             // and make a tree's darkness a function of its HEIGHT.
-            sunLevel *= MediumTransmittance(world.GetCanopyAttenuationWorld(wx, wy, wz), canopySunExtinction);
+            byte[,,] canopy = f.Canopy[ci];
+            if (canopy != null)
+            {
+                int density = canopy[lx, ly, lz];
+                if (density > 0)
+                {
+                    sunLevel *= f.CanopyTransmit[density];
+                }
+            }
             int level = (int)(sunLevel + 0.5f);
             if (level <= 0)
             {
@@ -223,8 +516,9 @@ public static class LightEngine
             {
                 continue;
             }
-            world.SetSunlightWorld(wx, wy, wz, level);
-            queue.Enqueue((wx, wy, wz));
+            f.Sun[ci][lx, ly, lz] = (byte)level;
+            f.MarkDirty(ci);
+            seeds.Enqueue(packed);
         }
     }
 
@@ -262,41 +556,47 @@ public static class LightEngine
         }
         world.SunlightChunkDirty.Clear();
         float canopySunExtinction = world.SimData.canopySunExtinction;
-        float fogSunExtinction = world.SimData.fogSunExtinction;
         int minWy = world.Min.Y * ChunkState.SIZE;
+        var field = new SunField(world);
 
         // Zero the columns outright and hand their OLD levels to the removal
         // flood, so everything they lit elsewhere is pulled back too. Same
         // machinery a voxel edit uses; only the trigger differs.
-        var removeQueue = new Queue<(int x, int y, int z, int level)>();
-        var refillQueue = new Queue<(int x, int y, int z)>();
+        var removeQueue = new Queue<(int packed, int level)>();
+        var refillQueue = new Queue<int>();
         for (int wx = region.Min.X; wx <= region.Max.X; wx++)
         {
             for (int wz = region.Min.Z; wz <= region.Max.Z; wz++)
             {
                 for (int wy = region.Max.Y; wy >= minWy; wy--)
                 {
-                    int level = world.GetSunlightWorld(wx, wy, wz);
+                    int packed = field.Grid.Pack(wx, wy, wz);
+                    if (packed < 0)
+                    {
+                        continue;
+                    }
+                    int level = field.Sunlight(packed);
                     if (level <= 0)
                     {
                         continue;
                     }
-                    world.SetSunlightWorld(wx, wy, wz, 0);
-                    removeQueue.Enqueue((wx, wy, wz, level));
+                    field.SetSunlight(packed, 0);
+                    removeQueue.Enqueue((packed, level));
                 }
             }
         }
-        RetractSunlight(world, removeQueue, refillQueue);
+        RetractSunlight(field, removeQueue, refillQueue);
 
         for (int wx = region.Min.X; wx <= region.Max.X; wx++)
         {
             for (int wz = region.Min.Z; wz <= region.Max.Z; wz++)
             {
-                ScanSkyExposureColumn(world, wx, wz, canopySunExtinction);
-                ScanSunlightColumn(world, wx, wz, canopySunExtinction, fogSunExtinction, refillQueue, region.Max.Y);
+                ScanSkyExposureColumn(world, wx, wz, canopySunExtinction, world.SkyExposureChunkDirty);
+                ScanSunlightColumn(field, wx, wz, refillQueue, region.Max.Y);
             }
         }
-        SpreadSunlight(world, refillQueue);
+        SpreadSunlight(field, refillQueue);
+        field.FlushDirty();
     }
 
     public static void AddLightSource(WorldState world, LightSource source)
@@ -814,18 +1114,26 @@ public static class LightEngine
     // (Fading light level was tried first and is useless here: the column scan
     // seeds voxels at every level at once, so the dimmest is hit within the first
     // few thousand pops and the bar pins itself at ~93% for the whole flood.)
-    private static void SpreadSunlight(WorldState world, Queue<(int x, int y, int z)> queue, System.Action<float> progress = null)
+    private static void SpreadSunlight(SunField f, Queue<int> queue, System.Action<float> progress = null)
     {
-        float canopySunExtinction = world.SimData.canopySunExtinction;
-        float fogSunExtinction = world.SimData.fogSunExtinction;
-        int falloffPerVoxel = Math.Max(1, world.SimData.sunFalloffPerVoxel);
+        ChunkGrid grid = f.Grid;
+        byte[][,,] voxels = f.Voxels;
+        byte[][,,] sun = f.Sun;
+        byte[][,,] fog = f.Fog;
+        byte[][,,] canopy = f.Canopy;
+        byte[][,,] shade = f.Shade;
+        bool[][,,] opaque = f.Opaque;
+        float[] fogTransmit = f.FogTransmit;
+        float[] canopyTransmit = f.CanopyTransmit;
+        int falloffPerVoxel = f.FalloffPerVoxel;
         bool report = progress != null;
         float drained = 0f;
         long popped = 0;
         while (queue.Count > 0)
         {
-            var (x, y, z) = queue.Dequeue();
-            int currentLevel = world.GetSunlightWorld(x, y, z);
+            int packed = queue.Dequeue();
+            int currentLevel = sun[packed >> ChunkGrid.VOXEL_BITS][
+                ChunkGrid.LocalX(packed), ChunkGrid.LocalY(packed), ChunkGrid.LocalZ(packed)];
             if (report && (++popped & PROGRESS_POP_MASK) == 0)
             {
                 float ratio = popped / (float)(popped + queue.Count);
@@ -834,23 +1142,29 @@ public static class LightEngine
             }
             if (currentLevel <= falloffPerVoxel) { continue; }
 
-            foreach (Vector3I offset in Neighbors)
+            for (int d = 0; d < ChunkGrid.Offsets.Length; d++)
             {
-                int nx = x + offset.X;
-                int ny = y + offset.Y;
-                int nz = z + offset.Z;
+                // -1 covers both "off the world" and "that chunk isn't
+                // resident" — the grid's neighbour table already knows.
+                int n = grid.Step(packed, d);
+                if (n < 0) { continue; }
+                int nc = n >> ChunkGrid.VOXEL_BITS;
+                int lx = ChunkGrid.LocalX(n);
+                int ly = ChunkGrid.LocalY(n);
+                int lz = ChunkGrid.LocalZ(n);
 
-                if (!world.IsInBounds(nx, ny, nz)) { continue; }
-                int v = world.GetBlockWorld(nx, ny, nz);
+                int v = voxels[nc][lx, ly, lz];
                 if (v != Blocks.AirId && !Blocks.IsTransparent(v)) { continue; }
                 // Non-voxel solid cover (a roof) is a barrier to the flood as
                 // well as to the column scan. Without this the lit air directly
                 // above it spreads straight back down through it — one step, one
                 // level — and refills the room the column scan just darkened.
-                if (world.GetSunOpaqueWorld(nx, ny, nz)) { continue; }
+                bool[,,] op = opaque[nc];
+                if (op != null && op[lx, ly, lz]) { continue; }
 
                 float stepped = currentLevel - falloffPerVoxel - Blocks.LightAttenuation(v);
-                stepped *= MediumTransmittance(world.GetFogWorld(nx, ny, nz), fogSunExtinction);
+                int fogDensity = fog[nc][lx, ly, lz];
+                if (fogDensity > 0) { stepped *= fogTransmit[fogDensity]; }
                 // Canopy AND its shadow, unlike the column scan above, which
                 // reads only the canopy. This is the one pass that must see the
                 // shadow: without it a neighbouring un-canopied column refills
@@ -859,16 +1173,19 @@ public static class LightEngine
                 // integral means one lateral step in costs what coming down
                 // through the leaves did, so refill can raise a voxel to — but
                 // never above — the vertical answer.
-                stepped *= MediumTransmittance(
-                    world.GetCanopyAttenuationWorld(nx, ny, nz) + world.GetCanopyShadeWorld(nx, ny, nz),
-                    canopySunExtinction);
+                byte[,,] can = canopy[nc];
+                byte[,,] sh = shade[nc];
+                int leaves = (can != null ? can[lx, ly, lz] : 0) + (sh != null ? sh[lx, ly, lz] : 0);
+                if (leaves > 0) { stepped *= canopyTransmit[leaves]; }
                 int newLevel = (int)(stepped + 0.5f);
                 if (newLevel <= 0) { continue; }
 
-                if (newLevel > world.GetSunlightWorld(nx, ny, nz))
+                byte[,,] target = sun[nc];
+                if (newLevel > target[lx, ly, lz])
                 {
-                    world.SetSunlightWorld(nx, ny, nz, newLevel);
-                    queue.Enqueue((nx, ny, nz));
+                    target[lx, ly, lz] = (byte)newLevel;
+                    f.MarkDirty(nc);
+                    queue.Enqueue(n);
                 }
             }
         }
@@ -891,76 +1208,80 @@ public static class LightEngine
 
         foreach (var (wx, wz) in columns)
         {
-            ScanSkyExposureColumn(world, wx, wz, canopySunExtinction);
+            ScanSkyExposureColumn(world, wx, wz, canopySunExtinction, world.SkyExposureChunkDirty);
         }
     }
 
     private static void UpdateSunlightAt(WorldState world, List<Vector3I> changedPositions)
     {
-        var removeQueue = new Queue<(int x, int y, int z, int level)>();
-        var refillQueue = new Queue<(int x, int y, int z)>();
+        var field = new SunField(world);
+        var removeQueue = new Queue<(int packed, int level)>();
+        var refillQueue = new Queue<int>();
 
         foreach (Vector3I pos in changedPositions)
         {
-            int v = world.GetBlockWorld(pos.X, pos.Y, pos.Z);
+            int packed = field.Grid.Pack(pos.X, pos.Y, pos.Z);
+            if (packed < 0)
+            {
+                continue;
+            }
+            int v = field.Voxels[packed >> ChunkGrid.VOXEL_BITS][
+                ChunkGrid.LocalX(packed), ChunkGrid.LocalY(packed), ChunkGrid.LocalZ(packed)];
             bool isAir = v == Blocks.AirId || Blocks.IsTransparent(v);
-            int level = world.GetSunlightWorld(pos.X, pos.Y, pos.Z);
+            int level = field.Sunlight(packed);
 
             if (isAir && level > 0)
             {
-                removeQueue.Enqueue((pos.X, pos.Y, pos.Z, level));
-                world.SetSunlightWorld(pos.X, pos.Y, pos.Z, 0);
+                removeQueue.Enqueue((packed, level));
+                field.SetSunlight(packed, 0);
             }
             else if (isAir)
             {
-                foreach (Vector3I offset in Neighbors)
+                for (int d = 0; d < ChunkGrid.Offsets.Length; d++)
                 {
-                    int nx = pos.X + offset.X;
-                    int ny = pos.Y + offset.Y;
-                    int nz = pos.Z + offset.Z;
-                    if (!world.IsInBounds(nx, ny, nz)) { continue; }
-                    if (world.GetSunlightWorld(nx, ny, nz) > 0)
+                    int n = field.Grid.Step(packed, d);
+                    if (n < 0) { continue; }
+                    if (field.Sunlight(n) > 0)
                     {
-                        refillQueue.Enqueue((nx, ny, nz));
+                        refillQueue.Enqueue(n);
                     }
                 }
             }
             else if (level > 0)
             {
-                removeQueue.Enqueue((pos.X, pos.Y, pos.Z, level));
-                world.SetSunlightWorld(pos.X, pos.Y, pos.Z, 0);
+                removeQueue.Enqueue((packed, level));
+                field.SetSunlight(packed, 0);
             }
         }
 
-        RetractSunlight(world, removeQueue, refillQueue);
-        SpreadSunlight(world, refillQueue);
+        RetractSunlight(field, removeQueue, refillQueue);
+        SpreadSunlight(field, refillQueue);
+        field.FlushDirty();
     }
 
     // Darkening half of an incremental sunlight update: walks outward from cells
     // that just lost light, zeroing everything dimmer (which could only have
     // come from them) and collecting anything still at least as bright as a
     // source to refill from.
-    private static void RetractSunlight(WorldState world, Queue<(int x, int y, int z, int level)> removeQueue, Queue<(int x, int y, int z)> refillQueue)
+    private static void RetractSunlight(SunField f, Queue<(int packed, int level)> removeQueue, Queue<int> refillQueue)
     {
         while (removeQueue.Count > 0)
         {
-            var (x, y, z, level) = removeQueue.Dequeue();
-            foreach (Vector3I offset in Neighbors)
+            var (packed, level) = removeQueue.Dequeue();
+            for (int d = 0; d < ChunkGrid.Offsets.Length; d++)
             {
-                int nx = x + offset.X;
-                int ny = y + offset.Y;
-                int nz = z + offset.Z;
-                if (!world.IsInBounds(nx, ny, nz)) { continue; }
+                int n = f.Grid.Step(packed, d);
+                if (n < 0) { continue; }
 
-                int neighborLevel = world.GetSunlightWorld(nx, ny, nz);
+                int neighborLevel = f.Sunlight(n);
                 if (neighborLevel > 0 && neighborLevel < level)
                 {
-                    removeQueue.Enqueue((nx, ny, nz, neighborLevel));
-                    world.SetSunlightWorld(nx, ny, nz, 0);
+                    removeQueue.Enqueue((n, neighborLevel));
+                    f.SetSunlight(n, 0);
                 }
                 else if (neighborLevel >= level)
                 {
-                    refillQueue.Enqueue((nx, ny, nz));
+                    refillQueue.Enqueue(n);
                 }
             }
         }

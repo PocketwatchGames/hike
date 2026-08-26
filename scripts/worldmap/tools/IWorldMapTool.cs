@@ -99,6 +99,11 @@ public interface IWorldMapTool
     // finding the plane first, which on a fresh session is parked in the sky.
     int? CutawayFor(int headroom) => null;
 
+    // A second MODE for tools that have one, bound to X. Returns whether it
+    // handled the key, so the binding costs nothing for the tools that don't —
+    // a default implementation rather than a stub on all sixteen.
+    bool ToggleMode() => false;
+
     // The stamp this tool has selected, or null. Stamps are composited onto
     // EVERY view, so the painter needs to know which one to highlight without
     // caring which tool is active; only the scene tool answers with anything.

@@ -123,6 +123,6 @@ public static class EntityVoxelStamper
         {
             return true;
         }
-        return carves && existing != Blocks.WaterId;
+        return carves && !Blocks.IsWater(existing);
     }
 }

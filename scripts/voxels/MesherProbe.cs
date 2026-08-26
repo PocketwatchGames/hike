@@ -437,12 +437,7 @@ public static class MesherProbe
     // reported stair-stepping while the normals stay perfectly smooth.
     private static void RampShadingTerms()
     {
-        var st = new SurfaceTool();
-        st.Begin(Godot.Mesh.PrimitiveType.Triangles);
-        st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(1, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
+        var st = new MeshBuffer(4);
 
         var v = new int[N, N, N];
         var top = new int[N];
@@ -461,7 +456,7 @@ public static class MesherProbe
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace) { return; }
 
-        var arrays = st.Commit().SurfaceGetArrays(0);
+        var arrays = st.ToArrayMesh(null).SurfaceGetArrays(0);
         var verts = arrays[(int)Godot.Mesh.ArrayType.Vertex].AsVector3Array();
         var cols = arrays[(int)Godot.Mesh.ArrayType.Color].AsColorArray();
         var c3 = arrays[(int)Godot.Mesh.ArrayType.Custom3].AsFloat32Array();
@@ -534,19 +529,14 @@ public static class MesherProbe
             return LightEngine.MAX_LIGHT;
         }
 
-        var st = new SurfaceTool();
-        st.Begin(Godot.Mesh.PrimitiveType.Triangles);
-        st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(1, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
+        var st = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => Blocks.DefaultShape(Get(x, y, z)),
             (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace) { GD.Print("[probe] tunnel sun: no faces"); return; }
 
-        var arrays = st.Commit().SurfaceGetArrays(0);
+        var arrays = st.ToArrayMesh(null).SurfaceGetArrays(0);
         var verts = arrays[(int)Godot.Mesh.ArrayType.Vertex].AsVector3Array();
         var c3 = arrays[(int)Godot.Mesh.ArrayType.Custom3].AsFloat32Array();
 
@@ -590,16 +580,14 @@ public static class MesherProbe
             return LightEngine.MAX_LIGHT;
         }
 
-        var st = new SurfaceTool();
-        st.Begin(Godot.Mesh.PrimitiveType.Triangles);
-        for (int i = 0; i < 4; i++) { st.SetCustomFormat(i, SurfaceTool.CustomFormat.RgbaFloat); }
+        var st = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => SharpAxes.Y,
             (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace) { GD.Print("[probe] cliff sun: no faces"); return; }
 
-        var arrays = st.Commit().SurfaceGetArrays(0);
+        var arrays = st.ToArrayMesh(null).SurfaceGetArrays(0);
         var verts = arrays[(int)Godot.Mesh.ArrayType.Vertex].AsVector3Array();
         var c3 = arrays[(int)Godot.Mesh.ArrayType.Custom3].AsFloat32Array();
 
@@ -851,12 +839,7 @@ public static class MesherProbe
         Func<int, int, int, int> terrainId,
         out int[] tiles, out int[] kits, out Vector3[] norms)
     {
-        var st = new SurfaceTool();
-        st.Begin(Godot.Mesh.PrimitiveType.Triangles);
-        st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(1, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
+        var st = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), get, shape,
             terrainId, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
@@ -867,7 +850,7 @@ public static class MesherProbe
             norms = Array.Empty<Vector3>();
             return Array.Empty<Vector3>();
         }
-        var arrays = st.Commit().SurfaceGetArrays(0);
+        var arrays = st.ToArrayMesh(null).SurfaceGetArrays(0);
         Vector3[] verts = arrays[(int)Godot.Mesh.ArrayType.Vertex].AsVector3Array();
         norms = arrays[(int)Godot.Mesh.ArrayType.Normal].AsVector3Array();
         Color[] colors = arrays[(int)Godot.Mesh.ArrayType.Color].AsColorArray();
@@ -912,12 +895,7 @@ public static class MesherProbe
     private static Vector3[] Build(Func<int, int, int, int> get,
         Func<int, int, int, SharpAxes> shape, out Vector3[] norms)
     {
-        var st = new SurfaceTool();
-        st.Begin(Godot.Mesh.PrimitiveType.Triangles);
-        st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(1, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
+        var st = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), get, shape,
             (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
@@ -926,7 +904,7 @@ public static class MesherProbe
             norms = Array.Empty<Vector3>();
             return Array.Empty<Vector3>();
         }
-        var arrays = st.Commit().SurfaceGetArrays(0);
+        var arrays = st.ToArrayMesh(null).SurfaceGetArrays(0);
         norms = arrays[(int)Godot.Mesh.ArrayType.Normal].AsVector3Array();
         return arrays[(int)Godot.Mesh.ArrayType.Vertex].AsVector3Array();
     }

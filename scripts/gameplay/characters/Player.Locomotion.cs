@@ -2216,7 +2216,7 @@ public partial class Player : CharacterBody3D
 		int fz = Mathf.FloorToInt(GlobalPosition.Z);
 
 		int voxelAtFeet = _world.WorldState.GetBlockWorld(fx, fy, fz);
-		if (voxelAtFeet != Blocks.WaterId || data == null)
+		if (!Blocks.IsWater(voxelAtFeet) || data == null)
 		{
 			_waterState = EWaterState.None;
 			return;
@@ -2229,12 +2229,12 @@ public partial class Player : CharacterBody3D
 		// the pathfinder's wade/swim split, so the player and mobs agree on what
 		// counts as a swim cell at the same swimDepthThreshold.
 		int topY = fy;
-		while (_world.WorldState.GetBlockWorld(fx, topY + 1, fz) == Blocks.WaterId)
+		while (Blocks.IsWater(_world.WorldState.GetBlockWorld(fx, topY + 1, fz)))
 		{
 			topY++;
 		}
 		int bottomY = fy;
-		while (_world.WorldState.GetBlockWorld(fx, bottomY - 1, fz) == Blocks.WaterId)
+		while (Blocks.IsWater(_world.WorldState.GetBlockWorld(fx, bottomY - 1, fz)))
 		{
 			bottomY--;
 		}

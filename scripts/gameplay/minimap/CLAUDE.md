@@ -51,6 +51,25 @@ North is the world diagonal **(−X, −Z)** — the direction the isometric cam
 
 To repoint north, flip these together: the `Label` anchor **and** its local `rotation` in `hud.tscn`, and `WorldMapScreen.NorthMapRotation`.
 
+## World map screen: two zoom levels (`WorldMapScreen`)
+
+The world map is **two render targets, not one shader pass**, cross-faded:
+
+| Level | Render target | Covers |
+|---|---|---|
+| Overview | `overviewMetersPerPixel` (default 5 m/texel) | the whole world |
+| Detail | `detailPixelsPerMeter` (default 3 texels/m), viewport sized to the panel | a window around the pan center |
+
+**Rendering at a FIXED resolution and magnifying with a nearest filter is the whole point of the split** — it is what gives the map an authored pixel size, and what leaves several screen pixels per voxel for per-voxel border lines to be drawn on. Pointing the shader straight at the panel (what the screen used to do) re-renders at whatever size the panel happens to be, so there is no pixel grid to hang a one-pixel line on. Same reasoning as `WorldMapCanvas`, which magnifies its image by an integer rather than fitting it to the control.
+
+**One framing drives both layers.** Zooming animates a single `(center, viewRadius)` and each layer is scaled to the world area *it* covers, so the two stay registered on each other for the whole transition and only their alphas cross-fade. The view radius interpolates **geometrically** (`exp(lerp(log …))`) — a radius is a multiplier, and a linear lerp crawls at the wide end and lurches at the near one. A layer contributing nothing this frame has its `RenderTargetUpdateMode` set to `Disabled`; these are full-screen shader passes.
+
+**Pan is stored in MAP space** (`_panOffsetMap`) — the north-rotated frame the textures are drawn in — because that is the frame pan input arrives in: screen-up is −Y there with no rotation to apply. It is clamped by converting to world space, where each render target is a square turned 45°, so its world-axis bounding half-extent is `radius · √2`; a world smaller than the detail window collapses the range to zero and the view stays centered.
+
+**Overlays are panel-scale, never children of the layers.** The layers are scaled to the zoom, so an icon parented under one would magnify with the map. Region labels and both marker overlays are siblings sized to the map view, projected with the blended framing. Zoom also gates *what* they show: region names fade out with the overview, and the overview's marker overlay runs with `ActiveCampfireOnly` so the whole-world read carries the lit campfire alone.
+
+Input while the tab is visible: mouse wheel or right stick (`LookUp` / `LookDown`) toggles the level; WASD or left stick (`Move*`) pans. `LookUp` / `LookDown` have no keyboard binding, so nothing collides.
+
 ## Shader sampling rules (`shaders/minimap.gdshader`)
 
 - **Height** comes from a single linear-filtered `texture()` sample (smooth elevation shading + smooth contour curves).

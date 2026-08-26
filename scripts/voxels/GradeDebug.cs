@@ -113,7 +113,7 @@ public static class GradeDebug
                 int wx = cx - RADIUS + ix;
                 int v = ws.GetBlockWorld(wx, y, cz);
                 if (v == Blocks.AirId) { sb.Append(' '); continue; }
-                if (v == Blocks.WaterId) { sb.Append('~'); continue; }
+                if (Blocks.IsWater(v)) { sb.Append('~'); continue; }
                 if (!Blocks.IsNaturalGround(v))
                 {
                     sb.Append('#');

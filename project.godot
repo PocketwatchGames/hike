@@ -699,6 +699,30 @@ water_muddiness={
 "type": "float",
 "value": 0.5
 }
+water_zone_muddiness={
+"type": "float",
+"value": 0.5
+}
+water_hue={
+"type": "vec3",
+"value": Vector3(0.3, 0.45, 0.5)
+}
+water_absorb_clear={
+"type": "float",
+"value": 0.12
+}
+water_absorb_muddy={
+"type": "float",
+"value": 1.5
+}
+water_albedo_clear={
+"type": "float",
+"value": 0.05
+}
+water_albedo_muddy={
+"type": "float",
+"value": 0.6
+}
 water_refraction_strength={
 "type": "float",
 "value": 0.05
@@ -882,6 +906,14 @@ water_rim_width={
 water_rim_strength={
 "type": "float",
 "value": 0.6
+}
+water_rim_muddy_knee={
+"type": "float",
+"value": 0.5
+}
+water_rim_muddy_width_scale={
+"type": "float",
+"value": 2.5
 }
 water_debug_mode={
 "type": "int",

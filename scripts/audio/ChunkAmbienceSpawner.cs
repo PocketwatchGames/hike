@@ -225,7 +225,7 @@ public partial class ChunkAmbienceSpawner : Node3D
 
     private static bool IsLand(int v)
     {
-        return v != Blocks.AirId && v != Blocks.WaterId;
+        return v != Blocks.AirId && !Blocks.IsWater(v);
     }
 
     private void SweepEarshotAndTod(Vector3 listenerPos, float tod)

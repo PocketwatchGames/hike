@@ -809,7 +809,7 @@ public class ClipIris
         // which float well under the surface — and every height in this class
         // would then be measured from below the waterline. Climb out to the
         // surface so a swimmer resolves as if standing on it.
-        for (int i = 0; i < MAX_SURFACE_CLIMB && world.GetBlockWorld(wx, foot, wz) == Blocks.WaterId; i++)
+        for (int i = 0; i < MAX_SURFACE_CLIMB && Blocks.IsWater(world.GetBlockWorld(wx, foot, wz)); i++)
         {
             foot++;
         }

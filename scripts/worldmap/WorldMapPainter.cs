@@ -119,6 +119,10 @@ public partial class WorldMapPainter : Node3D
     private volatile int _bakeResult;   // 0 running, 1 ok, 2 failed
     private System.Diagnostics.Stopwatch _bakeClock;
     private double _bakeHoldSeconds;
+    // How long the bake worker will wait for the main thread to run the
+    // occluder stamp before giving up (only reachable if the main loop is
+    // shutting down mid-bake).
+    private const double BakeStampTimeoutSeconds = 60d;
 
     private Image _display;
     private ImageTexture _displayTex;
@@ -135,7 +139,7 @@ public partial class WorldMapPainter : Node3D
 
     // Bindings that mean the same thing whichever tool is active.
     private const string GLOBAL_HINT =
-        "Tab tool  |  1-9 option  |  Q/E param  |  R/F level  |  T/G cutaway  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save";
+        "Tab tool  |  1-9 option  |  Q/E param  |  R/F level  |  T/G cutaway  |  X mode  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save";
 
     // The document this painter is editing, for the console commands that act on
     // "whatever is open".
@@ -484,6 +488,14 @@ public partial class WorldMapPainter : Node3D
                     UpdateHud();
                     GetViewport().SetInputAsHandled();
                     return;
+                case Key.X:
+                    if (ActiveTool.ToggleMode())
+                    {
+                        UpdateHud();
+                        GetViewport().SetInputAsHandled();
+                        return;
+                    }
+                    break;
                 case Key.Bracketleft:
                     AdjustRadius(-1);
                     GetViewport().SetInputAsHandled();
@@ -531,13 +543,49 @@ public partial class WorldMapPainter : Node3D
         _bakeHoldSeconds = 0d;
         _bakeTask = System.Threading.Tasks.Task.Run(() =>
         {
-            bool ok = snapshot.Bake((r, phase) =>
-            {
-                _bakeRatio = r;
-                _bakePhase = phase;
-            });
-            _bakeResult = ok ? 1 : 2;
+            _bakeResult = RunBake(snapshot, BakeProgress) ? 1 : 2;
         });
+    }
+
+    // The whole bake, on ONE worker task, with only the occluder stamp hopping
+    // to the main thread. It has to be one task: the bake must survive the
+    // painter being closed while it runs — it touches no nodes and always did —
+    // and driving the hand-off from _Process instead meant leaving the painter
+    // silently abandoned the bake after the build, with nothing written and no
+    // error. That is exactly what a Ctrl+S followed by "go look at the level"
+    // does, so it looked like the bake had simply not baked any light.
+    //
+    // A deferred Callable is what makes that work: it runs on the main thread on
+    // the next frame no matter which scene is up, so the stamp is still main-
+    // thread even once the painter is gone.
+    private static bool RunBake(WorldMapState snapshot, System.Action<float, string> progress)
+    {
+        if (!snapshot.BakeBuild(progress))
+        {
+            return false;
+        }
+        var stamped = new System.Threading.Tasks.TaskCompletionSource<bool>();
+        Callable.From(() =>
+        {
+            try { stamped.TrySetResult(snapshot.BakeStampOccluders()); }
+            catch (System.Exception e) { GD.PrintErr($"WorldMapPainter: occluder stamp failed: {e}"); stamped.TrySetResult(false); }
+        }).CallDeferred();
+        // Bounded so a bake can never wedge a worker forever if the main loop is
+        // going away underneath it (quitting mid-bake).
+        if (!stamped.Task.Wait(System.TimeSpan.FromSeconds(BakeStampTimeoutSeconds)))
+        {
+            GD.PrintErr("WorldMapPainter: timed out waiting for the main thread to stamp sun occluders; bake abandoned.");
+            return false;
+        }
+        return stamped.Task.Result && snapshot.BakeRelightAndWrite(progress);
+    }
+
+    // Written from the bake worker, read by the tick below — plain volatile
+    // fields, which is the whole contract between the two.
+    private void BakeProgress(float r, string phase)
+    {
+        _bakeRatio = r;
+        _bakePhase = phase;
     }
 
     // Bake readout. Kept out of the paint path deliberately: the task only writes

@@ -19,7 +19,7 @@ public sealed class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 130;
+    public const int WORLDGEN_VERSION = 133;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -851,7 +851,7 @@ public sealed class WorldGen
         if (heightMap.IsNoSpawn(wx, wz) && !heightMap.IsFixtureGround(wx, wz)) { return false; }
         int sy = heightMap.GetSurface(wx, wz);
         int ground = ws.GetBlockWorld(wx, sy, wz);
-        if (ground == Blocks.AirId || ground == Blocks.WaterId) { return false; }
+        if (ground == Blocks.AirId || Blocks.IsWater(ground)) { return false; }
         return ws.GetBlockWorld(wx, sy + 1, wz) == Blocks.AirId;
     }
 
@@ -1842,7 +1842,7 @@ public sealed class WorldGen
         {
             if (by > worldMaxY) { continue; }
             int v = ws.GetBlockWorld(wx, by, wz);
-            if (v == Blocks.AirId || v == Blocks.WaterId)
+            if (v == Blocks.AirId || Blocks.IsWater(v))
             {
                 ws.SetBlockWorld(wx, by, wz, ws.Kits.BlockFor(kitId), SharpAxes.Y);
                 ws.SetTerrainIdWorld(wx, by, wz, kitId);
@@ -3093,7 +3093,7 @@ public sealed class WorldGen
                         // carve nothing, which answer false.
                         if (wy <= waterY && !terrainGen.IsSealedFromWaterAt(wx, wy, wz))
                         {
-                            data.Voxels[x, y, z] = (byte)Blocks.WaterId;
+                            data.Voxels[x, y, z] = (byte)Blocks.DefaultWaterId;
                         }
                         // Fog isn't placed here — it's a separate pass after
                         // GenerateCaves so it can see the final geometry and
@@ -3249,7 +3249,7 @@ public sealed class WorldGen
             int az = wz - worldMinZ;
             if (ax < 0 || ax >= sizeX || az < 0 || az >= sizeZ) { return false; }
             var v = ws.GetBlockWorld(wx, wy, wz);
-            if (v != Blocks.AirId && v != Blocks.WaterId) { return false; }
+            if (v != Blocks.AirId && !Blocks.IsWater(v)) { return false; }
             // "Has solid above" = under a ceiling = cave interior, not cliff-side open sky.
             return wy < columnTopY[ax, az];
         }
@@ -3294,7 +3294,7 @@ public sealed class WorldGen
     // Re-tag solid voxels at or below TerrainMath.SEA_LEVEL to KIT_UNDERWATER iff they
     // sit within WorldGenData.SubmergedKitRadius of a water voxel. Runs after every
     // chunk exists so the water pass has already filled every non-solid
-    // wy<=TerrainMath.SEA_LEVEL cell with Blocks.WaterId. Semantic "near water" beats
+    // wy<=TerrainMath.SEA_LEVEL cell with Blocks.DefaultWaterId. Semantic "near water" beats
     // the old "wy<=TerrainMath.SEA_LEVEL" rule because the latter paints deeply buried
     // rock under cliffs as underwater — then the mesher's 27-voxel kit vote
     // for nearby DC cells drags that sand onto the visible cliff face.
@@ -3363,7 +3363,7 @@ public sealed class WorldGen
                         {
                             for (int dz = -submergedRadius; dz <= submergedRadius && !nearWater; dz++)
                             {
-                                if (ws.GetBlockWorld(wx + dx, wy + dy, wz + dz) == Blocks.WaterId)
+                                if (Blocks.IsWater(ws.GetBlockWorld(wx + dx, wy + dy, wz + dz)))
                                 {
                                     nearWater = true;
                                 }
@@ -3551,7 +3551,7 @@ public sealed class WorldGen
             }
             int sy = SurfaceYAt(wx, wz);
             var ground = ws.GetBlockWorld(wx, sy, wz);
-            if (ground == Blocks.AirId || ground == Blocks.WaterId)
+            if (ground == Blocks.AirId || Blocks.IsWater(ground))
             {
                 return false;
             }
@@ -3787,8 +3787,8 @@ public sealed class WorldGen
             {
                 for (int wy = waterMaxY; wy > waterMinY; wy--)
                 {
-                    if (ws.GetBlockWorld(wx, wy, wz) == Blocks.WaterId
-                        && ws.GetBlockWorld(wx, wy + 1, wz) != Blocks.WaterId)
+                    if (Blocks.IsWater(ws.GetBlockWorld(wx, wy, wz))
+                        && !Blocks.IsWater(ws.GetBlockWorld(wx, wy + 1, wz)))
                     {
                         return wy;
                     }
@@ -3824,7 +3824,7 @@ public sealed class WorldGen
                     int surfaceY = WaterSurfaceYAt(wx, wz);
                     if (surfaceY == int.MinValue) { continue; }
                     // Reject puddles too shallow for a swimmer to occupy.
-                    if (ws.GetBlockWorld(wx, surfaceY - (MIN_WATER_DEPTH - 1), wz) != Blocks.WaterId) { continue; }
+                    if (!Blocks.IsWater(ws.GetBlockWorld(wx, surfaceY - (MIN_WATER_DEPTH - 1), wz))) { continue; }
 
                     // Anchor inside the top water voxel, NOT on its top face
                     // (surfaceY + 1f) — that boundary floors into the air voxel
@@ -3886,10 +3886,10 @@ public sealed class WorldGen
                     // gate on anything deeper than 1 voxel. Mid-voxel (+0.5) so the
                     // mob's feet sample water on its first tick and buoyancy fires
                     // — same reason the open-water pass anchors that way.
-                    if (ws.GetBlockWorld(wx, wy, wz) == Blocks.WaterId
-                        && ws.GetBlockWorld(wx, wy + 1, wz) != Blocks.WaterId)
+                    if (Blocks.IsWater(ws.GetBlockWorld(wx, wy, wz))
+                        && !Blocks.IsWater(ws.GetBlockWorld(wx, wy + 1, wz)))
                     {
-                        if (ws.GetBlockWorld(wx, wy - (CAVE_WATER_MIN_DEPTH - 1), wz) != Blocks.WaterId)
+                        if (!Blocks.IsWater(ws.GetBlockWorld(wx, wy - (CAVE_WATER_MIN_DEPTH - 1), wz)))
                         {
                             continue;
                         }
@@ -3925,7 +3925,7 @@ public sealed class WorldGen
                     }
 
                     var below = ws.GetBlockWorld(wx, wy - 1, wz);
-                    if (below == Blocks.AirId || below == Blocks.WaterId)
+                    if (below == Blocks.AirId || Blocks.IsWater(below))
                     {
                         continue;
                     }

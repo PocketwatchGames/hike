@@ -36,6 +36,7 @@ public class WorldMapState
     public Image Wind;             // Rgba8, per chunk (R = angle, G = strength; G 0 = unpainted)
     public Image Scatter;          // Rgba8, per column (R = prop set + 1, G = density)
     public Image Ground;           // R8, per column (ground set + 1; 0 = default ground)
+    public Image WaterType;        // R8, per column (waterTypes index + 1; 0 = the zone's)
     // Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world Y it
     // is laid at + 1 (0 = seated on the column's own surface, so it follows
     // ground that later moves).
@@ -131,6 +132,8 @@ public class WorldMapState
         Wind = data.LoadOrCreateWind();
         Scatter = data.LoadOrCreateScatter();
         Ground = data.LoadOrCreateGround();
+        WaterType = data.LoadOrCreateWaterType();
+        BuildWaterTypeInk();
         Paving = data.LoadOrCreatePaving();
         Placements = LoadOrCreatePlacements(data);
         Mobs = data.LoadOrCreateMobs();
@@ -950,6 +953,16 @@ public class WorldMapState
         // used to bind process-global tables from this background thread while
         // the painter was live on the main one — which is why "one bake at a
         // time" had to be a rule rather than a consequence.
+        // Per-stage timing. The build is minutes on a real document, and which
+        // stage is minutes is not guessable from reading it.
+        var stageClock = System.Diagnostics.Stopwatch.StartNew();
+        var stages = new System.Text.StringBuilder();
+        void Stage(string name)
+        {
+            stages.Append($" {name}={stageClock.ElapsedMilliseconds}ms");
+            stageClock.Restart();
+        }
+
         Blocks.Bind();
         var palette = KitPalette.Build(Data.genData.kitPalette, Data.genData.ZoneGens);
 
@@ -1001,6 +1014,7 @@ public class WorldMapState
 
 
         WorldState = ws;
+        Stage("alloc");
 
         // Stamped a strip at a time purely so the bake can report progress; the
         // result is identical to one whole-map call.
@@ -1019,8 +1033,10 @@ public class WorldMapState
         // anything measured off the ground has to see the building already
         // standing. Entities come with it, which is why this precedes the
         // scatter pass that would otherwise plant trees inside it.
+        Stage("columns");
         progress?.Invoke(STAMP_END, "Stamping scenes");
         StampPlacements();
+        Stage("scenes");
 
         // Turn the painted routes into climbable rock, running WORLDGEN'S OWN
         // pass over the world we just stamped: it takes the per-column answers it
@@ -1035,6 +1051,7 @@ public class WorldMapState
             (wx, wz) => ClimbRouteAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) ? 1f : 0f,
             (wx, wz) => WaterSurface(wx - Data.WorldMinX, wz - Data.WorldMinZ),
             Data.climbRouteMinWallVoxels, false);
+        Stage("climb");
 
         // Scatter props/interactives into the fresh WorldState (Sim is null
         // here, so this only adds sim states — the painter's initial entity
@@ -1047,8 +1064,10 @@ public class WorldMapState
         // the contexts IT builds.
         progress?.Invoke(STAMP_END, "Scattering entities");
         RescatterColumns(new Rect2I(0, 0, Data.ImageWidth, Data.ImageHeight));
+        Stage("scatter");
 
         StampEntities();
+        Stage("entities");
 
         // Everything a finished world derives from its own voxels, through the
         // SAME list worldgen ends on (WorldFinish.Finish): grades, detail, the
@@ -1080,6 +1099,7 @@ public class WorldMapState
             SkipDetailColumn = (wx, wz) =>
                 SurfacePavingAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) != null,
             GroundYAt = (wx, wz) => TerrainHeight(wx - Data.WorldMinX, wz - Data.WorldMinZ),
+            PaintedWaterBlockAt = (wx, wz) => PaintedWaterBlockAt(wx - Data.WorldMinX, wz - Data.WorldMinZ),
             // Moss comes off the painted GROUND, because a painted world has no
             // ZoneGenData to ask (its zone layer paints ZoneData, and the two
             // palettes do not correspond). A column's surface kit and cave kit
@@ -1088,8 +1108,9 @@ public class WorldMapState
             // where nothing was painted.
             MossCoverageAt = MossCoverageAtWorld,
             StampWind = StampWind,
-            ComputeSunlight = false,
         });
+        Stage("finish");
+        GD.Print($"[bake] build stages:{stages}");
 
         // Authored spawn, or the world origin when none is placed.
         int spawnX = Placements.hasSpawn ? Placements.spawnXZ.X : 0;
@@ -1097,15 +1118,10 @@ public class WorldMapState
         int spawnH = TerrainHeight(spawnX - Data.WorldMinX, spawnZ - Data.WorldMinZ);
         ws.Spawn = new Vector3(spawnX + 0.5f, spawnH + 2f, spawnZ + 0.5f);
 
-        // NOT relit here, deliberately. Every consumer of a .hike relights it on
-        // open — Main on both load branches, WorldEditor on both its open paths —
-        // because the baked bytes are only as good as the lighting pipeline was
-        // at save time. SkyExposure is not even serialized; the format assumes
-        // the pass happens on load. Computing it here cost ~19s of a ~22s bake
-        // and was discarded every time. A future consumer that loads a .hike
-        // WITHOUT relighting would get a black world, and should relight rather
-        // than move this back.
-        progress?.Invoke(WRITE_START, "Writing .hike");
+        // NOT lit here: the sun flood is step 3 of the bake (BakeRelightAndWrite),
+        // after the main thread has stamped the canopy. It IS baked into the file
+        // — nothing relights a world on load any more, so a .hike written without
+        // it would load black. See LightEngine.LIGHT_VERSION.
         return ws;
     }
 
@@ -1171,9 +1187,8 @@ public class WorldMapState
         }
     }
 
-    // Bake phase boundaries, as a fraction of the whole job. MEASURED: with the
-    // lighting pass gone, stamping is nearly all of it and the file write the
-    // rest.
+    // Bake phase boundaries, as a fraction of the whole job: stamping is most of
+    // it, then the sun flood and the file write (RELIGHT_START / WRITE_FILE_START).
     private const float STAMP_START = 0.05f;
     private const float STAMP_END = 0.80f;
     private const float WRITE_START = 0.85f;
@@ -1272,8 +1287,32 @@ public class WorldMapState
             ? kits.Submerged
             : th - ShoreWaterSurface(px, pz) <= Data.shoreBandVoxels ? kits.Shore : kits.Surface;
 
+        // The chunk is resolved once per 16 voxels of column instead of per
+        // write. WorldState's world-space setters each hash a Vector3I, and the
+        // three-argument SetBlockWorld hashes three times (it reads the block
+        // and the shape before writing) — ~3.5 dictionary lookups per voxel over
+        // every voxel in the world, which was the whole cost of this pass.
+        int lx = wx & ChunkGrid.MASK;
+        int lz = wz & ChunkGrid.MASK;
+        int cx = wx >> ChunkGrid.SHIFT;
+        int cz = wz >> ChunkGrid.SHIFT;
+        ChunkState chunk = null;
+        int chunkCy = int.MinValue;
+
         for (int wy = Data.WorldMinY; wy <= Data.WorldMaxY; wy++)
         {
+            int cy = wy >> ChunkGrid.SHIFT;
+            if (cy != chunkCy)
+            {
+                chunkCy = cy;
+                chunk = WorldState.GetChunk(new Vector3I(cx, cy, cz));
+            }
+            if (chunk == null)
+            {
+                continue;
+            }
+            int ly = wy & ChunkGrid.MASK;
+
             int desired;
             byte edit = VoxelEdit(px, pz, wy);
             if (edit == EditCarve)
@@ -1285,7 +1324,7 @@ public class WorldMapState
                 // is undone the same way it is anywhere else, by erasing the
                 // column's water. (Per COLUMN, so a dry passage cannot run under
                 // a lake: the erase that drains the tunnel drains the lake too.)
-                desired = wy <= wsurf ? Blocks.WaterId : Blocks.AirId;
+                desired = wy <= wsurf ? Blocks.DefaultWaterId : Blocks.AirId;
             }
             else if (wy <= th || edit == EditAdd)
             {
@@ -1295,7 +1334,7 @@ public class WorldMapState
                 byte kit = wy > th
                     ? (wy <= wsurf ? kits.Submerged : kits.Surface)
                     : th - wy <= Data.surfaceDepthVoxels ? topKit : kits.Cave;
-                WorldState.SetTerrainIdWorld(wx, wy, wz, kit);
+                chunk.SetTerrainId(lx, ly, lz, kit);
                 desired = WorldState.Kits.BlockFor(kit);
                 if (wy == pavedY)
                 {
@@ -1312,16 +1351,17 @@ public class WorldMapState
             }
             else if (wy <= wsurf)
             {
-                desired = Blocks.WaterId;
+                desired = Blocks.DefaultWaterId;
             }
             else
             {
                 desired = Blocks.AirId;
             }
 
+            int current = chunk.Voxels[lx, ly, lz];
             if (changed != null)
             {
-                if (WorldState.GetBlockWorld(wx, wy, wz) == desired)
+                if (current == desired)
                 {
                     continue;
                 }
@@ -1329,15 +1369,14 @@ public class WorldMapState
             }
 
             // Ground snaps on Y so the painted terraces read as clean steps;
-            // air and water take their block's own default.
-            if (Blocks.IsNaturalGround(desired))
-            {
-                WorldState.SetBlockWorld(wx, wy, wz, desired, SharpAxes.Y);
-            }
-            else
-            {
-                WorldState.SetBlockWorld(wx, wy, wz, desired);
-            }
+            // air and water take their block's own default — and a voxel whose
+            // block did not move keeps the shape it already had, which is what
+            // WorldState's three-argument setter does.
+            SharpAxes shape = Blocks.IsNaturalGround(desired)
+                ? SharpAxes.Y
+                : current == desired ? (SharpAxes)chunk.Shape[lx, ly, lz] : Blocks.DefaultShape(desired);
+            chunk.Voxels[lx, ly, lz] = (byte)desired;
+            chunk.Shape[lx, ly, lz] = (byte)shape;
         }
     }
 
@@ -1476,6 +1515,7 @@ public class WorldMapState
             new RasterLayer(Region, ChunkState.SIZE),
             new RasterLayer(Zone, ChunkState.SIZE),
             new RasterLayer(Wind, ChunkState.SIZE),
+            new RasterLayer(WaterType, 1),
         };
     }
 
@@ -2046,6 +2086,29 @@ public class WorldMapState
     }
 
     // Painted ground index, or -1 where the column inherits its zone's kits.
+    // Which authored water type this column was painted with, or -1 for none —
+    // in which case the column keeps whatever its ZONE authors, which is what
+    // every document did before the layer existed.
+    public int WaterTypeIndexAt(int px, int pz)
+    {
+        return Mathf.RoundToInt(WaterType.GetPixel(ClampX(px), ClampZ(pz)).R * 255f) - 1;
+    }
+
+    // The painted water block for a column, or -1. Resolved against the
+    // document's palette; an entry that is not a water block is refused rather
+    // than stamped, since it would turn a lake into rock.
+    public int PaintedWaterBlockAt(int px, int pz)
+    {
+        int idx = WaterTypeIndexAt(px, pz);
+        BlockData[] types = Data.waterTypes;
+        if (idx < 0 || types == null || idx >= types.Length)
+        {
+            return -1;
+        }
+        BlockData b = types[idx];
+        return b != null && b.render == EBlockRender.Water ? b.blockId : -1;
+    }
+
     public int GroundIndexAt(int px, int pz)
     {
         int idx = Mathf.RoundToInt(Ground.GetPixel(ClampX(px), ClampZ(pz)).R * 255f) - 1;
@@ -2475,6 +2538,7 @@ public class WorldMapState
         Data.SaveWind(Wind);
         Data.SaveScatter(Scatter);
         Data.SaveGround(Ground);
+        Data.SaveWaterType(WaterType);
         Data.SavePaving(Paving);
         SavePlacements();
         Data.SaveMobs(Mobs);
@@ -2485,21 +2549,34 @@ public class WorldMapState
 
     // Materialize the painted document into a WorldState and write the .hike.
     // Returns false if it could not (no output path, or the bake threw).
+    //
+    // THREE steps, because the middle one cannot run where the other two want to.
+    // The sun flood is baked into the file now (nothing relights a world on load
+    // — see LightEngine.LIGHT_VERSION), and it has to see the tree canopy, which
+    // only FoliageStamper knows and which needs the main thread
+    // (PackedScene.Instantiate). Build and relight are the long passes and want
+    // a worker thread. So a caller that is NOT the main thread drives the three
+    // in order and hops threads for the stamp — see WorldMapPainter.SaveAndBake.
+    // This wrapper is for a main-thread caller, where the split does not matter.
     public bool Bake(System.Action<float, string> progress = null)
+    {
+        return BakeBuild(progress) && BakeStampOccluders() && BakeRelightAndWrite(progress);
+    }
+
+    // Step 1 — the painted document to voxels. The long one.
+    public bool BakeBuild(System.Action<float, string> progress = null)
     {
         if (string.IsNullOrEmpty(Data.outputWorldPath))
         {
             GD.PrintErr("WorldMapState: no OutputWorldPath set, nothing to bake.");
             return false;
         }
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        _bakeClock = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             progress?.Invoke(0f, "Building chunks");
             BuildWorld(progress);
-            WorldFile.Write(Data.outputWorldPath, WorldState);
-            progress?.Invoke(1f, "Done");
-            GD.Print($"WorldMapState: baked world to {Data.outputWorldPath} in {sw.ElapsedMilliseconds}ms");
+            _bakeBuildMs = _bakeClock.ElapsedMilliseconds;
             return true;
         }
         catch (System.Exception e)
@@ -2508,6 +2585,62 @@ public class WorldMapState
             return false;
         }
     }
+
+    // Step 2 — MAIN THREAD ONLY. Rasterize the sun occluders (tree canopies,
+    // roofs, entity voxels) so the relight below sees them. Milliseconds.
+    public bool BakeStampOccluders()
+    {
+        try
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            FoliageStamper.Stamp(WorldState);
+            EntityVoxelStamper.Stamp(WorldState);
+            _bakeStampMs = sw.ElapsedMilliseconds;
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            GD.PrintErr($"WorldMapState: occluder stamp failed: {e}");
+            return false;
+        }
+    }
+
+    // Step 3 — the sun flood and the file write.
+    public bool BakeRelightAndWrite(System.Action<float, string> progress = null)
+    {
+        try
+        {
+            progress?.Invoke(RELIGHT_START, "Lighting");
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            LightEngine.Relight(WorldState, r => progress?.Invoke(
+                RELIGHT_START + r * (WRITE_FILE_START - RELIGHT_START), "Lighting"));
+            long relightMs = sw.ElapsedMilliseconds;
+            progress?.Invoke(WRITE_FILE_START, "Writing .hike");
+            sw.Restart();
+            WorldFile.Write(Data.outputWorldPath, WorldState);
+            long writeMs = sw.ElapsedMilliseconds;
+            progress?.Invoke(1f, "Done");
+            long ms = _bakeClock != null ? _bakeClock.ElapsedMilliseconds : 0;
+            GD.Print($"WorldMapState: baked world to {Data.outputWorldPath} in {ms}ms");
+            // Phase breakdown, because a bake is minutes and "it was slow" is not
+            // a place to start optimizing from.
+            GD.Print($"[bake] build={_bakeBuildMs}ms occluderStamp={_bakeStampMs}ms relight={relightMs}ms write={writeMs}ms");
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            GD.PrintErr($"WorldMapState: world export failed: {e}");
+            return false;
+        }
+    }
+
+    // Progress boundaries for the two passes that follow BuildWorld.
+    private const float RELIGHT_START = 0.9f;
+    private const float WRITE_FILE_START = 0.98f;
+
+    private System.Diagnostics.Stopwatch _bakeClock;
+    private long _bakeBuildMs;
+    private long _bakeStampMs;
 
     private byte SampleChunkIndex(Image img, int cx, int cz, int count)
     {
@@ -2688,7 +2821,56 @@ public class WorldMapState
         // there. Two authored stops rather than a long ramp — the shore is the
         // edge an author aims at, and more stops make that edge harder to find.
         float t = Mathf.Clamp(depth / (float)Mathf.Max(1, Data.waterDeepAtVoxels), 0f, 1f);
-        return Data.shallowWaterColor.Lerp(Data.deepWaterColor, t);
+        Color water = Data.shallowWaterColor.Lerp(Data.deepWaterColor, t);
+        // A PAINTED type tints the water it was painted on, on every view that
+        // draws water — the same argument paving makes by resolving inside
+        // GroundColorAt: you cannot paint scum along a shoreline you cannot see,
+        // and a type invisible on the map is one you cannot tell you have
+        // already laid down.
+        //
+        // Tint rather than replace, so the depth shading underneath survives:
+        // the map still has to say how deep the water is.
+        //
+        // Only what the document HOLDS, never what the bake will infer. A zone's
+        // own water is applied per column by a noise field at bake time, so
+        // drawing it here would show a pattern the bake does not reproduce —
+        // the same reason latent water is deliberately invisible.
+        Color ink = WaterTypeInkAt(px, pz);
+        return ink.A > 0f ? water.Lerp(ink, Data.waterTypeTintStrength) : water;
+    }
+
+    // The painted type's map colour for a column, or alpha 0 for none. Resolved
+    // against a table built once at load: this runs for every texel of every
+    // rebuild (~295k), so walking to the BlockData per texel would put a
+    // resource dereference in the map's hottest loop.
+    private Color WaterTypeInkAt(int px, int pz)
+    {
+        // Cheapest gates first: this is reached for every WET texel of every
+        // rebuild, and the GetPixel below is a native call. Dry land never gets
+        // here at all — WithWaterOver has already returned.
+        if (_waterTypeInk == null || _waterTypeInk.Length == 0 || Data.waterTypeTintStrength <= 0f)
+        {
+            return default;
+        }
+        int idx = WaterTypeIndexAt(px, pz);
+        return idx >= 0 && idx < _waterTypeInk.Length ? _waterTypeInk[idx] : default;
+    }
+
+    // Alpha is the "is there one" flag, so an empty palette slot and an
+    // unpaintable entry both read as absent without a second array.
+    private Color[] _waterTypeInk;
+
+    private void BuildWaterTypeInk()
+    {
+        BlockData[] types = Data.waterTypes ?? System.Array.Empty<BlockData>();
+        _waterTypeInk = new Color[types.Length];
+        for (int i = 0; i < types.Length; i++)
+        {
+            BlockData b = types[i];
+            _waterTypeInk[i] = b != null && b.render == EBlockRender.Water
+                ? new Color(b.minimapColor.R, b.minimapColor.G, b.minimapColor.B, 1f)
+                : default;
+        }
     }
 
     // Water is drawn flat, so the painter skips relief shading on it.

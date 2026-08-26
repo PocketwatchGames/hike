@@ -381,13 +381,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		int fx = Mathf.FloorToInt(pos.X);
 		int fy = Mathf.FloorToInt(pos.Y);
 		int fz = Mathf.FloorToInt(pos.Z);
-		if (ws.GetBlockWorld(fx, fy, fz) != Blocks.WaterId)
+		if (!Blocks.IsWater(ws.GetBlockWorld(fx, fy, fz)))
 		{
 			_swimming = false;
 			return;
 		}
 		int topY = fy;
-		while (ws.GetBlockWorld(fx, topY + 1, fz) == Blocks.WaterId)
+		while (Blocks.IsWater(ws.GetBlockWorld(fx, topY + 1, fz)))
 		{
 			topY++;
 		}

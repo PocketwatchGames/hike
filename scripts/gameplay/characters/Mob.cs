@@ -796,7 +796,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
-        bool inWater = ws.GetBlockWorld(fx, fy, fz) == Blocks.WaterId;
+        bool inWater = Blocks.IsWater(ws.GetBlockWorld(fx, fy, fz));
         if (inWater)
         {
             return;
@@ -1970,10 +1970,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return false;
         }
         Vector3 pos = GlobalPosition;
-        return ws.GetBlockWorld(
+        return Blocks.IsWater(ws.GetBlockWorld(
             Mathf.FloorToInt(pos.X),
             Mathf.FloorToInt(pos.Y),
-            Mathf.FloorToInt(pos.Z)) == Blocks.WaterId;
+            Mathf.FloorToInt(pos.Z)));
     }
 
     // Local water "muddiness" (ZoneData.WaterOpacity, 0 = glassy → 1 = opaque)
@@ -2027,18 +2027,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
-        if (ws.GetBlockWorld(fx, fy, fz) != Blocks.WaterId)
+        if (!Blocks.IsWater(ws.GetBlockWorld(fx, fy, fz)))
         {
             _swimming = false;
             return;
         }
         int topY = fy;
-        while (ws.GetBlockWorld(fx, topY + 1, fz) == Blocks.WaterId)
+        while (Blocks.IsWater(ws.GetBlockWorld(fx, topY + 1, fz)))
         {
             topY++;
         }
         int bottomY = fy;
-        while (ws.GetBlockWorld(fx, bottomY - 1, fz) == Blocks.WaterId)
+        while (Blocks.IsWater(ws.GetBlockWorld(fx, bottomY - 1, fz)))
         {
             bottomY--;
         }
@@ -2464,7 +2464,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         for (int y = startY; y > minY; y--)
         {
             int v = ws.GetBlockWorld(wx, y, wz);
-            if (Blocks.IsSolid(v) || (includeWater && v == Blocks.WaterId))
+            if (Blocks.IsSolid(v) || (includeWater && Blocks.IsWater(v)))
             {
                 return y + 1;
             }
@@ -5034,14 +5034,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
-        bool inWater = ws.GetBlockWorld(fx, fy, fz) == Blocks.WaterId;
+        bool inWater = Blocks.IsWater(ws.GetBlockWorld(fx, fy, fz));
         if (!inWater)
         {
             _rippleEmitter.Update(pos, false, 0f, 1f);
             return;
         }
         int scanY = fy;
-        while (ws.GetBlockWorld(fx, scanY, fz) == Blocks.WaterId)
+        while (Blocks.IsWater(ws.GetBlockWorld(fx, scanY, fz)))
         {
             scanY++;
         }
@@ -5064,7 +5064,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
-        bool inWater = ws.GetBlockWorld(fx, fy, fz) == Blocks.WaterId;
+        bool inWater = Blocks.IsWater(ws.GetBlockWorld(fx, fy, fz));
         Vector2 horizVel = new(LinearVelocity.X, LinearVelocity.Z);
         float horizSpeedSq = horizVel.LengthSquared();
 

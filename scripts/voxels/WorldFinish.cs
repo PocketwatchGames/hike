@@ -68,6 +68,12 @@ public static class WorldFinish
         // derivation; the painter passes its per-chunk painted field instead.
         public Action<WorldState> StampWind;
 
+        // The water block a column was PAINTED with, or -1 for none. Null in a
+        // generated world, which has no per-column authoring — the same seam
+        // shape MossCoverageAt uses, and for the same reason: the pass is
+        // shared, the per-column answer is not.
+        public Func<int, int, int> PaintedWaterBlockAt;
+
         // How mossy each column's ground and cave rock are, 0..1. Null skips the
         // moss pass. Worldgen answers from ZoneGenData through its zone kernel
         // (moss density is a property of the biome it is generating); the map
@@ -80,11 +86,6 @@ public static class WorldFinish
         // flow field to stamp.
         public HeightMap? RiverFlow;
 
-        // Run the (expensive) sunlight flood. False for a producer whose output
-        // is relit when it is opened — the painter's bake, where it was ~19s of
-        // a ~22s bake and discarded every time. Sky exposure always runs: it is
-        // not serialized, but interiorness is seeded from it.
-        public bool ComputeSunlight = true;
     }
 
     // Ordered, and each step feeds the next:
@@ -98,18 +99,28 @@ public static class WorldFinish
     //                After the climb crust and the roads (both of which each
     //                producer lays before calling this), because it leaves any
     //                voxel that already carries an overlay alone.
+    //   watertypes — which water block each body is made of, from the painter's
+    //                per-column layer. Reads the finished voxels, so it also
+    //                reaches water a carve or a stamped scene left behind.
     //   roofs      — non-voxel cover, so a roofed room reads as enclosed exactly
     //                as a cave does. Canopy is deliberately absent: a tree
     //                should not make a cell an interior.
     //   sky        — geometry-only VERTICAL cover, for the rain / shelter
     //                consumers, and the seed interiorness floods from.
     //   classify   — cover to space class, per env cell.
-    //   sunlight   — the flooded field, which bleeds sideways through every
-    //                aperture. Never used to classify.
     //   wind       — from interiorness and the cell's space class.
     //   fog        — humidity poured over the ground; open-to-sky air only.
     //   currents   — ambient drift, then river flow over the columns carrying it.
     //   waterfalls — cascades in the finished water, as entities.
+    //
+    // The SUNLIGHT flood is deliberately NOT here, and it is the pass that has
+    // to come last: it reads the fog this list bakes, and it must see the canopy
+    // — which only FoliageStamper knows, and that needs the main thread
+    // (PackedScene.Instantiate) while both producers run Finish off one. So both
+    // producers close with the same move on the main thread once Finish returns:
+    // stamp the occluders, then LightEngine.Relight, then persist. Running it
+    // inside Finish computed a fog-free, canopy-free field that was thrown away
+    // and recomputed moments later.
     //
     // The climb crust is NOT in this list: worldgen paints it by zone coverage
     // and the painter by an authored route flag, so each calls
@@ -130,16 +141,13 @@ public static class WorldFinish
         }
 
         StampMossPatches(ws, genData, opt.MossCoverageAt);
+        StampWaterTypes(ws, opt.PaintedWaterBlockAt);
 
         StampRoofSunOcclusion(ws);
         LightEngine.ComputeSkyExposure(ws);
         InteriornessGen.Compute(ws);
         EnvTagGen.ComputeEnvTagGrid(ws);
         opt.ApplyAuthoredEnvOverrides?.Invoke();
-        if (opt.ComputeSunlight)
-        {
-            LightEngine.ComputeSunlight(ws);
-        }
         if (opt.StampWind != null)
         {
             opt.StampWind(ws);
@@ -332,7 +340,7 @@ public static class WorldFinish
                     // runs — the lake floor still carries SurfaceKit and
                     // would otherwise spawn grass inside the water. Reject
                     // any surface voxel whose air-above slot is water.
-                    if (ws.GetBlockWorld(wx, wy + 1, wz) == Blocks.WaterId)
+                    if (Blocks.IsWater(ws.GetBlockWorld(wx, wy + 1, wz)))
                     {
                         continue;
                     }
@@ -972,6 +980,88 @@ public static class WorldFinish
         }
     }
 
+
+    // Which water block each body is made of, from the world-map painter's
+    // per-column layer.
+    //
+    // AUTHORED, never derived. A per-zone rule lived here and was removed: it
+    // dressed swamp water in scum that the painter did not draw, so the map and
+    // the baked world disagreed and the only way to find out was to go and look.
+    // The painter's own rule is that a preview reproduces the bake (its spawn
+    // dots run the same roll the bake runs), and a zone default could not honour
+    // that without the painter reimplementing the rule — which is how the
+    // waterfall shading became two copies that drifted. So there is one source:
+    // the layer. A generated world passes null and keeps standard water, which
+    // is the identity.
+    //
+    // The block is written down the WHOLE water column, not just the free
+    // surface: a block says what this body IS — how far its clarity sits from
+    // the zone's, and what floats on it — and a scummy pond is thick all the way
+    // down. Only the top face ever draws the film, but the optics belong to the
+    // column.
+    public static void StampWaterTypes(WorldState ws, Func<int, int, int> paintedAt)
+    {
+        if (paintedAt == null)
+        {
+            return;
+        }
+
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        long painted = 0;
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                int block = paintedAt(wx, wz);
+                if (block < 0)
+                {
+                    continue;
+                }
+
+                // The free surface is where the film would show, and the column
+                // below it is the body that film sits on.
+                int surfaceY = int.MinValue;
+                for (int wy = worldMaxY; wy >= worldMinY; wy--)
+                {
+                    if (!Blocks.IsWater(ws.GetBlockWorld(wx, wy, wz)))
+                    {
+                        continue;
+                    }
+                    int above = ws.GetBlockWorld(wx, wy + 1, wz);
+                    if (!Blocks.IsWater(above) && !Blocks.IsSolid(above))
+                    {
+                        surfaceY = wy;
+                        break;
+                    }
+                }
+                if (surfaceY == int.MinValue)
+                {
+                    continue;
+                }
+
+                painted++;
+                for (int wy = surfaceY; wy >= worldMinY; wy--)
+                {
+                    if (!Blocks.IsWater(ws.GetBlockWorld(wx, wy, wz)))
+                    {
+                        break;
+                    }
+                    ws.SetBlockWorld(wx, wy, wz, block);
+                }
+            }
+        }
+
+        if (painted > 0)
+        {
+            GD.Print($"[worldgen] water types: {painted} painted columns");
+        }
+    }
 
     // Moss OVERLAY over exposed rock and ground.
     //

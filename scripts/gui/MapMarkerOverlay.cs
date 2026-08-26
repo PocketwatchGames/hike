@@ -28,6 +28,11 @@ public partial class MapMarkerOverlay : Control
     // the panel's half-extent from center (matching the map shader's mask_radius),
     // so none poke past the circle. 0 disables it (the square world map).
     public float CircleMaskFraction;
+    // World map's zoomed-out level: draw the world's single LIT campfire and
+    // nothing else, so the whole-world read stays legible. Every other static
+    // marker and every live marker is skipped; the zoomed-in overlay draws the
+    // full set.
+    public bool ActiveCampfireOnly;
 
     private GameClient _gameClient;
     // Framing pushed by the host each frame before the redraw.
@@ -86,6 +91,18 @@ public partial class MapMarkerOverlay : Control
         {
             return;
         }
+        // Resolved once: the lit campfire is world-unique, so the filter is a
+        // key comparison rather than a per-marker lookup.
+        Vector3I litCampfireKey = default;
+        if (ActiveCampfireOnly)
+        {
+            CampfireSimState lit = sim.LitCampfire;
+            if (lit == null)
+            {
+                return;
+            }
+            litCampfireKey = MapMarkerRecord.KeyFor(lit.WorldPosition);
+        }
         Vector2 center = panel * 0.5f;
         float diameter = _viewRadiusMeters * 2f;
         // Icons stay upright even when the parent surface is rotated: the parent's
@@ -101,6 +118,10 @@ public partial class MapMarkerOverlay : Control
         foreach (MapMarkerRecord record in markers)
         {
             if (record == null || record.Level < EMapMarkerLevel.Sensed)
+            {
+                continue;
+            }
+            if (ActiveCampfireOnly && MapMarkerRecord.KeyFor(record.WorldPosition) != litCampfireKey)
             {
                 continue;
             }
@@ -127,7 +148,10 @@ public partial class MapMarkerOverlay : Control
             DrawSetTransform(px, counterRot, Vector2.One);
             DrawMarker(record, sim, revealAlpha);
         }
-        DrawLiveMarkers(center, panel, diameter, radiusSq, counterRot);
+        if (!ActiveCampfireOnly)
+        {
+            DrawLiveMarkers(center, panel, diameter, radiusSq, counterRot);
+        }
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
     }
 

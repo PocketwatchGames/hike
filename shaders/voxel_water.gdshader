@@ -139,6 +139,13 @@ global uniform float water_refraction_strength;
 // How far from the water/land edge the contiguous rim band reaches, in world
 // units. Depth-measured, so it stays here; water_rim_strength is shared.
 global uniform float water_rim_width;
+// Muddiness ramp on the rim, applied above a knee. The rim stands in for the
+// visible-depth grade that reads a shoreline in clear water, and muddiness is
+// what destroys that grade — so the band widens only once the grade has given
+// out. Below the knee the authored width is used untouched, which is what keeps
+// the zones it was tuned in (muddiness 0.25-0.6) bit-identical.
+global uniform float water_rim_muddy_knee;
+global uniform float water_rim_muddy_width_scale;
 // --- Debug ---------------------------------------------------------------
 // Reflection-path visualizer. See CVars.cs `water_debug` for mode docs.
 global uniform int water_debug_mode;
@@ -448,6 +455,20 @@ float wave_height(vec2 world_xz, vec2 dir, float time_phase) {
 	return w;
 }
 
+// The two-phase reset shared by everything the current advects (the ripple
+// normal maps, the surface-cover film). Spatially varying drift stretches a
+// texture — fast cells drag texels their slow neighbours still own — so each
+// phase resets every water_current_phase_period seconds and the two are blended
+// by a triangle wave, keeping the visible sample the youngest and least
+// stretched one. Shared so the film and the ripples under it reset together.
+void current_phase(float time, out float tau, out float p1, out float p2, out float blend) {
+	tau = max(water_current_phase_period, 0.1);
+	float p = time / tau;
+	p1 = fract(p);
+	p2 = fract(p + 0.5);
+	blend = abs(2.0 * p1 - 1.0);
+}
+
 // Combine two pre-baked normal-map textures and slerp toward +Y by
 // ripple_strength. At ripple_strength=0 the normal is exactly +Y (mirror
 // water); at ripple_strength=1 it's the raw combined texture normal.
@@ -477,14 +498,8 @@ vec3 ripple_normal(vec2 world_xz, vec2 current, float time) {
 		na = decode_normal_map(ripple_tex_a, base_a);
 		nb = decode_normal_map(ripple_tex_b, base_b);
 	} else {
-		float tau = max(water_current_phase_period, 0.1);
-		float p = time / tau;
-		float p1 = fract(p);
-		float p2 = fract(p + 0.5);
-		// Triangle wave: 1 at phase boundary (newest phase just started),
-		// 0 at midpoint. Display the "newer" phase more heavily so
-		// stretching never accumulates past half a period.
-		float phase_blend = abs(2.0 * p1 - 1.0);
+		float tau, p1, p2, phase_blend;
+		current_phase(time, tau, p1, p2, phase_blend);
 		// Drift in world meters per phase. Multiply by ripple_scale_X
 		// inside the sample to convert to UV units — that way the
 		// VISIBLE surface drift speed matches `current` in m/s for both
@@ -537,8 +552,116 @@ vec2 wave_streak(vec2 world_xz) {
 	            -n_z * wave_streak_strength * 4.0);
 }
 
+// --- Surface film: scum / algae / lilypads ----------------------------------
+// What floats on the water. WHICH film is a property of the water BLOCK
+// (BlockData.waterFilm), so it arrives as the block id in CUSTOM0.x and one
+// green-scum block works in every zone; the film's colour is its own texture
+// times WaterFilmData.tint, which is what lets one baked atlas row serve green
+// AND red without a second row. Nothing new is loaded — ChunkMesh binds the
+// atlas arrays it already holds for the terrain material.
+uniform sampler2DArray tile_array : source_color, filter_nearest_mipmap, repeat_enable;
+uniform sampler2DArray tile_nrm_height : filter_nearest_mipmap, repeat_enable;
+
+// Per water BLOCK, indexed by the id in CUSTOM0.x. Must match
+// BlockCatalog.MAX_BLOCKS; uploaded by ChunkMesh.
+const int WATER_BLOCK_TABLE_SIZE = 64;
+uniform float water_block_turbidity[WATER_BLOCK_TABLE_SIZE];
+//   a = (atlas layer, metres per tile, current drift, opacity)
+//   b = (breakup metres, cut fraction, height shape, edge softness)
+// Layer 0 means the block wears no film at all.
+uniform vec4 water_film_a[WATER_BLOCK_TABLE_SIZE];
+uniform vec4 water_film_b[WATER_BLOCK_TABLE_SIZE];
+uniform vec4 water_film_tint[WATER_BLOCK_TABLE_SIZE] : source_color;
+// Debug (`water_film_force`): dress every water surface as one block, so a film
+// can be judged without regenerating a world to stamp it.
+uniform int water_film_force_block = -1;
+
+// The film for one top-face fragment. `cover_amount` is how much of the water
+// beneath is hidden, and it is deliberately a THRESHOLD result rather than a
+// scaled one: a fragment is film or it is water. Scaling would give a
+// translucent wash reading as a tint over the whole pond, and the 1 m stamp
+// cells would show as squares — the breakup field is continuous across cell
+// boundaries, so coverage reads as patch density instead of an edge.
+void water_cover(int block, vec2 world_xz, vec2 current, float time,
+	out vec3 cover_col, out float cover_amount)
+{
+	cover_col = vec3(0.0);
+	cover_amount = 0.0;
+	int bi = clamp(block, 0, WATER_BLOCK_TABLE_SIZE - 1);
+	vec4 pa = water_film_a[bi];
+	vec4 pb = water_film_b[bi];
+	int idx = int(pa.x + 0.5);
+	if (idx <= 0) {
+		return;
+	}
+	float opacity = clamp(pa.w, 0.0, 1.0);
+	if (opacity <= 1e-3) {
+		return;
+	}
+
+	float scale = max(pa.y, 0.01);
+	vec2 uv = world_xz / scale;
+	float shape = clamp(pb.z, 0.0, 1.0);
+	float drift = clamp(pa.z, 0.0, 1.0);
+	float height = 1.0;
+	// Still water is the common case and takes one sample; only a fragment
+	// genuinely being carried pays for the two-phase pair.
+	if (drift > 1e-3 && dot(current, current) >= 1e-4) {
+		float tau, p1, p2, blend;
+		current_phase(time, tau, p1, p2, blend);
+		// Subtract so the film travels WITH the current. Divided by the tile
+		// scale so the visible drift is `current` in m/s whatever the tiling.
+		vec2 d1 = current * (water_current_speed * drift * p1 * tau / scale);
+		vec2 d2 = current * (water_current_speed * drift * p2 * tau / scale);
+		cover_col = mix(texture(tile_array, vec3(uv - d1, float(idx))).rgb,
+		                texture(tile_array, vec3(uv - d2, float(idx))).rgb, blend);
+		if (shape > 1e-3) {
+			height = mix(texture(tile_nrm_height, vec3(uv - d1, float(idx))).a,
+			             texture(tile_nrm_height, vec3(uv - d2, float(idx))).a, blend);
+		}
+	} else {
+		cover_col = texture(tile_array, vec3(uv, float(idx))).rgb;
+		if (shape > 1e-3) {
+			height = texture(tile_nrm_height, vec3(uv, float(idx))).a;
+		}
+	}
+	// ONE field, ONE threshold — the silhouette.
+	//
+	// The tile's own HEIGHT is the field wherever a layer authors one, and it is
+	// baked RANK-NORMALIZED (uniformly distributed), so the cut fraction below is
+	// linear: 0.25 really removes a quarter. That is the whole reason the height
+	// map exists here — the procedural fallback is a narrow smoothstep on a
+	// PIXEL-SNAPPED noise, so its boundary follows the snap grid and reads as an
+	// obvious border rather than as a ragged edge of weed.
+	//
+	// A layer with no height map bakes that row blank, so shape stays 0 there and
+	// the noise carries it exactly as before.
+	// Branch rather than mix() both: a full-shape film is the common case and
+	// vnoise is eight hashes, which a mix by a runtime 1.0 still pays for.
+	float field;
+	if (shape >= 0.999) {
+		field = height;
+	} else {
+		float n = vnoise(vec3(pixelize(world_xz / max(pb.x, 0.01)), 0.0));
+		field = shape > 1e-3 ? mix(n, height, shape) : n;
+	}
+	float cut = clamp(pb.y, 0.0, 1.0);
+	float soft = max(pb.w, 0.001);
+	float mask = smoothstep(cut - soft, cut + soft, field);
+	if (mask <= 1e-3) {
+		return;
+	}
+	// One baked row, many colours: the tint is what makes red scum the same
+	// texture as green rather than a second atlas layer. Multiplies, so values
+	// above 1 are legitimate — pushing an olive tile to rust needs them.
+	cover_col *= water_film_tint[bi].rgb;
+	cover_amount = mask * opacity;
+}
+
 varying vec3 world_vertex;
 varying vec3 world_normal;
+// Which water block this face is made of — flat across a quad.
+varying float water_block;
 
 void vertex() {
 	vec3 v = VERTEX;
@@ -568,6 +691,7 @@ void vertex() {
 	VERTEX = v;
 	world_vertex = (MODEL_MATRIX * vec4(v, 1.0)).xyz;
 	world_normal = NORMAL;
+	water_block = CUSTOM0.x;
 }
 
 void fragment() {
@@ -747,6 +871,10 @@ void fragment() {
 	// (transparent water → no normal effect, opaque/foamy water → full N·L
 	// glints), so we need water_alpha before computing sun_lit. Foam color
 	// composition still happens later, after `light` and `water_col` exist.
+	// Table slot for this fragment's water block. Hoisted above the foam block:
+	// the rim needs this body's turbidity, and water_optics below wants the same
+	// index.
+	int wb = clamp(int(water_block + 0.5), 0, WATER_BLOCK_TABLE_SIZE - 1);
 	float foam_amount = 0.0;
 	if (is_top && (foam_strength > 1e-3 || water_rim_strength > 1e-3 || whitecap_foam_amt > 1e-3)) {
 		// Contiguous rim band: hard cutoff by thickness with no noise masking,
@@ -755,7 +883,12 @@ void fragment() {
 		// Both measures are this surface's DEPTH: the rim is the hard edge line
 		// right at the boundary, the noise band reaches out to foam_depth. The
 		// band itself is shared with the cascade (water_shading.gdshaderinc).
-		float rim = 1.0 - smoothstep(0.0, max(water_rim_width, 1e-4), thickness);
+		// Per-BLOCK, not per-zone: a clear tarn inside a swamp can be seen into,
+		// so it keeps the tight authored rim while the scum pond beside it widens.
+		float rim_muddy = water_muddiness_for(water_block_turbidity[wb]);
+		float rim_w = max(water_rim_width * mix(1.0, water_rim_muddy_width_scale,
+			smoothstep(water_rim_muddy_knee, 1.0, rim_muddy)), 1e-4);
+		float rim = 1.0 - smoothstep(0.0, rim_w, thickness);
 		float shallow = 1.0 - smoothstep(0.0, foam_depth, thickness);
 		float shore = water_shore_foam(world_vertex.xz, shallow, rim, wind_factor);
 		foam_amount = max(shore, whitecap_foam_amt);
@@ -767,7 +900,12 @@ void fragment() {
 	// bottom that survives to the eye, per channel. Falls out of thickness alone —
 	// no authored alpha floor, so a vanishing film of water is genuinely invisible
 	// and the waterline needs no special case.
-	vec3 transmittance = exp(-water_absorption * thickness);
+	// This body's own optics. The zone still owns the hue and the baseline
+	// clarity; the block only says how far from it this water sits.
+	vec3 frag_scatter;
+	vec3 frag_absorption;
+	water_optics(water_block_turbidity[wb], frag_scatter, frag_absorption);
+	vec3 transmittance = exp(-frag_absorption * thickness);
 	// "How much of this pixel is water surface rather than see-through" — the
 	// stand-in for the old water_alpha wherever a scalar opacity is wanted (ripple
 	// N·L weighting, the behind-sample gate). Foam is opaque surface, so it unions in.
@@ -799,7 +937,7 @@ void fragment() {
 	water_light(world_vertex, light_sample_pos, TIME, ripple_light_factor,
 		sun_mask, sun_lit, block_lit, light);
 	vec3 shaded_light = face_shade * light;
-	vec3 in_scatter = water_in_scatter(shaded_light, transmittance);
+	vec3 in_scatter = water_in_scatter(frag_scatter, shaded_light, transmittance);
 	vec3 water_col = in_scatter;
 
 
@@ -1086,6 +1224,24 @@ void fragment() {
 	// Only the water_debug isolation modes want the body on its own.
 	vec3 water_body = ea_exempt + in_scatter;
 
+	// Surface cover, ON the water: above the volume AND above the reflection,
+	// because a mat of weed does not mirror the sky. Composited here rather
+	// than inside water_compose, which the waterfall shares: a falling sheet
+	// has no OverlayId to wear, and a cascade lip is the one piece of water a
+	// film would not be sitting on. It is light this shader generates, so it
+	// leaves ea_exempt (the part that came out of the screen texture) alone and
+	// takes the adaptation gain with the rest.
+	float cover_amount = 0.0;
+	vec3 cover_col = vec3(0.0);
+	int film_block = water_film_force_block >= 0 ? water_film_force_block : int(water_block + 0.5);
+	if (is_top && film_block > 0) {
+		water_cover(film_block, world_vertex.xz, water_current, TIME, cover_col, cover_amount);
+		if (cover_amount > 1e-4) {
+			composited = mix(composited, cover_col * light, cover_amount);
+			ea_exempt *= (1.0 - cover_amount);
+		}
+	}
+
 	// Debug visualizer. When non-zero, replaces the composited output on
 	// top faces only (side faces stay normal so shorelines remain readable).
 	// See CVars.cs `water_debug` for mode documentation.
@@ -1100,6 +1256,7 @@ void fragment() {
 		else if (water_debug_mode == 18) { composited = refl_col * refl_mix; }
 		else if (water_debug_mode == 19) { composited = vec3(foam_amount); }
 		else if (water_debug_mode == 20) { composited = vec3(1.0) - transmittance; }
+		else if (water_debug_mode == 21) { composited = vec3(cover_amount); }
 		else if (water_debug_mode == 1) { composited = refl_col; }
 		else if (water_debug_mode == 2) { composited = sky_col; }
 		else if (water_debug_mode == 3) { composited = sky_col; } // SSR removed; mode 3 now == sky

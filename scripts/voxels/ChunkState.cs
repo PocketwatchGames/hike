@@ -119,8 +119,8 @@ public class ChunkState
     // straight up, and how much" without the cave-mouth bleed the spread
     // introduces. Gameplay "am I sheltered from rain / open to sky" probes
     // read this; the BFS Sunlight stays the lighting signal. Not serialized —
-    // recomputed by ComputeSunlight on load alongside Sunlight (see
-    // ChunkSerializer's note on BlockLight).
+    // rebuilt by ComputeSkyExposure on load, which is the one light pass a load
+    // still runs (Sunlight itself comes out of the file baked).
     public readonly byte[,,] SkyExposure;
 
     // Block light: per-color-channel additive sums of post-pow contributions

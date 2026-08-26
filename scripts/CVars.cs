@@ -124,6 +124,61 @@
     // doesn't cover (.cs helpers WorldGen calls into, .hikescene internals)
     // when you want to confirm a fresh regeneration.
     public static CVar worldCacheClear = new CVar("world_cache_clear", (cvar) => WorldGenCache.Clear());
+    // Recompute the whole world's sun field from the live voxels and occluders.
+    // Loading does NOT do this — a .hike carries baked sunlight and is trusted
+    // (see LightEngine.LIGHT_VERSION) — so this is the tool for a hand-authored
+    // world whose light predates a change to the lighting pipeline. Seconds, not
+    // milliseconds: it is the same full-world pass worldgen ends on.
+    public static CVar worldRelight = new CVar("relight", (cvar) =>
+    {
+        WorldState world = Sim.Current?.WorldState;
+        if (world == null)
+        {
+            Godot.GD.Print("relight: no world loaded");
+            return;
+        }
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        FoliageStamper.Stamp(world);
+        LightEngine.Relight(world);
+        Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
+        Godot.GD.Print($"relight: {sw.ElapsedMilliseconds}ms");
+    });
+
+    // Bake a world-map document to a .hike with no painter and no window:
+    //   worldmap_bake res://.../default_world_map.tres [res://out.hike]
+    // Runs the same three steps Ctrl+S does (build, occluder stamp, relight +
+    // write), straight through on this thread. The optional second argument
+    // overrides the document's authored outputWorldPath IN MEMORY ONLY, so a
+    // test bake cannot overwrite the real world. Minutes on a large document.
+    public static CVarString worldMapBake = new CVarString("worldmap_bake", "", (cvar) =>
+    {
+        string arg = ((CVarString)cvar).Value;
+        if (string.IsNullOrEmpty(arg) || arg == "?")
+        {
+            Godot.GD.Print("worldmap_bake <WorldMapData.tres> [output.hike]");
+            return;
+        }
+        string[] parts = arg.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+        var data = Godot.GD.Load<WorldMapData>(parts[0]);
+        if (data == null)
+        {
+            Godot.GD.PrintErr($"worldmap_bake: could not load '{parts[0]}'");
+            return;
+        }
+        if (parts.Length > 1)
+        {
+            data.outputWorldPath = parts[1];
+        }
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        data.BakeToWorldFile();
+        Godot.GD.Print($"worldmap_bake: {sw.ElapsedMilliseconds}ms -> {data.outputWorldPath}");
+    });
+
+    // Build the initial world fill's ~535 chunk geometries on the thread pool
+    // rather than one at a time (ChunkMesh.BuildGeometry / Realize). Off is the
+    // A/B, and is also how you PROFILE the fill: the per-section timers are
+    // main-thread state, so the sections inside a parallel build record nothing.
+    public static CVarBool chunkParallelFill = new CVarBool("chunk_parallel_fill", true);
 
     // Mesher sampling lattice (see Density.cs / ChunkMesherDC.cs).
     //   false — voxel CORNERS, min-rule. Dilates the solid phase by one voxel,
@@ -209,6 +264,10 @@
     // console only Executes on a bare name for CVarType.None; for every other
     // type a bare name just prints the value and the callback never fires.
     public static CVar waterCurrentProbe = new CVar("water_current_probe", (cvar) => CurrentDebug.Dump());
+    // Console: what water the LOADED world is actually made of, and what the zone
+    // under the player authors. The four reasons you see no scum are
+    // indistinguishable on screen — see WaterTypeDebug.
+    public static CVar waterTypeProbe = new CVar("water_type_probe", (cvar) => WaterTypeDebug.Dump());
 
     // Debug: cycle control to the next party member. Exercises the party-switch
     // path (GameClient.SwitchControlTo) before the camp Select-Character UI lands.
@@ -461,6 +520,28 @@
         Godot.GD.Print($"    humidity       = {w.humidity:F3}");
         Godot.GD.Print($"    windSpeed      = {w.windSpeed:F2} m/s");
         Godot.GD.Print($"    airTemperature = {w.airTemperature:F1}°F");
+
+        // WATER OPTICS — the chain from the authored zone colour to what the
+        // shader actually scatters. Worth printing in full because every step
+        // is a place the authored hue quietly loses authority, and none of them
+        // are visible from the screen: the sediment pull can outvote the author
+        // outright (it is weighted muddiness * 0.6, so the muddier the zone the
+        // less its waterColor means), and the albedo then scales what survives.
+        DerivedPalette wpal = sky.Palette;
+        if (zone != null)
+        {
+            Godot.GD.Print($"  WATER:");
+            Godot.GD.Print($"    zone authored  waterColor={zone.waterColor} waterOpacity={zone.waterOpacity:F3}");
+            float wmuddy = wpal.WaterMuddiness;
+            Godot.GD.Print($"    blended        hue={wpal.WaterShallowTint} muddiness={wmuddy:F3}");
+            Godot.Color wscatter = wpal.WaterShallowTint;
+            float walbedo = Godot.Mathf.Lerp(sky.waterClearScatterAlbedo, sky.waterMuddyScatterAlbedo, wmuddy);
+            Godot.GD.Print($"    scatter        {wscatter}  (hue verbatim; muddiness moves intensity only)");
+            Godot.GD.Print($"    x albedo {walbedo:F3}  -> scatter_color={wscatter * walbedo}");
+            float wabsorb = Godot.Mathf.Lerp(sky.waterClearAbsorption, sky.waterMuddyAbsorption, wmuddy);
+            Godot.GD.Print($"    absorption     {wabsorb:F3}/m x (1-scatter) -> "
+                + $"({(1f - wscatter.R) * wabsorb:F2}, {(1f - wscatter.G) * wabsorb:F2}, {(1f - wscatter.B) * wabsorb:F2})/m");
+        }
 
         // FOG breakdown — the values that actually drive the volumetric
         // shader, plus the night-dimming diagnostic. fogPhaseScale is fed
@@ -1183,6 +1264,15 @@
     // and the overlay edge knobs (erode / feather / relief). The live-tuning loop
     // for surface blends: edit the .tres (or re-run tools/stitch_voxel_atlas.py),
     // run this, see it immediately. No restart, no re-mesh, no rebuild.
+    // Debug: draw EVERY water surface as one block id, ignoring what the world
+    // actually holds. -1 = off. The point is time-to-condition: judging a scum
+    // film otherwise means regenerating a world and walking to water that
+    // happened to be stamped with it. `block_check` lists the ids.
+    public static CVarInt waterFilmForce = new CVarInt("water_film_force", -1, (cvar) =>
+    {
+        ChunkMesh.SetWaterFilmForceBlock(((CVarInt)cvar).Value);
+    });
+
     public static CVar surfaceReload = new CVar("surface_reload", (cvar) =>
     {
         ChunkMesh.ReloadSurfaceTables();
@@ -1455,6 +1545,7 @@
     //   18 = the sky reflection on the surface
     //   19 = foam mask (greyscale coverage, not colour)
     //   20 = water_alpha (white = opaque water, black = see-through)
+    //   21 = surface film mask (white = scum/algae, black = bare water)
     public static CVarInt waterDebug = new CVarInt("water_debug", 0, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("water_debug_mode", ((CVarInt)cvar).Value);

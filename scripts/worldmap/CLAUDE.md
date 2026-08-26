@@ -26,6 +26,11 @@ Layers:
   everywhere; land simply hides the water it stands above. A value below
   `minElevationVoxels` is the "no water at all" sentinel the erase brush writes,
   which is what makes a DRY basin below sea level expressible.
+- **Water type** — `.png` `R8`, per column (index into `WorldMapData.waterTypes`
+  + 1; 0 = "whatever the zone says", which is what every document meant before
+  the layer existed). The palette holds `BlockData` references directly, which is
+  safe here and not on `ZoneWaterData`: `WorldMapData` is deliberately not
+  `[Tool]`, so nothing it holds is subject to the `[Tool]` closure rule.
 - **Region** / **Zone** — `.png` `R8`, per **chunk** (index → `ChunkState.RegionIndex` / `ZoneIndex`).
 - **Wind** — `.png` `Rgba8`, per **chunk**: R = compass angle over a full turn,
   G = strength, with **0 reserved for UNPAINTED**. Per chunk because that is the
@@ -58,13 +63,12 @@ tools/views read (`TerrainHeight`, `WaterSurface`, `Underwater`, `Ocean`,
 deterministic `BuildWorld` bake. **The painter edits only the 2D layer images —
 no live voxel `World` is kept.** The `WorldState` is materialized on demand:
 `BuildWorld` creates every chunk, stamps regions/zones, stamps all columns,
-scatters entities, and propagates sunlight.
+and scatters entities. Lighting is a later step of the bake — see below.
 
 **Ctrl+S saves on the main thread and bakes on a background one.** `Save` writes
 the layer images — fast, and all it takes not to lose your painting. `Bake` then
-runs `BuildWorld` + `WorldFile.Write` (every chunk built, ~7M voxels stamped, a
-~57MB file written: ~3s on an 18x16 map, since the relight moved to load) in a `Task`, with a
-progress panel bottom-right; painting stays live throughout.
+builds every chunk (~7M voxels stamped), floods the sun, and writes a ~57MB file
+in a `Task`, with a progress panel bottom-right; painting stays live throughout.
 
 The task bakes its **own `WorldMapState`, constructed on the main thread from the
 files Save just wrote** — never the live layer images, which the brush is still
@@ -77,14 +81,24 @@ difficulty seams are no longer among the reasons: they moved off `WorldGen`
 statics onto `SpawnContext`, so they reach exactly the pass that installed them
 instead of switching behaviour process-wide from a background thread.)
 
-**The bake does NOT light the world.** Every consumer of a `.hike` relights on
-open — `Main` on both load branches, `WorldEditor` on both its open paths —
-because baked light is only as good as the pipeline was at save time, and
-`SkyExposure` is not serialized at all, so the format assumes the pass happens on
-load. Lighting was ~19s of a ~22s bake and was discarded every time. (A consumer
-that ever loads a `.hike` without relighting would get a black world and should
-relight, not move the pass back here.) `LightEngine.Relight` keeps its optional
-progress callback, which the editor and any future long relight can use.
+**The bake DOES light the world, and that is why it is three steps.** Nothing
+relights a `.hike` on load any more — `Main` trusts the file's sunlight (see
+`LightEngine.LIGHT_VERSION`), so a bake that skipped the flood would write a world
+that loads black. The flood cannot simply go inside `BuildWorld`, because it has
+to see the tree canopy and `FoliageStamper` instantiates each tree scene, which
+the bake thread must not do. So `Bake` is:
+
+| Step | Thread | Is |
+|---|---|---|
+| `BakeBuild` | worker | the painted document to voxels — `BuildWorld` |
+| `BakeStampOccluders` | **main** | rasterize canopies / roofs / entity voxels (ms) |
+| `BakeRelightAndWrite` | worker | `LightEngine.Relight`, then `WorldFile.Write` |
+
+`WorldMapPainter.SaveAndBake` drives those three and hops threads between them;
+`Bake()` runs all three straight through for a caller that is already the main
+thread (`WorldMapData.BakeToWorldFile`). It is the same closing move `Main` makes
+after `WorldGen.Generate`, for the same reason. `LightEngine.Relight`'s optional
+progress callback feeds the panel through the lighting step.
 
 **Sky exposure is the exception, and it is not lighting.** `WorldFinish.Finish`
 runs `ComputeSkyExposure` even here, because `Interiorness` floods from it and
@@ -556,6 +570,42 @@ neighbourhood to spread through. Weathering still measures against it
 (`StandHeight`) while it measures against RAW heights, which is what keeps the
 two from depending on each other.
 
+**Water TYPE is painted beside the surface, and REPLACE is why it is its own
+mode.** The option row is the document's `waterTypes` palette with "Zone's" as
+entry 0 — the unpainted state — so there is always a way back to it and it is a
+special case nowhere. The ordinary brush writes the surface AND the type
+together, which is right when you are putting water somewhere; **X** switches to
+REPLACE, which only retypes columns that already hold water and never touches a
+surface. Without it, recolouring a lake would mean filling it to whatever level
+the HUD happened to hold, and getting that exactly right across a hand-painted
+shoreline is not something anyone should have to do to change its colour.
+
+Erasing a column's water erases its type with it: a column with no water has no
+type, and one left behind would silently retype whatever gets painted there next.
+
+**A painted type TINTS the water on the map**, on every view that draws water —
+resolved inside `WorldMapState.WithWaterOver`, the shared "there is water here"
+path, exactly as paving resolves inside `GroundColorAt`. You cannot paint scum
+along a shoreline you cannot see, and a type invisible on the map is one you
+cannot tell you have already laid down. It TINTS rather than replaces
+(`WorldMapData.waterTypeTintStrength`, 0.62) so the depth shading underneath
+survives: the map still has to say how deep the water is.
+
+What the map draws IS what the bake stamps: nothing derives a water type, so
+there is no second source to disagree with. (A per-zone rule briefly existed and
+was removed for exactly that reason — it dressed swamp water in scum the painter
+never drew.) The colour is the block's own `minimapColor`, resolved into a table
+at load: this is reached for every wet texel of every rebuild, so a resource
+dereference per texel would land in the map's hottest loop.
+
+**The painted layer is the only source** — it reaches the shared pass as
+`WorldFinish.Options.PaintedWaterBlockAt`, the same seam shape `MossCoverageAt`
+uses, and worldgen passes null and keeps standard water. Two things the bake will
+NOT stamp, both of which
+`worldmap_check` reports separately because their absence is otherwise silent:
+a type on **latent** water (painted, but buried under ground not yet carved — no
+free surface to dress until the land goes) and a type on a **dry** column.
+
 ## Carving and building (`VoxelEditTool`)
 
 The one layer that is not a heightfield: a per-voxel byte saying either "this
@@ -1013,7 +1063,7 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | Tool | Paints | Extra vars | View |
 |------|--------|-----------|------|
 | `ElevationTool` | elevation (raise/lower/flatten/flatten-soft/smooth/lift/smear) **and** cliff weathering (roughen) | `Op`, `VoxelsPerStroke`, `TargetVoxels`, `RoughenStopIndex`; `AdjustLevel` steps whichever number the op uses | one band per lattice step, eroded heights, water overlaid when `ShowWater` (**W**) |
-| `WaterTool` | sets each painted column's water surface (RMB removes it) | `SurfaceVoxels` (R/F, signed; alt+click samples) | water shaded by depth, dry land dimmed — **cuts away** (T/G), so water can be painted inside a passage |
+| `WaterTool` | each painted column's water surface AND its water type (RMB removes) | `SurfaceVoxels` (R/F, signed; alt+click samples), type (1-9 / Q/E), `ReplaceOnly` (**X**) | water shaded by depth, dry land dimmed — **cuts away** (T/G), so water can be painted inside a passage |
 | `TunnelTool` | LMB carves the box UP from `PaintY`; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `ctx.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
 | `BlockTool` | the same box, LMB filling it DOWN from `PaintY` | the same | the same view |
 | `RegionTool` | per-chunk region index | `RegionIndex`, named in the option row | region colours, **50% darker under water** |

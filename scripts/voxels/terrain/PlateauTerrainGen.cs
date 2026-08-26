@@ -357,7 +357,7 @@ public class PlateauTerrainGen : ITerrainGenerator
             for (int wy = worldMaxY; wy >= worldMinY; wy--)
             {
                 var v = ws.GetBlockWorld(wx, wy, wz);
-                if (v != Blocks.AirId && v != Blocks.WaterId)
+                if (v != Blocks.AirId && !Blocks.IsWater(v))
                 {
                     return wy;
                 }
@@ -419,7 +419,7 @@ public class PlateauTerrainGen : ITerrainGenerator
 
                     for (int cy = runLo; cy < ceilingY; cy++)
                     {
-                        var fill = cy <= TerrainMath.SEA_LEVEL ? Blocks.WaterId : Blocks.AirId;
+                        var fill = cy <= TerrainMath.SEA_LEVEL ? Blocks.DefaultWaterId : Blocks.AirId;
                         ws.SetBlockWorld(wx, cy, wz, fill);
                     }
 

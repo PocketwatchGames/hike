@@ -140,7 +140,7 @@ public static class MinimapData
             // Pure-air / pure-water: no contribution. The actual surface is
             // in another chunk (the one above pure-water for ocean surface;
             // never for pure-air which is sky).
-            if (pureType == Blocks.AirId || pureType == Blocks.WaterId)
+            if (pureType == Blocks.AirId || Blocks.IsWater(pureType))
             {
                 return;
             }

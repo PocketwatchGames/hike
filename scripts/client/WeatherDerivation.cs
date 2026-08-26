@@ -471,13 +471,11 @@ public static class WeatherDerivation
         p.WaterShallowTint = new Color(waterC.R, waterC.G, waterC.B, 1f);
         // Volume scatter colour. At muddiness 0 this IS the authored waterColor,
         // so a zone's specific water colour survives untouched. Muddiness pulls it
-        // toward the regional sediment tint — silt is a genuinely different
-        // material, scattering whatever the zone's DustColor carries (ochre desert
-        // pond, green swamp) rather than simply more of the same water. Depth
-        // colour is NOT authored separately any more: absorption is tinted by the
+        // and nothing dilutes it. Muddiness moves only the INTENSITY (scatter
+        // albedo) and how far you can see in (absorption) — see water_optics.
+        // Depth colour is NOT authored separately: absorption is tinted by the
         // complement of this colour, so the column reddens out on its own.
-        Color sediment = new Color(dustC.R * 0.40f, dustC.G * 0.40f, dustC.B * 0.40f, 1f);
-        p.WaterScatterColor = p.WaterShallowTint.Lerp(sediment, muddy * 0.6f);
+        p.WaterScatterColor = p.WaterShallowTint;
         // Deep-water colour IS the scatter colour — one derivation, not two.
         p.WaterDeepTint = p.WaterScatterColor;
 

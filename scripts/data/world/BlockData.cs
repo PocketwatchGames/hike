@@ -58,6 +58,29 @@ public partial class BlockData : Resource
     // straight bisector (man-made walls); higher = jagged (organic ground).
     [Export(PropertyHint.Range, "0,1,0.01")] public float blendNoise = 0f;
 
+    // --- Water ---------------------------------------------------------------
+    // Read only where render == Water.
+
+    // What floats on this water — scum, algae, lilypads. Null is bare water.
+    [Export] public WaterFilmData waterFilm;
+
+    // How much murkier (+) or clearer (-) this water is than the zone says its
+    // water is. Deliberately NOT an absolute: the zone owns the water's hue and
+    // its baseline clarity — that is how a region defines its palette — and a
+    // water block says how this particular body differs from it. An absolute
+    // would mean authoring one scum block per zone, which is exactly what the
+    // block palette exists to avoid.
+    //
+    // Applied as a push toward the endpoint rather than a clamped addition:
+    //   d > 0 ? lerp(zoneMuddiness, 1, d) : lerp(zoneMuddiness, 0, -d)
+    // so it reads as "this far toward murky from whatever this region is" and
+    // still does something in a swamp already sitting at 0.9, where +0.3 added
+    // and clamped would do nothing at all.
+    //
+    // 0 is the identity, which is what makes the standard water block behave
+    // exactly as every already-baked world's water does.
+    [Export(PropertyHint.Range, "-1,1,0.01")] public float waterTurbidityDelta = 0f;
+
     // --- Sim behavior -------------------------------------------------------
     // Never palette-resolved: a wall is solid in every biome.
 

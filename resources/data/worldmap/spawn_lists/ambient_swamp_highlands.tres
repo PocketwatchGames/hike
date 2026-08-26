@@ -8,12 +8,12 @@
 [ext_resource type="Script" uid="uid://dy4evm7tom40j" path="res://scripts/data/spawn/FireTrapSpawnEntry.cs" id="11_lthrm"]
 [ext_resource type="Resource" uid="uid://067l7ldr00xa" path="res://resources/data/world_gen/mob_descriptors/spider_swamp.tres" id="12_llhnd"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="13_ep0wb"]
-[ext_resource type="Resource" uid="uid://f6qpb6wglnatw" path="res://resources/data/world_gen/mob_descriptors/drake_swamp.tres" id="14_drake"]
-[ext_resource type="Resource" uid="uid://n8c4wi80lfy6p" path="res://resources/data/world_gen/mob_descriptors/sparrow_swamp.tres" id="15_sparrow"]
-[ext_resource type="PackedScene" uid="uid://txnqaadygfgyf" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
-[ext_resource type="Resource" uid="uid://pln2356abb1yx" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
-[ext_resource type="Resource" uid="uid://a2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="m_orange"]
-[ext_resource type="Resource" uid="uid://151tfntcxm62z" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
+[ext_resource type="Resource" uid="uid://ccctp4y61ge25" path="res://resources/data/world_gen/mob_descriptors/drake_swamp.tres" id="14_drake"]
+[ext_resource type="Resource" uid="uid://cm4i5dh8vtdwf" path="res://resources/data/world_gen/mob_descriptors/sparrow_swamp.tres" id="15_sparrow"]
+[ext_resource type="PackedScene" uid="uid://mmebyrpme26l" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
+[ext_resource type="Resource" uid="uid://d0ghc0filpfpn" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
+[ext_resource type="Resource" uid="uid://2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="m_orange"]
+[ext_resource type="Resource" uid="uid://dyllvcbtkfxjf" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
 
 [sub_resource type="Resource" id="Resource_drake"]
 script = ExtResource("3_hm38d")

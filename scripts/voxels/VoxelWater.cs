@@ -39,11 +39,11 @@ public static class VoxelWater
         }
         for (int d = 0; d <= searchDepth; d++)
         {
-            if (ws.GetBlockWorld(wx, startY + d, wz) == Blocks.WaterId)
+            if (Blocks.IsWater(ws.GetBlockWorld(wx, startY + d, wz)))
             {
                 return TopOfRun(ws, wx, startY + d, wz, searchDepth);
             }
-            if (d != 0 && ws.GetBlockWorld(wx, startY - d, wz) == Blocks.WaterId)
+            if (d != 0 && Blocks.IsWater(ws.GetBlockWorld(wx, startY - d, wz)))
             {
                 return TopOfRun(ws, wx, startY - d, wz, searchDepth);
             }
@@ -103,7 +103,7 @@ public static class VoxelWater
         int maxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
         for (int y = maxY; y >= minY; y--)
         {
-            if (ws.GetBlockWorld(wx, y, wz) == Blocks.WaterId)
+            if (Blocks.IsWater(ws.GetBlockWorld(wx, y, wz)))
             {
                 return y + 1f;
             }
@@ -126,7 +126,7 @@ public static class VoxelWater
         }
         for (int y = waterTopY - 1; y >= minY; y--)
         {
-            if (ws.GetBlockWorld(wx, y, wz) != Blocks.WaterId)
+            if (!Blocks.IsWater(ws.GetBlockWorld(wx, y, wz)))
             {
                 return y + 1;
             }
@@ -139,7 +139,7 @@ public static class VoxelWater
     {
         int top = waterY;
         int limit = waterY + searchDepth;
-        while (top < limit && ws.GetBlockWorld(wx, top + 1, wz) == Blocks.WaterId)
+        while (top < limit && Blocks.IsWater(ws.GetBlockWorld(wx, top + 1, wz)))
         {
             top++;
         }

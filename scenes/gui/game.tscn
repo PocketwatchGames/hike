@@ -10,9 +10,9 @@
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
-[ext_resource type="PackedScene" uid="uid://carxk5v82cy87" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
+[ext_resource type="PackedScene" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
 [ext_resource type="PackedScene" uid="uid://blq0cn2x7hpke" path="res://scenes/gui/camp_screen.tscn" id="40_30f04"]
-[ext_resource type="PackedScene" uid="uid://iclwdeljyf5oi" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
+[ext_resource type="PackedScene" uid="uid://lr56aq1t1e5y" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
 [ext_resource type="Script" uid="uid://bt6ru7ovpj28n" path="res://scripts/gui/ScreenFade.cs" id="42_screenfade"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://assets/audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
@@ -24,7 +24,7 @@
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="Script" uid="uid://bd2qbk8yxpmjj" path="res://scripts/client/GroundStainProjector.cs" id="ground_stain_projector_script"]
 [ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://assets/audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
-[ext_resource type="PackedScene" uid="uid://chtfieldscene7y2b" path="res://scenes/subsystems/heat_field.tscn" id="heat_field_scene"]
+[ext_resource type="PackedScene" uid="uid://cwdqs8t0vrv7l" path="res://scenes/subsystems/heat_field.tscn" id="heat_field_scene"]
 [ext_resource type="Material" uid="uid://bodv5gd4psxkh" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
 [ext_resource type="PackedScene" uid="uid://cuyfeo5we7vxp" path="res://scenes/hud/hud_text_backstab.tscn" id="hud_text_backstab"]
 [ext_resource type="PackedScene" uid="uid://bv6kkm02f7457" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
@@ -36,16 +36,16 @@
 [ext_resource type="PackedScene" uid="uid://wrdegol14u0e" path="res://scenes/hud/hud_text_heal_heavy.tscn" id="hud_text_heal_heavy"]
 [ext_resource type="PackedScene" uid="uid://daw07fd8ckjrx" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
 [ext_resource type="PackedScene" uid="uid://bajbqjuap3wxc" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
-[ext_resource type="PackedScene" uid="uid://cmnmapscene7x1a" path="res://scenes/subsystems/minimap.tscn" id="minimap_scene"]
+[ext_resource type="PackedScene" uid="uid://3ufqfjj386am" path="res://scenes/subsystems/minimap.tscn" id="minimap_scene"]
 [ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/fx/motes.tscn" id="mote_scene"]
-[ext_resource type="Material" uid="uid://pr8w6684ve7dm" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
-[ext_resource type="Material" uid="uid://piugapxcfo8bk" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
+[ext_resource type="Material" uid="uid://cmgtyk4mlpck" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
+[ext_resource type="Material" uid="uid://dwmtij6kp3l1a" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="post_process_mat"]
 [ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/fx/rain.tscn" id="rain_scene"]
 [ext_resource type="Script" uid="uid://bi7rs3e700k6x" path="res://scripts/client/ScreenEffectsController.cs" id="screen_effects_script"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
 [ext_resource type="Script" uid="uid://cselyavrn014a" path="res://scripts/client/SlowMotionController.cs" id="slow_motion_script"]
-[ext_resource type="Material" uid="uid://ssmvopbv8hql1" path="res://resources/materials/upscale.tres" id="upscale_mat"]
+[ext_resource type="Material" uid="uid://dc0fchmvyn8ky" path="res://resources/materials/upscale.tres" id="upscale_mat"]
 [ext_resource type="Script" uid="uid://cjflrpaeqaulr" path="res://scripts/client/ViewportRig.cs" id="viewport_rig_script"]
 [ext_resource type="PackedScene" uid="uid://bwfoam4m5n6o7" path="res://scenes/fx/wind_foam.tscn" id="wind_foam_scene"]
 [ext_resource type="Script" uid="uid://cd6m5lgxxf0tx" path="res://scripts/gameplay/WindParticleManager.cs" id="wind_particle_manager_script"]
@@ -86,7 +86,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="SkyController" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
 mobLevelColors = PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0.48000002, 1, 0.48, 0, 0, 1, 0.49866652, 0, 0.68, 1)
 camera = NodePath("SceneViewport/MainCamera")

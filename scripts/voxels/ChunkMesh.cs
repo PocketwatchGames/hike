@@ -108,7 +108,9 @@ public partial class ChunkMesh : Node3D
 
     private const string TerrainMaterialPath = "res://resources/materials/terrain.tres";
 
-    private static void EnsureMaterialsInitialized()
+    // Public because the parallel fill must force it before any worker can
+    // race into it — it touches the rendering server.
+    public static void EnsureMaterialsInitialized()
     {
         if (_materialsInitialized)
         {
@@ -195,6 +197,7 @@ public partial class ChunkMesh : Node3D
         var rippleB = GD.Load<Texture2D>("res://assets/textures/water_ripple_b.tres");
         WaterMaterial.SetShaderParameter("ripple_tex_a", rippleA);
         WaterMaterial.SetShaderParameter("ripple_tex_b", rippleB);
+        UploadWaterBlockTables(tileArray, nrmHeight);
 
         var waterBackfaceShader = GD.Load<Shader>("res://shaders/voxel_water_backface.gdshader");
         WaterBackfaceMaterial = new ShaderMaterial();
@@ -245,14 +248,14 @@ public partial class ChunkMesh : Node3D
         SharedMaterial.SetShaderParameter("ao_strength", _aoStrength);
         SharedMaterial.SetShaderParameter("debug_concavity", _debugConcavity);
         SharedMaterial.SetShaderParameter("debug_overlay_cov", _debugOverlayCov);
-        UploadSurfaceTables(nrmHeight);
+        UploadSurfaceTables(tileArray, nrmHeight);
         UploadBlockTables();
     }
 
     // Per-atlas-layer tables: everything the shader indexes by atlasBaseIndex.
     // Split out from material init so `surface_reload` can re-push it against
     // freshly re-read .tres without rebuilding anything else.
-    private static void UploadSurfaceTables(TextureLayered nrmHeight)
+    private static void UploadSurfaceTables(TextureLayered tileArray, TextureLayered nrmHeight)
     {
         var porosityTable = new Godot.Collections.Array();
         var heightMidTable = new Godot.Collections.Array();
@@ -281,6 +284,63 @@ public partial class ChunkMesh : Node3D
         SharedMaterial.SetShaderParameter("tile_overlay_erode_cliff", overlayErodeCliffTable);
         SharedMaterial.SetShaderParameter("tile_overlay_feather", overlayFeatherTable);
         SharedMaterial.SetShaderParameter("tile_overlay_relief", overlayReliefTable);
+        UploadWaterBlockTables(tileArray, nrmHeight);
+    }
+
+    // Everything the water material carries that is indexed rather than global:
+    // the per-BLOCK turbidity table (read by the shader against the block id the
+    // mesher packs into CUSTOM0.x) and the per-LAYER film tuning, plus the atlas
+    // itself. Same resources SharedMaterial holds, so this costs no extra VRAM.
+    // Same resources SharedMaterial holds, so this costs no extra VRAM.
+    //
+    // Skipped until the water material exists — EnsureMaterialsInitialized
+    // pushes the runtime params before it builds WaterMaterial, and calls this
+    // again once it has.
+    private static void UploadWaterBlockTables(TextureLayered tileArray, TextureLayered nrmHeight)
+    {
+        if (WaterMaterial == null)
+        {
+            return;
+        }
+        WaterMaterial.SetShaderParameter("tile_array", tileArray);
+        WaterMaterial.SetShaderParameter("tile_nrm_height", nrmHeight);
+
+        // Per water BLOCK: turbidity, and the film it wears. A block with no
+        // WaterFilmData gets layer 0, which the shader reads as "bare water" —
+        // that is the only thing distinguishing "no film" from a film whose
+        // opacity happens to be zero.
+        var turbidity = new float[BlockCatalog.MAX_BLOCKS];
+        var filmA = new Vector4[BlockCatalog.MAX_BLOCKS];
+        var filmB = new Vector4[BlockCatalog.MAX_BLOCKS];
+        var filmTint = new Vector4[BlockCatalog.MAX_BLOCKS];
+        for (int id = 0; id < BlockCatalog.MAX_BLOCKS; id++)
+        {
+            turbidity[id] = Blocks.WaterTurbidity(id);
+            filmTint[id] = new Vector4(1f, 1f, 1f, 1f);
+            WaterFilmData film = BlockCatalog.Active.GetById(id)?.waterFilm;
+            if (film?.surface == null || film.surface.atlasBaseIndex <= 0)
+            {
+                continue;
+            }
+            filmA[id] = new Vector4(film.surface.atlasBaseIndex, film.scale, film.drift, film.opacity);
+            filmB[id] = new Vector4(film.breakupScale, film.breakup, film.shape, film.edgeSoftness);
+            filmTint[id] = new Vector4(film.tint.R, film.tint.G, film.tint.B, 1f);
+        }
+        WaterMaterial.SetShaderParameter("water_block_turbidity", turbidity);
+        WaterMaterial.SetShaderParameter("water_film_a", filmA);
+        WaterMaterial.SetShaderParameter("water_film_b", filmB);
+        WaterMaterial.SetShaderParameter("water_film_tint", filmTint);
+        WaterMaterial.SetShaderParameter("water_film_force_block", _waterFilmForceBlock);
+    }
+
+    // Debug: draw every water surface as one BLOCK, so a film can be judged
+    // without regenerating a world to stamp it. -1 = off.
+    private static int _waterFilmForceBlock = -1;
+
+    public static void SetWaterFilmForceBlock(int blockId)
+    {
+        _waterFilmForceBlock = blockId;
+        WaterMaterial?.SetShaderParameter("water_film_force_block", blockId);
     }
 
     // Live tuning hook for the `surface_reload` console command: re-reads every
@@ -572,6 +632,15 @@ public partial class ChunkMesh : Node3D
     // scale the sub-metre detail sprites are sub-pixel (skip the scatter to
     // save the multimesh rebuild + memory). They render mesh + prop scatter
     // only, and unload when the overview ends.
+    // CUSTOM channel counts the two meshers fill — see BuildMesh for what each
+    // terrain channel carries.
+    private const int TERRAIN_CUSTOM_CHANNELS = 4;
+    private const int WATER_CUSTOM_CHANNELS = 1;
+
+    // Build and realize in one go — what a caller on the main thread with one
+    // chunk to load wants (runtime streaming, the mesh rebuild queue). The
+    // initial world fill instead calls the two halves separately so it can run
+    // every BuildGeometry at once; see ChunkGeometry.
     public static ChunkMesh Create(
         ChunkState data,
         Func<int, int, int, int> getVoxel,
@@ -586,36 +655,22 @@ public partial class ChunkMesh : Node3D
         bool outOfLightWindow = false)
     {
         using var _prof = Profiler.Sample("ChunkMesh.Create");
-        EnsureMaterialsInitialized();
-        var chunk = new ChunkMesh();
-        chunk.Position = new Vector3(
-            data.ChunkCoord.X * ChunkState.SIZE,
-            data.ChunkCoord.Y * ChunkState.SIZE,
-            data.ChunkCoord.Z * ChunkState.SIZE
-        );
-        chunk.BuildMesh(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, buildCollision, buildDetails, outOfLightWindow);
-        return chunk;
+        ChunkGeometry geo = BuildGeometry(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, buildCollision, buildDetails, outOfLightWindow);
+        return Realize(geo);
     }
 
     // Invisible barriers at the top edge of every drop taller than a legal
     // step. Always built with terrain collision; whether anything collides with
     // them is a mask decision on the body (see ECollisionLayer.LedgeBarrier), so
     // toggling them costs nothing and needs no rebuild.
-    private void BuildLedgeBarriers(Func<int, int, int, int> getVoxel, DcCellSurface surface, int worldX, int worldY, int worldZ)
+    //
+    // The triangles themselves come from LedgeBarrierMesher during
+    // BuildGeometry; this is only the physics-server half. `verts` is
+    // CHUNK-LOCAL, like the terrain mesh — this node's Position is already the
+    // chunk origin, so applying it again would place the barriers a whole chunk
+    // away from the ground they guard.
+    private void RealizeLedgeBarriers(Vector3[] verts)
     {
-        using var _prof = Profiler.Sample("ChunkMesh.LedgeBarriers");
-        System.Collections.Generic.List<Vector3> tris =
-            LedgeBarrierMesher.Build(getVoxel, surface, worldX, worldY, worldZ);
-        if (tris == null)
-        {
-            return;
-        }
-
-        // Chunk-local, like the terrain mesh — this node's Position is already
-        // the chunk origin, so applying it again here would place the barriers a
-        // whole chunk away from the ground they guard.
-        Vector3[] verts = tris.ToArray();
-
         var shape = new ConcavePolygonShape3D();
         shape.BackfaceCollision = true;
         shape.Data = verts;
@@ -703,7 +758,16 @@ public partial class ChunkMesh : Node3D
         }
     }
 
-    private void BuildMesh(
+    // The PURE half of a chunk build — no Node, no Resource, no rendering
+    // server, no shared mutable state. Safe to run on a worker thread, which is
+    // the whole reason it is separated out: it is ~98% of what a chunk costs.
+    //
+    // Everything it touches is either a local, the immutable ChunkState, or the
+    // caller's read-only voxel accessors. The Profiler is deliberately NOT used
+    // in here — its section stack is main-thread state (see Profiler.Sample), so
+    // to profile the fill turn `chunk_parallel_fill` off and the whole build
+    // runs through Create on the main thread again.
+    public static ChunkGeometry BuildGeometry(
         ChunkState data,
         Func<int, int, int, int> getVoxel,
         Func<int, int, int, SharpAxes> getShape,
@@ -716,41 +780,41 @@ public partial class ChunkMesh : Node3D
         bool buildDetails,
         bool outOfLightWindow)
     {
+        var geo = new ChunkGeometry
+        {
+            Data = data,
+            ChunkCoord = data.ChunkCoord,
+            BuildCollision = buildCollision,
+            OutOfLightWindow = outOfLightWindow,
+        };
         if (OnlyChunkFilter.HasValue && data.ChunkCoord != OnlyChunkFilter.Value)
         {
-            CollisionReady = true;
-            return;
+            return geo;
         }
 
         int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
         int chunkWorldY = data.ChunkCoord.Y * ChunkState.SIZE;
         int chunkWorldZ = data.ChunkCoord.Z * ChunkState.SIZE;
 
-        // Terrain (Dual Contouring)
-        var st = new SurfaceTool();
-        st.Begin(Mesh.PrimitiveType.Triangles);
-        st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
-        // CUSTOM1: (sharpness, kit_a, kit_b, kit_c). .x drives smooth-vs-flat
-        // shading; .yzw is the triangle's three corner kit ids (constant across
-        // the tri so the shader can barycentric-pick, same pattern as tile ids).
-        st.SetCustomFormat(1, SurfaceTool.CustomFormat.RgbaFloat);
-        // CUSTOM2: (overlay_a, overlay_b, overlay_c, _). Per-corner authored
-        // overlay ids for the AUTO terrain branch.
-        st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
-        // CUSTOM3: (openness, baked_sun, _, _). Per-vertex sun read from the air
-        // the surface faces — see ChunkMesherDC.BakeVertexSun. zw are free: the
-        // climbable-ledge mark used to live in .z and is now an overlay.
-        st.SetCustomFormat(3, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetMaterial(SharedMaterial);
+        // Terrain (Dual Contouring). Four RgbaFloat CUSTOM channels:
+        //   CUSTOM0: (tile_a, tile_b, tile_c, blend_amplitude).
+        //   CUSTOM1: (sharpness, kit_a, kit_b, kit_c). .x drives smooth-vs-flat
+        //     shading; .yzw is the triangle's three corner kit ids (constant
+        //     across the tri so the shader can barycentric-pick, same pattern as
+        //     tile ids).
+        //   CUSTOM2: (overlay_a, overlay_b, overlay_c, concavity). Per-corner
+        //     authored overlay ids for the AUTO terrain branch.
+        //   CUSTOM3: (openness, baked_sun, _, _). Per-vertex sun read from the
+        //     air the surface faces — see ChunkMesherDC.BakeVertexSun. zw are
+        //     free: the climbable-ledge mark used to live in .z and is now an
+        //     overlay.
+        var buf = new MeshBuffer(TERRAIN_CUSTOM_CHANNELS);
 
-        bool hasAnyFace;
-        // Hoisted: the ledge barriers are built further down, outside this
-        // scope, and must stand on the same surface the terrain mesh just made.
-        DcCellSurface dcSurface = null;
-        using (Profiler.Sample("ChunkMesh.MesherDC"))
-        {
-            ChunkMesherDC.Build(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out hasAnyFace, out dcSurface);
-        }
+        // Hoisted: the ledge barriers are built further down and must stand on
+        // the same surface the terrain mesh just made.
+        ChunkMesherDC.Build(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, buf, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace, out DcCellSurface dcSurface);
+        geo.Terrain = buf;
+        geo.HasTerrain = hasAnyFace;
 
         // Detail-sprite scatter (grass, flowers, etc.). Compute the per-entry
         // instance contributions and post them to the world-wide manager so
@@ -759,35 +823,66 @@ public partial class ChunkMesh : Node3D
         // contributions when the chunk evicts.
         if (buildDetails)
         {
-            _scatteredChunkCoord = data.ChunkCoord;
-            Dictionary<DetailEntry, List<ChunkDetailScatter.InstanceData>> scatterContrib;
-            using (Profiler.Sample("ChunkMesh.DetailScatter"))
-            {
-                scatterContrib = ChunkDetailScatter.Compute(data, getVoxel, _activeDetailGroups);
-            }
-            Sim.Current?.DetailScatter?.SetChunk(data.ChunkCoord, scatterContrib);
-            _scatterPosted = scatterContrib != null;
+            // Computed here, POSTED in Realize — the scatter manager owns
+            // MultiMeshes, so handing it the contribution is a main-thread act.
+            geo.WantsScatter = true;
+            geo.Scatter = ChunkDetailScatter.Compute(data, getVoxel, _activeDetailGroups);
         }
 
         // Water (axis-aligned cubic faces)
-        var stWater = new SurfaceTool();
-        stWater.Begin(Mesh.PrimitiveType.Triangles);
-        stWater.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
-        stWater.SetMaterial(WaterMaterial);
+        var bufWater = new MeshBuffer(WATER_CUSTOM_CHANNELS);
 
-        bool hasAnyWaterFace;
-        using (Profiler.Sample("ChunkMesh.WaterMesher"))
+        WaterMesher.Build(data, getVoxel, bufWater, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyWaterFace);
+        geo.Water = bufWater;
+        geo.HasWater = hasAnyWaterFace;
+
+        if (buildCollision)
         {
-            WaterMesher.Build(data, getVoxel, stWater, chunkWorldX, chunkWorldY, chunkWorldZ, out hasAnyWaterFace);
+            List<Vector3> tris = LedgeBarrierMesher.Build(getVoxel, dcSurface, chunkWorldX, chunkWorldY, chunkWorldZ);
+            geo.LedgeBarrierTris = tris?.ToArray();
         }
 
-        if (!hasAnyFace && !hasAnyWaterFace)
+        return geo;
+    }
+
+    // The MAIN-THREAD half: turn built geometry into nodes, meshes and
+    // collision. Everything here touches the rendering server, the physics
+    // server, the scene tree or shared statics, which is exactly what
+    // BuildGeometry is kept clear of.
+    public static ChunkMesh Realize(ChunkGeometry geo)
+    {
+        EnsureMaterialsInitialized();
+        var chunk = new ChunkMesh();
+        chunk.Position = new Vector3(
+            geo.ChunkCoord.X * ChunkState.SIZE,
+            geo.ChunkCoord.Y * ChunkState.SIZE,
+            geo.ChunkCoord.Z * ChunkState.SIZE
+        );
+        chunk.RealizeGeometry(geo);
+        return chunk;
+    }
+
+    private void RealizeGeometry(ChunkGeometry geo)
+    {
+
+        ChunkState data = geo.Data;
+        bool buildCollision = geo.BuildCollision;
+        bool outOfLightWindow = geo.OutOfLightWindow;
+
+        if (geo.WantsScatter)
+        {
+            _scatteredChunkCoord = geo.ChunkCoord;
+            Sim.Current?.DetailScatter?.SetChunk(geo.ChunkCoord, geo.Scatter);
+            _scatterPosted = geo.Scatter != null;
+        }
+
+        if (geo.IsEmpty)
         {
             CollisionReady = true;
             return;
         }
 
-        if (hasAnyFace)
+        if (geo.HasTerrain)
         {
             // Normals are authored per-vertex by the mesher from the 8-corner
             // density gradient. Don't call GenerateNormals — run per-chunk it
@@ -797,7 +892,7 @@ public partial class ChunkMesh : Node3D
             ArrayMesh mesh;
             using (Profiler.Sample("ChunkMesh.Commit"))
             {
-                mesh = st.Commit();
+                mesh = geo.Terrain.ToArrayMesh(SharedMaterial);
             }
 
             if (ChunkMesherDC.DebugLog)
@@ -867,26 +962,32 @@ public partial class ChunkMesh : Node3D
             }
         }
 
-        if (buildCollision)
+        if (geo.LedgeBarrierTris != null)
         {
-            BuildLedgeBarriers(getVoxel, dcSurface, chunkWorldX, chunkWorldY, chunkWorldZ);
+            RealizeLedgeBarriers(geo.LedgeBarrierTris);
         }
 
-        HasWater = hasAnyWaterFace;
-        if (hasAnyWaterFace)
+        HasWater = geo.HasWater;
+        if (geo.HasWater)
         {
             ArrayMesh waterMesh;
             using (Profiler.Sample("ChunkMesh.WaterCommit"))
             {
-                waterMesh = stWater.Commit();
+                waterMesh = geo.Water.ToArrayMesh(WaterMaterial);
             }
 
             var waterVisual = new MeshInstance3D();
             waterVisual.Mesh = waterMesh;
             waterVisual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
 
-            var waterMat = WaterMaterial.Duplicate() as ShaderMaterial;
-            waterVisual.MaterialOverride = waterMat;
+            // SHARED, like the backface below it and every other material here.
+            // A per-chunk Duplicate() copies the parameter values as they stand
+            // at build time and never sees another one: every runtime knob on
+            // the water — the atlas tables, the cover tuning, water_cover_force
+            // — reached the original and nothing on screen, which reads exactly
+            // like the feature not working. Nothing sets a per-chunk water
+            // parameter; the per-fragment ones are global uniforms.
+            waterVisual.MaterialOverride = WaterMaterial;
             AddChild(waterVisual);
 
             var waterBackface = new MeshInstance3D();

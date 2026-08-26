@@ -27,14 +27,6 @@ using Godot;
 // serialized, and a painted value must round-trip.
 public static class InteriornessGen
 {
-    // Neighbour offsets for the flood and the narrowness count.
-    private static readonly Vector3I[] Neighbors =
-    {
-        new(1, 0, 0), new(-1, 0, 0),
-        new(0, 1, 0), new(0, -1, 0),
-        new(0, 0, 1), new(0, 0, -1),
-    };
-
     public static void Compute(WorldState ws)
     {
         var all = new HashSet<Vector3I>(ws._chunks.Keys);
@@ -83,10 +75,27 @@ public static class InteriornessGen
         float seedFraction = Mathf.Clamp(simData?.interiornessSeedSkyFraction ?? 0.9f, 0f, 1f);
         int seedSkyLevel = Mathf.RoundToInt(seedFraction * LightEngine.MAX_LIGHT);
 
+        // Flat chunk indexing for the flood — see ChunkGrid. This pass hashed a
+        // Vector3I once per channel per neighbour, which is what it mostly cost.
+        // The grid covers the WHOLE world, not just `flood`: the narrowness
+        // count reads openness outside the set it may travel through.
+        var grid = new ChunkGrid(ws);
+        byte[][,,] voxels = new byte[grid.Count][,,];
+        for (int i = 0; i < grid.Count; i++)
+        {
+            ChunkState chunk = grid.Chunk(i);
+            if (chunk != null)
+            {
+                voxels[i] = chunk.Voxels;
+            }
+        }
+        bool[][,,] opaque = grid.Resolve(ws.SunOpaque);
+
         // Per-voxel travel cost, saturating. Kept in a side table rather than on
         // ChunkState: it is scratch for this pass and would otherwise be a
-        // per-voxel channel nothing else reads.
-        var cost = new Dictionary<Vector3I, byte[,,]>();
+        // per-voxel channel nothing else reads. Null outside `flood`, which is
+        // what stops the flood travelling there.
+        var cost = new byte[grid.Count][,,];
         foreach (Vector3I coord in flood)
         {
             ChunkState chunk = ws.GetChunk(coord);
@@ -105,15 +114,15 @@ public static class InteriornessGen
                     }
                 }
             }
-            cost[chunk.ChunkCoord] = arr;
+            cost[grid.ChunkIndex(coord.X, coord.Y, coord.Z)] = arr;
         }
 
         // Bucket queue — step costs are small integers, so this is O(n) where a
         // priority queue would be O(n log n) for no benefit.
-        var buckets = new List<Vector3I>[saturation + 1];
+        var buckets = new List<int>[saturation + 1];
         for (int i = 0; i <= saturation; i++)
         {
-            buckets[i] = new List<Vector3I>();
+            buckets[i] = new List<int>();
         }
 
         // Seed: air that is essentially open to the sky IS the outdoors. A
@@ -121,11 +130,14 @@ public static class InteriornessGen
         // outside. What stops the room below inheriting that is the narrowness
         // of the gap it has to come through, not any roof-specific rule.
         int seeded = 0;
-        foreach (KeyValuePair<Vector3I, byte[,,]> kvp in cost)
+        for (int ci = 0; ci < cost.Length; ci++)
         {
-            Vector3I cc = kvp.Key;
-            byte[,,] arr = kvp.Value;
-            ChunkState chunk = ws.GetChunk(cc);
+            byte[,,] arr = cost[ci];
+            if (arr == null)
+            {
+                continue;
+            }
+            ChunkState chunk = grid.Chunk(ci);
             for (int x = 0; x < ChunkState.SIZE; x++)
             {
                 for (int y = 0; y < ChunkState.SIZE; y++)
@@ -141,10 +153,7 @@ public static class InteriornessGen
                             continue;
                         }
                         arr[x, y, z] = 0;
-                        buckets[0].Add(new Vector3I(
-                            cc.X * ChunkState.SIZE + x,
-                            cc.Y * ChunkState.SIZE + y,
-                            cc.Z * ChunkState.SIZE + z));
+                        buckets[0].Add((ci << ChunkGrid.VOXEL_BITS) | (x << 8) | (y << 4) | z);
                         seeded++;
                     }
                 }
@@ -153,26 +162,30 @@ public static class InteriornessGen
 
         for (int c = 0; c <= saturation; c++)
         {
-            List<Vector3I> bucket = buckets[c];
+            List<int> bucket = buckets[c];
             // Grows while being walked when a neighbour lands in this same
             // bucket (step cost can be 0 only if narrowPenalty is 0, but index
             // by count anyway so re-entry is safe).
             for (int i = 0; i < bucket.Count; i++)
             {
-                Vector3I p = bucket[i];
+                int p = bucket[i];
                 if (GetCost(cost, p) != c)
                 {
                     continue; // superseded by a cheaper path already processed
                 }
-                for (int n = 0; n < Neighbors.Length; n++)
+                for (int n = 0; n < ChunkGrid.Offsets.Length; n++)
                 {
-                    Vector3I q = p + Neighbors[n];
+                    int q = grid.Step(p, n);
+                    if (q < 0)
+                    {
+                        continue; // off the world: nothing there to give a cost to
+                    }
                     // Reject on the CHEAP test first. Any step costs at least
                     // 1, so a neighbour already at or below this cost can never
                     // improve — and since nearly every voxel in an open world
                     // is a cost-0 seed whose neighbours are also cost-0 seeds,
-                    // this is the difference between one dictionary lookup and
-                    // seven for the overwhelming majority of edges. Computing
+                    // this is the difference between one array read and seven
+                    // for the overwhelming majority of edges. Computing
                     // narrowness before this test made the outdoors, which has
                     // no work to do at all, dominate the pass.
                     int existing = GetCost(cost, q);
@@ -180,11 +193,11 @@ public static class InteriornessGen
                     {
                         continue;
                     }
-                    if (!IsOpen(ws, q))
+                    if (!IsOpen(voxels, opaque, q))
                     {
                         continue;
                     }
-                    int step = 1 + narrowPenalty * (Neighbors.Length - CountAirNeighbors(ws, q));
+                    int step = 1 + narrowPenalty * (ChunkGrid.Offsets.Length - CountAirNeighbors(grid, voxels, opaque, q));
                     int next = c + step;
                     if (next >= saturation)
                     {
@@ -196,7 +209,7 @@ public static class InteriornessGen
                     }
                     if (!SetCost(cost, q, (byte)next))
                     {
-                        continue; // outside a resident chunk
+                        continue; // outside the chunks this pass may write
                     }
                     buckets[next].Add(q);
                 }
@@ -216,7 +229,9 @@ public static class InteriornessGen
         foreach (Vector3I coord in write)
         {
             ChunkState chunk = ws.GetChunk(coord);
-            if (chunk == null || !cost.TryGetValue(coord, out byte[,,] arr))
+            int ci = grid.ChunkIndex(coord.X, coord.Y, coord.Z);
+            byte[,,] arr = ci >= 0 ? cost[ci] : null;
+            if (chunk == null || arr == null)
             {
                 continue;
             }
@@ -292,20 +307,33 @@ public static class InteriornessGen
     // barrier this pass needs, and it is punched through wherever the roof is
     // holed — so a broken roof admits the outdoors through its holes, at a cost
     // set by how wide they are, with no roof-specific code here.
-    private static bool IsOpen(WorldState ws, Vector3I p)
+    private static bool IsOpen(byte[][,,] voxels, bool[][,,] opaque, int packed)
     {
-        return Blocks.IsEmpty(ws.GetBlockWorld(p.X, p.Y, p.Z))
-            && !ws.GetSunOpaqueWorld(p.X, p.Y, p.Z);
+        int ci = packed >> ChunkGrid.VOXEL_BITS;
+        int lx = ChunkGrid.LocalX(packed);
+        int ly = ChunkGrid.LocalY(packed);
+        int lz = ChunkGrid.LocalZ(packed);
+        if (!Blocks.IsEmpty(voxels[ci][lx, ly, lz]))
+        {
+            return false;
+        }
+        bool[,,] op = opaque[ci];
+        return op == null || !op[lx, ly, lz];
     }
 
     // Open neighbours out of 6. Low counts mean a tight passage — a doorway, a
     // roof hole, a crack — and are what makes squeezing through expensive.
-    private static int CountAirNeighbors(WorldState ws, Vector3I p)
+    //
+    // A neighbour off the world counts as OPEN: outside is air, and treating the
+    // world's outer shell as walled would make every voxel against it read as a
+    // tight passage.
+    private static int CountAirNeighbors(ChunkGrid grid, byte[][,,] voxels, bool[][,,] opaque, int packed)
     {
         int count = 0;
-        for (int n = 0; n < Neighbors.Length; n++)
+        for (int n = 0; n < ChunkGrid.Offsets.Length; n++)
         {
-            if (IsOpen(ws, p + Neighbors[n]))
+            int q = grid.Step(packed, n);
+            if (q < 0 || IsOpen(voxels, opaque, q))
             {
                 count++;
             }
@@ -313,38 +341,24 @@ public static class InteriornessGen
         return count;
     }
 
-    private static int GetCost(Dictionary<Vector3I, byte[,,]> cost, Vector3I p)
+    private static int GetCost(byte[][,,] cost, int packed)
     {
-        Vector3I cc = WorldToChunk(p);
-        if (!cost.TryGetValue(cc, out byte[,,] arr))
+        byte[,,] arr = cost[packed >> ChunkGrid.VOXEL_BITS];
+        if (arr == null)
         {
             return int.MaxValue;
         }
-        return arr[Mod(p.X), Mod(p.Y), Mod(p.Z)];
+        return arr[ChunkGrid.LocalX(packed), ChunkGrid.LocalY(packed), ChunkGrid.LocalZ(packed)];
     }
 
-    private static bool SetCost(Dictionary<Vector3I, byte[,,]> cost, Vector3I p, byte value)
+    private static bool SetCost(byte[][,,] cost, int packed, byte value)
     {
-        Vector3I cc = WorldToChunk(p);
-        if (!cost.TryGetValue(cc, out byte[,,] arr))
+        byte[,,] arr = cost[packed >> ChunkGrid.VOXEL_BITS];
+        if (arr == null)
         {
             return false;
         }
-        arr[Mod(p.X), Mod(p.Y), Mod(p.Z)] = value;
+        arr[ChunkGrid.LocalX(packed), ChunkGrid.LocalY(packed), ChunkGrid.LocalZ(packed)] = value;
         return true;
-    }
-
-    private static Vector3I WorldToChunk(Vector3I p)
-    {
-        return new Vector3I(
-            (int)System.Math.Floor((double)p.X / ChunkState.SIZE),
-            (int)System.Math.Floor((double)p.Y / ChunkState.SIZE),
-            (int)System.Math.Floor((double)p.Z / ChunkState.SIZE));
-    }
-
-    private static int Mod(int v)
-    {
-        int m = v % ChunkState.SIZE;
-        return m < 0 ? m + ChunkState.SIZE : m;
     }
 }

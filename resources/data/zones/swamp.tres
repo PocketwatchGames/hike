@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="1_region"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="2_weather"]
-[ext_resource type="Resource" uid="uid://xk7p3e2ylzmsx" path="res://resources/audio/swamp_ambience.tres" id="3_ambience"]
+[ext_resource type="Resource" uid="uid://erij2kg7sead" path="res://resources/audio/swamp_ambience.tres" id="3_ambience"]
 
 [sub_resource type="Resource" id="Resource_weather"]
 script = ExtResource("2_weather")
@@ -20,7 +20,7 @@ sunColor = Color(0.7938833, 0.95, 0.627, 1)
 moonColor = Color(0.5, 0.65, 0.6, 1)
 skyColor = Color(0.4, 0.5, 0.5, 1)
 dustColor = Color(0.40641168, 0.5377931, 0.34778103, 1)
-waterColor = Color(0.08827999, 0.12, 0.0468, 1)
+waterColor = Color(0.12, 0.08096, 0.0468, 1)
 waterOpacity = 0.88235295
 dustAmount = 0.3
 weather = SubResource("Resource_weather")

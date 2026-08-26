@@ -142,7 +142,7 @@ public static class WaterShoreCheck
         }
         for (int y = solidTop + 1; y <= WATER_TOP_VOXEL; y++)
         {
-            v[x, y, z] = Blocks.WaterId;
+            v[x, y, z] = Blocks.DefaultWaterId;
         }
     }
 
@@ -165,12 +165,7 @@ public static class WaterShoreCheck
         var dip = new float[N, N];
         var covered = new bool[N, N];
 
-        var stTerrain = new SurfaceTool();
-        stTerrain.Begin(Mesh.PrimitiveType.Triangles);
-        for (int c = 0; c < 4; c++)
-        {
-            stTerrain.SetCustomFormat(c, SurfaceTool.CustomFormat.RgbaFloat);
-        }
+        var stTerrain = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             Shape,
             (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT,
@@ -178,7 +173,7 @@ public static class WaterShoreCheck
             stTerrain, 0, 0, 0, out bool hasTerrain, out DcCellSurface surface);
         if (hasTerrain)
         {
-            var verts = stTerrain.Commit().SurfaceGetArrays(0)[(int)Mesh.ArrayType.Vertex].AsVector3Array();
+            var verts = stTerrain.ToArrayMesh(null).SurfaceGetArrays(0)[(int)Mesh.ArrayType.Vertex].AsVector3Array();
             foreach (Vector3 p in verts)
             {
                 float depth = WATERLINE - p.Y;
@@ -196,13 +191,11 @@ public static class WaterShoreCheck
             }
         }
 
-        var stWater = new SurfaceTool();
-        stWater.Begin(Mesh.PrimitiveType.Triangles);
-        stWater.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
+        var stWater = new MeshBuffer(1);
         WaterMesher.Build(new ChunkState(Vector3I.Zero), Get, stWater, 0, 0, 0, out bool hasWater);
         if (hasWater)
         {
-            var arrays = stWater.Commit().SurfaceGetArrays(0);
+            var arrays = stWater.ToArrayMesh(null).SurfaceGetArrays(0);
             var verts = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
             var norms = arrays[(int)Mesh.ArrayType.Normal].AsVector3Array();
             for (int i = 0; i + 2 < verts.Length; i += 3)
@@ -242,7 +235,7 @@ public static class WaterShoreCheck
             for (int x = MARGIN; x < N - MARGIN; x++)
             {
                 bool submerged = dip[x, z] > MIN_VISIBLE_DIP;
-                bool isWater = Get(x, WATER_TOP_VOXEL, z) == Blocks.WaterId;
+                bool isWater = Blocks.IsWater(Get(x, WATER_TOP_VOXEL, z));
                 char c;
                 if (surface != null && surface.TryGetLocal(x, WATER_TOP_VOXEL, z, out Vector3 fp))
                 {
@@ -323,7 +316,7 @@ public static class WaterShoreCheck
             {
                 for (int z = 6; z < 10; z++)
                 {
-                    v[x, y, z] = Blocks.WaterId;
+                    v[x, y, z] = Blocks.DefaultWaterId;
                 }
             }
         }
@@ -333,12 +326,10 @@ public static class WaterShoreCheck
             return v[x, y, z];
         }
 
-        var st = new SurfaceTool();
-        st.Begin(Mesh.PrimitiveType.Triangles);
-        st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
+        var st = new MeshBuffer(1);
         WaterMesher.Build(new ChunkState(Vector3I.Zero), Get, st, 0, 0, 0, out bool hasWater);
         int tris = hasWater
-            ? st.Commit().SurfaceGetArrays(0)[(int)Mesh.ArrayType.Vertex].AsVector3Array().Length / 3
+            ? st.ToArrayMesh(null).SurfaceGetArrays(0)[(int)Mesh.ArrayType.Vertex].AsVector3Array().Length / 3
             : 0;
         GD.Print($"[water_shore_check] sealed pocket: {tris} water triangle(s) — must be 0");
 
@@ -350,9 +341,7 @@ public static class WaterShoreCheck
         ulong t0 = Time.GetTicksUsec();
         for (int i = 0; i < REPS; i++)
         {
-            var bench = new SurfaceTool();
-            bench.Begin(Mesh.PrimitiveType.Triangles);
-            bench.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
+            var bench = new MeshBuffer(1);
             WaterMesher.Build(new ChunkState(Vector3I.Zero), Get, bench, 0, 0, 0, out bool _);
         }
         double perBuild = (Time.GetTicksUsec() - t0) / (double)REPS / 1000.0;
@@ -361,9 +350,7 @@ public static class WaterShoreCheck
         ulong t1 = Time.GetTicksUsec();
         for (int i = 0; i < REPS; i++)
         {
-            var bench = new SurfaceTool();
-            bench.Begin(Mesh.PrimitiveType.Triangles);
-            for (int c = 0; c < 4; c++) { bench.SetCustomFormat(c, SurfaceTool.CustomFormat.RgbaFloat); }
+            var bench = new MeshBuffer(4);
             ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
                 (x, y, z) => Blocks.DefaultShape(Get(x, y, z)),
                 (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT,
@@ -382,7 +369,7 @@ public static class WaterShoreCheck
         {
             for (int dz = -1; dz <= 1; dz++)
             {
-                if ((dx != 0 || dz != 0) && get(x + dx, WATER_TOP_VOXEL, z + dz) == Blocks.WaterId)
+                if ((dx != 0 || dz != 0) && Blocks.IsWater(get(x + dx, WATER_TOP_VOXEL, z + dz)))
                 {
                     return true;
                 }

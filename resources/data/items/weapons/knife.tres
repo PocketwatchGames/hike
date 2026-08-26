@@ -12,7 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://g2qnx2aoo0cy" path="res://scenes/fx/fists_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_hitsolid"]
 [ext_resource type="PackedScene" uid="uid://g2gnagaooy8y" path="res://scenes/fx/fists_attack_heavy.tscn" id="8_atkheavy"]
-[ext_resource type="PackedScene" uid="uid://xl0hbo1n939d1" path="res://scenes/fx/knife_attack_light.tscn" id="8_atklight"]
+[ext_resource type="PackedScene" uid="uid://fj8rdi5vv0tg" path="res://scenes/fx/knife_attack_light.tscn" id="8_atklight"]
 [ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="8_lqdfk"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
@@ -21,7 +21,7 @@
 [ext_resource type="PackedScene" uid="uid://ce444jxc8syqg" path="res://scenes/items/knife_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://ctqy5r6q3jmsx" path="res://resources/data/characters/human/anim_sets/knife.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
-[ext_resource type="PackedScene" uid="uid://wdg6yfpm1wnmq" path="res://scenes/fx/parry.tscn" id="22_parryfx"]
+[ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="22_parryfx"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")

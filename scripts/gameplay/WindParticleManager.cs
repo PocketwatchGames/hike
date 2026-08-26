@@ -14,7 +14,7 @@ using System.Collections.Generic;
 //   - SAND and FOAM are procedural — no authored nodes. The manager owns a pool
 //     for each and repositions them over the matching voxel surface near the
 //     player at irregular intervals (sand over VoxelType.Desert, foam over
-//     Blocks.WaterId), the way RainEffect disc-scatters ground splashes.
+//     water), the way RainEffect disc-scatters ground splashes.
 //
 // All three share one gate: active only when windSpeed > WindThreshold AND
 // rainAmount < RainSuppressThreshold; emission frequency (AmountRatio) scales
@@ -334,7 +334,7 @@ public partial class WindParticleManager : Node3D
 
                 bool match = sand
                     ? GroundTypeResolver.Resolve(ws, hit) == EGroundType.Sand
-                    : topType == Blocks.WaterId;
+                    : Blocks.IsWater(topType);
                 if (!match) { continue; }
                 if (SuppressIndoors && ws.GetSkyLight01(hit) <= 0f) { continue; }
 

@@ -1994,7 +1994,7 @@ public partial class WorldEditor : Node3D
                 int vz = Mathf.FloorToInt(planeHit.Z);
                 int vy = Mathf.FloorToInt(_clipY) - 1;
                 int voxel = _worldState.GetBlockWorld(vx, vy, vz);
-                if (voxel != Blocks.AirId && voxel != Blocks.WaterId)
+                if (voxel != Blocks.AirId && !Blocks.IsWater(voxel))
                 {
                     hitPos = new Vector3(planeHit.X, clipPlaneY, planeHit.Z);
                     hitNormal = Vector3.Up;

@@ -63,13 +63,12 @@ public static class WaterMesher
     public static void Build(
         ChunkState data,
         Func<int, int, int, int> getVoxel,
-        SurfaceTool st,
+        MeshBuffer buf,
         int chunkWorldX, int chunkWorldY, int chunkWorldZ,
         out bool hasAnyFace)
     {
         hasAnyFace = false;
         Color color = new Color(1f, 1f, 1f);
-        int tile = Blocks.WaterId;
 
         for (int x = 0; x < N; x++)
         {
@@ -111,7 +110,7 @@ public static class WaterMesher
                     // the answer from the water it shells.
                     bool roofed = !openAbove;
                     // Advance the state for the cell below before any skip.
-                    if (self != Blocks.WaterId)
+                    if (!Blocks.IsWater(self))
                     {
                         openAbove = !Blocks.IsSolid(self);
                     }
@@ -134,7 +133,7 @@ public static class WaterMesher
                     bool topOnly = false;
                     if (roofed)
                     {
-                        if (self == Blocks.WaterId || !ShelledWaterIsOpen(getVoxel, self, wx, wy, wz))
+                        if (Blocks.IsWater(self) || !ShelledWaterIsOpen(getVoxel, self, wx, wy, wz))
                         {
                             continue;
                         }
@@ -154,7 +153,7 @@ public static class WaterMesher
                             continue;
                         }
                         Vector3I no = NeighborOffsets[f];
-                        // Cull against the VOLUME, not against Blocks.WaterId,
+                        // Cull against the VOLUME, not against Blocks.IsWater,
                         // so the dilated shell is interior and only the outside
                         // of the whole body is skinned.
                         if (InWaterVolume(getVoxel, wx + no.X, wy + no.Y, wz + no.Z))
@@ -165,9 +164,16 @@ public static class WaterMesher
                         Vector3[] verts = Faces[f];
                         Vector3 normal = Normals[f];
 
-                        // Water samples lighting from itself (light doesn't
-                        // propagate through but diffuses into the cell).
-                        Color custom = new Color(wx + 0.5f, wy + 0.5f, wz + 0.5f, tile);
+                        // CUSTOM0.x is the water block THIS face is made of,
+                        // which is what lets one meshed body hold several types:
+                        // a clear tarn and the scummy shallows at its edge are
+                        // one volume with no seam, and the shader resolves their
+                        // optics and film per fragment. Written for a SHELL cell
+                        // too, since that face is drawn as the water it shells.
+                        //
+                        // The other lanes are free. They used to carry the voxel
+                        // centre, which nothing ever read.
+                        Color custom = new Color(WaterBlockAt(getVoxel, self, wx, wy, wz), 0f, 0f, 0f);
 
                         // Unit quads on the voxel grid. The TOP_EPSILON drop is
                         // the only deviation, it applies to the whole top face
@@ -180,13 +186,42 @@ public static class WaterMesher
                         Vector3 v2 = verts[2] + o;
                         Vector3 v3 = verts[3] + o;
 
-                        EmitTri(st, v0, v2, v1, normal, color, custom);
-                        EmitTri(st, v0, v3, v2, normal, color, custom);
+                        EmitTri(buf, v0, v2, v1, normal, color, custom);
+                        EmitTri(buf, v0, v3, v2, normal, color, custom);
                         hasAnyFace = true;
                     }
                 }
             }
         }
+    }
+
+    // Which water block this face is drawn as. A water cell answers with itself;
+    // a SHELL cell is solid — it is the one-voxel dilation into the shore — so it
+    // borrows from the water it shells, exactly as CoverLayerAt and
+    // ShelledWaterIsOpen do. Falling back to the default would put a ring of
+    // ordinary water around every scummy pond.
+    private static float WaterBlockAt(Func<int, int, int, int> getVoxel, int self, int wx, int wy, int wz)
+    {
+        if (Blocks.IsWater(self))
+        {
+            return self;
+        }
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                if (dx == 0 && dz == 0)
+                {
+                    continue;
+                }
+                int v = getVoxel(wx + dx, wy, wz + dz);
+                if (Blocks.IsWater(v))
+                {
+                    return v;
+                }
+            }
+        }
+        return Blocks.DefaultWaterId;
     }
 
     // True iff a SOLID voxel is covered by the water mesh's top quad: it is in
@@ -225,7 +260,7 @@ public static class WaterMesher
     // Overload for callers that already read the cell's own type.
     private static bool InWaterVolume(Func<int, int, int, int> getVoxel, int v, int wx, int wy, int wz)
     {
-        if (v == Blocks.WaterId)
+        if (Blocks.IsWater(v))
         {
             return true;
         }
@@ -241,7 +276,7 @@ public static class WaterMesher
                 {
                     continue;
                 }
-                if (getVoxel(wx + dx, wy, wz + dz) == Blocks.WaterId)
+                if (Blocks.IsWater(getVoxel(wx + dx, wy, wz + dz)))
                 {
                     return true;
                 }
@@ -278,7 +313,7 @@ public static class WaterMesher
                 }
                 int nx = wx + dx;
                 int nz = wz + dz;
-                if (getVoxel(nx, wy, nz) == Blocks.WaterId && ProbeOpenAbove(getVoxel, nx, wy, nz))
+                if (Blocks.IsWater(getVoxel(nx, wy, nz)) && ProbeOpenAbove(getVoxel, nx, wy, nz))
                 {
                     return true;
                 }
@@ -299,7 +334,7 @@ public static class WaterMesher
         for (int i = 1; i <= MAX_COLUMN_PROBE; i++)
         {
             int v = getVoxel(wx, wy + i, wz);
-            if (v != Blocks.WaterId)
+            if (!Blocks.IsWater(v))
             {
                 return !Blocks.IsSolid(v);
             }
@@ -307,10 +342,10 @@ public static class WaterMesher
         return true;
     }
 
-    private static void EmitTri(SurfaceTool st, Vector3 a, Vector3 b, Vector3 c, Vector3 n, Color col, Color custom)
+    private static void EmitTri(MeshBuffer buf, Vector3 a, Vector3 b, Vector3 c, Vector3 n, Color col, Color custom)
     {
-        st.SetNormal(n); st.SetColor(col); st.SetCustom(0, custom); st.AddVertex(a);
-        st.SetNormal(n); st.SetColor(col); st.SetCustom(0, custom); st.AddVertex(b);
-        st.SetNormal(n); st.SetColor(col); st.SetCustom(0, custom); st.AddVertex(c);
+        buf.Add(a, n, col, custom);
+        buf.Add(b, n, col, custom);
+        buf.Add(c, n, col, custom);
     }
 }

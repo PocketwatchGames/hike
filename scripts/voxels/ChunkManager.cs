@@ -843,6 +843,18 @@ public partial class ChunkManager : Node3D
             }
         }
 
+        // The initial fill is the whole load-time cost of a world (~9s for ~535
+        // chunks), and ~98% of a chunk build is pure CPU geometry, so build them
+        // all at once up front. Only the realize half — meshes, collision,
+        // nodes — is left for the loop below, which then finds every chunk
+        // already loaded and does nothing. Safe here and NOT in general: this
+        // runs before the player exists, so nothing is editing voxels or
+        // touching the chunk dictionary while the workers read it.
+        if (_initialLoadPending && CVars.chunkParallelFill.Value)
+        {
+            FillInParallel(desired);
+        }
+
         // Pass 1: load near-neighbor (3x3x3 box around player) chunks
         // immediately, uncapped — these are where the player can step in one
         // frame and missing them means walking off the world's edge. Also
@@ -962,6 +974,58 @@ public partial class ChunkManager : Node3D
         {
             float chunkRadius = Mathf.Max(0f, Mathf.Sqrt(minUnloadedDistSq) - 1f);
             _overlookFrontierRadiusWorld = chunkRadius * ChunkState.SIZE;
+        }
+    }
+
+    // Build every desired chunk's geometry on the thread pool, then realize them
+    // on this thread. The split is ChunkMesh.BuildGeometry / ChunkMesh.Realize;
+    // see ChunkGeometry for what may and may not cross the line.
+    private void FillInParallel(HashSet<Vector3I> desired)
+    {
+        // SPHERE chunks only — exactly the set the initial-load bypass below
+        // would have loaded uncapped. Frustum-extension chunks past
+        // NEARBY_RADIUS keep their per-frame cap and stream in as they always
+        // did; pulling them forward here would change what is resident at spawn,
+        // not just how fast it got there.
+        var coords = new List<Vector3I>(desired.Count);
+        foreach (Vector3I coord in desired)
+        {
+            Vector3I rel = coord - _lastPlayerChunkCoord;
+            if (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z > NEARBY_RADIUS_SQ)
+            {
+                continue;
+            }
+            if (!_loadedChunks.ContainsKey(coord) && _worldData.GetChunk(coord) != null)
+            {
+                coords.Add(coord);
+            }
+        }
+        if (coords.Count == 0)
+        {
+            return;
+        }
+
+        // Materials are lazily initialized on first use and that is a rendering
+        // -server touch, so it has to happen before any worker can race into it.
+        ChunkMesh.EnsureMaterialsInitialized();
+
+        var built = new ChunkGeometry[coords.Count];
+        System.Threading.Tasks.Parallel.For(0, coords.Count, i =>
+        {
+            Vector3I coord = coords[i];
+            ChunkState data = _worldData.GetChunk(coord);
+            Vector3I rel = coord - _lastPlayerChunkCoord;
+            bool visualOnly = (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z) > MAX_LOAD_DISTANCE_SQ;
+            built[i] = ChunkMesh.BuildGeometry(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
+        });
+
+        for (int i = 0; i < coords.Count; i++)
+        {
+            Vector3I coord = coords[i];
+            ChunkMesh mesh = ChunkMesh.Realize(built[i]);
+            AddChild(mesh);
+            _loadedChunks[coord] = mesh;
+            onChunkLoaded?.Invoke(coord);
         }
     }
 

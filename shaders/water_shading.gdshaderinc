@@ -29,9 +29,9 @@ global uniform float sun_intensity;
 global uniform float cloud_shadow_strength;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
-// Per-zone water styling — all driven by ZoneData.WaterColor through
-// WeatherDerivation + SkyController, which is what makes a zone's water colour
-// reach a cascade in that zone without the cascade knowing zones exist.
+// Water styling. The ZONE owns the hue and the baseline clarity — that is how a
+// region defines its palette — and a water BLOCK says only how far from it this
+// particular body sits.
 //
 // Volumetric model (Beer-Lambert): water has no diffuse albedo. What you see is
 // the bottom attenuated by the column, plus light scattered back out of the
@@ -39,9 +39,68 @@ global uniform float cloud_shadow_strength;
 //   water_absorption    — per-channel extinction, 1/metre. Red goes first,
 //                         which is why depth turns blue-green on its own.
 //   water_scatter_color — the colour the volume settles to once the bottom is
-//                         fully extinguished. This IS the zone's water colour.
+//                         fully extinguished.
+//
+// These two are the zone's FINISHED values, derived in C#. They remain correct
+// for everything that is made of water but carries no block id to look a type up
+// with — puddles, sprite reflections, the cutaway cap — and a caller with no
+// per-fragment id passes them straight through.
 global uniform vec3 water_absorption;
 global uniform vec3 water_scatter_color : source_color;
+
+// The inputs those two were derived FROM, so a water block can redo the
+// derivation per fragment against its own turbidity. Deriving it in C# alone
+// cannot vary per voxel; deriving it in both places would drift, which is why
+// SkyController now pushes the endpoints instead of a second finished value.
+global uniform float water_zone_muddiness;
+global uniform vec3 water_hue : source_color;
+global uniform float water_absorb_clear;
+global uniform float water_absorb_muddy;
+global uniform float water_albedo_clear;
+global uniform float water_albedo_muddy;
+
+// How much murkier (+) or clearer (-) than its zone a water block is, applied as
+// a PUSH TOWARD THE ENDPOINT rather than a clamped addition: +0.3 has to still
+// do something in a swamp already sitting at 0.9, and -0.3 has to still do
+// something in a tropical zone at 0.1. Reads as "this far toward murky from
+// whatever this region is", and saturates at neither end.
+//
+// Must match BlockData.waterTurbidityDelta's documented form exactly — the C#
+// side authors against this curve.
+float water_muddiness_for(float turbidity_delta)
+{
+	float z = clamp(water_zone_muddiness, 0.0, 1.0);
+	float d = clamp(turbidity_delta, -1.0, 1.0);
+	return d > 0.0 ? mix(z, 1.0, d) : mix(z, 0.0, -d);
+}
+
+// The zone's own derivation, per fragment, against a block's turbidity. Mirrors
+// WeatherDerivation + SkyController.
+//
+// HUE comes from the zone's authored water colour and nothing else; muddiness
+// moves only the INTENSITY (scatter albedo) and how far you see in (absorption).
+// It used to pull the hue toward a sediment colour derived from the zone's
+// DustColor, which was wrong twice: dust is the AIR — fog is DustColor outright —
+// so the water was being tinted with the pigment the fog then washed over it,
+// guaranteeing a low-contrast scene; and the pull was weighted `m * 0.6`, so the
+// muddier the zone the LESS its authored colour meant. In the swamp it did not
+// dilute the authored brown, it inverted it: dust there is far greener than the
+// water, so G rose 88% against R's 19% and the hue crossed over to green. No
+// authorable value survived that. If a zone's silt has its own colour, that
+// colour IS the zone's water colour — one authored value, not two.
+//
+// Absorption stays the COMPLEMENT of the scatter colour: a channel the water
+// does not send back is one it swallows, which is why depth reddens out with no
+// second authored tint.
+void water_optics(float turbidity_delta, out vec3 scatter_color, out vec3 absorption)
+{
+	float m = water_muddiness_for(turbidity_delta);
+	vec3 scatter = water_hue;
+	scatter_color = scatter * mix(water_albedo_clear, water_albedo_muddy, m);
+	absorption = max(vec3(1.0) - scatter, vec3(0.02))
+		* mix(water_absorb_clear, water_absorb_muddy, m);
+}
+
 global uniform vec3 foam_color;
 // Lower bound on foam lighting, so foam dims with the weather instead of
 // collapsing to black or glowing.
@@ -165,9 +224,9 @@ void water_light(vec3 world_pos, vec3 light_sample_pos, float time, float sun_no
 // The volume's own contribution: light scattered back out of the water,
 // saturating toward the zone's colour as the bottom is extinguished. This is
 // what gives deep water its colour — it is NOT an albedo laid over the ground.
-vec3 water_in_scatter(vec3 shaded_light, vec3 transmittance)
+vec3 water_in_scatter(vec3 scatter_color, vec3 shaded_light, vec3 transmittance)
 {
-	return water_scatter_color * shaded_light * (1.0 - transmittance);
+	return scatter_color * shaded_light * (1.0 - transmittance);
 }
 
 // Compositing, done by hand rather than by the blend mode so the reflection can

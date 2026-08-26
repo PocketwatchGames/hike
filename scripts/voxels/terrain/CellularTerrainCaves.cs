@@ -133,7 +133,7 @@ public partial class CellularTerrainGen
                     int wy = ly + _carveMinY;
                     int v = ws.GetBlockWorld(lx + _carveWorldMinX, wy, lz + _carveWorldMinZ);
                     if (v == Blocks.AirId) { air++; }
-                    else if (v != Blocks.WaterId) { stillSolid++; }
+                    else if (!Blocks.IsWater(v)) { stillSolid++; }
                     // Water BELOW the global waterline is the sea running under
                     // a bridge deck, which is the whole point of spanning a
                     // channel. Water ABOVE it is an inland river or lake that

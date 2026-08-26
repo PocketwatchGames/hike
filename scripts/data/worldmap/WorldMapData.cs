@@ -115,6 +115,23 @@ public partial class WorldMapData : Resource
     // the two layers together.
     [Export] public GroundSetData defaultGround;
 
+    // How far a painted water type pulls the map's water colour toward that
+    // block's own minimapColor. Not 1: the depth shading underneath is what says
+    // how DEEP the water is, and replacing it outright would trade one answer
+    // for the other. At 0 a painted type is invisible on the map, which is
+    // exactly the state this exists to fix.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float waterTypeTintStrength = 0.62f;
+
+    // Water types this document can paint, as the blocks themselves. A column
+    // with none painted takes whatever its ZONE authors, which is the identity
+    // and what every document had before this layer existed.
+    //
+    // Typed BlockData references are safe here because WorldMapData is
+    // deliberately not [Tool], so nothing it holds is subject to the [Tool]
+    // closure rule — BlockData could never satisfy it anyway, since digItem
+    // opens ItemData's ~90-class closure.
+    [Export] public BlockData[] waterTypes = System.Array.Empty<BlockData>();
+
     // Ground sets this document can paint. A column with no ground painted falls
     // back to defaultGround above.
     [Export] public GroundSetData[] groundSets = System.Array.Empty<GroundSetData>();
@@ -284,6 +301,7 @@ public partial class WorldMapData : Resource
     [Export(PropertyHint.Range, "0,40,0.5")] public float windPaintMaxSpeed = 20f;
     [Export] public string scatterImagePath = "";      // .png, Rgba8, per column (R=set+1, G=density)
     [Export] public string groundImagePath = "";       // .png, R8, per column (ground set + 1, 0 = default)
+    [Export] public string waterTypeImagePath = "";    // .png, R8, per column (waterTypes index + 1, 0 = the zone's)
     // .png, Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world
     // Y it is laid at + 1 (0 = seated on the column's own surface).
     [Export] public string pavingImagePath = "";
@@ -338,10 +356,12 @@ public partial class WorldMapData : Resource
             GD.PrintErr("WorldMapData: OutputWorldPath not set.");
             return;
         }
+        // WorldMapState.Bake, not BuildWorld + Write: the sun flood and the
+        // canopy stamp between them are part of a bake now, because nothing
+        // relights a world on load. Straight-line here — this caller is already
+        // the main thread and has no UI to keep alive.
         var state = new WorldMapState(this);
-        WorldState ws = state.BuildWorld();
-        WorldFile.Write(outputWorldPath, ws);
-        GD.Print($"WorldMapData: baked world to {outputWorldPath}");
+        state.Bake();
     }
 
     // ---- Layer load / create / save -------------------------------------
@@ -381,6 +401,11 @@ public partial class WorldMapData : Resource
     public Image LoadOrCreateGround()
     {
         return LoadOrCreateIndexImage(groundImagePath);
+    }
+
+    public Image LoadOrCreateWaterType()
+    {
+        return LoadOrCreateIndexImage(waterTypeImagePath);
     }
 
     // A per-column INDEX layer: R8, storing a palette index + 1 so 0 can mean
@@ -440,6 +465,11 @@ public partial class WorldMapData : Resource
     public void SaveGround(Image img)
     {
         SavePng(groundImagePath, img, "ground");
+    }
+
+    public void SaveWaterType(Image img)
+    {
+        SavePng(waterTypeImagePath, img, "water type");
     }
 
     public Image LoadOrCreateRegion()

@@ -308,6 +308,65 @@ public static class WorldMapCheck
 
         ReportEntities(ctx, sb);
 
+        // Painted water types, reported because a document that reads all-zero
+        // here bakes every body as whatever its ZONE says and nothing else
+        // tells you — the same argument the paving and danger counts make.
+        // Counted against the water layer, so a type painted where no water
+        // stands shows up as stranded rather than silently doing nothing.
+        var typeCounts = new System.Collections.Generic.Dictionary<int, int>();
+        int typedDry = 0;
+        int typedLatent = 0;
+        for (int px = 0; px < w; px++)
+        {
+            for (int pz = 0; pz < h; pz++)
+            {
+                int idx = ctx.WaterTypeIndexAt(px, pz);
+                if (idx < 0)
+                {
+                    continue;
+                }
+                if (!ctx.HasWater(px, pz))
+                {
+                    typedDry++;
+                    continue;
+                }
+                // LATENT water — painted, but buried under ground that has not
+                // been carved away — has no free surface for the bake to dress,
+                // so its type stamps nothing until the land above it goes. Split
+                // out because the totals otherwise disagree with the bake's
+                // "painted" count by a factor of ten and nothing says why.
+                if (!ctx.Underwater(px, pz))
+                {
+                    typedLatent++;
+                    continue;
+                }
+                typeCounts.TryGetValue(idx, out int c);
+                typeCounts[idx] = c + 1;
+            }
+        }
+        if (typeCounts.Count == 0 && typedDry == 0 && typedLatent == 0)
+        {
+            sb.AppendLine("[worldmap_check] water types: none painted (every body takes its zone's)");
+        }
+        else
+        {
+            foreach (System.Collections.Generic.KeyValuePair<int, int> kv in typeCounts)
+            {
+                BlockData b = kv.Key < (ctx.Data.waterTypes?.Length ?? 0) ? ctx.Data.waterTypes[kv.Key] : null;
+                bool ok = b != null && b.render == EBlockRender.Water;
+                sb.AppendLine($"[worldmap_check] water type {kv.Key} {(b != null ? b.blockName.ToString() : "<empty palette slot>")}"
+                    + $"{(ok ? "" : "  <-- NOT A WATER BLOCK, will not stamp")}: {kv.Value} columns");
+            }
+            if (typedLatent > 0)
+            {
+                sb.AppendLine($"[worldmap_check] water types on LATENT water (buried, stamps nothing until carved): {typedLatent}");
+            }
+            if (typedDry > 0)
+            {
+                sb.AppendLine($"[worldmap_check] water types on DRY columns (stranded, stamps nothing): {typedDry}");
+            }
+        }
+
         sb.Append("[worldmap_check] done");
         GD.Print(sb.ToString());
         tree.Quit();
