@@ -8,7 +8,7 @@ using Godot;
 // into Arm().
 //
 // The warning beat and the burst cooldown are both on the sim clock
-// (World.GameTimeMs) and shared by both triggers, so a creature standing in the
+// (Sim.GameTimeMs) and shared by both triggers, so a creature standing in the
 // spines or a flurry of hits can't chain-fire it every frame, and both slow
 // uniformly under slow-mo.
 [GlobalClass]

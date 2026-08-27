@@ -970,6 +970,21 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float rainLightThreshold = 0.15f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float rainHeavyThreshold = 0.6f;
 
+    // Air-temperature band (degrees F) over which precipitation changes phase.
+    // At or above the warm end it is all rain; at or below the cold end all
+    // snow; between, a genuine mix (sleet). A band rather than a hard 32°F
+    // line because airTemperature is blended across zones and swings on the
+    // diurnal curve, and a threshold there would flip the whole sky between
+    // rain and snow within a few minutes of clock. Whatever this says, snow
+    // still requires the zone to author snowCover > 0 — see ZoneData.snowCover.
+    [Export(PropertyHint.Range, "-20,80,0.5")] public float snowTempWarmF = 37f;
+    [Export(PropertyHint.Range, "-20,80,0.5")] public float snowTempColdF = 29f;
+    // Snowflakes per unit of precipitation, relative to raindrops. Snow falls
+    // as far larger, far more numerous flakes than the equivalent water depth
+    // of rain, so the same authored amount reads much sparser through the rain
+    // count. Multiplies the derived SnowIntensity only.
+    [Export(PropertyHint.Range, "0.1,8,0.05")] public float snowIntensityScale = 1.6f;
+
     [ExportGroup("Block Light")]
     // ACTIVE model: a geodesic flood (LightEngine.ComputeFloodField/ShadeFloodField).
     // Each block light (torches, campfires, the carried player torch) floods
@@ -1326,6 +1341,12 @@ public partial class SimData : Resource
         { EGroundType.Mud,   new Color(0.10f, 0.07f, 0.04f, 1.0f) },
         { EGroundType.Dirt,  new Color(0.18f, 0.14f, 0.08f, 1.0f) },
         { EGroundType.Stone, new Color(0.15f, 0.15f, 0.15f, 0.36f) },
+        // Snow takes the deepest, longest-lasting print of any surface. The
+        // tint is a cool grey rather than white: it MULTIPLIES the print
+        // texture over ground that is already near-white, so a white print is
+        // an invisible one — what reads as a boot mark in snow is the shaded
+        // depression, not the snow itself.
+        { EGroundType.Snow,  new Color(0.55f, 0.60f, 0.70f, 0.85f) },
     };
     // Global fade lifetime — seconds for a fresh print to dim from its
     // baseline alpha to zero (then despawn). One global value rather than

@@ -23,11 +23,22 @@ public partial class Minimap : Node3D
 
     [ExportGroup("Style")]
     // Slice-view color for solid-rock columns. Painted at the reserved
-    // MinimapData.WallSlotIndex slot in the tile LUT; kit-agnostic so a
-    // tunnel through any biome reads as the same dark grey.
-    [Export] public Color wallSlotColor = new Color(0.045f, 0.045f, 0.05f);
+    // The five categories the in-game maps draw. Everything on the map is one
+    // of these — biome is deliberately NOT a colour (see EMinimapCategory).
+    // Indexed by the enum, so the order here is the enum's order.
+    [Export] public Color terrainColor = new Color(0.478f, 0.475f, 0.251f);
+    [Export] public Color stoneColor = new Color(0.461f, 0.461f, 0.480f);
+    [Export] public Color waterColor = new Color(0.250f, 0.353f, 0.480f);
+    [Export] public Color roadColor = new Color(0.722f, 0.616f, 0.439f);
+    [Export] public Color propColor = new Color(0.24f, 0.20f, 0.16f);
     // Color palette for foliage stamps on the minimap.
     [Export] public MinimapFoliageColors foliageColors;
+
+    // Foliage id stamped for a prop that has static collision but authored no id
+    // of its own — "you can walk into this" is the map-worthy fact, and tagging
+    // every prop by hand is what left the map showing ten of them. 0 disables
+    // the fallback and restores the authored-only behaviour.
+    [Export(PropertyHint.Range, "0,255,1")] public byte collidablePropFoliageId = 0;
     // Adaptive zoom: the minimap view radius (how much world the widget shows)
     // follows the player's current reveal distance (ComputeVisibleRevealRadiusMeters
     // — max reveal dimmed by time-of-day sun brightness + night vision, and scaled
@@ -98,11 +109,12 @@ public partial class Minimap : Node3D
     private MinimapSliceAtlas _sliceAtlas;
     private MinimapFoliageColors _foliageColors;
     private Texture2D _tileLutTexture;
-    private Texture2D _foliageLutTexture;
     // Reused buffers for chunk data generation — sized once at Initialize so
     // the per-chunk-load path allocates nothing.
     private MinimapData.SurfaceCell[] _surfaceCells;
     private MinimapData.SliceCell[] _sliceCells;
+    // Scratch for one prop's collision footprint; reused across every stamp.
+    private readonly List<Vector2I> _footprintColumns = new();
 
     private double _revealAccumulator;
     private Vector3 _lastRevealPos;
@@ -184,7 +196,6 @@ public partial class Minimap : Node3D
     public StateSnapshot StateB => _stateB;
     public float StateTransition => _stateTransition;
     public Texture2D TileLutTexture => _tileLutTexture;
-    public Texture2D FoliageLutTexture => _foliageLutTexture;
     public Vector2 ExtentMeters => _textures?.ExtentMeters ?? Vector2.Zero;
     public Vector2I WorldOriginXZ => _textures?.WorldOriginXZ ?? Vector2I.Zero;
 
@@ -608,8 +619,7 @@ public partial class Minimap : Node3D
         _surfaceCells = new MinimapData.SurfaceCell[MinimapData.OutdoorPixelsPerChunkSq];
         _sliceCells = new MinimapData.SliceCell[MinimapData.IndoorPixelsPerChunkSq];
 
-        _tileLutTexture = BuildTileLutTexture(BlockCatalog.Active, wallSlotColor);
-        _foliageLutTexture = BuildFoliageLutTexture(_foliageColors);
+        _tileLutTexture = BuildTileLutTexture();
 
         sim.ChunkManager.onChunkLoaded += OnChunkLoaded;
         sim.onChunkEntitiesLoaded += OnChunkEntitiesLoaded;
@@ -1176,24 +1186,84 @@ public partial class Minimap : Node3D
         }
         foreach (Node3D entity in entities)
         {
-            StampPropsRecursive(entity);
+            // Mobs are in ActiveEntities too (the despawn path filters on it),
+            // and they MOVE — a foliage stamp is burned into the surface texture
+            // and never rewritten, so stamping one would leave a permanent smear
+            // of wherever a wolf happened to be standing when its chunk loaded.
+            if (entity is Mob)
+            {
+                continue;
+            }
+            // An authored id names what the prop IS, so it wins over the generic
+            // collidable id; where a subtree authors several, the highest
+            // priority speaks for the whole prop.
+            byte authored = StampPropsRecursive(entity);
+            byte footprintId = authored != 0 ? authored : collidablePropFoliageId;
+            if (footprintId == 0)
+            {
+                continue;
+            }
+            // A prop marks every column its collision covers, not just the one
+            // its origin lands in — the map's job is "you cannot walk here", and
+            // a boulder blocks several metres of it.
+            bool collidable = PropFootprint.Collect(entity, _footprintColumns);
+            for (int i = 0; i < _footprintColumns.Count; i++)
+            {
+                _textures.StampFoliageColumn(_footprintColumns[i], footprintId, _foliageColors);
+            }
+            if (authored == 0 && collidable && _footprintColumns.Count == 0)
+            {
+                // Nothing in this prop authored an id, but the player can walk
+                // into it, so it belongs on the map. Without this the map showed
+                // only what had been hand-tagged — eight trees, the signpost and
+                // the climbable tree, out of every prop in the world. Reached
+                // when the collision is too thin to cover any column centre.
+                _textures.StampFoliagePoint(entity.GlobalPosition, collidablePropFoliageId, _foliageColors);
+            }
         }
     }
 
-    private void StampPropsRecursive(Node node)
+    // The highest-priority authored foliage id in the subtree, 0 if none — the
+    // caller uses it to decide whether the footprint stamp is authored or the
+    // generic collidable one.
+    private byte StampPropsRecursive(Node node)
     {
-        if (node is MultimeshPropSprite sprite && sprite.MinimapFoliageId != 0)
+        byte best = 0;
+        // SpriteBase (LitSprite / FlatLitSprite — chests, doors, berry trees)
+        // exposes MinimapFoliageId and was documented as being stamped, but no
+        // branch here ever read it, so every one of them was dropped in silence.
+        byte id = node switch
         {
-            _textures.StampFoliagePoint(sprite.GlobalPosition, sprite.MinimapFoliageId, _foliageColors);
-        }
-        else if (node is MinimapFoliageStamp stamp && stamp.MinimapFoliageId != 0)
+            MultimeshPropSprite sprite => sprite.MinimapFoliageId,
+            MinimapFoliageStamp stamp => stamp.MinimapFoliageId,
+            SpriteBase spriteBase => spriteBase.MinimapFoliageId,
+            _ => (byte)0,
+        };
+        if (id != 0 && node is Node3D marker)
         {
-            _textures.StampFoliagePoint(stamp.GlobalPosition, stamp.MinimapFoliageId, _foliageColors);
+            _textures.StampFoliagePoint(marker.GlobalPosition, id, _foliageColors);
+            best = id;
         }
         foreach (Node child in node.GetChildren())
         {
-            StampPropsRecursive(child);
+            best = HigherPriority(best, StampPropsRecursive(child));
         }
+        return best;
+    }
+
+    private byte HigherPriority(byte a, byte b)
+    {
+        if (a == 0)
+        {
+            return b;
+        }
+        if (b == 0)
+        {
+            return a;
+        }
+        int prioA = _foliageColors?.Get(a)?.priority ?? 1;
+        int prioB = _foliageColors?.Get(b)?.priority ?? 1;
+        return prioB > prioA ? b : a;
     }
 
     // 64×1 LUT — 1px tall is enough; the shader samples with NEAREST on the
@@ -1205,51 +1275,33 @@ public partial class Minimap : Node3D
     // layer it wears, so a block's side tile is coloured for wall cells too.
     // WallSlotIndex paints the authored wall color; unauthored slots stay
     // magenta as a sanity-check.
-    private static Texture2D BuildTileLutTexture(BlockCatalog catalog, Color wallSlotColor)
+    // The category -> colour table, split out from the texture build so
+    // `block_check` can dump it. Five entries and nothing else: the map used to
+    // resolve a colour per ATLAS LAYER off each block, which meant blocks
+    // sharing a texture fought over one slot (all six water types collapsed to
+    // whichever the catalog listed last) and every shared layer needed its own
+    // authored fallback or it went grey. None of that exists now — a block
+    // names a category, a category names a colour.
+    public Color[] BuildCategoryLutTable()
+    {
+        var table = new Color[BlockCatalog.MAX_ATLAS_LAYERS];
+        for (int i = 0; i < table.Length; i++)
+        {
+            // Anything outside the enum is a bug, and magenta says so.
+            table[i] = new Color(1f, 0f, 1f);
+        }
+        table[(int)EMinimapCategory.Terrain] = terrainColor;
+        table[(int)EMinimapCategory.Stone] = stoneColor;
+        table[(int)EMinimapCategory.Water] = waterColor;
+        table[(int)EMinimapCategory.Road] = roadColor;
+        table[(int)EMinimapCategory.Prop] = propColor;
+        return table;
+    }
+
+    private Texture2D BuildTileLutTexture()
     {
         const int W = BlockCatalog.MAX_ATLAS_LAYERS;
-        Color[] table = new Color[W];
-        Color unauthored = new Color(1f, 0f, 1f);
-        for (int i = 0; i < W; i++)
-        {
-            table[i] = unauthored;
-        }
-
-        if (catalog?.blocks != null)
-        {
-            foreach (BlockData block in catalog.blocks)
-            {
-                if (block == null || block.IsInvisible()) { continue; }
-                foreach (EBlockFace face in new[] { EBlockFace.Top, EBlockFace.Side, EBlockFace.Bottom })
-                {
-                    BlockSurfaceData surface = block.SurfaceFor(face);
-                    if (surface == null) { continue; }
-                    int idx = surface.atlasBaseIndex;
-                    if (idx >= 0 && idx < W)
-                    {
-                        table[idx] = block.minimapColor;
-                    }
-                }
-            }
-        }
-
-        // Overlay-only surfaces (moss) are worn by no block, so the loop above
-        // never reaches them and they stay magenta. They carry their own colour.
-        foreach (BlockSurfaceData surface in catalog?.overlaySurfaces ?? System.Array.Empty<BlockSurfaceData>())
-        {
-            if (surface == null) { continue; }
-            int idx = surface.atlasBaseIndex;
-            if (idx >= 0 && idx < W)
-            {
-                table[idx] = surface.minimapColor;
-            }
-        }
-
-        if (MinimapData.WallSlotIndex >= 0 && MinimapData.WallSlotIndex < W)
-        {
-            table[MinimapData.WallSlotIndex] = wallSlotColor;
-        }
-
+        Color[] table = BuildCategoryLutTable();
         byte[] pixels = new byte[W * 4];
         for (int i = 0; i < W; i++)
         {
@@ -1263,23 +1315,4 @@ public partial class Minimap : Node3D
         return ImageTexture.CreateFromImage(img);
     }
 
-    // 256×1 LUT, same pattern. Foliage id 0 = "no stamp" so its slot is
-    // never read; we still write a (transparent) entry to keep the array
-    // contiguous.
-    private static Texture2D BuildFoliageLutTexture(MinimapFoliageColors palette)
-    {
-        const int W = MinimapFoliageColors.Size;
-        byte[] pixels = new byte[W * 4];
-        for (int i = 0; i < W; i++)
-        {
-            MinimapFoliageEntry entry = palette?.Get(i);
-            Color c = entry != null ? entry.color : new Color(0f, 0f, 0f, 0f);
-            pixels[i * 4 + 0] = (byte)Mathf.Clamp((int)(c.R * 255f), 0, 255);
-            pixels[i * 4 + 1] = (byte)Mathf.Clamp((int)(c.G * 255f), 0, 255);
-            pixels[i * 4 + 2] = (byte)Mathf.Clamp((int)(c.B * 255f), 0, 255);
-            pixels[i * 4 + 3] = (byte)Mathf.Clamp((int)(c.A * 255f), 0, 255);
-        }
-        Image img = Image.CreateFromData(W, 1, false, Image.Format.Rgba8, pixels);
-        return ImageTexture.CreateFromImage(img);
-    }
 }

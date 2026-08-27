@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="1_region"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="2_weather"]
-[ext_resource type="Resource" uid="uid://ve5pgvyawaa2" path="res://resources/audio/mountain_ambience.tres" id="3_ambience"]
+[ext_resource type="Resource" uid="uid://ave5pgvyav892" path="res://resources/audio/mountain_ambience.tres" id="3_ambience"]
 
 [sub_resource type="Resource" id="Resource_weather"]
 script = ExtResource("2_weather")
@@ -25,4 +25,5 @@ waterColor = Color(0.3, 0.46, 0.52, 1)
 waterOpacity = 0.3
 dustAmount = 0.55
 weather = SubResource("Resource_weather")
+snowCover = 1.0
 ambience = ExtResource("3_ambience")

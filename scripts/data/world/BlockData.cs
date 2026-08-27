@@ -51,8 +51,15 @@ public partial class BlockData : Resource
 
     [Export] public EBlockRender render = EBlockRender.Opaque;
 
-    // Flat-shaded color on the minimap.
+    // Flat-shaded colour in the WORLD-MAP PAINTER — its per-material authoring
+    // view (paving / water option swatches, stamp plan colours), where telling
+    // marsh from desert is the point. NOT what the in-game maps draw.
     [Export] public Color minimapColor = new Color(0.3f, 0.3f, 0.3f);
+
+    // What this block reads as on the in-game maps, which show five CATEGORIES
+    // rather than per-material colours. Terrain is the default, so a new block
+    // is ordinary ground until someone says otherwise.
+    [Export] public EMinimapCategory minimapCategory = EMinimapCategory.Terrain;
 
     // Jitter amplitude where this block's tiles meet a neighbour's. 0 = a
     // straight bisector (man-made walls); higher = jagged (organic ground).

@@ -10,6 +10,7 @@ blockName = &"Cobblestone"
 blockId = 11
 top = ExtResource("2_cobblestone")
 minimapColor = Color(0.42352942,0.4509804,0.45882353, 1)
+minimapCategory = 1
 defaultShape = 7
 groundType = 1
 climbGrowthSurface = ExtResource("surf_climb_growth")

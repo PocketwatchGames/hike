@@ -11,13 +11,13 @@
 [ext_resource type="Resource" uid="uid://cyrniev8emry" path="res://resources/data/world_gen/spawn_groups/goblin_group_swamp.tres" id="9_1wbki"]
 [ext_resource type="PackedScene" uid="uid://clba532cprsy" path="res://scenes/interactives/fire_trap.tscn" id="11_firetrap_scene"]
 [ext_resource type="Resource" uid="uid://067l7ldr00xa" path="res://resources/data/world_gen/mob_descriptors/spider_swamp.tres" id="20_spider"]
-[ext_resource type="Resource" uid="uid://cm4i5dh8vtdwf" path="res://resources/data/world_gen/mob_descriptors/sparrow_swamp.tres" id="21_sparrow"]
-[ext_resource type="PackedScene" uid="uid://mmebyrpme26l" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
+[ext_resource type="Resource" uid="uid://n8c4wi80lfy6p" path="res://resources/data/world_gen/mob_descriptors/sparrow_swamp.tres" id="21_sparrow"]
+[ext_resource type="PackedScene" uid="uid://txnqaadygfgyf" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
 [ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="50_chest_entry"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="52_chest_scene"]
-[ext_resource type="Resource" uid="uid://d0ghc0filpfpn" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
-[ext_resource type="Resource" uid="uid://bnm2tuwp6a1ap" path="res://resources/data/items/loot/mushroom_green.tres" id="m_green"]
-[ext_resource type="Resource" uid="uid://drykavgefoqa7" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
+[ext_resource type="Resource" uid="uid://pln2356abb1yx" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
+[ext_resource type="Resource" uid="uid://uyofr5iy0be2j" path="res://resources/data/items/loot/mushroom_green.tres" id="m_green"]
+[ext_resource type="Resource" uid="uid://s8l1m34eoh8ca" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")

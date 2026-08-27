@@ -1095,6 +1095,26 @@ A **pure 2D in-game program** — no live `World`, no `GameCamera`, no chunk
 meshes. Launched from the main menu (`GuiMainMenu.OnStartPainter` →
 `Main.StartPainter`), which just instantiates + `Init()`s the scene, so it opens
 instantly. Holds the tool list + a colourised `Rgba8` display image fed to
+
+**WHICH document opens is picked in the menu.** The World Map Painter button
+shows the same file selector New Game and the World Editor use, listing every
+`WorldMapData` under `GuiMainMenu.worldMapSearchDirs`; `Main.StartPainter` loads
+the pick and assigns `painter.data` before `Init`, and an empty pick keeps the
+document the scene authors. The `.tres` files are filtered by the class named in
+their HEADER LINE rather than by loading them — the layer images, the brush and
+the placements list share that directory and that extension, and loading a
+document to find out what it is pulls in its whole `WorldGenData` graph. There is
+no "new document" row: a document is a `.tres` plus the layer files it names, so
+making one is an authoring step, not something a picker can mint.
+
+**Escape opens a menu rather than leaving.** `WorldMapPauseMenu` is a full-rect
+Control in the HUD layer, so an open menu also stops the canvas painting under
+it, with Save & Bake / Resume / Quit to Menu wired to the Actions the painter
+assigns — the same three paths Ctrl+S, Resume and the quit callback already
+take, not a second implementation. Every other binding is refused while it is
+open; **Ctrl+S is the exception**, since it means the same thing whatever is on
+screen. With no menu wired Escape keeps its old meaning and quits, so the
+painter is never a screen you cannot leave.
 **Prop dots draw on every ground-based view** (`ESpawnPreview` is a flag SET, not
 a choice): props are what the ground is furnished with, and nothing else on those
 maps answers "is this spot already taken". Mob dots stay with the layers that
@@ -1537,7 +1557,8 @@ constrain to that one height · **ctrl+drag** constrain to that height and above
 · **wheel** or
 **`[` `]`** brush size (proportional step) ·
 **ctrl+wheel** zoom (cursor-anchored) · **middle-drag** pan
-· **Ctrl+S** save layers, then bake the `.hike` in the background.
+· **Ctrl+S** save layers, then bake the `.hike` in the background
+· **Esc** pause menu (save / resume / quit to menu).
 
 **The painter binds EDITOR-ONLY actions, never gameplay ones.**
 `InputBindings.Apply` remaps `UseItem` / `Interact` / `Lantern` / `Dash` /

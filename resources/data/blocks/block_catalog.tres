@@ -24,12 +24,13 @@
 [ext_resource type="Resource" path="res://resources/data/blocks/block_water_scum_green_partial.tres" id="21_wsgp"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_water_scum_green_full.tres" id="22_wsgf"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_water_scum_red_partial.tres" id="23_wsrp"]
+[ext_resource type="Resource" uid="uid://pw1vud46h9ehu" path="res://resources/data/blocks/block_snow.tres" id="24_snow"]
 [ext_resource type="Resource" uid="uid://8h4it463afvd" path="res://resources/data/surfaces/surface_moss.tres" id="surf_moss"]
 [ext_resource type="Resource" path="res://resources/data/surfaces/surface_water_scum.tres" id="surf_wscum"]
 [ext_resource type="Resource" path="res://resources/data/surfaces/surface_water_algae.tres" id="surf_walgae"]
 
 [resource]
 script = ExtResource("1_cat")
-blocks = Array[ExtResource("2_block")]([ExtResource("3_air"), ExtResource("4_barrier"), ExtResource("5_opening"), ExtResource("6_water"), ExtResource("7_grass"), ExtResource("8_desert_ground"), ExtResource("9_marsh_ground"), ExtResource("10_cave_limestone"), ExtResource("11_cave_sandstone"), ExtResource("12_sand"), ExtResource("13_stone"), ExtResource("14_cobblestone"), ExtResource("15_dirt"), ExtResource("15_ib0p2"), ExtResource("16_hga1k"), ExtResource("17_pbmxp"), ExtResource("18_4gbbr"), ExtResource("19_wclear"), ExtResource("20_wmurky"), ExtResource("21_wsgp"), ExtResource("22_wsgf"), ExtResource("23_wsrp")])
+blocks = Array[ExtResource("2_block")]([ExtResource("3_air"), ExtResource("4_barrier"), ExtResource("5_opening"), ExtResource("6_water"), ExtResource("7_grass"), ExtResource("8_desert_ground"), ExtResource("9_marsh_ground"), ExtResource("10_cave_limestone"), ExtResource("11_cave_sandstone"), ExtResource("12_sand"), ExtResource("13_stone"), ExtResource("14_cobblestone"), ExtResource("15_dirt"), ExtResource("15_ib0p2"), ExtResource("16_hga1k"), ExtResource("17_pbmxp"), ExtResource("18_4gbbr"), ExtResource("19_wclear"), ExtResource("20_wmurky"), ExtResource("21_wsgp"), ExtResource("22_wsgf"), ExtResource("23_wsrp"), ExtResource("24_snow")])
 airBlock = ExtResource("3_air")
 overlaySurfaces = [ExtResource("surf_moss"), ExtResource("surf_wscum"), ExtResource("surf_walgae")]

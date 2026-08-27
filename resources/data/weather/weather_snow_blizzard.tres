@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="WeatherData" format=3 uid="uid://cjr52nchsatgp"]
+
+[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="1_weather"]
+
+[resource]
+script = ExtResource("1_weather")
+resource_name = "Blizzard"
+cloudCover = 1.0
+windSpeed = 30.0
+airTemperature = 10.0
+sunTemperature = 2.0
+humidity = 0.75
+rainAmount = 1.0
+lightningAmount = 0.0
+metadata/_custom_type_script = "uid://d25sc6n2mi728"

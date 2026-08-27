@@ -875,11 +875,6 @@ public partial class Hud : Control
 			mat.SetShaderParameter("tile_lut", minimap.TileLutTexture);
 			_boundTileLut = minimap.TileLutTexture;
 		}
-		if (minimap.FoliageLutTexture != _boundFoliageLut)
-		{
-			mat.SetShaderParameter("foliage_lut", minimap.FoliageLutTexture);
-			_boundFoliageLut = minimap.FoliageLutTexture;
-		}
 
 		PushState(mat, minimap.StateA, suffix: "_a", ref _boundA);
 		PushState(mat, minimap.StateB, suffix: "_b", ref _boundB);

@@ -17,4 +17,5 @@ public enum EGroundType
     Mud = 4,
     Wood = 5,
     Dirt = 6,
+    Snow = 7,
 }

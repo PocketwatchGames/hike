@@ -27,6 +27,7 @@
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="31_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="Resource" uid="uid://bm2yf5vqo3fvx" path="res://resources/data/characters/kun_kun/kun_kun_voice.tres" id="50_voice"]
+[ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_s1jhf"]
 radius = 0.35
@@ -66,7 +67,8 @@ _footstepEffects = Dictionary[int, PackedScene]({
 2: ExtResource("11_fstsand"),
 3: ExtResource("11_fstwater"),
 4: ExtResource("11_fstmud"),
-5: ExtResource("11_fststone")
+5: ExtResource("11_fststone"),
+7: ExtResource("99_fstsnow")
 })
 _footprintTexture = ExtResource("8_dfn4c")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"

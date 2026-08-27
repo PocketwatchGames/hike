@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 // One-time setup of the invisible StaticBody3D walls + floor that box the
 // streamed world in, so the player and physics bodies can't fall off the edge
-// or out the bottom. Pure construction with no ongoing state — World calls
+// or out the bottom. Pure construction with no ongoing state — Sim calls
 // Create once from Initialize.
 public static class WorldBoundary
 {

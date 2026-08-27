@@ -12,6 +12,7 @@ top = ExtResource("2_dx1md")
 side = ExtResource("2_dx1md")
 wallBand = Vector2(0.4, 0.65)
 minimapColor = Color(0.47843137, 0.4745098, 0.2509804, 1)
+minimapCategory = 1
 blendNoise = 0.55
 naturalGround = true
 defaultShape = 2

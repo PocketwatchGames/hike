@@ -5,6 +5,38 @@
 [ext_resource type="Shader" uid="uid://d2apullp4k1sc" path="res://shaders/minimap.gdshader" id="4_wmshader"]
 [ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wmdetail"]
+shader = ExtResource("4_wmshader")
+shader_parameter/world_origin_xz_a = Vector2(0, 0)
+shader_parameter/world_extent_pixels_a = Vector2(1, 1)
+shader_parameter/meters_per_pixel_a = 1.0
+shader_parameter/reference_elevation_a = 0.0
+shader_parameter/world_origin_xz_b = Vector2(0, 0)
+shader_parameter/world_extent_pixels_b = Vector2(1, 1)
+shader_parameter/meters_per_pixel_b = 2.0
+shader_parameter/reference_elevation_b = 0.0
+shader_parameter/state_transition = 1.0
+shader_parameter/below1_brightness = 0.5
+shader_parameter/below2_brightness = 0.25
+shader_parameter/player_world_xz = Vector2(0, 0)
+shader_parameter/view_radius_meters = 32.0
+shader_parameter/map_rotation = 0.0
+shader_parameter/elevation_shade_range = 12.0
+shader_parameter/elevation_shade_gamma = 0.5
+shader_parameter/elevation_shade_above = 1.35
+shader_parameter/elevation_shade_below = 0.6
+shader_parameter/step_ink_1m = Color(0, 0, 0, 0.25)
+shader_parameter/step_ink_2m = Color(0, 0, 0, 0.75)
+shader_parameter/step_ink_3m = Color(1, 1, 1, 0.75)
+shader_parameter/step_line_pixels = 2.0
+shader_parameter/step_edge_max_fraction = 0.34
+shader_parameter/step_fade_start_mpp = 0.6
+shader_parameter/step_fade_end_mpp = 1.2
+shader_parameter/void_color = Color(0.04, 0.04, 0.06, 1)
+shader_parameter/mask_radius = 0.7071
+shader_parameter/mask_softness = 0.0
+shader_parameter/min_reveal = 0.0
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wmap"]
 content_margin_left = 16.0
 content_margin_top = 12.0
@@ -21,36 +53,6 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_wmdetail"]
-shader = ExtResource("4_wmshader")
-shader_parameter/world_origin_xz_a = Vector2(0, 0)
-shader_parameter/world_extent_pixels_a = Vector2(1, 1)
-shader_parameter/meters_per_pixel_a = 1.0
-shader_parameter/reference_elevation_a = 0.0
-shader_parameter/world_origin_xz_b = Vector2(0, 0)
-shader_parameter/world_extent_pixels_b = Vector2(1, 1)
-shader_parameter/meters_per_pixel_b = 2.0
-shader_parameter/reference_elevation_b = 0.0
-shader_parameter/state_transition = 1.0
-shader_parameter/below1_brightness = 0.5
-shader_parameter/below2_brightness = 0.25
-shader_parameter/player_world_xz = Vector2(0, 0)
-shader_parameter/view_radius_meters = 32.0
-shader_parameter/plateau_height = 4.0
-shader_parameter/above_brightness = 1.4
-shader_parameter/above_saturation = 0.5
-shader_parameter/below_brightness = 0.75
-shader_parameter/below_saturation = 0.75
-shader_parameter/above_contrast = 0.5
-shader_parameter/below_contrast = 1.0
-shader_parameter/contour_interval = 4.0
-shader_parameter/contour_line_width = 1.0
-shader_parameter/contour_color = Color(0, 0, 0, 1)
-shader_parameter/contour_strength = 0.5
-shader_parameter/void_color = Color(0.04, 0.04, 0.06, 1)
-shader_parameter/mask_radius = 0.7071
-shader_parameter/mask_softness = 0.0
-
 [node name="WorldMapScreen" type="Control" unique_id=590275791 node_paths=PackedStringArray("mapView", "overviewViewport", "overviewSurface", "overviewRect", "detailViewport", "detailSurface", "detailRect", "regionLabels", "mapSelector")]
 layout_mode = 3
 anchors_preset = 15
@@ -63,21 +65,24 @@ mapView = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapView")
 overviewViewport = NodePath("OverviewViewport")
 overviewSurface = NodePath("OverviewViewport/Surface")
 overviewRect = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapView/OverviewRect")
+overviewMetersPerPixel = 1.0
+overviewViewMeters = 1008.0
 detailViewport = NodePath("DetailViewport")
 detailSurface = NodePath("DetailViewport/Surface")
 detailRect = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapView/DetailRect")
+detailPixelsPerMeter = 6.0
 regionLabels = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapView/RegionLabels")
 unknownMarkerIcon = ExtResource("mm_question")
 mapSelector = NodePath("Panel/MarginContainer/MarginContainer/VBoxContainer/OptionButton")
 
-[node name="OverviewViewport" type="SubViewport" parent="."]
+[node name="OverviewViewport" type="SubViewport" parent="." unique_id=2081889066]
 disable_3d = true
 transparent_bg = true
 handle_input_locally = false
 size = Vector2i(256, 256)
 render_target_update_mode = 0
 
-[node name="Surface" type="ColorRect" parent="OverviewViewport"]
+[node name="Surface" type="ColorRect" parent="OverviewViewport" unique_id=911072316]
 material = ExtResource("2_wmmat")
 anchors_preset = 15
 anchor_right = 1.0
@@ -86,14 +91,14 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="DetailViewport" type="SubViewport" parent="."]
+[node name="DetailViewport" type="SubViewport" parent="." unique_id=1801190873]
 disable_3d = true
 transparent_bg = true
 handle_input_locally = false
 size = Vector2i(768, 768)
 render_target_update_mode = 0
 
-[node name="Surface" type="ColorRect" parent="DetailViewport"]
+[node name="Surface" type="ColorRect" parent="DetailViewport" unique_id=2115079990]
 material = SubResource("ShaderMaterial_wmdetail")
 anchors_preset = 15
 anchor_right = 1.0
@@ -138,20 +143,20 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 mouse_filter = 2
 
-[node name="MapView" type="Control" parent="Panel/MarginContainer/VBoxContainer/AspectRatio"]
+[node name="MapView" type="Control" parent="Panel/MarginContainer/VBoxContainer/AspectRatio" unique_id=584817393]
 clip_contents = true
 layout_mode = 2
 mouse_filter = 2
 
-[node name="OverviewRect" type="TextureRect" parent="Panel/MarginContainer/VBoxContainer/AspectRatio/MapView"]
-texture_filter = 1
+[node name="OverviewRect" type="TextureRect" parent="Panel/MarginContainer/VBoxContainer/AspectRatio/MapView" unique_id=785031513]
+texture_filter = 2
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
 mouse_filter = 2
 expand_mode = 1
 
-[node name="DetailRect" type="TextureRect" parent="Panel/MarginContainer/VBoxContainer/AspectRatio/MapView"]
+[node name="DetailRect" type="TextureRect" parent="Panel/MarginContainer/VBoxContainer/AspectRatio/MapView" unique_id=2003575730]
 texture_filter = 1
 layout_mode = 0
 offset_right = 40.0

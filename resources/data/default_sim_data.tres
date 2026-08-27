@@ -90,6 +90,7 @@
 [ext_resource type="Resource" uid="uid://d0iqlcugs8idb" path="res://resources/data/ambience/underground_large.tres" id="96_amb_ugl"]
 [ext_resource type="Resource" uid="uid://dpmwcsftdxlv4" path="res://resources/data/ambience/underground_small.tres" id="96_amb_ugs"]
 [ext_resource type="Resource" path="res://resources/data/waterfalls/waterfalls.tres" id="97_waterfalls"]
+[ext_resource type="Resource" uid="uid://ncd5n77ocx943" path="res://resources/data/test_scenarios/snow.tres" id="ts_snow"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -150,3 +151,4 @@ weatherLightning = ExtResource("12_lightning")
 fogVisionReduction = 0.7
 rainVisionReduction = 0.35
 metadata/_custom_type_script = "uid://chvgahtb671mg"
+testScenarios = [ExtResource("ts_snow")]

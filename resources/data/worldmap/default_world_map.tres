@@ -46,6 +46,7 @@
 [ext_resource type="Resource" path="res://resources/data/worldmap/presets/swamp_highlands.tres" id="pr_6"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/presets/swamp_mud.tres" id="pr_7"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/presets/swamp_village.tres" id="pr_8"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/presets/snowy_mountain.tres" id="pr_9"]
 [ext_resource type="Resource" uid="uid://bp8eo5akx45iq" path="res://resources/data/worldmap/prop_sets/pine_stand.tres" id="ps_0"]
 [ext_resource type="Resource" uid="uid://b01hbfnwc3t5w" path="res://resources/data/worldmap/prop_sets/desert.tres" id="ps_1"]
 [ext_resource type="Resource" uid="uid://qop38fcqf4o7" path="res://resources/data/worldmap/prop_sets/forest.tres" id="ps_2"]
@@ -54,6 +55,8 @@
 [ext_resource type="Resource" uid="uid://cdgwwdoxj3xkk" path="res://resources/data/worldmap/prop_sets/mountain.tres" id="ps_5"]
 [ext_resource type="Resource" uid="uid://558a5fhxihqs" path="res://resources/data/worldmap/prop_sets/swamp_highlands.tres" id="ps_6"]
 [ext_resource type="Resource" uid="uid://duhbyv7bnv3p7" path="res://resources/data/worldmap/prop_sets/swamp_mud.tres" id="ps_7"]
+[ext_resource type="Resource" uid="uid://bo7ej1snf13qx" path="res://resources/data/worldmap/prop_sets/snowy_mountain.tres" id="ps_8"]
+[ext_resource type="Resource" path="res://resources/data/worldmap/ground_sets/snowy_mountain_ground.tres" id="gs_9"]
 [ext_resource type="Resource" uid="uid://d2gggtn6xkc7c" path="res://resources/data/zones/mountain.tres" id="zd_0"]
 [ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/data/zones/desert.tres" id="zd_1"]
 [ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/zones/swamp.tres" id="zd_2"]
@@ -69,6 +72,7 @@
 [ext_resource type="Resource" uid="uid://b5a3xpoxglk5d" path="res://resources/data/zones/mountain_peaceful.tres" id="zd_12"]
 [ext_resource type="Resource" uid="uid://btchigvuiqlyl" path="res://resources/data/zones/mountain_winter.tres" id="zd_13"]
 [ext_resource type="Resource" uid="uid://ctsog4rcqblj7" path="res://resources/data/zones/desert_howling.tres" id="zd_14"]
+[ext_resource type="Resource" uid="uid://dxnrjdnremjda" path="res://resources/data/zones/snowy_mountain.tres" id="zd_15"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_water_clear.tres" id="wt_clear"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_water_murky.tres" id="wt_murky"]
 [ext_resource type="Resource" path="res://resources/data/blocks/block_water_scum_green_partial.tres" id="wt_sgp"]
@@ -78,15 +82,15 @@
 [resource]
 script = ExtResource("1_wmd")
 genData = ExtResource("2_gen")
-zones = [ExtResource("zd_0"), ExtResource("zd_1"), ExtResource("zd_2"), ExtResource("zd_3"), ExtResource("zd_4"), ExtResource("zd_5"), ExtResource("zd_6"), ExtResource("zd_7"), ExtResource("zd_8"), ExtResource("zd_9"), ExtResource("zd_10"), ExtResource("zd_11"), ExtResource("zd_12"), ExtResource("zd_13"), ExtResource("zd_14")]
+zones = [ExtResource("zd_0"), ExtResource("zd_1"), ExtResource("zd_2"), ExtResource("zd_3"), ExtResource("zd_4"), ExtResource("zd_5"), ExtResource("zd_6"), ExtResource("zd_7"), ExtResource("zd_8"), ExtResource("zd_9"), ExtResource("zd_10"), ExtResource("zd_11"), ExtResource("zd_12"), ExtResource("zd_13"), ExtResource("zd_14"), ExtResource("zd_15")]
 defaultGround = ExtResource("dg")
 waterTypes = [ExtResource("wt_clear"), ExtResource("wt_murky"), ExtResource("wt_sgp"), ExtResource("wt_sgf"), ExtResource("wt_srp")]
-groundSets = [ExtResource("gs_0"), ExtResource("gs_1"), ExtResource("gs_2"), ExtResource("dg"), ExtResource("gs_4"), ExtResource("gs_5"), ExtResource("gs_6"), ExtResource("gs_7"), ExtResource("gs_8")]
-propSets = [ExtResource("ps_0"), ExtResource("ps_1"), ExtResource("ps_2"), ExtResource("ps_3"), ExtResource("ps_4"), ExtResource("ps_5"), ExtResource("ps_6"), ExtResource("ps_7")]
+groundSets = [ExtResource("gs_0"), ExtResource("gs_1"), ExtResource("gs_2"), ExtResource("dg"), ExtResource("gs_4"), ExtResource("gs_5"), ExtResource("gs_6"), ExtResource("gs_7"), ExtResource("gs_8"), ExtResource("gs_9")]
+propSets = [ExtResource("ps_0"), ExtResource("ps_1"), ExtResource("ps_2"), ExtResource("ps_3"), ExtResource("ps_4"), ExtResource("ps_5"), ExtResource("ps_6"), ExtResource("ps_7"), ExtResource("ps_8")]
 entityPalette = [ExtResource("ep_0"), ExtResource("ep_1"), ExtResource("ep_2"), ExtResource("ep_3"), ExtResource("ep_4"), ExtResource("ep_5"), ExtResource("ep_6"), ExtResource("ep_7"), ExtResource("ep_8"), ExtResource("ep_9"), ExtResource("ep_10"), ExtResource("ep_11"), ExtResource("ep_12")]
 pavingBlocks = [ExtResource("pb_0"), ExtResource("pb_1"), ExtResource("pb_2"), ExtResource("pb_3")]
 mobSets = [ExtResource("ms_0"), ExtResource("ms_1"), ExtResource("ms_2"), ExtResource("ms_3"), ExtResource("ms_4"), ExtResource("ms_5"), ExtResource("ms_6"), ExtResource("ms_7"), ExtResource("ms_8")]
-presets = [ExtResource("pr_0"), ExtResource("pr_1"), ExtResource("pr_2"), ExtResource("pr_3"), ExtResource("pr_4"), ExtResource("pr_5"), ExtResource("pr_6"), ExtResource("pr_7"), ExtResource("pr_8")]
+presets = [ExtResource("pr_0"), ExtResource("pr_1"), ExtResource("pr_2"), ExtResource("pr_3"), ExtResource("pr_4"), ExtResource("pr_5"), ExtResource("pr_6"), ExtResource("pr_7"), ExtResource("pr_8"), ExtResource("pr_9")]
 sizeChunksX = 36
 sizeChunksZ = 32
 elevationBandHues = PackedColorArray(0.5019608, 0.5019608, 0, 1, 0, 0.5019608, 0, 1, 0.5, 0.25, 0, 1, 0.5020877, 0, 0, 1, 0.5, 0, 0.5, 1, 0.25, 0, 0.5, 1, 0, 0, 0.5, 1, 0, 0.5020877, 0.5020877, 1, 0.5, 0.5, 0.5, 1)

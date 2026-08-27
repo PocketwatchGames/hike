@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using Godot;
 
-// World — thin delegation to ChunkManager: world↔chunk coordinate conversion,
+// Sim — thin delegation to ChunkManager: world↔chunk coordinate conversion,
 // spawn-chunk readiness, voxel lighting / light sources, fog toggles, and mesh
-// rebuilds. World is the single public face callers reach; the actual work
-// lives on ChunkManager. See World.cs for the file split.
+// rebuilds. Sim is the single public face callers reach; the actual work
+// lives on ChunkManager. See Sim.cs for the file split.
 public partial class Sim
 {
     public static Vector3I WorldToChunkCoord(Vector3 worldPos)

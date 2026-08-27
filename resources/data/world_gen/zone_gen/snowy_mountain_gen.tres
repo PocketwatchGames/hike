@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://cfgjfuhh56m3q"]
+
+[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://dxnrjdnremjda" path="res://resources/data/zones/snowy_mountain.tres" id="2_zone"]
+[ext_resource type="Resource" uid="uid://cxs634ps8mnal" path="res://resources/data/world_gen/terrain_gen/snowy_mountain_kit.tres" id="3_kit_surface"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="4_kit_cave"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://plfdm4z98g767" path="res://resources/data/world_gen/terrain_gen/shore_stony_kit.tres" id="6_kit_shore"]
+[ext_resource type="Resource" uid="uid://crwit5kc7vxce" path="res://resources/data/world_gen/spawn_lists/surface_entities_mountain.tres" id="7_surface_entities"]
+[ext_resource type="Resource" uid="uid://d2hbjjt516pxk" path="res://resources/data/world_gen/spawn_lists/cave_entities_mountain.tres" id="8_cave_entities"]
+[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="9_cave_water"]
+[ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/fixtures/zone_campfire_fixtures.tres" id="10_fixtures"]
+[ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="11_zoneterrain"]
+
+[sub_resource type="Resource" id="ZoneTerrain_snowy_mountain"]
+script = ExtResource("11_zoneterrain")
+benchedFraction = 0.75
+elevation = 1.0
+elevationRange = 4.0
+metadata/_custom_type_script = "uid://61iu4uosbxjog"
+
+[resource]
+script = ExtResource("1_script")
+zone = ExtResource("2_zone")
+surfaceKit = ExtResource("3_kit_surface")
+caveKit = ExtResource("4_kit_cave")
+submergedKit = ExtResource("5_kit_underwater")
+shoreKit = ExtResource("6_kit_shore")
+terrain = SubResource("ZoneTerrain_snowy_mountain")
+mossSurfaceCoverage = 0.0
+mossCaveCoverage = 0.25
+climbCoverage = 0.3
+grassThreshold = 1.0
+mobLevelMin = 3
+mobLevelMax = 4
+undergroundMobLevelMin = 4
+forgeCount = 1
+forgeLevelMax = 1
+surfaceEntities = ExtResource("7_surface_entities")
+caveEntities = ExtResource("8_cave_entities")
+caveWaterEntities = ExtResource("9_cave_water")
+fixtures = ExtResource("10_fixtures")
+metadata/_custom_type_script = "uid://wwpw4gghcevs"

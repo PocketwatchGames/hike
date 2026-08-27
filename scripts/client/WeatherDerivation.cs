@@ -54,6 +54,13 @@ public static class WeatherDerivation
         float cloudCover = weather?.cloudCover ?? 0f;
         float humidity = weather?.humidity ?? 0.5f;
         float rainAmount = weather?.rainAmount ?? 0f;
+        // `precip_force` overrides the simulated amount before anything reads
+        // it, so fog, ripples and the falling particles all agree.
+        float forcedPrecip = CVars.precipForce.Value;
+        if (forcedPrecip >= 0f)
+        {
+            rainAmount = Mathf.Clamp(forcedPrecip, 0f, 1f);
+        }
         float dustAmount = weather?.dustAmount ?? 0.1f;
         float windSpeed = weather?.windSpeed ?? 0f;
 
@@ -504,14 +511,47 @@ public static class WeatherDerivation
         p.GustFrequency = gustFreqBase + cloudCover * gustFreqCloud;
         p.GustStrength = windSpeed * (gustMinFraction + cloudCover * gustCloudFraction);
 
-        // --- Rain ---------------------------------------------------
+        // --- Precipitation: amount, then phase -----------------------
         float rainWeightMin = simData?.rainWeightMin ?? 0.3f;
         float rainWeightMax = simData?.rainWeightMax ?? 1.2f;
         float rainIntensityExp = simData?.rainIntensityExponent ?? 1.25f;
         // Drop COUNT shaped with pow>1 so a light authored rainAmount
         // (e.g. 0.3) emits visibly fewer drops than a linear mapping
         // would, while high values (≈1.0) stay near the authored count.
-        p.RainIntensity = rainAmount > 0f ? Mathf.Pow(rainAmount, rainIntensityExp) : 0f;
+        float precipIntensity = rainAmount > 0f ? Mathf.Pow(rainAmount, rainIntensityExp) : 0f;
+
+        // Phase. `rainAmount` is the precipitation AMOUNT and says nothing
+        // about what form it takes; the split into rain and snow is derived
+        // from two independent gates that must BOTH open:
+        //   zone  — the zone's authored snowCover. Snow lying on the ground,
+        //           the trees and the props is authored art, so a zone that
+        //           has none must never see a flake: the snow would fall
+        //           through a green summer forest and settle on nothing.
+        //   cold  — the live blended airTemperature across the snowTemp band.
+        // The product means a warm day in a snowy zone rains (fine — the snow
+        // is still lying there), and a hard frost in a green zone also rains.
+        float snowWarmF = simData?.snowTempWarmF ?? 37f;
+        float snowColdF = simData?.snowTempColdF ?? 29f;
+        float airTemperature = weather?.airTemperature ?? 64.4f;
+        // SmoothStep needs an increasing band, so run it warm→cold and invert:
+        // 1 at/below snowColdF, 0 at/above snowWarmF.
+        float coldGate = 1f - Mathf.SmoothStep(snowColdF, snowWarmF, airTemperature);
+        float zoneSnowGate = Mathf.Clamp(zone?.snowCover ?? 0f, 0f, 1f);
+        p.SnowFraction = zoneSnowGate * coldGate;
+
+        // `snow_force` overrides both gates at once — see the CVar's comment.
+        float forced = CVars.snowForce.Value;
+        if (forced >= 0f)
+        {
+            p.SnowFraction = Mathf.Clamp(forced, 0f, 1f);
+        }
+
+        float snowScale = simData?.snowIntensityScale ?? 1.6f;
+        p.SnowIntensity = Mathf.Clamp(precipIntensity * p.SnowFraction * snowScale, 0f, 1f);
+        // Whatever falls as snow is NOT rain: everything reading RainIntensity
+        // means liquid water (ground wetness, splashes, the rain audio bed,
+        // the player's Wet status), and none of it should fire in a snowfall.
+        p.RainIntensity = precipIntensity * (1f - p.SnowFraction);
         p.RainWeight = Mathf.Lerp(rainWeightMin, rainWeightMax, cloudCover);
         p.RainTier = ClassifyRainTier(p.RainIntensity, simData);
 

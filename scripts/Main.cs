@@ -678,11 +678,25 @@ public partial class Main : Node
 	// bakes a WorldState / .hike on save. No live voxel world is built (the old
 	// 3D fly-over preview was removed; it can return later as an on-demand
 	// feature), so launching is instant and needs no palette / mesh binding.
-	void StartPainter(WorldGenData worldGenData)
+	void StartPainter(WorldGenData worldGenData, string documentPath)
 	{
 		_currentScreen.QueueFree();
 
 		var painter = worldMapPainterScene.Instantiate<WorldMapPainter>();
+		// The picked document replaces the one the scene authors as its default.
+		// Before Init, which builds the state and every tool off it.
+		if (!string.IsNullOrEmpty(documentPath))
+		{
+			var document = GD.Load<WorldMapData>(documentPath);
+			if (document != null)
+			{
+				painter.data = document;
+			}
+			else
+			{
+				GD.PrintErr($"[Painter] '{documentPath}' is not a WorldMapData; opening the default document.");
+			}
+		}
 		_currentScreen = painter;
 		AddChild(painter);
 		painter.Init();

@@ -171,6 +171,29 @@ public class MinimapTextures
     // crisp edges (the shader uses nearest-neighbor on foliage_id, so the
     // shape comes from the stamped texels themselves). Radius is in
     // source pixels: 0 = single pixel, 1 = 5-pixel plus, 2 = 13-pixel disk.
+    // Stamp the single pixel holding one 1m world column (voxel XZ coords).
+    // Priority-merged like every other foliage write.
+    public void StampFoliageColumn(Vector2I worldColumnXZ, byte foliageId, MinimapFoliageColors palette)
+    {
+        if (foliageId == 0)
+        {
+            return;
+        }
+        int px = (worldColumnXZ.X - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
+        int pz = (worldColumnXZ.Y - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
+        if (px < 0 || pz < 0 || px >= _widthPixels || pz >= _heightPixels)
+        {
+            return;
+        }
+        int byteIdx = (pz * _widthPixels + px) * BytesPerSurfacePixel;
+        if (ResolvePriority(foliageId, palette) < ResolvePriority(_surfaceData[byteIdx + 3], palette))
+        {
+            return;
+        }
+        _surfaceData[byteIdx + 3] = foliageId;
+        _surfaceDirty = true;
+    }
+
     public void StampFoliagePoint(Vector3 worldPos, byte foliageId, MinimapFoliageColors palette, int radiusPixels = 0)
     {
         if (foliageId == 0)

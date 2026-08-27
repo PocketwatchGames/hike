@@ -10,6 +10,7 @@ blockId = 3
 top = ExtResource("2_water")
 render = 1
 minimapColor = Color(0.2496,0.35328,0.48, 1)
+minimapCategory = 2
 solid = false
 transparent = true
 lightAttenuation = 8

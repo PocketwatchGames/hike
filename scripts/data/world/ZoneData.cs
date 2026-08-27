@@ -64,6 +64,20 @@ public partial class ZoneData : Resource
     // once dynamic weather exists.
     [Export] public WeatherData weather;
 
+    // How thoroughly this zone is DRESSED IN SNOW — the fraction of its
+    // ground, props and trees that are authored as snow-covered. It is a
+    // statement about the zone's art, not about the weather, and it is the
+    // gate on whether precipitation here may fall as snow at all.
+    //
+    // Snowfall is (this AND cold): a warm day in a snowy zone rains, and a
+    // cold snap in a green zone rains too. The zone half of that gate is not
+    // optional — snow accumulation on terrain and props is authored, so snow
+    // falling anywhere else would settle on ground that never whitens and
+    // read as broken. Blended across zone borders by ZoneBlend like every
+    // other per-zone scalar, so the snowfall fades out as the player leaves
+    // rather than stopping at a chunk edge.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float snowCover = 0f;
+
     // Authored ambience set for this zone — looping global layers
     // (wind / rain / insect bed / distant ocean) plus the positional
     // emitter palette used by ChunkAmbienceSpawner. AmbienceController

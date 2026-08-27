@@ -418,6 +418,25 @@
         WeatherSimulation.ForceLightningOverride = v > 0f ? (float?)v : null;
     });
 
+    // Debug: force the precipitation AMOUNT (0..1), overriding the simulated
+    // weather's rainAmount. < 0 = off (use real weather). Same rationale as
+    // wind_force below: WeatherSimulation.Apply rewrites the channel every
+    // frame, so the console cannot otherwise hold a value long enough to look
+    // at. Pair with snow_force to get a downpour or a whiteout on demand.
+    public static CVarFloat precipForce = new CVarFloat("precip_force", -1f);
+
+    // Debug: force the rain/snow phase, bypassing BOTH gates that normally
+    // decide it (the zone's authored ZoneData.snowCover and the air
+    // temperature). 0 = all rain, 1 = all snow, in between = sleet.
+    // < 0 = off, use the real derivation.
+    //
+    // Exists because the two gates are AND-ed, so "I see no snow" has four
+    // indistinguishable causes: the zone authors no snowCover, the air is too
+    // warm, there is no precipitation at all, or the particle path is broken.
+    // Forcing the phase separates the last one from the first three without
+    // regenerating a world or waiting on the clock.
+    public static CVarFloat snowForce = new CVarFloat("snow_force", -1f);
+
     // Debug: force the wind speed (m/s) that WindParticleManager gates on,
     // overriding the simulated weather wind (which WeatherSimulation.Apply
     // rewrites every frame, so the console can't otherwise hold a value).
@@ -520,6 +539,19 @@
         Godot.GD.Print($"    humidity       = {w.humidity:F3}");
         Godot.GD.Print($"    windSpeed      = {w.windSpeed:F2} m/s");
         Godot.GD.Print($"    airTemperature = {w.airTemperature:F1}°F");
+
+        // PRECIPITATION PHASE. Printed as the two gates rather than only the
+        // result, because "no snow" has four causes that look identical from
+        // the outside: the zone authors no snowCover, the air is too warm,
+        // there is no precipitation at all, or the particle path is broken.
+        DerivedPalette phasePal = sky.Palette;
+        float coldGate = 1f - Godot.Mathf.SmoothStep(simData.snowTempColdF, simData.snowTempWarmF, w.airTemperature);
+        Godot.GD.Print($"  PRECIPITATION PHASE:");
+        Godot.GD.Print($"    zone snowCover = {zone?.snowCover ?? 0f:F3}  (blended; 0 here means snow can NEVER fall)");
+        Godot.GD.Print($"    cold gate      = {coldGate:F3}  ({w.airTemperature:F1}°F across {simData.snowTempColdF:F0}..{simData.snowTempWarmF:F0}°F)");
+        Godot.GD.Print($"    snowFraction   = {phasePal.SnowFraction:F3}{(CVars.snowForce.Value >= 0f ? "  [FORCED]" : "")}");
+        Godot.GD.Print($"    rainIntensity  = {phasePal.RainIntensity:F3}  (tier {phasePal.RainTier})");
+        Godot.GD.Print($"    snowIntensity  = {phasePal.SnowIntensity:F3}{(CVars.precipForce.Value >= 0f ? "  [precip FORCED]" : "")}");
 
         // WATER OPTICS — the chain from the authored zone colour to what the
         // shader actually scatters. Worth printing in full because every step

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="KitPaletteData" load_steps=16 format=3]
+[gd_resource type="Resource" script_class="KitPaletteData" load_steps=17 format=3]
 
 [ext_resource type="Script" uid="uid://jb2i2kz7ridrk" path="res://scripts/data/worldgen/KitPaletteData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://2fxll1oeroha" path="res://resources/data/world_gen/terrain_gen/mountain_kit.tres" id="2_mountain_kit"]
@@ -15,8 +15,9 @@
 [ext_resource type="Resource" uid="uid://csjvdcg5sawpo" path="res://resources/data/world_gen/terrain_gen/swamp_highlands_kit.tres" id="13_swamp_highlands_kit"]
 [ext_resource type="Resource" uid="uid://dyxoe4k26a80k" path="res://resources/data/world_gen/terrain_gen/swamp_mud_kit.tres" id="14_swamp_mud_kit"]
 [ext_resource type="Resource" uid="uid://ds1ldsisnfc4e" path="res://resources/data/world_gen/terrain_gen/swamp_village_kit.tres" id="15_swamp_village_kit"]
+[ext_resource type="Resource" uid="uid://cxs634ps8mnal" path="res://resources/data/world_gen/terrain_gen/snowy_mountain_kit.tres" id="16_snowy_mountain_kit"]
 
 [resource]
 script = ExtResource("1_script")
-kits = [ExtResource("2_mountain_kit"), ExtResource("3_cave_limestone_kit"), ExtResource("4_underwater_kit"), ExtResource("5_shore_sand_kit"), ExtResource("6_desert_kit"), ExtResource("7_cave_sandstone_kit"), ExtResource("8_marsh_kit"), ExtResource("9_shore_swamp_kit"), ExtResource("10_forest_kit"), ExtResource("11_shore_stony_kit"), ExtResource("12_hub_kit"), ExtResource("13_swamp_highlands_kit"), ExtResource("14_swamp_mud_kit"), ExtResource("15_swamp_village_kit")]
+kits = [ExtResource("2_mountain_kit"), ExtResource("3_cave_limestone_kit"), ExtResource("4_underwater_kit"), ExtResource("5_shore_sand_kit"), ExtResource("6_desert_kit"), ExtResource("7_cave_sandstone_kit"), ExtResource("8_marsh_kit"), ExtResource("9_shore_swamp_kit"), ExtResource("10_forest_kit"), ExtResource("11_shore_stony_kit"), ExtResource("12_hub_kit"), ExtResource("13_swamp_highlands_kit"), ExtResource("14_swamp_mud_kit"), ExtResource("15_swamp_village_kit"), ExtResource("16_snowy_mountain_kit")]
 metadata/_custom_type_script = "uid://jb2i2kz7ridrk"

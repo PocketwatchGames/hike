@@ -16,28 +16,28 @@
 //   R = height low byte    \  combined: world Y of top face,
 //   G = height high byte   /            range 0..65535
 //   B = resolved tile id   (0..63, indexes tile_lut by id+0.5)
-//   A = foliage id         (0 = none, indexes foliage_lut)
+//   A = collidable-prop stamp (0 = none; non-zero paints the Prop colour)
 shader_type canvas_item;
 
 // Per-state A textures.
-uniform sampler2D surface_texture_a : filter_linear;
-uniform sampler2D surface_texture_below1_a : filter_linear;
-uniform sampler2D surface_texture_below2_a : filter_linear;
-uniform sampler2D exploration_texture_a : filter_linear;
-uniform sampler2D exploration_texture_below1_a : filter_linear;
-uniform sampler2D exploration_texture_below2_a : filter_linear;
+uniform sampler2D surface_texture_a : filter_nearest;
+uniform sampler2D surface_texture_below1_a : filter_nearest;
+uniform sampler2D surface_texture_below2_a : filter_nearest;
+uniform sampler2D exploration_texture_a : filter_nearest;
+uniform sampler2D exploration_texture_below1_a : filter_nearest;
+uniform sampler2D exploration_texture_below2_a : filter_nearest;
 uniform vec2 world_origin_xz_a = vec2(0.0);
 uniform vec2 world_extent_pixels_a = vec2(1.0);
 uniform float meters_per_pixel_a = 2.0;
 uniform float reference_elevation_a = 0.0;
 
 // Per-state B textures.
-uniform sampler2D surface_texture_b : filter_linear;
-uniform sampler2D surface_texture_below1_b : filter_linear;
-uniform sampler2D surface_texture_below2_b : filter_linear;
-uniform sampler2D exploration_texture_b : filter_linear;
-uniform sampler2D exploration_texture_below1_b : filter_linear;
-uniform sampler2D exploration_texture_below2_b : filter_linear;
+uniform sampler2D surface_texture_b : filter_nearest;
+uniform sampler2D surface_texture_below1_b : filter_nearest;
+uniform sampler2D surface_texture_below2_b : filter_nearest;
+uniform sampler2D exploration_texture_b : filter_nearest;
+uniform sampler2D exploration_texture_below1_b : filter_nearest;
+uniform sampler2D exploration_texture_below2_b : filter_nearest;
 uniform vec2 world_origin_xz_b = vec2(0.0);
 uniform vec2 world_extent_pixels_b = vec2(1.0);
 uniform float meters_per_pixel_b = 2.0;
@@ -49,7 +49,6 @@ uniform float state_transition : hint_range(0.0, 1.0) = 1.0;
 
 // Shared between states.
 uniform sampler2D tile_lut : filter_nearest;
-uniform sampler2D foliage_lut : filter_nearest;
 uniform float below1_brightness : hint_range(0.0, 1.0) = 0.5;
 uniform float below2_brightness : hint_range(0.0, 1.0) = 0.25;
 uniform vec2 player_world_xz = vec2(0.0);
@@ -65,37 +64,36 @@ uniform float view_radius_meters = 32.0;
 // WorldMapScreen. Off-map corners fall out of bounds and read as void.
 uniform float map_rotation = 0.0;
 
-// Plateau height (meters per elevation band). Must match
-// MinimapData.PlateauHeight on the C# side.
-uniform float plateau_height = 4.0;
 
-// Flat above/below brightness + saturation values. Pixels in the same
-// plateau as the reference: 1.0/1.0 (unmodified). Pixels in any plateau
-// above: above_*. Pixels in any plateau below: below_*.
-uniform float above_brightness : hint_range(0.0, 2.0) = 1.2;
-uniform float above_saturation : hint_range(0.0, 1.0) = 0.7;
-uniform float below_brightness : hint_range(0.0, 2.0) = 0.55;
-uniform float below_saturation : hint_range(0.0, 1.0) = 0.4;
+// Elevation shading. The signed delta from the player's own elevation, in
+// metres, normalised to `range` and curved by `gamma` — gamma BELOW 1
+// emphasises the small deltas a player can actually act on. `above` / `below`
+// are the brightness multipliers the curve reaches at the full range.
+uniform float elevation_shade_range : hint_range(1.0, 64.0) = 12.0;
+uniform float elevation_shade_gamma : hint_range(0.1, 2.0) = 0.5;
+uniform float elevation_shade_above : hint_range(1.0, 2.0) = 1.35;
+uniform float elevation_shade_below : hint_range(0.0, 1.0) = 0.6;
 
-// Per-side dynamic-range compression for off-plateau pixels. 1.0 leaves
-// color values alone; 0.0 collapses every channel to middle gray (0.5).
-// Each scales channel deviation from 0.5 — bright values get less bright
-// AND dark values get less dark — so the range squeezes inward without
-// pushing toward pure white or black. Above/below tunable separately so
-// e.g. underground (below) can read more compressed than higher ground
-// the player can climb to (above), or vice versa.
-uniform float above_contrast : hint_range(0.0, 1.0) = 1.0;
-uniform float below_contrast : hint_range(0.0, 1.0) = 1.0;
-
-// Topographic contour lines drawn at every contour_interval meters of
-// elevation. Width is fixed in *screen pixels* (not source-texture
-// pixels) via fwidth() — so zooming in or out keeps lines the same
-// thickness. Set contour_strength to 0 to disable. Width is in screen
-// pixels; 1.0 = a 1-pixel anti-aliased line.
-uniform float contour_interval : hint_range(0.5, 32.0) = 4.0;
-uniform float contour_line_width : hint_range(0.5, 8.0) = 1.0;
-uniform vec4 contour_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
-uniform float contour_strength : hint_range(0.0, 1.0) = 0.5;
+// ---- elevation step lines ----
+// A line is drawn on any voxel edge where the surface steps, INTO the higher
+// cell (so it reads as the rim of its plateau, not a fence between two cells) —
+// the same rule the world-map painter's outline pass uses. Bucketed by the size
+// of the step: 1 m, 2 m, 3 m-or-more. Alpha rides in the colour.
+uniform vec4 step_ink_1m : source_color = vec4(0.0, 0.0, 0.0, 0.25);
+uniform vec4 step_ink_2m : source_color = vec4(0.0, 0.0, 0.0, 0.75);
+uniform vec4 step_ink_3m : source_color = vec4(1.0, 1.0, 1.0, 0.75);
+// Line thickness in OUTPUT PIXELS, not in cells. A cell fraction cannot serve
+// both consumers: a voxel is ~3 px on the HUD minimap and 12 px on the zoomed-in
+// world map, so one fraction is a hairline on one and a slab on the other.
+// Capped as a fraction of a cell so a line can never swallow the cell it edges.
+uniform float step_line_pixels : hint_range(0.5, 8.0) = 2.0;
+uniform float step_edge_max_fraction : hint_range(0.05, 0.5) = 0.34;
+// Lines fade out once an output pixel covers more than this many world metres —
+// past that there is no cell left to draw an edge inside. So the whole-world
+// overview (5 m/texel) gets none of this and the detail view and HUD minimap
+// get all of it, decided per fragment with no help from the C# side.
+uniform float step_fade_start_mpp : hint_range(0.1, 8.0) = 0.6;
+uniform float step_fade_end_mpp : hint_range(0.1, 8.0) = 1.2;
 
 uniform vec4 void_color : source_color = vec4(0.04, 0.04, 0.06, 1.0);
 uniform float mask_radius : hint_range(0.0, 0.7071) = 0.5;
@@ -115,82 +113,123 @@ vec3 fetch_terrain_color(sampler2D surf_tex, ivec2 coord) {
     return texture(tile_lut, vec2((tile_id + 0.5) / 64.0, 0.5)).rgb;
 }
 
+// Height as stored in the surface texture: R low byte + G high byte, in metres
+// above the world's biased floor. 0 is the no-content sentinel.
+// Category index written into the tile channel by MinimapData — must match
+// EMinimapCategory. Only Prop is named here; the rest arrive in the texture.
+const float PROP_CATEGORY = 4.0;
+
+vec3 fetch_category_color(float category) {
+    return texture(tile_lut, vec2((category + 0.5) / 64.0, 0.5)).rgb;
+}
+
+float decode_height(vec4 texel) {
+    return texel.r * 255.0 + texel.g * 255.0 * 256.0;
+}
+
+// How far THIS cell stands above the neighbour, in metres, or 0 if it does not
+// (or if either side has no content, which is the world edge — a step against
+// nothing is not a cliff).
+float step_drop(float h_here, float h_there) {
+    float both = step(0.5, h_here) * step(0.5, h_there);
+    return max(h_here - h_there, 0.0) * both;
+}
+
+// Resolve ONE already-fetched source texel all the way to its lit colour:
+// category, prop override, elevation shade. Split out so a minifying fragment
+// can average several of them — see sample_layer.
+vec3 resolve_texel(vec4 t, float reference_elev) {
+    vec3 c = fetch_category_color(t.b * 255.0);
+    // A collidable prop REPLACES the ground's category colour rather than
+    // darkening it: the map draws five categories and a prop is one of them, so
+    // "there is a tree here" must not come out as a shade of the soil under it.
+    c = mix(c, fetch_category_color(PROP_CATEGORY), step(0.5, t.a * 255.0));
+
+    // Elevation shading, CONTINUOUS and relative to the player. Not banded: the
+    // old form compared floor(h / plateau_height) against the player's band, so
+    // the boundaries sat at absolute multiples of 4 m in WORLD space. And not
+    // linear in the delta, because the deltas that matter are the small ones —
+    // the metre step you can walk up versus the cliff you cannot. Gamma below 1
+    // is what emphasises them; past the range it clamps so a distant mountain
+    // does not run away to white.
+    float d = clamp((decode_height(t) - reference_elev) / max(elevation_shade_range, 0.001), -1.0, 1.0);
+    float shaped = sign(d) * pow(abs(d), max(elevation_shade_gamma, 0.001));
+    float shade = shaped >= 0.0
+        ? mix(1.0, elevation_shade_above, shaped)
+        : mix(1.0, elevation_shade_below, -shaped);
+    return c * shade;
+}
+
 // Decode one (surface, exploration) pair at `uv` with the given reference
-// elevation. Returns the lit color, a 0/1 has_content flag, and the raw
-// height (for the contour pass).
+// elevation. Returns the lit color, a has_content coverage in 0..1, and the
+// nearest texel's raw height.
 //
-// HEIGHT: one linear-filtered sample (smooth elevation + contour curves).
-// TERRAIN COLOR: 4-tap bilinear blend of the resolved tile colors so
-//   neighbouring tiles transition smoothly without checkerboarding.
-// FOLIAGE: NEAREST-sampled at the dominant texel. Applied AFTER the
-//   terrain blend so foliage stamps keep crisp edges instead of bleeding
-//   their darken into surrounding fragments via the bilinear filter.
+// MAGNIFYING fragments take ONE nearest tap and stay pixel-crisp. MINIFYING
+// ones box-average the source texels they actually cover, and they have to:
+// the zoomed-out level draws 1.25 m of world per texel from a 1 m source, so a
+// single tap keeps one voxel and discards the rest — and because map_rotation
+// spins the sample grid 45° against the axis-aligned voxel grid, that is a
+// moiré that crawls as you pan. The aliasing was baked INTO the render target,
+// so no amount of care at display time could have removed it.
+//
+// The average is over RESOLVED COLOURS, never over the texture. The surface
+// texture is packed INDEX data — R/G height bytes, B the category enum, A the
+// prop flag — so a linear sampler is not merely blurry but wrong: averaging
+// category 1 (Stone) and 3 (Road) yields 2, which is Water.
+//
+// Tap count follows the real footprint (`fwidth` of the source-texel position),
+// so it is exactly 1 wherever the map is magnifying — the detail layer and the
+// HUD minimap pay nothing for this.
+const int MAX_MINIFY_TAPS = 4;
+
 void sample_layer(
     sampler2D surf_tex, sampler2D expl_tex, vec2 uv, float reference_elev,
     out vec3 out_color, out float out_has_content, out float out_height
 ) {
-    vec4 surf = texture(surf_tex, uv);
-    float height = surf.r * 255.0 + surf.g * 255.0 * 256.0;
-    out_height = height;
-    out_has_content = step(0.5, height);
-
     ivec2 itex_size = textureSize(surf_tex, 0);
     vec2 fsz = vec2(itex_size);
-    vec2 pp = uv * fsz - 0.5;
-    ivec2 base = ivec2(floor(pp));
-    vec2 fr = clamp(fract(pp), 0.0, 1.0);
     ivec2 maxc = itex_size - 1;
-
-    // Bilinear blend of terrain (tile) colors only.
-    vec3 c00 = fetch_terrain_color(surf_tex, clamp(base + ivec2(0, 0), ivec2(0), maxc));
-    vec3 c10 = fetch_terrain_color(surf_tex, clamp(base + ivec2(1, 0), ivec2(0), maxc));
-    vec3 c01 = fetch_terrain_color(surf_tex, clamp(base + ivec2(0, 1), ivec2(0), maxc));
-    vec3 c11 = fetch_terrain_color(surf_tex, clamp(base + ivec2(1, 1), ivec2(0), maxc));
-    vec3 color = mix(mix(c00, c10, fr.x), mix(c01, c11, fr.x), fr.y);
-
-    // Foliage: nearest-neighbor — sharp edges, no bilinear bleed.
-    ivec2 nearest_coord = clamp(ivec2(uv * fsz), ivec2(0), maxc);
+    vec2 pp = uv * fsz;
+    ivec2 nearest_coord = clamp(ivec2(pp), ivec2(0), maxc);
     vec4 surf_nearest = texelFetch(surf_tex, nearest_coord, 0);
-    float foliage_id = surf_nearest.a * 255.0;
-    vec4 foli = texture(foliage_lut, vec2((foliage_id + 0.5) / 256.0, 0.5));
-    float foli_strength = step(0.5, foliage_id) * foli.a;
-    color *= mix(vec3(1.0), foli.rgb, foli_strength);
 
-    // Plateau-banded above/below treatment. Use NEAREST-sampled height
-    // (not the linear-filtered `height`) so the plateau doesn't drift
-    // through the player's plateau as the linear filter interpolates from
-    // a content cell (slice center, e.g. h=10) toward an empty cell
-    // (h=0). With linear h, fragments in the empty cell where h0 ∈ [8, 12)
-    // would falsely classify as the player's plateau and render bright;
-    // nearest-sampled h jumps cleanly between cells so plateau matches
-    // the cell the fragment lives in.
-    float h_nearest = surf_nearest.r * 255.0 + surf_nearest.g * 255.0 * 256.0;
-    float pixel_plateau = floor(h_nearest / plateau_height);
-    float ref_plateau = floor(reference_elev / plateau_height);
-    float plateau_diff = pixel_plateau - ref_plateau;
-    float t_above = step(0.5, plateau_diff);
-    float t_below = step(0.5, -plateau_diff);
-    float brightness = 1.0
-        + (above_brightness - 1.0) * t_above
-        + (below_brightness - 1.0) * t_below;
-    float saturation = 1.0
-        + (above_saturation - 1.0) * t_above
-        + (below_saturation - 1.0) * t_below;
-    color *= brightness;
-    float luma = dot(color, vec3(0.299, 0.587, 0.114));
-    color = mix(vec3(luma), color, saturation);
+    // The step lines and the caller want THIS cell's height, not a blend of its
+    // neighbours', whatever the tap count.
+    out_height = decode_height(surf_nearest);
 
-    // Off-plateau dynamic-range compression: bright values lose brightness
-    // while dark values gain it, both sliding toward middle gray. Doesn't
-    // push any channel past 0.5 — just shrinks the spread. Above and below
-    // sides use their own contrast knobs so each side can be tuned
-    // independently.
-    float compress = (1.0 - above_contrast) * t_above
-                   + (1.0 - below_contrast) * t_below;
-    color = mix(color, vec3(0.5), compress);
+    // Source texels covered by one output pixel. Must be outside any branch.
+    vec2 span2 = vec2(fwidth(pp.x), fwidth(pp.y));
+    float span = max(span2.x, span2.y);
+    int taps = clamp(int(ceil(span)), 1, MAX_MINIFY_TAPS);
 
-    float explored = max(texture(expl_tex, uv).r, min_reveal);
-    color *= explored;
+    vec3 color;
+    if (taps <= 1) {
+        color = resolve_texel(surf_nearest, reference_elev);
+        out_has_content = step(0.5, out_height);
+    } else {
+        vec3 sum = vec3(0.0);
+        float hits = 0.0;
+        float inv = 1.0 / float(taps);
+        for (int j = 0; j < MAX_MINIFY_TAPS; j++) {
+            if (j >= taps) { break; }
+            for (int i = 0; i < MAX_MINIFY_TAPS; i++) {
+                if (i >= taps) { break; }
+                vec2 off = ((vec2(float(i), float(j)) + 0.5) * inv - 0.5) * span;
+                vec4 t = texelFetch(surf_tex, clamp(ivec2(pp + off), ivec2(0), maxc), 0);
+                // Empty texels are skipped rather than averaged in: their height
+                // is the 0 sentinel, which the shade would read as a cliff and
+                // darken the coastline with. Coverage becomes the fraction that
+                // DID hit content, so the world edge fades instead of stepping.
+                if (decode_height(t) < 0.5) { continue; }
+                sum += resolve_texel(t, reference_elev);
+                hits += 1.0;
+            }
+        }
+        out_has_content = hits / float(taps * taps);
+        color = hits > 0.0 ? sum / hits : vec3(0.0);
+    }
+
+    color *= max(texture(expl_tex, uv).r, min_reveal);
     out_color = color;
 }
 
@@ -232,36 +271,49 @@ void render_state(
     composed = mix(composed, c1, has1);
     composed = mix(composed, c0, has0);
 
-    // Topographic contour lines drawn from the active layer's height.
-    // fwidth gives the per-screen-pixel rate of change so the line stays
-    // ~contour_line_width screen pixels wide regardless of zoom.
+    // ---- elevation step lines ----
+    // The surface texture is one texel per voxel column, so the texel grid IS
+    // the voxel grid: a fragment's fractional position inside its texel is its
+    // position inside the metre cell, which is what lets a line be a third of a
+    // cell wide rather than a whole cell.
     //
-    // Gated by NEIGHBOR elevation differential: the line only draws where
-    // at least one cardinal neighbor differs by ≥ plateau_height. Smooth
-    // ramps (1m gradient between source pixels) skip the contour, hard
-    // plateau steps draw it.
-    ivec2 atex_size = textureSize(surf, 0);
-    ivec2 atex_coord = clamp(ivec2(safe_uv * vec2(atex_size)), ivec2(0), atex_size - 1);
-    vec4 sc = texelFetch(surf, atex_coord, 0);
-    vec4 sl = texelFetch(surf, clamp(atex_coord + ivec2(-1, 0), ivec2(0), atex_size - 1), 0);
-    vec4 sr = texelFetch(surf, clamp(atex_coord + ivec2( 1, 0), ivec2(0), atex_size - 1), 0);
-    vec4 sd = texelFetch(surf, clamp(atex_coord + ivec2(0, -1), ivec2(0), atex_size - 1), 0);
-    vec4 su = texelFetch(surf, clamp(atex_coord + ivec2(0,  1), ivec2(0), atex_size - 1), 0);
-    float h_c = sc.r * 255.0 + sc.g * 255.0 * 256.0;
-    float h_l = sl.r * 255.0 + sl.g * 255.0 * 256.0;
-    float h_r = sr.r * 255.0 + sr.g * 255.0 * 256.0;
-    float h_d = sd.r * 255.0 + sd.g * 255.0 * 256.0;
-    float h_u = su.r * 255.0 + su.g * 255.0 * 256.0;
-    float max_diff = max(max(abs(h_l - h_c), abs(h_r - h_c)),
-                         max(abs(h_d - h_c), abs(h_u - h_c)));
-    float is_step = step(plateau_height * 0.9, max_diff);
+    // Each of the four edges is tested from the perspective of THIS cell, and
+    // only when this cell is the higher of the pair — so the line lands on the
+    // rim of the plateau, and the neighbouring fragment across the boundary
+    // draws nothing. A corner takes the largest step of the edges that apply.
+    ivec2 tsz = textureSize(surf, 0);
+    ivec2 tmax = tsz - 1;
+    vec2 cellpp = safe_uv * vec2(tsz);
+    ivec2 cell = clamp(ivec2(floor(cellpp)), ivec2(0), tmax);
+    vec2 cell_frac = fract(cellpp);
 
-    float halfInt = contour_interval * 0.5;
-    float modH = mod(h0 + halfInt, contour_interval) - halfInt;
-    float dist_to_line = abs(modH);
-    float aa = max(fwidth(h0) * contour_line_width * 0.5, 0.0001);
-    float line = 1.0 - smoothstep(aa, aa * 2.0, dist_to_line);
-    composed = mix(composed, contour_color.rgb, line * contour_strength * has0 * is_step);
+    float h_here = decode_height(texelFetch(surf, cell, 0));
+    float h_negx = decode_height(texelFetch(surf, clamp(cell + ivec2(-1, 0), ivec2(0), tmax), 0));
+    float h_posx = decode_height(texelFetch(surf, clamp(cell + ivec2( 1, 0), ivec2(0), tmax), 0));
+    float h_negy = decode_height(texelFetch(surf, clamp(cell + ivec2(0, -1), ivec2(0), tmax), 0));
+    float h_posy = decode_height(texelFetch(surf, clamp(cell + ivec2(0,  1), ivec2(0), tmax), 0));
+
+    // Metres per output pixel — needed BEFORE the edge tests now, since the
+    // line width is expressed in pixels and converted into cells here.
+    vec2 world_deriv = vec2(fwidth(world_xz.x), fwidth(world_xz.y));
+    float mpp = max(world_deriv.x, world_deriv.y);
+    float w = min(step_line_pixels * mpp, step_edge_max_fraction);
+    float drop = 0.0;
+    drop = max(drop, step_drop(h_here, h_negx) * step(cell_frac.x, w));
+    drop = max(drop, step_drop(h_here, h_posx) * step(1.0 - w, cell_frac.x));
+    drop = max(drop, step_drop(h_here, h_negy) * step(cell_frac.y, w));
+    drop = max(drop, step_drop(h_here, h_posy) * step(1.0 - w, cell_frac.y));
+
+    // Past ~1 metre per output pixel there is no cell left to draw an edge
+    // inside, so the whole-world overview fades them out on its own.
+    float line_fade = 1.0 - smoothstep(step_fade_start_mpp, step_fade_end_mpp, mpp);
+
+    vec4 step_ink = drop >= 2.5 ? step_ink_3m : (drop >= 1.5 ? step_ink_2m : step_ink_1m);
+    // Gated on reveal like the ground under it — a contour in unexplored fog
+    // would chart terrain the party has never seen.
+    float line_reveal = max(texelFetch(expl, cell, 0).r, min_reveal);
+    float line_on = step(0.5, drop) * line_fade * line_reveal * has0;
+    composed = mix(composed, step_ink.rgb, step_ink.a * line_on);
 
     float any = max(has0, max(has1, has2));
     out_has_any = any * (1.0 - float(out_of_bounds));

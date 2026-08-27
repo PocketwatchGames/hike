@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="WeatherData" format=3 uid="uid://d2x3spq14fvxw"]
+
+[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="1_weather"]
+
+[resource]
+script = ExtResource("1_weather")
+resource_name = "Heavy Snow"
+cloudCover = 0.92
+windSpeed = 8.0
+airTemperature = 24.0
+sunTemperature = 5.0
+humidity = 0.7
+rainAmount = 0.75
+lightningAmount = 0.0
+metadata/_custom_type_script = "uid://d25sc6n2mi728"

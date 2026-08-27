@@ -12,6 +12,7 @@ top = ExtResource("2_stone")
 side = ExtResource("2_stone")
 wallBand = Vector2(0.4, 0.65)
 minimapColor = Color(0.4608,0.4608,0.48, 1)
+minimapCategory = 1
 defaultShape = 7
 groundType = 1
 edgeRoughness = 0.2

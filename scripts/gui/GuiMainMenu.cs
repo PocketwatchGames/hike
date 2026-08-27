@@ -21,6 +21,10 @@ public partial class GuiMainMenu : Node
 	// Directories scanned (non-recursively) for editor documents, per kind.
 	[Export] public string[] sceneFileSearchDirs = { SubsceneFile.DEFAULT_SCENE_DIR };
 	[Export] public string[] worldFileSearchDirs = { "user://", "res://resources/data/worldmap/" };
+	// Scanned (non-recursively) for world-map painter documents. A .tres here is
+	// filtered by the class its header names, since the layer files, the brush
+	// and the placements list share the directory and the extension.
+	[Export] public string[] worldMapSearchDirs = { "res://resources/data/worldmap/" };
 	// Save target for a brand-new document; uniquified (scene_2.hikescene, ...)
 	// when the file already exists so a new one never clobbers an old one. The
 	// extension is also what tells the editor which kind it's opening.
@@ -31,12 +35,15 @@ public partial class GuiMainMenu : Node
 	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData);
 	[Signal] public delegate void OnLoadGameEventHandler(string savePath);
 	[Signal] public delegate void OnStartEditorEventHandler(WorldGenData worldGenData, string worldFilePath);
-	[Signal] public delegate void OnStartPainterEventHandler(WorldGenData worldGenData);
+	// documentPath is the WorldMapData the picker chose; empty keeps whatever the
+	// painter scene authors as its default.
+	[Signal] public delegate void OnStartPainterEventHandler(WorldGenData worldGenData, string documentPath);
 
 	private enum SelectorMode
 	{
 		NewGame,
 		Editor,
+		Painter,
 	}
 
 	// The two fixed rows at the top of the editor list.
@@ -80,9 +87,11 @@ public partial class GuiMainMenu : Node
 		EmitSignal(SignalName.OnLoadGame, CVars.savePath.Value);
 	}
 
-	public void StartPainter()
+	public void ShowPainterOptions()
 	{
-		EmitSignal(SignalName.OnStartPainter, worldGenData);
+		_mode = SelectorMode.Painter;
+		PopulatePainterList();
+		ShowSelector();
 	}
 
 	public void ShowControls()
@@ -110,6 +119,10 @@ public partial class GuiMainMenu : Node
 		if (_mode == SelectorMode.Editor)
 		{
 			StartEditor();
+		}
+		else if (_mode == SelectorMode.Painter)
+		{
+			StartPainter();
 		}
 		else
 		{
@@ -168,6 +181,11 @@ public partial class GuiMainMenu : Node
 		EmitSignal(SignalName.OnStartEditor, worldGenData, SelectedWorldFile());
 	}
 
+	public void StartPainter()
+	{
+		EmitSignal(SignalName.OnStartPainter, worldGenData, SelectedDocumentPath());
+	}
+
 	// --- Selection ------------------------------------------------------
 
 	private void PopulateWorldGenList()
@@ -221,7 +239,29 @@ public partial class GuiMainMenu : Node
 		worldList.Select(0);
 	}
 
-	private void AddDocuments(string[] searchDirs, string extension)
+	// Every WorldMapData the painter can open. No "new document" row: a document
+	// is a .tres plus the layer files it names, so making one is an authoring
+	// step in the editor rather than something a picker can mint.
+	private void PopulatePainterList()
+	{
+		if (worldList == null)
+		{
+			return;
+		}
+		worldList.Clear();
+		_documentPaths.Clear();
+		AddDocuments(worldMapSearchDirs, "tres", nameof(WorldMapData));
+		if (worldList.ItemCount > 0)
+		{
+			worldList.Select(0);
+		}
+	}
+
+	// scriptClass, when given, keeps only the .tres files whose header names that
+	// class — read as one line rather than loaded, since loading a world-map
+	// document pulls in its whole WorldGenData graph and the picker is listing
+	// files, not opening them.
+	private void AddDocuments(string[] searchDirs, string extension, string scriptClass = null)
 	{
 		foreach (string dir in searchDirs)
 		{
@@ -236,12 +276,31 @@ public partial class GuiMainMenu : Node
 			}
 			foreach (string osPath in System.IO.Directory.GetFiles(osDir, $"*.{extension}"))
 			{
+				if (scriptClass != null && !IsResourceOfClass(osPath, scriptClass))
+				{
+					continue;
+				}
 				string fileName = System.IO.Path.GetFileName(osPath);
 				worldList.AddItem(fileName);
 				// PathJoin, not manual concat: trimming slashes off a bare
 				// "user://" leaves "user:", which globalizes to a bogus path.
 				_documentPaths.Add(dir.PathJoin(fileName));
 			}
+		}
+	}
+
+	private static bool IsResourceOfClass(string osPath, string scriptClass)
+	{
+		try
+		{
+			using var reader = new System.IO.StreamReader(osPath);
+			string header = reader.ReadLine();
+			return header != null && header.Contains($"script_class=\"{scriptClass}\"");
+		}
+		catch (System.Exception e)
+		{
+			GD.PrintErr($"GuiMainMenu: could not read '{osPath}': {e.Message}");
+			return false;
 		}
 	}
 
@@ -290,6 +349,14 @@ public partial class GuiMainMenu : Node
 			return _documentPaths[index];
 		}
 		return UnusedDocumentPath(index == NEW_WORLD_INDEX ? newWorldPath : newScenePath);
+	}
+
+	// The picked file, or empty for no selection — which is what a direct launch
+	// (no selector shown) passes, and means "keep the scene's own default".
+	private string SelectedDocumentPath()
+	{
+		int index = SelectedIndex();
+		return index >= 0 && index < _documentPaths.Count ? _documentPaths[index] ?? "" : "";
 	}
 
 	private string UnusedDocumentPath(string template)

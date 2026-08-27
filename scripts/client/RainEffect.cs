@@ -1,10 +1,18 @@
 using Godot;
 
-// Camera-parented rain visuals: falling streaks above the view + ground splashes
-// around the player. SkyController.Apply() calls SetIntensity() every frame with
-// the derived-palette rain intensity (blended across the player's current zone
-// mix), so transitions in/out as the player walks between zones fade smoothly
-// without this node needing to know about zone blending.
+// Camera-parented precipitation visuals: falling rain streaks + ground splashes
+// around the player, and the snow that replaces them where the air is cold and
+// the zone is dressed for it. SkyController.Apply() calls SetIntensity() every
+// frame with the derived-palette rain and snow intensities (blended across the
+// player's current zone mix), so transitions in/out as the player walks between
+// zones fade smoothly without this node needing to know about zone blending.
+//
+// Rain and snow share this node rather than getting one each because everything
+// hard here is common to both: the emitter anchoring above the player, the wind
+// tilt, and above all the per-fragment sky-exposure occlusion that stops
+// precipitation rendering under roofs and canopy. They differ only in the
+// emitter tuning and the draw material. Near freezing both run at once, which is
+// what sleet is.
 //
 // Two mechanisms hide rain in covered areas:
 //   1. Falling streaks ALWAYS emit (the CPU just scales rate by rainIntensity).
@@ -35,6 +43,10 @@ public partial class RainEffect : Node3D
 
     [Export] public GpuParticles3D fallingParticles;
     [Export] public GpuParticles3D splashParticles;
+    // Falling snow. Emits on the same always-on / AmountRatio-scaled basis as
+    // the rain streaks and clips per-fragment in shaders/snow_flake.gdshader.
+    // Snow makes no splashes: a flake lands and stays, it does not burst.
+    [Export] public GpuParticles3D snowParticles;
     // Optional diagnostic marker system. Same emit path (EmitParticle) as the
     // real splashes but with a known-good opaque material + simple mesh — if
     // these render at splash hit points while real splashes don't, the bug
@@ -70,6 +82,17 @@ public partial class RainEffect : Node3D
     // tame at the cap. Sampled at spawn; rain re-tilts when wind weather
     // changes (call ApplyWindToFallingRain() from the change site).
     [Export(PropertyHint.Range, "0,75,0.5")] public float maxWindTiltDegrees = 45f;
+    // Snow's tilt multiplier against the rain tilt computed from the same wind.
+    // A flake has a huge drag-to-mass ratio, so it is carried far closer to
+    // horizontal than a raindrop by the same wind — this is what makes a
+    // blizzard read as driven rather than as heavy snowfall. > 1 by design; the
+    // maxWindTiltDegrees clamp still applies afterward, so it saturates at
+    // "blowing sideways" instead of running past it.
+    [Export(PropertyHint.Range, "1,6,0.05")] public float snowWindTiltScale = 3.0f;
+    // Hard cap on SNOW tilt, separately from rain's. Higher than the rain cap
+    // because near-horizontal snow is a real and readable look where
+    // near-horizontal rain is not.
+    [Export(PropertyHint.Range, "0,89,0.5")] public float snowMaxWindTiltDegrees = 72f;
     // The direction rain is falling. Set from wind at _Ready and left static
     // after that. Splashes read this for their reflection; the falling
     // particles' process material has its Direction / InitialVelocity set
@@ -123,6 +146,11 @@ public partial class RainEffect : Node3D
     // each frame to re-tilt rain as wind lerps — mutating the scene's shared
     // .tres directly would persist to disk on the next editor save.
     private ParticleProcessMaterial _fallProcRuntime;
+    // Same duplicate-on-ready rationale as _fallProcRuntime: we rewrite
+    // Direction every frame to re-tilt the snow into the wind, and mutating
+    // the scene's shared .tres would persist that to disk on an editor save.
+    private ParticleProcessMaterial _snowProcRuntime;
+    private float _snowIntensity;
 
     // Public runtime material handles and cached baseline values. SkyController's
     // ApplyPrecipitation() scales these by the derived-palette rain weight every frame;
@@ -131,6 +159,7 @@ public partial class RainEffect : Node3D
     // disk. Duplication happens in _Ready so the writes never leak back to the
     // scene's shared resources.
     public ParticleProcessMaterial FallProcRuntime => _fallProcRuntime;
+    public ParticleProcessMaterial SnowProcRuntime => _snowProcRuntime;
     public ShaderMaterial DropMatRuntime { get; private set; }
     public ShaderMaterial SplashMatRuntime { get; private set; }
     public float BaseInitialVelocityMin { get; private set; }
@@ -192,6 +221,12 @@ public partial class RainEffect : Node3D
             fallingParticles.ProcessMaterial = _fallProcRuntime;
             BaseInitialVelocityMin = _fallProcRuntime.InitialVelocityMin;
             BaseInitialVelocityMax = _fallProcRuntime.InitialVelocityMax;
+        }
+
+        if (snowParticles?.ProcessMaterial is ParticleProcessMaterial snowProc)
+        {
+            _snowProcRuntime = (ParticleProcessMaterial)snowProc.Duplicate();
+            snowParticles.ProcessMaterial = _snowProcRuntime;
         }
 
         // Same rationale for the drop shader material — SkyController scales its
@@ -261,27 +296,41 @@ public partial class RainEffect : Node3D
         // cut the wind effect; drizzle amplifies it. Max-tilt clamp still runs
         // so extreme weight values can't rotate rain past physically readable.
         float tiltDeg = Mathf.Min(gustedSpeed * tiltDegPerMps * WindTiltScale, maxWindTiltDegrees);
-        float tiltRad = Mathf.DegToRad(tiltDeg);
-
-        // Rain direction is straight-down rotated toward windXZ by tiltRad.
-        // Magnitude = 1 by construction (sin² + cos² = 1 across the components).
-        Vector3 rainDir = new Vector3(
-            windXZ.X * Mathf.Sin(tiltRad),
-            -Mathf.Cos(tiltRad),
-            windXZ.Y * Mathf.Sin(tiltRad));
-        rainIncomingDir = rainDir;
+        rainIncomingDir = TiltedFallDirection(windXZ, tiltDeg);
 
         if (_fallProcRuntime != null)
         {
-            _fallProcRuntime.Direction = rainDir;
+            _fallProcRuntime.Direction = rainIncomingDir;
+        }
+
+        // Snow off the SAME wind, but far more of it: a flake has nothing like
+        // a drop's terminal velocity, so it is pushed toward horizontal where a
+        // drop is barely deflected. Its own clamp, deliberately looser.
+        if (_snowProcRuntime != null)
+        {
+            float snowTiltDeg = Mathf.Min(
+                gustedSpeed * tiltDegPerMps * snowWindTiltScale, snowMaxWindTiltDegrees);
+            _snowProcRuntime.Direction = TiltedFallDirection(windXZ, snowTiltDeg);
         }
     }
 
-    // Called by SkyController.Apply() every frame. `intensity` is the already-
-    // blended derived rain intensity — this node just consumes it.
-    public void SetIntensity(float intensity)
+    // Straight-down rotated toward `windXZ` by `tiltDeg`. Magnitude is 1 by
+    // construction (sin² + cos² = 1 across the components).
+    private static Vector3 TiltedFallDirection(Vector2 windXZ, float tiltDeg)
     {
-        _intensity = Mathf.Clamp(intensity, 0f, 1f);
+        float tiltRad = Mathf.DegToRad(tiltDeg);
+        float s = Mathf.Sin(tiltRad);
+        return new Vector3(windXZ.X * s, -Mathf.Cos(tiltRad), windXZ.Y * s);
+    }
+
+    // Called by SkyController.Apply() every frame. Both values are the already-
+    // blended derived intensities — this node just consumes them. They are
+    // independent rather than one value plus a phase, so near freezing both can
+    // be non-zero at once and the sky genuinely sleets.
+    public void SetIntensity(float rainIntensity, float snowIntensity)
+    {
+        _intensity = Mathf.Clamp(rainIntensity, 0f, 1f);
+        _snowIntensity = Mathf.Clamp(snowIntensity, 0f, 1f);
     }
 
     public override void _Process(double delta)
@@ -315,6 +364,13 @@ public partial class RainEffect : Node3D
         if (fallingParticles != null)
         {
             fallingParticles.AmountRatio = _intensity;
+        }
+        // Snow rides the identical always-emitting / ratio-scaled path, and
+        // clips per-fragment in its own shader against the same sky-exposure
+        // field, so it stops at a cave mouth exactly where the rain does.
+        if (snowParticles != null)
+        {
+            snowParticles.AmountRatio = _snowIntensity;
         }
 
         // Re-tilt rain to match the current (already-lerped) wind. Must run

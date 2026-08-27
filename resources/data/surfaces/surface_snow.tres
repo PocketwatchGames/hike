@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://dwyv7abgsj0pn"]
+
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_block"]
+
+[resource]
+script = ExtResource("1_block")
+surfaceName = &"Snow"
+atlasBaseIndex = 22
+porosity = 0.85
+metadata/_custom_type_script = "uid://5fcg1eylatss"

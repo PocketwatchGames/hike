@@ -14,7 +14,7 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="11_wd"]
 [ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="12_cry"]
 [ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="13_claw"]
-[ext_resource type="Resource" uid="uid://mjuk30au128b" path="res://resources/data/characters/ability_tells/ability_tell_venom.tres" id="14_tell"]
+[ext_resource type="Resource" uid="uid://xsy24gir9acrv" path="res://resources/data/characters/ability_tells/ability_tell_venom.tres" id="14_tell"]
 
 [sub_resource type="Resource" id="Desc_loot_meat"]
 script = ExtResource("9_desc")

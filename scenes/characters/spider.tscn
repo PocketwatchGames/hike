@@ -20,6 +20,7 @@
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="PackedScene" uid="uid://skjv6ciciwfo" path="res://scenes/fx/spider_idle_loop.tscn" id="50_idle"]
 [ext_resource type="Resource" uid="uid://byrx0q8qpx7wx" path="res://resources/data/characters/spider/spider_voice.tres" id="51_voice"]
+[ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
 radius = 1.0
@@ -52,7 +53,8 @@ _footstepEffects = Dictionary[int, PackedScene]({
 2: ExtResource("11_fstsand"),
 3: ExtResource("11_fstwater"),
 4: ExtResource("11_fstmud"),
-5: ExtResource("11_fststone")
+5: ExtResource("11_fststone"),
+7: ExtResource("99_fstsnow")
 })
 _footprintTexture = ExtResource("8_fp")
 _footprintSize = Vector2(0.3, 0.3)

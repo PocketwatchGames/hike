@@ -7,7 +7,8 @@ using Godot;
 //
 // TWO ZOOM LEVELS, EACH WITH ITS OWN RENDER TARGET. Both SubViewports run the
 // same minimap shader the HUD uses, at fixed but different resolutions:
-//   Overview — the whole world at `overviewMetersPerPixel`.
+//   Overview — `overviewViewMeters` of world across, capped at the world's
+//              own extent, linearly filtered and antialiased.
 //   Detail   — a window around the pan center at `detailPixelsPerMeter`, sized
 //              so it displays 1:1 when fully zoomed in.
 // Rendering at a FIXED resolution and magnifying with a nearest filter is the
@@ -46,8 +47,22 @@ public partial class WorldMapScreen : Control
 	// ColorRect is all it needs.
 	[Export] public ColorRect overviewSurface;
 	[Export] public TextureRect overviewRect;
-	// World meters per texel of the whole-world render. Bigger = chunkier.
-	[Export(PropertyHint.Range, "0.5,32,0.25,or_greater")] public float overviewMetersPerPixel = 5f;
+	// World meters per texel of the overview render. Bigger = chunkier.
+	[Export(PropertyHint.Range, "0.25,32,0.25,or_greater")] public float overviewMetersPerPixel = 1.25f;
+	// World distance across the zoomed-OUT view, in METRES — an absolute scale,
+	// not a fraction of the world. A fraction made the overview mean something
+	// different in every world: the same setting is a 288 m read on the shipped
+	// map and a 5000 m one on a large map, so it could not be authored against.
+	//
+	// It also pins the render target, which a fraction could not: the target is
+	// `overviewViewMeters / overviewMetersPerPixel`, both absolute, so its size
+	// is the same in every world instead of growing with the world until it hit
+	// the maxViewportPixels clamp.
+	//
+	// CAPPED at the world's own extent, so the overview never zooms out past the
+	// map into void — which means that on a world smaller than this, raising it
+	// does nothing and the view simply fits the world.
+	[Export(PropertyHint.Range, "32,8192,16,or_greater")] public float overviewViewMeters = 512f;
 
 	[ExportGroup("Detail Layer")]
 	[Export] public SubViewport detailViewport;
@@ -56,7 +71,14 @@ public partial class WorldMapScreen : Control
 	// Texels per world meter of the zoomed-in render. The detail viewport is
 	// sized to the panel, so this also sets how much world the zoomed-in view
 	// shows: panelPixels / detailPixelsPerMeter meters across.
-	[Export(PropertyHint.Range, "0.25,16,0.25,or_greater")] public float detailPixelsPerMeter = 3f;
+	//
+	// A free float — nothing wants it integral or a power of two. The map is
+	// sampled through a 45° rotation, so a voxel never maps to an axis-aligned
+	// block of texels whatever this is; the layer displays 1:1, so there is no
+	// magnification step to keep integral; and the step lines are measured in
+	// output pixels rather than in cells. Raising it costs no memory either,
+	// since the target is the panel's size regardless.
+	[Export(PropertyHint.Range, "0.25,32,0.25,or_greater")] public float detailPixelsPerMeter = 15f;
 
 	[ExportGroup("Zoom / Pan")]
 	[Export(PropertyHint.Range, "0.05,2,0.01")] public float zoomTransitionSeconds = 0.25f;
@@ -81,7 +103,7 @@ public partial class WorldMapScreen : Control
 	// treasure map. Populated from SimState.TreasureMaps.
 	[Export] public OptionButton mapSelector;
 	// Zoom used for a treasure map — a small view radius so the marked area reads
-	// close-up, versus the whole-world radius the world map computes.
+	// close-up, versus the radius the world map computes for itself.
 	[Export(PropertyHint.Range, "16,200,1")] public float treasureMapViewRadiusMeters = 48f;
 	// Icon drawn at the dig spot (map center) on a treasure map. Null = a drawn red X.
 	[Export] public Texture2D treasureXIcon;
@@ -122,7 +144,7 @@ public partial class WorldMapScreen : Control
 	}
 	class LayerBinding
 	{
-		public Texture2D TileLut, FoliageLut;
+		public Texture2D TileLut;
 		public readonly BoundStateTextures A = new();
 		public readonly BoundStateTextures B = new();
 	}
@@ -138,13 +160,13 @@ public partial class WorldMapScreen : Control
 	// false = overview, true = detail. `_zoomBlend` chases it 0 → 1.
 	bool _zoomedIn;
 	float _zoomBlend;
-	// Detail-view center as an offset from the world center, in MAP space (the
-	// north-rotated frame the textures are drawn in), meters. Kept in map space
-	// because that is the frame pan input arrives in — screen up is −Y here,
-	// with no rotation to apply.
+	// Where the player has panned to, as an offset from the world center, in MAP
+	// space (the north-rotated frame the textures are drawn in), meters. Kept in
+	// map space because that is the frame pan input arrives in — screen up is −Y
+	// here, with no rotation to apply. Stored at the DETAIL level's freedom; each
+	// level re-clamps it to its own radius when it draws.
 	Vector2 _panOffsetMap;
-	// Cleared on open so the first frame with a live world re-centers the detail
-	// view on the player.
+	// Cleared on open so the first frame with a live world centers on the player.
 	bool _panPrimed;
 
 	public override void _Ready()
@@ -265,6 +287,14 @@ public partial class WorldMapScreen : Control
 		return Mathf.Max(1f, (extent.X + extent.Y) * 0.5f * Mathf.Sqrt2 * 0.5f);
 	}
 
+	// Half-extent the OVERVIEW level shows: the authored metre extent, but never
+	// more than the world has. Where the cap bites, the overview fits the world
+	// exactly and has nothing left to pan.
+	float OverviewViewRadius(Minimap minimap)
+	{
+		return Mathf.Max(1f, Mathf.Min(overviewViewMeters * 0.5f, WorldViewRadius(minimap)));
+	}
+
 	// Half-extent the detail render covers: its texel count at the authored
 	// texels-per-meter.
 	float DetailViewRadius()
@@ -301,7 +331,7 @@ public partial class WorldMapScreen : Control
 		int cap = Mathf.Max(MinViewportPixels, maxViewportPixels);
 		if (overviewViewport != null)
 		{
-			float diameter = WorldViewRadius(minimap) * 2f;
+			float diameter = OverviewViewRadius(minimap) * 2f;
 			int px = Mathf.Clamp(
 				Mathf.CeilToInt(diameter / Mathf.Max(0.05f, overviewMetersPerPixel)),
 				MinViewportPixels, cap);
@@ -326,7 +356,7 @@ public partial class WorldMapScreen : Control
 	void RenderWorldMap(ShaderMaterial overviewMat, ShaderMaterial detailMat, Minimap minimap, float delta)
 	{
 		Vector2 worldCenter = WorldCenterXZ(minimap);
-		float worldRadius = WorldViewRadius(minimap);
+		float overviewRadius = OverviewViewRadius(minimap);
 		float detailRadius = DetailViewRadius();
 
 		// Wait for a real player rather than priming on a null: an unspawned
@@ -353,22 +383,32 @@ public partial class WorldMapScreen : Control
 
 		// A view radius is a multiplier, so the zoom interpolates geometrically —
 		// a linear lerp crawls at the wide end and lurches at the near one.
-		float viewRadius = Mathf.Exp(Mathf.Lerp(Mathf.Log(worldRadius), Mathf.Log(detailRadius), t));
+		float viewRadius = Mathf.Exp(Mathf.Lerp(Mathf.Log(overviewRadius), Mathf.Log(detailRadius), t));
 
 		Vector2 pan = Input.GetVector("MoveLeft", "MoveRight", "MoveUp", "MoveDown");
 		if (pan != Vector2.Zero)
 		{
 			_panOffsetMap += pan * (panScreensPerSecond * viewRadius * 2f * delta);
 		}
+		// Each level is clamped by its OWN radius, and the DISPLAYED center
+		// interpolates between the two. This is what lets the zoomed-out level be
+		// either thing: where `overviewViewMeters` covers the whole world it has no
+		// room to pan and sits on the world center while the detail level keeps
+		// the pan, and where it covers less it pans within its own limits.
+		//
+		// The STORED pan is clamped by the DETAIL radius, the loosest of the two.
+		// Clamping it by the current (wider) view radius instead dragged it to
+		// zero whenever you were zoomed out, so zooming back in landed on the
+		// middle of the world rather than where you had been looking.
 		_panOffsetMap = ClampPan(_panOffsetMap, minimap, detailRadius);
-
-		// Overview sits on the world center; the detail render follows the pan.
+		Vector2 overviewCenterMap = ClampPan(_panOffsetMap, minimap, overviewRadius);
 		Vector2 detailCenterMap = _panOffsetMap;
-		Vector2 viewCenterMap = detailCenterMap * t;
+		Vector2 viewCenterMap = overviewCenterMap.Lerp(detailCenterMap, t);
 		Vector2 viewCenterWorld = worldCenter + MapToWorldOffset(viewCenterMap);
 
 		PushLayerState(overviewMat, minimap, _overviewBind, includeStateA: true);
-		PushFraming(overviewMat, worldCenter, worldRadius, NorthMapRotation, minimap.StateTransition, 0f);
+		PushFraming(overviewMat, worldCenter + MapToWorldOffset(overviewCenterMap), overviewRadius,
+			NorthMapRotation, minimap.StateTransition, 0f);
 		PushLayerState(detailMat, minimap, _detailBind, includeStateA: true);
 		PushFraming(detailMat, worldCenter + MapToWorldOffset(detailCenterMap), detailRadius,
 			NorthMapRotation, minimap.StateTransition, 0f);
@@ -376,7 +416,7 @@ public partial class WorldMapScreen : Control
 		// The overview draws opaque underneath and the detail dissolves over it,
 		// so the pair reads as a straight cross-fade with no panel showing
 		// through at half blend.
-		LayoutLayer(overviewRect, Vector2.Zero, worldRadius, viewCenterMap, viewRadius, 1f, t < 0.999f);
+		LayoutLayer(overviewRect, overviewCenterMap, overviewRadius, viewCenterMap, viewRadius, 1f, t < 0.999f);
 		LayoutLayer(detailRect, detailCenterMap, detailRadius, viewCenterMap, viewRadius, t, t > 0.001f);
 		SetViewportActive(overviewViewport, t < 0.999f);
 		SetViewportActive(detailViewport, t > 0.001f);
@@ -683,11 +723,6 @@ public partial class WorldMapScreen : Control
 		{
 			mat.SetShaderParameter("tile_lut", minimap.TileLutTexture);
 			bind.TileLut = minimap.TileLutTexture;
-		}
-		if (minimap.FoliageLutTexture != bind.FoliageLut)
-		{
-			mat.SetShaderParameter("foliage_lut", minimap.FoliageLutTexture);
-			bind.FoliageLut = minimap.FoliageLutTexture;
 		}
 		if (includeStateA)
 		{

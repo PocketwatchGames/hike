@@ -6,5 +6,6 @@
 [node name="Minimap" type="Node3D"]
 script = ExtResource("1_mnmap")
 foliageColors = ExtResource("2_folcol")
+collidablePropFoliageId = 5
 revealMultiplier = 2.0
 revealInnerFraction = 0.95

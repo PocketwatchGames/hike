@@ -108,10 +108,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             {
                 titleLabel.Text = SpawnEntryData.DisplayName(entry);
             }
-            foreach (System.Action refresh in _refreshers)
-            {
-                refresh();
-            }
+            RefreshRows();
             return;
         }
         FlushPendingEdit();
@@ -168,6 +165,19 @@ public partial class WorldMapEntityInspector : PanelContainer
             }
             AddRow(name, (Variant.Type)(long)property["type"],
                 (PropertyHint)(long)property["hint"], property["hint_string"].AsString());
+        }
+        // A row's initial state comes from the SAME refresher that keeps it up
+        // to date, so a row type cannot be built with one and forget the other —
+        // which is what left every flags row reading as all-unchecked whatever
+        // the entry held, and made a reselect look like the edit had reverted.
+        RefreshRows();
+    }
+
+    private void RefreshRows()
+    {
+        foreach (System.Action refresh in _refreshers)
+        {
+            refresh();
         }
     }
 
@@ -275,7 +285,7 @@ public partial class WorldMapEntityInspector : PanelContainer
 
     private Control BuildLine(StringName name)
     {
-        var edit = new LineEdit { Text = Read(name).AsString() };
+        var edit = new LineEdit();
         edit.TextChanged += _ => ApplyLive(name, edit.Text);
         // Enter ENDS the undo step rather than committing the value — the value
         // is already in. Leaving the field applies once more first, since a paste
@@ -300,7 +310,6 @@ public partial class WorldMapEntityInspector : PanelContainer
     {
         var edit = new TextEdit
         {
-            Text = Read(name).AsString(),
             CustomMinimumSize = new Vector2(0f, multilineHeight),
             WrapMode = TextEdit.LineWrappingMode.Boundary,
         };
@@ -322,7 +331,7 @@ public partial class WorldMapEntityInspector : PanelContainer
 
     private Control BuildCheck(StringName name)
     {
-        var check = new CheckBox { ButtonPressed = Read(name).AsBool() };
+        var check = new CheckBox();
         check.Toggled += on => Commit(name, on);
         _refreshers.Add(() => check.SetPressedNoSignal(Read(name).AsBool()));
         return check;
@@ -337,7 +346,6 @@ public partial class WorldMapEntityInspector : PanelContainer
             MinValue = -1e9,
             MaxValue = 1e9,
             Step = integer ? 1d : 0.001d,
-            Value = integer ? Read(name).AsInt32() : Read(name).AsSingle(),
         };
         if (hint == PropertyHint.Range)
         {
@@ -370,7 +378,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     private Control BuildEnum(StringName name, string hintString)
     {
         var option = new OptionButton();
-        foreach ((string label, int value) in ParseHintItems(hintString))
+        foreach ((string label, int value) in ParseHintItems(hintString, flags: false))
         {
             option.AddItem(label, value);
         }
@@ -397,8 +405,16 @@ public partial class WorldMapEntityInspector : PanelContainer
     {
         var box = new HFlowContainer();
         var boxes = new List<(CheckBox Check, int Bit)>();
-        foreach ((string label, int value) in ParseHintItems(hintString))
+        foreach ((string label, int value) in ParseHintItems(hintString, flags: true))
         {
+            // A zero-valued member (the conventional `None = 0`) names the EMPTY
+            // set, not a bit: `mask | 0` and `mask & ~0` are both the mask, so
+            // its box could never write anything and `(mask & 0) == 0` drew it
+            // permanently ticked. Clearing every other box already means None.
+            if (value == 0)
+            {
+                continue;
+            }
             var check = new CheckBox { Text = label };
             int bit = value;
             check.Toggled += on =>
@@ -420,9 +436,11 @@ public partial class WorldMapEntityInspector : PanelContainer
         return box;
     }
 
-    // An enum/flags hint is "Name,Other" or "Name:4,Other:8" — the explicit form
-    // appears whenever the values are not 0,1,2..., which is every [Flags] enum.
-    private static List<(string Label, int Value)> ParseHintItems(string hintString)
+    // An enum/flags hint is "Name,Other" or "Name:4,Other:8". Godot spells the
+    // values out for the exports reached here, so the implicit form is a
+    // fallback — and it differs by kind: an enum's nth item is n, a flag's is
+    // the nth bit.
+    private static List<(string Label, int Value)> ParseHintItems(string hintString, bool flags)
     {
         var items = new List<(string, int)>();
         if (string.IsNullOrEmpty(hintString))
@@ -440,7 +458,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             }
             else
             {
-                items.Add((part, 1 << i));
+                items.Add((part, flags ? 1 << i : i));
             }
         }
         return items;
@@ -451,7 +469,6 @@ public partial class WorldMapEntityInspector : PanelContainer
         var label = new Label { VerticalAlignment = VerticalAlignment.Center };
         label.AddThemeColorOverride("font_color", readOnlyColor);
         _refreshers.Add(() => label.Text = Summarize(Read(name)));
-        label.Text = Summarize(Read(name));
         return label;
     }
 

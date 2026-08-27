@@ -154,7 +154,7 @@ layout_mode = 1
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/NewGameButton" to="." method="ShowNewGameOptions"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/LoadGameButton" to="." method="LoadGame"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldEditorButton" to="." method="ShowEditorOptions"]
-[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldMapPainterButton" to="." method="StartPainter"]
+[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldMapPainterButton" to="." method="ShowPainterOptions"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/ControlsButton" to="." method="ShowControls"]
 [connection signal="item_activated" from="File Selector/VBoxContainer/ItemList" to="." method="OnWorldActivated"]
 [connection signal="pressed" from="File Selector/VBoxContainer/HBoxContainer/BackButton" to="." method="SelectorBack"]

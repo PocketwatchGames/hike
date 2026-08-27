@@ -26,6 +26,7 @@
 [ext_resource type="PackedScene" uid="uid://rpo02c84xxji" path="res://scenes/fx/dog_whimper.tscn" id="53_whimper"]
 [ext_resource type="PackedScene" uid="uid://bg28hplqg8bq3" path="res://scenes/fx/dog_curious.tscn" id="54_curious"]
 [ext_resource type="Resource" uid="uid://cjnkr1uvgp4k2" path="res://resources/data/characters/dog/dog_voice.tres" id="55_voice"]
+[ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
 radius = 0.4
@@ -64,7 +65,8 @@ _footstepEffects = Dictionary[int, PackedScene]({
 2: ExtResource("11_fstsand"),
 3: ExtResource("11_fstwater"),
 4: ExtResource("11_fstmud"),
-5: ExtResource("11_fststone")
+5: ExtResource("11_fststone"),
+7: ExtResource("99_fstsnow")
 })
 _footprintTexture = ExtResource("8_dfn4c")
 _footprintSize = Vector2(0.35, 0.45)

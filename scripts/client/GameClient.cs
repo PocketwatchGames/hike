@@ -821,8 +821,10 @@ public partial class GameClient : Node3D
 		// (between the initial and full radius) is allowed to pop in
 		// post-fade — those chunks aren't enqueued until ExpandToFullEntityRadius
 		// runs below.
+		int __drainFrames = 0;
 		while (!_world.AreEntitySpawnsDrained())
 		{
+			__drainFrames++;
 			if (loadingScreen != null && peakEntitySpawnCount > 0)
 			{
 				int remaining = _world.PendingEntitySpawnCount;
@@ -832,6 +834,8 @@ public partial class GameClient : Node3D
 			await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 		}
 		GD.Print($"[Load] Spawning ({peakEntitySpawnCount} entities, inner radius): {phaseSw.ElapsedMilliseconds}ms");
+		GD.Print($"[SpawnCost] drain frames: {__drainFrames}");
+		TempSpawnCost.Dump();
 		loadingScreen?.SetProgress(1f);
 
 		camera.Init(sceneViewport);

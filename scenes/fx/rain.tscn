@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://w1phi46qtrbe" path="res://scripts/client/RainEffect.cs" id="1_rain"]
 [ext_resource type="Material" uid="uid://b4wcgipo4a6d1" path="res://resources/materials/rain_drop.tres" id="2_drop_mat"]
 [ext_resource type="Material" uid="uid://dhoumedxf2vuh" path="res://resources/materials/rain_splash.tres" id="3_splash_mat"]
+[ext_resource type="Material" uid="uid://cjxuhiq24886y" path="res://resources/materials/snow_flake.tres" id="4_snow_mat"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_fall"]
 particle_flag_align_y = true
@@ -19,6 +20,27 @@ attractor_interaction_enabled = false
 
 [sub_resource type="QuadMesh" id="QuadMesh_drop"]
 material = ExtResource("2_drop_mat")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_snow"]
+emission_shape = 3
+emission_box_extents = Vector3(40, 0.1, 40)
+direction = Vector3(0, -1, 0)
+spread = 8.0
+initial_velocity_min = 1.6
+initial_velocity_max = 3.0
+gravity = Vector3(0, 0, 0)
+scale_min = 0.6
+scale_max = 1.8
+turbulence_enabled = true
+turbulence_noise_strength = 3.0
+turbulence_noise_scale = 4.0
+turbulence_noise_speed = Vector3(0.3, 0.2, 0.3)
+turbulence_influence_min = 0.4
+turbulence_influence_max = 1.0
+attractor_interaction_enabled = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_snow"]
+material = ExtResource("4_snow_mat")
 
 [sub_resource type="Gradient" id="Gradient_splashFade"]
 colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
@@ -57,10 +79,11 @@ albedo_color = Color(1, 0, 0, 1)
 material = SubResource("StandardMaterial3D_debugMarker")
 size = Vector3(0.5, 0.5, 0.5)
 
-[node name="RainEffect" type="Node3D" unique_id=1892014474 node_paths=PackedStringArray("fallingParticles", "splashParticles", "debugImpactMarkers")]
+[node name="RainEffect" type="Node3D" unique_id=1892014474 node_paths=PackedStringArray("fallingParticles", "splashParticles", "snowParticles", "debugImpactMarkers")]
 script = ExtResource("1_rain")
 fallingParticles = NodePath("FallingParticles")
 splashParticles = NodePath("SplashParticles")
+snowParticles = NodePath("SnowParticles")
 debugImpactMarkers = NodePath("DebugImpactMarkers")
 splashSpread = 0.25
 
@@ -72,6 +95,15 @@ lifetime = 1.5
 visibility_aabb = AABB(-80, -50, -80, 160, 80, 160)
 process_material = SubResource("ParticleProcessMaterial_fall")
 draw_pass_1 = SubResource("QuadMesh_drop")
+
+[node name="SnowParticles" type="GPUParticles3D" parent="." unique_id=1892014601]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, 0)
+extra_cull_margin = 16384.0
+amount = 4000
+lifetime = 9.0
+visibility_aabb = AABB(-80, -50, -80, 160, 80, 160)
+process_material = SubResource("ParticleProcessMaterial_snow")
+draw_pass_1 = SubResource("QuadMesh_snow")
 
 [node name="SplashParticles" type="GPUParticles3D" parent="." unique_id=230213491]
 extra_cull_margin = 16384.0

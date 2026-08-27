@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cjxuhiq24886y"]
+
+[ext_resource type="Shader" uid="uid://t2q5qwgjq3g85" path="res://shaders/snow_flake.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 10
+shader = ExtResource("1_shader")
+shader_parameter/albedo = Color(0.95, 0.97, 1, 0.85)
+shader_parameter/sky_exposure_threshold = 0.5
+shader_parameter/flake_size_px = 2.0
+shader_parameter/flake_softness = 0.45
+shader_parameter/min_ambient = 0.35

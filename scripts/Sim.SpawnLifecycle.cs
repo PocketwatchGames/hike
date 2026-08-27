@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using Godot;
 
-// World — spawn-condition gating and the matching presence lifecycle: whether
+// Sim — spawn-condition gating and the matching presence lifecycle: whether
 // a gated entity may materialize now (SpawnConditionsMet), spawning night-only
 // entities at the sunset edge (RefreshTimeOfDayEntities), and despawning
 // off-condition mobs once the encounter goes cold (CleanupOffConditionMobs).
-// See World.cs for the file split.
+// See Sim.cs for the file split.
 public partial class Sim
 {
     // Tracks the previous night state so Tick can detect the moment tod

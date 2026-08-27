@@ -132,9 +132,23 @@ public struct DerivedPalette
     public float GustStrength;
     public float GustFrequency;
 
-    // Rain pass-through + derived weight.
+    // Rain pass-through + derived weight. RainIntensity is the LIQUID share
+    // of the precipitation only — where it is falling as snow this drops to
+    // zero and SnowIntensity carries it, so nothing downstream that means
+    // "rain" (wetness, splashes, rain audio) fires during a snowfall.
     public float RainIntensity;
     public float RainWeight;
+
+    // Fraction of the precipitation falling as snow rather than rain, 0..1.
+    // The product of the zone's authored snowCover and a temperature gate;
+    // it is a property of the AIR, so it is non-zero even in clear weather
+    // (a cold snowy zone with no precipitation has SnowFraction 1 and
+    // SnowIntensity 0). Consumers wanting "is it snowing" read SnowIntensity.
+    public float SnowFraction;
+    // Snowflake COUNT, the snow twin of RainIntensity. RainIntensity +
+    // SnowIntensity together always equal the total derived precipitation,
+    // so sleet near freezing renders as a genuine mix of both.
+    public float SnowIntensity;
     // RainIntensity classified into a discrete tier (SimData thresholds).
     // Gameplay that treats rain as a category — wet-status gating (only
     // Light/Heavy soak), HUD label, audio layer selection — reads this rather

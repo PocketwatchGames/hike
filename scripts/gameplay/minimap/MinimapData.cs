@@ -5,7 +5,7 @@ using Godot;
 //
 // Two passes:
 //   GenerateSurfaceRow  — overworld heightmap contribution at OutdoorMetersPerPixel
-//                         (currently 2m/pixel → 8x8 pixels per chunk).
+//                         (1m/pixel → 16x16 pixels per chunk).
 //   GenerateSliceTile   — indoor/underground plan-view tile at IndoorMetersPerPixel
 //                         (1m/pixel → 16x16 per chunk per slice; 4 slices per chunk).
 //
@@ -15,9 +15,16 @@ using Godot;
 // detail-scatter foliage this pass produces.
 public static class MinimapData
 {
-    // 2 meters per outdoor minimap pixel → 8x8 pixels per chunk. Must divide
+    // 1 meter per outdoor minimap pixel → 16x16 pixels per chunk. Must divide
     // ChunkState.SIZE evenly so chunk boundaries stay pixel-aligned.
-    public const int OutdoorMetersPerPixel = 2;
+    //
+    // Per-VOXEL, and it has to be: the map draws a line on any elevation step of
+    // 1 m, and at 2 m/pixel that step does not exist in the data to draw on — a
+    // cell took the MAX of its 2x2 block, so a one-metre rise vanished into its
+    // neighbour. The cost is 4x the outdoor surface + exploration buffers, which
+    // is ~1.2 MB on the shipped world and grows with world AREA; a
+    // streaming-scale world wants these paged rather than global.
+    public const int OutdoorMetersPerPixel = 1;
     public const int OutdoorPixelsPerChunk = ChunkState.SIZE / OutdoorMetersPerPixel;
     public const int OutdoorPixelsPerChunkSq = OutdoorPixelsPerChunk * OutdoorPixelsPerChunk;
 
@@ -39,13 +46,11 @@ public static class MinimapData
     // floor / open-air cell.
     public const int MinHeadroomVoxels = 2;
 
-    // Reserved palette slot for slice-view wall interiors (columns that are
-    // solid all the way through with no air above). Doesn't correspond to a
-    // BlockSurfaceData entry — the slice generator writes this index directly so
-    // every biome's solid-wall pixels read the same color regardless of terrain
-    // or voxel type. Picked above the BlockSurfaceCatalog's active range; the LUT
-    // builder paints this slot from Minimap.wallSlotColor.
-    public const int WallSlotIndex = 32;
+    // Slice-view wall interiors (columns solid all the way through with no air
+    // above) read as Stone: solid rock IS stone, and the map has five colours.
+    // The slice generator writes this directly rather than resolving a block,
+    // so every biome's wall pixels agree regardless of what they are made of.
+    public const int WallSlotIndex = (int)EMinimapCategory.Stone;
 
     // Bit values for SliceCell.Flags. Floor = a solid voxel was found in the
     // slice's Y range with air above it (i.e. you could stand on it). Ceiling
@@ -137,22 +142,25 @@ public static class MinimapData
 
         if (fill == ChunkState.EChunkFill.Pure)
         {
-            // Pure-air / pure-water: no contribution. The actual surface is
-            // in another chunk (the one above pure-water for ocean surface;
-            // never for pure-air which is sky).
-            if (pureType == Blocks.AirId || Blocks.IsWater(pureType))
+            // Pure-air alone contributes nothing — it is sky, and the surface
+            // is in some chunk below. Pure WATER does contribute its top face,
+            // exactly as pure rock does: where a body is deep enough to fill a
+            // chunk and the chunk above it is pure air, the two used to cancel
+            // and the map came back with a hole over the water instead of a
+            // surface. Anything real above still out-ranks it in the caller's
+            // monotonic merge.
+            if (pureType == Blocks.AirId)
             {
                 return;
             }
 
-            // Pure-solid (Stone, Terrain, etc.): the top face of this chunk is
-            // the surface contribution. A higher chunk above (if also solid)
-            // will out-rank this via the caller's monotonic merge.
+            // Pure non-air (rock, terrain, a chunk-deep body of water): the top
+            // face of this chunk is the surface contribution. A higher chunk
+            // above will out-rank it via the caller's monotonic merge.
             int topWorldY = chunkBaseY + ChunkState.SIZE - 1;
             int height = topWorldY + 1 - heightBias;
             int pureTerrainId = chunk.GetTerrainId(0, ChunkState.SIZE - 1, 0);
-            int pureOverlayId = chunk.GetOverlayId(0, ChunkState.SIZE - 1, 0);
-            byte tileId = (byte)ResolveSurfaceTileId(pureType, pureOverlayId);
+            byte tileId = (byte)ResolveSurfaceTileId(pureType);
             var cell = new SurfaceCell
             {
                 Height = (ushort)height,
@@ -195,9 +203,8 @@ public static class MinimapData
                             if (height > bestHeight)
                             {
                                 int TerrainId = chunk.GetTerrainId(x, y, z);
-                                int overlayId = chunk.GetOverlayId(x, y, z);
                                 bestHeight = height;
-                                bestTile = (byte)ResolveSurfaceTileId(v, overlayId);
+                                bestTile = (byte)ResolveSurfaceTileId(v);
                                 bestFoliage = ResolveFoliageId(chunk, detailPalette, x, y, z);
                             }
                             break;
@@ -369,8 +376,7 @@ public static class MinimapData
                 {
                     flags |= SliceFlagFloor;
                     int floorTerrainId = chunk.GetTerrainId(x, floorY, z);
-                    int floorOverlayId = chunk.GetOverlayId(x, floorY, z);
-                    tileId = (byte)ResolveSurfaceTileId(floorVoxel, floorOverlayId);
+                    tileId = (byte)ResolveSurfaceTileId(floorVoxel);
                     foliageId = floorFoliage;
                 }
                 // else: passable open-air column. TileId stays 0, no flag.
@@ -400,15 +406,30 @@ public static class MinimapData
     //     *wall* pixels (a column that's solid through the entire slice,
     //     no air above, i.e. underground rock or the inside of a cliff).
     // An overlay wins outright; otherwise the block's own face supplies the tile.
-    private static int ResolveSurfaceTileId(int type, int overlayId, bool useWallTile = false)
+    // What CATEGORY this voxel reads as. The in-game maps show five of them
+    // (road / terrain / water / stone / prop) rather than a colour per material:
+    // a player reading the map wants to know where the road, the water, the
+    // buildings and the things they cannot walk through are, not which of five
+    // soils is underfoot. Biome is carried by region labels and by the world.
+    //
+    // Two things this deliberately does NOT consult:
+    //
+    // - The voxel's OVERLAY. Overlays are surface detail — moss, climb growth,
+    //   a water film — and letting one win made detail read as a different
+    //   material: moss is stamped on ~16% of surface voxels and painted every
+    //   one of them dark green instead of the ground it grows on. It cannot be
+    //   fixed by giving the overlay a colour either, since one moss layer covers
+    //   grass, forest soil AND cave limestone.
+    // - BlockData.minimapColor. That is the world-map PAINTER's per-material
+    //   view, which wants marsh and desert to differ. Different question.
+    //
+    // `useWallTile` no longer changes the answer — a block is the same category
+    // seen from the side as from above — but the parameter is kept so the slice
+    // generator's intent stays readable at its call site.
+    private static int ResolveSurfaceTileId(int type, bool useWallTile = false)
     {
-        if (overlayId != 0)
-        {
-            return overlayId;
-        }
-        BlockSurfaceData surface = BlockCatalog.Active.GetById(type)
-            ?.SurfaceFor(useWallTile ? EBlockFace.Side : EBlockFace.Top);
-        return surface != null ? surface.atlasBaseIndex : 0;
+        BlockData block = BlockCatalog.Active.GetById(type);
+        return block != null ? (int)block.minimapCategory : (int)EMinimapCategory.Terrain;
     }
 
     // DetailGroup is 1-based — 0 means "no scatter painted on this voxel".
@@ -417,26 +438,11 @@ public static class MinimapData
     // appearing on the minimap).
     private static byte ResolveFoliageId(ChunkState chunk, DetailGroupData[] palette, int x, int y, int z)
     {
-        if (palette == null)
-        {
-            return 0;
-        }
-        int groupId = chunk.GetDetailGroup(x, y, z);
-        if (groupId <= 0)
-        {
-            return 0;
-        }
-        int paletteIndex = groupId - 1;
-        if (paletteIndex >= palette.Length)
-        {
-            return 0;
-        }
-        DetailGroupData group = palette[paletteIndex];
-        if (group == null)
-        {
-            return 0;
-        }
-        return group.minimapFoliageId;
+        // Detail scatter (grass tufts, pebbles) is not one of the five
+        // categories and is not collidable, so it no longer marks the map — it
+        // was a third green tone over ordinary ground. The foliage channel now
+        // carries ONLY the collidable-prop stamps the prop pass writes.
+        return 0;
     }
 }
 

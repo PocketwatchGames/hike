@@ -57,6 +57,8 @@
 [ext_resource type="PackedScene" uid="uid://cwk3rn8qv2tba" path="res://scenes/items/shovel_held.tscn" id="61_shovelheld"]
 [ext_resource type="PackedScene" uid="uid://9y2ehc26fegq7" path="res://scenes/fx/block_start.tscn" id="62_blockstart"]
 [ext_resource type="PackedScene" uid="uid://y3odoq6n86nt2" path="res://scenes/fx/parry_window_end.tscn" id="63_parrywinend"]
+[ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]
+[ext_resource type="PackedScene" uid="uid://dja6erumnnuia" path="res://scenes/fx/skating_snow.tscn" id="98_skatesnow"]
 
 [sub_resource type="Resource" id="Resource_pray_effect"]
 script = ExtResource("55_prayeffect")
@@ -171,7 +173,8 @@ _dashSpeedLinesFx = ExtResource("33_dashlines")
 _slideLoopFx = Dictionary[int, PackedScene]({
 0: ExtResource("9_vwwfy"),
 2: ExtResource("9_vwwfy"),
-4: ExtResource("9_vwwfy")
+4: ExtResource("9_vwwfy"),
+7: ExtResource("98_skatesnow")
 })
 _mantleFx = ExtResource("17_mantle")
 _landFx = ExtResource("18_land")
@@ -192,7 +195,8 @@ _footstepEffects = Dictionary[int, PackedScene]({
 3: ExtResource("7_d6tgn"),
 4: ExtResource("6_rpnd8"),
 5: ExtResource("4_xrqxk"),
-6: ExtResource("12_5jukt")
+6: ExtResource("12_5jukt"),
+7: ExtResource("99_fstsnow")
 })
 _shallowWaterFootstepFx = ExtResource("7_d6tgn")
 _puddleFootstepFx = ExtResource("10_puddle")

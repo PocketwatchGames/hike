@@ -27,6 +27,7 @@
 [ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="41_helditemvis"]
 [ext_resource type="Resource" uid="uid://bnwa62mo5grh6" path="res://resources/data/characters/goblin/goblin_voice.tres" id="50_voice"]
 [ext_resource type="PackedScene" uid="uid://bvq7x2mn4k8rp" path="res://scenes/fx/mob_dash.tscn" id="51_dashfx"]
+[ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gby2u"]
 height = 2.5
@@ -64,7 +65,8 @@ _footstepEffects = Dictionary[int, PackedScene]({
 2: ExtResource("11_fstsand"),
 3: ExtResource("11_fstwater"),
 4: ExtResource("11_fstmud"),
-5: ExtResource("11_fststone")
+5: ExtResource("11_fststone"),
+7: ExtResource("99_fstsnow")
 })
 _footprintTexture = ExtResource("8_hi5vn")
 _footprintSize = Vector2(0.4, 0.6)

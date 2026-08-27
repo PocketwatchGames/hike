@@ -15,6 +15,9 @@ public partial class WorldMapPainter : Node3D
     [Export] public WorldMapHud hud;
     [Export] public WorldMapData data;
     [Export] public WorldMapBrush brush;
+    // Escape menu. Full-rect, so an open menu also stops the canvas painting
+    // under it.
+    [Export] public WorldMapPauseMenu pauseMenu;
 
     // Strokes kept on the undo stack. Each holds only the tiles that actually
     // changed, so the cost is the area painted rather than the map size.
@@ -139,7 +142,7 @@ public partial class WorldMapPainter : Node3D
 
     // Bindings that mean the same thing whichever tool is active.
     private const string GLOBAL_HINT =
-        "Tab tool  |  1-9 option  |  Q/E param  |  R/F level  |  T/G cutaway  |  X mode  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save";
+        "Tab tool  |  1-9 option  |  Q/E param  |  R/F level  |  T/G cutaway  |  X mode  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save  |  Esc menu";
 
     // The document this painter is editing, for the console commands that act on
     // "whatever is open".
@@ -155,6 +158,15 @@ public partial class WorldMapPainter : Node3D
 
         _ctx = new WorldMapState(data);
         _history = new MapHistory(_ctx, undoDepth);
+
+        if (pauseMenu != null)
+        {
+            // The same three things Ctrl+S, Escape and the quit path already do
+            // — the menu is a panel over them, not a second implementation.
+            pauseMenu.onSave = SaveAndBake;
+            pauseMenu.onResume = () => pauseMenu.SetOpen(false);
+            pauseMenu.onQuit = () => onQuitToMenu?.Invoke();
+        }
 
         _tools = new IWorldMapTool[]
         {
@@ -380,8 +392,21 @@ public partial class WorldMapPainter : Node3D
 
         if (e.IsActionPressed("TogglePause"))
         {
-            onQuitToMenu?.Invoke();
+            TogglePauseMenu();
             GetViewport().SetInputAsHandled();
+            return;
+        }
+        // Everything below edits the document, and none of it should happen
+        // behind an open menu. Ctrl+S is the exception: it is the one binding
+        // that means the same thing whatever is on screen.
+        if (pauseMenu != null && pauseMenu.Visible)
+        {
+            if (e is InputEventKey save && save.Pressed && !save.Echo
+                && save.Keycode == Key.S && save.CtrlPressed)
+            {
+                SaveAndBake();
+                GetViewport().SetInputAsHandled();
+            }
             return;
         }
         // Q/E step the tool's Cycle parameter. For most tools that IS the option
@@ -506,6 +531,21 @@ public partial class WorldMapPainter : Node3D
                     return;
             }
         }
+    }
+
+    // Escape. Without a menu wired there is nothing to open and Escape keeps its
+    // old meaning, so the painter is never a screen you cannot leave.
+    private void TogglePauseMenu()
+    {
+        if (pauseMenu == null)
+        {
+            onQuitToMenu?.Invoke();
+            return;
+        }
+        // A row still being typed into has to reach the entry before the menu
+        // covers it — the Save button is one click away.
+        hud.entityInspector?.FlushPendingEdit();
+        pauseMenu.SetOpen(!pauseMenu.Visible);
     }
 
     // Write the document on the main thread — that part is fast and must not be

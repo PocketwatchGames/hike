@@ -13,7 +13,7 @@ metadata/_custom_type_script = "uid://cmxjuae4muavw"
 [sub_resource type="Resource" id="Resource_grass"]
 script = ExtResource("2_foliage_entry_script")
 name = "grass"
-color = Color(0.44928, 0.48, 0.4032, 0.7058824)
+color = Color(0.46, 0.46, 0.46, 0.7058824)
 metadata/_custom_type_script = "uid://cmxjuae4muavw"
 
 [sub_resource type="Resource" id="Resource_bush"]
@@ -37,7 +37,14 @@ color = Color(0.6509804, 0.16078432, 0, 1)
 priority = 3
 metadata/_custom_type_script = "uid://cmxjuae4muavw"
 
+[sub_resource type="Resource" id="Resource_collidable_prop"]
+script = ExtResource("2_foliage_entry_script")
+name = "collidable prop"
+color = Color(0.32, 0.28, 0.24, 0.85)
+priority = 3
+metadata/_custom_type_script = "uid://cmxjuae4muavw"
+
 [resource]
 script = ExtResource("1_foliage_colors_script")
-entries = Array[ExtResource("2_foliage_entry_script")]([SubResource("Resource_unused"), SubResource("Resource_grass"), SubResource("Resource_bush"), SubResource("Resource_tree"), SubResource("Resource_berry_tree")])
+entries = Array[ExtResource("2_foliage_entry_script")]([SubResource("Resource_unused"), SubResource("Resource_grass"), SubResource("Resource_bush"), SubResource("Resource_tree"), SubResource("Resource_berry_tree"), SubResource("Resource_collidable_prop")])
 metadata/_custom_type_script = "uid://cmfolcolr1ak2"

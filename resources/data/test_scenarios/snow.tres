@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3 uid="uid://ncd5n77ocx943"]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "snow"
+description = "Whiteout snowfall on the spot, bypassing the zone and temperature gates."
+commands = "// Force both halves of the snow gate plus the precipitation amount,
+// so this works anywhere rather than only in a zone authored with snowCover.
+// Drop precip_force to 0.3 for light snow; snow_force 0.5 gives sleet.
+precip_force 1
+snow_force 1
+// Wind is what separates heavy snow from a blizzard - the flakes take roughly
+// 3x a raindrop's tilt from the same wind (RainEffect.snowWindTiltScale).
+wind_force 28
+time_of_day 0.25"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

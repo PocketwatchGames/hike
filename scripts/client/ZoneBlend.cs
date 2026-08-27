@@ -53,7 +53,7 @@ public static class ZoneBlend
         float skyR = 0, skyG = 0, skyB = 0, skyA = 0;
         float dustR = 0, dustG = 0, dustB = 0, dustA = 0;
         float waterR = 0, waterG = 0, waterB = 0, waterA = 0;
-        float dustAmount = 0, waterOpacity = 0;
+        float dustAmount = 0, waterOpacity = 0, snowCover = 0;
         float themeWeightSum = 0;
 
         for (int i = 0; i < zoneCount; i++)
@@ -70,6 +70,7 @@ public static class ZoneBlend
             AccumulateColor(rd.waterColor, w, ref waterR, ref waterG, ref waterB, ref waterA);
             dustAmount += rd.dustAmount * w;
             waterOpacity += rd.waterOpacity * w;
+            snowCover += rd.snowCover * w;
         }
 
         if (themeWeightSum >= MinTotalWeight)
@@ -82,6 +83,7 @@ public static class ZoneBlend
             outZone.waterColor = new Color(waterR * themeInv, waterG * themeInv, waterB * themeInv, waterA * themeInv);
             outZone.dustAmount = dustAmount * themeInv;
             outZone.waterOpacity = waterOpacity * themeInv;
+            outZone.snowCover = snowCover * themeInv;
         }
 
         // --- Runtime fields (ZoneState) ---

@@ -2196,8 +2196,9 @@ public partial class SkyController : Node3D
     }
 
     // Dynamic precipitation manager. Consumes palette.RainIntensity +
-    // palette.RainWeight and scales the RainEffect node's runtime
-    // materials accordingly. rainWeight scales fall velocity, drop
+    // palette.SnowIntensity + palette.RainWeight and scales the RainEffect
+    // node's runtime materials accordingly. rainWeight shapes the RAIN only —
+    // it is drop heft, and a snowflake has none. rainWeight scales fall velocity, drop
     // albedo alpha, and streak length linearly, and inversely scales
     // wind tilt via RainEffect.WindTiltScale.
     private void ApplyPrecipitation()
@@ -2205,7 +2206,7 @@ public partial class SkyController : Node3D
         RainEffect rain = RainEffect.Current;
         if (rain == null) { return; }
 
-        rain.SetIntensity(_palette.RainIntensity);
+        rain.SetIntensity(_palette.RainIntensity, _palette.SnowIntensity);
 
         float weight = Mathf.Max(_palette.RainWeight, 0.01f);
 
@@ -2245,7 +2246,12 @@ public partial class SkyController : Node3D
     private void UpdateWetness(WorldState ws, WeatherData weather, float fog, SimData simData, float dt)
     {
         if (ws == null || simData == null || dt <= 0f) { return; }
-        float rain = Mathf.Clamp(weather?.rainAmount ?? 0f, 0f, 1f);
+        // Only the LIQUID share wets the ground — snow lying on a frozen peak
+        // must not make the rock read as rain-slicked. Derivation has already
+        // split the phase for this frame, so scale the authored amount by it
+        // rather than re-deriving the gate here.
+        float rain = Mathf.Clamp(weather?.rainAmount ?? 0f, 0f, 1f)
+                   * (1f - Mathf.Clamp(_palette.SnowFraction, 0f, 1f));
         float humidity = Mathf.Clamp(weather?.humidity ?? 0f, 0f, 1f);
         float fogClamped = Mathf.Clamp(fog, 0f, 1f);
         float target = Mathf.Max(
