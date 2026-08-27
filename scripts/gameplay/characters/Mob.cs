@@ -681,14 +681,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Friendly override (and any future runtime team change) applies.
             _hurtBox.CanHit = (hit) =>
                 hit.friendlyFire || !Teams.AreAllied(hit.attackerTeam, ActorTeam);
-            foreach (Node child in _hurtBox.GetChildren())
-            {
-                if (child is CollisionShape3D shape)
-                {
-                    _hurtBoxShape = shape;
-                    break;
-                }
-            }
+            _hurtBoxShape = _hurtBox.Shape;
         }
 
         // Activate the model as the live visual. It lives under _mesh

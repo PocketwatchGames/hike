@@ -305,6 +305,9 @@ public partial class DamageZone : Area3D
     // terrain/props so a blast can't reach through walls or floors. Mirrors the
     // perception LOS query (ECollisionLayer.Solid, bodies only). Areas are
     // ignored so the HurtBox areas themselves don't register as occluders.
+    // Aimed at HurtBox.Center, never the hurtbox node: that sits at the target's
+    // feet, so the ray ends on the ground the target is standing on and every
+    // ground-resting blast self-blocks.
     private bool HasLineOfSight(HurtBox hb)
     {
         World3D world = GetWorld3D();
@@ -313,7 +316,7 @@ public partial class DamageZone : Area3D
             return true;
         }
         Vector3 from = GlobalPosition + Vector3.Up * losOriginHeight;
-        Vector3 to = hb.GlobalPosition;
+        Vector3 to = hb.Center;
         using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
         query.CollideWithAreas = false;
         query.CollideWithBodies = true;

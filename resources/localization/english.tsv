@@ -50,7 +50,8 @@ controls_keyboard	Keyboard / Mouse
 controls_gamepad	Gamepad
 controls_back	Back
 controls_unbound	—
-controls_interact_dash	Interact / Dash
+controls_dash_climb	Dash / Climb
+controls_interact	Interact
 controls_lantern_heal	Lantern / Heal
 controls_sneak_block_parry	Sneak / Block / Parry
 controls_ranged	Ranged Attack

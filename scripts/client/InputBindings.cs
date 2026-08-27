@@ -8,14 +8,16 @@ using Godot;
 // bindings for the handful of actions whose defaults live in code rather than
 // in project.godot.
 //
-// THIS CODE OWNS the bindings for Interact / Dash / Lantern / UseItem / Sneak:
-// it overwrites whatever project.godot authored for them on startup. Edit the
-// set here, not the editor's Input Map, or your change is silently undone.
+// THIS CODE OWNS the bindings for Interact / InteractCancel / Dash / Lantern /
+// UseItem / Sneak: it overwrites whatever project.godot authored for them on
+// startup. Edit the set here, not the editor's Input Map, or your change is
+// silently undone.
 // If player-facing rebinding lands later, this becomes the supplier of defaults
 // that user overrides are layered on top of.
 public static class InputBindings
 {
     private const string Interact = "Interact";
+    private const string InteractCancel = "InteractCancel";
     private const string Dash = "Dash";
     private const string Lantern = "Lantern";
     private const string UseItem = "UseItem";
@@ -23,25 +25,24 @@ public static class InputBindings
 
     public static void Apply()
     {
-        // The spacebar and the pad's primary face button carry the CONTEXT
-        // button: one press means interact, climb or dash, ranked in
-        // Player.ProcessInput. It is still the Dash action because dash is what
-        // it does when nothing else claims the press.
-        //
-        // Interact is unbound: everything it did that the player still needs is
-        // on the context button. What it alone reached — the self-action menu
-        // (Pray, Dig) in open space — is unreachable until it gets a home of
-        // its own.
-        SetBindings(Interact);
-        SetBindings(Dash, Key.Space, JoyButton.A);
-        SetBindings(Lantern, Key.Q, JoyButton.B);
+        // Dash carries traversal as well: one press means climb, mantle or dash,
+        // ranked in Player.ProcessInput. It is the Dash action because dash is
+        // what it does when there is no wall or ledge to take, and it holds the
+        // spacebar and the pad's primary face button.
+        SetBindings(Dash, Key.Space, JoyButton.B);
+        // Interact is a button of its own and only interacts.
+        SetBindings(Interact, Key.E, JoyButton.A);
+        // Cancel shares the interact button (plus Escape), so backing out of an
+        // interactive or a weapon charge is the same button that started it.
+        // Player.ProcessInput only lets it consume the frame when there is
+        // something to abort, so an ordinary interact press still falls through.
+        SetBindings(InteractCancel, Key.Escape, JoyButton.B);
+        SetBindings(Lantern, Key.Q, JoyButton.RightShoulder);
         SetBindings(UseItem, Key.Ctrl, JoyButton.Y);
         SetBindings(Sneak, Key.Shift, JoyAxis.TriggerLeft);
     }
 
-    // Replaces every binding on the action. Passing no key/button clears it,
-    // which is how Interact is switched off — a bound-but-inert Interact would
-    // still cancel queued input on press.
+    // Replaces every binding on the action. Passing no key/button clears it.
     private static void SetBindings(string action, Key key = Key.None, JoyButton button = JoyButton.Invalid)
     {
         if (!BeginRebind(action, out StringName name))

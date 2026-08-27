@@ -93,6 +93,14 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return;
 		}
+		// A traversal owns position for its span (both branches return early in
+		// _PhysicsProcess), so a dash started here would spend stamina and cooldown
+		// and move nobody. A fresh press can't reach this — TryTraversalPress claims
+		// it first — but a dash banked before the wall and fired by _queuedDash can.
+		if (Climbing || Mantling)
+		{
+			return;
+		}
 		ulong now = _world?.GameTimeMs ?? 0;
 		// Committed weapon swing (Active phase with a weapon profile): dash can't
 		// cut in, but a press inside the queue window of the swing (and the

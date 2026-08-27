@@ -1391,7 +1391,7 @@ public partial class Player : CharacterBody3D
 		return true;
 	}
 
-	// What a context-button press would traverse to from here, refreshed once per
+	// What a Dash press would traverse to from here, refreshed once per
 	// tick and read by the ClimbHUD. Every branch runs the SAME find the press
 	// runs, in the same order — a prompt that disagrees with the button is worse
 	// than no prompt — so this is a preview, never a second opinion.
@@ -1413,14 +1413,6 @@ public partial class Player : CharacterBody3D
 		// Nobody is looking at an inactive party member's affordances, and the
 		// probes below are not free.
 		if (!IsActive)
-		{
-			_traversalPreview = preview;
-			_traversalPromptAnchorValid = false;
-			return;
-		}
-		// A world interactive outranks traversal on the context button, so a ledge
-		// standing behind a chest must not promise a climb the press won't do.
-		if (InteractWouldClaimPress())
 		{
 			_traversalPreview = preview;
 			_traversalPromptAnchorValid = false;

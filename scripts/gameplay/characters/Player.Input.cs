@@ -33,25 +33,21 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		if (Input.IsActionJustPressed("Interact"))
+		// Interact, or the self-action menu when there is nothing highlighted.
+		// Traversal is NOT here — climbing and mantling ride the Dash press
+		// (TryTraversalPress), so the two buttons never contend for one affordance.
+		if (Input.IsActionJustPressed("Interact") && !TryInteractPress())
 		{
-			TryInteractPress("Interact", allowSelfMenu: true);
+			// Nothing highlighted: the press opens the self-action menu (Pray, ...).
+			// Never auto-runs — the menu always comes up for a non-default action.
+			RequestSelfMenu();
 		}
 		TickInteractHold();
 	}
 
-	// One press of an interact-capable button. Returns true when the press was
-	// CONSUMED — an action started, an in-flight one cancelled, or hold-tracking
-	// begun for the options menu — which is what lets the context button
-	// (Player.Input's Dash branch) fall through to traversal and dash only when
-	// there was nothing in the world to interact with.
-	//
-	// `action` is the InputMap action whose HOLD this press should be tracked
-	// against, since either button can open the menu. `allowSelfMenu` is false
-	// for the context button: with nothing highlighted the press belongs to
-	// traversal / dash, so the self-action menu (Pray, ...) stays on the
-	// dedicated Interact button.
-	bool TryInteractPress(string action, bool allowSelfMenu)
+	// One press of the interact button, world half only. Returns false when
+	// nothing in the world claimed it, which is what raises the self-action menu.
+	bool TryInteractPress()
 	{
 		if (_curInteractive != null)
 		{
@@ -69,7 +65,6 @@ public partial class Player : CharacterBody3D
 			if (menuCount > 1)
 			{
 				_interactPressActive = true;
-				_interactPressAction = action;
 				_interactHoldStartMs = _world?.GameTimeMs ?? 0;
 				InteractHoldProgress = 0f;
 				return true;
@@ -81,23 +76,7 @@ public partial class Player : CharacterBody3D
 			}
 			return true;
 		}
-		if (allowSelfMenu)
-		{
-			// Nothing highlighted: pressing interact opens the self-action menu (Pray,
-			// ...). Never auto-runs — the menu always comes up for a non-default action.
-			RequestSelfMenu();
-			return true;
-		}
 		return false;
-	}
-
-	// Whether a context-button press would be claimed by the world rather than
-	// falling through to traversal and dash. Lives beside TryInteractPress so
-	// the ranking and the ClimbHUD's preview of it cannot drift apart.
-	bool InteractWouldClaimPress()
-	{
-		return _curInteractive != null
-			|| (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this));
 	}
 
 	void TickInteractHold()
@@ -107,7 +86,7 @@ public partial class Player : CharacterBody3D
 			ulong now = _world?.GameTimeMs ?? 0;
 			ulong elapsed = now > _interactHoldStartMs ? now - _interactHoldStartMs : 0;
 			InteractHoldProgress = Mathf.Clamp(elapsed / ContextButtonHoldMs, 0f, 1f);
-			bool stillHeld = Input.IsActionPressed(_interactPressAction);
+			bool stillHeld = Input.IsActionPressed("Interact");
 			if (!stillHeld)
 			{
 				_interactPressActive = false;
@@ -144,6 +123,12 @@ public partial class Player : CharacterBody3D
 		SetCurInteractive(null);
 		_highlightInteractive = null;
 		onHighlightChanged?.Invoke(null);
+		// Drop any hold in progress with it. The HUD that would answer
+		// onInteractMenuOpenRequested is freed with the highlight, so a hold left
+		// running reaches the threshold, latches InteractMenuOpen with nothing to
+		// close it, and gates both buttons for the rest of the session.
+		_interactPressActive = false;
+		InteractHoldProgress = 0f;
 	}
 
 	static readonly Dictionary<EInventorySlot, string> _weaponActions = new()
@@ -198,12 +183,12 @@ public partial class Player : CharacterBody3D
 
 		// Riding a vehicle: keep the steering vectors computed above (the boat
 		// reads MountMoveInput) but drop every other action press — the only
-		// control while mounted is dismounting, off either interact-capable
-		// button. Dismount reparents the rider out of the vehicle; safe here
-		// because ProcessInput runs from _Process, not the physics flush.
+		// control while mounted is Interact to dismount. Dismount reparents the
+		// rider out of the vehicle; safe here because ProcessInput runs from
+		// _Process, not the physics flush.
 		if (_mount != null)
 		{
-			if (Input.IsActionJustPressed("Interact") || Input.IsActionJustPressed("Dash"))
+			if (Input.IsActionJustPressed("Interact"))
 			{
 				Dismount();
 			}
@@ -235,7 +220,7 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
-		// InteractCancel shares its gamepad binding with Interact, so only
+		// InteractCancel shares its bindings with Interact, so only
 		// consume the frame when there is actually something for it to abort:
 		// a runner-driven interactive, or a weapon mid-charge. Otherwise fall
 		// through and let Interact (and the other action presses) fire on the
@@ -273,7 +258,7 @@ public partial class Player : CharacterBody3D
 			CancelInteract();
 		}
 
-		if (Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee") || Input.IsActionJustPressed("AttackContextSensitive"))
+		if (Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee") || Input.IsActionJustPressed("AttackContextSensitive") || Input.IsActionJustPressed("Dash"))
 		{
 			CancelInteract();
 		}
@@ -356,17 +341,11 @@ public partial class Player : CharacterBody3D
 			ReleaseUseLantern();
 		}
 
-		// The context button: interact, traverse and dash on one press, ranked.
-		// Overloaded, not shared — the first meaning with something to act on
-		// consumes the press, so a chest in reach opens instead of dashing, a wall
-		// in front (or a climb already in progress) is climbed instead of dashing,
-		// and only a press with nothing to do at all becomes a dash.
-		//
-		// The world always wins for now; a richer rule (ignore an interactive
-		// behind you, ignore one the player is running past) goes HERE, not inside
-		// the three handlers.
-		if (Input.IsActionJustPressed("Dash") && !InteractMenuOpen
-			&& !TryInteractPress("Dash", allowSelfMenu: false) && !TryTraversalPress())
+		// The Dash press, overloaded rather than shared: a wall in front (or a
+		// climb already in progress) consumes it, and only a press with nothing to
+		// climb becomes a dash. Interaction is a button of its own and never
+		// contends here.
+		if (Input.IsActionJustPressed("Dash") && !InteractMenuOpen && !TryTraversalPress())
 		{
 			TryStartDash();
 		}

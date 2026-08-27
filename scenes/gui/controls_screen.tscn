@@ -4,11 +4,17 @@
 [ext_resource type="PackedScene" uid="uid://tanibdnfq7b5u" path="res://scenes/gui/controls_row.tscn" id="2_ctrlrow"]
 [ext_resource type="Script" uid="uid://fs0j02sye7bsj" path="res://scripts/data/gui/ControlBindingData.cs" id="3_binding"]
 
-[sub_resource type="Resource" id="Resource_bind_interact"]
+[sub_resource type="Resource" id="Resource_bind_dash"]
 script = ExtResource("3_binding")
-labelKey = &"controls_interact_dash"
+labelKey = &"controls_dash_climb"
 keyboardActions = PackedStringArray("Dash")
 gamepadActions = PackedStringArray("Dash")
+
+[sub_resource type="Resource" id="Resource_bind_interact"]
+script = ExtResource("3_binding")
+labelKey = &"controls_interact"
+keyboardActions = PackedStringArray("Interact")
+gamepadActions = PackedStringArray("Interact")
 
 [sub_resource type="Resource" id="Resource_bind_lantern"]
 script = ExtResource("3_binding")
@@ -67,7 +73,7 @@ _titleLabel = NodePath("PanelContainer/MarginContainer/VBoxContainer/Title")
 _headerRow = NodePath("PanelContainer/MarginContainer/VBoxContainer/HeaderRow")
 _rowContainer = NodePath("PanelContainer/MarginContainer/VBoxContainer/RowContainer")
 _backButton = NodePath("PanelContainer/MarginContainer/VBoxContainer/BackButton")
-bindings = [SubResource("Resource_bind_interact"), SubResource("Resource_bind_lantern"), SubResource("Resource_bind_sneak"), SubResource("Resource_bind_ranged"), SubResource("Resource_bind_melee"), SubResource("Resource_bind_spell"), SubResource("Resource_bind_camera"), SubResource("Resource_bind_map")]
+bindings = [SubResource("Resource_bind_dash"), SubResource("Resource_bind_interact"), SubResource("Resource_bind_lantern"), SubResource("Resource_bind_sneak"), SubResource("Resource_bind_ranged"), SubResource("Resource_bind_melee"), SubResource("Resource_bind_spell"), SubResource("Resource_bind_camera"), SubResource("Resource_bind_map")]
 
 [node name="PanelContainer" type="PanelContainer" parent="."]
 layout_mode = 1

@@ -721,13 +721,10 @@ public partial class Player : CharacterBody3D
 	public bool InteractMenuOpen { get; private set; }
 	public Action onInteractMenuOpenRequested;
 	bool _interactPressActive;
-	// Which InputMap action the in-progress hold is being polled against —
-	// either the dedicated Interact button or the combined context button.
-	string _interactPressAction;
 	ulong _interactHoldStartMs;
-	// Shared hold threshold (milliseconds) for the context-button hold gestures
-	// — interact-options and the consumable wheel — sourced from the
-	// context_button_hold_time cvar (authored in seconds).
+	// Hold threshold (milliseconds) for the interact button's hold gesture —
+	// the interact-options menu — sourced from the context_button_hold_time
+	// cvar (authored in seconds).
 	float ContextButtonHoldMs => CVars.contextButtonHoldTime.Value * 1000f;
 
 	Vector3 _inputMove = Vector3.Zero;

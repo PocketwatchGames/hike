@@ -5,9 +5,9 @@
 [ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="sc_1"]
 [ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="sc_2"]
-[ext_resource type="PackedScene" uid="uid://dgf3lsf0f6ngm" path="res://scenes/props/tree_pine.tscn" id="sc_3"]
-[ext_resource type="PackedScene" uid="uid://w7si8tgx547d" path="res://scenes/props/tree_pine_dead.tscn" id="sc_4"]
-[ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="sc_5"]
+[ext_resource type="PackedScene" uid="uid://c5naet571u441" path="res://scenes/props/tree_pine_snowy.tscn" id="sc_3"]
+[ext_resource type="PackedScene" uid="uid://ph318bmhf00n" path="res://scenes/props/tree_pine_dead_snowy.tscn" id="sc_4"]
+[ext_resource type="PackedScene" uid="uid://vw3bkqll0jx1" path="res://scenes/props/tree_sequoia_snowy.tscn" id="sc_5"]
 
 [sub_resource type="Resource" id="e_0"]
 script = ExtResource("2_ws")

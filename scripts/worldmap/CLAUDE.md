@@ -1561,10 +1561,10 @@ constrain to that one height · **ctrl+drag** constrain to that height and above
 · **Esc** pause menu (save / resume / quit to menu).
 
 **The painter binds EDITOR-ONLY actions, never gameplay ones.**
-`InputBindings.Apply` remaps `UseItem` / `Interact` / `Lantern` / `Dash` /
-`Sneak` per movement model, so an editor bound to one of those gets a different
-key — and a key that means something else — the moment the model changes. Q/E
-were bound to `UseItem` / `Interact`, and under the climb model Q had become
+`InputBindings.Apply` remaps `UseItem` / `Interact` / `InteractCancel` /
+`Lantern` / `Dash` / `Sneak` at startup, so an editor bound to one of those gets
+a different key — and a key that means something else — the moment that set is
+edited. Q/E were bound to `UseItem` / `Interact`; Q became
 `Lantern` while `UseItem` had moved onto **Ctrl**: Q did nothing here, and every
 Ctrl press (the one held for Ctrl+Z and Ctrl+S included) cycled the tool's
 parameter. They are `EditorParamLeft` / `EditorParamRight` now, alongside

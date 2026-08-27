@@ -334,7 +334,7 @@
     // (and they otherwise can), and stands the moment it's released.
     public static CVarBool sneakHold = new CVarBool("sneak_hold", true);
 
-    // Hold duration (seconds) shared by the context-button hold gestures:
+    // Hold duration (seconds) shared by the button-hold gestures:
     // holding Interact past this opens a multi-action interactive's options
     // menu (a shorter tap runs the default action), and holding
     // ConsumableCycleRight past it opens the consumable quick-select wheel (a

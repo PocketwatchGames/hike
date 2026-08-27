@@ -27,6 +27,28 @@ public partial class HurtBox : Area3D
     // damageables (props, environmental hurtboxes) — see CanBeHit.
     public Func<HitInfo, bool> CanHit;
 
+    // The shape giving this hurtbox its volume, resolved from the first
+    // CollisionShape3D child. Owners place the Area3D at their own root and
+    // offset the shape upward, so the node itself carries no useful position.
+    public CollisionShape3D Shape { get; private set; }
+
+    // World point that stands for this hurtbox in spatial queries. NOT the node
+    // origin: that sits at the owner's feet, exactly on the terrain surface it
+    // stands on, so a ray aimed there terminates on the ground itself.
+    public Vector3 Center => Shape != null ? Shape.GlobalPosition : GlobalPosition;
+
+    public override void _Ready()
+    {
+        foreach (Node child in GetChildren())
+        {
+            if (child is CollisionShape3D shape)
+            {
+                Shape = shape;
+                break;
+            }
+        }
+    }
+
     // Safe wrapper for senders. A receiver that wires no CanHit filter accepts
     // every hit (props, environmental damageables have no faction to defend).
     public bool CanBeHit(HitInfo hit)
