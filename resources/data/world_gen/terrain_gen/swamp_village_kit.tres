@@ -6,6 +6,7 @@
 
 [resource]
 script = ExtResource("13_uep7x")
+purpose = 1
 block = ExtResource("blk_marsh_ground")
 defaultDetail = ExtResource("1_jex71")
 forestDensity = 0.4

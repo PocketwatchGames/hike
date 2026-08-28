@@ -126,7 +126,7 @@ public static class WorldFinish
     // and the painter by an authored route flag, so each calls
     // StampClimbSurfaces itself with its own per-column answer. It is shared
     // code, not a shared decision.
-    public static void Finish(WorldState ws, WorldGenData genData, Options opt)
+    public static void Finish(WorldState ws, WorldFinishData finish, Options opt)
     {
         int minX = opt.MinX ?? ws.Min.X * ChunkState.SIZE;
         int maxX = opt.MaxX ?? ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
@@ -137,10 +137,10 @@ public static class WorldFinish
 
         if (!opt.SkipDetail)
         {
-            StampDetailScatter(ws, genData, opt.SkipDetailColumn, opt.Zones);
+            StampDetailScatter(ws, finish, opt.SkipDetailColumn, opt.Zones);
         }
 
-        StampMossPatches(ws, genData, opt.MossCoverageAt);
+        StampMossPatches(ws, finish, opt.MossCoverageAt);
         StampWaterTypes(ws, opt.PaintedWaterBlockAt);
 
         StampRoofSunOcclusion(ws);
@@ -157,7 +157,7 @@ public static class WorldFinish
             WindGen.ComputeWindGrid(ws);
         }
 
-        GenerateFog(ws, genData, opt.GroundYAt);
+        GenerateFog(ws, finish, opt.GroundYAt);
 
         GenerateAmbientWaterCurrents(ws);
         if (opt.RiverFlow.HasValue)
@@ -284,7 +284,7 @@ public static class WorldFinish
     // deterministically and has no zone-weight kernel to take an argmax of.
     // Everything else — the surface walk, the gates, the noise, the strength
     // ramp — is shared rather than reimplemented per caller.
-    public static void StampDetailScatter(WorldState ws, WorldGenData genData,
+    public static void StampDetailScatter(WorldState ws, WorldFinishData finish,
         Func<int, int, bool> skipColumn, ZoneField zones)
     {
         var surfaceNoise = new FastNoiseLite();
@@ -431,7 +431,7 @@ public static class WorldFinish
     // "dress the whole face". Worldgen wants patches — a zone of cliffs where
     // some are climbable. The painter marks INDIVIDUAL routes, and a route with
     // holes in it is not a route.
-    public static void StampClimbSurfaces(WorldState ws, WorldGenData genData,
+    public static void StampClimbSurfaces(WorldState ws, WorldFinishData finish,
         Func<int, int, float> coverageAt, Func<int, int, int> waterYAt,
         int minWallVoxels, bool patchy)
     {
@@ -466,15 +466,15 @@ public static class WorldFinish
             return;
         }
         int minHeight = Mathf.Max(minWallVoxels, 2);
-        float yStretch = Mathf.Max(genData.climbVerticalStretch, 0.01f);
+        float yStretch = Mathf.Max(finish.climbVerticalStretch, 0.01f);
 
         var patchNoise = new FastNoiseLite();
         patchNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Cellular;
         patchNoise.Seed = CLIMB_PATCH_SEED;
-        patchNoise.Frequency = genData.climbCellFrequency;
+        patchNoise.Frequency = finish.climbCellFrequency;
         patchNoise.CellularDistanceFunction = FastNoiseLite.CellularDistanceFunctionEnum.Euclidean;
         patchNoise.CellularReturnType = FastNoiseLite.CellularReturnTypeEnum.CellValue;
-        patchNoise.CellularJitter = genData.climbCellJitter;
+        patchNoise.CellularJitter = finish.climbCellJitter;
 
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
@@ -499,7 +499,7 @@ public static class WorldFinish
                 // Deepest voxel this column may still mark climbable, from its
                 // OWN waterline — so a lake or river bounds its walls the same
                 // way the sea does.
-                int climbLowestY = waterYAt(wx, wz) - genData.climbUnderwaterVoxels;
+                int climbLowestY = waterYAt(wx, wz) - finish.climbUnderwaterVoxels;
 
                 for (int f = 0; f < runStart.Length; f++)
                 {
@@ -547,7 +547,7 @@ public static class WorldFinish
                         }
                         faceRuns++;
                         faceVoxels += wy - start;
-                        stamped += StampClimbRun(ws, genData, patchy ? patchNoise : null, coverage,
+                        stamped += StampClimbRun(ws, finish, patchy ? patchNoise : null, coverage,
                             growthByBlock, face, wx, wz, start, wy, yStretch);
                     }
                 }
@@ -598,7 +598,7 @@ public static class WorldFinish
 
     // Dresses one exposed run [startY, endY). Returns how many voxels took the
     // overlay.
-    private static long StampClimbRun(WorldState ws, WorldGenData genData, FastNoiseLite patchNoise,
+    private static long StampClimbRun(WorldState ws, WorldFinishData finish, FastNoiseLite patchNoise,
         float coverage, byte[] growthByBlock, EVoxelFace face, int wx, int wz,
         int startY, int endY, float yStretch)
     {
@@ -679,7 +679,7 @@ public static class WorldFinish
     // stands in. Zone identity comes off the finished chunks rather than the
     // generator's zone placement, so a painted world — whose chunks carry the
     // painted index — fogs by the same rule.
-    public static void GenerateFog(WorldState ws, WorldGenData genData,
+    public static void GenerateFog(WorldState ws, WorldFinishData finish,
         Func<int, int, int> groundYAt)
     {
         int zoneCount = ws.Zones != null ? ws.Zones.Length : 0;
@@ -737,7 +737,7 @@ public static class WorldFinish
             {
                 humidity = weather.humidity;
             }
-            float desiredVolume = humidity * genData.fogVolumePerHumidity * floors.Count;
+            float desiredVolume = humidity * finish.fogVolumePerHumidity * floors.Count;
             fogLevelY[i] = SolveBucketFill(floors, desiredVolume);
         }
 
@@ -768,7 +768,7 @@ public static class WorldFinish
 
                 // Per-column blended fog level. Skip when no neighbouring
                 // zone offers a level — empty kernel.
-                zoneGrid.Weights(wx, wz, zoneCount, weights, genData.zoneGenBlendRadius);
+                zoneGrid.Weights(wx, wz, zoneCount, weights, finish.zoneGenBlendRadius);
                 float blendedLevel = 0f;
                 float wSum = 0f;
                 for (int i = 0; i < zoneCount; i++)
@@ -791,7 +791,7 @@ public static class WorldFinish
                         continue;
                     }
                     float depth = blendedLevel - wy;
-                    int density = (int)Mathf.Clamp(depth * genData.fogDensityPerVoxel, 0f, FOG_MAX_DENSITY);
+                    int density = (int)Mathf.Clamp(depth * finish.fogDensityPerVoxel, 0f, FOG_MAX_DENSITY);
                     if (density > 0)
                     {
                         ws.SetFogWorld(wx, wy, wz, density);
@@ -1077,14 +1077,14 @@ public static class WorldFinish
     //
     // Runs after the climb crust and after roads: it skips any voxel that
     // already carries an overlay, so whatever claimed the face first keeps it.
-    public static void StampMossPatches(WorldState ws, WorldGenData genData,
+    public static void StampMossPatches(WorldState ws, WorldFinishData finish,
         Func<int, int, (float surface, float cave)> coverageAt)
     {
         if (coverageAt == null)
         {
             return;
         }
-        BlockSurfaceData moss = genData.mossSurface;
+        BlockSurfaceData moss = finish.mossSurface;
         if (moss == null)
         {
             return;
@@ -1096,19 +1096,19 @@ public static class WorldFinish
         }
         byte mossOverlay = (byte)moss.atlasBaseIndex;
 
-        FastNoiseLite trunkNoise = CreateMossVeinNoise(genData, MOSS_PATCH_SEED, genData.mossPatchFrequency);
-        FastNoiseLite capillaryNoise = CreateMossVeinNoise(genData, MOSS_CAPILLARY_SEED,
-            genData.mossPatchFrequency * Mathf.Max(genData.mossCapillaryFrequencyScale, 1f));
+        FastNoiseLite trunkNoise = CreateMossVeinNoise(finish, MOSS_PATCH_SEED, finish.mossPatchFrequency);
+        FastNoiseLite capillaryNoise = CreateMossVeinNoise(finish, MOSS_CAPILLARY_SEED,
+            finish.mossPatchFrequency * Mathf.Max(finish.mossCapillaryFrequencyScale, 1f));
         // Unwarped: this one says how much moss a REGION carries, so it wants
         // to stay smooth — warping it just adds noise no one can read.
         var patchinessNoise = new FastNoiseLite();
         patchinessNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         patchinessNoise.Seed = MOSS_PATCHINESS_SEED;
-        patchinessNoise.Frequency = genData.mossPatchinessFrequency;
+        patchinessNoise.Frequency = finish.mossPatchinessFrequency;
         patchinessNoise.FractalOctaves = 2;
 
-        float capillaryWidth = Mathf.Max(genData.mossCapillaryWidth, 0.05f);
-        float yStretch = Mathf.Max(genData.mossVerticalStretch, 0.01f);
+        float capillaryWidth = Mathf.Max(finish.mossCapillaryWidth, 0.05f);
+        float yStretch = Mathf.Max(finish.mossVerticalStretch, 0.01f);
 
         long surfaceCandidates = 0, surfaceStamped = 0, caveCandidates = 0, caveStamped = 0;
 
@@ -1182,8 +1182,8 @@ public static class WorldFinish
                     // redistributes coverage instead of adding or removing it.
                     float patch01 = Mathf.Clamp(
                         0.5f + patchinessNoise.GetNoise3D(wx, sy, wz) * MOSS_NOISE_GAIN * 0.5f, 0f, 1f);
-                    float localCoverage = coverage * genData.mossStrandWidth
-                        * Mathf.Lerp(1f, patch01 * 2f, genData.mossPatchinessAmount);
+                    float localCoverage = coverage * finish.mossStrandWidth
+                        * Mathf.Lerp(1f, patch01 * 2f, finish.mossPatchinessAmount);
 
                     if (isCave) { caveCandidates++; } else { surfaceCandidates++; }
                     if (veinDist < localCoverage)
@@ -1205,18 +1205,18 @@ public static class WorldFinish
     // so callers sample world position and get a crooked field for free. BOTH
     // networks warp off the TRUNK wavelength, not their own — a capillary warped
     // at its own finer scale shakes itself into specks.
-    private static FastNoiseLite CreateMossVeinNoise(WorldGenData genData, int seed, float frequency)
+    private static FastNoiseLite CreateMossVeinNoise(WorldFinishData finish, int seed, float frequency)
     {
-        float baseFrequency = Mathf.Max(genData.mossPatchFrequency, 1e-4f);
+        float baseFrequency = Mathf.Max(finish.mossPatchFrequency, 1e-4f);
         var noise = new FastNoiseLite();
         noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         noise.Seed = seed;
         noise.Frequency = frequency;
         noise.FractalOctaves = 2;
-        noise.DomainWarpEnabled = genData.mossWarpWavelengths > 0f;
+        noise.DomainWarpEnabled = finish.mossWarpWavelengths > 0f;
         noise.DomainWarpType = FastNoiseLite.DomainWarpTypeEnum.Simplex;
-        noise.DomainWarpAmplitude = genData.mossWarpWavelengths / baseFrequency;
-        noise.DomainWarpFrequency = baseFrequency * genData.mossWarpFrequencyScale;
+        noise.DomainWarpAmplitude = finish.mossWarpWavelengths / baseFrequency;
+        noise.DomainWarpFrequency = baseFrequency * finish.mossWarpFrequencyScale;
         // One warp application, not FastNoiseLite's default 5-octave progressive
         // one: this pass samples two networks per air-exposed voxel in the world,
         // and the extra octaves buy detail far under a voxel.

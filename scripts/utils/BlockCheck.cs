@@ -13,15 +13,18 @@ public static class BlockCheck
     // output is the cheapest proof that a palette edit only APPENDED.
     private static void DumpKitPalette(WorldGenData genData)
     {
-        KitPalette palette = KitPalette.Build(genData?.kitPalette, genData?.ZoneGens);
+        KitPalette palette = KitPalette.Build(genData?.kitPalette);
         var sb = new StringBuilder();
         sb.AppendLine($"[block_check] kit palette: {palette.Kits.Length} slots"
             + $", {palette.DetailGroups.Length} detail groups");
         for (int i = 0; i < palette.Kits.Length; i++)
         {
             TerrainKitData kit = palette.Kits[i];
-            string purpose = palette.IsSurfaceKit(i) ? "surface"
-                : palette.IsCaveKit(i) ? "cave" : "-";
+            // The kit's own authored purpose, including the two nothing reads
+            // yet. An UNSET one is a real authoring mistake — the passes gated
+            // on Surface / Cave skip it silently — and printing only those two
+            // hid it behind the Submerged and Shore kits, which also read "-".
+            string purpose = kit == null ? "-" : kit.purpose.ToString().ToLowerInvariant();
             sb.AppendLine($"  {i,2}  {StringExtensions.GetFile(kit?.ResourcePath ?? "<null>"),-24} "
                 + $"block={palette.BlockFor(i),-3} {purpose}");
         }

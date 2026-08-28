@@ -24,6 +24,26 @@ public partial class WorldMapData : Resource
 {
     [Export] public WorldGenData genData;
 
+    // The three things a painted world needs that are NOT about generating one,
+    // referenced directly rather than reached through `genData`. Each is already
+    // its own resource; `genData` was only ever the bag holding them, and going
+    // through it made a document that authors no terrain depend on the
+    // generator's authoring asset.
+    //
+    // startContent is what makes a painted world able to begin differently — its
+    // own quests, party and starting knowledge, instead of inheriting whichever
+    // set the generator authors.
+    [Export] public WorldStartData startContent;
+    [Export] public WorldFinishData finish;
+    [Export] public KitPaletteData kitPalette;
+    [Export] public SimData simData;
+
+    // Named regions this document can paint, the mirror of `zones`. RegionData
+    // rather than worldgen's RegionGenData wrapper: the painter only ever read
+    // `.region` off each, and placement — which is all the wrapper adds — is
+    // what painting IS.
+    [Export] public RegionData[] regions = System.Array.Empty<RegionData>();
+
     // The zones this document can paint — ZoneData, the theme and weather
     // profile, and nothing else.
     //
@@ -329,7 +349,7 @@ public partial class WorldMapData : Resource
     public int ImageHeight => sizeChunksZ * ChunkState.SIZE;
     public int VoxelHeight => WorldMaxY - WorldMinY + 1;
 
-    public int RegionCount => genData?.regions != null ? genData.regions.Length : 0;
+    public int RegionCount => regions?.Length ?? 0;
     public ZoneData[] PaintableZones => zones ?? System.Array.Empty<ZoneData>();
 
     public int ZoneCount => PaintableZones.Length;

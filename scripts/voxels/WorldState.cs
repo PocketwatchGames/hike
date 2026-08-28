@@ -41,18 +41,18 @@ public class WorldState
     // Copy this world's starting content off the resource that authors it.
     // Called once at world creation by WorldGen and by the map painter's bake,
     // and again after a .hike load resolves StartContentPath.
-    public void BindStartContent(WorldGenData genData)
+    public void BindStartContent(WorldStartData start)
     {
-        if (genData == null)
+        if (start == null)
         {
             return;
         }
-        ScriptData = genData.scriptData;
-        StartingParty = genData.startingParty ?? System.Array.Empty<PlayerState>();
-        InitialKnowledge = genData.initialKnowledge != null
-            ? System.Linq.Enumerable.ToArray(genData.initialKnowledge)
+        ScriptData = start.scriptData;
+        StartingParty = start.startingParty ?? System.Array.Empty<PlayerState>();
+        InitialKnowledge = start.initialKnowledge != null
+            ? System.Linq.Enumerable.ToArray(start.initialKnowledge)
             : System.Array.Empty<TeachableConcept>();
-        StartContentPath = genData.ResourcePath ?? "";
+        StartContentPath = start.ResourcePath ?? "";
     }
 
     // Zones present in this world. Populated by WorldGen (or the disk

@@ -203,7 +203,12 @@ public static class WorldFile
     //      data and nothing recomputes them on load, so every POI was lost
     //      through a .hike or worldgen-cache round trip — which is every run
     //      but a cache MISS.
-    public const uint VERSION = 49;
+    // v50: StartContentPath names a WorldStartData rather than the WorldGenData
+    //      that used to own the same three fields. Same field, same position,
+    //      different payload TYPE — so a v49 file passes the version gate and
+    //      then throws an InvalidCastException out of the middle of the load.
+    //      A payload's type is as much the format as its layout is.
+    public const uint VERSION = 50;
 
     public struct IndexEntry
     {
@@ -405,7 +410,12 @@ public static class WorldFile
         uint version = r.ReadUInt32();
         if (version != VERSION)
         {
-            throw new InvalidDataException($"Unsupported HIKE world file version {version}");
+            // Says what to DO about it: the only fix is to write the file again
+            // from whatever produced it, and a bare version number does not
+            // suggest that to whoever hits it months later.
+            throw new InvalidDataException(
+                $"Unsupported HIKE world file version {version} (this build writes {VERSION}) "
+                + "— re-bake it from the world-map painter, or clear the worldgen cache.");
         }
 
         var header = new Header

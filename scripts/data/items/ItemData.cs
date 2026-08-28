@@ -11,7 +11,7 @@ public partial class ItemData : Resource
 	// lives in SimState.IdentifiedItems and is keyed by this resource,
 	// so every recipe and inventory stack of the same ItemData reveals at
 	// once. Items the player starts the run already knowing are seeded on
-	// spawn via WorldGenData.initialKnowledge (ItemTeachable entries). See
+	// spawn via WorldStartData.initialKnowledge (ItemTeachable entries). See
 	// SimState.GetItemDisplayName for the read-side.
 	[Export] public StringName unidentifiedDisplayName = "";
 	// Inspector multiline flavor text. Shown on the inventory screen's

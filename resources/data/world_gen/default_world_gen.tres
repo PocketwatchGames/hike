@@ -11,11 +11,6 @@
 [ext_resource type="Resource" uid="uid://d2rxg8txuelf0" path="res://resources/data/world_gen/region_gen/region_gen_forest.tres" id="3_region_forest"]
 [ext_resource type="Resource" uid="uid://dql8txwkuxpdg" path="res://resources/data/world_gen/region_gen/region_gen_mountain.tres" id="3_region_mountain"]
 [ext_resource type="Resource" uid="uid://bbelkvnbtjkl6" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="3_region_swamp"]
-[ext_resource type="Script" uid="uid://c0fdcxkkhfb23" path="res://scripts/data/teaching/SpellTeachable.cs" id="3_spellteach"]
-[ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]
-[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/spells/divine_cleanse.tres" id="7_cure"]
-[ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/spells/dog_treat.tres" id="7_dogtreat"]
-[ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/spells/smelling_salts.tres" id="7_ky243"]
 [ext_resource type="Script" uid="uid://c247odltr1n2o" path="res://scripts/data/worldgen/PlacedZone.cs" id="40_placed"]
 [ext_resource type="Script" uid="uid://bfgfv0y5b388o" path="res://scripts/data/worldgen/QuadrantBounds.cs" id="41_quadrant"]
 [ext_resource type="Script" uid="uid://4fakyxlqthf4" path="res://scripts/data/worldgen/BoxBounds.cs" id="42_box"]
@@ -28,36 +23,19 @@
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="56_lang"]
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/surfaces/surface_dirt_overlay.tres" id="57_dirt"]
 [ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/surfaces/surface_cobblestone.tres" id="58_cobble"]
-[ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/world_gen/party/mischa.tres" id="60_mischa"]
-[ext_resource type="Resource" uid="uid://cr4ms75qyq3pp" path="res://resources/data/world_gen/default_world_script.tres" id="60_worldscript"]
-[ext_resource type="Resource" uid="uid://vlhadu2uwy1q" path="res://resources/data/world_gen/party/rowan.tres" id="61_rowan"]
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="62_forge"]
-[ext_resource type="Resource" uid="uid://ddt2aj3rb35g0" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
-[ext_resource type="Resource" uid="uid://r0id550acv8t" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
+[ext_resource type="Resource" uid="uid://9a30yzgrtp5i4" path="res://resources/data/world_gen/fixtures/healing_fountain_fixture.tres" id="63_fountain"]
+[ext_resource type="Resource" uid="uid://p8myqetzi5fav" path="res://resources/data/world_gen/fixtures/mana_fountain_fixture.tres" id="64_mana"]
 [ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="70_subplace"]
-[ext_resource type="Script" uid="uid://b57phvkiq2bpv" path="res://scripts/data/SubsceneVariant.cs" id="71_subvariant"]
+[ext_resource type="Script" uid="uid://zdnwz72z5aj9h" path="res://scripts/data/SubsceneVariant.cs" id="71_subvariant"]
 [ext_resource type="Resource" uid="uid://b0rwb5o3crwif" path="res://resources/data/world_gen/spawn_lists/hub_house01.tres" id="72_house01npcs"]
 [ext_resource type="Resource" uid="uid://jcf5m3i0bsw5" path="res://resources/data/world_gen/spawn_lists/hub_house02.tres" id="73_house02npcs"]
 [ext_resource type="Script" uid="uid://d01ty1v0xeadj" path="res://scripts/data/worldgen/PathHintProfile.cs" id="74_pathprofile"]
 [ext_resource type="Resource" uid="uid://drjqxsedic4nq" path="res://resources/data/world_gen/cellular_terrain.tres" id="80_cellular"]
 [ext_resource type="Resource" uid="uid://dd70pnlby8te8" path="res://resources/data/surfaces/surface_road.tres" id="81_surface_road"]
-[ext_resource type="Resource" uid="uid://8h4it463afvd" path="res://resources/data/surfaces/surface_moss.tres" id="82_surface_moss"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/kit_palette.tres" id="83_kit_palette"]
-
-[sub_resource type="Resource" id="Resource_know_cure"]
-script = ExtResource("3_spellteach")
-spell = ExtResource("7_cure")
-metadata/_custom_type_script = "uid://419ghc0cftgeg"
-
-[sub_resource type="Resource" id="Resource_know_dogtreat"]
-script = ExtResource("3_spellteach")
-spell = ExtResource("7_dogtreat")
-metadata/_custom_type_script = "uid://419ghc0cftgeg"
-
-[sub_resource type="Resource" id="Resource_1pd0y"]
-script = ExtResource("3_spellteach")
-spell = ExtResource("7_ky243")
-metadata/_custom_type_script = "uid://419ghc0cftgeg"
+[ext_resource type="Resource" path="res://resources/data/world/world_start_default.tres" id="w_start"]
+[ext_resource type="Resource" path="res://resources/data/world/world_finish_default.tres" id="w_finish"]
 
 [sub_resource type="Resource" id="PathProfile_gate"]
 script = ExtResource("74_pathprofile")
@@ -313,8 +291,9 @@ metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 
 [resource]
 script = ExtResource("1_script")
+startContent = ExtResource("w_start")
+finish = ExtResource("w_finish")
 simData = ExtResource("2_sim")
-scriptData = ExtResource("60_worldscript")
 kitPalette = ExtResource("83_kit_palette")
 zones = [SubResource("Placed_mountain"), SubResource("Placed_desert"), SubResource("Placed_swamp"), SubResource("Placed_forest"), SubResource("Placed_hub")]
 regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), ExtResource("3_region_swamp"), ExtResource("3_region_forest")]
@@ -328,8 +307,5 @@ healingFountain = ExtResource("63_fountain")
 healingFountainCount = 3
 manaFountain = ExtResource("64_mana")
 manaFountainCount = 3
-startingParty = [ExtResource("60_mischa"), ExtResource("61_rowan")]
-initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_cure"), SubResource("Resource_know_dogtreat"), SubResource("Resource_1pd0y")])
-mossSurface = ExtResource("82_surface_moss")
 roadDefaultTexture = ExtResource("81_surface_road")
 pathHintProfiles = [SubResource("PathProfile_gate"), SubResource("PathProfile_door")]

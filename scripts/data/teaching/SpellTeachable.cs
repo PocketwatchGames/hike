@@ -6,7 +6,7 @@ using Godot;
 // reads with its real name instead of "Unknown Potion".
 //
 // This is the spell analog of RecipeTeachable: used as an "I know this spell"
-// entry in WorldGenData.initialKnowledge, and as the concept payload on a spell
+// entry in WorldStartData.initialKnowledge, and as the concept payload on a spell
 // scroll / NPC reward that grants a castable spell.
 [GlobalClass]
 public partial class SpellTeachable : TeachableConcept

@@ -2,9 +2,9 @@
 
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="0_r"]
 [ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="1_npc"]
-[ext_resource type="Resource" uid="uid://dxdp5uja557na" path="res://resources/data/world_gen/mob_descriptors/hermit.tres" id="1_r"]
+[ext_resource type="Resource" uid="uid://5y7s98x14lcxm" path="res://resources/data/world_gen/mob_descriptors/hermit.tres" id="1_r"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="2_palette"]
-[ext_resource type="Resource" uid="uid://1td133j0mecv" path="res://resources/data/languages/muddish.tres" id="2_r"]
+[ext_resource type="Resource" uid="uid://irm377w14z4uf" path="res://resources/data/languages/muddish.tres" id="2_r"]
 [ext_resource type="Resource" uid="uid://w5olwf3iq444" path="res://resources/data/characters/npcs/hermit_conversation.tres" id="3_r"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="3_recolor"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="3_rtusq"]

@@ -2136,20 +2136,33 @@ public partial class Player : CharacterBody3D
 		UpdateLedgeBarrierMask();
 
 		// Step up: lift the player before moving so they can clear small obstacles.
-		// Disabled while swimming — the player is floating, not walking. Uses
-		// MoveAndCollide so the lift stops at contact; raw teleport would clip
+		// Uses MoveAndCollide so the lift stops at contact; raw teleport would clip
 		// the head through low ceilings (e.g. cave interiors) and block
 		// horizontal motion because MoveAndSlide then pushes back down.
 		//
 		// Only lift when the flat move is actually blocked — see IsFlatMoveBlocked.
 		// That test runs first because it short-circuits the step-up ray on the
 		// common unobstructed tick.
+		//
+		// A swimmer gets the same lift, capped so the feet end no higher than the
+		// waterline. Floating is not walking, but the bed of the shallows beside a
+		// deep pool sits BELOW the surface the swimmer is already riding, so
+		// reaching it is a step and not a climb — without this, leaving deep water
+		// for the shallows next to it needed the dash-mantle. The cap is what keeps
+		// it from becoming a free climb up any face the swimmer presses into: there
+		// is no step-down while swimming to undo an unearned lift, so an unbounded
+		// one would ratchet up a cliff a tick at a time. Hauling out ABOVE the
+		// waterline stays the climb.
 		Vector3 posBeforeStep = GlobalPosition;
-		bool useStepUp = _grounded && _waterState != EWaterState.Swimming
+		bool swimming = _waterState == EWaterState.Swimming;
+		float stepUpLift = swimming
+			? Mathf.Min(data.stepHeight, _waterSurfaceY - GlobalPosition.Y)
+			: data.stepHeight;
+		bool useStepUp = (_grounded || swimming) && stepUpLift > 0f
 			&& IsFlatMoveBlocked(dt) && CanStepUpAhead();
 		if (useStepUp)
 		{
-			using var stepUpResult = MoveAndCollide(Vector3.Up * data.stepHeight);
+			using var stepUpResult = MoveAndCollide(Vector3.Up * stepUpLift);
 		}
 
 		bool wasOnFloor = _grounded;

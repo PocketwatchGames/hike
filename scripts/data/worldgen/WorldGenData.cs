@@ -6,11 +6,13 @@ public partial class WorldGenData : Resource
 {
     [Export] public SimData simData;
 
-    // This world's authored scripted content — quests today, scripted events
-    // later. Threaded onto WorldState.ScriptData at load (GameClient.Init).
-    // Separate from SimData, which is generic cross-session content. Null = no
-    // scripted content in this world.
-    [Export] public WorldScriptData scriptData;
+    // What a run in this world BEGINS with, and the tuning for the passes a
+    // finished world derives from its own voxels. Both are shared with the map
+    // painter, which holds its own references to the same two types — they are
+    // not generator concerns, and a painted world needs them with no generator
+    // anywhere in sight.
+    [Export] public WorldStartData startContent;
+    [Export] public WorldFinishData finish;
 
     // This world's kit palette — the slot table ChunkState.TerrainId indexes.
     // Authored, and APPEND-ONLY: see KitPaletteData. It used to be derived by
@@ -136,28 +138,6 @@ public partial class WorldGenData : Resource
     [Export] public FountainSpawnEntry manaFountain;
     [Export(PropertyHint.Range, "0,16,1,or_greater")] public int manaFountainCount;
 
-    [ExportGroup("Player Party")]
-    // The party the run begins with. Each PlayerState is one playable character
-    // (identity + appearance + stat sheet + its own starting loadout + traits);
-    // the first entry is the initially-controlled member. GameClient.Init clones
-    // these templates into the runtime SimState.Party at game start. This
-    // replaces the old single CharacterCreationState + the shared per-world
-    // loadout (starting gear is now per-character, on PlayerState).
-    [Export] public PlayerState[] startingParty = System.Array.Empty<PlayerState>();
-
-    [ExportGroup("Player Loadout")]
-    // Things the player already knows about when the run begins. Each
-    // entry is a TeachableConcept subclass — ItemTeachable identifies an
-    // item by name, RecipeTeachable seeds a recipe into the cookbook,
-    // LanguageTeachable grants language components, RegionTeachable
-    // reveals a map region, MobTeachable seeds a bestiary entry. Applied
-    // via the same Teach() path that scrolls / NPC rewards use, so a
-    // "starter pack" of knowledge composes the same way mid-run rewards
-    // do. Announcements are suppressed during initial application (see
-    // GameClient.SuppressAnnouncements) — the player shouldn't see a
-    // stack of banners on the first frame.
-    [Export] public Array<TeachableConcept> initialKnowledge = new();
-
     // ─────────────────────────────────────────────────────────────────────
     // Tuning for the APPROACH-AGNOSTIC passes — scatter, fog, roads, spawns.
     // Anything a single terrain approach reads belongs on its TerrainGenData
@@ -172,71 +152,10 @@ public partial class WorldGenData : Resource
     // sample time by scaling input coords); only the octave count is shared.
     [Export] public int forestNoiseOctaves = 2;
 
-    [ExportGroup("Fog")]
-    // Per-column "bucket capacity" at humidity = 1, in voxel-depth units.
-    [Export] public float fogVolumePerHumidity = 6f;
-    // Density gradient inside the bucket: density(wy) = (ceiling - wy) *
-    // FogDensityPerVoxel, clamped to [0, 255].
-    [Export] public float fogDensityPerVoxel = 80f;
-    // NOTE: dust in sky-sealed air is no longer a worldgen knob. Enclosed air
-    // is classified into a space class (see SimData.interiorAmbiences) and that
-    // class's dustFloor is baked into this same fog field by
-    // InteriorDustStamper — so a cave, a cellar and a roofed hut all get their
-    // air from one authored place instead of three special cases.
-
     [ExportGroup("Zone Blending")]
-    // Per-column smoothstep blend radius (in chunks) for the worldgen scalar
-    // fades (elevation, density). See WorldGen.GetZoneGenWeights.
-    [Export] public float zoneGenBlendRadius = 2.0f;
     // Per-voxel kit-stamp blend radius (in chunks). Must stay >= 1.0 or corner
     // voxels fall back to a chunk-aligned hard seam. See WorldGen.PickKitZone.
     [Export] public float kitBlendRadius = 2.0f;
-
-    [ExportGroup("Moss Scatter")]
-    // The surface painted as the moss overlay. Its atlasBaseIndex is the wire
-    // value written into OverlayId, so this must be a surface the atlas
-    // manifest actually bakes.
-    [Export] public BlockSurfaceData mossSurface;
-    // Spatial frequency of the TRUNK strand network. Lower = longer, lazier
-    // strands wandering across a whole hillside; higher = a tighter mesh.
-    //
-    // There is a hard floor here that no amount of width tuning escapes: a
-    // strand thinner than ONE VOXEL comes out as scattered specks instead of a
-    // line. Measured on the preview, isolated-voxel share runs 2.6% at 0.02,
-    // 6.6% at 0.035 and 10% at 0.055 for the same width — so make strands
-    // sparse by narrowing them, and make them THIN by lowering this, never by
-    // raising it.
-    [Export] public float mossPatchFrequency = 0.025f;
-    // Converts a zone's authored coverage into a strand half-width. Coverage
-    // stays the per-zone "how mossy is this place" dial; this globally trades
-    // wide ribbons for hairlines. Measured: 0.20 turns an authored 0.4 into
-    // ~22% of exposed rock. Above ~0.35 the strands merge and it reads as
-    // noise rather than as growth.
-    [Export(PropertyHint.Range, "0.02,1,0.01")] public float mossStrandWidth = 0.2f;
-    // The capillary network is the same field at a higher frequency, unioned
-    // with the trunks so hairlines branch off them. Width is a FRACTION of the
-    // trunk width — at 1.0 the two networks are indistinguishable and the
-    // result reads as one dense mesh, which is the blobby look again. Its
-    // frequency is subject to the same one-voxel floor as the trunks.
-    [Export] public float mossCapillaryFrequencyScale = 1.8f;
-    [Export(PropertyHint.Range, "0.05,1,0.01")] public float mossCapillaryWidth = 0.4f;
-    // Domain warp, in units of the strand WAVELENGTH rather than in voxels, so
-    // retuning mossPatchFrequency doesn't silently change the character. This
-    // is what turns clean contour lines into crooked creeping ones — but only
-    // if the warp is as coarse as the strands it moves. Warping at a higher
-    // frequency than the network vibrates each strand into noise instead of
-    // wandering it, which is why the scale defaults to 1.
-    [Export] public float mossWarpWavelengths = 0.35f;
-    [Export] public float mossWarpFrequencyScale = 1.0f;
-    // Vertical squash of the sample position: below 1 stretches the strands
-    // taller than they are wide, so moss on a cliff face runs DOWN it like a
-    // drip instead of ringing it horizontally. 1 = isotropic.
-    [Export(PropertyHint.Range, "0.1,2,0.01")] public float mossVerticalStretch = 0.6f;
-    // Long-wavelength modulation of coverage, so a strand thins out and dies
-    // along its length instead of running forever at one width. 0 = uniform,
-    // 1 = swings between bare and double coverage.
-    [Export] public float mossPatchinessFrequency = 0.012f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float mossPatchinessAmount = 0.6f;
 
     [ExportGroup("Climbable Cliffs")]
     // WHICH surface is painted is not authored here — it comes from the rock, via
@@ -251,28 +170,11 @@ public partial class WorldGenData : Resource
     // climbable set — ClimbProbe resolves the overlay through
     // GetByTopSurfaceLayer, the same bridge road overlays use for ground type.
 
-    // How deep below the waterline a wall face may still be marked climbable, in
-    // voxels. 0 stops the affordance at the last dry voxel; 1 lets it reach the
-    // rock a swimmer can grab. Anything drowned deeper than this is not somewhere
-    // to climb, so worldgen does not mark it.
-    [Export(PropertyHint.Range, "0,4,1")] public int climbUnderwaterVoxels = 1;
-
     // Minimum unbroken height of an exposed wall face, in voxels, before any of
     // it is dressed. Measured PER FACE, so a boulder's tall north side qualifies
     // while its two-voxel east side does not. Below this a wall is a mantle, and
     // dressing it would advertise a climb that the ledge affordance already owns.
     [Export(PropertyHint.Range, "2,32,1")] public int climbMinCliffHeight = 4;
-    // Cell size of the patch network. Lower = fewer, broader colonies; 0.05 puts
-    // a cell at roughly 20 voxels, so a tall cliff carries two or three.
-    [Export] public float climbCellFrequency = 0.05f;
-    // How far a cell's feature point may wander from its lattice slot. 0 is a
-    // visible grid; 1 is fully irregular, which is what makes the patches read
-    // as growth rather than as tiling.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float climbCellJitter = 1.0f;
-    // Vertical squash of the sample position, same trick as moss: below 1
-    // stretches each cell taller than it is wide, so a colony hangs DOWN the
-    // face instead of belting around it.
-    [Export(PropertyHint.Range, "0.1,2,0.01")] public float climbVerticalStretch = 0.5f;
 
     [ExportGroup("Dirt Patch Scatter")]
     [Export] public float dirtPatchFrequency = 0.2f;
@@ -387,10 +289,4 @@ public partial class WorldGenData : Resource
     // ceiling — a solid voxel within this window marks the spawn underground, so
     // it draws from the zone's UndergroundMobLevel band instead of the surface one.
     [Export] public int mobLevelUndergroundProbe = 24;
-    // Absolute cap on monster level after the zone band and the descriptor's
-    // authored base. Each level scales health/armor/damage by
-    // SimData.levelScalePerLevel (~1.5x/level), so keep this small. (Forges have no
-    // separate cap — they use their band
-    // directly.)
-    [Export(PropertyHint.Range, "0,4,1")] public int mobLevelCap = 4;
 }

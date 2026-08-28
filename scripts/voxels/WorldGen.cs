@@ -232,7 +232,7 @@ public sealed class WorldGen
         float bandMin = under ? bz.UndergroundMobLevelMin : bz.MobLevelMin;
         float bandMax = under ? bz.UndergroundMobLevelMax : bz.MobLevelMax;
         int level = baseLevel + SampleBandedLevel(position, bandMin, bandMax, _mobLevelNoise);
-        return Math.Clamp(level, 0, _genData.mobLevelCap);
+        return Math.Clamp(level, 0, _genData.finish.mobLevelCap);
     }
 
     // Every context worldgen hands to a spawn entry carries THIS run's difficulty
@@ -285,8 +285,8 @@ public sealed class WorldGen
         var min = new Vector3I(-worldSize.X / 2, 0, -worldSize.Y / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, 0, min.Z + worldSize.Y - 1);
         var ws = new WorldState(min, max, genData.simData,
-            KitPalette.Build(genData.kitPalette, genData.ZoneGens));
-        ws.BindStartContent(genData);
+            KitPalette.Build(genData.kitPalette));
+        ws.BindStartContent(genData.startContent);
 
         // Zone-placement context. The edge-noise channel wobbles box/circle zone
         // borders; sampled at chunk coords so the border resolves per chunk and
@@ -388,7 +388,7 @@ public sealed class WorldGen
         // skips any voxel that already carries an overlay: this way the cliffs
         // are claimed first and moss fills in around them, where reversing the
         // two leaves every tall face bare.
-        WorldFinish.StampClimbSurfaces(ws, genData,
+        WorldFinish.StampClimbSurfaces(ws, genData.finish,
             (wx, wz) => ZoneGenAt(genData, wx, wz)?.climbCoverage ?? 0f,
             (wx, wz) => TerrainMath.WaterYAt(heightMap, wx, wz),
             genData.climbMinCliffHeight, true);
@@ -470,7 +470,7 @@ public sealed class WorldGen
         // detail, the air pipeline, fog, currents, cascades. Shared verbatim
         // with the world-map painter's bake, which is the only way the two stay
         // in step: a channel added to that list reaches both kinds of world.
-        WorldFinish.Finish(ws, genData, new WorldFinish.Options
+        WorldFinish.Finish(ws, genData.finish, new WorldFinish.Options
         {
             MinX = heightMap.WorldMinX,
             MaxX = heightMap.WorldMaxX,
@@ -2346,7 +2346,7 @@ public sealed class WorldGen
         var min = new Vector3I(-worldSize.X / 2, 0, -worldSize.Y / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, 0, min.Z + worldSize.Y - 1);
         var ws = new WorldState(min, max, genData.simData,
-            KitPalette.Build(genData.kitPalette, genData.ZoneGens));
+            KitPalette.Build(genData.kitPalette));
 
         // The zone-placement context and the zone/region states are the only
         // setup a terrain approach reads — SampleBlendedZoneGen resolves through

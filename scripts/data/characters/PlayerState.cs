@@ -7,7 +7,7 @@ using Godot.Collections;
 // name + appearance); the starting loadout that used to live on WorldGenData is
 // now per-character here, since each member owns their own gear.
 //
-// Authored as a template .tres and listed on WorldGenData.startingParty; the
+// Authored as a template .tres and listed on WorldStartData.startingParty; the
 // runtime Party is built by cloning each template (Resource.Duplicate) at game
 // start. Named `State` (not `Data`) because a member is a mutable per-run record
 // — its vitals and, later, its live inventory evolve as the run plays and are

@@ -1,7 +1,7 @@
 using Godot;
 
 // Reveals an item's real name via SimState.IdentifyItem. Used as the
-// "I know this item" entry in WorldGenData.initialKnowledge (so the
+// "I know this item" entry in WorldStartData.initialKnowledge (so the
 // starting health potion reads as itself, not "Unknown Potion"), and as
 // the concept payload on identification scrolls / NPC rewards that just
 // tell the player what something is without granting it.

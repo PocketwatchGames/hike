@@ -8,10 +8,14 @@ using Godot;
 // the scatter noise pick, road suppression) read it back through KitPalette.
 public enum EKitPurpose
 {
-    Surface = 0,
-    Cave = 1,
-    Submerged = 2,
-    Shore = 3,
+    // Explicit values because this is SERIALIZED now — it is an [Export] on
+    // TerrainKitData, so inserting a member without a value would renumber the
+    // rest and silently re-purpose every authored kit.
+    None = 0,
+    Surface = 1,
+    Cave = 2,
+    Submerged = 3,
+    Shore = 4,
 }
 
 // One world's resolved kit palette — slot <-> kit, slot -> block, slot ->
@@ -46,12 +50,10 @@ public sealed class KitPalette
     // rest to the fallback ground.
     public const int MAX_KITS = 256;
 
-    private const byte PURPOSE_NONE = 0xFF;
-
     // A world with no palette at all — a fresh editor scratch world, a test.
     // Every accessor answers the fallback, so `ws.Kits` is never null and no
     // caller needs a null check on the hot path.
-    public static readonly KitPalette Empty = new(System.Array.Empty<TerrainKitData>(), null);
+    public static readonly KitPalette Empty = new(System.Array.Empty<TerrainKitData>());
 
     public TerrainKitData[] Kits { get; }
 
@@ -65,17 +67,21 @@ public sealed class KitPalette
     private readonly byte[] _purposes;
     private readonly HashSet<int> _kitGroundBlocks = new();
 
-    // `zonesForPurposes` classifies each slot (surface / cave / submerged /
-    // shore) from how the zones reference it, first-zone-wins. Purposes stay
-    // derived rather than authored because nothing outside worldgen reads them —
-    // they answer "is this voxel the zone's SURFACE ground?" for the scatter and
-    // overlay passes, and a painted world that lists no zones simply has none.
-    public static KitPalette Build(KitPaletteData authored, ZoneGenData[] zonesForPurposes)
+    // Purpose comes off each KIT (TerrainKitData.purpose), not from how some
+    // zone list happens to reference it. It used to be derived by walking a
+    // WorldGenData's ZoneGens, which made it a side effect of zone PLACEMENT:
+    // a kit no listed zone referenced was classified None, so `IsSurfaceKit`
+    // answered false for it and the passes gated on that skipped it. Four kits
+    // in this project were in exactly that state — appended to the palette for
+    // the painter, referenced only by zone-gen files the default world does not
+    // list — and it was harmless only by luck, because all four are surface
+    // kits and None happens to fall through to the surface branch.
+    public static KitPalette Build(KitPaletteData authored)
     {
-        return new KitPalette(authored?.kits ?? System.Array.Empty<TerrainKitData>(), zonesForPurposes);
+        return new KitPalette(authored?.kits ?? System.Array.Empty<TerrainKitData>());
     }
 
-    private KitPalette(TerrainKitData[] kits, ZoneGenData[] zonesForPurposes)
+    private KitPalette(TerrainKitData[] kits)
     {
         if (kits.Length > MAX_KITS)
         {
@@ -94,12 +100,12 @@ public sealed class KitPalette
         var details = new List<DetailGroupData>();
         for (int i = 0; i < kits.Length && i < MAX_KITS; i++)
         {
-            _purposes[i] = PURPOSE_NONE;
             TerrainKitData kit = kits[i];
             if (kit == null)
             {
                 continue;
             }
+            _purposes[i] = (byte)kit.purpose;
             // A kit named twice would make SlotOf's answer depend on iteration
             // order, and it wastes a slot in a 256-wide channel.
             if (!_index.TryAdd(kit, (byte)i))
@@ -124,32 +130,6 @@ public sealed class KitPalette
             }
         }
         DetailGroups = details.ToArray();
-
-        if (zonesForPurposes != null)
-        {
-            foreach (ZoneGenData z in zonesForPurposes)
-            {
-                if (z == null) { continue; }
-                Classify(z.surfaceKit, EKitPurpose.Surface);
-                Classify(z.caveKit, EKitPurpose.Cave);
-                Classify(z.submergedKit, EKitPurpose.Submerged);
-                Classify(z.shoreKit, EKitPurpose.Shore);
-            }
-        }
-    }
-
-    // First-zone-wins: a kit referenced as SurfaceKit by zone 0 stays Surface
-    // even if zone 1 lists the same .tres as its CaveKit.
-    private void Classify(TerrainKitData kit, EKitPurpose purpose)
-    {
-        if (kit == null || !_index.TryGetValue(kit, out byte slot))
-        {
-            return;
-        }
-        if (_purposes[slot] == PURPOSE_NONE)
-        {
-            _purposes[slot] = (byte)purpose;
-        }
     }
 
     // Slot for a kit, 0 when it has none. Slot 0 is a real kit, so a caller that

@@ -33,7 +33,7 @@ public partial class SimData : Resource
     // list the spells the player can attune, filtered to those currently known
     // (SimState.IsSpellKnown → Knowledge.KnownSpells). Each SpellData owns its
     // reagent cost; which spells start known is authored on
-    // WorldGenData.initialKnowledge (SpellTeachable). Adding a spell = adding it here.
+    // WorldStartData.initialKnowledge (SpellTeachable). Adding a spell = adding it here.
     [Export] public Array<SpellData> spells = new();
 
     // Master mob-type library — one entry per bestiary PAGE. BestiaryScreen

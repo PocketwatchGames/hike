@@ -6,5 +6,6 @@
 
 [resource]
 script = ExtResource("1_script")
+purpose = 4
 block = ExtResource("blk_sand")
 defaultDetail = ExtResource("3_detail")

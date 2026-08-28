@@ -7,7 +7,7 @@ using Godot.Collections;
 // "ammo" is however many casts the pooled reagents currently afford
 // (Cooking.CountAffordable / Player.GetSpellAmmo). Runs as a SpellState (which
 // tracks a summon spell's pet). Which spells the player begins knowing is
-// authored on WorldGenData.initialKnowledge (SpellTeachable entries), not here.
+// authored on WorldStartData.initialKnowledge (SpellTeachable entries), not here.
 [GlobalClass]
 public partial class SpellData : ItemData, IUsableItem
 {

@@ -50,15 +50,6 @@ public static class LedgeBarrierMesher
     // anything deeper is a ledge regardless of how much deeper.
     private const int NeighbourProbeDepth = MaxLegalDropVoxels + 1;
 
-    // Water at least this deep is a swim, not a wade, so its surface is not
-    // footing and a bank above it is a real ledge. Mirrors
-    // PlayerData.swimDepthThreshold, which is what the player, mobs and the
-    // pathfinder all split wade from swim on — they must agree, or the barriers
-    // stop the player at water everything else says is walkable. Kept as a
-    // const because this mesher runs per chunk with no owning resource in
-    // reach; if the threshold is ever tuned, both move together.
-    private const int WadeDepthVoxels = 2;
-
     private static readonly Vector3I[] Horizontal =
     {
         new(1, 0, 0), new(-1, 0, 0), new(0, 0, 1), new(0, 0, -1),
@@ -158,30 +149,17 @@ public static class LedgeBarrierMesher
         return !Blocks.IsSolid(getVoxel(x, y, z)) && Blocks.IsSolid(getVoxel(x, y - 1, z));
     }
 
-    // Is the water column whose TOP voxel is (nx, ny, nz) shallow enough to
-    // stand in? Only WadeDepthVoxels have to be looked at — anything deeper is
-    // a swim however much deeper it goes.
-    private static bool IsWadeableWater(System.Func<int, int, int, int> getVoxel, int nx, int ny, int nz)
-    {
-        for (int d = 0; d < WadeDepthVoxels; d++)
-        {
-            if (!Blocks.IsWater(getVoxel(nx, ny - d, nz)))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
     // Does the neighbouring column offer footing within a legal step of `y`?
     // A solid neighbour at `y` is a wall, which needs no barrier because terrain
     // collision already stops the body.
     //
-    // Water is footing only where it can be WADED. Its surface is not a floor —
-    // nothing holds a body up there, a wading player stands on the bed — so
-    // deep water is a drop to the bed, and one the body cannot walk back out
-    // of. Treating every water neighbour as reachable put no barrier on any
-    // bank, which is why a shoreline stopped the player with nothing to see.
+    // A water surface within a legal step is reachable HOWEVER DEEP the column
+    // beneath it is: entering water is a wade or a swim, never a fall, and the
+    // body can raise itself back to the waterline unaided (Player's swim
+    // step-up). So depth is not consulted — which is what keeps a barrier from
+    // standing at every line where shallow water meets deep. Only the surface
+    // being more than a step BELOW us is a real drop, and that is judged the
+    // same way for water as for ground.
     private static bool NeighbourIsReachable(System.Func<int, int, int, int> getVoxel, int nx, int y, int nz)
     {
         if (Blocks.IsSolid(getVoxel(nx, y, nz)))
@@ -194,9 +172,9 @@ public static class LedgeBarrierMesher
             if (Blocks.IsWater(getVoxel(nx, ny, nz)))
             {
                 // First water voxel scanning down, so this is the column's top:
-                // the level a wader would stand at, judged by the same step rule
-                // as any other surface.
-                return IsWadeableWater(getVoxel, nx, ny, nz) && d <= MaxLegalDropVoxels;
+                // the level a body entering it meets, judged by the same step
+                // rule as any other surface.
+                return d <= MaxLegalDropVoxels;
             }
             if (IsSurface(getVoxel, nx, ny, nz))
             {

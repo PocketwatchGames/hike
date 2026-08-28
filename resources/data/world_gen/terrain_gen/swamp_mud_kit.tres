@@ -28,6 +28,7 @@ metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]
 script = ExtResource("14_4vdwx")
+purpose = 1
 block = ExtResource("blk_marsh_ground")
 defaultDetail = ExtResource("1_sk7ie")
 forestDensity = 0.25

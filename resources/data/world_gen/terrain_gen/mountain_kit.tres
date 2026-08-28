@@ -91,6 +91,7 @@ metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]
 script = ExtResource("1_script")
+purpose = 1
 block = ExtResource("1_dp3f2")
 defaultDetail = ExtResource("3_detail")
 detailNoiseThreshold = -0.5

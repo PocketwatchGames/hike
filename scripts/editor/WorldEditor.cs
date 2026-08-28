@@ -3753,7 +3753,7 @@ public partial class WorldEditor : Node3D
         // whatever the process happened to have bound, which worked only because
         // Main had bound the same genData moments earlier.
         var ws = new WorldState(min, max, genData.simData,
-            KitPalette.Build(genData.kitPalette, genData.ZoneGens));
+            KitPalette.Build(genData.kitPalette));
 
         // Mirror WorldGen's zone setup so the sky preview has something
         // to blend in the editor. ZoneIndex stays 0 across all chunks

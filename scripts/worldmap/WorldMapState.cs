@@ -165,18 +165,17 @@ public class WorldMapState
 
     public string RegionName(int index)
     {
-        RegionGenData[] regions = Data.genData?.regions;
+        RegionData[] regions = Data.regions;
         if (regions == null || index < 0 || index >= regions.Length)
         {
             return $"Region {index}";
         }
-        RegionGenData gen = regions[index];
-        string authored = gen?.region?.displayName.ToString();
+        string authored = regions[index]?.displayName.ToString();
         if (!string.IsNullOrEmpty(authored))
         {
             return authored;
         }
-        string file = FileStem(gen?.ResourcePath);
+        string file = FileStem(regions[index]?.ResourcePath);
         return string.IsNullOrEmpty(file) ? $"Region {index}" : file;
     }
 
@@ -964,9 +963,9 @@ public class WorldMapState
         }
 
         Blocks.Bind();
-        var palette = KitPalette.Build(Data.genData.kitPalette, Data.genData.ZoneGens);
+        var palette = KitPalette.Build(Data.kitPalette);
 
-        var ws = new WorldState(Data.MinChunk, Data.MaxChunk, Data.genData.simData, palette);
+        var ws = new WorldState(Data.MinChunk, Data.MaxChunk, Data.simData, palette);
         BindZoneKits(palette);
 
         // Runtime zone table comes from the PAINTED palette, so a chunk's stamped
@@ -982,11 +981,11 @@ public class WorldMapState
                 Elevation = 0f,
             };
         }
-        RegionGenData[] regions = Data.genData.regions ?? [];
+        RegionData[] regions = Data.regions ?? [];
         ws.Regions = new RegionState[regions.Length];
         for (int i = 0; i < regions.Length; i++)
         {
-            ws.Regions[i] = new RegionState { Data = regions[i]?.region };
+            ws.Regions[i] = new RegionState { Data = regions[i] };
         }
 
         for (int cx = Data.MinChunk.X; cx <= Data.MaxChunk.X; cx++)
@@ -1010,7 +1009,7 @@ public class WorldMapState
 
         // whichever world the menu had selected.
 
-        ws.BindStartContent(Data.genData);
+        ws.BindStartContent(Data.startContent);
 
 
         WorldState = ws;
@@ -1047,7 +1046,7 @@ public class WorldMapState
         // fraction of it. Must follow the terrain stamp: it finds walls by
         // walking exposed faces of real voxels.
         progress?.Invoke(STAMP_END, "Cutting climbing routes");
-        WorldFinish.StampClimbSurfaces(ws, Data.genData,
+        WorldFinish.StampClimbSurfaces(ws, Data.finish,
             (wx, wz) => ClimbRouteAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) ? 1f : 0f,
             (wx, wz) => WaterSurface(wx - Data.WorldMinX, wz - Data.WorldMinZ),
             Data.climbRouteMinWallVoxels, false);
@@ -1088,7 +1087,7 @@ public class WorldMapState
         //     exposure still runs: it is not serialized, but interiorness — which
         //     is — floods from it.
         progress?.Invoke(WRITE_START, "Deriving world");
-        WorldFinish.Finish(ws, Data.genData, new WorldFinish.Options
+        WorldFinish.Finish(ws, Data.finish, new WorldFinish.Options
         {
             MinX = Data.WorldMinX,
             MaxX = Data.WorldMinX + Data.ImageWidth - 1,
@@ -1242,15 +1241,14 @@ public class WorldMapState
         };
     }
 
-    // The kit palette is built from the WORLD's zones, so a ground set may name a
-    // kit no zone uses — that kit has no slot, and silently falling back to 0
-    // would texture it as some other material.
+    // A ground set may name a kit the document's authored palette does not
+    // carry — that kit has no slot, and silently falling back to 0 would
+    // texture it as some other material.
     //
     // The fix is DATA, never appending the missing kit here: the per-voxel
-    // TerrainId is an INDEX into this palette, and the game rebuilds the palette
-    // from genData when it loads the .hike. A bake that appended kits would
-    // shift every index and mis-texture the whole world. So a ground set may
-    // only use kits reachable from the document's own genData zones.
+    // TerrainId is an INDEX into this palette, so appending at bake time would
+    // shift every index and mis-texture the whole world. Append the kit to
+    // KitPaletteData instead, which is the one safe edit.
     private static byte SlotOf(TerrainKitData[] palette, TerrainKitData kit)
     {
         if (kit == null || palette == null)
@@ -1264,9 +1262,9 @@ public class WorldMapState
                 return (byte)i;
             }
         }
-        GD.PushWarning($"WorldMapState: kit '{kit.ResourcePath}' is not in this document's genData kit "
-            + "palette, so columns using it bake as palette slot 0. Add a zone using that kit to the "
-            + "WorldGenData, or drop the ground set that names it.");
+        GD.PushWarning($"WorldMapState: kit '{kit.ResourcePath}' is not in this document's kit "
+            + "palette, so columns using it bake as palette slot 0. APPEND it to the KitPaletteData "
+            + "(never insert or reorder), or drop the ground set that names it.");
         return 0;
     }
 
@@ -2494,7 +2492,7 @@ public class WorldMapState
     // the painted document rather than a HeightMap.
     private SpawnContext SpawnContextForBake()
     {
-        int levelCap = Data.genData.mobLevelCap;
+        int levelCap = Data.finish.mobLevelCap;
         return _bakeContext ??= new SpawnContext
         {
             SurfaceYAt = (wx, wz) => TerrainHeight(wx - Data.WorldMinX, wz - Data.WorldMinZ),

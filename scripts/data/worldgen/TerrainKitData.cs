@@ -16,6 +16,13 @@ using Godot;
 [GlobalClass]
 public partial class TerrainKitData : Resource
 {
+    // What this material IS, for the passes that gate on it — the dirt overlay,
+    // the surface scatter pick, road suppression, the moss cave/surface split.
+    // A property of the KIT, not of whichever zone happens to reference it: the
+    // same rock is one zone's caves and everyone else's, and deriving this from
+    // a zone list made it a side effect of zone placement. See EKitPurpose.
+    [Export] public EKitPurpose purpose = EKitPurpose.None;
+
     // The block worldgen stamps for this kit — what the ground actually renders
     // as. Required. Several kits legitimately share one (the four shore /
     // submerged kits are all Sand); they stay distinct kits because their

@@ -16,14 +16,14 @@
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/poison_chest.tres" id="ep_10"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/knowledge_stone_vyeshal.tres" id="ep_11"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/knowledge_stone_muddish.tres" id="ep_12"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_hunter_m.tres" id="ep_13"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_archer_f.tres" id="ep_14"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_plain_m.tres" id="ep_15"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_fighter_f.tres" id="ep_16"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_elder_m.tres" id="ep_17"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/npcs/npc_merchant_leather.tres" id="ep_18"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/npcs/npc_hermit.tres" id="ep_19"]
-[ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/npcs/npc_wanderer_talia.tres" id="ep_20"]
+[ext_resource type="Resource" uid="uid://dkvdwrkqcuekt" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_hunter_m.tres" id="ep_13"]
+[ext_resource type="Resource" uid="uid://d1yvtxg0smir6" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_archer_f.tres" id="ep_14"]
+[ext_resource type="Resource" uid="uid://ck5kjq0ag35xc" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_plain_m.tres" id="ep_15"]
+[ext_resource type="Resource" uid="uid://brtwv6el4pqda" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_fighter_f.tres" id="ep_16"]
+[ext_resource type="Resource" uid="uid://ccwypbai6gspj" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_elder_m.tres" id="ep_17"]
+[ext_resource type="Resource" uid="uid://y7nh0k316av6" path="res://resources/data/worldmap/spawn_entries/npcs/npc_merchant_leather.tres" id="ep_18"]
+[ext_resource type="Resource" uid="uid://bop3dji7kg8qt" path="res://resources/data/worldmap/spawn_entries/npcs/npc_hermit.tres" id="ep_19"]
+[ext_resource type="Resource" uid="uid://c0yf33nq0v5ql" path="res://resources/data/worldmap/spawn_entries/npcs/npc_wanderer_talia.tres" id="ep_20"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/mobs/dog.tres" id="ep_21"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/mobs/drake_desert.tres" id="ep_22"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/mobs/drake_mountain.tres" id="ep_23"]
@@ -119,10 +119,23 @@
 [ext_resource type="Resource" uid="uid://btchigvuiqlyl" path="res://resources/data/zones/mountain_winter.tres" id="zd_13"]
 [ext_resource type="Resource" uid="uid://ctsog4rcqblj7" path="res://resources/data/zones/desert_howling.tres" id="zd_14"]
 [ext_resource type="Resource" uid="uid://dxnrjdnremjda" path="res://resources/data/zones/snowy_mountain.tres" id="zd_15"]
+[ext_resource type="Resource" path="res://resources/data/world/world_start_default.tres" id="wm_start"]
+[ext_resource type="Resource" path="res://resources/data/world/world_finish_default.tres" id="wm_finish"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/kit_palette.tres" id="wm_kits"]
+[ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="wm_sim"]
+[ext_resource type="Resource" uid="uid://xipwx91yg6gmm" path="res://resources/data/regions/mountain.tres" id="wm_rg0"]
+[ext_resource type="Resource" uid="uid://eencq3tsp8xw3" path="res://resources/data/regions/desert.tres" id="wm_rg1"]
+[ext_resource type="Resource" uid="uid://grary0lf8qbz2" path="res://resources/data/regions/swamp.tres" id="wm_rg2"]
+[ext_resource type="Resource" uid="uid://22wxp5pnkhxtu" path="res://resources/data/regions/forest.tres" id="wm_rg3"]
 
 [resource]
 script = ExtResource("1_wmd")
 genData = ExtResource("2_gen")
+startContent = ExtResource("wm_start")
+finish = ExtResource("wm_finish")
+kitPalette = ExtResource("wm_kits")
+simData = ExtResource("wm_sim")
+regions = [ExtResource("wm_rg0"), ExtResource("wm_rg1"), ExtResource("wm_rg2"), ExtResource("wm_rg3")]
 zones = [ExtResource("zd_0"), ExtResource("zd_1"), ExtResource("zd_2"), ExtResource("zd_3"), ExtResource("zd_4"), ExtResource("zd_5"), ExtResource("zd_6"), ExtResource("zd_7"), ExtResource("zd_8"), ExtResource("zd_9"), ExtResource("zd_10"), ExtResource("zd_11"), ExtResource("zd_12"), ExtResource("zd_13"), ExtResource("zd_14"), ExtResource("zd_15")]
 defaultGround = ExtResource("dg")
 waterTypes = [ExtResource("wt_clear"), ExtResource("wt_murky"), ExtResource("wt_sgp"), ExtResource("wt_sgf"), ExtResource("wt_srp")]

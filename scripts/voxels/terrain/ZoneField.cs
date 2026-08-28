@@ -79,7 +79,7 @@ public sealed class ZoneField
         Gens = genData?.ZoneGens ?? Array.Empty<ZoneGenData>();
         _placed = genData?.zones;
         Bounds = bounds;
-        _blendRadius = genData?.zoneGenBlendRadius ?? 2.0f;
+        _blendRadius = genData?.finish?.zoneGenBlendRadius ?? 2.0f;
         _kitBlendRadius = genData?.kitBlendRadius ?? 2.0f;
     }
 

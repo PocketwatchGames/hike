@@ -6,6 +6,7 @@
 
 [resource]
 script = ExtResource("1_script")
+purpose = 1
 block = ExtResource("2_block")
 detailNoiseThreshold = -0.5
 forestDensity = 0.06

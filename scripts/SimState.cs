@@ -66,7 +66,7 @@ public class SimState
     }
 
     // The player's party roster — the characters they can switch between. Built
-    // once at game start from WorldGenData.startingParty (GameClient.Init) and
+    // once at game start from WorldStartData.startingParty (GameClient.Init) and
     // persisted here alongside the other run-spanning state. Null until the
     // first build; GameClient guards on that so a future disk-load path that
     // bypasses worldgen doesn't rebuild or double-spawn the party. Also owns the
@@ -335,7 +335,7 @@ public class SimState
 
     // A spell is attunable at the alchemy screen once LEARNED (recorded into a
     // Knowledge store's KnownSpells, e.g. via a SpellTeachable in
-    // WorldGenData.initialKnowledge or a spell scroll). This is the single "known"
+    // WorldStartData.initialKnowledge or a spell scroll). This is the single "known"
     // axis for spells — deliberately NOT item-identification: a spell is cast, not
     // found and identified as a physical item, so learning is the only gate.
     public bool IsSpellKnown(SpellData spell)

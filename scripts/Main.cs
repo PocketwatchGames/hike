@@ -241,7 +241,7 @@ public partial class Main : Node
 		// ChunkMesh.SetTerrains touches RenderingServer (SetShaderParameter), so
 		// it must run on the main thread. Building the palette is pure C# and
 		// could move off-thread later if it ever gets expensive.
-		KitPalette kitPalette = KitPalette.Build(worldGenData?.kitPalette, worldGenData?.ZoneGens);
+		KitPalette kitPalette = KitPalette.Build(worldGenData?.kitPalette);
 		Blocks.Bind();
 		ChunkMesh.SetTerrains();
 		ChunkMesh.SetDetailGroups(kitPalette.DetailGroups);
@@ -621,7 +621,7 @@ public partial class Main : Node
 		// terrain_tiles), and the Tree / TallGrass brushes read the kit palette
 		// under the cursor. Without this the editor renders and paints against
 		// whatever a previous session happened to leave bound.
-		KitPalette editorPalette = KitPalette.Build(worldGenData?.kitPalette, worldGenData?.ZoneGens);
+		KitPalette editorPalette = KitPalette.Build(worldGenData?.kitPalette);
 		Blocks.Bind();
 		ChunkMesh.SetTerrains();
 		ChunkMesh.SetDetailGroups(editorPalette.DetailGroups);

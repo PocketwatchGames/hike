@@ -54,6 +54,35 @@ Layers:
   1 carved away, 2 added), too 3D to be a useful image; the result is captured
   in the baked `.hike`.
 
+## What a painted world needs that is not the generator's
+
+`WorldMapData` used to reach everything through its `genData`, which made a
+document that authors no terrain depend on the generator's authoring asset for
+values with nothing to do with generating. Four of those are now referenced
+directly, and two of them are types both producers share:
+
+| On `WorldMapData` | Is |
+|---|---|
+| `startContent` (`WorldStartData`) | quests, party, initial knowledge — what a RUN begins with |
+| `finish` (`WorldFinishData`) | the moss / climb / fog tuning `WorldFinish.Finish` consumes, plus `mobLevelCap` |
+| `kitPalette`, `simData` | already standalone resources; `genData` was only the bag holding them |
+| `regions` (`RegionData[]`) | the mirror of `zones`. **Order is the wire format** — the painted region raster stores indices into it |
+
+`WorldStartData` is also what a `.hike` records. The header stores THAT
+resource's path (`WorldFile` v48) rather than a `WorldGenData`'s, because
+`initialKnowledge` is authored as embedded sub-resources with no path of their
+own — the owner is the only addressable thing. Storing a `WorldGenData` path
+meant opening any world dragged the whole generator graph (zones, terrain
+approaches, spawn lists) into memory to read three fields. It is also what lets
+a painted world BEGIN differently: give the document its own `WorldStartData`
+and it gets its own party and quests instead of inheriting the generator's.
+
+**One read of `genData` remains** — `MaxGradeStep`, via
+`TerrainMath.TerrainOf(Data.genData)`. It is deliberately left: `maxGradeStep`
+lives on `TerrainGenData` because it is a per-APPROACH knob (its own comment
+states the test), and a painted world borrowing one approach's value is a design
+question rather than a mechanical move.
+
 ## Runtime + bake (`WorldMapState`)
 
 The mutable runtime document: owns every layer's data, the queries the

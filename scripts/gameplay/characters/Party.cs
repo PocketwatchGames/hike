@@ -8,7 +8,7 @@ using Godot;
 // it's world-scope run state that SaveGame will persist.
 //
 // Members are runtime PlayerState instances — built once at game start by
-// cloning the authored WorldGenData.startingParty templates (see
+// cloning the authored WorldStartData.startingParty templates (see
 // Party.FromTemplates), so mutating a member's state never touches the .tres.
 public class Party
 {

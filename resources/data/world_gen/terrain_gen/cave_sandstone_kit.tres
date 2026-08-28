@@ -6,5 +6,6 @@
 
 [resource]
 script = ExtResource("1_script")
+purpose = 2
 block = ExtResource("blk_cave_sandstone")
 defaultDetail = ExtResource("3_detail")
