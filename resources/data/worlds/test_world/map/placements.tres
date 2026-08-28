@@ -10,7 +10,6 @@
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forge.tres" id="6_mm4s5"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/fountain_health.tres" id="7_xitar"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/fountain_mana.tres" id="8_m17nx"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/signpost.tres" id="9_8icqc"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="9_errfs"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/signpost.tscn" id="10_m2c7i"]
 [ext_resource type="Script" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="11_mw5ge"]
@@ -495,9 +494,17 @@ script = ExtResource("2_4i2sm")
 entry = SubResource("Resource_i07lw")
 anchorXZ = Vector2i(113, 46)
 
+[sub_resource type="Resource" id="Resource_signpost_road"]
+resource_name = "signpost"
+script = ExtResource("11_mw5ge")
+scene = ExtResource("10_m2c7i")
+text = "The road goes on."
+language = ExtResource("9_errfs")
+family = &""
+
 [sub_resource type="Resource" id="Resource_rik87"]
 script = ExtResource("2_4i2sm")
-entry = ExtResource("9_8icqc")
+entry = SubResource("Resource_signpost_road")
 anchorXZ = Vector2i(-87, -63)
 
 [sub_resource type="Resource" id="Resource_4j70r"]

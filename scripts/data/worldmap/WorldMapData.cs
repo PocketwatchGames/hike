@@ -364,19 +364,23 @@ public partial class WorldMapData : Resource
     // files and write the world. WorldMapState + WorldFile.Write are pure C#, so
     // this is callable from a console command or a CLI hook. It is deliberately
     // NOT an [ExportToolButton] — see the [Tool] note on the class.
-    public void BakeToWorldFile()
+    // Returns whether the world actually reached disk. A bake can fail late —
+    // the .hike is written last, and the file is commonly held open by a running
+    // game or editor — so a caller that assumes success will report a world it
+    // never wrote.
+    public bool BakeToWorldFile()
     {
         if (string.IsNullOrEmpty(outputWorldPath))
         {
             GD.PrintErr("WorldMapData: OutputWorldPath not set.");
-            return;
+            return false;
         }
         // WorldMapState.Bake, not BuildWorld + Write: the sun flood and the
         // canopy stamp between them are part of a bake now, because nothing
         // relights a world on load. Straight-line here — this caller is already
         // the main thread and has no UI to keep alive.
         var state = new WorldMapState(this);
-        state.Bake();
+        return state.Bake();
     }
 
     // ---- Layer load / create / save -------------------------------------

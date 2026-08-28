@@ -170,7 +170,19 @@
             data.outputWorldPath = parts[1];
         }
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        data.BakeToWorldFile();
+        // Report what actually happened. The write is the LAST thing a bake does
+        // and the most likely thing to fail (a running game or editor holds the
+        // .hike open), so printing the elapsed time unconditionally announces a
+        // world that was never written — and the blob left on disk is the stale
+        // one from whenever the last bake succeeded.
+        bool ok = data.BakeToWorldFile();
+        if (!ok)
+        {
+            Godot.GD.PrintErr($"worldmap_bake: FAILED after {sw.ElapsedMilliseconds}ms, "
+                + $"'{data.outputWorldPath}' NOT written (see the error above; if it is a file lock, "
+                + "check for a running game or editor, or a stray headless Godot process)");
+            return;
+        }
         Godot.GD.Print($"worldmap_bake: {sw.ElapsedMilliseconds}ms -> {data.outputWorldPath}");
     });
 

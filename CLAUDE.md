@@ -47,6 +47,8 @@ Measured warm on this machine, so the choice is by cost rather than by feel:
 - **One world-building run per task, at the end** — not per iteration. In particular, do NOT spend a run reproducing a bug that is already localized: when the exception names a file and line, fix it and verify once. An A/B "prove it was broken before" run is for a diagnosis that is still a guess.
 - **A run over ~30s is announced and backgrounded**, never silently blocking. Say what it costs and why it is needed, then keep working while it runs.
 - **Temporary instrumentation beats a bigger run.** A throwaway hook plus `GD.Print` reaches a code path in one 12s boot where driving the real UI to it costs minutes — just remove it in the same session.
+- **Never pipe Godot's stdout into `grep` — redirect to a file and grep that.** Under Git Bash the pipeline returns as soon as grep is satisfied, Godot does not die of SIGPIPE, and you are left with an ORPHANED process. It holds `painted_world.hike` open, so every later `worldmap_bake` writes nothing while still reporting a plausible elapsed time, and you debug a "stale" blob that is simply the last one that landed. **Check the `.hike`'s mtime after a bake**, and `Get-Process | ? ProcessName -match Godot` if one seems to do nothing. This cost six 30s cycles once. (`worldmap_bake` now reports the real outcome — `BakeToWorldFile` returns a bool — but the orphan itself is still the trap.)
+- **`1 resources still in use at exit` + `ObjectDB instances leaked` is INTERMITTENT and means nothing.** Roughly 1 run in 3–5, always paired, on `block_check` and `spawn_check` alike. Two separate investigations blamed a static holding a `Resource` and a mid-rewrite resource tree; both were disproved by re-running (a static would fire every time; a settled tree still leaks). Nondeterministic shutdown ordering, not attributable to any change. Exit code stays 0. Do not chase it, and do not re-derive it.
 
 ### Running Headless (Automated Play)
 
@@ -301,11 +303,17 @@ Three rules, each of which was a real bug:
   one. That is how three Muddish knowledge stones and two signposts with
   conflicting texts happened. (Forks the painter itself makes are the exception —
   see the next rule.)
-- **A per-placement property lives on the PLACEMENT, and the shared entry keeps
-  only a generic default.** A signpost's text is the case: worldgen embeds a
-  per-POI copy in the containing `PoiPlacement`, the painter forks the entry into
-  the placement on first edit (`EntityPlacement.EditableEntry`, copy-on-write).
-  An entry naming one location gets stamped at every placement nobody has edited.
+- **A per-placement property lives on the PLACEMENT, and the shared entry carries
+  NOTHING of it — not even a default.** A signpost's text is the case: worldgen
+  embeds a per-POI copy in the containing `PoiPlacement`, the painter forks the
+  entry into the placement on first edit (`EntityPlacement.EditableEntry`,
+  copy-on-write), and `signpost.tres` itself holds only the scene. A "generic
+  default" was tried and is the wrong shape twice over: whatever it says gets
+  stamped at every placement nobody edited, and the language it is written in is
+  a proper noun parked in reusable vocabulary. Language travels WITH the text,
+  because an inscription is written in something and the two are one decision.
+  An entry that cannot function without the placement's value refuses loudly
+  (`SignpostSpawnEntry` errors and does not place) rather than drawing a blank.
 
 **A baked `.hike` is not self-contained, and what it may reference is exactly
 what a build SHIPS.** Its header stores `res://` paths and re-resolves them on
