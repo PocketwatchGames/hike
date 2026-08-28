@@ -4,9 +4,11 @@
 [ext_resource type="PackedScene" uid="uid://dhquaxn2wsyge" path="res://scenes/gui/player_stats_panel.tscn" id="3_aue6y"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="4_j245h"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_wawlv"]
-[ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="5_vc0ui"]
+[ext_resource type="Script" uid="uid://c6fma23i8hjb3" path="res://scripts/gui/BackpackPanel.cs" id="5_vc0ui"]
+[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="6_bkslt"]
+[ext_resource type="PackedScene" uid="uid://cuf7l233ji6eh" path="res://scenes/gui/item_detail_panel.tscn" id="6_jm11f"]
 
-[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_spellPanel", "_backpackPanel")]
+[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_spellPanel", "_backpackPanel", "_highlightPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,6 +21,7 @@ _meleePanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContai
 _rangedPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/RangedPanel")
 _spellPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/SpellPanel")
 _backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel")
+_highlightPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/ItemInfoPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=2000139086]
 layout_mode = 1
@@ -75,10 +78,94 @@ size_flags_vertical = 4
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer3" unique_id=902816152]
 layout_mode = 2
 
-[node name="BackpackPanel" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=1913399409 instance=ExtResource("5_vc0ui")]
+[node name="BackpackPanel" type="MarginContainer" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=1913399409 node_paths=PackedStringArray("_slots")]
 layout_mode = 2
 size_flags_horizontal = 6
 size_flags_vertical = 4
+script = ExtResource("5_vc0ui")
+_slots = [NodePath("GridContainer/Backpack1"), NodePath("GridContainer/Backpack2"), NodePath("GridContainer/Backpack3"), NodePath("GridContainer/Backpack4"), NodePath("GridContainer/Backpack5"), NodePath("GridContainer/Backpack6"), NodePath("GridContainer/Backpack7"), NodePath("GridContainer/Backpack8"), NodePath("GridContainer/Backpack9"), NodePath("GridContainer/Backpack10"), NodePath("GridContainer/Backpack11"), NodePath("GridContainer/Backpack12"), NodePath("GridContainer/Backpack13"), NodePath("GridContainer/Backpack14"), NodePath("GridContainer/Backpack15"), NodePath("GridContainer/Backpack16"), NodePath("GridContainer/Backpack17"), NodePath("GridContainer/Backpack18"), NodePath("GridContainer/Backpack19"), NodePath("GridContainer/Backpack20"), NodePath("GridContainer/Backpack21"), NodePath("GridContainer/Backpack22"), NodePath("GridContainer/Backpack23"), NodePath("GridContainer/Backpack24")]
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel" unique_id=113167403]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+columns = 4
+
+[node name="Backpack1" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1213629422 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack2" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1865877825 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack3" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=146598150 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack4" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=229865801 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack5" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=552562015 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack6" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1652606159 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack7" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=288923793 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack8" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=104363160 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack9" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1133590717 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack10" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1949298709 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack11" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1656271661 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack12" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=2100996853 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack13" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=274159206 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack14" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=2119785970 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack15" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1222457754 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack16" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1965822226 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack17" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1158787951 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack18" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1513966238 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack19" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1842178479 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack20" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=236959013 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack21" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1047944513 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack22" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=658367363 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack23" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1441834166 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="Backpack24" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=798065555 instance=ExtResource("6_bkslt")]
+layout_mode = 2
+
+[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=638608018 node_paths=PackedStringArray("_reagentSlots") instance=ExtResource("6_jm11f")]
+layout_mode = 2
+_reagentSlots = []
 
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1484389953]
 custom_minimum_size = Vector2(500, 0)

@@ -33,7 +33,8 @@ Measured warm on this machine, so the choice is by cost rather than by feel:
 | `dotnet build hike.sln` (no-op or small edit) | ~8s |
 | Godot headless **boot floor** (`--quit-after 1`) | ~3.5s |
 | `block_check` / `shader_check` (boot included) | ~3s |
-| `resource_check` (boot + all 669 `.tres` loaded) | ~7s |
+| `spawn_check` (boot + every spawn list resolved) | ~4s |
+| `resource_check` (boot + all 776 `.tres` loaded) | ~7s |
 | `autostart` to `[Load] Total (to fade start)`, worldgen cache HIT | ~4.5s (world load ~0.9s, chunk-mesh fill ~1.5s, entity spawn ~1.2s) |
 | a full self-quitting headless smoke run (`exec ...; quit`), cache HIT | ~10s wall |
 | A full `.hike` bake of the painted world (`worldmap_bake`, 6.9k chunks) | ~33s |
@@ -307,6 +308,48 @@ It was a set of `WorldGen` statics (`ActiveKitPalette`, `_kitIndex`, `_kitPurpos
 
 See [resources/data/surfaces/CLAUDE.md](resources/data/surfaces/CLAUDE.md) for the atlas-baking half.
 
+### Spawn Entries & Lists (`scripts/data/spawn/`, `resources/data/spawn_entries/`)
+
+**What a thing is and how a list uses it are separate resources.** A
+`SpawnEntryData` (`MobSpawnEntry`, `ForageSpawnEntry`, `ChestSpawnEntry`, …) is a
+SHARED asset in `resources/data/spawn_entries/` holding only what is true of the
+thing wherever it appears — its descriptor or item, its scene, its placement
+gates. A **row** names one of those and adds what THIS container says about it,
+so a zone's entity list reads as a list of named files with a number each:
+
+| Row type | Container | Adds |
+|---|---|---|
+| `SpawnRow` (base) | — | `entry`, `spawnConditions` |
+| `SpawnListRow` | `SpawnListData.rows` | `squareMetersPerSpawn` (per-column area rate) |
+| `SpawnGroupRow` | `SpawnGroupData.rows` | `countMin`/`countMax`, `placeAtAnchor` |
+
+The two containers ask different questions — a list wants a rate per area, a
+cluster wants a count and a position within itself — and neither can act on the
+other's answer, so they are separate types. One shared row type carrying all of
+it put three dead fields on every list row, and a field that cannot affect its
+container is worse than a missing one: it invites tuning that does nothing.
+
+- **Per-container values must not migrate onto the entry.** They genuinely differ
+  per list, which is the whole reason for the split: the mountain goblin is
+  night-only on the surface and any-time in a cave, and a camp holds 2–3 of a
+  goblin the surface scan places one of. Authored the other way round, each list
+  had to embed its own copy of every entry and one well was re-authored in three
+  files. `spawnConditions` is on the shared base because it is the one question
+  BOTH containers ask.
+- **`spawnConditions` reaches `Spawn` on the `SpawnContext`**, stamped by the row
+  immediately before each spawn. `Spawn` is overridden by ~20 entry types and only
+  three (mob, npc, chest) have a sim state that can defer on a condition, so
+  widening every signature for it is the worse trade. Nothing clears the field —
+  every caller sets it for the row it is about to place.
+- **An entry stays embedded when it is genuinely one-of-a-kind**: the villagers in
+  a house list (`NpcSpawnEntry` — each carries its own conversation, outfit and
+  palette), a campfire fixture with authored text. Hoisting a single-use entry
+  into a shared file buys nothing.
+- **`spawn_check`** (`--headless -- "spawn_check 1"`, ~4s) dumps every list's
+  resolved rows with every stored property. There is no runtime error mode here —
+  a dropped rate or condition just quietly stops placing something — so a diff of
+  this output is how an edit to these files is proved to have changed nothing else.
+
 ### Save/Load System (`scripts/SaveGame.cs`)
 
 Binary format with a version header. Currently stubbed -- writes/reads the header but the player status-effect buildup section (v2) and the scripting-variable bank (v3) round-trip.
@@ -468,7 +511,7 @@ Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sid
   - **It is data loss, not just a display bug.** The field reads empty, so the next time the editor saves that resource it writes the file back *without* the reference. You lose authored data to a diff you didn't make, and only in-editor — runtime has no `[Tool]` gate, so the game keeps working and hides it.
   - **It cascades.** Tagging `X` makes `X`'s own typed fields subject to the same rule, so the real cost is the transitive closure (subclasses + everything reachable through `[Export]`s), not one attribute. Measure that closure before starting: it is 5 classes for `ZoneData` but ~90 for `ItemData` and ~174 for `WorldGenData`. A half-applied sweep leaves the bug in place.
 
-  Match the parent: if it's `[Tool]`, everything it can reach is too, and say so in a comment on each so nobody strips it later. `StatusEffectData`'s payloads (`WeaponModData`, `DamageOverTimeData`, …) and the `SkyController`/`ZoneData` ambience graph are `[Tool]` for exactly this reason. Known remaining gaps: `ItemEvent.reagent` / `.concept` / `.minionData` and `WorldMapData.genData`.
+  Match the parent: if it's `[Tool]`, everything it can reach is too, and say so in a comment on each so nobody strips it later. `StatusEffectData`'s payloads (`WeaponModData`, `DamageOverTimeData`, …) and the `SkyController`/`ZoneData` ambience graph are `[Tool]` for exactly this reason. Known remaining gaps: `ItemEvent.reagent` / `.concept` / `.minionData`.
 - No namespaces; all classes are global scope.
 - Event communication uses C# `Action` delegates and Godot `[Signal]` attributes.
 - Factory methods (`Create()`) for instantiating scene-backed objects.

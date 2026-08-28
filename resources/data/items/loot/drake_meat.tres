@@ -1,15 +1,15 @@
-[gd_resource type="Resource" script_class="LootData" format=3 uid="uid://pz3055e5zg7oo"]
+[gd_resource type="Resource" script_class="LootData" format=3 uid="uid://khjswp5qnpnm"]
 
 [ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_loot_data"]
-[ext_resource type="Texture2D" uid="uid://mvhg0aoobuv6" path="res://assets/textures/items/BadMeat.png" id="2_inv"]
+[ext_resource type="Texture2D" uid="uid://b1nib5hr1yvoa" path="res://assets/textures/items/DrakeMeat.png" id="2_inv"]
 [ext_resource type="Resource" uid="uid://4hiwjcj7oqg79" path="res://resources/data/items/loot/meat.tres" id="3_parent"]
 
 [resource]
 script = ExtResource("1_loot_data")
-displayName = &"Drake Meat"
-typeTags = 129
-maxStack = 99
-inventorySprite = ExtResource("2_inv")
 removeTimeMs = 60000
-parent = ExtResource("3_parent")
+displayName = &"Drake Meat"
+maxStack = 99
 spoilDays = 3
+inventorySprite = ExtResource("2_inv")
+typeTags = 129
+parent = ExtResource("3_parent")

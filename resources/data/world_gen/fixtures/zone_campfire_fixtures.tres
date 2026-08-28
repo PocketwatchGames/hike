@@ -1,16 +1,15 @@
 [gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://ok7jp66gk0al"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
-[ext_resource type="Script" uid="uid://c0bcoj5vlqohu" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="3_camp"]
-[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="4_campscene"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/campfire.tres" id="e_campfire"]
 
-[sub_resource type="Resource" id="Campfire_zone"]
-script = ExtResource("3_camp")
-scene = ExtResource("4_campscene")
-metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
+[ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
+
+[sub_resource type="Resource" id="Row_campfire"]
+script = ExtResource("grouprow")
+entry = ExtResource("e_campfire")
 
 [resource]
 script = ExtResource("2_group")
 scatterRadius = 0.0
-entries = Array[ExtResource("1_base")]([SubResource("Campfire_zone")])
+rows = Array[ExtResource("grouprow")]([SubResource("Row_campfire")])

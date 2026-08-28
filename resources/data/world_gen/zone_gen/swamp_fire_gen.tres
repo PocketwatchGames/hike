@@ -2,12 +2,6 @@
 
 [ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="1_1xuj7"]
 [ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="2_qsxp7"]
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="3_e22q0"]
-[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="4_07fvj"]
-[ext_resource type="Script" uid="uid://c0bcoj5vlqohu" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="5_uuxri"]
-[ext_resource type="Resource" uid="uid://irm377w14z4uf" path="res://resources/data/languages/muddish.tres" id="6_760on"]
-[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="7_7h4wj"]
-[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="8_1auku"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="9_sy5th"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="11_dk2qw"]
 [ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_gen/terrain_gen/shore_swamp_kit.tres" id="12_vw5yw"]
@@ -26,6 +20,11 @@
 [ext_resource type="Resource" uid="uid://bc3moj7xeffyk" path="res://resources/data/items/scrolls/scroll_stew_goblin_health.tres" id="rc3"]
 [ext_resource type="Resource" uid="uid://dgjdiakyoixma" path="res://resources/data/items/scrolls/scroll_stew_spider_health.tres" id="rc4"]
 [ext_resource type="Script" uid="uid://bngmvmgus5vlm" path="res://scripts/data/worldgen/PlateauZoneTerrainData.cs" id="swamp_fire_gen_zoneterrain"]
+
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/campfire.tres" id="e_campfire"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/knowledge_stone.tres" id="e_knowledge_stone"]
+
+[ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
@@ -51,24 +50,19 @@ item = ExtResource("rc3")
 script = ExtResource("90_countrange")
 item = ExtResource("rc4")
 
-[sub_resource type="Resource" id="Campfire_swamp"]
-script = ExtResource("5_uuxri")
-scene = ExtResource("4_07fvj")
+[sub_resource type="Resource" id="Row_campfire"]
+script = ExtResource("grouprow")
+entry = ExtResource("e_campfire")
 placeAtAnchor = true
-metadata/_custom_type_script = "uid://c0bcoj5vlqohu"
 
-[sub_resource type="Resource" id="Stone_swamp"]
-script = ExtResource("8_1auku")
-scene = ExtResource("7_7h4wj")
-language = ExtResource("6_760on")
-text = "Muddish runs slow and deep, as the marsh does. Sit a while. Read. The first words will come to you."
-components = 4
-metadata/_custom_type_script = "uid://d3c3iycy3trkp"
+[sub_resource type="Resource" id="Row_knowledge_stone"]
+script = ExtResource("grouprow")
+entry = ExtResource("e_knowledge_stone")
 
 [sub_resource type="Resource" id="Fixtures_swamp"]
 script = ExtResource("9_sy5th")
 scatterRadius = 4.0
-entries = Array[ExtResource("3_e22q0")]([SubResource("Campfire_swamp"), SubResource("Stone_swamp")])
+rows = Array[ExtResource("grouprow")]([SubResource("Row_campfire"), SubResource("Row_knowledge_stone")])
 metadata/_custom_type_script = "uid://ci23e7ltpsb6o"
 
 [sub_resource type="Resource" id="ZoneTerrain_swamp_fire_gen"]

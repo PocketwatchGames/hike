@@ -1,86 +1,76 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://crwiul27krdig"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_entry_base"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
-[ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="3_forage_entry"]
-[ext_resource type="Script" uid="uid://dy4evm7tom40j" path="res://scripts/data/spawn/FireTrapSpawnEntry.cs" id="5_firetrap_entry"]
-[ext_resource type="Resource" uid="uid://cmdgobswamp01" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp.tres" id="6_goblin_data"]
-[ext_resource type="Resource" uid="uid://cmdgobswelt1" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp_elite.tres" id="6_goblin_elite"]
-[ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="6_purple"]
 [ext_resource type="Resource" uid="uid://cyrniev8emry" path="res://resources/data/world_gen/spawn_groups/goblin_group_swamp.tres" id="9_1wbki"]
-[ext_resource type="PackedScene" uid="uid://clba532cprsy" path="res://scenes/interactives/fire_trap.tscn" id="11_firetrap_scene"]
-[ext_resource type="Resource" uid="uid://067l7ldr00xa" path="res://resources/data/world_gen/mob_descriptors/spider_swamp.tres" id="20_spider"]
-[ext_resource type="Resource" uid="uid://n8c4wi80lfy6p" path="res://resources/data/world_gen/mob_descriptors/sparrow_swamp.tres" id="21_sparrow"]
-[ext_resource type="PackedScene" uid="uid://txnqaadygfgyf" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
-[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="50_chest_entry"]
-[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="52_chest_scene"]
-[ext_resource type="Resource" uid="uid://pln2356abb1yx" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
-[ext_resource type="Resource" uid="uid://uyofr5iy0be2j" path="res://resources/data/items/loot/mushroom_green.tres" id="m_green"]
-[ext_resource type="Resource" uid="uid://s8l1m34eoh8ca" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_swamp.tres" id="e_goblin_swamp"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_swamp_elite.tres" id="e_goblin_swamp_elite"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/spider_swamp.tres" id="e_spider_swamp"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/sparrow_swamp.tres" id="e_sparrow_swamp"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_green.tres" id="e_mushroom_green"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_black.tres" id="e_mushroom_black"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_purple.tres" id="e_mushroom_purple"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/fire_trap.tres" id="e_fire_trap"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/chest_plain.tres" id="e_chest_plain"]
 
-[sub_resource type="Resource" id="Resource_goblin_night"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("6_goblin_data")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_goblin_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_swamp")
 squareMetersPerSpawn = 500.0
 
-[sub_resource type="Resource" id="Resource_goblin_elite"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("6_goblin_elite")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[sub_resource type="Resource" id="Row_goblin_swamp_elite"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_swamp_elite")
 squareMetersPerSpawn = 1429.0
 
-[sub_resource type="Resource" id="Resource_spider"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("20_spider")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[sub_resource type="Resource" id="Row_goblin_group_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("9_1wbki")
+squareMetersPerSpawn = 1000.0
+
+[sub_resource type="Resource" id="Row_spider_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_spider_swamp")
 squareMetersPerSpawn = 800.0
 
-[sub_resource type="Resource" id="Resource_sparrow"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("21_sparrow")
-initialBehavior = null
+[sub_resource type="Resource" id="Row_sparrow_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_sparrow_swamp")
 squareMetersPerSpawn = 250.0
 spawnConditions = 9
 
-[sub_resource type="Resource" id="Resource_m_green"]
-script = ExtResource("3_forage_entry")
-scene = ExtResource("40_forage_scene")
-item = ExtResource("m_green")
+[sub_resource type="Resource" id="Row_mushroom_green"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_green")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_m_black"]
-script = ExtResource("3_forage_entry")
-scene = ExtResource("40_forage_scene")
-item = ExtResource("m_black")
+[sub_resource type="Resource" id="Row_mushroom_black"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_black")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_purple"]
-script = ExtResource("3_forage_entry")
-scene = ExtResource("40_forage_scene")
-item = ExtResource("6_purple")
+[sub_resource type="Resource" id="Row_mushroom_purple"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_purple")
 squareMetersPerSpawn = 200.0
 
-[sub_resource type="Resource" id="Resource_m_red"]
-script = ExtResource("3_forage_entry")
-scene = ExtResource("40_forage_scene")
-item = ExtResource("m_red")
+[sub_resource type="Resource" id="Row_mushroom_red"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_red")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_firetrap"]
-script = ExtResource("5_firetrap_entry")
-scene = ExtResource("11_firetrap_scene")
+[sub_resource type="Resource" id="Row_fire_trap"]
+script = ExtResource("listrow")
+entry = ExtResource("e_fire_trap")
 squareMetersPerSpawn = 250.0
 
-[sub_resource type="Resource" id="Resource_chest_surface"]
-script = ExtResource("50_chest_entry")
-scene = ExtResource("52_chest_scene")
+[sub_resource type="Resource" id="Row_chest_plain"]
+script = ExtResource("listrow")
+entry = ExtResource("e_chest_plain")
 squareMetersPerSpawn = 1200.0
 
 [resource]
 script = ExtResource("1_list")
-entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), ExtResource("9_1wbki"), SubResource("Resource_spider"), SubResource("Resource_sparrow"), SubResource("Resource_m_green"), SubResource("Resource_m_black"), SubResource("Resource_purple"), SubResource("Resource_m_red"), SubResource("Resource_firetrap"), SubResource("Resource_chest_surface")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_goblin_group_swamp"), SubResource("Row_spider_swamp"), SubResource("Row_sparrow_swamp"), SubResource("Row_mushroom_green"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_purple"), SubResource("Row_mushroom_red"), SubResource("Row_fire_trap"), SubResource("Row_chest_plain")])

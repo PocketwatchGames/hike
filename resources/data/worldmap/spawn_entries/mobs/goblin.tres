@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="1_entry"]
+[ext_resource type="Resource" uid="uid://rc4oq3kjbkbf" path="res://resources/data/world_gen/mob_descriptors/goblin_forest.tres" id="D_goblin_forest"]
+[ext_resource type="Resource" uid="uid://cmdgobdesert1" path="res://resources/data/world_gen/mob_descriptors/goblin_desert.tres" id="D_goblin_desert"]
+[ext_resource type="Resource" uid="uid://cmdgoblin0001" path="res://resources/data/world_gen/mob_descriptors/goblin_mountain.tres" id="D_goblin_mountain"]
+[ext_resource type="Resource" uid="uid://cmdgobswamp01" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp.tres" id="D_goblin_swamp"]
+[ext_resource type="Resource" uid="uid://d10e1t72d1y0s" path="res://resources/data/world_gen/mob_descriptors/goblin_forest_elite.tres" id="D_goblin_forest_elite"]
+[ext_resource type="Resource" uid="uid://cmdgobdselt1" path="res://resources/data/world_gen/mob_descriptors/goblin_desert_elite.tres" id="D_goblin_desert_elite"]
+[ext_resource type="Resource" uid="uid://cmdgobelite01" path="res://resources/data/world_gen/mob_descriptors/goblin_mountain_elite.tres" id="D_goblin_mountain_elite"]
+[ext_resource type="Resource" uid="uid://cmdgobswelt1" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp_elite.tres" id="D_goblin_swamp_elite"]
+[ext_resource type="Resource" uid="uid://dfgqtsu27u73m" path="res://resources/data/world_gen/mob_descriptors/goblin_forest_torchbearer.tres" id="D_goblin_forest_torchbearer"]
+[ext_resource type="Resource" uid="uid://c2bah8fqjr86q" path="res://resources/data/world_gen/mob_descriptors/goblin_desert_torchbearer.tres" id="D_goblin_desert_torchbearer"]
+[ext_resource type="Resource" uid="uid://cmdgobtorch01" path="res://resources/data/world_gen/mob_descriptors/goblin_mountain_torchbearer.tres" id="D_goblin_mountain_torchbearer"]
+[ext_resource type="Resource" uid="uid://pn4unb8dbcvg" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp_torchbearer.tres" id="D_goblin_swamp_torchbearer"]
+[ext_resource type="Resource" uid="uid://cmdgobtbelt1" path="res://resources/data/world_gen/mob_descriptors/goblin_mountain_torchbearer_elite.tres" id="D_goblin_mountain_torchbearer_elite"]
+
+[resource]
+script = ExtResource("1_entry")
+family = &"goblin"
+descriptor = ExtResource("D_goblin_forest")
+variants = [ExtResource("D_goblin_forest"), ExtResource("D_goblin_desert"), ExtResource("D_goblin_mountain"), ExtResource("D_goblin_swamp"), ExtResource("D_goblin_forest_elite"), ExtResource("D_goblin_desert_elite"), ExtResource("D_goblin_mountain_elite"), ExtResource("D_goblin_swamp_elite"), ExtResource("D_goblin_forest_torchbearer"), ExtResource("D_goblin_desert_torchbearer"), ExtResource("D_goblin_mountain_torchbearer"), ExtResource("D_goblin_swamp_torchbearer"), ExtResource("D_goblin_mountain_torchbearer_elite")]
+metadata/_custom_type_script = "uid://dhkkrl6qof485"

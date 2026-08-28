@@ -31,7 +31,7 @@ public partial class ChestSpawnEntry : SpawnEntryData
             // — so a region's signature loot rides every chest without forking the
             // shared chest / spawn-group resources.
             LootItems = Combine(Resolve(lootItems, rng), Resolve(context?.ZonePerChestLoot, rng)),
-            SpawnConditions = spawnConditions,
+            SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None,
         };
         ws.AddEntity(chest);
     }

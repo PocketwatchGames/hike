@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SignpostSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://db5ulwxm6oe8v" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="r1"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="r2"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("r1")
+text = "Swampland. Stay on the high ground after dusk."
+language = ExtResource("r2")

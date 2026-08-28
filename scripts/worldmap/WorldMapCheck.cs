@@ -67,11 +67,15 @@ public static class WorldMapCheck
                 continue;
             }
             bool owned = SpawnEntryData.IsOwnedCopy(placement.entry);
-            string name = owned
-                ? (string.IsNullOrEmpty(placement.entry.ResourceName)
-                    ? placement.entry.GetType().Name
-                    : placement.entry.ResourceName)
-                : StringExtensions.GetBaseName(StringExtensions.GetFile(placement.entry.ResourcePath));
+            // The shared answer, not a second copy of it: grouping is by FAMILY,
+            // so the listing counts "every npc" the way the palette's highlight
+            // picks them out. A local reimplementation missed the explicit
+            // `family` and reported six migrated NPCs as "NpcSpawnEntry".
+            string name = SpawnEntryData.FamilyName(placement.entry);
+            if (string.IsNullOrEmpty(name))
+            {
+                name = placement.entry.GetType().Name;
+            }
             byEntry.TryGetValue(name, out (int Total, int Owned) count);
             byEntry[name] = (count.Total + 1, count.Owned + (owned ? 1 : 0));
         }
@@ -425,36 +429,39 @@ public static class WorldMapCheck
     // panel looks exactly like "there are none authored".
     private static void ReportPaletteEditors(System.Text.StringBuilder sb, WorldMapState ctx)
     {
-        var seen = new HashSet<System.Type>();
+        // Per (type, FAMILY), not per type: what a row may be set to is now the
+        // ENTRY's answer, so one line per class would report whichever family
+        // happened to come first and a broken variants list on any other would
+        // be invisible.
+        var seen = new HashSet<string>();
         foreach (SpawnEntryData entry in ctx.EntityPalette)
         {
-            if (entry == null || !seen.Add(entry.GetType()))
+            if (entry == null
+                || !seen.Add($"{entry.GetType().Name}/{SpawnEntryData.FamilyName(entry)}"))
             {
                 continue;
             }
             var editable = new List<string>();
             var picks = new List<string>();
             var locked = new List<string>();
-            foreach (Godot.Collections.Dictionary property in entry.GetPropertyList())
+            foreach (Godot.Collections.Dictionary property in
+                WorldMapEntityInspector.OrderedProperties(entry))
             {
-                var usage = (PropertyUsageFlags)(long)property["usage"];
-                if ((usage & PropertyUsageFlags.ScriptVariable) == 0)
-                {
-                    continue;
-                }
                 var name = new StringName(property["name"].AsString());
-                if (!SpawnEntryData.ShowsInPlacementEditor(name))
-                {
-                    continue;
-                }
                 WorldMapEntityInspector.EPropertyEditor kind =
                     WorldMapEntityInspector.EditorFor(entry, name,
                         (Variant.Type)(long)property["type"],
                         (PropertyHint)(long)property["hint"],
-                        out System.Type resourceType, out string[] names);
+                        out System.Type resourceType, out string[] names,
+                        out Resource[] resources);
                 if (kind == WorldMapEntityInspector.EPropertyEditor.ResourcePick)
                 {
-                    picks.Add($"{name}({ResourceTypeIndex.Candidates(resourceType).Length})");
+                    // A family-constrained row reports its own count and is
+                    // marked, so the listing distinguishes "every conversation in
+                    // the project" from "this entry's own 13 goblins".
+                    picks.Add(resources != null
+                        ? $"{name}({resources.Length} in family)"
+                        : $"{name}({ResourceTypeIndex.Candidates(resourceType).Length})");
                 }
                 else if (kind == WorldMapEntityInspector.EPropertyEditor.NamePick)
                 {
@@ -469,7 +476,7 @@ public static class WorldMapCheck
                     editable.Add(name.ToString());
                 }
             }
-            sb.AppendLine($"[worldmap_check] {entry.GetType().Name} panel — "
+            sb.AppendLine($"[worldmap_check] {SpawnEntryData.FamilyName(entry)} ({entry.GetType().Name}) panel — "
                 + $"edit: {Join(editable)} | pick: {Join(picks)} | no editor yet: {Join(locked)}");
         }
     }

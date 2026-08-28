@@ -2,29 +2,29 @@ using System;
 using Godot;
 using Godot.Collections;
 
-// Composite spawn entry: a cluster of heterogeneous sub-entries (mobs,
-// chests, traps, loot, even nested groups) scattered around a single
-// anchor point. Subclasses SpawnEntryData so a group can sit inline in
-// any SpawnListData / SpawnGroupData entries array — authors mix leaf
-// entries and groups without a separate "group entry" wrapper.
+// Composite spawn entry: a cluster of heterogeneous members (mobs, chests,
+// traps, loot, even nested groups) scattered around a single anchor point.
+// Subclasses SpawnEntryData so a group can sit inline in any SpawnListData /
+// SpawnGroupData row — authors mix leaf entries and groups without a separate
+// "group entry" wrapper.
 //
 // Spawn semantics:
-//   - For each sub-entry, call RollCount(rng) for the instance count
-//     (default 1; subclasses like MobSpawnEntry override with their own
-//     ClusterCountMin/Max).
+//   - For each member row, RollCount(rng) gives the instance count (its
+//     countMin..countMax).
 //   - For each instance, ask the SpawnContext to pick a position within
-//     ScatterRadius of the anchor (rejection-sampled against the pass's
-//     IsValidColumn predicate). With no context (e.g. cave-pocket pass)
-//     or ScatterRadius == 0, every instance lands at the anchor.
+//     scatterRadius of the anchor (rejection-sampled against the pass's
+//     IsValidColumn predicate). With no context or scatterRadius == 0, every
+//     instance lands at the anchor.
 //
-// Empty groups (Entries==null/empty) are no-ops. The group's own
-// SquareMetersPerSpawn (inherited from SpawnEntryData) gates whether the
-// group fires at all when invoked from the per-zone scan loop.
+// Members are SpawnGroupRows for the same reason a list's are rows: a camp's goblin is the
+// same goblin the surface scan places, and "two or three of them, at night,
+// here" is what the CAMP says about it. The group's own row gates whether it
+// fires at all from a per-zone scan.
 [GlobalClass]
 public partial class SpawnGroupData : SpawnEntryData
 {
     [Export] public float scatterRadius = 3f;
-    [Export] public Array<SpawnEntryData> entries = new();
+    [Export] public Array<SpawnGroupRow> rows = new();
 
     private const int ScatterAttemptsPerInstance = 6;
 
@@ -38,50 +38,50 @@ public partial class SpawnGroupData : SpawnEntryData
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (entries == null)
+        if (rows == null)
         {
             return;
         }
-        foreach (SpawnEntryData entry in entries)
+        foreach (SpawnGroupRow row in rows)
         {
-            if (entry == null)
+            if (row?.entry == null)
             {
                 continue;
             }
-            int count = entry.RollCount(rng);
+            int count = row.RollCount(rng);
             for (int i = 0; i < count; i++)
             {
-                if (entry.placeAtAnchor)
+                if (row.placeAtAnchor)
                 {
                     // Centerpiece: pin to the cluster anchor (no scatter), but
                     // still run the entry's gates.
-                    entry.TrySpawn(ws, position, rng, context);
+                    row.TrySpawn(ws, position, rng, context);
                 }
-                else if (entry.SelfPlaces)
+                else if (row.entry.SelfPlaces)
                 {
                     // The entry derives its own position from the anchor (e.g.
                     // a boat ring-scanning for water) — the grassy scatter
                     // sampler would wrongly reject it, so bypass it.
-                    entry.Spawn(ws, position, rng, context);
+                    row.Spawn(ws, position, rng, context);
                 }
                 else if (context != null && scatterRadius > 0f)
                 {
                     // TryPickInRadius runs the entry's flat-terrain + overlap
                     // checks inside its rejection loop, so the surviving pick
-                    // is already validated — call Spawn directly to avoid a
+                    // is already validated — spawn directly to avoid a
                     // redundant second pass.
-                    if (!context.TryPickInRadius(entry, ws, position, scatterRadius, rng,
+                    if (!context.TryPickInRadius(row.entry, ws, position, scatterRadius, rng,
                         ScatterAttemptsPerInstance, out Vector3 instancePos))
                     {
                         continue;
                     }
-                    entry.Spawn(ws, instancePos, rng, context);
+                    row.Spawn(ws, instancePos, rng, context);
                 }
                 else
                 {
                     // No scatter (radius=0 or no context): drop on the anchor,
                     // but still run the entry's gates via TrySpawn.
-                    entry.TrySpawn(ws, position, rng, context);
+                    row.TrySpawn(ws, position, rng, context);
                 }
             }
         }

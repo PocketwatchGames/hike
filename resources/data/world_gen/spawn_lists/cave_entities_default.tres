@@ -1,65 +1,45 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://c6gsht63fk45a"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_entry_base"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
-[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="3_chest_entry"]
-[ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="4_forage_entry"]
-[ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="5_11hbm"]
-[ext_resource type="Script" uid="uid://b62wjynnh78x4" path="res://scripts/data/spawn/TorchSpawnEntry.cs" id="5_torch_entry"]
-[ext_resource type="Resource" uid="uid://cmdgobtorch01" path="res://resources/data/world_gen/mob_descriptors/goblin_mountain_torchbearer.tres" id="6_goblin_data"]
-[ext_resource type="Resource" uid="uid://cmdgobtbelt1" path="res://resources/data/world_gen/mob_descriptors/goblin_mountain_torchbearer_elite.tres" id="6_goblin_elite"]
-[ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="8_ysb6p"]
-[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="9_1cm8f"]
-[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="9_chest_scene"]
-[ext_resource type="PackedScene" uid="uid://bfdv5jjcu2h5d" path="res://scenes/interactives/chest_poison.tscn" id="10_poison_scene"]
-[ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="11_torch_scene"]
-[ext_resource type="Script" uid="uid://byfibd54g5x4" path="res://scripts/data/spawn/TrapSpawnEntry.cs" id="12_trap_entry"]
-[ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="13_trap_scene"]
-[ext_resource type="PackedScene" uid="uid://txnqaadygfgyf" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_mountain_torchbearer.tres" id="e_goblin_mountain_torchbearer"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_mountain_torchbearer_elite.tres" id="e_goblin_mountain_torchbearer_elite"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_blue.tres" id="e_mushroom_blue"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/chest_cave_potion.tres" id="e_chest_cave_potion"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/torch.tres" id="e_torch"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/spike_trap.tres" id="e_spike_trap"]
 
-[sub_resource type="Resource" id="Resource_goblin"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("6_goblin_data")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_goblin_mountain_torchbearer"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_mountain_torchbearer")
 squareMetersPerSpawn = 400.0
 
-[sub_resource type="Resource" id="Resource_goblin_elite"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("6_goblin_elite")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[sub_resource type="Resource" id="Row_goblin_mountain_torchbearer_elite"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_mountain_torchbearer_elite")
 squareMetersPerSpawn = 2000.0
 
-[sub_resource type="Resource" id="Resource_loot"]
-script = ExtResource("4_forage_entry")
-scene = ExtResource("40_forage_scene")
-item = ExtResource("5_11hbm")
+[sub_resource type="Resource" id="Row_mushroom_blue"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_blue")
 squareMetersPerSpawn = 200.0
 
-[sub_resource type="Resource" id="Resource_osyot"]
-script = ExtResource("9_1cm8f")
-item = ExtResource("8_ysb6p")
-metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
-
-[sub_resource type="Resource" id="Resource_chest"]
-script = ExtResource("3_chest_entry")
-scene = ExtResource("9_chest_scene")
-altScene = ExtResource("10_poison_scene")
-lootItems = [SubResource("Resource_osyot")]
+[sub_resource type="Resource" id="Row_chest_cave_potion"]
+script = ExtResource("listrow")
+entry = ExtResource("e_chest_cave_potion")
 squareMetersPerSpawn = 500.0
 
-[sub_resource type="Resource" id="Resource_torch"]
-script = ExtResource("5_torch_entry")
-scene = ExtResource("11_torch_scene")
+[sub_resource type="Resource" id="Row_torch"]
+script = ExtResource("listrow")
+entry = ExtResource("e_torch")
 squareMetersPerSpawn = 400.0
 
-[sub_resource type="Resource" id="Resource_spiketrap"]
-script = ExtResource("12_trap_entry")
-scene = ExtResource("13_trap_scene")
+[sub_resource type="Resource" id="Row_spike_trap"]
+script = ExtResource("listrow")
+entry = ExtResource("e_spike_trap")
 squareMetersPerSpawn = 400.0
 
 [resource]
 script = ExtResource("1_list")
-entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin"), SubResource("Resource_goblin_elite"), SubResource("Resource_loot"), SubResource("Resource_chest"), SubResource("Resource_torch"), SubResource("Resource_spiketrap")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_mountain_torchbearer"), SubResource("Row_goblin_mountain_torchbearer_elite"), SubResource("Row_mushroom_blue"), SubResource("Row_chest_cave_potion"), SubResource("Row_torch"), SubResource("Row_spike_trap")])

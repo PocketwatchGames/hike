@@ -1,37 +1,25 @@
 [gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://bptefqcxldi3l"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_kbvu5"]
-[ext_resource type="Resource" uid="uid://dfgqtsu27u73m" path="res://resources/data/world_gen/mob_descriptors/goblin_forest_torchbearer.tres" id="2_kbvu5"]
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="3_xfdp3"]
-[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="4_fn05n"]
-[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="5_h60px"]
-[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="6_totm6"]
-[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="7_6pv3r"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="8_htxfx"]
 
-[sub_resource type="Resource" id="Resource_goblin_entry"]
-script = ExtResource("3_xfdp3")
-descriptor = ExtResource("2_kbvu5")
-initialBehavior = null
-clusterCountMin = 2
-clusterCountMax = 3
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_forest_torchbearer_camp.tres" id="e_goblin_forest_torchbearer_camp"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/chest_camp_mushrooms_gold.tres" id="e_chest_camp_mushrooms_gold"]
+
+[ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
+
+[sub_resource type="Resource" id="Row_goblin_forest_torchbearer_camp"]
+script = ExtResource("grouprow")
+entry = ExtResource("e_goblin_forest_torchbearer_camp")
 spawnConditions = 2
+countMin = 2
+countMax = 3
 
-[sub_resource type="Resource" id="Resource_chest_loot_mushrooms"]
-script = ExtResource("5_h60px")
-item = ExtResource("4_fn05n")
-count = 3
-countRange = 3
-metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
-
-[sub_resource type="Resource" id="Resource_chest_entry"]
-script = ExtResource("7_6pv3r")
-scene = ExtResource("6_totm6")
-lootItems = [SubResource("Resource_chest_loot_mushrooms")]
+[sub_resource type="Resource" id="Row_chest_camp_mushrooms_gold"]
+script = ExtResource("grouprow")
+entry = ExtResource("e_chest_camp_mushrooms_gold")
 spawnConditions = 2
 
 [resource]
 script = ExtResource("8_htxfx")
 scatterRadius = 5.0
-entries = Array[ExtResource("1_kbvu5")]([SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")])
-squareMetersPerSpawn = 1000.0
+rows = Array[ExtResource("grouprow")]([SubResource("Row_goblin_forest_torchbearer_camp"), SubResource("Row_chest_camp_mushrooms_gold")])

@@ -9,9 +9,11 @@ using Godot;
 //
 // Only fields EVERY approach must answer for live here. The test is whether
 // worldgen outside the approach reads it: the vertical-extent trio is consumed
-// by WorldGen.FitVerticalExtent and maxGradeStep by the mesher's shape pass, so
-// both sit on the base. Anything an approach alone reads belongs on the
-// subclass, however tempting it is to share.
+// by WorldGen.FitVerticalExtent, so it sits on the base. Anything an approach
+// alone reads belongs on the subclass, however tempting it is to share.
+//
+// maxGradeStep used to sit here and moved to WorldFinishData — it is read by a
+// pass BOTH producers run, and the map painter has no approach to read it off.
 [GlobalClass]
 public abstract partial class TerrainGenData : Resource
 {
@@ -34,13 +36,6 @@ public abstract partial class TerrainGenData : Resource
     // Sized as a guard rail — if it is shaping your terrain, lower the relief
     // amplitude rather than raising this.
     [Export(PropertyHint.Range, "16,512,1")] public int maxSurfaceHeightVoxels = 128;
-
-    // Largest height difference between horizontally-adjacent columns still
-    // treated as a GRADE (a staircase approximation of a slope, meshed smooth)
-    // rather than a real discontinuity (meshed crisp). Raise only if an
-    // approach authors grades steeper than this per column — they would
-    // otherwise harden into visible stairs.
-    [Export(PropertyHint.Range, "1,8,1")] public int maxGradeStep = 1;
 
     // Build the per-run generator. Implementations are one line: hand `this`,
     // the world data and the seed to the approach's ITerrainGenerator, which

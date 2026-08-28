@@ -16,6 +16,7 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 [sub_resource type="Resource" id="Resource_carrot_payload"]
 script = ExtResource("2_loot_entry")
 item = SubResource("Desc_carrot")
+family = null
 
 [resource]
 script = ExtResource("1_data")

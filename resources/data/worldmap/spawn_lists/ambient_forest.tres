@@ -1,83 +1,64 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://xyfblyhyk3mp"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_entry_base"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
-[ext_resource type="Resource" uid="uid://rc4oq3kjbkbf" path="res://resources/data/world_gen/mob_descriptors/goblin_forest.tres" id="2_av785"]
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
-[ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="3_forage_entry"]
-[ext_resource type="Resource" uid="uid://d10e1t72d1y0s" path="res://resources/data/world_gen/mob_descriptors/goblin_forest_elite.tres" id="4_htqfg"]
-[ext_resource type="Script" uid="uid://cqwdm8tvtwueu" path="res://scripts/data/spawn/BerryTreeSpawnEntry.cs" id="5_berry_entry"]
-[ext_resource type="Resource" uid="uid://vhruxhp5hm351" path="res://resources/data/world_gen/mob_descriptors/kun_kun_forest.tres" id="7_kunkun_data"]
-[ext_resource type="PackedScene" uid="uid://23ids5pfkxv0" path="res://scenes/interactives/berry_tree.tscn" id="11_berry_scene"]
-[ext_resource type="Resource" uid="uid://fpk1l0ckpquku" path="res://resources/data/world_gen/mob_descriptors/sparrow_forest.tres" id="12_u4h7o"]
-[ext_resource type="Resource" uid="uid://dki4wkngpeupq" path="res://resources/data/world_gen/mob_descriptors/spider_forest.tres" id="20_spider"]
-[ext_resource type="PackedScene" uid="uid://txnqaadygfgyf" path="res://scenes/interactives/forage_spawner.tscn" id="21_forage_scene"]
-[ext_resource type="Resource" uid="uid://uyofr5iy0be2j" path="res://resources/data/items/loot/mushroom_green.tres" id="m_green"]
-[ext_resource type="Resource" uid="uid://s8l1m34eoh8ca" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
-[ext_resource type="Resource" uid="uid://151tfntcxm62z" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_forest.tres" id="e_goblin_forest"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_forest_elite.tres" id="e_goblin_forest_elite"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/kun_kun_forest.tres" id="e_kun_kun_forest"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_green.tres" id="e_mushroom_green"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_white.tres" id="e_mushroom_white"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/berry_tree.tres" id="e_berry_tree"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/sparrow_forest.tres" id="e_sparrow_forest"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/spider_forest.tres" id="e_spider_forest"]
 
-[sub_resource type="Resource" id="Resource_goblin_night"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("2_av785")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_goblin_forest"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_forest")
 squareMetersPerSpawn = 1000.0
 
-[sub_resource type="Resource" id="Resource_goblin_elite"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("4_htqfg")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[sub_resource type="Resource" id="Row_goblin_forest_elite"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_forest_elite")
 squareMetersPerSpawn = 6667.0
 
-[sub_resource type="Resource" id="Resource_kunkun"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("7_kunkun_data")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.33
+[sub_resource type="Resource" id="Row_kun_kun_forest"]
+script = ExtResource("listrow")
+entry = ExtResource("e_kun_kun_forest")
 squareMetersPerSpawn = 200.0
 
-[sub_resource type="Resource" id="Resource_m_green"]
-script = ExtResource("3_forage_entry")
-scene = ExtResource("21_forage_scene")
-item = ExtResource("m_green")
+[sub_resource type="Resource" id="Row_mushroom_green"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_green")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_m_red"]
-script = ExtResource("3_forage_entry")
-scene = ExtResource("21_forage_scene")
-item = ExtResource("m_red")
+[sub_resource type="Resource" id="Row_mushroom_red"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_red")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_m_white"]
-script = ExtResource("3_forage_entry")
-scene = ExtResource("21_forage_scene")
-item = ExtResource("m_white")
+[sub_resource type="Resource" id="Row_mushroom_white"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_white")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_berry"]
-script = ExtResource("5_berry_entry")
-scene = ExtResource("11_berry_scene")
-berryCountMin = 3
-berryCountMax = 6
+[sub_resource type="Resource" id="Row_berry_tree"]
+script = ExtResource("listrow")
+entry = ExtResource("e_berry_tree")
 squareMetersPerSpawn = 300.0
-minSpacing = 4.0
 
-[sub_resource type="Resource" id="Resource_638lp"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("12_u4h7o")
-initialBehavior = null
+[sub_resource type="Resource" id="Row_sparrow_forest"]
+script = ExtResource("listrow")
+entry = ExtResource("e_sparrow_forest")
 squareMetersPerSpawn = 100.0
 spawnConditions = 9
-metadata/_custom_type_script = "uid://dhkkrl6qof485"
 
-[sub_resource type="Resource" id="Resource_spider"]
-script = ExtResource("2_mob_entry")
-descriptor = ExtResource("20_spider")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[sub_resource type="Resource" id="Row_spider_forest"]
+script = ExtResource("listrow")
+entry = ExtResource("e_spider_forest")
 squareMetersPerSpawn = 800.0
 
 [resource]
 script = ExtResource("1_list")
-entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_m_green"), SubResource("Resource_m_red"), SubResource("Resource_m_white"), SubResource("Resource_berry"), SubResource("Resource_638lp"), SubResource("Resource_spider")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_forest"), SubResource("Row_goblin_forest_elite"), SubResource("Row_kun_kun_forest"), SubResource("Row_mushroom_green"), SubResource("Row_mushroom_red"), SubResource("Row_mushroom_white"), SubResource("Row_berry_tree"), SubResource("Row_sparrow_forest"), SubResource("Row_spider_forest")])

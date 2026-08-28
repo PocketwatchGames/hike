@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="SafetyZoneSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://dtcbuyhqmo1pi" path="res://scripts/data/spawn/SafetyZoneSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" uid="uid://cppetcwunu7o8" path="res://scenes/interactives/safety_zone.tscn" id="r1"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("r1")
+minSpacing = 0.0

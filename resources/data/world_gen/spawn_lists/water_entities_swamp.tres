@@ -1,16 +1,15 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://cwvam7wm5c6ql"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_entry_base"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="3_mob_entry"]
-[ext_resource type="Resource" uid="uid://e9ylxcoxc01m2" path="res://resources/data/world_gen/mob_descriptors/lurker_swamp.tres" id="4_lurker"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/lurker_swamp.tres" id="e_lurker_swamp"]
 
-[sub_resource type="Resource" id="Resource_lurker"]
-script = ExtResource("3_mob_entry")
-descriptor = ExtResource("4_lurker")
-initialBehavior = &"Wander"
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_lurker_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_lurker_swamp")
 squareMetersPerSpawn = 400.0
 
 [resource]
 script = ExtResource("2_list")
-entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_lurker")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_lurker_swamp")])

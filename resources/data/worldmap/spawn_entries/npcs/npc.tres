@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="NpcSpawnEntry" format=3 uid="uid://b7hbh3p56as4r"]
+
+[ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="1_npc"]
+[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="2_desc"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="3_lang"]
+[ext_resource type="Resource" uid="uid://bn24251j6okt0" path="res://resources/data/characters/npcs/swamp_villager01_conversation.tres" id="4_conv"]
+[ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="11_cjton"]
+[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="13_53vib"]
+[ext_resource type="Resource" uid="uid://48v0d33pmbss" path="res://resources/data/characters/npcs/appearances/hermit.tres" id="A_hermit"]
+[ext_resource type="Resource" uid="uid://dak5rph05g147" path="res://resources/data/characters/npcs/appearances/merchant_leather.tres" id="A_merchant_leather"]
+[ext_resource type="Resource" uid="uid://c3k6fj35xbekh" path="res://resources/data/characters/npcs/appearances/villager_archer_f.tres" id="A_villager_archer_f"]
+[ext_resource type="Resource" uid="uid://lj7votx3j4qt" path="res://resources/data/characters/npcs/appearances/villager_elder_m.tres" id="A_villager_elder_m"]
+[ext_resource type="Resource" uid="uid://bsm24ge7205j7" path="res://resources/data/characters/npcs/appearances/villager_fighter_f.tres" id="A_villager_fighter_f"]
+[ext_resource type="Resource" uid="uid://b7agd43dx4f7y" path="res://resources/data/characters/npcs/appearances/villager_hunter_m.tres" id="A_villager_hunter_m"]
+[ext_resource type="Resource" uid="uid://bq0mcgi2vutk4" path="res://resources/data/characters/npcs/appearances/villager_plain_m.tres" id="A_villager_plain_m"]
+[ext_resource type="Resource" uid="uid://d4lwac8hs5jo" path="res://resources/data/characters/npcs/appearances/wanderer_talia.tres" id="A_wanderer_talia"]
+
+[resource]
+script = ExtResource("1_npc")
+language = ExtResource("3_lang")
+conversation = ExtResource("4_conv")
+appearance = ExtResource("A_villager_plain_m")
+appearances = [ExtResource("A_hermit"), ExtResource("A_merchant_leather"), ExtResource("A_villager_archer_f"), ExtResource("A_villager_elder_m"), ExtResource("A_villager_fighter_f"), ExtResource("A_villager_hunter_m"), ExtResource("A_villager_plain_m"), ExtResource("A_wanderer_talia")]
+idleAnimation = null
+descriptor = ExtResource("2_desc")
+initialBehavior = null
+family = &"npc"
+metadata/_custom_type_script = "uid://hp1b1xye8rsv"

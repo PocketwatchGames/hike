@@ -1,69 +1,58 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://ge7gvocm4hnn"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_5s1fk"]
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="3_hm38d"]
-[ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="5_blue"]
-[ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="8_ffi6x"]
-[ext_resource type="PackedScene" uid="uid://clba532cprsy" path="res://scenes/interactives/fire_trap.tscn" id="10_3qw2q"]
-[ext_resource type="Script" uid="uid://dy4evm7tom40j" path="res://scripts/data/spawn/FireTrapSpawnEntry.cs" id="11_lthrm"]
-[ext_resource type="Resource" uid="uid://067l7ldr00xa" path="res://resources/data/world_gen/mob_descriptors/spider_swamp.tres" id="12_llhnd"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="13_ep0wb"]
-[ext_resource type="Resource" uid="uid://f6qpb6wglnatw" path="res://resources/data/world_gen/mob_descriptors/drake_swamp.tres" id="14_drake"]
-[ext_resource type="Resource" uid="uid://n8c4wi80lfy6p" path="res://resources/data/world_gen/mob_descriptors/sparrow_swamp.tres" id="15_sparrow"]
-[ext_resource type="PackedScene" uid="uid://txnqaadygfgyf" path="res://scenes/interactives/forage_spawner.tscn" id="40_forage_scene"]
-[ext_resource type="Resource" uid="uid://pln2356abb1yx" path="res://resources/data/items/loot/mushroom_black.tres" id="m_black"]
-[ext_resource type="Resource" uid="uid://a2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="m_orange"]
-[ext_resource type="Resource" uid="uid://151tfntcxm62z" path="res://resources/data/items/loot/mushroom_white.tres" id="m_white"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/drake_swamp.tres" id="e_drake_swamp"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/spider_swamp.tres" id="e_spider_swamp"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/sparrow_swamp.tres" id="e_sparrow_swamp"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_blue.tres" id="e_mushroom_blue"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_black.tres" id="e_mushroom_black"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_white.tres" id="e_mushroom_white"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_orange.tres" id="e_mushroom_orange"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/fire_trap.tres" id="e_fire_trap"]
 
-[sub_resource type="Resource" id="Resource_drake"]
-script = ExtResource("3_hm38d")
-descriptor = ExtResource("14_drake")
-initialBehavior = null
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_drake_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_drake_swamp")
 squareMetersPerSpawn = 600.0
 
-[sub_resource type="Resource" id="Resource_spider"]
-script = ExtResource("3_hm38d")
-descriptor = ExtResource("12_llhnd")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[sub_resource type="Resource" id="Row_spider_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_spider_swamp")
 squareMetersPerSpawn = 800.0
 
-[sub_resource type="Resource" id="Resource_sparrow"]
-script = ExtResource("3_hm38d")
-descriptor = ExtResource("15_sparrow")
-initialBehavior = null
+[sub_resource type="Resource" id="Row_sparrow_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_sparrow_swamp")
 squareMetersPerSpawn = 250.0
 spawnConditions = 9
 
-[sub_resource type="Resource" id="Resource_blue"]
-script = ExtResource("8_ffi6x")
-scene = ExtResource("40_forage_scene")
-item = ExtResource("5_blue")
+[sub_resource type="Resource" id="Row_mushroom_blue"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_blue")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_m_black"]
-script = ExtResource("8_ffi6x")
-scene = ExtResource("40_forage_scene")
-item = ExtResource("m_black")
+[sub_resource type="Resource" id="Row_mushroom_black"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_black")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_m_white"]
-script = ExtResource("8_ffi6x")
-scene = ExtResource("40_forage_scene")
-item = ExtResource("m_white")
+[sub_resource type="Resource" id="Row_mushroom_white"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_white")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_m_orange"]
-script = ExtResource("8_ffi6x")
-scene = ExtResource("40_forage_scene")
-item = ExtResource("m_orange")
+[sub_resource type="Resource" id="Row_mushroom_orange"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_orange")
 squareMetersPerSpawn = 300.0
 
-[sub_resource type="Resource" id="Resource_firetrap"]
-script = ExtResource("11_lthrm")
-scene = ExtResource("10_3qw2q")
+[sub_resource type="Resource" id="Row_fire_trap"]
+script = ExtResource("listrow")
+entry = ExtResource("e_fire_trap")
 squareMetersPerSpawn = 250.0
 
 [resource]
 script = ExtResource("13_ep0wb")
-entries = Array[ExtResource("1_5s1fk")]([SubResource("Resource_drake"), SubResource("Resource_spider"), SubResource("Resource_sparrow"), SubResource("Resource_blue"), SubResource("Resource_m_black"), SubResource("Resource_m_white"), SubResource("Resource_m_orange"), SubResource("Resource_firetrap")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_drake_swamp"), SubResource("Row_spider_swamp"), SubResource("Row_sparrow_swamp"), SubResource("Row_mushroom_blue"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_white"), SubResource("Row_mushroom_orange"), SubResource("Row_fire_trap")])

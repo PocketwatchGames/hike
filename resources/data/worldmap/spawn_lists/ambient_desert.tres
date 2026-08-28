@@ -1,86 +1,70 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://cinfa25r40siu"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_lnvkt"]
-[ext_resource type="Resource" uid="uid://cmdgobdesert1" path="res://resources/data/world_gen/mob_descriptors/goblin_desert.tres" id="2_ajkyq"]
-[ext_resource type="Resource" uid="uid://cmdgobdselt1" path="res://resources/data/world_gen/mob_descriptors/goblin_desert_elite.tres" id="2_desert_elite"]
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="3_3y2ux"]
-[ext_resource type="Resource" uid="uid://4yxvdep3v6iuw" path="res://resources/data/world_gen/mob_descriptors/kun_kun_desert.tres" id="4_epbtr"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="8_88i6m"]
-[ext_resource type="Script" uid="uid://byfibd54g5x4" path="res://scripts/data/spawn/TrapSpawnEntry.cs" id="11_trap_entry"]
-[ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="12_trap_scene"]
-[ext_resource type="Resource" uid="uid://odyn6nbdj05j" path="res://resources/data/world_gen/mob_descriptors/spider_desert.tres" id="20_spider"]
-[ext_resource type="Resource" uid="uid://eu9wsuznh8alu" path="res://resources/data/world_gen/mob_descriptors/drake_desert.tres" id="21_drake_desert"]
-[ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="30_forage_entry"]
-[ext_resource type="PackedScene" uid="uid://txnqaadygfgyf" path="res://scenes/interactives/forage_spawner.tscn" id="31_forage_scene"]
-[ext_resource type="Script" uid="uid://qpmqmwi1sffy" path="res://scripts/data/spawn/CactusSpawnEntry.cs" id="40_cactus_entry"]
-[ext_resource type="PackedScene" uid="uid://dnxj4ujesxene" path="res://scenes/interactives/cactus.tscn" id="41_cactus_scene"]
-[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="m_gold"]
-[ext_resource type="Resource" uid="uid://a2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="m_orange"]
-[ext_resource type="Resource" uid="uid://s8l1m34eoh8ca" path="res://resources/data/items/loot/mushroom_red.tres" id="m_red"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_desert.tres" id="e_goblin_desert"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_desert_elite.tres" id="e_goblin_desert_elite"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/kun_kun_desert.tres" id="e_kun_kun_desert"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/spike_trap.tres" id="e_spike_trap"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/cactus.tres" id="e_cactus"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/spider_desert.tres" id="e_spider_desert"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/drake_desert.tres" id="e_drake_desert"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_orange.tres" id="e_mushroom_orange"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_gold.tres" id="e_mushroom_gold"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
 
-[sub_resource type="Resource" id="Resource_goblin_night"]
-script = ExtResource("3_3y2ux")
-descriptor = ExtResource("2_ajkyq")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_goblin_desert"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_desert")
 squareMetersPerSpawn = 1000.0
 
-[sub_resource type="Resource" id="Resource_goblin_elite"]
-script = ExtResource("3_3y2ux")
-descriptor = ExtResource("2_desert_elite")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[sub_resource type="Resource" id="Row_goblin_desert_elite"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_desert_elite")
 squareMetersPerSpawn = 6667.0
 
-[sub_resource type="Resource" id="Resource_kunkun"]
-script = ExtResource("3_3y2ux")
-descriptor = ExtResource("4_epbtr")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.8
+[sub_resource type="Resource" id="Row_kun_kun_desert"]
+script = ExtResource("listrow")
+entry = ExtResource("e_kun_kun_desert")
 squareMetersPerSpawn = 200.0
 spawnConditions = 2
 
-[sub_resource type="Resource" id="Resource_spiketrap"]
-script = ExtResource("11_trap_entry")
-scene = ExtResource("12_trap_scene")
+[sub_resource type="Resource" id="Row_spike_trap"]
+script = ExtResource("listrow")
+entry = ExtResource("e_spike_trap")
 squareMetersPerSpawn = 600.0
 
-[sub_resource type="Resource" id="Resource_cactus"]
-script = ExtResource("40_cactus_entry")
-scene = ExtResource("41_cactus_scene")
+[sub_resource type="Resource" id="Row_cactus"]
+script = ExtResource("listrow")
+entry = ExtResource("e_cactus")
 squareMetersPerSpawn = 700.0
 
-[sub_resource type="Resource" id="Resource_spider"]
-script = ExtResource("3_3y2ux")
-descriptor = ExtResource("20_spider")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+[sub_resource type="Resource" id="Row_spider_desert"]
+script = ExtResource("listrow")
+entry = ExtResource("e_spider_desert")
 squareMetersPerSpawn = 800.0
 
-[sub_resource type="Resource" id="Resource_drake"]
-script = ExtResource("3_3y2ux")
-descriptor = ExtResource("21_drake_desert")
-initialBehavior = null
+[sub_resource type="Resource" id="Row_drake_desert"]
+script = ExtResource("listrow")
+entry = ExtResource("e_drake_desert")
 squareMetersPerSpawn = 800.0
 
-[sub_resource type="Resource" id="Resource_m_orange"]
-script = ExtResource("30_forage_entry")
-scene = ExtResource("31_forage_scene")
-item = ExtResource("m_orange")
+[sub_resource type="Resource" id="Row_mushroom_orange"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_orange")
 squareMetersPerSpawn = 350.0
 
-[sub_resource type="Resource" id="Resource_m_gold"]
-script = ExtResource("30_forage_entry")
-scene = ExtResource("31_forage_scene")
-item = ExtResource("m_gold")
+[sub_resource type="Resource" id="Row_mushroom_gold"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_gold")
 squareMetersPerSpawn = 350.0
 
-[sub_resource type="Resource" id="Resource_m_red"]
-script = ExtResource("30_forage_entry")
-scene = ExtResource("31_forage_scene")
-item = ExtResource("m_red")
+[sub_resource type="Resource" id="Row_mushroom_red"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_red")
 squareMetersPerSpawn = 350.0
 
 [resource]
 script = ExtResource("8_88i6m")
-entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_spiketrap"), SubResource("Resource_cactus"), SubResource("Resource_spider"), SubResource("Resource_drake"), SubResource("Resource_m_orange"), SubResource("Resource_m_gold"), SubResource("Resource_m_red")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_desert"), SubResource("Row_goblin_desert_elite"), SubResource("Row_kun_kun_desert"), SubResource("Row_spike_trap"), SubResource("Row_cactus"), SubResource("Row_spider_desert"), SubResource("Row_drake_desert"), SubResource("Row_mushroom_orange"), SubResource("Row_mushroom_gold"), SubResource("Row_mushroom_red")])

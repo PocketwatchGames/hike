@@ -38,9 +38,14 @@ public partial class EntityPlacement : Resource
     // Was this placement made from that palette entry? Its own FORK counts: a
     // chest whose text has been edited is still a chest, and dropping out of the
     // palette's highlight the moment it is customized is backwards — a
-    // customized one is the one most worth finding. The fork keeps the palette
-    // file as its resource name, which is all that is left saying where it came
-    // from.
+    // customized one is the one most worth finding.
+    //
+    // The comparison is on FAMILY, which is what makes selecting a family entry
+    // highlight every member of it: one npc palette file, so every NPC forked
+    // from it answers true whatever rig, outfit or conversation it was then
+    // given. Comparing DISPLAY names would not — that string now carries the
+    // variant, so an NPC would stop matching the entry it came from the moment
+    // its appearance was picked.
     public bool IsFrom(SpawnEntryData paletteEntry)
     {
         if (entry == null || paletteEntry == null)
@@ -51,8 +56,9 @@ public partial class EntityPlacement : Resource
         {
             return true;
         }
-        return !string.IsNullOrEmpty(entry.ResourceName)
-            && entry.ResourceName == SpawnEntryData.DisplayName(paletteEntry);
+        string family = SpawnEntryData.FamilyName(entry);
+        return !string.IsNullOrEmpty(family)
+            && family == SpawnEntryData.FamilyName(paletteEntry);
     }
 
     // This placement's entry, ready to be EDITED — the properties of a

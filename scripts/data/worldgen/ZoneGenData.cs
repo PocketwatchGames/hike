@@ -34,12 +34,11 @@ using Godot;
 //
 // Mob / loot / chest / trap / campfire / berry-tree authoring lives in the
 // SurfaceEntities / CaveEntities / ShoreEntities / WaterEntities lists.
-// Each list is a SpawnListData asset (re-usable across zones), holding a
-// polymorphic array of SpawnEntryData subclasses (MobSpawnEntry,
-// LootSpawnEntry, ChestSpawnEntry, FireTrapSpawnEntry, BerryTreeSpawnEntry,
-// CampfireSpawnEntry, TorchSpawnEntry). WorldGen scans the matching list
-// per candidate cell, rolls each entry's SquareMetersPerSpawn area chance,
-// and calls its Spawn().
+// Each list is a SpawnListData asset (re-usable across zones) holding SpawnRows
+// — a shared SpawnEntryData (MobSpawnEntry, ChestSpawnEntry, TorchSpawnEntry,
+// …) plus the rate and conditions THIS list wants it at. WorldGen scans the
+// matching list per candidate cell, rolls each row's squareMetersPerSpawn area
+// chance, and spawns its entry.
 [GlobalClass]
 public partial class ZoneGenData : Resource
 {

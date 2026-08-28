@@ -239,11 +239,11 @@ The rule is the world-map painter's: a line on any voxel edge where the surface
 steps, drawn **INTO the higher cell** so it reads as the rim of a plateau rather
 than a fence between two cells. Bucketed by the size of the step:
 
-| Step | Ink |
-|---|---|
-| 1 m | black, 25% |
-| 2 m | black, 75% |
-| ≥3 m | white, 75% |
+| Step | Ink | Means |
+|---|---|---|
+| 1 m | black, 25% | walk up |
+| 2 m | black, 75% | mantle |
+| ≥3 m | white, 75% | wall |
 
 - **The texel grid IS the voxel grid**, which is the whole reason the source went
   to 1 m/pixel: a fragment's fractional position inside its texel is its position
@@ -258,6 +258,15 @@ than a fence between two cells. Bucketed by the size of the step:
   corner takes the largest step of the edges that apply.
 - **A step against no-content is not a cliff.** `step_drop` requires content on
   both sides, so the world edge does not ink.
+- **Water is measured a metre into it** (`stand_height`, `WATER_STAND_DROP`).
+  The buckets are a TRAVERSAL legend, and every number in them is measured off
+  the surface a body is held at — which for water is one metre below its free
+  surface, the convention `WalkabilityGrid` stores and the mantle is judged
+  against. Without the drop a bank one voxel proud of a lake, which is a real
+  mantle out of the water, inked as a walk-up. Depth does not enter into it:
+  wading and swimming differ in how a body is held up, not in where the surface
+  holding it sits. Every column of one body moves together, so a lake is still
+  one flat sheet outlined only at its shore.
 - **Gated on reveal**, or a contour would chart terrain the party has never seen.
 - **Zoom fade is per-fragment, from `fwidth(world_xz)`.** Past ~1 metre per output
   pixel there is no cell left to draw an edge inside, so the whole-world overview

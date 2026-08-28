@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 
 // Property editor for the entity tool's selected placement, top-right of the
 // painter.
@@ -155,20 +156,9 @@ public partial class WorldMapEntityInspector : PanelContainer
         {
             titleLabel.Text = SpawnEntryData.DisplayName(_shownEntry);
         }
-        foreach (Godot.Collections.Dictionary property in _shownEntry.GetPropertyList())
+        foreach (Godot.Collections.Dictionary property in OrderedProperties(_shownEntry))
         {
-            // ScriptVariable is the flag Godot sets on a script's own exports, so
-            // engine bookkeeping (resource_path, script) never reaches the panel.
-            var usage = (PropertyUsageFlags)(long)property["usage"];
-            if ((usage & PropertyUsageFlags.ScriptVariable) == 0)
-            {
-                continue;
-            }
             var name = new StringName(property["name"].AsString());
-            if (!SpawnEntryData.ShowsInPlacementEditor(name))
-            {
-                continue;
-            }
             AddRow(name, (Variant.Type)(long)property["type"],
                 (PropertyHint)(long)property["hint"], property["hint_string"].AsString());
         }
@@ -177,6 +167,46 @@ public partial class WorldMapEntityInspector : PanelContainer
         // which is what left every flags row reading as all-unchecked whatever
         // the entry held, and made a reselect look like the edit had reverted.
         RefreshRows();
+    }
+
+    // The properties this entry shows, in the order it wants them. Shared with
+    // worldmap_check so the report is of the panel that will actually be built —
+    // a second copy of the filter is how the by-entry listing drifted before.
+    public static List<Godot.Collections.Dictionary> OrderedProperties(SpawnEntryData entry)
+    {
+        var shown = new List<Godot.Collections.Dictionary>();
+        if (entry == null)
+        {
+            return shown;
+        }
+        foreach (Godot.Collections.Dictionary property in entry.GetPropertyList())
+        {
+            // ScriptVariable is the flag Godot sets on a script's own exports, so
+            // engine bookkeeping (resource_path, script) never reaches the panel.
+            var usage = (PropertyUsageFlags)(long)property["usage"];
+            if ((usage & PropertyUsageFlags.ScriptVariable) == 0)
+            {
+                continue;
+            }
+            if (entry.ShowsProperty(new StringName(property["name"].AsString())))
+            {
+                shown.Add(property);
+            }
+        }
+        StringName[] order = entry.PropertyOrder;
+        if (order == null || order.Length == 0)
+        {
+            return shown;
+        }
+        // A stable sort on "where does this name sit in the wanted order", with
+        // everything unnamed sorting after in the declaration order it already
+        // had. OrderBy is stable, which is what preserves that tail.
+        return shown.OrderBy(p =>
+        {
+            string name = p["name"].AsString();
+            int at = System.Array.FindIndex(order, n => n.ToString() == name);
+            return at < 0 ? order.Length : at;
+        }).ToList();
     }
 
     private void RefreshRows()
@@ -226,10 +256,12 @@ public partial class WorldMapEntityInspector : PanelContainer
     // class. `resourceType` and `names` belong to their own kinds and are null
     // for every other.
     public static EPropertyEditor EditorFor(SpawnEntryData entry, StringName name,
-        Variant.Type type, PropertyHint hint, out Type resourceType, out string[] names)
+        Variant.Type type, PropertyHint hint, out Type resourceType, out string[] names,
+        out Resource[] resources)
     {
         resourceType = null;
         names = null;
+        resources = null;
         Type owner = entry?.GetType();
         switch (type)
         {
@@ -252,6 +284,18 @@ public partial class WorldMapEntityInspector : PanelContainer
             case Variant.Type.Int or Variant.Type.Float:
                 return EPropertyEditor.Number;
             case Variant.Type.Object:
+                // The entry may constrain this to a FAMILY — a goblin entry
+                // offers only goblins. Asked BEFORE the project-wide scan and
+                // winning outright, because that constraint is the whole reason
+                // the row is safe to show: an unconstrained descriptor picker
+                // would let a fork become a spider while still being named, and
+                // highlighted, as a goblin.
+                resources = entry?.ResourceCandidates(name);
+                if (resources is { Length: > 0 })
+                {
+                    return EPropertyEditor.ResourcePick;
+                }
+                resources = null;
                 resourceType = ResourceFieldType(owner, name);
                 // A picker with nothing to offer is a control that cannot change
                 // the result, which is the same reason the cluster fields are
@@ -273,7 +317,8 @@ public partial class WorldMapEntityInspector : PanelContainer
 
     private Control BuildEditor(StringName name, Variant.Type type, PropertyHint hint, string hintString)
     {
-        switch (EditorFor(_shownEntry, name, type, hint, out Type resourceType, out string[] names))
+        switch (EditorFor(_shownEntry, name, type, hint, out Type resourceType,
+            out string[] names, out Resource[] resources))
         {
             case EPropertyEditor.Multiline:
                 return BuildMultiline(name);
@@ -288,7 +333,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             case EPropertyEditor.Number:
                 return BuildNumber(name, type == Variant.Type.Int, hint, hintString);
             case EPropertyEditor.ResourcePick:
-                return BuildResourcePicker(name, resourceType);
+                return BuildResourcePicker(name, resourceType, resources);
             case EPropertyEditor.NamePick:
                 return BuildNamePicker(name, names);
             default:
@@ -604,20 +649,37 @@ public partial class WorldMapEntityInspector : PanelContainer
         return type;
     }
 
-    // Every authored .tres of the field's type, plus an explicit empty. Filled
-    // by scanning rather than from a palette: a conversation is authored as a
-    // file, and a registration step in a second resource is one that gets
-    // forgotten.
-    private Control BuildResourcePicker(StringName name, Type type)
+    // The resources this field may be set to, plus an explicit empty.
+    //
+    // Two sources, and which one applies is the entry's call. `constrained` is a
+    // family the entry itself named (a goblin's descriptors, an npc's
+    // appearances) and is used verbatim. Otherwise every authored .tres of the
+    // field's type, found by SCANNING rather than from a palette: a conversation
+    // is authored as a file, and a registration step in a second resource is one
+    // that gets forgotten.
+    private Control BuildResourcePicker(StringName name, Type type, Resource[] constrained = null)
     {
         var option = new OptionButton { ClipText = true };
-        string[] paths = ResourceTypeIndex.Candidates(type);
+        // A constrained candidate is already loaded; a scanned one is loaded
+        // only when it is picked, so opening a panel never pulls in every
+        // conversation in the project.
+        string[] paths = constrained != null
+            ? System.Array.ConvertAll(constrained, r => r?.ResourcePath ?? "")
+            : ResourceTypeIndex.Candidates(type);
         // Index 0 is "none", so a field can always be cleared — an NPC with no
         // conversation is a real thing to author (Talk does nothing).
         option.AddItem("—", 0);
         for (int i = 0; i < paths.Length; i++)
         {
-            option.AddItem(paths[i].GetFile().GetBaseName(), i + 1);
+            // A constrained candidate without a file falls back to its resource
+            // name, or the row would be blank and unpickable by sight.
+            string label = paths[i].GetFile().GetBaseName();
+            if (string.IsNullOrEmpty(label) && constrained != null)
+            {
+                label = constrained[i]?.ResourceName is { Length: > 0 } named
+                    ? named : $"(unnamed {i + 1})";
+            }
+            option.AddItem(label, i + 1);
         }
         // A value the scan cannot name: a sub_resource embedded in the document
         // (an NPC's recolor palette) has no path to match against, and dropping
@@ -637,7 +699,9 @@ public partial class WorldMapEntityInspector : PanelContainer
             }
             Commit(name, id == 0
                 ? default
-                : Variant.From(GD.Load<Resource>(paths[id - 1])));
+                : Variant.From(constrained != null
+                    ? constrained[id - 1]
+                    : GD.Load<Resource>(paths[id - 1])));
         };
         _refreshers.Add(() =>
         {
@@ -648,7 +712,11 @@ public partial class WorldMapEntityInspector : PanelContainer
                 want = embedded;
                 for (int i = 0; i < paths.Length; i++)
                 {
-                    if (paths[i] == current.ResourcePath)
+                    // Reference first: a constrained candidate may be an
+                    // embedded resource with no path, which would otherwise
+                    // match every other pathless one.
+                    if ((constrained != null && ReferenceEquals(constrained[i], current))
+                        || (!string.IsNullOrEmpty(paths[i]) && paths[i] == current.ResourcePath))
                     {
                         want = i + 1;
                         break;

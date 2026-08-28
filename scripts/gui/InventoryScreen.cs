@@ -1,9 +1,11 @@
 using Godot;
+using System.Collections.Generic;
 
 // Inventory tab rendered inside AlmanacScreen. A read-only readout of the
 // controlled member: player stats, the weapons equipped in the melee / ranged
-// slots (ItemInfoPanel viewers), and the carried MATERIAL backpack. Purely
-// informational — there is no interaction here. Equipping weapons / armor /
+// slots (ItemInfoPanel viewers), and the party's MATERIALS — highlighting a
+// material slot reads it out in the detail panel below the grid. Purely
+// informational — nothing here mutates the inventory. Equipping weapons / armor /
 // equipment happens on the camp Stash screen; dropping materials happens
 // elsewhere.
 [GlobalClass]
@@ -14,9 +16,15 @@ public partial class InventoryScreen : Control
 	[Export] private ItemInfoPanel _rangedPanel;
 	[Export] private ItemInfoPanel _spellPanel;
 	[Export] private BackpackPanel _backpackPanel;
+	[Export] private ItemInfoPanel _highlightPanel;
 
 	GameClient _gameClient;
 	Player _player;
+
+	// The material grid's rows: one entry per kind, with the summed count across
+	// the carried backpack and the party stash.
+	readonly List<ItemState> _materialRows = new();
+	readonly List<int> _materialCounts = new();
 
 	public void Initialize(GameClient gameClient)
 	{
@@ -26,6 +34,19 @@ public partial class InventoryScreen : Control
 	public override void _Ready()
 	{
 		VisibilityChanged += OnVisibilityChanged;
+		if (_backpackPanel != null)
+		{
+			_backpackPanel.onSlotFocused += OnMaterialFocused;
+		}
+		_highlightPanel?.SetItem(null);
+	}
+
+	public override void _ExitTree()
+	{
+		if (_backpackPanel != null)
+		{
+			_backpackPanel.onSlotFocused -= OnMaterialFocused;
+		}
 	}
 
 	void OnVisibilityChanged()
@@ -39,11 +60,59 @@ public partial class InventoryScreen : Control
 				_player.Inventory.onChanged += Refresh;
 			}
 			Refresh();
+			// Deferred: GrabFocus needs the slot visible-in-tree, and the focus it
+			// takes is what fills the highlight panel.
+			Callable.From(ApplyInitialFocus).CallDeferred();
 		}
-		else if (_player?.Inventory != null)
+		else
 		{
-			_player.Inventory.onChanged -= Refresh;
+			if (_player?.Inventory != null)
+			{
+				_player.Inventory.onChanged -= Refresh;
+			}
+			_highlightPanel?.SetItem(null);
 		}
+	}
+
+	// Put keyboard / gamepad focus on the first material the party owns, so the
+	// grid is navigable the moment the tab opens (and the highlight panel starts
+	// filled). Nothing to focus when the party carries no materials.
+	void ApplyInitialFocus()
+	{
+		if (!Visible)
+		{
+			return;
+		}
+		_backpackPanel?.FirstOccupied()?.GrabFocus();
+	}
+
+	// A material slot took focus (D-pad / keyboard, or the mouse hovering it —
+	// ItemSlotPanel grabs focus on MouseEntered). Its item fills the detail panel.
+	// Not force-identified: an unidentified reagent stays unread here, the same as
+	// everywhere else.
+	void OnMaterialFocused(int index, ItemSlotPanel panel)
+	{
+		_highlightPanel?.SetItem(panel?.Item);
+	}
+
+	// Re-read the highlight from whichever slot currently holds focus. Called after
+	// a repaint so a stack that was spent or merged away doesn't leave stale detail
+	// on screen.
+	void RefreshHighlight()
+	{
+		if (_highlightPanel == null || _backpackPanel == null)
+		{
+			return;
+		}
+		foreach (ItemSlotPanel slot in _backpackPanel.EnumerateSlots())
+		{
+			if (slot.HasButtonFocus())
+			{
+				_highlightPanel.SetItem(slot.Item);
+				return;
+			}
+		}
+		_highlightPanel.SetItem(null);
 	}
 
 	// Repaint the equipped-weapon viewers and the material backpack from the
@@ -57,7 +126,60 @@ public partial class InventoryScreen : Control
 		// The attuned alchemy spell (the active consumable); its SpellData reagents
 		// surface as the panel's Required Reagents row. Hidden when nothing is attuned.
 		_spellPanel?.SetItem(inv?.GetEquipped(EInventorySlot.Equipment), forceIdentified: true);
-		_backpackPanel?.Refresh(inv?.Backpack);
+		RebuildMaterialRows(inv);
+		_backpackPanel?.Refresh(_materialRows, _materialCounts);
+		RefreshHighlight();
+	}
+
+	// The materials shown here are the PARTY's, not just what's on this member's
+	// back: camping drains the backpack into the shared stash (Sim.CommitCamp), so
+	// a carried-only readout reads as "everything is gone" after a camp stop. Both
+	// stores feed one grid, with same-kind entries collapsed into a single row
+	// carrying the summed count (a kind can hold a stack in each store). Carried
+	// first, so the field inventory keeps a stable position as the stash grows.
+	void RebuildMaterialRows(Inventory inv)
+	{
+		_materialRows.Clear();
+		_materialCounts.Clear();
+		AppendMaterials(inv?.Backpack);
+		AppendMaterials(_player?.Sim?.WorldState?.SimState?.PartyMaterialStash);
+	}
+
+	void AppendMaterials(IReadOnlyList<ItemState> items)
+	{
+		if (items == null)
+		{
+			return;
+		}
+		for (int i = 0; i < items.Count; i++)
+		{
+			ItemState item = items[i];
+			if (item?.data == null || item.stackCount <= 0)
+			{
+				continue;
+			}
+			int row = -1;
+			if (item.data.IsStackable)
+			{
+				for (int r = 0; r < _materialRows.Count; r++)
+				{
+					if (_materialRows[r].CanStackWith(item))
+					{
+						row = r;
+						break;
+					}
+				}
+			}
+			if (row >= 0)
+			{
+				_materialCounts[row] += item.stackCount;
+			}
+			else
+			{
+				_materialRows.Add(item);
+				_materialCounts.Add(item.stackCount);
+			}
+		}
 	}
 
 	// ---- Equip-compat helpers, shared with MerchantScreen ------------------

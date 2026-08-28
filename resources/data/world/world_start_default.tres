@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WorldStartData" format=3]
+[gd_resource type="Resource" script_class="WorldStartData" format=3 uid="uid://bv7ljwtx6gmhi"]
 
 [ext_resource type="Script" uid="uid://pd51crv4psgyd" path="res://scripts/data/world/WorldStartData.cs" id="1_script"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="2_teach"]

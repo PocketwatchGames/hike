@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="NpcAppearanceData" format=3 uid="uid://48v0d33pmbss"]
+
+[ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="0_r"]
+[ext_resource type="Script" uid="uid://coe6a1xslanh7" path="res://scripts/data/characters/NpcAppearanceData.cs" id="1_app"]
+[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="2_palette"]
+[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="3_recolor"]
+
+[sub_resource type="Resource" id="Top"]
+script = ExtResource("3_recolor")
+meshNames = PackedStringArray("M_TopBody")
+color = Color(0.32, 0.28, 0.22, 1)
+amount = 0.8
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="Bottom"]
+script = ExtResource("3_recolor")
+meshNames = PackedStringArray("M_BottomBody")
+color = Color(0.22, 0.2, 0.17, 1)
+amount = 0.8
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="Hair"]
+script = ExtResource("3_recolor")
+meshNames = PackedStringArray("M_hair_8")
+color = Color(0.58, 0.56, 0.52, 1)
+amount = 0.7
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="Palette"]
+script = ExtResource("2_palette")
+recolors = [SubResource("Top"), SubResource("Bottom"), SubResource("Hair")]
+metadata/_custom_type_script = "uid://cicvni6fvcssx"
+
+[resource]
+script = ExtResource("1_app")
+scene = ExtResource("0_r")
+outfit = PackedStringArray("M_hair_8", "M_TopBody", "M_BottomBody")
+palette = SubResource("Palette")
+metadata/_custom_type_script = "uid://ke7wg5sbpoe0q"

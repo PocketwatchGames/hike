@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="TrapSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://byfibd54g5x4" path="res://scripts/data/spawn/TrapSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="r1"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("r1")

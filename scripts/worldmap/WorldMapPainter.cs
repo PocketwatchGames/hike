@@ -1065,11 +1065,12 @@ public partial class WorldMapPainter : Node3D
         }
     }
 
-    // Per-cell cutaway answers for the rebuild in progress: the surface the map
-    // DREW at each cell, and whether it was found through rock. Map-sized and
-    // reused, so a rebuild allocates nothing; only the rect being rebuilt is
+    // Per-cell cutaway answers for the rebuild in progress: the surface a BODY
+    // meets at each cell (the drawn floor, or a metre into any water standing on
+    // it — see SurfaceHeight), and whether it was found through rock. Map-sized
+    // and reused, so a rebuild allocates nothing; only the rect being rebuilt is
     // written, and only the cells it wrote are read back.
-    private int[] _cutSurface;
+    private int[] _cutStand;
     private bool[] _buried;
 
     // One CutawayFloor per cell for the whole rebuild. Reaches one cell further
@@ -1082,9 +1083,9 @@ public partial class WorldMapPainter : Node3D
     private void ResolveCutaway(int x0, int z0, int x1, int z1, int clipY, bool waterVisible)
     {
         int w = data.ImageWidth;
-        if (_cutSurface == null || _cutSurface.Length != w * data.ImageHeight)
+        if (_cutStand == null || _cutStand.Length != w * data.ImageHeight)
         {
-            _cutSurface = new int[w * data.ImageHeight];
+            _cutStand = new int[w * data.ImageHeight];
             _buried = new bool[w * data.ImageHeight];
         }
         int ex1 = Mathf.Min(data.ImageWidth, x1 + 1);
@@ -1100,11 +1101,17 @@ public partial class WorldMapPainter : Node3D
                 // everything drawn, so only its edge inks and never a contour
                 // inside it. Water only where the cut is open to it: a floor
                 // seen through rock is not under the pool standing on that rock.
-                _cutSurface[i] = floor < data.WorldMinY
-                    ? clipY + 1
-                    : waterVisible && !roofed
-                        ? Mathf.Max(floor, Mathf.Min(_ctx.WaterSurface(px, pz), clipY))
-                        : floor;
+                if (floor < data.WorldMinY)
+                {
+                    _cutStand[i] = clipY + 1;
+                    continue;
+                }
+                int water = waterVisible && !roofed
+                    ? Mathf.Min(_ctx.WaterSurface(px, pz), clipY)
+                    : int.MinValue;
+                _cutStand[i] = water > floor
+                    ? water - WorldMapState.WaterStandDrop
+                    : floor;
             }
         }
     }
@@ -1160,16 +1167,18 @@ public partial class WorldMapPainter : Node3D
         }
     }
 
-    // What the outlines follow — whatever the view actually DREW, or they would
-    // contour one surface while the colours show another. Off a cutaway that is
-    // the top of the solid world with the edit layer included (a bridge deck
-    // stands above the height map, a carved roof below it); on one it is the
-    // per-cell answer ResolveCutaway already worked out for the fill pass.
+    // What the outlines follow — the surface a BODY meets, which off water is
+    // whatever the view drew and on water is WorldMapState.WaterStandDrop below
+    // it. The buckets are a traversal legend, so they have to be measured from
+    // the level a body is held at; see WorldMapState.StandSurface. Off a cutaway
+    // that is the top of the solid world with the edit layer included (a bridge
+    // deck stands above the height map, a carved roof below it); on one it is
+    // the per-cell answer ResolveCutaway already worked out.
     private int SurfaceHeight(int px, int pz, bool waterVisible, bool cut)
     {
         return cut
-            ? _cutSurface[pz * data.ImageWidth + px]
-            : _ctx.DisplaySurface(px, pz, waterVisible, int.MaxValue);
+            ? _cutStand[pz * data.ImageWidth + px]
+            : _ctx.StandSurface(px, pz, waterVisible, int.MaxValue);
     }
 
     // Which authored ink an edge gets, by the size of its step: under 2m, exactly

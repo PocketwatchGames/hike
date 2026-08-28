@@ -127,6 +127,14 @@ public partial class Main : Node
 			return;
 		}
 
+		// And for the spawn lists: dumps every list's resolved rows, so a
+		// re-shaping of those files is diff-provable.
+		if (CVars.spawnCheck.Value)
+		{
+			SpawnCheck.RunAndQuit(GetTree());
+			return;
+		}
+
 		// And for the authored data as a whole: reports [Tool]-closure gaps (the
 		// silent editor data-loss bug) and any .tres that no longer loads.
 		if (CVars.resourceCheck.Value)

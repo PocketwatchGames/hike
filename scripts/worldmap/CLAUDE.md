@@ -8,10 +8,10 @@ the game loads the baked `.hike`.
 ## Model: document + bake (not direct-voxel paint)
 
 The authored source of truth is **`WorldMapData`** (`scripts/data/worldmap/`,
-a plain `Resource` — deliberately NOT `[Tool]`, or the editor strips its
-`genData` reference on every save; see the note on the class) — bake settings (`GenData`, world extent in chunks, default
-sea level, height scale) plus references to the **layer files** (openable
-directly). It mirrors the `VoxelAtlasManifest` convention: one editor-visible
+a plain `Resource` — deliberately NOT `[Tool]`, or the editor strips every
+typed reference it holds on save; see the note on the class) — bake settings
+(world extent in chunks, default sea level, height scale) plus references to the
+**layer files** (openable directly). It mirrors the `VoxelAtlasManifest` convention: one editor-visible
 resource of record + a re-runnable bake (`BakeToWorldFile`, pure C# so it runs
 headless).
 
@@ -56,17 +56,23 @@ Layers:
 
 ## What a painted world needs that is not the generator's
 
-`WorldMapData` used to reach everything through its `genData`, which made a
-document that authors no terrain depend on the generator's authoring asset for
-values with nothing to do with generating. Four of those are now referenced
-directly, and two of them are types both producers share:
+**`WorldMapData` holds no `WorldGenData` at all.** It used to reach everything
+through a `genData`, which made a document that authors no terrain depend on the
+generator's authoring asset for values with nothing to do with generating:
 
 | On `WorldMapData` | Is |
 |---|---|
 | `startContent` (`WorldStartData`) | quests, party, initial knowledge — what a RUN begins with |
-| `finish` (`WorldFinishData`) | the moss / climb / fog tuning `WorldFinish.Finish` consumes, plus `mobLevelCap` |
+| `finish` (`WorldFinishData`) | the moss / climb / fog tuning `WorldFinish.Finish` consumes, plus `mobLevelCap` and `maxGradeStep` |
 | `kitPalette`, `simData` | already standalone resources; `genData` was only the bag holding them |
 | `regions` (`RegionData[]`) | the mirror of `zones`. **Order is the wire format** — the painted region raster stores indices into it |
+
+The generator holds its own references to the same four types. That is the point:
+neither side reaches through the other. Leaving the document pointing at a
+`WorldGenData` "for the rest" meant two independently-editable pointers at one
+file with nothing checking they agreed — and only the kit palette had a backstop
+(the `.hike` records its slots and `Main.LoadWorldFromFile` refuses a mismatch).
+A divergent `simData` would have been silent.
 
 `WorldStartData` is also what a `.hike` records. The header stores THAT
 resource's path (`WorldFile` v48) rather than a `WorldGenData`'s, because
@@ -77,11 +83,13 @@ approaches, spawn lists) into memory to read three fields. It is also what lets
 a painted world BEGIN differently: give the document its own `WorldStartData`
 and it gets its own party and quests instead of inheriting the generator's.
 
-**One read of `genData` remains** — `MaxGradeStep`, via
-`TerrainMath.TerrainOf(Data.genData)`. It is deliberately left: `maxGradeStep`
-lives on `TerrainGenData` because it is a per-APPROACH knob (its own comment
-states the test), and a painted world borrowing one approach's value is a design
-question rather than a mechanical move.
+**`maxGradeStep` moved to `WorldFinishData` to make that true.** It lived on
+`TerrainGenData` as a per-APPROACH knob, and it was the last thing the painter
+borrowed from a generator — for one `int`, which is what kept a whole
+`WorldGenData` reference alive. It belongs with the finish tuning on the merits
+as well: `StampGradeShapes` is one of the passes `WorldFinish.Finish` runs, both
+producers need the same answer, and a painted document has no approach to read it
+off. `WorldGen` now reads `genData.finish.maxGradeStep` in its three sites.
 
 ## Runtime + bake (`WorldMapState`)
 
@@ -239,11 +247,11 @@ so the authored range lives in one place. It feeds the baked velocity only —
 `WeatherData.windSpeed` is still what the weather simulation blends per zone, so
 painting a gale changes what the grass and the motes do, not the forecast.
 
-**A ground set may only name kits reachable from the document's `genData`
-zones.** The per-voxel `TerrainId` is an index into the kit palette, and the game
-rebuilds that palette from `genData` when it loads the `.hike` — so a kit with no
-slot bakes as slot 0, and appending it at bake time would shift every index
-instead. `SlotOf` warns by name when this happens.
+**A ground set may only name kits the document's `kitPalette` carries.** The
+per-voxel `TerrainId` is an index into that palette — so a kit with no slot bakes
+as slot 0, and appending it at bake time would shift every index instead. The fix
+is to APPEND it to the `KitPaletteData`, which is the one edit that moves nothing;
+`SlotOf` warns by name when this happens.
 
 **Detail sprites come from the ground too.** Every surface voxel is stamped with
 its kit's `defaultDetail` and a strength ramped off `detailNoise`. They belong to
@@ -861,8 +869,8 @@ the prefilter could break.
 **Edits are visible on EVERY view, not only this one** — a bridge deck standing
 above the height map is a fact about the ground you need while painting the
 things beside it, the same argument stamps and climbing routes are drawn
-everywhere. The seam is `WorldMapState.SurfaceBelow` / `DisplaySurface`, which
-every view colour and every step outline reads instead of `TerrainHeight`;
+everywhere. The seam is `WorldMapState.SurfaceBelow` (view colours) and
+`StandSurface` (step outlines), read instead of `TerrainHeight`;
 `IWorldMapView.ClipY` is `int.MaxValue` on all of them but the tunnel one, so
 only that view cuts anything away.
 
@@ -929,14 +937,23 @@ so every tool gets the same terrain readability:
   is exactly the target height to its last texel, while the relief multiplier
   swings 1.10 to 0.61 across the rim). Height is carried by the bands and the
   step outlines instead. Raise the strength to get the hillshade back.
-- **Step outlines** on voxel edges where the VISIBLE surface changes — the
-  water surface where a water-drawing view has water switched on, the ground
-  otherwise, so the sea is one flat sheet outlined only at its shore rather than
-  a contour map of a seabed hidden under opaque water. Inked on the
+- **Step outlines** on voxel edges where the surface a BODY meets changes — the
+  water where a water-drawing view has water switched on, the ground otherwise,
+  so the sea is one flat sheet outlined only at its shore rather than a contour
+  map of a seabed hidden under opaque water. Inked on the
   HIGHER side so a line reads as the rim of its plateau. The ink comes from
   `WorldMapData.edgeInkSub2m` / `edgeInk2m` / `edgeInkOver2m` (alpha in the
   colour), bucketed by the size of the step: **under 2m, exactly 2m, and more
-  than 2m**. The minor bucket is drawn only where `IWorldMapView.ShowsAllSteps`
+  than 2m** — which is a TRAVERSAL legend (walk up / mantle / wall) and not a
+  height one. That is why the outlines read `WorldMapState.StandSurface` rather
+  than the drawn surface: every number in those buckets is measured off the level
+  a body is held at, and in water that is `WaterStandDrop` (1m) below the free
+  surface — the convention `WalkabilityGrid` stores and the mantle is judged
+  against. Without the drop a bank one voxel proud of a lake, which is a real
+  mantle out of the water, inked as a walk-up. Depth does not enter into it:
+  wading and swimming differ in how a body is held up, not in where the surface
+  holding it sits. Every column of one body drops together, so a lake stays one
+  flat sheet and only the bucket at its shore changes. The minor bucket is drawn only where `IWorldMapView.ShowsAllSteps`
   is true — on the elevation map the bands already say the height, so a line on
   every metre of every slope is noise, while on a region or zone map the outlines
   are the only height cue there is. Width is
@@ -1218,16 +1235,101 @@ no discovery and no scan (`SceneTool` globbing `.hikescene` is the one directory
 scan in the painter), so a worldgen list is invisible the moment nothing names
 it, and moving files between directories filters nothing.
 
-**Identity is the PALETTE's to choose, not the placement's, and it is HIDDEN.**
-`SpawnEntryData.IsIdentityProperty` covers `descriptor`, `recruitTemplate`,
-`scene`, `altScene`, `outfit` and `palette`: a different species, rig, outfit or
-recolor is a different palette entry, and there is exactly one Talia. Picking the
-entry already chose all of it, so a row for it says nothing the palette has not.
-Editability is not the point — editing a row FORKS the entry off its palette
-file, keeping that file only as the fork's NAME, so an editable identity field
-would produce a placement that IS a drake while the panel title, the hover
-readout, `worldmap_check`'s by-entry listing and the palette-match highlight all
-still call it `npc_hermit`.
+**A palette entry is a FAMILY, and the member is picked per placement.** One
+`goblin` row covering all 13 goblin descriptors, one `npc` row covering every
+villager rig and outfit — because the question the palette answers is "what am I
+placing", and "which biome's goblin" is a property of the one you placed. The
+list is 26 entries where it was 54.
+
+That is also what makes the map's highlight useful: selecting `npc` lights up
+**every** NPC in the world, not one villager type. It needed no separate
+mechanism, because `EntityPlacement.IsFrom` already matched on which palette file
+a placement (or its fork) came from — collapsing the palette is the whole change.
+
+**Family is `SpawnEntryData.FamilyName`, and it is the ONE answer.** The file's
+basename, or the explicit `family` export where that is not enough. Everything
+that groups placements reads it — the highlight, the hover, `worldmap_check`'s
+by-entry listing — and a local reimplementation is how six migrated NPCs came
+back reported as `NpcSpawnEntry`. It is deliberately NOT `DisplayName`, which now
+decorates a family with the variant (`npc: villager_elder_m *`): a match must not
+depend on a decoration, or an NPC would stop matching the entry it came from the
+moment its appearance was picked. The tool's option row shows the family; the
+hover readout and the panel title show family + variant, since there the
+individual IS the answer being asked for.
+
+**`family` is the explicit form, for an entry whose family is not its file.**
+Nothing in the palette needs it today — it is what the seven migrated NPC forks
+in `placements.tres` declare, since a hand-written fork has no `resource_name`
+for `FamilyName` to fall back on. It is also the mechanism if a second authored
+row of one family ever returns (see the merchant, below). A runtime fork needs
+neither: `Duplicate` carries the export and `EditableEntry` sets the name.
+
+**Identity is now WHICH FAMILY, not which member** (`IsIdentityProperty`:
+`family`, `variants`, `appearances`, `scene`, `altScene`, `outfit`, `palette`). A
+fork keeps its palette file as its NAME, so what must stay un-editable is
+anything that can move an entry OUT of its family — otherwise a placement that IS
+a drake is still called `npc_hermit` by the panel title, the hover readout,
+`worldmap_check` and the highlight. `variants` / `appearances` are hidden for a
+sharper reason: they DEFINE the family, so showing them is the one edit that
+could widen it from the inside.
+
+**Which member is safe to edit precisely because the candidates are
+constrained.** `SpawnEntryData.ResourceCandidates` is the resource analogue of
+`NameCandidates` — the entry answers what its own row may hold, and the panel
+uses that verbatim instead of the project-wide scan. The `goblin` entry offers 13
+goblins and cannot reach a spider; `npc` offers its 8 appearances. Every mob
+family constrains its row, including the single-member ones, or a dog could be
+turned into a drake and still be called a dog.
+
+**A row an entry type cannot use is hidden by that type** —
+`SpawnEntryData.ShowsProperty`, the instance form of the static rule, which is
+what the panel and `worldmap_check` both call. An NPC hides three:
+
+| Hidden on an NPC | Because |
+|---|---|
+| `descriptor` | the two humanoid descriptors resolve to the SAME `MobData` and differ only in a bestiary `displayName`, so the row cannot change anything an author can see. Who this individual is was already settled by the appearance and the conversation. |
+| `levelOverride` | a difficulty tier for a villager in a doorway is meaningless; the field belongs to the mobs it was added for. |
+| `initialBehavior` | an NPC runs its conversation and its idle pose, not a combat brain's entry state. |
+
+**Row order is the entry type's statement** (`PropertyOrder`), because
+declaration order is the C# field order across a hierarchy — which floats the
+base class's bookkeeping above the fields an author came to set. An NPC reads
+appearance → idle animation → conversation → language → recruit template, then
+everything unnamed in declaration order. The panel and the check share ONE
+enumeration (`WorldMapEntityInspector.OrderedProperties`), so the report is of
+the panel that will actually be built.
+
+The lists are AUTHORED (`MobSpawnEntry.variants`, `NpcSpawnEntry.appearances`),
+not derived, because neither derivable answer is right: grouping by `SpeciesData`
+is per-BIOME (one swamp goblin's plain/elite/torchbearer share a species, the
+forest goblin does not), and a filename prefix makes a naming rule load-bearing
+with nothing enforcing it — the same reasoning that keeps the animation-clip list
+un-filtered. Authoring it also lets the author say where a family's edges are,
+e.g. whether a cube and a sphere slime are one creature.
+
+**An NPC's look is ONE pick, not three.** `NpcAppearanceData` bundles
+`scene` + `outfit` + `palette`, because those three are not independent: an
+outfit names meshes that exist only in a particular rig, and the recolor names
+them again. As three rows the only thing preventing a male rig in a female outfit
+is the author remembering, and the failure is SILENT — the meshes do not resolve
+and the NPC spawns in its rig's default clothes. It also sidesteps both of the
+panel's standing read-only cases at once (`PackedScene` is excluded as a rig
+choice, and `outfit` is an array). `NpcSpawnEntry` keeps the raw trio for
+worldgen's house lists, which author it inline and always have; the bundle wins
+where set, resolved once through `Rig` / `Outfit` / `Recolor` so the spawn path
+and the idle-animation picker cannot disagree about which rig is in play.
+
+**`idleAnimation` stays its own row** rather than joining the bundle: it is
+genuinely per-individual (villagers built from one `MobData` each rest
+differently) and its picker is driven by the chosen appearance's rig.
+
+**Level is a field on the ENTRY, never the descriptor.**
+`MobSpawnEntry.levelOverride` (negative = the descriptor's own). A descriptor is
+shared by every placement of that variant AND by worldgen's spawns, and
+`EntityPlacement`'s fork is shallow, so editing `descriptor.level` through the
+panel would retune all of them at once. It keeps the field's semantics — a FLOOR,
+with the painted difficulty layer still adding on top through
+`SpawnContext.MobLevel`.
 
 **A row is shown only if it can change something**, which is
 `ShowsInPlacementEditor` — two independent reasons not to, kept as separate
@@ -1240,24 +1342,36 @@ all of which want list editing. Those are marked `no editor yet` rather than
 hidden, because a dimmed row otherwise reads as "this cannot change" when the
 truth is "not here, not yet".
 
-That is also what makes ONE ENTRY PER DESCRIPTOR the right shape for mobs
-(`spawn_entries/mobs/`, 33 of them — every `MobDescriptor`, biome variants,
-elites and torchbearers included). The alternative was one generic `mob` entry
-with the descriptor picked per placement, which needs no new files but leans on
-exactly the fork that cannot name itself. `elites/elite_*.tres` are excluded:
-they are `EliteMobDescriptor`, which decorates a descriptor rather than being
-one.
+`spawn_entries/mobs/` is 11 family entries covering all 33 `MobDescriptor`s
+(biome variants, elites and torchbearers included) — it was 33 one-field
+wrappers, each holding nothing but a `descriptor`. `elites/elite_*.tres` are
+excluded: they are `EliteMobDescriptor`, which decorates a descriptor rather than
+being one.
 
 **NPCs are palette entries like anything else** — `NpcSpawnEntry` is a
 `SpawnEntryData`, so the entity tool places one, the property panel reflects its
-fields (language, conversation, outfit, tamed/persistent, recruit template), and
-the copy-on-write fork makes each placement its own individual. The eight in
-`spawn_entries/npcs/` are **copies** of the NPCs embedded in worldgen's house
-spawn lists (`world_gen/spawn_lists/hub_house01`, `house_hermit`, `hub_house02`,
+fields (language, conversation, appearance, idle pose, recruit template), and the
+copy-on-write fork makes each placement its own individual. There is ONE row —
+`npc` — and its eight looks live in
+`resources/data/characters/npcs/appearances/`, extracted from the per-NPC entries
+they replace; the conversation, language, idle pose and recruit template each one
+used are picked per placement, which is what let eight files become one.
+
+**The leather merchant is a PLACEMENT, not a palette row.** Its `inventory` and
+`loyaltyGifts` are arrays that no placement editor can author yet, which is an
+argument for keeping the merchant that exists — it lives in `placements.tres` as
+a fork carrying its own stock — and not an argument for a second palette entry,
+which would have been a workaround for the missing list editor sitting
+permanently in the list. The cost is real and worth knowing: **a NEW merchant
+cannot be given stock from the painter.** Place an `npc` and author its
+`inventory` in the resource, or add the list editor.
+
+They remain **copies** of the NPCs embedded in worldgen's house spawn lists
+(`world_gen/spawn_lists/hub_house01`, `house_hermit`, `hub_house02`,
 `village_house01`-`04`), not references to them — the same fork convention the
 mob sets follow, so retuning a village cannot silently move what the map paints
-or the reverse. Two of them (`npc_hermit`, `npc_wanderer_talia`) carry a
-`recruitTemplate` and are recruitable where they are placed.
+or the reverse. The hermit and Talia carry a `recruitTemplate` and are
+recruitable where they are placed.
 
 **A spawn entry carries only what a hand placement can change.** Four fields
 came off the panel and two off `NpcSpawnEntry` outright, on one rule: a control
@@ -1773,8 +1887,8 @@ one-per-node**, so adding a tool — or an op to a tool — cannot leave a stale
 button behind. The first is one button per `IWorldMapTool`; the second is the
 active tool's `Options(ctx)`, labelled with its **1-9** hotkey and rebuilt on
 every tool change. `Options` takes the document because zone and region names
-come out of `genData` — a region's authored `displayName`, a zone's gen-resource
-file name — so those layers are painted by NAME rather than by index
+come out of its own palettes — a region's authored `displayName`, a zone's
+resource file name — so those layers are painted by NAME rather than by index
 (empty for tools whose primary parameter is not a small fixed set, like a region
 index). Every way of changing either — button, Tab, number key, Q/E — routes
 through `SelectTool` / `SelectOption`, so the bars cannot disagree with what the
@@ -1861,7 +1975,7 @@ reintroduce:
 ## Known gaps
 
 - ~~A ground set may only name kits some `genData` zone names.~~ **Fixed.** The
-  kit palette is authored (`WorldGenData.kitPalette`, a `KitPaletteData`) rather
+  kit palette is authored (`WorldMapData.kitPalette`, a `KitPaletteData`) rather
   than derived from the zone list, so a ground set may name any kit the palette
   carries whether a zone places it or not. `swamp_highlands`, `swamp_mud` and
   `swamp_village` were APPENDED to it — appending is the one safe edit, since it

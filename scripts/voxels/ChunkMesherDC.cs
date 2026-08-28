@@ -842,9 +842,9 @@ public static class ChunkMesherDC
         // A mantleable lip wears the SAME climb-growth overlay the climbable-wall
         // pass paints down a tall cliff (WorldFinish.StampClimbSurfaces), so the two
         // affordances speak one visual language instead of two that have to be
-        // kept in sync. It is the top voxel of the wall, so marking that voxel
-        // puts the crust on the surface you mantle ONTO and the face below it in
-        // one go — the straddle a separate mark used to have to construct.
+        // kept in sync. It is the top voxel of a two-voxel wall, so marking that
+        // voxel puts the crust on the surface you mantle ONTO and the face below
+        // it in one go — the straddle a separate mark used to have to construct.
         //
         // Injected into the cell arrays, never into WorldState: this is
         // APPEARANCE ONLY. ClimbProbe resolves climbability from the stored
@@ -890,8 +890,7 @@ public static class ChunkMesherDC
                             continue;
                         }
                         if (ClimbLedgeMarker.FindClimbLip(getVoxel,
-                            chunkWorldX + vx, chunkWorldY + vy, chunkWorldZ + vz,
-                            out int riseVoxels) == 0)
+                            chunkWorldX + vx, chunkWorldY + vy, chunkWorldZ + vz) == 0)
                         {
                             continue;
                         }
@@ -920,7 +919,7 @@ public static class ChunkMesherDC
                         // width. Marking the row BELOW instead centres that ramp a
                         // metre under the edge, which is why it read as covering
                         // the whole wall and could not be pulled up.
-                        int rows = climbMarkMode >= 2 ? riseVoxels : 1;
+                        int rows = climbMarkMode >= 2 ? ClimbLedgeMarker.ClimbRiseVoxels : 1;
                         for (int d = 0; d < rows; d++)
                         {
                             int my = vy - d;

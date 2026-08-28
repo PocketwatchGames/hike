@@ -192,12 +192,12 @@ public class WorldMapState
     public int StepVoxels => Mathf.Max(1, Data.elevationStepVoxels);
 
     // The world's grade discriminator: adjacent columns within it mesh as a
-    // slope, beyond it as a wall. Resolved once — TerrainOf walks the document's
-    // genData, and this is asked per column by the map preview.
+    // slope, beyond it as a wall. Resolved once, since this is asked per column
+    // by the map preview.
     private int _maxGradeStep = -1;
     public int MaxGradeStep => _maxGradeStep >= 0
         ? _maxGradeStep
-        : _maxGradeStep = Mathf.Max(1, TerrainMath.TerrainOf(Data.genData).maxGradeStep);
+        : _maxGradeStep = Mathf.Max(1, Data.finish?.maxGradeStep ?? 1);
 
     // Layer value (voxels relative to sea level) -> absolute world Y, clamped to
     // the document's range and snapped to the authoring lattice. EVERY height in
@@ -909,14 +909,32 @@ public class WorldMapState
         return buried ? band : WithWaterOver(band, px, pz, floor, clipY);
     }
 
-    // The surface the MAP draws at a column: the top of the solid world, edits
-    // included, cut away above a view's clip level, with standing water on top
-    // of it where the view draws water. Nothing but display reads this — the
-    // bake stamps from TerrainHeight and the edit layer directly.
-    public int DisplaySurface(int px, int pz, bool withWater, int clipY = int.MaxValue)
+    // How far BELOW its free surface a body stands or floats in water. Mirrors
+    // ClimbLedgeMarker.WaterStandDrop and WalkabilityGrid's own convention —
+    // see StandSurface for why the outlines need it.
+    public const int WaterStandDrop = 1;
+
+    // The surface a BODY meets at a column: the top of the solid world, edits
+    // included, cut away above a view's clip level, and — where the view draws
+    // water — the level a body stands or floats at in it, which is
+    // WaterStandDrop below the free surface. Nothing but the step outlines reads
+    // this; the bake stamps from TerrainHeight and the edit layer directly.
+    //
+    // The drop is what makes the outline buckets mean what they look like. They
+    // are a traversal legend (1m walk up, 2m mantle, 3m+ wall) and every one of
+    // those numbers is measured off the surface a body is held at, so without it
+    // a bank one voxel proud of a lake — a real mantle — inks as a walk-up.
+    // Every column of one body moves together, so a lake is still one flat sheet
+    // outlined only at its shore.
+    public int StandSurface(int px, int pz, bool withWater, int clipY = int.MaxValue)
     {
         int h = SurfaceBelow(px, pz, clipY);
-        return withWater ? Mathf.Max(h, Mathf.Min(WaterSurface(px, pz), clipY)) : h;
+        if (!withWater)
+        {
+            return h;
+        }
+        int water = Mathf.Min(WaterSurface(px, pz), clipY);
+        return water > h ? water - WaterStandDrop : h;
     }
 
     private int ClampX(int px) => Mathf.Clamp(px, 0, Data.ImageWidth - 1);
@@ -934,18 +952,14 @@ public class WorldMapState
         // place in the painter that needs them, and it covers both bake entry
         // points (Ctrl+S and WorldMapData's headless "Bake to .hike" button).
         // ChunkMesh.SetTerrains is deliberately not called: no meshes are built.
-        // genData going missing is not hypothetical: WorldMapData is [Tool] and
-        // WorldGenData is not, so the editor cannot instantiate this field as its
-        // real type, reads it as empty, and writes the .tres back WITHOUT it the
-        // next time it saves. See the [Tool] rule in the root CLAUDE.md, which
-        // lists this very field as a known gap. Say so rather than throwing a
-        // bare NullReferenceException from the middle of the bake.
-        if (Data.genData == null)
+        // Named rather than left to NullReferenceException from the middle of a
+        // bake: `finish` is the tuning every derived channel reads, so a document
+        // missing it produces a world with no moss, no climb crust, no fog and a
+        // staircase for every painted slope.
+        if (Data.finish == null)
         {
             throw new System.InvalidOperationException(
-                $"WorldMapData.genData is null on {Data.ResourcePath}. The Godot editor strips this "
-                + "reference when it saves (WorldMapData is [Tool], WorldGenData is not); restore the "
-                + "genData line in the .tres.");
+                $"WorldMapData.finish is null on {Data.ResourcePath} — assign a WorldFinishData.");
         }
 
         // The bake's OWN palette instance, handed to the world it builds. It
@@ -1005,7 +1019,7 @@ public class WorldMapState
 
         // The run's quests, party and starting knowledge, off the document's
 
-        // own genData — so a painted .hike carries its own rather than taking
+        // own start content — so a painted .hike carries its own rather than taking
 
         // whichever world the menu had selected.
 
@@ -2185,7 +2199,7 @@ public class WorldMapState
     // without re-running the whole pass. Hash decides WHERE, rng decides the
     // details (loot counts, rotations) once a spawn is committed.
     //
-    // The comparison is the inverted-unit form of SpawnEntryData.RollAreaChance
+    // The comparison is the inverted-unit form of SpawnListRow.RollAreaChance
     // (rng.NextDouble() * sqm < 1), so both agree on what a rate means.
     public static bool AreaRoll(uint hash, float squareMetersPerSpawn, float density)
     {
@@ -2212,13 +2226,13 @@ public class WorldMapState
         {
             return IndexOfSet(sets, set);
         }
-        SpawnEntryData[] entries = set.EntriesFlat;
-        if (entries != null)
+        SpawnListRow[] rows = set.RowsFlat;
+        if (rows != null)
         {
-            for (int i = 0; i < entries.Length; i++)
+            for (int i = 0; i < rows.Length; i++)
             {
-                if (entries[i] != null
-                    && AreaRoll(Hash(px, pz, ENTITY_SALT + (uint)i), entries[i].squareMetersPerSpawn, density))
+                if (rows[i] != null
+                    && AreaRoll(Hash(px, pz, ENTITY_SALT + (uint)i), rows[i].squareMetersPerSpawn, density))
                 {
                     return IndexOfSet(sets, set);
                 }
@@ -2445,24 +2459,24 @@ public class WorldMapState
         // Entities: each entry's OWN authored rate, then its own Spawn logic.
         // The hash decides placement; the seeded Random only fills in details,
         // so the map preview above stays exact.
-        SpawnEntryData[] entries = set.EntriesFlat;
-        if (entries == null)
+        SpawnListRow[] rows = set.RowsFlat;
+        if (rows == null)
         {
             return;
         }
-        for (int i = 0; i < entries.Length; i++)
+        for (int i = 0; i < rows.Length; i++)
         {
-            SpawnEntryData entry = entries[i];
-            if (entry == null)
+            SpawnListRow row = rows[i];
+            if (row?.entry == null)
             {
                 continue;
             }
             uint h = Hash(px, pz, ENTITY_SALT + (uint)i);
-            if (!AreaRoll(h, entry.squareMetersPerSpawn, density))
+            if (!AreaRoll(h, row.squareMetersPerSpawn, density))
             {
                 continue;
             }
-            entry.TrySpawn(WorldState, pos, new System.Random((int)h), SpawnContextForBake());
+            row.TrySpawn(WorldState, pos, new System.Random((int)h), SpawnContextForBake());
         }
     }
 

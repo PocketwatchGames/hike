@@ -1,10 +1,11 @@
 [gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://cdm5utxowkgje"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
 [ext_resource type="Resource" uid="uid://irm377w14z4uf" path="res://resources/data/languages/muddish.tres" id="9_lang"]
 [ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="11_stone"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="12_stonescene"]
+
+[ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 
 [sub_resource type="Resource" id="Stone_mud"]
 script = ExtResource("11_stone")
@@ -14,7 +15,11 @@ text = "The shape of Muddish speech — how its words are ordered and strung. Th
 components = 1
 metadata/_custom_type_script = "uid://d3c3iycy3trkp"
 
+[sub_resource type="Resource" id="Row_Stone_mud"]
+script = ExtResource("grouprow")
+entry = SubResource("Stone_mud")
+
 [resource]
 script = ExtResource("2_group")
-entries = Array[ExtResource("1_base")]([SubResource("Stone_mud")])
+rows = Array[ExtResource("grouprow")]([SubResource("Row_Stone_mud")])
 metadata/_custom_type_script = "uid://ci23e7ltpsb6o"

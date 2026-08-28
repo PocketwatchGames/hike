@@ -1,29 +1,44 @@
 [gd_resource type="Resource" script_class="WorldMapPlacements" format=3]
 
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/well.tres" id="1_1iphp"]
-[ext_resource type="Script" uid="uid://68w6db94miez1" path="res://scripts/data/worldmap/WorldMapPlacements.cs" id="1_62klx"]
-[ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="1_rkdci"]
-[ext_resource type="Script" uid="uid://bk70p1sep6ljj" path="res://scripts/data/worldmap/EntityPlacement.cs" id="2_4i2sm"]
+[ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapPlacements.cs" id="1_62klx"]
+[ext_resource type="Script" path="res://scripts/data/SubscenePlacement.cs" id="1_rkdci"]
+[ext_resource type="Script" path="res://scripts/data/worldmap/EntityPlacement.cs" id="2_4i2sm"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/climbable_tree.tres" id="3_iwr7h"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/chest.tres" id="4_mm4s5"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/campfire.tres" id="5_iwr7h"]
-[ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="6_mm4s5"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/fixtures/forge_fixture.tres" id="6_mm4s5"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/fountain_health.tres" id="7_xitar"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/fountain_mana.tres" id="8_m17nx"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/signpost.tres" id="9_8icqc"]
-[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="9_errfs"]
-[ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="10_m2c7i"]
-[ext_resource type="Script" uid="uid://db5ulwxm6oe8v" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="11_mw5ge"]
-[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="13_hatgq"]
-[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="14_w1yuy"]
+[ext_resource type="Resource" path="res://resources/data/languages/vyeshal.tres" id="9_errfs"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/signpost.tscn" id="10_m2c7i"]
+[ext_resource type="Script" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="11_mw5ge"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/knowledge_stone.tscn" id="13_hatgq"]
+[ext_resource type="Script" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="14_w1yuy"]
 [ext_resource type="Resource" path="res://resources/data/worldmap/spawn_entries/knowledge_stone_vyeshal.tres" id="15_nb33q"]
-[ext_resource type="Resource" uid="uid://ccwypbai6gspj" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_elder_m.tres" id="16_tefhj"]
-[ext_resource type="Resource" uid="uid://dkvdwrkqcuekt" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_hunter_m.tres" id="17_m27kj"]
-[ext_resource type="Resource" uid="uid://d1yvtxg0smir6" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_archer_f.tres" id="18_6ef7y"]
-[ext_resource type="Resource" uid="uid://ck5kjq0ag35xc" path="res://resources/data/worldmap/spawn_entries/npcs/npc_villager_plain_m.tres" id="19_s6rg6"]
-[ext_resource type="Resource" uid="uid://y7nh0k316av6" path="res://resources/data/worldmap/spawn_entries/npcs/npc_merchant_leather.tres" id="20_54uw5"]
-[ext_resource type="Resource" uid="uid://bop3dji7kg8qt" path="res://resources/data/worldmap/spawn_entries/npcs/npc_hermit.tres" id="21_fkddt"]
-[ext_resource type="Resource" uid="uid://c0yf33nq0v5ql" path="res://resources/data/worldmap/spawn_entries/npcs/npc_wanderer_talia.tres" id="22_3esya"]
+[ext_resource type="Script" path="res://scripts/data/items/ItemTagPreference.cs" id="19_si3n7"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/appearances/hermit.tres" id="A_hermit"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/appearances/villager_archer_f.tres" id="A_villager_archer_f"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/appearances/villager_elder_m.tres" id="A_villager_elder_m"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/appearances/villager_hunter_m.tres" id="A_villager_hunter_m"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/appearances/villager_plain_m.tres" id="A_villager_plain_m"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/appearances/wanderer_talia.tres" id="A_wanderer_talia"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/hermit_conversation.tres" id="C_hermit"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/friendly_villager_conversation.tres" id="C_villager_elder_m"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/swamp_villager01_conversation.tres" id="C_villager_hunter_m"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/wanderer_conversation.tres" id="C_wanderer_talia"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/hermit.tres" id="D_hermit"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="D_villager_elder_m"]
+[ext_resource type="Resource" path="res://resources/data/languages/muddish.tres" id="L_hermit"]
+[ext_resource type="Script" path="res://scripts/data/characters/LoyaltyGift.cs" id="M_4_r"]
+[ext_resource type="Script" path="res://scripts/data/characters/MobInventoryData.cs" id="M_5_r"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="M_6_r"]
+[ext_resource type="Resource" path="res://resources/data/items/armor/leather_armor.tres" id="M_7_r"]
+[ext_resource type="Resource" path="res://resources/data/characters/npcs/appearances/merchant_leather.tres" id="M_A_merchant_leather"]
+[ext_resource type="Script" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="NpcScript"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/party/hermit.tres" id="R_hermit"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/party/talia.tres" id="R_wanderer_talia"]
 
 [sub_resource type="Resource" id="Resource_v1avn"]
 script = ExtResource("2_4i2sm")
@@ -459,6 +474,7 @@ E: Port Venture
 S: The Fire Swamp
 W: Valley of Fools"
 language = ExtResource("9_errfs")
+family = &""
 
 [sub_resource type="Resource" id="Resource_ktogt"]
 script = ExtResource("2_4i2sm")
@@ -472,6 +488,7 @@ scene = ExtResource("10_m2c7i")
 text = "S: The Fire Swamp
 N: Riverton"
 language = ExtResource("9_errfs")
+family = &""
 
 [sub_resource type="Resource" id="Resource_4v30q"]
 script = ExtResource("2_4i2sm")
@@ -490,6 +507,7 @@ scene = ExtResource("10_m2c7i")
 text = "NW: The Great Northern Forest
 SE: Riverton"
 language = ExtResource("9_errfs")
+family = &""
 
 [sub_resource type="Resource" id="Resource_gokyh"]
 script = ExtResource("2_4i2sm")
@@ -503,6 +521,7 @@ scene = ExtResource("13_hatgq")
 language = ExtResource("9_errfs")
 text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
 components = 8
+family = &""
 
 [sub_resource type="Resource" id="Resource_ql8yq"]
 script = ExtResource("2_4i2sm")
@@ -521,6 +540,7 @@ scene = ExtResource("13_hatgq")
 language = ExtResource("9_errfs")
 text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
 components = 1
+family = &""
 
 [sub_resource type="Resource" id="Resource_jj52j"]
 script = ExtResource("2_4i2sm")
@@ -534,45 +554,130 @@ scene = ExtResource("13_hatgq")
 language = ExtResource("9_errfs")
 text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
 components = 2
+family = &""
 
 [sub_resource type="Resource" id="Resource_1i773"]
 script = ExtResource("2_4i2sm")
 entry = SubResource("Resource_in76e")
 anchorXZ = Vector2i(86, -86)
 
+[sub_resource type="Resource" id="NpcFork_villager_elder_m"]
+script = ExtResource("NpcScript")
+language = ExtResource("9_errfs")
+conversation = ExtResource("C_villager_elder_m")
+appearance = ExtResource("A_villager_elder_m")
+idleAnimation = &"idle_old_man"
+descriptor = ExtResource("D_villager_elder_m")
+initialBehavior = &""
+family = &"npc"
+
 [sub_resource type="Resource" id="Resource_gtttp"]
 script = ExtResource("2_4i2sm")
-entry = ExtResource("16_tefhj")
+entry = SubResource("NpcFork_villager_elder_m")
 anchorXZ = Vector2i(116, 4)
+
+[sub_resource type="Resource" id="NpcFork_villager_hunter_m"]
+script = ExtResource("NpcScript")
+language = ExtResource("9_errfs")
+conversation = ExtResource("C_villager_hunter_m")
+appearance = ExtResource("A_villager_hunter_m")
+idleAnimation = &"idle_neutral"
+descriptor = ExtResource("D_villager_elder_m")
+initialBehavior = &""
+family = &"npc"
 
 [sub_resource type="Resource" id="Resource_t3wb4"]
 script = ExtResource("2_4i2sm")
-entry = ExtResource("17_m27kj")
+entry = SubResource("NpcFork_villager_hunter_m")
 anchorXZ = Vector2i(135, -13)
+
+[sub_resource type="Resource" id="NpcFork_villager_archer_f"]
+script = ExtResource("NpcScript")
+language = ExtResource("9_errfs")
+conversation = ExtResource("C_villager_hunter_m")
+appearance = ExtResource("A_villager_archer_f")
+idleAnimation = &"idle_happy"
+descriptor = ExtResource("D_villager_elder_m")
+initialBehavior = &""
+family = &"npc"
 
 [sub_resource type="Resource" id="Resource_7x1my"]
 script = ExtResource("2_4i2sm")
-entry = ExtResource("18_6ef7y")
+entry = SubResource("NpcFork_villager_archer_f")
 anchorXZ = Vector2i(143, -2)
+
+[sub_resource type="Resource" id="NpcFork_villager_plain_m"]
+script = ExtResource("NpcScript")
+language = ExtResource("9_errfs")
+conversation = ExtResource("C_villager_hunter_m")
+appearance = ExtResource("A_villager_plain_m")
+idleAnimation = &"idle_nervous"
+descriptor = ExtResource("D_villager_elder_m")
+initialBehavior = &""
+family = &"npc"
 
 [sub_resource type="Resource" id="Resource_hnnhv"]
 script = ExtResource("2_4i2sm")
-entry = ExtResource("19_s6rg6")
+entry = SubResource("NpcFork_villager_plain_m")
 anchorXZ = Vector2i(165, 6)
+
+[sub_resource type="Resource" id="MerchantStock"]
+script = ExtResource("M_5_r")
+item = ExtResource("M_7_r")
+metadata/_custom_type_script = "uid://dkowx1ny0eu5e"
+
+[sub_resource type="Resource" id="MerchantGift"]
+script = ExtResource("M_4_r")
+item = ExtResource("M_6_r")
+requiredLoyalty = 5.0
+metadata/_custom_type_script = "uid://3h0g6cv5drq7"
+
+[sub_resource type="Resource" id="NpcFork_merchant_leather"]
+script = ExtResource("NpcScript")
+language = ExtResource("9_errfs")
+conversation = ExtResource("C_villager_elder_m")
+appearance = ExtResource("M_A_merchant_leather")
+idleAnimation = &""
+loyaltyGifts = Array[ExtResource("M_4_r")]([SubResource("MerchantGift")])
+inventory = [SubResource("MerchantStock")]
+descriptor = ExtResource("D_villager_elder_m")
+initialBehavior = &""
+family = &"npc"
 
 [sub_resource type="Resource" id="Resource_oe36o"]
 script = ExtResource("2_4i2sm")
-entry = ExtResource("20_54uw5")
+entry = SubResource("NpcFork_merchant_leather")
 anchorXZ = Vector2i(76, -7)
+
+[sub_resource type="Resource" id="NpcFork_hermit"]
+script = ExtResource("NpcScript")
+language = ExtResource("L_hermit")
+conversation = ExtResource("C_hermit")
+appearance = ExtResource("A_hermit")
+idleAnimation = &"idle_old_man"
+recruitTemplate = ExtResource("R_hermit")
+descriptor = ExtResource("D_hermit")
+initialBehavior = &""
+family = &"npc"
 
 [sub_resource type="Resource" id="Resource_pkcg1"]
 script = ExtResource("2_4i2sm")
-entry = ExtResource("21_fkddt")
+entry = SubResource("NpcFork_hermit")
 anchorXZ = Vector2i(81, 18)
+
+[sub_resource type="Resource" id="NpcFork_wanderer_talia"]
+script = ExtResource("NpcScript")
+conversation = ExtResource("C_wanderer_talia")
+appearance = ExtResource("A_wanderer_talia")
+idleAnimation = &"idle_neutral"
+recruitTemplate = ExtResource("R_wanderer_talia")
+descriptor = ExtResource("D_villager_elder_m")
+initialBehavior = &""
+family = &"npc"
 
 [sub_resource type="Resource" id="Resource_0sxfu"]
 script = ExtResource("2_4i2sm")
-entry = ExtResource("22_3esya")
+entry = SubResource("NpcFork_wanderer_talia")
 anchorXZ = Vector2i(7, 9)
 
 [sub_resource type="Resource" id="Resource_33bg6"]

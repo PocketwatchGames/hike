@@ -1,17 +1,15 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://0gp05gnacgf64"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="13_mobentry"]
-[ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_gen/mob_descriptors/dog.tres" id="13_dog"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/dog.tres" id="e_dog"]
 
-[sub_resource type="Resource" id="Dog"]
-script = ExtResource("13_mobentry")
-descriptor = ExtResource("13_dog")
-initialBehavior = null
-metadata/_custom_type_script = "uid://dhkkrl6qof485"
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_dog"]
+script = ExtResource("listrow")
+entry = ExtResource("e_dog")
 
 [resource]
 script = ExtResource("2_list")
-entries = Array[ExtResource("1_base")]([SubResource("Dog")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_dog")])
 metadata/_custom_type_script = "uid://b3yy1yx4hje70"

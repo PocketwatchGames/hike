@@ -63,8 +63,10 @@ Then bump `WorldGen.WORLDGEN_VERSION` — see the cache warning below.
 carry them, and a second approach's knobs ended up interleaved with the first's
 with nothing marking which belonged to which. A field belongs on the shared
 class only if worldgen *outside* the approaches reads it — today that is the
-vertical-extent trio and `maxGradeStep` on `TerrainGenData`, and nothing on
-`ZoneGenData` at all.
+vertical-extent trio on `TerrainGenData`, and nothing on `ZoneGenData` at all.
+(`maxGradeStep` was one of those and moved further out still, to
+`WorldFinishData`: the pass that reads it is one BOTH producers run, and the map
+painter has no approach to read it off.)
 
 **Blending per-zone scalars:** `ZoneField.SampleBlended` has a
 weights-out overload that hands back the kernel weights, so an approach folds
@@ -174,9 +176,10 @@ these are the invariants a new approach owes its consumers:
 - **`NoSpawn` / `FixtureGround`** — reserved ground; the approach just allocates
   them.
 
-`maxGradeStep` (on `TerrainGenData`) is the mesher's discriminator: adjacent
-columns within it mesh smooth as a grade, beyond it mesh crisp as a wall. An
-approach that authors grades steeper than this hardens them into visible stairs.
+`maxGradeStep` (on `WorldFinishData`, not on the approach) is the mesher's
+discriminator: adjacent columns within it mesh smooth as a grade, beyond it mesh
+crisp as a wall. An approach that authors grades steeper than the world's value
+hardens them into visible stairs.
 
 ## Existing approaches
 

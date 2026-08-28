@@ -106,7 +106,11 @@ public partial class ItemSlotPanel : PanelContainer
 		}
 	}
 
-	public void SetItem(ItemState item)
+	// `stackCountOverride` >= 0 replaces the count on the badge without touching
+	// the item — for views that collapse several same-kind stacks into one slot
+	// (the almanac's combined carried + party-stash materials). Pass -1 (the
+	// default) to show the item's own count.
+	public void SetItem(ItemState item, int stackCountOverride = -1)
 	{
 		Item = item;
 		if (_itemTexture != null)
@@ -122,11 +126,12 @@ public partial class ItemSlotPanel : PanelContainer
 		}
 		if (_stackLabel != null)
 		{
-			bool showStack = item != null && item.data != null && item.data.IsStackable && item.stackCount > 1;
+			int count = stackCountOverride >= 0 ? stackCountOverride : (item?.stackCount ?? 0);
+			bool showStack = item != null && item.data != null && item.data.IsStackable && count > 1;
 			_stackContainer.Visible = showStack;
 			if (showStack)
 			{
-				_stackLabel.Text = item.stackCount.ToString();
+				_stackLabel.Text = count.ToString();
 			}
 		}
 		RebuildStatusIcons(item);

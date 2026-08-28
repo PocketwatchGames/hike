@@ -8,7 +8,6 @@
 [ext_resource type="Resource" uid="uid://csjvdcg5sawpo" path="res://resources/data/world_gen/terrain_gen/swamp_highlands_kit.tres" id="6_4w8xh"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_4e6x3"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_grp"]
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="11_base"]
 [ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="12_stone"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="13_stonescene"]
 [ext_resource type="Resource" uid="uid://xbjl27pt7p61" path="res://resources/data/zones/swamp_highlands.tres" id="14_cpg00"]
@@ -21,6 +20,8 @@
 [ext_resource type="Resource" uid="uid://kogvearm5wi2" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="rc1"]
 [ext_resource type="Resource" uid="uid://dh8n7h0pji8hc" path="res://resources/data/items/scrolls/scroll_stew_sparrow_perception.tres" id="rc2"]
 [ext_resource type="Script" uid="uid://bngmvmgus5vlm" path="res://scripts/data/worldgen/PlateauZoneTerrainData.cs" id="swamp_highlands_gen_zoneterrain"]
+
+[ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
@@ -46,9 +47,13 @@ text = "More of the old tongue, carved where the ground climbs clear of the mire
 components = 8
 metadata/_custom_type_script = "uid://d3c3iycy3trkp"
 
+[sub_resource type="Resource" id="Row_Stone_highlands"]
+script = ExtResource("grouprow")
+entry = SubResource("Stone_highlands")
+
 [sub_resource type="Resource" id="Fixtures_highlands"]
 script = ExtResource("10_grp")
-entries = Array[ExtResource("11_base")]([SubResource("Stone_highlands")])
+rows = Array[ExtResource("grouprow")]([SubResource("Row_Stone_highlands")])
 metadata/_custom_type_script = "uid://ci23e7ltpsb6o"
 
 [sub_resource type="Resource" id="ZoneTerrain_swamp_highlands_gen"]

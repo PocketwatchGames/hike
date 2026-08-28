@@ -17,8 +17,9 @@ using Godot;
 // two PropTypes, so this cannot be under-general: anything placed is either an
 // occluding tree or ground foliage.
 //
-// Entities are a third channel: a SpawnListData whose entries each carry their
-// OWN rate and spawn logic (mobs, chests, loot, traps, campfires).
+// Entities are a third channel: a SpawnListData whose rows each carry their
+// OWN rate and the shared entry that knows how to spawn (mobs, chests, loot,
+// traps, campfires).
 [GlobalClass]
 public partial class SpawnSetData : Resource
 {
@@ -62,7 +63,7 @@ public partial class SpawnSetData : Resource
     // tallGrassJitter).
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float positionJitter = 0.2f;
 
-    // Entities placed by this set. Each entry rolls its own authored rate.
+    // Entities placed by this set. Each row rolls its own authored rate.
     [Export] public SpawnListData entities;
 
     // One noise field per pass, built once and shared by the map preview and the
@@ -103,27 +104,27 @@ public partial class SpawnSetData : Resource
         }
     }
 
-    // Managed mirror of entities.entries. The map preview asks for these once
-    // per column per rebuild — tens of thousands of reads — and a
+    // Managed mirror of entities.rows. The map preview asks for these once per
+    // column per rebuild — tens of thousands of reads — and a
     // Godot.Collections.Array marshals a Variant on every index and on .Count.
     // Safe to cache without invalidation because *Data is immutable after load.
-    private SpawnEntryData[] _entriesFlat;
+    private SpawnListRow[] _rowsFlat;
 
-    public SpawnEntryData[] EntriesFlat
+    public SpawnListRow[] RowsFlat
     {
         get
         {
-            if (_entriesFlat == null)
+            if (_rowsFlat == null)
             {
-                Godot.Collections.Array<SpawnEntryData> src = entities?.entries;
+                Godot.Collections.Array<SpawnListRow> src = entities?.rows;
                 int n = src?.Count ?? 0;
-                _entriesFlat = new SpawnEntryData[n];
+                _rowsFlat = new SpawnListRow[n];
                 for (int i = 0; i < n; i++)
                 {
-                    _entriesFlat[i] = src[i];
+                    _rowsFlat[i] = src[i];
                 }
             }
-            return _entriesFlat;
+            return _rowsFlat;
         }
     }
 

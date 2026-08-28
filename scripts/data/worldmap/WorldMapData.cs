@@ -10,29 +10,29 @@ using Godot;
 // water (per-column water surface, same encoding; below the range = none),
 // region (per-chunk index), zone (per-chunk index), tunnels (per-voxel carve).
 //
-// NOT [Tool], and it must stay that way. WorldGenData is not [Tool], so under
-// the rule in the root CLAUDE.md a [Tool] class cannot hold a typed reference to
-// one: the editor materialises `genData` as a base Resource, the typed setter
-// throws, the field reads empty in the inspector, and the next editor save
-// writes this .tres back WITHOUT it. That is silent data loss, and it happened
-// here twice in one session — each time the next bake died on a null genData.
-// Marking WorldGenData [Tool] instead would mean tagging its whole ~174-class
-// transitive closure. The cost of staying un-[Tool] is that [ExportToolButton]
+// NOT [Tool], and it must stay that way. Nothing it references is [Tool], so
+// under the rule in the root CLAUDE.md a [Tool] class here would materialise
+// each typed reference as a base Resource, throw from the typed setter, read
+// the field empty in the inspector, and write this .tres back WITHOUT it on the
+// next editor save. That is silent data loss, and it happened here twice in one
+// session while this held a WorldGenData. Tagging those closures instead would
+// mean ~174 classes. The cost of staying un-[Tool] is that [ExportToolButton]
 // cannot run, so the bake is driven from the painter (Ctrl+S) instead.
+//
+// It holds NO WorldGenData. A painted document authors its own terrain, so
+// depending on the generator's authoring asset only ever made two editable
+// pointers at one file with nothing checking they agreed.
 [GlobalClass]
 public partial class WorldMapData : Resource
 {
-    [Export] public WorldGenData genData;
-
-    // The three things a painted world needs that are NOT about generating one,
-    // referenced directly rather than reached through `genData`. Each is already
-    // its own resource; `genData` was only ever the bag holding them, and going
-    // through it made a document that authors no terrain depend on the
-    // generator's authoring asset.
+    // What a painted world needs that is NOT about generating one. Each is
+    // already its own resource, and the generator holds the same four — but as
+    // its OWN references, so neither side reaches through the other.
     //
     // startContent is what makes a painted world able to begin differently — its
     // own quests, party and starting knowledge, instead of inheriting whichever
-    // set the generator authors.
+    // set the generator authors. finish carries maxGradeStep, which is the last
+    // thing that used to be borrowed from a terrain approach.
     [Export] public WorldStartData startContent;
     [Export] public WorldFinishData finish;
     [Export] public KitPaletteData kitPalette;
@@ -366,11 +366,6 @@ public partial class WorldMapData : Resource
     // NOT an [ExportToolButton] — see the [Tool] note on the class.
     public void BakeToWorldFile()
     {
-        if (genData == null)
-        {
-            GD.PrintErr("WorldMapData: GenData not set.");
-            return;
-        }
         if (string.IsNullOrEmpty(outputWorldPath))
         {
             GD.PrintErr("WorldMapData: OutputWorldPath not set.");

@@ -2079,6 +2079,12 @@
     // rasterizes nothing, so headless always reports the clear colour.
     public static CVarBool depthSortCheck = new CVarBool("depth_sort_check", false);
     public static CVarBool blockCheck = new CVarBool("block_check", false);
+
+    // Dumps every authored SpawnListData as its resolved rows and quits. A
+    // spawn entry has no runtime error mode — a dropped density or condition
+    // just silently stops placing something — so a diff of this output is how
+    // an edit to those files is proved to have changed nothing else.
+    public static CVarBool spawnCheck = new CVarBool("spawn_check", false);
     public static CVarBool waterShoreCheck = new CVarBool("water_shore_check", false);
 
     // Console command: dumps the most recently generated world's plateau/

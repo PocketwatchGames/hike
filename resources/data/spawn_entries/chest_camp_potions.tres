@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ChestSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="r1"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="r2"]
+[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="r3"]
+[ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="r4"]
+
+[sub_resource type="Resource" id="sub0"]
+script = ExtResource("r2")
+item = ExtResource("r3")
+count = 0
+countRange = 1
+
+[sub_resource type="Resource" id="sub1"]
+script = ExtResource("r2")
+item = ExtResource("r4")
+count = 0
+countRange = 1
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("r1")
+lootItems = [SubResource("sub0"), SubResource("sub1")]

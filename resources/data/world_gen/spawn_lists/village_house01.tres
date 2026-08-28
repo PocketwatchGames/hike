@@ -1,6 +1,5 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://tjqvqwclchrds"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_base"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
 [ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="3_npc"]
 [ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="6_villager"]
@@ -10,6 +9,8 @@
 [ext_resource type="PackedScene" uid="uid://pkm1b280lc1a" path="res://scenes/characters/friendly_villager_female.tscn" id="17_villager_f"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="18_palette"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="19_recolor"]
+
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
 [sub_resource type="Resource" id="V1_top"]
 script = ExtResource("19_recolor")
@@ -80,7 +81,15 @@ descriptor = ExtResource("6_villager")
 initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
+[sub_resource type="Resource" id="Row_Villager_1"]
+script = ExtResource("listrow")
+entry = SubResource("Villager_1")
+
+[sub_resource type="Resource" id="Row_Villager_2"]
+script = ExtResource("listrow")
+entry = SubResource("Villager_2")
+
 [resource]
 script = ExtResource("2_list")
-entries = Array[ExtResource("1_base")]([SubResource("Villager_1"), SubResource("Villager_2")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_Villager_1"), SubResource("Row_Villager_2")])
 metadata/_custom_type_script = "uid://b3yy1yx4hje70"

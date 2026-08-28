@@ -9,6 +9,35 @@ public partial class MobSpawnEntry : SpawnEntryData
     // see MobDescriptor.
     [Export] public MobDescriptor descriptor;
 
+    // The descriptors THIS entry may be set to — the biome variants, elites and
+    // torchbearers that are all the same creature. One palette entry per family
+    // ("goblin"), with the member picked per placement, so selecting it on the
+    // map highlights every goblin rather than one biome's.
+    //
+    // Authored rather than derived: grouping by SpeciesData is per-BIOME (the
+    // plain, elite and torchbearer swamp goblins share one species, but the
+    // forest goblin does not), and a filename prefix would make a naming rule
+    // load-bearing with nothing enforcing it. It also lets the author decide
+    // where a family's edges are — whether a cube and a sphere slime are one.
+    //
+    // Empty leaves the entry a single-variant one, which is what every worldgen
+    // spawn list is: those name a descriptor outright and never offer a choice.
+    [Export] public MobDescriptor[] variants = System.Array.Empty<MobDescriptor>();
+
+    // Difficulty tier for THIS placement, overriding the descriptor's authored
+    // base. Negative = use the descriptor's.
+    //
+    // It has to live here rather than being edited through the descriptor: the
+    // descriptor is SHARED (every placement of a variant, and worldgen's own
+    // spawns, point at one .tres) and EntityPlacement's fork is shallow, so
+    // editing `descriptor.level` through the panel would retune every one of
+    // them at once.
+    //
+    // Semantics match the field it replaces — a FLOOR, not a final answer. The
+    // painted difficulty layer still adds on top via SpawnContext.MobLevel, so
+    // this raises a mob above its area rather than pinning it.
+    [Export(PropertyHint.Range, "-1,4,1")] public int levelOverride = -1;
+
     // Optional override for the brain's idleBehavior (e.g. "Wander"). Empty
     // means use the brain default. Combined with InitialBehaviorChance for
     // probabilistic overrides — set InitialBehaviorChance=0.25 to make a
@@ -16,12 +45,6 @@ public partial class MobSpawnEntry : SpawnEntryData
     // default Idle.
     [Export] public StringName initialBehavior;
     [Export(PropertyHint.Range, "0,1,0.01")] public float initialBehaviorChance = 1f;
-
-    // When this entry is a sub-entry of a SpawnGroupData cluster, scatter
-    // this many mobs around the anchor (e.g. 2..3 goblins per camp). Ignored
-    // in per-column list contexts (one mob per scan hit).
-    [Export] public int clusterCountMin = 1;
-    [Export] public int clusterCountMax = 1;
 
     // Mobs require flat terrain to keep physics from knocking them off step
     // edges into the cliff face below. Water-bound mobs are exempt — they spawn
@@ -38,6 +61,23 @@ public partial class MobSpawnEntry : SpawnEntryData
     public override bool RequireLateralClearance => descriptor?.mob?.CanTraverseLand != false;
 
     public override bool IsMobEntry => true;
+
+    // Which descriptor of its family this one is, so a family entry still names
+    // the individual in the hover readout and the panel title.
+    public override string VariantName()
+        => descriptor != null ? descriptor.ResourcePath.GetFile().GetBaseName() : null;
+
+    // Constrained to the family, which is what makes the descriptor row safe to
+    // show: a goblin entry offers only goblins, so a fork can never become a
+    // spider while still being named — and highlighted — as a goblin.
+    public override Resource[] ResourceCandidates(StringName property)
+    {
+        if (property != PropertyName.descriptor || variants == null || variants.Length == 0)
+        {
+            return base.ResourceCandidates(property);
+        }
+        return variants;
+    }
 
     // The behaviour nodes of the brain THIS entry's species runs — transitions
     // already reference each other by BehaviorNode.name, so that is the exact
@@ -109,11 +149,6 @@ public partial class MobSpawnEntry : SpawnEntryData
         return false;
     }
 
-    public override int RollCount(Random rng)
-    {
-        return rng.Next(clusterCountMin, clusterCountMax + 1);
-    }
-
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (descriptor == null)
@@ -126,15 +161,16 @@ public partial class MobSpawnEntry : SpawnEntryData
         // so the mob's vitals are scaled to it at construction (before this state is
         // baked into the .hike). The constructor forces non-dangerous mobs to 0, so
         // computing a tier here for prey / villagers is harmless.
+        int baseLevel = levelOverride >= 0 ? levelOverride : descriptor.level;
         int level = context != null
-            ? context.MobLevel(position, descriptor.level)
-            : Math.Max(0, descriptor.level);
+            ? context.MobLevel(position, baseLevel)
+            : Math.Max(0, baseLevel);
         MobSimState state = descriptor.CreateState(position, rotationY, levelOverride: level, levelScalePerLevel: ws.SimData?.levelScalePerLevel ?? 1.5f);
         if (state == null)
         {
             return;
         }
-        state.SpawnConditions = spawnConditions;
+        state.SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None;
         // The chance is a POPULATION fraction ("a quarter of spawned goblins
         // start in Wander"), so it has nothing to be a fraction of when someone
         // placed this one by hand — an authored placement always takes the

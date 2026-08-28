@@ -86,6 +86,16 @@ public sealed class SpawnContext
         return ForgeLevelOverride != null ? ForgeLevelOverride(position) : 0;
     }
 
+    // The conditions the SpawnRow being placed asked for, stamped on
+    // immediately before each spawn. It rides the context because Spawn is
+    // overridden by ~20 entry types and only three of them (mob, npc, chest)
+    // have a sim state that can defer on a condition — widening every signature
+    // for a value three of them read is the worse trade.
+    //
+    // Never cleared between rows: every caller sets it for the row it is about
+    // to place, so a stale value cannot outlive its row.
+    public ESpawnConditions SpawnConditions;
+
     // True when the position was hand-authored (a subscene marker) rather than
     // sampled off a column. It turns OFF the placement heuristics that exist to
     // judge whether an AUTO-PICKED spot is sensible — chiefly the 4-neighbour

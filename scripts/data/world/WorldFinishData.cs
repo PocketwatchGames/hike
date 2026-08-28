@@ -93,6 +93,20 @@ public partial class WorldFinishData : Resource
     // InteriorDustStamper — so a cave, a cellar and a roofed hut all get their
     // air from one authored place instead of three special cases.
 
+    // Largest height difference between horizontally-adjacent columns still
+    // treated as a GRADE (a staircase approximation of a slope, meshed smooth)
+    // rather than a real discontinuity (meshed crisp as a wall). StampGradeShapes
+    // re-derives the shape channel with it from the finished voxels, which is why
+    // it lives here and not on TerrainGenData: BOTH producers need it and neither
+    // is asking a question about a terrain approach. A painted document has no
+    // approach at all, and borrowing one approach's value was the last thing
+    // keeping it tied to a WorldGenData.
+    //
+    // Raise only if something authors grades steeper than this per column — they
+    // would otherwise harden into visible stairs. At 1 a one-voxel step is a 45
+    // degree ramp and a two-voxel step is a wall.
+    [Export(PropertyHint.Range, "1,8,1")] public int maxGradeStep = 1;
+
     // Density gradient inside the bucket: density(wy) = (ceiling - wy) *
     // FogDensityPerVoxel, clamped to [0, 255].
     [Export] public float fogDensityPerVoxel = 80f;

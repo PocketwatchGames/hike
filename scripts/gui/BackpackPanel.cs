@@ -46,8 +46,10 @@ public partial class BackpackPanel : Control
 
 	// Repaint every slot from `items` (slot i shows items[i], or empty past the
 	// list's end). The list may be sparse (backpack, with null holes) or dense
-	// (a stash list) — the panel just indexes it positionally.
-	public void Refresh(IReadOnlyList<ItemState> items)
+	// (a stash list) — the panel just indexes it positionally. `stackCounts`, when
+	// given, supplies the badge count per slot for views whose rows don't map 1:1
+	// onto a single stack (the almanac's merged carried + stash materials).
+	public void Refresh(IReadOnlyList<ItemState> items, IReadOnlyList<int> stackCounts = null)
 	{
 		if (_slots == null)
 		{
@@ -56,7 +58,8 @@ public partial class BackpackPanel : Control
 		for (int i = 0; i < _slots.Count; i++)
 		{
 			ItemState item = (items != null && i < items.Count) ? items[i] : null;
-			_slots[i]?.SetItem(item);
+			int count = (stackCounts != null && i < stackCounts.Count) ? stackCounts[i] : -1;
+			_slots[i]?.SetItem(item, count);
 		}
 	}
 

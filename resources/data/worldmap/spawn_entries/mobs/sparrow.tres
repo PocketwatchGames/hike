@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="1_entry"]
+[ext_resource type="Resource" uid="uid://fpk1l0ckpquku" path="res://resources/data/world_gen/mob_descriptors/sparrow_forest.tres" id="D_sparrow_forest"]
+[ext_resource type="Resource" uid="uid://0kia662bo6e3x" path="res://resources/data/world_gen/mob_descriptors/sparrow_mountain.tres" id="D_sparrow_mountain"]
+[ext_resource type="Resource" uid="uid://n8c4wi80lfy6p" path="res://resources/data/world_gen/mob_descriptors/sparrow_swamp.tres" id="D_sparrow_swamp"]
+
+[resource]
+script = ExtResource("1_entry")
+family = &"sparrow"
+descriptor = ExtResource("D_sparrow_forest")
+variants = [ExtResource("D_sparrow_forest"), ExtResource("D_sparrow_mountain"), ExtResource("D_sparrow_swamp")]
+metadata/_custom_type_script = "uid://dhkkrl6qof485"

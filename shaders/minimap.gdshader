@@ -78,7 +78,9 @@ uniform float elevation_shade_below : hint_range(0.0, 1.0) = 0.6;
 // A line is drawn on any voxel edge where the surface steps, INTO the higher
 // cell (so it reads as the rim of its plateau, not a fence between two cells) —
 // the same rule the world-map painter's outline pass uses. Bucketed by the size
-// of the step: 1 m, 2 m, 3 m-or-more. Alpha rides in the colour.
+// of the step: 1 m, 2 m, 3 m-or-more — a traversal legend (walk up / mantle /
+// wall), which is why they measure stand_height and not the drawn surface.
+// Alpha rides in the colour.
 uniform vec4 step_ink_1m : source_color = vec4(0.0, 0.0, 0.0, 0.25);
 uniform vec4 step_ink_2m : source_color = vec4(0.0, 0.0, 0.0, 0.75);
 uniform vec4 step_ink_3m : source_color = vec4(1.0, 1.0, 1.0, 0.75);
@@ -115,9 +117,14 @@ vec3 fetch_terrain_color(sampler2D surf_tex, ivec2 coord) {
 
 // Height as stored in the surface texture: R low byte + G high byte, in metres
 // above the world's biased floor. 0 is the no-content sentinel.
-// Category index written into the tile channel by MinimapData — must match
-// EMinimapCategory. Only Prop is named here; the rest arrive in the texture.
+// Category indices written into the tile channel by MinimapData — must match
+// EMinimapCategory. Only these two are named here; the rest arrive in the
+// texture and are never compared against.
 const float PROP_CATEGORY = 4.0;
+const float WATER_CATEGORY = 2.0;
+// Metres a body sits below a water surface; mirrors ClimbLedgeMarker
+// .WaterStandDrop and WorldMapState.WaterStandDrop.
+const float WATER_STAND_DROP = 1.0;
 
 vec3 fetch_category_color(float category) {
     return texture(tile_lut, vec2((category + 0.5) / 64.0, 0.5)).rgb;
@@ -125,6 +132,21 @@ vec3 fetch_category_color(float category) {
 
 float decode_height(vec4 texel) {
     return texel.r * 255.0 + texel.g * 255.0 * 256.0;
+}
+
+// The height a BODY meets, which is what the step lines are a legend for. Water
+// is stored at its free surface, but a body stands or floats one metre into it —
+// the convention WalkabilityGrid uses and the mantle is measured against. It
+// holds at any depth, because wading and swimming differ in how a body is held
+// up, not in where the surface holding it sits. Without the drop a bank one
+// voxel proud of a lake — a real mantle — inks as a walk-up. Guarded so a column
+// at the very floor of the biased range cannot decay into the 0 no-content
+// sentinel.
+float stand_height(vec4 texel) {
+    float h = decode_height(texel);
+    float category = texel.b * 255.0;
+    float wet = step(WATER_CATEGORY - 0.5, category) * step(category, WATER_CATEGORY + 0.5);
+    return max(h - wet * WATER_STAND_DROP, min(h, 1.0));
 }
 
 // How far THIS cell stands above the neighbour, in metres, or 0 if it does not
@@ -287,11 +309,11 @@ void render_state(
     ivec2 cell = clamp(ivec2(floor(cellpp)), ivec2(0), tmax);
     vec2 cell_frac = fract(cellpp);
 
-    float h_here = decode_height(texelFetch(surf, cell, 0));
-    float h_negx = decode_height(texelFetch(surf, clamp(cell + ivec2(-1, 0), ivec2(0), tmax), 0));
-    float h_posx = decode_height(texelFetch(surf, clamp(cell + ivec2( 1, 0), ivec2(0), tmax), 0));
-    float h_negy = decode_height(texelFetch(surf, clamp(cell + ivec2(0, -1), ivec2(0), tmax), 0));
-    float h_posy = decode_height(texelFetch(surf, clamp(cell + ivec2(0,  1), ivec2(0), tmax), 0));
+    float h_here = stand_height(texelFetch(surf, cell, 0));
+    float h_negx = stand_height(texelFetch(surf, clamp(cell + ivec2(-1, 0), ivec2(0), tmax), 0));
+    float h_posx = stand_height(texelFetch(surf, clamp(cell + ivec2( 1, 0), ivec2(0), tmax), 0));
+    float h_negy = stand_height(texelFetch(surf, clamp(cell + ivec2(0, -1), ivec2(0), tmax), 0));
+    float h_posy = stand_height(texelFetch(surf, clamp(cell + ivec2(0,  1), ivec2(0), tmax), 0));
 
     // Metres per output pixel — needed BEFORE the edge tests now, since the
     // line width is expressed in pixels and converted into cells here.

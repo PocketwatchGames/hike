@@ -476,7 +476,7 @@ public sealed class WorldGen
             MaxX = heightMap.WorldMaxX,
             MinZ = heightMap.WorldMinZ,
             MaxZ = heightMap.WorldMaxZ,
-            MaxGradeStep = TerrainMath.TerrainOf(genData).maxGradeStep,
+            MaxGradeStep = genData.finish.maxGradeStep,
             SkipDetail = (skipFlags & SKIP_DETAILS) != 0,
             // Roads suppress their own detail here rather than clearing it after.
             SkipDetailColumn = (wx, wz) => _roadColumns.Contains((wx, wz)),
@@ -501,7 +501,7 @@ public sealed class WorldGen
         {
             GradeDebug.Dump(CVars.gradeDebug.Value, ws,
                 (x, z) => heightMap.GetSurface(x, z),
-                (x, z) => heightMap.IsGrade(x, z, TerrainMath.TerrainOf(genData).maxGradeStep));
+                (x, z) => heightMap.IsGrade(x, z, genData.finish.maxGradeStep));
         }
 
         // Spread each zone's distributedLoot across its chests. Runs last so it
@@ -1167,7 +1167,7 @@ public sealed class WorldGen
         for (int pi = 0; pi < placements.Length; pi++)
         {
             PoiPlacement placement = placements[pi];
-            if (placement == null || string.IsNullOrEmpty(placement.poiName) || placement.content?.entries == null)
+            if (placement == null || string.IsNullOrEmpty(placement.poiName) || placement.content?.rows == null)
             {
                 continue;
             }
@@ -1177,9 +1177,9 @@ public sealed class WorldGen
                 continue;
             }
             var rng = new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), pi, 1));
-            foreach (SpawnEntryData entry in placement.content.entries)
+            foreach (SpawnListRow row in placement.content.rows)
             {
-                entry?.TrySpawn(ws, pos, rng, context);
+                row?.TrySpawn(ws, pos, rng, context);
             }
         }
     }
@@ -2150,7 +2150,7 @@ public sealed class WorldGen
         var pool = new List<MarkerSimState>();
         foreach (SubsceneVariant variant in variants)
         {
-            if (variant == null || string.IsNullOrEmpty(variant.poolTag) || variant.content?.entries == null)
+            if (variant == null || string.IsNullOrEmpty(variant.poolTag) || variant.content?.rows == null)
             {
                 continue;
             }
@@ -2169,7 +2169,7 @@ public sealed class WorldGen
             }
             // Hoisted: entries is a Godot Array, so Count and the indexer both
             // cross into native.
-            int entryCount = variant.content.entries.Count;
+            int entryCount = variant.content.rows.Count;
             if (entryCount == 0)
             {
                 continue;
@@ -2189,8 +2189,8 @@ public sealed class WorldGen
                 int j = i + rng.Next(pool.Count - i);
                 (pool[i], pool[j]) = (pool[j], pool[i]);
                 MarkerSimState marker = pool[i];
-                SpawnEntryData entry = variant.content.entries[i % entryCount];
-                if (entry == null)
+                SpawnListRow row = variant.content.rows[i % entryCount];
+                if (row?.entry == null)
                 {
                     continue;
                 }
@@ -2200,7 +2200,7 @@ public sealed class WorldGen
                 // the ground the building replaced, not the floor stood on.
                 context.FacingY = marker.RotationY;
                 Vector3 position = marker.WorldPosition + worldOffset;
-                if (entry.TrySpawn(ws, position, rng, context))
+                if (row.TrySpawn(ws, position, rng, context))
                 {
                     spawned++;
                 }
@@ -2210,7 +2210,7 @@ public sealed class WorldGen
                     // scene, not a fact about the terrain — say so, because the
                     // gates are all silent and the author would otherwise be
                     // left staring at an empty room.
-                    GD.PushWarning($"WorldGen: '{variant.poolTag}' marker at {position} in '{placement.path}' rejected {entry.GetType().Name} — needs {entry.minSpacing}m clear of other entities and a floor its body can stand on (check it with `nav_grid`).");
+                    GD.PushWarning($"WorldGen: '{variant.poolTag}' marker at {position} in '{placement.path}' rejected {row.entry.GetType().Name} — needs {row.entry.minSpacing}m clear of other entities and a floor its body can stand on (check it with `nav_grid`).");
                 }
             }
         }
@@ -3007,7 +3007,7 @@ public sealed class WorldGen
                 // Provisional only: StampGradeShapes re-derives the surface tag
                 // from the finished geometry at the end of generation, and that
                 // pass — not this one — is authoritative.
-                byte surfaceShape = (byte)(heightMap.IsGrade(wx, wz, TerrainMath.TerrainOf(genData).maxGradeStep)
+                byte surfaceShape = (byte)(heightMap.IsGrade(wx, wz, genData.finish.maxGradeStep)
                     ? SharpAxes.None
                     : SharpAxes.Y);
 
@@ -3170,7 +3170,7 @@ public sealed class WorldGen
         for (int ri = 0; ri < regions.Length; ri++)
         {
             SpawnListData fixtures = regions[ri]?.fixtures;
-            if (fixtures?.entries == null) { continue; }
+            if (fixtures?.rows == null) { continue; }
             int quadrant = Math.Min(ri, 3);
             if (!QuadrantColumnRange(quadrant, worldMinX, worldMaxX, worldMinZ, worldMaxZ,
                     out int xLo, out int xHi, out int zLo, out int zHi))
@@ -3180,9 +3180,10 @@ public sealed class WorldGen
             // Per-region rng so each region's placement is independent and
             // deterministic across runs.
             var rng = new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), ri, 0));
-            foreach (SpawnEntryData entry in fixtures.entries)
+            foreach (SpawnListRow row in fixtures.rows)
             {
-                if (entry == null) { continue; }
+                if (row?.entry == null) { continue; }
+                SpawnEntryData entry = row.entry;
                 // Roll a column that already satisfies the entry's flat-terrain
                 // requirement so TrySpawn's gate doesn't then reject it.
                 bool Valid(int wx, int wz)
@@ -3754,18 +3755,18 @@ public sealed class WorldGen
                         int idx = _zones.PickWeighted(wx, wz, rng, reach);
                         if (idx >= 0) { spawnZone = zonesArr[idx]; }
                     }
-                    if (spawnZone?.surfaceEntities?.entries == null) { continue; }
+                    if (spawnZone?.surfaceEntities?.rows == null) { continue; }
                     // Carry this column's per-chest zone loot to any chest placed
                     // here (a camp-group chest forwards the context to its
                     // sub-entries). Distributed loot is applied in a later pass.
                     surfaceContext.ZonePerChestLoot = spawnZone.perChestLoot;
-                    foreach (SpawnEntryData entry in spawnZone.surfaceEntities.entries)
+                    foreach (SpawnListRow row in spawnZone.surfaceEntities.rows)
                     {
-                        if (entry == null) { continue; }
-                        bool isMob = entry is MobSpawnEntry;
+                        if (row?.entry == null) { continue; }
+                        bool isMob = row.entry is MobSpawnEntry;
                         if (isMob ? skipMobs : skipInteractives) { continue; }
-                        if (!entry.RollAreaChance(rng)) { continue; }
-                        entry.TrySpawn(ws, pos, rng, surfaceContext);
+                        if (!row.RollAreaChance(rng)) { continue; }
+                        row.TrySpawn(ws, pos, rng, surfaceContext);
                     }
                 }
             }
@@ -3819,7 +3820,7 @@ public sealed class WorldGen
                         int idx = _zones.PickWeighted(wx, wz, rng, reach);
                         if (idx >= 0) { spawnZone = zonesArr[idx]; }
                     }
-                    if (spawnZone?.waterEntities?.entries == null) { continue; }
+                    if (spawnZone?.waterEntities?.rows == null) { continue; }
 
                     int surfaceY = WaterSurfaceYAt(wx, wz);
                     if (surfaceY == int.MinValue) { continue; }
@@ -3837,13 +3838,13 @@ public sealed class WorldGen
                     // locomotion gate needs water, and the auto-freeze pins a
                     // zero-velocity body before gravity can drop it in).
                     var pos = new Vector3(wx + 0.5f, surfaceY + 0.5f, wz + 0.5f);
-                    foreach (SpawnEntryData entry in spawnZone.waterEntities.entries)
+                    foreach (SpawnListRow row in spawnZone.waterEntities.rows)
                     {
-                        if (entry == null) { continue; }
-                        bool isMob = entry is MobSpawnEntry;
+                        if (row?.entry == null) { continue; }
+                        bool isMob = row.entry is MobSpawnEntry;
                         if (isMob ? skipMobs : skipInteractives) { continue; }
-                        if (!entry.RollAreaChance(rng)) { continue; }
-                        entry.TrySpawn(ws, pos, rng, waterContext);
+                        if (!row.RollAreaChance(rng)) { continue; }
+                        row.TrySpawn(ws, pos, rng, waterContext);
                     }
                 }
             }
@@ -3853,9 +3854,9 @@ public sealed class WorldGen
         // matching zone's CaveEntities anywhere there's a 2-voxel air
         // pocket with a solid floor and a ceiling within reach (the
         // "is enclosed" test is what distinguishes cave pockets from open
-        // surface). No SpawnContext is supplied — cave-pocket cells are
-        // pre-validated by the loop, and a SpawnGroupData inside a cave
-        // list collapses to anchor-only placement.
+        // surface). caveContext carries no column samplers — cells are
+        // pre-validated by the loop — so a SpawnGroupData inside a cave list
+        // collapses to anchor-only placement.
         int HEAD_CLEARANCE = genData.caveHeadClearance;
         int CAVE_CEILING_PROBE = genData.caveCeilingProbe;
         int CAVE_WATER_MIN_DEPTH = genData.caveWaterMinDepth;
@@ -3907,19 +3908,19 @@ public sealed class WorldGen
                             continue;
                         }
                         ZoneGenData waterZone = _zones.PickWeightedData(wx, wz, rng);
-                        if (waterZone?.caveWaterEntities?.entries == null)
+                        if (waterZone?.caveWaterEntities?.rows == null)
                         {
                             continue;
                         }
                         caveContext.ZonePerChestLoot = waterZone.perChestLoot;
                         var waterPos = new Vector3(wx + 0.5f, wy + 0.5f, wz + 0.5f);
-                        foreach (SpawnEntryData entry in waterZone.caveWaterEntities.entries)
+                        foreach (SpawnListRow row in waterZone.caveWaterEntities.rows)
                         {
-                            if (entry == null) { continue; }
-                            bool isWaterMob = entry is MobSpawnEntry;
+                            if (row?.entry == null) { continue; }
+                            bool isWaterMob = row.entry is MobSpawnEntry;
                             if (isWaterMob ? skipMobs : skipInteractives) { continue; }
-                            if (!entry.RollAreaChance(rng)) { continue; }
-                            entry.TrySpawn(ws, waterPos, rng, caveContext);
+                            if (!row.RollAreaChance(rng)) { continue; }
+                            row.TrySpawn(ws, waterPos, rng, caveContext);
                         }
                         continue;
                     }
@@ -3957,19 +3958,19 @@ public sealed class WorldGen
                     }
 
                     ZoneGenData rg = _zones.PickWeightedData(wx, wz, rng);
-                    if (rg?.caveEntities?.entries == null)
+                    if (rg?.caveEntities?.rows == null)
                     {
                         continue;
                     }
                     caveContext.ZonePerChestLoot = rg.perChestLoot;
                     var pos = new Vector3(wx + 0.5f, wy, wz + 0.5f);
-                    foreach (SpawnEntryData entry in rg.caveEntities.entries)
+                    foreach (SpawnListRow row in rg.caveEntities.rows)
                     {
-                        if (entry == null) { continue; }
-                        bool isMob = entry is MobSpawnEntry;
+                        if (row?.entry == null) { continue; }
+                        bool isMob = row.entry is MobSpawnEntry;
                         if (isMob ? skipMobs : skipInteractives) { continue; }
-                        if (!entry.RollAreaChance(rng)) { continue; }
-                        entry.TrySpawn(ws, pos, rng, caveContext);
+                        if (!row.RollAreaChance(rng)) { continue; }
+                        row.TrySpawn(ws, pos, rng, caveContext);
                     }
                 }
             }

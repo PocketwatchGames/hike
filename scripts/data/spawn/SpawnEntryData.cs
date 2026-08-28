@@ -1,48 +1,20 @@
 using System;
 using Godot;
 
-// Base class for one entity entry in either a SpawnGroupData (cluster around
-// an anchor) or a SpawnListData (per-zone authored list). Subclass per entity
-// type (MobSpawnEntry, ChestSpawnEntry, ...) and override Spawn to construct
-// the matching EntitySimState and add it to the world.
+// WHAT to place and how one lands: subclass per entity type (MobSpawnEntry,
+// ChestSpawnEntry, ...) and override Spawn to construct the matching
+// EntitySimState and add it to the world.
 //
-// Two coexisting use modes consume the same base:
-//   - Cluster (SpawnGroupData): for each sub-entry the caller invokes
-//     RollCount(rng) to decide how many instances to scatter, and calls
-//     Spawn on each. Sub-entries are not gated by SquareMetersPerSpawn —
-//     the parent group already decided to fire.
-//   - Per-column scan (SpawnListData on ZoneGenData): the caller rolls
-//     RollAreaChance once per (wx, wz) candidate and calls Spawn once on hit.
-//     Subclasses that need their own count parameter (chest loot count,
-//     berry count) declare a purpose-named field and roll inside Spawn.
+// An entry is a SHARED asset — one goblin.tres named by every list that wants
+// goblins. So it holds only what is true of the thing wherever it appears. How
+// densely a particular list sprinkles it, whether it is night-only there, and
+// how many of it a camp holds belong to the SpawnRow that names it.
 //
-// spawnConditions is honored by mob and chest sim states — their nodes only
-// MATERIALIZE while the required circumstances hold. Once spawned they persist
-// until their chunk evicts; spawnConditions is a one-way spawn gate, not a
-// presence gate. Subclasses that don't use spawn gating (loot, fire trap,
-// berry tree, plain torch) simply ignore it.
+// Subclasses that need their own count parameter (chest loot count, berry
+// count) declare a purpose-named field and roll inside Spawn.
 [GlobalClass]
 public partial class SpawnEntryData : Resource
 {
-    // Average number of qualifying square meters between spawns from the
-    // per-column scan (each grass / cave-pocket column is 1m²). Inverse of
-    // a per-1m² probability: 1000 means "≈one spawn per 1000m² of eligible
-    // terrain", 200 means dense placement. Authored as a friendly integer
-    // range so the Godot editor's default spinbox step doesn't quietly
-    // round sub-0.001 probabilities to zero.
-    //
-    // Default 0 disables the per-column scan for this entry — used by
-    // SpawnGroupData sub-entries, which are gated by their parent's
-    // RollCount rather than an independent area roll.
-    [Export(PropertyHint.Range, "0,5000,1,or_greater")] public float squareMetersPerSpawn;
-
-    // Required circumstances for this entry's node to materialize. Mob and
-    // chest sim states honour these by deferring node spawn until their chunk
-    // activates while the conditions hold (e.g. Night, or Day | Clear); the
-    // resulting entity then persists across changing conditions. Other sim
-    // states ignore it. None = spawn unconditionally.
-    [Export, CompactFlags] public ESpawnConditions spawnConditions;
-
     // Reject this entry's spawn position if any existing entity sits within
     // this radius. Prevents campfires inside trees, mobs inside chests, etc.
     // Set to 0 to disable the check (composite entries like SpawnGroupData
@@ -50,52 +22,65 @@ public partial class SpawnEntryData : Resource
     // so overlap at the group level is meaningless).
     [Export] public float minSpacing = 0.5f;
 
-    // When this entry is a sub-entry of a SpawnGroupData, place it directly on
-    // the group's anchor (the cluster center) instead of scattering it within
-    // ScatterRadius — the cluster's centerpiece (a home campfire, a well). The
-    // entry's placement gates still run via TrySpawn. Ignored outside a group.
-    [Export] public bool placeAtAnchor;
-
     // Does this property mean anything to a HAND-PLACED entity? An editor for
     // one hides the rest, because a control that cannot change the result is
     // worse than a missing one — it invites tuning that does nothing. Which
     // fields the placement path reads is this class's business, so the answer
     // lives here rather than in the UI.
     //
-    // TrySpawn — the path EntityPlacement takes — never consults
-    // squareMetersPerSpawn (that is the area roll), and placeAtAnchor and
-    // MobSpawnEntry's clusterCountMin/Max are rules for SpawnGroupData
-    // sub-entries: the cluster count is read only through RollCount, whose one
-    // caller is SpawnGroupData's scatter. A hand-placed entity is one entity at
-    // one spot by construction.
-    //
-    // minSpacing joins them because TrySpawn now skips it for an authored
-    // position — the field stays exported for the scatter path, which is the
-    // only thing that has ever authored it.
+    // The scatter-only knobs a placement cannot use — rate, cluster count,
+    // anchor pinning — are no longer on an entry at all; they are SpawnRow's,
+    // and a hand placement has no row. What is left is minSpacing, which
+    // TrySpawn skips for an authored position (the author put the mark exactly
+    // there), and initialBehaviorChance, a POPULATION fraction with nothing to
+    // be a fraction of when someone placed this one individually.
     public static bool IsHandPlacedProperty(StringName name)
     {
-        return name != PropertyName.squareMetersPerSpawn
-            && name != PropertyName.placeAtAnchor
-            && name != PropertyName.minSpacing
-            && name != "clusterCountMin"
-            && name != "clusterCountMax"
+        return name != PropertyName.minSpacing
             && name != "initialBehaviorChance";
     }
 
-    // Does this property decide WHICH entry this is, rather than how this
-    // individual varies? Identity belongs to the PALETTE: a different species,
-    // rig, outfit or recolor is a different palette entry, and there is exactly
-    // one Talia. Picking the entry already chose all of it, so a row for it says
-    // nothing the palette has not.
+    // Which palette family this entry belongs to, when that is not simply its own
+    // file. Unset = the file, which is what almost every entry wants.
     //
-    // Editability is not the point — hiding is. Editing a row FORKS the entry
-    // off its palette file, keeping that file only as the fork's NAME, so an
-    // editable identity field produces a placement that IS a drake while the
-    // panel title, the hover readout, worldmap_check's listing and the
+    // It exists for the entry that cannot be folded into its family's shared
+    // palette entry but still IS one of them: the leather merchant carries an `inventory` and
+    // `loyaltyGifts` that no placement editor can author (both are arrays, which
+    // still have no list editor), so it stays its own palette entry — and
+    // selecting the npc palette entry must still light it up, because "show me
+    // every NPC"
+    // is the question being asked and the merchant is an NPC.
+    //
+    // A StringName the .tres never assigns arrives NULL, not empty, so every
+    // read of it is guarded.
+    [Export] public StringName family;
+
+    // Does this property decide WHICH FAMILY this entry belongs to, rather than
+    // which member of it this individual is? Only the family is the palette's to
+    // choose: a fork keeps its palette file as its NAME, so a property that can
+    // move an entry OUT of that family produces a placement that IS a drake
+    // while the panel title, the hover readout, worldmap_check's listing and the
     // palette-match highlight all still call it npc_hermit.
+    //
+    // Which member is a per-placement choice and stays editable — that is the
+    // whole point of a family entry. It is safe precisely because the candidates
+    // are constrained to the family (ResourceCandidates), so no in-panel edit
+    // can reach outside it and the fork's name stays true.
+    //
+    // `variants` and `appearances` are the family's own definition — what the
+    // fields below MAY be set to — so they belong to whoever authors the palette
+    // file, not to a placement. Shown, they would also be the one edit that can
+    // widen a family from inside it.
+    //
+    // The raw appearance trio (scene / outfit / palette) stays hidden because it
+    // is the WORLDGEN authoring path: the three must agree with each other (a
+    // rig gender-matched to its outfit), which is a constraint no per-field row
+    // can enforce. A hand placement varies its look through the bundled
+    // NpcSpawnEntry.appearance instead, where a mismatch is unrepresentable.
     public static bool IsIdentityProperty(StringName name)
     {
-        return name == "descriptor" || name == "recruitTemplate"
+        return name == PropertyName.family
+            || name == "variants" || name == "appearances"
             || name == "scene" || name == "altScene"
             || name == "outfit" || name == "palette";
     }
@@ -115,6 +100,23 @@ public partial class SpawnEntryData : Resource
         return IsHandPlacedProperty(name) && !IsIdentityProperty(name);
     }
 
+    // The same question, asked of THIS entry — the one the panel and the check
+    // actually call. Virtual because what a property means depends on the entry
+    // type: an NPC's `descriptor` picks between two species that resolve to the
+    // same MobData and differ only in a bestiary displayName, so a row for it is
+    // a control that cannot meaningfully change the result.
+    public virtual bool ShowsProperty(StringName name)
+    {
+        return ShowsInPlacementEditor(name);
+    }
+
+    // The rows this entry wants FIRST, in this order; anything not named follows
+    // in declaration order. Declaration order is the C# field order across a
+    // class hierarchy, which puts the base class's bookkeeping above the fields
+    // an author actually came to set — so the order a panel reads well in is a
+    // statement the entry type makes, not an accident of inheritance.
+    public virtual StringName[] PropertyOrder => null;
+
     // The values a string/StringName property may take, or null for "anything"
     // — which keeps it a free-text box. Overridden where the answer is derivable
     // from what the entry already names (a brain's behaviour nodes, a rig's
@@ -127,6 +129,24 @@ public partial class SpawnEntryData : Resource
     // holds is offered too even when it is not in the list, so a value authored
     // against a different rig survives being looked at.
     public virtual string[] NameCandidates(StringName property) => null;
+
+    // The resources an Object-typed property may be set to, or null for "every
+    // authored .tres of that type" — which is what the panel's project-wide scan
+    // gives a field like `conversation`, where any authored file is a valid
+    // answer.
+    //
+    // Overridden where the valid set is a FAMILY the entry itself defines: the
+    // goblin palette entry names its own goblin descriptors, so the row that
+    // picks a biome variant cannot reach a spider. That constraint is what makes
+    // the row safe to show at all — see IsIdentityProperty. Authored rather than
+    // derived, because neither of the derivable answers is right: grouping by
+    // SpeciesData is per-BIOME (finer than a family), and a filename prefix
+    // makes a naming rule load-bearing with nothing enforcing it.
+    //
+    // Advisory in the same sense NameCandidates is: whatever the property
+    // already holds is offered even when the list does not contain it, so a
+    // value authored before the family was retuned survives being looked at.
+    public virtual Resource[] ResourceCandidates(StringName property) => null;
 
     // Is this entry a private copy belonging to one placement, rather than the
     // shared palette file every placement of its kind points at?
@@ -143,22 +163,63 @@ public partial class SpawnEntryData : Resource
             && (string.IsNullOrEmpty(entry.ResourcePath) || entry.ResourcePath.Contains("::"));
     }
 
-    // What to call this entry in the authoring UI: the file it was authored as,
-    // or — for a placement's own copy — the palette file it came from, kept as
-    // the resource name and marked as customized. One answer, because the tool
-    // row, the hover readout and the property panel all name the same thing and a
-    // name that differs between them reads as two different entries.
+    // Which palette FILE this entry belongs to — its family, and the identity
+    // everything matching a placement against the palette keys on. A fork has
+    // that file only as its resource NAME, which is all that is left saying
+    // where it came from.
+    //
+    // Deliberately NOT DisplayName: that one now decorates a family entry with
+    // the variant this individual is, and a match must not depend on a
+    // decoration — comparing display strings would stop every customized NPC
+    // matching the npc entry the moment its appearance was picked.
+    public static string FamilyName(SpawnEntryData entry)
+    {
+        if (entry == null)
+        {
+            return "";
+        }
+        // An explicit family outranks the file, and it survives a fork for free:
+        // the duplicate carries the exported value, where ResourceName is engine
+        // bookkeeping the fork has to be told to set.
+        if (entry.family is not null && !entry.family.IsEmpty)
+        {
+            return entry.family.ToString();
+        }
+        return IsOwnedCopy(entry)
+            ? entry.ResourceName ?? ""
+            : entry.ResourcePath.GetFile().GetBaseName();
+    }
+
+    // Which member of its family this individual is — the biome variant of a
+    // goblin, the rig and outfit of a villager — or null for an entry whose
+    // family has only the one member. Overridden by the entry types that carry a
+    // per-placement choice.
+    //
+    // It exists because collapsing a palette to families costs the map its
+    // names: with one npc entry, every NPC hovers as "npc" and the elder is not
+    // distinguishable from the archer. The family answers WHICH HIGHLIGHT, this
+    // answers WHICH ONE IS IT, and the UI wants both.
+    public virtual string VariantName() => null;
+
+    // What to call this entry in the authoring UI: its family, plus the variant
+    // this individual is, plus a mark when it is a placement's own customized
+    // copy. One answer, because the tool row, the hover readout and the property
+    // panel all name the same thing and a name that differs between them reads
+    // as two different entries.
     public static string DisplayName(SpawnEntryData entry)
     {
         if (entry == null)
         {
             return "";
         }
-        if (!IsOwnedCopy(entry))
+        string family = FamilyName(entry);
+        if (string.IsNullOrEmpty(family))
         {
-            return entry.ResourcePath.GetFile().GetBaseName();
+            family = entry.GetType().Name;
         }
-        return !string.IsNullOrEmpty(entry.ResourceName) ? $"{entry.ResourceName} *" : entry.GetType().Name;
+        string variant = entry.VariantName();
+        string name = string.IsNullOrEmpty(variant) ? family : $"{family}: {variant}";
+        return IsOwnedCopy(entry) ? $"{name} *" : name;
     }
 
     // True iff this entry requires a flat patch — the column and all 8
@@ -205,25 +266,6 @@ public partial class SpawnEntryData : Resource
     // Runs at worldgen with no Sim node, so path-blocker cells aren't
     // consulted here (entity overlap is already covered by MinSpacing).
     public virtual bool IsSpawnPositionWalkable(WorldState ws, Vector3 position) => true;
-
-    // Number of instances to scatter when this entry is a sub-entry of a
-    // SpawnGroupData cluster. Default returns 1; subclasses that want
-    // multi-instance scatter override (see MobSpawnEntry.ClusterCountMin/Max).
-    public virtual int RollCount(Random rng)
-    {
-        return 1;
-    }
-
-    // Per-column area roll for SpawnListData scans. Returns true if the
-    // caller should fire Spawn on this column. SquareMetersPerSpawn == 0
-    // disables the entry from area scans (default for SpawnGroupData
-    // sub-entries). Centralized so call sites stay readable — both the
-    // surface and cave passes in WorldGen go through here.
-    public bool RollAreaChance(Random rng)
-    {
-        if (squareMetersPerSpawn <= 0f) { return false; }
-        return rng.NextDouble() * squareMetersPerSpawn < 1f;
-    }
 
     // Run the entry-specific placement gates (flat-terrain check, overlap
     // check) and dispatch to Spawn on success. Returns false if the spot

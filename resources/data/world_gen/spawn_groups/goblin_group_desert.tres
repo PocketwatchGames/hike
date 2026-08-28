@@ -1,45 +1,25 @@
 [gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://ndilv758jxnj"]
 
-[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_oxdew"]
-[ext_resource type="Resource" uid="uid://c2bah8fqjr86q" path="res://resources/data/world_gen/mob_descriptors/goblin_desert_torchbearer.tres" id="4_3ofq4"]
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="5_k7525"]
-[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="7_udeir"]
-[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="8_3f36l"]
-[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="8_3ofq4"]
-[ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="9_k7525"]
-[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="9_lvrwy"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_x87yb"]
 
-[sub_resource type="Resource" id="Resource_goblin_entry"]
-script = ExtResource("5_k7525")
-descriptor = ExtResource("4_3ofq4")
-initialBehavior = null
-clusterCountMin = 2
-clusterCountMax = 3
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/mobs/goblin_desert_torchbearer_camp.tres" id="e_goblin_desert_torchbearer_camp"]
+[ext_resource type="Resource" path="res://resources/data/spawn_entries/chest_camp_potions.tres" id="e_chest_camp_potions"]
+
+[ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
+
+[sub_resource type="Resource" id="Row_goblin_desert_torchbearer_camp"]
+script = ExtResource("grouprow")
+entry = ExtResource("e_goblin_desert_torchbearer_camp")
 spawnConditions = 2
+countMin = 2
+countMax = 3
 
-[sub_resource type="Resource" id="Resource_lh7ja"]
-script = ExtResource("7_udeir")
-item = ExtResource("8_3ofq4")
-count = 0
-countRange = 1
-metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
-
-[sub_resource type="Resource" id="Resource_udeir"]
-script = ExtResource("7_udeir")
-item = ExtResource("9_k7525")
-count = 0
-countRange = 1
-metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
-
-[sub_resource type="Resource" id="Resource_chest_entry"]
-script = ExtResource("9_lvrwy")
-scene = ExtResource("8_3f36l")
-lootItems = [SubResource("Resource_lh7ja"), SubResource("Resource_udeir")]
+[sub_resource type="Resource" id="Row_chest_camp_potions"]
+script = ExtResource("grouprow")
+entry = ExtResource("e_chest_camp_potions")
 spawnConditions = 2
 
 [resource]
 script = ExtResource("10_x87yb")
 scatterRadius = 5.0
-entries = Array[ExtResource("1_oxdew")]([SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")])
-squareMetersPerSpawn = 1000.0
+rows = Array[ExtResource("grouprow")]([SubResource("Row_goblin_desert_torchbearer_camp"), SubResource("Row_chest_camp_potions")])

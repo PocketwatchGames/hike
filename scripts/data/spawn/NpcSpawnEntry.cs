@@ -30,6 +30,22 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     [Export] public ConversationData conversation;
 
     // --- Per-individual appearance (each NPC is one unique world entity) ---
+    // The bundled look — rig, outfit and recolor as ONE authored choice. Set,
+    // it wins over the raw trio below; null falls back to them.
+    //
+    // Two paths rather than one because they are authored by different things.
+    // Worldgen's house lists name the three fields inline and always have. A
+    // hand placement picks a bundle, because the map's property panel can only
+    // offer a single pick per row and three independent rows cannot enforce that
+    // an outfit's meshes exist in the rig it is worn on — see NpcAppearanceData.
+    [Export] public NpcAppearanceData appearance;
+
+    // The appearances THIS entry may be given, the way MobSpawnEntry.variants
+    // constrains a descriptor: one npc palette entry, with the villager picked
+    // per placement, so selecting it highlights every NPC on the map. Empty
+    // leaves the row offering every authored appearance.
+    [Export] public NpcAppearanceData[] appearances = System.Array.Empty<NpcAppearanceData>();
+
     // Rig/gender override: the model scene instanced for THIS individual (e.g. a
     // male vs female villager package). Null = the descriptor's base
     // MobData.mobScene. Passed into MobDescriptor.CreateState so it's fixed at
@@ -67,6 +83,67 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     // the clone stands at the active campfire. Null = not recruitable.
     [Export] public PlayerState recruitTemplate;
 
+    // The three appearance channels, resolved once so the bundle and the raw
+    // trio cannot disagree between the spawn path and the animation picker.
+    public PackedScene Rig => appearance?.scene ?? scene;
+
+    public string[] Outfit => appearance != null && appearance.outfit is { Length: > 0 }
+        ? appearance.outfit
+        : outfit;
+
+    public MobPalette Recolor => appearance?.palette ?? palette;
+
+    // Which villager of its family this one is. The appearance is what a hand
+    // placement varies, so it names the individual; a worldgen entry authored
+    // before appearances existed falls back to its descriptor.
+    public override string VariantName()
+    {
+        if (appearance != null && !string.IsNullOrEmpty(appearance.ResourcePath))
+        {
+            return appearance.ResourcePath.GetFile().GetBaseName();
+        }
+        return base.VariantName();
+    }
+
+    // What an author actually sets on a villager, in the order they set it:
+    // who it looks like, how it stands, what it says, what tongue it says it in,
+    // and whether it can join the party.
+    private static readonly StringName[] Order =
+    {
+        PropertyName.appearance, PropertyName.idleAnimation,
+        PropertyName.conversation, PropertyName.language,
+        PropertyName.recruitTemplate,
+    };
+
+    public override StringName[] PropertyOrder => Order;
+
+    // Three rows an NPC does not want, each for its own reason:
+    //
+    // `descriptor` — the two humanoid descriptors resolve to the SAME MobData
+    // and differ only in a bestiary displayName, so picking one changes nothing
+    // an author can see. Which individual this is was already decided by the
+    // appearance and the conversation.
+    // `levelOverride` — a difficulty tier for a villager standing in a doorway
+    // is meaningless; the field belongs to the fighting mobs it was added for.
+    // `initialBehavior` — an NPC runs its conversation and its idle pose, not a
+    // combat brain's entry state.
+    public override bool ShowsProperty(StringName name)
+    {
+        return name != PropertyName.descriptor
+            && name != PropertyName.levelOverride
+            && name != PropertyName.initialBehavior
+            && base.ShowsProperty(name);
+    }
+
+    public override Resource[] ResourceCandidates(StringName property)
+    {
+        if (property == PropertyName.appearance && appearances is { Length: > 0 })
+        {
+            return appearances;
+        }
+        return base.ResourceCandidates(property);
+    }
+
     // The clips baked into the rig this individual is drawn with — its own
     // `scene` override, else the species' model scene.
     //
@@ -85,7 +162,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
         {
             return base.NameCandidates(property);
         }
-        PackedScene rig = scene ?? descriptor?.mob?.mobScene;
+        PackedScene rig = Rig ?? descriptor?.mob?.mobScene;
         SceneState state = rig?.GetState();
         if (state == null)
         {
@@ -144,14 +221,16 @@ public partial class NpcSpawnEntry : MobSpawnEntry
             return;
         }
         float rotationY = context?.FacingY ?? (float)(rng.NextDouble() * Mathf.Pi * 2f);
-        MobSimState state = descriptor.CreateState(position, rotationY, scene);
+        MobSimState state = descriptor.CreateState(position, rotationY, Rig);
         if (state == null)
         {
             return;
         }
-        state.SpawnConditions = spawnConditions;
-        if (palette != null) { state.Palette = palette; }
-        if (outfit != null && outfit.Length > 0) { state.Outfit = outfit; }
+        state.SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None;
+        MobPalette recolor = Recolor;
+        string[] worn = Outfit;
+        if (recolor != null) { state.Palette = recolor; }
+        if (worn != null && worn.Length > 0) { state.Outfit = worn; }
         if (idleAnimation != null && (string)idleAnimation != "") { state.IdleAnimation = idleAnimation; }
         // The chance is a POPULATION fraction ("a quarter of spawned goblins
         // start in Wander"), so it has nothing to be a fraction of when someone

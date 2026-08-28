@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="BerryTreeSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://cqwdm8tvtwueu" path="res://scripts/data/spawn/BerryTreeSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" uid="uid://23ids5pfkxv0" path="res://scenes/interactives/berry_tree.tscn" id="r1"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("r1")
+berryCountMin = 3
+berryCountMax = 6
+minSpacing = 4.0
