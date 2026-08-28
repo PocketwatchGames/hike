@@ -9,6 +9,7 @@ render_priority = 0
 shader = ExtResource("1_shader")
 shader_parameter/albedo_tex = ExtResource("2_bark")
 shader_parameter/form_strength = 0.55
+shader_parameter/light_normal_bias = 0.0
 shader_parameter/color_tint = Color(0.6, 0.6, 0.645, 1)
 shader_parameter/emission_tint = Color(0, 0, 0, 1)
 shader_parameter/emission_strength = 0.0

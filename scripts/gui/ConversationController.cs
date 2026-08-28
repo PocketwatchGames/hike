@@ -80,6 +80,14 @@ public partial class ConversationController : Control
 		ConversationBranch branch = FindBranch(conversation, entry.branch);
 		if (branch == null)
 		{
+			// Warned, like the exit-group miss below: an entry naming a branch
+			// the conversation does not contain is a DATA error, and returning
+			// silently here is indistinguishable from the NPC having nothing to
+			// say. In game it reads as the interact prompt flickering once and
+			// the panel never opening — with nothing in the log to look up.
+			GD.PushWarning($"ConversationController: entry branch '{entry.branch}' not found in "
+				+ $"'{conversation.ResourcePath}' — the conversation has "
+				+ $"{conversation.branches?.Count ?? 0} branch(es), so this NPC cannot speak.");
 			return;
 		}
 

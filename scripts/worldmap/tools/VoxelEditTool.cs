@@ -67,8 +67,10 @@ public abstract class VoxelEditTool : IWorldMapTool
 
     public string StatusText(WorldMapState ctx) => $"Brush h={Height}";
 
+    // The plane itself is reported by the painter on every tool, so this names
+    // only the box being written.
     public string LevelText(WorldMapState ctx) =>
-        $"Y={PaintY} [{BottomY}..{BottomY + Height - 1}]  |  Cutaway Y={ctx.CutawayY}";
+        $"Y={PaintY} [{BottomY}..{BottomY + Height - 1}]";
 
     public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
     {

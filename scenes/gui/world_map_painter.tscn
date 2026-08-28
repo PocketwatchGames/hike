@@ -4,17 +4,17 @@
 [ext_resource type="Script" uid="uid://r8m80ixy1m3t" path="res://scripts/worldmap/WorldMapCanvas.cs" id="3_canvas"]
 [ext_resource type="Script" uid="uid://3uruphfvraak" path="res://scripts/worldmap/WorldMapHud.cs" id="4_hud"]
 [ext_resource type="Resource" uid="uid://e8dg4qt8u74x" path="res://resources/data/worldmap/default_world_map.tres" id="5_data"]
-[ext_resource type="Resource" uid="uid://8kjoldme1z4f" path="res://resources/data/worldmap/default_world_map_brush.tres" id="6_brush"]
+[ext_resource type="Resource" uid="uid://8kjoldme104f" path="res://resources/data/worldmap/default_world_map_brush.tres" id="6_brush"]
 [ext_resource type="Script" uid="uid://cost64s6twxhj" path="res://scripts/worldmap/WorldMapEntityInspector.cs" id="7_inspector"]
-[ext_resource type="Script" uid="uid://4m4iwywb9rxoe" path="res://scripts/worldmap/WorldMapPauseMenu.cs" id="8_pause"]
+[ext_resource type="Script" uid="uid://clafslhkcdtd1" path="res://scripts/worldmap/WorldMapPauseMenu.cs" id="8_pause"]
 
 [node name="WorldMapPainter" type="Node3D" unique_id=376435995 node_paths=PackedStringArray("canvas", "hud", "pauseMenu")]
 script = ExtResource("1_painter")
 canvas = NodePath("MapLayer/Canvas")
 hud = NodePath("Hud")
-pauseMenu = NodePath("Hud/PauseMenu")
 data = ExtResource("5_data")
 brush = ExtResource("6_brush")
+pauseMenu = NodePath("Hud/PauseMenu")
 
 [node name="MapLayer" type="CanvasLayer" parent="." unique_id=1012413076]
 
@@ -27,18 +27,18 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_canvas")
 
-[node name="Hud" type="CanvasLayer" parent="." unique_id=445149964 node_paths=PackedStringArray("layerLabel", "toolLabel", "coordsLabel", "hoverLabel", "bakePanel", "bakeLabel", "bakeBar", "toolButtonBar", "optionButtonBar", "hintLabel", "entityInspector")]
+[node name="Hud" type="CanvasLayer" parent="." unique_id=445149964 node_paths=PackedStringArray("layerLabel", "toolLabel", "coordsLabel", "hoverLabel", "bakePanel", "bakeLabel", "bakeBar", "toolButtonBar", "optionList", "hintLabel", "entityInspector")]
 script = ExtResource("4_hud")
-layerLabel = NodePath("MarginContainer/VBoxContainer/LayerLabel")
-toolLabel = NodePath("MarginContainer/VBoxContainer/ToolLabel")
-coordsLabel = NodePath("MarginContainer/VBoxContainer/CoordsLabel")
-hoverLabel = NodePath("MarginContainer/VBoxContainer/HoverLabel")
+layerLabel = NodePath("")
+toolLabel = NodePath("")
+coordsLabel = NodePath("MarginContainer2/VBoxContainer/CoordsLabel")
+hoverLabel = NodePath("MarginContainer2/VBoxContainer/HoverLabel")
 bakePanel = NodePath("BakePanel")
 bakeLabel = NodePath("BakePanel/BakeLabel")
 bakeBar = NodePath("BakePanel/BakeBar")
 toolButtonBar = NodePath("MarginContainer/VBoxContainer/ToolBar")
-optionButtonBar = NodePath("MarginContainer/VBoxContainer/OptionBar")
-hintLabel = NodePath("MarginContainer/VBoxContainer/HintLabel")
+optionList = NodePath("MarginContainer/VBoxContainer/OptionBar")
+hintLabel = NodePath("MarginContainer2/VBoxContainer/HintLabel")
 entityInspector = NodePath("EntityInspector")
 
 [node name="MarginContainer" type="MarginContainer" parent="Hud" unique_id=479690019]
@@ -55,26 +55,37 @@ mouse_filter = 2
 [node name="ToolBar" type="HBoxContainer" parent="Hud/MarginContainer/VBoxContainer" unique_id=1190384163]
 layout_mode = 2
 
-[node name="OptionBar" type="HFlowContainer" parent="Hud/MarginContainer/VBoxContainer" unique_id=2637423]
+[node name="OptionBar" type="ItemList" parent="Hud/MarginContainer/VBoxContainer" unique_id=2637423]
+custom_minimum_size = Vector2(320, 500)
 layout_mode = 2
+size_flags_horizontal = 0
+focus_mode = 0
 
-[node name="LayerLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=1918106656]
+[node name="MarginContainer2" type="MarginContainer" parent="Hud" unique_id=2129584288]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -300.0
+offset_right = 700.0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Hud/MarginContainer2" unique_id=374348177]
 layout_mode = 2
-text = "[Tab] Layer: Elevation"
+mouse_filter = 2
+alignment = 2
 
-[node name="ToolLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=623507482]
-layout_mode = 2
-text = "[Q/E] Tool: Raise"
-
-[node name="CoordsLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=1465641328]
-layout_mode = 2
-text = "[R/F] Texel: (0, 0)"
-
-[node name="HoverLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+[node name="HoverLabel" type="Label" parent="Hud/MarginContainer2/VBoxContainer" unique_id=822969297]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.72, 0.35, 1)
 
-[node name="HintLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer" unique_id=1410644965]
+[node name="CoordsLabel" type="Label" parent="Hud/MarginContainer2/VBoxContainer" unique_id=1465641328]
+layout_mode = 2
+text = "[R/F] Texel: (0, 0)"
+
+[node name="HintLabel" type="Label" parent="Hud/MarginContainer2/VBoxContainer" unique_id=1410644965]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.85, 0.75)
 
@@ -134,7 +145,7 @@ text = "Entity"
 [node name="Rows" type="VBoxContainer" parent="Hud/EntityInspector/Margin/VBoxContainer" unique_id=718857789]
 layout_mode = 2
 
-[node name="PauseMenu" type="Control" parent="Hud" node_paths=PackedStringArray("versionLabel")]
+[node name="PauseMenu" type="Control" parent="Hud" unique_id=1451043540 node_paths=PackedStringArray("versionLabel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -144,7 +155,7 @@ grow_vertical = 2
 script = ExtResource("8_pause")
 versionLabel = NodePath("PanelContainer/MarginContainer/VBoxContainer/MarginContainer/VersionLabel")
 
-[node name="PanelContainer" type="PanelContainer" parent="Hud/PauseMenu"]
+[node name="PanelContainer" type="PanelContainer" parent="Hud/PauseMenu" unique_id=1843216734]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -160,18 +171,18 @@ grow_vertical = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="MarginContainer" type="MarginContainer" parent="Hud/PauseMenu/PanelContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="Hud/PauseMenu/PanelContainer" unique_id=492811519]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Hud/PauseMenu/PanelContainer/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Hud/PauseMenu/PanelContainer/MarginContainer" unique_id=1762755953]
 layout_mode = 2
 size_flags_vertical = 8
 
-[node name="Label" type="Label" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer" unique_id=46615074]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_vertical = 1
@@ -179,27 +190,27 @@ theme_override_font_sizes/font_size = 48
 text = "Paused"
 horizontal_alignment = 1
 
-[node name="SaveButton" type="Button" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="SaveButton" type="Button" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer" unique_id=667290133]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Save & Bake"
 
-[node name="ResumeButton" type="Button" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="ResumeButton" type="Button" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer" unique_id=538997551]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Resume"
 
-[node name="QuitButton" type="Button" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="QuitButton" type="Button" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer" unique_id=996338998]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Quit to Menu"
 
-[node name="MarginContainer" type="MarginContainer" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer" unique_id=1261318222]
 layout_mode = 2
 size_flags_horizontal = 8
 theme_override_constants/margin_top = 10
 
-[node name="VersionLabel" type="Label" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer/MarginContainer"]
+[node name="VersionLabel" type="Label" parent="Hud/PauseMenu/PanelContainer/MarginContainer/VBoxContainer/MarginContainer" unique_id=1602759221]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "v0.00.001"

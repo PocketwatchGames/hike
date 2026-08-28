@@ -21,9 +21,13 @@ public partial class WorldMapHud : CanvasLayer
     [Export] public Control bakePanel;
     [Export] public Label bakeLabel;
     [Export] public ProgressBar bakeBar;
-    // Rows the tool buttons and the active tool's option buttons are built into.
+    // Row the tool buttons are built into.
     [Export] public Container toolButtonBar;
-    [Export] public Container optionButtonBar;
+    // The active tool's options. An ItemList rather than a row of buttons: a
+    // palette runs to 20+ entries (the entity palette, every .hikescene), which
+    // a wrapping button row turned into a block of the screen that grew with the
+    // content. A list has a fixed footprint and scrolls instead.
+    [Export] public ItemList optionList;
     // Shortcut hints, global plus whatever the active tool adds.
     [Export] public Label hintLabel;
     // Properties of the entity tool's selection. Hides itself when there is no
@@ -31,10 +35,22 @@ public partial class WorldMapHud : CanvasLayer
     [Export] public WorldMapEntityInspector entityInspector;
 
     private Button[] _toolButtons;
-    private Button[] _optionButtons;
+    // Held rather than re-connected: BuildOptionButtons runs on every tool change
+    // with a new callback, and connecting there would stack a handler per change.
+    // One connection made in _Ready dispatches through this instead.
+    private System.Action<int> _onOptionPressed;
 
     public override void _Ready()
     {
+        if (optionList != null)
+        {
+            // Never take keyboard focus — the painter's shortcuts are bare keys
+            // (1-9, Q/E, W, X, Tab), and a focused list would eat them for its
+            // own navigation. Mouse selection and wheel scrolling do not need
+            // focus, so the list still behaves.
+            optionList.FocusMode = Control.FocusModeEnum.None;
+            optionList.ItemSelected += index => _onOptionPressed?.Invoke((int)index);
+        }
     }
 
     // Both bars are built from lists the painter hands over rather than authored
@@ -43,14 +59,31 @@ public partial class WorldMapHud : CanvasLayer
     // the thing you change mid-stroke; switching tool is Tab or a click.
     public void BuildToolButtons(string[] names, System.Action<int> onPressed)
     {
-        _toolButtons = BuildGroup(toolButtonBar, names, onPressed, false);
+        _toolButtons = BuildGroup(toolButtonBar, names, onPressed);
     }
 
     // Called again on every tool change, so it clears whatever the last tool put
-    // there. A tool with no discrete options leaves the row empty.
+    // there. A tool with no discrete options leaves the list empty.
     public void BuildOptionButtons(string[] names, Color[] colors, System.Action<int> onPressed)
     {
-        _optionButtons = BuildGroup(optionButtonBar, names, onPressed, true, colors);
+        _onOptionPressed = onPressed;
+        if (optionList == null)
+        {
+            return;
+        }
+        optionList.Clear();
+        for (int i = 0; i < names.Length; i++)
+        {
+            // 1-9 pick an option, so only the first nine can name a key that
+            // does anything; the rest are clicked.
+            optionList.AddItem(i < NUMBER_KEYS ? $"{i + 1}  {names[i]}" : names[i]);
+            if (colors != null && i < colors.Length)
+            {
+                // Same colour the map draws this option in, so the two cannot
+                // drift.
+                optionList.SetItemCustomFgColor(i, colors[i]);
+            }
+        }
     }
 
     public void SetActiveTool(int index)
@@ -58,19 +91,31 @@ public partial class WorldMapHud : CanvasLayer
         SetActive(_toolButtons, index);
     }
 
+    // Reflects a selection rather than making one. ItemList.Select does not emit
+    // ItemSelected, so this cannot call back into the painter — the same reason
+    // the tool buttons use SetPressedNoSignal.
     public void SetActiveOption(int index)
     {
-        SetActive(_optionButtons, index);
+        if (optionList == null)
+        {
+            return;
+        }
+        if (index < 0 || index >= optionList.ItemCount)
+        {
+            optionList.DeselectAll();
+            return;
+        }
+        optionList.Select(index);
+        // A long palette scrolls, so the active entry can be off-screen after a
+        // Q/E step or a tool change that restores a stored index.
+        optionList.EnsureCurrentIsVisible();
     }
 
-    // 1-9 pick an option, so a row longer than nine cannot label the rest with a
-    // key that does nothing. The overflow is clicked in the bar instead — which
-    // is why the option row is an HFlowBox and wraps rather than running off the
-    // panel. (A palette this long really wants its own control; this is the
-    // cheap version of that.)
+    // 1-9 pick an option, so a list longer than nine cannot label the rest with a
+    // key that does nothing. The overflow is clicked instead.
     private const int NUMBER_KEYS = 9;
 
-    private static Button[] BuildGroup(Container bar, string[] names, System.Action<int> onPressed, bool numbered, Color[] colors = null)
+    private static Button[] BuildGroup(Container bar, string[] names, System.Action<int> onPressed)
     {
         if (bar == null)
         {
@@ -90,21 +135,13 @@ public partial class WorldMapHud : CanvasLayer
             int index = i;
             var button = new Button
             {
-                Text = numbered && i < NUMBER_KEYS ? $"{i + 1}  {names[i]}" : names[i],
+                Text = names[i],
                 ToggleMode = true,
                 ButtonGroup = group,
                 // Never take keyboard focus: the painter's shortcuts are bare
                 // keys, and a focused button would eat them.
                 FocusMode = Control.FocusModeEnum.None,
             };
-            if (colors != null && i < colors.Length)
-            {
-                // The label carries the swatch: same colour the map draws this
-                // option in, so the two cannot drift.
-                button.AddThemeColorOverride("font_color", colors[i]);
-                button.AddThemeColorOverride("font_pressed_color", colors[i]);
-                button.AddThemeColorOverride("font_hover_color", colors[i]);
-            }
             button.Pressed += () => onPressed(index);
             bar.AddChild(button);
             buttons[i] = button;

@@ -142,7 +142,7 @@ public partial class WorldMapPainter : Node3D
 
     // Bindings that mean the same thing whichever tool is active.
     private const string GLOBAL_HINT =
-        "Tab tool  |  1-9 option  |  Q/E param  |  R/F level  |  T/G cutaway  |  X mode  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save  |  Esc menu";
+        "Tab tool  |  1-9 option  |  Q/E param  |  R/F level  |  T/G or Alt+Wheel cutaway  |  Alt+RMB aim it  |  X mode  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save  |  Esc menu";
 
     // The document this painter is editing, for the console commands that act on
     // "whatever is open".
@@ -201,6 +201,17 @@ public partial class WorldMapPainter : Node3D
         // own (smaller / bigger) sense.
         canvas.OnAdjustRadius = notch => AdjustRadius(-notch);
         canvas.OnZoom = AdjustZoom;
+        // alt+wheel is T/G under the hand already on the mouse — the plane spans
+        // the world's whole height, so scrubbing it is the common gesture and
+        // walking there a keypress at a time is not.
+        // Wheel DOWN lowers the plane — the same sense as scrolling down a page,
+        // and the same inversion the brush notch already takes.
+        canvas.OnAdjustCutaway = notch =>
+        {
+            AdjustCutaway(-notch);
+            RebuildFull();
+            UpdateHud();
+        };
         canvas.OnHover = ReportHover;
 
         var toolNames = new string[_tools.Length];
@@ -371,6 +382,20 @@ public partial class WorldMapPainter : Node3D
     private void SetCutaway(int y)
     {
         _ctx.CutawayY = Mathf.Clamp(y, data.WorldMinY, data.WorldMaxY);
+    }
+
+    // Reported on EVERY tool, including the ten whose view does not cut. The
+    // plane is shared state and T/G moves it whatever is active, so a tool that
+    // said nothing about it made the keys read as broken — and on a cutting tool
+    // parked at the world top, the dozens of presses before the plane reaches
+    // any ground read the same way.
+    private string CutawayText()
+    {
+        if (!ActiveTool.View.CutsAway)
+        {
+            return $"Cutaway Y={_ctx.CutawayY} (this tool does not cut)";
+        }
+        return _ctx.IsCutAway ? $"Cutaway Y={_ctx.CutawayY}" : "Cutaway off (above the world)";
     }
 
     // Q/E. The option row is refreshed as well as the HUD, since a tool whose
@@ -1363,7 +1388,8 @@ public partial class WorldMapPainter : Node3D
         hud.SetTool(ActiveTool.Name);
         string status = ActiveTool.StatusText(_ctx);
         string level = ActiveTool.LevelText(_ctx);
-        hud.SetStatus(string.IsNullOrEmpty(level) ? status : $"{status}  |  {level}");
+        string line = string.IsNullOrEmpty(level) ? status : $"{status}  |  {level}";
+        hud.SetStatus($"{line}  |  {CutawayText()}");
         hud.SetRadius(ActiveTool.Radius, ScreenPerMeter);
 
         hud.entityInspector?.Show(ActiveTool.SelectedEntity);

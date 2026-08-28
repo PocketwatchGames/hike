@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="1_entry"]
+[ext_resource type="Resource" uid="uid://x2sig1iikbpac" path="res://resources/data/world_gen/mob_descriptors/drake_mountain.tres" id="2_desc"]
+
+[resource]
+script = ExtResource("1_entry")
+descriptor = ExtResource("2_desc")
+metadata/_custom_type_script = "uid://dhkkrl6qof485"

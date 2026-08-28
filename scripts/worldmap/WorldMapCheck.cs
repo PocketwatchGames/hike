@@ -88,6 +88,9 @@ public static class WorldMapCheck
         sb.AppendLine($"[worldmap_check] entities: {entities.Length} placed — "
             + (spread.Length == 0 ? "none" : spread.ToString()));
 
+        ReportPlacementGates(sb, ctx, entities);
+        ReportPaletteEditors(sb, ctx);
+
         // The fork the property panel makes must come back as the SAME entry
         // type. If Duplicate ever returns a bare Resource the panel silently
         // keeps editing the shared palette entry instead, and every signpost in
@@ -281,6 +284,45 @@ public static class WorldMapCheck
             int cutDisagreements = CompareStampRebuilds(ctx, w, h, clip, out int cutCovered);
             sb.AppendLine($"[worldmap_check] stamps cut at Y={clip}: {cutCovered} columns drawn, "
                 + $"{cutDisagreements} partial-vs-full disagreements (must be 0)");
+
+            // The SLICE itself: a stamp's plan is the topmost solid voxel of the
+            // scene AT OR BELOW the plane, so walking the plane down a building
+            // must change what the plan draws. Reported as the plan's solid
+            // columns and its own top at each metre of the first stamp — a
+            // sequence that never moves means the cut is showing the roof
+            // whatever the plane does, which is exactly what it used to do.
+            // The TALLEST stamp, not the first: a one-storey slab slices
+            // correctly and says nothing, while a building with rooms in it is
+            // the case this exists for.
+            int probeIndex = 0;
+            for (int i = 1; i < allStamps.Stamps.Length; i++)
+            {
+                if (ctx.StampHeight(allStamps.Stamps[i]) > ctx.StampHeight(allStamps.Stamps[probeIndex]))
+                {
+                    probeIndex = i;
+                }
+            }
+            SubscenePlacement probe = allStamps.Stamps[probeIndex];
+            int baseY = ctx.StampBaseY(probe);
+            var slice = new System.Text.StringBuilder();
+            for (int y = ctx.StampHeight(probe) - 1; y >= 0; y--)
+            {
+                WorldMapState.StampPlan cut = ctx.PlanStamps(
+                    new Rect2I(0, 0, w, h), baseY + y);
+                // Columns with material right AT the plane against ones showing
+                // something further down. A solid block answers "all at" at
+                // every level; a building with rooms in it answers "walls at,
+                // floor below", which is the case the slice exists for.
+                int at = 0;
+                int below = 0;
+                foreach (int t in cut.Tops[probeIndex])
+                {
+                    if (t < 0) { continue; }
+                    if (t == y) { at++; } else { below++; }
+                }
+                slice.Append($" y{y}:{at}at/{below}under");
+            }
+            sb.AppendLine($"[worldmap_check] stamp slice ({ctx.StampHeight(probe)}m tall, per level):{slice}");
         }
 
         // The painted difficulty layer, which mobs read through
@@ -370,5 +412,104 @@ public static class WorldMapCheck
         sb.Append("[worldmap_check] done");
         GD.Print(sb.ToString());
         tree.Quit();
+    }
+
+    // What the property panel actually lets an author set on a placement of each
+    // palette entry — the answer to "can I give this NPC its own conversation?",
+    // which otherwise takes opening the painter and clicking one.
+    //
+    // Uses the panel's OWN classifier rather than a second copy of the rules, so
+    // a property that stops being editable is reported the day it stops. It
+    // doubles as the check on ResourceTypeIndex: a picker row showing 0
+    // candidates means the scan failed to see that type's files, which in the
+    // panel looks exactly like "there are none authored".
+    private static void ReportPaletteEditors(System.Text.StringBuilder sb, WorldMapState ctx)
+    {
+        var seen = new HashSet<System.Type>();
+        foreach (SpawnEntryData entry in ctx.EntityPalette)
+        {
+            if (entry == null || !seen.Add(entry.GetType()))
+            {
+                continue;
+            }
+            var editable = new List<string>();
+            var picks = new List<string>();
+            var locked = new List<string>();
+            foreach (Godot.Collections.Dictionary property in entry.GetPropertyList())
+            {
+                var usage = (PropertyUsageFlags)(long)property["usage"];
+                if ((usage & PropertyUsageFlags.ScriptVariable) == 0)
+                {
+                    continue;
+                }
+                var name = new StringName(property["name"].AsString());
+                if (!SpawnEntryData.ShowsInPlacementEditor(name))
+                {
+                    continue;
+                }
+                WorldMapEntityInspector.EPropertyEditor kind =
+                    WorldMapEntityInspector.EditorFor(entry, name,
+                        (Variant.Type)(long)property["type"],
+                        (PropertyHint)(long)property["hint"],
+                        out System.Type resourceType, out string[] names);
+                if (kind == WorldMapEntityInspector.EPropertyEditor.ResourcePick)
+                {
+                    picks.Add($"{name}({ResourceTypeIndex.Candidates(resourceType).Length})");
+                }
+                else if (kind == WorldMapEntityInspector.EPropertyEditor.NamePick)
+                {
+                    picks.Add($"{name}({names.Length})");
+                }
+                else if (kind == WorldMapEntityInspector.EPropertyEditor.ReadOnly)
+                {
+                    locked.Add(name.ToString());
+                }
+                else
+                {
+                    editable.Add(name.ToString());
+                }
+            }
+            sb.AppendLine($"[worldmap_check] {entry.GetType().Name} panel — "
+                + $"edit: {Join(editable)} | pick: {Join(picks)} | no editor yet: {Join(locked)}");
+        }
+    }
+
+    private static string Join(List<string> items)
+        => items.Count == 0 ? "none" : string.Join(", ", items);
+
+    // Hand placing an entity does NOT guarantee it spawns: TrySpawn still runs
+    // its placement gates, and every rejection is silent — the entity is simply
+    // not in the baked world, with nothing said. Reported here because the map
+    // cannot show it and the author has no other way to find out short of going
+    // to stand where they put it.
+    //
+    // Only the FLAT-TERRAIN gate is answerable without voxels, and it is the one
+    // most likely to bite: a mob entry requires its column and all eight
+    // neighbours at one height, so an NPC placed on a slope or on the lip of a
+    // step is dropped. The rest (minSpacing against a neighbour, the hazard
+    // keep-out, the navigation-walkability probe) need a built world and are not
+    // checked here. Lateral clearance no longer applies — StampEntities marks
+    // these AuthoredPosition, which is what lets one stand against a wall.
+    private static void ReportPlacementGates(System.Text.StringBuilder sb, WorldMapState ctx,
+        EntityPlacement[] entities)
+    {
+        var rejected = new List<string>();
+        foreach (EntityPlacement placement in entities)
+        {
+            if (placement?.entry == null || !placement.entry.RequireFlatTerrain)
+            {
+                continue;
+            }
+            int px = placement.anchorXZ.X - ctx.Data.WorldMinX;
+            int pz = placement.anchorXZ.Y - ctx.Data.WorldMinZ;
+            if (!ctx.IsFlatAt(px, pz))
+            {
+                rejected.Add($"{SpawnEntryData.DisplayName(placement.entry)}"
+                    + $"@{placement.anchorXZ.X},{placement.anchorXZ.Y}");
+            }
+        }
+        sb.AppendLine($"[worldmap_check] placement gates: {rejected.Count} hand-placed "
+            + "entities sit on non-flat ground and will NOT spawn"
+            + (rejected.Count == 0 ? "" : " — " + string.Join(", ", rejected)));
     }
 }

@@ -56,6 +56,12 @@ public partial class WorldMapCanvas : Control
     // assigns PixelsPerTexel before returning.
     public Action<int> OnZoom;
 
+    // Same, with alt held: one metre of cutaway per notch. The plane spans the
+    // whole world's height and T/G walks it a metre a press, so on a tall
+    // document reaching the ground from the top took most of a hundred presses
+    // — which reads as the control doing nothing at all.
+    public Action<int> OnAdjustCutaway;
+
     // Display-image size in PIXELS (texels * PixelsPerTexel).
     private int _imgW;
     private int _imgH;
@@ -105,6 +111,10 @@ public partial class WorldMapCanvas : Control
                     if (mb.CtrlPressed)
                     {
                         ZoomAbout(dir, mb.Position);
+                    }
+                    else if (mb.AltPressed)
+                    {
+                        OnAdjustCutaway?.Invoke(dir);
                     }
                     else
                     {

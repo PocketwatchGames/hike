@@ -1160,7 +1160,27 @@ public class WorldMapState
             var pos = new Vector3(placement.anchorXZ.X + 0.5f, floor + 1f,
                 placement.anchorXZ.Y + 0.5f);
             uint seed = Hash(px, pz, ENTITY_SALT);
-            placement.entry.TrySpawn(WorldState, pos, new System.Random((int)seed), SpawnContextForBake());
+            // The quarter turn R/F puts on the placement. Set on the shared bake
+            // context and cleared again rather than passed: this loop is the one
+            // caller that has a facing, and everything else the context answers
+            // must keep giving a scattered entity its random yaw. Safe because
+            // the bake walks these one at a time on one thread.
+            //
+            // AuthoredPosition rides along for the same reason and CANNOT live
+            // on the shared context: RescatterColumns uses that context too, and
+            // a scattered mob must keep the lateral-clearance gate — rejecting a
+            // 1-voxel tunnel is exactly what it is for. A hand-placed one is the
+            // opposite case: the gate wants 4-connected air around the anchor,
+            // which is what a wall is not, so a villager placed in the doorway
+            // you aimed at would silently never spawn. It is the same claim
+            // WorldGen makes for an entry it drops on an authored subscene
+            // marker.
+            SpawnContext context = SpawnContextForBake();
+            context.FacingY = (int)placement.rotation * Mathf.Pi * 0.5f;
+            context.AuthoredPosition = true;
+            placement.entry.TrySpawn(WorldState, pos, new System.Random((int)seed), context);
+            context.FacingY = null;
+            context.AuthoredPosition = false;
         }
     }
 
@@ -1627,16 +1647,16 @@ public class WorldMapState
     }
 
     // Top-down colour of a stamp's contents, one entry per footprint column,
-    // alpha 0 where the scene has nothing. Built once per (scene, rotation) and
-    // cached beside the rotated state — the map asks for this per texel per
-    // rebuild, and scanning a building's full height every time would show.
+    // alpha 0 where the scene has nothing. Built once per (scene, rotation,
+    // slice) and cached — the map asks for this per texel per rebuild, and
+    // scanning a building's full height every time would show.
     //
     // Turns a placed stamp from a featureless rectangle into a floor plan, which
     // is what makes a stamp placeable at all: which way the house faces and where
     // its walls are cannot be read off a wash.
     public Color[] SubscenePreview(SubscenePlacement placement)
     {
-        return Plan(placement).Colors;
+        return Plan(placement, int.MaxValue).Colors;
     }
 
     // Local Y of the voxel the plan drew at a footprint column, or -1 where the
@@ -1656,7 +1676,7 @@ public class WorldMapState
         {
             return -1;
         }
-        int[] tops = Plan(placement).Tops;
+        int[] tops = Plan(placement, int.MaxValue).Tops;
         int i = lz * footprint.Size.X + lx;
         return i < tops.Length ? tops[i] : -1;
     }
@@ -1667,6 +1687,14 @@ public class WorldMapState
     {
         SubsceneState sub = SubsceneFor(placement);
         return sub == null ? SeaLevel : Mathf.FloorToInt(SeatY(placement) - sub.Anchor.Y);
+    }
+
+    // How many metres tall the scene a stamp places is — the range a cutaway
+    // plane can meaningfully walk through it.
+    public int StampHeight(SubscenePlacement placement)
+    {
+        SubsceneState sub = SubsceneFor(placement);
+        return sub == null ? 0 : sub.Size.Y;
     }
 
     // Resolved ONCE per display rebuild, parallel to a StampsIn result: the seat
@@ -1682,14 +1710,26 @@ public class WorldMapState
         return seats;
     }
 
-    private (Color[] Colors, int[] Tops) Plan(SubscenePlacement placement)
+    // `localLevel` is the highest LOCAL y of the scene this plan may draw —
+    // int.MaxValue for the whole thing. A cutaway passes the plane translated
+    // into the scene's own coordinates, so lowering it walks down through a
+    // building's floors instead of showing its roof or nothing at all.
+    private (Color[] Colors, int[] Tops) Plan(SubscenePlacement placement, int localLevel)
     {
         SubsceneState sub = SubsceneFor(placement);
         if (sub == null)
         {
             return (System.Array.Empty<Color>(), System.Array.Empty<int>());
         }
-        var key = (placement.path, (int)placement.rotation);
+        // Clamped to the scene's own top, so every plane at or above the roof
+        // shares ONE cache entry with the unclipped plan — otherwise a plane
+        // parked over the world would mint an entry per stamp seat.
+        int from = Mathf.Min(localLevel, sub.Size.Y - 1);
+        if (from < 0)
+        {
+            return (System.Array.Empty<Color>(), System.Array.Empty<int>());
+        }
+        var key = (placement.path, (int)placement.rotation, from);
         if (_subscenePreviews.TryGetValue(key, out (Color[] Colors, int[] Tops) cached))
         {
             return cached;
@@ -1704,7 +1744,7 @@ public class WorldMapState
         {
             for (int z = 0; z < sub.Size.Z; z++)
             {
-                for (int y = sub.Size.Y - 1; y >= 0; y--)
+                for (int y = from; y >= 0; y--)
                 {
                     if (!sub.PresenceMask[x, y, z])
                     {
@@ -1733,7 +1773,10 @@ public class WorldMapState
         return (colors, tops);
     }
 
-    private readonly System.Collections.Generic.Dictionary<(string, int), (Color[] Colors, int[] Tops)>
+    // Keyed by the SLICE as well as the scene and its rotation: scrubbing the
+    // cutaway through a building mints one entry per metre of that building,
+    // which is bounded by its height.
+    private readonly System.Collections.Generic.Dictionary<(string, int, int), (Color[] Colors, int[] Tops)>
         _subscenePreviews = new();
 
     // Topmost stamp covering a texel, or null. Last wins, matching the draw
@@ -1803,13 +1846,17 @@ public class WorldMapState
         };
         for (int i = 0; i < plan.Stamps.Length; i++)
         {
-            (Color[] colors, int[] tops) = Plan(plan.Stamps[i]);
-            plan.Colors[i] = colors;
-            plan.Tops[i] = tops;
+            // The seat FIRST: it is what turns the world-space plane into the
+            // scene's own coordinates, and the plan is sliced at that.
+            int localLevel = int.MaxValue;
             if (plan.BaseYs != null)
             {
                 plan.BaseYs[i] = StampBaseY(plan.Stamps[i]);
+                localLevel = clipY - plan.BaseYs[i];
             }
+            (Color[] colors, int[] tops) = Plan(plan.Stamps[i], localLevel);
+            plan.Colors[i] = colors;
+            plan.Tops[i] = tops;
         }
         return plan;
     }
@@ -1823,12 +1870,14 @@ public class WorldMapState
     // around a tower — or a stamp's extent would be invisible exactly where its
     // shape is most ambiguous.
     //
-    // On a CUTAWAY view a stamp is hidden once the plane drops BELOW it: the cut
-    // has taken the building away, and its roof plan would otherwise paint over
-    // whatever the cut exposed underneath — the passage you are boring under the
-    // house. At or above its base it still draws, because you are looking down at
-    // something that is still there — footprint wash included, so a plane parked
-    // over everything renders exactly what no plane at all would.
+    // On a CUTAWAY view the stamp is SLICED at the plane, exactly as the terrain
+    // around it is: the plan draws the topmost solid voxel of the scene at or
+    // below the cut, so lowering the plane walks down through a building's
+    // floors — walls at that level as content, the floor below them wherever the
+    // room is open. Only once the plane drops below the stamp's BASE is it
+    // hidden outright, which is when the cut has genuinely taken the building
+    // away and its plan would paint over the passage you are boring under it. A
+    // plane parked over everything renders exactly what no plane at all would.
     public Color StampColorAt(StampPlan plan, int px, int pz, Color under,
         SubscenePlacement selected)
     {
@@ -1845,13 +1894,13 @@ public class WorldMapState
             {
                 continue;
             }
-            int at = lz * fp.Size.X + lx;
-            int[] tops = plan.Tops[i];
-            int top = at < tops.Length ? tops[at] : -1;
             if (plan.BaseYs != null && plan.BaseYs[i] > plan.ClipY)
             {
                 continue;
             }
+            int at = lz * fp.Size.X + lx;
+            int[] tops = plan.Tops[i];
+            int top = at < tops.Length ? tops[at] : -1;
             bool isSelected = plan.Stamps[i] == selected;
             if (top >= 0)
             {
@@ -2477,7 +2526,10 @@ public class WorldMapState
                 palette.KitAt(kits.Cave)?.mossCoverage ?? 0f);
     }
 
-    private bool IsFlatAt(int px, int pz)
+    // Public because worldmap_check asks it of every hand-placed entity: this is
+    // the one TrySpawn gate answerable without a built world, and a rejection by
+    // it is silent.
+    public bool IsFlatAt(int px, int pz)
     {
         int h = TerrainHeight(px, pz);
         for (int dx = -1; dx <= 1; dx++)

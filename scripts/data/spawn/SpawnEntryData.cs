@@ -57,15 +57,76 @@ public partial class SpawnEntryData : Resource
     [Export] public bool placeAtAnchor;
 
     // Does this property mean anything to a HAND-PLACED entity? An editor for
-    // one hides the rest: TrySpawn — the path EntityPlacement takes — never
-    // consults squareMetersPerSpawn, and placeAtAnchor is a rule for
-    // SpawnGroupData sub-entries. Which fields the placement path reads is this
-    // class's business, so the answer lives here rather than in the UI.
+    // one hides the rest, because a control that cannot change the result is
+    // worse than a missing one — it invites tuning that does nothing. Which
+    // fields the placement path reads is this class's business, so the answer
+    // lives here rather than in the UI.
+    //
+    // TrySpawn — the path EntityPlacement takes — never consults
+    // squareMetersPerSpawn (that is the area roll), and placeAtAnchor and
+    // MobSpawnEntry's clusterCountMin/Max are rules for SpawnGroupData
+    // sub-entries: the cluster count is read only through RollCount, whose one
+    // caller is SpawnGroupData's scatter. A hand-placed entity is one entity at
+    // one spot by construction.
+    //
+    // minSpacing joins them because TrySpawn now skips it for an authored
+    // position — the field stays exported for the scatter path, which is the
+    // only thing that has ever authored it.
     public static bool IsHandPlacedProperty(StringName name)
     {
         return name != PropertyName.squareMetersPerSpawn
-            && name != PropertyName.placeAtAnchor;
+            && name != PropertyName.placeAtAnchor
+            && name != PropertyName.minSpacing
+            && name != "clusterCountMin"
+            && name != "clusterCountMax"
+            && name != "initialBehaviorChance";
     }
+
+    // Does this property decide WHICH entry this is, rather than how this
+    // individual varies? Identity belongs to the PALETTE: a different species,
+    // rig, outfit or recolor is a different palette entry, and there is exactly
+    // one Talia. Picking the entry already chose all of it, so a row for it says
+    // nothing the palette has not.
+    //
+    // Editability is not the point — hiding is. Editing a row FORKS the entry
+    // off its palette file, keeping that file only as the fork's NAME, so an
+    // editable identity field produces a placement that IS a drake while the
+    // panel title, the hover readout, worldmap_check's listing and the
+    // palette-match highlight all still call it npc_hermit.
+    public static bool IsIdentityProperty(StringName name)
+    {
+        return name == "descriptor" || name == "recruitTemplate"
+            || name == "scene" || name == "altScene"
+            || name == "outfit" || name == "palette";
+    }
+
+    // Does this property get a row in a placement editor at all? Two independent
+    // reasons not to, kept as separate questions because they mean different
+    // things: the value cannot reach a hand placement (IsHandPlacedProperty), or
+    // it is implicit in the palette entry that was chosen (IsIdentityProperty).
+    //
+    // What is deliberately still SHOWN is the third case — a property that would
+    // vary per placement and simply has no editor yet (a chest's lootItems, an
+    // NPC's inventory / loyaltyGifts / itemPreferences, all of which need list
+    // editing). Those are marked as such rather than hidden, so the panel never
+    // implies an entry holds less than it does.
+    public static bool ShowsInPlacementEditor(StringName name)
+    {
+        return IsHandPlacedProperty(name) && !IsIdentityProperty(name);
+    }
+
+    // The values a string/StringName property may take, or null for "anything"
+    // — which keeps it a free-text box. Overridden where the answer is derivable
+    // from what the entry already names (a brain's behaviour nodes, a rig's
+    // animation clips), so the editor offers a list instead of asking an author
+    // to remember an identifier that fails SILENTLY when mistyped: a bad
+    // behaviour name falls through to the species default and a bad clip name
+    // fails ModelAnimator.HasAnimation, and neither says anything.
+    //
+    // An answer is advisory, not a constraint. Whatever the property currently
+    // holds is offered too even when it is not in the list, so a value authored
+    // against a different rig survives being looked at.
+    public virtual string[] NameCandidates(StringName property) => null;
 
     // Is this entry a private copy belonging to one placement, rather than the
     // shared palette file every placement of its kind points at?
@@ -186,7 +247,14 @@ public partial class SpawnEntryData : Resource
         {
             return false;
         }
-        if (minSpacing > 0f && ws.HasEntityWithinRadius(position, minSpacing))
+        // Skipped for a hand-authored position, like the lateral clearance
+        // above it: the author put the mark exactly there, and every other mark
+        // is drawn on the same map. Nothing authors this away from its 0.5m
+        // default except the SCATTER lists and two worldgen fixtures, which is
+        // the path it exists for — a rejection radius is a statement about how
+        // densely a pass may sprinkle something, not about a spot someone chose.
+        if (minSpacing > 0f && context?.AuthoredPosition != true
+            && ws.HasEntityWithinRadius(position, minSpacing))
         {
             return false;
         }

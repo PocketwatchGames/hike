@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using System.Collections.Generic;
 
@@ -10,12 +11,17 @@ using System.Collections.Generic;
 // written, and there is no parallel list of overrides to keep in step with the
 // spawn entries.
 //
-// Scalars only (string, number, bool, enum, flags). Anything resource-shaped —
-// a loot table, a mob descriptor, a language — shows as a read-only row: varying
-// it per placement would need a resource picker, and picking a ready-made
-// variant off the palette is the faster authoring move anyway. The row is there
-// rather than hidden so the panel never implies the entry holds less than it
-// does.
+// Scalars (string, number, bool, enum, flags) get an editor, and so does a
+// SINGLE resource-typed field — a conversation, a language, a mob descriptor, a
+// recruit template — through a dropdown filled by ResourceTypeIndex. That one
+// matters most for NPCs, where every placement is genuinely its own individual
+// with its own dialogue rather than a copy of a species template, so authoring a
+// palette file per villager is the wrong shape.
+//
+// What stays a read-only row: ARRAYS (an outfit, a stock list, loyalty gifts),
+// which need list editing rather than a single pick, and PackedScene, which is a
+// rig choice rather than data. The row is there rather than hidden so the panel
+// never implies the entry holds less than it does.
 [GlobalClass]
 public partial class WorldMapEntityInspector : PanelContainer
 {
@@ -159,7 +165,7 @@ public partial class WorldMapEntityInspector : PanelContainer
                 continue;
             }
             var name = new StringName(property["name"].AsString());
-            if (!SpawnEntryData.IsHandPlacedProperty(name))
+            if (!SpawnEntryData.ShowsInPlacementEditor(name))
             {
                 continue;
             }
@@ -196,22 +202,95 @@ public partial class WorldMapEntityInspector : PanelContainer
         rows.AddChild(row);
     }
 
-    private Control BuildEditor(StringName name, Variant.Type type, PropertyHint hint, string hintString)
+    // How the panel edits one property. Named rather than inlined into the
+    // switch below so `worldmap_check` can report what an entry type exposes
+    // without building any widgets — the question "what can I actually set on a
+    // placement of this?" otherwise has no answer short of opening the painter
+    // and clicking one.
+    public enum EPropertyEditor
     {
+        Text,
+        Multiline,
+        Check,
+        Enum,
+        Flags,
+        Number,
+        ResourcePick,
+        NamePick,
+        ReadOnly,
+    }
+
+    // The one classifier, shared by the row builder and the check. It takes the
+    // ENTRY rather than its type because a name list depends on what this entry
+    // NAMES — its descriptor's brain, its rig's animation library — not on the
+    // class. `resourceType` and `names` belong to their own kinds and are null
+    // for every other.
+    public static EPropertyEditor EditorFor(SpawnEntryData entry, StringName name,
+        Variant.Type type, PropertyHint hint, out Type resourceType, out string[] names)
+    {
+        resourceType = null;
+        names = null;
+        Type owner = entry?.GetType();
         switch (type)
         {
             case Variant.Type.String or Variant.Type.StringName:
-                return hint == PropertyHint.MultilineText
-                    ? BuildMultiline(name)
-                    : BuildLine(name);
+                if (hint == PropertyHint.MultilineText)
+                {
+                    return EPropertyEditor.Multiline;
+                }
+                // A derivable set of valid values becomes a dropdown; anything
+                // else stays free text.
+                names = entry?.NameCandidates(name);
+                return names != null && names.Length > 0
+                    ? EPropertyEditor.NamePick : EPropertyEditor.Text;
             case Variant.Type.Bool:
-                return BuildCheck(name);
+                return EPropertyEditor.Check;
             case Variant.Type.Int when hint == PropertyHint.Enum:
-                return BuildEnum(name, hintString);
+                return EPropertyEditor.Enum;
             case Variant.Type.Int when hint == PropertyHint.Flags:
-                return BuildFlags(name, hintString);
+                return EPropertyEditor.Flags;
             case Variant.Type.Int or Variant.Type.Float:
+                return EPropertyEditor.Number;
+            case Variant.Type.Object:
+                resourceType = ResourceFieldType(owner, name);
+                // A picker with nothing to offer is a control that cannot change
+                // the result, which is the same reason the cluster fields are
+                // hidden — so it falls back to the read-only summary. That also
+                // keeps an EMBEDDED value legible: every MobPalette in the
+                // project is a sub-resource with no file to pick, and an empty
+                // dropdown over one reads as "this field is unset".
+                if (resourceType != null
+                    && ResourceTypeIndex.Candidates(resourceType).Length > 0)
+                {
+                    return EPropertyEditor.ResourcePick;
+                }
+                resourceType = null;
+                return EPropertyEditor.ReadOnly;
+            default:
+                return EPropertyEditor.ReadOnly;
+        }
+    }
+
+    private Control BuildEditor(StringName name, Variant.Type type, PropertyHint hint, string hintString)
+    {
+        switch (EditorFor(_shownEntry, name, type, hint, out Type resourceType, out string[] names))
+        {
+            case EPropertyEditor.Multiline:
+                return BuildMultiline(name);
+            case EPropertyEditor.Text:
+                return BuildLine(name);
+            case EPropertyEditor.Check:
+                return BuildCheck(name);
+            case EPropertyEditor.Enum:
+                return BuildEnum(name, hintString);
+            case EPropertyEditor.Flags:
+                return BuildFlags(name, hintString);
+            case EPropertyEditor.Number:
                 return BuildNumber(name, type == Variant.Type.Int, hint, hintString);
+            case EPropertyEditor.ResourcePick:
+                return BuildResourcePicker(name, resourceType);
+            case EPropertyEditor.NamePick:
+                return BuildNamePicker(name, names);
             default:
                 return BuildReadOnly(name);
         }
@@ -399,41 +478,72 @@ public partial class WorldMapEntityInspector : PanelContainer
         return option;
     }
 
-    // One checkbox per bit rather than a dropdown, because the value is a SET —
-    // "day AND clear" is a normal thing to want from a chest.
+    // A compact dropdown of checkable items, the same shape the Godot-side
+    // editor uses for these properties (addons/data_ed/FlagsPropertyEditor,
+    // opted into with [CompactFlags]). That one is an EditorProperty behind
+    // `#if TOOLS` and cannot be instantiated in the running game, so this
+    // mirrors its behaviour rather than sharing it — but the rules below are
+    // ITS rules, and they should stay in step.
+    //
+    // A row of checkboxes was the first version. The value is a SET ("day AND
+    // clear" is a normal thing to want from a chest), so checkboxes are honest,
+    // but they cost a row as wide as the flag count on every entry that has any
+    // — and the panel is a narrow strip beside the map.
     private Control BuildFlags(StringName name, string hintString)
     {
-        var box = new HFlowContainer();
-        var boxes = new List<(CheckBox Check, int Bit)>();
+        var button = new MenuButton
+        {
+            Alignment = HorizontalAlignment.Left,
+            ClipText = true,
+            // Bare keys belong to the painter, exactly as on the tool buttons.
+            FocusMode = Control.FocusModeEnum.None,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        PopupMenu menu = button.GetPopup();
+        // The value is a set, so the menu stays open while several are toggled.
+        menu.HideOnCheckableItemSelection = false;
+        var bits = new List<(string Label, int Bit)>();
         foreach ((string label, int value) in ParseHintItems(hintString, flags: true))
         {
-            // A zero-valued member (the conventional `None = 0`) names the EMPTY
-            // set, not a bit: `mask | 0` and `mask & ~0` are both the mask, so
-            // its box could never write anything and `(mask & 0) == 0` drew it
-            // permanently ticked. Clearing every other box already means None.
-            if (value == 0)
+            // Skip the conventional `None = 0` and any MULTI-BIT alias (`All`).
+            // Neither is independently togglable: `mask | 0` and `mask & ~0` are
+            // both the mask, so a None item could never write anything, and an
+            // alias item toggles several primaries at once while its own checked
+            // state is ambiguous. Godot's own flags inspector hides them too.
+            if (value <= 0 || (value & (value - 1)) != 0)
             {
                 continue;
             }
-            var check = new CheckBox { Text = label };
-            int bit = value;
-            check.Toggled += on =>
-            {
-                int mask = Read(name).AsInt32();
-                Commit(name, on ? mask | bit : mask & ~bit);
-            };
-            box.AddChild(check);
-            boxes.Add((check, bit));
+            menu.AddCheckItem(label, value);
+            bits.Add((label, value));
         }
+        // IdPressed rather than IndexPressed: the id IS the bit, so nothing
+        // depends on menu order.
+        menu.IdPressed += id =>
+        {
+            int mask = Read(name).AsInt32();
+            var bit = (int)id;
+            Commit(name, (mask & bit) == bit ? mask & ~bit : mask | bit);
+        };
         _refreshers.Add(() =>
         {
             int mask = Read(name).AsInt32();
-            foreach ((CheckBox check, int bit) in boxes)
+            string text = "";
+            for (int i = 0; i < bits.Count; i++)
             {
-                check.SetPressedNoSignal((mask & bit) == bit);
+                bool on = (mask & bits[i].Bit) == bits[i].Bit;
+                // By INDEX — the items were added in this order.
+                menu.SetItemChecked(i, on);
+                if (on)
+                {
+                    text += text.Length > 0 ? $", {bits[i].Label}" : bits[i].Label;
+                }
             }
+            // Never blank: an empty button reads as a broken control rather than
+            // as "no conditions", which is a meaningful and common value.
+            button.Text = text.Length == 0 ? "None" : text;
         });
-        return box;
+        return button;
     }
 
     // An enum/flags hint is "Name,Other" or "Name:4,Other:8". Godot spells the
@@ -464,11 +574,164 @@ public partial class WorldMapEntityInspector : PanelContainer
         return items;
     }
 
+    // The CLR type behind an exported Object field, or null where the panel
+    // should leave it as a read-only row.
+    //
+    // Read off the entry's own C# type rather than parsed out of the property
+    // hint: these ARE C# fields, so reflection is the exact answer, while a hint
+    // string is the editor's rendering of it and is empty or a bare class name
+    // depending on how the export was declared.
+    //
+    // Two exclusions, both deliberate. A PackedScene is a rig choice rather than
+    // data — an NPC's `scene` has to gender-match its `outfit`, so offering every
+    // scene in the project as a free pick invites a mismatch the panel cannot
+    // check. Arrays never reach here (they are Variant.Type.Array) and want list
+    // editing, not one pick.
+    private static Type ResourceFieldType(Type owner, StringName name)
+    {
+        if (owner == null)
+        {
+            return null;
+        }
+        string field = name.ToString();
+        Type type = owner.GetField(field)?.FieldType
+            ?? owner.GetProperty(field)?.PropertyType;
+        if (type == null || !typeof(Resource).IsAssignableFrom(type)
+            || typeof(PackedScene).IsAssignableFrom(type))
+        {
+            return null;
+        }
+        return type;
+    }
+
+    // Every authored .tres of the field's type, plus an explicit empty. Filled
+    // by scanning rather than from a palette: a conversation is authored as a
+    // file, and a registration step in a second resource is one that gets
+    // forgotten.
+    private Control BuildResourcePicker(StringName name, Type type)
+    {
+        var option = new OptionButton { ClipText = true };
+        string[] paths = ResourceTypeIndex.Candidates(type);
+        // Index 0 is "none", so a field can always be cleared — an NPC with no
+        // conversation is a real thing to author (Talk does nothing).
+        option.AddItem("—", 0);
+        for (int i = 0; i < paths.Length; i++)
+        {
+            option.AddItem(paths[i].GetFile().GetBaseName(), i + 1);
+        }
+        // A value the scan cannot name: a sub_resource embedded in the document
+        // (an NPC's recolor palette) has no path to match against, and dropping
+        // it into "—" would read as the field being empty and invite a pick that
+        // silently discards it. Offered as its own entry instead, so leaving it
+        // alone is what selecting it does.
+        int embedded = option.ItemCount;
+        option.AddItem("(embedded)", embedded);
+        option.SetItemDisabled(option.GetItemIndex(embedded), true);
+
+        option.ItemSelected += index =>
+        {
+            int id = option.GetItemId((int)index);
+            if (id == embedded)
+            {
+                return;
+            }
+            Commit(name, id == 0
+                ? default
+                : Variant.From(GD.Load<Resource>(paths[id - 1])));
+        };
+        _refreshers.Add(() =>
+        {
+            var current = Read(name).As<Resource>();
+            int want = 0;
+            if (current != null)
+            {
+                want = embedded;
+                for (int i = 0; i < paths.Length; i++)
+                {
+                    if (paths[i] == current.ResourcePath)
+                    {
+                        want = i + 1;
+                        break;
+                    }
+                }
+            }
+            // The embedded row exists only while something is actually in it,
+            // or every cleared field carries a dead option.
+            option.SetItemDisabled(option.GetItemIndex(embedded), want != embedded);
+            option.Selected = option.GetItemIndex(want);
+        });
+        return option;
+    }
+
+    // A dropdown over the values the ENTRY says this name may take — a brain's
+    // behaviour nodes, a rig's animation clips. Both fail silently when
+    // mistyped (a bad behaviour name falls through to the species default, a bad
+    // clip fails ModelAnimator.HasAnimation), which is exactly the case a
+    // free-text box is worst at.
+    //
+    // The list is ADVISORY. Whatever the entry currently holds is offered even
+    // when the candidates do not contain it, so a value authored against another
+    // rig — or before a brain was retuned — is not silently rewritten by merely
+    // selecting the placement. It is marked so the author can see it is adrift.
+    private Control BuildNamePicker(StringName name, string[] candidates)
+    {
+        var option = new OptionButton { ClipText = true };
+        // Index 0 clears the field, which for both of these means "the species
+        // default" and is a normal thing to author.
+        option.AddItem("—", 0);
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            option.AddItem(candidates[i], i + 1);
+        }
+        // Appended lazily, and only while something is actually adrift.
+        int foreign = candidates.Length + 1;
+        option.AddItem("", foreign);
+
+        option.ItemSelected += index =>
+        {
+            int id = option.GetItemId((int)index);
+            if (id == foreign)
+            {
+                return;
+            }
+            Commit(name, id == 0 ? "" : candidates[id - 1]);
+        };
+        _refreshers.Add(() =>
+        {
+            string current = Read(name).AsString();
+            int want = 0;
+            if (!string.IsNullOrEmpty(current))
+            {
+                want = foreign;
+                for (int i = 0; i < candidates.Length; i++)
+                {
+                    if (candidates[i] == current)
+                    {
+                        want = i + 1;
+                        break;
+                    }
+                }
+            }
+            int foreignAt = option.GetItemIndex(foreign);
+            option.SetItemText(foreignAt, want == foreign ? $"{current}  (not in this rig)" : "");
+            option.SetItemDisabled(foreignAt, want != foreign);
+            option.Selected = option.GetItemIndex(want);
+        });
+        return option;
+    }
+
+    // What is left read-only after the identity rows are hidden is exactly the
+    // set that WOULD vary per placement and has no editor yet — a chest's loot,
+    // an NPC's stock / gifts / taste rules, all of which need list editing. It
+    // is marked rather than merely dimmed, because a dimmed row reads as "this
+    // cannot change" when the truth is "not here, not yet".
+    private const string NO_EDITOR = "  ·  no editor yet";
+
     private Control BuildReadOnly(StringName name)
     {
         var label = new Label { VerticalAlignment = VerticalAlignment.Center };
         label.AddThemeColorOverride("font_color", readOnlyColor);
-        _refreshers.Add(() => label.Text = Summarize(Read(name)));
+        _refreshers.Add(() => label.Text = Summarize(Read(name)) + NO_EDITOR);
         return label;
     }
 

@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="NpcSpawnEntry" format=3 uid="uid://bop3dji7kg8qt"]
+
+[ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="0_r"]
+[ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="1_npc"]
+[ext_resource type="Resource" uid="uid://dxdp5uja557na" path="res://resources/data/world_gen/mob_descriptors/hermit.tres" id="1_r"]
+[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="2_palette"]
+[ext_resource type="Resource" uid="uid://1td133j0mecv" path="res://resources/data/languages/muddish.tres" id="2_r"]
+[ext_resource type="Resource" uid="uid://w5olwf3iq444" path="res://resources/data/characters/npcs/hermit_conversation.tres" id="3_r"]
+[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="3_recolor"]
+[ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="3_rtusq"]
+[ext_resource type="Resource" uid="uid://b8sb4docghyjo" path="res://resources/data/world_gen/party/hermit.tres" id="4_r"]
+[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="5_snlvt"]
+
+[sub_resource type="Resource" id="Top"]
+script = ExtResource("3_recolor")
+meshNames = PackedStringArray("M_TopBody")
+color = Color(0.32, 0.28, 0.22, 1)
+amount = 0.8
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="Bottom"]
+script = ExtResource("3_recolor")
+meshNames = PackedStringArray("M_BottomBody")
+color = Color(0.22, 0.2, 0.17, 1)
+amount = 0.8
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="Hair"]
+script = ExtResource("3_recolor")
+meshNames = PackedStringArray("M_hair_8")
+color = Color(0.58, 0.56, 0.52, 1)
+amount = 0.7
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="Palette"]
+script = ExtResource("2_palette")
+recolors = [SubResource("Top"), SubResource("Bottom"), SubResource("Hair")]
+metadata/_custom_type_script = "uid://cicvni6fvcssx"
+
+[resource]
+script = ExtResource("1_npc")
+language = ExtResource("2_r")
+conversation = ExtResource("3_r")
+scene = ExtResource("0_r")
+outfit = PackedStringArray("M_hair_8", "M_TopBody", "M_BottomBody")
+palette = SubResource("Palette")
+idleAnimation = &"idle_old_man"
+recruitTemplate = ExtResource("4_r")
+descriptor = ExtResource("1_r")
+initialBehavior = null
+metadata/_custom_type_script = "uid://hp1b1xye8rsv"

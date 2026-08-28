@@ -664,7 +664,7 @@ is the one that matters:
   still the painted ground.
 
 **The cutaway is INDEPENDENT of the floor being painted** — **T/G**
-(`EditorClipUp` / `EditorClipDown`), not R/F. That is the whole reason a 2D map
+(`EditorClipUp` / `EditorClipDown`) or **alt+wheel**, not R/F. That is the whole reason a 2D map
 can answer "how tall is this corridor": sweep the plane up through one you have
 cut and the metre it stops being drawn as open is its ceiling. While the plane
 was pinned to the height being written it could only ever show the one slice
@@ -728,6 +728,24 @@ so. A cutting view is then EXACTLY an uncut one until the plane is lowered, whic
 is what lets a tool whose ordinary job is the surface — the water tool — share
 the mechanism without opening full of rock.
 
+**The plane spans the world's whole height, so REACHING it is the problem.** On
+the default document it starts at Y=79 and T/G walks it a metre a press, which
+put most of a hundred presses between picking up a tool and the plane touching
+any ground — and the painter said nothing about where the plane was, so the keys
+read as doing nothing at all. Three things answer that, and none of them is a
+bigger stride:
+
+- **alt+wheel** is T/G under the hand already on the mouse, and scrubbing is how
+  the plane is actually moved. Wheel DOWN lowers it — the same inversion the
+  brush notch takes, and the same sense as scrolling down a page.
+- **alt+RMB** aims it at the floor under the cursor plus `cutawayHeadroom`.
+- **The HUD reports it on EVERY tool**, including the ten whose view does not
+  cut — the plane is shared state and T/G moves it whatever is active, so a tool
+  that said nothing about it made the control look broken. `CutawayText`
+  distinguishes the three states that matter: a Y, "off (above the world)", and
+  "this tool does not cut". The two tools that used to print the Y themselves
+  (voxel-edit, paving) no longer do, so it is stated once.
+
 **Two gestures bring it down to where you are working**, because a plane parked in
 the sky is useless and hunting for it with T/G is worse. `IWorldMapTool.CutawayFor`
 lets a tool ask for a plane when it is picked up — the voxel-edit tools want
@@ -775,13 +793,29 @@ left alone. You are seeing it *through* something, and erasing what you cannot
 see the top of is how a network loses a corridor silently. Lower the cutaway into
 it and it erases like anything else.
 
-**Stamps are cut away with everything else** — but only when the plane drops
-BELOW them (`StampBaseY` against `ClipY`). The cut has taken the building away at
-that point, and its roof plan would otherwise paint over whatever the cut exposed
-underneath, which is the passage you are boring under the house. At or above its
-base it still draws, footprint wash included, because you are looking down at
-something that is still there — so a plane parked over everything renders exactly
+**Stamps are SLICED at the plane, exactly as the terrain around them is.** The
+plan draws the topmost solid voxel of the scene *at or below* the cut, so
+lowering the plane walks down through a building's storeys — walls at that level
+as content, the floor beneath them wherever the room is open. Only once the plane
+drops BELOW a stamp's base (`StampBaseY` against `ClipY`) is it hidden outright,
+which is when the cut has genuinely taken the building away and its plan would
+otherwise paint over the passage you are boring under it. At or above its base it
+draws, footprint wash included, so a plane parked over everything renders exactly
 what no plane at all would.
+
+The plan is therefore cached per **(scene, rotation, slice)**, and every plane at
+or above a scene's own roof collapses onto ONE entry with the unclipped plan —
+without that clamp a plane parked over the world would mint an entry per stamp
+seat. Scrubbing the cutaway through a building costs one entry per metre of that
+building, which is what bounds the cache.
+
+It drew a fixed top-down ROOF plan before, cached per (scene, rotation) with no
+notion of the plane at all, so the only thing a cutaway could do to a stamp was
+make it vanish: a house was a roof or it was nothing, and its ground floor was
+unreachable from the map. `worldmap_check` reports the slice as at-plane against
+below-plane columns per level of the tallest stamp — a solid slab answers "all
+at" every level, a building answers "walls at, floor below", and a sequence that
+does not move as the level descends means the roof plan is back.
 
 It was briefly hidden from BOTH sides, on the theory that a stamp entirely under
 the cut is not what you are looking at either. That is wrong twice: a cutaway
@@ -1155,14 +1189,115 @@ no discovery and no scan (`SceneTool` globbing `.hikescene` is the one directory
 scan in the painter), so a worldgen list is invisible the moment nothing names
 it, and moving files between directories filters nothing.
 
+**Identity is the PALETTE's to choose, not the placement's, and it is HIDDEN.**
+`SpawnEntryData.IsIdentityProperty` covers `descriptor`, `recruitTemplate`,
+`scene`, `altScene`, `outfit` and `palette`: a different species, rig, outfit or
+recolor is a different palette entry, and there is exactly one Talia. Picking the
+entry already chose all of it, so a row for it says nothing the palette has not.
+Editability is not the point — editing a row FORKS the entry off its palette
+file, keeping that file only as the fork's NAME, so an editable identity field
+would produce a placement that IS a drake while the panel title, the hover
+readout, `worldmap_check`'s by-entry listing and the palette-match highlight all
+still call it `npc_hermit`.
+
+**A row is shown only if it can change something**, which is
+`ShowsInPlacementEditor` — two independent reasons not to, kept as separate
+questions because they mean different things: the value cannot reach a hand
+placement (`IsHandPlacedProperty`), or it is implicit in the entry that was
+chosen (`IsIdentityProperty`). What is deliberately still shown is the third
+case: a property that WOULD vary per placement and simply has no editor yet — a
+chest's `lootItems`, an NPC's `inventory` / `loyaltyGifts` / `itemPreferences`,
+all of which want list editing. Those are marked `no editor yet` rather than
+hidden, because a dimmed row otherwise reads as "this cannot change" when the
+truth is "not here, not yet".
+
+That is also what makes ONE ENTRY PER DESCRIPTOR the right shape for mobs
+(`spawn_entries/mobs/`, 33 of them — every `MobDescriptor`, biome variants,
+elites and torchbearers included). The alternative was one generic `mob` entry
+with the descriptor picked per placement, which needs no new files but leans on
+exactly the fork that cannot name itself. `elites/elite_*.tres` are excluded:
+they are `EliteMobDescriptor`, which decorates a descriptor rather than being
+one.
+
+**NPCs are palette entries like anything else** — `NpcSpawnEntry` is a
+`SpawnEntryData`, so the entity tool places one, the property panel reflects its
+fields (language, conversation, outfit, tamed/persistent, recruit template), and
+the copy-on-write fork makes each placement its own individual. The eight in
+`spawn_entries/npcs/` are **copies** of the NPCs embedded in worldgen's house
+spawn lists (`world_gen/spawn_lists/hub_house01`, `house_hermit`, `hub_house02`,
+`village_house01`-`04`), not references to them — the same fork convention the
+mob sets follow, so retuning a village cannot silently move what the map paints
+or the reverse. Two of them (`npc_hermit`, `npc_wanderer_talia`) carry a
+`recruitTemplate` and are recruitable where they are placed.
+
+**A spawn entry carries only what a hand placement can change.** Four fields
+came off the panel and two off `NpcSpawnEntry` outright, on one rule: a control
+that cannot change the result invites tuning that does nothing.
+
+| Removed / hidden | Because |
+|---|---|
+| `squareMetersPerSpawn`, `placeAtAnchor`, `clusterCountMin/Max` | container-edge rules — the area roll and `SpawnGroupData`'s scatter. A hand-placed entity is one entity at one spot by construction. |
+| `minSpacing` | a rejection radius is how densely a PASS may sprinkle something. Authored in 4 files project-wide, all scatter lists or worldgen fixtures, never a palette entry. Now skipped for an authored position. |
+| `initialBehaviorChance` | a POPULATION fraction ("a quarter of spawned goblins start in Wander"), authored in 50+ scatter entries and no palette one. It has nothing to be a fraction of for one placement, so an authored position always takes the behaviour it names. |
+| `tamed`, `persistent` (deleted) | the starter-companion pair. Becoming a companion is a RUNTIME transition owning both halves — `Mob.Tame` flips `MobSimState.Tamed` at `MobData.tameLoyalty` and `Sim.PromoteCompanionToPersistent` moves the mob into the persistent store at that same moment. Nothing authored either flag. |
+
+The last row is the one worth not undoing: a spawn-time shortcut is a second way
+into a two-part transition, which is how the two parts come apart.
+
+**A placement's R/F turn reaches the bake.** `StampEntities` sets
+`SpawnContext.FacingY` from `placement.rotation` and clears it again — the shared
+bake context is the one caller with a facing, and everything else it answers must
+keep giving a scattered entity its random yaw. Without it the tool's rotation
+readout was decorative and every hand-placed NPC faced a direction the hash
+picked, which for a villager standing in a doorway is the whole point of aiming
+one.
+
 A palette entry deliberately leaves `squareMetersPerSpawn` at its 0 default:
 `TrySpawn` — the path `EntityPlacement` takes — never consults it, while
 `RollAreaChance` returns false at 0, so an entry meant for hand placement is
-inert if it is ever dropped into a spawn list by mistake. `SpawnEntryData.IsHandPlacedProperty`
-is the other side of that: the property panel hides `squareMetersPerSpawn` and
-`placeAtAnchor`, since neither is read on the path a placement takes. Which
-fields that path reads is the entry class's business, so the answer lives there
-rather than in the UI.
+inert if it is ever dropped into a spawn list by mistake.
+`SpawnEntryData.IsHandPlacedProperty` is the other side of that: the property
+panel hides `squareMetersPerSpawn`, `placeAtAnchor`, `minSpacing` and
+`clusterCountMin`/`clusterCountMax`, none of which changes what a hand placement
+produces — the cluster count reaches nothing but `RollCount`, whose one caller is
+`SpawnGroupData`'s scatter, and a hand-placed entity is one entity at one spot by
+construction. A control that cannot change the result is worse than a missing
+one, because it invites tuning that does nothing. Which fields the path reads is
+the entry class's business, so the answer lives there rather than in the UI.
+
+**`minSpacing` is skipped for an authored position, which is why it can be
+hidden.** It is a rejection radius — a statement about how densely a PASS may
+sprinkle something, not about a spot someone chose — and the whole project
+authors it away from its 0.5 m default in exactly four files: two scatter lists
+and two worldgen fixtures. Not one palette entry. It stays exported for that
+path and no longer runs for a placement, on the same argument as the lateral
+clearance beside it: the author put the mark exactly there and every other mark
+is drawn on the same map. The cost is that a hand-placed entity may now land on
+a SCATTERED prop, which the map only shows as per-column dots — thin at 0.5 m,
+but not nothing.
+
+**Hand placing an entity does NOT guarantee it spawns, and every rejection is
+SILENT.** `TrySpawn` still runs its placement gates, and a rejected entity is
+simply absent from the baked world with nothing said — the map cannot show it,
+so short of going to stand where you put it there is no way to find out. Two
+consequences:
+
+- **`AuthoredPosition` is set for these, and only for these.** It skips the
+  lateral-clearance gate, which wants 4-connected air around the anchor — which
+  is exactly what a wall is not, so a villager placed in the doorway you aimed
+  at would silently never spawn — and the `minSpacing` overlap gate with it. It is the same claim `WorldGen` makes for an
+  entry it drops on an authored subscene marker. It **cannot** go on the shared
+  `SpawnContextForBake`, because `RescatterColumns` uses that context too and a
+  SCATTERED mob must keep the gate: rejecting a 1-voxel tunnel is what it is
+  for. So `StampEntities` sets and clears it per entity, the same way it does
+  the facing.
+- **`worldmap_check` reports the flat-terrain gate**, which is the one
+  answerable without a built world and the one most likely to bite: a mob,
+  forge, fountain, campfire, signpost, knowledge stone or trap needs its column
+  and all eight neighbours at one height, so anything placed on a slope or on
+  the lip of a step is dropped. It found five in the default document the day it
+  was added. The remaining gates (`minSpacing` against a neighbour, the hazard
+  keep-out, the navigation-walkability probe) need voxels and are not checked.
 
 Difficulty is deliberately not on the set — it is its own scalar layer, so
 "which creatures" and "how dangerous" are painted apart. A level band on the set
@@ -1315,6 +1450,19 @@ because a `SpawnEntryData` subclass already exports exactly the fields its entit
 type needs; the panel REFLECTS them, so an entry type written tomorrow is
 editable the day it is written.
 
+**A flags property is a compact DROPDOWN**, not a row of checkboxes —
+`MenuButton` + a checkable `PopupMenu`, mirroring the Godot-side
+`addons/data_ed/FlagsPropertyEditor` that `[CompactFlags]` opts into. That one is
+an `EditorProperty` behind `#if TOOLS` and cannot be instantiated in the running
+game, so the behaviour is mirrored rather than shared, and the rules are ITS
+rules: the menu stays open across toggles (the value is a SET), the item id IS
+the bit so nothing depends on menu order, and both a zero member (`None`) and any
+MULTI-BIT alias (`All`) are skipped — neither is independently togglable, and an
+alias item toggles several primaries at once with an ambiguous checked state of
+its own. That last rule is what the checkbox version was missing: the knowledge
+stone's `ELanguageComponents` has `All = Grammar | Numbers | Vocabulary1 |
+Vocabulary2`, and it drew as a checkbox that flipped four bits.
+
 **The panel is pushed on selection CHANGE, not per frame.** It rides `UpdateHud`,
 and a click on the map reaches neither on its own — so a selection made by
 clicking left the panel showing the entry it was last built for (the previous
@@ -1367,10 +1515,79 @@ and a write whose value has not moved is dropped, since focus-exit fires for a
 box merely clicked into and forking the palette entry for that would silently
 stop the placement tracking the palette.
 
-Scalars only — string, number, bool, enum, flags. Anything resource-shaped (a
-loot table, a language, a mob descriptor) is a read-only row: varying it per
-placement needs a resource picker, and picking a ready-made variant off the
-palette is the faster authoring move anyway. Bare-key shortcuts are safe while typing for free — the painter
+Scalars get an editor — string, number, bool, enum, flags — and so does a
+**single resource-typed field**, through a dropdown filled by
+`ResourceTypeIndex`. That is what lets an NPC be given its own conversation,
+language, recruit template or species without authoring a palette file per
+villager, which is the shape `NpcSpawnEntry` asks for in its own class comment
+("every placement is its own entity with its own dialogue and stock"). Signposts
+and knowledge stones get their language the same way, off the same mechanism.
+
+**A string field with a derivable set of values is a dropdown too.** Not from a
+scan — from what the entry itself NAMES, through `SpawnEntryData.NameCandidates`:
+`MobSpawnEntry` answers `initialBehavior` with its descriptor's brain nodes
+(transitions already reference each other by `BehaviorNode.name`, so that IS the
+valid set), and `NpcSpawnEntry` answers `idleAnimation` with the clips in the rig
+it is drawn with. Both fail SILENTLY when mistyped — a bad behaviour name falls
+through to the species default and a bad clip fails
+`ModelAnimator.HasAnimation` — which is the case a free-text box is worst at.
+
+The clips are read off the `PackedScene`'s **`SceneState`**, not by instantiating
+it: the rig names its `AnimationLibrary` as a plain `ext_resource`, so the list
+is reachable without building a node tree — and without running `_Ready` on
+scripts that expect a live `Sim`, which the painter has none of. A rig whose
+`AnimationPlayer` sits inside an INSTANCED sub-scene keeps its properties in that
+sub-scene's state rather than this one's, so the walk finds nothing, `null` comes
+back, and the field stays a text box. Degrading to free text is the required
+behaviour for every un-derivable case, and it is why the list is **advisory**:
+whatever the entry already holds is offered even when the candidates do not
+contain it, marked `(not in this rig)`, so a value authored against another rig
+is not silently rewritten by merely selecting the placement.
+
+Ordering is the answer to relevance, not filtering: the human rig carries ~55
+clips and about five are rest poses, so `idle*` sorts first and the rest follow
+alphabetically. Hiding them would make the list a rule about naming that nothing
+else enforces — a pose could reasonably be called `sit`.
+
+**The resource candidates are SCANNED, not authored.** `ResourceTypeIndex` walks
+`resources/` once per session and groups every `.tres` by the C# class it
+carries, so a conversation written today is pickable today — the same argument
+that discovers `.hikescene` stamps on disk rather than through a palette. Two
+things it is careful about, both of which would show up as a picker quietly
+offering an incomplete list (the worst failure one has, since it reads as "there
+are none authored"):
+
+- **Nothing is LOADED to identify it.** A `.tres` names its script as an
+  `ext_resource` path, so the class is that script's basename, read off the
+  text. Loading a resource to find out what it is pulls in its whole dependency
+  graph — for one `WorldGenData` that is most of the game.
+- **The header's `script_class` is not enough**, because plenty of files here
+  were written without one (`spawn_entries/chest.tres` has a bare
+  `[gd_resource type="Resource" format=3]`). The `[resource]` section's own
+  `script =` line is the reliable answer, and it has to be that section's — a
+  `sub_resource` names a script too, so taking the first one seen types a file
+  as whatever it happens to embed.
+
+The field's type comes from **reflection on the entry's C# type**, not from the
+property hint: these are C# fields, so reflection is the exact answer while a
+hint string is the editor's rendering of one.
+
+**Two things stay read-only**, and neither is an oversight. **Arrays** (an
+outfit, a merchant's stock, loyalty gifts) want list editing rather than one
+pick. **`PackedScene`** is a rig choice rather than data — an NPC's `scene` has
+to gender-match its `outfit`, and offering every scene in the project invites a
+mismatch the panel cannot check. A value the scan cannot name (an embedded
+`MobPalette` sub-resource) is offered as its own disabled `(embedded)` row, so
+leaving it alone is what the row means; dropping it into "none" would read as an
+empty field and invite a pick that silently discarded it.
+
+`worldmap_check` reports, per palette entry type, which properties are editable,
+which get a picker (with its candidate count), and which stay read-only — using
+the panel's OWN classifier (`WorldMapEntityInspector.EditorFor`) rather than a
+second copy of the rules. It is also the check on the scan: a picker row showing
+0 candidates means the index failed to see that type's files.
+
+Bare-key shortcuts are safe while typing for free — the painter
 reads keys in `_UnhandledInput`, and a focused `LineEdit` has already consumed
 them.
 
@@ -1549,8 +1766,8 @@ Keys: LMB paint / RMB erase · **1-9** pick the active tool's option · **Tab** 
 the HUD toolbar cycle tool (+view) · **Q/E** step the tool's `Cycle`
 parameter — the option index on most tools, and the parameter the option row
 cannot show on the ones whose row is empty (the tunnel brush's
-height) · **R/F** Flatten target level / tunnel floor · **T/G** cutaway
-level · **W** show/hide
+height) · **R/F** Flatten target level / tunnel floor · **T/G** or
+**alt+wheel** cutaway level (**alt+RMB** aims it at a clicked floor) · **W** show/hide
 water · **Ctrl+Z** undo, **Ctrl+Shift+Z** / **Ctrl+Y** redo
 · **alt+click** pick a height (alt+drag spreads it) · **shift+drag**
 constrain to that one height · **ctrl+drag** constrain to that height and above

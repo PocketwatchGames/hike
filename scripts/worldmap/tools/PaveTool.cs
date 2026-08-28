@@ -91,7 +91,7 @@ public class PaveTool : IWorldMapTool
     // Which floor the stroke would land on, since that is now the tool's real
     // parameter and it lives on the shared cutaway rather than on the tool.
     public string LevelText(WorldMapState ctx) =>
-        ctx.IsCutAway ? $"Floors under cutaway Y={ctx.CutawayY}" : "Surface";
+        ctx.IsCutAway ? "Floors under the cutaway" : "Surface";
 
     public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
     {

@@ -39,6 +39,36 @@ public partial class MobSpawnEntry : SpawnEntryData
 
     public override bool IsMobEntry => true;
 
+    // The behaviour nodes of the brain THIS entry's species runs — transitions
+    // already reference each other by BehaviorNode.name, so that is the exact
+    // set a valid initialBehavior can come from.
+    public override string[] NameCandidates(StringName property)
+    {
+        if (property != PropertyName.initialBehavior)
+        {
+            return base.NameCandidates(property);
+        }
+        Godot.Collections.Array<BehaviorNode> nodes = descriptor?.mob?.brain?.behaviors;
+        if (nodes == null)
+        {
+            return null;
+        }
+        var names = new System.Collections.Generic.List<string>();
+        // Count hoisted: this is a Godot.Collections.Array, so .Count is a
+        // native call per iteration.
+        int count = nodes.Count;
+        for (int i = 0; i < count; i++)
+        {
+            BehaviorNode node = nodes[i];
+            if (node?.name != null && !node.name.IsEmpty)
+            {
+                names.Add(node.name.ToString());
+            }
+        }
+        names.Sort();
+        return names.ToArray();
+    }
+
     // Authoritative spawn gate: sample the navigation walkability column with
     // this mob's own traversal profile (body radius, step/headroom) and accept
     // only if it yields a walkable surface at the spawn height. Catches spots
@@ -105,8 +135,13 @@ public partial class MobSpawnEntry : SpawnEntryData
             return;
         }
         state.SpawnConditions = spawnConditions;
+        // The chance is a POPULATION fraction ("a quarter of spawned goblins
+        // start in Wander"), so it has nothing to be a fraction of when someone
+        // placed this one by hand — an authored placement always takes the
+        // behaviour it names.
         if (initialBehavior != null && (string)initialBehavior != ""
-            && rng.NextDouble() < initialBehaviorChance)
+            && (context?.AuthoredPosition == true
+                || rng.NextDouble() < initialBehaviorChance))
         {
             state.InitialBehavior = initialBehavior;
         }
