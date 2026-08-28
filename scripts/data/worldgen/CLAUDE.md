@@ -54,7 +54,7 @@ Four things, and nothing else should need to change:
 2. **`FooZoneTerrainData : ZoneTerrainData`** in this folder, if the approach
    wants per-zone knobs beyond the inherited elevation / flatten contract.
 3. **`FooTerrainGen : ITerrainGenerator`** in `scripts/voxels/terrain/`.
-4. **A `.tres`** for the world (`resources/data/world_gen/`) plus a
+4. **A `.tres`** for the world (`resources/data/world_gen/`, which now holds only the generator’s own config) plus a
    `ZoneTerrainData` sub-resource on each zone the world uses.
 
 Then bump `WorldGen.WORLDGEN_VERSION` — see the cache warning below.

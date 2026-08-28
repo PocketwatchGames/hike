@@ -6,10 +6,10 @@ extends EditorPlugin
 # rebuilds whenever a source terrain map changes on disk.
 #
 # The layer list / stitch logic lives ONLY on
-# res://resources/data/surfaces/voxel_atlas_manifest.tres now — this plugin just
+# res://resources/data/voxels/surfaces/voxel_atlas_manifest.tres now — this plugin just
 # loads it and calls RebuildAtlas()/IsStale(). See VoxelAtlasManifest.cs and the
 # headless mirror tools/stitch_voxel_atlas.py.
-const MANIFEST_PATH := "res://resources/data/surfaces/voxel_atlas_manifest.tres"
+const MANIFEST_PATH := "res://resources/data/voxels/surfaces/voxel_atlas_manifest.tres"
 const MENU_ITEM := "Rebuild Voxel Atlas"
 
 var _manifest: Resource

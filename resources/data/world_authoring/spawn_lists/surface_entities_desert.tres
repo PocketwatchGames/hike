@@ -1,0 +1,82 @@
+[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://dc3pchs6rhlok"]
+
+[ext_resource type="Resource" uid="uid://ndilv758jxnj" path="res://resources/data/world_authoring/spawn_groups/goblin_group_desert.tres" id="5_lnvkt"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="8_88i6m"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin_desert.tres" id="e_goblin_desert"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin_desert_elite.tres" id="e_goblin_desert_elite"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/kun_kun_desert.tres" id="e_kun_kun_desert"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="e_well"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/spike_trap.tres" id="e_spike_trap"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/cactus.tres" id="e_cactus"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/spider_desert.tres" id="e_spider_desert"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/drake_desert.tres" id="e_drake_desert"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_orange.tres" id="e_mushroom_orange"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_gold.tres" id="e_mushroom_gold"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
+
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_goblin_desert"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_desert")
+squareMetersPerSpawn = 1000.0
+
+[sub_resource type="Resource" id="Row_goblin_desert_elite"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_desert_elite")
+squareMetersPerSpawn = 6667.0
+
+[sub_resource type="Resource" id="Row_kun_kun_desert"]
+script = ExtResource("listrow")
+entry = ExtResource("e_kun_kun_desert")
+squareMetersPerSpawn = 200.0
+spawnConditions = 2
+
+[sub_resource type="Resource" id="Row_goblin_group_desert"]
+script = ExtResource("listrow")
+entry = ExtResource("5_lnvkt")
+squareMetersPerSpawn = 1000.0
+
+[sub_resource type="Resource" id="Row_well"]
+script = ExtResource("listrow")
+entry = ExtResource("e_well")
+squareMetersPerSpawn = 2000.0
+
+[sub_resource type="Resource" id="Row_spike_trap"]
+script = ExtResource("listrow")
+entry = ExtResource("e_spike_trap")
+squareMetersPerSpawn = 600.0
+
+[sub_resource type="Resource" id="Row_cactus"]
+script = ExtResource("listrow")
+entry = ExtResource("e_cactus")
+squareMetersPerSpawn = 700.0
+
+[sub_resource type="Resource" id="Row_spider_desert"]
+script = ExtResource("listrow")
+entry = ExtResource("e_spider_desert")
+squareMetersPerSpawn = 800.0
+
+[sub_resource type="Resource" id="Row_drake_desert"]
+script = ExtResource("listrow")
+entry = ExtResource("e_drake_desert")
+squareMetersPerSpawn = 800.0
+
+[sub_resource type="Resource" id="Row_mushroom_orange"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_orange")
+squareMetersPerSpawn = 350.0
+
+[sub_resource type="Resource" id="Row_mushroom_gold"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_gold")
+squareMetersPerSpawn = 350.0
+
+[sub_resource type="Resource" id="Row_mushroom_red"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_red")
+squareMetersPerSpawn = 350.0
+
+[resource]
+script = ExtResource("8_88i6m")
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_desert"), SubResource("Row_goblin_desert_elite"), SubResource("Row_kun_kun_desert"), SubResource("Row_goblin_group_desert"), SubResource("Row_well"), SubResource("Row_spike_trap"), SubResource("Row_cactus"), SubResource("Row_spider_desert"), SubResource("Row_drake_desert"), SubResource("Row_mushroom_orange"), SubResource("Row_mushroom_gold"), SubResource("Row_mushroom_red")])

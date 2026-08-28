@@ -208,7 +208,14 @@ public static class WorldFile
     //      different payload TYPE — so a v49 file passes the version gate and
     //      then throws an InvalidCastException out of the middle of the load.
     //      A payload's type is as much the format as its layout is.
-    public const uint VERSION = 50;
+    // v51: every resource reference in an entity payload is a ref-table slot,
+    //      and a slot can hold the resource's VALUE instead of a path. A
+    //      sub-resource of the painter's placements.tres has a path nothing but
+    //      the painter can resolve, so a baked world referencing one loaded it as
+    //      a silent null in any build that (correctly) did not ship the authoring
+    //      document. The weapon, status-effect and item-state lists also stopped
+    //      spelling their references out as bare path strings.
+    public const uint VERSION = 51;
 
     public struct IndexEntry
     {
@@ -287,7 +294,7 @@ public static class WorldFile
         // The buffering is also what lets one resource-path table cover the whole
         // file: interning isn't complete until the last chunk is serialized, and
         // the table has to land in the header ahead of them all.
-        EntitySerializer.WritePathTable pathTable = EntitySerializer.BeginSharedWrite();
+        EntitySerializer.WritePathTable pathTable = EntitySerializer.BeginSharedWrite(worldState.AuthoringDocument);
         var blobs = new List<byte[]>(coords.Count);
         byte[] persistentBlob;
         try

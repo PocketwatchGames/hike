@@ -1,0 +1,77 @@
+[gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://dsq8h2o3n55es"]
+
+[ext_resource type="Resource" uid="uid://bwxw4k1f0netk" path="res://resources/data/world_authoring/details/detail_grass_desert.tres" id="1_kamth"]
+[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/interactives/foliage/tall_grass_01.tscn" id="4_g01"]
+[ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/interactives/foliage/tall_grass_02.tscn" id="4_g02"]
+[ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/interactives/foliage/tall_grass_03.tscn" id="4_g03"]
+[ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/interactives/foliage/tall_grass_04.tscn" id="4_g04"]
+[ext_resource type="PackedScene" uid="uid://d0kbigg6xw7pf" path="res://scenes/props/desert_rocks_big1.tscn" id="5_t03"]
+[ext_resource type="PackedScene" uid="uid://cuqyeyeg5imfv" path="res://scenes/props/desert_rocks_big2.tscn" id="5_t04"]
+[ext_resource type="PackedScene" uid="uid://bxgmlna1my2w" path="res://scenes/props/desert_rocks_big3.tscn" id="5_t05"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="6_weighted"]
+[ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="15_3vcyj"]
+[ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="16_o5gs6"]
+[ext_resource type="Resource" uid="uid://ci7rrwqv2nhn" path="res://resources/data/voxels/blocks/block_desert_ground.tres" id="blk_desert_ground"]
+[ext_resource type="Resource" uid="uid://b01hbfnwc3t5w" path="res://resources/data/world_authoring/prop_sets/desert.tres" id="set_forest"]
+
+[sub_resource type="Resource" id="ws_4_g01"]
+script = ExtResource("6_weighted")
+scene = ExtResource("4_g01")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g02"]
+script = ExtResource("6_weighted")
+scene = ExtResource("4_g02")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g03"]
+script = ExtResource("6_weighted")
+scene = ExtResource("4_g03")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g04"]
+script = ExtResource("6_weighted")
+scene = ExtResource("4_g04")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_5_t03"]
+script = ExtResource("6_weighted")
+scene = ExtResource("5_t03")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_5_t04"]
+script = ExtResource("6_weighted")
+scene = ExtResource("5_t04")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_5_t05"]
+script = ExtResource("6_weighted")
+scene = ExtResource("5_t05")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_15_3vcyj"]
+script = ExtResource("6_weighted")
+scene = ExtResource("15_3vcyj")
+weight = 2.0
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_16_o5gs6"]
+script = ExtResource("6_weighted")
+scene = ExtResource("16_o5gs6")
+weight = 2.0
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[resource]
+script = ExtResource("1_script")
+purpose = 1
+block = ExtResource("blk_desert_ground")
+defaultDetail = ExtResource("1_kamth")
+detailNoiseFrequency = 0.2
+detailNoiseThreshold = 0.0
+forestNoiseFrequency = 5.0
+forestThreshold = 1.0
+forestDensity = 0.05
+forest = ExtResource("set_forest")
+treeScenes = []
+tallGrassScenes = []

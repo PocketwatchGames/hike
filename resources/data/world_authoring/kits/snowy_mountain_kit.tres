@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://cxs634ps8mnal"]
+
+[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://pw1vud46h9ehu" path="res://resources/data/voxels/blocks/block_snow.tres" id="2_block"]
+[ext_resource type="Resource" uid="uid://bo7ej1snf13qx" path="res://resources/data/world_authoring/prop_sets/snowy_mountain.tres" id="3_forest"]
+
+[resource]
+script = ExtResource("1_script")
+purpose = 1
+block = ExtResource("2_block")
+detailNoiseThreshold = -0.5
+forestDensity = 0.06
+forest = ExtResource("3_forest")
+treeScenes = []
+tallGrassScenes = []
+mossCoverage = 0.0
+metadata/_custom_type_script = "uid://dfrx5xho61xt1"

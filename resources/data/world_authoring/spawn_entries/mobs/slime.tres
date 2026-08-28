@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="1_entry"]
+[ext_resource type="Resource" uid="uid://66a6mftyd54c" path="res://resources/data/world_authoring/mob_descriptors/slime_cube.tres" id="D_slime_cube"]
+[ext_resource type="Resource" uid="uid://dthjice7pvftr" path="res://resources/data/world_authoring/mob_descriptors/slime_sphere.tres" id="D_slime_sphere"]
+
+[resource]
+script = ExtResource("1_entry")
+family = &"slime"
+descriptor = ExtResource("D_slime_cube")
+variants = [ExtResource("D_slime_cube"), ExtResource("D_slime_sphere")]
+metadata/_custom_type_script = "uid://dhkkrl6qof485"

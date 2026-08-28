@@ -20,11 +20,11 @@ public partial class GuiMainMenu : Node
 	[Export] public string[] worldOptionLabels = System.Array.Empty<string>();
 	// Directories scanned (non-recursively) for editor documents, per kind.
 	[Export] public string[] sceneFileSearchDirs = { SubsceneFile.DEFAULT_SCENE_DIR };
-	[Export] public string[] worldFileSearchDirs = { "user://", "res://resources/data/worldmap/" };
+	[Export] public string[] worldFileSearchDirs = { "user://", "res://resources/data/worlds/test_world/map/" };
 	// Scanned (non-recursively) for world-map painter documents. A .tres here is
 	// filtered by the class its header names, since the layer files, the brush
 	// and the placements list share the directory and the extension.
-	[Export] public string[] worldMapSearchDirs = { "res://resources/data/worldmap/" };
+	[Export] public string[] worldMapSearchDirs = { "res://resources/data/worlds/test_world/map/" };
 	// Save target for a brand-new document; uniquified (scene_2.hikescene, ...)
 	// when the file already exists so a new one never clobbers an old one. The
 	// extension is also what tells the editor which kind it's opening.

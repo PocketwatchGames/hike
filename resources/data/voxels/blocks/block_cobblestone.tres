@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BlockData" format=3]
+
+[ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
+[ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/voxels/surfaces/surface_cobblestone.tres" id="2_cobblestone"]
+[ext_resource type="Resource" uid="uid://c2kcyv7do7ixy" path="res://resources/data/voxels/surfaces/surface_climb_moss.tres" id="surf_climb_growth"]
+
+[resource]
+script = ExtResource("1_s")
+blockName = &"Cobblestone"
+blockId = 11
+top = ExtResource("2_cobblestone")
+minimapColor = Color(0.42352942,0.4509804,0.45882353, 1)
+minimapCategory = 1
+defaultShape = 7
+groundType = 1
+climbGrowthSurface = ExtResource("surf_climb_growth")

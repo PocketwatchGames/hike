@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3 uid="uid://rlt6ggqqmhch"]
+
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="1_entry"]
+[ext_resource type="Resource" uid="uid://cmdfairy00001" path="res://resources/data/world_authoring/mob_descriptors/fairy.tres" id="D_fairy"]
+
+[resource]
+script = ExtResource("1_entry")
+descriptor = ExtResource("D_fairy")
+variants = [ExtResource("D_fairy")]
+initialBehavior = null
+family = &"fairy"
+metadata/_custom_type_script = "uid://dhkkrl6qof485"

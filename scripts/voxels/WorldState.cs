@@ -38,6 +38,14 @@ public class WorldState
     // which have no path of their own — the owner does.
     public string StartContentPath = "";
 
+    // The authoring document this world is being baked from, if any - the world
+    // map painter's placements.tres. Everything under a painted world's map/
+    // folder but the .hike itself is a bake INPUT and is excluded from an export,
+    // so a resource reference into one cannot be stored as a path: the serializer
+    // stores those by value instead. Empty for a generated world, which has no
+    // such document. Write-side only; nothing reads it after the bake.
+    public string AuthoringDocument = "";
+
     // Copy this world's starting content off the resource that authors it.
     // Called once at world creation by WorldGen and by the map painter's bake,
     // and again after a .hike load resolves StartContentPath.

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GroundSetData" load_steps=6 format=3]
+
+[ext_resource type="Script" uid="uid://be02xpyngh9c8" path="res://scripts/data/worldmap/GroundSetData.cs" id="1_g"]
+[ext_resource type="Resource" uid="uid://cxs634ps8mnal" path="res://resources/data/world_authoring/kits/snowy_mountain_kit.tres" id="k_0"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/kits/cave_limestone_kit.tres" id="k_1"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/kits/underwater_kit.tres" id="k_2"]
+[ext_resource type="Resource" uid="uid://plfdm4z98g767" path="res://resources/data/world_authoring/kits/shore_stony_kit.tres" id="k_3"]
+
+[resource]
+script = ExtResource("1_g")
+displayName = "Snowy Mountain"
+mapColor = Color(0.82, 0.86, 0.92, 1)
+surfaceKit = ExtResource("k_0")
+caveKit = ExtResource("k_1")
+submergedKit = ExtResource("k_2")
+shoreKit = ExtResource("k_3")

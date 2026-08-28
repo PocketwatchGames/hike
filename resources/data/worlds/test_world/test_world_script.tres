@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WorldScriptData" format=3]
+
+[ext_resource type="Script" uid="uid://cpck4x65at916" path="res://scripts/data/worldgen/WorldScriptData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://wnl1w7ak8uqg" path="res://scripts/data/quests/QuestData.cs" id="2_questbase"]
+[ext_resource type="Resource" uid="uid://buwh9zjfqgtky" path="res://resources/data/worlds/shared/quests/rescue_quest.tres" id="3_rescue"]
+[ext_resource type="Resource" uid="uid://1ibortkocv6hq" path="res://resources/data/worlds/shared/quests/return_to_camp.tres" id="4_return"]
+[ext_resource type="Resource" uid="uid://ovupsk1vop2c2" path="res://resources/data/worlds/shared/quests/learn_song_of_gods.tres" id="5_song"]
+
+[resource]
+script = ExtResource("1_script")
+rescueQuest = ExtResource("3_rescue")
+returnToCampQuest = ExtResource("4_return")
+startingQuests = Array[ExtResource("2_questbase")]([ExtResource("5_song")])

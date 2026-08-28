@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="KnowledgeStoneSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="r1"]
+[ext_resource type="Resource" uid="uid://irm377w14z4uf" path="res://resources/data/worlds/shared/languages/muddish.tres" id="r2"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("r1")
+language = ExtResource("r2")
+text = "More of the old tongue, carved where the ground climbs clear of the mire. Speak it, and the swamp answers back."
+components = 8

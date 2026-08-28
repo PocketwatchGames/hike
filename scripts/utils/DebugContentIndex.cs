@@ -14,13 +14,19 @@ using System.Collections.Generic;
 // resource loads.
 public static class DebugContentIndex
 {
-    private const string SpeciesRoot = "res://resources/data/characters";
+    // Species live in two roots: the creature library, and the world-authoring
+    // NPC cast (whose subspecies moved out of characters/ with their conversations).
+    private static readonly string[] SpeciesRoots =
+    {
+        "res://resources/data/characters",
+        "res://resources/data/worlds/shared/npcs",
+    };
     private const string ItemRoot = "res://resources/data/items";
 
     private static Dictionary<string, string> _species;
     private static Dictionary<string, string> _items;
 
-    public static Dictionary<string, string> Species => _species ??= Scan(SpeciesRoot);
+    public static Dictionary<string, string> Species => _species ??= Scan(SpeciesRoots);
     public static Dictionary<string, string> Items => _items ??= Scan(ItemRoot);
 
     // Resolve a name against one index and load it as T. Accepts an exact
@@ -80,10 +86,13 @@ public static class DebugContentIndex
         return names;
     }
 
-    private static Dictionary<string, string> Scan(string root)
+    private static Dictionary<string, string> Scan(params string[] roots)
     {
         var map = new Dictionary<string, string>();
-        ScanInto(root, map);
+        foreach (string root in roots)
+        {
+            ScanInto(root, map);
+        }
         return map;
     }
 

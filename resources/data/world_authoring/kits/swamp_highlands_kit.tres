@@ -1,0 +1,109 @@
+[gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://csjvdcg5sawpo"]
+
+[ext_resource type="Resource" uid="uid://ckhiesfv77y2b" path="res://resources/data/world_authoring/details/detail_grass_swamp.tres" id="1_ikfms"]
+[ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/interactives/foliage/tall_grass_01.tscn" id="2_viofa"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="3_fdyad"]
+[ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/interactives/foliage/tall_grass_02.tscn" id="4_p3dd3"]
+[ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/interactives/foliage/tall_grass_03.tscn" id="5_k2mw2"]
+[ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/interactives/foliage/tall_grass_04.tscn" id="6_80dge"]
+[ext_resource type="PackedScene" uid="uid://bj7f8dy86dj1q" path="res://scenes/props/tree_willow.tscn" id="8_qmbwd"]
+[ext_resource type="PackedScene" uid="uid://ble6ry6xb2qgc" path="res://scenes/props/tree_willow_dead.tscn" id="9_o1j2i"]
+[ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="10_8iljw"]
+[ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="11_imr58"]
+[ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="12_503e6"]
+[ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="13_xqh23"]
+[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="14_8rsax"]
+[ext_resource type="PackedScene" uid="uid://cnfjopl8f5erw" path="res://scenes/props/tree_oak.tscn" id="14_80dge"]
+[ext_resource type="PackedScene" uid="uid://csthx76rtxtec" path="res://scenes/props/tree_oak_dead.tscn" id="15_y71q7"]
+[ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="16_qmbwd"]
+[ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="17_o1j2i"]
+[ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="18_8iljw"]
+[ext_resource type="Resource" path="res://resources/data/voxels/blocks/block_marsh_ground.tres" id="blk_marsh_ground"]
+[ext_resource type="Resource" uid="uid://558a5fhxihqs" path="res://resources/data/world_authoring/prop_sets/swamp_highlands.tres" id="set_forest"]
+
+[sub_resource type="Resource" id="ws_4_g01"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("2_viofa")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g02"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("4_p3dd3")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g03"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("5_k2mw2")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g04"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("6_80dge")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_9_veml7"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("8_qmbwd")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_10_c0fex"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("9_o1j2i")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_11_tpi02"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("10_8iljw")
+weight = 2.0
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_12_vum8l"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("11_imr58")
+weight = 2.0
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_13_c0fex"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("12_503e6")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_11_eh5vr"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("13_xqh23")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="Resource_imr58"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("14_80dge")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_503e6"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("15_y71q7")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_xqh23"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("16_qmbwd")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_8rsax"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("17_o1j2i")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_yj8yq"]
+script = ExtResource("3_fdyad")
+scene = ExtResource("18_8iljw")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[resource]
+script = ExtResource("14_8rsax")
+purpose = 1
+block = ExtResource("blk_marsh_ground")
+defaultDetail = ExtResource("1_ikfms")
+forest = ExtResource("set_forest")
+treeScenes = []
+tallGrassScenes = []
+mossCoverage = 0.3

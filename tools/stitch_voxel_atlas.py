@@ -1,5 +1,5 @@
 """Headless mirror of the in-editor "Rebuild Atlas" button on
-resources/data/surfaces/voxel_atlas_manifest.tres (VoxelAtlasManifest.cs).
+resources/data/voxels/surfaces/voxel_atlas_manifest.tres (VoxelAtlasManifest.cs).
 
 Stitches the PBR terrain source maps into two vertical Texture2DArray strips:
 

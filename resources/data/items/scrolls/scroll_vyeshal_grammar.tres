@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b8udvxvx1n3ug" path="res://scripts/data/items/ScrollData.cs" id="1_scroll"]
 [ext_resource type="Script" uid="uid://5rhnpp2tplumf" path="res://scripts/data/teaching/LanguageTeachable.cs" id="2_language_teachable"]
-[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="3_vyeshal"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="3_vyeshal"]
 [ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="4_w35o1"]
 
 [sub_resource type="Resource" id="Resource_concept_grammar"]

@@ -44,7 +44,7 @@ public static class SubsceneFile
 {
     // Where authored subscenes live. Under res:// because worldgen's
     // SubscenePlacement references them by res:// path.
-    public const string DEFAULT_SCENE_DIR = "res://resources/data/subscenes/";
+    public const string DEFAULT_SCENE_DIR = "res://resources/data/world_authoring/subscenes/";
 
     public const uint MAGIC = 0x4E435348; // 'HSCN' little-endian
     // v2: the entity list gained EntitySerializer's resource-path table prefix
@@ -58,7 +58,11 @@ public static class SubsceneFile
     //     directory summarizing those tags. v5 and earlier still read — their
     //     entities load untagged, i.e. unconditional, which is what they were.
     // v8: the per-voxel byte is a BlockData.blockId, not a VoxelType.
-    public const uint VERSION = 8;
+    // v9: every resource reference in an entity payload is a ref-table slot, and
+    //     a slot can hold a resource's value (see WorldFile v51). v8 and earlier
+    //     still read — their tables are bare path strings and their weapon,
+    //     status-effect and item-state lists spell their references out.
+    public const uint VERSION = 9;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.
@@ -201,7 +205,7 @@ public static class SubsceneFile
         int roofFormat = version >= 5 ? EntitySerializer.ROOF_FORMAT_FORM
             : version >= 4 ? EntitySerializer.ROOF_FORMAT_BROKEN
             : EntitySerializer.ROOF_FORMAT_ORIGINAL;
-        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6);
+        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6, tableRefs: version >= 9);
         return sub;
     }
 

@@ -8,11 +8,11 @@ what was done, how to measure it yourself, and what is left.
 ```bash
 # Bake headless: no window, no painter. ~33s.
 Godot ... --path . --headless -- \
-  "worldmap_bake res://resources/data/worldmap/default_world_map.tres user://bake_test.hike" "quit 1"
+  "worldmap_bake res://resources/data/worlds/test_world/map/default_world_map.tres user://bake_test.hike" "quit 1"
 ```
 
 The second argument overrides the document's `outputWorldPath` **in memory only**,
-so a test bake cannot overwrite `resources/data/worldmap/painted_world.hike` (230MB
+so a test bake cannot overwrite `resources/data/worlds/test_world/map/painted_world.hike` (230MB
 of authored output). Omit it and it writes the real thing — don't.
 
 It prints its own phase breakdown, and two sub-breakdowns under it:
@@ -119,7 +119,7 @@ have been found any other way:
 - **Beware of comparing across a document change.** The first comparison here
   looked like a lighting regression and was partly another session saving a new
   `water_type.png` layer between the two runs. Re-bake the baseline if anything
-  under `resources/data/worldmap/` has moved.
+  under `resources/data/worlds/test_world/map/` has moved.
 
 ## What is left
 

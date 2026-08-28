@@ -1,8 +1,0 @@
-[gd_resource type="Resource" format=3]
-
-[ext_resource type="Script" uid="uid://c0bcoj5vlqohu" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="1_entry"]
-[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="2_scene"]
-
-[resource]
-script = ExtResource("1_entry")
-scene = ExtResource("2_scene")

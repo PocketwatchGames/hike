@@ -1210,7 +1210,7 @@ under them. A mob set is simply a set whose tree and foliage slots are empty and
 whose `entities` list carries the mobs.
 
 **A mob set's `entities` is a PAINTER-OWNED list, forked from worldgen's.**
-`mob_sets/*.tres` point at `resources/data/worldmap/spawn_lists/ambient_*.tres`,
+`mob_sets/*.tres` point at `resources/data/world_authoring/spawn_lists/ambient_*.tres`,
 not at the `surface_entities_*.tres` that `zone_gen/*.tres` uses, even though the
 ambient lists were filtered out of exactly those files. The split is by how a
 thing wants to be placed: a brush places by AREA, which suits what you want many
@@ -1353,7 +1353,7 @@ being one.
 fields (language, conversation, appearance, idle pose, recruit template), and the
 copy-on-write fork makes each placement its own individual. There is ONE row —
 `npc` — and its eight looks live in
-`resources/data/characters/npcs/appearances/`, extracted from the per-NPC entries
+`resources/data/worlds/shared/npcs/appearances/`, extracted from the per-NPC entries
 they replace; the conversation, language, idle pose and recruit template each one
 used are picked per placement, which is what let eight files become one.
 
@@ -1367,7 +1367,7 @@ cannot be given stock from the painter.** Place an `npc` and author its
 `inventory` in the resource, or add the list editor.
 
 They remain **copies** of the NPCs embedded in worldgen's house spawn lists
-(`world_gen/spawn_lists/hub_house01`, `house_hermit`, `hub_house02`,
+(`world_authoring/spawn_lists/hub_house01`, `house_hermit`, `hub_house02`,
 `village_house01`-`04`), not references to them — the same fork convention the
 mob sets follow, so retuning a village cannot silently move what the map paints
 or the reverse. The hermit and Talia carry a `recruitTemplate` and are
@@ -1379,7 +1379,7 @@ that cannot change the result invites tuning that does nothing.
 
 | Removed / hidden | Because |
 |---|---|
-| `squareMetersPerSpawn`, `placeAtAnchor`, `clusterCountMin/Max` | container-edge rules — the area roll and `SpawnGroupData`'s scatter. A hand-placed entity is one entity at one spot by construction. |
+| `squareMetersPerSpawn`, `placeAtAnchor`, `clusterCountMin/Max` | container-edge rules — the area roll and `SpawnGroupData`'s scatter. A hand-placed entity is one entity at one spot by construction. **These are no longer on an entry at all**: they moved to `SpawnListRow` / `SpawnGroupRow`, and a placement has no row, so there is nothing left to hide. |
 | `minSpacing` | a rejection radius is how densely a PASS may sprinkle something. Authored in 4 files project-wide, all scatter lists or worldgen fixtures, never a palette entry. Now skipped for an authored position. |
 | `initialBehaviorChance` | a POPULATION fraction ("a quarter of spawned goblins start in Wander"), authored in 50+ scatter entries and no palette one. It has nothing to be a fraction of for one placement, so an authored position always takes the behaviour it names. |
 | `tamed`, `persistent` (deleted) | the starter-companion pair. Becoming a companion is a RUNTIME transition owning both halves — `Mob.Tame` flips `MobSimState.Tamed` at `MobData.tameLoyalty` and `Sim.PromoteCompanionToPersistent` moves the mob into the persistent store at that same moment. Nothing authored either flag. |
@@ -1395,18 +1395,18 @@ readout was decorative and every hand-placed NPC faced a direction the hash
 picked, which for a villager standing in a doorway is the whole point of aiming
 one.
 
-A palette entry deliberately leaves `squareMetersPerSpawn` at its 0 default:
-`TrySpawn` — the path `EntityPlacement` takes — never consults it, while
-`RollAreaChance` returns false at 0, so an entry meant for hand placement is
-inert if it is ever dropped into a spawn list by mistake.
-`SpawnEntryData.IsHandPlacedProperty` is the other side of that: the property
-panel hides `squareMetersPerSpawn`, `placeAtAnchor`, `minSpacing` and
-`clusterCountMin`/`clusterCountMax`, none of which changes what a hand placement
-produces — the cluster count reaches nothing but `RollCount`, whose one caller is
-`SpawnGroupData`'s scatter, and a hand-placed entity is one entity at one spot by
-construction. A control that cannot change the result is worse than a missing
-one, because it invites tuning that does nothing. Which fields the path reads is
-the entry class's business, so the answer lives there rather than in the UI.
+The rate and the cluster knobs are structurally out of reach now rather than
+hidden: they live on the ROW that names an entry (`SpawnListRow.squareMetersPerSpawn`,
+`SpawnGroupRow.countMin`/`countMax`/`placeAtAnchor`), and a hand placement holds a
+bare `SpawnEntryData` with no row at all. An entry dropped into a spawn list by
+mistake is still inert, for the same reason as before — its row would default to
+`squareMetersPerSpawn = 0`, and `RollAreaChance` returns false at 0.
+
+`SpawnEntryData.IsHandPlacedProperty` therefore only has two names left to hide,
+`minSpacing` and `initialBehaviorChance`. The rule it encodes is unchanged: a
+control that cannot change the result is worse than a missing one, because it
+invites tuning that does nothing. Which fields the path reads is the entry
+class's business, so the answer lives there rather than in the UI.
 
 **`minSpacing` is skipped for an authored position, which is why it can be
 hidden.** It is a rejection radius — a statement about how densely a PASS may
@@ -1966,7 +1966,7 @@ Two traps this file has already paid for, kept because they are easy to
 reintroduce:
 
 - **A per-column CHANCE cannot express "a tree every 64 m"** — it tops out at one
-  per square metre. Everything is an inverted rate (`SquareMetersPerSpawn`) or
+  per square metre. Everything is an inverted rate (`squareMetersPerSpawn`) or
   worldgen's own density-times-ramp.
 - **Never `string.GetHashCode()` for a seed.** .NET randomises it per process, so
   patches move between the session that painted them and the bake that reads

@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 // Headless validator for the scripting-variable bank. Checks that every
 // authored reference (ScriptVarCondition / ScriptVarTransition /
 // SetScriptVarAction) names a variable that actually exists in
-// resources/data/script_variables/, that ordering comparisons are only used
+// resources/data/worlds/shared/script_variables/, that ordering comparisons are only used
 // on Int variables, and that every declared variable is registered in a
 // ScriptVariableRegistry (so it gets seeded at runtime). Emits findings in
 // the MSBuild "file(line): warning CODE: text" format so the build surfaces
@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 // Mirrors tools/validate_uids: run `dotnet run --project tools/validate_script_vars`.
 class Program
 {
-    const string VarDeclRoot = "resources/data/script_variables";
+    const string VarDeclRoot = "resources/data/worlds/shared/script_variables";
     static readonly string[] RefScanRoots = { "resources", "scenes" };
     static readonly string[] SceneExtensions = { ".tres", ".tscn" };
 

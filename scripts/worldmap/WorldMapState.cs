@@ -980,6 +980,9 @@ public class WorldMapState
         var palette = KitPalette.Build(Data.kitPalette);
 
         var ws = new WorldState(Data.MinChunk, Data.MaxChunk, Data.simData, palette);
+        // A placement's forked entry, and anything that entry authors inline,
+        // lives in this document - which is a bake input and does not ship.
+        ws.AuthoringDocument = Data.placementsPath ?? "";
         BindZoneKits(palette);
 
         // Runtime zone table comes from the PAINTED palette, so a chunk's stamped

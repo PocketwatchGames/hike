@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://c2p3sgve3qiuq"]
-
-[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
-[ext_resource type="Resource" uid="uid://cssvillager01" path="res://resources/data/characters/npcs/friendly_villager_subspecies.tres" id="2_sub"]
-
-[resource]
-script = ExtResource("1_desc")
-species = ExtResource("2_sub")
-metadata/_custom_type_script = "uid://dl3s3rohhmwe8"

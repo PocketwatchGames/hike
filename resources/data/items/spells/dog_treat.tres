@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_effect_base"]
 [ext_resource type="Script" uid="uid://bn12om2hvdb8j" path="res://scripts/data/effects/SummonPetEffect.cs" id="6_summon"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="7_bsmk2"]
-[ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_gen/mob_descriptors/dog.tres" id="7_dog"]
+[ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_authoring/mob_descriptors/dog.tres" id="7_dog"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_kkkob"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="8_inv"]
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="9_input"]

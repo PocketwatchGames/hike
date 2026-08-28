@@ -91,11 +91,39 @@ public static class EntitySerializer
     // (that one is consumed in ReadOne), so it goes here with the other
     // per-list read state.
     [ThreadStatic] private static int _roofFormat;
+    // Set while reading a stream written before every resource reference moved
+    // into the ref table (pre-v9 subscenes), which spelled some of them out as
+    // bare path strings instead.
+    [ThreadStatic] private static bool _legacyPathRefs;
+
+    // How one ref-table slot stores its resource.
+    private enum RefKind : byte
+    {
+        // A res:// path, re-resolved with GD.Load on read.
+        Path = 0,
+        // The resource's VALUE — the type to rebuild it as and its stored
+        // properties. For a resource no shipped build could resolve a path to.
+        Inline = 1,
+    }
 
     public sealed class WritePathTable
     {
         public readonly List<string> Paths = new List<string>();
+        // Parallel to Paths: the resource a slot stores BY VALUE, null where the
+        // slot stores a path. Grows while WriteTable runs, because encoding one
+        // inline resource interns whatever it references.
+        public readonly List<Resource> Inline = new List<Resource>();
+        // The document whose sub-resources are BAKE INPUTS rather than shipped
+        // assets — the world-map painter's placements.tres, where a placement's
+        // forked entry and anything that entry authors inline both live.
+        public readonly string AuthoringDocument;
         private readonly Dictionary<string, int> _indices = new Dictionary<string, int>();
+        private readonly Dictionary<ulong, int> _inlineIndices = new Dictionary<ulong, int>();
+
+        public WritePathTable(string authoringDocument = null)
+        {
+            AuthoringDocument = authoringDocument ?? "";
+        }
 
         public int Intern(string path)
         {
@@ -106,21 +134,82 @@ public static class EntitySerializer
             }
             int index = Paths.Count;
             Paths.Add(path);
+            Inline.Add(null);
             _indices[path] = index;
             return index;
         }
+
+        // A resource reference. Stored as a path when a shipped build can resolve
+        // that path, and BY VALUE when it cannot — an in-memory resource, or a
+        // sub-resource of the authoring document the world is baked from. Keyed
+        // on identity, so two placements sharing one fork share one slot.
+        public int Intern(Resource resource)
+        {
+            if (resource == null)
+            {
+                return Intern("");
+            }
+            if (IsShippable(resource.ResourcePath))
+            {
+                return Intern(resource.ResourcePath);
+            }
+            ulong id = resource.GetInstanceId();
+            if (_inlineIndices.TryGetValue(id, out int existing))
+            {
+                return existing;
+            }
+            int index = Paths.Count;
+            Paths.Add("");
+            Inline.Add(resource);
+            _inlineIndices[id] = index;
+            return index;
+        }
+
+        // A "<file>::<id>" sub-resource resolves as long as <file> ships — true
+        // of every authored .tres, and the reason such references are still
+        // stored by path. It is NOT true of the authoring document: everything
+        // else under a painted world's map/ folder is a bake input excluded from
+        // an export, and a reference into one loaded as a silent null.
+        private bool IsShippable(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+            if (AuthoringDocument.Length == 0)
+            {
+                return true;
+            }
+            int sub = path.IndexOf("::", StringComparison.Ordinal);
+            return sub <= 0 || string.CompareOrdinal(path.Substring(0, sub), AuthoringDocument) != 0;
+        }
+    }
+
+    // One resource stored by value: the C# type to rebuild it as, and its stored
+    // properties, each either a packed Variant or another table slot.
+    internal sealed class InlineRecord
+    {
+        public string TypeName;
+        public string[] Names;
+        public byte[][] Blobs;
+        // -1 where the field is a Blob, else the slot the field references.
+        public int[] Refs;
     }
 
     public sealed class ReadPathTable
     {
         public readonly string[] Paths;
         // One GD.Load per distinct path instead of one per entity referencing it.
+        // Materialized inline slots land here too, for the same reason.
         public readonly Resource[] Loaded;
+        // Parallel to Paths: the value of a slot stored inline, null elsewhere.
+        internal readonly InlineRecord[] Inline;
 
-        public ReadPathTable(string[] paths)
+        internal ReadPathTable(string[] paths, InlineRecord[] inline = null)
         {
             Paths = paths;
             Loaded = new Resource[paths.Length];
+            Inline = inline ?? new InlineRecord[paths.Length];
         }
     }
 
@@ -128,9 +217,9 @@ public static class EntitySerializer
     // caller writes the returned table with WriteTable once all its lists are
     // serialized — which means it must buffer them, since interning only
     // finishes when the last list does.
-    public static WritePathTable BeginSharedWrite()
+    public static WritePathTable BeginSharedWrite(string authoringDocument = null)
     {
-        _writePaths = new WritePathTable();
+        _writePaths = new WritePathTable(authoringDocument);
         _sharedWrite = true;
         return _writePaths;
     }
@@ -141,24 +230,49 @@ public static class EntitySerializer
         _sharedWrite = false;
     }
 
+    // Buffered, because encoding an inline resource interns the resources IT
+    // references and so appends further slots — the count is only final once the
+    // last entry is out.
     public static void WriteTable(BinaryWriter w, WritePathTable table)
     {
-        w.Write7BitEncodedInt(table.Paths.Count);
-        foreach (string path in table.Paths)
+        using var ms = new MemoryStream();
+        using (var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
         {
-            w.Write(path);
+            for (int i = 0; i < table.Paths.Count; i++)
+            {
+                Resource inline = table.Inline[i];
+                if (inline == null)
+                {
+                    bw.Write((byte)RefKind.Path);
+                    bw.Write(table.Paths[i]);
+                    continue;
+                }
+                bw.Write((byte)RefKind.Inline);
+                WriteInline(bw, table, inline);
+            }
         }
+        w.Write7BitEncodedInt(table.Paths.Count);
+        w.Write(ms.ToArray());
     }
 
-    public static ReadPathTable ReadTable(BinaryReader r)
+    // `tagged` false reads a table written before a slot could hold a value -
+    // every entry is a bare path string.
+    public static ReadPathTable ReadTable(BinaryReader r, bool tagged = true)
     {
         int pathCount = r.Read7BitEncodedInt();
         var paths = new string[pathCount];
+        var inline = new InlineRecord[pathCount];
         for (int i = 0; i < pathCount; i++)
         {
+            if (tagged && (RefKind)r.ReadByte() == RefKind.Inline)
+            {
+                paths[i] = "";
+                inline[i] = ReadInline(r);
+                continue;
+            }
             paths[i] = r.ReadString();
         }
-        return new ReadPathTable(paths);
+        return new ReadPathTable(paths, inline);
     }
 
     public static void WriteList(BinaryWriter w, IReadOnlyList<EntitySimState> entities)
@@ -173,7 +287,7 @@ public static class EntitySerializer
         // Standalone list: entities are serialized to a buffer first because the
         // table they populate has to be written ahead of them.
         WritePathTable outer = _writePaths;
-        var table = new WritePathTable();
+        var table = new WritePathTable(outer?.AuthoringDocument);
         _writePaths = table;
         byte[] payload;
         try
@@ -234,11 +348,13 @@ public static class EntitySerializer
         return ReadList(br);
     }
 
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true)
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true)
     {
         ReadPathTable outer = _readPaths;
         int outerRoofFormat = _roofFormat;
-        _readPaths = shared ?? ReadTable(r);
+        bool outerLegacyRefs = _legacyPathRefs;
+        _legacyPathRefs = !tableRefs;
+        _readPaths = shared ?? ReadTable(r, tagged: tableRefs);
         _roofFormat = roofFormat;
         try
         {
@@ -254,6 +370,7 @@ public static class EntitySerializer
         {
             _readPaths = outer;
             _roofFormat = outerRoofFormat;
+            _legacyPathRefs = outerLegacyRefs;
         }
     }
 
@@ -1149,7 +1266,7 @@ public static class EntitySerializer
 
     private static void WriteScene(BinaryWriter w, PackedScene scene)
     {
-        WritePathRef(w, scene != null ? scene.ResourcePath : "");
+        WriteResource(w, scene);
     }
 
     private static PackedScene ReadScene(BinaryReader r)
@@ -1159,19 +1276,12 @@ public static class EntitySerializer
 
     private static void WriteResource(BinaryWriter w, Resource resource)
     {
-        WritePathRef(w, resource != null ? resource.ResourcePath : "");
+        w.Write7BitEncodedInt(_writePaths.Intern(resource));
     }
 
     private static T ReadResource<T>(BinaryReader r) where T : Resource
     {
         return ReadPathRef<T>(r);
-    }
-
-    // An empty path interns like any other, so null needs no sentinel — it just
-    // resolves back to null on read.
-    private static void WritePathRef(BinaryWriter w, string path)
-    {
-        w.Write7BitEncodedInt(_writePaths.Intern(path));
     }
 
     // Plain strings share the resource-path table: a pool tag repeats across
@@ -1195,18 +1305,178 @@ public static class EntitySerializer
 
     private static T ReadPathRef<T>(BinaryReader r) where T : Resource
     {
-        int index = r.Read7BitEncodedInt();
+        return Resolve(r.Read7BitEncodedInt()) as T;
+    }
+
+    private static Resource Resolve(int index)
+    {
         ReadPathTable table = _readPaths;
         if (index < 0 || index >= table.Paths.Length)
         {
             throw new InvalidDataException($"Entity path index {index} outside the list's table of {table.Paths.Length}.");
         }
+        if (table.Loaded[index] != null)
+        {
+            return table.Loaded[index];
+        }
+        if (table.Inline[index] != null)
+        {
+            return Materialize(index);
+        }
         if (string.IsNullOrEmpty(table.Paths[index]))
         {
             return null;
         }
-        table.Loaded[index] ??= GD.Load<Resource>(table.Paths[index]);
-        return table.Loaded[index] as T;
+        return table.Loaded[index] = LoadRef<Resource>(table.Paths[index]);
+    }
+
+    // True when the slot holds nothing at all, which is what a null reference
+    // interns to. Distinct from a load FAILURE, which also resolves to null but
+    // still names a path.
+    private static bool IsNullRef(int index)
+    {
+        return _readPaths.Inline[index] == null && string.IsNullOrEmpty(_readPaths.Paths[index]);
+    }
+
+    // A resource BY VALUE. Nested references go back through the table, so a
+    // shipped asset an inline resource points at is still stored as a path.
+    //
+    // Flat records only: a non-empty Array or Dictionary property is REFUSED
+    // rather than guessed at. A resource with structure of its own has earned a
+    // .tres of its own, and half-writing one is the silent data loss this path
+    // exists to remove.
+    private static void WriteInline(BinaryWriter w, WritePathTable table, Resource resource)
+    {
+        w.Write(resource.GetType().FullName ?? "");
+        var names = new List<string>();
+        var blobs = new List<byte[]>();
+        var refs = new List<int>();
+        foreach (Godot.Collections.Dictionary property in resource.GetPropertyList())
+        {
+            if (((PropertyUsageFlags)property["usage"].AsInt64() & PropertyUsageFlags.Storage) == 0)
+            {
+                continue;
+            }
+            string name = property["name"].AsString();
+            // Engine bookkeeping. resource_path especially must not round-trip:
+            // the value is stored here precisely because that path resolves to
+            // nothing, and restoring it would re-register the rebuilt copy under
+            // a path pointing at a document the build does not ship.
+            if (name == "script" || name.StartsWith("resource_", StringComparison.Ordinal))
+            {
+                continue;
+            }
+            Variant value = resource.Get(name);
+            if (value.VariantType == Variant.Type.Nil)
+            {
+                continue;
+            }
+            if (value.VariantType == Variant.Type.Object)
+            {
+                names.Add(name);
+                blobs.Add(null);
+                refs.Add(table.Intern(value.As<Resource>()));
+                continue;
+            }
+            if (value.VariantType == Variant.Type.Array || value.VariantType == Variant.Type.Dictionary)
+            {
+                bool empty = value.VariantType == Variant.Type.Array
+                    ? value.AsGodotArray().Count == 0 : value.AsGodotDictionary().Count == 0;
+                if (!empty)
+                {
+                    GD.PushError($"EntitySerializer: '{resource.GetType().Name}.{name}' is a non-empty collection on a resource "
+                        + $"with no shippable path ('{resource.ResourcePath}'), so it cannot be baked by value. Give that "
+                        + "resource its own .tres. The field is being dropped.");
+                }
+                continue;
+            }
+            names.Add(name);
+            blobs.Add(GD.VarToBytes(value));
+            refs.Add(-1);
+        }
+
+        w.Write7BitEncodedInt(names.Count);
+        for (int i = 0; i < names.Count; i++)
+        {
+            w.Write(names[i]);
+            w.Write(refs[i] >= 0);
+            if (refs[i] >= 0)
+            {
+                w.Write7BitEncodedInt(refs[i]);
+                continue;
+            }
+            w.Write7BitEncodedInt(blobs[i].Length);
+            w.Write(blobs[i]);
+        }
+    }
+
+    private static InlineRecord ReadInline(BinaryReader r)
+    {
+        var record = new InlineRecord { TypeName = r.ReadString() };
+        int count = r.Read7BitEncodedInt();
+        record.Names = new string[count];
+        record.Blobs = new byte[count][];
+        record.Refs = new int[count];
+        for (int i = 0; i < count; i++)
+        {
+            record.Names[i] = r.ReadString();
+            if (r.ReadBoolean())
+            {
+                record.Refs[i] = r.Read7BitEncodedInt();
+                continue;
+            }
+            record.Refs[i] = -1;
+            record.Blobs[i] = r.ReadBytes(r.Read7BitEncodedInt());
+        }
+        return record;
+    }
+
+    // Rebuilt by C# type name rather than by attaching the script: a resource
+    // the editor materializes as a bare Godot.Resource cannot be cast back to
+    // the type whose field it is about to be assigned to. Registered in Loaded
+    // BEFORE its fields are set, so a cycle between two inline resources ends.
+    private static Resource Materialize(int index)
+    {
+        ReadPathTable table = _readPaths;
+        InlineRecord record = table.Inline[index];
+        Type type = Type.GetType(record.TypeName);
+        if (type == null || Activator.CreateInstance(type) is not Resource resource)
+        {
+            GD.PushError($"EntitySerializer: no resource type '{record.TypeName}' to rebuild an inline reference as.");
+            return null;
+        }
+        table.Loaded[index] = resource;
+        for (int i = 0; i < record.Names.Length; i++)
+        {
+            resource.Set(record.Names[i], record.Refs[i] >= 0
+                ? Variant.From(Resolve(record.Refs[i]))
+                : GD.BytesToVar(record.Blobs[i]));
+        }
+        return resource;
+    }
+
+    // A resource embedded in another document (a MobDescriptor's StatusEffectData,
+    // an NPC appearance's MobPalette) has a "<file>::<id>" path, and GD.Load only
+    // resolves that form from the resource cache. Loading the outer document
+    // first registers its sub-resources, so the second load hits the cache.
+    // Only reached for a document the build SHIPS — a sub-resource of the world's
+    // authoring document is stored by value instead (WritePathTable.Intern).
+    private static T LoadRef<T>(string path) where T : Resource
+    {
+        int sub = path.IndexOf("::", System.StringComparison.Ordinal);
+        if (sub > 0)
+        {
+            GD.Load<Resource>(path.Substring(0, sub));
+        }
+        return GD.Load<T>(path);
+    }
+
+    // A reference spelled out as a bare path — the shape the three lists below
+    // used before every reference moved into the ref table.
+    private static T LegacyRef<T>(BinaryReader r) where T : Resource
+    {
+        string path = r.ReadString();
+        return string.IsNullOrEmpty(path) ? null : LoadRef<T>(path);
     }
 
     // Weapon loadout (MobSimState.Weapons), stamped from SpeciesData.weapons at
@@ -1218,8 +1488,7 @@ public static class EntitySerializer
         w.Write(count);
         for (int i = 0; i < count; i++)
         {
-            WeaponData wd = weapons[i];
-            w.Write(wd != null ? wd.ResourcePath : "");
+            WriteResource(w, weapons[i]);
         }
     }
 
@@ -1233,8 +1502,7 @@ public static class EntitySerializer
         var weapons = new Godot.Collections.Array<WeaponData>();
         for (int i = 0; i < count; i++)
         {
-            string path = r.ReadString();
-            weapons.Add(string.IsNullOrEmpty(path) ? null : GD.Load<WeaponData>(path));
+            weapons.Add(_legacyPathRefs ? LegacyRef<WeaponData>(r) : ReadResource<WeaponData>(r));
         }
         return weapons;
     }
@@ -1248,8 +1516,7 @@ public static class EntitySerializer
         w.Write(count);
         for (int i = 0; i < count; i++)
         {
-            StatusEffectData e = effects[i];
-            w.Write(e != null ? e.ResourcePath : "");
+            WriteResource(w, effects[i]);
         }
     }
 
@@ -1263,8 +1530,7 @@ public static class EntitySerializer
         var effects = new Godot.Collections.Array<StatusEffectData>();
         for (int i = 0; i < count; i++)
         {
-            string path = r.ReadString();
-            effects.Add(string.IsNullOrEmpty(path) ? null : GD.Load<StatusEffectData>(path));
+            effects.Add(_legacyPathRefs ? LegacyRef<StatusEffectData>(r) : ReadResource<StatusEffectData>(r));
         }
         return effects;
     }
@@ -1281,10 +1547,10 @@ public static class EntitySerializer
     {
         if (item == null || item.data == null)
         {
-            w.Write("");
+            WriteResource(w, null);
             return;
         }
-        w.Write(item.data.ResourcePath);
+        WriteResource(w, item.data);
         w.Write(item.CohortCount);
         for (int i = 0; i < item.CohortCount; i++)
         {
@@ -1301,16 +1567,31 @@ public static class EntitySerializer
 
     private static ItemState ReadItemState(BinaryReader r)
     {
-        string path = r.ReadString();
-        if (string.IsNullOrEmpty(path))
+        // An absent item writes the null reference and nothing else, so the
+        // trailing fields are only there when the reference names something.
+        ItemData data;
+        if (_legacyPathRefs)
         {
-            return null;
+            string path = r.ReadString();
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+            data = LoadRef<ItemData>(path);
         }
-        // Read all trailing fields unconditionally to keep the stream aligned
-        // even if the resource itself has been renamed/removed since the file
-        // was written — a missing item silently drops the slot, but the
-        // following entries still parse correctly.
-        ItemData data = GD.Load<ItemData>(path);
+        else
+        {
+            int slot = r.Read7BitEncodedInt();
+            if (IsNullRef(slot))
+            {
+                return null;
+            }
+            // Read all trailing fields unconditionally to keep the stream aligned
+            // even if the resource itself has been renamed/removed since the file
+            // was written — a missing item silently drops the slot, but the
+            // following entries still parse correctly.
+            data = Resolve(slot) as ItemData;
+        }
         int cohortCount = r.ReadInt32();
         var cohorts = new (int count, int removeOnDay)[System.Math.Max(0, cohortCount)];
         for (int i = 0; i < cohortCount; i++)

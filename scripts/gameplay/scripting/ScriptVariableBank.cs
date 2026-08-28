@@ -125,7 +125,7 @@ public class ScriptVariableBank
     {
         if (_declared.Count > 0 && !_declared.ContainsKey(id))
         {
-            GD.PushWarning($"ScriptVariableBank: access to undeclared variable '{id}' — declare it in a ScriptVariableRegistry (resources/data/script_variables/).");
+            GD.PushWarning($"ScriptVariableBank: access to undeclared variable '{id}' — declare it in a ScriptVariableRegistry (resources/data/worlds/shared/script_variables/).");
         }
     }
 }

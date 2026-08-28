@@ -1,7 +1,7 @@
 """Imports the three climb-growth tiles from the external Synty terrain art.
 
 Each BlockData.climbGrowthSurface names one of these; see the root CLAUDE.md
-block model and resources/data/surfaces/CLAUDE.md for the atlas half.
+block model and resources/data/voxels/surfaces/CLAUDE.md for the atlas half.
 
 Sources (browse-only, see docs/asset-sourcing.md) are Synty PolygonNatureBiomes
 PNB_Meadow_Forest/Terrain — moss-and-lichen-ON-ROCK blend tiles, which is exactly

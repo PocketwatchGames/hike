@@ -11,7 +11,7 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class BlockCatalog : Resource
 {
-    public const string CatalogResourcePath = "res://resources/data/blocks/block_catalog.tres";
+    public const string CatalogResourcePath = "res://resources/data/voxels/blocks/block_catalog.tres";
 
     // Upper bound on BlockId; sizes the id lookup table and the shader's
     // per-block uniform arrays. Must match MAX_BLOCKS in voxel_clip.gdshader.

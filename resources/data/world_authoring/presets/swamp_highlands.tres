@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="PaintPresetData" load_steps=4 format=3]
+
+[ext_resource type="Script" uid="uid://0ss3utn513x2b" path="res://scripts/data/worldmap/PaintPresetData.cs" id="1_p"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/ground_sets/swamp_highlands_ground.tres" id="2_ground"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/mob_sets/swamp_highlands.tres" id="5_mobs"]
+
+[resource]
+script = ExtResource("1_p")
+displayName = "Swamp Highlands"
+mapColor = Color(0.5, 0.5, 0.5, 1)
+propDensity = 1.0
+ground = ExtResource("2_ground")
+mobs = ExtResource("5_mobs")

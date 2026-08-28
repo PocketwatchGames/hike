@@ -1,0 +1,70 @@
+[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://3lnulrnyn5ro"]
+
+[ext_resource type="Resource" uid="uid://cyrniev8emry" path="res://resources/data/world_authoring/spawn_groups/goblin_group_swamp.tres" id="9_lbolm"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="13_s5msw"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin_swamp.tres" id="e_goblin_swamp"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin_swamp_elite.tres" id="e_goblin_swamp_elite"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/sparrow_swamp.tres" id="e_sparrow_swamp"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/drake_swamp.tres" id="e_drake_swamp"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_blue.tres" id="e_mushroom_blue"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_purple.tres" id="e_mushroom_purple"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_orange.tres" id="e_mushroom_orange"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_green.tres" id="e_mushroom_green"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/fire_trap.tres" id="e_fire_trap"]
+
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_goblin_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_swamp")
+squareMetersPerSpawn = 500.0
+
+[sub_resource type="Resource" id="Row_goblin_swamp_elite"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_swamp_elite")
+squareMetersPerSpawn = 1429.0
+
+[sub_resource type="Resource" id="Row_goblin_group_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("9_lbolm")
+squareMetersPerSpawn = 1000.0
+
+[sub_resource type="Resource" id="Row_sparrow_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_sparrow_swamp")
+squareMetersPerSpawn = 250.0
+spawnConditions = 9
+
+[sub_resource type="Resource" id="Row_drake_swamp"]
+script = ExtResource("listrow")
+entry = ExtResource("e_drake_swamp")
+squareMetersPerSpawn = 600.0
+
+[sub_resource type="Resource" id="Row_mushroom_blue"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_blue")
+squareMetersPerSpawn = 200.0
+
+[sub_resource type="Resource" id="Row_mushroom_purple"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_purple")
+squareMetersPerSpawn = 200.0
+
+[sub_resource type="Resource" id="Row_mushroom_orange"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_orange")
+squareMetersPerSpawn = 250.0
+
+[sub_resource type="Resource" id="Row_mushroom_green"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_green")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Row_fire_trap"]
+script = ExtResource("listrow")
+entry = ExtResource("e_fire_trap")
+squareMetersPerSpawn = 250.0
+
+[resource]
+script = ExtResource("13_s5msw")
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_goblin_group_swamp"), SubResource("Row_sparrow_swamp"), SubResource("Row_drake_swamp"), SubResource("Row_mushroom_blue"), SubResource("Row_mushroom_purple"), SubResource("Row_mushroom_orange"), SubResource("Row_mushroom_green"), SubResource("Row_fire_trap")])

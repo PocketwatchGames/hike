@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="BlockData" format=3 uid="uid://bveu2uy5pjcn5"]
+
+[ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
+[ext_resource type="Resource" uid="uid://cyly3mswgokab" path="res://resources/data/voxels/surfaces/surface_rock.tres" id="2_lrl18"]
+[ext_resource type="Resource" uid="uid://ykuhwegfov6s" path="res://resources/data/voxels/surfaces/surface_forest_soil.tres" id="3_1ly3x"]
+[ext_resource type="Resource" uid="uid://b67xqsirxsem6" path="res://resources/data/voxels/surfaces/surface_climb_ivy.tres" id="surf_climb_growth"]
+
+[resource]
+script = ExtResource("1_s")
+blockName = &"Forest Soil"
+blockId = 13
+top = ExtResource("3_1ly3x")
+side = ExtResource("2_lrl18")
+wallBand = Vector2(0.4, 0.65)
+minimapColor = Color(0.47843137, 0.4745098, 0.2509804, 1)
+blendNoise = 0.55
+naturalGround = true
+defaultShape = 2
+speedMultiplier = 0.9
+climbGrowthSurface = ExtResource("surf_climb_growth")

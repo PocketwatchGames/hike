@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BlockData" format=3]
+
+[ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
+[ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/voxels/surfaces/surface_stone.tres" id="2_stone"]
+[ext_resource type="Resource" uid="uid://c2kcyv7do7ixy" path="res://resources/data/voxels/surfaces/surface_climb_moss.tres" id="surf_climb_growth"]
+
+[resource]
+script = ExtResource("1_s")
+blockName = &"Stone"
+blockId = 10
+top = ExtResource("2_stone")
+side = ExtResource("2_stone")
+wallBand = Vector2(0.4, 0.65)
+minimapColor = Color(0.4608,0.4608,0.48, 1)
+minimapCategory = 1
+defaultShape = 7
+groundType = 1
+edgeRoughness = 0.2
+climbGrowthSurface = ExtResource("surf_climb_growth")

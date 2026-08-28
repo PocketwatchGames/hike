@@ -1,0 +1,96 @@
+[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://crwit5kc7vxce"]
+
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
+[ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_authoring/spawn_groups/goblin_group_mountain.tres" id="8_campfire_group"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin_mountain.tres" id="e_goblin_mountain"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin_mountain_elite.tres" id="e_goblin_mountain_elite"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/kun_kun_mountain.tres" id="e_kun_kun_mountain"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/drake_mountain.tres" id="e_drake_mountain"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/drake_mountain_elite.tres" id="e_drake_mountain_elite"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_blue.tres" id="e_mushroom_blue"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_white.tres" id="e_mushroom_white"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_black.tres" id="e_mushroom_black"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_gold.tres" id="e_mushroom_gold"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="e_well"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/sparrow_mountain.tres" id="e_sparrow_mountain"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/climbable_tree.tres" id="e_climbable_tree"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/buried_spot.tres" id="e_buried_spot"]
+
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+
+[sub_resource type="Resource" id="Row_goblin_mountain"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_mountain")
+squareMetersPerSpawn = 200.0
+spawnConditions = 2
+
+[sub_resource type="Resource" id="Row_goblin_mountain_elite"]
+script = ExtResource("listrow")
+entry = ExtResource("e_goblin_mountain_elite")
+squareMetersPerSpawn = 1333.0
+spawnConditions = 2
+
+[sub_resource type="Resource" id="Row_kun_kun_mountain"]
+script = ExtResource("listrow")
+entry = ExtResource("e_kun_kun_mountain")
+squareMetersPerSpawn = 200.0
+
+[sub_resource type="Resource" id="Row_drake_mountain"]
+script = ExtResource("listrow")
+entry = ExtResource("e_drake_mountain")
+squareMetersPerSpawn = 600.0
+
+[sub_resource type="Resource" id="Row_drake_mountain_elite"]
+script = ExtResource("listrow")
+entry = ExtResource("e_drake_mountain_elite")
+squareMetersPerSpawn = 2500.0
+
+[sub_resource type="Resource" id="Row_mushroom_blue"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_blue")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Row_mushroom_white"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_white")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Row_mushroom_black"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_black")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Row_mushroom_gold"]
+script = ExtResource("listrow")
+entry = ExtResource("e_mushroom_gold")
+squareMetersPerSpawn = 300.0
+
+[sub_resource type="Resource" id="Row_goblin_group_mountain"]
+script = ExtResource("listrow")
+entry = ExtResource("8_campfire_group")
+squareMetersPerSpawn = 1000.0
+
+[sub_resource type="Resource" id="Row_well"]
+script = ExtResource("listrow")
+entry = ExtResource("e_well")
+squareMetersPerSpawn = 2000.0
+
+[sub_resource type="Resource" id="Row_sparrow_mountain"]
+script = ExtResource("listrow")
+entry = ExtResource("e_sparrow_mountain")
+squareMetersPerSpawn = 100.0
+spawnConditions = 9
+
+[sub_resource type="Resource" id="Row_climbable_tree"]
+script = ExtResource("listrow")
+entry = ExtResource("e_climbable_tree")
+squareMetersPerSpawn = 1000.0
+
+[sub_resource type="Resource" id="Row_buried_spot"]
+script = ExtResource("listrow")
+entry = ExtResource("e_buried_spot")
+squareMetersPerSpawn = 200.0
+
+[resource]
+script = ExtResource("1_list")
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_mountain"), SubResource("Row_goblin_mountain_elite"), SubResource("Row_kun_kun_mountain"), SubResource("Row_drake_mountain"), SubResource("Row_drake_mountain_elite"), SubResource("Row_mushroom_blue"), SubResource("Row_mushroom_white"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_gold"), SubResource("Row_goblin_group_mountain"), SubResource("Row_well"), SubResource("Row_sparrow_mountain"), SubResource("Row_climbable_tree"), SubResource("Row_buried_spot")])

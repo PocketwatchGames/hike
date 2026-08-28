@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="1_entry"]
+[ext_resource type="Resource" uid="uid://e9ylxcoxc01m2" path="res://resources/data/world_authoring/mob_descriptors/lurker_swamp.tres" id="D_lurker_swamp"]
+
+[resource]
+script = ExtResource("1_entry")
+family = &"lurker"
+descriptor = ExtResource("D_lurker_swamp")
+variants = [ExtResource("D_lurker_swamp")]
+metadata/_custom_type_script = "uid://dhkkrl6qof485"

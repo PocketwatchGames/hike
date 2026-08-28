@@ -11,7 +11,7 @@ public enum EScriptVarType
 }
 
 // Authored declaration of one named scripting variable in the central bank.
-// One .tres per variable under resources/data/script_variables/, collected
+// One .tres per variable under resources/data/worlds/shared/script_variables/, collected
 // into a ScriptVariableRegistry. Conditions/actions reference a variable by
 // its Id (a raw StringName) so authoring stays quick and mod-friendly; the
 // declaration here gives that name a type + default and gives the validator

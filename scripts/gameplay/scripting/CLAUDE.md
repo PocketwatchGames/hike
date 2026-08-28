@@ -1,6 +1,6 @@
 # Scripting Variables — Quest Flags / World State
 
-Covers `scripts/gameplay/scripting/` (runtime bank), `scripts/data/scripting/` (authored data + read/write sub-resources), and `resources/data/script_variables/` (authored `.tres`).
+Covers `scripts/gameplay/scripting/` (runtime bank), `scripts/data/scripting/` (authored data + read/write sub-resources), and `resources/data/worlds/shared/script_variables/` (authored `.tres`).
 
 A central, save-persisted bank of named variables that conditions/actions read and write **by name** to branch mob conversations and behaviors — quest progress (staged `int`), permanent world flags (`bool` "boss defeated"), counters.
 
@@ -12,7 +12,7 @@ A central, save-persisted bank of named variables that conditions/actions read a
 
 Mod-friendly and quick to author, kept safe by a declared set + two-layer validation rather than typed resource refs:
 
-- Each variable is one authored `ScriptVariableData` (`Id` + `Type` + `DefaultValue` + `Description`) under `resources/data/script_variables/`, collected into `script_variables.tres` (`ScriptVariableRegistry`), wired onto `SimData.ScriptVariables`.
+- Each variable is one authored `ScriptVariableData` (`Id` + `Type` + `DefaultValue` + `Description`) under `resources/data/worlds/shared/script_variables/`, collected into `script_variables.tres` (`ScriptVariableRegistry`), wired onto `SimData.ScriptVariables`.
 - **Load-time:** the registry self-validates (dup/empty ids) and the bank warns on access to an undeclared name.
 - **Data-entry-time:** `tools/validate_script_vars` (mirrors `validate_uids`, wired non-blocking into the build) scans every `.tres`/`.tscn` and flags references to undeclared names, ordering comparisons on a `Bool`, and variables declared but missing from a registry.
 

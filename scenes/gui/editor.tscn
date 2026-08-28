@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://oeqqyiduw8hc" path="res://scripts/editor/WorldEditor.cs" id="1_editor"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="2_camera"]
 [ext_resource type="Script" uid="uid://bnjoxay8whatf" path="res://scripts/editor/EditorHud.cs" id="3_hud"]
-[ext_resource type="Resource" uid="uid://ds68oe11qlnae" path="res://resources/data/editor/editor_brush_palette.tres" id="4_palette"]
+[ext_resource type="Resource" uid="uid://ds68oe11qlnae" path="res://resources/data/world_authoring/editor/editor_brush_palette.tres" id="4_palette"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="5_sky"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="6_fog_mat"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="7_block_shadow"]

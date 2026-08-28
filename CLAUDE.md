@@ -270,19 +270,82 @@ records the authoring resource's path in its header and re-resolves them on load
 before that a loaded world took all three from whichever template the menu had
 selected.
 
+### Where authored data lives (`worlds/`, `world_authoring/`, `world_gen/`)
+
+**Three trees, split by REUSE. Dependencies run left to right and never back:**
+
+| Tree | Holds | Test |
+|---|---|---|
+| `worlds/<name>/` | ONE world, whichever producer builds it — its `WorldGenData` **or** its painted `map/`, plus that world's own `WorldStartData` / `WorldFinishData` / `WorldScriptData`. A painted world links its start content through `WorldMapData.startContent` / `.finish`; the bake records the `WorldStartData`'s path in the `.hike` header and `WorldFileChunkSource` re-resolves it on load | is this world the only thing that wants it? |
+| `worlds/shared/` | the GAME's fiction, used by every world: `npcs/` (conversations, appearances), `party/`, `quests/`, `script_variables/`, `regions/`, `languages/`, `buried/`, and the spawn entries / lists / groups that NAME a character, language or story beat | a proper noun, but not one world's |
+| `world_authoring/` | the reusable authoring kit: `kits/`, `zones/`, `presets/`, `ground_sets/`, `prop_sets/`, `mob_sets/`, `spawn_entries/`, `spawn_lists/`, `spawn_groups/`, `mob_descriptors/`, `subscenes/`, `details/`, `roofs/`, `props/`, `editor/` | a type, kit or style — no proper nouns |
+| `world_gen/` | the generator's reusable vocabulary: `ZoneGenData`, `RegionGenData`, `TerrainGenData` | nothing but the generator reads it |
+
+**`ZoneData` is a theme, `RegionData` is a place** — which is why they sit in
+different trees despite looking alike. A zone carries a palette (sky, water
+colour, ambience) and no display name; a region carries nothing BUT a display
+name ("The Crowns", "Mire of the Lost"). Themes are reusable, named places are
+not.
+
+Three rules, each of which was a real bug:
+
+- **A leaf `SpawnEntryData` is a *what* and belongs in a `spawn_entries/`; only a
+  placement rule is a *how*.** `world_gen/fixtures/` used to hold both, so the
+  painter had to reach into the generator's folder for the forge and forked its
+  own copies of the fountains. "Fixture" is a property of a placement
+  (`EntitySimState.PlacedAsFixture`), never a kind of entity — don't name a
+  folder after it.
+- **Never embed a leaf as a `[sub_resource]` if a palette might offer it.** The
+  painter's `entityPalette` is a `SpawnEntryData[]` and needs a FILE, so an
+  embedded leaf is unreachable and the author has no choice but to write a second
+  one. That is how three Muddish knowledge stones and two signposts with
+  conflicting texts happened. (Forks the painter itself makes are the exception —
+  see the next rule.)
+- **A per-placement property lives on the PLACEMENT, and the shared entry keeps
+  only a generic default.** A signpost's text is the case: worldgen embeds a
+  per-POI copy in the containing `PoiPlacement`, the painter forks the entry into
+  the placement on first edit (`EntityPlacement.EditableEntry`, copy-on-write).
+  An entry naming one location gets stamped at every placement nobody has edited.
+
+**A baked `.hike` is not self-contained, and what it may reference is exactly
+what a build SHIPS.** Its header stores `res://` paths and re-resolves them on
+load — `SimData`, `StartContentPath`, and every `ZoneData` / `RegionData` — and
+entity payloads reference resources through a table of `res://` paths. A
+`<file>::<id>` sub-resource is fine there as long as `<file>` ships (a
+`MobDescriptor`'s status effect, an NPC appearance's palette); `GD.Load` resolves
+that form only from the resource cache, which is why `EntitySerializer.LoadRef`
+loads the outer document first.
+
+**The one document that does NOT ship is the painter's own `placements.tres`**,
+and a reference into it is therefore stored BY VALUE instead — a ref-table slot
+holding the resource's type and its stored properties (`WorldFile` v51). A
+placement's forked entry can author its children inline (a merchant's
+`LoyaltyGift`), and those had a path only the painter could resolve: cold, the
+load failed loudly and `ReadPathRef`'s `as T` then handed back null, so the
+merchant spawned minus its gift. Loud error, silent data loss. `WorldState
+.AuthoringDocument` is what names the document; only flat records are stored this
+way, and a non-empty collection on one is refused with an error naming the field
+rather than half-written — a resource with structure of its own has earned a
+`.tres` of its own.
+
+So a shipped build needs the world's start content, zones and regions. It does
+NOT need anything else under `map/`: the raster layers (`*.png`, `*.exr`,
+`tunnels.bin` — 27 MB on its own), the `WorldMapData`, or `placements.tres`.
+
 ### World Map Painting Tool (`scripts/worldmap/`, `scripts/data/worldmap/`)
 
 The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`). See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
 
-### Blocks — the voxel material model (`scripts/data/world/`, `resources/data/blocks/`)
+### Blocks — the voxel material model (`scripts/data/world/`, `resources/data/voxels/blocks/`)
 
 **The per-voxel byte is a `BlockData.blockId`.** There is no `VoxelType` enum — it used to carry physics AND appearance, and both moved:
 
 | Concept | Lives on | Is |
 |---|---|---|
-| `BlockSurfaceData` | `resources/data/surfaces/` | one baked atlas layer + `porosity` (the only genuinely per-TEXTURE property) |
-| `BlockData` | `resources/data/blocks/` | `top`/`side`/`bottom` surfaces, `wallBand`, `climbGrowthSurface`, sim flags, and every per-VOXEL material property |
-| `BlockCatalog` | `resources/data/blocks/block_catalog.tres` | global id→block registry; ids are the wire format |
+| `BlockSurfaceData` | `resources/data/voxels/surfaces/` | one baked atlas layer + `porosity` (the only genuinely per-TEXTURE property) |
+| `BlockData` | `resources/data/voxels/blocks/` | `top`/`side`/`bottom` surfaces, `wallBand`, `climbGrowthSurface`, sim flags, and every per-VOXEL material property |
+| `BlockCatalog` | `resources/data/voxels/blocks/block_catalog.tres` | global id→block registry; ids are the wire format |
+| `WaterFilmData` | `resources/data/voxels/films/` | the scum/algae layer a water block floats (`BlockData.waterFilm`) |
 | `Blocks` | `scripts/voxels/Blocks.cs` | flattened `bool[]`/`int[]` tables for the hot paths |
 
 Rules:
@@ -306,13 +369,13 @@ Worldgen still keeps a parallel **kit** channel (`TerrainId`): `ws.Kits.BlockFor
 
 It was a set of `WorldGen` statics (`ActiveKitPalette`, `_kitIndex`, `_kitPurposes`, plus a `KitBlocks` table) bound by whichever of six call sites ran last. That was world state parked in the generator: it outlives generation, it is read by code with nothing to do with generation (the mesher, `SubsceneStamper`, the editor, the map painter), and the painter's bake wrote it from a background thread while the painter was live — which is why "one bake at a time" had to be a rule. Nothing was lost by moving it: every hot-path reader already had the `WorldState` in hand.
 
-See [resources/data/surfaces/CLAUDE.md](resources/data/surfaces/CLAUDE.md) for the atlas-baking half.
+See [resources/data/voxels/surfaces/CLAUDE.md](resources/data/voxels/surfaces/CLAUDE.md) for the atlas-baking half.
 
-### Spawn Entries & Lists (`scripts/data/spawn/`, `resources/data/spawn_entries/`)
+### Spawn Entries & Lists (`scripts/data/spawn/`, `resources/data/world_authoring/spawn_entries/`)
 
 **What a thing is and how a list uses it are separate resources.** A
 `SpawnEntryData` (`MobSpawnEntry`, `ForageSpawnEntry`, `ChestSpawnEntry`, …) is a
-SHARED asset in `resources/data/spawn_entries/` holding only what is true of the
+SHARED asset in `resources/data/world_authoring/spawn_entries/` holding only what is true of the
 thing wherever it appears — its descriptor or item, its scene, its placement
 gates. A **row** names one of those and adds what THIS container says about it,
 so a zone's entity list reads as a list of named files with a number each:
@@ -354,7 +417,7 @@ container is worse than a missing one: it invites tuning that does nothing.
 
 Binary format with a version header. Currently stubbed -- writes/reads the header but the player status-effect buildup section (v2) and the scripting-variable bank (v3) round-trip.
 
-### Scripting Variables — Quest Flags / World State (`scripts/data/scripting/`, `scripts/gameplay/scripting/`, `resources/data/script_variables/`)
+### Scripting Variables — Quest Flags / World State (`scripts/data/scripting/`, `scripts/gameplay/scripting/`, `resources/data/worlds/shared/script_variables/`)
 
 A save-persisted bank of named `Bool`/`Int` variables that conditions/actions read and write **by name** to branch mob conversations and behaviors (quest flags, world state, counters). Read via `ScriptVarCondition`/`ScriptVarTransition`, write via `SetScriptVarAction`. See [scripts/gameplay/scripting/CLAUDE.md](scripts/gameplay/scripting/CLAUDE.md).
 

@@ -2324,7 +2324,7 @@
     // positions each offers. Needs no editor and no running game. The pool list
     // comes from the file's baked directory, so it answers "what can a variant
     // pick from here?" without decoding the voxel body.
-    // Usage: `subscene_info res://resources/data/subscenes/house01.hikescene`
+    // Usage: `subscene_info res://resources/data/world_authoring/subscenes/house01.hikescene`
     public static CVarString subsceneInfo = new CVarString("subscene_info", "", (cvar) =>
     {
         string path = ((CVarString)cvar).Value;
