@@ -48,7 +48,8 @@ public static class TextScrambler
 
         bool doNumbers = (missing & ELanguageComponents.Numbers) != 0;
         bool doGrammar = (missing & ELanguageComponents.Grammar) != 0;
-        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1 | ELanguageComponents.Vocabulary2);
+        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1
+            | ELanguageComponents.Vocabulary2 | ELanguageComponents.Vocabulary3);
 
         List<string> tokens = new List<string>();
         List<string> separators = new List<string>();
@@ -104,11 +105,17 @@ public static class TextScrambler
             else if (c < 'a' || c > 'z') { continue; }
             h = unchecked(h * 31 + c);
         }
+        // One bucket per Vocabulary_N, so each covers ~a third of any text. The
+        // count here and the number of Vocabulary_N flags must move together —
+        // mapping two buckets onto one flag made Vocabulary2 worth twice
+        // Vocabulary1 and left every `components = 16` in the data teaching a bit
+        // nothing tested.
         int bucket = (h & 0x7FFFFFFF) % 3;
         return bucket switch
         {
             0 => ELanguageComponents.Vocabulary1,
-            _ => ELanguageComponents.Vocabulary2,
+            1 => ELanguageComponents.Vocabulary2,
+            _ => ELanguageComponents.Vocabulary3,
         };
     }
 
@@ -202,7 +209,8 @@ public static class TextScrambler
         }
 
         ELanguageComponents missing = ELanguageComponents.All & ~learned;
-        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1 | ELanguageComponents.Vocabulary2);
+        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1
+            | ELanguageComponents.Vocabulary2 | ELanguageComponents.Vocabulary3);
         bool numbersKnown = (missing & ELanguageComponents.Numbers) == 0;
         bool grammarKnown = (missing & ELanguageComponents.Grammar) == 0;
 

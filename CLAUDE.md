@@ -278,9 +278,9 @@ selected.
 
 | Tree | Holds | Test |
 |---|---|---|
-| `worlds/<name>/` | ONE world, whichever producer builds it — its `WorldGenData` **or** its painted `map/`, plus that world's own `WorldStartData` / `WorldFinishData` / `WorldScriptData`. A painted world links its start content through `WorldMapData.startContent` / `.finish`; the bake records the `WorldStartData`'s path in the `.hike` header and `WorldFileChunkSource` re-resolves it on load | is this world the only thing that wants it? |
+| `worlds/<name>/` | ONE world, whichever producer builds it — its `WorldGenData` **or** its painted `map/`, plus that world's own `WorldStartData` / `WorldScriptData`. (`WorldFinishData` is NOT one of these — the finish passes are tuned once for the game, in `world_authoring/world_finish_data.tres`, and every world points at it.) A painted world links its start content through `WorldMapData.startContent` / `.finish`; the bake records the `WorldStartData`'s path in the `.hike` header and `WorldFileChunkSource` re-resolves it on load | is this world the only thing that wants it? |
 | `worlds/shared/` | the GAME's fiction, used by every world: `npcs/` (conversations, appearances), `party/`, `quests/`, `script_variables/`, `regions/`, `languages/`, `buried/`, and the spawn entries / lists / groups that NAME a character, language or story beat | a proper noun, but not one world's |
-| `world_authoring/` | the reusable authoring kit: `kits/`, `zones/`, `presets/`, `ground_sets/`, `prop_sets/`, `mob_sets/`, `spawn_entries/`, `spawn_lists/`, `spawn_groups/`, `mob_descriptors/`, `subscenes/`, `details/`, `roofs/`, `props/`, `editor/` | a type, kit or style — no proper nouns |
+| `world_authoring/` | the reusable authoring kit: `kits/`, `zones/`, `presets/`, `ground_sets/`, `prop_sets/`, `mob_sets/`, `spawn_entries/`, `spawn_lists/`, `spawn_groups/`, `mob_descriptors/`, `subscenes/`, `details/`, `roofs/`, `props/`, `editor/`, and the single shared `world_finish_data.tres` | a type, kit or style — no proper nouns |
 | `world_gen/` | the generator's reusable vocabulary: `ZoneGenData`, `RegionGenData`, `TerrainGenData` | nothing but the generator reads it |
 
 **`ZoneData` is a theme, `RegionData` is a place** — which is why they sit in
@@ -340,7 +340,7 @@ So a shipped build needs the world's start content, zones and regions. It does
 NOT need anything else under `map/`: the raster layers (`*.png`, `*.exr`,
 `tunnels.bin` — 27 MB on its own), the `WorldMapData`, or `placements.tres`.
 
-### World Map Painting Tool (`scripts/worldmap/`, `scripts/data/worldmap/`)
+### World Map Painting Tool (`scripts/worldmap/`, `scripts/data/worldmap/`, `scripts/data/world_editor/`)
 
 The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`). See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
 

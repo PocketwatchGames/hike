@@ -21,7 +21,6 @@ public static class WorldMapCheck
     private static int CompareStampRebuilds(WorldMapState ctx, int w, int h,
         int clipY, out int covered)
     {
-        var under = new Color(0.5f, 0.5f, 0.5f);
         WorldMapState.StampPlan all = ctx.PlanStamps(new Rect2I(0, 0, w, h), clipY);
         covered = 0;
         int disagreements = 0;
@@ -36,12 +35,25 @@ public static class WorldMapCheck
                 {
                     for (int pz = rect.Position.Y; pz < rect.Position.Y + rect.Size.Y; pz++)
                     {
-                        Color full = ctx.StampColorAt(all, px, pz, under, null);
-                        if (full != under)
+                        // Compared as the plan's ANSWER — which stamp, and the
+                        // local Y it draws — rather than as the colour that
+                        // answer inks to. Two stamps inking the same colour
+                        // compare equal; two stamps do not.
+                        //
+                        // By PLACEMENT, never by the index: an index is into the
+                        // plan that produced it, and a local plan holds only the
+                        // stamps meeting its rect, so the same stamp has
+                        // different indices in the two.
+                        bool hit = ctx.StampHitAt(all, px, pz, out int i, out int top);
+                        SubscenePlacement stamp = hit ? all.Stamps[i] : null;
+                        if (hit)
                         {
                             covered++;
                         }
-                        if (ctx.StampColorAt(local, px, pz, under, null) != full)
+                        bool localHit = ctx.StampHitAt(local, px, pz,
+                            out int li, out int localTop);
+                        SubscenePlacement localStamp = localHit ? local.Stamps[li] : null;
+                        if (localStamp != stamp || localTop != top)
                         {
                             disagreements++;
                         }

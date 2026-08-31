@@ -26,7 +26,7 @@ public class RegionTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx) => null;
+    public Color[] OptionColors(WorldMapInk ink) => null;
 
     public int OptionIndex
     {
@@ -36,17 +36,17 @@ public class RegionTool : IWorldMapTool
 
     public string HintText(WorldMapState ctx) => "";
 
-    public Color CursorColor(WorldMapState ctx) => Colors.White;
+    public Color CursorColor(WorldMapInk ink) => Colors.White;
 
-    public string StatusText(WorldMapState ctx) => $"Region: {ctx.RegionName(RegionIndex)}";
-    public string LevelText(WorldMapState ctx) => "";
+    public string StatusText(WorldMapState ctx, WorldMapView view) => $"Region: {ctx.RegionName(RegionIndex)}";
+    public string LevelText(WorldMapState ctx, WorldMapView view) => "";
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
         // No eyedropper or constraint yet; this tool reads nothing off the map.
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         int max = Mathf.Max(0, ctx.RegionCount - 1);
         byte value = (byte)(erase ? 0 : Mathf.Clamp(RegionIndex, 0, max));
@@ -88,12 +88,12 @@ public class RegionView : IWorldMapView
     // that shows water.
     public bool DrawsWater => true;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
     {
-        Vector2I ct = ctx.Data.ColumnTexelToChunkTexel(px, pz);
-        int idx = Mathf.RoundToInt(ctx.Region.GetPixel(ct.X, ct.Y).R * 255f);
-        Color c = WorldMapState.RegionColor(idx);
-        if (ctx.Underwater(px, pz))
+        Vector2I ct = ink.Map.Data.ColumnTexelToChunkTexel(px, pz);
+        int idx = Mathf.RoundToInt(ink.Map.Region.GetPixel(ct.X, ct.Y).R * 255f);
+        Color c = WorldMapInk.RegionColor(idx);
+        if (ink.Map.Underwater(px, pz))
         {
             c = new Color(c.R * 0.5f, c.G * 0.5f, c.B * 0.5f);
         }

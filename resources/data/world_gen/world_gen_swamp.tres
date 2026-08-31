@@ -32,7 +32,7 @@
 [ext_resource type="Resource" uid="uid://bkcu75nwykw5p" path="res://resources/data/worlds/shared/spawn_lists/village_house04.tres" id="77_house04npcs"]
 [ext_resource type="Resource" uid="uid://85nfqgpg2o16" path="res://resources/data/world_gen/plateau_terrain.tres" id="90_terrain"]
 [ext_resource type="Resource" path="res://resources/data/worlds/swamp_world/world_start_swamp.tres" id="w_start"]
-[ext_resource type="Resource" path="res://resources/data/worlds/swamp_world/world_finish_swamp.tres" id="w_finish"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="w_finish"]
 
 [ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 

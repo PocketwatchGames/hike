@@ -27,7 +27,15 @@ public class WorldMapState
 {
     public readonly WorldMapData Data;
 
-    public WorldState WorldState;  // baked voxels (built on demand at bake time)
+    // The weathered height/water field derived from the elevation, water and
+    // roughness layers. A cache with an invalidation protocol, which is why it
+    // is a type and not four loose arrays: every path that edits those layers
+    // owes it an Invalidate.
+    public readonly TerrainField Field;
+
+    // Highest and lowest edited voxel per column, derived from Tunnels. The
+    // second cache with an invalidation protocol; see VoxelEditOverlay.
+    public readonly VoxelEditOverlay Edits;
 
     public Image Elevation;        // Rf, per column (normalized height, truth)
     public Image Water;            // Rf, per column (water surface height)
@@ -61,27 +69,6 @@ public class WorldMapState
     // SetVoxelEdit: without them every surface query would scan a column's whole
     // height to learn that nothing was ever carved into it, and the cutaway's
     // walk down through rock would run to bedrock before giving up.
-    private int[,] _topEdit;
-    private int[,] _botEdit;
-
-    // Display-only: the cutaway plane the voxel-edit views draw at, in world
-    // voxel Y. Deliberately NOT a tool parameter — it is an INSPECTION control,
-    // and sweeping it through a corridor is how a 2D map answers "how tall is
-    // this". Shared, so switching between Tunnel and Block keeps the same slice
-    // on screen. Not part of the document; nothing here is saved.
-    public int CutawayY;
-
-    // Is the cutaway actually cutting anything? Parked at the top of the world it
-    // is inert, and saying so is what lets a cutting view behave EXACTLY as an
-    // uncut one there — stamps included, which otherwise vanish, since a stamp is
-    // drawn only where it reaches the plane and nothing reaches the world's roof.
-    public bool IsCutAway => CutawayY < Data.WorldMaxY;
-
-    // Display-only: whether the views draw standing water over the terrain.
-    // Off shows the bare banded height field, which is what you want while
-    // shaping a lake bed or a coast you have already flooded. Not part of the
-    // document — nothing here is saved.
-    public bool ShowWater = true;
 
     // World Y of the waterline. Read-only: the elevation layer is signed around
     // it, so shorelines are painted rather than made by sliding the sea.
@@ -110,21 +97,11 @@ public class WorldMapState
     // TerrainId is an index into WorldGen's active kit palette, so this is the
     // translation from "which zone is this chunk" to "which slot does its ground
     // use".
-    private struct ZoneKits
-    {
-        public byte Surface;
-        public byte Shore;
-        public byte Submerged;
-        public byte Cave;
-    }
-
-    private ZoneKits[] _groundKits;
-    private ZoneKits _defaultKits;
-
-
     public WorldMapState(WorldMapData data)
     {
         Data = data;
+        Field = new TerrainField(this);
+        Edits = new VoxelEditOverlay(this);
         Elevation = data.LoadOrCreateElevation();
         Water = data.LoadOrCreateWater();
         Region = data.LoadOrCreateRegion();
@@ -133,13 +110,11 @@ public class WorldMapState
         Scatter = data.LoadOrCreateScatter();
         Ground = data.LoadOrCreateGround();
         WaterType = data.LoadOrCreateWaterType();
-        BuildWaterTypeInk();
         Paving = data.LoadOrCreatePaving();
         Placements = LoadOrCreatePlacements(data);
         Mobs = data.LoadOrCreateMobs();
         Scalars = data.LoadOrCreateScalars();
         Tunnels = data.LoadOrCreateTunnels();
-        CutawayY = data.WorldMaxY;
     }
 
     // Where the cutaway starts a session: the top of the world, i.e. NOT CUT.
@@ -279,8 +254,7 @@ public class WorldMapState
     // it.
     public int TerrainHeight(int px, int pz)
     {
-        EnsureHeights();
-        return _heights[ClampZ(pz) * Data.ImageWidth + ClampX(px)];
+        return Field.Height(px, pz);
     }
 
     // Painted roughness at a column, 0..1. Shares the scalar image: R = mob
@@ -304,333 +278,18 @@ public class WorldMapState
         // The fill is global — a notch cut in a rim moves a shoreline on the far
         // side of the lake — so water cannot be updated over a rect and is
         // simply rebuilt.
-        if (_heights == null)
-        {
-            return;
-        }
-        _heightsDirty = _heightsDirty.Size.X <= 0 ? texelRect : _heightsDirty.Merge(texelRect);
+        Field.Invalidate(texelRect);
     }
 
     public void InvalidateAllHeights()
     {
-        _heights = null;
-        _heightsDirty = default;
+        Field.InvalidateAll();
     }
 
-    private void EnsureHeights()
-    {
-        if (_heights == null)
-        {
-            _heights = new int[Data.ImageWidth * Data.ImageHeight];
-            _water = new int[Data.ImageWidth * Data.ImageHeight];
-            RebuildHeights(new Rect2I(0, 0, Data.ImageWidth, Data.ImageHeight));
-            _heightsDirty = default;
-            return;
-        }
-        if (_heightsDirty.Size.X > 0)
-        {
-            Rect2I dirty = _heightsDirty;
-            _heightsDirty = default;
-            RebuildHeights(dirty);
-        }
-    }
-
-    // Recompute the weathered height field over a region.
-    //
-    // Three passes, and each exists because of a way the naive version broke a
-    // cliff open:
-    //
-    // 1. SPREAD. A cliff's budget is splatted as a cone that decays a voxel per
-    //    roughenTalusRunPerVoxel metres, rather than dumped into the one column
-    //    at the wall. Dumping it produced a step as tall as the budget — a 5m
-    //    wall became a 2m step plus a 3m wall, and a 2m step is mantleable.
-    // 2. CAP. A column may not rise (or fall) so far that it shortens ANY wall
-    //    it touches below the band. Talus is computed from one cliff and is
-    //    blind to the others the column abuts: at a junction of a 0m, 4m and 6m
-    //    plateau, the 6m wall's talus rose 2m at the foot and left the 4m wall
-    //    2m tall — free to mantle.
-    // 3. RELAX. The cap alone reintroduces steps, because a capped column sits
-    //    beside an uncapped one. Both fields are forced 1-Lipschitz afterwards,
-    //    which can only reduce them, so the cap still holds.
-    private void RebuildHeights(Rect2I rect)
-    {
-        int w = Data.ImageWidth;
-        int h = Data.ImageHeight;
-        int spread = Mathf.Clamp(Data.roughenMaxSpreadVoxels, 1, 32);
-        Rect2I outer = Clip(Inflate(rect, spread + 1), w, h);
-        Rect2I src = Clip(Inflate(outer, spread), w, h);
-        // Water first: StandHeight reads it while the erosion below is computed,
-        // and it is a straight per-column read with no neighbourhood, so the same
-        // rect covers it.
-        _water ??= new int[w * h];
-        for (int x = src.Position.X; x < src.Position.X + src.Size.X; x++)
-        {
-            for (int z = src.Position.Y; z < src.Position.Y + src.Size.Y; z++)
-            {
-                float painted = WaterVoxels(x, z);
-                _water[z * w + x] = painted < NoWaterVoxels + 0.5f
-                    ? NoWater
-                    : ColumnHeight(painted);
-            }
-        }
-
-        int ow = outer.Size.X;
-        int oh = outer.Size.Y;
-        var raise = new int[ow * oh];
-        var lower = new int[ow * oh];
-
-        for (int sx = src.Position.X; sx < src.Position.X + src.Size.X; sx++)
-        {
-            for (int sz = src.Position.Y; sz < src.Position.Y + src.Size.Y; sz++)
-            {
-                ComputeShares(sx, sz, out int lipShare, out int footShare, out int selfRaw);
-                if (footShare > 0)
-                {
-                    Splat(raise, outer, sx, sz, footShare, selfRaw, true);
-                }
-                if (lipShare > 0)
-                {
-                    Splat(lower, outer, sx, sz, lipShare, selfRaw, false);
-                }
-            }
-        }
-
-        int band = Mathf.Max(0, Data.roughenKeepBandVoxels);
-        for (int x = 0; x < ow; x++)
-        {
-            for (int z = 0; z < oh; z++)
-            {
-                int px = outer.Position.X + x;
-                int pz = outer.Position.Y + z;
-                int i = z * ow + x;
-                if (raise[i] > 0 || lower[i] > 0)
-                {
-                    Caps(px, pz, band, out int maxRaise, out int maxLower);
-                    raise[i] = Mathf.Min(raise[i], maxRaise);
-                    lower[i] = Mathf.Min(lower[i], maxLower);
-                }
-            }
-        }
-
-        Relax(raise, ow, oh);
-        Relax(lower, ow, oh);
-
-        for (int x = 0; x < ow; x++)
-        {
-            for (int z = 0; z < oh; z++)
-            {
-                int px = outer.Position.X + x;
-                int pz = outer.Position.Y + z;
-                int i = z * ow + x;
-                int raw = RawHeight(px, pz);
-                int value = raw + raise[i] - lower[i];
-                // Talus fills the shallows at the foot of a sea cliff but never
-                // emerges from them: a shelf that breaks the surface is
-                // somewhere to stand, and standing there is what shortens the
-                // cliff. Only ever clamps a RAISE on an already-submerged
-                // column, so dry ground is untouched by this.
-                int water = WaterSurface(px, pz);
-                if (water > raw)
-                {
-                    value = Mathf.Min(value, water);
-                }
-                _heights[pz * w + px] = Mathf.Clamp(value, Data.WorldMinY, Data.WorldMaxY);
-            }
-        }
-    }
-
-    // What this column owes its cliffs: how far its lip may crumble and how much
-    // talus may pile against its foot.
-    //
-    // Both ends of one cliff sample the split at the FOOT column and take the
-    // strength of whichever end is painted, so they agree about the budget: the
-    // two shares are the floor and the ceiling of complementary parts of it, and
-    // sum to exactly the budget however the noise falls. That is what leaves the
-    // band standing, and it means painting either side of a cliff weathers it.
-    private void ComputeShares(int px, int pz, out int lipShare, out int footShare, out int raw)
-    {
-        lipShare = 0;
-        footShare = 0;
-        raw = StandHeight(px, pz);
-        int band = Mathf.Max(0, Data.roughenKeepBandVoxels);
-        int minCliff = Mathf.Max(band + 1, Data.roughenMinCliffVoxels);
-        float here = RoughnessAt(px, pz);
-
-        int lowest = raw;
-        int highest = raw;
-        var lowestAt = new Vector2I(px, pz);
-        var highestAt = new Vector2I(px, pz);
-        for (int d = 0; d < 4; d++)
-        {
-            int nx = px + NeighbourDx[d];
-            int nz = pz + NeighbourDz[d];
-            int nh = StandHeight(nx, nz);
-            if (nh < lowest)
-            {
-                lowest = nh;
-                lowestAt = new Vector2I(nx, nz);
-            }
-            if (nh > highest)
-            {
-                highest = nh;
-                highestAt = new Vector2I(nx, nz);
-            }
-        }
-
-        int drop = raw - lowest;
-        if (drop >= minCliff)
-        {
-            float strength = Mathf.Max(here, RoughnessAt(lowestAt.X, lowestAt.Y));
-            int budget = Mathf.FloorToInt((drop - band) * strength + 0.5f);
-            lipShare = Mathf.FloorToInt(budget * (1f - RoughenSplit(lowestAt)));
-        }
-        int rise = highest - raw;
-        if (rise >= minCliff)
-        {
-            float strength = Mathf.Max(here, RoughnessAt(highestAt.X, highestAt.Y));
-            int budget = Mathf.FloorToInt((rise - band) * strength + 0.5f);
-            footShare = budget - Mathf.FloorToInt(budget * (1f - RoughenSplit(new Vector2I(px, pz))));
-        }
-    }
-
-    // Cone of influence around one end of a cliff. `below` keeps talus on the
-    // low side and crumble on the high side — without it a foot's cone would
-    // also raise the lip above it and undo the erosion.
-    private void Splat(int[] acc, Rect2I outer, int cx, int cz, int share, int refHeight, bool below)
-    {
-        int run = Mathf.Max(1, Data.roughenTalusRunPerVoxel);
-        int reach = Mathf.Min(share * run, Mathf.Clamp(Data.roughenMaxSpreadVoxels, 1, 32));
-        for (int dx = -reach; dx <= reach; dx++)
-        {
-            int x = cx + dx;
-            if (x < outer.Position.X || x >= outer.Position.X + outer.Size.X)
-            {
-                continue;
-            }
-            for (int dz = -reach; dz <= reach; dz++)
-            {
-                int z = cz + dz;
-                if (z < outer.Position.Y || z >= outer.Position.Y + outer.Size.Y)
-                {
-                    continue;
-                }
-                int dist = Mathf.RoundToInt(Mathf.Sqrt(dx * dx + dz * dz));
-                int amount = share - (dist + run - 1) / run;
-                if (amount <= 0)
-                {
-                    continue;
-                }
-                int rh = StandHeight(x, z);
-                if (below ? rh > refHeight : rh < refHeight)
-                {
-                    continue;
-                }
-                int i = (z - outer.Position.Y) * outer.Size.X + (x - outer.Position.X);
-                acc[i] = Mathf.Max(acc[i], amount);
-            }
-        }
-    }
-
-    // How far this column may move before it shortens one of ITS OWN walls below
-    // the band. A wall already shorter than the band contributes a cap of zero,
-    // so weathering never touches it at all.
-    private void Caps(int px, int pz, int band, out int maxRaise, out int maxLower)
-    {
-        maxRaise = int.MaxValue;
-        maxLower = int.MaxValue;
-        int raw = StandHeight(px, pz);
-        for (int d = 0; d < 4; d++)
-        {
-            int nh = StandHeight(px + NeighbourDx[d], pz + NeighbourDz[d]);
-            if (nh > raw)
-            {
-                maxRaise = Mathf.Min(maxRaise, Mathf.Max(0, nh - raw - band));
-            }
-            else if (nh < raw)
-            {
-                maxLower = Mathf.Min(maxLower, Mathf.Max(0, raw - nh - band));
-            }
-        }
-        if (maxRaise == int.MaxValue)
-        {
-            maxRaise = 0;
-        }
-        if (maxLower == int.MaxValue)
-        {
-            maxLower = 0;
-        }
-    }
-
-    // Force the field 1-Lipschitz: no neighbouring pair may differ by more than
-    // a voxel, so the talus is a ramp rather than a set of steps. Two sweeps are
-    // enough for a 4-connected grid, and both only ever REDUCE, which is what
-    // lets this run after the caps without breaking them.
-    private static void Relax(int[] field, int w, int h)
-    {
-        for (int z = 0; z < h; z++)
-        {
-            for (int x = 0; x < w; x++)
-            {
-                int i = z * w + x;
-                int best = int.MaxValue;
-                if (x > 0) { best = Mathf.Min(best, field[i - 1]); }
-                if (z > 0) { best = Mathf.Min(best, field[i - w]); }
-                if (best != int.MaxValue) { field[i] = Mathf.Min(field[i], best + 1); }
-            }
-        }
-        for (int z = h - 1; z >= 0; z--)
-        {
-            for (int x = w - 1; x >= 0; x--)
-            {
-                int i = z * w + x;
-                int best = int.MaxValue;
-                if (x < w - 1) { best = Mathf.Min(best, field[i + 1]); }
-                if (z < h - 1) { best = Mathf.Min(best, field[i + w]); }
-                if (best != int.MaxValue) { field[i] = Mathf.Min(field[i], best + 1); }
-            }
-        }
-    }
-
-    private static Rect2I Inflate(Rect2I r, int by)
-    {
-        return new Rect2I(r.Position.X - by, r.Position.Y - by, r.Size.X + by * 2, r.Size.Y + by * 2);
-    }
-
-    private static Rect2I Clip(Rect2I r, int w, int h)
-    {
-        int x0 = Mathf.Max(0, r.Position.X);
-        int z0 = Mathf.Max(0, r.Position.Y);
-        int x1 = Mathf.Min(w, r.Position.X + r.Size.X);
-        int z1 = Mathf.Min(h, r.Position.Y + r.Size.Y);
-        return new Rect2I(x0, z0, Mathf.Max(0, x1 - x0), Mathf.Max(0, z1 - z0));
-    }
-
-    private static readonly int[] NeighbourDx = { 1, -1, 0, 0 };
-    private static readonly int[] NeighbourDz = { 0, 0, 1, -1 };
+    internal static readonly int[] NeighbourDx = { 1, -1, 0, 0 };
+    internal static readonly int[] NeighbourDz = { 0, 0, 1, -1 };
 
     // 0 = the erosion all comes off the top, 1 = it all piles at the base.
-    private float RoughenSplit(Vector2I texel)
-    {
-        _roughNoise ??= new FastNoiseLite
-        {
-            Seed = Data.roughenNoiseSeed,
-            NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth,
-            Frequency = Data.roughenNoiseFrequency,
-        };
-        Vector2I world = WorldXZ(texel);
-        return Mathf.Clamp(_roughNoise.GetNoise2D(world.X, world.Y) * 0.5f + 0.5f, 0f, 1f);
-    }
-
-    private FastNoiseLite _roughNoise;
-    private int[] _heights;
-
-    // Painted water surface per column, floored at the sea. Cached beside the
-    // heights and refreshed by the same rebuild, so both are array reads on the
-    // paths that ask per texel.
-    private int[] _water;
-
-    private Rect2I _heightsDirty;
-
     // Surface of the water at a column, or NoWater where it has been erased.
     // Read from the cache filled beside the heights, since the outline pass asks
     // per edge and the bake per column.
@@ -649,8 +308,7 @@ public class WorldMapState
     // fill's usefulness.
     public int WaterSurface(int px, int pz)
     {
-        EnsureHeights();
-        return _water[ClampZ(pz) * Data.ImageWidth + ClampX(px)];
+        return Field.Water(px, pz);
     }
 
     // Water at column A stands above whatever B's top surface is, so it pours
@@ -728,74 +386,14 @@ public class WorldMapState
             return;
         }
         Tunnels[px, ly, pz] = edit;
-        EnsureTopEdits();
-        if (edit != EditNone)
-        {
-            _topEdit[px, pz] = Mathf.Max(_topEdit[px, pz], wy);
-            _botEdit[px, pz] = Mathf.Min(_botEdit[px, pz], wy);
-        }
-        else if (_topEdit[px, pz] == wy || _botEdit[px, pz] == wy)
-        {
-            // Only a column that just lost its highest or lowest edit rescans,
-            // and only its own height.
-            int top = Data.WorldMinY - 1;
-            int bot = int.MaxValue;
-            for (int y = 0; y < Data.VoxelHeight; y++)
-            {
-                if (Tunnels[px, y, pz] != EditNone)
-                {
-                    top = Data.WorldMinY + y;
-                    bot = Mathf.Min(bot, top);
-                }
-            }
-            _topEdit[px, pz] = top;
-            _botEdit[px, pz] = bot;
-        }
+        Edits.Note(px, pz, wy, edit);
     }
 
     // Anything that rewrites the edit layer wholesale — an undo restore, a
     // resize — drops the summary instead of maintaining it.
     public void InvalidateVoxelEdits()
     {
-        _topEdit = null;
-    }
-
-    private void EnsureTopEdits()
-    {
-        if (_topEdit != null)
-        {
-            return;
-        }
-        _topEdit = new int[Data.ImageWidth, Data.ImageHeight];
-        _botEdit = new int[Data.ImageWidth, Data.ImageHeight];
-        int floor = Data.WorldMinY - 1;
-        for (int px = 0; px < Data.ImageWidth; px++)
-        {
-            for (int pz = 0; pz < Data.ImageHeight; pz++)
-            {
-                _topEdit[px, pz] = floor;
-                _botEdit[px, pz] = int.MaxValue;
-            }
-        }
-        // In the mask's own memory order (ly is its middle index), scanning UP so
-        // the last write per column is its highest edit. The obvious loop —
-        // per column, downward until something is found — walks the array
-        // against its stride and touches every one of its ~7M bytes as a cache
-        // miss.
-        for (int px = 0; px < Data.ImageWidth; px++)
-        {
-            for (int ly = 0; ly < Data.VoxelHeight; ly++)
-            {
-                for (int pz = 0; pz < Data.ImageHeight; pz++)
-                {
-                    if (Tunnels[px, ly, pz] != EditNone)
-                    {
-                        _topEdit[px, pz] = Data.WorldMinY + ly;
-                        _botEdit[px, pz] = Mathf.Min(_botEdit[px, pz], Data.WorldMinY + ly);
-                    }
-                }
-            }
-        }
+        Edits.InvalidateAll();
     }
 
     // Solid land at a given Y: the height field, minus what has been carved out
@@ -814,9 +412,8 @@ public class WorldMapState
     // touching it at all.
     public int SurfaceBelow(int px, int pz, int clipY)
     {
-        EnsureTopEdits();
         int th = TerrainHeight(px, pz);
-        int topEdit = _topEdit[ClampX(px), ClampZ(pz)];
+        int topEdit = Edits.Top(ClampX(px), ClampZ(pz));
         if (topEdit < th && th <= clipY)
         {
             return th;
@@ -843,7 +440,6 @@ public class WorldMapState
     // down and there is no floor to draw at all.
     public int CutawayFloor(int px, int pz, int clipY, out bool roofed)
     {
-        EnsureTopEdits();
         int x = ClampX(px);
         int z = ClampZ(pz);
         int th = TerrainHeight(px, pz);
@@ -851,7 +447,7 @@ public class WorldMapState
         // An unedited column is solid to its terrain top and air above it, so
         // both answers are one comparison. This is nearly every column on the
         // map, and the walk below would otherwise run per texel per rebuild.
-        if (_topEdit[x, z] < Data.WorldMinY)
+        if (Edits.Top(x, z) < Data.WorldMinY)
         {
             roofed = clipY < th;
             return roofed ? Data.WorldMinY - 1 : th;
@@ -867,7 +463,7 @@ public class WorldMapState
         roofed = SolidAt(px, pz, wy);
         // Below the lowest edit the column is the plain height field, so once the
         // walk gets down there still in rock, nothing under it is hollow.
-        int stop = Mathf.Max(Data.WorldMinY, Mathf.Min(_botEdit[x, z], th));
+        int stop = Mathf.Max(Data.WorldMinY, Mathf.Min(Edits.Bottom(x, z), th));
         while (wy >= stop && SolidAt(px, pz, wy))
         {
             wy--;
@@ -881,32 +477,6 @@ public class WorldMapState
             wy--;
         }
         return wy;
-    }
-
-    // The colour a CUTAWAY view draws at a column: the elevation band of the
-    // highest floor under the cut, or the rock colour where the column is solid
-    // the whole way down with nothing hollow beneath.
-    //
-    // A floor found THROUGH rock keeps its exact band and reports `buried`; the
-    // painter dithers those cells against the rock colour rather than tinting
-    // them, because a tint would move the band into a shade some other height
-    // already owns — the one thing the palette exists to prevent. Water is
-    // composited only where the cut is open to it, since a floor seen through
-    // rock is not under the pool standing on that rock.
-    public Color CutawayColorAt(int px, int pz, int clipY, out bool buried)
-    {
-        int floor = CutawayFloor(px, pz, clipY, out buried);
-        if (floor < Data.WorldMinY)
-        {
-            return Data.cutawayRockColor;
-        }
-        // Paving laid on THIS floor draws over the band, the same argument that
-        // puts it on every map drawn from above: a road is a fact about the
-        // ground you need while working beside it, and underground it is the one
-        // thing telling a corridor you have finished from one you have not.
-        BlockData paving = PavingAtFloor(px, pz, floor);
-        Color band = paving != null ? paving.minimapColor : ElevationColorAt(floor - SeaLevel);
-        return buried ? band : WithWaterOver(band, px, pz, floor, clipY);
     }
 
     // How far BELOW its free surface a body stands or floats in water. Mirrors
@@ -937,502 +507,8 @@ public class WorldMapState
         return water > h ? water - WaterStandDrop : h;
     }
 
-    private int ClampX(int px) => Mathf.Clamp(px, 0, Data.ImageWidth - 1);
-    private int ClampZ(int pz) => Mathf.Clamp(pz, 0, Data.ImageHeight - 1);
-
-    // ---- Bake -----------------------------------------------------------
-
-    // Full build from the current layers: create the WorldState + every chunk,
-    // stamp regions/zones, stamp all columns, propagate sunlight.
-    public WorldState BuildWorld(System.Action<float, string> progress = null)
-    {
-        // The painter itself only reads the layer images, so nothing binds the
-        // flat block/kit tables at launch the way StartGame / StartEditor do.
-        // The stamp below reads them per voxel, so bind here — this is the only
-        // place in the painter that needs them, and it covers both bake entry
-        // points (Ctrl+S and WorldMapData's headless "Bake to .hike" button).
-        // ChunkMesh.SetTerrains is deliberately not called: no meshes are built.
-        // Named rather than left to NullReferenceException from the middle of a
-        // bake: `finish` is the tuning every derived channel reads, so a document
-        // missing it produces a world with no moss, no climb crust, no fog and a
-        // staircase for every painted slope.
-        if (Data.finish == null)
-        {
-            throw new System.InvalidOperationException(
-                $"WorldMapData.finish is null on {Data.ResourcePath} — assign a WorldFinishData.");
-        }
-
-        // The bake's OWN palette instance, handed to the world it builds. It
-        // used to bind process-global tables from this background thread while
-        // the painter was live on the main one — which is why "one bake at a
-        // time" had to be a rule rather than a consequence.
-        // Per-stage timing. The build is minutes on a real document, and which
-        // stage is minutes is not guessable from reading it.
-        var stageClock = System.Diagnostics.Stopwatch.StartNew();
-        var stages = new System.Text.StringBuilder();
-        void Stage(string name)
-        {
-            stages.Append($" {name}={stageClock.ElapsedMilliseconds}ms");
-            stageClock.Restart();
-        }
-
-        Blocks.Bind();
-        var palette = KitPalette.Build(Data.kitPalette);
-
-        var ws = new WorldState(Data.MinChunk, Data.MaxChunk, Data.simData, palette);
-        // A placement's forked entry, and anything that entry authors inline,
-        // lives in this document - which is a bake input and does not ship.
-        ws.AuthoringDocument = Data.placementsPath ?? "";
-        BindZoneKits(palette);
-
-        // Runtime zone table comes from the PAINTED palette, so a chunk's stamped
-        // index and WorldState.Zones[index] are the same list by construction.
-        ZoneData[] zones = Data.PaintableZones;
-        ws.Zones = new ZoneState[zones.Length];
-        for (int i = 0; i < zones.Length; i++)
-        {
-            ws.Zones[i] = new ZoneState
-            {
-                Data = zones[i],
-                WindDirection = new Vector3(0.7f, 0f, 0.7f),
-                Elevation = 0f,
-            };
-        }
-        RegionData[] regions = Data.regions ?? [];
-        ws.Regions = new RegionState[regions.Length];
-        for (int i = 0; i < regions.Length; i++)
-        {
-            ws.Regions[i] = new RegionState { Data = regions[i] };
-        }
-
-        for (int cx = Data.MinChunk.X; cx <= Data.MaxChunk.X; cx++)
-        {
-            for (int cy = Data.MinChunk.Y; cy <= Data.MaxChunk.Y; cy++)
-            {
-                for (int cz = Data.MinChunk.Z; cz <= Data.MaxChunk.Z; cz++)
-                {
-                    var coord = new Vector3I(cx, cy, cz);
-                    var chunk = new ChunkState(coord);
-                    chunk.RegionIndex = SampleChunkIndex(Region, cx, cz, RegionCount);
-                    chunk.ZoneIndex = SampleChunkIndex(Zone, cx, cz, ZoneCount);
-                    ws._chunks[coord] = chunk;
-                }
-            }
-        }
-
-        // The run's quests, party and starting knowledge, off the document's
-
-        // own start content — so a painted .hike carries its own rather than taking
-
-        // whichever world the menu had selected.
-
-        ws.BindStartContent(Data.startContent);
-
-
-        WorldState = ws;
-        Stage("alloc");
-
-        // Stamped a strip at a time purely so the bake can report progress; the
-        // result is identical to one whole-map call.
-        int width = Data.ImageWidth;
-        for (int px = 0; px < width; px++)
-        {
-            StampColumns(new Rect2I(px, 0, 1, Data.ImageHeight), null);
-            if ((px & 15) == 0)
-            {
-                progress?.Invoke(STAMP_START + (STAMP_END - STAMP_START) * px / width, "Stamping terrain");
-            }
-        }
-
-        // Stamp the authored subscenes over the terrain, before the routes and
-        // the scatter: a scene brings its own floor and its own walls, so
-        // anything measured off the ground has to see the building already
-        // standing. Entities come with it, which is why this precedes the
-        // scatter pass that would otherwise plant trees inside it.
-        Stage("columns");
-        progress?.Invoke(STAMP_END, "Stamping scenes");
-        StampPlacements();
-        Stage("scenes");
-
-        // Turn the painted routes into climbable rock, running WORLDGEN'S OWN
-        // pass over the world we just stamped: it takes the per-column answers it
-        // cannot look up here (a route flag instead of a zone's coverage, the
-        // painted water layer instead of a HeightMap) and does the rest itself —
-        // the exposed-face walk, the run heights, the per-block growth table.
-        // Unpatched, so a marked column's whole face is dressed rather than a
-        // fraction of it. Must follow the terrain stamp: it finds walls by
-        // walking exposed faces of real voxels.
-        progress?.Invoke(STAMP_END, "Cutting climbing routes");
-        WorldFinish.StampClimbSurfaces(ws, Data.finish,
-            (wx, wz) => ClimbRouteAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) ? 1f : 0f,
-            (wx, wz) => WaterSurface(wx - Data.WorldMinX, wz - Data.WorldMinZ),
-            Data.climbRouteMinWallVoxels, false);
-        Stage("climb");
-
-        // Scatter props/interactives into the fresh WorldState (Sim is null
-        // here, so this only adds sim states — the painter's initial entity
-        // load spawns the nodes).
-        //
-        // A spawn entry asks its CONTEXT for the level it should place at
-        // (SpawnContext.MobLevel / ForgeLevel). The bake hands it the painted
-        // difficulty layer through SpawnContextForBake, so the answer reaches
-        // exactly this pass — where worldgen installs its zone-band sampler on
-        // the contexts IT builds.
-        progress?.Invoke(STAMP_END, "Scattering entities");
-        RescatterColumns(new Rect2I(0, 0, Data.ImageWidth, Data.ImageHeight));
-        Stage("scatter");
-
-        StampEntities();
-        Stage("entities");
-
-        // Everything a finished world derives from its own voxels, through the
-        // SAME list worldgen ends on (WorldFinish.Finish): grades, detail, the
-        // air pipeline, fog, water currents and the cascades. This used to be
-        // four hand-picked calls into WorldGen, so the channels it did not know
-        // about — fog, EnvTag, interiorness, currents — baked as zeros and
-        // nothing recomputed them on load. A painted world had no fog anywhere
-        // and read Outdoor in every building and tunnel.
-        //
-        // Three things differ from a generated world, and each is a fact about a
-        // painted one rather than a switch:
-        //   - no zone-weight kernel, so the detail scatter takes each voxel's
-        //     own kit (the painter assigns kits per column deterministically);
-        //   - no river-flow field, so water gets the ambient drift only;
-        //   - no sunlight flood, because every consumer of a .hike relights on
-        //     open (Main on both load branches, WorldEditor on both its open
-        //     paths) and it was ~19s of a ~22s bake, discarded every time. Sky
-        //     exposure still runs: it is not serialized, but interiorness — which
-        //     is — floods from it.
-        progress?.Invoke(WRITE_START, "Deriving world");
-        WorldFinish.Finish(ws, Data.finish, new WorldFinish.Options
-        {
-            MinX = Data.WorldMinX,
-            MaxX = Data.WorldMinX + Data.ImageWidth - 1,
-            MinZ = Data.WorldMinZ,
-            MaxZ = Data.WorldMinZ + Data.ImageHeight - 1,
-            MaxGradeStep = MaxGradeStep,
-            // Paving is a deliberate bare tread, exactly as a road is.
-            SkipDetailColumn = (wx, wz) =>
-                SurfacePavingAt(wx - Data.WorldMinX, wz - Data.WorldMinZ) != null,
-            GroundYAt = (wx, wz) => TerrainHeight(wx - Data.WorldMinX, wz - Data.WorldMinZ),
-            PaintedWaterBlockAt = (wx, wz) => PaintedWaterBlockAt(wx - Data.WorldMinX, wz - Data.WorldMinZ),
-            // Moss comes off the painted GROUND, because a painted world has no
-            // ZoneGenData to ask (its zone layer paints ZoneData, and the two
-            // palettes do not correspond). A column's surface kit and cave kit
-            // are exactly the two coverages the pass wants, so painting a
-            // material brings its moss with it — no second brush, and no moss
-            // where nothing was painted.
-            MossCoverageAt = MossCoverageAtWorld,
-            StampWind = StampWind,
-        });
-        Stage("finish");
-        GD.Print($"[bake] build stages:{stages}");
-
-        // Authored spawn, or the world origin when none is placed.
-        int spawnX = Placements.hasSpawn ? Placements.spawnXZ.X : 0;
-        int spawnZ = Placements.hasSpawn ? Placements.spawnXZ.Y : 0;
-        int spawnH = TerrainHeight(spawnX - Data.WorldMinX, spawnZ - Data.WorldMinZ);
-        ws.Spawn = new Vector3(spawnX + 0.5f, spawnH + 2f, spawnZ + 0.5f);
-
-        // NOT lit here: the sun flood is step 3 of the bake (BakeRelightAndWrite),
-        // after the main thread has stamped the canopy. It IS baked into the file
-        // — nothing relights a world on load any more, so a .hike written without
-        // it would load black. See LightEngine.LIGHT_VERSION.
-        return ws;
-    }
-
-    // Hand-placed entities, spawned through the SAME path a scattered one takes
-    // (SpawnEntryData.TrySpawn with the bake's context), so a chest placed by
-    // hand and one rolled by a spawn set differ in position and nothing else.
-    //
-    // The seed is the column, so re-baking an unchanged document places the same
-    // thing twice — an entry that rolls a variant or a loot table must not
-    // shuffle between bakes.
-    private void StampEntities()
-    {
-        foreach (EntityPlacement placement in Placements.entities)
-        {
-            if (placement?.entry == null)
-            {
-                continue;
-            }
-            int px = placement.anchorXZ.X - Data.WorldMinX;
-            int pz = placement.anchorXZ.Y - Data.WorldMinZ;
-            int floor = placement.floorY;
-            if (floor == EntityPlacement.OnTheGround)
-            {
-                // The top of the COLUMN, edits included — not the height field.
-                // The two differ wherever something was carved or built, and an
-                // entity that says it stands on the ground should stand on the
-                // ground that is there: dig a pit under one and it drops in,
-                // rather than hanging over the hole at the height the terrain
-                // used to be.
-                floor = SurfaceBelow(px, pz, int.MaxValue);
-                if (floor < Data.WorldMinY)
-                {
-                    floor = TerrainHeight(px, pz);
-                }
-            }
-            var pos = new Vector3(placement.anchorXZ.X + 0.5f, floor + 1f,
-                placement.anchorXZ.Y + 0.5f);
-            uint seed = Hash(px, pz, ENTITY_SALT);
-            // The quarter turn R/F puts on the placement. Set on the shared bake
-            // context and cleared again rather than passed: this loop is the one
-            // caller that has a facing, and everything else the context answers
-            // must keep giving a scattered entity its random yaw. Safe because
-            // the bake walks these one at a time on one thread.
-            //
-            // AuthoredPosition rides along for the same reason and CANNOT live
-            // on the shared context: RescatterColumns uses that context too, and
-            // a scattered mob must keep the lateral-clearance gate — rejecting a
-            // 1-voxel tunnel is exactly what it is for. A hand-placed one is the
-            // opposite case: the gate wants 4-connected air around the anchor,
-            // which is what a wall is not, so a villager placed in the doorway
-            // you aimed at would silently never spawn. It is the same claim
-            // WorldGen makes for an entry it drops on an authored subscene
-            // marker.
-            SpawnContext context = SpawnContextForBake();
-            context.FacingY = (int)placement.rotation * Mathf.Pi * 0.5f;
-            context.AuthoredPosition = true;
-            placement.entry.TrySpawn(WorldState, pos, new System.Random((int)seed), context);
-            context.FacingY = null;
-            context.AuthoredPosition = false;
-        }
-    }
-
-    // Seat each stamp on the ground under its footprint and write it in.
-    //
-    // The height is WorldGen's own FootprintPlateauY — the most common ground
-    // level across the footprint, ties to the lower one — fed the painted
-    // terrain instead of a HeightMap. Averaging or taking the max would float a
-    // building over a dip or bury it in a rise; the stamp overwrites its whole
-    // bbox, so cutting in is self-correcting and floating is not.
-    private void StampPlacements()
-    {
-        foreach (SubscenePlacement placement in Placements.placements)
-        {
-            SubsceneState sub = SubsceneFor(placement);
-            if (sub == null)
-            {
-                continue;
-            }
-            var anchor = new Vector3(placement.anchorXZ.X, SeatY(placement), placement.anchorXZ.Y);
-            SubsceneStamper.StampAll(WorldState, sub, anchor);
-            GD.Print($"WorldMapState: stamped {placement.path.GetFile()} at {anchor} "
-                + $"(size={sub.Size}, rot={(int)placement.rotation * 90}deg, yOffset={placement.yOffset})");
-        }
-    }
-
-    // Bake phase boundaries, as a fraction of the whole job: stamping is most of
-    // it, then the sun flood and the file write (RELIGHT_START / WRITE_FILE_START).
-    private const float STAMP_START = 0.05f;
-    private const float STAMP_END = 0.80f;
-    private const float WRITE_START = 0.85f;
-
-    // Map every paintable ground set onto palette slots. Runs after
-    // WorldGen.BindActivePalettes, which is what builds that palette.
-    private void BindZoneKits(KitPalette kits)
-    {
-        TerrainKitData[] palette = kits.Kits;
-
-        GroundSetData[] grounds = GroundSets;
-        _groundKits = new ZoneKits[grounds.Length];
-        for (int i = 0; i < grounds.Length; i++)
-        {
-            _groundKits[i] = KitsOf(palette, grounds[i]);
-        }
-        _defaultKits = KitsOf(palette, Data.defaultGround);
-    }
-
-    private static ZoneKits KitsOf(TerrainKitData[] palette, GroundSetData g)
-    {
-        // Every slot falls back to the surface one: a set that authors no shore
-        // or cave kit should read as its own ground, not as slot 0's.
-        byte surface = SlotOf(palette, g?.surfaceKit);
-        return new ZoneKits
-        {
-            Surface = surface,
-            Shore = g?.shoreKit != null ? SlotOf(palette, g.shoreKit) : surface,
-            Submerged = g?.submergedKit != null ? SlotOf(palette, g.submergedKit) : surface,
-            Cave = g?.caveKit != null ? SlotOf(palette, g.caveKit) : surface,
-        };
-    }
-
-    // A ground set may name a kit the document's authored palette does not
-    // carry — that kit has no slot, and silently falling back to 0 would
-    // texture it as some other material.
-    //
-    // The fix is DATA, never appending the missing kit here: the per-voxel
-    // TerrainId is an INDEX into this palette, so appending at bake time would
-    // shift every index and mis-texture the whole world. Append the kit to
-    // KitPaletteData instead, which is the one safe edit.
-    private static byte SlotOf(TerrainKitData[] palette, TerrainKitData kit)
-    {
-        if (kit == null || palette == null)
-        {
-            return 0;
-        }
-        for (int i = 0; i < palette.Length; i++)
-        {
-            if (palette[i] == kit)
-            {
-                return (byte)i;
-            }
-        }
-        GD.PushWarning($"WorldMapState: kit '{kit.ResourcePath}' is not in this document's kit "
-            + "palette, so columns using it bake as palette slot 0. APPEND it to the KitPaletteData "
-            + "(never insert or reorder), or drop the ground set that names it.");
-        return 0;
-    }
-
-    // Re-stamp every column under a texel rect, recording changed voxels.
-    public void StampColumns(Rect2I texelRect, List<Vector3I> changed)
-    {
-        int x0 = Mathf.Max(0, texelRect.Position.X);
-        int z0 = Mathf.Max(0, texelRect.Position.Y);
-        int x1 = Mathf.Min(Data.ImageWidth, texelRect.Position.X + texelRect.Size.X);
-        int z1 = Mathf.Min(Data.ImageHeight, texelRect.Position.Y + texelRect.Size.Y);
-        for (int px = x0; px < x1; px++)
-        {
-            for (int pz = z0; pz < z1; pz++)
-            {
-                StampColumn(px, pz, changed);
-            }
-        }
-    }
-
-    private void StampColumn(int px, int pz, List<Vector3I> changed)
-    {
-        int wx = Data.WorldMinX + px;
-        int wz = Data.WorldMinZ + pz;
-        int th = TerrainHeight(px, pz);
-        int wsurf = WaterSurface(px, pz);
-
-        // Resolved once for the column: paving is one voxel, and resolving a
-        // surface-seated level walks the column.
-        BlockData paving = PavingAt(px, pz);
-        int pavedY = paving != null ? PavedYAt(px, pz) : Data.WorldMinY - 1;
-
-        // Which of the column's zone kits its ground is made of. Painting a zone
-        // changes the material, not just the chunk's runtime behaviour — without
-        // this every painted world came out in whichever kit happened to land in
-        // palette slot 0.
-        ZoneKits kits = KitsAt(px, pz);
-        byte topKit = wsurf > th
-            ? kits.Submerged
-            : th - ShoreWaterSurface(px, pz) <= Data.shoreBandVoxels ? kits.Shore : kits.Surface;
-
-        // The chunk is resolved once per 16 voxels of column instead of per
-        // write. WorldState's world-space setters each hash a Vector3I, and the
-        // three-argument SetBlockWorld hashes three times (it reads the block
-        // and the shape before writing) — ~3.5 dictionary lookups per voxel over
-        // every voxel in the world, which was the whole cost of this pass.
-        int lx = wx & ChunkGrid.MASK;
-        int lz = wz & ChunkGrid.MASK;
-        int cx = wx >> ChunkGrid.SHIFT;
-        int cz = wz >> ChunkGrid.SHIFT;
-        ChunkState chunk = null;
-        int chunkCy = int.MinValue;
-
-        for (int wy = Data.WorldMinY; wy <= Data.WorldMaxY; wy++)
-        {
-            int cy = wy >> ChunkGrid.SHIFT;
-            if (cy != chunkCy)
-            {
-                chunkCy = cy;
-                chunk = WorldState.GetChunk(new Vector3I(cx, cy, cz));
-            }
-            if (chunk == null)
-            {
-                continue;
-            }
-            int ly = wy & ChunkGrid.MASK;
-
-            int desired;
-            byte edit = VoxelEdit(px, pz, wy);
-            if (edit == EditCarve)
-            {
-                // Carve removes GROUND; what stands in the space it opens is the
-                // water layer's business, exactly as it is above the terrain. So
-                // a passage bored below a painted surface comes out flooded —
-                // which is the only way to paint water in a tunnel at all, and it
-                // is undone the same way it is anywhere else, by erasing the
-                // column's water. (Per COLUMN, so a dry passage cannot run under
-                // a lake: the erase that drains the tunnel drains the lake too.)
-                desired = wy <= wsurf ? Blocks.DefaultWaterId : Blocks.AirId;
-            }
-            else if (wy <= th || edit == EditAdd)
-            {
-                // Added geometry stands above the painted ground, so it takes
-                // the zone's surface kit — or its submerged one where the new
-                // voxel sits below a water surface.
-                byte kit = wy > th
-                    ? (wy <= wsurf ? kits.Submerged : kits.Surface)
-                    : th - wy <= Data.surfaceDepthVoxels ? topKit : kits.Cave;
-                chunk.SetTerrainId(lx, ly, lz, kit);
-                desired = WorldState.Kits.BlockFor(kit);
-                if (wy == pavedY)
-                {
-                    // Paving replaces the kit's block on ONE voxel — the floor
-                    // it was laid on, which is the top of the column for a road
-                    // on open ground and the floor of a passage or the ground
-                    // under an arch for one laid beneath the cutaway. Paving is
-                    // a surface, so the rock under a road is still the
-                    // hillside's, and the kit channel keeps its own value: it is
-                    // what the column IS made of, which a road laid over it does
-                    // not change.
-                    desired = paving.blockId;
-                }
-            }
-            else if (wy <= wsurf)
-            {
-                desired = Blocks.DefaultWaterId;
-            }
-            else
-            {
-                desired = Blocks.AirId;
-            }
-
-            int current = chunk.Voxels[lx, ly, lz];
-            if (changed != null)
-            {
-                if (current == desired)
-                {
-                    continue;
-                }
-                changed.Add(new Vector3I(wx, wy, wz));
-            }
-
-            // Ground snaps on Y so the painted terraces read as clean steps;
-            // air and water take their block's own default — and a voxel whose
-            // block did not move keeps the shape it already had, which is what
-            // WorldState's three-argument setter does.
-            SharpAxes shape = Blocks.IsNaturalGround(desired)
-                ? SharpAxes.Y
-                : current == desired ? (SharpAxes)chunk.Shape[lx, ly, lz] : Blocks.DefaultShape(desired);
-            chunk.Voxels[lx, ly, lz] = (byte)desired;
-            chunk.Shape[lx, ly, lz] = (byte)shape;
-        }
-    }
-
-    // The water a column could have a BEACH against: its own surface, or the
-    // highest standing in the four columns around it.
-    //
-    // Measured from the water rather than from seaLevel, because there is no
-    // waterline to measure from any more — and because seaLevel was the wrong
-    // reference in both directions anyway: it sanded the floor of a dry basin
-    // dug below zero, and it never gave a mountain lake a shore at all. A column
-    // with no water anywhere near it comes out far above NoWater's Y and takes
-    // the surface kit, which is the answer it wanted.
-    private int ShoreWaterSurface(int px, int pz)
-    {
-        int best = WaterSurface(px, pz);
-        for (int d = 0; d < 4; d++)
-        {
-            best = Mathf.Max(best, WaterSurface(px + NeighbourDx[d], pz + NeighbourDz[d]));
-        }
-        return best;
-    }
+    internal int ClampX(int px) => Mathf.Clamp(px, 0, Data.ImageWidth - 1);
+    internal int ClampZ(int pz) => Mathf.Clamp(pz, 0, Data.ImageHeight - 1);
 
     // ---- Spawn sets -----------------------------------------------------
 
@@ -1440,7 +516,7 @@ public class WorldMapState
 
     public SpawnSetData[] MobSets => Data.mobSets ?? System.Array.Empty<SpawnSetData>();
 
-    public int MobLevelCount => Mathf.Max(1, Data.mobLevelColors?.Length ?? 1);
+    public int MobLevelCount => Mathf.Max(1, Data.mobLevelCount);
 
     // Painted difficulty at a column, CONTINUOUS in 0..MobLevelCount-1.
     //
@@ -1507,30 +583,6 @@ public class WorldMapState
     // Ground unpainted anywhere: deliberately a flat neutral rather than a guess
     // at the zone's kits, so it is obvious at a glance which ground you have
     // actually authored and which is still inherited.
-    private static readonly Color UNPAINTED_GROUND = new Color(0.30f, 0.29f, 0.27f);
-
-    // What the ground-type views paint: the painted set's own colour and NOTHING
-    // of the height, so the colour answers one question. Height is carried
-    // entirely by the step outlines in those views, which is why they draw every
-    // step down to 1m. Water still composites over the top — a flooded column
-    // reads as water first, whatever the ground under it is.
-    // Paving is resolved HERE rather than in the paving view, so a road shows on
-    // every view that draws ground — you cannot lay props or mobs sensibly along
-    // a road you cannot see. It wins over the ground set because it is what the
-    // surface is actually made of once paved.
-    public Color GroundColorAt(int px, int pz)
-    {
-        BlockData paving = SurfacePavingAt(px, pz);
-        if (paving != null)
-        {
-            return WithWater(paving.minimapColor, px, pz);
-        }
-        int idx = GroundIndexAt(px, pz);
-        GroundSetData[] sets = GroundSets;
-        Color c = idx >= 0 && idx < sets.Length && sets[idx] != null ? sets[idx].mapColor : UNPAINTED_GROUND;
-        return WithWater(c, px, pz);
-    }
-
     public BlockData[] PavingBlocks => Data.pavingBlocks ?? System.Array.Empty<BlockData>();
 
     // Every layer image, in a fixed order, with the texel-to-pixel ratio each
@@ -1893,12 +945,24 @@ public class WorldMapState
     // hidden outright, which is when the cut has genuinely taken the building
     // away and its plan would paint over the passage you are boring under it. A
     // plane parked over everything renders exactly what no plane at all would.
-    public Color StampColorAt(StampPlan plan, int px, int pz, Color under,
-        SubscenePlacement selected)
+    // Which stamp the plan resolves to at a texel, and what that stamp says
+    // there: `index` into the plan, `top` the local Y it draws (-1 where the
+    // scene is empty and only the footprint wash applies). False where no stamp
+    // covers the texel at all.
+    //
+    // Split out from the inking below because it is the whole ANSWER — the
+    // colour is one rendering of it. worldmap_check compares partial rebuilds
+    // against a full one and wants the answer, not a picture of it: comparing
+    // colours made a display concern a dependency of a headless check, and it
+    // was also a weaker test, since two different stamps that happen to ink the
+    // same colour compare equal.
+    public bool StampHitAt(StampPlan plan, int px, int pz, out int index, out int top)
     {
+        index = -1;
+        top = -1;
         if (plan == null)
         {
-            return under;
+            return false;
         }
         for (int i = plan.Stamps.Length - 1; i >= 0; i--)
         {
@@ -1915,20 +979,11 @@ public class WorldMapState
             }
             int at = lz * fp.Size.X + lx;
             int[] tops = plan.Tops[i];
-            int top = at < tops.Length ? tops[at] : -1;
-            bool isSelected = plan.Stamps[i] == selected;
-            if (top >= 0)
-            {
-                // Selected is lifted toward white rather than recoloured, so the
-                // plan stays readable while the selection is obvious.
-                Color content = plan.Colors[i][at];
-                return isSelected ? content.Lerp(Colors.White, 0.35f) : content;
-            }
-            Color ink = Data.placementInk;
-            return under.Lerp(new Color(ink.R, ink.G, ink.B),
-                isSelected ? ink.A * 0.5f : ink.A * 0.2f);
+            index = i;
+            top = at < tops.Length ? tops[at] : -1;
+            return true;
         }
-        return under;
+        return false;
     }
 
     public SpawnEntryData[] EntityPalette => Data.entityPalette ?? System.Array.Empty<SpawnEntryData>();
@@ -2399,147 +1454,10 @@ public class WorldMapState
     // would stand in a tuft of grass and every gap would be bare.
     // Practical maximum of the Perlin fields the sets use, measured across the
     // whole map on every authored set (0.67..0.75).
-    private const uint TREE_SALT = 0x9E37u;
-    private const uint GRASS_SALT = 0x2545u;
-    private const uint CHUNK_SALT = 0x7F4Au;
-    private const uint ENTITY_SALT = 0x85EBu;
-
-    // Re-evaluate scatter for every column under a texel rect: drop the old
-    // entity (if any), then place a new one when the cell has a kind + the
-    // hash roll falls under its density, on dry land. Adds/removes sim states on
-    // WorldState during the bake.
-    public void RescatterColumns(Rect2I texelRect)
-    {
-        int x0 = Mathf.Max(0, texelRect.Position.X);
-        int z0 = Mathf.Max(0, texelRect.Position.Y);
-        int x1 = Mathf.Min(Data.ImageWidth, texelRect.Position.X + texelRect.Size.X);
-        int z1 = Mathf.Min(Data.ImageHeight, texelRect.Position.Y + texelRect.Size.Y);
-        for (int px = x0; px < x1; px++)
-        {
-            for (int pz = z0; pz < z1; pz++)
-            {
-                RescatterColumn(px, pz);
-            }
-        }
-    }
-
-    private void RescatterColumn(int px, int pz)
-    {
-        if (!CanSpawnAt(px, pz))
-        {
-            return;
-        }
-        // Both spawn layers run the same column routine — a mob set is a set
-        // whose tree and foliage slots happen to be empty.
-        ScatterColumn(PropSetAt(px, pz, out float propDensity), propDensity, px, pz);
-        ScatterColumn(MobSetAt(px, pz, out float mobDensity), mobDensity, px, pz);
-    }
-
-    private void ScatterColumn(SpawnSetData set, float density, int px, int pz)
-    {
-        if (set == null)
-        {
-            return;
-        }
-
-        int surfaceY = TerrainHeight(px, pz);
-        var pos = new Vector3(Data.WorldMinX + px + 0.5f, surfaceY + 1f, Data.WorldMinZ + pz + 0.5f);
-
-        // Canopy and ground cover roll separately, each at its own rate.
-        // Anchored at +1.5, not +1: the mesher's shallow-Y smoothing lifts a
-        // flat column's visible top half a voxel, so +1 buries a sprite in the
-        // ground. Worldgen carries the same constant for the same reason.
-        var propPos = new Vector3(pos.X, surfaceY + 1.5f, pos.Z);
-        if (TreeAt(set, px, pz, density))
-        {
-            PlaceProp(set.treeScenes, PropType.Tree, TREE_SALT, px, pz, propPos, 0f);
-        }
-        if (GrassAt(set, px, pz, density))
-        {
-            PlaceProp(set.foliageScenes, PropType.Foliage, GRASS_SALT, px, pz, propPos, set.positionJitter);
-        }
-
-        // Entities: each entry's OWN authored rate, then its own Spawn logic.
-        // The hash decides placement; the seeded Random only fills in details,
-        // so the map preview above stays exact.
-        SpawnListRow[] rows = set.RowsFlat;
-        if (rows == null)
-        {
-            return;
-        }
-        for (int i = 0; i < rows.Length; i++)
-        {
-            SpawnListRow row = rows[i];
-            if (row?.entry == null)
-            {
-                continue;
-            }
-            uint h = Hash(px, pz, ENTITY_SALT + (uint)i);
-            if (!AreaRoll(h, row.squareMetersPerSpawn, density))
-            {
-                continue;
-            }
-            row.TrySpawn(WorldState, pos, new System.Random((int)h), SpawnContextForBake());
-        }
-    }
-
-    private void PlaceProp(WeightedScene[] scenes, PropType type, uint salt, int px, int pz, Vector3 pos, float jitter)
-    {
-        WeightedList<PackedScene> w = WeightedScene.BuildList(scenes);
-        if (w.Count == 0)
-        {
-            return;
-        }
-        if (jitter > 0f)
-        {
-            pos = new Vector3(
-                pos.X + (ToFloat01(Hash(px, pz, salt + 3u)) * 2f - 1f) * jitter,
-                pos.Y,
-                pos.Z + (ToFloat01(Hash(px, pz, salt + 4u)) * 2f - 1f) * jitter);
-        }
-        WorldState.AddEntity(new PropSimState(type, pos, w.Choose(ToFloat01(Hash(px, pz, salt + 1u)) * w.TotalWeight))
-        {
-            RotationY = ToFloat01(Hash(px, pz, salt + 2u)) * Mathf.Tau,
-        });
-    }
-
-    private SpawnContext _bakeContext;
-
-    // Minimal context: the three column queries entries ask about, answered off
-    // the painted document rather than a HeightMap.
-    private SpawnContext SpawnContextForBake()
-    {
-        int levelCap = Data.finish.mobLevelCap;
-        return _bakeContext ??= new SpawnContext
-        {
-            SurfaceYAt = (wx, wz) => TerrainHeight(wx - Data.WorldMinX, wz - Data.WorldMinZ),
-            IsValidColumn = (wx, wz) => CanSpawnAt(wx - Data.WorldMinX, wz - Data.WorldMinZ),
-            IsFlatColumn = (wx, wz) => IsFlatAt(wx - Data.WorldMinX, wz - Data.WorldMinZ),
-            // The painted difficulty layer, which is the only thing that knows a
-            // mob's level in a world nothing generated.
-            MobLevelOverride = (pos, baseLevel) =>
-                Mathf.Clamp(baseLevel + MobLevelAtWorld(pos), 0, levelCap),
-            // A forge takes its tier from the SAME painted layer. Its own scale
-            // matches the mob one by design ("a forge sits at the same tier as
-            // monsters in its zone"), and the danger you painted is the only
-            // statement about difficulty a painted world contains.
-            ForgeLevelOverride = pos => Mathf.Clamp(MobLevelAtWorld(pos), 0, levelCap),
-        };
-    }
-
-    // The moss coverage of the kits under a world-space column: the surface kit
-    // for open ground and cliff faces, the cave kit for anything cut into rock.
-    private (float surface, float cave) MossCoverageAtWorld(int wx, int wz)
-    {
-        ZoneKits kits = KitsAt(wx - Data.WorldMinX, wz - Data.WorldMinZ);
-        KitPalette palette = WorldState?.Kits;
-        if (palette == null)
-        {
-            return (0f, 0f);
-        }
-        return (palette.KitAt(kits.Surface)?.mossCoverage ?? 0f,
-                palette.KitAt(kits.Cave)?.mossCoverage ?? 0f);
-    }
+    internal const uint TREE_SALT = 0x9E37u;
+    internal const uint GRASS_SALT = 0x2545u;
+    internal const uint CHUNK_SALT = 0x7F4Au;
+    internal const uint ENTITY_SALT = 0x85EBu;
 
     // Public because worldmap_check asks it of every hand-placed entity: this is
     // the one TrySpawn gate answerable without a built world, and a rejection by
@@ -2560,22 +1478,7 @@ public class WorldMapState
         return true;
     }
 
-    // Painted ground, else the document's default. The zone has no say in the
-    // material any more — that is the whole point of splitting them.
-    private ZoneKits KitsAt(int px, int pz)
-    {
-        int g = GroundIndexAt(px, pz);
-        return g >= 0 && _groundKits != null && g < _groundKits.Length ? _groundKits[g] : _defaultKits;
-    }
-
-    private int ZoneIndexAt(int px, int pz)
-    {
-        Vector2I ct = Data.ColumnTexelToChunkTexel(px, pz);
-        int idx = Mathf.RoundToInt(Zone.GetPixel(ct.X, ct.Y).R * 255f);
-        return ZoneCount > 0 ? Mathf.Clamp(idx, 0, ZoneCount - 1) : 0;
-    }
-
-    private static uint Hash(int x, int z, uint salt = 0u)
+    internal static uint Hash(int x, int z, uint salt = 0u)
     {
         unchecked
         {
@@ -2588,7 +1491,7 @@ public class WorldMapState
         }
     }
 
-    private static float ToFloat01(uint h) => (h & 0xFFFFFFu) / 16777216f;
+    internal static float ToFloat01(uint h) => (h & 0xFFFFFFu) / 16777216f;
 
     // Save the authored document — the layer images and nothing else. Cheap, and
     // deliberately NOT a bake: baking builds every chunk, stamps ~7M voxels,
@@ -2619,107 +1522,6 @@ public class WorldMapState
     //
     // THREE steps, because the middle one cannot run where the other two want to.
     // The sun flood is baked into the file now (nothing relights a world on load
-    // — see LightEngine.LIGHT_VERSION), and it has to see the tree canopy, which
-    // only FoliageStamper knows and which needs the main thread
-    // (PackedScene.Instantiate). Build and relight are the long passes and want
-    // a worker thread. So a caller that is NOT the main thread drives the three
-    // in order and hops threads for the stamp — see WorldMapPainter.SaveAndBake.
-    // This wrapper is for a main-thread caller, where the split does not matter.
-    public bool Bake(System.Action<float, string> progress = null)
-    {
-        return BakeBuild(progress) && BakeStampOccluders() && BakeRelightAndWrite(progress);
-    }
-
-    // Step 1 — the painted document to voxels. The long one.
-    public bool BakeBuild(System.Action<float, string> progress = null)
-    {
-        if (string.IsNullOrEmpty(Data.outputWorldPath))
-        {
-            GD.PrintErr("WorldMapState: no OutputWorldPath set, nothing to bake.");
-            return false;
-        }
-        _bakeClock = System.Diagnostics.Stopwatch.StartNew();
-        try
-        {
-            progress?.Invoke(0f, "Building chunks");
-            BuildWorld(progress);
-            _bakeBuildMs = _bakeClock.ElapsedMilliseconds;
-            return true;
-        }
-        catch (System.Exception e)
-        {
-            GD.PrintErr($"WorldMapState: world export failed: {e}");
-            return false;
-        }
-    }
-
-    // Step 2 — MAIN THREAD ONLY. Rasterize the sun occluders (tree canopies,
-    // roofs, entity voxels) so the relight below sees them. Milliseconds.
-    public bool BakeStampOccluders()
-    {
-        try
-        {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            FoliageStamper.Stamp(WorldState);
-            EntityVoxelStamper.Stamp(WorldState);
-            _bakeStampMs = sw.ElapsedMilliseconds;
-            return true;
-        }
-        catch (System.Exception e)
-        {
-            GD.PrintErr($"WorldMapState: occluder stamp failed: {e}");
-            return false;
-        }
-    }
-
-    // Step 3 — the sun flood and the file write.
-    public bool BakeRelightAndWrite(System.Action<float, string> progress = null)
-    {
-        try
-        {
-            progress?.Invoke(RELIGHT_START, "Lighting");
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            LightEngine.Relight(WorldState, r => progress?.Invoke(
-                RELIGHT_START + r * (WRITE_FILE_START - RELIGHT_START), "Lighting"));
-            long relightMs = sw.ElapsedMilliseconds;
-            progress?.Invoke(WRITE_FILE_START, "Writing .hike");
-            sw.Restart();
-            WorldFile.Write(Data.outputWorldPath, WorldState);
-            long writeMs = sw.ElapsedMilliseconds;
-            progress?.Invoke(1f, "Done");
-            long ms = _bakeClock != null ? _bakeClock.ElapsedMilliseconds : 0;
-            GD.Print($"WorldMapState: baked world to {Data.outputWorldPath} in {ms}ms");
-            // Phase breakdown, because a bake is minutes and "it was slow" is not
-            // a place to start optimizing from.
-            GD.Print($"[bake] build={_bakeBuildMs}ms occluderStamp={_bakeStampMs}ms relight={relightMs}ms write={writeMs}ms");
-            return true;
-        }
-        catch (System.Exception e)
-        {
-            GD.PrintErr($"WorldMapState: world export failed: {e}");
-            return false;
-        }
-    }
-
-    // Progress boundaries for the two passes that follow BuildWorld.
-    private const float RELIGHT_START = 0.9f;
-    private const float WRITE_FILE_START = 0.98f;
-
-    private System.Diagnostics.Stopwatch _bakeClock;
-    private long _bakeBuildMs;
-    private long _bakeStampMs;
-
-    private byte SampleChunkIndex(Image img, int cx, int cz, int count)
-    {
-        int lcx = cx - Data.MinChunk.X;
-        int lcz = cz - Data.MinChunk.Z;
-        if (lcx < 0 || lcx >= img.GetWidth() || lcz < 0 || lcz >= img.GetHeight())
-        {
-            return 0;
-        }
-        return ClampIndex((byte)Mathf.RoundToInt(img.GetPixel(lcx, lcz).R * 255f), count);
-    }
-
     // ---- Painted wind ---------------------------------------------------
     //
     // The layer is per chunk, R = compass angle over a full turn, G = strength
@@ -2798,26 +1600,7 @@ public class WorldMapState
     // direction and strength; the rest fall back to their zone's prevailing
     // direction, which is what WorldGen does for every chunk it bakes.
     //
-    // Before the wind layer existed the painter skipped this pass altogether, so
-    // a baked .hike shipped a subgrid of stored zeros — signed zero, so not a
-    // wrong wind, just no wind at all for the grass, the motes and mob drift to
-    // read.
-    private void StampWind(WorldState ws)
-    {
-        foreach (ChunkState chunk in ws._chunks.Values)
-        {
-            if (WindForChunk(chunk.ChunkCoord.X, chunk.ChunkCoord.Z, out Vector3 dir, out float speed))
-            {
-                WindGen.FillChunkWind(chunk, dir * speed);
-            }
-            else
-            {
-                WindGen.ComputeChunkWind(ws, chunk);
-            }
-        }
-    }
-
-    private static byte ClampIndex(byte idx, int count)
+    internal static byte ClampIndex(byte idx, int count)
     {
         if (count <= 0)
         {
@@ -2826,199 +1609,4 @@ public class WorldMapState
         return idx >= count ? (byte)(count - 1) : idx;
     }
 
-    // ---- Shared palette / colours (used by the views) -------------------
-
-    public static Color RegionColor(int idx)
-    {
-        if (idx <= 0)
-        {
-            return new Color(0.22f, 0.22f, 0.24f);
-        }
-        return Color.FromHsv((idx * 0.61803398875f) % 1f, 0.55f, 0.85f);
-    }
-
-    public static Color ZoneColor(int idx)
-    {
-        return Color.FromHsv((idx * 0.61803398875f + 0.13f) % 1f, 0.45f, 0.9f);
-    }
-
-    // Hillshade of the RAW (unsnapped) height field: the smooth surface the
-    // author is sculpting, so the map reads as landform. Deliberately not the
-    // snapped field — a terraced height field has zero gradient across each
-    // plateau and would shade as flat slabs; the steps are drawn as edge
-    // outlines instead, which is the job they do well.
-    // 1 texel == 1 metre, so the gradient is a plain central difference.
-    public float ReliefShade(int px, int pz, Vector3 light)
-    {
-        float hl = ElevationVoxels(px - 1, pz);
-        float hr = ElevationVoxels(px + 1, pz);
-        float hd = ElevationVoxels(px, pz - 1);
-        float hu = ElevationVoxels(px, pz + 1);
-        var n = new Vector3(-(hr - hl) * 0.5f, 1f, -(hu - hd) * 0.5f).Normalized();
-        return Mathf.Max(n.Dot(light), 0f);
-    }
-
-    // Standing water, honouring ShowWater. OPAQUE by design: the elevation band
-    // underneath must not read through, or the map says "low ground" and
-    // "underwater" in the same colour language. Just two shades — the shallows
-    // you can wade, and everything below them.
-    public Color WithWater(Color terrain, int px, int pz, int clipY = int.MaxValue)
-    {
-        // Against the DISPLAYED surface, so a bridge built over a lake reads as
-        // the land it is rather than as the water it spans.
-        return WithWaterOver(terrain, px, pz, SurfaceBelow(px, pz, clipY), clipY);
-    }
-
-    // Same, for a caller that already knows the surface. Worth the overload: it
-    // is called per texel per rebuild, and resolving the surface a second time
-    // means a second walk down the column.
-    public Color WithWaterOver(Color terrain, int px, int pz, int surface, int clipY)
-    {
-        if (!ShowWater)
-        {
-            return terrain;
-        }
-        int depth = Mathf.Min(WaterSurface(px, pz), clipY) - surface;
-        if (depth <= 0)
-        {
-            return terrain;
-        }
-        // Shallow to deep across waterDeepAtVoxels, so a shoreline reads pale and
-        // a lake bed dark: the map says how deep water is, not merely that it is
-        // there. Two authored stops rather than a long ramp — the shore is the
-        // edge an author aims at, and more stops make that edge harder to find.
-        float t = Mathf.Clamp(depth / (float)Mathf.Max(1, Data.waterDeepAtVoxels), 0f, 1f);
-        Color water = Data.shallowWaterColor.Lerp(Data.deepWaterColor, t);
-        // A PAINTED type tints the water it was painted on, on every view that
-        // draws water — the same argument paving makes by resolving inside
-        // GroundColorAt: you cannot paint scum along a shoreline you cannot see,
-        // and a type invisible on the map is one you cannot tell you have
-        // already laid down.
-        //
-        // Tint rather than replace, so the depth shading underneath survives:
-        // the map still has to say how deep the water is.
-        //
-        // Only what the document HOLDS, never what the bake will infer. A zone's
-        // own water is applied per column by a noise field at bake time, so
-        // drawing it here would show a pattern the bake does not reproduce —
-        // the same reason latent water is deliberately invisible.
-        Color ink = WaterTypeInkAt(px, pz);
-        return ink.A > 0f ? water.Lerp(ink, Data.waterTypeTintStrength) : water;
-    }
-
-    // The painted type's map colour for a column, or alpha 0 for none. Resolved
-    // against a table built once at load: this runs for every texel of every
-    // rebuild (~295k), so walking to the BlockData per texel would put a
-    // resource dereference in the map's hottest loop.
-    private Color WaterTypeInkAt(int px, int pz)
-    {
-        // Cheapest gates first: this is reached for every WET texel of every
-        // rebuild, and the GetPixel below is a native call. Dry land never gets
-        // here at all — WithWaterOver has already returned.
-        if (_waterTypeInk == null || _waterTypeInk.Length == 0 || Data.waterTypeTintStrength <= 0f)
-        {
-            return default;
-        }
-        int idx = WaterTypeIndexAt(px, pz);
-        return idx >= 0 && idx < _waterTypeInk.Length ? _waterTypeInk[idx] : default;
-    }
-
-    // Alpha is the "is there one" flag, so an empty palette slot and an
-    // unpaintable entry both read as absent without a second array.
-    private Color[] _waterTypeInk;
-
-    private void BuildWaterTypeInk()
-    {
-        BlockData[] types = Data.waterTypes ?? System.Array.Empty<BlockData>();
-        _waterTypeInk = new Color[types.Length];
-        for (int i = 0; i < types.Length; i++)
-        {
-            BlockData b = types[i];
-            _waterTypeInk[i] = b != null && b.render == EBlockRender.Water
-                ? new Color(b.minimapColor.R, b.minimapColor.G, b.minimapColor.B, 1f)
-                : default;
-        }
-    }
-
-    // Water is drawn flat, so the painter skips relief shading on it.
-    public bool IsSubmerged(int px, int pz)
-    {
-        return ShowWater && Underwater(px, pz);
-    }
-
-    // Colour of one column: the authored hue for its 4-metre band, shaded by
-    // which metre of the band it sits on. Both halves of the pair carry meaning,
-    // so a 1m step reads as a shade change and a 4m step as a hue change, and
-    // neither depends on the ramp being wide enough to see — which is what the
-    // old green-to-white hypsometric ramp failed at, since neighbouring steps
-    // differed by a few percent across dozens of levels.
-    // Reads the WEATHERED height, like the step outlines do. Colouring the raw
-    // painted height instead left the bands saying one thing and the outlines
-    // another, and the bands are the half an author reads a cliff's height from.
-    public Color ElevationColor(int px, int pz, int clipY = int.MaxValue)
-    {
-        return ElevationColorAt(SurfaceBelow(px, pz, clipY) - SeaLevel);
-    }
-
-    // Same palette, addressed by height rather than by column — the brush cursor
-    // shows the height it is about to write, which is not on the map yet.
-    // Memo over the document's whole signed range. The palette is authored and
-    // immutable at runtime, and this is asked per texel per rebuild, so the
-    // banding math runs once per distinct height instead of ~295k times.
-    private Color[] _bandMemo;
-
-    public Color ElevationColorAt(int voxelsRelSea)
-    {
-        int lo = Mathf.FloorToInt(Data.minElevationVoxels) - 1;
-        int hi = Mathf.CeilToInt(Data.maxElevationVoxels) + 1;
-        if (voxelsRelSea >= lo && voxelsRelSea <= hi)
-        {
-            _bandMemo ??= new Color[hi - lo + 1];
-            Color memo = _bandMemo[voxelsRelSea - lo];
-            if (memo.A > 0f)
-            {
-                return memo;
-            }
-            Color made = BandColor(voxelsRelSea);
-            _bandMemo[voxelsRelSea - lo] = made;
-            return made;
-        }
-        return BandColor(voxelsRelSea);
-    }
-
-    private Color BandColor(int voxelsRelSea)
-    {
-        Color[] hues = Data.elevationBandHues;
-        if (hues == null || hues.Length == 0)
-        {
-            return new Color(0.5f, 0.5f, 0.5f);
-        }
-        int v = voxelsRelSea;
-        int per = Mathf.Max(1, Data.metersPerBand);
-
-        // Floor division, not C# truncation: heights go negative below the
-        // waterline and -1 must land in the band BELOW zero, not in band 0.
-        int band = v >= 0 ? v / per : ((v + 1) / per) - 1;
-        int within = v - band * per;   // always 0..per-1
-
-        // The authored colour is the band's BASE — its lowest metre — and each
-        // metre above lifts every channel by a fraction of that channel's own
-        // headroom to white, so the hue stays recognisably itself while getting
-        // steadily paler and the step shows even in a channel that started near
-        // full.
-        //
-        // The band's TOP metre lands at elevationBandMaxBrightness of the way to
-        // white and the metres between divide that evenly, which makes the one
-        // knob the band's whole contrast range. Note the top metre reaches it
-        // exactly — dividing by `per` instead would spend part of the range on a
-        // metre that belongs to the next band.
-        Color baseColor = hues[((band % hues.Length) + hues.Length) % hues.Length];
-        float lift = per > 1
-            ? Data.elevationBandMaxBrightness * within / (per - 1)
-            : 0f;
-        return new Color(
-            baseColor.R + (1f - baseColor.R) * lift,
-            baseColor.G + (1f - baseColor.G) * lift,
-            baseColor.B + (1f - baseColor.B) * lift);
-    }
 }

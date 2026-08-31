@@ -1,4 +1,4 @@
-# World Map Painting Tool (`scripts/worldmap/`, `scripts/data/worldmap/`)
+# World Map Painting Tool (`scripts/worldmap/`, `scripts/data/worldmap/`, `scripts/data/world_editor/`)
 
 The **first step in the world-authoring chain**: a broad-brush, in-game paint
 program that authors a layered raster *document* and bakes it into a real
@@ -90,6 +90,120 @@ borrowed from a generator — for one `int`, which is what kept a whole
 as well: `StampGradeShapes` is one of the passes `WorldFinish.Finish` runs, both
 producers need the same answer, and a painted document has no approach to read it
 off. `WorldGen` now reads `genData.finish.maxGradeStep` in its three sites.
+
+## The document vs the tool (`WorldMapInkData`, `WorldMapBrush`)
+
+**Nothing that only affects how the map is DRAWN or how a brush behaves is
+reachable from `WorldMapData`.** The inks, band hues, depth shading, mark sizes
+and danger swatches are `WorldMapInkData`; the falloff/flow/noise tuning is
+`WorldMapBrush`. Both live in `scripts/data/world_editor/`, both are single
+shared assets under `world_authoring/editor/`, and both are `[Export]`s **on the
+painter node** (`world_map_painter.tscn`) rather than on the document. A world
+does not carry its editor's colour scheme, and there is no per-world copy to
+drift.
+
+`WorldMapState.Ink` is therefore INJECTED — the painter passes it to the
+constructor and every headless caller (the bake, `worldmap_check`,
+`WorldMapResize`) leaves it null. That null is the invariant, not an oversight:
+if a headless path ever needs an answer that currently only a colour method
+gives, the answer must be split out of the inking rather than the ink handed to
+the bake. `StampHitAt` is that split and the reason it exists — `worldmap_check`
+compares partial display rebuilds against a full one, and it used to do it by
+comparing `StampColorAt` output, which made a display concern a dependency of a
+headless check AND was a weaker test (two different stamps inking the same
+colour compared equal). It now compares the plan's answer: which stamp, and the
+local Y it draws.
+
+Two things deliberately did NOT move, because the bake does read them:
+
+- **`mobLevelCount`** stayed on `WorldMapData` while `mobLevelColors` moved. The
+  count decodes the scalar layer — a column stores a 0..1 fraction — so it says
+  what the painted world IS, and changing it re-reads every column already
+  painted. The swatches only say how those levels are shown. It was one array
+  doing both jobs, where appending a colour silently re-scaled the world.
+- **`roughen*` and `climbRouteMinWallVoxels`** read like brush tuning and are
+  not. Weathering is derived from the pristine elevation for every column of the
+  bake (`TerrainHeight`), and the climb minimum is handed to
+  `WorldFinish.StampClimbSurfaces`; both change the voxels.
+
+## The classes: the map, the ink, the bake, the view, and two caches
+
+**One model, two consumers, and neither consumer is reachable from the model.**
+`WorldMapState` was 3,058 lines doing all three jobs, and that is what let a
+display value become a dependency of a headless check.
+
+| Class | Is | Holds |
+|---|---|---|
+| `WorldMapState` | the document — layer images, placements, tunnels, load/save/mutate, and every query derived from them | the layers |
+| `WorldMapInk` | how it is DRAWN | the only `WorldMapInkData` in the painter |
+| `WorldMapBake` | how it becomes a `WorldState` / `.hike` | the `WorldState` under construction, the kit-slot binding, the four-stage driver |
+
+The boundary is enforced by what each file compiles against, and it is worth
+checking after any change here: **`WorldMapState` and `WorldMapBake` do not
+name `WorldMapInkData` at all.** A bake pass therefore cannot read a display
+value even by accident.
+
+**Scatter resolution belongs to the MODEL, not to the bake** — `TreeAt`,
+`GrassAt`, `ChunkScatterCells`, `AreaRoll` and the salts. They answer "what does
+this document say stands at this column", which is a property of the map. The
+bake PLACES what the model resolves and the map preview DRAWS what the model
+resolves, which is exactly why the two cannot disagree; filing the resolution
+under the bake is what made that look like shared mutable state needing a
+redesign. Same argument for stamp plans: `Plan`'s per-voxel colours come from
+`BlockData.minimapColor` — the subscene and the block catalog, not the painter's
+palette — so plans stay on the model and only the compositing is `WorldMapInk`'s.
+
+The bake's whole external surface is four entry points (`Bake`, and the
+`BakeBuild` / `BakeStampOccluders` / `BakeRelightAndWrite` split a worker thread
+drives); `BuildWorld`, `StampColumns` and `RescatterColumns` have no callers
+outside it. Members the bake reaches on the model are `internal` rather than
+public: they are the bake's seam, not part of the map's surface.
+
+**Two of the model's parts are caches, not queries, and each is its own type**
+(`WorldMapState.Field` / `.Edits`) — because a cache's real contract is its
+INVALIDATION, and as loose arrays on the state that contract had nowhere to
+live. A path that edits the underlying layer without telling them gets a
+silently wrong answer rather than an error:
+
+| Type | Derived from | Owed |
+|---|---|---|
+| `TerrainField` | elevation + water + roughness layers | `Invalidate(rect)` per edit, `InvalidateAll()` on a whole-layer rewrite (resize, reload, undo restore) |
+| `VoxelEditOverlay` | the tunnel mask | `Note(px, pz, wy, edit)` per written voxel, `InvalidateAll()` on a wholesale rewrite |
+
+`WorldMapState` keeps `TerrainHeight` / `WaterSurface` / `InvalidateHeights` /
+`InvalidateVoxelEdits` as forwarders, so the call surface the tools and the bake
+use did not move.
+
+**Session state is `WorldMapView`, and it is neither the document's nor the
+renderer's.** The cutaway plane and the water toggle sat on `WorldMapState`,
+where the bake, undo, resize and `worldmap_check` could all see them and all had
+to ignore them — and the model never read either, which is the tell that they
+were only parked there.
+
+They cannot move to `WorldMapInk` either, and the reason is worth keeping: **the
+cutaway plane is an input to PAINTING**, not just to drawing — a carve, a paving
+level and an entity's seat are all taken at it. Handing a renderer to `Paint` to
+reach it would make the write path depend on the draw path and put the palette
+back within reach of an edit, which is the exact inversion this split removed.
+
+So the painter owns a `WorldMapView`, `WorldMapInk` holds one (every view reads
+`ink.View`), and the four tool operations that genuinely depend on the working
+plane take it explicitly — `Paint`, `BeginStroke`, `LevelText`, `StatusText`.
+Model queries still never read it: they take a `clipY` argument, which is what
+lets one view cut while another does not.
+
+`TerrainField` is re-entrant through the model by design and must stay so: its
+`Caps` pass asks `Map.StandHeight`, which is `max(RawHeight, WaterSurface)` and
+so re-enters `Field.Water` mid-rebuild. That is safe only because `EnsureHeights`
+clears the dirty rect BEFORE rebuilding, so the re-entrant call reads the
+partially-built array instead of recursing. Do not "tidy" that ordering.
+
+**Verifying a change to any of this: bake and compare the `.hike` byte for
+byte.** The bake is deterministic, so a refactor that preserves behaviour
+produces an identical file — that is what proved this whole split
+(`worldmap_bake <doc.tres> <out.hike>`, ~35s, then `sha256sum` against a
+baseline). Append `quit` or expect an orphaned process: `worldmap_bake` does not
+self-quit, which is the trap the top of this file warns about.
 
 ## Runtime + bake (`WorldMapState`)
 
@@ -300,7 +414,7 @@ Two rules, both about making a map an author can actually READ and AIM:
   bake cannot disagree about where a step lands. Raising it forces coarser
   terracing; 1 simply means the voxel grid is the lattice.
 - **Colour is banded, and the palette is authored, not code.**
-  `WorldMapData.elevationBandHues` + `metersPerBand` (4): the band a height falls
+  `WorldMapInkData.elevationBandHues` + `metersPerBand` (4): the band a height falls
   in picks a colour from the cycle, and the metre within the band lifts it toward
   white by a fraction of each channel's own headroom. The authored colour is the
   band's BASE, its lowest metre, so it is authored at part value: a fully
@@ -314,7 +428,7 @@ Two rules, both about making a map an author can actually READ and AIM:
   percent and the map reads as a smudge.
 
 **Water is a toggleable overlay, not part of the height colouring** —
-`WorldMapState.ShowWater` (**W**, display-only, never saved) gates `WithWater`,
+`WorldMapView.ShowWater` (**W**, display-only, never saved) gates `WithWater`,
 which every land-showing view composites on top of its terrain colour. Off, you
 see the bare banded height field, which is what shaping a lake bed or an
 already-flooded coast needs.
@@ -625,7 +739,7 @@ resolved inside `WorldMapState.WithWaterOver`, the shared "there is water here"
 path, exactly as paving resolves inside `GroundColorAt`. You cannot paint scum
 along a shoreline you cannot see, and a type invisible on the map is one you
 cannot tell you have already laid down. It TINTS rather than replaces
-(`WorldMapData.waterTypeTintStrength`, 0.62) so the depth shading underneath
+(`WorldMapInkData.waterTypeTintStrength`, 0.62) so the depth shading underneath
 survives: the map still has to say how deep the water is.
 
 What the map draws IS what the bake stamps: nothing derives a water type, so
@@ -942,7 +1056,7 @@ so every tool gets the same terrain readability:
   so the sea is one flat sheet outlined only at its shore rather than a contour
   map of a seabed hidden under opaque water. Inked on the
   HIGHER side so a line reads as the rim of its plateau. The ink comes from
-  `WorldMapData.edgeInkSub2m` / `edgeInk2m` / `edgeInkOver2m` (alpha in the
+  `WorldMapInkData.edgeInkSub2m` / `edgeInk2m` / `edgeInkOver2m` (alpha in the
   colour), bucketed by the size of the step: **under 2m, exactly 2m, and more
   than 2m** — which is a TRAVERSAL legend (walk up / mantle / wall) and not a
   height one. That is why the outlines read `WorldMapState.StandSurface` rather
@@ -1144,7 +1258,7 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 |------|--------|-----------|------|
 | `ElevationTool` | elevation (raise/lower/flatten/flatten-soft/smooth/lift/smear) **and** cliff weathering (roughen) | `Op`, `VoxelsPerStroke`, `TargetVoxels`, `RoughenStopIndex`; `AdjustLevel` steps whichever number the op uses | one band per lattice step, eroded heights, water overlaid when `ShowWater` (**W**) |
 | `WaterTool` | each painted column's water surface AND its water type (RMB removes) | `SurfaceVoxels` (R/F, signed; alt+click samples), type (1-9 / Q/E), `ReplaceOnly` (**X**) | water shaded by depth, dry land dimmed — **cuts away** (T/G), so water can be painted inside a passage |
-| `TunnelTool` | LMB carves the box UP from `PaintY`; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `ctx.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
+| `TunnelTool` | LMB carves the box UP from `PaintY`; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `view.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
 | `BlockTool` | the same box, LMB filling it DOWN from `PaintY` | the same | the same view |
 | `RegionTool` | per-chunk region index | `RegionIndex`, named in the option row | region colours, **50% darker under water** |
 | `ZoneTool` | per-chunk zone index | `ZoneIndex`, named in the option row | zone colours, **brightness by elevation** |

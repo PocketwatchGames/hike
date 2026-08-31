@@ -55,7 +55,7 @@ public class WindTool : IWorldMapTool
 
     public string[] Options(WorldMapState ctx) => new[] { "Stroke", "Inward", "Outward" };
 
-    public Color[] OptionColors(WorldMapState ctx) => null;
+    public Color[] OptionColors(WorldMapInk ink) => null;
 
     public int OptionIndex
     {
@@ -66,15 +66,15 @@ public class WindTool : IWorldMapTool
     public string HintText(WorldMapState ctx)
         => "Drag to lay the wind along the sweep; RMB clears back to the zone's wind; Alt picks up what is under the cursor";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
         => $"{_mode} {Arrow(_angle)} {Mathf.RoundToInt(Mathf.RadToDeg(_angle))}°";
 
-    public string LevelText(WorldMapState ctx)
+    public string LevelText(WorldMapState ctx, WorldMapView view)
         => $"{_strength * ctx.Data.windPaintMaxSpeed:0.#} m/s";
 
-    public Color CursorColor(WorldMapState ctx) => WindView.AngleColor(_angle, _strength);
+    public Color CursorColor(WorldMapInk ink) => WindView.AngleColor(_angle, _strength);
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
         _lastTexel = texel;
         _hasLastTexel = true;
@@ -85,7 +85,7 @@ public class WindTool : IWorldMapTool
         }
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         if (_mode == EWindMode.Stroke && _hasLastTexel)
         {
@@ -170,9 +170,9 @@ public class WindView : IWorldMapView
     public bool ShowsAllSteps => true;
     public bool DrawsWater => false;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
     {
-        if (!ctx.WindAtColumn(px, pz, out float angle, out float strength))
+        if (!ink.Map.WindAtColumn(px, pz, out float angle, out float strength))
         {
             return Unpainted;
         }

@@ -25,7 +25,7 @@ public class ZoneTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx) => null;
+    public Color[] OptionColors(WorldMapInk ink) => null;
 
     public int OptionIndex
     {
@@ -35,17 +35,17 @@ public class ZoneTool : IWorldMapTool
 
     public string HintText(WorldMapState ctx) => "";
 
-    public Color CursorColor(WorldMapState ctx) => Colors.White;
+    public Color CursorColor(WorldMapInk ink) => Colors.White;
 
-    public string StatusText(WorldMapState ctx) => $"Zone: {ctx.ZoneName(ZoneIndex)}";
-    public string LevelText(WorldMapState ctx) => "";
+    public string StatusText(WorldMapState ctx, WorldMapView view) => $"Zone: {ctx.ZoneName(ZoneIndex)}";
+    public string LevelText(WorldMapState ctx, WorldMapView view) => "";
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
         // No eyedropper or constraint yet; this tool reads nothing off the map.
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         int max = Mathf.Max(0, ctx.ZoneCount - 1);
         byte value = (byte)(erase ? 0 : Mathf.Clamp(ZoneIndex, 0, max));
@@ -82,10 +82,10 @@ public class ZoneView : IWorldMapView
     public bool ShowsAllSteps => true;
     public bool DrawsWater => false;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
     {
-        Vector2I ct = ctx.Data.ColumnTexelToChunkTexel(px, pz);
-        int idx = Mathf.RoundToInt(ctx.Zone.GetPixel(ct.X, ct.Y).R * 255f);
-        return WorldMapState.ZoneColor(idx);
+        Vector2I ct = ink.Map.Data.ColumnTexelToChunkTexel(px, pz);
+        int idx = Mathf.RoundToInt(ink.Map.Zone.GetPixel(ct.X, ct.Y).R * 255f);
+        return WorldMapInk.ZoneColor(idx);
     }
 }

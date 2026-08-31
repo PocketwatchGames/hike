@@ -15,6 +15,9 @@ public partial class WorldMapPainter : Node3D
     [Export] public WorldMapHud hud;
     [Export] public WorldMapData data;
     [Export] public WorldMapBrush brush;
+    // How the map is inked. On the TOOL, not on the document: none of it reaches
+    // the bake, and a world should not carry its editor's colour scheme.
+    [Export] public WorldMapInkData ink;
     // Escape menu. Full-rect, so an open menu also stops the canvas painting
     // under it.
     [Export] public WorldMapPauseMenu pauseMenu;
@@ -93,10 +96,10 @@ public partial class WorldMapPainter : Node3D
     private int EdgeWidth => Mathf.Clamp(Mathf.RoundToInt(pixelsPerMeter * edgeWidthFraction), 1, pixelsPerMeter);
 
     // Spill edges get their own, wider stroke off the document — see
-    // WorldMapData.waterfallEdgeWidthFraction. At least 2px wherever the zoom
+    // WorldMapInkData.waterfallEdgeWidthFraction. At least 2px wherever the zoom
     // allows one, so a fall never comes out as the same hairline as a contour.
     private int WaterfallEdgeWidth => Mathf.Clamp(
-        Mathf.RoundToInt(pixelsPerMeter * data.waterfallEdgeWidthFraction),
+        Mathf.RoundToInt(pixelsPerMeter * ink.waterfallEdgeWidthFraction),
         Mathf.Min(2, pixelsPerMeter), pixelsPerMeter);
 
     public static WorldMapPainter Current;
@@ -108,6 +111,11 @@ public partial class WorldMapPainter : Node3D
     public Action onQuitToMenu;
 
     private WorldMapState _ctx;
+    // The renderer over _ctx, and the only thing here holding the palette.
+    private WorldMapInk _ink;
+    // The author's current cutaway plane and water toggle. Session state:
+    // the document does not carry it and the bake never sees it.
+    private WorldMapView _view;
     private MapHistory _history;
     private IWorldMapTool[] _tools;
     private int _toolIndex;
@@ -157,6 +165,8 @@ public partial class WorldMapPainter : Node3D
         MusicManager.Instance?.SetEditor(true);
 
         _ctx = new WorldMapState(data);
+        _view = new WorldMapView(data);
+        _ink = new WorldMapInk(_ctx, ink, _view);
         _history = new MapHistory(_ctx, undoDepth);
 
         if (pauseMenu != null)
@@ -250,7 +260,7 @@ public partial class WorldMapPainter : Node3D
     private void ReportHover(Vector2I t)
     {
         SetHoverEntity(ActiveTool.EntityUnder(_ctx, t));
-        int clip = ActiveTool.View.CutsAway ? _ctx.CutawayY : int.MaxValue;
+        int clip = ActiveTool.View.CutsAway ? _view.CutawayY : int.MaxValue;
         int shown = _ctx.CutawayFloor(t.X, t.Y, clip, out _);
         // Solid rock at the plane has no floor to report; fall back to the ground
         // above it rather than leaving the readout blank.
@@ -291,7 +301,7 @@ public partial class WorldMapPainter : Node3D
             return;
         }
         Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
-        int r = Mathf.Max(0, data.entityMarkHighlightRadius);
+        int r = Mathf.Max(0, ink.entityMarkHighlightRadius);
         RebuildDisplay(new Rect2I(at.X - r, at.Y - r, 2 * r + 1, 2 * r + 1));
     }
 
@@ -349,7 +359,7 @@ public partial class WorldMapPainter : Node3D
         }
         canvas.CursorRadiusTexels = ActiveTool.Radius;
         hud.SetActiveTool(index);
-        hud.BuildOptionButtons(ActiveTool.Options(_ctx), ActiveTool.OptionColors(_ctx), SelectOption);
+        hud.BuildOptionButtons(ActiveTool.Options(_ctx), ActiveTool.OptionColors(_ink), SelectOption);
         hud.SetActiveOption(ActiveTool.OptionIndex);
         _markedSelection = ActiveTool.SelectedEntity;
         _markedEntry = ActiveTool.SelectedEntry(_ctx);
@@ -376,12 +386,12 @@ public partial class WorldMapPainter : Node3D
     // between them keeps the slice you were reading.
     private void AdjustCutaway(int dir)
     {
-        SetCutaway(_ctx.CutawayY + dir);
+        SetCutaway(_view.CutawayY + dir);
     }
 
     private void SetCutaway(int y)
     {
-        _ctx.CutawayY = Mathf.Clamp(y, data.WorldMinY, data.WorldMaxY);
+        _view.CutawayY = Mathf.Clamp(y, data.WorldMinY, data.WorldMaxY);
     }
 
     // Reported on EVERY tool, including the ten whose view does not cut. The
@@ -393,9 +403,9 @@ public partial class WorldMapPainter : Node3D
     {
         if (!ActiveTool.View.CutsAway)
         {
-            return $"Cutaway Y={_ctx.CutawayY} (this tool does not cut)";
+            return $"Cutaway Y={_view.CutawayY} (this tool does not cut)";
         }
-        return _ctx.IsCutAway ? $"Cutaway Y={_ctx.CutawayY}" : "Cutaway off (above the world)";
+        return _view.IsCutAway ? $"Cutaway Y={_view.CutawayY}" : "Cutaway off (above the world)";
     }
 
     // Q/E. The option row is refreshed as well as the HUD, since a tool whose
@@ -533,7 +543,7 @@ public partial class WorldMapPainter : Node3D
                     GetViewport().SetInputAsHandled();
                     return;
                 case Key.W:
-                    _ctx.ShowWater = !_ctx.ShowWater;
+                    _view.ShowWater = !_view.ShowWater;
                     RebuildFull();
                     UpdateHud();
                     GetViewport().SetInputAsHandled();
@@ -625,14 +635,15 @@ public partial class WorldMapPainter : Node3D
     // thread even once the painter is gone.
     private static bool RunBake(WorldMapState snapshot, System.Action<float, string> progress)
     {
-        if (!snapshot.BakeBuild(progress))
+        var bake = new WorldMapBake(snapshot);
+        if (!bake.BakeBuild(progress))
         {
             return false;
         }
         var stamped = new System.Threading.Tasks.TaskCompletionSource<bool>();
         Callable.From(() =>
         {
-            try { stamped.TrySetResult(snapshot.BakeStampOccluders()); }
+            try { stamped.TrySetResult(bake.BakeStampOccluders()); }
             catch (System.Exception e) { GD.PrintErr($"WorldMapPainter: occluder stamp failed: {e}"); stamped.TrySetResult(false); }
         }).CallDeferred();
         // Bounded so a bake can never wedge a worker forever if the main loop is
@@ -642,7 +653,7 @@ public partial class WorldMapPainter : Node3D
             GD.PrintErr("WorldMapPainter: timed out waiting for the main thread to stamp sun occluders; bake abandoned.");
             return false;
         }
-        return stamped.Task.Result && snapshot.BakeRelightAndWrite(progress);
+        return stamped.Task.Result && bake.BakeRelightAndWrite(progress);
     }
 
     // Written from the bake worker, read by the tick below — plain volatile
@@ -746,6 +757,8 @@ public partial class WorldMapPainter : Node3D
             return;
         }
         _ctx = new WorldMapState(data);
+        _view = new WorldMapView(data);
+        _ink = new WorldMapInk(_ctx, ink, _view);
         _history = new MapHistory(_ctx, undoDepth);
         AllocateDisplay();
         RebuildFull();
@@ -797,7 +810,7 @@ public partial class WorldMapPainter : Node3D
             == (EStrokeMods.Pick | EStrokeMods.Secondary)
             && ActiveTool.View.CutsAway)
         {
-            int floor = _ctx.CutawayFloor(texel.X, texel.Y, _ctx.CutawayY, out _);
+            int floor = _ctx.CutawayFloor(texel.X, texel.Y, _view.CutawayY, out _);
             if (floor >= data.WorldMinY)
             {
                 SetCutaway(floor + cutawayHeadroom);
@@ -814,7 +827,7 @@ public partial class WorldMapPainter : Node3D
         // spatial — the tool may add, delete or turn an entry, and the region
         // the brush covers says nothing about which.
         _history.Begin(ActiveTool.Name).TouchPlacements(_ctx);
-        ActiveTool.BeginStroke(_ctx, texel, mods);
+        ActiveTool.BeginStroke(_ctx, _view, texel, mods);
         if ((mods & EStrokeMods.Pick) != 0)
         {
             UpdateHud();   // the picked value is the tool's parameter now
@@ -829,7 +842,7 @@ public partial class WorldMapPainter : Node3D
         // it did not raster-write anyway.
         _history.Begin(ActiveTool.Name).TouchRect(_ctx,
             ActiveTool.TouchRect(_ctx, texel, erase) ?? BrushRect(texel, ActiveTool.Radius));
-        ActiveTool.Paint(_ctx, brush, texel, erase);
+        ActiveTool.Paint(_ctx, _view, brush, texel, erase);
         // Elevation or roughness may have moved, and weathering is derived from
         // both over a neighbourhood, so the cached height field has to go.
         _ctx.InvalidateHeights(BrushRect(texel, ActiveTool.Radius));
@@ -902,8 +915,8 @@ public partial class WorldMapPainter : Node3D
         // props into. Resolved ONCE per rebuild: the hit test walks the
         // placement list, and asking per texel would make drawing the map cost
         // more the more buildings the document holds.
-        bool cut = view.CutsAway && _ctx.IsCutAway;
-        int clipY = cut ? _ctx.CutawayY : int.MaxValue;
+        bool cut = view.CutsAway && _view.IsCutAway;
+        int clipY = cut ? _view.CutawayY : int.MaxValue;
         WorldMapState.StampPlan stamps =
             _ctx.PlanStamps(new Rect2I(x0, z0, x1 - x0, z1 - z0), clipY);
         // Only the scene tool answers with a selection, so the highlight shows
@@ -916,7 +929,7 @@ public partial class WorldMapPainter : Node3D
         // neighbours recomputed it.
         if (cut)
         {
-            ResolveCutaway(x0, z0, x1, z1, clipY, _ctx.ShowWater && view.DrawsWater);
+            ResolveCutaway(x0, z0, x1, z1, clipY, _view.ShowWater && view.DrawsWater);
         }
 
         // OFF by default, and the guard is the point: C# evaluates arguments
@@ -929,16 +942,16 @@ public partial class WorldMapPainter : Node3D
         {
             for (int pz = z0; pz < z1; pz++)
             {
-                Color c = _ctx.StampColorAt(stamps, px, pz,
-                    view.ColorAt(_ctx, px, pz), selectedStamp);
+                Color c = _ink.StampColorAt(stamps, px, pz,
+                    view.ColorAt(_ink, px, pz), selectedStamp);
                 if (relief)
                 {
                     // Shading water would put the seabed's shape straight back
                     // into a colour whose whole job is to say you cannot see the
                     // ground.
-                    float mul = _ctx.IsSubmerged(px, pz)
+                    float mul = _ink.IsSubmerged(px, pz)
                         ? 1f
-                        : Mathf.Lerp(1f, _ctx.ReliefShade(px, pz, light) / flat, reliefStrength);
+                        : Mathf.Lerp(1f, _ink.ReliefShade(px, pz, light) / flat, reliefStrength);
                     c = new Color(
                         Mathf.Clamp(c.R * mul, 0f, 1f),
                         Mathf.Clamp(c.G * mul, 0f, 1f),
@@ -957,7 +970,7 @@ public partial class WorldMapPainter : Node3D
         // through the opaque water above it — and it decides whether spill edges
         // are inked at all, since a teal line on a map with no water on it marks
         // something that is not on screen.
-        bool waterVisible = _ctx.ShowWater && view.DrawsWater;
+        bool waterVisible = _view.ShowWater && view.DrawsWater;
         // Starts one cell BEFORE the repainted range: a cell's -X and -Z edges
         // are owned by its left and upper neighbours, so iterating only the
         // repainted cells leaves the first row and column of the rebuild without
@@ -1023,7 +1036,7 @@ public partial class WorldMapPainter : Node3D
         // stay plain while another tool is active.
         EntityPlacement selected = ActiveTool.SelectedEntity;
         SpawnEntryData match = ActiveTool.SelectedEntry(_ctx);
-        int grow = Mathf.Max(0, data.entityMarkHighlightRadius);
+        int grow = Mathf.Max(0, ink.entityMarkHighlightRadius);
         foreach (EntityPlacement placement in _ctx.Placements.entities)
         {
             if (placement == null)
@@ -1044,14 +1057,14 @@ public partial class WorldMapPainter : Node3D
             {
                 continue;
             }
-            Color ink = isSelected ? data.entitySelectedInk
-                : isMatch ? data.entityMatchInk
-                : data.entityInk;
+            Color mark = isSelected ? ink.entitySelectedInk
+                : isMatch ? ink.entityMatchInk
+                : ink.entityInk;
             for (int px = Mathf.Max(at.X - r, x0); px <= Mathf.Min(at.X + r, x1 - 1); px++)
             {
                 for (int pz = Mathf.Max(at.Y - r, z0); pz <= Mathf.Min(at.Y + r, z1 - 1); pz++)
                 {
-                    FillCell(px, pz, ink);
+                    FillCell(px, pz, mark);
                 }
             }
         }
@@ -1060,7 +1073,7 @@ public partial class WorldMapPainter : Node3D
             Vector2I at = _ctx.TexelXZ(_ctx.Placements.spawnXZ);
             if (at.X >= x0 && at.X < x1 && at.Y >= z0 && at.Y < z1)
             {
-                FillCell(at.X, at.Y, data.spawnInk);
+                FillCell(at.X, at.Y, ink.spawnInk);
             }
         }
     }
@@ -1182,11 +1195,11 @@ public partial class WorldMapPainter : Node3D
     }
 
     // Which authored ink an edge gets, by the size of its step: under 2m, exactly
-    // 2m, and more than 2m. Colours (and their alphas) live on WorldMapData with
-    // the rest of the map palette. The minor bucket is skipped entirely on views
-    // whose colour already encodes elevation.
+    // 2m, and more than 2m. Colours (and their alphas) live on WorldMapInkData
+    // with the rest of the map palette. The minor bucket is skipped entirely on
+    // views whose colour already encodes elevation.
     private bool EdgeInk(int delta, bool showMinor, bool climbRoute, bool spills,
-        out Color ink, out int width)
+        out Color edge, out int width)
     {
         width = EdgeWidth;
         // A spill is drawn whatever its height, in its own bright teal and at
@@ -1195,14 +1208,14 @@ public partial class WorldMapPainter : Node3D
         // would otherwise fall into is not even drawn on the elevation map.
         if (spills)
         {
-            ink = data.waterfallInk;
+            edge = ink.waterfallInk;
             width = WaterfallEdgeWidth;
             return true;
         }
         int d = Mathf.Abs(delta);
         if (d <= 0 || (d < 2 && !showMinor))
         {
-            ink = default;
+            edge = default;
             return false;
         }
         // A routed wall takes the climb ink instead of its height ink. The same
@@ -1210,10 +1223,10 @@ public partial class WorldMapPainter : Node3D
         // knows how tall it is, so a separate overlay would only find them again.
         if (climbRoute)
         {
-            ink = data.climbInk;
+            edge = ink.climbInk;
             return true;
         }
-        ink = d < 2 ? data.edgeInkSub2m : d == 2 ? data.edgeInk2m : data.edgeInkOver2m;
+        edge = d < 2 ? ink.edgeInkSub2m : d == 2 ? ink.edgeInk2m : ink.edgeInkOver2m;
         return true;
     }
 
@@ -1298,7 +1311,7 @@ public partial class WorldMapPainter : Node3D
         byte r = (byte)(c.R * 255f);
         byte g = (byte)(c.G * 255f);
         byte b = (byte)(c.B * 255f);
-        Color rock = data.cutawayRockColor;
+        Color rock = ink.cutawayRockColor;
         byte rr = (byte)(rock.R * 255f);
         byte rg = (byte)(rock.G * 255f);
         byte rb = (byte)(rock.B * 255f);
@@ -1391,12 +1404,12 @@ public partial class WorldMapPainter : Node3D
         // Every path that can change what the brush would write already comes
         // through here — tool, option, target level, eyedropper — so the ring
         // tracks it without its own set of hooks.
-        canvas.CursorColor = ActiveTool.CursorColor(_ctx);
+        canvas.CursorColor = ActiveTool.CursorColor(_ink);
         canvas.Refresh();
 
         hud.SetTool(ActiveTool.Name);
-        string status = ActiveTool.StatusText(_ctx);
-        string level = ActiveTool.LevelText(_ctx);
+        string status = ActiveTool.StatusText(_ctx, _view);
+        string level = ActiveTool.LevelText(_ctx, _view);
         string line = string.IsNullOrEmpty(level) ? status : $"{status}  |  {level}";
         hud.SetStatus($"{line}  |  {CutawayText()}");
         hud.SetRadius(ActiveTool.Radius, ScreenPerMeter);

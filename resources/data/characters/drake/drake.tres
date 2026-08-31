@@ -95,4 +95,3 @@ hoverHeight = 1.5
 flySpeed = 10.0
 verticalSpeed = 6.0
 hoverStiffness = 4.0
-windInfluence = 0.3

@@ -2212,8 +2212,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         Vector3 pos = GlobalPosition;
         Vector3 currentVel = LinearVelocity;
 
-        // Local baked air current at the bird, sampled once for both the
-        // along-heading speed modulation and the carry blend below.
+        // Local baked air current at the bird, feeding the along-heading speed
+        // modulation below.
         Vector3 wind = _world?.WorldState?.GetWindVelocityWorld(
             Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z)) ?? Vector3.Zero;
         Vector3 windXZ = new Vector3(wind.X, 0f, wind.Z);
@@ -2230,14 +2230,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 Vector3 dir = toTarget / dist;
                 float speedScale = Mathf.Clamp(dist / (arrivalDist + 1f), 0f, 1f);
-                // Head/tailwind modulation: the wind component ALONG the flight
-                // heading (dir · windXZ, m/s) scales cruise speed by windDragXZ
-                // per m/s, clamped symmetrically to ±windFlySpeedCap. A tailwind
-                // (positive dot) speeds the bird up, a headwind slows it down —
-                // at the default cap a headwind floors it at 50% of flySpeed.
+                // Wind acts on a flier ONLY along its own heading: the component
+                // of the local current in the direction of travel (dir · windXZ,
+                // m/s) scales cruise speed by windInfluence per m/s, clamped
+                // symmetrically to ±windFlySpeedCap. A tailwind speeds the bird
+                // up, a headwind slows it down, and at the default cap a
+                // headwind floors it at 50% of flySpeed. Deliberately no lateral
+                // term — blending the raw current into the desired velocity blew
+                // fliers sideways off their heading, and since yaw follows the
+                // steering direction the mob then visibly crabbed. A flier is
+                // under power and holds its course; only its progress varies.
                 float windAlong = dir.Dot(windXZ);
                 float windSpeedFactor = Mathf.Clamp(
-                    windAlong * md.windDragXZ, -md.windFlySpeedCap, md.windFlySpeedCap);
+                    windAlong * md.windInfluence, -md.windFlySpeedCap, md.windFlySpeedCap);
                 float effectiveFlySpeed = md.flySpeed * (1f + windSpeedFactor);
                 desiredHoriz = dir * effectiveFlySpeed * aiOutput.speed * speedScale * statusMoveMul;
                 if (!targetYaw.HasValue && dist > arrivalDist)
@@ -2246,13 +2251,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 }
             }
         }
-
-        // Wind carry: blend the local air current into the desired horizontal
-        // velocity so birds get carried / fight headwinds (windInfluence tunes
-        // how strongly per species). Layered on top of the speed modulation
-        // above — windInfluence drifts the bird sideways with the wind while
-        // windDragXZ/windFlySpeedCap govern its along-heading propulsion.
-        desiredHoriz += windXZ * md.windInfluence;
 
         // Vertical: spring toward the target altitude. An absolute target Y
         // (aiOutput.flyTargetY — aerial combat anchoring hover to the player's

@@ -68,14 +68,14 @@
 [ext_resource type="Resource" uid="uid://558a5fhxihqs" path="res://resources/data/world_authoring/prop_sets/swamp_highlands.tres" id="ps_6"]
 [ext_resource type="Resource" uid="uid://duhbyv7bnv3p7" path="res://resources/data/world_authoring/prop_sets/swamp_mud.tres" id="ps_7"]
 [ext_resource type="Resource" uid="uid://bo7ej1snf13qx" path="res://resources/data/world_authoring/prop_sets/snowy_mountain.tres" id="ps_8"]
-[ext_resource type="Resource" path="res://resources/data/worlds/test_world/world_finish_test.tres" id="wm_finish"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="wm_finish"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/kits/kit_palette.tres" id="wm_kits"]
 [ext_resource type="Resource" uid="uid://xipwx91yg6gmm" path="res://resources/data/worlds/shared/regions/mountain.tres" id="wm_rg0"]
 [ext_resource type="Resource" uid="uid://eencq3tsp8xw3" path="res://resources/data/worlds/shared/regions/desert.tres" id="wm_rg1"]
 [ext_resource type="Resource" uid="uid://grary0lf8qbz2" path="res://resources/data/worlds/shared/regions/swamp.tres" id="wm_rg2"]
 [ext_resource type="Resource" uid="uid://22wxp5pnkhxtu" path="res://resources/data/worlds/shared/regions/forest.tres" id="wm_rg3"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="wm_sim"]
-[ext_resource type="Resource" path="res://resources/data/worlds/test_world/world_start_test.tres" id="wm_start"]
+[ext_resource type="Resource" uid="uid://comperp28v2jt" path="res://resources/data/worlds/test_world/world_start_test.tres" id="wm_start"]
 [ext_resource type="Resource" path="res://resources/data/voxels/blocks/block_water_clear.tres" id="wt_clear"]
 [ext_resource type="Resource" path="res://resources/data/voxels/blocks/block_water_murky.tres" id="wt_murky"]
 [ext_resource type="Resource" path="res://resources/data/voxels/blocks/block_water_scum_green_full.tres" id="wt_sgf"]
@@ -116,9 +116,6 @@ mobSets = [ExtResource("ms_0"), ExtResource("ms_1"), ExtResource("ms_2"), ExtRes
 presets = [ExtResource("pr_0"), ExtResource("pr_1"), ExtResource("pr_2"), ExtResource("pr_3"), ExtResource("pr_4"), ExtResource("pr_5"), ExtResource("pr_6"), ExtResource("pr_7"), ExtResource("pr_8"), ExtResource("pr_9")]
 sizeChunksX = 36
 sizeChunksZ = 32
-elevationBandHues = PackedColorArray(0.5019608, 0.5019608, 0, 1, 0, 0.5019608, 0, 1, 0.5, 0.25, 0, 1, 0.5020877, 0, 0, 1, 0.5, 0, 0.5, 1, 0.25, 0, 0.5, 1, 0, 0, 0.5, 1, 0, 0.5020877, 0.5020877, 1, 0.5, 0.5, 0.5, 1)
-edgeInk2m = Color(0, 0, 0, 0.87058824)
-edgeInkOver2m = Color(1, 1, 1, 0.83137256)
 elevationImagePath = "res://resources/data/worlds/test_world/map/elevation.exr"
 waterImagePath = "res://resources/data/worlds/test_world/map/water.exr"
 regionImagePath = "res://resources/data/worlds/test_world/map/region.png"

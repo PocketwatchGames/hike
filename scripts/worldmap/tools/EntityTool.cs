@@ -62,7 +62,7 @@ public class EntityTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx) => null;
+    public Color[] OptionColors(WorldMapInk ink) => null;
 
     public int OptionIndex
     {
@@ -70,13 +70,13 @@ public class EntityTool : IWorldMapTool
         set => PaletteIndex = Mathf.Max(0, value);
     }
 
-    public Color CursorColor(WorldMapState ctx)
-        => SpawnSelected ? ctx.Data.spawnInk : ctx.Data.entityInk;
+    public Color CursorColor(WorldMapInk ink)
+        => SpawnSelected ? ink.Data.spawnInk : ink.Data.entityInk;
 
     public string HintText(WorldMapState ctx)
         => "Hover to name  |  Click to place, drag to move, R/F to turn, RMB to delete";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
     {
         if (SpawnSelected)
         {
@@ -103,7 +103,7 @@ public class EntityTool : IWorldMapTool
     public EntityPlacement EntityUnder(WorldMapState ctx, Vector2I texel)
         => ctx.EntityAt(texel.X, texel.Y, GrabRadius);
 
-    public string LevelText(WorldMapState ctx)
+    public string LevelText(WorldMapState ctx, WorldMapView view)
         => Selected == null ? "" : $"Selected {(int)Selected.rotation * 90} deg";
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
@@ -112,14 +112,14 @@ public class EntityTool : IWorldMapTool
     // The press decides what the stroke is ABOUT and nothing else — it must not
     // place, because the right button fires it too and a right-click on bare
     // ground would drop an entity for the erase that follows to delete again.
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
         _pressHit = ctx.EntityAt(texel.X, texel.Y, GrabRadius);
         _pressWasSpawn = _pressHit == null && ctx.IsSpawnNear(texel.X, texel.Y, GrabRadius);
         _strokeActed = false;
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         if (erase)
         {
@@ -169,7 +169,7 @@ public class EntityTool : IWorldMapTool
                 {
                     entry = entry,
                     anchorXZ = ctx.WorldXZ(texel),
-                    floorY = ctx.FloorForEntity(texel.X, texel.Y, ctx.CutawayY),
+                    floorY = ctx.FloorForEntity(texel.X, texel.Y, view.CutawayY),
                 };
                 _grabOffset = Vector2I.Zero;
                 ctx.AddEntity(Selected);
@@ -184,7 +184,7 @@ public class EntityTool : IWorldMapTool
             // that passage's floor and dragging it out of the mouth puts it back
             // on the ground.
             Vector2I at = ctx.TexelXZ(Selected.anchorXZ);
-            Selected.floorY = ctx.FloorForEntity(at.X, at.Y, ctx.CutawayY);
+            Selected.floorY = ctx.FloorForEntity(at.X, at.Y, view.CutawayY);
         }
     }
 

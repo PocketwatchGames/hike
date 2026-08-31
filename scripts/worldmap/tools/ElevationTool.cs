@@ -106,7 +106,7 @@ public class ElevationTool : IWorldMapTool
 
     public string[] Options(WorldMapState ctx) => OP_NAMES;
 
-    public Color[] OptionColors(WorldMapState ctx) => null;
+    public Color[] OptionColors(WorldMapInk ink) => null;
 
     public int OptionIndex
     {
@@ -116,27 +116,27 @@ public class ElevationTool : IWorldMapTool
 
     // Only the ops that write one specific height can preview it; Raise, Lower
     // and Smooth move a column relative to what it already is.
-    public Color CursorColor(WorldMapState ctx)
+    public Color CursorColor(WorldMapInk ink)
     {
         return Op == EBrushOp.Flatten || Op == EBrushOp.FlattenSoft
-            ? ctx.ElevationColorAt(ctx.SnapVoxels(TargetVoxels))
+            ? ink.ElevationColorAt(ink.Map.SnapVoxels(TargetVoxels))
             : Colors.White;
     }
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
     {
         if (Op == EBrushOp.Smear)
         {
-            return $"Smear  |  Ramp between the press and the cursor  |  Water {(ctx.ShowWater ? "on" : "off")}";
+            return $"Smear  |  Ramp between the press and the cursor  |  Water {(view.ShowWater ? "on" : "off")}";
         }
         if (Op == EBrushOp.Roughen)
         {
-            return $"Roughen  |  Weathers cliffs  |  Water {(ctx.ShowWater ? "on" : "off")}";
+            return $"Roughen  |  Weathers cliffs  |  Water {(view.ShowWater ? "on" : "off")}";
         }
-        return $"{Op}  |  Water {(ctx.ShowWater ? "on" : "off")}  |  Alt pick, Shift constrain";
+        return $"{Op}  |  Water {(view.ShowWater ? "on" : "off")}  |  Alt pick, Shift constrain";
     }
 
-    public string LevelText(WorldMapState ctx)
+    public string LevelText(WorldMapState ctx, WorldMapView view)
     {
         if (Op == EBrushOp.Smear)
         {
@@ -175,7 +175,7 @@ public class ElevationTool : IWorldMapTool
     // The target persists after the stroke and shows in the HUD, so it doubles as
     // the fast way to aim Flatten at all: R/F walks one lattice step per press,
     // and picking a plateau you already built beats forty of them.
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
         int here = ctx.SnapVoxels(ctx.ElevationVoxels(texel.X, texel.Y));
         if ((mods & EStrokeMods.Pick) != 0)
@@ -235,7 +235,7 @@ public class ElevationTool : IWorldMapTool
         return _mask[i] == MASK_ELIGIBLE;
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         if (Op == EBrushOp.Smear)
         {
@@ -605,8 +605,8 @@ public class ElevationView : IWorldMapView
     public bool ShowsAllSteps => false;
     public bool DrawsWater => true;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
     {
-        return ctx.WithWater(ctx.ElevationColor(px, pz), px, pz);
+        return ink.WithWater(ink.ElevationColor(px, pz), px, pz);
     }
 }

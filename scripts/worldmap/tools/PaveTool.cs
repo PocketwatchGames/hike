@@ -47,9 +47,9 @@ public class PaveTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx)
+    public Color[] OptionColors(WorldMapInk ink)
     {
-        BlockData[] blocks = ctx.PavingBlocks;
+        BlockData[] blocks = ink.Map.PavingBlocks;
         var colors = new Color[blocks.Length];
         for (int i = 0; i < colors.Length; i++)
         {
@@ -64,7 +64,7 @@ public class PaveTool : IWorldMapTool
         set => BlockIndex = Mathf.Max(0, value);
     }
 
-    public Color CursorColor(WorldMapState ctx) => Shade(ctx, BlockIndex);
+    public Color CursorColor(WorldMapInk ink) => Shade(ink.Map, BlockIndex);
 
     // A block already authors what it looks like from above, for the minimap.
     // Reusing it means a painted road reads the same colour in both places
@@ -81,7 +81,7 @@ public class PaveTool : IWorldMapTool
         "LMB pave the floor the map is showing  |  RMB lift the column's paving  |  "
         + "T/G cutaway, alt+RMB aim it";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
     {
         BlockData[] blocks = ctx.PavingBlocks;
         string label = BlockIndex >= 0 && BlockIndex < blocks.Length ? blocks[BlockIndex]?.blockName : null;
@@ -90,14 +90,14 @@ public class PaveTool : IWorldMapTool
 
     // Which floor the stroke would land on, since that is now the tool's real
     // parameter and it lives on the shared cutaway rather than on the tool.
-    public string LevelText(WorldMapState ctx) =>
-        ctx.IsCutAway ? "Floors under the cutaway" : "Surface";
+    public string LevelText(WorldMapState ctx, WorldMapView view) =>
+        view.IsCutAway ? "Floors under the cutaway" : "Surface";
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         // Hard-edged, ignoring the falloff: a road has a kerb. Feathering an
         // index layer only means the rim of every stroke is a random scattering
@@ -107,7 +107,7 @@ public class PaveTool : IWorldMapTool
         // floor on screen. There is one paving per column, so "lift what is
         // here" cannot be ambiguous — and a seat orphaned by terrain repainted
         // under it would otherwise be unreachable from every plane.
-        int clip = ctx.CutawayY;
+        int clip = view.CutawayY;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             if (erase)
@@ -154,10 +154,10 @@ public class CutawayGroundView : IWorldMapView
     public bool CutsAway => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
     {
-        return ctx.IsCutAway
-            ? ctx.CutawayColorAt(px, pz, ctx.CutawayY, out _)
-            : ctx.GroundColorAt(px, pz);
+        return ink.View.IsCutAway
+            ? ink.CutawayColorAt(px, pz, ink.View.CutawayY, out _)
+            : ink.GroundColorAt(px, pz);
     }
 }

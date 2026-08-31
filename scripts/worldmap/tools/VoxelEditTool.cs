@@ -51,7 +51,7 @@ public abstract class VoxelEditTool : IWorldMapTool
     }
 
     public string[] Options(WorldMapState ctx) => System.Array.Empty<string>();
-    public Color[] OptionColors(WorldMapState ctx) => null;
+    public Color[] OptionColors(WorldMapInk ink) => null;
 
     public int OptionIndex { get => 0; set { } }
 
@@ -63,16 +63,16 @@ public abstract class VoxelEditTool : IWorldMapTool
 
     // The band of the floor being painted, so the ring answers "what height am I
     // drawing at" against the map it is hovering over.
-    public Color CursorColor(WorldMapState ctx) => ctx.ElevationColorAt(PaintY - ctx.SeaLevel);
+    public Color CursorColor(WorldMapInk ink) => ink.ElevationColorAt(PaintY - ink.Map.SeaLevel);
 
-    public string StatusText(WorldMapState ctx) => $"Brush h={Height}";
+    public string StatusText(WorldMapState ctx, WorldMapView view) => $"Brush h={Height}";
 
     // The plane itself is reported by the painter on every tool, so this names
     // only the box being written.
-    public string LevelText(WorldMapState ctx) =>
+    public string LevelText(WorldMapState ctx, WorldMapView view) =>
         $"Y={PaintY} [{BottomY}..{BottomY + Height - 1}]";
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
         // Alt aims the brush at the floor under the cursor, the same eyedropper
         // the elevation and water tools have, and lands PaintY EXACTLY on the
@@ -90,7 +90,7 @@ public abstract class VoxelEditTool : IWorldMapTool
         // surface anyone pointed at, so there the pick is a no-op.
         if ((mods & EStrokeMods.Pick) != 0)
         {
-            int floor = ctx.CutawayFloor(texel.X, texel.Y, ctx.CutawayY, out _);
+            int floor = ctx.CutawayFloor(texel.X, texel.Y, view.CutawayY, out _);
             if (floor >= ctx.Data.WorldMinY)
             {
                 PaintY = floor;
@@ -98,12 +98,12 @@ public abstract class VoxelEditTool : IWorldMapTool
         }
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         // Hard-edged, ignoring the falloff, for the reason Flatten is: a corridor
         // has one floor, and easing it in by weight would step its rim.
         bool wantsSolid = PaintsSolid;
-        int clip = ctx.CutawayY;
+        int clip = view.CutawayY;
         int y0 = BottomY;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
@@ -192,7 +192,7 @@ public class BlockTool : VoxelEditTool
     protected override bool PaintsSolid => true;
 }
 
-// The elevation map, CUT AWAY at WorldMapState.CutawayY: every column draws the
+// The elevation map, CUT AWAY at WorldMapView.CutawayY: every column draws the
 // band of the highest floor under the cut, so the map sees THROUGH a mountain to
 // the passage beneath it, and only rock with nothing hollow anywhere below draws
 // flat cutawayRockColor. A floor found through rock keeps its exact band and is
@@ -211,8 +211,8 @@ public class CutawayElevationView : IWorldMapView
     public bool DrawsWater => true;
     public bool CutsAway => true;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
     {
-        return ctx.CutawayColorAt(px, pz, ctx.CutawayY, out _);
+        return ink.CutawayColorAt(px, pz, ink.View.CutawayY, out _);
     }
 }

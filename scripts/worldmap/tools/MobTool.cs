@@ -37,9 +37,9 @@ public class MobTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx)
+    public Color[] OptionColors(WorldMapInk ink)
     {
-        SpawnSetData[] sets = ctx.MobSets;
+        SpawnSetData[] sets = ink.Map.MobSets;
         var colors = new Color[sets.Length];
         for (int i = 0; i < colors.Length; i++)
         {
@@ -54,9 +54,9 @@ public class MobTool : IWorldMapTool
         set => SetIndex = Mathf.Max(0, value);
     }
 
-    public Color CursorColor(WorldMapState ctx)
+    public Color CursorColor(WorldMapInk ink)
     {
-        SpawnSetData[] sets = ctx.MobSets;
+        SpawnSetData[] sets = ink.Map.MobSets;
         return SetIndex >= 0 && SetIndex < sets.Length && sets[SetIndex] != null
             ? sets[SetIndex].mapColor
             : Colors.White;
@@ -64,20 +64,20 @@ public class MobTool : IWorldMapTool
 
     public string HintText(WorldMapState ctx) => "";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
     {
         SpawnSetData[] sets = ctx.MobSets;
         string label = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex]?.Label : null;
         return string.IsNullOrEmpty(label) ? "No mob sets authored" : label;
     }
 
-    public string LevelText(WorldMapState ctx) => $"Density {Mathf.RoundToInt(Density * 100f)}%";
+    public string LevelText(WorldMapState ctx, WorldMapView view) => $"Density {Mathf.RoundToInt(Density * 100f)}%";
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         byte id = (byte)Mathf.Clamp(SetIndex + 1, 1, 255);
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
@@ -116,5 +116,5 @@ public class MobView : IWorldMapView
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props | ESpawnPreview.Mobs;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
+    public Color ColorAt(WorldMapInk ink, int px, int pz) => ink.GroundColorAt(px, pz);
 }

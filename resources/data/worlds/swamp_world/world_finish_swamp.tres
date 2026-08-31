@@ -1,7 +1,0 @@
-[gd_resource type="Resource" script_class="WorldFinishData" format=3]
-
-[ext_resource type="Script" uid="uid://aej99f5mdp7nj" path="res://scripts/data/world/WorldFinishData.cs" id="1_script"]
-
-[resource]
-script = ExtResource("1_script")
-metadata/_custom_type_script = "uid://aej99f5mdp7nj"

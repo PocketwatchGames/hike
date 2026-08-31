@@ -26,7 +26,11 @@ public enum ELanguageComponents
     // cipher (digits/punctuation pass through unchanged); learning it
     // reveals those words in their original glyphs. Roughly a third of
     // any text resolves per Vocabulary component learned.
+    // Bits are explicit and APPENDED, never inserted — a .tres stores the
+    // numeric value, so renumbering an existing member silently re-teaches
+    // every stone and scroll already authored against it.
     Vocabulary1 = 1 << 2,
     Vocabulary2 = 1 << 3,
-    All = Grammar | Numbers | Vocabulary1 | Vocabulary2,
+    Vocabulary3 = 1 << 4,
+    All = Grammar | Numbers | Vocabulary1 | Vocabulary2 | Vocabulary3,
 }

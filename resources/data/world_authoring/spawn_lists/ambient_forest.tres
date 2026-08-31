@@ -1,63 +1,62 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://xyfblyhyk3mp"]
 
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_tree.tres" id="e_berry_tree"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin_forest.tres" id="e_goblin_forest"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin_forest_elite.tres" id="e_goblin_forest_elite"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/kun_kun_forest.tres" id="e_kun_kun_forest"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_green.tres" id="e_mushroom_green"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_white.tres" id="e_mushroom_white"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_tree.tres" id="e_berry_tree"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/sparrow_forest.tres" id="e_sparrow_forest"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/spider_forest.tres" id="e_spider_forest"]
-
 [ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
 [sub_resource type="Resource" id="Row_goblin_forest"]
 script = ExtResource("listrow")
-entry = ExtResource("e_goblin_forest")
 squareMetersPerSpawn = 1000.0
+entry = ExtResource("e_goblin_forest")
 
 [sub_resource type="Resource" id="Row_goblin_forest_elite"]
 script = ExtResource("listrow")
-entry = ExtResource("e_goblin_forest_elite")
 squareMetersPerSpawn = 6667.0
+entry = ExtResource("e_goblin_forest_elite")
 
 [sub_resource type="Resource" id="Row_kun_kun_forest"]
 script = ExtResource("listrow")
-entry = ExtResource("e_kun_kun_forest")
 squareMetersPerSpawn = 200.0
+entry = ExtResource("e_kun_kun_forest")
 
 [sub_resource type="Resource" id="Row_mushroom_green"]
 script = ExtResource("listrow")
-entry = ExtResource("e_mushroom_green")
 squareMetersPerSpawn = 300.0
+entry = ExtResource("e_mushroom_green")
 
 [sub_resource type="Resource" id="Row_mushroom_red"]
 script = ExtResource("listrow")
-entry = ExtResource("e_mushroom_red")
 squareMetersPerSpawn = 300.0
+entry = ExtResource("e_mushroom_red")
 
 [sub_resource type="Resource" id="Row_mushroom_white"]
 script = ExtResource("listrow")
-entry = ExtResource("e_mushroom_white")
 squareMetersPerSpawn = 300.0
+entry = ExtResource("e_mushroom_white")
 
 [sub_resource type="Resource" id="Row_berry_tree"]
 script = ExtResource("listrow")
-entry = ExtResource("e_berry_tree")
 squareMetersPerSpawn = 300.0
+entry = ExtResource("e_berry_tree")
 
 [sub_resource type="Resource" id="Row_sparrow_forest"]
 script = ExtResource("listrow")
-entry = ExtResource("e_sparrow_forest")
 squareMetersPerSpawn = 100.0
+entry = ExtResource("e_sparrow_forest")
 spawnConditions = 9
 
 [sub_resource type="Resource" id="Row_spider_forest"]
 script = ExtResource("listrow")
-entry = ExtResource("e_spider_forest")
 squareMetersPerSpawn = 800.0
+entry = ExtResource("e_spider_forest")
 
 [resource]
 script = ExtResource("1_list")

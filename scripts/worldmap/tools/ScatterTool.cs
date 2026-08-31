@@ -33,9 +33,9 @@ public class ScatterTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx)
+    public Color[] OptionColors(WorldMapInk ink)
     {
-        SpawnSetData[] sets = ctx.PropSets;
+        SpawnSetData[] sets = ink.Map.PropSets;
         var colors = new Color[sets.Length];
         for (int i = 0; i < colors.Length; i++)
         {
@@ -52,9 +52,9 @@ public class ScatterTool : IWorldMapTool
 
     // The palette entry's own colour, so the toolbar button doubles as the map
     // legend rather than something to memorise.
-    public Color CursorColor(WorldMapState ctx)
+    public Color CursorColor(WorldMapInk ink)
     {
-        SpawnSetData[] sets = ctx.PropSets;
+        SpawnSetData[] sets = ink.Map.PropSets;
         return SetIndex >= 0 && SetIndex < sets.Length && sets[SetIndex] != null
             ? sets[SetIndex].mapColor
             : Colors.White;
@@ -62,14 +62,14 @@ public class ScatterTool : IWorldMapTool
 
     public string HintText(WorldMapState ctx) => "";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
     {
         SpawnSetData[] sets = ctx.PropSets;
         string label = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex]?.Label : null;
         return string.IsNullOrEmpty(label) ? "No prop sets authored" : label;
     }
 
-    public string LevelText(WorldMapState ctx)
+    public string LevelText(WorldMapState ctx, WorldMapView view)
     {
         SpawnSetData[] sets = ctx.PropSets;
         SpawnSetData set = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex] : null;
@@ -84,11 +84,11 @@ public class ScatterTool : IWorldMapTool
         return $"Density {Mathf.RoundToInt(Density * 100f)}%  ({trees}{grass})".TrimEnd();
     }
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         byte id = (byte)Mathf.Clamp(SetIndex + 1, 1, 255);
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
@@ -130,5 +130,5 @@ public class ScatterView : IWorldMapView
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
+    public Color ColorAt(WorldMapInk ink, int px, int pz) => ink.GroundColorAt(px, pz);
 }

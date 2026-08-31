@@ -27,25 +27,25 @@ public class ClimbTool : IWorldMapTool
     // No option row: a route is on or off, and the brush is the whole interface.
     public string[] Options(WorldMapState ctx) => System.Array.Empty<string>();
 
-    public Color[] OptionColors(WorldMapState ctx) => null;
+    public Color[] OptionColors(WorldMapInk ink) => null;
 
     public int OptionIndex { get => 0; set { } }
 
-    public Color CursorColor(WorldMapState ctx) => ctx.Data.climbInk;
+    public Color CursorColor(WorldMapInk ink) => ink.Data.climbInk;
 
     public string HintText(WorldMapState ctx)
         => "Paint the tall edges to make them climbable; RMB clears";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
         => $"Routes on walls {ctx.Data.climbRouteMinWallVoxels}m and taller";
 
-    public string LevelText(WorldMapState ctx) => "";
+    public string LevelText(WorldMapState ctx, WorldMapView view) => "";
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         // Binary, and NOT eased by the falloff: a route is a thing or it is not,
         // and half a route dressed is just a wall with holes in it. The brush

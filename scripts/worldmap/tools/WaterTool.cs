@@ -65,11 +65,11 @@ public class WaterTool : IWorldMapTool
     // Each type's own minimapColor, which is what the block already authors for
     // "what does this look like from above" — a second palette would only drift
     // from it.
-    public Color[] OptionColors(WorldMapState ctx)
+    public Color[] OptionColors(WorldMapInk ink)
     {
-        BlockData[] types = ctx.Data.waterTypes ?? System.Array.Empty<BlockData>();
+        BlockData[] types = ink.Map.Data.waterTypes ?? System.Array.Empty<BlockData>();
         var colors = new Color[types.Length + 1];
-        colors[0] = ctx.Data.shallowWaterColor;
+        colors[0] = ink.Data.shallowWaterColor;
         for (int i = 0; i < types.Length; i++)
         {
             colors[i + 1] = types[i] != null ? types[i].minimapColor : Colors.Magenta;
@@ -92,12 +92,12 @@ public class WaterTool : IWorldMapTool
     // The type about to be laid down, so the brush ring answers "what am I
     // painting" against the map under it — the same thing the elevation tool's
     // ring does with its target band.
-    public Color CursorColor(WorldMapState ctx)
+    public Color CursorColor(WorldMapInk ink)
     {
-        BlockData[] types = ctx.Data.waterTypes;
+        BlockData[] types = ink.Map.Data.waterTypes;
         return _typeIndex >= 0 && types != null && _typeIndex < types.Length && types[_typeIndex] != null
             ? types[_typeIndex].minimapColor
-            : ctx.Data.shallowWaterColor;
+            : ink.Data.shallowWaterColor;
     }
 
     public string HintText(WorldMapState ctx)
@@ -106,10 +106,10 @@ public class WaterTool : IWorldMapTool
         + "alt+LMB samples a height, alt+RMB aims the cutaway  |  "
         + "RMB removes the water (replace-only: reverts the type)";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
         => ReplaceOnly ? "Retypes water already there" : "Fills each column to the surface";
 
-    public string LevelText(WorldMapState ctx)
+    public string LevelText(WorldMapState ctx, WorldMapView view)
     {
         BlockData[] types = ctx.Data.waterTypes;
         string type = _typeIndex >= 0 && types != null && _typeIndex < types.Length
@@ -118,7 +118,7 @@ public class WaterTool : IWorldMapTool
             : "the zone's";
         return $"Type {type}"
             + (ReplaceOnly ? "  |  REPLACE ONLY" : $"  |  Surface {SurfaceVoxels:+#;-#;0}v (Y={ctx.SeaLevel + SurfaceVoxels})")
-            + $"  |  Cutaway Y={ctx.CutawayY}";
+            + $"  |  Cutaway Y={view.CutawayY}";
     }
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
@@ -127,7 +127,7 @@ public class WaterTool : IWorldMapTool
     // alt+click aims the brush at a height already on the map — the same
     // eyedropper the elevation tool has, and for the same reason: picking the
     // terrace you want the water to meet beats stepping R/F forty times.
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
         if ((mods & EStrokeMods.Pick) != 0)
         {
@@ -136,7 +136,7 @@ public class WaterTool : IWorldMapTool
             // way to aim, the same as the elevation tool's pick. Read UNDER the
             // cutaway, so pointing into a tunnel picks that tunnel's floor
             // rather than the hilltop over it.
-            int clip = ctx.CutawayY;
+            int clip = view.CutawayY;
             int floor = ctx.CutawayFloor(texel.X, texel.Y, clip, out _);
             if (floor < ctx.Data.WorldMinY)
             {
@@ -159,7 +159,7 @@ public class WaterTool : IWorldMapTool
     // land away later and the lake you painted is already there. (The map still
     // draws only water you could actually see, so it never shows a shoreline the
     // bake does not produce; the hover readout is where latent water shows up.)
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         // Hard-edged, ignoring the falloff: a water surface is LEVEL, and easing
         // it in by weight would tilt the rim of every stroke into a ring of
@@ -231,21 +231,21 @@ public class WaterView : IWorldMapView
     // How far dry land is dimmed, so the water reads as the subject of this map.
     private const float DryLandShade = 0.45f;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
     {
-        int clip = ctx.CutawayY;
-        int floor = ctx.CutawayFloor(px, pz, clip, out bool roofed);
-        if (floor < ctx.Data.WorldMinY)
+        int clip = ink.View.CutawayY;
+        int floor = ink.Map.CutawayFloor(px, pz, clip, out bool roofed);
+        if (floor < ink.Map.Data.WorldMinY)
         {
-            return ctx.Data.cutawayRockColor;
+            return ink.Data.cutawayRockColor;
         }
-        Color band = ctx.ElevationColorAt(floor - ctx.SeaLevel);
+        Color band = ink.ElevationColorAt(floor - ink.Map.SeaLevel);
         if (roofed)
         {
             return band;   // the painter dithers it
         }
-        return Mathf.Min(ctx.WaterSurface(px, pz), clip) > floor
-            ? ctx.WithWaterOver(band, px, pz, floor, clip)
+        return Mathf.Min(ink.Map.WaterSurface(px, pz), clip) > floor
+            ? ink.WithWaterOver(band, px, pz, floor, clip)
             : new Color(band.R * DryLandShade, band.G * DryLandShade, band.B * DryLandShade);
     }
 }

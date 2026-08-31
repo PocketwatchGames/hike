@@ -85,7 +85,7 @@ public class SceneTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx) => null;
+    public Color[] OptionColors(WorldMapInk ink) => null;
 
     public int OptionIndex
     {
@@ -93,12 +93,12 @@ public class SceneTool : IWorldMapTool
         set => SceneIndex = Mathf.Max(0, value);
     }
 
-    public Color CursorColor(WorldMapState ctx) => ctx.Data.placementInk;
+    public Color CursorColor(WorldMapInk ink) => ink.Data.placementInk;
 
     public string HintText(WorldMapState ctx)
         => "Click to place, drag to move, R/F to turn, RMB to delete";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
     {
         string[] paths = Paths();
         if (paths.Length == 0)
@@ -108,7 +108,7 @@ public class SceneTool : IWorldMapTool
         return paths[Mathf.Clamp(SceneIndex, 0, paths.Length - 1)].GetFile().GetBaseName();
     }
 
-    public string LevelText(WorldMapState ctx)
+    public string LevelText(WorldMapState ctx, WorldMapView view)
     {
         if (Selected == null)
         {
@@ -122,7 +122,7 @@ public class SceneTool : IWorldMapTool
     // or none — and nothing else. It must not place: the right button fires this
     // too, and a right-click on empty ground would drop a building for the erase
     // that follows to delete again.
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
         _pressHit = ctx.PlacementAt(texel.X, texel.Y);
         _strokeActed = false;
@@ -149,7 +149,7 @@ public class SceneTool : IWorldMapTool
         }
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         _dirty = null;
         if (erase)
@@ -245,5 +245,5 @@ public class SceneView : IWorldMapView
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
+    public Color ColorAt(WorldMapInk ink, int px, int pz) => ink.GroundColorAt(px, pz);
 }

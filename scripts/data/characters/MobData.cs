@@ -567,12 +567,11 @@ public partial class MobData : Resource
     // flicker into it.
     [Export] public float fallEnterSpeed = 1f;
     [Export] public float fallGraceTime = 0.4f;
-    // Wind pickup factor in [0, 1] while airborne — parallels PlayerData.
+    // Wind pickup factor in [0, 1] while FALLING — parallels PlayerData.
     // windDragXZ. The drift target a falling mob is nudged toward each tick is
     // (sampled wind velocity) × windDragXZ, so a mob in 15 m/s wind drifts
-    // toward 15 × windDragXZ m/s. Zero leaves falls perfectly vertical.
-    // Doubles as the per-(m/s) head/tailwind coefficient on flier cruise speed
-    // (see windFlySpeedCap).
+    // toward 15 × windDragXZ m/s. Zero leaves falls perfectly vertical. A mob
+    // under power is not falling: powered flight uses windInfluence instead.
     [Export(PropertyHint.Range, "0,1,0.005")] public float windDragXZ = 0.075f;
 
     [ExportSubgroup("Flight")]
@@ -591,16 +590,15 @@ public partial class MobData : Resource
     // Altitude spring stiffness (per second). Higher = the bird corrects to its
     // target height more aggressively; lower = lazier, more floaty bobbing.
     [Export] public float hoverStiffness = 3f;
-    // How strongly baked air currents displace flight, as a fraction of the
-    // local wind velocity blended into the bird's desired velocity. 0 = wind
-    // ignored, 1 = fully carried by the wind, >1 = exaggerated (kite-like).
-    [Export(PropertyHint.Range, "0,2,0.05")] public float windInfluence = 0.5f;
-    // Head/tailwind modulation of cruise speed, layered on top of windInfluence.
-    // The component of wind ALONG the flight heading (dot of desired direction
-    // and the local wind) scales flySpeed by windDragXZ per m/s: a tailwind
-    // speeds the bird up, a headwind slows it down. windFlySpeedCap clamps that
-    // fractional contribution symmetrically, so at the default 0.5 a bird tops
-    // out at +50% with the wind and is floored at 50% slower straight into it.
+    // Head/tailwind coefficient on cruise speed, per (m/s) of the local air
+    // current ALONG the flight heading: a tailwind speeds the bird up, a
+    // headwind slows it down. Wind never displaces a powered flier sideways —
+    // it only modulates progress along the course the bird is already holding.
+    // At the default a bird saturates windFlySpeedCap in ~6.7 m/s of headwind.
+    [Export(PropertyHint.Range, "0,1,0.005")] public float windInfluence = 0.075f;
+    // Symmetric clamp on windInfluence's fractional contribution, so at the
+    // default 0.5 a bird tops out at +50% cruise with the wind and is floored
+    // at 50% slower straight into it however hard it blows.
     [Export(PropertyHint.Range, "0,1,0.05")] public float windFlySpeedCap = 0.5f;
     // Voxels of terrain look-ahead along the flight direction: the target
     // altitude is lifted to clear the highest surface within this distance so

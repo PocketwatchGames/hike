@@ -34,7 +34,7 @@
 [ext_resource type="Resource" uid="uid://dd70pnlby8te8" path="res://resources/data/voxels/surfaces/surface_road.tres" id="81_surface_road"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/kits/kit_palette.tres" id="83_kit_palette"]
 [ext_resource type="Resource" uid="uid://bv7ljwtx6gmhi" path="res://resources/data/worlds/default_world/world_start_default.tres" id="w_start"]
-[ext_resource type="Resource" path="res://resources/data/worlds/default_world/world_finish_default.tres" id="w_finish"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="w_finish"]
 
 [ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 

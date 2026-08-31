@@ -36,9 +36,9 @@ public class PresetTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx)
+    public Color[] OptionColors(WorldMapInk ink)
     {
-        PaintPresetData[] sets = ctx.Presets;
+        PaintPresetData[] sets = ink.Map.Presets;
         var colors = new Color[sets.Length];
         for (int i = 0; i < colors.Length; i++)
         {
@@ -53,16 +53,16 @@ public class PresetTool : IWorldMapTool
         set => PresetIndex = Mathf.Max(0, value);
     }
 
-    public Color CursorColor(WorldMapState ctx)
+    public Color CursorColor(WorldMapInk ink)
     {
-        PaintPresetData preset = Active(ctx);
+        PaintPresetData preset = Active(ink.Map);
         return preset?.mapColor ?? Colors.White;
     }
 
     public string HintText(WorldMapState ctx)
         => "Writes ground, props and mobs together; repaint any after. Zone is its own tool";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
     {
         PaintPresetData preset = Active(ctx);
         if (preset == null)
@@ -75,13 +75,13 @@ public class PresetTool : IWorldMapTool
         return $"{preset.Label}  [{layers.Trim()}]";
     }
 
-    public string LevelText(WorldMapState ctx) => "";
+    public string LevelText(WorldMapState ctx, WorldMapView view) => "";
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         PaintPresetData preset = Active(ctx);
         if (preset == null)
@@ -175,5 +175,5 @@ public class PresetView : IWorldMapView
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props | ESpawnPreview.Mobs;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
+    public Color ColorAt(WorldMapInk ink, int px, int pz) => ink.GroundColorAt(px, pz);
 }

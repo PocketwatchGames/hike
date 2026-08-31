@@ -35,13 +35,12 @@ public class MobLevelTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx)
+    public Color[] OptionColors(WorldMapInk ink)
     {
-        Color[] colors = ctx.Data.mobLevelColors;
-        var swatches = new Color[ctx.MobLevelCount];
+        var swatches = new Color[ink.Map.MobLevelCount];
         for (int i = 0; i < swatches.Length; i++)
         {
-            swatches[i] = colors != null && i < colors.Length ? colors[i] : Colors.White;
+            swatches[i] = ink.Data.MobLevelColor(i);
         }
         return swatches;
     }
@@ -52,18 +51,18 @@ public class MobLevelTool : IWorldMapTool
         set => Level = Mathf.Max(0, value);
     }
 
-    public Color CursorColor(WorldMapState ctx) => Shade(ctx, Level);
+    public Color CursorColor(WorldMapInk ink) => Shade(ink, Level);
 
     public string HintText(WorldMapState ctx)
         => "Eases toward the level you pick; RMB eases back to 0";
 
-    public string StatusText(WorldMapState ctx) => $"Danger level {Level}";
+    public string StatusText(WorldMapState ctx, WorldMapView view) => $"Danger level {Level}";
 
     // The ramp sampled at a continuous level — stops lerped linearly, so the
     // brush's soft edge reads as a fade between bands instead of a hard ring.
-    public static Color Shade(WorldMapState ctx, float level)
+    public static Color Shade(WorldMapInk ink, float level)
     {
-        Color[] colors = ctx.Data.mobLevelColors;
+        Color[] colors = ink.Data.mobLevelColors;
         if (colors == null || colors.Length == 0)
         {
             return Colors.Gray;
@@ -74,13 +73,13 @@ public class MobLevelTool : IWorldMapTool
         return colors[lo].Lerp(colors[hi], t - lo);
     }
 
-    public string LevelText(WorldMapState ctx) => "";
+    public string LevelText(WorldMapState ctx, WorldMapView view) => "";
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         // SOFT, unlike the index layers: this field is continuous, so the brush
         // eases toward its target and the falloff becomes the gradient. Painting
@@ -117,8 +116,8 @@ public class MobLevelView : IWorldMapView
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.None;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz)
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
     {
-        return ctx.WithWater(MobLevelTool.Shade(ctx, ctx.MobLevelAt(px, pz)), px, pz);
+        return ink.WithWater(MobLevelTool.Shade(ink, ink.Map.MobLevelAt(px, pz)), px, pz);
     }
 }

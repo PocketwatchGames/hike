@@ -1,22 +1,11 @@
-[gd_resource type="Resource" script_class="WorldStartData" format=3]
+[gd_resource type="Resource" script_class="WorldStartData" format=3 uid="uid://comperp28v2jt"]
 
 [ext_resource type="Script" uid="uid://pd51crv4psgyd" path="res://scripts/data/world/WorldStartData.cs" id="1_script"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="2_teach"]
 [ext_resource type="Script" uid="uid://c0fdcxkkhfb23" path="res://scripts/data/teaching/SpellTeachable.cs" id="3_spellteach"]
 [ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/worlds/shared/party/mischa.tres" id="4_mischa"]
-[ext_resource type="Resource" uid="uid://vlhadu2uwy1q" path="res://resources/data/worlds/shared/party/rowan.tres" id="5_rowan"]
-[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/spells/divine_cleanse.tres" id="6_cure"]
-[ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/spells/dog_treat.tres" id="7_treat"]
 [ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/spells/smelling_salts.tres" id="8_salts"]
 [ext_resource type="Resource" path="res://resources/data/worlds/test_world/test_world_script.tres" id="9_script"]
-
-[sub_resource type="Resource" id="Know_cure"]
-script = ExtResource("3_spellteach")
-spell = ExtResource("6_cure")
-
-[sub_resource type="Resource" id="Know_treat"]
-script = ExtResource("3_spellteach")
-spell = ExtResource("7_treat")
 
 [sub_resource type="Resource" id="Know_salts"]
 script = ExtResource("3_spellteach")
@@ -25,5 +14,5 @@ spell = ExtResource("8_salts")
 [resource]
 script = ExtResource("1_script")
 scriptData = ExtResource("9_script")
-startingParty = [ExtResource("4_mischa"), ExtResource("5_rowan")]
-initialKnowledge = Array[ExtResource("2_teach")]([SubResource("Know_cure"), SubResource("Know_treat"), SubResource("Know_salts")])
+startingParty = [ExtResource("4_mischa")]
+initialKnowledge = Array[ExtResource("2_teach")]([SubResource("Know_salts")])

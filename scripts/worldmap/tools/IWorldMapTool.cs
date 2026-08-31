@@ -44,7 +44,7 @@ public interface IWorldMapTool
     // Swatch colour per option, or null for the theme default. Where the options
     // are things drawn on the map, this is what makes the toolbar the legend
     // instead of something to memorise.
-    Color[] OptionColors(WorldMapState ctx);
+    Color[] OptionColors(WorldMapInk ink);
 
     // Which of Options is selected. Setting it is equivalent to cycling to it.
     int OptionIndex { get; set; }
@@ -52,28 +52,28 @@ public interface IWorldMapTool
     // Colour of the brush ring. A tool that is about to write one specific value
     // shows it here, so the cursor answers "what am I about to paint" without a
     // trip to the HUD.
-    Color CursorColor(WorldMapState ctx);
+    Color CursorColor(WorldMapInk ink);
 
     // HUD: the modifiers this tool answers to, spelled out. A modifier nobody
     // can see is a modifier nobody uses.
     string HintText(WorldMapState ctx);
 
     // HUD: the tool's primary parameter (op / index / carve height).
-    string StatusText(WorldMapState ctx);
+    string StatusText(WorldMapState ctx, WorldMapView view);
 
     // HUD: the tool's active elevation / cross-section, or "" if it has none.
-    string LevelText(WorldMapState ctx);
+    string LevelText(WorldMapState ctx, WorldMapView view);
 
     // Mouse pressed, before the stroke paints anything, with the modifiers that
     // were held. A tool READS the map here: both modifiers are about the column
     // under the press, and both are decided once so the rest of the drag is
     // predictable.
-    void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods);
+    void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods);
 
     // Apply one stamp at the given column texel. A tool writes its LAYER IMAGE
     // and nothing else — there is no live voxel world to update, and the bake
     // reads the images back at the end.
-    void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase);
+    void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase);
 
     // Columns this tool is ABOUT to change, when they are not the brush disk the
     // host would otherwise assume. Consulted BEFORE Paint, so the undo snapshot
@@ -142,7 +142,9 @@ public enum ESpawnPreview
 // A tool's visualization: the colour of column texel (px, pz) for the 2D map.
 public interface IWorldMapView
 {
-    Color ColorAt(WorldMapState ctx, int px, int pz);
+    // Takes the INK, not the map: a view's only job is colour, and the ink is
+    // the only thing that holds a palette. Reach the document through `ink.Map`.
+    Color ColorAt(WorldMapInk ink, int px, int pz);
 
     // Draw outlines for sub-2m steps? Where the colour IS height (the elevation
     // bands), those lines say nothing the bands have not already said and add
@@ -163,7 +165,7 @@ public interface IWorldMapView
     // none — there the dots would be noise.
     ESpawnPreview PreviewLayer { get; }
 
-    // Does this view cut the world away above WorldMapState.CutawayY? A column
+    // Does this view cut the world away above WorldMapView.CutawayY? A column
     // solid at that level is rock the view has cut into and draws as such, and
     // every colour and outline below follows whatever is exposed under the cut.
     // False — every view but the voxel-edit one — means "the world seen from

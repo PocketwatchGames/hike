@@ -27,9 +27,9 @@ public class GroundTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapState ctx)
+    public Color[] OptionColors(WorldMapInk ink)
     {
-        GroundSetData[] sets = ctx.GroundSets;
+        GroundSetData[] sets = ink.Map.GroundSets;
         var colors = new Color[sets.Length];
         for (int i = 0; i < colors.Length; i++)
         {
@@ -44,9 +44,9 @@ public class GroundTool : IWorldMapTool
         set => SetIndex = Mathf.Max(0, value);
     }
 
-    public Color CursorColor(WorldMapState ctx)
+    public Color CursorColor(WorldMapInk ink)
     {
-        GroundSetData[] sets = ctx.GroundSets;
+        GroundSetData[] sets = ink.Map.GroundSets;
         return SetIndex >= 0 && SetIndex < sets.Length && sets[SetIndex] != null
             ? sets[SetIndex].mapColor
             : Colors.White;
@@ -54,20 +54,20 @@ public class GroundTool : IWorldMapTool
 
     public string HintText(WorldMapState ctx) => "RMB clears back to the zone's own ground";
 
-    public string StatusText(WorldMapState ctx)
+    public string StatusText(WorldMapState ctx, WorldMapView view)
     {
         GroundSetData[] sets = ctx.GroundSets;
         string label = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex]?.Label : null;
         return string.IsNullOrEmpty(label) ? "No ground sets authored" : label;
     }
 
-    public string LevelText(WorldMapState ctx) => "";
+    public string LevelText(WorldMapState ctx, WorldMapView view) => "";
 
-    public void BeginStroke(WorldMapState ctx, Vector2I texel, EStrokeMods mods)
+    public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
     }
 
-    public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
+    public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         // Hard-edged like the index layers it resembles: a half-painted ground
         // index is not a blend, it is a different material.
@@ -99,5 +99,5 @@ public class GroundView : IWorldMapView
     public bool DrawsWater => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
 
-    public Color ColorAt(WorldMapState ctx, int px, int pz) => ctx.GroundColorAt(px, pz);
+    public Color ColorAt(WorldMapInk ink, int px, int pz) => ink.GroundColorAt(px, pz);
 }
