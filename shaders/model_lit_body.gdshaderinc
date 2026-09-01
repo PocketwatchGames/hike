@@ -82,6 +82,20 @@ uniform float light_normal_bias : hint_range(0.0, 2.0) = 0.0;
 // that reads at desert biome ambient without changing the source atlas.
 uniform vec3 color_tint : source_color = vec3(1.0, 1.0, 1.0);
 
+#ifdef MODEL_ALPHA_BLEND
+// Alpha-blend variant (model_lit_blend.gdshader only). Whole-mesh opacity on top
+// of the atlas alpha, so an owner can fade the piece in/out without duplicating
+// the material. Gated by the #define — the ~18 materials sharing this body must
+// not gain a uniform (or an ALPHA write) they never asked for.
+uniform float alpha : hint_range(0.0, 1.0) = 1.0;
+// Albedo tiling across the overlay's own UVs. A swept primitive (the skirt's
+// cone) maps one U all the way around, so a single-motif texture would show as
+// one patch on the front with a transparent seam at the back; 3 across turns
+// the same motif into clumps that read from every angle. The mesh cannot say
+// this — PrimitiveMesh has no UV scale — so the material does.
+uniform vec2 uv_scale = vec2(1.0);
+#endif
+
 // Optional self-illumination, independent of the light map (so it glows even
 // in the dark / when no fire light reaches it). Default strength 0 is inert so
 // every existing material (trees, rocks, signs, chests, characters) renders
@@ -414,7 +428,11 @@ void fragment() {
 	}
 #endif
 
+#ifdef MODEL_ALPHA_BLEND
+	vec4 tex = texture(albedo_tex, UV * uv_scale);
+#else
 	vec4 tex = texture(albedo_tex, UV);
+#endif
 	vec3 base = tex.rgb * color_tint;
 	// Palette recolor: flat-replace the sampled hue with the chosen tone before
 	// lighting (inert at recolor_amount 0, the default for every non-skin/hair
@@ -583,6 +601,16 @@ void fragment() {
 	// ALPHA keeps its default 1.0 and those meshes render fully opaque as before).
 	ALPHA = tex.a;
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
+#endif
+
+#ifdef MODEL_ALPHA_BLEND
+	// Alpha-BLEND variant (model_lit_blend.gdshader only). The mesh is a
+	// translucent overlay laid over a character (the web skirt), so the atlas
+	// alpha has to feather rather than scissor — a hard key turns soft webbing
+	// into crunchy blobs. The wrapper pairs this with depth_draw_never, so the
+	// piece sorts as ordinary transparency and never writes depth over the body
+	// it hangs on.
+	ALPHA = tex.a * alpha;
 #endif
 }
 

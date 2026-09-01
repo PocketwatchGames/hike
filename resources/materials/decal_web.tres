@@ -1,0 +1,12 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://clnbrodh7yclr"]
+
+[ext_resource type="Texture2D" uid="uid://badvp4g3bvix0" path="res://assets/textures/effects/web.png" id="1_0dwe1"]
+
+[resource]
+resource_name = "decal_ring_web"
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+disable_fog = true
+albedo_color = Color(0.92, 0.96, 1, 0.60784316)
+albedo_texture = ExtResource("1_0dwe1")

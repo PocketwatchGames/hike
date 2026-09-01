@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="4_puff"]
 [ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="5_fade"]
 [ext_resource type="Material" uid="uid://1mqtqjlwblk78" path="res://resources/materials/decal_ring_slime.tres" id="6_ring"]
+[ext_resource type="Script" uid="uid://bowccahv9232w" path="res://scripts/gameplay/effects/GroundDecal.cs" id="7_decal"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_zone"]
 radius = 2.0
@@ -40,10 +41,11 @@ shader_parameter/use_vertex_color = true
 material = SubResource("ShaderMaterial_burst")
 size = Vector2(0.9, 0.9)
 
-[node name="SlimeBurst" type="Node3D" node_paths=PackedStringArray("_dangerZone")]
+[node name="SlimeBurst" type="Node3D" node_paths=PackedStringArray("_dangerZone", "_decal")]
 script = ExtResource("1_gas")
 lifetimeSeconds = 0.5
 _dangerZone = NodePath("DamageZone")
+_decal = NodePath("Ring")
 
 [node name="DamageZone" type="Area3D" parent="." node_paths=PackedStringArray("_shape")]
 collision_layer = 0
@@ -57,9 +59,9 @@ shape = SubResource("SphereShape3D_zone")
 
 [node name="Ring" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
-layers = 16
 material_override = ExtResource("6_ring")
 mesh = SubResource("PlaneMesh_ring")
+script = ExtResource("7_decal")
 
 [node name="Burst" type="GPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)

@@ -1,12 +1,12 @@
-[gd_resource type="StandardMaterial3D" format=3 uid="uid://00awa030h9svi"]
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cstoqolh32kcw"]
 
-[ext_resource type="Texture2D" uid="uid://dig8rwbe47xeo" path="res://resources/textures/decal_ring.tres" id="1_ring"]
+[ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="1_n75y3"]
 
 [resource]
 resource_name = "decal_ring_web"
 transparency = 1
+cull_mode = 2
 shading_mode = 0
 disable_fog = true
-albedo_color = Color(0.92, 0.96, 1, 0.8)
-albedo_texture = ExtResource("1_ring")
-cull_mode = 2
+albedo_color = Color(0.92, 0.96, 1, 0.45882353)
+albedo_texture = ExtResource("1_n75y3")

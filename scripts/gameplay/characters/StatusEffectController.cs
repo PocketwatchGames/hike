@@ -1536,14 +1536,45 @@ public class StatusEffectController
 	// uniform regardless of how the effect was cleared.
 	private void EndFx(StatusEffectState state)
 	{
+		// suppressStackFx effects own ONE loop for the whole stack (Add spawns it
+		// only for the first instance), so end-of-fx is end-of-EFFECT, not
+		// end-of-instance: hand the loop to a surviving instance instead of
+		// stopping it. Callers run this while `state` is still in the list, so the
+		// scan has to skip it by identity. Without this the loop dies when the
+		// OLDEST instance expires — for Webbed that pulled the web skirt off a
+		// player who was still webbed, on every stack turnover.
+		StatusEffectState heir = state.data != null && state.data.suppressStackFx
+			? FindOtherInstance(state)
+			: null;
 		if (state.loopInstance != null && GodotObject.IsInstanceValid(state.loopInstance))
 		{
-			state.loopInstance.Stop();
+			if (heir != null)
+			{
+				heir.loopInstance = state.loopInstance;
+			}
+			else
+			{
+				state.loopInstance.Stop();
+			}
 		}
 		state.loopInstance = null;
-		if (state.data?.endFx != null && _world != null && _actor != null)
+		if (heir == null && state.data?.endFx != null && _world != null && _actor != null)
 		{
 			Fx.Create(state.data.endFx, _world, _actor.GlobalPosition);
 		}
+	}
+
+	// Another live instance of the same effect, or null if `state` is the last one.
+	private StatusEffectState FindOtherInstance(StatusEffectState state)
+	{
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState other = _statusEffects[i];
+			if (other != null && other != state && other.data == state.data)
+			{
+				return other;
+			}
+		}
+		return null;
 	}
 }

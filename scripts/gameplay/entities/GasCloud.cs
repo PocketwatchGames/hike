@@ -20,6 +20,18 @@ public partial class GasCloud : Node3D
     // a stray tick after the visuals are gone.
     [Export] private DamageZone _dangerZone;
 
+    // Flat mark the cloud leaves under itself (a web patch, a slime splat).
+    // Optional — most clouds are pure volume and wire nothing here. Sized to
+    // the danger zone by a radius override and faded out over the tail of the
+    // cloud's life so the ground stops reading as hazardous exactly when it
+    // stops being hazardous.
+    [Export] private GroundDecal _decal;
+
+    // Fraction of lifetimeSeconds the decal spends fading out at the end. It
+    // holds full strength until then. Ignored by a cloud that persists
+    // (lifetimeSeconds <= 0): there is no deadline to fade toward.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float decalFadeOutFraction = 0.35f;
+
     // GameTimeMs at which the cloud expires, armed on the first tick. On the sim
     // clock (not wall-clock _Process frames) so the lifetime that bounds the
     // damage zone slows with slow-mo and matches the codebase's duration
@@ -60,6 +72,7 @@ public partial class GasCloud : Node3D
             _dangerZone.friendlyFire = false;
         }
         _dangerZone?.OverrideAuthoring(continuous, intervals, ev.areaRadius);
+        _decal?.SetRadius(ev.areaRadius);
     }
 
     // Channeled-zone variant used by the summoner weapon's ActionRunner. The
@@ -77,6 +90,7 @@ public partial class GasCloud : Node3D
             _dangerZone.friendlyFire = false;
             _dangerZone.OverrideAuthoring(null, null, radius);
         }
+        _decal?.SetRadius(radius);
     }
 
     public override void _Process(double delta)
@@ -98,7 +112,34 @@ public partial class GasCloud : Node3D
         if (sim.GameTimeMs >= _expireTimeMs)
         {
             Expire();
+            return;
         }
+        UpdateDecalFade(sim.GameTimeMs);
+    }
+
+    // Ramp the decal out over the tail. Driven off the sim-clock deadline
+    // rather than an accumulated wall-clock age (the usual home for a fade) so
+    // the mark lands on zero exactly as the cloud expires however the sim clock
+    // is running — a wall-clock fade finishes early under slow-mo and leaves
+    // the ground bare while the hazard is still ticking.
+    private void UpdateDecalFade(ulong nowMs)
+    {
+        if (_decal == null)
+        {
+            return;
+        }
+        float fadeMs = lifetimeSeconds * 1000f * decalFadeOutFraction;
+        if (fadeMs <= 0f)
+        {
+            return;
+        }
+        // Safe: the caller returns on expiry, so the deadline is still ahead.
+        float remainingMs = _expireTimeMs - nowMs;
+        if (remainingMs >= fadeMs)
+        {
+            return;
+        }
+        _decal.SetOpacity(remainingMs / fadeMs);
     }
 
     private void Expire()

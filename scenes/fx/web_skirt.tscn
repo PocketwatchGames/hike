@@ -1,0 +1,23 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Material" path="res://resources/materials/web_skirt.tres" id="2_web"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_skirt"]
+top_radius = 0.16
+bottom_radius = 0.62
+height = 0.9
+radial_segments = 20
+rings = 1
+cap_top = false
+cap_bottom = false
+
+[node name="WebSkirt" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Skirt" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+cast_shadow = 0
+mesh = SubResource("CylinderMesh_skirt")
+material_override = ExtResource("2_web")

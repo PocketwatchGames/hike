@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cxe16f481wisr"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="Texture2D" uid="uid://qvwi1haatf8b" path="res://assets/textures/status_effects/webbed.png" id="2_icon"]
 [ext_resource type="PackedScene" uid="uid://ccwykpfpiepxe" path="res://scenes/fx/web_splat.tscn" id="4_startfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/web_skirt.tscn" id="5_loopfx"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_movespeed"]
@@ -13,15 +13,15 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_data")
-icon = ExtResource("2_icon")
 displayName = &"Webbed"
 description = "Sticky webbing clings to you. Each strand slows you further — linger and you grind to a near-standstill; keep moving and you shrug it off."
-duration = 2.5
+duration = 0.6
 maxStack = 6
 suppressStackFx = true
 buildupRemovalDelay = 1.0
 buildupRemovalSpeed = 2.0
 startFx = ExtResource("4_startfx")
+loopFx = ExtResource("5_loopfx")
 removesOnApply = []
 modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed")])
 conditionalModifiers = []

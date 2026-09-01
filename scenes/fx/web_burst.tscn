@@ -1,11 +1,12 @@
-[gd_scene format=3 uid="uid://2hxn78h2q15mu"]
+[gd_scene format=3 uid="uid://f3k3t2bsm1ci"]
 
 [ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="3_plit"]
+[ext_resource type="Material" uid="uid://clnbrodh7yclr" path="res://resources/materials/decal_web.tres" id="3_q4rf4"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="4_puff"]
-[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="5_fade"]
-[ext_resource type="Material" uid="uid://00awa030h9svi" path="res://resources/materials/decal_ring_web.tres" id="6_ring"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="5_fade"]
+[ext_resource type="Script" uid="uid://bowccahv9232w" path="res://scripts/gameplay/effects/GroundDecal.cs" id="7_decal"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_zone"]
 radius = 2.0
@@ -40,31 +41,32 @@ shader_parameter/use_vertex_color = true
 material = SubResource("ShaderMaterial_burst")
 size = Vector2(0.9, 0.9)
 
-[node name="WebBurst" type="Node3D" node_paths=PackedStringArray("_dangerZone")]
+[node name="WebBurst" type="Node3D" unique_id=816660644 node_paths=PackedStringArray("_dangerZone", "_decal")]
 script = ExtResource("1_gas")
 lifetimeSeconds = 1.0
 _dangerZone = NodePath("DamageZone")
+_decal = NodePath("Ring")
 
-[node name="DamageZone" type="Area3D" parent="." node_paths=PackedStringArray("_shape")]
+[node name="DamageZone" type="Area3D" parent="." unique_id=65535296 node_paths=PackedStringArray("_shape")]
 collision_layer = 0
 collision_mask = 32
 script = ExtResource("2_dz")
 _shape = NodePath("CollisionShape3D")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone" unique_id=1398128622]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 shape = SubResource("SphereShape3D_zone")
 
-[node name="Ring" type="MeshInstance3D" parent="."]
+[node name="Ring" type="MeshInstance3D" parent="." unique_id=1687573692]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
-layers = 16
-material_override = ExtResource("6_ring")
+material_override = ExtResource("3_q4rf4")
 mesh = SubResource("PlaneMesh_ring")
+script = ExtResource("7_decal")
 
-[node name="Burst" type="GPUParticles3D" parent="."]
+[node name="Burst" type="GPUParticles3D" parent="." unique_id=1507192425]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+emitting = false
 amount = 28
-lifetime = 1.0
 one_shot = true
 explosiveness = 0.9
 randomness = 0.5

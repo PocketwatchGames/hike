@@ -5,10 +5,8 @@ using Godot;
 // projectile carrying a projectileTargetPreview launches (a mob's lobbed
 // attack), parented to the Sim at the predicted landing point.
 //
-// Its child quad must live on the ground-stain layer (layer 5,
-// GroundStainProjector.STAIN_PROXY_LAYER_MASK) with an unshaded, alpha-blended
-// material so it composites through the stain projector like any other ground
-// mark rather than drawing to the screen directly (see scripts/client/CLAUDE.md).
+// The mark itself is a GroundDecal, which owns the stain-projector layer and
+// the opacity plumbing; this node owns only the telegraph's lifetime.
 //
 // Purely presentational: it deals no damage and does no perception. The fade
 // rides wall-clock _Process delta (like other fades) so slow-mo doesn't drag it.
@@ -24,8 +22,8 @@ public partial class GroundDecalPreview : Node3D
     // strength until then, so the warning reads clearly before it dissolves.
     [Export(PropertyHint.Range, "0,1,0.01")] public float fadeOutFraction = 0.45f;
 
-    // The decal quad whose transparency is animated. Wired in the .tscn.
-    [Export] private GeometryInstance3D _quad;
+    // The mark whose opacity is animated. Wired in the .tscn.
+    [Export] private GroundDecal _decal;
 
     private float _age;
 
@@ -47,7 +45,7 @@ public partial class GroundDecalPreview : Node3D
             QueueFree();
             return;
         }
-        if (_quad == null)
+        if (_decal == null)
         {
             return;
         }
@@ -56,10 +54,7 @@ public partial class GroundDecalPreview : Node3D
         {
             return;
         }
-        // GeometryInstance3D.Transparency is 0 = opaque, 1 = invisible; ramp it
-        // up over the tail. Requires the quad's material to allow transparency
-        // (the decal material is alpha-blended).
         float t = (_age - fadeStart) / Mathf.Max(1e-3f, lifetimeSeconds - fadeStart);
-        _quad.Transparency = Mathf.Clamp(t, 0f, 1f);
+        _decal.SetOpacity(1f - Mathf.Clamp(t, 0f, 1f));
     }
 }

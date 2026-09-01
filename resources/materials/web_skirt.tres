@@ -1,0 +1,15 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://shaders/model_lit_blend.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://badvp4g3bvix0" path="res://assets/textures/effects/web.png" id="2_web"]
+
+[resource]
+resource_name = "web_skirt"
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_web")
+shader_parameter/alpha = 0.85
+shader_parameter/uv_scale = Vector2(3, 1)
+shader_parameter/color_tint = Color(0.92, 0.96, 1, 1)
+shader_parameter/form_strength = 0.35
+shader_parameter/ao_contact_strength = 0.0
