@@ -66,16 +66,14 @@ public sealed class PlacementsAspect : IMapEditAspect
         return values;
     }
 
-    // The values inside a placement-OWNED entry (see EntityPlacement.EditableEntry).
-    // An entry still pointing at its palette file is shared with every other
-    // placement using it and is not ours to restore — there the `entry` reference
-    // is the whole of the change, and it is captured as an EntityPlacement
-    // property like any other.
+    // The values inside a placement's OWN copy (see EntityPlacement.EditableEntry).
+    // A placement still using the shared palette file has nothing here: that
+    // entry belongs to every other placement using it and is not ours to
+    // restore, and the `custom` reference going back to null is itself captured
+    // as an EntityPlacement property like any other.
     private static Variant[] CaptureEntry(EntityPlacement e)
     {
-        return e?.entry != null && SpawnEntryData.IsOwnedCopy(e.entry)
-            ? Capture(e.entry)
-            : null;
+        return Capture(e?.custom);
     }
 
     private static void Write(Resource r, Variant[] values)
@@ -192,12 +190,12 @@ public sealed class PlacementsAspect : IMapEditAspect
             ctx.Placements.entities = (EntityPlacement[])Entities.Clone();
             for (int i = 0; i < Entities.Length; i++)
             {
-                // Placement first: it carries the `entry` reference, so the
-                // values below land in the entry this placement is holding
-                // again — which for the undo of a first edit is the palette
-                // entry, and for its redo is the fork.
+                // Placement first: it carries the `custom` reference, so the
+                // values below land in the copy this placement is holding again
+                // — which for the undo of a first edit is null (nothing to
+                // write), and for its redo is the fork.
                 Write(Entities[i], EntityValues[i]);
-                Write(Entities[i]?.entry, EntryValues[i]);
+                Write(Entities[i]?.custom, EntryValues[i]);
             }
 
             ctx.Placements.hasSpawn = HasSpawn;

@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://wwydvupgfm6a"]
 
-[ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://bsgbf0hceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="PackedScene" uid="uid://bj7f8dy86dj1q" path="res://scenes/props/tree_willow.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://ble6ry6xb2qgc" path="res://scenes/props/tree_willow_dead.tscn" id="sc_1"]

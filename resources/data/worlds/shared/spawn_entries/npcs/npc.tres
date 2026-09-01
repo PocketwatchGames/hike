@@ -24,5 +24,4 @@ appearances = [ExtResource("A_hermit"), ExtResource("A_merchant_leather"), ExtRe
 idleAnimation = null
 descriptor = ExtResource("2_desc")
 initialBehavior = null
-family = &"npc"
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"

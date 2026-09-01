@@ -5,7 +5,6 @@
 
 [resource]
 script = ExtResource("1_entry")
-family = &"lurker"
 descriptor = ExtResource("D_lurker_swamp")
 variants = [ExtResource("D_lurker_swamp")]
 metadata/_custom_type_script = "uid://dhkkrl6qof485"

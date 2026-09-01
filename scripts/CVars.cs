@@ -315,6 +315,16 @@
     // tuning blast radii. Toggle with `debug_aoe 1` in the in-game console.
     public static CVarBool debugAoe = new CVarBool("debug_aoe", false);
 
+    // Draw both halves of melee reach as wireframes: the swing's damage volume
+    // (the swept fan built in ItemEventHandlers.DoMelee, warm orange) for the
+    // player and every mob alike, and every nearby HurtBox it has to overlap
+    // (HurtBoxDebug, cool green — grey for a corpse's or a burrowed mob's box,
+    // which an ordinary weapon can't hit). The swing draws on every swing
+    // including whiffs and zero-damage ones, so a mob weapon whose reach
+    // doesn't match its animation is visible without landing a hit.
+    // Toggle with `debug_melee 1`.
+    public static CVarBool debugMelee = new CVarBool("debug_melee", false);
+
     // Draw the arced-throw preview trajectory (AimingReticle._arcPoints) as
     // debug lines + a marker at each sampled point, bypassing the ribbon shader
     // entirely. Off by default — a dev visualizer for diagnosing the arc ribbon
@@ -976,6 +986,12 @@
     {
         Profiler.DumpAndReset();
     });
+
+    // Per-entity-type cost of the world-load entity drain plus the chunk-mesh
+    // fill, printed once as a table when the loading screen finishes. Must be
+    // set before the world loads to catch anything:
+    //   -- "spawn_cost_profile 1" "autostart 1"
+    public static CVarBool spawnCostProfile = new CVarBool("spawn_cost_profile", false);
 
     // Console action: walks the whole scene tree and prints what the resident
     // nodes are, bucketed by subtree / source scene / class, with the columns

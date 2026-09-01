@@ -21,7 +21,10 @@ public partial class Player : CharacterBody3D
 	// block reaction passes true); everything else yields to a charge. Resolves
 	// through AnimName, so a wielded weapon's override for the slot wins and an
 	// unmapped / missing clip falls back silently.
-	public void PlayOneShot(EAnimation anim, bool overridesCharge = false)
+	// `animDuration` > 0 retimes the clip to run for exactly that many seconds (a
+	// swing filling its action's Active window — see ItemEvent.animDuration); 0
+	// plays at authored speed.
+	public void PlayOneShot(EAnimation anim, bool overridesCharge = false, float animDuration = 0f)
 	{
 		if (_animator == null || data == null)
 		{
@@ -37,7 +40,7 @@ public partial class Player : CharacterBody3D
 		_oneShotOverridesCharge = overridesCharge;
 		// restart: a re-fired one-shot (mashing an attack that maps to the same
 		// clip) must replay from the start rather than no-op on the in-flight clip.
-		_animator.Play(name, restart: true);
+		_animator.Play(name, restart: true, animDuration: animDuration);
 	}
 
 	// Resolve an EAnimation slot to a clip name, preferring the wielded weapon's

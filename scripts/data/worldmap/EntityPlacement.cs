@@ -13,7 +13,21 @@ using Godot;
 [GlobalClass]
 public partial class EntityPlacement : Resource
 {
-    [Export] public SpawnEntryData entry;
+    // The palette entry this placement was made from. NEVER replaced — a fork
+    // goes beside it, in `custom`, so the link to the palette survives being
+    // customized. Reconstructing that link afterwards was tried and cannot be
+    // made to work: with the reference overwritten, the only thing left saying
+    // where a fork came from was a name (its `ResourceName`, or an exported
+    // family string), and a name drifts. Three forked knowledge stones in the
+    // default world carried "knowledge_stone_vyeshal" against a palette file
+    // named knowledge_stone_vyeshal_vocab1 and silently stopped matching it.
+    [Export] public SpawnEntryData source;
+
+    // This placement's private copy of `source`, once something on it has been
+    // edited. Null until then, which is what makes an uncustomized placement
+    // track whatever the palette entry is retuned to.
+    [Export] public SpawnEntryData custom;
+
     [Export] public Vector2I anchorXZ;
 
     // Quarter turns, sharing SubscenePlacement's enum. Entities can hold any
@@ -35,63 +49,62 @@ public partial class EntityPlacement : Resource
     // moves under them.
     [Export] public int floorY = OnTheGround;
 
-    // Was this placement made from that palette entry? Its own FORK counts: a
-    // chest whose text has been edited is still a chest, and dropping out of the
-    // palette's highlight the moment it is customized is backwards — a
-    // customized one is the one most worth finding.
-    //
-    // The comparison is on FAMILY, which is what makes selecting a family entry
-    // highlight every member of it: one npc palette file, so every NPC forked
-    // from it answers true whatever rig, outfit or conversation it was then
-    // given. Comparing DISPLAY names would not — that string now carries the
-    // variant, so an NPC would stop matching the entry it came from the moment
-    // its appearance was picked.
+    // What this placement actually spawns: its own copy once it has one, else
+    // the shared palette entry. Every reader wants this; only the palette
+    // MEMBERSHIP questions read `source`.
+    public SpawnEntryData Entry => custom ?? source;
+
+    // Has this placement been edited away from its palette entry? A customized
+    // one still belongs to the palette entry it came from — it is the one most
+    // worth finding — so this marks it rather than un-matching it.
+    public bool IsCustomized => custom != null;
+
+    // Was this placement made from that palette entry? Reference equality, so a
+    // fork answers exactly as its original does and a renamed palette file
+    // changes nothing.
     public bool IsFrom(SpawnEntryData paletteEntry)
+        => source != null && paletteEntry != null && source == paletteEntry;
+
+    // What to call this placement in the authoring UI: the palette entry it came
+    // from, plus the variant this individual is, plus a mark when it carries its
+    // own copy. One answer, because the tool row, the hover readout and the
+    // property panel all name the same thing and a name that differs between
+    // them reads as two different entries.
+    public string DisplayName()
     {
-        if (entry == null || paletteEntry == null)
+        string name = SpawnEntryData.PaletteName(source);
+        string variant = Entry?.VariantName();
+        if (!string.IsNullOrEmpty(variant))
         {
-            return false;
+            name = $"{name}: {variant}";
         }
-        if (entry == paletteEntry)
-        {
-            return true;
-        }
-        string family = SpawnEntryData.FamilyName(entry);
-        return !string.IsNullOrEmpty(family)
-            && family == SpawnEntryData.FamilyName(paletteEntry);
+        return IsCustomized ? $"{name} *" : name;
     }
 
     // This placement's entry, ready to be EDITED — the properties of a
     // hand-placed entity ARE its entry's, so there is no second place to put a
     // signpost's text or a chest's spawn conditions.
     //
-    // Copy-on-write: a placement starts out pointing straight at the palette's
-    // shared .tres, so a chest nobody has customized keeps tracking whatever that
-    // entry is retuned to. The first edit forks it, and the fork — having no
-    // resource path — saves INTO placements.tres as a sub-resource belonging to
-    // this placement alone. Shallow on purpose: a forked signpost still
+    // Copy-on-write: the first edit forks `source` into `custom`, which — having
+    // no resource path — saves INTO placements.tres as a sub-resource belonging
+    // to this placement alone. Shallow on purpose: a forked signpost still
     // references the same LanguageData rather than getting a private copy of it.
     public SpawnEntryData EditableEntry()
     {
-        if (entry == null || SpawnEntryData.IsOwnedCopy(entry))
+        if (custom != null || source == null)
         {
-            return entry;
+            return Entry;
         }
-        if (entry.Duplicate(false) is not SpawnEntryData copy)
+        if (source.Duplicate(false) is not SpawnEntryData copy)
         {
-            GD.PushError($"EntityPlacement: could not fork entry '{entry.ResourcePath}' for editing");
-            return entry;
+            GD.PushError($"EntityPlacement: could not fork entry '{source.ResourcePath}' for editing");
+            return source;
         }
-        // The palette file it came from, kept as the resource NAME: a fork has no
-        // path, and this is then the only thing left that says what it is. Engine
-        // bookkeeping rather than a script property, so PlacementsAspect leaves it
-        // alone and it still round-trips through the .tres.
-        copy.ResourceName = entry.ResourcePath.GetFile().GetBaseName();
         // Cleared explicitly. A duplicate that kept its path would save as an
         // ext_resource pointing back at the palette file, which silently throws
         // the fork away on the next load.
         copy.ResourcePath = "";
-        entry = copy;
-        return entry;
+        custom = copy;
+        return custom;
     }
 }

@@ -582,6 +582,11 @@ public partial class Sim : Node3D
         {
             NavGridDebug.Draw(this, _player.GlobalPosition, _player.TraversalProfileForQuery());
         }
+
+        if (CVars.debugMelee.Value)
+        {
+            HurtBoxDebug.Draw(this, _player.GlobalPosition);
+        }
     }
 
 }

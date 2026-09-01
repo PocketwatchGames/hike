@@ -96,11 +96,13 @@ public sealed class SpawnContext
     // to place, so a stale value cannot outlive its row.
     public ESpawnConditions SpawnConditions;
 
-    // True when the position was hand-authored (a subscene marker) rather than
-    // sampled off a column. It turns OFF the placement heuristics that exist to
-    // judge whether an AUTO-PICKED spot is sensible — chiefly the 4-neighbour
-    // lateral air test, which rejects anything within a voxel of a wall and so
-    // rejects most of any room worth standing an NPC in. The gates that answer
+    // True when the position was hand-authored (a subscene marker, or a mark in
+    // the world-map painter) rather than sampled off a column. It turns OFF the
+    // placement heuristics that exist to judge whether an AUTO-PICKED spot is
+    // sensible — the 4-neighbour lateral air test, which rejects anything within
+    // a voxel of a wall and so rejects most of any room worth standing an NPC in,
+    // and the 3x3 flat-patch test, which rejects a mark beside a step or a wall
+    // footing. The gates that answer
     // "can this body physically stand here" (navgrid walkability, entity
     // overlap) still run: the author picks the spot, the world still gets to
     // say whether a body fits in it.

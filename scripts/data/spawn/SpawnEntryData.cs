@@ -40,37 +40,22 @@ public partial class SpawnEntryData : Resource
             && name != "initialBehaviorChance";
     }
 
-    // Which palette family this entry belongs to, when that is not simply its own
-    // file. Unset = the file, which is what almost every entry wants.
-    //
-    // It exists for the entry that cannot be folded into its family's shared
-    // palette entry but still IS one of them: the leather merchant carries an `inventory` and
-    // `loyaltyGifts` that no placement editor can author (both are arrays, which
-    // still have no list editor), so it stays its own palette entry — and
-    // selecting the npc palette entry must still light it up, because "show me
-    // every NPC"
-    // is the question being asked and the merchant is an NPC.
-    //
-    // A StringName the .tres never assigns arrives NULL, not empty, so every
-    // read of it is guarded.
-    [Export] public StringName family;
-
-    // Does this property decide WHICH FAMILY this entry belongs to, rather than
-    // which member of it this individual is? Only the family is the palette's to
-    // choose: a fork keeps its palette file as its NAME, so a property that can
-    // move an entry OUT of that family produces a placement that IS a drake
+    // Does this property decide WHICH PALETTE ENTRY this is, rather than which
+    // member of it this individual is? Only the palette entry is the palette's
+    // to choose: a fork is named after the file it came from, so a property that
+    // can move an entry OUT of that group produces a placement that IS a drake
     // while the panel title, the hover readout, worldmap_check's listing and the
     // palette-match highlight all still call it npc_hermit.
     //
     // Which member is a per-placement choice and stays editable — that is the
-    // whole point of a family entry. It is safe precisely because the candidates
-    // are constrained to the family (ResourceCandidates), so no in-panel edit
-    // can reach outside it and the fork's name stays true.
+    // whole point of a palette entry offering variants. It is safe precisely
+    // because the candidates are constrained to them (ResourceCandidates), so no
+    // in-panel edit can reach outside the group and the fork's name stays true.
     //
-    // `variants` and `appearances` are the family's own definition — what the
+    // `variants` and `appearances` are the group's own definition — what the
     // fields below MAY be set to — so they belong to whoever authors the palette
     // file, not to a placement. Shown, they would also be the one edit that can
-    // widen a family from inside it.
+    // widen the group from inside it.
     //
     // The raw appearance trio (scene / outfit / palette) stays hidden because it
     // is the WORLDGEN authoring path: the three must agree with each other (a
@@ -79,8 +64,7 @@ public partial class SpawnEntryData : Resource
     // NpcSpawnEntry.appearance instead, where a mismatch is unrepresentable.
     public static bool IsIdentityProperty(StringName name)
     {
-        return name == PropertyName.family
-            || name == "variants" || name == "appearances"
+        return name == "variants" || name == "appearances"
             || name == "scene" || name == "altScene"
             || name == "outfit" || name == "palette";
     }
@@ -135,92 +119,45 @@ public partial class SpawnEntryData : Resource
     // gives a field like `conversation`, where any authored file is a valid
     // answer.
     //
-    // Overridden where the valid set is a FAMILY the entry itself defines: the
+    // Overridden where the valid set is the GROUP the entry itself defines: the
     // goblin palette entry names its own goblin descriptors, so the row that
     // picks a biome variant cannot reach a spider. That constraint is what makes
     // the row safe to show at all — see IsIdentityProperty. Authored rather than
     // derived, because neither of the derivable answers is right: grouping by
-    // SpeciesData is per-BIOME (finer than a family), and a filename prefix
-    // makes a naming rule load-bearing with nothing enforcing it.
+    // SpeciesData is per-BIOME (finer than this), and a filename prefix makes a
+    // naming rule load-bearing with nothing enforcing it.
     //
     // Advisory in the same sense NameCandidates is: whatever the property
     // already holds is offered even when the list does not contain it, so a
-    // value authored before the family was retuned survives being looked at.
+    // value authored before the entry was retuned survives being looked at.
     public virtual Resource[] ResourceCandidates(StringName property) => null;
 
-    // Is this entry a private copy belonging to one placement, rather than the
-    // shared palette file every placement of its kind points at?
+    // What to call this entry in the authoring UI — the palette FILE it is,
+    // which is the name an author picked it by.
     //
-    // TWO shapes, and missing the second is a live bug: a fresh fork has no path
-    // at all, but one that has been SAVED and loaded back carries the
-    // sub-resource path Godot gives an embedded resource
-    // ("res://…/placements.tres::Resource_abc"). That is not a palette file, and
-    // treating it as shared makes the next edit fork the fork — renaming it after
-    // the file it was embedded in and dropping it out of every by-entry answer.
-    public static bool IsOwnedCopy(SpawnEntryData entry)
-    {
-        return entry != null
-            && (string.IsNullOrEmpty(entry.ResourcePath) || entry.ResourcePath.Contains("::"));
-    }
-
-    // Which palette FILE this entry belongs to — its family, and the identity
-    // everything matching a placement against the palette keys on. A fork has
-    // that file only as its resource NAME, which is all that is left saying
-    // where it came from.
-    //
-    // Deliberately NOT DisplayName: that one now decorates a family entry with
-    // the variant this individual is, and a match must not depend on a
-    // decoration — comparing display strings would stop every customized NPC
-    // matching the npc entry the moment its appearance was picked.
-    public static string FamilyName(SpawnEntryData entry)
+    // Only ever asked of a palette entry, which always has a path. A fork does
+    // not: a placement names itself from its `source` (EntityPlacement
+    // .DisplayName), so nothing has to recover a name from a copy.
+    public static string PaletteName(SpawnEntryData entry)
     {
         if (entry == null)
         {
             return "";
         }
-        // An explicit family outranks the file, and it survives a fork for free:
-        // the duplicate carries the exported value, where ResourceName is engine
-        // bookkeeping the fork has to be told to set.
-        if (entry.family is not null && !entry.family.IsEmpty)
-        {
-            return entry.family.ToString();
-        }
-        return IsOwnedCopy(entry)
-            ? entry.ResourceName ?? ""
-            : entry.ResourcePath.GetFile().GetBaseName();
+        string file = entry.ResourcePath.GetFile().GetBaseName();
+        return string.IsNullOrEmpty(file) ? entry.GetType().Name : file;
     }
 
-    // Which member of its family this individual is — the biome variant of a
-    // goblin, the rig and outfit of a villager — or null for an entry whose
-    // family has only the one member. Overridden by the entry types that carry a
+    // Which member of its palette entry this individual is — the biome variant
+    // of a goblin, the rig and outfit of a villager — or null for an entry that
+    // offers only the one. Overridden by the entry types that carry a
     // per-placement choice.
     //
-    // It exists because collapsing a palette to families costs the map its
-    // names: with one npc entry, every NPC hovers as "npc" and the elder is not
-    // distinguishable from the archer. The family answers WHICH HIGHLIGHT, this
-    // answers WHICH ONE IS IT, and the UI wants both.
+    // It exists because one palette entry covering a whole group costs the map
+    // its names: with a single npc entry, every NPC hovers as "npc" and the
+    // elder is not distinguishable from the archer. The entry answers WHICH
+    // HIGHLIGHT, this answers WHICH ONE IS IT, and the UI wants both.
     public virtual string VariantName() => null;
-
-    // What to call this entry in the authoring UI: its family, plus the variant
-    // this individual is, plus a mark when it is a placement's own customized
-    // copy. One answer, because the tool row, the hover readout and the property
-    // panel all name the same thing and a name that differs between them reads
-    // as two different entries.
-    public static string DisplayName(SpawnEntryData entry)
-    {
-        if (entry == null)
-        {
-            return "";
-        }
-        string family = FamilyName(entry);
-        if (string.IsNullOrEmpty(family))
-        {
-            family = entry.GetType().Name;
-        }
-        string variant = entry.VariantName();
-        string name = string.IsNullOrEmpty(variant) ? family : $"{family}: {variant}";
-        return IsOwnedCopy(entry) ? $"{name} *" : name;
-    }
 
     // True iff this entry requires a flat patch — the column and all 8
     // surrounding columns must share the same surface height. Subclasses
@@ -274,7 +211,13 @@ public partial class SpawnEntryData : Resource
     // checks inside its rejection-sampling loop.
     public bool TrySpawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (RequireFlatTerrain && context?.IsFlatColumn != null)
+        // Skipped for a hand-authored position, like the two gates below it: a
+        // flat patch is a heuristic for judging an AUTO-PICKED spot — the step
+        // edges and ramp adjacencies physics can knock a body off — and the
+        // author picked this one. TryPickInRadius still applies it where it
+        // belongs, inside the loop that CHOOSES a position.
+        if (RequireFlatTerrain && context?.AuthoredPosition != true
+            && context?.IsFlatColumn != null)
         {
             int wx = Mathf.FloorToInt(position.X);
             int wz = Mathf.FloorToInt(position.Z);

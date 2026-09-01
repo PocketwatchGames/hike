@@ -6,15 +6,11 @@ using System.Linq;
 
 public static class SaveGame
 {
-	// Bump when the binary format changes shape. Old saves below this version
-	// are rejected outright by Load — the format isn't yet user-facing so
-	// we don't keep back-compat readers.
-	//   v1: header only.
-	//   v2: + player status-effect buildup section.
-	//   v3: + scripting-variable bank (quest flags / world state).
-	//   v4: + active quest log (Rescue / hunt / Return to Camp / language).
-	//   v5: + collected treasure maps (pre-rolled dig locations).
-	private const int SAVE_VERSION = 5;
+	// Bump when the binary format changes shape. Anything that isn't exactly
+	// this version is rejected by Load — the game is pre-release, so a stale
+	// save is discarded rather than upgraded and there are no version-gated
+	// read branches to keep in step. See CLAUDE.md "Priorities".
+	private const int SAVE_VERSION = 6;
 
 	public static void Save(string filePath)
 	{
@@ -24,7 +20,7 @@ public static class SaveGame
 		// --- Header ---
 		w.Write(SAVE_VERSION);
 
-		// --- Player status-effect buildups (v2+) ---
+		// --- Player status-effect buildups ---
 		// Active StatusEffectState instances (per-stack timers, fx) aren't
 		// included — the buildup meter is the only piece serialized today.
 		// Item-side controllers (per-armor wetness) likewise wait for an
@@ -35,7 +31,7 @@ public static class SaveGame
 			: new List<(StatusEffectData data, float amount)>();
 		WriteBuildupSection(w, playerBuildups);
 
-		// --- Scripting variables (v3+) ---
+		// --- Scripting variables ---
 		ScriptVariableBank bank = Sim.Current?.WorldState?.SimState?.ScriptVars;
 		if (bank != null)
 		{
@@ -46,7 +42,7 @@ public static class SaveGame
 			w.Write(0);
 		}
 
-		// --- Quest log (v4+) ---
+		// --- Quest log ---
 		QuestLog questLog = Sim.Current?.WorldState?.SimState?.QuestLog;
 		if (questLog != null)
 		{
@@ -57,7 +53,7 @@ public static class SaveGame
 			w.Write(0);
 		}
 
-		// --- Collected treasure maps (v5+) ---
+		// --- Collected treasure maps ---
 		SimState simState = Sim.Current?.WorldState?.SimState;
 		if (simState != null)
 		{
@@ -76,35 +72,25 @@ public static class SaveGame
 
 		// --- Header ---
 		int version = r.ReadInt32();
-		if (version < 1 || version > SAVE_VERSION)
+		if (version != SAVE_VERSION)
 		{
-			throw new InvalidDataException($"Unsupported save version: {version}");
+			throw new InvalidDataException(
+				$"Unsupported save version {version} (this build writes {SAVE_VERSION}). " +
+				"Pre-release saves are not migrated — delete it and start a new game.");
 		}
 
-		// --- Player status-effect buildups (v2+) ---
-		if (version >= 2)
-		{
-			var playerBuildups = ReadBuildupSection(r);
-			Sim.Current?.player?.RestoreStatusBuildups(playerBuildups);
-		}
+		// --- Player status-effect buildups ---
+		var playerBuildups = ReadBuildupSection(r);
+		Sim.Current?.player?.RestoreStatusBuildups(playerBuildups);
 
-		// --- Scripting variables (v3+) ---
-		if (version >= 3)
-		{
-			Sim.Current?.WorldState?.SimState?.ScriptVars?.Deserialize(r);
-		}
+		// --- Scripting variables ---
+		Sim.Current?.WorldState?.SimState?.ScriptVars?.Deserialize(r);
 
-		// --- Quest log (v4+) ---
-		if (version >= 4)
-		{
-			Sim.Current?.WorldState?.SimState?.QuestLog?.Deserialize(r);
-		}
+		// --- Quest log ---
+		Sim.Current?.WorldState?.SimState?.QuestLog?.Deserialize(r);
 
-		// --- Collected treasure maps (v5+) ---
-		if (version >= 5)
-		{
-			Sim.Current?.WorldState?.SimState?.DeserializeTreasureMaps(r);
-		}
+		// --- Collected treasure maps ---
+		Sim.Current?.WorldState?.SimState?.DeserializeTreasureMaps(r);
 	}
 
 	// Writes (count, [path, amount]*) for the given buildup snapshot.

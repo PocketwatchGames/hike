@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="WorldStartData" format=3 uid="uid://comperp28v2jt"]
 
-[ext_resource type="Script" uid="uid://pd51crv4psgyd" path="res://scripts/data/world/WorldStartData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://drxfkl5d06to2" path="res://scripts/data/world/WorldStartData.cs" id="1_script"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="2_teach"]
 [ext_resource type="Script" uid="uid://c0fdcxkkhfb23" path="res://scripts/data/teaching/SpellTeachable.cs" id="3_spellteach"]
 [ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/worlds/shared/party/mischa.tres" id="4_mischa"]

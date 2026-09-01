@@ -91,7 +91,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     // frame.
     public void Show(EntityPlacement placement)
     {
-        SpawnEntryData entry = placement?.entry;
+        SpawnEntryData entry = placement?.Entry;
         if (entry == null)
         {
             if (_shown != null)
@@ -113,7 +113,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             // entry holds without touching which entry it is.
             if (titleLabel != null)
             {
-                titleLabel.Text = SpawnEntryData.DisplayName(entry);
+                titleLabel.Text = placement.DisplayName();
             }
             RefreshRows();
             return;
@@ -154,7 +154,7 @@ public partial class WorldMapEntityInspector : PanelContainer
         _rowsOwner = _shown;
         if (titleLabel != null)
         {
-            titleLabel.Text = SpawnEntryData.DisplayName(_shownEntry);
+            titleLabel.Text = _shown.DisplayName();
         }
         foreach (Godot.Collections.Dictionary property in OrderedProperties(_shownEntry))
         {
@@ -346,7 +346,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     // every row must follow it there.
     private Variant Read(StringName name)
     {
-        return _rowsOwner?.entry != null ? _rowsOwner.entry.Get(name) : default;
+        return _rowsOwner?.Entry != null ? _rowsOwner.Entry.Get(name) : default;
     }
 
     // Text applies as it is TYPED, not on Enter or on leaving the field. The
@@ -360,7 +360,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     // leaving the field closes it, so a typed sentence is still one undo.
     private void ApplyLive(StringName name, Variant value)
     {
-        SpawnEntryData current = _rowsOwner?.entry;
+        SpawnEntryData current = _rowsOwner?.Entry;
         if (current == null || current.Get(name).ToString() == value.ToString())
         {
             return;
@@ -382,7 +382,7 @@ public partial class WorldMapEntityInspector : PanelContainer
 
     private void Commit(StringName name, Variant value)
     {
-        SpawnEntryData current = _rowsOwner?.entry;
+        SpawnEntryData current = _rowsOwner?.Entry;
         if (current == null)
         {
             return;
@@ -652,8 +652,8 @@ public partial class WorldMapEntityInspector : PanelContainer
     // The resources this field may be set to, plus an explicit empty.
     //
     // Two sources, and which one applies is the entry's call. `constrained` is a
-    // family the entry itself named (a goblin's descriptors, an npc's
-    // appearances) and is used verbatim. Otherwise every authored .tres of the
+    // set the entry itself named (a goblin's descriptors, an npc's appearances)
+    // and is used verbatim. Otherwise every authored .tres of the
     // field's type, found by SCANNING rather than from a palette: a conversation
     // is authored as a file, and a registration step in a second resource is one
     // that gets forgotten.

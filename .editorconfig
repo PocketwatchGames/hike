@@ -93,3 +93,325 @@ dotnet_style_prefer_compound_assignment = true:suggestion
 dotnet_style_prefer_simplified_interpolation = true:suggestion
 dotnet_style_prefer_collection_expression = when_types_loosely_match:suggestion
 dotnet_style_namespace_match_folder = true:suggestion
+
+##############################################################################
+# Hike convention analyzers (tools/hike_analyzers)
+#
+# Every HK rule is an ERROR, so new code cannot introduce one. The block
+# underneath is a BASELINE: the files that already violated a rule when the
+# analyzers landed, downgraded to `warning` so the build stays green while the
+# debt stays enumerated and visible. It is a ledger, not an exemption list -
+# fix a file and delete its section. Never add a section to silence new code.
+#
+# HK001  hardcoded res:// path in GD.Load / ResourceLoader.Load
+# HK002  Godot Node/Resource subclass missing [GlobalClass]
+# HK003  [Tool] closure gap - editor-only DATA LOSS, see below
+# HK004  [Export] float authored near the 0.001 default spinbox step
+# HK005  GetNode/GetChild in _Ready instead of an [Export]
+# HK006  particle/audio node constructed outside an Fx scene
+# HK007  Godot Material constructed at runtime instead of authored as .tres
+# HK008  Godot.Collections .Count re-read in a loop condition
+#
+# Baseline at time of writing (files, not occurrences):
+#   HK001: 7
+#   HK002: 26
+#   HK003: 5
+#   HK004: 1
+#   HK005: 4
+#   HK006: 5
+#   HK007: 6
+#   HK008: 44
+#
+# HK003 is the expensive one and the only one that loses authored data. The 5
+# baselined files are the same 9 sites `resource_check` reports. Closing them
+# means tagging ItemEffect / ItemData / TeachableConcept / AreaIntervalSpec /
+# MobDescriptor / StatusEffectBuildup [Tool], and the rule cascades through
+# their exports and subclasses: measured at ~169 classes. That sweep is a task
+# of its own - a half-applied one leaves the bug in place.
+##############################################################################
+
+[*.cs]
+dotnet_diagnostic.HK001.severity = error
+dotnet_diagnostic.HK002.severity = error
+dotnet_diagnostic.HK003.severity = error
+dotnet_diagnostic.HK004.severity = error
+dotnet_diagnostic.HK005.severity = error
+dotnet_diagnostic.HK006.severity = error
+dotnet_diagnostic.HK007.severity = error
+dotnet_diagnostic.HK008.severity = error
+
+# --- baseline: pre-existing violations, downgraded per file ---
+
+[addons/data_ed/DataListEditorPlugin.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[addons/data_ed/FlagsPropertyEditor.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/CVars.cs]
+dotnet_diagnostic.HK001.severity = warning
+
+[scripts/Main.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/Sim.Chunks.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/audio/AmbienceLayerPlayer.cs]
+dotnet_diagnostic.HK006.severity = warning
+
+[scripts/audio/ChunkAmbienceSpawner.cs]
+dotnet_diagnostic.HK006.severity = warning
+
+[scripts/audio/MusicManager.cs]
+dotnet_diagnostic.HK006.severity = warning
+
+[scripts/audio/ThunderScheduler.cs]
+dotnet_diagnostic.HK006.severity = warning
+
+[scripts/client/BirdsEyeController.cs]
+dotnet_diagnostic.HK001.severity = warning
+dotnet_diagnostic.HK007.severity = warning
+
+[scripts/client/GameCamera.cs]
+dotnet_diagnostic.HK001.severity = warning
+dotnet_diagnostic.HK002.severity = warning
+dotnet_diagnostic.HK007.severity = warning
+
+[scripts/client/GameClient.cs]
+dotnet_diagnostic.HK002.severity = warning
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/client/HeadlessBot.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/client/SkyController.cs]
+dotnet_diagnostic.HK001.severity = warning
+
+[scripts/data/actions/ItemEvent.cs]
+dotnet_diagnostic.HK003.severity = warning
+
+[scripts/data/combat/ContinuousDamageData.cs]
+dotnet_diagnostic.HK003.severity = warning
+
+[scripts/data/combat/DamageData.cs]
+dotnet_diagnostic.HK003.severity = warning
+
+[scripts/data/combat/DamageDataModifier.cs]
+dotnet_diagnostic.HK003.severity = warning
+
+[scripts/data/conversation/ConversationVisibility.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/data/effects/payloads/WeaponModData.cs]
+dotnet_diagnostic.HK003.severity = warning
+
+[scripts/data/items/ConsumableData.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/data/items/ItemDescriptor.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/data/scripting/ScriptVariableRegistry.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/data/worldgen/PlateauTerrainData.cs]
+dotnet_diagnostic.HK004.severity = warning
+
+[scripts/gameplay/AimingReticle.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/Cooking.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/HitInfo.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/HurtBox.cs]
+dotnet_diagnostic.HK005.severity = warning
+
+[scripts/gameplay/actions/ActionRunner.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/actions/ItemEventHandlers.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/behaviors/BehaviorAttack.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/characters/HeldWeapon.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/characters/Mob.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/characters/Player.Anim.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/characters/Player.Weapon.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/characters/Player.cs]
+dotnet_diagnostic.HK005.severity = warning
+
+[scripts/gameplay/characters/StatusEffectController.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/Chest.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/DamageZone.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/DartDeployer.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/Discoverable.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/Forge.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/ForgeOffer.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/KnowledgeStone.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/LightningStrike.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/MeshAutoCollider.cs]
+dotnet_diagnostic.HK005.severity = warning
+
+[scripts/gameplay/entities/Projectile.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/Trap.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/TriggerSource.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gameplay/entities/Waterfall.cs]
+dotnet_diagnostic.HK006.severity = warning
+
+[scripts/gameplay/sprites/LitSprite.cs]
+dotnet_diagnostic.HK001.severity = warning
+
+[scripts/gui/BackpackPanel.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/BestiaryScreen.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/CampScreen.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/ClimbHUD.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/ConsoleUI.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/ConversationController.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/CookingPanel.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/DiagnosticsOverlay.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/DiscoverableHud.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/DropCountPanel.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/GuiMainMenu.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/Hud.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/HudRegionBanner.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/HudText.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/InteractHUD.cs]
+dotnet_diagnostic.HK002.severity = warning
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/InventoryPanel.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/ItemInfoPanel.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/MerchantScreen.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/MobHUD.cs]
+dotnet_diagnostic.HK002.severity = warning
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/PartyScreen.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/PauseMenu.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/PlayerStatsPanel.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/QuestItem.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/SpellScreen.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/SpellSelectionPanel.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/StatList.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/gui/StatPanel.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/gui/StatusEffectInfoPanel.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/utils/DebugDrawRenderer.cs]
+dotnet_diagnostic.HK007.severity = warning
+
+[scripts/utils/DepthSortCheck.cs]
+dotnet_diagnostic.HK007.severity = warning
+
+[scripts/utils/Fx.cs]
+dotnet_diagnostic.HK002.severity = warning
+dotnet_diagnostic.HK005.severity = warning
+
+[scripts/utils/ShaderCheck.cs]
+dotnet_diagnostic.HK007.severity = warning
+
+[scripts/voxels/ChunkMesh.cs]
+dotnet_diagnostic.HK001.severity = warning
+dotnet_diagnostic.HK002.severity = warning
+dotnet_diagnostic.HK007.severity = warning
+
+[scripts/voxels/detail/ChunkDetailScatter.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/voxels/detail/WorldDetailScatter.cs]
+dotnet_diagnostic.HK002.severity = warning
+
+[scripts/voxels/io/EntitySerializer.cs]
+dotnet_diagnostic.HK008.severity = warning
+
+[scripts/voxels/props/WorldPropScatter.cs]
+dotnet_diagnostic.HK001.severity = warning
+dotnet_diagnostic.HK002.severity = warning

@@ -97,4 +97,11 @@ public enum EItemEventType
 	// where the event lives. Haptic parallel to CameraShake — author both on
 	// the same impact event for a hit that shakes the screen and the pad.
 	ControllerRumble = 1 << 20,
+	// Instantly restores ev.healAmount HP to the ACTING character, clamped at
+	// their max (IActionActor.Heal — same entry point lifesteal uses, so player
+	// and mob both work). The direct counterpart to applying a healing
+	// StatusEffectData: use this when the restore should land on the spot rather
+	// than tick in over a duration. ev.fx (if set) spawns on the actor as the
+	// cue the status effect's startFx used to provide.
+	Heal = 1 << 21,
 }

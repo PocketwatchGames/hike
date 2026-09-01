@@ -38,6 +38,10 @@ hairStyleMeshNames = PackedStringArray("F_hair_1", "F_hair_2", "F_hair_3", "F_ha
 [node name="HeldItemVisual" type="Node3D" parent="." unique_id=427891193 node_paths=PackedStringArray("visual")]
 script = ExtResource("6_helditem")
 visual = NodePath("../PlayerModel")
+boneName = &"R_equip_joint"
+leftBoneName = &"L_equip_joint"
+gripRotationDegrees = Vector3(0, 0, -90)
+leftGripRotationDegrees = Vector3(0, 0, 90)
 
 [node name="PixelSnap" type="Node" parent="." unique_id=1207350811 node_paths=PackedStringArray("_target")]
 script = ExtResource("7_pixelsnap")

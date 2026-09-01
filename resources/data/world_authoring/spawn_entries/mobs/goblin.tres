@@ -17,7 +17,6 @@
 
 [resource]
 script = ExtResource("1_entry")
-family = &"goblin"
 descriptor = ExtResource("D_goblin_forest")
 variants = [ExtResource("D_goblin_forest"), ExtResource("D_goblin_desert"), ExtResource("D_goblin_mountain"), ExtResource("D_goblin_swamp"), ExtResource("D_goblin_forest_elite"), ExtResource("D_goblin_desert_elite"), ExtResource("D_goblin_mountain_elite"), ExtResource("D_goblin_swamp_elite"), ExtResource("D_goblin_forest_torchbearer"), ExtResource("D_goblin_desert_torchbearer"), ExtResource("D_goblin_mountain_torchbearer"), ExtResource("D_goblin_swamp_torchbearer"), ExtResource("D_goblin_mountain_torchbearer_elite")]
 metadata/_custom_type_script = "uid://dhkkrl6qof485"

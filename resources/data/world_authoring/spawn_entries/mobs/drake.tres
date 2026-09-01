@@ -8,7 +8,6 @@
 
 [resource]
 script = ExtResource("1_entry")
-family = &"drake"
 descriptor = ExtResource("D_drake_mountain")
 variants = [ExtResource("D_drake_mountain"), ExtResource("D_drake_desert"), ExtResource("D_drake_swamp"), ExtResource("D_drake_mountain_elite")]
 metadata/_custom_type_script = "uid://dhkkrl6qof485"

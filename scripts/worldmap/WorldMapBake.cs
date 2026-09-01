@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Godot;
 
 // Turns a painted document into a WorldState / .hike. The deterministic half of
@@ -197,10 +197,13 @@ public class WorldMapBake
             MinZ = Map.Data.WorldMinZ,
             MaxZ = Map.Data.WorldMinZ + Map.Data.ImageHeight - 1,
             MaxGradeStep = Map.MaxGradeStep,
-            // Paving is a deliberate bare tread, exactly as a road is.
+            // Paving is a deliberate bare tread, exactly as a road is — and so
+            // is a stamped surface: a building's roof, floor and courtyard are
+            // authored, so the scatter has no business dressing them.
             SkipDetailColumn = (wx, wz) =>
-                Map.SurfacePavingAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ) != null,
-            GroundYAt = (wx, wz) => Map.TerrainHeight(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
+                Map.SurfacePavingAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ) != null
+                || IsStampedColumn(wx, wz),
+            GroundYAt = GroundYAtWorld,
             PaintedWaterBlockAt = (wx, wz) => Map.PaintedWaterBlockAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
             // Moss comes off the painted GROUND, because a painted world has no
             // ZoneGenData to ask (its zone layer paints ZoneData, and the two
@@ -217,7 +220,7 @@ public class WorldMapBake
         // Authored spawn, or the world origin when none is placed.
         int spawnX = Map.Placements.hasSpawn ? Map.Placements.spawnXZ.X : 0;
         int spawnZ = Map.Placements.hasSpawn ? Map.Placements.spawnXZ.Y : 0;
-        int spawnH = Map.TerrainHeight(spawnX - Map.Data.WorldMinX, spawnZ - Map.Data.WorldMinZ);
+        int spawnH = GroundYAtWorld(spawnX, spawnZ);
         ws.Spawn = new Vector3(spawnX + 0.5f, spawnH + 2f, spawnZ + 0.5f);
 
         // NOT lit here: the sun flood is step 3 of the bake (BakeRelightAndWrite),
@@ -238,7 +241,7 @@ public class WorldMapBake
     {
         foreach (EntityPlacement placement in Map.Placements.entities)
         {
-            if (placement?.entry == null)
+            if (placement?.Entry == null)
             {
                 continue;
             }
@@ -247,13 +250,18 @@ public class WorldMapBake
             int floor = placement.floorY;
             if (floor == EntityPlacement.OnTheGround)
             {
-                // The top of the COLUMN, edits included — not the height field.
-                // The two differ wherever something was carved or built, and an
-                // entity that says it stands on the ground should stand on the
-                // ground that is there: dig a pit under one and it drops in,
-                // rather than hanging over the hole at the height the terrain
-                // used to be.
-                floor = Map.SurfaceBelow(px, pz, int.MaxValue);
+                // The top of the COLUMN, edits and stamps included — not the
+                // height field. They differ wherever something was carved or
+                // built, and an entity that says it stands on the ground should
+                // stand on the ground that is there: dig a pit under one and it
+                // drops in, drop one on a stamped plaza and it stands on the
+                // plaza, rather than hanging at the height the terrain used to
+                // be. The stamp is the half the document cannot answer, so it is
+                // asked first — SurfaceBelow sees the tunnel mask but never a
+                // subscene.
+                floor = IsStampedColumn(placement.anchorXZ.X, placement.anchorXZ.Y)
+                    ? GroundYAtWorld(placement.anchorXZ.X, placement.anchorXZ.Y)
+                    : Map.SurfaceBelow(px, pz, int.MaxValue);
                 if (floor < Map.Data.WorldMinY)
                 {
                     floor = Map.TerrainHeight(px, pz);
@@ -280,7 +288,7 @@ public class WorldMapBake
             SpawnContext context = SpawnContextForBake();
             context.FacingY = (int)placement.rotation * Mathf.Pi * 0.5f;
             context.AuthoredPosition = true;
-            placement.entry.TrySpawn(WorldState, pos, new System.Random((int)seed), context);
+            placement.Entry.TrySpawn(WorldState, pos, new System.Random((int)seed), context);
             context.FacingY = null;
             context.AuthoredPosition = false;
         }
@@ -304,9 +312,106 @@ public class WorldMapBake
             }
             var anchor = new Vector3(placement.anchorXZ.X, Map.SeatY(placement), placement.anchorXZ.Y);
             SubsceneStamper.StampAll(WorldState, sub, anchor);
+            RecordStampedGround(placement);
             GD.Print($"WorldMapState: stamped {placement.path.GetFile()} at {anchor} "
                 + $"(size={sub.Size}, rot={(int)placement.rotation * 90}deg, yOffset={placement.yOffset})");
         }
+    }
+
+    // Per-column ground a subscene stamp left behind, or NotStamped.
+    //
+    // A stamp is a PLACEMENT, not a layer: it exists only in the WorldState the
+    // bake is building. The document's height queries cannot see one — SolidAt
+    // is the height field plus the TUNNEL mask, and nothing writes a stamp into
+    // either — so every pass after the `scenes` stage that asks the document
+    // "how high is the ground here" gets the bare terrain the building is
+    // standing on. That is what seated a hand-placed sign at the painted height
+    // instead of on the plaza it was dropped on.
+    private const int NotStamped = int.MinValue;
+    private int[] _stampedGround;
+
+    // The stamp's top surface as seen from above: the highest solid voxel with
+    // air over it. For a plaza or a road that is the floor you walk on. For a
+    // ROOFED building it is the roof, which is the honest answer to a top-down
+    // question — an entity meant to stand inside one is placed against the
+    // cutaway plane and carries its own floorY, so it never asks this.
+    private void RecordStampedGround(SubscenePlacement placement)
+    {
+        _stampedGround ??= FilledStampedGround();
+        // FootprintOf answers in PIXEL space, not world space.
+        Rect2I footprint = Map.FootprintOf(placement);
+        int worldMinY = WorldState.Min.Y * ChunkState.SIZE;
+        int worldMaxY = WorldState.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        for (int px = footprint.Position.X; px < footprint.Position.X + footprint.Size.X; px++)
+        {
+            for (int pz = footprint.Position.Y; pz < footprint.Position.Y + footprint.Size.Y; pz++)
+            {
+                if (px < 0 || pz < 0 || px >= Map.Data.ImageWidth || pz >= Map.Data.ImageHeight)
+                {
+                    continue;
+                }
+                int wx = px + Map.Data.WorldMinX;
+                int wz = pz + Map.Data.WorldMinZ;
+                bool airAbove = true;
+                for (int wy = worldMaxY; wy >= worldMinY; wy--)
+                {
+                    bool solid = Blocks.IsSolid(WorldState.GetBlockWorld(wx, wy, wz));
+                    if (solid && airAbove)
+                    {
+                        // A footprint is a bounding BOX, so most columns inside
+                        // one are untouched ground the scene never wrote. Mark
+                        // only where the stamp actually moved the surface —
+                        // otherwise every building strips the detail scatter
+                        // from its whole bounding box, hundreds of columns of
+                        // plain terrain included.
+                        if (wy != Map.SurfaceBelow(px, pz, int.MaxValue))
+                        {
+                            _stampedGround[pz * Map.Data.ImageWidth + px] = wy;
+                        }
+                        break;
+                    }
+                    airAbove = !solid;
+                }
+            }
+        }
+    }
+
+    private int[] FilledStampedGround()
+    {
+        var a = new int[Map.Data.ImageWidth * Map.Data.ImageHeight];
+        for (int i = 0; i < a.Length; i++)
+        {
+            a[i] = NotStamped;
+        }
+        return a;
+    }
+
+    // The ground at a world column for anything running AFTER the scenes stage:
+    // what the stamp put there if one covers it, else what the document says.
+    // Before that stage there is nothing to add and this is TerrainHeight.
+    private int GroundYAtWorld(int wx, int wz)
+    {
+        int px = wx - Map.Data.WorldMinX;
+        int pz = wz - Map.Data.WorldMinZ;
+        if (_stampedGround != null
+            && px >= 0 && pz >= 0 && px < Map.Data.ImageWidth && pz < Map.Data.ImageHeight)
+        {
+            int stamped = _stampedGround[pz * Map.Data.ImageWidth + px];
+            if (stamped != NotStamped)
+            {
+                return stamped;
+            }
+        }
+        return Map.TerrainHeight(px, pz);
+    }
+
+    private bool IsStampedColumn(int wx, int wz)
+    {
+        int px = wx - Map.Data.WorldMinX;
+        int pz = wz - Map.Data.WorldMinZ;
+        return _stampedGround != null
+            && px >= 0 && pz >= 0 && px < Map.Data.ImageWidth && pz < Map.Data.ImageHeight
+            && _stampedGround[pz * Map.Data.ImageWidth + px] != NotStamped;
     }
 
     // Bake phase boundaries, as a fraction of the whole job: stamping is most of
@@ -628,7 +733,7 @@ public class WorldMapBake
         int levelCap = Map.Data.finish.mobLevelCap;
         return _bakeContext ??= new SpawnContext
         {
-            SurfaceYAt = (wx, wz) => Map.TerrainHeight(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
+            SurfaceYAt = GroundYAtWorld,
             IsValidColumn = (wx, wz) => Map.CanSpawnAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
             IsFlatColumn = (wx, wz) => Map.IsFlatAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
             // The painted difficulty layer, which is the only thing that knows a

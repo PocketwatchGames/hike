@@ -7,7 +7,6 @@
 
 [resource]
 script = ExtResource("1_entry")
-family = &"sparrow"
 descriptor = ExtResource("D_sparrow_forest")
 variants = [ExtResource("D_sparrow_forest"), ExtResource("D_sparrow_mountain"), ExtResource("D_sparrow_swamp")]
 metadata/_custom_type_script = "uid://dhkkrl6qof485"

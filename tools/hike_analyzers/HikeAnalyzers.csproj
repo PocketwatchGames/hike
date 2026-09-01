@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Roslyn analyzers enforcing the architectural rules in CLAUDE.md that are
+       decidable from source. The mechanical invariants (UIDs, [Tool] closure at
+       runtime, shaders, blocks, spawn lists) already have checkers; these cover
+       the ones that previously existed only as prose and drifted.
+
+       netstandard2.0 is mandatory - the compiler will not load an analyzer
+       targeting anything else. Referenced from hike.csproj as an Analyzer, so
+       `dotnet build hike.sln` is the enforcement point. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <!-- RS2008: analyzer release tracking. Not useful for an in-repo analyzer
+         that ships with the code it checks. -->
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

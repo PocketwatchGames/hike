@@ -6,7 +6,6 @@
 
 [resource]
 script = ExtResource("1_entry")
-family = &"slime"
 descriptor = ExtResource("D_slime_cube")
 variants = [ExtResource("D_slime_cube"), ExtResource("D_slime_sphere")]
 metadata/_custom_type_script = "uid://dhkkrl6qof485"

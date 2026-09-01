@@ -810,9 +810,9 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// off the reticle. Nullable in case Initialize hasn't run; callers check
 	// HasAimWorldPosition before reading AimWorldPosition.
 	public AimingReticle AimingReticle => _aimingReticle;
-	public void PlayAnim(EAnimation anim)
+	public void PlayAnim(EAnimation anim, float animDuration)
 	{
-		PlayOneShot(anim);
+		PlayOneShot(anim, animDuration: animDuration);
 	}
 
 	// Seeded from an ApplyMotion event. Direction resolves per the event's

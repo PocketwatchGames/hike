@@ -52,12 +52,13 @@ public class EntityTool : IWorldMapTool
         names[0] = "Player spawn";
         for (int i = 0; i < palette.Length; i++)
         {
-            // The FAMILY, not the variant: this row is "what am I placing", and
-            // one goblin row is the whole point of a family entry. Which goblin
-            // is a per-placement choice and shows on the hover readout and in
-            // the property panel, where it is the answer being asked for.
+            // The palette ENTRY, not the variant: this row is "what am I
+            // placing", and one goblin row is the whole point of an entry that
+            // offers variants. Which goblin is a per-placement choice and shows
+            // on the hover readout and in the property panel, where it is the
+            // answer being asked for.
             names[i + 1] = palette[i] == null
-                ? $"Entry {i}" : SpawnEntryData.FamilyName(palette[i]);
+                ? $"Entry {i}" : SpawnEntryData.PaletteName(palette[i]);
         }
         return names;
     }
@@ -85,7 +86,7 @@ public class EntityTool : IWorldMapTool
                 : "Player spawn (not placed — world origin)";
         }
         SpawnEntryData entry = SelectedEntry(ctx);
-        return entry != null ? SpawnEntryData.FamilyName(entry) : "No entity palette authored";
+        return entry != null ? SpawnEntryData.PaletteName(entry) : "No entity palette authored";
     }
 
     // What the next click would place, and so what the map picks out: every
@@ -167,7 +168,7 @@ public class EntityTool : IWorldMapTool
                 }
                 Selected = new EntityPlacement
                 {
-                    entry = entry,
+                    source = entry,
                     anchorXZ = ctx.WorldXZ(texel),
                     floorY = ctx.FloorForEntity(texel.X, texel.Y, view.CutawayY),
                 };

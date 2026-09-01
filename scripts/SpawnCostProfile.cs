@@ -3,10 +3,12 @@ using System.Diagnostics;
 using System.Text;
 using Godot;
 
-// TEMPORARY load-time instrumentation: per-entity-type cost of the spawn drain,
-// split into CreateEntity (scene instantiation) vs RegisterEntity (OnSpawned +
-// bookkeeping). Delete once the spawn-phase investigation lands.
-public static class TempSpawnCost
+// Load-time instrumentation for the entity spawn drain and the chunk-mesh
+// fill: per-entity-type cost split into CreateEntity (scene instantiation) vs
+// RegisterEntity (OnSpawned + bookkeeping). Off unless `spawn_cost_profile 1`
+// is set before the world loads — the timestamps are per entity, and the dump
+// is a screenful.
+public static class SpawnCostProfile
 {
     private struct Entry
     {
@@ -17,8 +19,21 @@ public static class TempSpawnCost
 
     private static readonly Dictionary<string, Entry> _byType = new();
 
+    public static bool Enabled => CVars.spawnCostProfile.Value;
+
+    // Timestamp for a Record/RecordOther pair. Returns 0 while profiling is
+    // off so a call site costs nothing but the flag read.
+    public static long Stamp()
+    {
+        return Enabled ? Stopwatch.GetTimestamp() : 0;
+    }
+
     public static void Record(string type, long t0, long t1, long t2)
     {
+        if (!Enabled)
+        {
+            return;
+        }
         double toMs = 1000.0 / Stopwatch.Frequency;
         _byType.TryGetValue(type, out Entry e);
         e.Count++;
@@ -29,6 +44,10 @@ public static class TempSpawnCost
 
     public static void RecordOther(string label, long t0)
     {
+        if (!Enabled)
+        {
+            return;
+        }
         double ms = (Stopwatch.GetTimestamp() - t0) * (1000.0 / Stopwatch.Frequency);
         _byType.TryGetValue(label, out Entry e);
         e.Count++;
@@ -38,6 +57,10 @@ public static class TempSpawnCost
 
     public static void Dump()
     {
+        if (!Enabled)
+        {
+            return;
+        }
         var rows = new List<KeyValuePair<string, Entry>>(_byType);
         rows.Sort((a, b) => (b.Value.CreateMs + b.Value.RegisterMs).CompareTo(a.Value.CreateMs + a.Value.RegisterMs));
         var sb = new StringBuilder();
@@ -55,5 +78,6 @@ public static class TempSpawnCost
         }
         sb.AppendLine($"[SpawnCost] {"TOTAL",-24} {tn,5} {tc,11:F1} {tr,12:F1} {tc + tr,10:F1} {(tn > 0 ? (tc + tr) / tn : 0),15:F2}");
         GD.Print(sb.ToString());
+        _byType.Clear();
     }
 }

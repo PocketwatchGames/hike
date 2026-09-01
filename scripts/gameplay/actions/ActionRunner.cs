@@ -35,6 +35,28 @@ public class ActionRunner
 	private GasCloud _channelZone;
 	private ulong _lastChannelDrainMs;
 
+	// Hurtbox instance ids already damaged by the in-flight activation's melee
+	// swings, and the melee windows still open. Both are owned by the runner
+	// (one allocation per actor rather than one per swing) and reset in
+	// EnterActive — so "the activation" is the scope a target can only be hit
+	// once within, and the next press starts clean.
+	private readonly System.Collections.Generic.HashSet<ulong> _meleeHits = new();
+	private readonly System.Collections.Generic.List<SustainedMelee> _sustainedMelee = new();
+
+	// One live melee window. `endMs` is game time; `started` is false until the
+	// window has taken its opening sweep (which happens on the tick the event
+	// fires, from TickSustainedMelee rather than from the dispatch itself).
+	// `lastSweepMs` guards against sweeping twice on the same tick — an
+	// immediate press activates and then the owner's Tick runs in the same
+	// physics frame.
+	private struct SustainedMelee
+	{
+		public ItemEvent ev;
+		public ulong endMs;
+		public ulong lastSweepMs;
+		public bool started;
+	}
+
 	public ActionRunner(IActionActor actor)
 	{
 		_actor = actor;
@@ -309,11 +331,58 @@ public class ActionRunner
 		{
 			ulong now = _actor.GameTimeMs;
 			WalkActiveEvents(now);
+			TickSustainedMelee(now);
 			if (now >= _action.endMs)
 			{
 				EndActive();
 			}
 		}
+	}
+
+	// Sweep every open melee window against the actor's CURRENT pose, so a swing
+	// authored with `meleeDuration` damages what its path crosses rather than
+	// what it happened to overlap on one frame. Runs after WalkActiveEvents so a
+	// window registered this tick takes its opening sweep immediately.
+	private void TickSustainedMelee(ulong now)
+	{
+		for (int i = _sustainedMelee.Count - 1; i >= 0; i--)
+		{
+			SustainedMelee window = _sustainedMelee[i];
+			bool last = now >= window.endMs;
+			if (window.started && window.lastSweepMs == now && !last)
+			{
+				continue;
+			}
+			ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, _meleeHits, !window.started, last);
+			if (last)
+			{
+				_sustainedMelee.RemoveAt(i);
+			}
+			else
+			{
+				window.started = true;
+				window.lastSweepMs = now;
+				_sustainedMelee[i] = window;
+			}
+		}
+	}
+
+	// Close every still-open window with a final sweep. Called from EndActive so
+	// a window authored past the tier's activeDurationSeconds still resolves its
+	// last tick and its whiff cue instead of vanishing. Aborts/interrupts drop
+	// their windows instead — a cancelled swing deals nothing.
+	private void CloseSustainedMelee()
+	{
+		if (_sustainedMelee.Count == 0)
+		{
+			return;
+		}
+		for (int i = 0; i < _sustainedMelee.Count; i++)
+		{
+			SustainedMelee window = _sustainedMelee[i];
+			ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, _meleeHits, !window.started, windowEnd: true);
+		}
+		_sustainedMelee.Clear();
 	}
 
 	// Player-initiated cancel. Charging always cancels; weapon Active cancels
@@ -555,6 +624,11 @@ public class ActionRunner
 		_action.activateMs = now;
 		_action.endMs = now + (ulong)(tier.activeDurationSeconds * 1000f);
 		_action.lastEventIndex = -1;
+		// The activation is the melee dedupe scope: a target this swing already
+		// struck stays struck for the whole swing, and a fresh press can hit it
+		// again. Cleared before any t=0 event can register a window.
+		_meleeHits.Clear();
+		_sustainedMelee.Clear();
 		_action.chargeT = ComputeChargeT(_action.profile, tier, _action.selectedTierIndex, chargeElapsed);
 
 		// Combo bookkeeping (weapon-driving tiers only). For a repeating tier,
@@ -626,6 +700,7 @@ public class ActionRunner
 
 		// Fire any t=0 active events on entry. The walker handles t>0 in Tick.
 		WalkActiveEvents(now);
+		TickSustainedMelee(now);
 		// Zero-duration Active: exit on the same tick.
 		if (now >= _action.endMs)
 		{
@@ -635,6 +710,10 @@ public class ActionRunner
 
 	private void EndActive()
 	{
+		// Resolve any melee window still open before the action state is torn
+		// down — DoMelee reads selectedTier / context off the live action.
+		CloseSustainedMelee();
+
 		// Interactive actions fire their completion bucket here so authors
 		// don't have to align an OpenInteractive event's time to the action's
 		// durationSeconds. Weapons skip this — their per-tier `events` walk
@@ -691,6 +770,7 @@ public class ActionRunner
 
 	private void AbortActive()
 	{
+		_sustainedMelee.Clear();
 		_action = default;
 		_queuedAction = default;
 		_hasQueued = false;
@@ -698,6 +778,7 @@ public class ActionRunner
 
 	private void AbortInteractive()
 	{
+		_sustainedMelee.Clear();
 		_action = default;
 		_queuedAction = default;
 		_hasQueued = false;
@@ -815,7 +896,7 @@ public class ActionRunner
 					anim = swing.animName;
 				}
 			}
-			_actor.PlayAnim(anim);
+			_actor.PlayAnim(anim, ev.animDuration);
 		}
 		if ((t & EItemEventType.ApplyStatusEffect) != 0)
 		{
@@ -825,9 +906,27 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoApplyAreaStatusEffect(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.Heal) != 0)
+		{
+			ItemEventHandlers.DoHeal(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.Melee) != 0)
 		{
-			ItemEventHandlers.DoMelee(_actor, ev, ref _action);
+			// A `meleeDuration` swing registers a window and is swept by
+			// TickSustainedMelee — including its opening sweep, on this same
+			// tick. Windows only exist during Active (nothing ticks them while
+			// Charging), so a charge-phase melee stays a single swing. The
+			// window is anchored to the timeline, not to `now`, so a late tick
+			// doesn't stretch it.
+			ulong meleeEndMs = _action.activateMs + ev.time + (ulong)(ev.meleeDuration * 1000f);
+			if (_action.phase == EActionPhase.Active && meleeEndMs > _actor.GameTimeMs)
+			{
+				_sustainedMelee.Add(new SustainedMelee { ev = ev, endMs = meleeEndMs });
+			}
+			else
+			{
+				ItemEventHandlers.DoMelee(_actor, ev, ref _action, _meleeHits, windowStart: true, windowEnd: true);
+			}
 		}
 		if ((t & EItemEventType.Hitscan) != 0)
 		{

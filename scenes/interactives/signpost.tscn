@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_look"]
 [ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="6_autocoll"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_4hym0"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="7_kopq1"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="7_meshhl"]
 [ext_resource type="PackedScene" uid="uid://btbyx6031l2vv" path="res://assets/models/signpost/SM_Prop_Sign_01.fbx" id="8_signfbx"]
 [ext_resource type="Script" uid="uid://dsaesfmav28u8" path="res://scripts/gameplay/minimap/MinimapFoliageStamp.cs" id="9_minimap"]
@@ -22,7 +23,6 @@ script = ExtResource("3_action")
 displayName = &"Read"
 icon = ExtResource("5_look")
 completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_sign_event")])
-durationSeconds = 2.0
 locksMovement = true
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_sign_interact"]

@@ -96,6 +96,13 @@ public partial class ModelAnimator : Node
     private bool _active;
     // Accumulated real time waiting to be spent in discrete quantized steps.
     private double _stepAccum;
+    // Playback rate for the CURRENT clip only, from Play's `animDuration` — how a
+    // one-shot is stretched (or compressed) to fill an authored window, e.g. a
+    // mob's attack clip made to span its action's Active phase. Every Play that
+    // doesn't ask for a fit resets it, so it can't leak into the next clip.
+    // Distinct from effectSpeedMultiplier, which is the per-tick status/terrain
+    // retiming of a LOOP.
+    private float _clipSpeed = 1f;
     // Cached refs for the facing pass: the camera (refreshed lazily) and the
     // body node the visual hangs under (its yaw is the "true" facing).
     private Camera3D _cachedCamera;
@@ -461,7 +468,11 @@ public partial class ModelAnimator : Node
     // to the same `stab1` slot every press and must interrupt itself. The
     // looping locomotion pick leaves restart false so a held run/idle loop
     // isn't yanked back to frame 0 every frame.
-    public void Play(StringName name, bool restart = false)
+    // `animDuration` > 0 retimes the clip to run for exactly that many seconds
+    // instead of its authored length — the seam for an action that owns a fixed
+    // window and wants one motion to fill it. 0 (the default) plays at authored
+    // speed and scales nothing.
+    public void Play(StringName name, bool restart = false, float animDuration = 0f)
     {
         // Mirror LitSpriteAnimator: re-playing the current still-running clip
         // is a no-op so a held loop isn't restarted every frame.
@@ -478,6 +489,15 @@ public partial class ModelAnimator : Node
         CurrentAnimation = name;
         Finished = false;
         _stepAccum = 0.0;
+        _clipSpeed = 1f;
+        if (animDuration > 0f)
+        {
+            float authored = player.GetAnimation(name)?.Length ?? 0f;
+            if (authored > 0f)
+            {
+                _clipSpeed = authored / animDuration;
+            }
+        }
         // Stepped mode hard-cuts (no cross-fade) to keep the stop-motion read;
         // smooth mode uses a short blend so state changes don't pop.
         player.Play(name, customBlend: quantizeFps > 0f ? 0.0 : 0.12);
@@ -517,14 +537,18 @@ public partial class ModelAnimator : Node
             double step = 1.0 / quantizeFps;
             while (!Finished && _stepAccum >= step)
             {
-                player.Advance(step);
+                // _clipSpeed scales the CLIP delta, not the accumulator: the
+                // stop-motion cadence is a stylistic constant, so a clip
+                // stretched to fill a window still re-poses quantizeFps times a
+                // second rather than degrading into a slideshow.
+                player.Advance(step * _clipSpeed);
                 _stepAccum -= step;
             }
         }
         else
         {
             // Smooth: let the AnimationPlayer advance itself.
-            player.SpeedScale = speed * effectSpeedMultiplier;
+            player.SpeedScale = speed * effectSpeedMultiplier * _clipSpeed;
         }
     }
 

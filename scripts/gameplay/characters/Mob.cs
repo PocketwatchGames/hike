@@ -1107,9 +1107,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
     public Node3D AttackerNode => this;
-    public void PlayAnim(EAnimation anim)
+    public void PlayAnim(EAnimation anim, float animDuration)
     {
-        PlayOneShot(anim);
+        PlayOneShot(anim, animDuration);
     }
 
     // Seeded from an ApplyMotion event in the mob's attack profile (e.g. a
@@ -1323,7 +1323,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // HUD purposes (see Teams.AreAllied). All other mobs use MobData.team.
     public ETeam ActorTeam => (_simState != null && _simState.Tamed) ? ETeam.Friendly : (mobData?.team ?? ETeam.Hostile);
 
-    public void PlayOneShot(EAnimation anim)
+    // `animDuration` > 0 retimes the clip to run for exactly that many seconds
+    // (an attack filling its action's Active window — see ItemEvent.animDuration);
+    // 0 plays at authored speed.
+    public void PlayOneShot(EAnimation anim, float animDuration = 0f)
     {
         if (_animator == null || mobData == null)
         {
@@ -1337,7 +1340,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _oneShotAnim = anim;
         // restart: a re-fired one-shot (e.g. repeated attacks on the same clip)
         // must replay from the start rather than no-op on the in-flight clip.
-        _animator.Play(name, restart: true);
+        _animator.Play(name, restart: true, animDuration: animDuration);
     }
 
     // IInteractive — only mobs with authored _interactiveActions surface as

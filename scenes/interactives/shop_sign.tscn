@@ -1,0 +1,64 @@
+[gd_scene format=3 uid="uid://lw0oh276eams"]
+
+[ext_resource type="Script" uid="uid://bsgnpst1laq4m" path="res://scripts/gameplay/entities/Signpost.cs" id="1_sign"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_ibox"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_pv2ml"]
+[ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_look"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_teinl"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="6_autocoll"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="7_l6bq0"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="7_meshhl"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_002ek"]
+[ext_resource type="PackedScene" uid="uid://bx1tbinwwsw0y" path="res://assets/models/signpost/rpgpp_av_notice_board_01.fbx" id="8_boardfbx"]
+[ext_resource type="Script" uid="uid://dsaesfmav28u8" path="res://scripts/gameplay/minimap/MinimapFoliageStamp.cs" id="9_minimap"]
+
+[sub_resource type="Resource" id="Resource_shopsign_event"]
+script = ExtResource("4_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_shopsign_action"]
+script = ExtResource("3_action")
+displayName = &"Read"
+icon = ExtResource("5_look")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_shopsign_event")])
+durationSeconds = 0.5
+locksMovement = true
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_shopsign_interact"]
+size = Vector3(3.4, 3, 2.2)
+
+[node name="ShopSign" type="Node3D" unique_id=1779095469 node_paths=PackedStringArray("_hudNode")]
+script = ExtResource("1_sign")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_shopsign_action")])
+_text = "A painted shop board hangs above the door."
+
+[node name="SignModel" type="Node3D" parent="." unique_id=708892906]
+script = ExtResource("6_autocoll")
+
+[node name="rpgpp_av_notice_board_01" parent="SignModel" unique_id=1942813260 instance=ExtResource("8_boardfbx")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -0.169721, 0, 0.377433)
+
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=2066090354 node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_ibox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1768756784]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+shape = SubResource("BoxShape3D_shopsign_interact")
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=1327057536 node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("7_meshhl")
+_collectFrom = NodePath("../SignModel")
+
+[node name="MinimapStamp" type="Node3D" parent="." unique_id=1386370098]
+script = ExtResource("9_minimap")
+MinimapFoliageId = 5
+
+[node name="HUDNode" type="Node3D" parent="." unique_id=1033328207]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.7, 0)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -524,9 +524,9 @@ public partial class Sim
         List<EntitySimState> states = _worldState.GetEntities(coord);
         if (states == null || states.Count == 0)
         {
-            long __e0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            long emptyStart = SpawnCostProfile.Stamp();
             onChunkEntitiesLoaded?.Invoke(coord);
-            TempSpawnCost.RecordOther("onChunkEntitiesLoaded(empty)", __e0);
+            SpawnCostProfile.RecordOther("onChunkEntitiesLoaded(empty)", emptyStart);
             return;
         }
         _spawningRemaining[coord] = states.Count;
@@ -552,9 +552,9 @@ public partial class Sim
                 _spawningRemaining.Remove(pending.ChunkCoord);
                 continue;
             }
-            long __t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            long createStart = SpawnCostProfile.Stamp();
             Node3D entity = pending.State.CreateEntity(this);
-            long __t1 = System.Diagnostics.Stopwatch.GetTimestamp();
+            long registerStart = SpawnCostProfile.Stamp();
             if (entity != null)
             {
                 // Per-type spawn counter — surfaces under engine monitors so
@@ -562,8 +562,8 @@ public partial class Sim
                 Profiler.IncrementCounter("spawn." + entity.GetType().Name);
                 RegisterEntity(entity, entities, pending.State);
             }
-            long __t2 = System.Diagnostics.Stopwatch.GetTimestamp();
-            TempSpawnCost.Record(entity == null ? "<null>" : entity.GetType().Name, __t0, __t1, __t2);
+            long spawnEnd = SpawnCostProfile.Stamp();
+            SpawnCostProfile.Record(entity == null ? "<null>" : entity.GetType().Name, createStart, registerStart, spawnEnd);
             spawned++;
             // Decrement chunk's pending count; fire onChunkEntitiesLoaded on
             // the last entity so the minimap stamp pass sees the full set.
@@ -573,9 +573,9 @@ public partial class Sim
                 if (remaining <= 0)
                 {
                     _spawningRemaining.Remove(pending.ChunkCoord);
-                    long __e1 = System.Diagnostics.Stopwatch.GetTimestamp();
+                    long loadedStart = SpawnCostProfile.Stamp();
                     onChunkEntitiesLoaded?.Invoke(pending.ChunkCoord);
-                    TempSpawnCost.RecordOther("onChunkEntitiesLoaded", __e1);
+                    SpawnCostProfile.RecordOther("onChunkEntitiesLoaded", loadedStart);
                 }
                 else
                 {

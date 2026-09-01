@@ -1,0 +1,13 @@
+# Symbols that must never come back, one per line, with the reason shown at the
+# call site. Format: https://github.com/dotnet/roslyn-analyzers (RS0030)
+#   T:Full.Type.Name;reason
+#   F:Full.Type.Name.Field;reason
+#   M:Full.Type.Name.Method(ArgTypes);reason
+#   P:Full.Type.Name.Property;reason
+#
+# There is no Blocks.WaterId, and reintroducing one is a bug - water is several
+# blocks, so an equality test against one id silently stops meaning "is this
+# water". Ask Blocks.IsWater(id); Blocks.DefaultWaterId is for WRITES only.
+# (Listed for the day someone re-adds it; the symbol does not exist today, and
+# an entry for a missing symbol is inert rather than an error.)
+F:Blocks.WaterId;Water is several blocks - use Blocks.IsWater(id) to test, Blocks.DefaultWaterId to write.

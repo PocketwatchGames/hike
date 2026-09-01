@@ -62,8 +62,8 @@ public partial class MobSpawnEntry : SpawnEntryData
 
     public override bool IsMobEntry => true;
 
-    // Which descriptor of its family this one is, so a family entry still names
-    // the individual in the hover readout and the panel title.
+    // Which descriptor of its family this one is, so an entry covering a whole
+    // family still names the individual in the hover readout and the panel title.
     public override string VariantName()
         => descriptor != null ? descriptor.ResourcePath.GetFile().GetBaseName() : null;
 

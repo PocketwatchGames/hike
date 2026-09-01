@@ -25,6 +25,20 @@
   <ItemGroup>
     <Compile Remove="tools/**" />
   </ItemGroup>
+  <!-- In-repo Roslyn analyzers (HK0xx) enforcing the architectural rules in
+       CLAUDE.md that are decidable from source, so `dotnet build` is the
+       enforcement point rather than the reviewer's memory. Severities live in
+       .editorconfig. NOTE: this is unrelated to EnableNETAnalyzers above -
+       that flag only suppresses the SDK's duplicate auto-add of the built-in
+       NetAnalyzers package. -->
+  <ItemGroup>
+    <ProjectReference Include="tools/hike_analyzers/HikeAnalyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4"
+                      PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <AdditionalFiles Include="BannedSymbols.txt" />
+  </ItemGroup>
   <Target Name="GenerateVersion" BeforeTargets="CoreCompile">
     <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitHashValue" />

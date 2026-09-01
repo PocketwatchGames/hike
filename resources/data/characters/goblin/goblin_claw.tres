@@ -18,6 +18,7 @@
 [sub_resource type="Resource" id="Resource_event_windup_anim"]
 script = ExtResource("4_event")
 type = 64
+animDuration = 1.5
 
 [sub_resource type="Resource" id="Resource_event_dart"]
 script = ExtResource("4_event")
@@ -29,10 +30,11 @@ motionFreezeGravity = false
 
 [sub_resource type="Resource" id="Resource_event_strike"]
 script = ExtResource("4_event")
-time = 450
+time = 250
 type = 1
 range = 3.5
 farWidth = 3.0
+meleeDuration = 0.2
 impactEnvironmentEffect = ExtResource("8_solidfx")
 impactHealthEffect = ExtResource("7_hitfx")
 impactArmorEffect = ExtResource("8_solidfx")

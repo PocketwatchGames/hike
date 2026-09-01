@@ -12,7 +12,9 @@ public interface IActionActor
 	uint AttackHurtboxMask { get; }
 	Rid? SelfHurtBoxRid { get; }
 	Node3D AttackerNode { get; }
-	void PlayAnim(EAnimation anim);
+	// `animDuration` > 0 asks the actor to retime the clip so it runs for exactly
+	// that many seconds (ItemEvent.animDuration); 0 plays it at authored speed.
+	void PlayAnim(EAnimation anim, float animDuration);
 
 	// Kick off a motion phase. The runner fires this from an ApplyMotion event;
 	// the actor's physics layer owns direction resolution, terrain interaction,

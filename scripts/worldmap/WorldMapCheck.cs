@@ -74,19 +74,18 @@ public static class WorldMapCheck
         var byEntry = new Dictionary<string, (int Total, int Owned)>();
         foreach (EntityPlacement placement in entities)
         {
-            if (placement?.entry == null)
+            if (placement?.Entry == null)
             {
                 continue;
             }
-            bool owned = SpawnEntryData.IsOwnedCopy(placement.entry);
-            // The shared answer, not a second copy of it: grouping is by FAMILY,
-            // so the listing counts "every npc" the way the palette's highlight
-            // picks them out. A local reimplementation missed the explicit
-            // `family` and reported six migrated NPCs as "NpcSpawnEntry".
-            string name = SpawnEntryData.FamilyName(placement.entry);
+            bool owned = placement.IsCustomized;
+            // Grouped by the palette ENTRY a placement came from, so the listing
+            // counts "every npc" the way the palette's highlight picks them out
+            // — a customized one included, since it is still one of them.
+            string name = SpawnEntryData.PaletteName(placement.source);
             if (string.IsNullOrEmpty(name))
             {
-                name = placement.entry.GetType().Name;
+                name = placement.Entry.GetType().Name;
             }
             byEntry.TryGetValue(name, out (int Total, int Owned) count);
             byEntry[name] = (count.Total + 1, count.Owned + (owned ? 1 : 0));
@@ -104,7 +103,7 @@ public static class WorldMapCheck
         sb.AppendLine($"[worldmap_check] entities: {entities.Length} placed — "
             + (spread.Length == 0 ? "none" : spread.ToString()));
 
-        ReportPlacementGates(sb, ctx, entities);
+        ReportEntityLinks(sb, entities);
         ReportPaletteEditors(sb, ctx);
 
         // The fork the property panel makes must come back as the SAME entry
@@ -114,13 +113,13 @@ public static class WorldMapCheck
         // tell until the bake.
         foreach (EntityPlacement placement in entities)
         {
-            if (placement?.entry == null || SpawnEntryData.IsOwnedCopy(placement.entry))
+            if (placement?.source == null || placement.IsCustomized)
             {
                 continue;
             }
-            if (placement.entry.Duplicate(false) is not SpawnEntryData)
+            if (placement.source.Duplicate(false) is not SpawnEntryData)
             {
-                sb.AppendLine($"[worldmap_check] ERROR: {placement.entry.GetType().Name} does not survive "
+                sb.AppendLine($"[worldmap_check] ERROR: {placement.source.GetType().Name} does not survive "
                     + "Duplicate — per-placement entity properties cannot be edited");
             }
             break;
@@ -441,15 +440,15 @@ public static class WorldMapCheck
     // panel looks exactly like "there are none authored".
     private static void ReportPaletteEditors(System.Text.StringBuilder sb, WorldMapState ctx)
     {
-        // Per (type, FAMILY), not per type: what a row may be set to is now the
-        // ENTRY's answer, so one line per class would report whichever family
+        // Per palette ENTRY, not per type: what a row may be set to is the
+        // entry's own answer, so one line per class would report whichever entry
         // happened to come first and a broken variants list on any other would
         // be invisible.
         var seen = new HashSet<string>();
         foreach (SpawnEntryData entry in ctx.EntityPalette)
         {
             if (entry == null
-                || !seen.Add($"{entry.GetType().Name}/{SpawnEntryData.FamilyName(entry)}"))
+                || !seen.Add($"{entry.GetType().Name}/{SpawnEntryData.PaletteName(entry)}"))
             {
                 continue;
             }
@@ -468,11 +467,11 @@ public static class WorldMapCheck
                         out Resource[] resources);
                 if (kind == WorldMapEntityInspector.EPropertyEditor.ResourcePick)
                 {
-                    // A family-constrained row reports its own count and is
-                    // marked, so the listing distinguishes "every conversation in
-                    // the project" from "this entry's own 13 goblins".
+                    // A row constrained to the entry's own set reports its own
+                    // count and is marked, so the listing distinguishes "every
+                    // conversation in the project" from "this entry's 13 goblins".
                     picks.Add(resources != null
-                        ? $"{name}({resources.Length} in family)"
+                        ? $"{name}({resources.Length} offered)"
                         : $"{name}({ResourceTypeIndex.Candidates(resourceType).Length})");
                 }
                 else if (kind == WorldMapEntityInspector.EPropertyEditor.NamePick)
@@ -488,7 +487,7 @@ public static class WorldMapCheck
                     editable.Add(name.ToString());
                 }
             }
-            sb.AppendLine($"[worldmap_check] {SpawnEntryData.FamilyName(entry)} ({entry.GetType().Name}) panel — "
+            sb.AppendLine($"[worldmap_check] {SpawnEntryData.PaletteName(entry)} ({entry.GetType().Name}) panel — "
                 + $"edit: {Join(editable)} | pick: {Join(picks)} | no editor yet: {Join(locked)}");
         }
     }
@@ -496,39 +495,77 @@ public static class WorldMapCheck
     private static string Join(List<string> items)
         => items.Count == 0 ? "none" : string.Join(", ", items);
 
-    // Hand placing an entity does NOT guarantee it spawns: TrySpawn still runs
-    // its placement gates, and every rejection is silent — the entity is simply
-    // not in the baked world, with nothing said. Reported here because the map
-    // cannot show it and the author has no other way to find out short of going
-    // to stand where they put it.
+    // Lever-to-trapdoor wiring, which is authored as a word typed twice and so
+    // fails exactly the way an untyped identifier always does: silently. A lever
+    // whose tag matches nothing throws its handle and opens no floor, and nothing
+    // at runtime says so — the lever simply finds no trapdoor to trigger.
     //
-    // Only the FLAT-TERRAIN gate is answerable without voxels, and it is the one
-    // most likely to bite: a mob entry requires its column and all eight
-    // neighbours at one height, so an NPC placed on a slope or on the lip of a
-    // step is dropped. The rest (minSpacing against a neighbour, the hazard
-    // keep-out, the navigation-walkability probe) need a built world and are not
-    // checked here. Lateral clearance no longer applies — StampEntities marks
-    // these AuthoredPosition, which is what lets one stand against a wall.
-    private static void ReportPlacementGates(System.Text.StringBuilder sb, WorldMapState ctx,
-        EntityPlacement[] entities)
+    // A tagged trapdoor with no lever is reported too: it still opens by hand, so
+    // it is not broken, but the tag is dead and usually means the lever's spelling
+    // drifted.
+    private static void ReportEntityLinks(System.Text.StringBuilder sb, EntityPlacement[] entities)
     {
-        var rejected = new List<string>();
+        var levers = new Dictionary<string, int>();
+        var trapdoors = new Dictionary<string, int>();
+        int untargetedLevers = 0;
+        int plainTrapdoors = 0;
         foreach (EntityPlacement placement in entities)
         {
-            if (placement?.entry == null || !placement.entry.RequireFlatTerrain)
+            switch (placement?.Entry)
             {
-                continue;
-            }
-            int px = placement.anchorXZ.X - ctx.Data.WorldMinX;
-            int pz = placement.anchorXZ.Y - ctx.Data.WorldMinZ;
-            if (!ctx.IsFlatAt(px, pz))
-            {
-                rejected.Add($"{SpawnEntryData.DisplayName(placement.entry)}"
-                    + $"@{placement.anchorXZ.X},{placement.anchorXZ.Y}");
+                case LeverSpawnEntry lever:
+                    if (string.IsNullOrEmpty(lever.targetLinkTag))
+                    {
+                        untargetedLevers++;
+                        break;
+                    }
+                    levers.TryGetValue(lever.targetLinkTag, out int n);
+                    levers[lever.targetLinkTag] = n + 1;
+                    break;
+                case TrapdoorSpawnEntry trapdoor:
+                    if (string.IsNullOrEmpty(trapdoor.linkTag))
+                    {
+                        plainTrapdoors++;
+                        break;
+                    }
+                    trapdoors.TryGetValue(trapdoor.linkTag, out int m);
+                    trapdoors[trapdoor.linkTag] = m + 1;
+                    break;
             }
         }
-        sb.AppendLine($"[worldmap_check] placement gates: {rejected.Count} hand-placed "
-            + "entities sit on non-flat ground and will NOT spawn"
-            + (rejected.Count == 0 ? "" : " — " + string.Join(", ", rejected)));
+        if (levers.Count == 0 && trapdoors.Count == 0
+            && untargetedLevers == 0 && plainTrapdoors == 0)
+        {
+            return;
+        }
+        var wiring = new List<string>();
+        var dangling = new List<string>();
+        var tags = new SortedSet<string>(levers.Keys);
+        tags.UnionWith(trapdoors.Keys);
+        foreach (string tag in tags)
+        {
+            levers.TryGetValue(tag, out int leverCount);
+            trapdoors.TryGetValue(tag, out int trapdoorCount);
+            wiring.Add($"{tag}: {leverCount} lever -> {trapdoorCount} trapdoor");
+            if (trapdoorCount == 0)
+            {
+                dangling.Add($"{leverCount} lever(s) target '{tag}' and NO trapdoor carries it");
+            }
+            else if (leverCount == 0)
+            {
+                dangling.Add($"{trapdoorCount} trapdoor(s) carry '{tag}' and no lever targets it");
+            }
+        }
+        sb.AppendLine($"[worldmap_check] entity links: {Join(wiring)}"
+            + (plainTrapdoors == 0 ? "" : $" | {plainTrapdoors} player-operated trapdoor(s)"));
+        if (untargetedLevers > 0)
+        {
+            sb.AppendLine($"[worldmap_check] ERROR: {untargetedLevers} lever(s) have no target link "
+                + "tag and will NOT spawn — edit each placement and type the trapdoor's tag");
+        }
+        foreach (string line in dangling)
+        {
+            sb.AppendLine($"[worldmap_check] WARNING: {line}");
+        }
     }
 }

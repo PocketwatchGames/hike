@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -1010,7 +1010,7 @@ public partial class ChunkManager : Node3D
         ChunkMesh.EnsureMaterialsInitialized();
 
         var built = new ChunkGeometry[coords.Count];
-        long __p0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        long buildStart = SpawnCostProfile.Stamp();
         System.Threading.Tasks.Parallel.For(0, coords.Count, i =>
         {
             Vector3I coord = coords[i];
@@ -1019,21 +1019,21 @@ public partial class ChunkManager : Node3D
             bool visualOnly = (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z) > MAX_LOAD_DISTANCE_SQ;
             built[i] = ChunkMesh.BuildGeometry(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
         });
-        TempSpawnCost.RecordOther($"fill.ParallelBuild({coords.Count} chunks)", __p0);
+        SpawnCostProfile.RecordOther($"fill.ParallelBuild({coords.Count} chunks)", buildStart);
 
         for (int i = 0; i < coords.Count; i++)
         {
             Vector3I coord = coords[i];
-            long __r0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            long realizeStart = SpawnCostProfile.Stamp();
             ChunkMesh mesh = ChunkMesh.Realize(built[i]);
-            TempSpawnCost.RecordOther("fill.Realize", __r0);
-            long __a0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            SpawnCostProfile.RecordOther("fill.Realize", realizeStart);
+            long addChildStart = SpawnCostProfile.Stamp();
             AddChild(mesh);
-            TempSpawnCost.RecordOther("fill.AddChild", __a0);
+            SpawnCostProfile.RecordOther("fill.AddChild", addChildStart);
             _loadedChunks[coord] = mesh;
-            long __c0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            long chunkLoadedStart = SpawnCostProfile.Stamp();
             onChunkLoaded?.Invoke(coord);
-            TempSpawnCost.RecordOther("fill.onChunkLoaded", __c0);
+            SpawnCostProfile.RecordOther("fill.onChunkLoaded", chunkLoadedStart);
         }
     }
 

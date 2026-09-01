@@ -6,7 +6,17 @@ using Godot;
 // primary weapon and physics queries from the actor's world.
 public static class ItemEventHandlers
 {
-	public static void DoMelee(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	// One sweep of a melee event's damage volume. A `meleeDuration` window is
+	// swept once per Active tick (see ActionRunner.TickSustainedMelee); a plain
+	// event sweeps once with both edge flags set, which is the identical path.
+	//
+	// `alreadyHit` is the activation's accumulated set of hurtbox instance ids —
+	// a target it already contains is skipped, so a window can stay overlapping
+	// without re-damaging. `windowStart` gates the once-per-swing opening cues
+	// (the smear); `windowEnd` gates the whiff cue, which can only be judged
+	// once the whole window has failed to connect.
+	public static void DoMelee(IActionActor actor, ItemEvent ev, ref PlayerAction action,
+		System.Collections.Generic.HashSet<ulong> alreadyHit, bool windowStart, bool windowEnd)
 	{
 		// Effective attack shape — single source of truth shared by the damage
 		// query and the smear visual, so a future status effect that scales the
@@ -17,8 +27,26 @@ public static class ItemEventHandlers
 
 		// Swing smear, sized to that live shape. Fired on every swing — a
 		// blocked or zero-damage swing still swooshes — so it spawns before the
-		// damage early-out below.
-		SpawnSmear(actor, ev, shapeRange, shapeNearWidth, shapeFarWidth);
+		// damage early-out below. Once per swing, not once per window tick.
+		if (windowStart)
+		{
+			SpawnSmear(actor, ev, shapeRange, shapeNearWidth, shapeFarWidth);
+		}
+
+		// Swing geometry. Resolved before the damage early-out so the debug
+		// draw below covers a zero-damage swing too — the volume is the same
+		// one either way, and a mob's reach is most often wrong on a whiff.
+		float halfHeight = ev.meleeHeight * 0.5f;
+		Vector3 basePos = actor.ActorWorldPosition + Vector3.Up * halfHeight;
+		Vector3 forward = actor.ActorForward;
+		float nearRadius = shapeNearWidth * 0.5f;
+		float farRadius = shapeFarWidth * 0.5f;
+		Vector3 nearCenter = basePos + forward * nearRadius;
+		Vector3 farCenter = basePos + forward * (shapeRange - farRadius);
+		if (CVars.debugMelee.Value)
+		{
+			DebugDrawSweep(nearCenter, nearRadius, farCenter, farRadius, halfHeight, MeleeDebugColor);
+		}
 
 		HitInfo hit = ResolveHit(ev, action, actor);
 		if (hit.healthDamage <= 0f && hit.buildups == null)
@@ -32,13 +60,6 @@ public static class ItemEventHandlers
 			return;
 		}
 
-		float halfHeight = ev.meleeHeight * 0.5f;
-		Vector3 basePos = actor.ActorWorldPosition + Vector3.Up * halfHeight;
-		Vector3 forward = actor.ActorForward;
-		float nearRadius = shapeNearWidth * 0.5f;
-		float farRadius = shapeFarWidth * 0.5f;
-		Vector3 nearCenter = basePos + forward * nearRadius;
-		Vector3 farCenter = basePos + forward * (shapeRange - farRadius);
 		// Damage volume is the convex hull of the two disks (the swept fan)
 		// extruded vertically into a flat-topped/-bottomed prism over
 		// `meleeHeight`. The physics query uses the convex hull of horizontal
@@ -62,6 +83,11 @@ public static class ItemEventHandlers
 
 		var results = world3D.DirectSpaceState.IntersectShape(query);
 		Rid? selfHurtBox = actor.SelfHurtBoxRid;
+		// Whether the swing had already landed on something before this tick.
+		// Distinguishes the swing's ONE impact moment (the first connect, or the
+		// closing tick of a swing that never connects) from later ticks of the
+		// same window, which only need their own per-victim impact fx.
+		bool connectedBefore = alreadyHit.Count > 0;
 		EHitResult bestResult = EHitResult.None;
 		EDamageTriggerFlags bestTriggers = EDamageTriggerFlags.None;
 		Vector3 impactPos = damagePos;
@@ -78,6 +104,13 @@ public static class ItemEventHandlers
 					continue;
 				}
 				if (!hurtBox.CanBeHit(hit))
+				{
+					continue;
+				}
+				// One hit per target per activation. Add() is the claim: a target
+				// already struck by this swing (an earlier tick of the same
+				// window) is skipped outright.
+				if (!alreadyHit.Add(hurtBox.GetInstanceId()))
 				{
 					continue;
 				}
@@ -103,10 +136,14 @@ public static class ItemEventHandlers
 		}
 		ApplyLifesteal(actor, action, healthDamageDealt);
 
-		// No hurtbox hit — fall back to environment so a swing into a wall
-		// still gets a thunk rather than reading as a whiff.
-		if (bestResult == EHitResult.None)
+		// Whiff / environment thunk. A window can only be called a whiff once it
+		// has closed having never connected — an empty tick mid-window is just a
+		// tick the volume happened to be over nothing.
+		bool whiffed = bestResult == EHitResult.None && windowEnd && !connectedBefore;
+		if (whiffed)
 		{
+			// No hurtbox hit — fall back to environment so a swing into a wall
+			// still gets a thunk rather than reading as a whiff.
 			var envQuery = new PhysicsShapeQueryParameters3D
 			{
 				Shape = shape,
@@ -123,12 +160,19 @@ public static class ItemEventHandlers
 				SpawnImpact(actor, ev.impactMissEffect, damagePos);
 			}
 		}
-		else
+		else if (bestResult != EHitResult.None)
 		{
 			SpawnImpact(actor, PickImpactScene(ev, bestResult), impactPos);
 			SpawnTriggerOverlays(actor, action.selectedTier, bestTriggers, impactPos);
 		}
 
+		// The rest is ONCE PER SWING, not once per window tick: the swing's
+		// impact moment is the tick it first connects, or the closing tick of a
+		// swing that never does.
+		if (!whiffed && (connectedBefore || bestResult == EHitResult.None))
+		{
+			return;
+		}
 		// Status-effect on-impact bursts (elite lightning aura, shock enchant,
 		// etc.) fire at the swing's resolved impact point — the best hurtbox
 		// when one was hit, else the swing center. See StatusEffectController.
@@ -212,7 +256,53 @@ public static class ItemEventHandlers
 			ring[i] = center + RingDirs[i] * radius;
 		}
 		ring[SweepRingPoints] = ring[0];
-		DebugDraw.Lines(ring, color, 0.15f);
+		DebugDraw.Lines(ring, color, MeleeDebugLifetime);
+	}
+
+	// `debug_melee` wireframe. Held on screen a little longer than a frame so a
+	// swing is readable at speed, but under the shortest authored swing so two
+	// swings never overlap into one blob.
+	private const float MeleeDebugLifetime = 0.35f;
+	private static readonly Color MeleeDebugColor = new Color(1f, 0.55f, 0.15f, 0.55f);
+
+	// The swing's damage volume, drawn as the prism the physics query actually
+	// uses: the near and far caps at both planes, the outer tangents that close
+	// the hull between them, and vertical edges at the tangent points. Matches
+	// BuildSweepShape — change one and change the other.
+	private static void DebugDrawSweep(Vector3 nearCenter, float nearRadius, Vector3 farCenter, float farRadius, float halfHeight, Color color)
+	{
+		Vector3 vh = Vector3.Up * halfHeight;
+		DebugDrawDisk(nearCenter + vh, nearRadius, color);
+		DebugDrawDisk(nearCenter - vh, nearRadius, color);
+		DebugDrawDisk(farCenter + vh, farRadius, color);
+		DebugDrawDisk(farCenter - vh, farRadius, color);
+
+		Vector3 axis = farCenter - nearCenter;
+		axis.Y = 0f;
+		float len = axis.Length();
+		// Degenerate fan (the far disk sits on the near one, or swallows it):
+		// the caps alone already bound it, so there is no tangent to draw.
+		if (len < 0.001f || Mathf.Abs(nearRadius - farRadius) >= len)
+		{
+			return;
+		}
+		Vector3 u = axis / len;
+		Vector3 side = new Vector3(u.Z, 0f, -u.X);
+		// External tangent of the two circles: the touch direction is the axis
+		// rotated by the angle whose cosine is the radius difference over the
+		// centre distance, taken to either side.
+		float cosA = (nearRadius - farRadius) / len;
+		float sinA = Mathf.Sqrt(1f - cosA * cosA);
+		for (int s = -1; s <= 1; s += 2)
+		{
+			Vector3 touch = u * cosA + side * (sinA * s);
+			Vector3 nearTop = nearCenter + touch * nearRadius + vh;
+			Vector3 farTop = farCenter + touch * farRadius + vh;
+			DebugDraw.Line(nearTop, farTop, color, MeleeDebugLifetime);
+			DebugDraw.Line(nearTop - vh * 2f, farTop - vh * 2f, color, MeleeDebugLifetime);
+			DebugDraw.Line(nearTop, nearTop - vh * 2f, color, MeleeDebugLifetime);
+			DebugDraw.Line(farTop, farTop - vh * 2f, color, MeleeDebugLifetime);
+		}
 	}
 
 	public static void DoHitscan(IActionActor actor, ItemEvent ev, ref PlayerAction action)
@@ -1511,6 +1601,19 @@ public static class ItemEventHandlers
 				effect.Apply(target, action.context);
 			}
 		}
+	}
+
+	// Instant restore on the acting character. Deliberately flat: the authored
+	// amount is what lands, with no outgoing/level scaling — those scale what an
+	// actor DEALS, and a heal is not a hit.
+	public static void DoHeal(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if (ev.healAmount <= 0f)
+		{
+			return;
+		}
+		actor.Heal(ev.healAmount);
+		SpawnOnActor(actor, ev.fx);
 	}
 
 	public static void DoDecrementStack(IActionActor actor, ItemEvent ev, ref PlayerAction action)

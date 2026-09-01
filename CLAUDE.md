@@ -8,7 +8,45 @@ Hike is an isometric exploration game built with Godot 4.6 (C#/.NET 8.0). It fea
 
 ## Priorities
 
-Always prefer code quality, simplicity, and speed/ease of content authoring over implementation cost. This is a small-team project where authored content (`.tres`/`.tscn` files) is the long-tail bottleneck — a slightly harder implementation that makes authoring faster, less error-prone, or simpler to reason about is worth it.
+Always prefer code quality, correctness, and speed/ease of content authoring over
+implementation cost. This is a small-team project where authored content
+(`.tres`/`.tscn` files) is the long-tail bottleneck — a slightly harder
+implementation that makes authoring faster, less error-prone, or simpler to reason
+about is worth it.
+
+**Verification is cost-optimized. Design is not.** The cost tables below are about
+how cheaply a change can be *checked*. They say nothing about how large the change
+should be, and none of these is ever a reason to prefer one design over another:
+
+> "it's less churn" · "it touches fewer files" · "it avoids a format bump" ·
+> "the existing mechanism already covers it" - "it's a smaller diff"
+
+A worse design is not rescued by being cheaper. Name the design that is right and
+build that one.
+
+**The game is pre-release.** There are no shipped saves, no players to migrate, and
+no external consumer of any format this repo writes. So:
+
+- **Bump wire formats freely, and never write a back-compat reader.** `WorldFile`
+  is the model: any version mismatch is a hard error naming the problem, and the
+  world is re-baked (~33s). A `.hike` is a *cache of an authoring document*, not
+  user data. `SaveGame` follows the same rule — a save that isn't the current
+  `SAVE_VERSION` is rejected, not upgraded.
+- **A version-gated branch (`if (version >= N)`) is debt, not compatibility.** It
+  buys nothing while nothing has shipped, and it stops the current format being
+  readable as one shape. Delete the branch and bump the version instead.
+- **Regenerating content is a cost, not a blocker.** Rebaking the painted world,
+  re-authoring a `.tres`, or discarding a dev save are all acceptable prices for
+  the right data model. Say what will need regenerating; don't design around
+  avoiding it.
+
+**Propose the from-scratch design first.** For any change touching a data model, a
+wire format, or a subsystem boundary: state what the design would be if written
+today against no existing code, then state what you are actually proposing. If they
+differ, name the reason — and it must be a real constraint (an ordering or lifetime
+requirement, an authoring cost, an engine limitation), never one of the non-reasons
+above. If a shortcut is genuinely warranted, say so plainly and get sign-off; never
+take one silently.
 
 ## Build & Run
 
@@ -30,7 +68,7 @@ Measured warm on this machine, so the choice is by cost rather than by feel:
 
 | Step | Cost |
 |---|---|
-| `dotnet build hike.sln` (no-op or small edit) | ~8s |
+| `dotnet build hike.sln` (no-op or small edit, HK analyzers included) | ~9s |
 | Godot headless **boot floor** (`--quit-after 1`) | ~3.5s |
 | `block_check` / `shader_check` (boot included) | ~3s |
 | `spawn_check` (boot + every spawn list resolved) | ~4s |
@@ -146,6 +184,41 @@ chases is invisible from either side alone:
   class, a broken dependency, and a parse error.
 
 Grep the output for `FAIL`; a clean tree prints `[resource_check] ok`.
+
+### Checking That the Conventions Still Hold
+
+**`dotnet build` is the convention loop.** `tools/hike_analyzers` is an in-repo
+Roslyn analyzer set enforcing the rules below that are decidable from source, so
+they fail at the compiler instead of depending on a reviewer having read this file:
+
+| Rule | Catches |
+|---|---|
+| `HK001` | a literal `res://` path in `GD.Load` / `ResourceLoader.Load` |
+| `HK002` | a Godot `Node`/`Resource` subclass missing `[GlobalClass]` |
+| `HK003` | a `[Tool]` closure gap — **editor-only data loss** |
+| `HK004` | an `[Export] float` authored near the 0.001 default spinbox step |
+| `HK005` | `GetNode`/`GetChild` in `_Ready` instead of an `[Export]` |
+| `HK006` | a particle/audio node constructed outside an `Fx` scene |
+| `HK007` | a Godot `Material` constructed at runtime rather than authored |
+| `HK008` | a `Godot.Collections` `.Count` re-read in a loop condition |
+
+- **Every rule is an `error`, and `.editorconfig` carries an enumerated BASELINE**
+  of the files that already violated one — downgraded to `warning` per file, so
+  the build is green while the debt stays visible and countable. It is a ledger,
+  not an exemption list: fix a file and delete its section. **Never add a section
+  to silence new code** — that is the whole mechanism.
+- **`HK003` is `resource_check`'s `[Tool]` rule moved to the compiler**, and the
+  two agree exactly (same 9 sites today). The compile-time copy is the useful one:
+  it fires before the editor has a chance to drop the reference. `resource_check`
+  keeps the load sweep, which needs a running engine.
+- **A rule that cannot be decided from source does not go here.** The `.cs.uid`
+  sidecar invariant is a `PostToolUse` hook (`.claude/hooks/check_cs_uid.py`)
+  because the compiler cannot see it; `validate_uids` remains the repair tool.
+- **Banned symbols live in `BannedSymbols.txt`** (Roslyn `BannedApiAnalyzers`,
+  `RS0030`), for the `Blocks.WaterId` class of mistake — a name that must not come
+  back, with the reason printed at the call site.
+- **Adding a rule is the fix for "a human has to remember this."** A new invariant
+  that only this file enforces is one refactor away from being gone.
 
 ### Worktree Setup
 
@@ -344,86 +417,55 @@ NOT need anything else under `map/`: the raster layers (`*.png`, `*.exr`,
 
 The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`). See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
 
-### Blocks — the voxel material model (`scripts/data/world/`, `resources/data/voxels/blocks/`)
+### Blocks — the voxel material model (`scripts/data/world/`)
 
-**The per-voxel byte is a `BlockData.blockId`.** There is no `VoxelType` enum — it used to carry physics AND appearance, and both moved:
+**The per-voxel byte is a `BlockData.blockId`.** There is no `VoxelType` enum — it
+used to carry physics AND appearance, and both moved onto the block. Four rules
+reach across the whole codebase:
 
-| Concept | Lives on | Is |
-|---|---|---|
-| `BlockSurfaceData` | `resources/data/voxels/surfaces/` | one baked atlas layer + `porosity` (the only genuinely per-TEXTURE property) |
-| `BlockData` | `resources/data/voxels/blocks/` | `top`/`side`/`bottom` surfaces, `wallBand`, `climbGrowthSurface`, sim flags, and every per-VOXEL material property |
-| `BlockCatalog` | `resources/data/voxels/blocks/block_catalog.tres` | global id→block registry; ids are the wire format |
-| `WaterFilmData` | `resources/data/voxels/films/` | the scum/algae layer a water block floats (`BlockData.waterFilm`) |
-| `Blocks` | `scripts/voxels/Blocks.cs` | flattened `bool[]`/`int[]` tables for the hot paths |
-
-Rules:
 - **Hot-path physics reads `Blocks.IsSolid(id)` etc., never `BlockCatalog.GetById(id).solid`** — the tables exist because those loops run per voxel per chunk build.
-- **A block's face is picked per FRAGMENT by slope**, not by the mesher: `block_faces[]` / `block_bands[]` uniforms, smoothstepped on `|normal.y|`. There is no auto/literal split — a block repeating one surface just blends between identical tiles.
-- **Tile class (ground vs cliff) comes from the face slot**, top/bottom = ground, side = cliff. One texture can therefore be ground on a floor and cliff on the wall below it.
-- **What grows on climbable rock is a per-BLOCK choice, not a per-zone one.** `BlockData.climbGrowthSurface` feeds BOTH halves of the climb affordance through **one mechanism**: worldgen paints it down tall cliff faces (`StampClimbSurfaces`, stored in `OverlayId`), and `ChunkMesherDC` dresses every mantleable lip voxel in the same overlay at mesh time (appearance only — never written to `WorldState`, so it cannot make a two-voxel step climbable). A lip matches the wall it caps by construction, not by keeping two blend paths in sync. Keying it per zone cannot express the cases that matter: `CaveSandstone` and `CaveLimestone` are one zone's caves and everyone else's, and `ChunkState.ZoneIndex` is per CHUNK, so a zone-keyed mark would step along 16 m boundaries instead of following the terrain. It is not on `BlockSurfaceData` either — wall surfaces are shared far too widely to carry it (`surface_stone` is the side of Grass, MarshGround and both cave blocks). `ZoneGenData.climbCoverage` stays per-zone because how MUCH rock is dressed is genuinely a zone call; only WHAT grows comes from the block.
 - **There is no `Blocks.WaterId`, and reintroducing one is a bug.** Water is SEVERAL blocks — `Water` (the standard, turbidity delta 0), `WaterClear`, `WaterMurky` and the scum types, with ice to come — so an equality test against one id silently stops being "is this water" the moment a body is anything but standard: you would not swim in it, boats would ignore it, nav would read a hole, the waterfall finder would skip it. Ask **`Blocks.IsWater(id)`**, which is fed by `render == EBlockRender.Water` and so covers every type including ones added later. **`Blocks.DefaultWaterId` is for WRITES only** — the block to lay down when something fills a column and has no reason to pick a type — and is deliberately named so it cannot be mistaken for a test. The migration off the old symbol was compile-driven (delete it, fix the 66 errors); that is the only safe way to do it again, because every one of those sites still compiles when it is wrong.
-- **What a water body IS comes from the block; what floats ON it comes from the block's `waterFilm`.** The zone still owns the water's hue and baseline clarity (`ZoneData.waterColor` / `waterOpacity`) — that is how a region defines its palette — and a block only says how this body DIFFERS from it, via `waterTurbidityDelta` applied as a push toward the endpoint rather than a clamped addition. An absolute would mean authoring one scum block per zone. A film's colour comes from its own texture and `WaterFilmData.tint`, which is what lets one baked atlas row serve green and red scum.
-- **Several water types mesh as ONE volume.** `WaterMesher` culls against `Blocks.IsWater`, so a clear tarn and the scummy shallows at its edge share a surface with no seam, and the per-fragment block id in `CUSTOM0.x` is what makes them look different. A SHELL cell (the one-voxel dilation into the shore) is solid, so it borrows its block from the water it shells — the same move `ShelledWaterIsOpen` makes, and without it every scummy pond gets a ring of ordinary water.
 - **`Blocks.IsEmpty(id)` is not `id == AirId`** — an Opening is empty in every sense except the ceiling cutaway's.
-- **Appearance is never resolved at draw time.** Re-texturing a stamped scene rewrites block ids at stamp time, which is why a block can own physics and appearance together without a wall going soft in another biome. `SubsceneStamper` decides per voxel with **`ws.Kits.IsKitGround`**: a block that is some kit's ground is a biome statement, and a scene has no biome, so it adopts the kit it lands in — while anything else (a stone wall, a plank floor, cobbles, a dirt path) is a deliberate material that survives the journey unchanged. Block ids are global, so a grass voxel authored in one world is recognisable as kit ground in another even though the SLOT it sat in is not. Two traps, both hit here: inheriting only the `TerrainId` byte changes nothing visible now that appearance lives on the block (a scene authored on forest soil kept it in a desert), and `BlockData.naturalGround` is the wrong test for "is this biome ground" — it answers "may the road pass grade across this?" and is true of Road and Dirt.
 - **`block_check`** (`--headless -- "block_check 1"`, ~3s) validates the catalog and dumps the resolved table — the data twin of `shader_check`.
+- **The kit palette is the `.hike`'s wire format and is APPEND-ONLY.** `TerrainId`
+  is one byte per voxel indexing `WorldState.Kits`; insert, remove or reorder a
+  slot and every already-baked world comes back re-textured with its stored bytes
+  still perfectly valid. `Main.LoadWorldFromFile` refuses a world whose palette
+  moved, naming the slot.
 
-Worldgen still keeps a parallel **kit** channel (`TerrainId`): `ws.Kits.BlockFor(id)` maps a slot to its block, and the channel survives generation only because `EKitPurpose` and the per-kit scatter tunings need it. Appearance is not among its jobs.
+The material model itself — the `BlockSurfaceData`/`BlockData`/`BlockCatalog`
+split, per-fragment face selection, climb growth, the water types and their films,
+and the kit channel — is in
+[scripts/data/world/CLAUDE.md](scripts/data/world/CLAUDE.md), with the atlas half
+in [resources/data/voxels/surfaces/CLAUDE.md](resources/data/voxels/surfaces/CLAUDE.md).
 
-**The kit palette belongs to the WORLD, not to the process** — `WorldState.Kits`, a `KitPalette` built from the authored `KitPaletteData` on `WorldGenData.kitPalette`. Two rules follow from what it is:
+### Spawn Entries & Lists (`scripts/data/spawn/`)
 
-- **It is the `.hike`'s wire format, and it is APPEND-ONLY.** `TerrainId` is one byte per voxel holding an index into it. Insert, remove or reorder a slot and every world already baked comes back re-textured, with the stored bytes still perfectly valid — they just mean a different kit. `WorldFile` v46 records the slot paths and `Main.LoadWorldFromFile` refuses a world whose palette moved, naming the slot; `block_check` dumps the resolved table so a diff proves an edit only appended.
-- **It is AUTHORED, not derived.** It used to be built by walking `WorldGenData.zones` and collecting each zone's four kit slots in declaration order, which made the wire format a side effect of zone *placement*: adding a zone re-textured every baked world, and a kit no zone referenced had no slot at all, so anything naming it silently fell back to slot 0.
+**What a thing is and how a list uses it are separate resources** — a
+`SpawnEntryData` is a SHARED asset in `resources/data/world_authoring/spawn_entries/`
+holding only what is true of the thing wherever it appears; a **row** names one and
+adds what THIS container says about it. Two rules reach beyond the subsystem:
 
-It was a set of `WorldGen` statics (`ActiveKitPalette`, `_kitIndex`, `_kitPurposes`, plus a `KitBlocks` table) bound by whichever of six call sites ran last. That was world state parked in the generator: it outlives generation, it is read by code with nothing to do with generation (the mesher, `SubsceneStamper`, the editor, the map painter), and the painter's bake wrote it from a background thread while the painter was live — which is why "one bake at a time" had to be a rule. Nothing was lost by moving it: every hot-path reader already had the `WorldState` in hand.
+- **A per-container value must not migrate onto the entry.** They genuinely differ
+  per list — the mountain goblin is night-only on the surface and any-time in a
+  cave. Authored the other way round, every list had to embed its own copy of every
+  entry and one well was re-authored in three files.
+- **An entry stays embedded only when it is genuinely one-of-a-kind** (a house
+  list's villagers, each with their own conversation and palette). Hoisting a
+  single-use entry into a shared file buys nothing; forking a shared one to vary it
+  costs an author a silent duplicate.
 
-See [resources/data/voxels/surfaces/CLAUDE.md](resources/data/voxels/surfaces/CLAUDE.md) for the atlas-baking half.
-
-### Spawn Entries & Lists (`scripts/data/spawn/`, `resources/data/world_authoring/spawn_entries/`)
-
-**What a thing is and how a list uses it are separate resources.** A
-`SpawnEntryData` (`MobSpawnEntry`, `ForageSpawnEntry`, `ChestSpawnEntry`, …) is a
-SHARED asset in `resources/data/world_authoring/spawn_entries/` holding only what is true of the
-thing wherever it appears — its descriptor or item, its scene, its placement
-gates. A **row** names one of those and adds what THIS container says about it,
-so a zone's entity list reads as a list of named files with a number each:
-
-| Row type | Container | Adds |
-|---|---|---|
-| `SpawnRow` (base) | — | `entry`, `spawnConditions` |
-| `SpawnListRow` | `SpawnListData.rows` | `squareMetersPerSpawn` (per-column area rate) |
-| `SpawnGroupRow` | `SpawnGroupData.rows` | `countMin`/`countMax`, `placeAtAnchor` |
-
-The two containers ask different questions — a list wants a rate per area, a
-cluster wants a count and a position within itself — and neither can act on the
-other's answer, so they are separate types. One shared row type carrying all of
-it put three dead fields on every list row, and a field that cannot affect its
-container is worse than a missing one: it invites tuning that does nothing.
-
-- **Per-container values must not migrate onto the entry.** They genuinely differ
-  per list, which is the whole reason for the split: the mountain goblin is
-  night-only on the surface and any-time in a cave, and a camp holds 2–3 of a
-  goblin the surface scan places one of. Authored the other way round, each list
-  had to embed its own copy of every entry and one well was re-authored in three
-  files. `spawnConditions` is on the shared base because it is the one question
-  BOTH containers ask.
-- **`spawnConditions` reaches `Spawn` on the `SpawnContext`**, stamped by the row
-  immediately before each spawn. `Spawn` is overridden by ~20 entry types and only
-  three (mob, npc, chest) have a sim state that can defer on a condition, so
-  widening every signature for it is the worse trade. Nothing clears the field —
-  every caller sets it for the row it is about to place.
-- **An entry stays embedded when it is genuinely one-of-a-kind**: the villagers in
-  a house list (`NpcSpawnEntry` — each carries its own conversation, outfit and
-  palette), a campfire fixture with authored text. Hoisting a single-use entry
-  into a shared file buys nothing.
-- **`spawn_check`** (`--headless -- "spawn_check 1"`, ~4s) dumps every list's
-  resolved rows with every stored property. There is no runtime error mode here —
-  a dropped rate or condition just quietly stops placing something — so a diff of
-  this output is how an edit to these files is proved to have changed nothing else.
+Row types, the `spawnConditions` plumbing and `spawn_check`:
+see [scripts/data/spawn/CLAUDE.md](scripts/data/spawn/CLAUDE.md).
 
 ### Save/Load System (`scripts/SaveGame.cs`)
 
-Binary format with a version header. Currently stubbed -- writes/reads the header but the player status-effect buildup section (v2) and the scripting-variable bank (v3) round-trip.
+Binary format with a version header. Still partial — the header, the player
+status-effect buildup section, the scripting-variable bank, the quest log and the
+collected treasure maps round-trip; inventory and active `StatusEffectState`
+instances do not yet. **A save that is not exactly `SAVE_VERSION` is rejected, not
+upgraded** (see Priorities): the game is pre-release, so the format is one shape
+with no version-gated read branches to keep in step.
 
 ### Scripting Variables — Quest Flags / World State (`scripts/data/scripting/`, `scripts/gameplay/scripting/`, `resources/data/worlds/shared/script_variables/`)
 
@@ -475,52 +517,13 @@ Snapshot-on-touch: a tool opens an `EditorEdit` off `EditorHistory`, declares wh
 
 Flat ground marks (scorch, footprints, blood) are **not** Godot `Decal`s (decals wash out wherever the terrain shader's `EMISSION` dominates). Instead a top-down `GroundStainProjector` renders proxy quads on visual layer 5 into `ground_stain_tex`, which the terrain shader composites into `base`; add a stain via a flat unshaded layer-5 quad (static in the prop scene, or batched via `FootprintScatter`). See [scripts/client/CLAUDE.md](scripts/client/CLAUDE.md).
 
-### Waterfalls (`scripts/gameplay/entities/Waterfall*.cs`, `shaders/waterfall.gdshader`)
+### Waterfalls (`scripts/gameplay/entities/`)
 
-A cascade's drop is **air** in the voxel grid and stays air (standing water there floated the player back up it), so the fall is drawn by an entity instead.
-
-**Where the falls are is read off the FINISHED VOXELS, under one rule** (`WaterfallFinder`, called by `WorldFinish.PlaceWaterfalls`): wherever a water voxel sits beside an air voxel, the topmost air voxel of that air span with water beside it is a **lip**, and the sheet runs from there down to the floor of the span. Lips group 8-connected and by the level they pour from — a five-wide sheet is one cascade wanting one effect, an outside corner turns through a diagonal so its two perpendicular strips must reach the same entity, and two pools at different heights spilling past each other stay two falls. Nothing shorter than the smallest authored tier becomes an entity. There were two derivations of this before, neither reading the world: worldgen walked a scratch water surface down its own staircase and the map painter tested its painted height/water layers, so each saw only the falls its own pass had a notion of and neither saw one made by a carve, a stamped scene or a hand edit. That is the whole reason falls went missing.
-
-**The sheet is a jet swept off that edge, not the water that would stand in the drop.** `WaterfallMeshBuilder` traces the ballistic profile from an authored exit SPEED (`pourSpeed`) — the water leaves horizontally and gravity bends it over, so the throw at the foot is `v·√(2·drop/g)` and GROWS with the drop; it lands `landingDepth` inside the pool below, and closes the wedge between two perpendicular strips fed by the same pool column with a quarter-turn corner skirt. Skinning the voxel columns the fall passes through was tried first and is wrong twice over: those columns are a *staircase* walked out from the lip, so they draw a slab of standing water reaching out over the terrain, notched wherever the staircase stepped — and their top faces lay flat water on the rock shoulders beside the drop. Samples are bunched toward the lip (`shoulderBias`): the profile's tangent is horizontal at the very top, and evenly spaced ones put the first polygon past the turn, so the sheet reads as leaving the pool at an angle. The reach was authored as a flat distance in metres first, which inverts the physics: every fall threw its water the same distance out whatever its height, so a 1 m weir arced as far off its lip as a 12 m cascade and read as a chute.
-
-**Both waters run the SAME shading code**, not parallel copies: `shaders/water_shading.gdshaderinc` owns the lightmap + cloud-shadow + block-light globals, the per-zone colour, `water_light` / `water_compose` / `water_adapt`, and `voxel_water` and `waterfall` both call it. It was written as a parallel copy first and drifted immediately — the copy's missing reflection term alone stopped the top of a fall reading as water. **A fall then lerps between the two behaviours by the Y of its own normal** (`surfaceness`): thickness, reflection, foam, face shade and which side the lightmap is read from are all one blend on it, so the shoulder rolling off the lip IS the pool surface and becomes a falling sheet exactly as the geometry turns. Two things the fall still handles itself:
-- **Thickness.** A pool reads its depth off the depth buffer; a curtain in open air would measure the far side of the valley. So thickness is authored per size tier, modulated by the flow streaks (thin streaks are the gaps you see through) and multiplied up by `surface_thickness_scale` where the sheet is still acting as a surface.
-- **Where the light is sampled.** A pool reads the lightmap half a voxel BACK, inside its own cell. A sheet must read FORWARD into the air it hangs in — backwards is the cliff, and the sample comes back black.
-- **Sparkle.** Falling water tears into droplets rather than presenting one surface, so per-pixel jitter is added to the reflection normal — one independent value per snapped cell (sampling `vnoise` on integer coordinates lands on its lattice, so the interpolation weights vanish and the raw hash comes back, which is what separates glitter from a wobble). It rides on the up-tilted normal below, never the raw one, or it re-triggers the cloud-plane degeneracy.
-- **Which normal the reflection is taken off.** NOT the sheet's own: the geometry swings from flat-up to vertical within a few centimetres of the lip, so a ray reflected off it sweeps through the horizon in a handful of pixels — and `sample_sky` projects clouds onto their plane at `t = (altitude − y)/max(dir.y, 0.05)`, so the sample point runs away by hundreds of metres per pixel and the cloud texture comes back as crawling speckle over the top of every fall. The reflection normal is lerped to +Y by `surfaceness`, so wherever the term has weight the shoulder reflects as the pool it continues.
-
-**The cutaway is decided at the LANDING, not at the entity's origin.** `GameClient` hides a whole entity node once its `GlobalPosition` is above the clip height, which assumes the origin sits at the bottom of what it draws — and a waterfall's node is on its *lip*, because that is the chunk it files into. So a fall whose top poked above the cut vanished entirely, taking the part still under the ceiling with it. `Waterfall` implements `IClipAnchored` and names its base instead; the sheet itself was always cutting correctly per fragment in-shader. (Residual: in the straddling case the lip spray `Fx` draws above the cut, since particles carry no clip of their own.)
-
-**The fall BLENDS; the pool composites by hand — and mixing that up is a real bug.** `voxel_water` samples `screen_tex` to get the ground under it, which works because the ground is opaque. The cascade cannot do the same: **Godot captures the screen copy once, before the transparent pass**, so a transparent object never sees another transparent object in it *whatever their render priorities say*. The pool is transparent (priority -3), so the sheet's `behind` sample returned the opaque scene behind the pool — bare rock — and a fall hanging in front of bright water drew the grey cliff over it. No ordering fixes that, because the copy predates both draws. The sheet therefore uses `blend_premul_alpha` and lets the hardware blend read the real framebuffer, emitting its own light in `ALBEDO` and putting only "how much of the background is hidden" in `ALPHA` — which is exactly the split `water_compose` already returns. The costs are explicit: screen-space refraction is impossible (it needs the copy), and alpha is scalar, so the tint absorption would give the background is lost.
-
-**Extinction through the sheet is TWO terms, and only one of them is the pool's.** `water_absorption` is clear water swallowing light wavelength by wavelength, and it is *slow* — SkyController derives it at ~0.08/m, so a one-metre sheet stops about 8% of what is behind it and no authored thickness reaches opaque (that would take tens of metres). What makes a real fall opaque is the AIR in it: a bubble cloud scattering strongly and with no colour preference, which is why whitewater is white and not blue. So the falling half adds a second, grey `aeration_density` term. Miss this and the curtain is a ~95% transparent window onto whatever is behind it, every gap opened in the streaks comes back dark, and no amount of tuning the streaks or the foam fixes it because the water is barely optically present. Its counterweight is `falling_ambient` and it is not optional: making the sheet opaque takes away the background it was borrowing brightness from, so a fall in shadow gets *darker* the more solid it becomes, and `WATER_MIN_AMBIENT` is 0.
-
-**The fall is TWO layers of water, composited as optical depth** — a front veil and a denser, slower back curtain starting `back_start_depth` below the lip, whose thicknesses ADD because two layers of water along one ray is one longer path through water. This is what lets the streaks be genuinely gappy: a gap in a single sheet exposes the shadowed rock behind it, so every notch of extra noise made the fall darker, whereas a gap in the front layer now exposes more water. Real geometry cannot do it here — the sheet is `depth_draw_never` and composites by hand against `screen_tex`, which Godot captures BEFORE the object sampling it, so a second surface only shows through the front's gaps as a separate draw at a lower priority (a second full-screen copy, plus another slot in the `-3/-2/-1/0` band); both layers in one mesh and the front's gaps still sample the cliff.
-
-**Whitewater on the falling half is a FLECK field, not a gradient**, built the way shoreline surf is: the sheet position is snapped to a pixel grid *before* the noise is read and cut with a narrow threshold band, so a speck is opaque whitewater or it is absent. How much foam a fragment carries — the tier's `foam`, the plunge ramp boiling on the churn, break-up along the streak ropes — pulls that threshold DOWN rather than scaling the result, so a quiet fall gets *fewer* specks instead of greyer ones. Two things it must not be: the noise cell is deliberately anisotropic (a fleck is a vertical dash of falling water, and an isotropic cell fine enough to read as a speck decorrelates every frame at `flow_speed` and strobes like static), and the thresholds are calibrated against the field's measured distribution — `vnoise` is bell-shaped about 0.5, not uniform, so a threshold picked as though it were flat lands almost entirely on or off. Flecks also thicken the sheet under themselves (`fleck_opacity_boost`): aerated water hides what is behind it, and without that the specks hover over a curtain you can still see straight through.
-
-**The shoreline surf is shared too** (`water_shore_foam`), and it has to be: the shoulder is drawn OVER the pool's last half-metre, so a band the pool paints and the sheet does not reads as a hole punched in the surf exactly at the lip. Each caller supplies only how its own water is running out — a pool measures that off its depth; the shoulder is water about to leave the ground and passes full shallowness. It lived in `voxel_water`, and that hole is what it cost.
-
-Size is one authored axis: `SimData.waterfalls` (a `WaterfallData`) holds four `WaterfallTierData` tiers picked by fall height, each carrying its own looping base ambience, lip/base spray `Fx` scenes, sheet thickness and foam. Spray emitters are **spaced** along the lip and landing lines rather than counted, so a one-column trickle gets one plume and a wide curtain mists along its whole width. A fall shorter than the first tier's `minFallHeight` draws nothing, and that threshold is the ONLY thing deciding how small a drop is worth drawing — the finder reports every lip it sees. The floor is 1 m (the `Rapids` tier): a one-voxel weir in a river is visible from the ground and reads as broken without a sheet, so "too small to be a waterfall" is not the same as "too small to draw".
-
-### Water Types — clear / murky / scum, and ice later (`scripts/data/world/`, `WorldFinish.StampWaterTypes`)
-
-**Water is SEVERAL blocks, not one.** `Water` (the standard), `WaterClear`, `WaterMurky`, the scum types, and ice when it lands. A block says what a body of water IS; the zone still says what the region's water LOOKS like. Three places, and the split is the whole design:
-
-| What | Lives on | Because |
-|---|---|---|
-| the region's water hue + baseline clarity | `ZoneData.waterColor` / `waterOpacity` | this is how a zone defines its palette, and it must stay independent of `dustColor`, which is the region's AIR (fog is `dustColor` outright) |
-| how far THIS body sits from that | `BlockData.waterTurbidityDelta` | one scum block then works in every zone instead of one per zone |
-| what floats on it | `BlockData.waterFilm` (a `WaterFilmData`) | the film's colour is its own texture × `tint`, so it owes the zone nothing |
-| WHICH body is which | the world-map painter's per-column water-type layer | authored, never derived — see below |
-
-- **The delta is a PUSH TOWARD AN ENDPOINT, not a clamped addition**: `d > 0 ? mix(zone, 1, d) : mix(zone, 0, -d)`. Clamped addition saturates uselessly — `+0.3` does nothing in a swamp already at 0.9. 0 is the exact identity, which is why the standard block leaves every already-baked world unchanged.
-- **The optics are derived TWICE and the two are checked against each other.** `SkyController` pushes the endpoints (`water_hue`, `water_sediment`, the absorb/albedo pairs, `water_zone_muddiness`) and `water_shading.gdshaderinc`'s `water_optics()` redoes the zone's own derivation per fragment. `SkyController.VerifyWaterOpticsParity` asserts the shader's delta-0 answer equals the C# one and errors on drift — deriving one model in two languages is otherwise how they part company silently.
-- **The zone's FINISHED globals stay.** Puddles (`voxel_clip`), both sprite-reflection shaders and `water_clip_cap` are made of water but carry no block id to look a type up with, so `water_absorption` / `water_scatter_color` / `water_muddiness` remain and are the right answer for them.
-- **A film's colour is its texture × `WaterFilmData.tint`**, which is what lets ONE baked atlas row serve green and red scum. The tint multiplies, so values above 1 are legitimate — pushing an olive tile to rust needs them. **The silhouette comes from the tile's own HEIGHT map**, thresholded by `breakup` (the fraction cut away). That height is baked RANK-NORMALIZED — uniformly distributed — which is what makes `breakup` linear: 0.25 really removes a quarter. Derive one for colour-only art rather than doing without; the procedural fallback thresholds a PIXEL-SNAPPED noise, so its boundary follows the snap grid and reads as an obvious border rather than a ragged edge of weed. `shape` blends between the two and is 0 only for a layer whose height row bakes blank.
-- **Water type is PAINTED, never derived, and a per-zone rule was REMOVED to make that true.** `ZoneData` briefly carried a `ZoneWaterData` that dressed a fraction of each zone's water in scum from a noise field. It worked, but the painter did not draw it, so the map and the baked world disagreed and the only way to notice was to go and stand in it. Closing that would have meant the painter reimplementing the rule — which is how the waterfall shading became two copies that drifted — so the rule went instead. A generated world now keeps standard water everywhere; `WorldFinish.StampWaterTypes` is a no-op without the painter's delegate.
-- **`water_type_probe`** answers the four indistinguishable reasons for "I see no scum": the zone authors none, the gates excluded everything, it is real but far away, or the shader is at fault. It reports free-surface voxels per block with their Y range, the nearest non-standard water, what the zone under the player authors, and it reads CUSTOM0 back out of the REAL mesher — the one check that covers the hand-packed vertex channel and `ToArrayMesh`'s format flags. **`water_film_force <blockId>`** draws every water surface as one block so a film can be judged without regenerating a world; `water_debug 21` shows the film mask; `surface_reload` re-pushes the tables live.
-- **The chunk water material is SHARED, and must stay that way.** It used to be `WaterMaterial.Duplicate()` per chunk (alone among the materials here — the backface beside it was always shared), which froze every parameter at build time: every runtime knob reached the original and nothing on screen.
+A cascade's drop is **air** in the voxel grid and stays air (standing water there
+floated the player back up it), so the fall is drawn by an entity instead —
+`WaterfallFinder` reads the lips off the finished voxels, `WaterfallMeshBuilder`
+sweeps a ballistic sheet off each one, and both waters share one shading include.
+See [scripts/gameplay/entities/CLAUDE.md](scripts/gameplay/entities/CLAUDE.md).
 
 ### Visual Render Layers (`VisualInstance3D.Layers` / `Camera3D.CullMask`)
 

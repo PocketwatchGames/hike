@@ -288,7 +288,7 @@ public partial class WorldMapPainter : Node3D
         RefreshEntityMark(was);
         RefreshEntityMark(hover);
         PushDisplay();
-        hud.SetHovered(hover == null ? "" : SpawnEntryData.DisplayName(hover.entry));
+        hud.SetHovered(hover == null ? "" : hover.DisplayName());
     }
 
     // Repaint the cells one mark covers, at its GROWN size — a mark that has just

@@ -118,3 +118,7 @@ script = ExtResource("41_helditemvis")
 visual = NodePath("../Visuals/MeshContainer/GoblinModel")
 boneName = &"R Hand"
 leftBoneName = &"L Hand"
+gripOffset = Vector3(0.0859, 0.0179, -0.0076)
+gripRotationDegrees = Vector3(-74.01, 100.5, 88.9)
+leftGripOffset = Vector3(0.0829, 0.0094, -0.0149)
+leftGripRotationDegrees = Vector3(72.28, -116.74, -112.86)

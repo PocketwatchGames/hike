@@ -53,6 +53,15 @@ public partial class ItemEvent : Resource
 	// centered on the actor's chest height. Both disks share it, so the volume
 	// is a flat-capped prism rather than a rounded capsule.
 	[Export] public float meleeHeight = 3f;
+	// How long the damage volume stays LIVE after `time`, in seconds. 0 (the
+	// default) is a one-tick swing. While the window is open the volume is
+	// re-tested every Active tick against the actor's CURRENT position and
+	// facing, so a swing that lunges or turns damages everything its path
+	// crosses rather than only what it overlapped on a single frame. Each
+	// hurtbox is struck at most once per ACTIVATION — the runner clears the hit
+	// set in EnterActive — so a window left overlapping a target can't
+	// machine-gun it, while the next press is a fresh swing that can.
+	[Export] public float meleeDuration;
 	// Optional swing-smear visual. Spawned by DoMelee and sized to the live
 	// attack shape (range / nearWidth / farWidth) via WeaponSmear.Initialize,
 	// so any status effect that grows or shrinks the attack carries through to
@@ -73,6 +82,12 @@ public partial class ItemEvent : Resource
 	// enum so the inspector shows a typo-proof dropdown — non-PlayAnim event
 	// types ignore the field, so the default (Attack=0) is harmless on them.
 	[Export] public EAnimation animName;
+	// Seconds the clip should take, retimed from its authored length. 0 (the
+	// default) plays at authored speed and scales nothing. Use it to make one
+	// motion fill the window the actor is committed for — a mob's swing spanning
+	// its tier's activeDurationSeconds instead of finishing early and dropping to
+	// idle mid-attack while still movement-locked.
+	[Export] public float animDuration;
 
 	// ToggleMovingLight: no extra fields. Handler flips LanternState.isActive
 	// on the action's primaryItem and attaches/detaches a MovingLight.
@@ -122,6 +137,10 @@ public partial class ItemEvent : Resource
 	// can travel independent of facing. Mobs always lunge along facing and
 	// ignore this.
 	[Export] public EMotionDirection motionDirection = EMotionDirection.Facing;
+
+	// Heal field. HP restored instantly to the acting character, clamped at
+	// their max. See EItemEventType.Heal.
+	[Export] public float healAmount = 50f;
 
 	// LearnLanguage fields. `language` is the LanguageData to grant on.
 	// `languageComponents` is the bitset of pieces (Grammar / Numbers /
@@ -393,11 +412,13 @@ public partial class ItemEvent : Resource
 		return fieldName switch
 		{
 			nameof(range) or nameof(nearWidth) or nameof(farWidth) or nameof(meleeHeight)
+				or nameof(meleeDuration)
 				or nameof(smearEffect) or nameof(smearClockwise) => EItemEventType.Melee,
 			nameof(hitScanRange) => EItemEventType.Hitscan,
 			nameof(effects) => EItemEventType.ApplyStatusEffect | EItemEventType.ApplyAreaStatusEffect,
-			nameof(animName) => EItemEventType.PlayAnim,
-			nameof(fx) => EItemEventType.OpenInteractive | EItemEventType.ApplyAreaStatusEffect | EItemEventType.Projectile,
+			nameof(animName) or nameof(animDuration) => EItemEventType.PlayAnim,
+			nameof(fx) => EItemEventType.OpenInteractive | EItemEventType.ApplyAreaStatusEffect | EItemEventType.Projectile | EItemEventType.Heal,
+			nameof(healAmount) => EItemEventType.Heal,
 			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
 			nameof(motionForwardSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) or nameof(motionDirection) => EItemEventType.ApplyMotion,
 			nameof(language) or nameof(languageComponents) => EItemEventType.LearnLanguage,

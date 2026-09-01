@@ -8,5 +8,4 @@ script = ExtResource("1_entry")
 descriptor = ExtResource("D_dog")
 variants = [ExtResource("D_dog")]
 initialBehavior = null
-family = &"dog"
 metadata/_custom_type_script = "uid://dhkkrl6qof485"

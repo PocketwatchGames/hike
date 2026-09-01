@@ -11,9 +11,29 @@ using Godot;
 //     the duration of its Use action, then cleared back to the weapon. Set via
 //     SetActiveItem. Always shown in the right (main) hand.
 //
-// Each item's grip alignment is baked into its own model scene (offset the mesh
-// so the scene origin sits in the palm), so this component never authors a
-// per-item transform — it just instances the scene under the socket holder.
+// A held scene is authored in one canonical grip space: its ORIGIN is the grip
+// point and the item extends along +Y (club, torch, knife all do). What varies
+// is the rig — every skeleton orients its hand bone differently — so the socket
+// carries a per-rig grip transform that maps that canonical space onto this
+// rig's wrist, authored as the grip* / leftGrip* exports below. An item scene
+// therefore never bakes a rig-specific offset, and one club is held correctly by
+// every character.
+//
+// To find a rig's numbers: most character FBX ship an authored prop in the hand
+// (the goblin's SM_Sword, the polysplit rig's M_Swordsman_Sword). Its transform
+// RELATIVE TO THE BONE it hangs on is the rig's own answer for both position and
+// orientation — compose it with whatever rotation carries a held scene's +Y onto
+// the axis that rig's props run along (+Z on the goblin, +X on polysplit). Read
+// those props out of the INSTANTIATED scene, never a live mob: ModelAnimator
+// prunes hidden meshes and their sockets at runtime.
+//
+// Check for a dedicated equip bone FIRST. A rig built for gear often carries one
+// (polysplit's R_equip_joint / L_equip_joint sit ~8.6cm out from the wrist), and
+// binding to it beats hand-authoring the same offset from the wrist — it is the
+// rig's designed grip point and it follows any animation authored on that bone.
+// Getting this wrong is not subtle: an item on the wrist orbits a pivot 8.6cm
+// off from the one the character animates around, so it traces a visibly
+// different arc from the rig's own weapon through the same swing.
 //
 // The hand sockets are BoneAttachment3Ds built once against the imported
 // character Skeleton3D (one per wrist joint). The rig is an instanced FBX with
@@ -29,10 +49,22 @@ public partial class HeldItemVisual : Node3D
 	// Wire this to the same node ModelAnimator drives as `visual` (PlayerModel).
 	[Export] public Node3D visual;
 
-	// Bones the hand sockets bind to. Defaults match the shared polysplit rig's
-	// wrist joints; override per rig if a different skeleton is used.
-	[Export] public StringName boneName = "R_wrist_joint";
-	[Export] public StringName leftBoneName = "L_wrist_joint";
+	// Bones the hand sockets bind to. Defaults are the shared polysplit rig's
+	// dedicated equip joints — NOT its wrists, which sit 8.6cm back up the arm and
+	// swing on a different radius. Override per rig if a different skeleton is used.
+	[Export] public StringName boneName = "R_equip_joint";
+	[Export] public StringName leftBoneName = "L_equip_joint";
+
+	// Per-rig grip transform: where a held scene's origin sits on this rig's hand
+	// bone, and how its +Y is oriented. Identity (the default) means the bone's
+	// own axes already are the grip space — true for the player rig, which every
+	// held scene was authored against, and false for an imported character whose
+	// wrist axes point somewhere else entirely. Applied to the weapon, consumable
+	// and torch holders alike, so everything in a hand agrees.
+	[Export] public Vector3 gripOffset = Vector3.Zero;
+	[Export] public Vector3 gripRotationDegrees = Vector3.Zero;
+	[Export] public Vector3 leftGripOffset = Vector3.Zero;
+	[Export] public Vector3 leftGripRotationDegrees = Vector3.Zero;
 	// Bone the lit lantern clips to (a belt slot), with a fuzzy waist/pelvis/hip
 	// fallback for rigs that name it differently. A rig with no match just hides
 	// the lantern when it would otherwise hang on the belt.
@@ -94,15 +126,29 @@ public partial class HeldItemVisual : Node3D
 			GD.PushError($"HeldItemVisual '{Name}': no Skeleton3D found under `visual`; held-item models disabled.");
 			return;
 		}
-		_weaponHolderRight = BuildHandSocket(skeleton, boneName, false, "HandSocketRight", "WeaponHolderRight");
-		_weaponHolderLeft = BuildHandSocket(skeleton, leftBoneName, true, "HandSocketLeft", "WeaponHolderLeft");
+		_weaponHolderRight = BuildHandSocket(skeleton, boneName, false, "HandSocketRight", "WeaponHolderRight",
+			gripOffset, gripRotationDegrees);
+		_weaponHolderLeft = BuildHandSocket(skeleton, leftBoneName, true, "HandSocketLeft", "WeaponHolderLeft",
+			leftGripOffset, leftGripRotationDegrees);
 		_weaponHolderRight.Visible = !_weaponConcealed;
 		_weaponHolderLeft.Visible = !_weaponConcealed;
 		// The transient consumable always rides the right hand.
-		_itemHolder = new Node3D { Name = "ItemHolder" };
+		// Sibling of the weapon holder rather than a child, so concealing the weapon
+		// to show a potion doesn't hide the potion — hence its own copy of the grip.
+		_itemHolder = new Node3D
+		{
+			Name = "ItemHolder",
+			Position = gripOffset,
+			RotationDegrees = gripRotationDegrees,
+		};
 		_weaponHolderRight.GetParent().AddChild(_itemHolder);
 		// The held torch rides the left hand alongside the left weapon holder.
-		_torchHolder = new Node3D { Name = "TorchHolder" };
+		_torchHolder = new Node3D
+		{
+			Name = "TorchHolder",
+			Position = leftGripOffset,
+			RotationDegrees = leftGripRotationDegrees,
+		};
 		_weaponHolderLeft.GetParent().AddChild(_torchHolder);
 		// Belt socket for a lit lantern (hands-free, stays visible + lighting).
 		// Optional — rigs with no waist/pelvis bone just hide the belted lantern.
@@ -162,12 +208,19 @@ public partial class HeldItemVisual : Node3D
 		return -1;
 	}
 
-	// Builds a BoneAttachment3D for one wrist and returns its weapon holder.
-	private static Node3D BuildHandSocket(Skeleton3D skeleton, StringName bone, bool leftSide, string socketName, string holderName)
+	// Builds a BoneAttachment3D for one wrist and returns its weapon holder, placed
+	// at the rig's grip transform.
+	private static Node3D BuildHandSocket(Skeleton3D skeleton, StringName bone, bool leftSide, string socketName, string holderName,
+		Vector3 gripOffset, Vector3 gripRotationDegrees)
 	{
 		var socket = new BoneAttachment3D { Name = socketName, BoneName = ResolveBoneName(skeleton, bone, leftSide) };
 		skeleton.AddChild(socket);
-		var holder = new Node3D { Name = holderName };
+		var holder = new Node3D
+		{
+			Name = holderName,
+			Position = gripOffset,
+			RotationDegrees = gripRotationDegrees,
+		};
 		socket.AddChild(holder);
 		return holder;
 	}
