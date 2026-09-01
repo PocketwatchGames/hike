@@ -42,6 +42,18 @@ public class ActionRunner
 	// once within, and the next press starts clean.
 	private readonly System.Collections.Generic.HashSet<ulong> _meleeHits = new();
 	private readonly System.Collections.Generic.List<SustainedMelee> _sustainedMelee = new();
+	// Sweep buffers. DoMelee RE-ENTERS this runner — the swing it resolves can
+	// damage the swinging actor, and Mob.Hit calls TryInterrupt, which aborts the
+	// action and clears _sustainedMelee mid-loop. So a sweep never indexes the
+	// live list across a DoMelee call: it takes the list, empties it, and rebuilds
+	// it from whatever survives. Separate buffers per entry point because either
+	// can be reached while the other is mid-sweep.
+	private readonly System.Collections.Generic.List<SustainedMelee> _tickScratch = new();
+	private readonly System.Collections.Generic.List<SustainedMelee> _closeScratch = new();
+	// Bumped by every EnterActive. A sweep captures it and bails the moment it
+	// changes, so windows belonging to an activation that ended (or was replaced)
+	// part-way through the sweep can never be re-armed.
+	private ulong _activationId;
 
 	// One live melee window. `endMs` is game time; `started` is false until the
 	// window has taken its opening sweep (which happens on the tick the event
@@ -345,26 +357,40 @@ public class ActionRunner
 	// window registered this tick takes its opening sweep immediately.
 	private void TickSustainedMelee(ulong now)
 	{
-		for (int i = _sustainedMelee.Count - 1; i >= 0; i--)
+		if (_sustainedMelee.Count == 0)
 		{
-			SustainedMelee window = _sustainedMelee[i];
+			return;
+		}
+		ulong activation = _activationId;
+		// Taking the list also makes this re-entrancy-safe: a nested sweep sees an
+		// empty list and returns before touching anything.
+		_tickScratch.Clear();
+		_tickScratch.AddRange(_sustainedMelee);
+		_sustainedMelee.Clear();
+		for (int i = 0; i < _tickScratch.Count; i++)
+		{
+			SustainedMelee window = _tickScratch[i];
 			bool last = now >= window.endMs;
-			if (window.started && window.lastSweepMs == now && !last)
+			if (!window.started || window.lastSweepMs != now || last)
 			{
-				continue;
-			}
-			ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, _meleeHits, !window.started, last);
-			if (last)
-			{
-				_sustainedMelee.RemoveAt(i);
-			}
-			else
-			{
+				ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, _meleeHits, !window.started, last);
+				// The swing ended inside its own sweep (interrupted by the damage it
+				// dealt, or replaced by a new activation) — every remaining window
+				// belongs to it and dies with it.
+				if (_activationId != activation || _action.phase != EActionPhase.Active)
+				{
+					_tickScratch.Clear();
+					return;
+				}
 				window.started = true;
 				window.lastSweepMs = now;
-				_sustainedMelee[i] = window;
+			}
+			if (!last)
+			{
+				_sustainedMelee.Add(window);
 			}
 		}
+		_tickScratch.Clear();
 	}
 
 	// Close every still-open window with a final sweep. Called from EndActive so
@@ -377,12 +403,20 @@ public class ActionRunner
 		{
 			return;
 		}
-		for (int i = 0; i < _sustainedMelee.Count; i++)
-		{
-			SustainedMelee window = _sustainedMelee[i];
-			ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, _meleeHits, !window.started, windowEnd: true);
-		}
+		ulong activation = _activationId;
+		_closeScratch.Clear();
+		_closeScratch.AddRange(_sustainedMelee);
 		_sustainedMelee.Clear();
+		for (int i = 0; i < _closeScratch.Count; i++)
+		{
+			SustainedMelee window = _closeScratch[i];
+			ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, _meleeHits, !window.started, windowEnd: true);
+			if (_activationId != activation || _action.phase != EActionPhase.Active)
+			{
+				break;
+			}
+		}
+		_closeScratch.Clear();
 	}
 
 	// Player-initiated cancel. Charging always cancels; weapon Active cancels
@@ -629,6 +663,7 @@ public class ActionRunner
 		// again. Cleared before any t=0 event can register a window.
 		_meleeHits.Clear();
 		_sustainedMelee.Clear();
+		_activationId++;
 		_action.chargeT = ComputeChargeT(_action.profile, tier, _action.selectedTierIndex, chargeElapsed);
 
 		// Combo bookkeeping (weapon-driving tiers only). For a repeating tier,
