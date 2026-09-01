@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="NpcSpawnEntry" format=3 uid="uid://b7hbh3p56as4r"]
 
 [ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="1_npc"]
-[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/worlds/shared/mob_descriptors/friendly_villager.tres" id="2_desc"]
+[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_authoring/mob_descriptors/standard_npc.tres" id="D_standard_npc"]
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="3_lang"]
-[ext_resource type="Resource" uid="uid://bn24251j6okt0" path="res://resources/data/worlds/shared/npcs/swamp_villager01_conversation.tres" id="4_conv"]
+[ext_resource type="Resource" uid="uid://bn24251j6okt0" path="res://resources/data/worlds/swamp_world/conversations/swamp_villager01_conversation.tres" id="4_conv"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="11_cjton"]
 [ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="13_53vib"]
 [ext_resource type="Resource" uid="uid://48v0d33pmbss" path="res://resources/data/worlds/shared/npcs/appearances/hermit.tres" id="A_hermit"]
@@ -22,6 +22,6 @@ conversation = ExtResource("4_conv")
 appearance = ExtResource("A_villager_plain_m")
 appearances = [ExtResource("A_hermit"), ExtResource("A_merchant_leather"), ExtResource("A_villager_archer_f"), ExtResource("A_villager_elder_m"), ExtResource("A_villager_fighter_f"), ExtResource("A_villager_hunter_m"), ExtResource("A_villager_plain_m"), ExtResource("A_wanderer_talia")]
 idleAnimation = null
-descriptor = ExtResource("2_desc")
+descriptor = ExtResource("D_standard_npc")
 initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"

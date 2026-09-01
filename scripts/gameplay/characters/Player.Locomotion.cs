@@ -250,22 +250,6 @@ public partial class Player : CharacterBody3D
 	// the rise so the body clears the lip before moving over it; going DOWN
 	// leads with the forward carry so the player steps off the edge and then
 	// lowers, rather than sinking through the ledge they are standing on.
-	private static Vector3 TraversalCarry(Vector3 from, Vector3 to, float t)
-	{
-		const float LeadFraction = 0.6f;
-		const float TrailStart = 0.25f;
-		float lead = Mathf.SmoothStep(0f, 1f, Mathf.Clamp(t / LeadFraction, 0f, 1f));
-		float trail = Mathf.SmoothStep(0f, 1f, Mathf.Clamp((t - TrailStart) / (1f - TrailStart), 0f, 1f));
-
-		bool descending = to.Y < from.Y;
-		float vertT = descending ? trail : lead;
-		float fwdT = descending ? lead : trail;
-
-		return new Vector3(
-			Mathf.Lerp(from.X, to.X, fwdT),
-			Mathf.Lerp(from.Y, to.Y, vertT),
-			Mathf.Lerp(from.Z, to.Z, fwdT));
-	}
 
 	// --- Fall-through tripwire (`fall_trace`) -------------------------------
 	// Records what owned the player's position each tick and dumps the last
@@ -473,7 +457,7 @@ public partial class Player : CharacterBody3D
 		ulong span = _mantleEndMs - _mantleStartMs;
 		float t = span == 0 ? 1f : Mathf.Clamp((now - _mantleStartMs) / (float)span, 0f, 1f);
 
-		GlobalPosition = TraversalCarry(_mantleFrom, _mantleTo, t);
+		GlobalPosition = LedgeCarry.Position(_mantleFrom, _mantleTo, t);
 		Velocity = Vector3.Zero;
 		FallTraceMark("mantle");
 
@@ -773,7 +757,7 @@ public partial class Player : CharacterBody3D
 		ulong span = _climbEndMs - _climbStartMs;
 		float t = span == 0 ? 1f : Mathf.Clamp((now - _climbStartMs) / (float)span, 0f, 1f);
 
-		GlobalPosition = TraversalCarry(_climbFrom, _climbTo, t);
+		GlobalPosition = LedgeCarry.Position(_climbFrom, _climbTo, t);
 		Velocity = Vector3.Zero;
 
 		if (t < 1f)

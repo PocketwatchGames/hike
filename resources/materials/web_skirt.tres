@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3]
 
-[ext_resource type="Shader" path="res://shaders/model_lit_blend.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://cv8h82xkfuina" path="res://shaders/model_lit_blend.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://badvp4g3bvix0" path="res://assets/textures/effects/web.png" id="2_web"]
 
 [resource]

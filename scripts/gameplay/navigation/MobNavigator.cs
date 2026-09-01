@@ -113,6 +113,22 @@ public class MobNavigator
     // rules the navigator itself paths by.
     public TraversalProfile Profile => _profile;
 
+    // Diagnostic surface for mob_fall_trace. A mob that ends up somewhere its
+    // own pathfinder would never have sent it got there one of three ways, and
+    // these separate them: the route allowed the drop, there was no route at
+    // all, or the steer point was moved after the route was checked.
+    public bool AllowFalling => _allowFalling;
+    // True when the last WriteSteering had no path to follow and aimed straight
+    // at the goal instead. That fallback does NO walkability check whatsoever,
+    // so it is the one way the navigator itself will steer a mob over a ledge.
+    public bool SteeringDirectToGoal => _steeringDirectToGoal;
+    // The point the impulse layer is actually chasing — the string-pulled
+    // waypoint AFTER the separation nudge, which is applied downstream of every
+    // walkability check and so can sit off the verified path.
+    public Vector3 SteerTarget => _steerTarget;
+    private bool _steeringDirectToGoal;
+    private Vector3 _steerTarget;
+
     // Hostile mobs route around safety zones (village, lit campfire) so they
     // don't chase the player into a sanctuary. Keyed off the LIVE team so a
     // tamed companion (ActorTeam flips to Friendly) and non-dangerous villagers
@@ -285,6 +301,7 @@ public class MobNavigator
                 steerIndex = k;
             }
             steerTarget = _waypoints[steerIndex];
+            _steeringDirectToGoal = false;
         }
         else
         {
@@ -293,6 +310,7 @@ public class MobNavigator
             // goal so the mob still tries to make progress; the next
             // repath will resolve a real path or flag _blocked.
             steerTarget = _goal;
+            _steeringDirectToGoal = true;
         }
 
         // Separation: nudge the steer target sideways away from nearby
@@ -305,6 +323,7 @@ public class MobNavigator
             steerTarget = ApplySeparation(mobPos, steerTarget);
         }
 
+        _steerTarget = steerTarget;
         output.pathTarget = steerTarget;
         if (output.speed <= 0f)
         {
@@ -396,6 +415,61 @@ public class MobNavigator
             return steerTarget;
         }
         return new Vector3(steerTarget.X + ax * SeparationStrength, steerTarget.Y, steerTarget.Z + az * SeparationStrength);
+    }
+
+    // Surface the column at `worldPos` offers NEAREST `nearY`, as a world point
+    // on that surface (cell centre in XZ). False when the column is off the grid
+    // or offers no walkable surface at all.
+    //
+    // "Nearest" is the whole point, and it is why this is not a downward probe:
+    // a column indoors holds the storey above as well as the floor the mob is
+    // on, and a scan from the top picks the wrong one. This is the same stacked
+    // read the pathfinder makes when it decides a step is legal, so the ledge
+    // traversal and the route that walked into it agree by construction.
+    //
+    // Reads the resident grid. Asked per tick by a mob walking into a rise —
+    // which is exactly when the repath cadence is refreshing it.
+    public bool TryGetSurfacePoint(Vector3 worldPos, float nearY, out Vector3 surfacePoint)
+    {
+        surfacePoint = worldPos;
+        int i = Mathf.FloorToInt(worldPos.X) - _grid.OriginX;
+        int j = Mathf.FloorToInt(worldPos.Z) - _grid.OriginZ;
+        if (!InGrid(i, j, _grid.Size))
+        {
+            return false;
+        }
+        int layer = _grid.NearestLayer(i, j, nearY);
+        if (layer < 0)
+        {
+            return false;
+        }
+        WalkabilityCell cell = _grid.GetLayer(i, j, layer);
+        if (!cell.Walkable)
+        {
+            return false;
+        }
+        surfacePoint = _grid.CellToWorld(i, j, layer);
+        return true;
+    }
+
+    // Could the mob WALK from where it stands to `toWorld` in a straight line —
+    // no gap, no step taller than it can climb, nothing its own A* would refuse?
+    // The lunge gate asks this: an attack that darts the body forward is a
+    // committed displacement, so it must not be thrown at ground the mob could
+    // not have reached on foot, or the dart carries it off a ledge the
+    // pathfinder would never have routed it over.
+    //
+    // Samples the grid first rather than trusting the resident one. That is
+    // refreshed on the repath cadence and stops refreshing entirely once the mob
+    // arrives at its standoff slot (WriteSteering early-outs on _arrived), and a
+    // mob that has never navigated has no grid at all — both would answer "no"
+    // for the wrong reason and mute the attack permanently. The sample is a
+    // memcpy out of SharedWalkabilityCache in the common case, and this is asked
+    // once per attack commit, not per tick.
+    public bool CanWalkStraightTo(Vector3 toWorld)
+    {
+        RefreshGrid();
+        return GridLineClear(_mob.GlobalPosition, toWorld);
     }
 
     // Line-of-sight test on the resident walkability grid: can the mob walk a

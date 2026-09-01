@@ -1,15 +1,14 @@
-[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://4bb0hjxpuvlbf"]
+[gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://b8gwc5ixwhgy2"]
 
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
 [ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="3_npc"]
-[ext_resource type="Resource" uid="uid://5y7s98x14lcxm" path="res://resources/data/worlds/shared/mob_descriptors/hermit.tres" id="4_hermit"]
-[ext_resource type="Resource" uid="uid://w5olwf3iq444" path="res://resources/data/worlds/shared/npcs/hermit_conversation.tres" id="5_conv"]
+[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_authoring/mob_descriptors/standard_npc.tres" id="D_standard_npc"]
+[ext_resource type="Resource" uid="uid://w5olwf3iq444" path="res://resources/data/worlds/swamp_world/conversations/hermit_conversation.tres" id="5_conv"]
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="6_villager_m"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="7_palette"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="8_recolor"]
 [ext_resource type="Resource" uid="uid://irm377w14z4uf" path="res://resources/data/worlds/shared/languages/muddish.tres" id="9_lang"]
 [ext_resource type="Resource" uid="uid://b8sb4docghyjo" path="res://resources/data/worlds/shared/party/hermit.tres" id="10_recruit"]
-
 [ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
 [sub_resource type="Resource" id="Hermit_top"]
@@ -47,7 +46,7 @@ outfit = PackedStringArray("M_hair_8", "M_TopBody", "M_BottomBody")
 palette = SubResource("Hermit_palette")
 idleAnimation = &"idle_old_man"
 recruitTemplate = ExtResource("10_recruit")
-descriptor = ExtResource("4_hermit")
+descriptor = ExtResource("D_standard_npc")
 initialBehavior = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 

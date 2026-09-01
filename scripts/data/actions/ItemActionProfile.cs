@@ -65,6 +65,45 @@ public partial class ItemActionProfile : Resource
 	[Export] public bool queueable = false;
 	[Export] public float queueWindowSeconds = 0.2f;
 
+	// True when any tier's Active timeline drives the actor's body forward
+	// (EItemEventType.ApplyMotion). Mob AI gates such an attack on being able to
+	// WALK to its target: a dart is a committed displacement with no steering in
+	// it, so an attack carrying one must not be thrown across ground the mob
+	// could not have reached on foot.
+	//
+	// Folded once and cached. The walk is over Godot.Collections arrays — native
+	// containers that marshal a Variant per element — and profiles are immutable
+	// after load, so there is nothing to invalidate.
+	private bool? _lunges;
+	public bool Lunges
+	{
+		get
+		{
+			if (_lunges.HasValue)
+			{
+				return _lunges.Value;
+			}
+			bool found = false;
+			int tierCount = chargedActions?.Count ?? 0;
+			for (int i = 0; i < tierCount && !found; i++)
+			{
+				ItemAction tier = chargedActions[i];
+				int eventCount = tier?.events?.Count ?? 0;
+				for (int e = 0; e < eventCount; e++)
+				{
+					ItemEvent ev = tier.events[e];
+					if (ev != null && (ev.type & EItemEventType.ApplyMotion) != 0)
+					{
+						found = true;
+						break;
+					}
+				}
+			}
+			_lunges = found;
+			return found;
+		}
+	}
+
 	// Cumulative time-from-press at which the tier at `tierIndex` becomes
 	// selectable: sum of `chargeTime` across all preceding tiers in
 	// `chargedActions` that share `comboIndex`. Other-combo tiers don't

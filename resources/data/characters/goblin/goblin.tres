@@ -8,6 +8,8 @@
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="8_ex488"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="9_recolor"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="10_palette"]
+[ext_resource type="Resource" uid="uid://b2yvplv8eksd2" path="res://resources/data/actions/mob_mantle_up_action.tres" id="11_mantleup"]
+[ext_resource type="Resource" uid="uid://dlvthyxyi2q6u" path="res://resources/data/actions/mob_mantle_down_action.tres" id="12_mantledown"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
 script = ExtResource("7_animdata")
@@ -108,11 +110,17 @@ animations = Dictionary[int, ExtResource("7_animdata")]({
 8: SubResource("Resource_anim_swim_idle"),
 10: SubResource("Resource_anim_dizzy"),
 18: SubResource("Resource_anim_hitstun"),
-20: SubResource("Resource_id4xl")
+20: SubResource("Resource_id4xl"),
+42: SubResource("Resource_anim_fall"),
+43: SubResource("Resource_anim_fall")
 })
 hudScale = 0.8
 mobScene = ExtResource("4_scene")
 palette = SubResource("Resource_base_palette")
 levelColorMeshNames = PackedStringArray("SK_ShoulderPad", "SM_ForearmArmorLeft", "SM_ForearmArmorRight", "SM_LegArmorLeft", "SM_LegArmorRight", "SM_Shield")
+maxStepHeight = 2
+mantleUpAction = ExtResource("11_mantleup")
+mantleDownAction = ExtResource("12_mantledown")
+maxFallHeight = 2
 maxSpeed = 8.0
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

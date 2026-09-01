@@ -1,0 +1,74 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://cjobgs1asa236"]
+
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="1_cx5cm"]
+[ext_resource type="Script" uid="uid://c83w2iv2epe5p" path="res://scripts/data/conversation/actions/OpenShopAction.cs" id="2_hpfsr"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_bu3mb"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="4_8cmat"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="5_nfd02"]
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="6_vytpk"]
+
+[sub_resource type="Resource" id="Branch_greeting"]
+script = ExtResource("1_cx5cm")
+name = &"greeting"
+lineLocKeys = Array[StringName]([&"villager_greeting", &"villager_dialogue_1", &"villager_dialogue_2"])
+endActions = null
+exitGroup = &"topics"
+isPrimaryGroupEntry = true
+
+[sub_resource type="Resource" id="Branch_TellMore"]
+script = ExtResource("1_cx5cm")
+name = &"tell_more"
+lineLocKeys = Array[StringName]([&"villager_nothing_more"])
+endActions = null
+exitGroup = &"topics"
+
+[sub_resource type="Resource" id="Branch_Beard"]
+script = ExtResource("1_cx5cm")
+name = &"beard"
+lineLocKeys = Array[StringName]([&"villager_thanks"])
+endActions = null
+exitGroup = &"topics"
+
+[sub_resource type="Resource" id="Action_OpenShop"]
+script = ExtResource("2_hpfsr")
+
+[sub_resource type="Resource" id="Branch_Trade"]
+script = ExtResource("1_cx5cm")
+name = &"trade"
+lineLocKeys = Array[StringName]([&"villager_lets_do_it"])
+endActions = [SubResource("Action_OpenShop")]
+exitGroup = null
+
+[sub_resource type="Resource" id="Entry_greeting"]
+script = ExtResource("3_bu3mb")
+branch = &"greeting"
+actions = Array[Object]([])
+
+[sub_resource type="Resource" id="Resp_TellMore"]
+script = ExtResource("4_8cmat")
+textLocKey = &"villager_resp_tell_more"
+destination = &"tell_more"
+actions = null
+
+[sub_resource type="Resource" id="Resp_Beard"]
+script = ExtResource("4_8cmat")
+textLocKey = &"villager_resp_beard"
+destination = &"beard"
+actions = null
+
+[sub_resource type="Resource" id="Resp_Trade"]
+script = ExtResource("4_8cmat")
+textLocKey = &"villager_resp_trade"
+destination = &"trade"
+actions = null
+
+[sub_resource type="Resource" id="Group_Topics"]
+script = ExtResource("5_nfd02")
+name = &"topics"
+responses = [SubResource("Resp_TellMore"), SubResource("Resp_Beard"), SubResource("Resp_Trade")]
+
+[resource]
+script = ExtResource("6_vytpk")
+entryBranches = [SubResource("Entry_greeting")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_TellMore"), SubResource("Branch_Beard"), SubResource("Branch_Trade")]
+responseGroups = [SubResource("Group_Topics")]

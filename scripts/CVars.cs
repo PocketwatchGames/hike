@@ -878,6 +878,18 @@
     public static CVarBool fallTrace = new CVarBool("fall_trace", false);
     public static CVarBool mantleDebug = new CVarBool("mantle_debug", false);
 
+    // The mob-side analogue of fall_trace, and the tool for "which behavior
+    // walked this mob off a cliff".
+    //
+    // Prints one line the tick a mob's footing drops away by more than its own
+    // maxFallHeight — ground its pathfinder would never have routed it over —
+    // naming the active behavior node, the navigator's whole decision state, and
+    // which physics channel owned the body. It has to be captured on that edge:
+    // by the time a falling mob is noticed the navigator has repathed and the
+    // behavior may already have changed, so nothing about the airborne body
+    // still says how it got there.
+    public static CVarBool mobFallTrace = new CVarBool("mob_fall_trace", false);
+
     // Console command: `climb_mark <height>` stamps a climbable face up the wall
     // the player is looking at, `climb_mark 0` clears it. Test scaffolding until
     // the editor grows a face-paint tool — it writes the real OverlayFaces

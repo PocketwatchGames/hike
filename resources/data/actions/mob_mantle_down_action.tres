@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="InteractiveAction" format=3 uid="uid://dlvthyxyi2q6u"]
+
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="1_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_is84q"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_4nr2f"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="4_ksg7w"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_85eay"]
+
+[sub_resource type="Resource" id="Resource_event_mob_mantle_down"]
+script = ExtResource("2_event")
+type = 64
+animName = 43
+animDuration = 0.35
+metadata/_custom_type_script = "uid://cmw4pa3roleml"
+
+[resource]
+script = ExtResource("1_action")
+interactEvents = Array[ExtResource("2_event")]([SubResource("Resource_event_mob_mantle_down")])
+durationSeconds = 0.35
+metadata/_custom_type_script = "uid://ddmx167tqvo67"

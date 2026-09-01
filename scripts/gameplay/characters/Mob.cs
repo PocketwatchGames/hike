@@ -1138,6 +1138,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.MotionVelocity = forward.Normalized() * forwardSpeed;
         _simState.MotionTime = duration;
         _simState.MotionFreezeGravity = freezeGravity;
+        _simState.MotionGroundStick = StartsMotionOnGround(freezeGravity);
     }
 
     // Earliest game-time (ms) the mob may begin another projectile reaction
@@ -1164,6 +1165,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.MotionVelocity = worldDir.Normalized() * speed;
         _simState.MotionTime = duration;
         _simState.MotionFreezeGravity = freezeGravity;
+        _simState.MotionGroundStick = StartsMotionOnGround(freezeGravity);
+    }
+
+    // Whether a motion beginning now is a GROUND move — one StickMotionToGround
+    // should hold down for its duration. A gravity-frozen motion is airborne by
+    // authoring (a flier's air-strafe, the player-style dash hang) and a swimmer
+    // has no footing, so neither sticks; anything else sticks only if it starts
+    // with ground under it, so a mob knocked into the air mid-swing keeps its arc.
+    private bool StartsMotionOnGround(bool freezeGravity)
+    {
+        return !freezeGravity && !_swimming && TryFindFootingY(MotionGroundStickStartDrop, out _);
     }
 
     // Mobs don't have a stamina pool yet; attack tiers always pass the gate
@@ -2924,6 +2936,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // the same band so an in-flight dart ends cleanly when the mob dies.
         TickHitstun((float)delta);
         TickMotion((float)delta);
+        // A ledge traversal owns the body's position outright while it runs, so
+        // it is carried here — before the steering and physics blocks below,
+        // which stand aside for it.
+        TickMantle();
 
         if (alive)
         {
@@ -3150,7 +3166,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // A water-bound mob can't walk: it locomotes only while in water
             // (wading or swimming). Out of water it has no ground drive, so a
             // fish flung onto a bank just flops where it landed.
-            else if (!inBurrow && !actionLocksMovement && aiOutput.pathTarget.HasValue
+            else if (!inBurrow && !actionLocksMovement && !Mantling && aiOutput.pathTarget.HasValue
                 && (_simState.MobData.CanTraverseLand || _swimming || IsInWater()))
             {
                 Vector3 toTarget = aiOutput.pathTarget.Value - GlobalPosition;
@@ -3164,6 +3180,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     Vector3 dir = toTarget / dist;
                     float maxSpd = _swimming ? _simState.MobData.swimSpeed : _simState.MobData.maxSpeed;
                     Vector3 desiredVelocity = dir * maxSpd * aiOutput.speed * _terrainSpeed * speedScale * statusMoveMul;
+                    // The router refuses to ROUTE a drop it can't take, but when
+                    // the goal is below one it still steers the body to the lip.
+                    desiredVelocity = ClampToLedge(desiredVelocity);
                     Vector3 currentVel = LinearVelocity;
                     Vector3 velocityChange = desiredVelocity - new Vector3(currentVel.X, 0f, currentVel.Z);
                     ApplyImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
@@ -3187,8 +3206,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                                 TryWaterExit(dir);
                             }
                         }
-                        else
+                        else if (!TryStartMantle(dir))
                         {
+                            // Not a ledge — an ordinary curb, or nothing at all.
                             TryStepUp(dir);
                         }
                     }
@@ -3402,7 +3422,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // killing blow's knockback carries the corpse for the authored time.
         // ApplyMotionPhysics runs first so a knockback landing mid-dart wins
         // the same tick — getting hit while lunging redirects the body.
-        ApplyMotionPhysics();
+        ApplyMotionPhysics((float)delta);
         ApplyKnockback();
 
         // Auto-freeze on settle. Living mobs additionally gate on
@@ -3423,7 +3443,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // stay simulated rather than freeze in place (a frozen swimmer wouldn't
         // drift). The feet sit at the origin; probe just below them for solid
         // ground (a small margin absorbs the resting collision gap).
-        const float GroundProbeDepth = 0.1f;
         WorldState freezeWs = _world.WorldState;
         Vector3 freezePos = GlobalPosition;
         bool inWater = _swimming || IsInWater();
@@ -3434,11 +3453,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 Mathf.FloorToInt(freezePos.X),
                 Mathf.FloorToInt(freezePos.Y - GroundProbeDepth),
                 Mathf.FloorToInt(freezePos.Z))));
-        if (!grounded && Freeze)
+        // A mantle pins the body deliberately and is mid-air by definition —
+        // leave both the unfreeze and the settle-freeze to it for the duration.
+        if (!grounded && Freeze && !Mantling)
         {
             Freeze = false;
         }
         bool wantsFreeze = !Freeze
+            && !Mantling
             && !_impulseApplied
             && grounded
             && LinearVelocity.LengthSquared() < 0.01f
@@ -3449,11 +3471,154 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         _impulseApplied = false;
 
+        // Last, so the navigator state it reports is the one that produced this
+        // tick's movement.
+        TickFallTrace();
+
         using (Profiler.Sample("Mob.UpdateAnimation"))
         {
             UpdateAnimation();
         }
     }
+
+    // Whether the mob had footing it could legally get back onto, last tick.
+    // Only meaningful while mob_fall_trace is on.
+    private bool _fallTraceHadFooting = true;
+
+    // Report the tick a mob leaves ground it would never have routed off.
+    //
+    // "Which behavior walked it there" cannot be answered after the fact: by the
+    // time a falling mob is noticed, the navigator has repathed and the behavior
+    // may have changed, and nothing about an airborne body records how it got
+    // airborne. So the whole decision state is captured on the edge and printed
+    // once. The three ways a mob reaches a drop deeper than its maxFallHeight
+    // are all separated here — the route allowed it (allowFall), there was no
+    // route and it steered straight at the goal (direct), or something moved the
+    // body outside steering entirely (knockback / dart / a push).
+    private void TickFallTrace()
+    {
+        if (!CVars.mobFallTrace.Value)
+        {
+            return;
+        }
+        MobData data = _simState.MobData;
+        if (data == null || !alive)
+        {
+            return;
+        }
+        bool footing = TryFindFootingY(data.maxFallHeight, out _);
+        bool wasFooted = _fallTraceHadFooting;
+        _fallTraceHadFooting = footing;
+        // Only the losing edge is interesting; regaining footing is a landing.
+        if (footing || !wasFooted)
+        {
+            return;
+        }
+
+        // How deep the drop actually is, for the report only — the gate above
+        // already knows it is deeper than the mob would route.
+        string depth = TryFindFootingY(DeepFallProbe, out float below)
+            ? $"{GlobalPosition.Y - below:F1}m"
+            : $">{DeepFallProbe:F0}m";
+        MobNavigator nav = Navigator;
+        // "steering" must mean STEERED, or the label lies about the one thing
+        // this trace exists to attribute. A body with no nav goal is nobody's
+        // doing — a mob dropped in mid-air by a debug spawn, or one already
+        // falling — and reading that as "steering" sends you hunting a behavior
+        // that never moved it.
+        string owner = _simState.KnockbackTime > 0f ? "knockback"
+            : _simState.MotionTime > 0f ? "dart"
+            : Mantling ? "mantle"
+            : _swimming ? "swim"
+            : nav == null || nav.CurrentState == MobNavigator.State.Idle ? "unsteered"
+            : "steering";
+        Vector3 pos = GlobalPosition;
+        GD.Print($"[mob_fall] {_simState.Species?.ResourcePath ?? "mob"} "
+            + $"behavior={CurrentBehaviorName} owner={owner} drop={depth} "
+            + $"(maxFall={data.maxFallHeight} maxStep={data.maxStepHeight}) "
+            + $"at ({pos.X:F1},{pos.Y:F1},{pos.Z:F1})"
+            + (nav == null
+                ? " nav=none"
+                : $" nav={nav.CurrentState} allowFall={nav.AllowFalling}"
+                    + $" direct={nav.SteeringDirectToGoal} blocked={nav.IsBlocked}"
+                    + $" arrived={nav.HasArrived} wp={nav.WaypointIndex}/{nav.Waypoints.Count}"
+                    + $" steer=({nav.SteerTarget.X:F1},{nav.SteerTarget.Y:F1},{nav.SteerTarget.Z:F1})"
+                    + $" goal=({nav.Goal.X:F1},{nav.Goal.Y:F1},{nav.Goal.Z:F1})"));
+    }
+
+    // How far ahead of the body's edge the ledge guard probes, in metres. Far
+    // enough that the brakes have a moment to bite at running speed, near enough
+    // that a mob can still walk out to the rim of something it is circling.
+    private const float LedgeGuardLookahead = 0.35f;
+
+    // Refuse the part of a steered move that would carry the body off a drop it
+    // could not have walked down.
+    //
+    // This is the mob's whole ledge sense, and it exists because the router's is
+    // advisory. A* will not ROUTE a drop deeper than maxFallHeight, but when the
+    // goal is down there anyway the nearest reachable cell IS the lip — so the
+    // mob is steered to the edge and kept pushing at it, and at maxSpeed it goes
+    // over. Nothing downstream was stopping it: mobs deliberately don't collide
+    // with the ledge barriers (those are built at one global threshold, and a
+    // mob's limit is per-species authoring), so the body had no opinion at all.
+    //
+    // Tested per AXIS rather than along the movement vector, which buys the
+    // slide for free: the component heading off the drop is dropped and the one
+    // running along the lip survives, so a mob walks the rim or a narrow bridge
+    // instead of stopping dead at it. Same reason MoveAndSlide feels right to
+    // the player, one dimension at a time.
+    //
+    // maxFallHeight is the probe depth, so the body's rule IS the router's rule
+    // — a drop A* would happily route stays walkable, and the two cannot drift.
+    // Climbers and fliers opt out (their pathfinder lifts both caps), and only
+    // STEERED motion is clamped: knockback still throws a body off a cliff,
+    // which it should.
+    private Vector3 ClampToLedge(Vector3 desiredVelocity)
+    {
+        MobData data = _simState.MobData;
+        if (data == null || _swimming || data.CanFly || data.CanClimb)
+        {
+            return desiredVelocity;
+        }
+        // Already off the edge — the guard is for not leaving footing, not for
+        // steering in mid-air, and a falling body should keep its momentum.
+        if (!TryFindFootingY(data.maxFallHeight, out _))
+        {
+            return desiredVelocity;
+        }
+        Vector3 pos = GlobalPosition;
+        float probe = data.clearanceRadius + LedgeGuardLookahead;
+        if (desiredVelocity.X != 0f)
+        {
+            Vector3 at = pos + new Vector3(Mathf.Sign(desiredVelocity.X) * probe, 0f, 0f);
+            if (!TryFindFootingYAt(at, data.maxFallHeight, out _))
+            {
+                desiredVelocity.X = 0f;
+            }
+        }
+        if (desiredVelocity.Z != 0f)
+        {
+            Vector3 at = pos + new Vector3(0f, 0f, Mathf.Sign(desiredVelocity.Z) * probe);
+            if (!TryFindFootingYAt(at, data.maxFallHeight, out _))
+            {
+                desiredVelocity.Z = 0f;
+            }
+        }
+        return desiredVelocity;
+    }
+
+    // How deep mob_fall_trace looks for the bottom of a drop it is reporting.
+    // Report-only; nothing decides anything on it.
+    private const float DeepFallProbe = 64f;
+
+    // How far below the feet a motion may start and still count as beginning on
+    // the ground. More than the resting collision gap, since a body settling or
+    // walking down a slope is legitimately a little off the floor on any tick.
+    private const float MotionGroundStickStartDrop = 0.6f;
+
+    // How far below the feet to look for the floor the body is resting on. Small
+    // enough to be the resting collision gap, not a drop.
+    private const float GroundProbeDepth = 0.1f;
 
     // Step-up probe geometry. The body capsule's bottom sits at the mob's
     // origin (GlobalPosition.Y), so probe heights are measured from the feet.
@@ -3474,18 +3639,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // pass, drive the body upward at stepClimbSpeed; the rise self-terminates
     // once the foot probe clears the riser, dropping the mob onto the ledge.
     // Up-steps only — descending slopes are handled by gravity.
-    private void TryStepUp(Vector3 dir)
+    // Returns true when it actually lifted the body, so a caller that would
+    // otherwise pull it back down (StickMotionToGround) can stand aside.
+    private bool TryStepUp(Vector3 dir)
     {
         MobData data = _simState.MobData;
         if (data == null || data.maxStepHeight <= 0 || data.stepClimbSpeed <= 0f)
         {
-            return;
+            return false;
         }
         // A ledge drop or knockback arc shouldn't be mistaken for walking into
         // a step — only assist when not significantly descending.
         if (LinearVelocity.Y < StepFallGate)
         {
-            return;
+            return false;
         }
 
         float radius = _collisionShape?.Shape is CapsuleShape3D cap ? cap.Radius : 0.4f;
@@ -3496,7 +3663,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         Vector3 footFrom = feet + Vector3.Up * StepFootProbeHeight;
         if (!RaycastSolid(footFrom, footFrom + dir * reach))
         {
-            return;
+            return false;
         }
 
         // Is the space above the step top open? If this also hits, the obstacle
@@ -3505,7 +3672,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         Vector3 headFrom = feet + Vector3.Up * clearHeight;
         if (RaycastSolid(headFrom, headFrom + dir * reach))
         {
-            return;
+            return false;
         }
 
         // Climbable step: set vertical velocity directly (like ApplyKnockback)
@@ -3513,6 +3680,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // already applied carries the body forward onto the ledge as it clears.
         Vector3 v = LinearVelocity;
         LinearVelocity = new Vector3(v.X, data.stepClimbSpeed, v.Z);
+        return true;
     }
 
     // Deep-water analogue of TryStepUp: hauls a swimming mob out onto a bank.
@@ -4308,7 +4476,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // overrides any residual path impulse. Knockback wins ties because
     // ApplyKnockback runs after this in _PhysicsProcess and writes the same
     // velocity — getting hit mid-dart redirects the body.
-    private void ApplyMotionPhysics()
+    private void ApplyMotionPhysics(float dt)
     {
         if (_simState.MotionTime <= 0f)
         {
@@ -4322,6 +4490,103 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         Vector3 v = _simState.MotionVelocity;
         float y = _simState.MotionFreezeGravity ? 0f : LinearVelocity.Y;
         LinearVelocity = new Vector3(v.X, y, v.Z);
+        if (_simState.MotionGroundStick)
+        {
+            StickMotionToGround(dt);
+        }
+    }
+
+    // Hold a grounded dart on the ground for its duration.
+    //
+    // Without this the dart is simply ballistic: the line above forces the
+    // horizontal velocity and leaves Y to gravity, so a lunge that overruns a
+    // lip becomes a fall — and the nav layer, which is where a mob's ledge rule
+    // lives, never saw the move. The player has the same rule for free, from the
+    // other direction: its dash runs on a body that steps back down onto the
+    // floor every tick and is stopped outright by the ledge barriers it masks in
+    // while grounded.
+    //
+    // The follow distance is the mob's own maxStepHeight — the drop it could
+    // have WALKED down. Deeper than that is a ledge, and a dart is not a way to
+    // cross one.
+    private void StickMotionToGround(float dt)
+    {
+        MobData data = _simState.MobData;
+        if (data == null || dt <= 0f || _swimming)
+        {
+            return;
+        }
+        Vector3 dir = _simState.MotionVelocity;
+        dir.Y = 0f;
+        // Mount a curb the dart runs into instead of wedging against its face.
+        // The path-driven step-up is suppressed for the whole locks-movement
+        // action, and a dart has no steering with which to go around.
+        if (dir.LengthSquared() > 0.0001f && TryStepUp(dir.Normalized()))
+        {
+            return;
+        }
+        if (!TryFindFootingY(data.maxStepHeight, out float footingY))
+        {
+            // Ran out of ground. End the dart where the ground ended rather than
+            // coasting out over the drop — the same outcome the player gets from
+            // a ledge barrier stopping a dash at the lip.
+            _simState.MotionTime = 0f;
+            _simState.MotionVelocity = Vector3.Zero;
+            Vector3 stop = LinearVelocity;
+            LinearVelocity = new Vector3(0f, stop.Y, 0f);
+            return;
+        }
+        float gap = GlobalPosition.Y - footingY;
+        if (gap <= 0f)
+        {
+            return;
+        }
+        // Drive the body down onto the surface this tick, but never slower than
+        // it is already falling.
+        Vector3 v2 = LinearVelocity;
+        LinearVelocity = new Vector3(v2.X, Mathf.Min(v2.Y, -gap / dt), v2.Z);
+    }
+
+    // Y the body should rest at, given solid ground within `maxDrop` metres
+    // below its feet. A voxel scan rather than a raycast: the feet sit at the
+    // body origin and every other footing question in this class is asked of the
+    // world the same way (see the settle-freeze probe in _PhysicsProcess).
+    // Returns false over a drop deeper than maxDrop, which is what marks a lip.
+    private bool TryFindFootingY(float maxDrop, out float footingY)
+    {
+        return TryFindFootingYAt(GlobalPosition, maxDrop, out footingY);
+    }
+
+    // As above, for a column the body is not standing in. `from` supplies the
+    // XZ to probe AND the height the drop is measured from, so the caller asks
+    // "could I step there from where I am", not "is there ground there".
+    private bool TryFindFootingYAt(Vector3 from, float maxDrop, out float footingY)
+    {
+        footingY = 0f;
+        WorldState ws = _world?.WorldState;
+        if (ws == null)
+        {
+            return false;
+        }
+        Vector3 pos = from;
+        int wx = Mathf.FloorToInt(pos.X);
+        int wz = Mathf.FloorToInt(pos.Z);
+        // Scanning SOLID voxels, but the answer is a SURFACE — the top face of
+        // the solid, one above it. So the deepest solid worth looking at is the
+        // one whose face still sits within maxDrop of the feet; floor the bound
+        // instead and a probe meant to ask "am I standing on it" reaches a whole
+        // voxel further than it says.
+        int top = Mathf.FloorToInt(pos.Y - GroundProbeDepth);
+        int bottom = Mathf.CeilToInt(pos.Y - maxDrop - 1f);
+        for (int wy = top; wy >= bottom; wy--)
+        {
+            if (Blocks.IsSolid(ws.GetBlockWorld(wx, wy, wz)))
+            {
+                footingY = wy + 1;
+                return true;
+            }
+        }
+        return false;
     }
 
     private void Die()

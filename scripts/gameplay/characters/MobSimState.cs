@@ -237,6 +237,13 @@ public class MobSimState : EntitySimState
     public float MotionTime;
     public Vector3 MotionVelocity;
     public bool MotionFreezeGravity;
+    // Latched when the motion began with the mob standing on the ground, and
+    // gravity live. The dart is then a GROUND move: Mob holds the body down onto
+    // the surface for its duration instead of letting it go ballistic off the
+    // first lip it crosses. False for a dart started airborne (a flier's
+    // air-strafe, a mob knocked into the air mid-swing), which has no footing to
+    // keep.
+    public bool MotionGroundStick;
     public float Armor;
     // Game-time at which armor recharge can begin. Set on every armor-
     // absorbing hit; the longer recover window is what ArmorDepleted tracks
@@ -424,6 +431,7 @@ public class MobSimState : EntitySimState
         MotionTime = 0f;
         MotionVelocity = Vector3.Zero;
         MotionFreezeGravity = false;
+        MotionGroundStick = false;
 
         // Burrow / flight.
         Burrowing = false;

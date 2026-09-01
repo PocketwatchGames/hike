@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="WorldMapPlacements" format=3]
 
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="1_1iphp"]
-[ext_resource type="Script" uid="uid://68w6db94miez1" path="res://scripts/data/worldmap/WorldMapPlacements.cs" id="1_62klx"]
+[ext_resource type="Script" uid="uid://bcn7muw33vexw" path="res://scripts/data/worldmap/WorldMapPlacements.cs" id="1_62klx"]
 [ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="1_rkdci"]
 [ext_resource type="Script" uid="uid://bk70p1sep6ljj" path="res://scripts/data/worldmap/EntityPlacement.cs" id="2_4i2sm"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/climbable_tree.tres" id="3_iwr7h"]
@@ -27,12 +27,11 @@
 [ext_resource type="Resource" uid="uid://b7agd43dx4f7y" path="res://resources/data/worlds/shared/npcs/appearances/villager_hunter_m.tres" id="A_villager_hunter_m"]
 [ext_resource type="Resource" uid="uid://bq0mcgi2vutk4" path="res://resources/data/worlds/shared/npcs/appearances/villager_plain_m.tres" id="A_villager_plain_m"]
 [ext_resource type="Resource" uid="uid://d4lwac8hs5jo" path="res://resources/data/worlds/shared/npcs/appearances/wanderer_talia.tres" id="A_wanderer_talia"]
-[ext_resource type="Resource" uid="uid://w5olwf3iq444" path="res://resources/data/worlds/shared/npcs/hermit_conversation.tres" id="C_hermit"]
-[ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/worlds/shared/npcs/friendly_villager_conversation.tres" id="C_villager_elder_m"]
-[ext_resource type="Resource" uid="uid://bn24251j6okt0" path="res://resources/data/worlds/shared/npcs/swamp_villager01_conversation.tres" id="C_villager_hunter_m"]
-[ext_resource type="Resource" uid="uid://b2q10suq78qsl" path="res://resources/data/worlds/shared/npcs/wanderer_conversation.tres" id="C_wanderer_talia"]
-[ext_resource type="Resource" uid="uid://5y7s98x14lcxm" path="res://resources/data/worlds/shared/mob_descriptors/hermit.tres" id="D_hermit"]
-[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/worlds/shared/mob_descriptors/friendly_villager.tres" id="D_villager_elder_m"]
+[ext_resource type="Resource" uid="uid://w5olwf3iq444" path="res://resources/data/worlds/swamp_world/conversations/hermit_conversation.tres" id="C_hermit"]
+[ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/worlds/default_world/conversations/friendly_villager_conversation.tres" id="C_villager_elder_m"]
+[ext_resource type="Resource" uid="uid://bn24251j6okt0" path="res://resources/data/worlds/swamp_world/conversations/swamp_villager01_conversation.tres" id="C_villager_hunter_m"]
+[ext_resource type="Resource" uid="uid://b2q10suq78qsl" path="res://resources/data/worlds/default_world/conversations/wanderer_conversation.tres" id="C_wanderer_talia"]
+[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_authoring/mob_descriptors/standard_npc.tres" id="D_standard_npc"]
 [ext_resource type="Resource" uid="uid://irm377w14z4uf" path="res://resources/data/worlds/shared/languages/muddish.tres" id="L_hermit"]
 [ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="M_4_r"]
 [ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/characters/MobInventoryData.cs" id="M_5_r"]
@@ -571,7 +570,7 @@ language = ExtResource("9_errfs")
 conversation = ExtResource("C_villager_elder_m")
 appearance = ExtResource("A_villager_elder_m")
 idleAnimation = &"idle_old_man"
-descriptor = ExtResource("D_villager_elder_m")
+descriptor = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_gtttp"]
@@ -586,7 +585,7 @@ language = ExtResource("9_errfs")
 conversation = ExtResource("C_villager_hunter_m")
 appearance = ExtResource("A_villager_hunter_m")
 idleAnimation = &"idle_neutral"
-descriptor = ExtResource("D_villager_elder_m")
+descriptor = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_t3wb4"]
@@ -601,7 +600,7 @@ language = ExtResource("9_errfs")
 conversation = ExtResource("C_villager_hunter_m")
 appearance = ExtResource("A_villager_archer_f")
 idleAnimation = &"idle_happy"
-descriptor = ExtResource("D_villager_elder_m")
+descriptor = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_7x1my"]
@@ -616,7 +615,7 @@ language = ExtResource("9_errfs")
 conversation = ExtResource("C_villager_hunter_m")
 appearance = ExtResource("A_villager_plain_m")
 idleAnimation = &"idle_nervous"
-descriptor = ExtResource("D_villager_elder_m")
+descriptor = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_hnnhv"]
@@ -644,7 +643,7 @@ appearance = ExtResource("M_A_merchant_leather")
 idleAnimation = &""
 loyaltyGifts = Array[ExtResource("M_4_r")]([SubResource("MerchantGift")])
 inventory = [SubResource("MerchantStock")]
-descriptor = ExtResource("D_villager_elder_m")
+descriptor = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_oe36o"]
@@ -660,7 +659,7 @@ conversation = ExtResource("C_hermit")
 appearance = ExtResource("A_hermit")
 idleAnimation = &"idle_old_man"
 recruitTemplate = ExtResource("R_hermit")
-descriptor = ExtResource("D_hermit")
+descriptor = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_pkcg1"]
@@ -675,7 +674,7 @@ conversation = ExtResource("C_wanderer_talia")
 appearance = ExtResource("A_wanderer_talia")
 idleAnimation = &"idle_neutral"
 recruitTemplate = ExtResource("R_wanderer_talia")
-descriptor = ExtResource("D_villager_elder_m")
+descriptor = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_0sxfu"]

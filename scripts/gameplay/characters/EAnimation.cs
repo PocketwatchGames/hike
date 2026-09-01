@@ -76,4 +76,11 @@ public enum EAnimation
     Climb = 39,
     ClimbDown = 40,
     ClimbIdle = 41,
+    // Hauling up over a ledge taller than a stride, and the controlled drop
+    // back down off one. One-shots, held for the traversal's duration while
+    // something other than steering owns the body's position. No clip is
+    // authored for either yet — the player's mantle stands in with Jump and a
+    // mob's .tres maps these onto whichever of its clips reads least wrong.
+    Mantle = 42,
+    MantleDown = 43,
 }

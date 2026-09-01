@@ -47,6 +47,7 @@ public partial class BehaviorAttack : BehaviorBase
     public override void OnEnter(Mob me, ulong time)
     {
         _attackPauseUntilMs = 0;
+        _walkLineCheckedMs = 0;
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
@@ -111,7 +112,7 @@ public partial class BehaviorAttack : BehaviorBase
         // the profile out of vertical reach — the cooldown isn't bumped and
         // ActionRunner's rejectEffect doesn't fire every tick against a target one
         // plateau up. Fire it the instant we're inside its maxAttackRange.
-        WeaponData readyWeapon = ChooseReadyWeapon(me, time, diff.Y, dist2d, canSee);
+        WeaponData readyWeapon = ChooseReadyWeapon(me, time, diff.Y, dist2d, canSee, targetPos);
         // Post-cooldown behavior pause. Once a weapon clears its fixed cooldown
         // we hold one extra (authored) beat — circling the ring — before the
         // swing commits, so attacks aren't a tight cooldown loop and there's a
@@ -272,7 +273,31 @@ public partial class BehaviorAttack : BehaviorBase
     // the earlier weapon in the list. Returns null when nothing qualifies (all on
     // cooldown, out of vertical reach, can't see, or the mob has no weapons), in
     // which case the mob holds at the encircle ring.
-    private WeaponData ChooseReadyWeapon(Mob me, ulong time, float diffY, float dist2d, bool canSee)
+    // "Could I walk to the target from here" — the gate on any attack that darts
+    // the body forward, memoized.
+    //
+    // The query samples a nav window, which is priced to ride the navigator's
+    // 0.4s repath cadence, not a 60Hz one; and this is asked from
+    // ChooseReadyWeapon, which runs EVERY tick a weapon is off cooldown (the
+    // authored attack pause alone is dozens of ticks). Both bodies move at
+    // walking speed, so the answer keeps for a beat — and the cost of it being
+    // stale is at most one lunge either way.
+    private const ulong WalkLineRecheckMs = 250;
+    private ulong _walkLineCheckedMs;
+    private bool _walkLineClear;
+
+    private bool WalkLineClear(Mob me, ulong time, Vector3 targetPos)
+    {
+        if (_walkLineCheckedMs != 0 && time - _walkLineCheckedMs < WalkLineRecheckMs)
+        {
+            return _walkLineClear;
+        }
+        _walkLineCheckedMs = time;
+        _walkLineClear = me.Navigator != null && me.Navigator.CanWalkStraightTo(targetPos);
+        return _walkLineClear;
+    }
+
+    private WeaponData ChooseReadyWeapon(Mob me, ulong time, float diffY, float dist2d, bool canSee, Vector3 targetPos)
     {
         if (!canSee)
         {
@@ -293,7 +318,8 @@ public partial class BehaviorAttack : BehaviorBase
             return null;
         }
         WeaponData chosen = null;
-        for (int i = 0; i < weapons.Count; i++)
+        int weaponCount = weapons.Count;
+        for (int i = 0; i < weaponCount; i++)
         {
             WeaponData w = weapons[i];
             if (w == null || w.actionProfile == null)
@@ -320,6 +346,23 @@ public partial class BehaviorAttack : BehaviorBase
                 continue;
             }
             if (w.minAllies > 0 && CountAlliesInRange(me, w.allyRange) < w.minAllies)
+            {
+                continue;
+            }
+            // A lunging attack darts the body forward along its facing for the
+            // whole motion window, with no steering and no ledge sense — so it
+            // must only be committed toward ground the mob could have walked to.
+            // Without this a goblin lunges at a player standing across a drop and
+            // the dart carries it over the edge, which is not a decision its own
+            // pathfinder would ever have made (see MobNavigator.CanWalkStraightTo).
+            //
+            // Refused HERE rather than on the tier's requirements, for the same
+            // reason as the vertical gate above: the profile is never committed, so
+            // the cooldown isn't bumped and ActionRunner's rejectEffect doesn't
+            // fire every tick. The mob falls through to the encircle ring and
+            // repositions instead. Non-lunging attacks — every ranged weapon, a
+            // plain swing — are untouched and still fire across a gap.
+            if (w.actionProfile.Lunges && !WalkLineClear(me, time, targetPos))
             {
                 continue;
             }

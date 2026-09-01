@@ -507,6 +507,22 @@ public partial class MobData : Resource
     // the lift self-terminates once the capsule rises above the step. 0 disables
     // step-up entirely (a mob that should stall at any rise). See Mob.TryStepUp.
     [Export] public float stepClimbSpeed = 4f;
+    // Ledge traversals, authored as actions so a climb has an animation, a
+    // sound and a readable duration rather than being a silent velocity shove.
+    // The runner plays the timeline while Mob.Mantle carries the body along the
+    // lip-to-landing arc; the action's durationSeconds IS the carry's duration,
+    // so the clip and the movement can't drift apart.
+    //
+    // A one-voxel riser stays with the silent step-up lift (stepClimbSpeed) —
+    // that reads as a stride, and animating it would have a mob climbing all
+    // day on rough ground. These cover the taller ones, bounded by the mob's
+    // own maxStepHeight going up and maxFallHeight coming down, so a mantle
+    // only ever crosses ground the pathfinder already agreed it could cross.
+    // Null = no traversal animation; the mob falls back to the lift (up) or
+    // simply walks off (down), which is the pre-existing behavior.
+    [Export] public InteractiveAction mantleUpAction;
+    [Export] public InteractiveAction mantleDownAction;
+
     // Vertical voxels of drop the mob is willing to take when the pathfinder
     // is invoked with allowFalling=true (chase, follow). 0 = "never drop"
     // (skittish mobs that refuse to leave their ledge). Wander always passes
