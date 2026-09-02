@@ -1512,7 +1512,10 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		_ledgeBarrierMaskOn = want;
-		uint bit = (uint)ECollisionLayer.LedgeBarrier;
+		// The player's OWN class only. The classes nest — a deeper one's contour
+		// is a subset of a shallower one's — so masking them all would collide
+		// with redundant coincident walls for nothing.
+		uint bit = (uint)LedgeBarrierClasses.LayerFor(data?.navMaxFallHeight ?? 1);
 		CollisionMask = want ? (CollisionMask | bit) : (CollisionMask & ~bit);
 	}
 
@@ -1523,16 +1526,20 @@ public partial class Player : CharacterBody3D
 
 	// Describes the player's body to WalkabilityGrid — the same sampler mobs
 	// resolve standability through, so the guard can never disagree with where a
-	// mob will path. maxStepHeight / maxFallHeight are read only by
-	// LocalPathfinder's edge expansion, never by SampleColumn, so they don't
-	// affect this query; they're set permissive so nothing is hidden from it.
+	// mob will path.
+	//
+	// The three heights are the player's REAL bands (a stride, the mantle reach,
+	// and the drop they take unaided), even though SampleColumn reads none of
+	// them: they're what makes TraversalRule.Classify give the right answer for
+	// the player, so the player and every mob are described to it the same way.
 	public TraversalProfile TraversalProfileForQuery()
 	{
 		if (!_traversalProfileBuilt)
 		{
 			_traversalProfile = new TraversalProfile(
 				1,
-				WalkabilityGrid.SurfaceSearchRadius,
+				Mathf.RoundToInt(data.mantleMaxRise),
+				data.navMaxFallHeight,
 				data.navClearanceRadius,
 				data.navVerticalClearance,
 				data.swimDepthThreshold);

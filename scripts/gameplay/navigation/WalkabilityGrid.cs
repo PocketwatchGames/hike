@@ -53,6 +53,17 @@ public enum CellFlags : byte
 // be passed by value into the pathfinder without per-call allocation.
 public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
 {
+    // The three heights that describe a body on its feet, and the only place
+    // they live. TraversalRule turns them into a step classification; nothing
+    // else may compare against them directly.
+    //
+    // stride: crossed silently by ordinary locomotion, up or down.
+    // maxStepHeight: the tallest crossing at all, by stride or by a mantle —
+    //   so (stride, maxStepHeight] is exactly the mantle band.
+    // maxFallHeight: the deepest DROP taken deliberately. Below stride only for
+    //   a body that never falls on purpose; equal to maxStepHeight means the
+    //   body only ever descends what it could climb back up.
+    public readonly int strideHeight;
     public readonly int maxStepHeight;
     public readonly int maxFallHeight;
     public readonly bool CanClimb;
@@ -85,6 +96,7 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
 
     public TraversalProfile(MobData data)
     {
+        strideHeight = data?.strideHeight ?? 1;
         maxStepHeight = data?.maxStepHeight ?? 1;
         maxFallHeight = data?.maxFallHeight ?? 4;
         CanClimb = data?.CanClimb ?? false;
@@ -107,9 +119,10 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     // AvoidsDeepWater is false and CanSwim true: the player swims, so a deep
     // water column must stay standable or the ledge guard would wall off every
     // lake. Costs are neutral — the player never runs A* over this.
-    public TraversalProfile(int maxStepHeight, int maxFallHeight, float clearanceRadius,
+    public TraversalProfile(int strideHeight, int maxStepHeight, int maxFallHeight, float clearanceRadius,
         int verticalClearance, float swimDepthThreshold)
     {
+        this.strideHeight = strideHeight;
         this.maxStepHeight = maxStepHeight;
         this.maxFallHeight = maxFallHeight;
         this.clearanceRadius = clearanceRadius;
@@ -130,7 +143,8 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     // collapses onto a single cache entry per quantized origin.
     public bool Equals(TraversalProfile o)
     {
-        return maxStepHeight == o.maxStepHeight
+        return strideHeight == o.strideHeight
+            && maxStepHeight == o.maxStepHeight
             && maxFallHeight == o.maxFallHeight
             && CanClimb == o.CanClimb
             && CanSwim == o.CanSwim
@@ -147,7 +161,7 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     public override int GetHashCode()
     {
         return System.HashCode.Combine(
-            System.HashCode.Combine(maxStepHeight, maxFallHeight, CanClimb, CanSwim, CanTraverseLand, AvoidsDeepWater),
+            System.HashCode.Combine(strideHeight, maxStepHeight, maxFallHeight, CanClimb, CanSwim, CanTraverseLand, AvoidsDeepWater),
             waterCost, swimCost, swimDepthThreshold,
             CanFly, clearanceRadius, verticalClearance);
     }

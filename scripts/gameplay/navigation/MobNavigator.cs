@@ -553,7 +553,11 @@ public class MobNavigator
             {
                 return false;
             }
-            if (!_profile.CanClimb && !_profile.CanFly && Mathf.Abs(c.surfaceY - curSurfaceY) > _profile.maxStepHeight)
+            // Smoothing may only skip across steps ordinary locomotion or a
+            // mantle would cross. A Fall is legal to ROUTE but not to shortcut
+            // through — the waypoints exist so the body arrives at the lip.
+            EStepClass step = TraversalRule.Classify(_profile, curSurfaceY, c.surfaceY);
+            if (step != EStepClass.Walk && step != EStepClass.Mantle)
             {
                 return false;
             }
@@ -803,8 +807,8 @@ public class MobNavigator
                         // time, but filtering here keeps the random walk's
                         // endpoint reachable both ways — the whole point of
                         // disallowing falls during wander.
-                        int dy = c.surfaceY - prev.surfaceY;
-                        if (!_profile.CanClimb && !_profile.CanFly && Mathf.Abs(dy) > _profile.maxStepHeight)
+                        EStepClass wanderStep = TraversalRule.Classify(_profile, prev.surfaceY, c.surfaceY);
+                        if (wanderStep != EStepClass.Walk && wanderStep != EStepClass.Mantle)
                         {
                             continue;
                         }

@@ -1,18 +1,18 @@
-[gd_scene format=3 uid="uid://t0zsnaoak7l5l"]
+[gd_scene format=3 uid="uid://oygoy20q68dr"]
 
-[ext_resource type="Script" uid="uid://xewjw2klmrwj9" path="res://scripts/gameplay/effects/GroundDecalPreview.cs" id="1_script"]
-[ext_resource type="Material" uid="uid://1mqtqjlwblk78" path="res://resources/materials/decal_ring_slime.tres" id="2_mat"]
-[ext_resource type="Script" uid="uid://bowccahv9232w" path="res://scripts/gameplay/effects/GroundDecal.cs" id="3_decal"]
+[ext_resource type="Script" uid="uid://d2u6yrycsrjrg" path="res://scripts/gameplay/effects/GroundDecalPreview.cs" id="1_script"]
+[ext_resource type="Material" uid="uid://dgbl663ewecon" path="res://resources/materials/decal_ring_slime.tres" id="2_mat"]
+[ext_resource type="Script" uid="uid://bowccahwa232w" path="res://scripts/gameplay/effects/GroundDecal.cs" id="3_decal"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_preview"]
 size = Vector2(4, 4)
 
-[node name="SlimeTargetPreview" type="Node3D" node_paths=PackedStringArray("_decal")]
+[node name="SlimeTargetPreview" type="Node3D" unique_id=1679475856 node_paths=PackedStringArray("_decal")]
 script = ExtResource("1_script")
 lifetimeSeconds = 0.9
 _decal = NodePath("Quad")
 
-[node name="Quad" type="MeshInstance3D" parent="."]
+[node name="Quad" type="MeshInstance3D" parent="." unique_id=1103507919]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
 material_override = ExtResource("2_mat")
 mesh = SubResource("PlaneMesh_preview")

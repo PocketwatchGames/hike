@@ -22,14 +22,6 @@ public static class LedgeBarrierMesher
 {
     private const int N = ChunkState.SIZE;
 
-    // Drop, in voxels, a body may walk off unaided: one voxel down is a step,
-    // two is a ledge. THE authority for that split — nothing else decides it
-    // now, so raising it means terrain that used to stop the player no longer
-    // does. Pairs with PlayerData.mantleMinRise, which is the smallest rise the
-    // interact-to-climb affordance will offer: leave a gap between them and
-    // there is terrain that can be neither walked down nor climbed.
-    private const int MaxLegalDropVoxels = 1;
-
     // How far a barrier rises above the surface it guards, in metres. Must
     // exceed the movement capsule's height (1.5) so it cannot be climbed by the
     // step-up lift, which raises the body by stepHeight before moving.
@@ -44,11 +36,6 @@ public static class LedgeBarrierMesher
     // drops on both sides stops being walkable.
     private const float LedgeInset = 0.2f;
 
-
-    // How far below the surface to look for the neighbour's ground before
-    // calling it a drop. Only has to cover the legal step plus a voxel of slack;
-    // anything deeper is a ledge regardless of how much deeper.
-    private const int NeighbourProbeDepth = MaxLegalDropVoxels + 1;
 
     private static readonly Vector3I[] Horizontal =
     {
@@ -160,13 +147,17 @@ public static class LedgeBarrierMesher
     // standing at every line where shallow water meets deep. Only the surface
     // being more than a step BELOW us is a real drop, and that is judged the
     // same way for water as for ground.
-    private static bool NeighbourIsReachable(System.Func<int, int, int, int> getVoxel, int nx, int y, int nz)
+    private static bool NeighbourIsReachable(System.Func<int, int, int, int> getVoxel, int nx, int y, int nz,
+        int maxLegalDropVoxels)
     {
+        // Only has to cover the legal drop plus a voxel of slack; anything
+        // deeper is a ledge regardless of how much deeper.
+        int probeDepth = maxLegalDropVoxels + 1;
         if (Blocks.IsSolid(getVoxel(nx, y, nz)))
         {
             return true;
         }
-        for (int d = 0; d <= NeighbourProbeDepth; d++)
+        for (int d = 0; d <= probeDepth; d++)
         {
             int ny = y - d;
             if (Blocks.IsWater(getVoxel(nx, ny, nz)))
@@ -174,11 +165,11 @@ public static class LedgeBarrierMesher
                 // First water voxel scanning down, so this is the column's top:
                 // the level a body entering it meets, judged by the same step
                 // rule as any other surface.
-                return d <= MaxLegalDropVoxels;
+                return d <= maxLegalDropVoxels;
             }
             if (IsSurface(getVoxel, nx, ny, nz))
             {
-                return d <= MaxLegalDropVoxels;
+                return d <= maxLegalDropVoxels;
             }
         }
         return false;
@@ -209,8 +200,12 @@ public static class LedgeBarrierMesher
     // world-indexed (it resolves across chunk boundaries) while emitted vertices
     // must be chunk-local (the node transform places them). So the origin is
     // added for lookups and NOT for output.
+    // `maxLegalDropVoxels` is the deepest drop the class of body this set is for
+    // takes willingly; the barrier stands at the top of everything deeper. One
+    // set is built per LedgeBarrierClasses entry, each on its own layer.
     public static List<Vector3> Build(System.Func<int, int, int, int> getVoxel,
-        DcCellSurface surface, int chunkWorldX, int chunkWorldY, int chunkWorldZ)
+        DcCellSurface surface, int chunkWorldX, int chunkWorldY, int chunkWorldZ,
+        int maxLegalDropVoxels)
     {
         List<Vector3> tris = null;
         var inside = new bool[4];
@@ -238,7 +233,7 @@ public static class LedgeBarrierMesher
                         int oz = c >= 2 ? 1 : 0;
                         int wx = chunkWorldX + x + ox;
                         int wz = chunkWorldZ + z + oz;
-                        inside[c] = NeighbourIsReachable(getVoxel, wx, wy, wz);
+                        inside[c] = NeighbourIsReachable(getVoxel, wx, wy, wz, maxLegalDropVoxels);
                         real[c] = IsSurface(getVoxel, wx, wy, wz);
                         anyReal |= real[c];
                         anyIn |= inside[c];

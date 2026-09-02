@@ -1,0 +1,12 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://ducap2anlt1b1"]
+
+[ext_resource type="Texture2D" uid="uid://badvp4g3bvix0" path="res://assets/textures/effects/web.png" id="1_y83m6"]
+
+[resource]
+resource_name = "decal_ring_slime"
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+disable_fog = true
+albedo_color = Color(0.9, 0.2, 0.95, 0.8)
+albedo_texture = ExtResource("1_y83m6")

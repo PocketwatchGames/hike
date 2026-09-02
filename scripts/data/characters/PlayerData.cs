@@ -54,6 +54,13 @@ public partial class PlayerData : Resource
 	// How far in front of the player to look for a climbable ledge face, in
 	// metres. Must clear the movement capsule radius (0.25) or the probe lands
 	// in the column the player already stands in.
+	// Deepest drop the player takes willingly, in voxels — which picks the ledge
+	// barrier they collide with (LedgeBarrierClasses). 1 means anything deeper
+	// than a curb must be a deliberate mantle, which is what the affordance is
+	// for. Pairs with mantleMinRise: leave a gap between them and there is
+	// terrain that can be neither walked down nor climbed.
+	[Export] public int navMaxFallHeight = 1;
+
 	[Export] public float mantleReach = 0.7f;
 	// Rises at or below this are ordinary walking and are not offered as a
 	// mantle; above maxRise the player needs a marked climbable surface.

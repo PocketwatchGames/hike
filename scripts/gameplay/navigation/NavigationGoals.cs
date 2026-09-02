@@ -292,31 +292,11 @@ public static class NavigationGoals
     // maxFall.
     private static bool StepAllowed(in TraversalProfile profile, WalkabilityCell from, WalkabilityCell to, bool allowFalling)
     {
-        if (profile.CanClimb || profile.CanFly)
-        {
-            return true;
-        }
-        int dy = to.surfaceY - from.surfaceY;
         if (to.IsWater)
         {
-            return !(dy < 0 && -dy > profile.maxFallHeight);
+            return TraversalRule.CanEnterWater(profile, from.surfaceY, to.surfaceY);
         }
-        if (dy > profile.maxStepHeight)
-        {
-            return false;
-        }
-        if (dy < 0)
-        {
-            int drop = -dy;
-            if (drop > profile.maxStepHeight)
-            {
-                if (!allowFalling || drop > profile.maxFallHeight)
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return TraversalRule.CanRoute(profile, from.surfaceY, to.surfaceY, allowFalling);
     }
 
     // True if `worldPos` sits over a column with a standable surface

@@ -3180,9 +3180,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     Vector3 dir = toTarget / dist;
                     float maxSpd = _swimming ? _simState.MobData.swimSpeed : _simState.MobData.maxSpeed;
                     Vector3 desiredVelocity = dir * maxSpd * aiOutput.speed * _terrainSpeed * speedScale * statusMoveMul;
-                    // The router refuses to ROUTE a drop it can't take, but when
-                    // the goal is below one it still steers the body to the lip.
-                    desiredVelocity = ClampToLedge(desiredVelocity);
                     Vector3 currentVel = LinearVelocity;
                     Vector3 velocityChange = desiredVelocity - new Vector3(currentVel.X, 0f, currentVel.Z);
                     ApplyImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
@@ -3471,6 +3468,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         _impulseApplied = false;
 
+        // After every other collision-mask assignment this tick (flight, burrow,
+        // death all rewrite the mask wholesale), so the barrier bit is applied
+        // to the mask the body actually ends the tick with.
+        UpdateLedgeBarrierMask();
+
         // Last, so the navigator state it reports is the one that produced this
         // tick's movement.
         TickFallTrace();
@@ -3481,9 +3483,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // Whether the mob had footing it could legally get back onto, last tick.
+    // Whether the mob had footing last tick, and the surface it was standing on.
     // Only meaningful while mob_fall_trace is on.
     private bool _fallTraceHadFooting = true;
+    private float _fallTraceLastFootingY;
 
     // Report the tick a mob leaves ground it would never have routed off.
     //
@@ -3506,19 +3509,36 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
-        bool footing = TryFindFootingY(data.maxFallHeight, out _);
+        bool footing = TryFindFootingY(data.maxFallHeight, out float footingY);
         bool wasFooted = _fallTraceHadFooting;
         _fallTraceHadFooting = footing;
+        if (footing)
+        {
+            _fallTraceLastFootingY = footingY;
+            return;
+        }
         // Only the losing edge is interesting; regaining footing is a landing.
-        if (footing || !wasFooted)
+        if (!wasFooted)
         {
             return;
         }
 
-        // How deep the drop actually is, for the report only — the gate above
-        // already knows it is deeper than the mob would route.
-        string depth = TryFindFootingY(DeepFallProbe, out float below)
-            ? $"{GlobalPosition.Y - below:F1}m"
+        // Judge the crossing SURFACE to SURFACE, through the shared rule — the
+        // same call the router and the barriers make.
+        //
+        // Measuring from the body's raw position instead reported every legal
+        // descent as a fall: a mob resting a centimetre proud of its floor, or
+        // one part-way down a drop it is entitled to take, has no footing within
+        // maxFallHeight of its POSITION while the surfaces are a legal step
+        // apart. That noise buried the real signal completely.
+        bool landed = TryFindFootingY(DeepFallProbe, out float below);
+        TraversalProfile profile = Navigator?.Profile ?? new TraversalProfile(data);
+        if (landed && TraversalRule.Classify(profile, _fallTraceLastFootingY, below) != EStepClass.Blocked)
+        {
+            return;
+        }
+        string depth = landed
+            ? $"{_fallTraceLastFootingY - below:F1}m"
             : $">{DeepFallProbe:F0}m";
         MobNavigator nav = Navigator;
         // "steering" must mean STEERED, or the label lies about the one thing
@@ -3546,65 +3566,46 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     + $" goal=({nav.Goal.X:F1},{nav.Goal.Y:F1},{nav.Goal.Z:F1})"));
     }
 
-    // How far ahead of the body's edge the ledge guard probes, in metres. Far
-    // enough that the brakes have a moment to bite at running speed, near enough
-    // that a mob can still walk out to the rim of something it is circling.
-    private const float LedgeGuardLookahead = 0.35f;
+    // Whether the LedgeBarrier bit for this mob's class is currently in its mask.
+    // Tracked so the common tick is a bool compare rather than a native property
+    // read-modify-write.
+    private bool _ledgeBarrierMaskOn;
 
-    // Refuse the part of a steered move that would carry the body off a drop it
-    // could not have walked down.
+    // Opt this body into the invisible walls standing at the top of every drop
+    // deeper than it takes willingly — the same mechanism, and now the same
+    // code path, that stops the player walking off a ledge.
     //
-    // This is the mob's whole ledge sense, and it exists because the router's is
-    // advisory. A* will not ROUTE a drop deeper than maxFallHeight, but when the
-    // goal is down there anyway the nearest reachable cell IS the lip — so the
-    // mob is steered to the edge and kept pushing at it, and at maxSpeed it goes
-    // over. Nothing downstream was stopping it: mobs deliberately don't collide
-    // with the ledge barriers (those are built at one global threshold, and a
-    // mob's limit is per-species authoring), so the body had no opinion at all.
+    // Barriers apply only to a body WALKING. Airborne they would be walls in
+    // mid-air: catching a fall against the cliff it just left, arresting a
+    // knockback arc, or refusing the mantle meant to cross the very ledge they
+    // guard. So everything that legitimately leaves the ground masks out, and a
+    // climber or flier never masks in at all — their pathfinder lifts both caps,
+    // so a barrier would only wall them out of terrain they can cross.
     //
-    // Tested per AXIS rather than along the movement vector, which buys the
-    // slide for free: the component heading off the drop is dropped and the one
-    // running along the lip survives, so a mob walks the rim or a narrow bridge
-    // instead of stopping dead at it. Same reason MoveAndSlide feels right to
-    // the player, one dimension at a time.
-    //
-    // maxFallHeight is the probe depth, so the body's rule IS the router's rule
-    // — a drop A* would happily route stays walkable, and the two cannot drift.
-    // Climbers and fliers opt out (their pathfinder lifts both caps), and only
-    // STEERED motion is clamped: knockback still throws a body off a cliff,
-    // which it should.
-    private Vector3 ClampToLedge(Vector3 desiredVelocity)
+    // Every state that clears the bit by rewriting the whole mask (flight,
+    // burrow, death) is a state this wants it off in anyway, so the cached flag
+    // cannot go stale in the direction that would leave a walking body unguarded.
+    private void UpdateLedgeBarrierMask()
     {
         MobData data = _simState.MobData;
-        if (data == null || _swimming || data.CanFly || data.CanClimb)
+        if (data == null || data.CanClimb || data.CanFly)
         {
-            return desiredVelocity;
+            return;
         }
-        // Already off the edge — the guard is for not leaving footing, not for
-        // steering in mid-air, and a falling body should keep its momentum.
-        if (!TryFindFootingY(data.maxFallHeight, out _))
+        bool want = alive
+            && !burrowing
+            && !burrowed
+            && !Mantling
+            && !_swimming
+            && _simState.KnockbackTime <= 0f
+            && TryFindFootingY(data.maxFallHeight, out _);
+        if (want == _ledgeBarrierMaskOn)
         {
-            return desiredVelocity;
+            return;
         }
-        Vector3 pos = GlobalPosition;
-        float probe = data.clearanceRadius + LedgeGuardLookahead;
-        if (desiredVelocity.X != 0f)
-        {
-            Vector3 at = pos + new Vector3(Mathf.Sign(desiredVelocity.X) * probe, 0f, 0f);
-            if (!TryFindFootingYAt(at, data.maxFallHeight, out _))
-            {
-                desiredVelocity.X = 0f;
-            }
-        }
-        if (desiredVelocity.Z != 0f)
-        {
-            Vector3 at = pos + new Vector3(0f, 0f, Mathf.Sign(desiredVelocity.Z) * probe);
-            if (!TryFindFootingYAt(at, data.maxFallHeight, out _))
-            {
-                desiredVelocity.Z = 0f;
-            }
-        }
-        return desiredVelocity;
+        _ledgeBarrierMaskOn = want;
+        uint bit = (uint)LedgeBarrierClasses.LayerFor(data.maxFallHeight);
+        CollisionMask = want ? (CollisionMask | bit) : (CollisionMask & ~bit);
     }
 
     // How deep mob_fall_trace looks for the bottom of a drop it is reporting.
@@ -4527,13 +4528,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         if (!TryFindFootingY(data.maxStepHeight, out float footingY))
         {
-            // Ran out of ground. End the dart where the ground ended rather than
-            // coasting out over the drop — the same outcome the player gets from
-            // a ledge barrier stopping a dash at the lip.
-            _simState.MotionTime = 0f;
-            _simState.MotionVelocity = Vector3.Zero;
-            Vector3 stop = LinearVelocity;
-            LinearVelocity = new Vector3(0f, stop.Y, 0f);
+            // Over a drop deeper than a stride. Nothing to hug — and nothing to
+            // stop here either: the ledge barrier the body masks in already
+            // refuses to let a dart cross a ledge, so reaching this means the
+            // body is legitimately airborne and gravity should have it.
             return;
         }
         float gap = GlobalPosition.Y - footingY;

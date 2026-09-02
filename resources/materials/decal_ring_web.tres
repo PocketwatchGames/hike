@@ -1,6 +1,6 @@
 [gd_resource type="StandardMaterial3D" format=3 uid="uid://cstoqolh32kcw"]
 
-[ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="1_n75y3"]
+[ext_resource type="Texture2D" uid="uid://vr7sx20810g3" path="res://assets/textures/effects/decal_ring.png" id="1_n75y3"]
 
 [resource]
 resource_name = "decal_ring_web"

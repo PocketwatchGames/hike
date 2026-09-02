@@ -14,13 +14,13 @@ using Godot;
 //
 // Costs: cardinal step = cell.cost * 1.0, diagonal step = cell.cost * sqrt2.
 //
-// Vertical step rules (per neighbour expansion, evaluated against the
-// caller's TraversalProfile):
-//   * Up-step: dy = neighbour.surfaceY - current.surfaceY; if dy >
-//     profile.maxStepHeight (and !canClimb), the step is refused.
-//   * Down-step: dy < 0; abs(dy) > profile.maxStepHeight requires
-//     allowFalling=true AND abs(dy) <= profile.maxFallHeight (and
-//     !canClimb). Climbers descend freely.
+// Vertical step rules: NOT decided here. Every neighbour expansion asks
+// TraversalRule.CanRoute, which is the one place the stride / mantle / fall /
+// blocked bands live — shared with the ledge barriers that physically stop a
+// body and with the mantle that deliberately crosses one, so a route can never
+// disagree with what the world will let the body do. The one exception is a
+// WATER destination, handled inline below: entering water is not a climb.
+//
 //   * Diagonals on a height delta are refused outright — only cardinal
 //     steps are allowed to cross a height change. This avoids routing a
 //     mob through the corner of a 2-voxel ledge.
@@ -189,41 +189,16 @@ public class LocalPathfinder
                         // up to the surface) and falling in is just a splash,
                         // capped only by maxFallHeight.
                         int dy = n.surfaceY - currentCell.surfaceY;
-                        // Fliers move freely between stacked layers (down a cave
-                        // mouth, up the exit) — the step/fall caps model a walker
-                        // and would strand a flier at a ledge it can simply fly
-                        // over. Treated like a climber here.
-                        if (!profile.CanClimb && !profile.CanFly)
+                        if (n.IsWater)
                         {
-                            if (n.IsWater)
+                            if (!TraversalRule.CanEnterWater(profile, currentCell.surfaceY, n.surfaceY))
                             {
-                                if (dy < 0 && -dy > profile.maxFallHeight)
-                                {
-                                    continue;
-                                }
+                                continue;
                             }
-                            else
-                            {
-                                if (dy > profile.maxStepHeight)
-                                {
-                                    continue;
-                                }
-                                if (dy < 0)
-                                {
-                                    int drop = -dy;
-                                    if (drop > profile.maxStepHeight)
-                                    {
-                                        if (!allowFalling)
-                                        {
-                                            continue;
-                                        }
-                                        if (drop > profile.maxFallHeight)
-                                        {
-                                            continue;
-                                        }
-                                    }
-                                }
-                            }
+                        }
+                        else if (!TraversalRule.CanRoute(profile, currentCell.surfaceY, n.surfaceY, allowFalling))
+                        {
+                            continue;
                         }
 
                         // Diagonals across any height delta are refused — a

@@ -498,6 +498,12 @@ public partial class MobData : Resource
     // a mob walk up a single-voxel ledge, 0 means it stops at any rise. Higher
     // values are for goat/spider-like climbers. Used by the walkability grid
     // to decide which neighbour cells are reachable from the current cell.
+    // Vertical voxels crossed SILENTLY by ordinary locomotion, up or down — a
+    // stride over a curb. Above this and up to maxStepHeight the crossing is a
+    // mantle: a deliberate traversal that owns the body and plays an animation.
+    // 1 is right for almost anything on legs; raise it only for a creature whose
+    // ordinary gait really does clear two voxels without it reading as a climb.
+    [Export] public int strideHeight = 1;
     [Export] public int maxStepHeight = 1;
     // Vertical speed (m/s) the body is driven upward at when the step-up assist
     // clears a voxel riser directly ahead of its movement. The mob's locomotion

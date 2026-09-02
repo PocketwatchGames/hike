@@ -26,9 +26,10 @@ public sealed class ChunkGeometry
     public MeshBuffer Water;
     public bool HasWater;
 
-    // Ledge-barrier triangles in CHUNK-LOCAL space, or null. Already the plain
-    // vertex soup ConcavePolygonShape3D wants.
-    public Vector3[] LedgeBarrierTris;
+    // Ledge-barrier triangles in CHUNK-LOCAL space, one entry per
+    // LedgeBarrierClasses.All index (null where that class has no ledges in this
+    // chunk). Already the plain vertex soup ConcavePolygonShape3D wants.
+    public Vector3[][] LedgeBarrierTris;
 
     // Detail-sprite instances this chunk contributes, keyed by entry. Posted to
     // the world-wide scatter manager during Realize — that manager owns

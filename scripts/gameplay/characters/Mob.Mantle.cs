@@ -18,10 +18,6 @@ using Godot;
 // mob can go; it changes how it gets there.
 public partial class Mob
 {
-    // Smallest surface delta that is a climb rather than a stride. Surfaces are
-    // whole voxels apart, so this only has to separate 1 from 2.
-    private const float MantleMinRise = 1.5f;
-
     // How far in front of the body to read the column being climbed. Must clear
     // the capsule or the probe reads the column the mob is already standing in.
     private const float MantleProbeReach = 0.7f;
@@ -87,34 +83,16 @@ public partial class Mob
         {
             return false;
         }
+        // The shared rule decides what this crossing IS. A Walk is an ordinary
+        // stride and the step-up assist owns it; a Fall or a Blocked is not
+        // something to cross deliberately (and the ledge barrier is already
+        // standing there refusing it). Only the Mantle band is ours.
         float rise = landing.Y - footingY;
-        InteractiveAction action;
-        if (rise >= MantleMinRise)
-        {
-            // Taller than the mob can climb is a wall, not a ledge. Refusing
-            // here (rather than clamping) leaves it to terrain collision, which
-            // is what should stop a body at a wall.
-            if (rise > data.maxStepHeight + 0.001f)
-            {
-                return false;
-            }
-            action = data.mantleUpAction;
-        }
-        else if (-rise >= MantleMinRise)
-        {
-            // Deeper than the mob is willing to drop. Its route would never
-            // have come this way; walking off is not the fallback, stopping is,
-            // and that is what the caller's step-up refusal already does.
-            if (-rise > data.maxFallHeight + 0.001f)
-            {
-                return false;
-            }
-            action = data.mantleDownAction;
-        }
-        else
+        if (TraversalRule.Classify(nav.Profile, footingY, landing.Y) != EStepClass.Mantle)
         {
             return false;
         }
+        InteractiveAction action = rise > 0f ? data.mantleUpAction : data.mantleDownAction;
         if (action == null)
         {
             return false;

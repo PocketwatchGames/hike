@@ -68,7 +68,19 @@ public enum ECollisionLayer
     // body that has explicitly opted in collides with it, so the barriers can be
     // switched on for the player without becoming cover, walls, or obstacles for
     // everything else.
-    LedgeBarrier = 16384,
+    // One bit per traversal CLASS, keyed by the deepest drop that class of body
+    // accepts (see LedgeBarrierClasses). A body masks in the bit matching its
+    // own maxFallHeight and is then physically unable to walk off anything
+    // deeper — the player at 1, a goblin at 2, an ordinary mob at 4. One mesh
+    // could not serve all three: it can only be cut at one threshold, and a
+    // threshold too strict wedges a body at a drop its own router chose.
+    LedgeBarrierFall1 = 16384,
+    LedgeBarrierFall2 = 32768,
+    LedgeBarrierFall4 = 65536,
+    // Every barrier, for the queries that must ignore all of them — "does the
+    // body fit here" is a question ABOUT the world, and a barrier is not part
+    // of the world.
+    LedgeBarrier = LedgeBarrierFall1 | LedgeBarrierFall2 | LedgeBarrierFall4,
     // Convenience combo: "solid to the world" — terrain/walls plus porous
     // props. World raycasts (vision, arrows, aim, pathing, rain, lightning) mask
     // this so props still block them; the few queries that should see / smell /
