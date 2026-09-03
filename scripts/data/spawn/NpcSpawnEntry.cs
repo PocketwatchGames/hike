@@ -214,6 +214,10 @@ public partial class NpcSpawnEntry : MobSpawnEntry
         return names.ToArray();
     }
 
+    // Aimable: which way a villager standing in a doorway looks is the whole
+    // point of placing that one by hand.
+    public override bool UsesFacing => true;
+
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (descriptor == null)

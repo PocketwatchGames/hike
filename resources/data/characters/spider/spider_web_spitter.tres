@@ -9,15 +9,15 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
 [ext_resource type="Resource" uid="uid://cxe16f481wisr" path="res://resources/data/status_effects/status_webbed.tres" id="7_webbed"]
-[ext_resource type="PackedScene" uid="uid://clat7veiosogv" path="res://scenes/projectiles/web_glob.tscn" id="8_proj"]
-[ext_resource type="PackedScene" uid="uid://ccwykpfpiepxe" path="res://scenes/fx/web_splat.tscn" id="9_splat"]
+[ext_resource type="PackedScene" uid="uid://zrp2q7v02zw0h" path="res://scenes/projectiles/web_glob.tscn" id="8_proj"]
+[ext_resource type="PackedScene" uid="uid://4er2o3uhgst8q" path="res://scenes/fx/web_splat.tscn" id="9_splat"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="10_4wxxt"]
 [ext_resource type="PackedScene" uid="uid://f3k3t2bsm1ci" path="res://scenes/fx/web_burst.tscn" id="10_burst"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_mdbnn"]
-[ext_resource type="PackedScene" uid="uid://ce52k000nd5f4" path="res://scenes/fx/web_target_preview.tscn" id="11_preview"]
+[ext_resource type="PackedScene" uid="uid://ce52k00znd5f4" path="res://scenes/fx/web_target_preview.tscn" id="11_preview"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_mdbnn"]
 [ext_resource type="PackedScene" uid="uid://dsgde212y3j3m" path="res://scenes/fx/spider_spit.tscn" id="12_spit"]
-[ext_resource type="Resource" uid="uid://c2ed5t1het2h" path="res://resources/data/characters/ability_tells/ability_tell_web.tres" id="13_tell"]
+[ext_resource type="Resource" uid="uid://d7g8x7q91lps8" path="res://resources/data/characters/ability_tells/ability_tell_web.tres" id="13_tell"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
@@ -83,7 +83,7 @@ buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_webbed_buildup
 
 [sub_resource type="Resource" id="Resource_damage_aoe"]
 script = ExtResource("5_damage")
-tags = 65
+tags = 577
 healthDamage = 30.0
 hitstun = 0.2
 buildups = []
@@ -91,7 +91,7 @@ modifiers = []
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")
-tags = 65
+tags = 577
 healthDamage = 10.0
 hitstun = 0.1
 buildups = []

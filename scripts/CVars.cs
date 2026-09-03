@@ -901,6 +901,13 @@
     // Log climb attach and release.
     public static CVarBool climbDebug = new CVarBool("climb_debug", false);
 
+
+    // Console command: the nearest coiled rope explains, gate by gate, why it
+    // does or does not offer to drop. A coil that resolves no drop shows no
+    // prompt at all, so this is the only way to tell a mis-aimed one from a
+    // broken one.
+    public static CVar ropeProbe = new CVar("rope_probe", (cvar) => CoiledRope.Probe());
+
     // Console command: walk the climb probe's gates for the wall in front of the
     // player and print each verdict. "It won't attach" is always one specific
     // gate; this names it instead of leaving it to bisection.

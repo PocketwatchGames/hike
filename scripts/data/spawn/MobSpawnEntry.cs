@@ -149,6 +149,9 @@ public partial class MobSpawnEntry : SpawnEntryData
         return false;
     }
 
+    // Aimable: a hand-placed one takes the facing instead of a random yaw.
+    public override bool UsesFacing => true;
+
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (descriptor == null)

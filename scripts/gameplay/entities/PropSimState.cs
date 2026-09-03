@@ -18,13 +18,14 @@ public class PropSimState : EntitySimState, IVoxelStamper
     // Trees and tall grass are surface scenery roads route around and clear.
     public override bool IsRoadObstacle => true;
 
+    // Every prop scene roots on a PropInstance, whatever its PropType — the
+    // type is a scatter slot (canopy vs ground cover) and a wire byte, not a
+    // behavior. A scene wanting more than a prop's own behavior says so with
+    // its root script (see Foliage, for foliage you walk through) and adds an
+    // arm here.
     public override Node3D CreateEntity(Sim sim)
     {
-        return Type switch
-        {
-            PropType.Foliage => Foliage.Create(sim, this),
-            _ => PropInstance.Create(sim, this),
-        };
+        return PropInstance.Create(sim, this);
     }
 
     // Aperture props (window frames) carve the wall they stand in; every other
@@ -51,15 +52,12 @@ public class PropSimState : EntitySimState, IVoxelStamper
 
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
     {
-        if (Type != PropType.Tree)
-        {
-            return;
-        }
-        // Trees have a CylinderShape3D collider with radius ~1.0–1.5m,
-        // physically covering 3×3 (or 5×5) voxel cells around the trunk. The
-        // rasterizer walks every Environment-layer collider on the entity and
-        // emits the union of their footprints so A* doesn't route mobs through
-        // cells the cylinder blocks.
+        // A prop blocks the cells its solid colliders physically cover — a
+        // tree's CylinderShape3D has radius ~1.0–1.5m, so its footprint is a
+        // 3×3 (or 5×5) cell disc, not the single cell at the trunk's origin.
+        // Not gated on PropType: the rasterizer only collects Solid-layer
+        // bodies, so a prop authored without one still emits nothing, and the
+        // answer stays "whatever this scene actually stands in the way of".
         PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
     }
 }

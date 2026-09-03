@@ -39,6 +39,7 @@ public static class EntitySerializer
         Lever = 26,
         PathHint = 27,
         Waterfall = 28,
+        CoiledRope = 29,
     }
 
     // How much of the Roof payload a stream carries. Containers map their own
@@ -561,6 +562,13 @@ public static class EntitySerializer
                 w.Write(trapdoor.LinkTag ?? string.Empty);
                 break;
 
+            case CoiledRopeSimState rope:
+                w.Write((byte)Tag.CoiledRope);
+                WriteVec3(w, rope.WorldPosition);
+                WriteScene(w, rope.Scene);
+                w.Write(rope.Deployed);
+                break;
+
             case LeverSimState lever:
                 w.Write((byte)Tag.Lever);
                 WriteVec3(w, lever.WorldPosition);
@@ -1005,6 +1013,15 @@ public static class EntitySerializer
                 trapdoor.Open = open;
                 trapdoor.LinkTag = linkTag;
                 return trapdoor;
+            }
+            case Tag.CoiledRope:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                bool deployed = r.ReadBoolean();
+                var rope = new CoiledRopeSimState(pos, rotationY: 0f, scene);
+                rope.Deployed = deployed;
+                return rope;
             }
             case Tag.Lever:
             {

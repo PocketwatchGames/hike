@@ -8,8 +8,7 @@ using System.Text;
 // cvar off Main._Ready. The data-side twin of shader_check / block_check: needs
 // no world, no menu and no renderer, and quits on its own.
 //
-// Two passes, because the failure it is chasing is invisible from either side
-// alone:
+// Three passes, each chasing a failure that is invisible from the others' side:
 //
 //   Tool closure — a Resource type reachable from a typed [Export] on a [Tool]
 //   class must itself be [Tool], or the editor materializes it as a base
@@ -23,6 +22,11 @@ using System.Text;
 //   Load sweep — every .tres actually loads, and the script the file names is
 //   the script the loaded object ended up with. Catches a renamed or moved
 //   class, a broken dependency, and a parse error.
+//
+//   Damage tags — every damaging template declares the damage TYPE it is made
+//   of, so "physical" is never inferred from an empty mask. Rides on the load
+//   sweep's loaded graph, since almost every DamageData is a [sub_resource]
+//   inside a weapon / mob / status file rather than a .tres of its own.
 public static class ResourceCheck
 {
     private const string ResourceRoot = "res://resources";
@@ -33,7 +37,8 @@ public static class ResourceCheck
         int toolTypes = CheckToolClosure(problems);
         int loaded = CheckLoads(problems);
 
-        GD.Print($"[resource_check] {toolTypes} [Tool] resource types, {loaded} .tres loaded");
+        GD.Print($"[resource_check] {toolTypes} [Tool] resource types, {loaded} .tres loaded, "
+            + $"{_damageTemplates} damage templates typed");
         if (problems.Count == 0)
         {
             GD.Print("[resource_check] ok");
@@ -188,6 +193,7 @@ public static class ResourceCheck
                 continue;
             }
             loaded++;
+            WalkForDamageTags(res, path, problems);
 
             string declared = DeclaredScriptClass(path);
             if (string.IsNullOrEmpty(declared))
@@ -203,6 +209,112 @@ public static class ResourceCheck
         }
 
         return loaded;
+    }
+
+    // --- pass 3: damage-type tags ----------------------------------------
+
+    // Every damaging template must declare what it is MADE of. `Damage` marks a
+    // template as damaging; the type bits (Physical / Fire / Electrical /
+    // Poison / Magical) say which kind, and receivers key resistance and
+    // vulnerability off them — Destructible.destroyedBy is authored against
+    // exactly that set.
+    //
+    // Without this the failure is silent both ways: a physical template that
+    // forgets Physical lands as a typeless hit no modifier entry can scale and
+    // no destructible accepts, and nothing distinguishes it from a template
+    // that genuinely has no type. Walking the loaded graph (rather than just
+    // the file roots) is the whole point — almost every DamageData is a
+    // [sub_resource] inside a weapon, mob or status file, not a .tres of its own.
+    private static int _damageTemplates;
+    private static readonly HashSet<ulong> _damageVisited = new();
+
+    private static void WalkForDamageTags(Resource res, string path, List<string> problems)
+    {
+        if (res == null || !_damageVisited.Add(res.GetInstanceId()))
+        {
+            return;
+        }
+
+        EStat tags = EStat.None;
+        string kind = null;
+        switch (res)
+        {
+            case DamageData d: tags = d.tags; kind = nameof(DamageData); break;
+            case ContinuousDamageData c: tags = c.tags; kind = nameof(ContinuousDamageData); break;
+            case StatusEffectData s: tags = s.tags; kind = nameof(StatusEffectData); break;
+        }
+        if (kind != null && (tags & EStat.Damage) != 0)
+        {
+            _damageTemplates++;
+            if ((tags & StatModifierUtil.DamageTypeTags) == 0)
+            {
+                problems.Add($"{path}: a {kind} sets Damage but no damage TYPE "
+                    + "(Physical / Fire / Electrical / Poison / Magical) — such a hit is "
+                    + "unresistable and breaks no destructible; add the type it is made of");
+            }
+        }
+
+        // Inherited exports count too, so climb the chain — ExportedMembers is
+        // DeclaredOnly.
+        for (Type t = res.GetType(); t != null && typeof(Resource).IsAssignableFrom(t); t = t.BaseType)
+        {
+            foreach (MemberInfo m in ExportedMembers(t))
+            {
+                object value;
+                try
+                {
+                    value = m is FieldInfo f ? f.GetValue(res) : ((PropertyInfo)m).GetValue(res);
+                }
+                catch (Exception)
+                {
+                    // A getter that throws is the [Tool]-closure pass's problem,
+                    // not ours — don't let it abort the sweep.
+                    continue;
+                }
+                VisitDamageTagValue(value, path, problems);
+            }
+        }
+    }
+
+    private static void VisitDamageTagValue(object value, string path, List<string> problems)
+    {
+        switch (value)
+        {
+            case null:
+                return;
+            case Resource r:
+                WalkForDamageTags(r, path, problems);
+                return;
+            case Variant v:
+                WalkForDamageTags(v.Obj as Resource, path, problems);
+                return;
+            case string:
+                return;
+            case System.Array a when a.GetType().GetElementType()?.IsPrimitive == true:
+                // PackedFloat32Array / byte buffers — nothing resource-shaped inside.
+                return;
+            case System.Collections.IEnumerable seq when !IsKeyValuePair(value.GetType()):
+                foreach (object item in seq)
+                {
+                    VisitDamageTagValue(item, path, problems);
+                }
+                return;
+        }
+
+        // A Godot Dictionary enumerates as KeyValuePair, and that is where most
+        // damage templates actually live — WeaponData.damageProfiles is keyed by
+        // the ItemEvent's damageProfileKey rather than held inline. Missing this
+        // case reached only 6 of the ~30 templates in the project.
+        Type t = value.GetType();
+        if (IsKeyValuePair(t))
+        {
+            VisitDamageTagValue(t.GetProperty("Value")?.GetValue(value), path, problems);
+        }
+    }
+
+    private static bool IsKeyValuePair(Type t)
+    {
+        return t.IsGenericType && t.GetGenericTypeDefinition() == typeof(KeyValuePair<,>);
     }
 
     // The script_class recorded in the .tres header, or null when the file is a

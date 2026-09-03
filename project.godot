@@ -310,6 +310,10 @@ EditorClipDown={
 3d_physics/layer_12="Porous"
 3d_physics/layer_13="Debris"
 3d_physics/layer_14="WorldBounds"
+3d_physics/layer_15="LedgeBarrierFall1"
+3d_physics/layer_16="LedgeBarrierFall2"
+3d_physics/layer_17="LedgeBarrierFall4"
+3d_physics/layer_18="Climbable"
 
 [physics]
 

@@ -28,10 +28,10 @@ public partial class PropLibraryEntry : Resource
     [Export] public PackedScene scene;
     [Export] public EPropCategory category = EPropCategory.Other;
 
-    // The behavior the placed PropSimState gets. Tree takes the solid path
-    // (PropInstance + path-blocker rasterization from its collider); Foliage
-    // takes the billboard-sprite path and never blocks navigation. See
-    // PropSimState.CreateEntity / GetPathBlockerCells.
+    // Which scatter slot the placed PropSimState files under — canopy (Tree)
+    // vs ground cover (Foliage). It is a placement category and a wire byte,
+    // not a behavior: both spawn the same way and both block the cells their
+    // own colliders cover. See PropSimState.CreateEntity / GetPathBlockerCells.
     [Export] public PropType propType = PropType.Tree;
 
     // Optional palette-button art. Null falls back to the name label.

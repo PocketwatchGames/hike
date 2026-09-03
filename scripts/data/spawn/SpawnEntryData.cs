@@ -175,6 +175,15 @@ public partial class SpawnEntryData : Resource
     // (flat patch guarantees lateral air) — useful primarily inside caves.
     public virtual bool RequireLateralClearance => false;
 
+    // True iff this entry's Spawn reads SpawnContext.FacingY — i.e. whether
+    // aiming one is a thing that can change the result. The painter draws a
+    // facing line and answers an aim-drag for these and for nothing else, on the
+    // same rule IsHandPlacedProperty encodes: a control that cannot change the
+    // result is worse than a missing one, because it invites tuning that does
+    // nothing. An entry type that starts honouring a facing overrides this in
+    // the same edit that makes it read the context.
+    public virtual bool UsesFacing => false;
+
     // True iff this entry spawns a mob. Mob entries are kept out of hazard
     // danger zones at spawn time (see TrySpawn). Defaults false; MobSpawnEntry
     // overrides.

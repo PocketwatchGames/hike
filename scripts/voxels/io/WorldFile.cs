@@ -215,7 +215,9 @@ public static class WorldFile
     //      a silent null in any build that (correctly) did not ship the authoring
     //      document. The weapon, status-effect and item-state lists also stopped
     //      spelling their references out as bare path strings.
-    public const uint VERSION = 51;
+    // v52: coiled ropes (Tag.CoiledRope). A new entity tag, so a v51 file's
+    //      entity stream is readable only up to the first one.
+    public const uint VERSION = 52;
 
     public struct IndexEntry
     {

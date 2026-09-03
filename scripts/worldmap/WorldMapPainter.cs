@@ -301,9 +301,20 @@ public partial class WorldMapPainter : Node3D
             return;
         }
         Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
-        int r = Mathf.Max(0, ink.entityMarkHighlightRadius);
+        int r = EntityMarkReach;
         RebuildDisplay(new Rect2I(at.X - r, at.Y - r, 2 * r + 1, 2 * r + 1));
     }
+
+    // How far a mark's pixels reach from its anchor cell, in metres: the growth
+    // it takes when the tool is picking it out, or its facing line, whichever is
+    // further. ONE answer, because three places have to agree about it and each
+    // disagreement leaves stale pixels on the map: the repaint that cleans a mark
+    // up, the reject that decides a mark is too far outside a rebuilt rect to
+    // draw, and the rect a stroke rebuilds. The line starts at the cell's centre,
+    // so it reaches half a cell past its own length; the extra metre covers that.
+    private int EntityMarkReach => Mathf.Max(
+        Mathf.Max(0, ink.entityMarkHighlightRadius),
+        Mathf.CeilToInt(ink.entityFacingLength) + 1);
 
     // The entity marks the map draws depend on the tool's selection as well as on
     // the document, and neither is spatial: selecting one entity unhighlights
@@ -846,7 +857,12 @@ public partial class WorldMapPainter : Node3D
         // Elevation or roughness may have moved, and weathering is derived from
         // both over a neighbourhood, so the cached height field has to go.
         _ctx.InvalidateHeights(BrushRect(texel, ActiveTool.Radius));
-        RebuildDisplay(ExpandToChunks(ActiveTool.LastPaintRect ?? BrushRect(texel, ActiveTool.Radius)));
+        // Grown by the reach of an entity mark. A mark is drawn well outside the
+        // cell it is anchored in — the growth when it is picked out, and its
+        // facing line — so an entity that MOVED leaves those pixels behind
+        // wherever they fall outside the rect the tool reports.
+        RebuildDisplay(ExpandToChunks(
+            (ActiveTool.LastPaintRect ?? BrushRect(texel, ActiveTool.Radius)).Grow(EntityMarkReach)));
         // A click that grabs an entity un-highlights whatever was selected
         // before, and that one can be anywhere on the map — the rect under the
         // cursor says nothing about where.
@@ -1037,6 +1053,7 @@ public partial class WorldMapPainter : Node3D
         EntityPlacement selected = ActiveTool.SelectedEntity;
         SpawnEntryData match = ActiveTool.SelectedEntry(_ctx);
         int grow = Mathf.Max(0, ink.entityMarkHighlightRadius);
+        int reach = EntityMarkReach;
         foreach (EntityPlacement placement in _ctx.Placements.entities)
         {
             if (placement == null)
@@ -1053,7 +1070,11 @@ public partial class WorldMapPainter : Node3D
             bool isMatch = !isSelected && placement.IsFrom(match);
             int r = isSelected || isMatch || placement == _hoverEntity ? grow : 0;
             Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
-            if (at.X + r < x0 || at.X - r >= x1 || at.Y + r < z0 || at.Y - r >= z1)
+            // Rejected at the MARK'S REACH rather than at the size this one
+            // happens to draw at, since a facing line reaches past the growth
+            // and a mark anchored outside the rect can still ink into it.
+            if (at.X + reach < x0 || at.X - reach >= x1
+                || at.Y + reach < z0 || at.Y - reach >= z1)
             {
                 continue;
             }
@@ -1067,6 +1088,7 @@ public partial class WorldMapPainter : Node3D
                     FillCell(px, pz, mark);
                 }
             }
+            DrawFacingLine(placement, at, mark);
         }
         if (_ctx.Placements.hasSpawn)
         {
@@ -1075,6 +1097,36 @@ public partial class WorldMapPainter : Node3D
             {
                 FillCell(at.X, at.Y, ink.spawnInk);
             }
+        }
+    }
+
+    // Which way an entity is aimed, as a one-pixel line out of its mark. Drawn in
+    // display PIXELS rather than cells: a facing is a direction, and the diagonal
+    // half of the eight it can hold would come out as a staircase of metre
+    // blocks. Only for an entry that reads a facing, so a line on the map always
+    // means something the bake will honour.
+    //
+    // Stepped by a UNIT direction, which is what keeps a diagonal solid: each
+    // step moves at most one pixel on each axis, so consecutive samples are
+    // 8-connected and the repeats land on the pixel they already wrote. Opaque
+    // for the same reason — BlendPixel at alpha 1 is idempotent, and a partial
+    // rebuild over unchanged data has to reproduce a full one exactly.
+    private void DrawFacingLine(EntityPlacement placement, Vector2I at, Color mark)
+    {
+        if (ink.entityFacingLength <= 0f || placement.Entry is not { UsesFacing: true })
+        {
+            return;
+        }
+        Vector2 dir = EntityPlacement.Direction(placement.facing);
+        // From the centre of the mark's own cell, so the line reads as attached
+        // to it rather than as a separate dash beside it.
+        float x = at.X * pixelsPerMeter + pixelsPerMeter * 0.5f;
+        float z = at.Y * pixelsPerMeter + pixelsPerMeter * 0.5f;
+        int steps = Mathf.RoundToInt(ink.entityFacingLength * pixelsPerMeter);
+        var line = new Color(mark.R, mark.G, mark.B, 1f);
+        for (int i = 1; i <= steps; i++)
+        {
+            BlendPixel(Mathf.FloorToInt(x + dir.X * i), Mathf.FloorToInt(z + dir.Y * i), line);
         }
     }
 

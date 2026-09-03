@@ -1,0 +1,131 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://cs62nsdbrb5bn" path="res://scripts/gameplay/entities/CoiledRope.cs" id="1_rope"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_box"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="5_meshhl"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="6_modellit"]
+[ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="7_white"]
+[ext_resource type="Texture2D" uid="uid://cfvy8crkavs5m" path="res://assets/textures/interactions/climb_down.png" id="8_climbdown"]
+[ext_resource type="Texture2D" uid="uid://42ev2wn2d4t5" path="res://assets/textures/interactions/climb_up.png" id="9_climbup"]
+
+[sub_resource type="Resource" id="Resource_rope_event_drop"]
+script = ExtResource("4_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_rope_action_drop"]
+script = ExtResource("3_action")
+displayName = &"Drop Rope"
+icon = ExtResource("8_climbdown")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_rope_event_drop")])
+durationSeconds = 0.6
+
+[sub_resource type="Resource" id="Resource_rope_event_climb"]
+script = ExtResource("4_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_rope_action_climb"]
+script = ExtResource("3_action")
+verb = 7
+displayName = &"Climb"
+icon = ExtResource("9_climbup")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_rope_event_climb")])
+durationSeconds = 0.35
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hemp"]
+render_priority = 0
+shader = ExtResource("6_modellit")
+shader_parameter/albedo_tex = ExtResource("7_white")
+shader_parameter/form_strength = 0.45
+shader_parameter/color_tint = Color(0.62, 0.51, 0.32, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_stake"]
+render_priority = 0
+shader = ExtResource("6_modellit")
+shader_parameter/albedo_tex = ExtResource("7_white")
+shader_parameter/form_strength = 0.3
+shader_parameter/color_tint = Color(0.36, 0.26, 0.18, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[sub_resource type="TorusMesh" id="TorusMesh_coil"]
+material = SubResource("ShaderMaterial_hemp")
+inner_radius = 0.16
+outer_radius = 0.34
+rings = 12
+ring_segments = 6
+
+[sub_resource type="TorusMesh" id="TorusMesh_coil_upper"]
+material = SubResource("ShaderMaterial_hemp")
+inner_radius = 0.19
+outer_radius = 0.31
+rings = 12
+ring_segments = 6
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_stake"]
+material = SubResource("ShaderMaterial_stake")
+top_radius = 0.05
+bottom_radius = 0.07
+height = 0.7
+radial_segments = 6
+rings = 1
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(1.5, 2, 1.5)
+
+[node name="CoiledRope" type="Node3D" node_paths=PackedStringArray("_hudNode", "_coilVisual", "_anchorVisual")]
+script = ExtResource("1_rope")
+_hudNode = NodePath("HUDNode")
+_coilVisual = NodePath("Visual/Coil")
+_anchorVisual = NodePath("Visual/Anchor")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_rope_action_drop")])
+_climbActions = Array[ExtResource("3_action")]([SubResource("Resource_rope_action_climb")])
+_ropeMaterial = SubResource("ShaderMaterial_hemp")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Coil" type="Node3D" parent="Visual"]
+
+[node name="Loop" type="MeshInstance3D" parent="Visual/Coil"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.09, 0)
+mesh = SubResource("TorusMesh_coil")
+
+[node name="LoopUpper" type="MeshInstance3D" parent="Visual/Coil"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.17, 0)
+mesh = SubResource("TorusMesh_coil_upper")
+
+[node name="Anchor" type="Node3D" parent="Visual"]
+visible = false
+
+[node name="Stake" type="MeshInstance3D" parent="Visual/Anchor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+mesh = SubResource("CylinderMesh_stake")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_box")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("5_meshhl")
+_collectFrom = NodePath("../Visual")

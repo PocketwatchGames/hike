@@ -1,5 +1,29 @@
 using Godot;
 
+// Eighth turns about +Y. The member's integer value IS the eighth-turn count,
+// and the sense matches an entity's RotationY: at Deg0 it faces +Z, at Deg90 it
+// faces +X.
+//
+// Eighths where a subscene takes quarters (ESubsceneRotation), because the two
+// are constrained by different things: a stamp is a raster footprint and can
+// only be turned in quarter turns, while an entity is a point that can hold any
+// yaw at all. 45 degrees is simply the finest an author can aim at with a cursor
+// on a metre grid, so that is where the painter locks.
+//
+// APPEND new members only. Godot renumbers on insert, and a running editor with
+// a stale assembly silently drops .tres lines that end up equal to the default.
+public enum EEntityFacing
+{
+    Deg0,
+    Deg45,
+    Deg90,
+    Deg135,
+    Deg180,
+    Deg225,
+    Deg270,
+    Deg315,
+}
+
 // One hand-placed entity: which spawn entry, where, and which way it faces.
 //
 // The entry is referenced DIRECTLY rather than by an index into the document's
@@ -30,10 +54,10 @@ public partial class EntityPlacement : Resource
 
     [Export] public Vector2I anchorXZ;
 
-    // Quarter turns, sharing SubscenePlacement's enum. Entities can hold any
-    // yaw, but the painter is a map: 90 degrees is what a author can aim at a
-    // metre grid, and it is the same R/F the scene tool uses.
-    [Export] public ESubsceneRotation rotation;
+    // Which way this entity is aimed. Only an entry whose spawn reads
+    // SpawnContext.FacingY does anything with it (SpawnEntryData.UsesFacing);
+    // the painter neither draws nor sets a facing on the ones that do not.
+    [Export] public EEntityFacing facing;
 
     // "Sit on whatever ground is under me" — the value every entity placed on the
     // surface keeps, and the value a document written before floors existed loads
@@ -79,6 +103,32 @@ public partial class EntityPlacement : Resource
             name = $"{name}: {variant}";
         }
         return IsCustomized ? $"{name} *" : name;
+    }
+
+    // Radians about +Y — what the bake hands the spawn as SpawnContext.FacingY.
+    public float FacingRadians => Radians(facing);
+
+    public static float Radians(EEntityFacing facing) => (int)facing * Mathf.Pi * 0.25f;
+
+    // Unit direction in world XZ, for drawing the facing on the map. +Z at Deg0,
+    // matching the yaw sense above.
+    public static Vector2 Direction(EEntityFacing facing)
+    {
+        float a = Radians(facing);
+        return new Vector2(Mathf.Sin(a), Mathf.Cos(a));
+    }
+
+    // The eighth turn nearest a direction in world XZ (x, z) — how the painter
+    // turns "the cursor is over there" into a facing. A zero direction answers
+    // Deg0 rather than whatever Atan2 makes of it.
+    public static EEntityFacing Nearest(Vector2 dirXZ)
+    {
+        if (dirXZ.LengthSquared() <= 0f)
+        {
+            return EEntityFacing.Deg0;
+        }
+        int step = Mathf.RoundToInt(Mathf.Atan2(dirXZ.X, dirXZ.Y) / (Mathf.Pi * 0.25f));
+        return (EEntityFacing)((step % 8 + 8) % 8);
     }
 
     // This placement's entry, ready to be EDITED — the properties of a

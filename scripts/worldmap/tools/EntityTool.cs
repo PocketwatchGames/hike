@@ -10,6 +10,14 @@ using Godot;
 // only differences here are the palette and the hit test, which is a proximity
 // check because an entity is a point rather than a footprint.
 //
+// Aiming is the one gesture that is NOT the scene tool's, because an entity has
+// a facing worth pointing at something and a stamp has a footprint that can only
+// turn in quarter steps. It is a drag rather than a keypress: the direction you
+// want is a place on the map, and dragging out from a mark says it in one
+// gesture where R/F is up to eight presses and a readout to count them on. So
+// dropping a new entity leaves the stroke AIMING it — the natural follow-through
+// of the click that placed it — and shift+drag aims one already on the map.
+//
 // The PLAYER SPAWN is the first palette entry rather than a tool of its own.
 // There is exactly one of it, so placing it MOVES it — a tool whose whole job is
 // to move a single point does not need a button in the toolbar, and having it
@@ -33,10 +41,21 @@ public class EntityTool : IWorldMapTool
     // second chest on top of the first is worse than grabbing the first.
     private const int GrabRadius = 2;
 
+    // How far the cursor must be from the anchor before an aiming drag adopts an
+    // angle, in metres. An angle taken from a cursor sitting on top of the mark
+    // is noise — a metre of hand jitter is a 180-degree swing — so a click that
+    // does not really drag leaves the facing where it was.
+    private const int AimDeadZone = 2;
+
     private EntityPlacement _pressHit;
     private bool _pressWasSpawn;
     private Vector2I _grabOffset;
     private bool _strokeActed;
+    // This stroke turns the selection instead of moving it. Decided at the press
+    // like every other modifier, or set by the placement itself so a new entity
+    // is aimed by the same drag that dropped it.
+    private bool _aiming;
+    private Rect2I? _dirty;
 
     public EntityTool()
     {
@@ -75,7 +94,8 @@ public class EntityTool : IWorldMapTool
         => SpawnSelected ? ink.Data.spawnInk : ink.Data.entityInk;
 
     public string HintText(WorldMapState ctx)
-        => "Hover to name  |  Click to place, drag to move, R/F to turn, RMB to delete";
+        => "Hover to name  |  Click to place then drag to aim, drag to move, "
+            + "Shift+drag to aim, R/F to turn 45 deg, RMB to delete";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
@@ -104,11 +124,31 @@ public class EntityTool : IWorldMapTool
     public EntityPlacement EntityUnder(WorldMapState ctx, Vector2I texel)
         => ctx.EntityAt(texel.X, texel.Y, GrabRadius);
 
+    // A facing is reported only where it does something. An entry that never
+    // reads it says so, rather than showing a number that changes nothing.
     public string LevelText(WorldMapState ctx, WorldMapView view)
-        => Selected == null ? "" : $"Selected {(int)Selected.rotation * 90} deg";
+    {
+        if (Selected == null)
+        {
+            return "";
+        }
+        return Aimable(Selected)
+            ? $"Selected facing {(int)Selected.facing * 45} deg"
+            : "Selected (this entry has no facing)";
+    }
+
+    // Can this placement be aimed at all? The entry answers, because whether a
+    // facing reaches the spawned entity is the entry type's business.
+    private static bool Aimable(EntityPlacement placement)
+        => placement?.Entry != null && placement.Entry.UsesFacing;
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
-    public Rect2I? LastPaintRect => null;
+
+    // The mark this stroke changed — placed, moved, aimed or deleted. The host
+    // grows it by the reach of a mark before repainting, so an aim (which moves
+    // nothing, and whose cursor is metres away from the mark it is turning)
+    // repaints the mark rather than the ground under the cursor.
+    public Rect2I? LastPaintRect => _dirty;
 
     // The press decides what the stroke is ABOUT and nothing else — it must not
     // place, because the right button fires it too and a right-click on bare
@@ -118,10 +158,16 @@ public class EntityTool : IWorldMapTool
         _pressHit = ctx.EntityAt(texel.X, texel.Y, GrabRadius);
         _pressWasSpawn = _pressHit == null && ctx.IsSpawnNear(texel.X, texel.Y, GrabRadius);
         _strokeActed = false;
+        _dirty = null;
+        // Shift: this drag aims what it grabbed instead of sliding it.
+        _aiming = (mods & EStrokeMods.Constrain) != 0;
     }
 
     public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
+        // Per stamp, not per stroke: a rect that accumulated over a whole drag
+        // would repaint the entire path travelled on every motion event.
+        _dirty = null;
         if (erase)
         {
             // Only what was under the press, and only once — a right-drag across
@@ -131,6 +177,7 @@ public class EntityTool : IWorldMapTool
             if (!_strokeActed && _pressHit != null)
             {
                 _strokeActed = true;
+                _dirty = CellRect(ctx, _pressHit.anchorXZ);
                 if (Selected == _pressHit)
                 {
                     Selected = null;
@@ -145,6 +192,9 @@ public class EntityTool : IWorldMapTool
             // Dragging the spawn, or placing it for the first time.
             _strokeActed = true;
             _pressWasSpawn = true;
+            _dirty = ctx.Placements.hasSpawn
+                ? CellRect(ctx, ctx.Placements.spawnXZ).Merge(CellRect(ctx, ctx.WorldXZ(texel)))
+                : CellRect(ctx, ctx.WorldXZ(texel));
             ctx.SetSpawn(ctx.WorldXZ(texel));
             return;
         }
@@ -174,20 +224,61 @@ public class EntityTool : IWorldMapTool
                 };
                 _grabOffset = Vector2I.Zero;
                 ctx.AddEntity(Selected);
+                _dirty = CellRect(ctx, Selected.anchorXZ);
+                // The click that drops one leaves the stroke aiming it: the
+                // entity is already where it was clicked, so there is nothing
+                // left for the rest of the drag to say except which way it
+                // looks. An entry with no facing keeps the old meaning and
+                // slides, which is the only thing a drag can still do for it.
+                _aiming = Aimable(Selected);
                 return;
             }
         }
 
-        if (Selected != null)
+        if (Selected == null)
         {
-            Selected.anchorXZ = ctx.WorldXZ(texel) + _grabOffset;
-            // Re-seated as it slides, so dragging one along a passage keeps it on
-            // that passage's floor and dragging it out of the mouth puts it back
-            // on the ground.
-            Vector2I at = ctx.TexelXZ(Selected.anchorXZ);
-            Selected.floorY = ctx.FloorForEntity(at.X, at.Y, view.CutawayY);
+            return;
         }
+
+        if (_aiming)
+        {
+            Aim(ctx, texel);
+            return;
+        }
+
+        // Where it came from as well as where it went: the mark it left behind
+        // needs repainting as much as the one it arrived at.
+        Rect2I before = CellRect(ctx, Selected.anchorXZ);
+        Selected.anchorXZ = ctx.WorldXZ(texel) + _grabOffset;
+        // Re-seated as it slides, so dragging one along a passage keeps it on
+        // that passage's floor and dragging it out of the mouth puts it back
+        // on the ground.
+        Vector2I at = ctx.TexelXZ(Selected.anchorXZ);
+        Selected.floorY = ctx.FloorForEntity(at.X, at.Y, view.CutawayY);
+        _dirty = before.Merge(CellRect(ctx, Selected.anchorXZ));
     }
+
+    // Turn the selection to face the cursor, snapped to the 45-degree steps a
+    // facing is authored in.
+    private void Aim(WorldMapState ctx, Vector2I texel)
+    {
+        if (!Aimable(Selected))
+        {
+            return;
+        }
+        Vector2I d = ctx.WorldXZ(texel) - Selected.anchorXZ;
+        if (d.LengthSquared() < AimDeadZone * AimDeadZone)
+        {
+            return;
+        }
+        Selected.facing = EntityPlacement.Nearest(new Vector2(d.X, d.Y));
+        _dirty = CellRect(ctx, Selected.anchorXZ);
+    }
+
+    // The one map cell a placement's anchor sits in. What its MARK covers is the
+    // host's answer, not the tool's — the growth and the facing line are ink.
+    private static Rect2I CellRect(WorldMapState ctx, Vector2I worldXZ)
+        => new Rect2I(ctx.TexelXZ(worldXZ), Vector2I.One);
 
     public void Cycle(WorldMapState ctx, int dir)
     {
@@ -196,13 +287,15 @@ public class EntityTool : IWorldMapTool
     }
 
     // R/F turn the SELECTED entity rather than stepping a tool parameter, the
-    // way they turn the selected stamp in the scene tool.
+    // way they turn the selected stamp in the scene tool. One eighth turn a
+    // press, matching what an aiming drag can express, so the two agree about
+    // what the authorable facings are.
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
-        if (Selected == null)
+        if (!Aimable(Selected))
         {
             return;
         }
-        Selected.rotation = (ESubsceneRotation)(((int)Selected.rotation + dir) & 3);
+        Selected.facing = (EEntityFacing)(((int)Selected.facing + dir) & 7);
     }
 }

@@ -219,13 +219,52 @@ that cannot change the result invites tuning that does nothing.
 The last row is the one worth not undoing: a spawn-time shortcut is a second way
 into a two-part transition, which is how the two parts come apart.
 
-**A placement's R/F turn reaches the bake.** `StampEntities` sets
-`SpawnContext.FacingY` from `placement.rotation` and clears it again — the shared
-bake context is the one caller with a facing, and everything else it answers must
-keep giving a scattered entity its random yaw. Without it the tool's rotation
-readout was decorative and every hand-placed NPC faced a direction the hash
-picked, which for a villager standing in a doorway is the whole point of aiming
-one.
+**A placement's facing reaches the bake.** `StampEntities` sets
+`SpawnContext.FacingY` from `placement.FacingRadians` and clears it again — the
+shared bake context is the one caller with a facing, and everything else it
+answers must keep giving a scattered entity its random yaw. Without it the tool's
+rotation readout was decorative and every hand-placed NPC faced a direction the
+hash picked, which for a villager standing in a doorway is the whole point of
+aiming one.
+
+**A facing is EIGHTH turns (`EEntityFacing`), not the quarter turns a stamp
+takes.** The two are constrained by different things: a subscene is a raster
+footprint and can only be turned in quarter turns, while an entity is a point
+that can hold any yaw at all. 45 degrees is simply the finest an author can aim
+at with a cursor on a metre grid, so that is where the painter locks — and it is
+what a `.hikescene`'s own entities have always been able to hold, since
+`EntitySimState.RotationY` is a float.
+
+**Aiming is a DRAG, and R/F is the fallback.** The direction you want is a place
+on the map, so dragging out from a mark says it in one gesture where R/F is up to
+eight presses with a readout to count them on:
+
+| Gesture | Does |
+|---|---|
+| click empty ground | place the palette entry, and **the rest of that drag aims it** |
+| **shift**+drag a mark | aim the one under the press, leaving it where it is |
+| drag a mark | move it (unchanged) |
+| **R/F** | one eighth turn a press |
+
+The drag adopts an angle only past `AimDeadZone` (2 m): an angle read off a
+cursor sitting on top of the mark is noise — a metre of hand jitter is a
+180-degree swing — so a click that does not really drag leaves the facing alone.
+Placing leaves the stroke aiming rather than moving because the entity is already
+where it was clicked and there is nothing else for that drag to say; an entry
+with no facing keeps the old meaning and slides, which is the only thing a drag
+can still do for it.
+
+**Only an entry that READS a facing can be aimed** — `SpawnEntryData.UsesFacing`,
+overridden by the five whose `Spawn` reads `context.FacingY` (`MobSpawnEntry`,
+`NpcSpawnEntry`, `TrapdoorSpawnEntry`, `LeverSpawnEntry`, `CoiledRopeSpawnEntry`)
+and by `SpawnGroupData`, which hands its context to every member. The rest draw
+no facing line, ignore an aim-drag and R/F, and say so in the readout ("this
+entry has no facing"). It is `IsHandPlacedProperty`'s rule applied to a gesture:
+a control that cannot change the result is worse than a missing one, because it
+invites tuning that does nothing. **An entry type that starts honouring a facing
+overrides `UsesFacing` in the same edit that makes it read the context** — every
+`EntitySimState` already carries a `RotationY` that `SeatTransform` applies, so
+that is one line, and the painter picks it up with no change of its own.
 
 The rate and the cluster knobs are structurally out of reach now rather than
 hidden: they live on the ROW that names an entry (`SpawnListRow.squareMetersPerSpawn`,
@@ -371,6 +410,26 @@ one is the mistake this prevents. The gate is `ESpawnPreview.Props`, the same
 flag the scatter dots use, so "wherever props are visible" is one answer rather
 than a second list to keep in step.
 
+**A mark also draws its FACING, as a one-pixel line.** Display pixels rather than
+cells: a facing is a direction, and the diagonal half of the eight it can hold
+would come out as a staircase of metre blocks. It is stepped by a UNIT direction,
+which is what keeps a diagonal solid — each step moves at most one pixel on each
+axis, so the samples are 8-connected — and drawn opaque, so the repeated samples
+are idempotent and a partial rebuild over unchanged data still reproduces a full
+one exactly. Length is `WorldMapInkData.entityFacingLength` in metres, so it
+grows with zoom the way the step outlines do; 0 turns it off.
+
+**How far a mark reaches is ONE answer** (`WorldMapPainter.EntityMarkReach`): the
+growth it takes when the tool picks it out, or its facing line, whichever is
+further. Three places have to agree about it, and each was a way to leave stale
+pixels on the map — the repaint that cleans a mark up (`RefreshEntityMark`), the
+reject that decides a mark is too far outside a rebuilt rect to draw, and the
+rect a stroke rebuilds. That last one is why `OnCanvasPaint` GROWS the tool's
+`LastPaintRect` by the reach: an entity that moved leaves mark pixels wherever
+they fall outside the cell the tool reports, and an AIM moves nothing at all
+while its cursor is metres away from the mark it is turning — `EntityTool`
+answers with the mark's own cell for exactly that reason.
+
 Two differences from the scatter dots underneath them. They are drawn LAST, over
 the step outlines and the dots — a mark you placed outranks a contour line and a
 previewed roll — and they are NOT gated on zoom, because a dot is an impression
@@ -385,7 +444,9 @@ the scene tool was shaped for: the palette is `WorldMapData.entityPalette` and
 the hit test is a proximity check, because an entity is a point rather than a
 footprint. Everything else — press decides what the stroke is about, drag slides
 from where you grabbed, R/F turns the selection, RMB deletes what was under the
-press, once — is the same code shape.
+press, once — is the same code shape. Aiming is the one gesture that is not the
+scene tool's, because an entity has a facing worth pointing at something and a
+stamp has a footprint that can only turn in quarter steps.
 
 **Which mark is which is answered by the cursor and by the palette**, because
 every entity draws the same one-metre dot and the map cannot say what one is.
@@ -745,7 +806,8 @@ height) · **R/F** Flatten target level / tunnel floor · **T/G** or
 **alt+wheel** cutaway level (**alt+RMB** aims it at a clicked floor) · **W** show/hide
 water · **Ctrl+Z** undo, **Ctrl+Shift+Z** / **Ctrl+Y** redo
 · **alt+click** pick a height (alt+drag spreads it) · **shift+drag**
-constrain to that one height · **ctrl+drag** constrain to that height and above
+constrain to that one height, or **aim** the entity under the press · **ctrl+drag**
+constrain to that height and above
 · **wheel** or
 **`[` `]`** brush size (proportional step) ·
 **ctrl+wheel** zoom (cursor-anchored) · **middle-drag** pan

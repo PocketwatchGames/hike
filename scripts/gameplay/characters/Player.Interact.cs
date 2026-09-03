@@ -239,6 +239,15 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Diagnostic only: whether the interact area's SIGNAL handlers have this
+	// interactive on the tracked list. Split from the raw physics overlap on
+	// purpose — the two disagreeing means the entity entered before the signals
+	// were connected, which no amount of standing next to it will fix.
+	public bool HasInteractiveForDebug(IInteractive interactive)
+	{
+		return _interactiveCollisions.Contains(interactive);
+	}
+
 	private void OnInteractAreaEntered(Area3D area)
 	{
 		if (area is InteractiveBox box && box.Interactive != null)

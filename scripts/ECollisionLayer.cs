@@ -81,6 +81,12 @@ public enum ECollisionLayer
     // body fit here" is a question ABOUT the world, and a barrier is not part
     // of the world.
     LedgeBarrier = LedgeBarrierFall1 | LedgeBarrierFall2 | LedgeBarrierFall4,
+    // Objects a climber can hold on to that are NOT part of the world's rock —
+    // a dropped rope today, ladders and vines later. Its OWN layer, and outside
+    // both Solid and Blocking, because a rope is grabbable and nothing else: on
+    // Environment it would block movement, catch arrows and read as cover, and
+    // a rope you cannot walk through is a fence. Only the climb queries mask it.
+    Climbable = 131072,
     // Convenience combo: "solid to the world" — terrain/walls plus porous
     // props. World raycasts (vision, arrows, aim, pathing, rain, lightning) mask
     // this so props still block them; the few queries that should see / smell /

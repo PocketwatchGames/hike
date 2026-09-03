@@ -69,7 +69,7 @@ addBuildups = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
-tags = 65
+tags = 536870977
 healthDamage = 30.0
 critChance = 0.1
 damageVariance = 0.25

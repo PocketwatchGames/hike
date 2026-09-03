@@ -270,7 +270,7 @@ public class WorldMapBake
             var pos = new Vector3(placement.anchorXZ.X + 0.5f, floor + 1f,
                 placement.anchorXZ.Y + 0.5f);
             uint seed = WorldMapState.Hash(px, pz, WorldMapState.ENTITY_SALT);
-            // The quarter turn R/F puts on the placement. Set on the shared bake
+            // The eighth turn the placement was aimed at. Set on the shared bake
             // context and cleared again rather than passed: this loop is the one
             // caller that has a facing, and everything else the context answers
             // must keep giving a scattered entity its random yaw. Safe because
@@ -286,7 +286,7 @@ public class WorldMapBake
             // WorldGen makes for an entry it drops on an authored subscene
             // marker.
             SpawnContext context = SpawnContextForBake();
-            context.FacingY = (int)placement.rotation * Mathf.Pi * 0.5f;
+            context.FacingY = placement.FacingRadians;
             context.AuthoredPosition = true;
             placement.Entry.TrySpawn(WorldState, pos, new System.Random((int)seed), context);
             context.FacingY = null;

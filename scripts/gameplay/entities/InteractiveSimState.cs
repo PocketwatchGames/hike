@@ -73,6 +73,27 @@ public class TrapdoorSimState : EntitySimState
     }
 }
 
+// A coil of rope at the top of a drop. Persists only whether it has been thrown:
+// WHERE the rope hangs is re-derived from the coil's seat and authored facing
+// every time the entity materializes (CoiledRope.Deploy), so a stored line can
+// never disagree with the voxels it hangs against.
+public class CoiledRopeSimState : EntitySimState
+{
+    // True once the rope is over the edge. One-way — see CoiledRope.
+    public bool Deployed;
+
+    public CoiledRopeSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+        RotationY = rotationY;
+    }
+
+    public override Node3D CreateEntity(Sim sim)
+    {
+        return CoiledRope.Create(sim, this);
+    }
+}
+
 // A pull-lever that remote-triggers trapdoors sharing its target link tag.
 public class LeverSimState : EntitySimState
 {

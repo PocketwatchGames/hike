@@ -36,6 +36,10 @@ public partial class SpawnGroupData : SpawnEntryData
         minSpacing = 0f;
     }
 
+    // A group hands its own context to every member, so this group's facing
+    // reaches whichever of them uses one.
+    public override bool UsesFacing => true;
+
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (rows == null)

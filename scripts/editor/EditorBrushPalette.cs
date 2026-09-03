@@ -43,6 +43,8 @@ public partial class EditorBrushPalette : Resource
 	[Export] public PackedScene leverScene;
 	[Export] public string[] linkTags = System.Array.Empty<string>();
 	[Export] public PackedScene climbableTreeScene;
+	// Coil of rope. Placed at a lip and turned to face out over the drop.
+	[Export] public PackedScene coiledRopeScene;
 	[Export] public PackedScene torchScene;
 	[Export] public PackedScene campfireScene;
 	[Export] public PackedScene wellScene;

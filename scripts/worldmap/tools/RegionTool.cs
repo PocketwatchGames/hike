@@ -26,7 +26,17 @@ public class RegionTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapInk ink) => null;
+    // The same colour the view washes a chunk in, so the row you pick from and
+    // the map you pick for cannot disagree.
+    public Color[] OptionColors(WorldMapInk ink)
+    {
+        var colors = new Color[ink.Map.RegionCount];
+        for (int i = 0; i < colors.Length; i++)
+        {
+            colors[i] = WorldMapInk.RegionColor(i);
+        }
+        return colors;
+    }
 
     public int OptionIndex
     {
@@ -36,7 +46,7 @@ public class RegionTool : IWorldMapTool
 
     public string HintText(WorldMapState ctx) => "";
 
-    public Color CursorColor(WorldMapInk ink) => Colors.White;
+    public Color CursorColor(WorldMapInk ink) => WorldMapInk.RegionColor(RegionIndex);
 
     public string StatusText(WorldMapState ctx, WorldMapView view) => $"Region: {ctx.RegionName(RegionIndex)}";
     public string LevelText(WorldMapState ctx, WorldMapView view) => "";

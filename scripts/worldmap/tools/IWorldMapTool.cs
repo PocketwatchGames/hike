@@ -1,6 +1,8 @@
 using Godot;
 
-// Modifiers held when a stroke starts.
+// Modifiers held when a stroke starts. Named for what the LAYER tools do with
+// them, since that is most of them; a tool with no layer to constrain reads the
+// key it needs and says so in its hint (the entity tool AIMS with shift).
 [System.Flags]
 public enum EStrokeMods
 {
@@ -9,7 +11,9 @@ public enum EStrokeMods
     // and paints nothing.
     Pick = 1,
     // Shift: paint only where the map EQUALS the column under the press — so a
-    // stroke can work one terrace without touching the ones around it.
+    // stroke can work one terrace without touching the ones around it. The
+    // entity tool has no such column and reads the key as "aim what I grabbed
+    // instead of moving it".
     Constrain = 2,
     // Ctrl: paint where the map is at or ABOVE the column under the press. The
     // one that scales: lifting a continent means "everything from the shoreline

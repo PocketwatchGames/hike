@@ -65,6 +65,10 @@ public enum EEditorEntityKind
     // A tagged position a ROAD should reach — a front door, a square's gate.
     // One brush per hint name, expanded from EditorBrushPalette.pathHintTags.
     PathHint,
+    // A coil of rope at the top of a drop. Place it at the lip and turn it with
+    // the gizmo to face out over the edge — that facing is the whole authoring,
+    // it is the direction the rope falls.
+    CoiledRope,
 }
 
 // What a click does while the entity tool is active.
@@ -378,6 +382,7 @@ public partial class WorldEditor : Node3D
         EEditorEntityKind.Well, EEditorEntityKind.HealingFountain, EEditorEntityKind.ManaFountain,
         EEditorEntityKind.Goblin, EEditorEntityKind.KunKun,
         EEditorEntityKind.Trapdoor, EEditorEntityKind.TrapdoorTrap, EEditorEntityKind.CrumblingFloor,
+        EEditorEntityKind.CoiledRope,
     };
 
     // Index-aligned with the voxel palette buttons.
@@ -3230,6 +3235,10 @@ public partial class WorldEditor : Node3D
             case EEditorEntityKind.Trapdoor:
                 return brushPalette?.trapdoorScene != null
                     ? new TrapdoorSimState(position, 0f, brushPalette.trapdoorScene)
+                    : null;
+            case EEditorEntityKind.CoiledRope:
+                return brushPalette?.coiledRopeScene != null
+                    ? new CoiledRopeSimState(position, 0f, brushPalette.coiledRopeScene)
                     : null;
             case EEditorEntityKind.LinkedTrapdoor:
                 return brushPalette?.trapdoorScene != null

@@ -10,7 +10,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_white.tres" id="e_mushroom_white"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/sparrow_forest.tres" id="e_sparrow_forest"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/spider_forest.tres" id="e_spider_forest"]
-[ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
 [sub_resource type="Resource" id="Row_goblin_forest"]
 script = ExtResource("listrow")

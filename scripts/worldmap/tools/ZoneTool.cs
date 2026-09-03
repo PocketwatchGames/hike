@@ -25,7 +25,17 @@ public class ZoneTool : IWorldMapTool
         return names;
     }
 
-    public Color[] OptionColors(WorldMapInk ink) => null;
+    // The same colour the view washes a chunk in, so the row you pick from and
+    // the map you pick for cannot disagree.
+    public Color[] OptionColors(WorldMapInk ink)
+    {
+        var colors = new Color[ink.Map.ZoneCount];
+        for (int i = 0; i < colors.Length; i++)
+        {
+            colors[i] = WorldMapInk.ZoneColor(i);
+        }
+        return colors;
+    }
 
     public int OptionIndex
     {
@@ -35,7 +45,7 @@ public class ZoneTool : IWorldMapTool
 
     public string HintText(WorldMapState ctx) => "";
 
-    public Color CursorColor(WorldMapInk ink) => Colors.White;
+    public Color CursorColor(WorldMapInk ink) => WorldMapInk.ZoneColor(ZoneIndex);
 
     public string StatusText(WorldMapState ctx, WorldMapView view) => $"Zone: {ctx.ZoneName(ZoneIndex)}";
     public string LevelText(WorldMapState ctx, WorldMapView view) => "";

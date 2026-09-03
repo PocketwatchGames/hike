@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://xewjw2klmrwj9" path="res://scripts/gameplay/effects/GroundDecalPreview.cs" id="1_script"]
 [ext_resource type="Material" uid="uid://cstoqolh32kcw" path="res://resources/materials/decal_ring_web.tres" id="2_mat"]
-[ext_resource type="Script" uid="uid://bowccahv9232w" path="res://scripts/gameplay/effects/GroundDecal.cs" id="3_decal"]
+[ext_resource type="Script" uid="uid://bowccahwa232w" path="res://scripts/gameplay/effects/GroundDecal.cs" id="3_decal"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_preview"]
 size = Vector2(4, 4)

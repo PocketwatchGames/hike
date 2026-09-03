@@ -5,7 +5,10 @@ using Godot;
 public partial class BerryTree : Node3D, IInteractive, IWorldEntity
 {
     [Export] private Node3D _berries;
-    [Export] private HurtBox _hurtBox;
+    // Struck-to-destroy is the component's job (hurtbox, effect, removal); the
+    // bush only supplies what falls out of it, since the berry count is
+    // per-instance sim state rather than something the scene can author.
+    [Export] private Destructible _destructible;
     [Export] private Node3D _hudNode;
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     // Item spawned for each berry. Tied to the tree species (apple tree →
@@ -27,10 +30,9 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
 
     public override void _Ready()
     {
-        if (_hurtBox != null)
+        if (_destructible != null)
         {
-            _hurtBox.OnHit = OnHurtBoxHit;
-            _hurtBox.PredictHit = _ => new HitPrediction(EHitResult.Object, EDamageTriggerFlags.None);
+            _destructible.Destroyed += OnDestroyed;
         }
     }
 
@@ -49,13 +51,15 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         ApplyRipeState(IsRipe);
     }
 
-    private void OnHurtBoxHit(HitInfo hit)
+    // Smashed rather than picked: whatever fruit is on the bush comes off as it
+    // goes. A bare bush still breaks, it just yields nothing — the payload is
+    // gated on ripeness, the destruction isn't.
+    private void OnDestroyed()
     {
-        if (!IsRipe)
+        if (IsRipe)
         {
-            return;
+            EjectBerries();
         }
-        Pick();
     }
 
     public void OnSpawned(Sim sim) { }
@@ -92,36 +96,32 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         }
         _interactiveState.RegrowDay = _world.DayNumber + Mathf.Max(1, _regrowDays);
         ApplyRipeState(false);
+        EjectBerries();
+    }
 
+    // Pop this bush's fruit onto the ground. Shared by picking (which leaves the
+    // bush standing to regrow) and by being smashed (which doesn't).
+    private void EjectBerries()
+    {
+        if (_interactiveState == null || _world == null)
+        {
+            return;
+        }
         var rng = new Random();
-        float horizontalSpeed = _lootSpeed * Mathf.Cos(Mathf.Pi / 4f);
-        float verticalSpeed = _lootSpeed * Mathf.Sin(Mathf.Pi / 4f);
-
         for (int i = 0; i < _interactiveState.BerryCount; i++)
         {
-            float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-            var impulse = new Vector3(
-                horizontalSpeed * Mathf.Cos(angle),
-                verticalSpeed,
-                horizontalSpeed * Mathf.Sin(angle)
-            );
-
-            _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, _berryItem);
+            _world.SpawnLoot(GlobalPosition + Vector3.Up,
+                Destructible.RandomEjectImpulse(rng, _lootSpeed), _berryItem);
         }
     }
 
-    // Show/hide the fruit and gate the hurtbox so sword swings only knock berries
-    // off a ripe bush.
+    // Show/hide the fruit. The hurtbox is NOT gated on ripeness — a picked bush
+    // is still a bush you can cut down, it just has nothing left to drop.
     private void ApplyRipeState(bool ripe)
     {
         if (_berries != null)
         {
             _berries.Visible = ripe;
-        }
-        if (_hurtBox != null)
-        {
-            _hurtBox.Monitorable = ripe;
-            _hurtBox.Monitoring = ripe;
         }
     }
 

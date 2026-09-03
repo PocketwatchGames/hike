@@ -38,6 +38,19 @@ public enum EStat
 	Poison = 1 << 8,
 	Magical = 1 << 9,
 	Knockback = 1 << 10,
+	// Ordinary matter-on-matter damage — a blade, a club, an arrow, a blast's
+	// concussion. Sits out of sequence with the other damage tags because wire
+	// values are append-only; it is a damage TYPE, not a character stat.
+	//
+	// It exists so "physical" is a thing a hit can SAY rather than something
+	// inferred from carrying no other type. Absence isn't expressible: it can't
+	// be resisted (a modifier entry needs a bit, and `Damage` rides on every
+	// hit, so it means "resist everything"), can't be required by a receiver,
+	// and can't be validated. Orthogonal to Melee/Ranged, which are delivery —
+	// a fireball is Ranged and not Physical, a flaming sword is both Melee and
+	// Physical. Every damaging template must declare at least one type; see the
+	// damage-tag check in ResourceCheck.
+	Physical = 1 << 29,
 
 	// Character stat modifiers. Composed by the actor on demand — receivers
 	// call into the stat-modifier system to get a final value for movement,

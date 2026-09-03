@@ -30,8 +30,22 @@ public static class StatModifierUtil
 		| EStat.Magical
 		| EStat.Poison
 		| EStat.Electrical
+		| EStat.Physical
 		| EStat.Ranged
 		| EStat.Melee;
+
+	// The damage TYPE bits — what a hit is made of, as opposed to how it was
+	// delivered (Ranged / Melee), what mechanic it keys (Blunt /
+	// ArmorPenetration / Knockback / Dizzy), or the universal "this damages"
+	// marker (Damage). Every template that sets Damage must set at least one of
+	// these, so "physical" is never inferred from an empty type — ResourceCheck
+	// enforces it, and Destructible.destroyedBy is authored against it.
+	public const EStat DamageTypeTags =
+		EStat.Physical
+		| EStat.Fire
+		| EStat.Electrical
+		| EStat.Poison
+		| EStat.Magical;
 
 
 	// True for the stats whose composition is "+= entry.value" with a

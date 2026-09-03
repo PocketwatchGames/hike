@@ -80,8 +80,8 @@ public partial class WorldMapHud : CanvasLayer
             if (colors != null && i < colors.Length)
             {
                 // Same colour the map draws this option in, so the two cannot
-                // drift.
-                optionList.SetItemCustomFgColor(i, colors[i]);
+                // drift — lifted only as far as the list's dark panel needs.
+                optionList.SetItemCustomFgColor(i, Legible(colors[i]));
             }
         }
     }
@@ -114,6 +114,22 @@ public partial class WorldMapHud : CanvasLayer
     // 1-9 pick an option, so a list longer than nine cannot label the rest with a
     // key that does nothing. The overflow is clicked instead.
     private const int NUMBER_KEYS = 9;
+
+    // Dimmest a swatch may be as TEXT on the list's dark panel. The map colours
+    // are authored to read as washes against each other, not as glyphs against
+    // black — region 0 is near-black by design — so anything under this is
+    // brightened toward white until it is, keeping its hue.
+    private const float MIN_LABEL_LUMA = 0.45f;
+
+    private static Color Legible(Color c)
+    {
+        float luma = 0.2126f * c.R + 0.7152f * c.G + 0.0722f * c.B;
+        if (luma >= MIN_LABEL_LUMA)
+        {
+            return c;
+        }
+        return c.Lerp(Colors.White, (MIN_LABEL_LUMA - luma) / (1f - luma));
+    }
 
     private static Button[] BuildGroup(Container bar, string[] names, System.Action<int> onPressed)
     {

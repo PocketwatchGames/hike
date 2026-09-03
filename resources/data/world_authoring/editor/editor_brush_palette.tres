@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="2_door"]
 [ext_resource type="PackedScene" uid="uid://cva1ywaqfv58i" path="res://scenes/interactives/spike_trap.tscn" id="3_spiketrap"]
 [ext_resource type="PackedScene" uid="uid://c8mxl2yqr3vkt" path="res://scenes/interactives/climbable_tree.tscn" id="4_climbtree"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/coiled_rope.tscn" id="4_coiledrope"]
 [ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="5_torch"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="6_chest"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="7_itemcountrange"]
@@ -58,6 +59,7 @@ crumblingFloorScene = ExtResource("25_crumbling_floor")
 leverScene = ExtResource("26_lever")
 linkTags = PackedStringArray("gate")
 climbableTreeScene = ExtResource("4_climbtree")
+coiledRopeScene = ExtResource("4_coiledrope")
 torchScene = ExtResource("5_torch")
 campfireScene = ExtResource("17_campfire")
 wellScene = ExtResource("19_well")

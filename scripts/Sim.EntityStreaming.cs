@@ -132,6 +132,13 @@ public partial class Sim
     // avoidHazards flag).
     private readonly PathBlockerGrid _hazardCells = new();
 
+    // Reverse of EntitySimState.RuntimeNode: which persistent state a live node
+    // was materialized from. Kept so a runtime component can permanently
+    // destroy the entity it belongs to (see DestroyEntity) without every prop
+    // script having to carry its own sim-state back-reference. Entries are
+    // added wherever RuntimeNode is set and dropped on the same TreeExiting.
+    private readonly Dictionary<Node3D, EntitySimState> _entityStates = new();
+
     private bool _editorMode;
 
     public void UpdateEntityLoading(Vector3 center)
@@ -594,6 +601,7 @@ public partial class Sim
         if (state != null)
         {
             state.RuntimeNode = entity;
+            _entityStates[entity] = state;
             // Clear the back-reference whenever the node leaves the tree
             // (chunk eviction, day/night despawn, mob death). RefreshTimeOfDayEntities
             // uses RuntimeNode to detect which states currently have a live
@@ -601,6 +609,7 @@ public partial class Sim
             // make the state look "already spawned" forever.
             entity.TreeExiting += () =>
             {
+                _entityStates.Remove(entity);
                 if (state.RuntimeNode == entity)
                 {
                     state.RuntimeNode = null;
@@ -899,6 +908,7 @@ public partial class Sim
         if (state != null)
         {
             state.RuntimeNode = entity;
+            _entityStates[entity] = state;
         }
         // Drop our tracking (and the RuntimeNode back-ref) whenever the node
         // leaves the tree — companion death, or world teardown — so GetEntities
@@ -906,6 +916,7 @@ public partial class Sim
         entity.TreeExiting += () =>
         {
             _persistentEntityNodes.Remove(entity);
+            _entityStates.Remove(entity);
             if (state != null && state.RuntimeNode == entity)
             {
                 state.RuntimeNode = null;
@@ -947,6 +958,47 @@ public partial class Sim
                 break;
             }
         }
+    }
+
+    // Permanently destroy a spawned entity: drop the live node AND its
+    // persistent sim state, so a chunk reload doesn't bring it back. The
+    // generic counterpart to Mob.Despawn, for anything that dies without a
+    // script of its own holding the state (see Destructible).
+    //
+    // `node` may be any descendant of the entity — a component sits below the
+    // root — so this walks up to the node the entity bookkeeping actually
+    // knows. Path-blocker and hazard cells, wind sources and the RuntimeNode
+    // back-reference all release through the node's own TreeExiting, so
+    // whatever the entity was blocking opens up for pathing as it frees.
+    public void DestroyEntity(Node3D node)
+    {
+        Node3D root = FindEntityRoot(node);
+        if (root == null)
+        {
+            return;
+        }
+        RemoveEntity(root);
+        _persistentEntityNodes.Remove(root);
+        if (_entityStates.TryGetValue(root, out EntitySimState state))
+        {
+            _worldState?.RemoveEntity(state);
+        }
+        root.QueueFree();
+    }
+
+    // Nearest ancestor (starting at `node` itself) that was registered as a
+    // spawned entity. Null when the node isn't part of one — an editor preview,
+    // or a scene added outside the streaming path.
+    private Node3D FindEntityRoot(Node3D node)
+    {
+        for (Node current = node; current != null; current = current.GetParent())
+        {
+            if (current is Node3D candidate && _entityStates.ContainsKey(candidate))
+            {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private void UnloadEntitiesOutsideSet(HashSet<Vector3I> desired, Dictionary<Vector3I, List<Node3D>> loaded)

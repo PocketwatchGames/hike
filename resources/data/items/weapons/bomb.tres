@@ -72,7 +72,7 @@ queueWindowSeconds = 0.0
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("1_damage")
-tags = 1031
+tags = 536871943
 healthDamage = 20.0
 damageVariance = 0.25
 hitstun = 0.3
