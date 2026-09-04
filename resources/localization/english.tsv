@@ -59,3 +59,15 @@ controls_melee	Melee Attack
 controls_spell	Cast Spell
 controls_rotate_camera	Rotate Camera
 controls_map	Map
+intro_dying_01	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang] 
+intro_mayor_greeting_01	Hello, traveler.
+intro_mayor_speak_common_01	No. Ulga, librarian. (Points southeast)
+intro_mayor_shipwreck_01	We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.
+intro_mayor_village_01	Praise be the old gods, we still have stores of amber to keep the village lit for a few more seasons. But the mist will take us, that is sure.
+intro_mayor_sanctuary_01	I’ve heard tell of it. But if it’s out there it’s beyond beast infested lands. No mudman would make the trek. Our lives are measured in amber.
+intro_mayor_resp_greeting	
+intro_mayor_resp_speak_common	Do you speak the common tongue?
+intro_mayor_resp_shipwreck	My ship wrecked off the shore. I need help.
+intro_mayor_resp_village	What is this place?
+intro_mayor_resp_sanctuary	A man on the shore kept saying “Sanctuary”. Do you know what this is?
+intro_librarian_greeting_01	Hello, I’m the librarian.

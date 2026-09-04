@@ -53,6 +53,18 @@ public interface IWorldMapTool
     // Which of Options is selected. Setting it is equivalent to cycling to it.
     int OptionIndex { get; set; }
 
+    // Do 1-9 pick this tool's options?
+    //
+    // Only where the list is a short menu the TOOL defines — brush ops, wind
+    // modes, danger levels. A tool whose options come from a palette says no:
+    // a palette is discovered from a directory and grows whenever someone drops
+    // a file in it, so nine keys cover an arbitrary and shifting prefix of it
+    // (the entity list is 45 long and sorted by filename). Labelling nine of
+    // those rows with a digit advertises a shortcut system that mostly is not
+    // there, and the row a digit lands on changes when an unrelated resource is
+    // added. Q/E still steps every option, and the row is still clickable.
+    bool NumberKeys => true;
+
     // Colour of the brush ring. A tool that is about to write one specific value
     // shows it here, so the cursor answers "what am I about to paint" without a
     // trip to the HUD.

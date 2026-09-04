@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="PropListData" load_steps=14 format=3]
+
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
+[ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="PackedScene" uid="uid://c5naet571u441" path="res://scenes/props/tree_pine_snowy.tscn" id="sc_0"]
+[ext_resource type="PackedScene" uid="uid://ph318bmhf00n" path="res://scenes/props/tree_pine_dead_snowy.tscn" id="sc_1"]
+[ext_resource type="PackedScene" uid="uid://vw3bkqll0jx1" path="res://scenes/props/tree_sequoia_snowy.tscn" id="sc_2"]
+[ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="sc_3"]
+[ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="sc_4"]
+[ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="sc_5"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_row")
+scene = ExtResource("sc_0")
+weight = 5.0
+tier = 3
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_row")
+scene = ExtResource("sc_1")
+weight = 2.0
+tier = 3
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_2")
+
+[sub_resource type="Resource" id="e_3"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_3")
+
+[sub_resource type="Resource" id="e_4"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_4")
+
+[sub_resource type="Resource" id="e_5"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_5")
+
+[resource]
+script = ExtResource("1_list")
+displayName = "Snowy Mountain Trees"
+mapColor = Color(0.82, 0.86, 0.92, 1)
+scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5")]
+barrierDepthMeters = 3
+interiorHoleChance = 0.5

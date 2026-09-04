@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="WorldMapPalettes" format=3]
+
+[ext_resource type="Script" uid="uid://wu33humapr69m" path="res://scripts/data/worldmap/WorldMapPalettes.cs" id="1_pal"]
+[ext_resource type="Script" uid="uid://mvoemp0l3koin" path="res://scripts/data/worldmap/WorldMapPaletteLedger.cs" id="2_led"]
+
+[sub_resource type="Resource" id="Resource_3lysr"]
+script = ExtResource("2_led")
+palette = "zones"
+slots = PackedStringArray("res://resources/data/world_authoring/zones/mountain.tres", "res://resources/data/world_authoring/zones/desert.tres", "res://resources/data/world_authoring/zones/swamp_fire.tres", "res://resources/data/world_authoring/zones/forest.tres", "res://resources/data/world_authoring/zones/hub.tres", "res://resources/data/world_authoring/zones/ocean_deep.tres", "res://resources/data/world_authoring/zones/sea_stormy.tres", "res://resources/data/world_authoring/zones/sea_tropical.tres", "res://resources/data/world_authoring/zones/sea_foggy.tres", "res://resources/data/world_authoring/zones/sea_temperate.tres", "res://resources/data/world_authoring/zones/forest_summer.tres", "res://resources/data/world_authoring/zones/forest_glade.tres", "res://resources/data/world_authoring/zones/mountain_peaceful.tres", "res://resources/data/world_authoring/zones/mountain_winter.tres", "res://resources/data/world_authoring/zones/desert_howling.tres", "res://resources/data/world_authoring/zones/snowy_mountain.tres", "res://resources/data/world_authoring/zones/swamp_highlands.tres", "res://resources/data/world_authoring/zones/swamp_mud.tres", "res://resources/data/world_authoring/zones/swamp.tres", "res://resources/data/world_authoring/zones/swamp_village.tres")
+
+[sub_resource type="Resource" id="Resource_gbhvp"]
+script = ExtResource("2_led")
+palette = "regions"
+slots = PackedStringArray("res://resources/data/worlds/shared/regions/mountain.tres", "res://resources/data/worlds/shared/regions/desert.tres", "res://resources/data/worlds/shared/regions/swamp.tres", "res://resources/data/worlds/shared/regions/forest.tres")
+
+[sub_resource type="Resource" id="Resource_eahu8"]
+script = ExtResource("2_led")
+palette = "ground_sets"
+slots = PackedStringArray("res://resources/data/world_authoring/ground_sets/desert_ground.tres", "res://resources/data/world_authoring/ground_sets/forest_ground.tres", "res://resources/data/world_authoring/ground_sets/hub_ground.tres", "res://resources/data/world_authoring/ground_sets/mountain_ground.tres", "res://resources/data/world_authoring/ground_sets/swamp_fire_ground.tres", "res://resources/data/world_authoring/ground_sets/swamp_ground.tres", "res://resources/data/world_authoring/ground_sets/swamp_highlands_ground.tres", "res://resources/data/world_authoring/ground_sets/swamp_mud_ground.tres", "res://resources/data/world_authoring/ground_sets/swamp_village_ground.tres", "res://resources/data/world_authoring/ground_sets/snowy_mountain_ground.tres")
+
+[sub_resource type="Resource" id="Resource_57qnm"]
+script = ExtResource("2_led")
+palette = "prop_sets"
+slots = PackedStringArray("res://resources/data/world_authoring/prop_sets/pine_stand.tres", "res://resources/data/world_authoring/prop_sets/desert.tres", "res://resources/data/world_authoring/prop_sets/forest.tres", "res://resources/data/world_authoring/prop_sets/hub.tres", "res://resources/data/world_authoring/prop_sets/marsh.tres", "res://resources/data/world_authoring/prop_sets/mountain.tres", "res://resources/data/world_authoring/prop_sets/swamp_highlands.tres", "res://resources/data/world_authoring/prop_sets/swamp_mud.tres", "res://resources/data/world_authoring/prop_sets/snowy_mountain.tres")
+
+[sub_resource type="Resource" id="Resource_3y7g4"]
+script = ExtResource("2_led")
+palette = "mob_sets"
+slots = PackedStringArray("res://resources/data/world_authoring/mob_sets/desert.tres", "res://resources/data/world_authoring/mob_sets/forest.tres", "res://resources/data/world_authoring/mob_sets/hub.tres", "res://resources/data/world_authoring/mob_sets/mountain.tres", "res://resources/data/world_authoring/mob_sets/swamp_fire.tres", "res://resources/data/world_authoring/mob_sets/swamp.tres", "res://resources/data/world_authoring/mob_sets/swamp_highlands.tres", "res://resources/data/world_authoring/mob_sets/swamp_mud.tres", "res://resources/data/world_authoring/mob_sets/swamp_village.tres")
+
+[sub_resource type="Resource" id="Resource_ua1it"]
+script = ExtResource("2_led")
+palette = "water_types"
+slots = PackedStringArray("res://resources/data/voxels/blocks/block_water_clear.tres", "res://resources/data/voxels/blocks/block_water_murky.tres", "res://resources/data/voxels/blocks/block_water_scum_green_partial.tres", "res://resources/data/voxels/blocks/block_water_scum_green_full.tres", "res://resources/data/voxels/blocks/block_water_scum_red_partial.tres", "res://resources/data/voxels/blocks/block_water.tres")
+
+[sub_resource type="Resource" id="Resource_gn0jf"]
+script = ExtResource("2_led")
+palette = "paving_blocks"
+slots = PackedStringArray("res://resources/data/voxels/blocks/block_road.tres", "res://resources/data/voxels/blocks/block_dirt.tres", "res://resources/data/voxels/blocks/block_rock.tres", "res://resources/data/voxels/blocks/block_sand.tres", "res://resources/data/voxels/blocks/block_cave_limestone.tres", "res://resources/data/voxels/blocks/block_cave_sandstone.tres", "res://resources/data/voxels/blocks/block_cobblestone.tres", "res://resources/data/voxels/blocks/block_desert_ground.tres", "res://resources/data/voxels/blocks/block_forest_soil.tres", "res://resources/data/voxels/blocks/block_grass.tres", "res://resources/data/voxels/blocks/block_marsh_ground.tres", "res://resources/data/voxels/blocks/block_mud.tres", "res://resources/data/voxels/blocks/block_snow.tres", "res://resources/data/voxels/blocks/block_stone.tres")
+
+[sub_resource type="Resource" id="Resource_57j4q"]
+script = ExtResource("2_led")
+palette = "prop_lists"
+slots = PackedStringArray("res://resources/data/world_authoring/prop_lists/boulders.tres", "res://resources/data/world_authoring/prop_lists/desert_rocks.tres", "res://resources/data/world_authoring/prop_lists/forest_trees.tres", "res://resources/data/world_authoring/prop_lists/marsh_willows.tres", "res://resources/data/world_authoring/prop_lists/mountain_trees.tres", "res://resources/data/world_authoring/prop_lists/pine_stand.tres", "res://resources/data/world_authoring/prop_lists/snowy_mountain_trees.tres", "res://resources/data/world_authoring/prop_lists/swamp_deadfall.tres", "res://resources/data/world_authoring/prop_lists/tall_grass.tres", "res://resources/data/world_authoring/prop_lists/breakable_rocks.tres")
+
+[resource]
+script = ExtResource("1_pal")
+ledgers = [SubResource("Resource_3lysr"), SubResource("Resource_gbhvp"), SubResource("Resource_eahu8"), SubResource("Resource_57qnm"), SubResource("Resource_3y7g4"), SubResource("Resource_ua1it"), SubResource("Resource_gn0jf"), SubResource("Resource_57j4q")]

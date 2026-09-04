@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://ge7gvocm4hnn"]
 
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="13_ep0wb"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/drake_swamp.tres" id="e_drake_swamp"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/spider_swamp.tres" id="e_spider_swamp"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/sparrow_swamp.tres" id="e_sparrow_swamp"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/drake_swamp.tres" id="e_drake_swamp"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/spider_swamp.tres" id="e_spider_swamp"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/sparrow_swamp.tres" id="e_sparrow_swamp"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_blue.tres" id="e_mushroom_blue"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_black.tres" id="e_mushroom_black"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_white.tres" id="e_mushroom_white"]

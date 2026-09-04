@@ -62,6 +62,18 @@ public static partial class Loc
 		controls_melee,
 		controls_spell,
 		controls_rotate_camera,
-		controls_map
+		controls_map,
+		intro_dying_01,
+		intro_mayor_greeting_01,
+		intro_mayor_speak_common_01,
+		intro_mayor_shipwreck_01,
+		intro_mayor_village_01,
+		intro_mayor_sanctuary_01,
+		intro_mayor_resp_greeting,
+		intro_mayor_resp_speak_common,
+		intro_mayor_resp_shipwreck,
+		intro_mayor_resp_village,
+		intro_mayor_resp_sanctuary,
+		intro_librarian_greeting_01
 	}
 }

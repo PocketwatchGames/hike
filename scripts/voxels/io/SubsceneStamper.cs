@@ -21,10 +21,10 @@ using Godot;
 // TerrainId is the one channel not copied verbatim — a scene's natural ground
 // INHERITS the ground it lands on. See SampleGroundTerrain.
 //
-// Entity instances in `sub.Entities` are mutated (WorldPosition set in
-// world-space) and added to the world directly. After StampVoxels, the
-// supplied SubsceneState's entity list is empty — load a fresh state from
-// disk if you need to stamp the same source again.
+// A SubsceneState is READ, never consumed: the world receives deep copies of
+// `sub.Entities`, so one loaded state stamps any number of times. The painter
+// depends on that — it caches a state per (scene, rotation) and stamps it once
+// per placement.
 public static class SubsceneStamper
 {
     public static void StampVoxels(WorldState ws, SubsceneState sub, Vector3 worldAnchor)
@@ -68,7 +68,12 @@ public static class SubsceneStamper
         Vector3 worldOffset = WorldOffset(sub, worldAnchor);
         if (sub.Entities != null)
         {
-            foreach (EntitySimState e in sub.Entities)
+            // COPIES, never the source instances. A SubsceneState is a loaded
+            // document, and the painter caches one per (scene, rotation) across
+            // every placement that uses it — so moving the entities out left the
+            // first placement of a scene furnished and every later one stamping
+            // bare walls: no roof, no door, no windows, no villagers.
+            foreach (EntitySimState e in EntitySerializer.CloneList(sub.Entities))
             {
                 e.WorldPosition += worldOffset;
                 // MobSimState carries a SpawnPosition that needs the same
@@ -80,7 +85,6 @@ public static class SubsceneStamper
                 }
                 ws.AddEntity(e);
             }
-            sub.Entities.Clear();
         }
     }
 

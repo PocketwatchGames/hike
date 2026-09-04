@@ -8,8 +8,8 @@ using Godot;
 // is made of it. It holds the WorldState under construction, the kit-slot
 // binding, and the four-stage bake driver; it RESOLVES nothing about the
 // document itself — what stands at a column is the model's answer
-// (Map.TreeAt / Map.GrassAt / Map.PropSetAt), which is why the map preview and
-// the bake cannot disagree about it.
+// (Map.PreviewCollidableAt / Map.PreviewDestructibleAt / Map.PreviewMobAt),
+// which is why the map preview and the bake cannot disagree about it.
 //
 // It does not compile against WorldMapInkData and must not: a display value can
 // never decide what a world is made of.
@@ -73,7 +73,7 @@ public class WorldMapBake
 
         // Runtime zone table comes from the PAINTED palette, so a chunk's stamped
         // index and WorldState.Zones[index] are the same list by construction.
-        ZoneData[] zones = Map.Data.PaintableZones;
+        ZoneData[] zones = Map.Zones;
         ws.Zones = new ZoneState[zones.Length];
         for (int i = 0; i < zones.Length; i++)
         {
@@ -84,7 +84,7 @@ public class WorldMapBake
                 Elevation = 0f,
             };
         }
-        RegionData[] regions = Map.Data.regions ?? [];
+        RegionData[] regions = Map.Regions;
         ws.Regions = new RegionState[regions.Length];
         for (int i = 0; i < regions.Length; i++)
         {
@@ -625,10 +625,10 @@ public class WorldMapBake
         return best;
     }
 
-    // Re-evaluate scatter for every column under a texel rect: drop the old
-    // entity (if any), then place a new one when the cell has a kind + the
-    // hash roll falls under its density, on dry land. Adds/removes sim states on
-    // WorldState during the bake.
+    // Re-evaluate the spawn layers for every column under a texel rect: the two
+    // prop layers place whatever the painted list stands there, and the mob
+    // layer rolls its rows' own rates. Adds sim states on WorldState during the
+    // bake.
     public void RescatterColumns(Rect2I texelRect)
     {
         int x0 = Mathf.Max(0, texelRect.Position.X);
@@ -646,44 +646,66 @@ public class WorldMapBake
 
     private void RescatterColumn(int px, int pz)
     {
+        // Props first and unconditionally: their own gate is CanPlacePropAt, and
+        // CanSpawnAt now refuses the very region they are filling.
+        ScatterProps(px, pz);
         if (!Map.CanSpawnAt(px, pz))
         {
             return;
         }
-        // Both spawn layers run the same column routine — a mob set is a set
-        // whose tree and foliage slots happen to be empty.
-        ScatterColumn(Map.PropSetAt(px, pz, out float propDensity), propDensity, px, pz);
-        ScatterColumn(Map.MobSetAt(px, pz, out float mobDensity), mobDensity, px, pz);
+        var pos = new Vector3(Map.Data.WorldMinX + px + 0.5f, Map.TerrainHeight(px, pz) + 1f,
+            Map.Data.WorldMinZ + pz + 0.5f);
+        ScatterMobColumn(Map.MobSetAt(px, pz, out float mobDensity), mobDensity, px, pz, pos);
     }
 
-    private void ScatterColumn(SpawnSetData set, float density, int px, int pz)
+    // Whatever the fill decided stands here. PropType is the wire slot a placed
+    // prop files under, not a behaviour — a scene blocks and breaks by what it
+    // is built out of — so the two painted layers map onto the two slots and a
+    // baked world still says which of them a prop came from.
+    private void ScatterProps(int px, int pz)
     {
-        if (set == null)
+        if (Map.CollidablePropAt(px, pz, out WorldMapState.PaintedProp blocking))
+        {
+            PlacePaintedProp(blocking, PropType.Tree, px, pz);
+        }
+        if (Map.DestructiblePropAt(px, pz, out WorldMapState.PaintedProp breakable))
+        {
+            PlacePaintedProp(breakable, PropType.Foliage, px, pz);
+        }
+    }
+
+    // At exactly the pose the fill rasterized the footprint at — its column's
+    // centre plus the fill's own jitter, at the fill's own yaw. Move or turn it
+    // here and the collision stops matching the columns the map says are
+    // blocked, which is the one claim this whole model exists to make.
+    //
+    // Scale is the exception, and only because it is one-directional: the
+    // footprint was measured at 1 and the prop only ever grows, so it covers at
+    // least what was claimed. See PropListData.scaleJitter.
+    private void PlacePaintedProp(WorldMapState.PaintedProp prop, PropType type, int px, int pz)
+    {
+        PackedScene scene = Map.PropLists[prop.List]?.SceneAt(prop.Scene);
+        if (scene == null)
         {
             return;
         }
-
-        int surfaceY = Map.TerrainHeight(px, pz);
-        var pos = new Vector3(Map.Data.WorldMinX + px + 0.5f, surfaceY + 1f, Map.Data.WorldMinZ + pz + 0.5f);
-
-        // Canopy and ground cover roll separately, each at its own rate.
-        // Anchored at +1.5, not +1: the mesher's shallow-Y smoothing lifts a
-        // flat column's visible top half a voxel, so +1 buries a sprite in the
-        // ground. Worldgen carries the same constant for the same reason.
-        var propPos = new Vector3(pos.X, surfaceY + 1.5f, pos.Z);
-        if (Map.TreeAt(set, px, pz, density))
+        var pos = new Vector3(
+            Map.Data.WorldMinX + px + 0.5f + prop.Offset.X,
+            Map.PropSeatY(px, pz),
+            Map.Data.WorldMinZ + pz + 0.5f + prop.Offset.Y);
+        WorldState.AddEntity(new PropSimState(type, pos, scene)
         {
-            PlaceProp(set.treeScenes, PropType.Tree, WorldMapState.TREE_SALT, px, pz, propPos, 0f);
-        }
-        if (Map.GrassAt(set, px, pz, density))
-        {
-            PlaceProp(set.foliageScenes, PropType.Foliage, WorldMapState.GRASS_SALT, px, pz, propPos, set.positionJitter);
-        }
+            RotationY = prop.Yaw,
+            Scale = prop.Scale,
+        });
+    }
 
-        // Entities: each entry's OWN authored rate, then its own Spawn logic.
-        // The hash decides placement; the seeded Random only fills in details,
-        // so the map preview above stays exact.
-        SpawnListRow[] rows = set.RowsFlat;
+    // Mobs: each row's OWN authored rate, then its own Spawn logic. The hash
+    // decides placement; the seeded Random only fills in details, so the map
+    // preview stays exact.
+    private void ScatterMobColumn(SpawnSetData set, float density, int px, int pz, Vector3 pos)
+    {
+        SpawnListRow[] rows = set?.RowsFlat;
         if (rows == null)
         {
             return;
@@ -702,26 +724,6 @@ public class WorldMapBake
             }
             row.TrySpawn(WorldState, pos, new System.Random((int)h), SpawnContextForBake());
         }
-    }
-
-    private void PlaceProp(WeightedScene[] scenes, PropType type, uint salt, int px, int pz, Vector3 pos, float jitter)
-    {
-        WeightedList<PackedScene> w = WeightedScene.BuildList(scenes);
-        if (w.Count == 0)
-        {
-            return;
-        }
-        if (jitter > 0f)
-        {
-            pos = new Vector3(
-                pos.X + (WorldMapState.ToFloat01(WorldMapState.Hash(px, pz, salt + 3u)) * 2f - 1f) * jitter,
-                pos.Y,
-                pos.Z + (WorldMapState.ToFloat01(WorldMapState.Hash(px, pz, salt + 4u)) * 2f - 1f) * jitter);
-        }
-        WorldState.AddEntity(new PropSimState(type, pos, w.Choose(WorldMapState.ToFloat01(WorldMapState.Hash(px, pz, salt + 1u)) * w.TotalWeight))
-        {
-            RotationY = WorldMapState.ToFloat01(WorldMapState.Hash(px, pz, salt + 2u)) * Mathf.Tau,
-        });
     }
 
     private SpawnContext _bakeContext;

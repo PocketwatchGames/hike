@@ -217,7 +217,10 @@ public static class WorldFile
     //      spelling their references out as bare path strings.
     // v52: coiled ropes (Tag.CoiledRope). A new entity tag, so a v51 file's
     //      entity stream is readable only up to the first one.
-    public const uint VERSION = 52;
+    // v53: every entity's common trailing fields gained a uniform Scale float
+    //      (after the pool tag), so a placement can vary a prop's size without
+    //      a scene per size. The world-map prop fill is what writes it.
+    public const uint VERSION = 53;
 
     public struct IndexEntry
     {

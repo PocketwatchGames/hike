@@ -110,9 +110,17 @@ that drifted.
 `TerrainKitData.forest` references one, and `Trees` / `Foliage` /
 `ForestFrequency` / `ForestThreshold` / `ForestDensity` / `TreesPerChunkMin/Max`
 resolve to it, falling back to the kit's inline fields for anything not yet
-migrated. So a pine stand is defined ONCE and used by several kits and by the
-painter's palette — the duplication that existed while both carried their own
-copy is exactly how the two would drift.
+migrated. So a pine stand is defined ONCE and used by several kits — the
+duplication that existed while both carried their own copy is exactly how the
+two would drift.
+
+**`SpawnSetData` is the GENERATOR's scatter, and the painter no longer paints
+one.** Its noise fields shape a wood by rule, which is what worldgen wants and
+the opposite of what a painted region is for: the painter places from a
+`PropListData` directly, so what a brush covered is what stands there. The two
+resources look alike and are not the same idea — scenery grown by rule versus
+furniture put somewhere on purpose. The mob layer is still a `SpawnSetData`,
+because a mob set is a rate list and nothing else.
 
 **The zone tool paints `ZoneData` — theme and weather, nothing else.** The
 palette is `WorldMapData.zones`, and `WorldState.Zones` is built from that same

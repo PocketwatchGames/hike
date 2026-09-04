@@ -16,6 +16,13 @@ public abstract class EntitySimState
     // facing back here before unload.
     public float RotationY;
 
+    // Uniform size multiplier ON TOP of whatever the scene authors, so a
+    // placement can vary a prop without the scene knowing. 1 is "as authored",
+    // and it is a multiplier rather than an absolute because a scene may carry
+    // its own root scale (an imported FBX is authored at 0.01) that assigning
+    // here would silently throw away.
+    public float Scale = 1f;
+
     // Subscene variant pool this entity belongs to. Empty (the default) means
     // unconditional: the entity spawns wherever its scene is stamped. A tagged
     // entity is a CANDIDATE — it spawns only when the stamping variant selects
@@ -40,6 +47,10 @@ public abstract class EntitySimState
         node.Position = WorldPosition;
         Vector3 rotation = node.Rotation;
         node.Rotation = new Vector3(rotation.X, RotationY, rotation.Z);
+        if (Scale != 1f)
+        {
+            node.Scale *= Scale;
+        }
     }
 
     // Turns this state's authored transform by `quarterTurns` × 90° about +Y,

@@ -38,22 +38,18 @@ public partial class WorldMapData : Resource
     [Export] public KitPaletteData kitPalette;
     [Export] public SimData simData;
 
-    // Named regions this document can paint, the mirror of `zones`. RegionData
-    // rather than worldgen's RegionGenData wrapper: the painter only ever read
-    // `.region` off each, and placement — which is all the wrapper adds — is
-    // what painting IS.
-    [Export] public RegionData[] regions = System.Array.Empty<RegionData>();
-
-    // The zones this document can paint — ZoneData, the theme and weather
-    // profile, and nothing else.
+    // NO PALETTE ARRAYS. What a document can paint — its zones, regions, ground
+    // sets, prop sets, mob sets, water types, paving blocks, placeable entities
+    // and presets — is DISCOVERED from disk by WorldMapPaletteSource.Table, and
+    // the slot each one occupies is recorded in the WorldMapPalettes ledger
+    // beside the layer images. Nothing is registered by hand, so a resource
+    // becomes paintable by existing in the right directory.
     //
-    // It used to paint ZoneGenData, which bundles kits, spawn lists, difficulty
-    // bands, fixtures and terrain tuning alongside the theme. Every one of those
-    // is now either its own painted layer or irrelevant to a painter (painting
-    // IS the placement, so a zone's bounds, fixtures and terrain tuning have no
-    // meaning here). What was left was one dereference to `.zone`, so the
-    // indirection went and the theme is painted directly.
-    [Export] public ZoneData[] zones = System.Array.Empty<ZoneData>();
+    // They were fields here, and the cost was silent: an authored entry the
+    // author forgot to append simply did not exist in the tool, with nothing
+    // anywhere reporting it. The ledger also belongs beside the layers rather
+    // than here because the painter WRITES it every session, and this file is
+    // one the Godot editor may have open (see the [Tool] note above).
 
     // How many danger levels the ramp has, and so what the painted scalar
     // layer's 0..1 MEANS: a column stores a fraction and decodes to
@@ -99,48 +95,6 @@ public partial class WorldMapData : Resource
     // the two layers together.
     [Export] public GroundSetData defaultGround;
 
-    // Water types this document can paint, as the blocks themselves. A column
-    // with none painted takes whatever its ZONE authors, which is the identity
-    // and what every document had before this layer existed.
-    //
-    // Typed BlockData references are safe here because WorldMapData is
-    // deliberately not [Tool], so nothing it holds is subject to the [Tool]
-    // closure rule — BlockData could never satisfy it anyway, since digItem
-    // opens ItemData's ~90-class closure.
-    [Export] public BlockData[] waterTypes = System.Array.Empty<BlockData>();
-
-    // Ground sets this document can paint. A column with no ground painted falls
-    // back to defaultGround above.
-    [Export] public GroundSetData[] groundSets = System.Array.Empty<GroundSetData>();
-
-    // Prop sets this document can paint. The scatter layer stores an index into
-    // this palette plus a density multiplier, so a set is defined once and
-    // painted anywhere — the whole point of pulling "pine stand" out of the kit
-    // it used to be inlined in.
-    [Export] public SpawnSetData[] propSets = System.Array.Empty<SpawnSetData>();
-
-    // Entries the entity tool can place one at a time. The same
-    // `SpawnEntryData` the scatter layers use, so one palette covers props,
-    // mobs, chests, loot and NPCs, and a hand-placed chest spawns through
-    // exactly the path a scattered one does.
-    [Export] public SpawnEntryData[] entityPalette = System.Array.Empty<SpawnEntryData>();
-
-    // Blocks this document can pave a column's surface with — roads, plazas,
-    // building floors. A BlockData directly, not a kit or a surface: appearance
-    // IS the block now, and a paved column wants the block's material properties
-    // too (footstep sound, speed multiplier, dig yield), which the overlay skin
-    // worldgen's road pass uses cannot carry.
-    [Export] public BlockData[] pavingBlocks = System.Array.Empty<BlockData>();
-
-    // Mob sets this document can paint. The SAME resource type as propSets —
-    // "a weighted set of things placed at an area rate" describes both — but a
-    // separate palette and a separate raster, because one set per column means
-    // painting wolves would otherwise erase the pine stand under them. Two
-    // palettes also stop the mob brush offering you trees.
-    [Export] public SpawnSetData[] mobSets = System.Array.Empty<SpawnSetData>();
-
-    // Composite brushes: one stroke writing ground + props + zone together.
-    [Export] public PaintPresetData[] presets = System.Array.Empty<PaintPresetData>();
 
     // World extent (XZ footprint + vertical chunk range). Per-column images are
     // SizeChunks * ChunkState.SIZE texels; per-chunk images are SizeChunks.
@@ -203,13 +157,21 @@ public partial class WorldMapData : Resource
     // chunk inherits from its zone, so a max several times that is what makes
     // painting a gale worth doing.
     [Export(PropertyHint.Range, "0,40,0.5")] public float windPaintMaxSpeed = 20f;
-    [Export] public string scatterImagePath = "";      // .png, Rgba8, per column (R=set+1, G=density)
+    // The two prop layers, per column: R = prop list index + 1 (0 = none).
+    // Direct placement — the painted region IS the furniture, so there is no
+    // density channel to go with the index. Two layers rather than one so a
+    // thicket can stand under a stand of trees; which one a list is painted on
+    // is what says whether the region is passable at all or only after it is
+    // cleared.
+    [Export] public string collidablePropImagePath = "";    // .png, R8, per column (prop list + 1)
+    [Export] public string destructiblePropImagePath = "";  // .png, R8, per column (prop list + 1)
     [Export] public string groundImagePath = "";       // .png, R8, per column (ground set + 1, 0 = default)
     [Export] public string waterTypeImagePath = "";    // .png, R8, per column (waterTypes index + 1, 0 = the zone's)
     // .png, Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world
     // Y it is laid at + 1 (0 = seated on the column's own surface).
     [Export] public string pavingImagePath = "";
     [Export] public string placementsPath = "";        // .tres, WorldMapPlacements (subscene stamps)
+    [Export] public string palettesPath = "";          // .tres, WorldMapPalettes (palette slot ledgers)
     [Export] public string mobImagePath = "";          // .png, Rgba8, per column (R=mob set+1, G=density)
 
     // Per-column SCALAR layers, packed one per channel of a single image rather
@@ -233,10 +195,6 @@ public partial class WorldMapData : Resource
     public int ImageHeight => sizeChunksZ * ChunkState.SIZE;
     public int VoxelHeight => WorldMaxY - WorldMinY + 1;
 
-    public int RegionCount => regions?.Length ?? 0;
-    public ZoneData[] PaintableZones => zones ?? System.Array.Empty<ZoneData>();
-
-    public int ZoneCount => PaintableZones.Length;
 
     // Column texel -> owning chunk's texel (shared by region + zone images).
     public Vector2I ColumnTexelToChunkTexel(int px, int pz)
@@ -264,6 +222,10 @@ public partial class WorldMapData : Resource
         // relights a world on load. Straight-line here — this caller is already
         // the main thread and has no UI to keep alive.
         var state = new WorldMapState(this);
+        // Every bake fills from the collision as it is on disk NOW, whichever
+        // path reached it. Free in a fresh process; the point is that the rule
+        // has no exception to remember.
+        state.RefreshPropAssets();
         return new WorldMapBake(state).Bake();
     }
 
@@ -390,9 +352,14 @@ public partial class WorldMapData : Resource
         return LoadOrCreateChunkRgbaImage(windImagePath);
     }
 
-    public Image LoadOrCreateScatter()
+    public Image LoadOrCreateCollidableProps()
     {
-        return LoadOrCreateSpawnImage(scatterImagePath);
+        return LoadOrCreateIndexImage(collidablePropImagePath);
+    }
+
+    public Image LoadOrCreateDestructibleProps()
+    {
+        return LoadOrCreateIndexImage(destructiblePropImagePath);
     }
 
     // A spawn layer is a per-column RGBA8: R = set index + 1 (0 = none),
@@ -541,9 +508,14 @@ public partial class WorldMapData : Resource
         SavePng(windImagePath, img, "wind");
     }
 
-    public void SaveScatter(Image img)
+    public void SaveCollidableProps(Image img)
     {
-        SavePng(scatterImagePath, img, "scatter");
+        SavePng(collidablePropImagePath, img, "collidable props");
+    }
+
+    public void SaveDestructibleProps(Image img)
+    {
+        SavePng(destructiblePropImagePath, img, "destructible props");
     }
 
     public void SaveTunnels(byte[,,] tunnels)

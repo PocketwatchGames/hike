@@ -38,6 +38,10 @@ public class GroundTool : IWorldMapTool
         return colors;
     }
 
+    // No 1-9: ground sets are a directory, so the first nine rows are an arbitrary prefix that
+    // moves whenever one is added.
+    public bool NumberKeys => false;
+
     public int OptionIndex
     {
         get => SetIndex;

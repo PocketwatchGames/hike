@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_x87yb"]
 
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin_desert_torchbearer_camp.tres" id="e_goblin_desert_torchbearer_camp"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_desert_torchbearer_camp.tres" id="e_goblin_desert_torchbearer_camp"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/chest_camp_potions.tres" id="e_chest_camp_potions"]
 
 [ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]

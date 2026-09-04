@@ -1,9 +1,14 @@
 using Godot;
 
-// A named, reusable set of things to place over an area — a pine stand, a palm
-// oasis, a wolf pack, a scattering of ruined walls. Referenced by a painter
-// palette (WorldMapData.propSets) and, in time, by a TerrainKitData as its
-// ambient scatter.
+// A named, reusable set of things to SCATTER over an area by rule — a pine
+// stand, a palm oasis, a wolf pack. Referenced by TerrainKitData as a kit's
+// ambient scatter, and by the painter's MOB palette
+// (WorldMapPaletteSource.MobSets).
+//
+// The painter no longer paints props from one: a painted prop region is placed
+// DIRECTLY from a PropListData, because the reason to paint props is to say
+// where the player cannot walk and the noise fields below shape a wood instead.
+// Scenery grown by rule, not furniture put somewhere on purpose.
 //
 // It exists so "pine stand" is defined ONCE. The same set can be painted over
 // any ground, referenced by several kits, and appear in more than one zone,

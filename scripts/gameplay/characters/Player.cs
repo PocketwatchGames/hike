@@ -626,9 +626,14 @@ public partial class Player : CharacterBody3D
 	// permanent party pool with the active member's provisional field store. Null
 	// language is treated as universally readable — All. An unseen language
 	// returns None.
+	//
+	// SimData.commonTongue is All unconditionally: everyone is born speaking it,
+	// so it is never entered in a Knowledge store and no world has to remember to
+	// grant it. That also keeps it out of the learned-languages UI, where "you
+	// know the language you have always known" is noise.
 	public ELanguageComponents GetLearnedComponents(LanguageData language)
 	{
-		if (language == null) { return ELanguageComponents.All; }
+		if (language == null || language == _world?.SimData?.commonTongue) { return ELanguageComponents.All; }
 		ELanguageComponents combined = ELanguageComponents.None;
 		if (PartyKnowledge != null && PartyKnowledge.LearnedLanguages.TryGetValue(language, out var banked)) { combined |= banked; }
 		if (ActiveKnowledge != null && ActiveKnowledge.LearnedLanguages.TryGetValue(language, out var indiv)) { combined |= indiv; }
@@ -1361,8 +1366,7 @@ public partial class Player : CharacterBody3D
 						int n = System.Math.Min(remaining, stackSize);
 						ItemState state = ic.descriptor.CreateState();
 						state.SetCount(n);
-						_inventory.TryAdd(state);
-						TryAutoEquipFromBackpack(state);
+						SeedStartingItem(state);
 						remaining -= n;
 					}
 				}
@@ -1398,15 +1402,6 @@ public partial class Player : CharacterBody3D
 			// (recruited mid-run, or a save restored with the flag set). The sunrise
 			// lottery drives it thereafter.
 			RefreshWellRested();
-		}
-
-		// Every character spawns with a lantern in its own dedicated slot (shared
-		// across the party, so it lives on PlayerData rather than the per-member
-		// loadout). Seeded straight into EInventorySlot.Lantern — lanterns are
-		// refused from the Equipment hotbar.
-		if (data?.startingLantern != null)
-		{
-			_inventory.TryEquip(data.startingLantern.CreateState(), EInventorySlot.Lantern);
 		}
 
 		// Spawn-time knowledge is a property of the world SCENARIO, not the
@@ -1520,47 +1515,63 @@ public partial class Player : CharacterBody3D
 		UpdateWellRestedFx();
 	}
 
-	// Equip a freshly-minted item (e.g. a forged piece) into its canonical slot;
-	// any current occupant is displaced to the party equipment stash. Returns
-	// false for a non-equippable item. Ephemeral expiry is armed by Inventory on
-	// acquisition.
+	// Take ownership of an item from outside the inventory (a field pickup, a
+	// gift, a forged piece): materials go to the backpack, equippables straight
+	// into their slot. False means the player did NOT take it — the caller must
+	// leave it where it is, since a half-taken stack would vanish.
+	public bool TakeItem(ItemState item)
+	{
+		if (_inventory == null || item?.data == null)
+		{
+			return false;
+		}
+		if (item.data.IsMaterial)
+		{
+			// Partial adds refuse the whole take — the leftover units have nowhere
+			// to go, and the caller (loot) would remove the pile regardless.
+			int wanted = item.stackCount;
+			return _inventory.TryAdd(item) >= wanted;
+		}
+		return EquipItem(item);
+	}
+
+	// Equip an item into its canonical slot; any current occupant is dropped on
+	// the ground where the swap happened. Returns false for a non-equippable item.
+	// Ephemeral expiry is armed by Inventory on acquisition.
 	public bool EquipItem(ItemState item)
 	{
 		if (_inventory == null || item?.data == null)
 		{
 			return false;
 		}
-		if (!TryGetEquipSlot(item.data, out EInventorySlot slot))
+		if (!item.data.IsSlotEquippable)
 		{
 			return false;
 		}
-		return _inventory.TryEquip(item, slot);
+		return _inventory.TryEquip(item, item.data.EquipSlotKind);
 	}
 
-	private void TryAutoEquipFromBackpack(ItemState item)
+	// Seed one entry of this member's authored equipped loadout. Unlike a field
+	// pickup this never displaces: the first entry for a slot wins and any further
+	// one goes to the party equipment stash, so a loadout authored with two melee
+	// weapons neither drops litter at the spawn point nor loses the spare.
+	private void SeedStartingItem(ItemState item)
 	{
 		if (item?.data == null)
 		{
 			return;
 		}
-		switch (item.data)
+		if (item.data.IsMaterial)
 		{
-			case ArmorData armor:
-				if (_inventory.GetEquipped(armor.armorSlot) == null)
-				{
-					_inventory.TryEquip(item, armor.armorSlot);
-				}
-				break;
-			case WeaponData weapon:
-				// Handedness is exclusive — melee → WeaponLeft, ranged → WeaponRight.
-				// If the canonical slot is occupied, the weapon stays in the backpack.
-				EInventorySlot weaponSlot = weapon.CanonicalSlot;
-				if (_inventory.GetEquipped(weaponSlot) == null)
-				{
-					_inventory.TryEquip(item, weaponSlot);
-				}
-				break;
+			_inventory.TryAdd(item);
+			return;
 		}
+		if (item.data.IsSlotEquippable && _inventory.GetEquipped(item.data.EquipSlotKind) == null)
+		{
+			_inventory.TryEquip(item, item.data.EquipSlotKind);
+			return;
+		}
+		_inventory.PushToEquipmentStash(item);
 	}
 
 	// Backfill empty weapon/armor slots from this member's starting loadout so the
@@ -1578,10 +1589,11 @@ public partial class Player : CharacterBody3D
 		foreach (ItemCount ic in Member.equippedInventory)
 		{
 			ItemData template = ic?.descriptor?.item;
-			if (template == null || !TryGetEquipSlot(template, out EInventorySlot slot))
+			if (template == null || !template.IsSlotEquippable)
 			{
 				continue;
 			}
+			EInventorySlot slot = template.EquipSlotKind;
 			if (_inventory.GetEquipped(slot) != null)
 			{
 				continue;
@@ -1595,26 +1607,7 @@ public partial class Player : CharacterBody3D
 			{
 				continue;
 			}
-			_inventory.TryAdd(fresh);
 			_inventory.TryEquip(fresh, slot);
-		}
-	}
-
-	// The equip slot an equippable item belongs in — armor by its armorSlot,
-	// weapons by handedness. False for anything not slot-equippable.
-	private static bool TryGetEquipSlot(ItemData data, out EInventorySlot slot)
-	{
-		switch (data)
-		{
-			case ArmorData armor:
-				slot = armor.armorSlot;
-				return true;
-			case WeaponData weapon:
-				slot = weapon.CanonicalSlot;
-				return true;
-			default:
-				slot = EInventorySlot.None;
-				return false;
 		}
 	}
 
@@ -1702,6 +1695,7 @@ public partial class Player : CharacterBody3D
 		// An interact action that resolved to "climb the ledge" starts here, once
 		// the runner that ran it has finished.
 		TickPendingMantle();
+		TickPendingClimbSurface();
 
 		// Mantling a short ledge: the traversal owns position for its duration,
 		// same as riding. Input and gravity stay out of the way until it

@@ -38,13 +38,7 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         if (hud != null)
         {
             Player player = gc?.Player;
-            ELanguageComponents missing = player == null
-                ? ELanguageComponents.None
-                : ELanguageComponents.All & ~player.GetLearnedComponents(_language);
-            string display = missing == ELanguageComponents.None
-                ? _text
-                : TextScrambler.Scramble(_text, _language, missing);
-            hud.ShowSignpost(display, this);
+            hud.ShowSignpost(LanguageText.Render(_text, _language, player), this);
         }
     }
 

@@ -6,10 +6,10 @@ using Godot;
 // melee / ranged weapon / lantern), the single attuned alchemy-spell slot, and
 // the material-only backpack. The backpack holds
 // ONLY materials; weapons / armor / equipment never enter it. Displacing a piece
-// out of an equip slot (equip-over) sends it to the world-scope party equipment
-// stash (SimState.PartyEquipmentStash), not back to the backpack. Weapons /
-// armor / helmets can't be unequipped or dropped once worn — they change only by
-// being replaced.
+// out of an equip slot (equip-over) DROPS it as loot at the player's feet, not
+// back into the backpack. Weapons / armor / helmets still can't be unequipped or
+// dropped by hand — they change only by being replaced, and the replaced piece
+// is left on the ground to pick back up.
 public class Inventory
 {
 	private readonly Player _owner;
@@ -174,11 +174,13 @@ public class Inventory
 	// (never during normal play).
 	private List<ItemState> PartyEquipmentStash => _owner?.Sim?.WorldState?.SimState?.PartyEquipmentStash;
 
-	// Hand a displaced equip-slot piece to the party equipment stash, merging
-	// stackable equipment into an existing stack when possible. A weapon forfeits
-	// its outstanding arrows on the way out, mirroring Remove() — it has left the
-	// player's possession.
-	private void PushToEquipmentStash(ItemState item)
+	// Hand a piece the player owns but can't wear to the party equipment stash,
+	// merging stackable equipment into an existing stack when possible. This is
+	// for gear that never reached a slot (a loadout authored with two melee
+	// weapons) — a piece displaced OUT of a slot is dropped, not stashed. A weapon
+	// forfeits its outstanding arrows on the way out, mirroring Remove() — it has
+	// left the player's possession.
+	public void PushToEquipmentStash(ItemState item)
 	{
 		if (item == null)
 		{
@@ -189,6 +191,40 @@ public class Inventory
 			ws.DestroyOutstandingArrows();
 		}
 		ItemStash.Add(PartyEquipmentStash, item);
+	}
+
+	// Drop an equip-slot occupant that has just been replaced. Not routed through
+	// Drop(), which refuses weapons/armor by design (they can't be set down by
+	// hand) and expects to Remove() the item first — here SetSlot is about to
+	// overwrite the pointer, so the piece is already leaving the slot.
+	private void DropDisplaced(ItemState item)
+	{
+		if (item == null)
+		{
+			return;
+		}
+		// Outstanding arrows are forfeit — the weapon has left the player's
+		// possession, same as any other exit path.
+		if (item is WeaponState ws)
+		{
+			ws.DestroyOutstandingArrows();
+		}
+		// A lit lantern lands unlit, so the pile on the ground isn't glowing and
+		// picking it back up doesn't auto-light it.
+		if (item is LanternState ls)
+		{
+			ls.isActive = false;
+		}
+		if (_owner == null)
+		{
+			return;
+		}
+		Vector3 pos = _owner.GlobalPosition + Vector3.Up * 0.5f;
+		Vector3 forward = -_owner.GlobalTransform.Basis.Z;
+		Vector3 impulse = forward * 2f + Vector3.Up * 1.5f;
+		// Interact-only, like a hand drop: the swap must not immediately vacuum
+		// the old piece back up as the player walks off it.
+		_owner.Sim?.DropItem(item, pos, impulse, requireInteract: true);
 	}
 
 	public int TryAdd(ItemState item)
@@ -392,12 +428,12 @@ public class Inventory
 			return true;
 		}
 
-		// Displaced piece returns to the party equipment stash (PushToEquipmentStash
-		// forfeits an outgoing weapon's outstanding arrows on the way out). SetSlot
-		// fires the outgoing weapon's minion cleanup.
+		// The displaced piece lands on the ground where the swap happened, so an
+		// upgrade in the field is reversible on the spot. SetSlot fires the
+		// outgoing weapon's minion cleanup.
 		if (prev != null)
 		{
-			PushToEquipmentStash(prev);
+			DropDisplaced(prev);
 		}
 
 		SetSlot(slot, item);

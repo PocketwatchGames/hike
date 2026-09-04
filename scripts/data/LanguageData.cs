@@ -11,6 +11,14 @@ using Godot;
 [GlobalClass]
 public partial class LanguageData : Resource
 {
+    // Stable internal identifier, and the token an inline [lang:<id>] span
+    // in authored text names (see LanguageText). Kept separate from
+    // displayName because that is player-facing text and also seeds the
+    // scrambler's cipher — renaming it must not silently re-point every
+    // authored span. Registered on SimData.languages, which is what
+    // resolves the token.
+    [Export] public StringName id;
+
     // Text shown wherever the language is named in UI (learned-language list,
     // tooltip on unreadable signpost text, etc). Same StringName-as-display-
     // text convention as RegionData.displayName.

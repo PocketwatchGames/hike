@@ -94,6 +94,11 @@ public partial class ItemData : Resource
 	// equipment). Materials and ammo are false.
 	public bool IsEquippable => EquipSlotKind != EInventorySlot.None;
 
+	// True when this item fills one of the SINGULAR equip slots directly — weapon,
+	// armor, helmet, lantern. The Equipment slot is the attuned alchemy spell,
+	// which is attuned at a campfire rather than equipped, so it is false here.
+	public bool IsSlotEquippable => EquipSlotKind != EInventorySlot.None && EquipSlotKind != EInventorySlot.Equipment;
+
 	// The equip slot this item's category maps to, or None (materials, ammo).
 	public EInventorySlot EquipSlotKind => Category switch
 	{

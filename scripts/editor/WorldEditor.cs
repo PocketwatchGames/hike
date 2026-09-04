@@ -606,7 +606,7 @@ public partial class WorldEditor : Node3D
         camera.ManualClipMode = true;
         ApplyEditorCameraSettings();
         camera.SetInitialPosition(_cursorPosition);
-        camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition, allowMaxClip: false);
+        PushCameraClip();
 
         // Enter in the name field confirms the dialog.
         if (saveDialog != null && saveNameEdit != null)
@@ -1056,7 +1056,7 @@ public partial class WorldEditor : Node3D
 
         camera.pitchDegrees = _cameraPitchDegrees;
         camera.UpdateCamera(deltaTime, _cursorPosition, 0f, tickRotation: false);
-        camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition, allowMaxClip: false);
+        PushCameraClip();
         if (groundPlane != null)
         {
             groundPlane.GlobalPosition = new Vector3(_cursorPosition.X, _buildY, _cursorPosition.Z);
@@ -2079,6 +2079,20 @@ public partial class WorldEditor : Node3D
         editorHud.SetPlateauSnap(_plateauSnapByShape[(int)_brushShape], SupportsPlateauSnap(_brushShape));
     }
 
+    // The cutaway parked OFF cuts nothing, so the camera gets infinity rather
+    // than a height derived from the world's content. _clipY stays finite there
+    // (the drafting plane, the marker overlay and picking all measure against
+    // it), but handing that number to the camera cut away whatever stood at the
+    // ceiling itself — a roof, which is tested at its anchor and sits exactly on
+    // the band its walls top out at, came off while the cutaway claimed to be
+    // off. Worse, the ceiling is sampled when the cutaway is turned off, so a
+    // roof drawn afterwards was invisible until R/F was pressed.
+    private void PushCameraClip()
+    {
+        float clip = _clipOff ? float.PositiveInfinity : _clipY - CLIP_VISUAL_BIAS;
+        camera.SetClip(clip, _cursorPosition, allowMaxClip: false);
+    }
+
     // Rounds a base elevation down onto the camera's cutaway band grid, so a
     // wall or fill occupies exactly one band instead of straddling two.
     private static int SnapToPlateau(int y)
@@ -2104,13 +2118,45 @@ public partial class WorldEditor : Node3D
         return SnapToPlateau(y) + step;
     }
 
-    // Lowest cutaway height that leaves the whole world visible. Stands in for
-    // "no clip" so every consumer keeps a finite number; CLIP_START_OFFSET is
-    // the fallback for a world with no voxels at all (a new document).
+    // Lowest cutaway height that leaves the whole world visible — the top of the
+    // R/F ladder, so stepping up lands here and turns the cutaway off. Roofs
+    // count: they stand on the band their walls top out at, so a ceiling
+    // measured from voxels alone parks one band BELOW the roofs and stepping up
+    // never reaches them. CLIP_START_OFFSET is the fallback for a world with no
+    // content at all (a new document).
     private int ClipCeiling()
     {
         int? highestY = _worldState?.GetHighestSolidVoxelY();
-        return highestY.HasValue ? PlateauAbove(highestY.Value) : Mathf.CeilToInt(_cursorPosition.Y + CLIP_START_OFFSET);
+        int? highestRoofY = HighestRoofAnchorY();
+        int? highest = highestY.HasValue && highestRoofY.HasValue
+            ? Math.Max(highestY.Value, highestRoofY.Value)
+            : highestY ?? highestRoofY;
+        return highest.HasValue ? PlateauAbove(highest.Value) : Mathf.CeilToInt(_cursorPosition.Y + CLIP_START_OFFSET);
+    }
+
+    // Eave elevation of the highest roof, which is the height the cutaway tests
+    // a roof at: a roof is never sliced, it is cut as a unit against its
+    // placement anchor (see clip_dither_should_discard_anchored).
+    private int? HighestRoofAnchorY()
+    {
+        if (_worldState == null)
+        {
+            return null;
+        }
+        int? highest = null;
+        foreach (List<EntitySimState> bucket in _worldState._entities.Values)
+        {
+            foreach (EntitySimState state in bucket)
+            {
+                if (state is not RoofSimState roof)
+                {
+                    continue;
+                }
+                int y = Mathf.CeilToInt(roof.WorldPosition.Y);
+                highest = highest.HasValue ? Math.Max(highest.Value, y) : y;
+            }
+        }
+        return highest;
     }
 
     // R/F walk the cutaway. A bare press steps a whole storey band — the common

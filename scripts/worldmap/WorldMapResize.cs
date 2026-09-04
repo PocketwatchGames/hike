@@ -87,7 +87,8 @@ public static class WorldMapResize
         state.Ground = Resample(state.Ground, newW, newH);
         state.WaterType = Resample(state.WaterType, newW, newH);
         state.Paving = Resample(state.Paving, newW, newH);
-        state.Scatter = Resample(state.Scatter, newW, newH);
+        state.CollidableProps = Resample(state.CollidableProps, newW, newH);
+        state.DestructibleProps = Resample(state.DestructibleProps, newW, newH);
         state.Mobs = Resample(state.Mobs, newW, newH);
         // Scalars carry a continuous field (mob level) beside a flag (climb), so
         // they go through the categorical path too: a lerp would be marginally
@@ -173,7 +174,8 @@ public static class WorldMapResize
         state.Ground = Recanvas(state.Ground, newW, newH, texelShift);
         state.WaterType = Recanvas(state.WaterType, newW, newH, texelShift);
         state.Paving = Recanvas(state.Paving, newW, newH, texelShift);
-        state.Scatter = Recanvas(state.Scatter, newW, newH, texelShift);
+        state.CollidableProps = Recanvas(state.CollidableProps, newW, newH, texelShift);
+        state.DestructibleProps = Recanvas(state.DestructibleProps, newW, newH, texelShift);
         state.Mobs = Recanvas(state.Mobs, newW, newH, texelShift);
         state.Scalars = Recanvas(state.Scalars, newW, newH, texelShift);
         state.Region = Recanvas(state.Region, newChunksX, newChunksZ, chunkShift);

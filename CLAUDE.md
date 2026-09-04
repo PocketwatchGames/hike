@@ -353,7 +353,7 @@ selected.
 |---|---|---|
 | `worlds/<name>/` | ONE world, whichever producer builds it — its `WorldGenData` **or** its painted `map/`, plus that world's own `WorldStartData` / `WorldScriptData`. (`WorldFinishData` is NOT one of these — the finish passes are tuned once for the game, in `world_authoring/world_finish_data.tres`, and every world points at it.) A painted world links its start content through `WorldMapData.startContent` / `.finish`; the bake records the `WorldStartData`'s path in the `.hike` header and `WorldFileChunkSource` re-resolves it on load | is this world the only thing that wants it? |
 | `worlds/shared/` | the GAME's fiction, used by every world: `npcs/` (conversations, appearances), `party/`, `quests/`, `script_variables/`, `regions/`, `languages/`, `buried/`, and the spawn entries / lists / groups that NAME a character, language or story beat | a proper noun, but not one world's |
-| `world_authoring/` | the reusable authoring kit: `kits/`, `zones/`, `presets/`, `ground_sets/`, `prop_sets/`, `mob_sets/`, `spawn_entries/`, `spawn_lists/`, `spawn_groups/`, `mob_descriptors/`, `subscenes/`, `details/`, `roofs/`, `props/`, `editor/`, and the single shared `world_finish_data.tres` | a type, kit or style — no proper nouns |
+| `world_authoring/` | the reusable authoring kit: `kits/`, `zones/`, `presets/`, `ground_sets/`, `prop_sets/`, `prop_lists/`, `mob_sets/`, `spawn_entries/`, `spawn_lists/`, `spawn_groups/`, `mob_descriptors/`, `subscenes/`, `details/`, `roofs/`, `props/`, `editor/`, and the single shared `world_finish_data.tres` | a type, kit or style — no proper nouns |
 | `world_gen/` | the generator's reusable vocabulary: `ZoneGenData`, `RegionGenData`, `TerrainGenData` | nothing but the generator reads it |
 
 **`ZoneData` is a theme, `RegionData` is a place** — which is why they sit in
@@ -415,7 +415,9 @@ NOT need anything else under `map/`: the raster layers (`*.png`, `*.exr`,
 
 ### World Map Painting Tool (`scripts/worldmap/`, `scripts/data/worldmap/`, `scripts/data/world_editor/`)
 
-The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`). See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
+The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`).
+
+**What the painter can paint is DISCOVERED from disk, never registered.** A zone, ground set, prop set, mob set, preset or placeable entity becomes available by existing in the directory `WorldMapPaletteSource.Table` names for it — that table is the one place a palette is declared. The palettes whose index a raster stores (zone, region, ground, scatter, mobs, paving, water type) keep an append-only slot ledger in `map/palettes.tres` so a newly discovered file can never re-point an already-painted column. See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
 
 ### Blocks — the voxel material model (`scripts/data/world/`)
 
@@ -480,6 +482,31 @@ Runtime configuration variables with an in-game console. Add new CVars as `publi
 `Loc.Get(Loc.Keys.key)` and `Loc.Format(Loc.Keys.key, args...)` with `%0`/`%1` placeholders. Per-language TSV files (`resources/localization/english.tsv`) with `key\tvalue` columns. `Loc.Keys` enum is auto-generated on build from `english.tsv` via `tools/loc_generator`. Language controlled by `CVars.language`; changing it reloads strings and fires `Loc.OnLanguageChanged`.
 
 **Adding strings:** add `snake_case` key to `english.tsv`, use `Loc.Get`/`Loc.Format`. Search for unlocalised strings via `.Text =` with `$"..."` or string literals.
+
+**In-world language spans.** Authored text that a character SPEAKS or a sign is
+written in can switch in-world tongue mid-sentence: `[lang:<id>]…[/lang]`, where
+`<id>` is a `LanguageData.id` registered on `SimData.languages`, or the reserved
+`common` for the common tongue (understood by everyone — no language at all).
+Text outside a span is in the line's default language: the speaker's, or the one
+an inscription is written in.
+
+```
+intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
+```
+
+- **Every display path goes through `LanguageText.Render` / `.Comprehension`,
+  never `TextScrambler` directly** — the markup has to be stripped even when
+  nothing is scrambled (fluent player, unlanguaged sign, no player at all), and
+  each span scrambles against ITS OWN language, so a fluent Vyeshal speaker still
+  can't read a Muddish word quoted inside a Vyeshal line.
+- A span's Grammar shuffle stays inside that span, so a recognized word holds its
+  place and the fragments around it jumble on their own — the anchor is the point.
+- **Spans do not nest**, and the tags work in a `.tres` `Text` field (signpost,
+  knowledge stone) exactly as they do in the tsv.
+- Balance, nesting and unknown ids are checked over `english.tsv` at build time by
+  `tools/loc_generator` — a warning, never a build failure, so half-authored text
+  never blocks a playtest. Text authored in a `.tres` isn't covered; that only
+  errors at display time.
 
 ### Mob AI System (`scripts/gameplay/MobAI.cs`, `scripts/data/behaviors/`, `scripts/gameplay/behaviors/`)
 

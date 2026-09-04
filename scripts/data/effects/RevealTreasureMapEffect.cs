@@ -7,6 +7,10 @@ using Godot;
 // treasureName matches it — so a given map always points at the same treasure,
 // never a dynamically chosen one. The treasure exists independently and is
 // diggable with or without the map. Author into a ConsumableData's effects list.
+//
+// The item-shaped half of the pair: TreasureMapTeachable charts the same
+// treasure as a TeachableConcept (scroll, knowledge stone, NPC conversation).
+// Both route through WorldState.RevealTreasureMap.
 [GlobalClass]
 public partial class RevealTreasureMapEffect : ItemEffect
 {
@@ -23,39 +27,15 @@ public partial class RevealTreasureMapEffect : ItemEffect
         {
             return;
         }
-        WorldState ws = player.Sim?.WorldState;
-        SimState simState = ws?.SimState;
-        if (ws == null || simState == null || string.IsNullOrEmpty(treasureName))
+        // False when the spot is already charted, already dug up, or its chunk
+        // hasn't streamed in — nothing to chart, and no fx.
+        if (player.Sim?.WorldState?.RevealTreasureMap(treasureName) != true)
         {
             return;
         }
-        if (!ws.TreasureSpots.TryGetValue(treasureName, out Vector3 location))
-        {
-            // Treasure already dug up (registry entry cleared) or not yet
-            // streamed in — nothing to chart.
-            return;
-        }
-        // Don't stack a duplicate map for a spot already charted.
-        Vector3I key = MapMarkerRecord.KeyFor(location);
-        for (int i = 0; i < simState.TreasureMaps.Count; i++)
-        {
-            if (MapMarkerRecord.KeyFor(simState.TreasureMaps[i].DigLocation) == key)
-            {
-                return;
-            }
-        }
-        simState.AddTreasureMap(new TreasureMapState(location, DeriveRotation(location)));
         if (revealEffect != null)
         {
             ItemEventHandlers.SpawnOnActor(actor, revealEffect);
         }
-    }
-
-    // Deterministic per-location heading so a map's orientation is fixed
-    // (predetermined by the treasure's position), not re-rolled each read.
-    static float DeriveRotation(Vector3 location)
-    {
-        int h = (Mathf.RoundToInt(location.X) * 73856093) ^ (Mathf.RoundToInt(location.Z) * 19349663);
-        return (h & 0xFFFF) / 65535f * Mathf.Tau;
     }
 }

@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="PropListData" load_steps=10 format=3]
+
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
+[ext_resource type="PackedScene" uid="uid://ngyyjovwf6to" path="res://scenes/props/bush_01.tscn" id="sc_0"]
+[ext_resource type="PackedScene" uid="uid://c55djo6ltlx45" path="res://scenes/props/bush_02.tscn" id="sc_1"]
+[ext_resource type="PackedScene" uid="uid://xhsasaphibi8" path="res://scenes/props/bush_03.tscn" id="sc_2"]
+[ext_resource type="PackedScene" uid="uid://m8i6fl11f8pg" path="res://scenes/props/bush_04.tscn" id="sc_3"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_0")
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_1")
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_2")
+
+[sub_resource type="Resource" id="e_3"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_3")
+
+[resource]
+script = ExtResource("1_list")
+displayName = "Bushes"
+mapColor = Color(0.55, 0.72, 0.3, 1)
+scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3")]
+barrierDepthMeters = 3
+interiorHoleChance = 0.0

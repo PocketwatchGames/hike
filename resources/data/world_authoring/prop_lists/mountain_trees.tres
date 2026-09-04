@@ -1,0 +1,65 @@
+[gd_resource type="Resource" script_class="PropListData" load_steps=20 format=3]
+
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
+[ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="PackedScene" uid="uid://dgf3lsf0f6ngm" path="res://scenes/props/tree_pine.tscn" id="sc_0"]
+[ext_resource type="PackedScene" uid="uid://w7si8tgx547d" path="res://scenes/props/tree_pine_dead.tscn" id="sc_1"]
+[ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="sc_2"]
+[ext_resource type="PackedScene" uid="uid://b3eik2wv087fj" path="res://scenes/props/tree_sequoia_dead.tscn" id="sc_3"]
+[ext_resource type="PackedScene" uid="uid://7bdgoyo1ve4m" path="res://scenes/props/tree_birch.tscn" id="sc_4"]
+[ext_resource type="PackedScene" uid="uid://bdgsvwohjn47w" path="res://scenes/props/tree_birch_dead.tscn" id="sc_5"]
+[ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="sc_6"]
+[ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="sc_7"]
+[ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="sc_8"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_row")
+scene = ExtResource("sc_0")
+weight = 2.0
+tier = 3
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_row")
+scene = ExtResource("sc_1")
+weight = 2.0
+tier = 3
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_2")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_3"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_3")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_4"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_4")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_5"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_5")
+
+[sub_resource type="Resource" id="e_6"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_6")
+
+[sub_resource type="Resource" id="e_7"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_7")
+
+[sub_resource type="Resource" id="e_8"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_8")
+
+[resource]
+script = ExtResource("1_list")
+displayName = "Mountain Trees"
+mapColor = Color(0.35, 0.45, 0.38, 1)
+scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8")]
+barrierDepthMeters = 3
+interiorHoleChance = 0.5

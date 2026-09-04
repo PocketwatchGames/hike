@@ -28,6 +28,15 @@ public class TreasureMapState
         MapRotation = mapRotation;
     }
 
+    // Deterministic per-location heading so a map's orientation is fixed
+    // (predetermined by the treasure's position), not re-rolled each read —
+    // two maps to the same hole are drawn the same way up.
+    public static float DeriveRotation(Vector3 location)
+    {
+        int h = (Mathf.RoundToInt(location.X) * 73856093) ^ (Mathf.RoundToInt(location.Z) * 19349663);
+        return (h & 0xFFFF) / 65535f * Mathf.Tau;
+    }
+
     public void Serialize(BinaryWriter w)
     {
         w.Write(DigLocation.X);

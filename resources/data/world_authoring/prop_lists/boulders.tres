@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="PropListData" load_steps=8 format=3]
+
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
+[ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="sc_0"]
+[ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="sc_1"]
+[ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="sc_2"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_0")
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_1")
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_2")
+
+[resource]
+script = ExtResource("1_list")
+displayName = "Boulders"
+mapColor = Color(0.52, 0.5, 0.47, 1)
+scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2")]
+barrierDepthMeters = 3
+interiorHoleChance = 0.5

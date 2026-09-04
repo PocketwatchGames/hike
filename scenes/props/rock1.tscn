@@ -19,6 +19,7 @@ script = ExtResource("3_autocoll")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.0960593, 0.06587271, -13.56409)
 
 [node name="AutoCollision_SM_Gen_Env_Rock_01" type="StaticBody3D" parent="Model" unique_id=1885355937]
+collision_layer = 2048
 script = ExtResource("porous_body")
 
 [node name="Shape" type="CollisionShape3D" parent="Model/AutoCollision_SM_Gen_Env_Rock_01" unique_id=1178411607]

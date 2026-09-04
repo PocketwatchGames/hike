@@ -3,100 +3,14 @@
 [ext_resource type="Resource" uid="uid://bveu2uy5pjcn5" path="res://resources/data/voxels/blocks/block_forest_soil.tres" id="1_dp3f2"]
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/world_authoring/details/detail_grass.tres" id="3_detail"]
-[ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/interactives/foliage/tall_grass_01.tscn" id="4_g01"]
-[ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/interactives/foliage/tall_grass_02.tscn" id="4_g02"]
-[ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/interactives/foliage/tall_grass_03.tscn" id="4_g03"]
-[ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/interactives/foliage/tall_grass_04.tscn" id="4_g04"]
-[ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="5_t04"]
-[ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="5_t05"]
-[ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="5_t06"]
-[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="6_weighted"]
-[ext_resource type="PackedScene" uid="uid://dgf3lsf0f6ngm" path="res://scenes/props/tree_pine.tscn" id="13_3t0o8"]
-[ext_resource type="PackedScene" uid="uid://w7si8tgx547d" path="res://scenes/props/tree_pine_dead.tscn" id="14_elbrs"]
-[ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="15_pag05"]
-[ext_resource type="PackedScene" uid="uid://b3eik2wv087fj" path="res://scenes/props/tree_sequoia_dead.tscn" id="17_qpata"]
-[ext_resource type="PackedScene" uid="uid://7bdgoyo1ve4m" path="res://scenes/props/tree_birch.tscn" id="20_3r3jf"]
-[ext_resource type="PackedScene" uid="uid://bdgsvwohjn47w" path="res://scenes/props/tree_birch_dead.tscn" id="20_elbrs"]
 [ext_resource type="Resource" uid="uid://cdgwwdoxj3xkk" path="res://resources/data/world_authoring/prop_sets/mountain.tres" id="set_forest"]
-
-[sub_resource type="Resource" id="ws_4_g01"]
-script = ExtResource("6_weighted")
-scene = ExtResource("4_g01")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_4_g02"]
-script = ExtResource("6_weighted")
-scene = ExtResource("4_g02")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_4_g03"]
-script = ExtResource("6_weighted")
-scene = ExtResource("4_g03")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_4_g04"]
-script = ExtResource("6_weighted")
-scene = ExtResource("4_g04")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_5_t04"]
-script = ExtResource("6_weighted")
-scene = ExtResource("5_t04")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_5_t05"]
-script = ExtResource("6_weighted")
-scene = ExtResource("5_t05")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_5_t06"]
-script = ExtResource("6_weighted")
-scene = ExtResource("5_t06")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_13_3t0o8"]
-script = ExtResource("6_weighted")
-scene = ExtResource("13_3t0o8")
-weight = 2.0
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_14_elbrs"]
-script = ExtResource("6_weighted")
-scene = ExtResource("14_elbrs")
-weight = 2.0
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_15_pag05"]
-script = ExtResource("6_weighted")
-scene = ExtResource("15_pag05")
-weight = 2.0
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_17_qpata"]
-script = ExtResource("6_weighted")
-scene = ExtResource("17_qpata")
-weight = 2.0
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_20_3r3jf"]
-script = ExtResource("6_weighted")
-scene = ExtResource("20_3r3jf")
-weight = 2.0
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_20_elbrs"]
-script = ExtResource("6_weighted")
-scene = ExtResource("20_elbrs")
-metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]
 script = ExtResource("1_script")
 purpose = 1
 block = ExtResource("1_dp3f2")
 defaultDetail = ExtResource("3_detail")
+mossCoverage = 0.3
 detailNoiseThreshold = -0.5
 forestDensity = 0.1
 forest = ExtResource("set_forest")
-treeScenes = []
-tallGrassScenes = []
-mossCoverage = 0.3

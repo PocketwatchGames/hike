@@ -328,17 +328,7 @@ public partial class MerchantScreen : Control
 		{
 			return text ?? string.Empty;
 		}
-		LanguageData lang = _merchant?.SpokenLanguage;
-		if (lang == null || _player == null)
-		{
-			return text;
-		}
-		ELanguageComponents missing = ELanguageComponents.All & ~_player.GetLearnedComponents(lang);
-		if (missing == ELanguageComponents.None)
-		{
-			return text;
-		}
-		return TextScrambler.Scramble(text, lang, missing);
+		return LanguageText.Render(text, _merchant?.SpokenLanguage, _player);
 	}
 
 	// -------------------------------------------------------------------

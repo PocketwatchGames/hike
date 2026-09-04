@@ -55,8 +55,9 @@ public partial class WorldMapHud : CanvasLayer
 
     // Both bars are built from lists the painter hands over rather than authored
     // one-per-node, so adding a tool — or an op to a tool — cannot leave a stale
-    // button behind. The OPTION row labels its hotkeys (1..9), because that is
-    // the thing you change mid-stroke; switching tool is Tab or a click.
+    // button behind. The OPTION row labels its hotkeys where the tool HAS them
+    // (IWorldMapTool.NumberKeys), because that is the thing you change
+    // mid-stroke; switching tool is Tab or a click.
     public void BuildToolButtons(string[] names, System.Action<int> onPressed)
     {
         _toolButtons = BuildGroup(toolButtonBar, names, onPressed);
@@ -64,7 +65,10 @@ public partial class WorldMapHud : CanvasLayer
 
     // Called again on every tool change, so it clears whatever the last tool put
     // there. A tool with no discrete options leaves the list empty.
-    public void BuildOptionButtons(string[] names, Color[] colors, System.Action<int> onPressed)
+    // `numberKeys` is the tool's answer, not a count: a palette-backed tool has
+    // no digits at all, however short its list happens to be today.
+    public void BuildOptionButtons(string[] names, Color[] colors, bool numberKeys,
+        System.Action<int> onPressed)
     {
         _onOptionPressed = onPressed;
         if (optionList == null)
@@ -74,9 +78,9 @@ public partial class WorldMapHud : CanvasLayer
         optionList.Clear();
         for (int i = 0; i < names.Length; i++)
         {
-            // 1-9 pick an option, so only the first nine can name a key that
-            // does anything; the rest are clicked.
-            optionList.AddItem(i < NUMBER_KEYS ? $"{i + 1}  {names[i]}" : names[i]);
+            // Only the first nine can name a key that does anything; the rest
+            // are clicked, and a palette-backed tool labels none of them.
+            optionList.AddItem(numberKeys && i < NUMBER_KEYS ? $"{i + 1}  {names[i]}" : names[i]);
             if (colors != null && i < colors.Length)
             {
                 // Same colour the map draws this option in, so the two cannot
@@ -111,8 +115,8 @@ public partial class WorldMapHud : CanvasLayer
         optionList.EnsureCurrentIsVisible();
     }
 
-    // 1-9 pick an option, so a list longer than nine cannot label the rest with a
-    // key that does nothing. The overflow is clicked instead.
+    // Where a tool has digits, only nine of its options can carry one. The
+    // overflow is clicked instead.
     private const int NUMBER_KEYS = 9;
 
     // Dimmest a swatch may be as TEXT on the list's dark panel. The map colours

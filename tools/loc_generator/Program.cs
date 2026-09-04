@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 
 class Program
 {
@@ -23,8 +24,22 @@ class Program
 		}
 
 		var keys = new List<string>();
-		string[] lines = File.ReadAllLines(inputPath);
-		for (int i = 1; i < lines.Length; i++)
+		int markupWarnings = 0;
+		// FileShare.ReadWrite, not File.ReadAllLines: the tsv is routinely open
+		// in a spreadsheet while strings are being authored, and that holder's
+		// write handle makes the default (FileShare.Read) request fail — which
+		// failed the whole build with an unhandled IOException.
+		var lines = new List<string>();
+		using (var stream = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+		using (var reader = new StreamReader(stream))
+		{
+			string line;
+			while ((line = reader.ReadLine()) != null)
+			{
+				lines.Add(line);
+			}
+		}
+		for (int i = 1; i < lines.Count; i++)
 		{
 			string line = lines[i].Trim();
 			if (string.IsNullOrEmpty(line))
@@ -35,6 +50,16 @@ class Program
 			int wsIndex = line.IndexOfAny(new[] { ' ', '\t' });
 			string key = wsIndex >= 0 ? line.Substring(0, wsIndex) : line;
 			keys.Add(key);
+			if (wsIndex >= 0)
+			{
+				ValidateLanguageSpans(key, line.Substring(wsIndex + 1), KnownLanguageIds(inputPath), ref markupWarnings);
+			}
+		}
+		if (markupWarnings > 0)
+		{
+			// Warn, never fail: half-authored strings must not block a build or
+			// a playtest (same rule as ValidateScriptVars in hike.csproj).
+			Console.Error.WriteLine($"LocGenerator: {markupWarnings} [lang:...] markup warning(s) - see above.");
 		}
 
 		using var writer = new StreamWriter(outputPath);
@@ -59,5 +84,109 @@ class Program
 
 		Console.WriteLine($"Generated {keys.Count} keys -> {outputPath}");
 		return 0;
+	}
+
+	const string TagOpen = "[lang:";
+	const string TagClose = "[/lang]";
+	// Mirrors LanguageText.CommonId - the reserved span id meaning "no
+	// language", so it is never registered as a LanguageData.
+	const string CommonId = "common";
+
+	static HashSet<string> _knownLanguageIds;
+
+	// Every LanguageData.id authored anywhere under resources/. Scanned once
+	// and cached; a .tres holding one is identified by its script_class
+	// header, so the ids move with the data and this tool needs no list of
+	// its own.
+	static HashSet<string> KnownLanguageIds(string inputPath)
+	{
+		if (_knownLanguageIds != null)
+		{
+			return _knownLanguageIds;
+		}
+		_knownLanguageIds = new HashSet<string>(StringComparer.Ordinal);
+		string resourcesDir = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(inputPath), ".."));
+		if (!Directory.Exists(resourcesDir))
+		{
+			return _knownLanguageIds;
+		}
+		foreach (string path in Directory.EnumerateFiles(resourcesDir, "*.tres", SearchOption.AllDirectories))
+		{
+			string text;
+			try
+			{
+				text = File.ReadAllText(path);
+			}
+			catch (IOException)
+			{
+				continue;
+			}
+			if (!text.Contains("script_class=\"LanguageData\""))
+			{
+				continue;
+			}
+			Match match = Regex.Match(text, "^id = &\"([^\"]*)\"", RegexOptions.Multiline);
+			if (match.Success && match.Groups[1].Value.Length > 0)
+			{
+				_knownLanguageIds.Add(match.Groups[1].Value);
+			}
+		}
+		return _knownLanguageIds;
+	}
+
+	// Balance / nesting / unknown-id check for the inline language spans
+	// LanguageText parses at display time. Catching it here means an author
+	// hears about a typo on the next build instead of the next time that
+	// particular line happens to be shown in game.
+	static void ValidateLanguageSpans(string key, string value, HashSet<string> knownIds, ref int warnings)
+	{
+		bool open = false;
+		int i = 0;
+		while (true)
+		{
+			int nextOpen = value.IndexOf(TagOpen, i, StringComparison.Ordinal);
+			int nextClose = value.IndexOf(TagClose, i, StringComparison.Ordinal);
+			if (nextOpen < 0 && nextClose < 0)
+			{
+				break;
+			}
+			if (nextClose >= 0 && (nextOpen < 0 || nextClose < nextOpen))
+			{
+				if (!open)
+				{
+					Warn(key, $"'{TagClose}' with no open span", ref warnings);
+				}
+				open = false;
+				i = nextClose + TagClose.Length;
+				continue;
+			}
+			int end = value.IndexOf(']', nextOpen + TagOpen.Length);
+			if (end < 0)
+			{
+				Warn(key, $"unterminated '{TagOpen}' tag", ref warnings);
+				return;
+			}
+			if (open)
+			{
+				Warn(key, $"nested '{TagOpen}' tag - spans do not nest", ref warnings);
+			}
+			string id = value.Substring(nextOpen + TagOpen.Length, end - nextOpen - TagOpen.Length);
+			if (id != CommonId && !knownIds.Contains(id))
+			{
+				Warn(key, $"unknown language id '{id}' - no LanguageData under resources/ declares it, and it is not '{CommonId}'", ref warnings);
+			}
+			open = true;
+			i = end + 1;
+		}
+		if (open)
+		{
+			Warn(key, $"span left open (missing '{TagClose}')", ref warnings);
+		}
+	}
+
+	static void Warn(string key, string message, ref int warnings)
+	{
+		Console.Error.WriteLine($"LocGenerator: {key}: {message}.");
+		warnings++;
 	}
 }

@@ -84,6 +84,10 @@ public class EntityTool : IWorldMapTool
 
     public Color[] OptionColors(WorldMapInk ink) => null;
 
+    // No 1-9: spawn entries are a directory, so the first nine rows are an arbitrary prefix that
+    // moves whenever one is added.
+    public bool NumberKeys => false;
+
     public int OptionIndex
     {
         get => PaletteIndex;

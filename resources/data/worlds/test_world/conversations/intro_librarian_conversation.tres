@@ -1,43 +1,32 @@
 [gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://ofyxyq8xkkak"]
 
+[ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="1_jijgb"]
 [ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="1_ql26v"]
-[ext_resource type="Script" uid="uid://c83w2iv2epe5p" path="res://scripts/data/conversation/actions/OpenShopAction.cs" id="2_k4mi7"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="2_8vr7u"]
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_844g1"]
+[ext_resource type="Script" uid="uid://5rhnpp2tplumf" path="res://scripts/data/teaching/LanguageTeachable.cs" id="3_briq7"]
+[ext_resource type="Script" uid="uid://9tbw61ms9yw6e" path="res://scripts/data/conversation/actions/TeachAction.cs" id="4_1i6o6"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="4_jijgb"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="5_8vr7u"]
 [ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="6_briq7"]
 
+[sub_resource type="Resource" id="Resource_ewn67"]
+script = ExtResource("3_briq7")
+language = ExtResource("2_8vr7u")
+components = 29
+metadata/_custom_type_script = "uid://dpmklcm2q6qb2"
+
+[sub_resource type="Resource" id="Resource_c6bae"]
+script = ExtResource("4_1i6o6")
+concepts = Array[ExtResource("1_jijgb")]([SubResource("Resource_ewn67")])
+
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("1_ql26v")
 name = &"greeting"
-lineLocKeys = Array[StringName]([&"villager_greeting", &"villager_dialogue_1", &"villager_dialogue_2"])
-endActions = null
-exitGroup = &"topics"
+lineLocKeys = Array[StringName]([&"intro_librarian_greeting_01"])
+endActions = Array[Object]([SubResource("Resource_c6bae")])
+exitGroup = &""
 isPrimaryGroupEntry = true
-
-[sub_resource type="Resource" id="Branch_TellMore"]
-script = ExtResource("1_ql26v")
-name = &"tell_more"
-lineLocKeys = Array[StringName]([&"villager_nothing_more"])
-endActions = null
-exitGroup = &"topics"
-
-[sub_resource type="Resource" id="Branch_Beard"]
-script = ExtResource("1_ql26v")
-name = &"beard"
-lineLocKeys = Array[StringName]([&"villager_thanks"])
-endActions = null
-exitGroup = &"topics"
-
-[sub_resource type="Resource" id="Action_OpenShop"]
-script = ExtResource("2_k4mi7")
-
-[sub_resource type="Resource" id="Branch_Trade"]
-script = ExtResource("1_ql26v")
-name = &"trade"
-lineLocKeys = Array[StringName]([&"villager_lets_do_it"])
-endActions = [SubResource("Action_OpenShop")]
-exitGroup = null
 
 [sub_resource type="Resource" id="Entry_greeting"]
 script = ExtResource("3_844g1")
@@ -70,5 +59,5 @@ responses = [SubResource("Resp_TellMore"), SubResource("Resp_Beard"), SubResourc
 [resource]
 script = ExtResource("6_briq7")
 entryBranches = [SubResource("Entry_greeting")]
-branches = [SubResource("Branch_greeting"), SubResource("Branch_TellMore"), SubResource("Branch_Beard"), SubResource("Branch_Trade")]
+branches = [SubResource("Branch_greeting")]
 responseGroups = [SubResource("Group_Topics")]

@@ -929,36 +929,19 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return true;
 		}
-		// If the loot carries an item, only allow interact when there's
-		// space; otherwise the action would run to completion and silently
-		// fail. Armor/weapons can land directly in an empty equip slot, so a
-		// full backpack only blocks pickup when there's no slot to equip into.
+		// If the loot carries an item, only allow interact when there's space;
+		// otherwise the action would run to completion and silently fail. An
+		// equippable never touches the backpack — it goes to its slot and evicts
+		// whatever was there — so a full backpack only blocks materials.
 		if (_simState?.Item != null && player.Inventory.BackpackCount >= player.Inventory.BackpackCapacity)
 		{
 			ItemData data = _simState.Item.data ?? _simState.Data;
-			if (!HasEmptyEquipSlot(player.Inventory, data))
+			if (data == null || !data.IsSlotEquippable)
 			{
 				return false;
 			}
 		}
 		return true;
-	}
-
-	private static bool HasEmptyEquipSlot(Inventory inv, ItemData data)
-	{
-		if (inv == null || data == null)
-		{
-			return false;
-		}
-		switch (data)
-		{
-			case ArmorData armor:
-				return inv.GetEquipped(armor.armorSlot) == null;
-			case WeaponData weapon:
-				return inv.GetEquipped(weapon.CanonicalSlot) == null;
-			default:
-				return false;
-		}
 	}
 
 	public Array<InteractiveAction> GetActions(Player player)
@@ -1148,24 +1131,10 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return false;
 		}
-		Inventory inv = player.Inventory;
-
-		// Field pickup only takes materials into the backpack. Weapons / armor /
-		// equipment can't enter the backpack and aren't auto-equipped from the
-		// field — a dedicated equipment-pickup flow will handle those — so leave
-		// them lying in the world for now.
-		if (toAdd.data == null || !toAdd.data.IsMaterial)
-		{
-			return false;
-		}
-
-		int initial = toAdd.stackCount;
-		int added = inv.TryAdd(toAdd);
-		if (added < initial)
-		{
-			return false;
-		}
-		return true;
+		// Where the item lands is the player's decision, not the loot's: materials
+		// go to the backpack, equippables straight into their slot (displacing the
+		// occupant onto the ground). A refusal leaves the pile in the world.
+		return player.TakeItem(toAdd);
 	}
 
 	private void OnPickedUpFinished(StringName animName)

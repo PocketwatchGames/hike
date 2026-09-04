@@ -4,8 +4,8 @@
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_plit"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_puff"]
 [ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
-[ext_resource type="AudioStream" uid="uid://c51b8l85ypv5" path="res://assets/audio/source/impact/sfx_bomb_explosion_01.wav" id="4_boom1"]
-[ext_resource type="AudioStream" uid="uid://j7gewm1b72a7" path="res://assets/audio/source/impact/sfx_bomb_explosion_02.wav" id="5_boom2"]
+[ext_resource type="AudioStream" uid="uid://b6t1iy564nagh" path="res://assets/audio/source/weapons/sfx_magic_missile_expire.wav" id="4_pulse1"]
+[ext_resource type="AudioStream" uid="uid://co5glpebk1lmv" path="res://assets/audio/source/weapons/sfx_magic_missile_fire.wav" id="5_pulse2"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_wave"]
 emission_shape = 1
@@ -60,13 +60,13 @@ shader_parameter/use_vertex_color = true
 material = SubResource("ShaderMaterial_spark")
 size = Vector2(0.05, 0.05)
 
-[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_boom"]
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_pulse"]
 playback_mode = 1
-random_pitch = 1.12
+random_pitch = 1.15
 random_volume_offset_db = 2.0
 streams_count = 2
-stream_0/stream = ExtResource("4_boom1")
-stream_1/stream = ExtResource("5_boom2")
+stream_0/stream = ExtResource("4_pulse1")
+stream_1/stream = ExtResource("5_pulse2")
 
 [node name="DashBurstFx" type="Node3D" unique_id=317139861]
 script = ExtResource("1_fx")
@@ -94,8 +94,8 @@ process_material = SubResource("ParticleProcessMaterial_spark")
 draw_pass_1 = SubResource("QuadMesh_spark")
 
 [node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1252140004]
-stream = SubResource("AudioStreamRandomizer_boom")
-volume_db = 1.0
-unit_size = 8.0
-max_distance = 40.0
+stream = SubResource("AudioStreamRandomizer_pulse")
+volume_db = -14.0
+unit_size = 3.0
+max_distance = 18.0
 bus = &"World3D"

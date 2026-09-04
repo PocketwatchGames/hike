@@ -62,7 +62,7 @@ public static class SubsceneFile
     //     a slot can hold a resource's value (see WorldFile v51). v8 and earlier
     //     still read — their tables are bare path strings and their weapon,
     //     status-effect and item-state lists spell their references out.
-    public const uint VERSION = 9;
+    public const uint VERSION = 10;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.
@@ -205,7 +205,8 @@ public static class SubsceneFile
         int roofFormat = version >= 5 ? EntitySerializer.ROOF_FORMAT_FORM
             : version >= 4 ? EntitySerializer.ROOF_FORMAT_BROKEN
             : EntitySerializer.ROOF_FORMAT_ORIGINAL;
-        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6, tableRefs: version >= 9);
+        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6, tableRefs: version >= 9,
+            hasScale: version >= 10);
         return sub;
     }
 

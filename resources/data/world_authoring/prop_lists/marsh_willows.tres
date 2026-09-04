@@ -1,0 +1,123 @@
+[gd_resource type="Resource" script_class="PropListData" format=3 uid="uid://4ngxd5msdy0r"]
+
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
+[ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="PackedScene" uid="uid://ngyyjovwf6to" path="res://scenes/props/bush_01.tscn" id="7_82eiw"]
+[ext_resource type="PackedScene" uid="uid://c55djo6ltlx45" path="res://scenes/props/bush_02.tscn" id="8_ba78t"]
+[ext_resource type="PackedScene" uid="uid://xhsasaphibi8" path="res://scenes/props/bush_03.tscn" id="9_ph1fs"]
+[ext_resource type="PackedScene" uid="uid://m8i6fl11f8pg" path="res://scenes/props/bush_04.tscn" id="10_qw48e"]
+[ext_resource type="PackedScene" uid="uid://b2ofxysedy4e1" path="res://scenes/props/bush_05.tscn" id="11_denx5"]
+[ext_resource type="PackedScene" uid="uid://dadtbftka62g7" path="res://scenes/props/bush_06.tscn" id="12_0sl6f"]
+[ext_resource type="PackedScene" uid="uid://d0p0skp4l0qc6" path="res://scenes/props/bush_07.tscn" id="13_65wwk"]
+[ext_resource type="PackedScene" uid="uid://bmw6derouor6x" path="res://scenes/props/bush_08.tscn" id="14_kc2hr"]
+[ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="15_65wwk"]
+[ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="16_kc2hr"]
+[ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="17_cdjbq"]
+[ext_resource type="PackedScene" uid="uid://dahcrnl7vm3km" path="res://scenes/props/rock4.tscn" id="18_e18o1"]
+[ext_resource type="PackedScene" uid="uid://beodxq0b470rt" path="res://scenes/props/rock5.tscn" id="19_03u7h"]
+[ext_resource type="PackedScene" uid="uid://b6ep4v48e1gt" path="res://scenes/props/rock6.tscn" id="20_dna58"]
+[ext_resource type="PackedScene" uid="uid://bj7f8dy86dj1q" path="res://scenes/props/tree_willow.tscn" id="sc_0"]
+[ext_resource type="PackedScene" uid="uid://ble6ry6xb2qgc" path="res://scenes/props/tree_willow_dead.tscn" id="sc_1"]
+[ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="sc_2"]
+[ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="sc_3"]
+[ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="sc_4"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_0")
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_1")
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_2")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_3"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_3")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_4"]
+script = ExtResource("2_row")
+scene = ExtResource("sc_4")
+tier = 3
+
+[sub_resource type="Resource" id="Resource_cdjbq"]
+script = ExtResource("2_ws")
+scene = ExtResource("7_82eiw")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_e18o1"]
+script = ExtResource("2_ws")
+scene = ExtResource("8_ba78t")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_03u7h"]
+script = ExtResource("2_ws")
+scene = ExtResource("9_ph1fs")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_dna58"]
+script = ExtResource("2_ws")
+scene = ExtResource("10_qw48e")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_qw3hk"]
+script = ExtResource("2_ws")
+scene = ExtResource("11_denx5")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_dcbyi"]
+script = ExtResource("2_ws")
+scene = ExtResource("12_0sl6f")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_73t7p"]
+script = ExtResource("2_ws")
+scene = ExtResource("13_65wwk")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_8g84i"]
+script = ExtResource("2_ws")
+scene = ExtResource("14_kc2hr")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_oo46m"]
+script = ExtResource("2_ws")
+scene = ExtResource("15_65wwk")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_s0wpn"]
+script = ExtResource("2_ws")
+scene = ExtResource("16_kc2hr")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_1c784"]
+script = ExtResource("2_ws")
+scene = ExtResource("17_cdjbq")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_156a6"]
+script = ExtResource("2_ws")
+scene = ExtResource("18_e18o1")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_3camm"]
+script = ExtResource("2_ws")
+scene = ExtResource("19_03u7h")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[sub_resource type="Resource" id="Resource_4vt8n"]
+script = ExtResource("2_ws")
+scene = ExtResource("20_dna58")
+metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+
+[resource]
+script = ExtResource("1_list")
+displayName = "Marsh Willows"
+mapColor = Color(0.3, 0.42, 0.2, 1)
+scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("Resource_cdjbq"), SubResource("Resource_e18o1"), SubResource("Resource_03u7h"), SubResource("Resource_dna58"), SubResource("Resource_qw3hk"), SubResource("Resource_dcbyi"), SubResource("Resource_73t7p"), SubResource("Resource_8g84i"), SubResource("Resource_oo46m"), SubResource("Resource_s0wpn"), SubResource("Resource_1c784"), SubResource("Resource_156a6"), SubResource("Resource_3camm"), SubResource("Resource_4vt8n")]

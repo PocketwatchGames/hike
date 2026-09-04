@@ -10,11 +10,17 @@ using System.Collections.Generic;
 // is "does the world-vertical line through that centre hit the shape", run in
 // each shape's local space, so a shape tilted off vertical is still exact.
 //
-// Main-thread only: the gather buffer is shared to keep chunk loads
-// allocation-free.
+// Two ways in, because the two callers ask at different times:
+//   Collect  — a prop that is ALREADY PLACED. Gathers and rasterizes in one
+//              go against a shared buffer, so a chunk load allocates nothing.
+//              Main-thread only, for that reason.
+//   Measure  — a prop SCENE, once, into a reusable PropShape that can then be
+//              rasterized at any pose. This is what lets the world-map fill
+//              jitter a prop off its column centre without re-instantiating the
+//              scene per offset, which is otherwise the whole cost.
 public static class PropFootprint
 {
-    private enum EKind
+    internal enum EKind
     {
         Box,
         Sphere,
@@ -23,7 +29,7 @@ public static class PropFootprint
         Mesh,
     }
 
-    private struct Collider
+    internal struct Collider
     {
         public EKind Kind;
         // World -> shape local. The column test runs in local space.
@@ -34,6 +40,9 @@ public static class PropFootprint
         public float HalfHeight;   // Cylinder half height; Capsule cap-centre offset.
         public Vector3[] Faces;    // Mesh: triangle soup, 3 verts per triangle.
         public Aabb WorldBounds;   // Quick reject before the exact test.
+        // The same box in the space the collider was GATHERED in, so a shape
+        // measured once can have its world bounds re-derived under any pose.
+        public Aabb GatherBounds;
     }
 
     // Shapes sit parallel to the world axes far more often than not, so the
@@ -42,15 +51,198 @@ public static class PropFootprint
 
     private static readonly List<Collider> _colliders = new();
 
+    // One prop scene's static collision, measured once in the scene's OWN space
+    // and rasterizable at any pose afterwards. The world-map fill holds one per
+    // scene: instantiating a tree is the expensive half of a footprint, and the
+    // fill asks for the same tree at eight yaws and a spread of sub-metre
+    // offsets. Immutable, so the painter's main thread and the bake's worker
+    // may read one at the same time.
+    public sealed class Shape
+    {
+        private readonly Collider[] _shapes;
+
+        // Horizontal reach of what is DRAWN, not of what blocks — a canopy
+        // overhangs its trunk many times over, and how much room a prop needs
+        // in order to look unplanted is a fact about the canopy.
+        public readonly float VisualRadius;
+
+        // The collision's own horizontal reach from the origin, which is what
+        // a barrier is made of.
+        public readonly float CollisionRadius;
+
+        // How TALL the drawn prop is. What separates a tree from a bush: a
+        // collider's width says nothing useful (a pine's trunk collider is as
+        // wide as its canopy, a willow's is a tenth of it), but nothing low is
+        // a tree and nothing tall is undergrowth.
+        public readonly float VisualHeight;
+
+        public bool Blocks => _shapes.Length > 0;
+
+        internal Shape(Collider[] shapes, float visualRadius, float collisionRadius,
+            float visualHeight)
+        {
+            _shapes = shapes;
+            VisualRadius = visualRadius;
+            CollisionRadius = collisionRadius;
+            VisualHeight = visualHeight;
+        }
+
+        // The columns this prop covers standing at `pose`. Nothing is cached per
+        // pose: the query POINT is carried back into the measured space instead,
+        // so an arbitrary offset costs the same as the centred one and no pose
+        // allocates.
+        public void Rasterize(Transform3D pose, List<Vector2I> columns)
+        {
+            columns.Clear();
+            if (_shapes.Length == 0)
+            {
+                return;
+            }
+            Aabb bounds = pose * _shapes[0].GatherBounds;
+            for (int i = 1; i < _shapes.Length; i++)
+            {
+                bounds = bounds.Merge(pose * _shapes[i].GatherBounds);
+            }
+            Transform3D inverse = pose.AffineInverse();
+            int minX = Mathf.FloorToInt(bounds.Position.X);
+            int maxX = Mathf.FloorToInt(bounds.Position.X + bounds.Size.X);
+            int minZ = Mathf.FloorToInt(bounds.Position.Z);
+            int maxZ = Mathf.FloorToInt(bounds.Position.Z + bounds.Size.Z);
+            for (int z = minZ; z <= maxZ; z++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (Covers(inverse, x + 0.5f, z + 0.5f))
+                    {
+                        columns.Add(new Vector2I(x, z));
+                    }
+                }
+            }
+        }
+
+        private bool Covers(in Transform3D inverse, float wx, float wz)
+        {
+            // The world-vertical line through the column centre, carried into
+            // the space the shapes were measured in.
+            Vector3 origin = inverse * new Vector3(wx, 0f, wz);
+            Vector3 direction = inverse.Basis * Vector3.Up;
+            for (int i = 0; i < _shapes.Length; i++)
+            {
+                if (HitsCollider(_shapes[i], origin, direction))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    // A shape for a scene that could not be loaded, so a caller's cache can
+    // hold the answer rather than re-trying the load at every query.
+    public static Shape EmptyShape() => new(System.Array.Empty<Collider>(), 0f, 0f, 0f);
+
+    // Measure a prop scene, which must be instantiated but need not be in the
+    // tree. The result is in the SCENE's own space — its root seated at the
+    // origin, unrotated — which is what makes it reusable at any pose.
+    public static Shape Measure(Node3D root)
+    {
+        var shapes = new List<Collider>();
+        Gather(root, Transform3D.Identity, false, shapes);
+        float collisionRadius = 0f;
+        foreach (Collider collider in shapes)
+        {
+            collisionRadius = Mathf.Max(collisionRadius, HorizontalReach(collider.GatherBounds));
+        }
+        return new Shape(shapes.ToArray(),
+            Mathf.Max(collisionRadius, VisualReach(root, Transform3D.Identity)), collisionRadius,
+            VisualTop(root, Transform3D.Identity));
+    }
+
+    // How far the DRAWN prop reaches from its origin, horizontally.
+    //
+    // Foliage is read off the authored FoliageCluster nodes rather than off the
+    // MultiMesh they bake into, because the bake is rebuilt at runtime and the
+    // copy stored in the .tscn is only the editor's last preview — a bush whose
+    // clusters were widened measures at its old size until someone opens it.
+    // The authored radii are the honest answer either way.
+    private static float VisualReach(Node node, Transform3D xform)
+    {
+        if (node is Node3D spatial)
+        {
+            xform *= spatial.Transform;
+        }
+        float reach = 0f;
+        if (node is FoliageCluster cluster)
+        {
+            Vector3 origin = xform.Origin;
+            float spread = Mathf.Max(cluster.ellipsoidRadii.X, cluster.ellipsoidRadii.Z)
+                + cluster.cardSizeMax * 0.5f;
+            reach = Mathf.Sqrt(origin.X * origin.X + origin.Z * origin.Z) + spread;
+        }
+        else if (node is VisualInstance3D visual && node is not MultiMeshInstance3D)
+        {
+            reach = HorizontalReach(xform * visual.GetAabb());
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            reach = Mathf.Max(reach, VisualReach(child, xform));
+        }
+        return reach;
+    }
+
+    // How high the DRAWN prop reaches. Read off the authored FoliageCluster
+    // nodes for the same reason VisualReach is — the MultiMesh they bake into is
+    // only the editor's last preview.
+    private static float VisualTop(Node node, Transform3D xform)
+    {
+        if (node is Node3D spatial)
+        {
+            xform *= spatial.Transform;
+        }
+        float top = 0f;
+        if (node is FoliageCluster cluster)
+        {
+            top = xform.Origin.Y + cluster.ellipsoidRadii.Y + cluster.cardSizeMax * 0.5f;
+        }
+        else if (node is VisualInstance3D visual && node is not MultiMeshInstance3D)
+        {
+            Aabb box = xform * visual.GetAabb();
+            top = box.Position.Y + box.Size.Y;
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            top = Mathf.Max(top, VisualTop(child, xform));
+        }
+        return top;
+    }
+
+    // The furthest any corner of a box lies from the vertical axis through the
+    // origin — a prop modelled off-centre reaches further than its half-extent.
+    private static float HorizontalReach(in Aabb box)
+    {
+        float x = Mathf.Max(Mathf.Abs(box.Position.X), Mathf.Abs(box.Position.X + box.Size.X));
+        float z = Mathf.Max(Mathf.Abs(box.Position.Z), Mathf.Abs(box.Position.Z + box.Size.Z));
+        return Mathf.Sqrt(x * x + z * z);
+    }
+
     // Fills `columns` with every 1m world column (voxel XZ coords) covered by
     // `entity`'s static collision, and returns whether it has any at all — the
     // two differ for a prop too thin to reach a column centre (a 0.3m tree
     // trunk usually covers none), which the caller still wants on the map.
     public static bool Collect(Node3D entity, List<Vector2I> columns)
+        => Collect(entity, entity.GlobalTransform, columns);
+
+    // The same, for an entity that is NOT in the tree and therefore has no
+    // global transform to read — a scene instantiated purely to measure what it
+    // would cover if it were placed at `worldXform` (the world-map painter's
+    // prop fill). The transform is threaded down the hierarchy rather than
+    // re-read per node, which is what makes the two callers one implementation:
+    // in the tree the product IS the global transform.
+    public static bool Collect(Node3D entity, Transform3D worldXform, List<Vector2I> columns)
     {
         columns.Clear();
         _colliders.Clear();
-        Gather(entity, false, _colliders);
+        Gather(entity, worldXform, false, _colliders);
         if (_colliders.Count == 0)
         {
             return false;
@@ -89,20 +281,7 @@ public static class PropFootprint
             {
                 continue;
             }
-            // The world-vertical line through the column centre, in local space.
-            Vector3 p = c.Inverse * new Vector3(wx, 0f, wz);
-            Vector3 d = c.Inverse.Basis * Vector3.Up;
-            bool hit = c.Kind switch
-            {
-                EKind.Box => LineHitsBox(p - c.Center, d, c.Half),
-                EKind.Sphere => LineHitsSphere(p, d, Vector3.Zero, c.Radius),
-                EKind.Cylinder => LineHitsCylinder(p, d, c.Radius, c.HalfHeight),
-                EKind.Capsule => LineHitsCylinder(p, d, c.Radius, c.HalfHeight)
-                    || LineHitsSphere(p, d, new Vector3(0f, c.HalfHeight, 0f), c.Radius)
-                    || LineHitsSphere(p, d, new Vector3(0f, -c.HalfHeight, 0f), c.Radius),
-                _ => LineHitsMesh(p, d, c.Faces),
-            };
-            if (hit)
+            if (HitsCollider(c, new Vector3(wx, 0f, wz), Vector3.Up))
             {
                 return true;
             }
@@ -110,24 +289,51 @@ public static class PropFootprint
         return false;
     }
 
+    // Does the line through `origin` along `direction` — both in the space the
+    // collider was gathered in — pass through the shape?
+    private static bool HitsCollider(in Collider c, Vector3 origin, Vector3 direction)
+    {
+        Vector3 p = c.Inverse * origin;
+        Vector3 d = c.Inverse.Basis * direction;
+        return c.Kind switch
+        {
+            EKind.Box => LineHitsBox(p - c.Center, d, c.Half),
+            EKind.Sphere => LineHitsSphere(p, d, Vector3.Zero, c.Radius),
+            EKind.Cylinder => LineHitsCylinder(p, d, c.Radius, c.HalfHeight),
+            EKind.Capsule => LineHitsCylinder(p, d, c.Radius, c.HalfHeight)
+                || LineHitsSphere(p, d, new Vector3(0f, c.HalfHeight, 0f), c.Radius)
+                || LineHitsSphere(p, d, new Vector3(0f, -c.HalfHeight, 0f), c.Radius),
+            _ => LineHitsMesh(p, d, c.Faces),
+        };
+    }
+
     // Static collision only: an Area3D is a trigger volume and blocks nothing,
     // so a berry bush's pickup radius must not read as an obstacle.
-    private static void Gather(Node node, bool insideStaticBody, List<Collider> outColliders)
+    //
+    // `xform` is the accumulated transform of everything above `node`, INCLUDING
+    // node's own — never Node3D.GlobalTransform, which is only maintained for a
+    // node inside the tree and silently reads as the local one outside it. That
+    // measured every prop at its own origin rather than where it stands.
+    private static void Gather(Node node, Transform3D xform, bool insideStaticBody, List<Collider> outColliders)
     {
+        if (node is Node3D spatial)
+        {
+            xform *= spatial.Transform;
+        }
         if (node is CollisionObject3D)
         {
             insideStaticBody = node is StaticBody3D;
         }
         if (insideStaticBody && node is CollisionShape3D cs && !cs.Disabled && cs.Shape != null)
         {
-            if (TryBuild(cs.Shape, cs.GlobalTransform, out Collider collider))
+            if (TryBuild(cs.Shape, xform, out Collider collider))
             {
                 outColliders.Add(collider);
             }
         }
         foreach (Node child in node.GetChildren())
         {
-            Gather(child, insideStaticBody, outColliders);
+            Gather(child, xform, insideStaticBody, outColliders);
         }
     }
 
@@ -197,6 +403,7 @@ public static class PropFootprint
                 break;
         }
         collider.WorldBounds = xform * local;
+        collider.GatherBounds = collider.WorldBounds;
         return true;
     }
 

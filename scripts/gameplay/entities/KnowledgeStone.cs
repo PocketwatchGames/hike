@@ -93,13 +93,7 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
         // other concept types don't affect text legibility. A stone teaching
         // only a recipe / region renders its inscription scrambled until
         // some other source teaches the inscription language.
-        ELanguageComponents missing = player == null || _inscriptionLanguage == null
-            ? ELanguageComponents.None
-            : ELanguageComponents.All & ~player.GetLearnedComponents(_inscriptionLanguage);
-        string display = missing == ELanguageComponents.None
-            ? _text
-            : TextScrambler.Scramble(_text, _inscriptionLanguage, missing);
-        hud.ShowSignpost(display, this);
+        hud.ShowSignpost(LanguageText.Render(_text, _inscriptionLanguage, player), this);
     }
 
     public static KnowledgeStone Create(Sim sim, KnowledgeStoneSimState data)

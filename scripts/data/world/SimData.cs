@@ -241,6 +241,52 @@ public partial class SimData : Resource
     // campfire. Null disables party revival.
     [Export] public InteractiveAction partyReviveAction;
 
+    // Master language registry. An inline [lang:<id>] span in authored text
+    // resolves its token against this list (see LanguageText), so a language
+    // that isn't here can't be named from a line of dialogue or an
+    // inscription. Adding a language = adding it here.
+    [Export] public Array<LanguageData> languages = new();
+
+    // The common tongue — the one language every character is born speaking, and
+    // the default any line falls back to. Real LanguageData rather than a null
+    // "no language", so it can be named the way any other tongue is: picked in a
+    // ConversationBranch / ConversationResponse language slot, tested by
+    // SpeaksLanguageCondition, resolved by the reserved [lang:common] span.
+    //
+    // Player.GetLearnedComponents answers All for it unconditionally — knowing it
+    // is a fact about the world, not a per-world authoring step, so no world can
+    // forget to grant it and render every common line as gibberish. Keep it in
+    // `languages` as well; that list is what resolves the span token.
+    [Export] public LanguageData commonTongue;
+
+    // Managed id -> language mirror over `languages`. Built once on first
+    // read; safe because *Data is immutable after load.
+    System.Collections.Generic.Dictionary<StringName, LanguageData> _languagesById;
+
+    // Null for an unregistered id — callers report, they don't guess.
+    public LanguageData LanguageById(StringName id)
+    {
+        if (id is null || id.IsEmpty)
+        {
+            return null;
+        }
+        if (_languagesById == null)
+        {
+            _languagesById = new System.Collections.Generic.Dictionary<StringName, LanguageData>();
+            int count = languages.Count;
+            for (int i = 0; i < count; i++)
+            {
+                LanguageData lang = languages[i];
+                if (lang == null || lang.id is null || lang.id.IsEmpty)
+                {
+                    continue;
+                }
+                _languagesById[lang.id] = lang;
+            }
+        }
+        return _languagesById.TryGetValue(id, out LanguageData found) ? found : null;
+    }
+
     // Grammar's contribution to TextScrambler.ComputeComprehension. Final
     // understanding = translatedPct × ((1 - this) + orderPct × this), so:
     //   0   = grammar irrelevant, only word translation counts.

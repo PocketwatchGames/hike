@@ -212,12 +212,6 @@ public partial class ConversationController : Control
 		float branchComp = primary != null
 			? ConversationVisibility.ComputeBranchComprehension(primary, lang, _ctx.player, grammarWeight)
 			: 1f;
-		// Missing components for the primary branch's language — drives
-		// the response-text scramble. Uses the same language as the
-		// comprehension calc so visibility and scramble agree.
-		ELanguageComponents missing = (_ctx.player == null || lang == null)
-			? ELanguageComponents.None
-			: ELanguageComponents.All & ~_ctx.player.GetLearnedComponents(lang);
 		bool debug = CVars.conversationDebug.Value;
 		for (int i = 0; i < group.responses.Count; i++)
 		{
@@ -242,7 +236,7 @@ public partial class ConversationController : Control
 				continue;
 			}
 			string debugSuffix = debug ? FormatDebugSuffix(vis) : null;
-			SpawnResponseButton(r, lang, missing, enabled: vis.Visible, debugSuffix);
+			SpawnResponseButton(r, lang, _ctx.player, enabled: vis.Visible, debugSuffix);
 		}
 		if (_responseButtons.Count == 0)
 		{
@@ -317,7 +311,7 @@ public partial class ConversationController : Control
 		return $"[{scorePct}% / {rollPct}%]";
 	}
 
-	void SpawnResponseButton(ConversationResponse response, LanguageData lang, ELanguageComponents missing, bool enabled, string debugSuffix)
+	void SpawnResponseButton(ConversationResponse response, LanguageData lang, Player player, bool enabled, string debugSuffix)
 	{
 		Node instance = responseOptionScene.Instantiate();
 		if (instance is not Button btn)
@@ -335,11 +329,10 @@ public partial class ConversationController : Control
 		}
 		else
 		{
-			label = Loc.Get(key);
-			if (missing != ELanguageComponents.None)
-			{
-				label = TextScrambler.Scramble(label, lang, missing);
-			}
+			// Resolve through the response so a common-tongue line is DRAWN in
+			// the same language ConversationVisibility scored it in — otherwise
+			// an always-visible option could still render as gibberish.
+			label = LanguageText.Render(Loc.Get(key), response.ResolveLanguage(lang), player);
 		}
 		if (debugSuffix != null)
 		{
@@ -535,20 +528,15 @@ public partial class ConversationController : Control
 			return;
 		}
 		LanguageData lang = branch.language ?? ctx.speakerLanguage;
-		ELanguageComponents missing = (ctx.player == null || lang == null)
-			? ELanguageComponents.None
-			: ELanguageComponents.All & ~ctx.player.GetLearnedComponents(lang);
-		for (int i = 0; i < branch.lineLocKeys.Count; i++)
+		int count = branch.lineLocKeys.Count;
+		for (int i = 0; i < count; i++)
 		{
 			StringName key = branch.lineLocKeys[i];
 			if (key == default || key == "")
 			{
 				continue;
 			}
-			string text = Loc.Get(key);
-			_lines.Add(missing == ELanguageComponents.None
-				? text
-				: TextScrambler.Scramble(text, lang, missing));
+			_lines.Add(LanguageText.Render(Loc.Get(key), lang, ctx.player));
 		}
 	}
 }

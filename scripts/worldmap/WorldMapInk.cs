@@ -211,7 +211,7 @@ public class WorldMapInk
 
     private void BuildWaterTypeInk()
     {
-        BlockData[] types = Map.Data.waterTypes ?? System.Array.Empty<BlockData>();
+        BlockData[] types = Map.WaterTypes;
         _waterTypeInk = new Color[types.Length];
         for (int i = 0; i < types.Length; i++)
         {

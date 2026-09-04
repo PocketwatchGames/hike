@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="PropListData" format=3]
+
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
+[ext_resource type="PackedScene" uid="uid://b42bejo3mkprs" path="res://scenes/props/rock_breakable_1.tscn" id="sc_0"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_breakable_2.tscn" id="sc_1"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_breakable_3.tscn" id="sc_2"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_breakable_4.tscn" id="sc_3"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_breakable_5.tscn" id="sc_4"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_breakable_6.tscn" id="sc_5"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_0")
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_1")
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_2")
+
+[sub_resource type="Resource" id="e_3"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_3")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_4"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_4")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_5"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_5")
+weight = 2.0
+
+[resource]
+script = ExtResource("1_list")
+displayName = "Breakable Rocks"
+mapColor = Color(0.62, 0.66, 0.78, 1)
+scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5")]
+barrierDepthMeters = 3
+interiorDensity = 0.35
+densityRampMeters = 8
+canopySpacing = 0.8
+minSpacingMeters = 2.0
+positionJitter = 0.35
+scaleJitter = 0.2
+varietyPressure = 1.5

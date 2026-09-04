@@ -354,6 +354,34 @@ public class WorldState
     // world creation and on every sleep-to-sunrise (Sim.AdvanceToNextSunrise).
     // Both slots are determined here so the HUD can forecast the whole day up
     // front and the sunset crossfade has a fixed target.
+    // Chart the named buried treasure onto the player's map. The single
+    // implementation behind every source that hands out a map — the pickup
+    // effect on a map item, a TreasureMapTeachable on a scroll / stone / NPC
+    // conversation. Returns true only on a NEW chart, so callers gate their
+    // "you got something" fx on it.
+    //
+    // Answers false when the name isn't in TreasureSpots, which covers both
+    // "already dug up" and "that chunk hasn't streamed in yet" — the registry
+    // is a runtime cache filled by BuriedSpot.Create, not world data, so a
+    // treasure far from the player is simply unknown.
+    public bool RevealTreasureMap(string treasureName)
+    {
+        if (string.IsNullOrEmpty(treasureName) || SimState == null)
+        {
+            return false;
+        }
+        if (!TreasureSpots.TryGetValue(treasureName, out Vector3 location))
+        {
+            return false;
+        }
+        if (SimState.HasTreasureMapAt(location))
+        {
+            return false;
+        }
+        SimState.AddTreasureMap(new TreasureMapState(location, TreasureMapState.DeriveRotation(location)));
+        return true;
+    }
+
     public void RollDailyWeather()
     {
         DayWeatherVariance = WeatherRng.Randf();

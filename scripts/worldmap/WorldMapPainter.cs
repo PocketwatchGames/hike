@@ -150,7 +150,7 @@ public partial class WorldMapPainter : Node3D
 
     // Bindings that mean the same thing whichever tool is active.
     private const string GLOBAL_HINT =
-        "Tab tool  |  1-9 option  |  Q/E param  |  R/F level  |  T/G or Alt+Wheel cutaway  |  Alt+RMB aim it  |  X mode  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save  |  Esc menu";
+        "Tab tool  |  Q/E param  |  R/F level  |  T/G or Alt+Wheel cutaway  |  Alt+RMB aim it  |  X mode  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save  |  Esc menu";
 
     // The document this painter is editing, for the console commands that act on
     // "whatever is open".
@@ -165,6 +165,11 @@ public partial class WorldMapPainter : Node3D
         MusicManager.Instance?.SetEditor(true);
 
         _ctx = new WorldMapState(data);
+        // OPENING the painter re-reads the prop lists and their collision too,
+        // not just baking: an author who quits to the menu, widens a trunk in
+        // the editor and comes back expects to see it, and the alternative is a
+        // map drawn from a collider that no longer exists.
+        _ctx.RefreshPropAssets();
         _view = new WorldMapView(data);
         _ink = new WorldMapInk(_ctx, ink, _view);
         _history = new MapHistory(_ctx, undoDepth);
@@ -189,7 +194,8 @@ public partial class WorldMapPainter : Node3D
             new ZoneTool(),
             new WindTool(),
             new GroundTool(),
-            new ScatterTool(),
+            new CollidablePropTool(),
+            new DestructiblePropTool(),
             new MobTool(),
             new MobLevelTool(),
             new ClimbTool(),
@@ -370,7 +376,8 @@ public partial class WorldMapPainter : Node3D
         }
         canvas.CursorRadiusTexels = ActiveTool.Radius;
         hud.SetActiveTool(index);
-        hud.BuildOptionButtons(ActiveTool.Options(_ctx), ActiveTool.OptionColors(_ink), SelectOption);
+        hud.BuildOptionButtons(ActiveTool.Options(_ctx), ActiveTool.OptionColors(_ink),
+            ActiveTool.NumberKeys, SelectOption);
         hud.SetActiveOption(ActiveTool.OptionIndex);
         _markedSelection = ActiveTool.SelectedEntity;
         _markedEntry = ActiveTool.SelectedEntry(_ctx);
@@ -516,8 +523,11 @@ public partial class WorldMapPainter : Node3D
         if (e is InputEventKey k && k.Pressed && !k.Echo)
         {
             // 1..9 pick the active tool's option — the thing you change often
-            // mid-stroke. Switching tool is Tab or the toolbar.
-            if (k.Keycode >= Key.Key1 && k.Keycode <= Key.Key9)
+            // mid-stroke. Switching tool is Tab or the toolbar. Tools whose
+            // options are a discovered palette decline the keys entirely rather
+            // than binding nine of an open-ended list; the option row labels
+            // digits only where they work, so the affordance follows the tool.
+            if (ActiveTool.NumberKeys && k.Keycode >= Key.Key1 && k.Keycode <= Key.Key9)
             {
                 int index = (int)(k.Keycode - Key.Key1);
                 if (index < ActiveTool.Options(_ctx).Length)
@@ -610,6 +620,15 @@ public partial class WorldMapPainter : Node3D
             return;
         }
         hud.SetStatus("Saved layers");
+
+        // Re-read the prop lists and their scenes before the snapshot resolves
+        // them, so a bake always fills from the collision as it is on disk NOW.
+        // The live state is refreshed too and the map redrawn from it: the
+        // preview and the bake have to agree, and they would not if the bake
+        // measured a trunk the dots were still drawn for.
+        _ctx.RefreshPropAssets();
+        RebuildFull();
+        PushDisplay();
 
         WorldMapState snapshot;
         try
@@ -1001,27 +1020,32 @@ public partial class WorldMapPainter : Node3D
         }
 
         // Third pass: one dot per column that will really spawn. Runs the same
-        // roll the bake runs, so this is the result rather than an impression of
-        // it. Needs at least a couple of pixels per metre to read as dots
-        // instead of a smear, so it is skipped when zoomed further out.
+        // resolution the bake runs, so this is the result rather than an
+        // impression of it.
         // Over the FILL range, not the edge range: the fill runs one cell wider,
         // so dotting only the narrower range left a one-cell ring whose base
         // colour was repainted and whose dots were never put back. Every stroke
         // erased that ring, and the next stroke over it restored them — which
         // reads as the dots flickering while you paint.
-        if (view.PreviewLayer != ESpawnPreview.None && pixelsPerMeter >= 2)
+        //
+        // Props are NOT gated on zoom, and mobs are. A prop layer places one per
+        // painted column, so its dots ARE the painted region — a smear of them
+        // is the answer, and hiding it zoomed out hides the barrier you came to
+        // look at. A mob dot is one roll off a rate, where a smear says nothing
+        // and needs a couple of pixels per metre to read at all.
+        if (view.PreviewLayer.HasFlag(ESpawnPreview.Props))
         {
-            // Props first so mobs land on top of them where a column has both:
-            // two dots cannot share a cell, and what lives somewhere is the more
-            // urgent of the two answers.
-            if (view.PreviewLayer.HasFlag(ESpawnPreview.Props))
-            {
-                DrawSpawnDots(x0, z0, x1, z1, _ctx.PropSets, _ctx.PreviewSpawnAt);
-            }
-            if (view.PreviewLayer.HasFlag(ESpawnPreview.Mobs))
-            {
-                DrawSpawnDots(x0, z0, x1, z1, _ctx.MobSets, _ctx.PreviewMobAt);
-            }
+            // Breakable first, so blocking lands on top where a stroke covered
+            // both — though the two never share a column, since the blocking
+            // layer takes any the pair both cover.
+            DrawPropDots(x0, z0, x1, z1, _ctx.InBreakableRegion,
+                ink.destructiblePropInk, ink.destructiblePropDotFraction);
+            DrawPropDots(x0, z0, x1, z1, _ctx.InBlockingRegion,
+                ink.collidablePropInk, ink.collidablePropDotFraction);
+        }
+        if (view.PreviewLayer.HasFlag(ESpawnPreview.Mobs) && pixelsPerMeter >= 2)
+        {
+            DrawSpawnDots(x0, z0, x1, z1, _ctx.MobSets, _ctx.PreviewMobAt);
         }
 
         // Fourth pass: the hand-placed entities and the player spawn, on every
@@ -1330,23 +1354,59 @@ public partial class WorldMapPainter : Node3D
                 {
                     continue;
                 }
-                DrawSpawnDot(px, pz, sets[setIndex]?.mapColor ?? Colors.White);
+                Color c = sets[setIndex]?.mapColor ?? Colors.White;
+                DrawSpawnDot(px, pz, new Color(c.R, c.G, c.B, 1f), ink.mobDotFraction);
             }
         }
     }
 
-    // A centred square inside the metre cell, opaque so it reads against the
-    // region wash under it.
-    private void DrawSpawnDot(int px, int pz, Color c)
+    // One prop layer, drawn as WHAT WAS PAINTED: a dot on every column of the
+    // layer's raster, all the same. Deliberately NOT the resolved fill.
+    //
+    // The fill is a product of the bake — which props, where, and which interior
+    // it left as clearings — and drawing it live made a stroke come back patchy
+    // and made the map answer a question the author did not ask while painting.
+    // What they are authoring is the REGION; how many trees that turns into is
+    // for export to work out, and for worldmap_check to count.
+    //
+    // It is also what makes the dots a pure function of one raster: no terrain,
+    // no placements, no collision measurement, and no per-chunk fill built just
+    // to draw a frame.
+    //
+    // The dot is a little smaller than the metre cell it sits in, so the ground
+    // shows between the marks and a painted region stays a region drawn OVER the
+    // map rather than a hole punched in it.
+    //
+    // In the LAYER's ink rather than the list's colour: what a region does to
+    // movement is what the map has to say, and which list furnished it is the
+    // palette's answer.
+    private void DrawPropDots(int x0, int z0, int x1, int z1,
+        System.Func<int, int, bool> coversAt, Color layerInk, float dotFraction)
     {
-        int size = Mathf.Max(1, pixelsPerMeter / 2 + 1);
+        for (int px = x0; px < x1; px++)
+        {
+            for (int pz = z0; pz < z1; pz++)
+            {
+                if (coversAt(px, pz))
+                {
+                    DrawSpawnDot(px, pz, layerInk, dotFraction);
+                }
+            }
+        }
+    }
+
+    // A centred square inside the metre cell, at the ink's own alpha — a dot is
+    // read against the ground wash it sits on, and how strongly it covers that
+    // is half of what tells the two prop layers apart.
+    private void DrawSpawnDot(int px, int pz, Color c, float fraction)
+    {
+        int size = Mathf.Clamp(Mathf.RoundToInt(pixelsPerMeter * fraction), 1, pixelsPerMeter);
         int off = (pixelsPerMeter - size) / 2;
-        var ink = new Color(c.R, c.G, c.B, 1f);
         for (int dz = 0; dz < size; dz++)
         {
             for (int dx = 0; dx < size; dx++)
             {
-                BlendPixel(px * pixelsPerMeter + off + dx, pz * pixelsPerMeter + off + dz, ink);
+                BlendPixel(px * pixelsPerMeter + off + dx, pz * pixelsPerMeter + off + dz, c);
             }
         }
     }

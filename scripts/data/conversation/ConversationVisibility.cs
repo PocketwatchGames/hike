@@ -4,7 +4,11 @@ using Godot;
 // shown to the player by combining the authored ConversationCondition hard
 // gate with a stable, comprehension-driven probabilistic gate.
 //
-// The probabilistic side takes the MIN of two TextScrambler.ComputeComprehension
+// A response carrying its own ConversationResponse.language is exempt from the
+// branch half of that min (see Compute) — it is not spoken in the NPC's tongue,
+// so nothing about their line gates it.
+//
+// The probabilistic side takes the MIN of two LanguageText.Comprehension
 // scores: how well the player understood the NPC's BRANCH text leading up
 // to this point, AND how well they understand the RESPONSE itself in the
 // same language. The weaker of the two caps the chance — so a player who
@@ -17,7 +21,10 @@ using Godot;
 public static class ConversationVisibility
 {
     // Aggregate comprehension across every line in `branch.lineLocKeys`
-    // (simple average of per-line ComputeComprehension), returned as [0,1].
+    // (simple average of per-line LanguageText.Comprehension), returned as
+    // [0,1]. `language` is the DEFAULT language of the branch text; a line
+    // may still switch tongues mid-sentence via [lang:...] spans, which is
+    // why there's no "fluent in `language`, so score 1" short-circuit here.
     // Callers pre-compute this once per chooser pass so we don't re-walk
     // the branch text for every response. `grammarWeight` comes from
     // SimData.LanguageGrammarWeight.
@@ -27,12 +34,7 @@ public static class ConversationVisibility
         {
             return 1f;
         }
-        if (language == null || player == null)
-        {
-            return 1f;
-        }
-        ELanguageComponents learned = player.GetLearnedComponents(language);
-        if (learned == ELanguageComponents.All)
+        if (player == null)
         {
             return 1f;
         }
@@ -50,7 +52,7 @@ public static class ConversationVisibility
             {
                 continue;
             }
-            sum += TextScrambler.ComputeComprehension(text, language, learned, grammarWeight);
+            sum += LanguageText.Comprehension(text, language, player, grammarWeight);
             validLines++;
         }
         return validLines > 0 ? sum / validLines : 1f;
@@ -102,32 +104,37 @@ public static class ConversationVisibility
             return new(false, false, 0f, 0f);
         }
 
-        // No language-scramble gate when there's nothing to scramble: silent
-        // responses (no loc key), universal speech (no language anywhere),
-        // or fully-fluent listeners.
+        // No language-scramble gate when there's nothing to scramble: a
+        // silent response (no loc key) or no listener. Everything else scores
+        // per span, since even an unlanguaged line can quote a tongue the
+        // player doesn't have.
         StringName key = response.textLocKey;
         if (key == default || key == "")
         {
             return new(true, true, 1f, 0f);
         }
-        LanguageData lang = branchLanguage ?? ctx.speakerLanguage;
-        if (lang == null || ctx.player == null)
+        if (ctx.player == null)
         {
             return new(true, true, 1f, 0f);
         }
-        ELanguageComponents learned = ctx.player.GetLearnedComponents(lang);
-        if (learned == ELanguageComponents.All)
-        {
-            return new(true, true, 1f, 0f);
-        }
+        LanguageData lang = response.ResolveLanguage(branchLanguage ?? ctx.speakerLanguage);
 
         string text = Loc.Get(key);
-        float responseComprehension = TextScrambler.ComputeComprehension(text, lang, learned, grammarWeight);
+        float responseComprehension = LanguageText.Comprehension(text, lang, ctx.player, grammarWeight);
         // Min(branch, response) — the bottleneck axis caps visibility.
         // Cleaner falloff than the product (50% × 50% = 25%) while still
         // gating responses behind whichever side the player understands
         // least.
-        float combined = Mathf.Min(branchComprehension, responseComprehension);
+        //
+        // A response with its OWN language drops the branch factor: it isn't an
+        // answer in the speaker's tongue, so "how much of their line did you
+        // follow" has no bearing on whether you can utter it. That's what makes
+        // a common-tongue "Do you speak the common tongue?" survive a greeting
+        // you understood none of. Its own score still applies, so the player
+        // must actually speak whatever it's written in.
+        float combined = response.language != null
+            ? responseComprehension
+            : Mathf.Min(branchComprehension, responseComprehension);
 
         // Per-response RNG seeded by the loc key only. Same response →
         // same threshold across the run, so a response that's hidden at

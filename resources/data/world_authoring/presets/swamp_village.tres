@@ -8,6 +8,5 @@
 script = ExtResource("1_p")
 displayName = "Swamp Village"
 mapColor = Color(0.5, 0.5, 0.5, 1)
-propDensity = 1.0
 ground = ExtResource("2_ground")
 mobs = ExtResource("5_mobs")

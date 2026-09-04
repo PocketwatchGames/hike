@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="PropListData" load_steps=12 format=3]
+
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
+[ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="PackedScene" uid="uid://d0kbigg6xw7pf" path="res://scenes/props/desert_rocks_big1.tscn" id="sc_0"]
+[ext_resource type="PackedScene" uid="uid://cuqyeyeg5imfv" path="res://scenes/props/desert_rocks_big2.tscn" id="sc_1"]
+[ext_resource type="PackedScene" uid="uid://bxgmlna1my2w" path="res://scenes/props/desert_rocks_big3.tscn" id="sc_2"]
+[ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="sc_3"]
+[ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="sc_4"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_0")
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_1")
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_2")
+
+[sub_resource type="Resource" id="e_3"]
+script = ExtResource("2_row")
+scene = ExtResource("sc_3")
+weight = 2.0
+tier = 3
+
+[sub_resource type="Resource" id="e_4"]
+script = ExtResource("2_row")
+scene = ExtResource("sc_4")
+weight = 2.0
+tier = 3
+
+[resource]
+script = ExtResource("1_list")
+displayName = "Desert Rocks"
+mapColor = Color(0.72, 0.6, 0.3, 1)
+scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4")]
+barrierDepthMeters = 3
+interiorHoleChance = 0.5

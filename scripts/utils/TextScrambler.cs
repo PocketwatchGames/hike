@@ -191,11 +191,18 @@ public static class TextScrambler
     // without touching code.
     public static float ComputeComprehension(string text, LanguageData language, ELanguageComponents learned, float grammarWeight)
     {
-        if (string.IsNullOrEmpty(text) || language == null)
-        {
-            return 1f;
-        }
-        if ((learned & ELanguageComponents.All) == ELanguageComponents.All)
+        return ComputeComprehension(text, language, learned, grammarWeight, out _);
+    }
+
+    // As above, additionally reporting the number of word tokens the score
+    // was averaged over — post punctuation-strip when Grammar is missing, so
+    // it matches the denominator actually used. LanguageText weights each
+    // span of a multi-language line by this, so a one-word span in a second
+    // tongue counts for one word and not for half the line.
+    public static float ComputeComprehension(string text, LanguageData language, ELanguageComponents learned, float grammarWeight, out int weight)
+    {
+        weight = 0;
+        if (string.IsNullOrEmpty(text))
         {
             return 1f;
         }
@@ -203,7 +210,12 @@ public static class TextScrambler
         List<string> tokens = new List<string>();
         List<string> separators = new List<string>();
         Tokenize(text, tokens, separators);
-        if (tokens.Count == 0)
+        weight = tokens.Count;
+        if (language == null || tokens.Count == 0)
+        {
+            return 1f;
+        }
+        if ((learned & ELanguageComponents.All) == ELanguageComponents.All)
         {
             return 1f;
         }
@@ -227,6 +239,7 @@ public static class TextScrambler
                     tokens.RemoveAt(i);
                 }
             }
+            weight = tokens.Count;
             if (tokens.Count == 0)
             {
                 return 1f;

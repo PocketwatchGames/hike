@@ -430,6 +430,24 @@ they fall outside the cell the tool reports, and an AIM moves nothing at all
 while its cursor is metres away from the mark it is turning — `EntityTool`
 answers with the mark's own cell for exactly that reason.
 
+**A prop layer draws WHAT WAS PAINTED** — a dot on every column of its raster,
+all the same: one semi-transparent colour per layer, one size of dot, a little
+smaller than the metre cell so the ground shows between the marks. Not the
+resolved fill, and not a wash plus a mark per prop: both of those answered a
+question about the entities when what the map has to say is "this whole area
+stops you", and the fill in particular made a stroke come back patchy where the
+bake had left an interior clearing. How many props hold a region up is a number,
+and `worldmap_check` is where a number belongs.
+
+**It is inked by LAYER, not by list**
+(`WorldMapInkData.collidablePropInk` / `destructiblePropInk`, with their own dot
+fractions): a wide near-opaque black dot for a blocking prop, a smaller half-
+strength white one for a breakable one. What a painted region does to MOVEMENT is
+the question a map of props has to answer at a glance, and which list furnished
+it is the palette's answer — its button carries the list's own `mapColor`, and
+alt+click samples the list under the cursor. Mob dots keep the set colour: there
+is one mob layer, so the only question left is which creatures.
+
 Two differences from the scatter dots underneath them. They are drawn LAST, over
 the step outlines and the dots — a mark you placed outranks a contour line and a
 previewed roll — and they are NOT gated on zoom, because a dot is an impression
@@ -778,7 +796,7 @@ whether a new layer belongs in it.
 The HUD carries **two button groups, both built from lists rather than authored
 one-per-node**, so adding a tool — or an op to a tool — cannot leave a stale
 button behind. The first is one button per `IWorldMapTool`; the second is the
-active tool's `Options(ctx)`, labelled with its **1-9** hotkey and rebuilt on
+active tool's `Options(ctx)`, rebuilt on
 every tool change. `Options` takes the document because zone and region names
 come out of its own palettes — a region's authored `displayName`, a zone's
 resource file name — so those layers are painted by NAME rather than by index
@@ -786,6 +804,17 @@ resource file name — so those layers are painted by NAME rather than by index
 index). Every way of changing either — button, Tab, number key, Q/E — routes
 through `SelectTool` / `SelectOption`, so the bars cannot disagree with what the
 map is showing.
+
+**Only a tool with `NumberKeys` binds 1-9, and only those rows are labelled with
+a digit.** The tools that keep them define their own short menu — brush ops, wind
+modes, danger levels, where the digit is the option. Every palette-backed tool
+declines: a palette is discovered from a directory (see the palette section in
+[../CLAUDE.md](../CLAUDE.md)) and grows whenever someone drops a file in it, so
+nine keys would cover an arbitrary and shifting prefix of it — the entity list is
+45 long and sorted by filename, so the row a digit lands on moves when an
+unrelated resource is added. Q/E still steps every option and the rows are still
+clickable, which is why nothing is lost by dropping the binding rather than
+extending it.
 
 The brush ring takes its colour from `IWorldMapTool.CursorColor`: while
 flattening it is the band colour of the target height, so the cursor answers
@@ -798,7 +827,8 @@ middle-drag pan, draws the cursor, reports texel strokes via `OnPaint`, hover vi
 `OnHover` and wheel notches via `OnAdjustRadius`). Each tool view reads the layer
 images directly, so nothing here needs the voxel world.
 
-Keys: LMB paint / RMB erase · **1-9** pick the active tool's option · **Tab** or
+Keys: LMB paint / RMB erase · **1-9** pick the active tool's option, where it
+has them · **Tab** or
 the HUD toolbar cycle tool (+view) · **Q/E** step the tool's `Cycle`
 parameter — the option index on most tools, and the parameter the option row
 cannot show on the ones whose row is empty (the tunnel brush's

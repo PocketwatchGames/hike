@@ -31,7 +31,7 @@ public class WaterTool : IWorldMapTool
     public int SurfaceVoxels = 1;
 
     // Which water TYPE the brush lays down — an index into
-    // WorldMapData.waterTypes, or -1 for "the zone's", which is entry 0 of the
+    // the document's water palette, or -1 for "the zone's", which is entry 0 of the
     // option row and what an unpainted column already means.
     private int _typeIndex = -1;
 
@@ -52,7 +52,7 @@ public class WaterTool : IWorldMapTool
     // has a way back to it, and it is not a special case anywhere else.
     public string[] Options(WorldMapState ctx)
     {
-        BlockData[] types = ctx.Data.waterTypes ?? System.Array.Empty<BlockData>();
+        BlockData[] types = ctx.WaterTypes;
         var names = new string[types.Length + 1];
         names[0] = "Zone's";
         for (int i = 0; i < types.Length; i++)
@@ -67,7 +67,7 @@ public class WaterTool : IWorldMapTool
     // from it.
     public Color[] OptionColors(WorldMapInk ink)
     {
-        BlockData[] types = ink.Map.Data.waterTypes ?? System.Array.Empty<BlockData>();
+        BlockData[] types = ink.Map.WaterTypes;
         var colors = new Color[types.Length + 1];
         colors[0] = ink.Data.shallowWaterColor;
         for (int i = 0; i < types.Length; i++)
@@ -76,6 +76,10 @@ public class WaterTool : IWorldMapTool
         }
         return colors;
     }
+
+    // No 1-9: water types come from the block catalog, so the first nine rows are an arbitrary prefix that
+    // moves whenever one is added.
+    public bool NumberKeys => false;
 
     public int OptionIndex
     {
@@ -94,14 +98,14 @@ public class WaterTool : IWorldMapTool
     // ring does with its target band.
     public Color CursorColor(WorldMapInk ink)
     {
-        BlockData[] types = ink.Map.Data.waterTypes;
+        BlockData[] types = ink.Map.WaterTypes;
         return _typeIndex >= 0 && types != null && _typeIndex < types.Length && types[_typeIndex] != null
             ? types[_typeIndex].minimapColor
             : ink.Data.shallowWaterColor;
     }
 
     public string HintText(WorldMapState ctx)
-        => "1-9 water type  |  X fill / replace-only  |  R/F set the surface  |  "
+        => "Q/E water type  |  X fill / replace-only  |  R/F set the surface  |  "
         + "T/G cutaway (paint water inside a tunnel)  |  "
         + "alt+LMB samples a height, alt+RMB aims the cutaway  |  "
         + "RMB removes the water (replace-only: reverts the type)";
@@ -111,7 +115,7 @@ public class WaterTool : IWorldMapTool
 
     public string LevelText(WorldMapState ctx, WorldMapView view)
     {
-        BlockData[] types = ctx.Data.waterTypes;
+        BlockData[] types = ctx.WaterTypes;
         string type = _typeIndex >= 0 && types != null && _typeIndex < types.Length
             && types[_typeIndex] != null
             ? types[_typeIndex].blockName.ToString()

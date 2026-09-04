@@ -42,7 +42,11 @@ public class WorldMapState
     public Image Region;           // R8, per chunk (region index)
     public Image Zone;             // R8, per chunk (zone index)
     public Image Wind;             // Rgba8, per chunk (R = angle, G = strength; G 0 = unpainted)
-    public Image Scatter;          // Rgba8, per column (R = prop set + 1, G = density)
+    // The two prop layers, per column: R = prop list index + 1 (0 = none).
+    // No density channel — placement is direct and one prop per column, so a
+    // painted column is a furnished column and nothing thins it but CanSpawnAt.
+    public Image CollidableProps;
+    public Image DestructibleProps;
     public Image Ground;           // R8, per column (ground set + 1; 0 = default ground)
     public Image WaterType;        // R8, per column (waterTypes index + 1; 0 = the zone's)
     // Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world Y it
@@ -53,6 +57,15 @@ public class WorldMapState
     // Subscene stamps. A LIST, not a layer: a stamp is an identity, an
     // orientation and a footprint, none of which fit in a per-column byte.
     public WorldMapPlacements Placements;
+
+    // What this document can paint, resolved once. Every palette is discovered
+    // from disk (WorldMapPaletteSource.Table) and the slot each resource
+    // occupies is fixed by the ledger — which is why these are resolved at
+    // construction and then never re-read: an index in a raster must mean the
+    // same thing for the whole session, and the bake runs on a snapshot.
+    public WorldMapPalettes Palettes;
+    public ZoneData[] Zones;
+    public RegionData[] Regions;
     public Image Mobs;             // Rgba8, per column (R = mob set + 1, G = density)
     public Image Scalars;          // Rgba8, per column (R = mob level, G = climb)
     // Per-voxel edits to the heightfield: EditCarve removes a voxel the height
@@ -107,11 +120,22 @@ public class WorldMapState
         Region = data.LoadOrCreateRegion();
         Zone = data.LoadOrCreateZone();
         Wind = data.LoadOrCreateWind();
-        Scatter = data.LoadOrCreateScatter();
+        CollidableProps = data.LoadOrCreateCollidableProps();
+        DestructibleProps = data.LoadOrCreateDestructibleProps();
         Ground = data.LoadOrCreateGround();
         WaterType = data.LoadOrCreateWaterType();
         Paving = data.LoadOrCreatePaving();
         Placements = LoadOrCreatePlacements(data);
+        Palettes = LoadOrCreatePalettes(data);
+        Zones = WorldMapPaletteSource.Resolve<ZoneData>(WorldMapPaletteSource.Zones, Palettes);
+        Regions = WorldMapPaletteSource.Resolve<RegionData>(WorldMapPaletteSource.Regions, Palettes);
+        GroundSets = WorldMapPaletteSource.Resolve<GroundSetData>(WorldMapPaletteSource.GroundSets, Palettes);
+        PropLists = WorldMapPaletteSource.Resolve<PropListData>(WorldMapPaletteSource.PropLists, Palettes);
+        MobSets = WorldMapPaletteSource.Resolve<SpawnSetData>(WorldMapPaletteSource.MobSets, Palettes);
+        WaterTypes = WorldMapPaletteSource.Resolve<BlockData>(WorldMapPaletteSource.WaterTypes, Palettes);
+        PavingBlocks = WorldMapPaletteSource.Resolve<BlockData>(WorldMapPaletteSource.PavingBlocks, Palettes);
+        EntityPalette = WorldMapPaletteSource.Resolve<SpawnEntryData>(WorldMapPaletteSource.Entities, Palettes);
+        Presets = WorldMapPaletteSource.Resolve<PaintPresetData>(WorldMapPaletteSource.Presets, Palettes);
         Mobs = data.LoadOrCreateMobs();
         Scalars = data.LoadOrCreateScalars();
         Tunnels = data.LoadOrCreateTunnels();
@@ -129,7 +153,7 @@ public class WorldMapState
     // without changing callers.
     public string ZoneName(int index)
     {
-        ZoneData[] zones = Data.PaintableZones;
+        ZoneData[] zones = Zones;
         if (index < 0 || index >= zones.Length)
         {
             return $"Zone {index}";
@@ -140,7 +164,7 @@ public class WorldMapState
 
     public string RegionName(int index)
     {
-        RegionData[] regions = Data.regions;
+        RegionData[] regions = Regions;
         if (regions == null || index < 0 || index >= regions.Length)
         {
             return $"Region {index}";
@@ -159,8 +183,8 @@ public class WorldMapState
         return string.IsNullOrEmpty(resourcePath) ? "" : resourcePath.GetFile().GetBaseName();
     }
 
-    public int RegionCount => Data.RegionCount;
-    public int ZoneCount => Data.ZoneCount;
+    public int RegionCount => Regions.Length;
+    public int ZoneCount => Zones.Length;
 
     // ---- Queries --------------------------------------------------------
 
@@ -275,6 +299,7 @@ public class WorldMapState
     // reload) drops the cache instead.
     public void InvalidateHeights(Rect2I texelRect)
     {
+        InvalidatePropFill();
         // The fill is global — a notch cut in a rim moves a shoreline on the far
         // side of the lake — so water cannot be updated over a rect and is
         // simply rebuilt.
@@ -283,6 +308,7 @@ public class WorldMapState
 
     public void InvalidateAllHeights()
     {
+        InvalidatePropFill();
         Field.InvalidateAll();
     }
 
@@ -393,6 +419,7 @@ public class WorldMapState
     // resize — drops the summary instead of maintaining it.
     public void InvalidateVoxelEdits()
     {
+        InvalidatePropFill();
         Edits.InvalidateAll();
     }
 
@@ -512,9 +539,11 @@ public class WorldMapState
 
     // ---- Spawn sets -----------------------------------------------------
 
-    public SpawnSetData[] PropSets => Data.propSets ?? System.Array.Empty<SpawnSetData>();
+    // Both prop layers index this one palette; which layer a list was painted
+    // on is what it means, not which list it is.
+    public readonly PropListData[] PropLists;
 
-    public SpawnSetData[] MobSets => Data.mobSets ?? System.Array.Empty<SpawnSetData>();
+    public readonly SpawnSetData[] MobSets;
 
     public int MobLevelCount => Mathf.Max(1, Data.mobLevelCount);
 
@@ -576,14 +605,18 @@ public class WorldMapState
             Mathf.FloorToInt(pos.Z) - Data.WorldMinZ));
     }
 
-    public GroundSetData[] GroundSets => Data.groundSets ?? System.Array.Empty<GroundSetData>();
+    public readonly GroundSetData[] GroundSets;
 
-    public PaintPresetData[] Presets => Data.presets ?? System.Array.Empty<PaintPresetData>();
+    public readonly PaintPresetData[] Presets;
 
     // Ground unpainted anywhere: deliberately a flat neutral rather than a guess
     // at the zone's kits, so it is obvious at a glance which ground you have
     // actually authored and which is still inherited.
-    public BlockData[] PavingBlocks => Data.pavingBlocks ?? System.Array.Empty<BlockData>();
+    public readonly BlockData[] PavingBlocks;
+
+    // Water blocks a column may be painted with. The RASTER's slot 0 still means
+    // "whatever the zone says"; these are the explicit overrides above it.
+    public readonly BlockData[] WaterTypes;
 
     // Every layer image, in a fixed order, with the texel-to-pixel ratio each
     // is indexed at (1 per column, ChunkState.SIZE per chunk). Undo keys tiles
@@ -596,7 +629,8 @@ public class WorldMapState
             new RasterLayer(Water, 1),
             new RasterLayer(Ground, 1),
             new RasterLayer(Paving, 1),
-            new RasterLayer(Scatter, 1),
+            new RasterLayer(CollidableProps, 1),
+            new RasterLayer(DestructibleProps, 1),
             new RasterLayer(Mobs, 1),
             new RasterLayer(Scalars, 1),
             new RasterLayer(Region, ChunkState.SIZE),
@@ -633,6 +667,37 @@ public class WorldMapState
             }
         }
         return new WorldMapPlacements();
+    }
+
+    private static WorldMapPalettes LoadOrCreatePalettes(WorldMapData data)
+    {
+        if (!string.IsNullOrEmpty(data.palettesPath) && ResourceLoader.Exists(data.palettesPath))
+        {
+            var loaded = ResourceLoader.Load<WorldMapPalettes>(data.palettesPath);
+            if (loaded != null)
+            {
+                // Duplicated because a resolve APPENDS newly discovered slots,
+                // and Godot hands every loader the one cached instance — a bake
+                // snapshot would otherwise be writing into the live document's
+                // ledger while the painter is using it.
+                return (WorldMapPalettes)loaded.Duplicate(true);
+            }
+        }
+        return new WorldMapPalettes();
+    }
+
+    private void SavePalettes()
+    {
+        if (string.IsNullOrEmpty(Data.palettesPath))
+        {
+            return;
+        }
+        Palettes.ResourcePath = Data.palettesPath;
+        Error err = ResourceSaver.Save(Palettes, Data.palettesPath);
+        if (err != Error.Ok)
+        {
+            GD.PushError($"WorldMapState: could not save palettes to {Data.palettesPath}: {err}");
+        }
     }
 
     private void SavePlacements()
@@ -986,7 +1051,7 @@ public class WorldMapState
         return false;
     }
 
-    public SpawnEntryData[] EntityPalette => Data.entityPalette ?? System.Array.Empty<SpawnEntryData>();
+    public readonly SpawnEntryData[] EntityPalette;
 
     // Topmost hand-placed entity within `radius` metres of a texel, or null.
     // Entities have no footprint to hit-test against — they are a point — so
@@ -1219,8 +1284,8 @@ public class WorldMapState
     public int PaintedWaterBlockAt(int px, int pz)
     {
         int idx = WaterTypeIndexAt(px, pz);
-        BlockData[] types = Data.waterTypes;
-        if (idx < 0 || types == null || idx >= types.Length)
+        BlockData[] types = WaterTypes;
+        if (idx < 0 || idx >= types.Length)
         {
             return -1;
         }
@@ -1234,20 +1299,14 @@ public class WorldMapState
         return idx >= 0 && idx < GroundSets.Length ? idx : -1;
     }
 
-    // The painted set at a column, or null. The raster stores index+1 so 0 can
-    // mean "nothing painted here".
-    public SpawnSetData PropSetAt(int px, int pz, out float density)
-        => SetAt(Scatter, PropSets, px, pz, out density);
-
+    // The painted mob set at a column, or null. The raster stores index+1 so 0
+    // can mean "nothing painted here".
     public SpawnSetData MobSetAt(int px, int pz, out float density)
-        => SetAt(Mobs, MobSets, px, pz, out density);
-
-    private SpawnSetData SetAt(Image layer, SpawnSetData[] sets, int px, int pz, out float density)
     {
-        Color cell = layer.GetPixel(ClampX(px), ClampZ(pz));
+        Color cell = Mobs.GetPixel(ClampX(px), ClampZ(pz));
         int idx = Mathf.RoundToInt(cell.R * 255f) - 1;
         density = cell.G;
-        return idx >= 0 && idx < sets.Length && density > 0f ? sets[idx] : null;
+        return idx >= 0 && idx < MobSets.Length && density > 0f ? MobSets[idx] : null;
     }
 
     // The one place a spawn decision is made, so the map PREVIEW and the BAKE
@@ -1268,113 +1327,1166 @@ public class WorldMapState
         return ToFloat01(hash) < density / squareMetersPerSpawn;
     }
 
-    // Does anything spawn at this column, and from which palette entry? Drives
-    // the map's dots; returns -1 for nothing.
-    public int PreviewSpawnAt(int px, int pz) => PreviewAt(PropSetAt(px, pz, out float d), d, PropSets, px, pz);
+    // --- Props: a size-ordered fill over the measured collision ---------------
+    //
+    // A painted region is FURNISHED largest-first, then its EDGE BAND is sealed.
+    // Those are two different contracts and only the second is coverage: the
+    // reason to paint props is to say where the player cannot walk, and a
+    // barrier with a lane through it is not a barrier — but that is a claim
+    // about the rim, which is the only part anyone can reach. (Worldgen's own
+    // noise scatter is untouched; that is scenery grown by rule and lives on
+    // SpawnSetData.)
+    //
+    // Each pass is one size class, spaced against ITS OWN class by the props'
+    // DRAWN radius, so trees get canopy room while a bush may still stand at a
+    // trunk's foot. The seal pass then covers the band with the widest COLLISION
+    // that fits — a different order, because a tree is the largest thing in a
+    // forest list and seals one column where a bush half its size seals seven.
+    // Taking the smallest that fits instead is what ringed every region in
+    // pebbles. See docs/prop-fill.md.
+    //
+    // The fill is per CHUNK and seeded by the chunk, which is what keeps it
+    // replayable: a map preview cannot re-run a whole-world pass to find what
+    // stands under the cursor, but it can re-run one chunk. Each chunk covers
+    // its OWN columns, so the union covers everything and the only cost at a
+    // seam is a prop from one chunk overlapping a prop from the next.
+    //
+    // WHERE a prop stands is decided without reference to any order — see
+    // FillWork.Wins. A greedy walk restarts its spacing at every chunk boundary,
+    // and with a 3.7 m canopy in a 16 m chunk that is most of the chunk.
+    // Nothing anywhere uses a running Random: it could not be replayed from a
+    // column, and the map preview has to reach the same answer the bake does.
 
-    public int PreviewMobAt(int px, int pz) => PreviewAt(MobSetAt(px, pz, out float d), d, MobSets, px, pz);
+    public PropListData PaintedCollidableAt(int px, int pz) => PaintedPropList(CollidableProps, px, pz);
 
-    private int PreviewAt(SpawnSetData set, float density, SpawnSetData[] sets, int px, int pz)
+    public PropListData PaintedDestructibleAt(int px, int pz) => PaintedPropList(DestructibleProps, px, pz);
+
+    private PropListData PaintedPropList(Image layer, int px, int pz)
     {
+        int idx = PaintedPropIndex(layer, px, pz);
+        return idx >= 0 ? PropLists[idx] : null;
+    }
+
+    // Out of bounds is UNPAINTED, not the border column repeated: ClampX/ClampZ
+    // would let a footprint fit by reaching off the map onto a copy of the edge.
+    private int PaintedPropIndex(Image layer, int px, int pz)
+    {
+        if (px < 0 || px >= Data.ImageWidth || pz < 0 || pz >= Data.ImageHeight)
+        {
+            return -1;
+        }
+        int idx = Mathf.RoundToInt(layer.GetPixel(px, pz).R * 255f) - 1;
+        return idx >= 0 && idx < PropLists.Length && PropLists[idx] != null ? idx : -1;
+    }
+
+    // One prop the fill placed: what it is, how it is turned, where in its
+    // column it stands and how big it grew. The pose is carried rather than
+    // implied because the footprint was measured AT it — move a placed prop and
+    // the columns the map calls blocked stop being the ones that are.
+    public readonly struct PaintedProp
+    {
+        public readonly int List;
+        public readonly int Scene;
+        // Radians, free rather than stepped.
+        public readonly float Yaw;
+        // Metres off the column's centre, both axes in -0.5..0.5.
+        public readonly Vector2 Offset;
+        // Uniform, always >= 1: see PropListData.scaleJitter for why it only
+        // ever grows.
+        public readonly float Scale;
+
+        public PaintedProp(int list, int scene, float yaw, Vector2 offset, float scale)
+        {
+            List = list;
+            Scene = scene;
+            Yaw = yaw;
+            Offset = offset;
+            Scale = scale;
+        }
+    }
+
+    // Does a prop STAND in this column (is it a fill origin), and which?
+    public bool CollidablePropAt(int px, int pz, out PaintedProp prop)
+        => PropOriginAt(false, px, pz, out prop);
+
+    public bool DestructiblePropAt(int px, int pz, out PaintedProp prop)
+        => PropOriginAt(true, px, pz, out prop);
+
+    // Is this column INSIDE some prop's collision — i.e. blocked? The map draws
+    // this, because it is the answer painting props is for.
+    public bool CollidableCoversAt(int px, int pz) => PropCoverAt(false, px, pz);
+
+    public bool DestructibleCoversAt(int px, int pz) => PropCoverAt(true, px, pz);
+
+    private bool PropOriginAt(bool destructible, int px, int pz, out PaintedProp prop)
+    {
+        PropFill fill = FillFor(destructible, FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE));
+        return fill.Origins.TryGetValue(LocalCell(px, pz), out prop);
+    }
+
+    private bool PropCoverAt(bool destructible, int px, int pz)
+    {
+        PropFill fill = FillFor(destructible, FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE));
+        return fill.Own[LocalCell(px, pz)];
+    }
+
+    private static int LocalCell(int px, int pz)
+        => Mod(px, ChunkState.SIZE) * ChunkState.SIZE + Mod(pz, ChunkState.SIZE);
+
+    private sealed class PropFill
+    {
+        public readonly System.Collections.Generic.Dictionary<int, PaintedProp> Origins = new();
+
+        // Columns nothing in the list could stand in without reaching outside
+        // the painted region. Recorded rather than inferred, because from
+        // outside the fill they are indistinguishable from a hole in a barrier —
+        // and one is the author's to fix by painting wider or adding a smaller
+        // prop, while the other is a bug.
+        public readonly bool[] NoFit = new bool[ChunkState.SIZE * ChunkState.SIZE];
+
+        // What the fill may not place into: this layer's own props plus, for the
+        // breakable layer, everything the blocking one already covers.
+        public readonly bool[] Covered = new bool[ChunkState.SIZE * ChunkState.SIZE];
+
+        // What THIS layer's props cover, which is what the map draws and what
+        // the check counts. Kept apart from Covered so a breakable layer under a
+        // wood does not report the wood's coverage as its own.
+        public readonly bool[] Own = new bool[ChunkState.SIZE * ChunkState.SIZE];
+    }
+
+    private readonly System.Collections.Generic.Dictionary<(bool, int, int), PropFill> _propFills = new();
+
+    // Locked because the bake runs on a worker thread while the painter keeps
+    // drawing on the main one, and both resolve props through here.
+    private readonly object _propFillLock = new();
+
+    private PropFill FillFor(bool destructible, int cx, int cz)
+    {
+        var key = (destructible, cx, cz);
+        lock (_propFillLock)
+        {
+            if (_propFills.TryGetValue(key, out PropFill cached))
+            {
+                return cached;
+            }
+            PropFill fill = BuildFill(destructible, cx, cz);
+            _propFills[key] = fill;
+            return fill;
+        }
+    }
+
+    // Called from FillFor under the lock, and re-enters it for the layer
+    // underneath. Safe: a C# lock is re-entrant and the recursion is one deep,
+    // since the blocking layer never asks for the breakable one.
+    //
+    // The fill is SIZE-ORDERED, largest first, and each pass spaces its props
+    // against the ones IT placed rather than against everything. That ordering
+    // is the whole shape of the result:
+    //
+    //   - the big pass runs first and everywhere, so the trees are laid down
+    //     before anything else has taken the ground, and they are spaced by
+    //     their CANOPIES rather than by their trunks — which is what "room to
+    //     breathe" is, and what a trunk-sized exclusion cannot express;
+    //   - each later pass spaces only against its own class, so a bush may
+    //     stand at a tree's foot. The skirt of undergrowth around a trunk falls
+    //     out of the ordering instead of being authored into the tree;
+    //   - what stops any two props sharing ground is COVERED, which is
+    //     collision and not canopy. Canopies are meant to overlap.
+    //
+    // A last pass then seals the edge band, ignoring spacing entirely, because
+    // that band is the one place the contract is coverage.
+    private PropFill BuildFill(bool destructible, int cx, int cz)
+    {
+        var fill = new PropFill();
+        Image layer = destructible ? DestructibleProps : CollidableProps;
+        uint salt = destructible ? DESTRUCTIBLE_SALT : COLLIDABLE_SALT;
+        int size = ChunkState.SIZE;
+        int baseX = cx * size;
+        int baseZ = cz * size;
+
+        // Most chunks are painted with nothing at all, and everything below
+        // this costs a depth field over the chunk and its surroundings.
+        if (!AnyPropPainted(layer, baseX, baseZ))
+        {
+            return fill;
+        }
+
+        // The breakable layer starts from what the blocking layer already
+        // covers: a bramble inside a tree trunk is the same mistake as two trees
+        // in one column, and blocking wins because it is the one the player
+        // cannot clear.
+        if (destructible)
+        {
+            System.Array.Copy(FillFor(false, cx, cz).Covered, fill.Covered, fill.Covered.Length);
+        }
+
+        var work = new FillWork(this, layer, salt, baseX, baseZ);
+        for (int pass = 0; pass < work.Classes.Count; pass++)
+        {
+            // Several rounds of the same class, each refused by what the last
+            // one reserved. One round is a maximal independent set, which
+            // settles at roughly two thirds of the props the same minimum
+            // separation would allow; the later rounds are dart throws into the
+            // gaps it left. Order-free like the first, and nothing moves - which
+            // is what a relaxation would have needed, and it would have had to
+            // be stored rather than derived.
+            for (int round = 0; round < work.SpacingRounds(pass); round++)
+            {
+                work.RunSpacingPass(fill, pass, round);
+            }
+        }
+        work.RunSealPass(fill);
+        return fill;
+    }
+
+    private bool AnyPropPainted(Image layer, int baseX, int baseZ)
+    {
+        int size = ChunkState.SIZE;
+        for (int lx = 0; lx < size; lx++)
+        {
+            for (int lz = 0; lz < size; lz++)
+            {
+                if (PaintedPropIndex(layer, baseX + lx, baseZ + lz) >= 0)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // One chunk's fill in progress: the depth field it reads, the size classes
+    // it walks, and the per-class spacing masks. Separate from PropFill because
+    // none of it survives the build — what a fill IS afterwards is the props and
+    // the coverage.
+    private sealed class FillWork
+    {
+        private const int Size = ChunkState.SIZE;
+
+        private readonly WorldMapState _map;
+        private readonly Image _layer;
+        private readonly uint _salt;
+        private readonly int _baseX;
+        private readonly int _baseZ;
+
+        // Metres from the nearest unpainted column, over the chunk AND a halo
+        // around it, so a column near the chunk edge knows how deep inside the
+        // REGION it is rather than how deep inside the chunk — and so the
+        // spacing test can look at neighbours belonging to the next chunk.
+        private int[] _field;
+        private int _halo;
+        private int _fieldW;
+
+        // What earlier passes have RESERVED, over the padded extent:
+        //   _reservedR[c]  = max over earlier winners w of (radius(w) - dist(w, c))
+        //   _reservedBy[c] = the radius that produced that maximum
+        // so a candidate of radius r is too close exactly when _reservedR + r > 0.
+        //
+        // Padded, and stamped from winners rather than from PLACEMENTS, because
+        // a placement is order-dependent and a winner is not. That is the whole
+        // point: cross-class spacing checked against this chunk's placements
+        // alone was blind at every chunk boundary, which is where every
+        // remaining violation was — 46 of 46, measured.
+        // [0] understory, [1] canopy. Separate because the two storeys reserve
+        // from their own kind ONLY — a bush does not push a tree away and a tree
+        // does not push a bush away, which is what an understory is.
+        private readonly float[][] _reservedR = new float[2][];
+
+        // Per pass: may a prop of this pass stand here at all? Precomputed over
+        // the padded extent because the spacing test reads it once per cell in a
+        // disc, and the underlying questions (is this painted, can a prop go
+        // here) are the expensive ones.
+        private bool[] _eligible;
+
+        // Scene indices grouped by drawn size, largest class first. Shared by
+        // every list in the chunk would be wrong — a class belongs to a list —
+        // so this is built for the list of the chunk's first painted column and
+        // rebuilt whenever a cell names a different one.
+        public readonly System.Collections.Generic.List<int[]> Classes = new();
+
+        // Which storey each entry of Classes belongs to. Canopy classes come
+        // first and in full, then understory: the trees go in before anything
+        // else has taken the ground, and a scene that fills both storeys
+        // (a pine) appears in one class of each.
+        private readonly System.Collections.Generic.List<bool> _classCanopy = new();
+
+        // The same scenes bucketed by COLLISION radius instead, widest first —
+        // the order the seal pass wants. The two orders genuinely differ: a tree
+        // is the largest thing in a forest list and the narrowest thing in it.
+        private readonly System.Collections.Generic.List<int[]> _sealClasses = new();
+
+        // Every scene, smallest DRAWN radius first - the order the seal falls
+        // back through once it has to break spacing.
+        private int[] _byDrawnAscending = System.Array.Empty<int>();
+
+        private PropListData _classesFor;
+
+        // How many props of each scene this chunk has already placed, which is
+        // what varietyPressure pushes against.
+        private readonly System.Collections.Generic.Dictionary<(int, int), int> _used = new();
+
+        private readonly System.Collections.Generic.List<Vector2I> _columns = new();
+
+        public FillWork(WorldMapState map, Image layer, uint salt, int baseX, int baseZ)
+        {
+            _map = map;
+            _layer = layer;
+            _salt = salt;
+            _baseX = baseX;
+            _baseZ = baseZ;
+            BuildDepthField();
+            for (int tier = 0; tier < 2; tier++)
+            {
+                _reservedR[tier] = new float[_fieldW * _fieldW];
+                for (int i = 0; i < _reservedR[tier].Length; i++)
+                {
+                    _reservedR[tier][i] = float.NegativeInfinity;
+                }
+            }
+            EnsureClasses(FirstPaintedList());
+        }
+
+        // A chamfer distance transform over the chunk plus a halo, seeded from
+        // every column the layer does NOT paint. Two sweeps, 3-4 weights, so a
+        // diagonal costs about what a diagonal is worth; divided back to metres
+        // at the end.
+        //
+        // The halo is what makes this a property of the region rather than of
+        // the chunk. Without it every chunk boundary reads as a region edge and
+        // the seal pass fences the inside of a wood along it.
+        private void BuildDepthField()
+        {
+            PropListData list = FirstPaintedList();
+            // Deep enough for two reservations plus the jitter between them,
+            // or a prop at the chunk edge cannot see what the next chunk has
+            // already reserved and the spacing lapses at every boundary.
+            int reach = list == null
+                ? 8
+                : Mathf.Max(list.barrierDepthMeters + list.densityRampMeters,
+                    2 * Mathf.CeilToInt(MaxSpacingRadius(list) + list.positionJitter) + 2);
+            _halo = Mathf.Clamp(reach, 4, MaxDepthHalo);
+            int w = Size + _halo * 2;
+            _fieldW = w;
+            var field = new int[w * w];
+            const int Far = int.MaxValue / 4;
+            for (int x = 0; x < w; x++)
+            {
+                for (int z = 0; z < w; z++)
+                {
+                    bool painted = _map.PaintedPropIndex(
+                        _layer, _baseX - _halo + x, _baseZ - _halo + z) >= 0;
+                    field[x * w + z] = painted ? Far : 0;
+                }
+            }
+            for (int x = 0; x < w; x++)
+            {
+                for (int z = 0; z < w; z++)
+                {
+                    int best = field[x * w + z];
+                    best = Mathf.Min(best, Neighbour(field, w, x - 1, z) + 3);
+                    best = Mathf.Min(best, Neighbour(field, w, x, z - 1) + 3);
+                    best = Mathf.Min(best, Neighbour(field, w, x - 1, z - 1) + 4);
+                    best = Mathf.Min(best, Neighbour(field, w, x + 1, z - 1) + 4);
+                    field[x * w + z] = best;
+                }
+            }
+            for (int x = w - 1; x >= 0; x--)
+            {
+                for (int z = w - 1; z >= 0; z--)
+                {
+                    int best = field[x * w + z];
+                    best = Mathf.Min(best, Neighbour(field, w, x + 1, z) + 3);
+                    best = Mathf.Min(best, Neighbour(field, w, x, z + 1) + 3);
+                    best = Mathf.Min(best, Neighbour(field, w, x + 1, z + 1) + 4);
+                    best = Mathf.Min(best, Neighbour(field, w, x - 1, z + 1) + 4);
+                    field[x * w + z] = best;
+                }
+            }
+            _field = field;
+        }
+
+        // Metres inside the painted region, for a cell given in chunk-local
+        // coordinates that may lie in the halo (so negative, or past Size).
+        private int Depth(int lx, int lz)
+        {
+            int x = Mathf.Clamp(lx + _halo, 0, _fieldW - 1);
+            int z = Mathf.Clamp(lz + _halo, 0, _fieldW - 1);
+            return _field[x * _fieldW + z] / 3;
+        }
+
+        // The widest reservation any prop in the list makes, which bounds how
+        // far the pairwise test has to look.
+        private static float MaxSpacingRadius(PropListData list)
+        {
+            float widest = 0f;
+            for (int i = 0; i < list.SceneCount; i++)
+            {
+                widest = Mathf.Max(widest,
+                    Mathf.Max(list.Reservation(i, true), list.Reservation(i, false)));
+            }
+            return widest;
+        }
+
+        private static int Neighbour(int[] field, int w, int x, int z)
+            => x < 0 || x >= w || z < 0 || z >= w ? int.MaxValue / 4 : field[x * w + z];
+
+        private PropListData FirstPaintedList()
+        {
+            for (int lx = 0; lx < Size; lx++)
+            {
+                for (int lz = 0; lz < Size; lz++)
+                {
+                    int idx = _map.PaintedPropIndex(_layer, _baseX + lx, _baseZ + lz);
+                    if (idx >= 0)
+                    {
+                        return _map.PropLists[idx];
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Scene indices bucketed by drawn radius, largest first. A new bucket
+        // starts wherever the radius falls off a step, so the classes follow the
+        // sizes an author actually put in the list instead of a fixed count.
+        private void EnsureClasses(PropListData list)
+        {
+            if (list == null || ReferenceEquals(list, _classesFor))
+            {
+                return;
+            }
+            _classesFor = list;
+            BuildClasses(list);
+            BucketByCollision(list, _sealClasses);
+            var ascending = new int[list.SceneCount];
+            var drawn = new float[list.SceneCount];
+            for (int i = 0; i < ascending.Length; i++)
+            {
+                ascending[i] = i;
+                drawn[i] = list.ShapeOf(i)?.VisualRadius ?? 0f;
+            }
+            System.Array.Sort(drawn, ascending);
+            _byDrawnAscending = ascending;
+        }
+
+        private void BuildClasses(PropListData list)
+        {
+            Classes.Clear();
+            _classCanopy.Clear();
+            AddTierClasses(list, canopy: true);
+            AddTierClasses(list, canopy: false);
+        }
+
+        // One storey's scenes, bucketed by what they RESERVE (not by what they
+        // draw), largest first. On the raw drawn radius an oak and a birch
+        // landed in different classes while the cap had already made their
+        // reservations identical - so they ran as separate passes competing for
+        // the same ground, the oak pass took every slot, and no birch was ever
+        // placed in the wood.
+        private void AddTierClasses(PropListData list, bool canopy)
+        {
+            var members = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < list.SceneCount; i++)
+            {
+                if (list.FillsTier(i, canopy))
+                {
+                    members.Add(i);
+                }
+            }
+            if (members.Count == 0)
+            {
+                return;
+            }
+            var order = members.ToArray();
+            var keys = new float[order.Length];
+            for (int i = 0; i < order.Length; i++)
+            {
+                keys[i] = -list.Reservation(order[i], canopy);
+            }
+            System.Array.Sort(keys, order);
+            var bucket = new System.Collections.Generic.List<int>();
+            float bucketTop = 0f;
+            for (int i = 0; i < order.Length; i++)
+            {
+                float radius = -keys[i];
+                if (bucket.Count > 0 && radius < bucketTop * ClassSizeStep)
+                {
+                    Classes.Add(bucket.ToArray());
+                    _classCanopy.Add(canopy);
+                    bucket.Clear();
+                }
+                if (bucket.Count == 0)
+                {
+                    bucketTop = radius;
+                }
+                bucket.Add(order[i]);
+            }
+            if (bucket.Count > 0)
+            {
+                Classes.Add(bucket.ToArray());
+                _classCanopy.Add(canopy);
+            }
+        }
+
+        // The seal's own order: widest COLLISION first, and UNDERSTORY only.
+        //
+        // Widest first because a tree is the largest thing in a forest list and
+        // seals one column where a bush half its size seals seven, so the widest
+        // that fits is the whole of "as few props as possible".
+        //
+        // Understory only because sealing is undergrowth's job. A barrier is
+        // made of the low storey and trees stand IN it — letting the seal reach
+        // for a tree stood a pine's crown against a maple, since a pine has the
+        // widest collision in the list. A list with no understory in it falls
+        // back to everything, or it could not seal at all.
+        private static void BucketByCollision(PropListData list,
+            System.Collections.Generic.List<int[]> into)
+        {
+            into.Clear();
+            var members = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < list.SceneCount; i++)
+            {
+                if (list.FillsTier(i, false))
+                {
+                    members.Add(i);
+                }
+            }
+            if (members.Count == 0)
+            {
+                for (int i = 0; i < list.SceneCount; i++)
+                {
+                    members.Add(i);
+                }
+            }
+            int count = members.Count;
+            var order = members.ToArray();
+            var keys = new float[count];
+            for (int i = 0; i < count; i++)
+            {
+                keys[i] = -(list.ShapeOf(order[i])?.CollisionRadius ?? 0f);
+            }
+            System.Array.Sort(keys, order);
+            var bucket = new System.Collections.Generic.List<int>();
+            float bucketTop = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                float radius = -keys[i];
+                if (bucket.Count > 0 && radius < bucketTop * ClassSizeStep)
+                {
+                    into.Add(bucket.ToArray());
+                    bucket.Clear();
+                }
+                if (bucket.Count == 0)
+                {
+                    bucketTop = radius;
+                }
+                bucket.Add(order[i]);
+            }
+            if (bucket.Count > 0)
+            {
+                into.Add(bucket.ToArray());
+            }
+        }
+
+        // One size class, everywhere in the chunk it is wanted.
+        //
+        // Where a prop of this class stands is decided WITHOUT reference to any
+        // order — a cell wins if it out-ranks every rival within the class's
+        // radius, which is a question any chunk answers the same way about any
+        // cell. That is what makes the spacing survive a chunk boundary: a
+        // greedy walk decides from whatever it happened to place first, so each
+        // chunk started its stand afresh and two oaks could end up a metre apart
+        // across a seam. Roughly three quarters of a chunk's cells lie within an
+        // oak's canopy of one, so this was most of them.
+        //
+        // The radius is the CLASS's, not the chosen scene's, so the geometry is
+        // settled before anything picks a scene — which is what lets the scene
+        // choice keep its running variety count without that count feeding back
+        // into where things stand.
+        public int SpacingRounds(int pass)
+        {
+            PropListData list = FirstPaintedList();
+            EnsureClasses(list);
+            return list == null || pass >= Classes.Count ? 0 : Mathf.Max(1, list.spacingRounds);
+        }
+
+        public void RunSpacingPass(PropFill fill, int pass, int round)
+        {
+            PropListData classList = FirstPaintedList();
+            EnsureClasses(classList);
+            if (classList == null || pass >= Classes.Count)
+            {
+                return;
+            }
+            uint passSalt = _salt + (uint)pass * 977u + (uint)round * 31771u;
+            bool canopy = _classCanopy[pass];
+            float single = ClassDrawnRadius(classList, Classes[pass], canopy);
+            float radius = PairDistance(classList, single);
+            BuildEligibility(classList, passSalt, radius);
+            foreach (int cell in _map.FillOrder(_baseX / Size, _baseZ / Size, passSalt))
+            {
+                int lx = cell / Size;
+                int lz = cell % Size;
+                if (fill.Covered[cell] || !Wins(lx, lz, radius, passSalt))
+                {
+                    continue;
+                }
+                int px = _baseX + lx;
+                int pz = _baseZ + lz;
+                int listIdx = _map.PaintedPropIndex(_layer, px, pz);
+                if (listIdx < 0)
+                {
+                    continue;
+                }
+                PropListData list = _map.PropLists[listIdx];
+                EnsureClasses(list);
+                if (pass >= Classes.Count)
+                {
+                    continue;
+                }
+                int scene = ChooseInClass(list, listIdx, Classes[pass],
+                    ToFloat01(Hash(px, pz, passSalt + 1u)));
+                if (scene >= 0)
+                {
+                    TryPlace(fill, list, listIdx, scene, canopy, cell, lx, lz, px, pz, passSalt);
+                }
+            }
+            StampPassReservations(classList, canopy, single, radius, passSalt);
+            _eligible = null;
+        }
+
+        // The widest reservation any scene of this class makes. Per CLASS and
+        // not per scene so the geometry is settled before anything picks a
+        // scene, which is what lets the scene choice keep its variety count
+        // without that count feeding back into where things stand.
+        private static float ClassDrawnRadius(PropListData list, int[] sceneClass, bool canopy)
+        {
+            float widest = 0f;
+            for (int i = 0; i < sceneClass.Length; i++)
+            {
+                widest = Mathf.Max(widest, list.Reservation(sceneClass[i], canopy));
+            }
+            return widest;
+        }
+
+        // How far apart two props of the same radius must stand: each reserves
+        // its own, so the gap is the SUM - plus the jitter both ends may spend
+        // walking toward each other, which is otherwise subtracted from every
+        // gap in the world. A 2 m reservation with 0.35 m of wander at each end
+        // put birches 1.3 m apart.
+        private static float PairDistance(PropListData list, float single)
+            => 2f * single + 2f * list.positionJitter;
+
+        // Write this pass's winners into the reservation field, for every cell
+        // near enough to the chunk that a later pass could be refused by it.
+        private void StampPassReservations(PropListData list, bool canopy, float single,
+            float radius, uint passSalt)
+        {
+            float[] field = _reservedR[canopy ? 1 : 0];
+            float claim = single + list.positionJitter;
+            int spread = Mathf.CeilToInt(claim + MaxSpacingRadius(list) + list.positionJitter);
+            int from = Mathf.Max(0, _halo - spread);
+            int to = Mathf.Min(_fieldW, _halo + Size + spread);
+            for (int x = from; x < to; x++)
+            {
+                for (int z = from; z < to; z++)
+                {
+                    if (!WinsAt(x, z, radius, passSalt))
+                    {
+                        continue;
+                    }
+                    for (int dx = -spread; dx <= spread; dx++)
+                    {
+                        for (int dz = -spread; dz <= spread; dz++)
+                        {
+                            int ox = x + dx;
+                            int oz = z + dz;
+                            if (ox < 0 || ox >= _fieldW || oz < 0 || oz >= _fieldW)
+                            {
+                                continue;
+                            }
+                            float reach = claim - Mathf.Sqrt(dx * dx + dz * dz);
+                            int c = ox * _fieldW + oz;
+                            if (reach > field[c])
+                            {
+                                field[c] = reach;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Which cells of the padded extent could carry a prop of this pass. The
+        // density roll lives here rather than at placement so that a cell thinned
+        // out by it does not go on to suppress its neighbours.
+        private void BuildEligibility(PropListData classList, uint passSalt, float radius)
+        {
+            _eligible = new bool[_fieldW * _fieldW];
+            for (int x = 0; x < _fieldW; x++)
+            {
+                for (int z = 0; z < _fieldW; z++)
+                {
+                    int px = _baseX - _halo + x;
+                    int pz = _baseZ - _halo + z;
+                    int listIdx = _map.PaintedPropIndex(_layer, px, pz);
+                    if (listIdx < 0 || !_map.CanPlacePropAt(px, pz))
+                    {
+                        continue;
+                    }
+                    PropListData list = _map.PropLists[listIdx];
+                    float density = DensityAt(list, Depth(x - _halo, z - _halo));
+                    _eligible[x * _fieldW + z] =
+                        ToFloat01(Hash(px, pz, passSalt + 5u)) < density;
+                }
+            }
+        }
+
+        // Does this cell out-rank every eligible cell within `radius`? Ranked by
+        // hash, with the coordinates breaking a tie, so the comparison is a
+        // strict order and exactly one cell of any pair can win.
+        private bool Wins(int lx, int lz, float radius, uint passSalt)
+            => WinsAt(lx + _halo, lz + _halo, radius, passSalt);
+
+        // The same question in PADDED coordinates, so a cell belonging to the
+        // next chunk can be asked it too.
+        private bool WinsAt(int x0, int z0, float radius, uint passSalt)
+        {
+            if (!_eligible[x0 * _fieldW + z0])
+            {
+                return false;
+            }
+            int lx = x0 - _halo;
+            int lz = z0 - _halo;
+            uint mine = Hash(_baseX + lx, _baseZ + lz, passSalt + 7u);
+            int reach = Mathf.CeilToInt(radius);
+            float radiusSq = radius * radius;
+            for (int dx = -reach; dx <= reach; dx++)
+            {
+                for (int dz = -reach; dz <= reach; dz++)
+                {
+                    if ((dx == 0 && dz == 0) || dx * dx + dz * dz > radiusSq)
+                    {
+                        continue;
+                    }
+                    int x = lx + dx + _halo;
+                    int z = lz + dz + _halo;
+                    if (x < 0 || x >= _fieldW || z < 0 || z >= _fieldW
+                        || !_eligible[x * _fieldW + z])
+                    {
+                        continue;
+                    }
+                    uint theirs = Hash(_baseX + lx + dx, _baseZ + lz + dz, passSalt + 7u);
+                    if (theirs > mine || (theirs == mine && (dx < 0 || (dx == 0 && dz < 0))))
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // The edge band, and only the edge band, must come out solid — that is
+        // what painting a region MEANS. Spacing is off here by construction: a
+        // gap in a barrier is not breathing room.
+        public void RunSealPass(PropFill fill)
+        {
+            uint sealSalt = _salt + 4231u;
+            foreach (int cell in _map.FillOrder(_baseX / Size, _baseZ / Size, sealSalt))
+            {
+                if (fill.Covered[cell])
+                {
+                    continue;
+                }
+                int lx = cell / Size;
+                int lz = cell % Size;
+                int px = _baseX + lx;
+                int pz = _baseZ + lz;
+                int listIdx = _map.PaintedPropIndex(_layer, px, pz);
+                if (listIdx < 0 || !_map.CanPlacePropAt(px, pz))
+                {
+                    continue;
+                }
+                PropListData list = _map.PropLists[listIdx];
+                if (Depth(lx, lz) > list.barrierDepthMeters)
+                {
+                    continue;
+                }
+                // WIDEST COLLISION first, which is a different order from the
+                // spacing passes' widest CANOPY: a tree is the biggest thing in
+                // the list and seals a single column, where a bush half its size
+                // seals seven. Sealing with the widest thing that fits is the
+                // whole of "as few props as possible" — the alternative, taking
+                // the smallest that fits, is what ringed every region in pebbles.
+                EnsureClasses(list);
+                bool placed = false;
+                for (int i = 0; i < _sealClasses.Count && !placed; i++)
+                {
+                    int scene = ChooseInClass(list, listIdx, _sealClasses[i],
+                        ToFloat01(Hash(px, pz, sealSalt + 1u)));
+                    placed = scene >= 0 && TryPlace(fill, list, listIdx, scene,
+                        SealTier(list, scene), cell, lx, lz, px, pz, sealSalt,
+                        respectReservation: false);
+                }
+                // Nothing the weighted picks offered fits. Try every understory
+                // scene, widest collision first and un-jittered: one pick per
+                // bucket samples a handful, and a jitter is what pushes a
+                // footprint over the region's edge, so a column can read as
+                // "too tight" while something would have sat in it.
+                for (int i = 0; i < _sealClasses.Count && !placed; i++)
+                {
+                    int[] bucket = _sealClasses[i];
+                    // Entered at a hashed offset rather than always at [0]. The
+                    // sweep takes the first member that fits, so a fixed start
+                    // means one scene of each bucket does all the sealing: six
+                    // bushes of identical width came out 240 / 51 / 54 / 54 /
+                    // 51 / 49.
+                    int start = (int)(Hash(px, pz, sealSalt + 8u) % (uint)bucket.Length);
+                    for (int j = 0; j < bucket.Length && !placed; j++)
+                    {
+                        int scene = bucket[(start + j) % bucket.Length];
+                        placed = TryPlace(fill, list, listIdx, scene, SealTier(list, scene),
+                            cell, lx, lz, px, pz, sealSalt,
+                            allowJitter: false, respectReservation: false);
+                    }
+                }
+                // Still nothing: a column of the barrier that no undergrowth
+                // fits. EVERYTHING is on the table now, canopy included, taken
+                // least visually intrusive first — a gap plugged with a pebble
+                // is invisible where the same gap plugged with a tree is not.
+                // This is a true last resort; when it was reachable in the
+                // ordinary case it filled whole regions with the smallest thing
+                // in the list (872 pebbles and 451 of the smallest bush, out of
+                // 1404 props).
+                for (int i = 0; i < _byDrawnAscending.Length && !placed; i++)
+                {
+                    placed = TryPlace(fill, list, listIdx, _byDrawnAscending[i],
+                        SealTier(list, _byDrawnAscending[i]), cell, lx, lz, px, pz, sealSalt,
+                        allowJitter: false, respectReservation: false);
+                }
+                if (!placed)
+                {
+                    // Nothing in the list is small enough for this column. Left
+                    // uncovered on purpose: a prop that reaches outside the
+                    // painted region puts a boulder in the road beside the wood.
+                    fill.NoFit[cell] = true;
+                }
+            }
+        }
+
+        // Pose the prop, check it stays inside the painted region, and write it
+        // in. Returns whether anything was placed.
+        private bool TryPlace(PropFill fill, PropListData list, int listIdx, int scene,
+            bool canopy, int cell, int lx, int lz, int px, int pz, uint passSalt,
+            bool allowJitter = true, bool respectReservation = true)
+        {
+            float yaw = ToFloat01(Hash(px, pz, passSalt + 2u)) * Mathf.Tau;
+            float wander = allowJitter ? list.positionJitter : 0f;
+            var offset = new Vector2(
+                (ToFloat01(Hash(px, pz, passSalt + 3u)) - 0.5f) * 2f * wander,
+                (ToFloat01(Hash(px, pz, passSalt + 4u)) - 0.5f) * 2f * wander);
+            list.Rasterize(scene, yaw, offset, _columns);
+            foreach (Vector2I column in _columns)
+            {
+                // Painted, not placeable: a lake or a paved square the author
+                // painted over is still inside the region they drew, and
+                // refusing to reach across one would open a lane through the
+                // barrier at every puddle.
+                if (_map.PaintedPropIndex(_layer, px + column.X, pz + column.Y) < 0)
+                {
+                    return false;
+                }
+                // No two props may COLLIDE in the same column. Canopies are
+                // meant to interlock and spacing is what tunes that, but two
+                // solid volumes sharing ground is a bush growing through a
+                // trunk, and no amount of spacing tuning hides it.
+                //
+                // The rule is deliberately about collision and not about the
+                // drawn radius: gating on what is DRAWN would push every bush
+                // clear of every canopy and there would be no understory at all.
+                int cx = lx + column.X;
+                int cz = lz + column.Y;
+                if (cx >= 0 && cx < Size && cz >= 0 && cz < Size && fill.Covered[cx * Size + cz])
+                {
+                    return false;
+                }
+            }
+
+            if (respectReservation && Reserved(list, scene, canopy, lx, lz))
+            {
+                return false;
+            }
+
+            float scale = 1f + ToFloat01(Hash(px, pz, passSalt + 6u)) * list.scaleJitter;
+            fill.Origins[cell] = new PaintedProp(listIdx, scene, yaw, offset, scale);
+            _used[(listIdx, scene)] = _used.GetValueOrDefault((listIdx, scene)) + 1;
+            foreach (Vector2I column in _columns)
+            {
+                int ox = lx + column.X;
+                int oz = lz + column.Y;
+                // A column past the chunk edge belongs to the next chunk's fill,
+                // which covers it itself. Dropping it is what keeps a fill a
+                // pure function of its own chunk.
+                if (ox >= 0 && ox < Size && oz >= 0 && oz < Size)
+                {
+                    fill.Covered[ox * Size + oz] = true;
+                    fill.Own[ox * Size + oz] = true;
+                }
+            }
+            return true;
+        }
+
+        // Is this cell inside a reservation an EARLIER pass made, and is this
+        // prop too big to count as understory beneath whatever made it?
+        //
+        // The understory exception is what keeps this from banning undergrowth:
+        // something far smaller than what it stands under is not competing with
+        // it for room, and only collision keeps those two apart.
+        // A scene the seal reaches for answers to whichever storey it fills;
+        // one that fills both takes the understory's model, which is the denser
+        // of the two and so the one that lets a gap actually be closed.
+        private static bool SealTier(PropListData list, int scene)
+            => !list.FillsTier(scene, false);
+
+        private bool Reserved(PropListData list, int scene, bool canopy, int lx, int lz)
+        {
+            float claimed = _reservedR[canopy ? 1 : 0][(lx + _halo) * _fieldW + (lz + _halo)];
+            return !float.IsNegativeInfinity(claimed)
+                && claimed + list.Reservation(scene, canopy) + list.positionJitter > 0f;
+        }
+
+        // Full density inside the edge band, falling to the list's interior
+        // density over the ramp past it. Smooth, because a step here is a line
+        // drawn around every painted region at exactly the band depth.
+        private static float DensityAt(PropListData list, int depth)
+        {
+            if (depth <= list.barrierDepthMeters || list.densityRampMeters <= 0)
+            {
+                return depth <= list.barrierDepthMeters ? 1f : list.interiorDensity;
+            }
+            float t = Mathf.Clamp(
+                (depth - list.barrierDepthMeters) / (float)list.densityRampMeters, 0f, 1f);
+            return Mathf.Lerp(1f, list.interiorDensity, t * t * (3f - 2f * t));
+        }
+
+        // A weighted pick within one size class, biased toward scenes this chunk
+        // has not used yet. Without the bias a patch small enough to take in at
+        // a glance is mostly whichever scene the weights favour, however many
+        // the author put in the list.
+        private int ChooseInClass(PropListData list, int listIdx, int[] sceneClass, float roll)
+        {
+            float total = 0f;
+            for (int i = 0; i < sceneClass.Length; i++)
+            {
+                total += EffectiveWeight(list, listIdx, sceneClass[i]);
+            }
+            if (total <= 0f)
+            {
+                return -1;
+            }
+            float target = Mathf.Clamp(roll, 0f, 0.999999f) * total;
+            for (int i = 0; i < sceneClass.Length; i++)
+            {
+                target -= EffectiveWeight(list, listIdx, sceneClass[i]);
+                if (target < 0f)
+                {
+                    return sceneClass[i];
+                }
+            }
+            return sceneClass[sceneClass.Length - 1];
+        }
+
+        private float EffectiveWeight(PropListData list, int listIdx, int scene)
+        {
+            float weight = list.WeightOf(scene);
+            return weight / (1f + list.varietyPressure * _used.GetValueOrDefault((listIdx, scene)));
+        }
+    }
+
+    // How far a depth field is worth carrying past a chunk, in metres. Past this
+    // the answer stops changing anything: the density ramp has arrived and every
+    // column reads as interior.
+    private const int MaxDepthHalo = 40;
+
+    // A size class ends where the drawn radius drops below this fraction of the
+    // class's largest, so classes follow the sizes in the list rather than a
+    // count someone picked.
+    private const float ClassSizeStep = 0.6f;
+
+    // Is this column far enough inside a painted region that the barrier does
+    // not depend on it? Eight probes at the list's band depth — the four axes
+    // and the four diagonals — all of which have to land on ground the same
+    // layer would fill. Probing rather than eroding a mask keeps this a pure
+    // function of the column, which is what lets a chunk's fill stay
+    // reproducible from its own coordinates.
+    //
+    // The probe asks the RASTER and the water, not the whole of CanPlacePropAt:
+    // a paved square or an entity's footprint inside a wood is a hole in the
+    // barrier either way, and walking the placement list eight times per
+    // candidate column is what that accuracy would cost.
+    private bool IsPropInterior(Image layer, int px, int pz, int depth)
+    {
+        int diagonal = Mathf.Max(1, Mathf.RoundToInt(depth * 0.7071f));
+        for (int i = 0; i < InteriorProbeX.Length; i++)
+        {
+            int step = i < 4 ? depth : diagonal;
+            int qx = px + InteriorProbeX[i] * step;
+            int qz = pz + InteriorProbeZ[i] * step;
+            // Off the map is an edge: a region running to the world boundary is
+            // still a region whose rim someone can walk along.
+            if (qx < 0 || qx >= Data.ImageWidth || qz < 0 || qz >= Data.ImageHeight
+                || PaintedPropIndex(layer, qx, qz) < 0 || Underwater(qx, qz))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Axes first, then diagonals — the step differs, so the order is read by
+    // IsPropInterior rather than being incidental.
+    private static readonly int[] InteriorProbeX = { 1, -1, 0, 0, 1, 1, -1, -1 };
+    private static readonly int[] InteriorProbeZ = { 0, 0, 1, -1, 1, -1, 1, -1 };
+
+    // Nothing in this column's list fits here without reaching outside the
+    // painted region — the author's to fix, by painting wider or by adding a
+    // smaller prop to the list.
+    public bool CollidableNoFitAt(int px, int pz)
+    {
+        PropFill fill = FillFor(false, FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE));
+        return fill.NoFit[LocalCell(px, pz)];
+    }
+
+    // Public because worldmap_check has to tell a clearing the fill MEANT to
+    // leave from a hole in a barrier, which is a bug.
+    public bool CollidableInteriorAt(int px, int pz)
+    {
+        PropListData list = PaintedCollidableAt(px, pz);
+        return list != null && IsPropInterior(CollidableProps, px, pz, list.barrierDepthMeters);
+    }
+
+    // The chunk's cells ordered by a hash of each — a stable shuffle,
+    // reproducible from (cx, cz) alone.
+    private int[] FillOrder(int cx, int cz, uint salt)
+    {
+        int n = ChunkState.SIZE * ChunkState.SIZE;
+        var cells = new int[n];
+        var keys = new uint[n];
+        for (int i = 0; i < n; i++)
+        {
+            cells[i] = i;
+            keys[i] = Hash(cx * ChunkState.SIZE + i / ChunkState.SIZE,
+                cz * ChunkState.SIZE + i % ChunkState.SIZE, salt + 2u);
+        }
+        System.Array.Sort(keys, cells);
+        return cells;
+    }
+
+    // Where a painted prop's base sits, in world Y.
+    //
+    // A flat column's drawn top is half a voxel above the surface voxel's top
+    // face — the mesher's shallow-Y smoothing — which is what PropSurfaceLift
+    // is and why a prop anchored at the face alone is buried. On a GRADE the
+    // mesher stops snapping that vertex to the face and averages the cell's edge
+    // crossings instead, so the drawn surface runs as a plane through the column
+    // and the flat anchor floats a prop off the downhill side of it.
+    //
+    // The estimate is that plane at the column centre: the mean of the facing
+    // surfaces around it, which is the same average the mesher takes. A
+    // neighbour outside the grade window is a WALL — the mesher keeps the
+    // surface crisp against it and it says nothing about this column's height —
+    // so it is left out rather than allowed to drag a clifftop prop down.
+    //
+    // Two clamps, and both are the point of the exercise:
+    //   - Never LIFT above the flat anchor. Where the ground rises into the
+    //     column the prop embeds into it, which is the honest answer for a
+    //     barrier: a prop standing proud of the hill has a gap under it.
+    //   - Never sink past the surface voxel's top face. The prop's own Y is what
+    //     picks the cell the nav grid marks blocked (PathBlockerRasterizer takes
+    //     floor(Y)), so half a voxel lower is the last position that still marks
+    //     the AIR cell a mob would walk through. Sink past it and the barrier
+    //     stops blocking anything, which is the one failure worth clamping for.
+    public float PropSeatY(int px, int pz)
+    {
+        int h = TerrainHeight(px, pz);
+        int step = MaxGradeStep;
+        int sum = h;
+        int n = 1;
+        for (int d = 0; d < 4; d++)
+        {
+            int nh = TerrainHeight(px + NeighbourDx[d], pz + NeighbourDz[d]);
+            if (Mathf.Abs(nh - h) <= step)
+            {
+                sum += nh;
+                n++;
+            }
+        }
+        float drop = Mathf.Clamp(sum / (float)n - h, -PropMaxEmbed, 0f);
+        return h + PropSurfaceLift + drop;
+    }
+
+    // The drawn surface of a flat column, over its surface voxel's top face.
+    private const float PropSurfaceLift = 1.5f;
+
+    // How far into the ground a prop may be seated. Exactly the lift, so the
+    // deepest seat is the top face itself — see PropSeatY.
+    private const float PropMaxEmbed = 0.5f;
+
+    // Re-read every prop list and its scenes from disk, then drop the fills
+    // derived from them.
+    //
+    // NOTHING about the fill is authored or stored — the raster holds only which
+    // list covers a column, and which props that takes is worked out afresh
+    // every time it is asked. So a wider tree trunk or a scene added to a list
+    // needs no edit to the document at all: it needs the answer recomputed,
+    // which is what this is. The bake runs it first, so re-saving the map is the
+    // whole workflow.
+    public void RefreshPropAssets()
+    {
+        foreach (PropListData list in PropLists)
+        {
+            list?.Refresh();
+        }
+        InvalidatePropFill();
+    }
+
+    // The fill reads the prop rasters, the terrain under them and the placement
+    // list, so almost any edit can change it and it is dropped wholesale rather
+    // than by rect. It is cheap to rebuild — one chunk at a time, on demand —
+    // and a stale one would silently bake props that are not on the map.
+    public void InvalidatePropFill()
+    {
+        lock (_propFillLock)
+        {
+            _propFills.Clear();
+        }
+    }
+
+    // --- Mobs: placement, matching WorldGen's own list rates -----------------
+    //
+    // Does anything spawn at this column, and from which palette entry? Drives
+    // the map's mob dots; returns -1 for nothing.
+    public int PreviewMobAt(int px, int pz)
+    {
+        SpawnSetData set = MobSetAt(px, pz, out float density);
         if (set == null || !CanSpawnAt(px, pz))
         {
             return -1;
         }
-        if (TreeAt(set, px, pz, density) || GrassAt(set, px, pz, density))
-        {
-            return IndexOfSet(sets, set);
-        }
         SpawnListRow[] rows = set.RowsFlat;
-        if (rows != null)
+        if (rows == null)
         {
-            for (int i = 0; i < rows.Length; i++)
+            return -1;
+        }
+        for (int i = 0; i < rows.Length; i++)
+        {
+            if (rows[i] != null
+                && AreaRoll(Hash(px, pz, ENTITY_SALT + (uint)i), rows[i].squareMetersPerSpawn, density))
             {
-                if (rows[i] != null
-                    && AreaRoll(Hash(px, pz, ENTITY_SALT + (uint)i), rows[i].squareMetersPerSpawn, density))
-                {
-                    return IndexOfSet(sets, set);
-                }
+                return IndexOfSet(MobSets, set);
             }
         }
         return -1;
-    }
-
-    // --- Placement, matching WorldGen.GenerateProps exactly ------------------
-    //
-    // Trees are TWO passes, as they are there: a per-chunk scatter of
-    // treesPerChunkMin..Max attempts at random cells, plus forest pockets whose
-    // per-column odds are forestDensity * (f - threshold) / (1 - threshold)
-    // wherever the noise clears the threshold. Grass is a single gate with NO
-    // roll — every admitted column carries it, which is what makes worldgen's
-    // grass read as solid clumps rather than a sprinkle.
-    //
-    // Worldgen rolls these off a running Random; here every decision is a hash
-    // of the column (or the chunk), because the map preview has to reach the
-    // same answer without replaying the whole pass. Same curve, same constants,
-    // reproducible per column.
-
-    public bool TreeAt(SpawnSetData set, int px, int pz, float density)
-    {
-        if (set == null || set.treeScenes.Length == 0)
-        {
-            return false;
-        }
-        float f = set.ForestNoise.GetNoise2D(Data.WorldMinX + px, Data.WorldMinZ + pz);
-        if (f >= set.forestThreshold)
-        {
-            float t = Mathf.Clamp((f - set.forestThreshold) / Mathf.Max(0.0001f, 1f - set.forestThreshold), 0f, 1f);
-            if (ToFloat01(Hash(px, pz, TREE_SALT)) < set.forestDensity * t * density)
-            {
-                return true;
-            }
-        }
-        // The per-chunk scatter, which is what puts lone trees outside any wood.
-        // Resolved for the whole chunk at once and cached: a column cannot tell
-        // on its own whether it was one of that chunk's picks.
-        return ChunkScatterCells(set, FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE), density)
-            .Contains(Mod(px, ChunkState.SIZE) * ChunkState.SIZE + Mod(pz, ChunkState.SIZE));
-    }
-
-    public bool GrassAt(SpawnSetData set, int px, int pz, float density)
-    {
-        if (set == null || set.foliageScenes.Length == 0)
-        {
-            return false;
-        }
-        if (set.GrassNoise.GetNoise2D(Data.WorldMinX + px, Data.WorldMinZ + pz) < set.grassThreshold)
-        {
-            return false;
-        }
-        // Worldgen places on every admitted column; painted density is the only
-        // extra term, so a half-painted region thins rather than cutting off.
-        return density >= 1f || ToFloat01(Hash(px, pz, GRASS_SALT)) < density;
-    }
-
-    private readonly System.Collections.Generic.Dictionary<(SpawnSetData, int, int), System.Collections.Generic.HashSet<int>> _chunkScatter = new();
-
-    private System.Collections.Generic.HashSet<int> ChunkScatterCells(SpawnSetData set, int cx, int cz, float density)
-    {
-        var key = (set, cx, cz);
-        if (_chunkScatter.TryGetValue(key, out var cells))
-        {
-            return cells;
-        }
-        cells = new System.Collections.Generic.HashSet<int>();
-        int span = set.treesPerChunkMax - set.treesPerChunkMin + 1;
-        if (span > 0)
-        {
-            int count = set.treesPerChunkMin + (int)(ToFloat01(Hash(cx, cz, CHUNK_SALT)) * span);
-            count = Mathf.RoundToInt(count * Mathf.Clamp(density, 0f, 1f));
-            for (int i = 0; i < count; i++)
-            {
-                // Worldgen picks cells in [1, SIZE-1) — never the chunk border.
-                int lx = 1 + (int)(ToFloat01(Hash(cx, cz, CHUNK_SALT + (uint)(i * 2 + 1))) * (ChunkState.SIZE - 2));
-                int lz = 1 + (int)(ToFloat01(Hash(cx, cz, CHUNK_SALT + (uint)(i * 2 + 2))) * (ChunkState.SIZE - 2));
-                cells.Add(lx * ChunkState.SIZE + lz);
-            }
-        }
-        _chunkScatter[key] = cells;
-        return cells;
     }
 
     private static int FloorDiv(int a, int b) => a >= 0 ? a / b : ((a + 1) / b) - 1;
@@ -1423,8 +2535,47 @@ public class WorldMapState
     // the scatter would grow underneath it).
     public bool CanSpawnAt(int px, int pz)
     {
+        return !IsGradeAt(px, pz) && !InBlockingRegion(px, pz) && CanPlacePropAt(px, pz);
+    }
+
+    // Is this column inside a painted BLOCKING region? Nothing spawns in one.
+    //
+    // The whole region, not merely the columns a prop ended up standing in: an
+    // interior clearing is ground the fill left bare precisely because nobody
+    // can reach it, and a mob spawned there is a mob walled in for the life of
+    // the world. The same goes for the gaps between trunks along the edge —
+    // whatever fits between them is not somewhere to put an encounter.
+    //
+    // The BREAKABLE layer deliberately does not count. It is passable by
+    // construction — that is what makes it breakable, and tall grass is walked
+    // straight through — so treating it the same way would sterilize every
+    // meadow of wildlife.
+    //
+    // Runtime ambient spawners need no equivalent: NightMobSpawner and
+    // FairySpawner both pick from a reachability flood out of the player
+    // (NavigationGoals.CollectReachableStandableCells), and a sealed interior is
+    // unreachable once the props are in it — props block the nav grid through
+    // PropSimState.GetPathBlockerCells.
+    public bool InBlockingRegion(int px, int pz)
+        => PaintedPropIndex(CollidableProps, px, pz) >= 0;
+
+    // The breakable twin, for the map to draw. NOT a spawn gate — see above.
+    public bool InBreakableRegion(int px, int pz)
+        => PaintedPropIndex(DestructibleProps, px, pz) >= 0;
+
+    // The same gate MINUS the grade clause, for a prop the author put there by
+    // hand. Everything left is "there is no ground here" or "something else owns
+    // this column"; the grade clause alone is a statement of TASTE, inherited
+    // from a scatter pass that did not want lone trees down a generated
+    // hillside. A painted barrier wants exactly the opposite — a wall that stops
+    // at the foot of a slope is a wall with a way around it.
+    //
+    // The cost is that a prop on a graded column is seated at that column's own
+    // top rather than on the plane the mesher draws, so it sits slightly into
+    // the slope. A visible seam is worth less than a gap you can walk through.
+    public bool CanPlacePropAt(int px, int pz)
+    {
         return !Underwater(px, pz)
-            && !IsGradeAt(px, pz)
             && SurfaceBelow(px, pz, int.MaxValue) == TerrainHeight(px, pz)
             && SurfacePavingAt(px, pz) == null
             && PlacementAt(px, pz) == null;
@@ -1450,13 +2601,11 @@ public class WorldMapState
             || HeightMap.AxisIsGrade(h, TerrainHeight(px, pz - 1), TerrainHeight(px, pz + 1), step);
     }
 
-    // Independent salts: the two slots must roll independently, or every tree
-    // would stand in a tuft of grass and every gap would be bare.
-    // Practical maximum of the Perlin fields the sets use, measured across the
-    // whole map on every authored set (0.67..0.75).
-    internal const uint TREE_SALT = 0x9E37u;
-    internal const uint GRASS_SALT = 0x2545u;
-    internal const uint CHUNK_SALT = 0x7F4Au;
+    // Independent salts: the two prop layers pick their scene, rotation and
+    // jitter off these, so sharing one would stand the same tree and the same
+    // bush at every column the layers both cover.
+    internal const uint COLLIDABLE_SALT = 0x9E37u;
+    internal const uint DESTRUCTIBLE_SALT = 0x2545u;
     internal const uint ENTITY_SALT = 0x85EBu;
 
     // Public because worldmap_check asks it of every hand-placed entity: this is
@@ -1506,11 +2655,15 @@ public class WorldMapState
         Data.SaveRegion(Region);
         Data.SaveZone(Zone);
         Data.SaveWind(Wind);
-        Data.SaveScatter(Scatter);
+        Data.SaveCollidableProps(CollidableProps);
+        Data.SaveDestructibleProps(DestructibleProps);
         Data.SaveGround(Ground);
         Data.SaveWaterType(WaterType);
         Data.SavePaving(Paving);
         SavePlacements();
+        // The ledger has already grown by whatever this session discovered;
+        // saving is what makes those slots permanent.
+        SavePalettes();
         Data.SaveMobs(Mobs);
         Data.SaveScalars(Scalars);
         Data.SaveTunnels(Tunnels);

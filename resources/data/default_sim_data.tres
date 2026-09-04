@@ -1,8 +1,12 @@
 [gd_resource type="Resource" script_class="SimData" format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/world/SimData.cs" id="1_1meao"]
-[ext_resource type="Material" uid="uid://dftmm0prnt7kq2" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
+[ext_resource type="Material" uid="uid://dhl426xulqxbf" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
 [ext_resource type="Material" uid="uid://vyod0jnbvh8p" path="res://resources/materials/ground_shadow_blob.tres" id="1_mobshadow"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/common.tres" id="3_lang_common"]
+[ext_resource type="Resource" uid="uid://1td133j0mecv" path="res://resources/data/worlds/shared/languages/muddish.tres" id="3_lang_muddish"]
+[ext_resource type="Script" uid="uid://bpcbgagqxrvhu" path="res://scripts/data/LanguageData.cs" id="3_lang_script"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="3_lang_vyeshal"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="3_recipe_script"]
 [ext_resource type="Resource" uid="uid://drcp4n7p2q8wt" path="res://resources/data/recipes/recipe_grilled_kun_kun.tres" id="5_recipe_gkk"]
 [ext_resource type="Resource" uid="uid://drg5p3n4q2wxt" path="res://resources/data/recipes/recipe_grilled_goblin.tres" id="6_recipe_gg"]
@@ -23,7 +27,7 @@
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="19_boondata"]
 [ext_resource type="Resource" uid="uid://crbn7q3k2p8wt" path="res://resources/data/status_effects/boons/boon_restore.tres" id="21_boon_restore"]
 [ext_resource type="Resource" uid="uid://dgbn5q3p8wrx2" path="res://resources/data/status_effects/boons/boon_gold.tres" id="22_boon_gold"]
-[ext_resource type="Resource" uid="uid://cscriptvarsreg" path="res://resources/data/worlds/shared/script_variables/script_variables.tres" id="23_scriptvars"]
+[ext_resource type="Resource" uid="uid://bbsdqlnqddipm" path="res://resources/data/worlds/shared/script_variables/script_variables.tres" id="23_scriptvars"]
 [ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="24_mob_spider"]
 [ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow/sparrow.tres" id="25_mob_sparrow"]
 [ext_resource type="Resource" uid="uid://cspmuy1rwr522" path="res://resources/data/characters/dog/dog.tres" id="26_mob_dog"]
@@ -90,7 +94,7 @@
 [ext_resource type="Resource" uid="uid://d0iqlcugs8idb" path="res://resources/data/ambience/underground_large.tres" id="96_amb_ugl"]
 [ext_resource type="Resource" uid="uid://dpmwcsftdxlv4" path="res://resources/data/ambience/underground_small.tres" id="96_amb_ugs"]
 [ext_resource type="Resource" path="res://resources/data/waterfalls/waterfalls.tres" id="97_waterfalls"]
-[ext_resource type="Resource" uid="uid://ncd5n77ocx943" path="res://resources/data/test_scenarios/snow.tres" id="ts_snow"]
+[ext_resource type="Resource" uid="uid://bp5jv2gwndnus" path="res://resources/data/test_scenarios/snow.tres" id="ts_snow"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -117,6 +121,8 @@ forgeArmorIcon = ExtResource("43_icon_armor")
 talkAction = ExtResource("13_talk_action")
 giveItemAction = ExtResource("14_give_action")
 partyReviveAction = ExtResource("30_party_revive")
+languages = Array[ExtResource("3_lang_script")]([ExtResource("3_lang_common"), ExtResource("3_lang_muddish"), ExtResource("3_lang_vyeshal")])
+commonTongue = ExtResource("3_lang_common")
 sunMaxElevationDegrees = 65.0
 sunsetAngleDegrees = 25.0
 fillAFromSkyBias = 1.0
@@ -150,5 +156,5 @@ thunderScheduler = ExtResource("11_thunder_distant")
 weatherLightning = ExtResource("12_lightning")
 fogVisionReduction = 0.7
 rainVisionReduction = 0.35
-metadata/_custom_type_script = "uid://chvgahtb671mg"
 testScenarios = [ExtResource("ts_snow")]
+metadata/_custom_type_script = "uid://chvgahtb671mg"

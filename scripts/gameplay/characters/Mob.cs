@@ -4690,6 +4690,51 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         health = maxHealth;
     }
 
+    // Scripted death entry point (a conversation's KillSpeakerAction, console
+    // verbs). Zeroes health and runs the same Die() sequence a fatal hit does —
+    // loot ejection, death fx / VO, corpse physics, the persisted Alive flag —
+    // so a scripted death reads identically and leaves a corpse that is no
+    // longer interactable (CanInteract gates on `alive`). Silent no-op on an
+    // already-dead mob.
+    public void Kill()
+    {
+        if (!alive)
+        {
+            return;
+        }
+        health = 0f;
+        Die();
+    }
+
+    // Eject an authored item list from this mob while it's still alive — a
+    // conversation handing over a reward, a scripted stash drop. Uses the same
+    // 45° scatter arc as the death drop so a handover and a carcass read the
+    // same. Species loot is untouched: this mob still drops it when it dies.
+    public void EjectItems(Godot.Collections.Array<ItemCount> items)
+    {
+        if (_world == null || items == null || items.Count == 0)
+        {
+            return;
+        }
+        var rng = new Random();
+        float ejectSpeed = mobData?.lootEjectSpeed ?? DefaultLootEjectSpeed;
+        float horizontalSpeed = ejectSpeed * Mathf.Cos(Mathf.Pi / 4f);
+        float verticalSpeed = ejectSpeed * Mathf.Sin(Mathf.Pi / 4f);
+        int count = items.Count;
+        for (int i = 0; i < count; i++)
+        {
+            ItemCount entry = items[i];
+            if (entry?.descriptor?.item == null)
+            {
+                continue;
+            }
+            for (int n = 0; n < entry.count; n++)
+            {
+                EjectLootPiece(entry.descriptor, horizontalSpeed, verticalSpeed, rng);
+            }
+        }
+    }
+
     // Mirrors Chest.Complete's loot ejection: each ItemCount entry (stamped onto
     // the sim state from the spawning SpeciesData.loot) fires `count` Loot
     // instances outward on a 45° upward arc. Random horizontal angle per item so

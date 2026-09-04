@@ -38,6 +38,10 @@ public class RegionTool : IWorldMapTool
         return colors;
     }
 
+    // No 1-9: regions are a directory, so the first nine rows are an arbitrary prefix that
+    // moves whenever one is added.
+    public bool NumberKeys => false;
+
     public int OptionIndex
     {
         get => RegionIndex;

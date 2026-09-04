@@ -205,6 +205,22 @@ public class SimState
     // unearthed at worldPos — the map's self-destruction when its treasure is
     // dug up. Matched on the quantized position key, as maps and spots share the
     // same dig location.
+    // True when a map for this dig site is already collected. Keyed the same
+    // quantized way RemoveTreasureMapAt matches, so "do we have this one" and
+    // "remove the one for this hole" can never disagree.
+    public bool HasTreasureMapAt(Vector3 worldPos)
+    {
+        Vector3I key = MapMarkerRecord.KeyFor(worldPos);
+        for (int i = 0; i < TreasureMaps.Count; i++)
+        {
+            if (MapMarkerRecord.KeyFor(TreasureMaps[i].DigLocation) == key)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public bool RemoveTreasureMapAt(Vector3 worldPos)
     {
         Vector3I key = MapMarkerRecord.KeyFor(worldPos);

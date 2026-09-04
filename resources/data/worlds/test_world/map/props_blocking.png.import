@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cr1jrecwaf8pd"
-path="res://.godot/imported/scatter.png-962f3abd482edf10868ad96451ac03ab.ctex"
+uid="uid://dlhouxvi85gyr"
+path="res://.godot/imported/props_blocking.png-cac9dc996e9f2442f076d5239652be8a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://resources/data/worlds/test_world/map/scatter.png"
-dest_files=["res://.godot/imported/scatter.png-962f3abd482edf10868ad96451ac03ab.ctex"]
+source_file="res://resources/data/worlds/test_world/map/props_blocking.png"
+dest_files=["res://.godot/imported/props_blocking.png-cac9dc996e9f2442f076d5239652be8a.ctex"]
 
 [params]
 

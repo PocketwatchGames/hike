@@ -47,6 +47,10 @@ public class PresetTool : IWorldMapTool
         return colors;
     }
 
+    // No 1-9: presets are a directory, so the first nine rows are an arbitrary prefix that
+    // moves whenever one is added.
+    public bool NumberKeys => false;
+
     public int OptionIndex
     {
         get => PresetIndex;
@@ -70,7 +74,8 @@ public class PresetTool : IWorldMapTool
             return "No presets authored";
         }
         string layers = (preset.ground != null ? "ground " : "")
-            + (preset.props != null ? "props " : "")
+            + (preset.collidableProps != null ? "blocking " : "")
+            + (preset.destructibleProps != null ? "breakable " : "")
             + (preset.mobs != null ? "mobs" : "");
         return $"{preset.Label}  [{layers.Trim()}]";
     }
@@ -90,7 +95,8 @@ public class PresetTool : IWorldMapTool
         }
 
         int groundValue = IndexOf(ctx.GroundSets, preset.ground);
-        int propValue = IndexOf(ctx.PropSets, preset.props);
+        int blockingValue = IndexOf(ctx.PropLists, preset.collidableProps);
+        int breakableValue = IndexOf(ctx.PropLists, preset.destructibleProps);
         int mobValue = IndexOf(ctx.MobSets, preset.mobs);
 
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
@@ -100,9 +106,13 @@ public class PresetTool : IWorldMapTool
                 float v = erase ? 0f : Mathf.Clamp(groundValue + 1, 1, 255) / 255f;
                 ctx.Ground.SetPixel(px, pz, new Color(v, 0f, 0f, 1f));
             }
-            if (preset.props != null || erase)
+            if (preset.collidableProps != null || erase)
             {
-                WriteSpawn(ctx.Scatter, propValue, preset.propDensity, weight, px, pz, erase);
+                WriteIndex(ctx.CollidableProps, blockingValue, px, pz, erase);
+            }
+            if (preset.destructibleProps != null || erase)
+            {
+                WriteIndex(ctx.DestructibleProps, breakableValue, px, pz, erase);
             }
             if (preset.mobs != null || erase)
             {
@@ -111,8 +121,15 @@ public class PresetTool : IWorldMapTool
         });
     }
 
-    // Both spawn layers are written the same way, so the rule lives in one place.
-    //
+    // The prop layers are plain index layers and hard-edged, like the ground
+    // one: a half-painted list index is not a thinner wood, it is a different
+    // list.
+    private static void WriteIndex(Image layer, int index, int px, int pz, bool erase)
+    {
+        float value = erase ? 0f : Mathf.Clamp(index + 1, 1, 255) / 255f;
+        layer.SetPixel(px, pz, new Color(value, 0f, 0f, 1f));
+    }
+
     // Density is taken as the MAX against what is already there, never the raw
     // falloff weight: writing the weight outright means a column under the brush
     // centre one moment and at its rim the next has its density DROP as the

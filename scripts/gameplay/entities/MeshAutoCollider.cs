@@ -36,15 +36,44 @@ public partial class MeshAutoCollider : Node3D
 {
     private const string AutoCollisionPrefix = "AutoCollision_";
 
+    private void ApplyMaterialOverride()
+    {
+        if (materialOverride == null)
+        {
+            return;
+        }
+        foreach (Node descendant in FindChildren("*", "MeshInstance3D", true, false))
+        {
+            if (descendant is MeshInstance3D mi)
+            {
+                mi.MaterialOverride = materialOverride;
+            }
+        }
+    }
+
     // Forwarded to every generated PorousBody. On for props meant to be walked
     // up rather than bumped into — stairs, ramps, boardwalks.
     [Export] public bool steppable;
+
+    // Applied to every descendant MeshInstance3D, replacing the material the FBX
+    // brings in through its import settings. Authored here rather than as a
+    // surface_material_override in the .tscn because the meshes live INSIDE an
+    // instanced FBX scene, so overriding one means naming a node path through
+    // someone else's scene — which changes whenever the model is re-exported.
+    // Walking the descendants is what this component already does.
+    //
+    // Leave it null and the prop keeps whatever the import bound, which is what
+    // every rock that is not a variant does.
+    [Export] public Material materialOverride;
 
     [ExportToolButton("Bake")]
     public Callable BakeButton => Callable.From(Bake);
 
     public override void _Ready()
     {
+        // Before the editor bail-out, so the swap is WYSIWYG: a variant reads as
+        // its own material in the editor rather than only once the game runs.
+        ApplyMaterialOverride();
         if (Engine.IsEditorHint())
         {
             return;

@@ -349,7 +349,7 @@ public static class EntitySerializer
         return ReadList(br);
     }
 
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true)
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true)
     {
         ReadPathTable outer = _readPaths;
         int outerRoofFormat = _roofFormat;
@@ -363,7 +363,7 @@ public static class EntitySerializer
             var list = new List<EntitySimState>((int)count);
             for (uint i = 0; i < count; i++)
             {
-                list.Add(hasRotation ? ReadOne(r, hasTag) : ReadPayload(r));
+                list.Add(hasRotation ? ReadOne(r, hasTag, hasScale) : ReadPayload(r));
             }
             return list;
         }
@@ -386,6 +386,7 @@ public static class EntitySerializer
         WritePayload(w, e);
         w.Write(e.RotationY);
         WriteInternedString(w, e.Tag);
+        w.Write(e.Scale);
     }
 
     private static void WritePayload(BinaryWriter w, EntitySimState e)
@@ -804,15 +805,17 @@ public static class EntitySerializer
     // to be assigned after the payload because the payload is what constructs
     // the state. A payload that returns null (an unknown tag) still consumes it,
     // so the stream stays aligned.
-    private static EntitySimState ReadOne(BinaryReader r, bool hasTag)
+    private static EntitySimState ReadOne(BinaryReader r, bool hasTag, bool hasScale)
     {
         EntitySimState state = ReadPayload(r);
         float rotationY = r.ReadSingle();
         string tag = hasTag ? ReadInternedString(r) : "";
+        float scale = hasScale ? r.ReadSingle() : 1f;
         if (state != null)
         {
             state.RotationY = rotationY;
             state.Tag = tag;
+            state.Scale = scale;
         }
         return state;
     }

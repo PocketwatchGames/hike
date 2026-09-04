@@ -58,6 +58,10 @@ public class PaveTool : IWorldMapTool
         return colors;
     }
 
+    // No 1-9: paving blocks come from the block catalog, so the first nine rows are an arbitrary prefix that
+    // moves whenever one is added.
+    public bool NumberKeys => false;
+
     public int OptionIndex
     {
         get => BlockIndex;

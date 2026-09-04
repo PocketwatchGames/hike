@@ -21,6 +21,7 @@ carries invariants that are not repeated here.
 | How the map is drawn (relief + step outlines), and what a rebuild costs | [docs/drawing.md](docs/drawing.md) |
 | Resizing: `worldmap_resize` (rescale) vs `worldmap_canvas` (extend) | [docs/resize.md](docs/resize.md) |
 | The host `WorldMapPainter` - palette families, placements, the entity inspector panel, subscene stamps, entity marks, paving | [docs/host.md](docs/host.md) |
+| Painted prop regions - the packed fill over measured collision, interior clearings, slope seating, no-spawn | [docs/prop-fill.md](docs/prop-fill.md) |
 | Carving and building (`VoxelEditTool`) | [tools/CLAUDE.md](tools/CLAUDE.md) |
 | Undo / redo | [undo/CLAUDE.md](undo/CLAUDE.md) |
 | Ink and brush tuning (`WorldMapInkData`, `WorldMapBrush`) | [../data/world_editor/CLAUDE.md](../data/world_editor/CLAUDE.md) |
@@ -56,8 +57,15 @@ Layers:
 - **Wind** — `.png` `Rgba8`, per **chunk**: R = compass angle over a full turn,
   G = strength, with **0 reserved for UNPAINTED**. Per chunk because that is the
   granularity the bake seeds `ChunkState`'s wind-velocity subgrid at.
-- **Props** / **Mobs** — `.png` `Rgba8`, per column (R = set index + 1,
-  G = density multiplier), indexing `propSets` / `mobSets`.
+- **Props — two layers**, `props_blocking.png` / `props_breakable.png`, `.png`
+  `R8`, per column (prop list index + 1; 0 = none), both indexing the ONE
+  `prop_lists` palette. No density channel and no spacing: the bake FILLS a
+  painted region until every column of it is inside some prop's collision,
+  because a painted region is a barrier and anything thinner leaves lanes
+  through it.
+- **Mobs** — `.png` `Rgba8`, per column (R = set index + 1, G = density
+  multiplier), indexing `mobSets`. Still a rate: a mob set is a `SpawnListData`
+  whose rows carry their own square-metres-per-spawn.
 - **Ground** — `.png` `R8`, per column (ground set + 1; 0 = `defaultGround`).
 - **Paving** — `.png` `Rgba8`, per column: R = paving block + 1 (0 = none),
   G/B = the world Y it is laid at + 1, low byte first, with **0 meaning "on
@@ -129,8 +137,9 @@ checking after any change here: **`WorldMapState` and `WorldMapBake` do not
 name `WorldMapInkData` at all.** A bake pass therefore cannot read a display
 value even by accident.
 
-**Scatter resolution belongs to the MODEL, not to the bake** — `TreeAt`,
-`GrassAt`, `ChunkScatterCells`, `AreaRoll` and the salts. They answer "what does
+**Spawn resolution belongs to the MODEL, not to the bake** —
+`PreviewCollidableAt`, `PreviewDestructibleAt`, `PreviewMobAt`, `AreaRoll` and
+the salts. They answer "what does
 this document say stands at this column", which is a property of the map. The
 bake PLACES what the model resolves and the map preview DRAWS what the model
 resolves, which is exactly why the two cannot disagree; filing the resolution
@@ -201,14 +210,15 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | Tool | Paints | Extra vars | View |
 |------|--------|-----------|------|
 | `ElevationTool` | elevation (raise/lower/flatten/flatten-soft/smooth/lift/smear) **and** cliff weathering (roughen) | `Op`, `VoxelsPerStroke`, `TargetVoxels`, `RoughenStopIndex`; `AdjustLevel` steps whichever number the op uses | one band per lattice step, eroded heights, water overlaid when `ShowWater` (**W**) |
-| `WaterTool` | each painted column's water surface AND its water type (RMB removes) | `SurfaceVoxels` (R/F, signed; alt+click samples), type (1-9 / Q/E), `ReplaceOnly` (**X**) | water shaded by depth, dry land dimmed — **cuts away** (T/G), so water can be painted inside a passage |
+| `WaterTool` | each painted column's water surface AND its water type (RMB removes) | `SurfaceVoxels` (R/F, signed; alt+click samples), type (**Q/E**), `ReplaceOnly` (**X**) | water shaded by depth, dry land dimmed — **cuts away** (T/G), so water can be painted inside a passage |
 | `TunnelTool` | LMB carves the box UP from `PaintY`; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `view.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
 | `BlockTool` | the same box, LMB filling it DOWN from `PaintY` | the same | the same view |
 | `RegionTool` | per-chunk region index | `RegionIndex`, named in the option row | region colours, **50% darker under water** |
 | `ZoneTool` | per-chunk zone index | `ZoneIndex`, named in the option row | zone colours, **brightness by elevation** |
 | `WindTool` | per-chunk wind direction + strength (RMB clears back to the zone's) | `Mode` (Stroke / Inward / Outward), `AdjustLevel` = strength in m/s; alt+click samples | hue = compass angle, a sawtooth ramp ALONG the flow, unpainted chunks flat grey |
-| `ScatterTool` | which `SpawnSetData` covers a column + density | `SetIndex`, `Density` | ground colour + a dot per prop spawn |
-| `MobTool` | the same, on the mob layer | `SetIndex`, `Density` | ground colour + a dot per mob spawn |
+| `CollidablePropTool` ("Blocking") | which `PropListData` fills a column, on the collidable layer (RMB clears, alt+click samples) | `ListIndex` | ground colour, the blocked columns washed, a dot per placed prop |
+| `DestructiblePropTool` ("Breakable") | the same, on the destructible layer, skipping whatever the blocking one already covers | `ListIndex` | the same |
+| `MobTool` | which `SpawnSetData` supplies a column's wildlife + density | `SetIndex`, `Density` | ground colour + a dot per mob spawn |
 | `MobLevelTool` | per-column danger level | `Level` | terrain recoloured, one shade per level |
 | `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
 | `PaveTool` | a block on the floor the map is SHOWING — the surface, or a passage's floor under the cut | `BlockIndex` | `CutawayGroundView` — the ground map, **cutting away** (T/G) once the plane comes down |
@@ -216,16 +226,40 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map (the marks themselves draw on EVERY view that shows props) |
 
 A spawn brush writes only its raster; `RescatterColumns` resolves it during the
-bake, running **worldgen's own placement math** per column — the two-pass tree
-scatter, the noise-gated grass, and `SpawnListData` entities at their authored
-area rates. Every decision is a hash of the column rather than a running
-`Random`, which is what lets the map preview reach the same answer without
-replaying the pass.
+bake. The two resolutions are not the same shape and should not be made to
+match:
+
+- **Props are placed SIZE-ORDERED over their own measured collision** — one pass
+  per size class, largest first (`PropFootprint.Shape`, shared with the minimap),
+  then a seal pass covers the region's edge band with the widest COLLISION that
+  fits. Coverage is the BAND's contract and only the band's — `worldmap_check`
+  reports `uncovered (must be 0)` — while the interior is furnished to
+  `interiorDensity` and no more, because nobody can reach it. **Two props stand
+  at least the SUM of their reservations apart** (drawn radius × `canopySpacing`),
+  with `understoryRatio` waiving that for something far smaller so undergrowth is
+  still possible; a single radius cannot express this and put big trees and small
+  ones the same distance apart. Both WHERE a prop stands and what has reserved
+  ground near it are decided ORDER-FREE over a padded halo — checking against a
+  chunk's own placements is blind at its seams, which is where 46 of 46 remaining
+  violations were. Nothing about the fill is stored — it is derived at export
+  from the lists and the collision as they are on disk, so a widened trunk
+  reaches the world by re-saving the map. Read
+  [docs/prop-fill.md](docs/prop-fill.md) before changing any of it; it carries
+  the invariants, the measured numbers and the rejected alternatives.
+- **Mobs still run worldgen's own rate math** (`SpawnListData` rows at their
+  authored area rates), gated by `CanSpawnAt` — which now also refuses any column
+  inside a painted BLOCKING region, so nothing is spawned walled in behind a
+  barrier. Every decision is a hash of the column rather than a running `Random`,
+  which is what lets the map preview reach the same answer without replaying the
+  pass.
 
 `WorldMapBrush` (`Resource`) is the shared, layer-agnostic stamp engine
 (falloff/flow/noise + `Stamp(center, radius, w, h, apply)` callback); each tool
 supplies its own radius and per-texel write. Add a new tool by implementing the
-two interfaces and appending it to `WorldMapPainter._tools`.
+two interfaces and appending it to `WorldMapPainter._tools`; if it needs a
+palette, declare it in `WorldMapPaletteSource.Table` (see below) rather than
+adding an array to `WorldMapData`.
+
 ## Verifying a change to the painter
 
 
@@ -239,12 +273,18 @@ be answered here.
 Four invariants are worth re-checking after any change to placement or to how the
 map is drawn. Each was a real bug, and none of them was visible by reading:
 
-- **Preview == bake.** Count columns where `PreviewSpawnAt(px, pz) >= 0` and
-  compare against the columns that actually received entities after `BuildWorld`.
-  It must be **zero disagreement, not merely equal totals** — the totals matched
-  while 665 columns disagreed. This is what `CanSpawnAt` being the single gate
-  for both the dots and the scatter buys, so a new eligibility rule goes THERE
-  and nowhere else.
+- **Preview == bake, for the MOB layer.** Count columns where
+  `PreviewMobAt(px, pz) >= 0` and compare against the columns that actually
+  received entities after `BuildWorld`. It must be **zero disagreement, not
+  merely equal totals** — the totals matched while 665 columns disagreed. This is
+  what `CanSpawnAt` being the single gate for both the dots and the scatter buys,
+  so a new eligibility rule goes THERE and nowhere else.
+- **The PROP layers deliberately do not work that way.** Their dots are the
+  painted raster, not the resolved fill: what an author paints is the region, and
+  which props that becomes is worked out at export. Drawing the fill live made a
+  stroke come back patchy — interior clearings and columns nothing fit — and made
+  every frame build per-chunk fills to answer a question nobody had asked. The
+  resolved numbers are `worldmap_check`'s job.
 - **A partial rebuild reproduces a full one.** Hash `_pixels` after a full
   `RebuildDisplay`, then again after rebuilding a small rect over unchanged data;
   they must be identical. Two intermediate states looked "stable" while still
@@ -266,6 +306,57 @@ reintroduce:
 - **Never `string.GetHashCode()` for a seed.** .NET randomises it per process, so
   patches move between the session that painted them and the bake that reads
   them.
+## Palettes: a directory, not a list
+
+
+**Nothing is registered by hand. A resource becomes paintable by existing in the
+right directory.** `WorldMapPaletteSource.Table` is the one place a palette is
+declared — the directories it is scanned from (or the block-catalog filter it
+uses) — and it is the only file to touch when the painter should offer a new
+KIND of thing.
+
+| Palette | Comes from |
+|---|---|
+| Zones | `world_authoring/zones/` |
+| Regions | `worlds/shared/regions/` |
+| Ground | `world_authoring/ground_sets/` |
+| Props (both layers) | `world_authoring/prop_lists/` |
+| Mobs | `world_authoring/mob_sets/` |
+| Presets | `world_authoring/presets/` |
+| Entities | `world_authoring/spawn_entries/` + `.../mobs/`, `worlds/shared/spawn_entries/` + `.../npcs/` |
+| Water | the block catalog, every block whose `render` is `Water` |
+| Paving | the block catalog, every solid block with a top surface |
+
+Four rules, three of which were real bugs:
+
+- **A palette whose index is painted is a WIRE FORMAT, and its slots live in a
+  LEDGER.** `zone.png`, `region.png`, `ground.png`, `props_blocking.png`,
+  `props_breakable.png`, `mobs.png`,
+  `paving.png` and `water_type.png` all store a slot number, so a slot that moves
+  silently re-zones or re-textures every world already baked — with the stored
+  bytes still perfectly valid. Discovery therefore only ever APPENDS to
+  `WorldMapPalettes` (`map/palettes.tres`, beside the layer images), never
+  reorders, and a slot whose file is gone keeps its index as a named dead slot.
+  Same rule and same reason as `KitPaletteData`.
+- **A FREE palette has no ledger at all.** Nothing stores an index for entities
+  (an `EntityPlacement` holds its entry by reference) or presets (a composite
+  brush stroke that is never written down), so those are simply what is on disk
+  in name order.
+- **The ledger is its own file because the painter WRITES it**, like
+  `WorldMapPlacements` and for the same reason: `WorldMapData` is a resource the
+  Godot editor may have open, and rewriting it from a running game is how
+  `genData` got stripped twice.
+- **Scans are NON-RECURSIVE, and a subdirectory is how leaves are excluded.**
+  `spawn_entries/mobs/` holds the composite entry an author places (`goblin.tres`,
+  offering all thirteen goblins as variants); `spawn_entries/mobs/variants/` holds
+  the leaves the generator's spawn lists name. Both are `MobSpawnEntry`, so
+  nothing but the directory can tell them apart — which makes "which folder" the
+  authoring decision, visible in the file browser.
+
+`worldmap_check` prints every palette with its slot numbers. That readout is the
+only thing that can catch a ledger whose order has moved: a document whose zone 4
+stopped being the hub does not error, it bakes a different world.
+
 ## Known gaps
 
 

@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://ifg4vfpafedc"]
 
-[ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://bsgbf0hceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="sc_1"]
@@ -9,10 +9,10 @@
 [ext_resource type="PackedScene" uid="uid://csthx76rtxtec" path="res://scenes/props/tree_oak_dead.tscn" id="sc_4"]
 [ext_resource type="PackedScene" uid="uid://dgf3lsf0f6ngm" path="res://scenes/props/tree_pine.tscn" id="sc_5"]
 [ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="sc_6"]
-[ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/interactives/foliage/tall_grass_01.tscn" id="sc_7"]
-[ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/interactives/foliage/tall_grass_02.tscn" id="sc_8"]
-[ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/interactives/foliage/tall_grass_03.tscn" id="sc_9"]
-[ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/interactives/foliage/tall_grass_04.tscn" id="sc_10"]
+[ext_resource type="PackedScene" uid="uid://ngyyjovwf6to" path="res://scenes/props/bush_01.tscn" id="sc_7"]
+[ext_resource type="PackedScene" uid="uid://c55djo6ltlx45" path="res://scenes/props/bush_02.tscn" id="sc_8"]
+[ext_resource type="PackedScene" uid="uid://xhsasaphibi8" path="res://scenes/props/bush_03.tscn" id="sc_9"]
+[ext_resource type="PackedScene" uid="uid://m8i6fl11f8pg" path="res://scenes/props/bush_04.tscn" id="sc_10"]
 
 [sub_resource type="Resource" id="e_7"]
 script = ExtResource("2_ws")
@@ -73,6 +73,6 @@ forestThreshold = 0.01
 forestDensity = 0.1
 treeScenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5"), SubResource("e_6")]
 grassNoiseFrequency = 0.1
-grassThreshold = 0.3
+grassThreshold = 0.67
 foliageScenes = [SubResource("e_7"), SubResource("e_8"), SubResource("e_9"), SubResource("e_10")]
 positionJitter = 0.2

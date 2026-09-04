@@ -104,6 +104,7 @@ public static class WorldMapCheck
             + (spread.Length == 0 ? "none" : spread.ToString()));
 
         ReportEntityLinks(sb, entities);
+        ReportPalettes(sb, ctx);
         ReportPaletteEditors(sb, ctx);
 
         // The fork the property panel makes must come back as the SAME entry
@@ -166,6 +167,7 @@ public static class WorldMapCheck
         int spawnable = 0;
         int wet = 0;
         int grade = 0;
+        int walled = 0;
         int edited = 0;
         // The voxel-edit layer, reported because a document that reads all-zero
         // here bakes with no tunnels and no built geometry and nothing else says
@@ -173,6 +175,21 @@ public static class WorldMapCheck
         int carved = 0;
         int added = 0;
         int addedAboveGround = 0;
+        // The two prop layers, counted as PAINTED columns against the props that
+        // will actually stand. Placement is one per column, so the gap between
+        // the two numbers is entirely what CanPlacePropAt refused — water, a
+        // carve or a build over the surface, paving, a placement's footprint. A
+        // wide gap is a painted region the bake will furnish only in patches,
+        // which is a barrier with holes in it.
+        int blockingPainted = 0;
+        int blockingCovered = 0;
+        int blockingStanding = 0;
+        int blockingUncovered = 0;
+        int blockingClearings = 0;
+        int blockingNoFit = 0;
+        int breakablePainted = 0;
+        int breakableCovered = 0;
+        int breakableStanding = 0;
         int pavedSurface = 0;
         int pavedUnder = 0;
         int pavedStranded = 0;
@@ -200,6 +217,10 @@ public static class WorldMapCheck
                 {
                     grade++;
                 }
+                else if (ctx.InBlockingRegion(px, pz))
+                {
+                    walled++;
+                }
                 else if (ctx.SurfaceBelow(px, pz, int.MaxValue) != ctx.TerrainHeight(px, pz))
                 {
                     edited++;
@@ -207,6 +228,47 @@ public static class WorldMapCheck
                 else if (ctx.CanSpawnAt(px, pz))
                 {
                     spawnable++;
+                }
+                if (ctx.PaintedCollidableAt(px, pz) != null)
+                {
+                    blockingPainted++;
+                    if (!ctx.CollidableCoversAt(px, pz) && ctx.CanPlacePropAt(px, pz))
+                    {
+                        // A clearing the fill deliberately left behind the
+                        // barrier, or a hole in the barrier itself.
+                        if (ctx.CollidableInteriorAt(px, pz))
+                        {
+                            blockingClearings++;
+                        }
+                        else if (ctx.CollidableNoFitAt(px, pz))
+                        {
+                            blockingNoFit++;
+                        }
+                        else
+                        {
+                            blockingUncovered++;
+                        }
+                    }
+                }
+                if (ctx.CollidableCoversAt(px, pz))
+                {
+                    blockingCovered++;
+                }
+                if (ctx.CollidablePropAt(px, pz, out WorldMapState.PaintedProp _))
+                {
+                    blockingStanding++;
+                }
+                if (ctx.PaintedDestructibleAt(px, pz) != null)
+                {
+                    breakablePainted++;
+                }
+                if (ctx.DestructibleCoversAt(px, pz))
+                {
+                    breakableCovered++;
+                }
+                if (ctx.DestructiblePropAt(px, pz, out WorldMapState.PaintedProp _))
+                {
+                    breakableStanding++;
                 }
                 if (ctx.PavingAt(px, pz) != null)
                 {
@@ -264,8 +326,25 @@ public static class WorldMapCheck
 
         // Anything left over was refused by the paving or placement clause.
         sb.AppendLine($"[worldmap_check] spawnable: {spawnable} columns "
-            + $"(refused {wet} wet, {grade} grade, {edited} carved/built over, "
-            + $"{w * h - spawnable - wet - grade - edited} paved/built)");
+            + $"(refused {wet} wet, {grade} grade, {walled} inside a blocking region, "
+            + $"{edited} carved/built over, "
+            + $"{w * h - spawnable - wet - grade - walled - edited} paved/built)");
+
+        // The standing count is exactly what the bake will place, and the covered
+        // count is exactly what it will block: both read the same fill, which is
+        // the whole point of resolving placement on the model.
+        //
+        // UNCOVERED must be 0. It counts painted columns the fill could have
+        // filled and did not AND that are not deep enough inside the region to
+        // be a deliberate clearing — i.e. a hole in the barrier itself, the one
+        // thing this whole model exists to rule out. Clearings are reported
+        // beside it because they are the saving: entities not spent on ground
+        // behind the barrier.
+        sb.AppendLine($"[worldmap_check] props: blocking {blockingPainted} columns painted, "
+            + $"{blockingCovered} blocked by {blockingStanding} props, "
+            + $"{blockingClearings} interior clearings, {blockingNoFit} too tight for the list, "
+            + $"{blockingUncovered} uncovered (must be 0); "
+            + $"breakable {breakablePainted} painted, {breakableCovered} blocked by {breakableStanding} props");
 
         sb.AppendLine($"[worldmap_check] paving: {pavedSurface} columns on the surface, "
             + $"{pavedUnder} on a floor under it, {pavedStranded} stranded (no floor at their level)");
@@ -409,7 +488,7 @@ public static class WorldMapCheck
         {
             foreach (System.Collections.Generic.KeyValuePair<int, int> kv in typeCounts)
             {
-                BlockData b = kv.Key < (ctx.Data.waterTypes?.Length ?? 0) ? ctx.Data.waterTypes[kv.Key] : null;
+                BlockData b = kv.Key < ctx.WaterTypes.Length ? ctx.WaterTypes[kv.Key] : null;
                 bool ok = b != null && b.render == EBlockRender.Water;
                 sb.AppendLine($"[worldmap_check] water type {kv.Key} {(b != null ? b.blockName.ToString() : "<empty palette slot>")}"
                     + $"{(ok ? "" : "  <-- NOT A WATER BLOCK, will not stamp")}: {kv.Value} columns");
@@ -427,6 +506,42 @@ public static class WorldMapCheck
         sb.Append("[worldmap_check] done");
         GD.Print(sb.ToString());
         tree.Quit();
+    }
+
+    // What each palette resolved to, and — for the INDEXED ones — the slot each
+    // resource occupies.
+    //
+    // The slot is the point. A painted raster stores it, so this is the only
+    // readout that can catch a ledger whose order has moved: a document whose
+    // zone 4 stopped being the hub does not error, it just bakes a different
+    // world. A DEAD slot (its file gone) is reported rather than skipped, since
+    // the columns painted with it are still out there.
+    private static void ReportPalettes(System.Text.StringBuilder sb, WorldMapState ctx)
+    {
+        foreach (WorldMapPaletteSource source in WorldMapPaletteSource.Table)
+        {
+            if (!source.Indexed)
+            {
+                sb.AppendLine($"[worldmap_check] palette {source.Id}: "
+                    + $"{source.Discover().Length} found (free — no slots stored)");
+                continue;
+            }
+            string[] slots = ctx.Palettes.For(source.Id).slots ?? System.Array.Empty<string>();
+            var dead = new List<string>();
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (!ResourceLoader.Exists(slots[i]))
+                {
+                    dead.Add($"{i}={slots[i].GetFile()}");
+                }
+            }
+            sb.AppendLine($"[worldmap_check] palette {source.Id}: {slots.Length} slots"
+                + (dead.Count > 0 ? $"  DEAD: {string.Join(", ", dead)}" : ""));
+            for (int i = 0; i < slots.Length; i++)
+            {
+                sb.AppendLine($"[worldmap_check]   {i,3}  {slots[i].GetFile().GetBaseName()}");
+            }
+        }
     }
 
     // What the property panel actually lets an author set on a placement of each
